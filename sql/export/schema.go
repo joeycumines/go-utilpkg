@@ -15,6 +15,11 @@ type (
 		PrimaryKeys  map[Table]string
 		ForeignKeys  map[Table]map[string]Table
 		Dependencies map[Table][]Table
+		// AliasOrder contains each key from Template.Targets, sorted by Target.Order + string sort.
+		// Target.Order is in descending order (larger number first), and is higher priority than the string sort.
+		// It is to be used control evaluation of the "offset" conditions in the SelectBatch WHERE clause, which, by
+		// nature, must align with specific ORDER BY expressions.
+		AliasOrder []string
 	}
 
 	// Template is the input used to generate a Schema, and is based on a query in the format of
@@ -22,6 +27,9 @@ type (
 	Template struct {
 		// Targets are all joined tables with alias (can include the same table more than once).
 		Targets map[string]*Target
+
+		// Filters are SQL snippets to AND together in groups, to filter the batch data set.
+		Filters []*Snippet
 	}
 
 	Target struct {
@@ -80,6 +88,10 @@ func (x *Template) aliasTable(alias string) Table {
 	return Table{}
 }
 
+func (x *Template) aliasOrderSorter(a, b string) int {
+	return compare2(x.Targets[b].Order, a, x.Targets[a].Order, b)
+}
+
 func (x *Schema) ColumnIndexes(table Table, columns []string) (primaryKey int, foreignKeys map[string]int, ok bool) {
 	foreignKeys = make(map[string]int, len(x.ForeignKeys[table]))
 	for i, column := range columns {
@@ -122,6 +134,7 @@ func (x *Schema) init() error {
 
 	x.PrimaryKeys = make(map[Table]string)
 	x.ForeignKeys = make(map[Table]map[string]Table)
+	x.AliasOrder = make([]string, 0, len(x.Template.Targets))
 	for alias, target := range x.Template.Targets {
 		if alias == `` {
 			return errors.New(`empty alias`)
@@ -144,6 +157,8 @@ func (x *Schema) init() error {
 		} else if primaryKey != target.PrimaryKey {
 			return fmt.Errorf(`mismatched primary key for alias: %s`, alias)
 		}
+
+		x.AliasOrder = insertSortFunc(x.AliasOrder, alias, x.Template.aliasOrderSorter)
 
 		if target.ForeignKey == nil {
 			continue
@@ -174,11 +189,19 @@ func (x *Schema) init() error {
 			x.Dependencies[table] = insertSortFunc(x.Dependencies[table], dependency, lessCmp(lessTables))
 		}
 	}
+
 	if dependencyCycle(x.Dependencies) {
 		return fmt.Errorf(`dependency cycle: %+v`, x.Dependencies)
 	}
 
+	dependencyOrder(x.AliasOrder, x.dependencyOrder)
+
 	return nil
+}
+
+func (x *Schema) dependencyOrder(a, b string) bool {
+	return x.Template.Targets[a].ForeignKey != nil &&
+		x.Template.Targets[a].ForeignKey.Alias == b
 }
 
 func (x Table) String() string {

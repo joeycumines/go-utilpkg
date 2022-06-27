@@ -89,7 +89,12 @@
           "Reverse": true
         }
       }
-    }
+    },
+    "Filters": [
+      {
+        "SQL": "(CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END)"
+      }
+    ]
   },
   "PrimaryKeys": {
     "angryPandas": "_id",
@@ -141,5 +146,18 @@
     "wheelbarrows": [
       "wide_aunties"
     ]
-  }
+  },
+  "AliasOrder": [
+    "bs",
+    "ap",
+    "d",
+    "da",
+    "df",
+    "o",
+    "orf",
+    "sm",
+    "w",
+    "wa",
+    "wf"
+  ]
 }

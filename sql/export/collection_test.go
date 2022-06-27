@@ -3,6 +3,7 @@ package export
 import (
 	"github.com/go-test/deep"
 	"golang.org/x/exp/slices"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -85,7 +86,7 @@ func Test_searchTables(t *testing.T) {
 	}
 	expect := func(i int, table Table) {
 		t.Helper()
-		if v := leftIntBool(slices.BinarySearchFunc(tables, table, lessCmp(lessTables))); v != i {
+		if v := leftResult(slices.BinarySearchFunc(tables, table, lessCmp(lessTables))); v != i {
 			t.Error(i, table, v)
 		}
 	}
@@ -147,5 +148,39 @@ func Test_lessCmp_gt(t *testing.T) {
 		return false
 	})(2, 1); v != 1 {
 		t.Error(v)
+	}
+}
+
+func Test_compare2(t *testing.T) {
+	values := [][2]int{
+		{24, 44},
+		{-1, 99},
+		{-55, 2},
+		{3, 3},
+		{6, 2},
+		{24, 44},
+		{-55, 42},
+	}
+	expected := [][2]int{
+		{-55, 2},
+		{-55, 42},
+		{-1, 99},
+		{3, 3},
+		{6, 2},
+		{24, 44},
+		{24, 44},
+	}
+	less := cmpLess(func(a, b [2]int) int { return compare2(a[0], a[1], b[0], b[1]) })
+	slices.SortFunc(values, less)
+	if diff := deep.Equal(values, expected); diff != nil {
+		t.Fatalf("unexpected value: %#v\n%s", values, strings.Join(diff, "\n"))
+	}
+	rnd := rand.New(rand.NewSource(9235344))
+	for i := 0; i < 100; i++ {
+		rnd.Shuffle(len(values), func(i, j int) { values[i], values[j] = values[j], values[i] })
+		slices.SortFunc(values, less)
+		if diff := deep.Equal(values, expected); diff != nil {
+			t.Fatalf("unexpected value: %#v\n%s", values, strings.Join(diff, "\n"))
+		}
 	}
 }

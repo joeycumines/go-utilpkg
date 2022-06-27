@@ -18,7 +18,7 @@ const (
 
 type (
 	Exporter struct {
-		*Schema
+		Schema *Schema
 		Logger log.Logger
 		Reader Reader
 		Writer Writer
@@ -84,7 +84,7 @@ func (x *Exporter) Export(ctx context.Context) error {
 			numRows int
 			// exit condition of this function, up here for clarity
 			isDone    = func() bool { return x.batchSize() <= 0 || numRows < x.batchSize() }
-			tableRows = make(map[Table][]int64, len(x.PrimaryKeys))
+			tableRows = make(map[Table][]int64, len(x.Schema.PrimaryKeys))
 		)
 		if err := func() error {
 			x.log().Debug(`fetch started`)
@@ -106,10 +106,10 @@ func (x *Exporter) Export(ctx context.Context) error {
 			// sanity check columns
 			{
 				var ok bool
-				if len(columns) == len(x.Template.Targets) {
+				if len(columns) == len(x.Schema.Template.Targets) {
 					ok = true
 					for _, column := range columns {
-						if x.Template.aliasTable(column) == (Table{}) {
+						if x.Schema.Template.aliasTable(column) == (Table{}) {
 							ok = false
 							break
 						}
@@ -135,7 +135,7 @@ func (x *Exporter) Export(ctx context.Context) error {
 				// determine any rows we need to export
 				for i, column := range columns {
 					if value := values[i].(*sql.NullInt64); value.Valid {
-						table := x.Template.aliasTable(column)
+						table := x.Schema.Template.aliasTable(column)
 						_, ok, err := x.Mapper.Load(ctx, table, value.Int64)
 						if err != nil {
 							return err
@@ -296,11 +296,11 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 	for len(cfg.tableRows) != 0 {
 		table, ok := func() (table Table, ok bool) {
 			for k := range cfg.tableRows {
-				if !tableDepsMet(x.Dependencies, cfg.tableRows, k) {
+				if !tableDepsMet(x.Schema.Dependencies, cfg.tableRows, k) {
 					continue
 				}
-				if ok && leftIntBool(slices.BinarySearchFunc(tableOrder, table, lessCmp(lessTables))) <
-					leftIntBool(slices.BinarySearchFunc(tableOrder, k, lessCmp(lessTables))) {
+				if ok && leftResult(slices.BinarySearchFunc(tableOrder, table, lessCmp(lessTables))) <
+					leftResult(slices.BinarySearchFunc(tableOrder, k, lessCmp(lessTables))) {
 					continue
 				}
 				table, ok = k, true
@@ -348,7 +348,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 				return err
 			}
 
-			primaryKey, foreignKeys, ok := x.ColumnIndexes(table, columns)
+			primaryKey, foreignKeys, ok := x.Schema.ColumnIndexes(table, columns)
 			if !ok {
 				return fmt.Errorf(`reader error: table %q invalid columns: %q`, table, columns)
 			}
@@ -396,7 +396,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 				if func() bool {
 					for column, foreignKey := range foreignKeys {
 						if v := *(values[foreignKey].(*sql.NullInt64)); v.Valid &&
-							rightIntBool(slices.BinarySearch(missingTableRows[x.ForeignKeys[table][column]], v.Int64)) {
+							rightResult(slices.BinarySearch(missingTableRows[x.Schema.ForeignKeys[table][column]], v.Int64)) {
 							return true
 						}
 					}
@@ -473,12 +473,12 @@ WriteLoop:
 			break
 		}
 
-		i := indexOfValue(row.columns, x.PrimaryKeys[row.table])
+		i := indexOfValue(row.columns, x.Schema.PrimaryKeys[row.table])
 		srcPrimaryKey := *(row.values[i].(*int64))
 		columns := append(append(make([]string, 0, len(row.columns)-1), row.columns[:i]...), row.columns[i+1:]...)
 		values := append(append(make([]any, 0, len(row.values)-1), row.values[:i]...), row.values[i+1:]...)
 		for i, value := range values {
-			if table, ok := x.ForeignKeys[row.table][columns[i]]; ok {
+			if table, ok := x.Schema.ForeignKeys[row.table][columns[i]]; ok {
 				if value := value.(*sql.NullInt64); value.Valid {
 					mapped, ok, err := x.Mapper.Load(ctx, table, value.Int64)
 					if err != nil {

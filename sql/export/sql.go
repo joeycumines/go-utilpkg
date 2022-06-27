@@ -19,25 +19,27 @@ type (
 		SelectBatch(args *SelectBatch) (*Snippet, error)
 		SelectRows(args *SelectRows) (*Snippet, error)
 		InsertRows(args *InsertRows) (*Snippet, error)
+
+		mustEmbedUnimplementedDialect()
 	}
 
 	UnimplementedDialect struct{}
 
 	SelectBatch struct {
-		*Schema
+		Schema  *Schema
 		Filters []*Snippet
 		Offset  map[string]int64
 		Limit   uint64
 	}
 
 	SelectRows struct {
-		*Schema
-		Table Table
-		IDs   []int64
+		Schema *Schema
+		Table  Table
+		IDs    []int64
 	}
 
 	InsertRows struct {
-		*Schema
+		Schema  *Schema
 		Table   Table
 		Columns []string
 		Values  []any
@@ -61,3 +63,5 @@ func (UnimplementedDialect) SelectRows(*SelectRows) (*Snippet, error) {
 func (UnimplementedDialect) InsertRows(*InsertRows) (*Snippet, error) {
 	return nil, fmt.Errorf(`insert rows error: %w`, ErrUnimplemented)
 }
+
+func (UnimplementedDialect) mustEmbedUnimplementedDialect() {}
