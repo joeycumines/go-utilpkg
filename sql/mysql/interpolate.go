@@ -23,17 +23,18 @@ const (
 )
 
 type (
-	InterpolateParamsConfig struct {
+	// InterpolateConfig provides configuration for it's Interpolate method.
+	InterpolateConfig struct {
 		Location *time.Location
 		// http://dev.mysql.com/doc/internals/en/status-flags.html
 		NoBackslashEscapes bool
 	}
 )
 
-// InterpolateParams is presumably like mysql_real_escape_string.
+// Interpolate is presumably like mysql_real_escape_string, and has been copied from go-sql-driver/mysql.
 // WARNING see https://stackoverflow.com/a/12118602 for potential vul.
 // https://github.com/go-sql-driver/mysql/blob/ad9fa14acdcf7d0533e7fbe58728f3d216213ade/connection.go#L198
-func (x InterpolateParamsConfig) InterpolateParams(query string, args ...driver.Value) (string, error) {
+func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (string, error) {
 	// Number of ? should be same to len(args)
 	if strings.Count(query, "?") != len(args) {
 		return "", driver.ErrSkip
@@ -66,7 +67,6 @@ func (x InterpolateParamsConfig) InterpolateParams(query string, args ...driver.
 		case int64:
 			buf = strconv.AppendInt(buf, v, 10)
 		case uint64:
-			// Handle uint64 explicitly because our custom ConvertValue emits unsigned values
 			buf = strconv.AppendUint(buf, v, 10)
 		case float64:
 			buf = strconv.AppendFloat(buf, v, 'g', -1, 64)
@@ -127,7 +127,7 @@ func (x InterpolateParamsConfig) InterpolateParams(query string, args ...driver.
 	return string(buf), nil
 }
 
-func (x InterpolateParamsConfig) loc() *time.Location {
+func (x InterpolateConfig) loc() *time.Location {
 	if x.Location == nil {
 		return time.UTC
 	}

@@ -28,12 +28,8 @@ type (
 		Filters []*Snippet
 		// Mapper maps old ids to new ids.
 		Mapper Mapper
-		// ValueTransformer is optional and if provided will be applied to non-pk non-fk fields.
-		ValueTransformer ValueTransformer
-	}
-
-	ValueTransformer interface {
-		Transform(ctx context.Context, table Table, column string, ID int64, value []byte) (any, error)
+		// RowTransformer may be provided as a hook to modify rows before they are inserted.
+		RowTransformer RowTransformer
 	}
 
 	exporterRow struct {
@@ -473,12 +469,19 @@ WriteLoop:
 			break
 		}
 
-		i := indexOfValue(row.columns, x.Schema.PrimaryKeys[row.table])
-		srcPrimaryKey := *(row.values[i].(*int64))
-		columns := append(append(make([]string, 0, len(row.columns)-1), row.columns[:i]...), row.columns[i+1:]...)
-		values := append(append(make([]any, 0, len(row.values)-1), row.values[:i]...), row.values[i+1:]...)
-		for i, value := range values {
-			if table, ok := x.Schema.ForeignKeys[row.table][columns[i]]; ok {
+		data := Row{
+			Schema: x.Schema,
+			Table:  row.table,
+		}
+		{
+			i := indexOfValue(row.columns, x.Schema.PrimaryKeys[row.table])
+			data.PrimaryKey = *(row.values[i].(*int64))
+			data.Columns = append(append(make([]string, 0, len(row.columns)-1), row.columns[:i]...), row.columns[i+1:]...)
+			data.Values = append(append(make([]any, 0, len(row.values)-1), row.values[:i]...), row.values[i+1:]...)
+		}
+
+		for i, value := range data.Values {
+			if table, ok := x.Schema.ForeignKeys[row.table][data.Columns[i]]; ok {
 				if value := value.(*sql.NullInt64); value.Valid {
 					mapped, ok, err := x.Mapper.Load(ctx, table, value.Int64)
 					if err != nil {
@@ -489,30 +492,30 @@ WriteLoop:
 						x.log().WithField(`table`, table).
 							WithField(`id`, value.Int64).
 							WithField(`fk_table`, row.table).
-							WithField(`fk_column`, columns[i]).
+							WithField(`fk_column`, data.Columns[i]).
 							Error(`writer missing row`)
 						continue WriteLoop
 					}
-					values[i] = mapped
+					data.Values[i] = mapped
 				} else {
-					values[i] = sql.NullInt64{}
+					data.Values[i] = sql.NullInt64{}
 				}
-			} else if x.ValueTransformer != nil {
-				value, err := x.ValueTransformer.Transform(ctx, row.table, columns[i], srcPrimaryKey, *(value.(*[]byte)))
-				if err != nil {
-					return fmt.Errorf(`value transformer error: %w`, err)
-				}
-				values[i] = value
 			} else {
-				values[i] = *(value.(*[]byte))
+				data.Values[i] = *(value.(*[]byte))
+			}
+		}
+
+		if x.RowTransformer != nil {
+			if err := x.RowTransformer.TransformRow(ctx, &data); err != nil {
+				return err
 			}
 		}
 
 		snippet, err := x.Writer.InsertRows(&InsertRows{
 			Schema:  x.Schema,
 			Table:   row.table,
-			Columns: columns,
-			Values:  values,
+			Columns: data.Columns,
+			Values:  data.Values,
 		})
 		if err != nil {
 			return err
@@ -527,12 +530,12 @@ WriteLoop:
 
 		rowCount++
 
-		dstPrimaryKey, err := result.LastInsertId()
+		insertedID, err := result.LastInsertId()
 		if err != nil {
 			return fmt.Errorf(`writer error: %w`, err)
 		}
 
-		if err := x.Mapper.Store(ctx, row.table, srcPrimaryKey, dstPrimaryKey); err != nil {
+		if err := x.Mapper.Store(ctx, row.table, data.PrimaryKey, insertedID); err != nil {
 			return err
 		}
 	}

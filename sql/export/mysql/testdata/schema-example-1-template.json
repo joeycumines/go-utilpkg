@@ -1,0 +1,116 @@
+{
+  "Targets": {
+    "ap": {
+      "Table": "angryPandas",
+      "Order": 10,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "bs",
+        "Column": "angryPandaId",
+        "Reverse": false
+      }
+    },
+    "bs": {
+      "Table": "big_show",
+      "Order": 11,
+      "PrimaryKey": "_id",
+      "ForeignKey": null
+    },
+    "d": {
+      "Table": "drongos",
+      "Order": 9,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "bs",
+        "Column": "drongo_id",
+        "Reverse": false
+      }
+    },
+    "da": {
+      "Table": "drongo_arrivals",
+      "Order": 8,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "d",
+        "Column": "drongo_arrival",
+        "Reverse": false
+      }
+    },
+    "df": {
+      "Table": "foods",
+      "Order": 7,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "d",
+        "Column": "drongo_id",
+        "Reverse": true
+      }
+    },
+    "o": {
+      "Table": "outtakes",
+      "Order": 6,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "bs",
+        "Column": "outtake_id",
+        "Reverse": false
+      }
+    },
+    "orf": {
+      "Table": "foods",
+      "Order": 5,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "o",
+        "Column": "outtake_id",
+        "Reverse": true
+      }
+    },
+    "sm": {
+      "Table": "smallMongooses",
+      "Order": 4,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "bs",
+        "Column": "smallMongooseId",
+        "Reverse": false
+      }
+    },
+    "w": {
+      "Table": "wheelbarrows",
+      "Order": 3,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "bs",
+        "Column": "wheelbarrow_id",
+        "Reverse": false
+      }
+    },
+    "wa": {
+      "Table": "wide_aunties",
+      "Order": 2,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "w",
+        "Column": "wide_auntie",
+        "Reverse": false
+      }
+    },
+    "wf": {
+      "Table": "foods",
+      "Order": 1,
+      "PrimaryKey": "_id",
+      "ForeignKey": {
+        "Alias": "w",
+        "Column": "wheelbarrow_id",
+        "Reverse": true
+      }
+    }
+  },
+  "Filters": [
+    {
+      "SQL": "(`bs`.`owo`=?) AND (`bs`.`_id`\u003e? OR (`bs`.`_id`\u003c=\u003e? AND (`ap`.`_id`\u003e? OR (`ap`.`_id`\u003c=\u003e? AND (`d`.`_id`\u003e? OR (`d`.`_id`\u003c=\u003e? AND (`da`.`_id`\u003e? OR (`da`.`_id`\u003c=\u003e? AND (`df`.`_id`\u003e? OR (`df`.`_id`\u003c=\u003e? AND (`o`.`_id`\u003e? OR (`o`.`_id`\u003c=\u003e? AND (`orf`.`_id`\u003e? OR (`orf`.`_id`\u003c=\u003e? AND (`sm`.`_id`\u003e? OR (`sm`.`_id`\u003c=\u003e? AND (`w`.`_id`\u003e? OR (`w`.`_id`\u003c=\u003e? AND (`wa`.`_id`\u003e? OR (`wa`.`_id`\u003c=\u003e? AND (`wf`.`_id`\u003e?))))))))))))))))))))) AND ((CASE WHEN `sm`.`type` IS NOT NULL THEN `sm`.`type`=_UTF8MB4'LARGE' ELSE 1 END))",
+      "Args": null
+    }
+  ]
+}

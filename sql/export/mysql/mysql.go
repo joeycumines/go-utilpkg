@@ -32,14 +32,14 @@ var (
 )
 
 func (x *Dialect) charset() string {
-	if x.Charset == `` {
+	if x == nil || x.Charset == `` {
 		return DefaultCharset
 	}
 	return x.Charset
 }
 
 func (x *Dialect) collation() string {
-	if x.Collation == `` {
+	if x == nil || x.Collation == `` {
 		return DefaultCollation
 	}
 	return x.Collation
