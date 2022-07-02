@@ -103,6 +103,13 @@ func (x *Dialect) offsetArgs(schema *export.Schema, args []any, values map[strin
 	return args
 }
 
+func (x *Dialect) limit(limit uint64) *ast.Limit {
+	if limit <= 0 {
+		return nil
+	}
+	return &ast.Limit{Count: ast.NewValueExpr(limit, x.charset(), x.collation())}
+}
+
 func (x *Dialect) SelectBatch(args *export.SelectBatch) (*export.Snippet, error) {
 	if args == nil {
 		return nil, nil
@@ -113,7 +120,7 @@ func (x *Dialect) SelectBatch(args *export.SelectBatch) (*export.Snippet, error)
 		From:           &ast.TableRefsClause{},
 		Fields:         &ast.FieldList{},
 		OrderBy:        &ast.OrderByClause{},
-		Limit:          &ast.Limit{Count: ast.NewValueExpr(args.Limit, x.charset(), x.collation())},
+		Limit:          x.limit(args.Limit),
 	}
 
 	for _, alias := range args.Schema.AliasOrder {

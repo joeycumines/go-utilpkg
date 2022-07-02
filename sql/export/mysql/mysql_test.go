@@ -69,6 +69,40 @@ func TestDialect_SelectBatch_success(t *testing.T) {
 				Args: []any{321, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}},
 			},
 		},
+		{
+			Name:    `simple with table schema`,
+			Dialect: (*Dialect)(nil),
+			Args: &export.SelectBatch{
+				Schema: func() *export.Schema {
+					v, err := (&export.Template{Targets: map[string]*export.Target{`t`: {
+						Table:      export.Table{Schema: `schm`, Name: `tbl`},
+						PrimaryKey: `somePrimaryKey`,
+					}}}).Schema()
+					if err != nil {
+						t.Fatal(err)
+					}
+					return v
+				}(),
+			},
+			Snippet: export.Snippet{SQL: "SELECT `t`.`somePrimaryKey` AS `t` FROM `schm`.`tbl` AS `t` ORDER BY `t`.`somePrimaryKey`"},
+		},
+		{
+			Name:    `preserves name case`,
+			Dialect: (*Dialect)(nil),
+			Args: &export.SelectBatch{
+				Schema: func() *export.Schema {
+					v, err := (&export.Template{Targets: map[string]*export.Target{`T_A`: {
+						Table:      export.Table{Schema: `TBL_SCHEMA`, Name: `TBL_NAME`},
+						PrimaryKey: `SOME_PK`,
+					}}}).Schema()
+					if err != nil {
+						t.Fatal(err)
+					}
+					return v
+				}(),
+			},
+			Snippet: export.Snippet{SQL: "SELECT `T_A`.`SOME_PK` AS `T_A` FROM `TBL_SCHEMA`.`TBL_NAME` AS `T_A` ORDER BY `T_A`.`SOME_PK`"},
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			snippet, err := tc.Dialect.SelectBatch(tc.Args)

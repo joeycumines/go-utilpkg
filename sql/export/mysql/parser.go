@@ -174,32 +174,37 @@ func (x *Parser) parseAliasPrimaryKeys(query *ast.SelectStmt) error {
 		return errors.New(`parseAliasPrimaryKeys: invalid query`)
 	}
 	m := make(map[string]string, len(query.Fields.Fields))
+	singleTableAlias := parseSingleTableAlias(query)
 	for i, field := range query.Fields.Fields {
-		if field == nil ||
+		var name *ast.ColumnName
+		if field != nil {
+			if expr, _ := field.Expr.(*ast.ColumnNameExpr); expr != nil {
+				name = expr.Name
+			}
+		}
+		if name == nil ||
+			name.Name.O == `` ||
 			field.WildCard != nil ||
-			field.AsName.O == `` ||
 			field.Auxiliary ||
 			field.AuxiliaryColInAgg ||
 			field.AuxiliaryColInOrderBy {
 			return fmt.Errorf(`parseAliasPrimaryKeys: invalid field at index %d`, i)
 		}
-		if _, ok := m[field.AsName.O]; ok {
+		var alias string
+		switch {
+		case singleTableAlias != ``:
+			alias = singleTableAlias
+		case field.AsName.O != ``:
+			alias = field.AsName.O
+		case name.Schema == (model.CIStr{}) && name.Table.O != ``:
+			alias = name.Table.O
+		default:
+			return fmt.Errorf(`parseAliasPrimaryKeys: unable to resolve alias for field at index %d`, i)
+		}
+		if _, ok := m[alias]; ok {
 			return fmt.Errorf(`parseAliasPrimaryKeys: duplicate field at index %d`, i)
 		}
-		expr, ok := field.Expr.(*ast.ColumnNameExpr)
-		if !ok || expr == nil || expr.Name == nil {
-			return fmt.Errorf(`parseAliasPrimaryKeys: invalid expr for field at index %d`, i)
-		}
-		if expr.Name.Schema != (model.CIStr{}) {
-			return fmt.Errorf(`parseAliasPrimaryKeys: expr with schema for field at index %d`, i)
-		}
-		if expr.Name.Table.O != field.AsName.O {
-			return fmt.Errorf(`parseAliasPrimaryKeys: mismatched name for field at index %d`, i)
-		}
-		if expr.Name.Name.O == "" {
-			return fmt.Errorf(`parseAliasPrimaryKeys: expr without column for field at index %d`, i)
-		}
-		m[field.AsName.O] = expr.Name.Name.O
+		m[alias] = name.Name.O
 	}
 	x.aliasPrimaryKeys = m
 	return nil
@@ -208,6 +213,11 @@ func (x *Parser) parseAliasPrimaryKeys(query *ast.SelectStmt) error {
 func (x *Parser) parseAliasForeignKeys(query *ast.SelectStmt) (err error) {
 	if query == nil || query.From == nil {
 		return errors.New(`parseAliasForeignKeys: invalid query`)
+	}
+
+	if parseSingleTableAlias(query) != `` {
+		// no joins
+		return nil
 	}
 
 	x.aliasForeignKeys = make(map[string]*export.JoinRef)
@@ -454,4 +464,16 @@ func parseColumnNameExpr(expr ast.ExprNode, errPrefix string) (table string, col
 		return ``, ``, fmt.Errorf(`%sinvalid column name expr`, errPrefix)
 	}
 	return cne.Name.Table.O, cne.Name.Name.O, nil
+}
+
+func parseSingleTableAlias(query *ast.SelectStmt) string {
+	if query != nil &&
+		query.From != nil &&
+		query.From.TableRefs != nil &&
+		query.From.TableRefs.Right == nil {
+		if v, _ := query.From.TableRefs.Left.(*ast.TableSource); v != nil {
+			return v.AsName.O
+		}
+	}
+	return ``
 }
