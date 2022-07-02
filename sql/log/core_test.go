@@ -37,11 +37,3 @@ func TestDiscard_Warn(t *testing.T) {
 func TestDiscard_Error(t *testing.T) {
 	(Discard{}).Error()
 }
-
-func TestDiscard_Fatal(t *testing.T) {
-	(Discard{}).Fatal()
-}
-
-func TestDiscard_Panic(t *testing.T) {
-	(Discard{}).Panic()
-}

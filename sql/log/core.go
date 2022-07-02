@@ -11,8 +11,6 @@ type (
 		Info(args ...any)
 		Warn(args ...any)
 		Error(args ...any)
-		Fatal(args ...any)
-		Panic(args ...any)
 	}
 
 	// Discard implements a Logger that does nothing.
@@ -30,5 +28,3 @@ func (Discard) Debug(...any)                     {}
 func (Discard) Info(...any)                      {}
 func (Discard) Warn(...any)                      {}
 func (Discard) Error(...any)                     {}
-func (Discard) Fatal(...any)                     {}
-func (Discard) Panic(...any)                     {}
