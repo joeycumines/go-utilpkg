@@ -204,6 +204,22 @@ func (x *Schema) dependencyOrder(a, b string) bool {
 		x.Template.Targets[a].ForeignKey.Alias == b
 }
 
+// columnOrder returns indexes are of columns/values in x.AliasOrder, validating all aliases exist
+func (x *Schema) columnOrder(columns []string) (indexes []int, _ bool) {
+	if len(columns) == 0 || len(columns) != len(x.AliasOrder) {
+		return nil, false
+	}
+	indexes = make([]int, len(columns))
+	for i, alias := range x.AliasOrder {
+		index := indexOfValue(columns, alias)
+		if index == len(columns) {
+			return nil, false
+		}
+		indexes[i] = index
+	}
+	return indexes, true
+}
+
 func (x Table) String() string {
 	if x.Schema == `` {
 		return x.Name

@@ -71,6 +71,33 @@ func TestDialect_SelectBatch_success(t *testing.T) {
 			},
 		},
 		{
+			Name:    `table name only with spaceship no offset`,
+			Dialect: &Dialect{NullSafeEqual: true},
+			Args: &export.SelectBatch{
+				Schema:  jsonUnmarshalTestResource(schemaExample1, new(export.Schema)),
+				Filters: []*export.Snippet{{SQL: `bs.owo = ?`, Args: []any{321}}},
+				Limit:   466,
+			},
+			Snippet: export.Snippet{
+				SQL:  "SELECT `bs`.`_id` AS `bs`,`ap`.`_id` AS `ap`,`d`.`_id` AS `d`,`da`.`_id` AS `da`,`df`.`_id` AS `df`,`o`.`_id` AS `o`,`orf`.`_id` AS `orf`,`sm`.`_id` AS `sm`,`w`.`_id` AS `w`,`wa`.`_id` AS `wa`,`wf`.`_id` AS `wf` FROM (((((((((`big_show` AS `bs` LEFT JOIN `angryPandas` AS `ap` ON `bs`.`angryPandaId`=`ap`.`_id`) LEFT JOIN `drongos` AS `d` ON `bs`.`drongo_id`=`d`.`_id`) LEFT JOIN `drongo_arrivals` AS `da` ON `d`.`drongo_arrival`=`da`.`_id`) LEFT JOIN `foods` AS `df` ON `d`.`_id`=`df`.`drongo_id`) LEFT JOIN `outtakes` AS `o` ON `bs`.`outtake_id`=`o`.`_id`) LEFT JOIN `foods` AS `orf` ON `o`.`_id`=`orf`.`outtake_id`) LEFT JOIN `smallMongooses` AS `sm` ON `bs`.`smallMongooseId`=`sm`.`_id`) LEFT JOIN `wheelbarrows` AS `w` ON `bs`.`wheelbarrow_id`=`w`.`_id`) LEFT JOIN `wide_aunties` AS `wa` ON `w`.`wide_auntie`=`wa`.`_id`) LEFT JOIN `foods` AS `wf` ON `w`.`_id`=`wf`.`wheelbarrow_id` WHERE (bs.owo = ?) AND ((CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END)) ORDER BY `bs`.`_id`,`ap`.`_id`,`d`.`_id`,`da`.`_id`,`df`.`_id`,`o`.`_id`,`orf`.`_id`,`sm`.`_id`,`w`.`_id`,`wa`.`_id`,`wf`.`_id` LIMIT 466",
+				Args: []any{321},
+			},
+		},
+		{
+			Name:    `table name only with spaceship and offset all null`,
+			Dialect: &Dialect{NullSafeEqual: true},
+			Args: &export.SelectBatch{
+				Schema:  jsonUnmarshalTestResource(schemaExample1, new(export.Schema)),
+				Filters: []*export.Snippet{{SQL: `bs.owo = ?`, Args: []any{321}}},
+				Offset:  map[string]int64{},
+				Limit:   466,
+			},
+			Snippet: export.Snippet{
+				SQL:  schemaExample1Query,
+				Args: []interface{}{321, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}},
+			},
+		},
+		{
 			Name:    `table name only without spaceship`,
 			Dialect: &Dialect{},
 			Args: &export.SelectBatch{

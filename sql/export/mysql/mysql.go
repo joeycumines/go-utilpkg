@@ -218,7 +218,7 @@ func (x *Dialect) SelectBatch(args *export.SelectBatch) (*export.Snippet, error)
 		snippet.Args = append(snippet.Args, filter.Args...)
 	}
 
-	if len(args.Offset) != 0 {
+	if args.Offset != nil {
 		filters = append(filters, x.offsetSQL(args))
 		snippet.Args = x.offsetArgs(args, snippet.Args, args.Offset)
 	}

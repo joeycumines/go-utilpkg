@@ -181,3 +181,64 @@ func TestSchema_dependencyOrder(t *testing.T) {
 		dependencyOrder(schema.AliasOrder, schema.dependencyOrder)
 	}
 }
+
+func TestSchema_columnOrder(t *testing.T) {
+	for _, tc := range [...]struct {
+		Name        string
+		AliasOrder  []string
+		Columns     []string
+		ColumnOrder []int
+	}{
+		{
+			Name:        `success`,
+			AliasOrder:  []string{`b`, `c`, `a`},
+			Columns:     []string{`a`, `b`, `c`},
+			ColumnOrder: []int{1, 2, 0},
+		},
+		{
+			Name:        `single value`,
+			AliasOrder:  []string{`B`},
+			Columns:     []string{`B`},
+			ColumnOrder: []int{0},
+		},
+		{
+			Name:       `mismatched value`,
+			AliasOrder: []string{`b`},
+			Columns:    []string{`B`},
+		},
+		{
+			Name:       `too few columns`,
+			AliasOrder: []string{`b`, `c`, `a`},
+			Columns:    []string{`a`, `b`},
+		},
+		{
+			Name:       `too many columns`,
+			AliasOrder: []string{`b`, `c`, `a`},
+			Columns:    []string{`a`, `b`, `c`, `c`},
+		},
+		{
+			Name: `no values`,
+		},
+		{
+			Name:       `missing value`,
+			AliasOrder: []string{`b`, `d`, `a`},
+			Columns:    []string{`a`, `b`, `c`},
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			indexes, ok := (&Schema{AliasOrder: tc.AliasOrder}).columnOrder(tc.Columns)
+			if tc.ColumnOrder == nil {
+				if ok {
+					t.Error(`expected !ok`)
+				}
+				return
+			}
+			if !ok {
+				t.Fatal(`expected ok`)
+			}
+			if diff := deep.Equal(indexes, tc.ColumnOrder); diff != nil {
+				t.Errorf("unexpected value: %#v\n%s", indexes, strings.Join(diff, "\n"))
+			}
+		})
+	}
+}

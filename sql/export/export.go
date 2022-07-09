@@ -66,7 +66,7 @@ func (x *Exporter) Export(ctx context.Context) error {
 
 	// condition(s) that continually reduce the possible result set
 	var offset map[string]int64
-	if len(x.Offset) != 0 {
+	if x.Offset != nil {
 		offset = make(map[string]int64, len(x.Offset))
 		maps.Copy(offset, x.Offset)
 	}
@@ -90,10 +90,12 @@ func (x *Exporter) Export(ctx context.Context) error {
 		// fetch a batch which is (potentially) a subset a query in the same shape as the schema's
 		// (a batch contains only identifiers that aren't known to exist i.e. aren't in x.Mappings)
 		var (
-			numRows int
-			// exit condition of this function, up here for clarity
-			isDone    = func() bool { return x.batchSize() <= 0 || numRows < x.batchSize() }
-			tableRows = make(map[Table][]int64, len(x.Schema.PrimaryKeys))
+			// exit condition: x.batchSize() <= 0 || batchCount < x.batchSize()
+			batchCount int
+			// we keep track of the number of excluded rows, that weren't after offset
+			// if there were rows, but all were excluded, we error (as we were unable to increment offset)
+			excludedCount int
+			tableRows     = make(map[Table][]int64, len(x.Schema.PrimaryKeys))
 		)
 		if err := func() error {
 			x.log().Debug(`fetch started`)
@@ -112,21 +114,10 @@ func (x *Exporter) Export(ctx context.Context) error {
 				return err
 			}
 
-			// sanity check columns
-			{
-				var ok bool
-				if len(columns) == len(x.Schema.Template.Targets) {
-					ok = true
-					for _, column := range columns {
-						if x.Schema.Template.aliasTable(column) == (Table{}) {
-							ok = false
-							break
-						}
-					}
-				}
-				if !ok {
-					return fmt.Errorf(`query error: unexpected columns: %q`, columns)
-				}
+			// sanity check columns + prep
+			columnOrder, ok := x.Schema.columnOrder(columns)
+			if !ok {
+				return fmt.Errorf(`query error: unexpected columns: %q`, columns)
 			}
 
 			// will be used to scan in each row
@@ -137,13 +128,17 @@ func (x *Exporter) Export(ctx context.Context) error {
 			}
 
 			for rows.Next() {
-				numRows++
+				batchCount++
 				if err := rows.Scan(values...); err != nil {
 					return fmt.Errorf(`scan error: %w`, err)
 				}
 
-				// TODO exclude rows that aren't after the offset
-				// (since we can no longer support the full query for it)
+				// exclude rows that aren't after offset
+				// (due to max offset conditions, the db may return rows which should have been excluded)
+				if cmpRow(offset, columns, columnOrder, values) <= 0 {
+					excludedCount++
+					continue
+				}
 
 				// determine any rows we need to export
 				for i, column := range columns {
@@ -220,9 +215,20 @@ func (x *Exporter) Export(ctx context.Context) error {
 			return err
 		}
 
-		if isDone() {
+		if x.batchSize() <= 0 || batchCount < x.batchSize() {
 			// export complete
 			return nil
+		}
+
+		if excludedCount != 0 {
+			x.log().WithField(`excluded`, excludedCount).
+				WithField(`batch`, batchCount).
+				WithField(`offset`, offset).
+				Warn(`excluded rows not after offset`)
+		}
+
+		if excludedCount >= batchCount {
+			return errors.New(`query error: unable to increment offset (check max offset conditions)`)
 		}
 	}
 }
@@ -580,4 +586,37 @@ func tableDepsMet(deps map[Table][]Table, rows map[Table][]int64, table Table) b
 		}
 	}
 	return true
+}
+
+// cmdRow returns an integer indicating the relative position (in the order) vs offset
+func cmpRow(offset map[string]int64, columns []string, columnOrder []int, values []any) int {
+	var (
+		o  int64
+		ok bool
+		v  sql.NullInt64
+	)
+	for _, i := range columnOrder {
+		o, ok = offset[columns[i]]
+		v = *(values[i].(*sql.NullInt64))
+		// o NULL, v NULL
+		if !ok && !v.Valid {
+			continue
+		}
+		// o NULL, v NOT NULL
+		if !ok && v.Valid {
+			return 1
+		}
+		// o NOT NULL, v NULL
+		if ok && !v.Valid {
+			return -1
+		}
+		// o NOT NULL, v NOT NULL
+		if o < v.Int64 {
+			return 1
+		}
+		if o > v.Int64 {
+			return -1
+		}
+	}
+	return 0
 }
