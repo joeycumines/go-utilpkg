@@ -26,10 +26,11 @@ type (
 	UnimplementedDialect struct{}
 
 	SelectBatch struct {
-		Schema  *Schema
-		Filters []*Snippet
-		Offset  map[string]int64
-		Limit   uint64
+		Schema              *Schema
+		Filters             []*Snippet
+		Offset              map[string]int64
+		Limit               uint64
+		MaxOffsetConditions int
 	}
 
 	SelectRows struct {

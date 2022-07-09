@@ -22,6 +22,10 @@ type (
 
 		Charset   string
 		Collation string
+
+		// NullSafeEqual may be set to true to indicate the availability of the "<=>" operator (null-safe equal to,
+		// also known as the spaceship operator).
+		NullSafeEqual bool
 	}
 
 	unimplementedDialect = export.UnimplementedDialect
@@ -54,25 +58,36 @@ func (x *Dialect) astNodeFormat(node ast.Node) (string, error) {
 // offsetSQL generates an expression that filters (effectively) "where row greater than x"
 // like "a > ? OR (a <=> ? AND (b > ? OR (b <=> ? AND (c > ?))))".
 // See also offsetArgs, to generate the necessary prepared statement variables.
-func (x *Dialect) offsetSQL(schema *export.Schema) string {
+func (x *Dialect) offsetSQL(a *export.SelectBatch) string {
 	var b bytes.Buffer
 	c := format.NewRestoreCtx(x.restoreFlags(), &b)
 	var (
 		depth int // number of trailing ")"
 		last  string
 	)
-	for _, alias := range schema.AliasOrder {
+	for i, alias := range a.Schema.AliasOrder {
+		if a.MaxOffsetConditions > 0 && a.MaxOffsetConditions <= i {
+			break
+		}
 		if last != `` {
 			c.WritePlain(` OR (`)
 			depth++
-			c.WritePlain(last)
-			c.WritePlain(` <=> ? AND (`)
+			if x.NullSafeEqual {
+				c.WritePlain(last)
+				c.WritePlain(` <=> ? AND (`)
+			} else {
+				c.WritePlain(`(`)
+				c.WritePlain(last)
+				c.WritePlain(` = ? OR (? IS NULL AND `)
+				c.WritePlain(last)
+				c.WritePlain(` IS NULL)) AND (`)
+			}
 			depth++
 		}
 		i := b.Len()
 		c.WriteName(alias)
 		c.WritePlain(`.`)
-		c.WriteName(schema.Template.Targets[alias].PrimaryKey)
+		c.WriteName(a.Schema.Template.Targets[alias].PrimaryKey)
 		last = string(b.Bytes()[i:])
 		c.WritePlain(` > ?`)
 	}
@@ -84,15 +99,22 @@ func (x *Dialect) offsetSQL(schema *export.Schema) string {
 }
 
 // offsetArgs appends the value for each PK in the order / frequency matching offsetSQL.
-func (x *Dialect) offsetArgs(schema *export.Schema, args []any, values map[string]int64) []any {
+func (x *Dialect) offsetArgs(a *export.SelectBatch, args []any, values map[string]int64) []any {
 	var (
 		value sql.NullInt64
 		ok    bool
 	)
-	for _, alias := range schema.AliasOrder {
-		// all value except the last (in order) is appended twice
+	for i, alias := range a.Schema.AliasOrder {
+		if a.MaxOffsetConditions > 0 && a.MaxOffsetConditions <= i {
+			break
+		}
+		// all value except the last (in order) is appended 2 or 3 times
 		if ok {
-			args = append(args, value)
+			if x.NullSafeEqual {
+				args = append(args, value)
+			} else {
+				args = append(args, value, value)
+			}
 		} else {
 			ok = true
 		}
@@ -197,8 +219,8 @@ func (x *Dialect) SelectBatch(args *export.SelectBatch) (*export.Snippet, error)
 	}
 
 	if len(args.Offset) != 0 {
-		filters = append(filters, x.offsetSQL(args.Schema))
-		snippet.Args = x.offsetArgs(args.Schema, snippet.Args, args.Offset)
+		filters = append(filters, x.offsetSQL(args))
+		snippet.Args = x.offsetArgs(args, snippet.Args, args.Offset)
 	}
 
 	for _, filter := range args.Schema.Template.Filters {

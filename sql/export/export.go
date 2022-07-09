@@ -24,12 +24,20 @@ type (
 		Writer Writer
 		// BatchSize configures the max limit, and defaults to DefaultBatchSize if 0.
 		BatchSize int
+		// MaxSelectIn configures the maximum number of IDs to "SELECT ... WHERE <id> in (...<values>)".
+		// If zero it defaults to the (resolved) batch size.
+		MaxSelectIn int
+		// MaxOffsetConditions configures the maximum number of offsets columns to support.
+		// Default is unlimited.
+		MaxOffsetConditions int
 		// Filters further restrict the target data set.
 		Filters []*Snippet
 		// Mapper maps old ids to new ids.
 		Mapper Mapper
 		// RowTransformer may be provided as a hook to modify rows before they are inserted.
 		RowTransformer RowTransformer
+		// Offset provides an initial offset, to start querying from.
+		Offset map[string]int64
 	}
 
 	exporterRow struct {
@@ -58,6 +66,10 @@ func (x *Exporter) Export(ctx context.Context) error {
 
 	// condition(s) that continually reduce the possible result set
 	var offset map[string]int64
+	if len(x.Offset) != 0 {
+		offset = make(map[string]int64, len(x.Offset))
+		maps.Copy(offset, x.Offset)
+	}
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -65,10 +77,11 @@ func (x *Exporter) Export(ctx context.Context) error {
 		}
 
 		snippet, err := x.Reader.SelectBatch(&SelectBatch{
-			Schema:  x.Schema,
-			Filters: x.Filters,
-			Offset:  offset,
-			Limit:   uint64(x.batchSize()),
+			Schema:              x.Schema,
+			Filters:             x.Filters,
+			Offset:              offset,
+			Limit:               uint64(x.batchSize()),
+			MaxOffsetConditions: x.MaxOffsetConditions,
 		})
 		if err != nil {
 			return fmt.Errorf(`select batch error: %w`, err)
@@ -128,6 +141,10 @@ func (x *Exporter) Export(ctx context.Context) error {
 				if err := rows.Scan(values...); err != nil {
 					return fmt.Errorf(`scan error: %w`, err)
 				}
+
+				// TODO exclude rows that aren't after the offset
+				// (since we can no longer support the full query for it)
+
 				// determine any rows we need to export
 				for i, column := range columns {
 					if value := values[i].(*sql.NullInt64); value.Valid {
@@ -269,6 +286,16 @@ func (x *Exporter) batchSize() int {
 	return x.BatchSize
 }
 
+func (x *Exporter) maxSelectIn() int {
+	if x.MaxSelectIn == 0 {
+		return x.batchSize()
+	}
+	if x.MaxSelectIn < 0 {
+		return 0
+	}
+	return x.MaxSelectIn
+}
+
 func (x *Exporter) startReader(ctx context.Context, cfg exporterReaderConfig) <-chan error {
 	ch := make(chan error, 1)
 	go func() {
@@ -315,7 +342,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 		}
 
 		queryRows := cfg.tableRows[table]
-		if l := x.batchSize(); l > 0 && len(queryRows) > l {
+		if l := x.maxSelectIn(); l > 0 && len(queryRows) > l {
 			queryRows, cfg.tableRows[table] = queryRows[:l], queryRows[l:]
 		} else {
 			delete(cfg.tableRows, table)

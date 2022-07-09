@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	schemaExample1      = `../../testdata/schema-example-1.json`
-	schemaExample1Query = "SELECT `bs`.`_id` AS `bs`,`ap`.`_id` AS `ap`,`d`.`_id` AS `d`,`da`.`_id` AS `da`,`df`.`_id` AS `df`,`o`.`_id` AS `o`,`orf`.`_id` AS `orf`,`sm`.`_id` AS `sm`,`w`.`_id` AS `w`,`wa`.`_id` AS `wa`,`wf`.`_id` AS `wf` FROM (((((((((`big_show` AS `bs` LEFT JOIN `angryPandas` AS `ap` ON `bs`.`angryPandaId`=`ap`.`_id`) LEFT JOIN `drongos` AS `d` ON `bs`.`drongo_id`=`d`.`_id`) LEFT JOIN `drongo_arrivals` AS `da` ON `d`.`drongo_arrival`=`da`.`_id`) LEFT JOIN `foods` AS `df` ON `d`.`_id`=`df`.`drongo_id`) LEFT JOIN `outtakes` AS `o` ON `bs`.`outtake_id`=`o`.`_id`) LEFT JOIN `foods` AS `orf` ON `o`.`_id`=`orf`.`outtake_id`) LEFT JOIN `smallMongooses` AS `sm` ON `bs`.`smallMongooseId`=`sm`.`_id`) LEFT JOIN `wheelbarrows` AS `w` ON `bs`.`wheelbarrow_id`=`w`.`_id`) LEFT JOIN `wide_aunties` AS `wa` ON `w`.`wide_auntie`=`wa`.`_id`) LEFT JOIN `foods` AS `wf` ON `w`.`_id`=`wf`.`wheelbarrow_id` WHERE (bs.owo = ?) AND (`bs`.`_id` > ? OR (`bs`.`_id` <=> ? AND (`ap`.`_id` > ? OR (`ap`.`_id` <=> ? AND (`d`.`_id` > ? OR (`d`.`_id` <=> ? AND (`da`.`_id` > ? OR (`da`.`_id` <=> ? AND (`df`.`_id` > ? OR (`df`.`_id` <=> ? AND (`o`.`_id` > ? OR (`o`.`_id` <=> ? AND (`orf`.`_id` > ? OR (`orf`.`_id` <=> ? AND (`sm`.`_id` > ? OR (`sm`.`_id` <=> ? AND (`w`.`_id` > ? OR (`w`.`_id` <=> ? AND (`wa`.`_id` > ? OR (`wa`.`_id` <=> ? AND (`wf`.`_id` > ?))))))))))))))))))))) AND ((CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END)) ORDER BY `bs`.`_id`,`ap`.`_id`,`d`.`_id`,`da`.`_id`,`df`.`_id`,`o`.`_id`,`orf`.`_id`,`sm`.`_id`,`w`.`_id`,`wa`.`_id`,`wf`.`_id` LIMIT 466"
+	schemaExample1                      = `../../testdata/schema-example-1.json`
+	schemaExample1Query                 = "SELECT `bs`.`_id` AS `bs`,`ap`.`_id` AS `ap`,`d`.`_id` AS `d`,`da`.`_id` AS `da`,`df`.`_id` AS `df`,`o`.`_id` AS `o`,`orf`.`_id` AS `orf`,`sm`.`_id` AS `sm`,`w`.`_id` AS `w`,`wa`.`_id` AS `wa`,`wf`.`_id` AS `wf` FROM (((((((((`big_show` AS `bs` LEFT JOIN `angryPandas` AS `ap` ON `bs`.`angryPandaId`=`ap`.`_id`) LEFT JOIN `drongos` AS `d` ON `bs`.`drongo_id`=`d`.`_id`) LEFT JOIN `drongo_arrivals` AS `da` ON `d`.`drongo_arrival`=`da`.`_id`) LEFT JOIN `foods` AS `df` ON `d`.`_id`=`df`.`drongo_id`) LEFT JOIN `outtakes` AS `o` ON `bs`.`outtake_id`=`o`.`_id`) LEFT JOIN `foods` AS `orf` ON `o`.`_id`=`orf`.`outtake_id`) LEFT JOIN `smallMongooses` AS `sm` ON `bs`.`smallMongooseId`=`sm`.`_id`) LEFT JOIN `wheelbarrows` AS `w` ON `bs`.`wheelbarrow_id`=`w`.`_id`) LEFT JOIN `wide_aunties` AS `wa` ON `w`.`wide_auntie`=`wa`.`_id`) LEFT JOIN `foods` AS `wf` ON `w`.`_id`=`wf`.`wheelbarrow_id` WHERE (bs.owo = ?) AND (`bs`.`_id` > ? OR (`bs`.`_id` <=> ? AND (`ap`.`_id` > ? OR (`ap`.`_id` <=> ? AND (`d`.`_id` > ? OR (`d`.`_id` <=> ? AND (`da`.`_id` > ? OR (`da`.`_id` <=> ? AND (`df`.`_id` > ? OR (`df`.`_id` <=> ? AND (`o`.`_id` > ? OR (`o`.`_id` <=> ? AND (`orf`.`_id` > ? OR (`orf`.`_id` <=> ? AND (`sm`.`_id` > ? OR (`sm`.`_id` <=> ? AND (`w`.`_id` > ? OR (`w`.`_id` <=> ? AND (`wa`.`_id` > ? OR (`wa`.`_id` <=> ? AND (`wf`.`_id` > ?))))))))))))))))))))) AND ((CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END)) ORDER BY `bs`.`_id`,`ap`.`_id`,`d`.`_id`,`da`.`_id`,`df`.`_id`,`o`.`_id`,`orf`.`_id`,`sm`.`_id`,`w`.`_id`,`wa`.`_id`,`wf`.`_id` LIMIT 466"
+	schemaExample1QueryWhereNoSpaceship = "WHERE (bs.owo = ?) AND (`bs`.`_id` > ? OR ((`bs`.`_id` = ? OR (? IS NULL AND `bs`.`_id` IS NULL)) AND (`ap`.`_id` > ? OR ((`ap`.`_id` = ? OR (? IS NULL AND `ap`.`_id` IS NULL)) AND (`d`.`_id` > ? OR ((`d`.`_id` = ? OR (? IS NULL AND `d`.`_id` IS NULL)) AND (`da`.`_id` > ? OR ((`da`.`_id` = ? OR (? IS NULL AND `da`.`_id` IS NULL)) AND (`df`.`_id` > ? OR ((`df`.`_id` = ? OR (? IS NULL AND `df`.`_id` IS NULL)) AND (`o`.`_id` > ? OR ((`o`.`_id` = ? OR (? IS NULL AND `o`.`_id` IS NULL)) AND (`orf`.`_id` > ? OR ((`orf`.`_id` = ? OR (? IS NULL AND `orf`.`_id` IS NULL)) AND (`sm`.`_id` > ? OR ((`sm`.`_id` = ? OR (? IS NULL AND `sm`.`_id` IS NULL)) AND (`w`.`_id` > ? OR ((`w`.`_id` = ? OR (? IS NULL AND `w`.`_id` IS NULL)) AND (`wa`.`_id` > ? OR ((`wa`.`_id` = ? OR (? IS NULL AND `wa`.`_id` IS NULL)) AND (`wf`.`_id` > ?))))))))))))))))))))) AND ((CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END))"
 )
 
 func TestDialect_charset(t *testing.T) {
@@ -53,8 +54,8 @@ func TestDialect_SelectBatch_success(t *testing.T) {
 		Snippet export.Snippet
 	}{
 		{
-			Name:    `table name only`,
-			Dialect: &Dialect{},
+			Name:    `table name only with spaceship`,
+			Dialect: &Dialect{NullSafeEqual: true},
 			Args: &export.SelectBatch{
 				Schema:  jsonUnmarshalTestResource(schemaExample1, new(export.Schema)),
 				Filters: []*export.Snippet{{SQL: `bs.owo = ?`, Args: []any{321}}},
@@ -67,6 +68,23 @@ func TestDialect_SelectBatch_success(t *testing.T) {
 			Snippet: export.Snippet{
 				SQL:  schemaExample1Query,
 				Args: []any{321, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}},
+			},
+		},
+		{
+			Name:    `table name only without spaceship`,
+			Dialect: &Dialect{},
+			Args: &export.SelectBatch{
+				Schema:  jsonUnmarshalTestResource(schemaExample1, new(export.Schema)),
+				Filters: []*export.Snippet{{SQL: `bs.owo = ?`, Args: []any{321}}},
+				Offset: map[string]int64{
+					`bs`: 42,
+					`ap`: 6,
+				},
+				Limit: 466,
+			},
+			Snippet: export.Snippet{
+				SQL:  schemaExample1Query[:887] + schemaExample1QueryWhereNoSpaceship + schemaExample1Query[1424:],
+				Args: []interface{}{321, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 42, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 6, Valid: true}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}, sql.NullInt64{Int64: 0, Valid: false}},
 			},
 		},
 		{
