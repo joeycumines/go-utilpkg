@@ -42,7 +42,8 @@ type (
 	// that succeeds, returning the first error that isn't ErrDisabled, or
 	// ErrDisabled if every writer returns ErrDisabled (or if empty).
 	//
-	// WARNING: ErrDisabled must be returned directly (not wrapped).
+	// IMPL. WARNING: ErrDisabled must be returned directly (not wrapped).
+	// USAGE WARNING: May complicate use of loggers that use sync.Pool.
 	WriterSlice[E Event] []Writer[E]
 )
 
