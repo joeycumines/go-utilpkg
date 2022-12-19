@@ -79,7 +79,16 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 	}
 }
 
-func (x *Logger[E]) Logger() *Logger[E] { return x }
+// Logger returns a new generified logger.
+// Use this for greater compatibility, but sacrificing ease of using the
+// underlying library directly.
+func (x *Logger[E]) Logger() *Logger[Event] {
+	if x, ok := any(x).(*Logger[Event]); ok {
+		return x
+	}
+	// TODO implement wrappers for EventFactory and Writer
+	panic(`not implemented`)
+}
 
 func (x *Logger[E]) Log(level Level, modifier Modifier[E]) error {
 	if !x.canLog(level) {
