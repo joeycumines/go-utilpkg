@@ -1,21 +1,29 @@
 package logiface
 
+import (
+	"sync"
+)
+
 type (
 	Logger[E Event] struct {
-		factory         EventFactory[E]
-		writer          Writer[E]
-		modifier        Modifier[E]
-		level           Level
-		disabledBuilder *Builder[E]
+		level    Level
+		modifier Modifier[E]
+		shared   *loggerShared[E]
+	}
+
+	loggerShared[E Event] struct {
+		factory EventFactory[E]
+		writer  Writer[E]
+		pool    *sync.Pool
 	}
 
 	Option[E Event] func(c *loggerConfig[E])
 
 	loggerConfig[E Event] struct {
+		level    Level
 		factory  EventFactory[E]
 		writer   Writer[E]
 		modifier Modifier[E]
-		level    Level
 	}
 )
 
@@ -58,16 +66,17 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 		o(&c)
 	}
 
-	x := Logger[E]{
-		factory:  c.factory,
-		writer:   c.writer,
+	shared := loggerShared[E]{
+		factory: c.factory,
+		writer:  c.writer,
+	}
+	shared.pool = &sync.Pool{New: shared.newBuilder}
+
+	return &Logger[E]{
 		modifier: c.modifier,
 		level:    c.level,
+		shared:   &shared,
 	}
-
-	x.initDisabledBuilder()
-
-	return &x
 }
 
 func (x *Logger[E]) Logger() *Logger[E] { return x }
@@ -91,84 +100,49 @@ func (x *Logger[E]) Log(level Level, modifier Modifier[E]) error {
 		}
 	}
 
-	return x.writer.Write(event)
+	return x.shared.writer.Write(event)
 }
 
 func (x *Logger[E]) Build(level Level) *Builder[E] {
 	// WARNING must mirror flow of the Log method
 
 	if !x.canLog(level) {
-		if x == nil {
-			return x.newDisabledBuilder()
-		}
-		return x.disabledBuilder
+		return nil
 	}
 
-	b := Builder[E]{
-		Event:  x.newEvent(level),
-		logger: x,
-	}
+	b := x.shared.pool.Get().(*Builder[E])
+	b.Event = x.newEvent(level)
 
 	if x.modifier != nil {
 		if err := x.modifier.Modify(b.Event); err != nil {
 			if err == ErrDisabled {
-				return x.disabledBuilder
+				return nil
 			}
 			panic(err)
 		}
 	}
 
-	b.modifierMethods = modifierMethods[*Builder[E], E]{
-		res: &b,
-		fn: func(modifier Modifier[E]) {
-			_ = modifier.Modify(b.Event)
-		},
-	}
-
-	return &b
+	return b
 }
 
 func (x *Logger[E]) Clone() *Context[E] {
 	if !x.canWrite() {
-		c := Context[E]{logger: new(Logger[E])}
-		c.modifierMethods = modifierMethods[*Context[E], E]{
-			res: &c,
-			fn:  func(modifier Modifier[E]) {},
-		}
-		if x != nil && x.disabledBuilder != nil {
-			c.logger.disabledBuilder = x.disabledBuilder
-		} else {
-			c.logger.initDisabledBuilder()
-		}
-		return &c
+		return nil
 	}
 
 	var c Context[E]
-
 	if x.modifier != nil {
 		c.Modifiers = append(c.Modifiers, x.modifier)
 	}
-
-	c.modifierMethods = modifierMethods[*Context[E], E]{
-		res: &c,
-		fn: func(modifier Modifier[E]) {
-			c.Modifiers = append(c.Modifiers, modifier)
-		},
+	c.methods = func(modifier Modifier[E]) {
+		c.Modifiers = append(c.Modifiers, modifier)
 	}
-
 	c.logger = &Logger[E]{
-		factory: x.factory,
-		writer:  x.writer,
-		level:   x.level,
+		level: x.level,
 		modifier: ModifyFunc[E](func(event E) error {
 			return c.Modifiers.Modify(event)
 		}),
-	}
-
-	if x.disabledBuilder != nil {
-		c.logger.disabledBuilder = x.disabledBuilder
-	} else {
-		c.logger.initDisabledBuilder()
+		shared: x.shared,
 	}
 
 	return &c
@@ -194,7 +168,8 @@ func (x *Logger[E]) Trace() *Builder[E] { return x.Build(LevelTrace) }
 
 func (x *Logger[E]) canWrite() bool {
 	return x != nil &&
-		x.writer != nil
+		x.shared != nil &&
+		x.shared.writer != nil
 }
 
 func (x *Logger[E]) canLog(level Level) bool {
@@ -204,21 +179,16 @@ func (x *Logger[E]) canLog(level Level) bool {
 }
 
 func (x *Logger[E]) newEvent(level Level) (event E) {
-	if x != nil && x.factory != nil {
-		event = x.factory.NewEvent(level)
+	if x != nil && x.shared != nil && x.shared.factory != nil {
+		event = x.shared.factory.NewEvent(level)
 	}
 	return
 }
 
-func (x *Logger[E]) newDisabledBuilder() (b *Builder[E]) {
-	b = new(Builder[E])
-	b.modifierMethods = modifierMethods[*Builder[E], E]{
-		res: b,
-		fn:  func(modifier Modifier[E]) {},
+func (x *loggerShared[E]) newBuilder() any {
+	b := Builder[E]{shared: x}
+	b.methods = func(modifier Modifier[E]) {
+		_ = modifier.Modify(b.Event)
 	}
-	return
-}
-
-func (x *Logger[E]) initDisabledBuilder() {
-	x.disabledBuilder = x.newDisabledBuilder()
+	return &b
 }
