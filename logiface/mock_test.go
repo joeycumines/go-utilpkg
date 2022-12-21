@@ -8,6 +8,7 @@ import (
 
 type (
 	SimpleEvent struct {
+		UnimplementedEvent
 		level  Level
 		msg    string
 		fields []SimpleEventField
@@ -40,8 +41,9 @@ func (x *SimpleEvent) Level() Level {
 	return LevelDisabled
 }
 
-func (x *SimpleEvent) SetMessage(msg string) {
+func (x *SimpleEvent) AddMessage(msg string) bool {
 	x.msg = msg
+	return true
 }
 
 func (x *SimpleEvent) AddField(key string, val any) {

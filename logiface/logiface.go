@@ -5,11 +5,43 @@ import (
 )
 
 type (
+	// Event models the integration with the logging framework.
+	// The methods Level, SetMessage, and AddField are mandatory.
+	// Implementations must have a zero value that doesn't panic when calling
+	// Level, in which instance it must return LevelDisabled.
+	// All implementations must embed UnimplementedEvent, as it provides
+	// support for all optional methods.
 	Event interface {
+		// required methods
+
+		// Level returns the level of the event.
+		// It must be the same as originally provided to the factory.
 		Level() Level
-		SetMessage(msg string)
+		// AddField adds a field to the event, for structured logging.
+		// How fields are handled is implementation specific.
 		AddField(key string, val any)
+
+		// optional methods
+
+		// AddMessage sets the log message for the event, returning false if unimplemented.
+		// The field or output structure of the log message is implementation specific.
+		AddMessage(msg string) bool
+		// AddError adds an error to the event, returning false if unimplemented.
+		// The field or output structure of the log message is implementation specific.
+		AddError(err error) bool
+		// AddString adds a field of type string. It's an optional optimisation.
+		AddString(key string, val string) bool
+		// AddInt adds a field of type int. It's an optional optimisation.
+		AddInt(key string, val int) bool
+		// AddFloat32 adds a field of type float32. It's an optional optimisation.
+		AddFloat32(key string, val float32) bool
+
+		mustEmbedUnimplementedEvent()
 	}
+
+	// UnimplementedEvent must be embedded in every Event implementation.
+	// It provides implementation of methods that are optional.
+	UnimplementedEvent struct{}
 
 	LoggerImpl[E Event] interface {
 		EventFactory[E]
@@ -94,3 +126,10 @@ func (x WriterSlice[E]) Write(event E) (err error) {
 	}
 	return ErrDisabled
 }
+
+func (UnimplementedEvent) AddMessage(string) bool          { return false }
+func (UnimplementedEvent) AddError(error) bool             { return false }
+func (UnimplementedEvent) AddString(string, string) bool   { return false }
+func (UnimplementedEvent) AddInt(string, int) bool         { return false }
+func (UnimplementedEvent) AddFloat32(string, float32) bool { return false }
+func (UnimplementedEvent) mustEmbedUnimplementedEvent()    {}

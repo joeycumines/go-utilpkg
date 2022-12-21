@@ -143,9 +143,6 @@ func (x *Logger[E]) Clone() *Context[E] {
 	if x.modifier != nil {
 		c.Modifiers = append(c.Modifiers, x.modifier)
 	}
-	c.methods = func(modifier Modifier[E]) {
-		c.Modifiers = append(c.Modifiers, modifier)
-	}
 	c.logger = &Logger[E]{
 		level: x.level,
 		modifier: ModifyFunc[E](func(event E) error {
@@ -195,9 +192,5 @@ func (x *Logger[E]) newEvent(level Level) (event E) {
 }
 
 func (x *loggerShared[E]) newBuilder() any {
-	b := Builder[E]{shared: x}
-	b.methods = func(modifier Modifier[E]) {
-		_ = modifier.Modify(b.Event)
-	}
-	return &b
+	return &Builder[E]{shared: x}
 }

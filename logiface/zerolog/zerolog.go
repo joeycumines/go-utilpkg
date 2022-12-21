@@ -11,7 +11,10 @@ type (
 		Z   *zerolog.Event
 		lvl logiface.Level
 		msg string
+		unimplementedEvent
 	}
+
+	unimplementedEvent = logiface.UnimplementedEvent
 
 	Logger struct {
 		Z zerolog.Logger
@@ -37,12 +40,33 @@ func (x *Event) Level() logiface.Level {
 	return logiface.LevelDisabled
 }
 
-func (x *Event) SetMessage(msg string) {
-	x.msg = msg
-}
-
 func (x *Event) AddField(key string, val any) {
 	x.Z.Interface(key, val)
+}
+
+func (x *Event) AddMessage(msg string) bool {
+	x.msg = msg
+	return true
+}
+
+func (x *Event) AddError(err error) bool {
+	x.Z = x.Z.Err(err)
+	return true
+}
+
+func (x *Event) AddString(key string, val string) bool {
+	x.Z = x.Z.Str(key, val)
+	return true
+}
+
+func (x *Event) AddInt(key string, val int) bool {
+	x.Z = x.Z.Int(key, val)
+	return true
+}
+
+func (x *Event) AddFloat32(key string, val float32) bool {
+	x.Z = x.Z.Float32(key, val)
+	return true
 }
 
 func (x *Logger) NewEvent(level logiface.Level) *Event {

@@ -2,6 +2,7 @@ package zerolog
 
 import (
 	"bytes"
+	"errors"
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/rs/zerolog"
 	"testing"
@@ -52,9 +53,9 @@ func TestLogger_simple(t *testing.T) {
 		h := newHarness(t)
 
 		h.L.Info().
-			With(`one`, 1).
-			With(`two`, 2).
-			With(`three`, 3).
+			Field(`one`, 1).
+			Field(`two`, 2).
+			Field(`three`, 3).
 			Log(`hello world`)
 
 		if s := h.B.String(); s != "{\"level\":\"info\",\"one\":1,\"two\":2,\"three\":3,\"message\":\"hello world\"}\n" {
@@ -68,28 +69,28 @@ func TestLogger_simple(t *testing.T) {
 		h := newHarness(t)
 
 		c1 := h.L.Clone().
-			With(`one`, 1).
-			With(`two`, 2).
+			Field(`one`, 1).
+			Field(`two`, 2).
 			Logger()
 
 		c1.Info().
-			With(`three`, 3).
-			With(`four`, 4).
+			Field(`three`, 3).
+			Field(`four`, 4).
 			Log(`case 1`)
 
 		h.L.Clone().
-			With(`six`, 6).
+			Field(`six`, 6).
 			Logger().
 			Clone().
-			With(`seven`, 7).
+			Field(`seven`, 7).
 			Logger().
 			Info().
-			With(`eight`, 8).
+			Field(`eight`, 8).
 			Log(`case 2`)
 
 		c1.Info().
-			With(`three`, -3).
-			With(`five`, 5).
+			Field(`three`, -3).
+			Field(`five`, 5).
 			Log(`case 3`)
 
 		if s := h.B.String(); s != "{\"level\":\"info\",\"one\":1,\"two\":2,\"three\":3,\"four\":4,\"message\":\"case 1\"}\n{\"level\":\"info\",\"six\":6,\"seven\":7,\"eight\":8,\"message\":\"case 2\"}\n{\"level\":\"info\",\"one\":1,\"two\":2,\"three\":-3,\"five\":5,\"message\":\"case 3\"}\n" {
@@ -106,28 +107,62 @@ func TestLogger_simple(t *testing.T) {
 			Log(`hello world`)
 
 		c1 := h.L.Clone().
-			With(`one`, 1).
-			With(`two`, 2).
+			Field(`one`, 1).
+			Field(`two`, 2).
 			Logger()
 
 		c1.Info().
-			With(`three`, 3).
-			With(`four`, 4).
+			Field(`three`, 3).
+			Field(`four`, 4).
 			Log(`case 1`)
 
 		h.L.Clone().
-			With(`six`, 6).
+			Field(`six`, 6).
 			Logger().
 			Clone().
-			With(`seven`, 7).
+			Field(`seven`, 7).
 			Logger().
 			Info().
-			With(`eight`, 8).
+			Field(`eight`, 8).
 			Log(`case 2`)
 
 		c1.Info().
-			With(`three`, -3).
-			With(`five`, 5).
+			Field(`three`, -3).
+			Field(`five`, 5).
 			Log(`case 3`)
+	})
+
+	t.Run(`add error`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Err(errors.New(`some error`)).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "{\"level\":\"info\",\"error\":\"some error\",\"message\":\"hello world\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`add error disabled`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Debug().
+			Err(errors.New(`some error`)).
+			Log(`hello world`)
+
+		h.L.Clone().
+			Err(errors.New(`some error`)).
+			Logger().
+			Debug().
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
 	})
 }
