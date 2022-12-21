@@ -25,77 +25,17 @@ lint: vet staticcheck
 .PHONY: vet
 vet: vet-root vet-logiface vet-logiface-zerolog
 
-.PHONY: vet-root
-vet-root:
-	#$(GO_VET) ./...
-
-.PHONY: vet-logiface
-vet-logiface:
-	$(GO_VET) ./logiface/...
-
-.PHONY: vet-logiface-zerolog
-vet-logiface-zerolog:
-	$(GO_VET) ./logiface/zerolog/...
-
 .PHONY: staticcheck
 staticcheck: staticcheck-root staticcheck-logiface staticcheck-logiface-zerolog
-
-.PHONY: staticcheck-root
-staticcheck-root:
-	#$(STATICCHECK) $(STATICCHECK_FLAGS) ./...
-
-.PHONY: staticcheck-logiface
-staticcheck-logiface:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/...
-
-.PHONY: staticcheck-logiface-zerolog
-staticcheck-logiface-zerolog:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/zerolog/...
 
 .PHONY: build
 build: build-root build-logiface build-logiface-zerolog
 
-.PHONY: build-root
-build-root:
-	#$(GO_BUILD) ./...
-
-.PHONY: build-logiface
-build-logiface:
-	$(GO_BUILD) ./logiface/...
-
-.PHONY: build-logiface-zerolog
-build-logiface-zerolog:
-	$(GO_BUILD) ./logiface/zerolog/...
-
 .PHONY: test
 test: test-root test-logiface test-logiface-zerolog
 
-.PHONY: test-root
-test-root:
-	#$(GO_TEST) ./...
-
-.PHONY: test-logiface
-test-logiface:
-	$(GO_TEST) ./logiface/...
-
-.PHONY: test-logiface-zerolog
-test-logiface-zerolog:
-	$(GO_TEST) ./logiface/zerolog/...
-
 .PHONY: fmt
 fmt: fmt-root fmt-logiface fmt-logiface-zerolog
-
-.PHONY: fmt-root
-fmt-root:
-	#$(GO_FMT) ./...
-
-.PHONY: fmt-logiface
-fmt-logiface:
-	cd logiface && $(GO_FMT) ./...
-
-.PHONY: fmt-logiface-zerolog
-fmt-logiface-zerolog:
-	cd logiface/zerolog && $(GO_FMT) ./...
 
 .PHONY: godoc
 godoc:
@@ -118,3 +58,71 @@ tools:
 		run_command() { echo "$$@" && "$$@"; } && \
 		$(LIST_TOOLS) | \
 		while read -r line; do run_command $(GO) install "$$line" || exit 1; done
+
+# ---
+
+.PHONY: vet-root
+vet-root:
+	#$(GO_VET) ./...
+
+.PHONY: build-root
+build-root:
+	#$(GO_BUILD) ./...
+
+.PHONY: staticcheck-root
+staticcheck-root:
+	#$(STATICCHECK) $(STATICCHECK_FLAGS) ./...
+
+.PHONY: test-root
+test-root:
+	#$(GO_TEST) ./...
+
+.PHONY: fmt-root
+fmt-root:
+	#$(GO_FMT) ./...
+
+# ---
+
+.PHONY: vet-logiface
+vet-logiface:
+	$(GO_VET) ./logiface/...
+
+.PHONY: staticcheck-logiface
+staticcheck-logiface:
+	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/...
+
+.PHONY: build-logiface
+build-logiface:
+	$(GO_BUILD) ./logiface/...
+
+.PHONY: test-logiface
+test-logiface:
+	$(GO_TEST) ./logiface/...
+
+.PHONY: fmt-logiface
+fmt-logiface:
+	cd logiface && $(GO_FMT) ./...
+
+# ---
+
+.PHONY: vet-logiface-zerolog
+vet-logiface-zerolog:
+	$(GO_VET) ./logiface/zerolog/...
+
+.PHONY: staticcheck-logiface-zerolog
+staticcheck-logiface-zerolog:
+	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/zerolog/...
+
+.PHONY: build-logiface-zerolog
+build-logiface-zerolog:
+	$(GO_BUILD) ./logiface/zerolog/...
+
+.PHONY: test-logiface-zerolog
+test-logiface-zerolog:
+	$(GO_TEST) ./logiface/zerolog/...
+
+.PHONY: fmt-logiface-zerolog
+fmt-logiface-zerolog:
+	cd logiface/zerolog && $(GO_FMT) ./...
+
+# ---
