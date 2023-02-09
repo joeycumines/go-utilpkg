@@ -73,3 +73,45 @@ func (x Level) String() string {
 
 // Enabled returns true if the Level is enabled (greater than or equal to 0).
 func (x Level) Enabled() bool { return x > LevelDisabled }
+
+// for convenience, expose the level enums as methods on LoggerFactory
+
+// LevelDisabled returns LevelDisabled, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelDisabled() Level { return LevelDisabled }
+
+// LevelEmergency returns LevelEmergency, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelEmergency() Level { return LevelEmergency }
+
+// LevelAlert returns LevelAlert, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelAlert() Level { return LevelAlert }
+
+// LevelCritical returns LevelCritical, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelCritical() Level { return LevelCritical }
+
+// LevelError returns LevelError, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelError() Level { return LevelError }
+
+// LevelWarning returns LevelWarning, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelWarning() Level { return LevelWarning }
+
+// LevelNotice returns LevelNotice, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelNotice() Level { return LevelNotice }
+
+// LevelInformational returns LevelInformational, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelInformational() Level { return LevelInformational }
+
+// LevelDebug returns LevelDebug, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelDebug() Level { return LevelDebug }
+
+// LevelTrace returns LevelTrace, and is provided as a convenience for
+// implementation packages, so end users don't have to import logiface.
+func (LoggerFactory[E]) LevelTrace() Level { return LevelTrace }

@@ -18,7 +18,7 @@ func TestLogger_simple(t *testing.T) {
 
 	newHarness := func(t *testing.T, options ...logiface.Option[*Event]) *Harness {
 		var h Harness
-		h.L = logiface.New(append([]logiface.Option[*Event]{logiface.WithLogger[*Event](&Logger{Z: zerolog.New(&h.B)})}, options...)...)
+		h.L = L.New(append([]logiface.Option[*Event]{L.WithZerolog(zerolog.New(&h.B))}, options...)...)
 		return &h
 	}
 

@@ -11,27 +11,64 @@ type (
 		Z   *zerolog.Event
 		lvl logiface.Level
 		msg string
+		//lint:ignore U1000 embedded for it's methods
 		unimplementedEvent
 	}
-
-	unimplementedEvent = logiface.UnimplementedEvent
 
 	Logger struct {
 		Z zerolog.Logger
 	}
+
+	// LoggerFactory is provided as a convenience, embedding
+	// logiface.LoggerFactory[*Event], and aliasing the option functions
+	// implemented within this package.
+	LoggerFactory struct {
+		//lint:ignore U1000 embedded for it's methods
+		baseLoggerFactory
+	}
+
+	//lint:ignore U1000 used to embed without exporting
+	unimplementedEvent = logiface.UnimplementedEvent
+
+	//lint:ignore U1000 used to embed without exporting
+	baseLoggerFactory = logiface.LoggerFactory[*Event]
 )
 
 var (
+	// L is a LoggerFactory, and may be used to configure a
+	// logiface.Logger[*Event], using the implementations provided by this
+	// package.
+	L = LoggerFactory{}
+
 	// Pool is provided as a companion to Event.
-	// It is used by Logger. If you use multiple writers, you may want to
-	// ensure that the Event is returned to the pool.
+	//
+	// Must contain only non-nil *Event values, with nil Event.Z fields.
 	Pool = sync.Pool{New: func() any { return new(Event) }}
 
 	// compile time assertions
 
-	_ logiface.Event              = (*Event)(nil)
-	_ logiface.LoggerImpl[*Event] = (*Logger)(nil)
+	_ logiface.Event                 = (*Event)(nil)
+	_ logiface.EventFactory[*Event]  = (*Logger)(nil)
+	_ logiface.Writer[*Event]        = (*Logger)(nil)
+	_ logiface.EventReleaser[*Event] = (*Logger)(nil)
 )
+
+// WithZerolog configures a logiface logger to use a zerolog logger.
+//
+// See also LoggerFactory.WithZerolog and L (an alias for LoggerFactory{}).
+func WithZerolog(logger zerolog.Logger) logiface.Option[*Event] {
+	l := Logger{Z: logger}
+	return L.WithOptions(
+		L.WithWriter(&l),
+		L.WithEventFactory(&l),
+		L.WithEventReleaser(&l),
+	)
+}
+
+// WithZerolog is an alias of the package function of the same name.
+func (LoggerFactory) WithZerolog(logger zerolog.Logger) logiface.Option[*Event] {
+	return WithZerolog(logger)
+}
 
 func (x *Event) Level() logiface.Level {
 	if x != nil {
@@ -105,8 +142,12 @@ func (x *Logger) NewEvent(level logiface.Level) *Event {
 	return event
 }
 
+func (x *Logger) ReleaseEvent(event *Event) {
+	event.Z = nil
+	Pool.Put(event)
+}
+
 func (x *Logger) Write(event *Event) error {
 	event.Z.Msg(event.msg)
-	Pool.Put(event)
 	return nil
 }

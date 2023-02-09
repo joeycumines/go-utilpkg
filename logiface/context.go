@@ -8,7 +8,15 @@ import (
 )
 
 type (
-	// Context is used to build a sub-logger, see Logger.Field.
+	// Context is used to build a sub-logger, see Logger.Clone.
+	//
+	// All methods are safe to call on a nil receiver.
+	//
+	// See also Builder, which implements a common (sub)set of methods, for
+	// building structured log events, including Field ("smarter" than
+	// Interface), Interface (Event.AddField pass-through), and strongly-typed
+	// implementations that utilize the other Event.Add* methods (if
+	// implemented), with well-defined fallback behavior.
 	Context[E Event] struct {
 		Modifiers ModifierSlice[E]
 		methods   modifierMethods[E]
@@ -16,6 +24,14 @@ type (
 	}
 
 	// Builder is used to build a log event, see Logger.Build, Logger.Info, etc.
+	//
+	// All methods are safe to call on a nil receiver.
+	//
+	// See also Context, which implements a common (sub)set of methods, for
+	// building structured log events, including Field ("smarter" than
+	// Interface), Interface (Event.AddField pass-through), and strongly-typed
+	// implementations such as Err and Str, that utilize the other Event.Add*
+	// methods (if implemented), with well-defined fallback behavior.
 	Builder[E Event] struct {
 		Event   E
 		methods modifierMethods[E]
@@ -25,6 +41,13 @@ type (
 	modifierMethods[E Event] struct{}
 )
 
+// Logger returns the underlying (sub)logger, or nil.
+//
+// Note that the returned logger will apply all parent modifiers, including
+// Context.Modifiers. This method is intended to be used to get the actual
+// sub-logger, after building the context that sub-logger is to apply.
+//
+// This method is not implemented by Builder.
 func (x *Context[E]) Logger() *Logger[E] {
 	if x == nil {
 		return nil
@@ -36,11 +59,19 @@ func (x *Context[E]) add(fn ModifyFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
 }
 
-func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
-	fn(x)
-	return x
+// ok returns true if the receiver is initialized
+func (x *Context[E]) ok() bool {
+	return x != nil && x.logger != nil
 }
 
+// Log logs an event, with the given message, using the provided level and
+// modifier, if the relevant conditions are met (e.g. configured log level).
+//
+// The field for the message will either be determined by the implementation,
+// if Event.AddMessage is implemented, or the default field name "msg" will be
+// used.
+//
+// This method is not implemented by Context.
 func (x *Builder[E]) Log(msg string) {
 	if x == nil {
 		return
@@ -51,6 +82,14 @@ func (x *Builder[E]) Log(msg string) {
 	}
 }
 
+// Logf logs an event, with the given message, using the provided level and
+// modifier, if the relevant conditions are met (e.g. configured log level).
+//
+// The field for the message will either be determined by the implementation,
+// if Event.AddMessage is implemented, or the default field name "msg" will be
+// used.
+//
+// This method is not implemented by Context.
 func (x *Builder[E]) Logf(format string, args ...any) {
 	if x == nil {
 		return
@@ -61,6 +100,18 @@ func (x *Builder[E]) Logf(format string, args ...any) {
 	}
 }
 
+// LogFunc logs an event, with the message returned by the given function,
+// using the provided level and modifier, if the relevant conditions are met
+// (e.g. configured log level).
+//
+// The field for the message will either be determined by the implementation,
+// if Event.AddMessage is implemented, or the default field name "msg" will be
+// used.
+//
+// Note that the function will not be called if, for example, the given log
+// level is not enabled.
+//
+// This method is not implemented by Context.
 func (x *Builder[E]) LogFunc(fn func() string) {
 	if x == nil {
 		return
@@ -80,161 +131,15 @@ func (x *Builder[E]) log(msg string) {
 
 func (x *Builder[E]) release() {
 	if x.shared != nil {
+		if x.shared.releaser != nil {
+			x.shared.releaser.ReleaseEvent(x.Event)
+		}
 		x.shared.pool.Put(x)
 	}
 }
 
-func (x modifierMethods[E]) Field(event E, key string, val any) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	switch val := val.(type) {
-	case string:
-		x.str(event, key, val)
-	case []byte:
-		x.bytes(event, key, val)
-	case time.Time:
-		x.timestamp(event, key, val)
-	case time.Duration:
-		x.duration(event, key, val)
-	case int:
-		x.int(event, key, val)
-	case float32:
-		x.float32(event, key, val)
-	default:
-		event.AddField(key, val)
-	}
-	return nil
-}
-
-// Field adds a field to the log context, making an effort to choose the most
-// appropriate handler for the value.
-//
-// WARNING: The behavior of this method may change without notice.
-//
-// Use the Interface method if you want a direct pass-through to the
-// Event.AddField implementation.
-func (x *Context[E]) Field(key string, val any) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Field(event, key, val) })
-	}
-	return x
-}
-
-// Field adds a field to the log event, making an effort to choose the most
-// appropriate handler for the value.
-//
-// WARNING: The behavior of this method may change without notice.
-//
-// Use the Interface method if you want a direct pass-through to the
-// Event.AddField implementation.
-func (x *Builder[E]) Field(key string, val any) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Field(x.Event, key, val)
-	}
-	return x
-}
-
-func (x modifierMethods[E]) Interface(event E, key string, val any) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	event.AddField(key, val)
-	return nil
-}
-func (x *Context[E]) Interface(key string, val any) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Interface(event, key, val) })
-	}
-	return x
-}
-func (x *Builder[E]) Interface(key string, val any) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Interface(x.Event, key, val)
-	}
-	return x
-}
-
-func (x modifierMethods[E]) Err(event E, err error) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	if !event.AddError(err) {
-		event.AddField(`err`, err)
-	}
-	return nil
-}
-func (x *Context[E]) Err(err error) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Err(event, err) })
-	}
-	return x
-}
-func (x *Builder[E]) Err(err error) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Err(x.Event, err)
-	}
-	return x
-}
-
-func (x modifierMethods[E]) Str(event E, key string, val string) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	x.str(event, key, val)
-	return nil
-}
-func (x *Context[E]) Str(key string, val string) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Str(event, key, val) })
-	}
-	return x
-}
-func (x *Builder[E]) Str(key string, val string) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Str(x.Event, key, val)
-	}
-	return x
-}
-
-func (x modifierMethods[E]) Int(event E, key string, val int) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	x.int(event, key, val)
-	return nil
-}
-func (x *Context[E]) Int(key string, val int) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Int(event, key, val) })
-	}
-	return x
-}
-func (x *Builder[E]) Int(key string, val int) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Int(x.Event, key, val)
-	}
-	return x
-}
-
-func (x modifierMethods[E]) Float32(event E, key string, val float32) error {
-	if !event.Level().Enabled() {
-		return ErrDisabled
-	}
-	x.float32(event, key, val)
-	return nil
-}
-func (x *Context[E]) Float32(key string, val float32) *Context[E] {
-	if x != nil && x.logger != nil {
-		x.add(func(event E) error { return x.methods.Float32(event, key, val) })
-	}
-	return x
-}
-func (x *Builder[E]) Float32(key string, val float32) *Builder[E] {
-	if x != nil && x.shared != nil {
-		_ = x.methods.Float32(x.Event, key, val)
-	}
-	return x
+func (x *Builder[E]) ok() bool {
+	return x != nil && x.shared != nil
 }
 
 func (x modifierMethods[E]) str(event E, key string, val string) {
@@ -299,4 +204,192 @@ func formatDuration(d time.Duration) string {
 	x = strings.TrimSuffix(x, "000")
 	x = strings.TrimSuffix(x, ".000")
 	return x + "s"
+}
+
+// Implementations of field modifiers / builders.
+// All together, to make it easier to ensure both Context and Builder implement the same set of methods.
+
+func (x modifierMethods[E]) Field(event E, key string, val any) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	switch val := val.(type) {
+	case string:
+		x.str(event, key, val)
+	case []byte:
+		x.bytes(event, key, val)
+	case time.Time:
+		x.timestamp(event, key, val)
+	case time.Duration:
+		x.duration(event, key, val)
+	case int:
+		x.int(event, key, val)
+	case float32:
+		x.float32(event, key, val)
+	default:
+		event.AddField(key, val)
+	}
+	return nil
+}
+
+// Field adds a field to the log context, making an effort to choose the most
+// appropriate handler for the value.
+//
+// WARNING: The behavior of this method may change without notice.
+//
+// Use the Interface method if you want a direct pass-through to the
+// Event.AddField implementation.
+func (x *Context[E]) Field(key string, val any) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Field(event, key, val) })
+	}
+	return x
+}
+
+// Field adds a field to the log event, making an effort to choose the most
+// appropriate handler for the value.
+//
+// WARNING: The behavior of this method may change without notice.
+//
+// Use the Interface method if you want a direct pass-through to the
+// Event.AddField implementation.
+func (x *Builder[E]) Field(key string, val any) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Field(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Interface(event E, key string, val any) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	event.AddField(key, val)
+	return nil
+}
+
+// Interface adds a structured log field, which will pass through to
+// Event.AddField.
+func (x *Context[E]) Interface(key string, val any) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Interface(event, key, val) })
+	}
+	return x
+}
+
+// Interface adds a structured log field, which will pass through to
+// Event.AddField.
+func (x *Builder[E]) Interface(key string, val any) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Interface(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Err(event E, err error) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	if !event.AddError(err) {
+		event.AddField(`err`, err)
+	}
+	return nil
+}
+
+// Err adds an error as a structured log field, the key for which will either
+// be determined by the Event.AddError method, or will be "err" if not
+// implemented.
+func (x *Context[E]) Err(err error) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Err(event, err) })
+	}
+	return x
+}
+
+// Err adds an error as a structured log field, the key for which will either
+// be determined by the Event.AddError method, or will be "err" if not
+// implemented.
+func (x *Builder[E]) Err(err error) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Err(x.Event, err)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Str(event E, key string, val string) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.str(event, key, val)
+	return nil
+}
+
+// Str adds a string as a structured log field, using Event.AddString if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Str(key string, val string) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Str(event, key, val) })
+	}
+	return x
+}
+
+// Str adds a string as a structured log field, using Event.AddString if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Str(key string, val string) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Str(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Int(event E, key string, val int) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.int(event, key, val)
+	return nil
+}
+
+// Int adds an int as a structured log field, using Event.AddInt if available,
+// otherwise falling back to Event.AddField.
+func (x *Context[E]) Int(key string, val int) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Int(event, key, val) })
+	}
+	return x
+}
+
+// Int adds an int as a structured log field, using Event.AddInt if available,
+// otherwise falling back to Event.AddField.
+func (x *Builder[E]) Int(key string, val int) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Int(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Float32(event E, key string, val float32) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.float32(event, key, val)
+	return nil
+}
+
+// Float32 adds a float32 as a structured log field, using Event.AddFloat32 if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Float32(key string, val float32) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Float32(event, key, val) })
+	}
+	return x
+}
+
+// Float32 adds a float32 as a structured log field, using Event.AddFloat32 if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Float32(key string, val float32) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Float32(x.Event, key, val)
+	}
+	return x
 }

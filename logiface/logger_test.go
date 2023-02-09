@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -210,4 +211,36 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+}
+
+func TestLoggerFactory_WithOptions_noOptions(t *testing.T) {
+	L.WithOptions()(nil)
+}
+
+func TestLoggerFactory_WithOptions_callsAllOptions(t *testing.T) {
+	var cfg loggerConfig[Event]
+	var out []int
+	L.WithOptions(
+		func(c *loggerConfig[Event]) {
+			if c != &cfg {
+				t.Error(`unexpected config`)
+			}
+			out = append(out, 1)
+		},
+		func(c *loggerConfig[Event]) {
+			if c != &cfg {
+				t.Error(`unexpected config`)
+			}
+			out = append(out, 2)
+		},
+		func(c *loggerConfig[Event]) {
+			if c != &cfg {
+				t.Error(`unexpected config`)
+			}
+			out = append(out, 3)
+		},
+	)(&cfg)
+	if !reflect.DeepEqual(out, []int{1, 2, 3}) {
+		t.Errorf(`unexpected output: %v`, out)
+	}
 }

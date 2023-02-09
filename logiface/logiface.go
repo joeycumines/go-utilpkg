@@ -6,11 +6,15 @@ import (
 
 type (
 	// Event models the integration with the logging framework.
-	// The methods Level, SetMessage, and AddField are mandatory.
+	//
+	// The methods Level and AddField are mandatory.
+	//
 	// Implementations must have a zero value that doesn't panic when calling
 	// Level, in which instance it must return LevelDisabled.
+	//
 	// All implementations must embed UnimplementedEvent, as it provides
-	// support for all optional methods.
+	// support for optional methods (and facilitates additional optional
+	// methods being added, without breaking changes).
 	Event interface {
 		// required methods
 
@@ -43,17 +47,35 @@ type (
 	// It provides implementation of methods that are optional.
 	UnimplementedEvent struct{}
 
-	LoggerImpl[E Event] interface {
-		EventFactory[E]
-		Writer[E]
-	}
-
+	// EventFactory initializes a new Event, for Logger instances.
+	//
+	// As Builder instances are pooled, implementations may need to implement
+	// EventReleaser as a way to clear references to objects that should be
+	// garbage collected.
+	//
+	// Note that it may be desirable to use a pool of events, to reduce
+	// unnecessary allocations. In this case, EventReleaser should be
+	// implemented, to return the event to the pool.
 	EventFactory[E Event] interface {
 		NewEvent(level Level) E
 	}
 
 	EventFactoryFunc[E Event] func(level Level) E
 
+	// EventReleaser is an optional implementation that may be used to either
+	// "reset" or "release" concrete implementations of Event.
+	//
+	// Use this interface to, for example, clear references to which should
+	// be garbage collected, or return references to pool(s).
+	EventReleaser[E Event] interface {
+		ReleaseEvent(event E)
+	}
+
+	EventReleaserFunc[E Event] func(event E)
+
+	// Writer writes out / finalizes an event.
+	//
+	// Event MUST NOT be retained or modified after the call.
 	Writer[E Event] interface {
 		Write(event E) error
 	}
@@ -74,8 +96,7 @@ type (
 	// that succeeds, returning the first error that isn't ErrDisabled, or
 	// ErrDisabled if every writer returns ErrDisabled (or if empty).
 	//
-	// IMPL. WARNING: ErrDisabled must be returned directly (not wrapped).
-	// USAGE WARNING: May complicate use of loggers that use sync.Pool.
+	// WARNING: ErrDisabled must be returned directly (not wrapped).
 	WriterSlice[E Event] []Writer[E]
 )
 
@@ -83,20 +104,26 @@ var (
 	// ErrDisabled is a sentinel value that can be returned by a Modifier to
 	// disable logging of the event, or by a Writer to indicate that the event
 	// was not written.
+	//
 	// It may also return from Logger.Log.
 	ErrDisabled = errors.New(`logger disabled`)
 
 	// compile time assertions
 
-	_ EventFactory[Event] = EventFactoryFunc[Event](nil)
-	_ Modifier[Event]     = ModifyFunc[Event](nil)
-	_ Writer[Event]       = WriteFunc[Event](nil)
-	_ Modifier[Event]     = ModifierSlice[Event](nil)
-	_ Writer[Event]       = WriterSlice[Event](nil)
+	_ EventFactory[Event]  = EventFactoryFunc[Event](nil)
+	_ EventReleaser[Event] = EventReleaserFunc[Event](nil)
+	_ Modifier[Event]      = ModifyFunc[Event](nil)
+	_ Writer[Event]        = WriteFunc[Event](nil)
+	_ Modifier[Event]      = ModifierSlice[Event](nil)
+	_ Writer[Event]        = WriterSlice[Event](nil)
 )
 
 func (x EventFactoryFunc[E]) NewEvent(level Level) E {
 	return x(level)
+}
+
+func (x EventReleaserFunc[E]) ReleaseEvent(event E) {
+	x(event)
 }
 
 func (x ModifyFunc[E]) Modify(event E) error {

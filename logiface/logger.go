@@ -5,57 +5,139 @@ import (
 )
 
 type (
+	// Logger is the core logger implementation, and constitutes the core
+	// functionality, provided by this package.
 	Logger[E Event] struct {
 		level    Level
 		modifier Modifier[E]
 		shared   *loggerShared[E]
 	}
 
+	// loggerShared models the shared state, common between a root Logger
+	// instance, and all it's child instances.
 	loggerShared[E Event] struct {
-		factory EventFactory[E]
-		writer  Writer[E]
-		pool    *sync.Pool
+		factory  EventFactory[E]
+		releaser EventReleaser[E]
+		writer   Writer[E]
+		pool     *sync.Pool
 	}
 
+	// Option is a configuration option for constructing Logger instances,
+	// using the New function, or it's alias(es), e.g. LoggerFactory.New.
 	Option[E Event] func(c *loggerConfig[E])
 
+	// loggerConfig is the internal configuration type used by the New function
 	loggerConfig[E Event] struct {
 		level    Level
 		factory  EventFactory[E]
+		releaser EventReleaser[E]
 		writer   Writer[E]
 		modifier Modifier[E]
 	}
+
+	// LoggerFactory provides aliases for package functions including New, as
+	// well as the functions returning Option values.
+	// This allows the Event type to be omitted from all but one location.
+	//
+	// See also L, an instance of LoggerFactory[Event]{}.
+	LoggerFactory[E Event] struct{}
 )
 
-func WithLogger[E Event](impl LoggerImpl[E]) Option[E] {
+var (
+	// L exposes New and it's Option functions (e.g. WithWriter) as
+	// methods, using the generic Event type.
+	//
+	// It's provided as a convenience.
+	L = LoggerFactory[Event]{}
+)
+
+// WithOptions combines multiple Option values into one.
+//
+// See also LoggerFactory.WithOptions and L (an instance of LoggerFactory[Event]{}).
+func WithOptions[E Event](options ...Option[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
-		c.factory = impl
-		c.writer = impl
+		for _, option := range options {
+			option(c)
+		}
 	}
 }
 
+// WithOptions is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithOptions(options ...Option[E]) Option[E] {
+	return WithOptions[E](options...)
+}
+
+// WithEventFactory configures the logger's EventFactory.
+//
+// See also LoggerFactory.WithEventFactory and L (an instance of LoggerFactory[Event]{}).
 func WithEventFactory[E Event](factory EventFactory[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
 		c.factory = factory
 	}
 }
 
+// WithEventFactory is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithEventFactory(factory EventFactory[E]) Option[E] {
+	return WithEventFactory[E](factory)
+}
+
+// WithEventReleaser configures the logger's EventReleaser.
+//
+// See also LoggerFactory.WithEventReleaser and L (an instance of LoggerFactory[Event]{}).
+func WithEventReleaser[E Event](releaser EventReleaser[E]) Option[E] {
+	return func(c *loggerConfig[E]) {
+		c.releaser = releaser
+	}
+}
+
+// WithEventReleaser is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithEventReleaser(releaser EventReleaser[E]) Option[E] {
+	return WithEventReleaser[E](releaser)
+}
+
+// WithWriter configures the logger's Writer.
+//
+// See also LoggerFactory.WithWriter and L (an instance of LoggerFactory[Event]{}).
 func WithWriter[E Event](writer Writer[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
 		c.writer = writer
 	}
 }
 
+// WithWriter is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithWriter(writer Writer[E]) Option[E] {
+	return WithWriter[E](writer)
+}
+
+// WithModifier configures the logger's Modifier.
+//
+// See also LoggerFactory.WithModifier and L (an instance of LoggerFactory[Event]{}).
 func WithModifier[E Event](modifier Modifier[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
 		c.modifier = modifier
 	}
 }
 
+// WithModifier is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithModifier(modifier Modifier[E]) Option[E] {
+	return WithModifier[E](modifier)
+}
+
+// WithLevel configures the logger's Level.
+//
+// Level will be used to filter events that are mapped to a syslog-defined level.
+// Events with a custom level will always be logged.
+//
+// See also LoggerFactory.WithLevel and L (an instance of LoggerFactory[Event]{}).
 func WithLevel[E Event](level Level) Option[E] {
 	return func(c *loggerConfig[E]) {
 		c.level = level
 	}
+}
+
+// WithLevel is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithLevel(level Level) Option[E] {
+	return WithLevel[E](level)
 }
 
 func New[E Event](options ...Option[E]) *Logger[E] {
@@ -67,8 +149,9 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 	}
 
 	shared := loggerShared[E]{
-		factory: c.factory,
-		writer:  c.writer,
+		factory:  c.factory,
+		releaser: c.releaser,
+		writer:   c.writer,
 	}
 	shared.pool = &sync.Pool{New: shared.newBuilder}
 
@@ -79,23 +162,35 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 	}
 }
 
+// New is an alias of the package function of the same name.
+//
+// See also LoggerFactory.New and L (an instance of LoggerFactory[Event]{}).
+func (LoggerFactory[E]) New(options ...Option[E]) *Logger[E] {
+	return New[E](options...)
+}
+
 // Logger returns a new generified logger.
+//
 // Use this for greater compatibility, but sacrificing ease of using the
 // underlying library directly.
 func (x *Logger[E]) Logger() *Logger[Event] {
 	if x, ok := any(x).(*Logger[Event]); ok {
 		return x
 	}
-	// TODO implement wrappers for EventFactory and Writer
+	// TODO implement wrappers for the underlying implementation to make this possible
 	panic(`not implemented`)
 }
 
+// Log directly performs a Log operation, without the "fluent builder" pattern.
 func (x *Logger[E]) Log(level Level, modifier Modifier[E]) error {
 	if !x.canLog(level) {
 		return ErrDisabled
 	}
 
 	event := x.newEvent(level)
+	if x.shared.releaser != nil {
+		defer x.shared.releaser.ReleaseEvent(event)
+	}
 
 	if x.modifier != nil {
 		if err := x.modifier.Modify(event); err != nil {
@@ -112,6 +207,10 @@ func (x *Logger[E]) Log(level Level, modifier Modifier[E]) error {
 	return x.shared.writer.Write(event)
 }
 
+// Build returns a new Builder for the given level, note that it may return nil
+// (e.g. if the level is disabled).
+//
+// See also the methods Info, Debug, etc.
 func (x *Logger[E]) Build(level Level) *Builder[E] {
 	// WARNING must mirror flow of the Log method
 
@@ -119,8 +218,17 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 		return nil
 	}
 
+	// initialise the builder
 	b := x.shared.pool.Get().(*Builder[E])
 	b.Event = x.newEvent(level)
+
+	// always release b if we don't return it
+	var returned bool
+	defer func() {
+		if !returned {
+			b.release()
+		}
+	}()
 
 	if x.modifier != nil {
 		if err := x.modifier.Modify(b.Event); err != nil {
@@ -131,9 +239,12 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 		}
 	}
 
+	returned = true
 	return b
 }
 
+// Clone returns a new Context, which is a mechanism to configure a sub-logger,
+// which will be available via Context.Logger, note that it may return nil.
 func (x *Logger[E]) Clone() *Context[E] {
 	if !x.canWrite() {
 		return nil
@@ -154,22 +265,31 @@ func (x *Logger[E]) Clone() *Context[E] {
 	return &c
 }
 
+// Emerg is an alias for Logger.Build(LevelEmergency).
 func (x *Logger[E]) Emerg() *Builder[E] { return x.Build(LevelEmergency) }
 
+// Alert is an alias for Logger.Build(LevelAlert).
 func (x *Logger[E]) Alert() *Builder[E] { return x.Build(LevelAlert) }
 
+// Crit is an alias for Logger.Build(LevelCritical).
 func (x *Logger[E]) Crit() *Builder[E] { return x.Build(LevelCritical) }
 
+// Err is an alias for Logger.Build(LevelError).
 func (x *Logger[E]) Err() *Builder[E] { return x.Build(LevelError) }
 
+// Warning is an alias for Logger.Build(LevelWarning).
 func (x *Logger[E]) Warning() *Builder[E] { return x.Build(LevelWarning) }
 
+// Notice is an alias for Logger.Build(LevelNotice).
 func (x *Logger[E]) Notice() *Builder[E] { return x.Build(LevelNotice) }
 
+// Info is an alias for Logger.Build(LevelInformational).
 func (x *Logger[E]) Info() *Builder[E] { return x.Build(LevelInformational) }
 
+// Debug is an alias for Logger.Build(LevelDebug).
 func (x *Logger[E]) Debug() *Builder[E] { return x.Build(LevelDebug) }
 
+// Trace is an alias for Logger.Build(LevelTrace).
 func (x *Logger[E]) Trace() *Builder[E] { return x.Build(LevelTrace) }
 
 func (x *Logger[E]) canWrite() bool {
