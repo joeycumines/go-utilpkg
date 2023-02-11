@@ -107,38 +107,23 @@ func (x *Event) AddFloat32(key string, val float32) bool {
 }
 
 func (x *Logger) NewEvent(level logiface.Level) *Event {
+	// note: all levels are mapped
 	if !level.Enabled() {
 		return nil
 	}
-	var z *zerolog.Event
-	switch level {
-	case logiface.LevelTrace:
-		z = x.Z.Trace()
-	case logiface.LevelDebug:
-		z = x.Z.Debug()
-	case logiface.LevelInformational:
-		z = x.Z.Info()
-	case logiface.LevelNotice:
-		z = x.Z.Warn()
-	case logiface.LevelWarning:
-		z = x.Z.Warn()
-	case logiface.LevelError:
-		z = x.Z.Error()
-	case logiface.LevelCritical:
-		z = x.Z.Fatal()
-	case logiface.LevelAlert:
-		z = x.Z.Fatal()
-	case logiface.LevelEmergency:
-		z = x.Z.Panic()
-	default:
-		// >= 9, translate to numeric levels in zerolog
-		// (9 -> -2, 10 -> -3, etc)
-		// WARNING: there are 8 levels unaddressable using this mechanism
-		z = x.Z.WithLevel(zerolog.Level(7 - level))
+
+	// map the levels, initialize the zerolog.Event
+	z := x.newEvent(level)
+	if z == nil {
+		// no point in allocating an event, it won't be able to do anything
+		// useful, anyway
+		return nil
 	}
+
 	event := Pool.Get().(*Event)
 	event.lvl = level
 	event.Z = z
+
 	return event
 }
 
@@ -150,4 +135,43 @@ func (x *Logger) ReleaseEvent(event *Event) {
 func (x *Logger) Write(event *Event) error {
 	event.Z.Msg(event.msg)
 	return nil
+}
+
+// newEvent maps the logiface levels to zerolog levels
+// see also the recommended mappings documented on logiface.Level
+func (x *Logger) newEvent(level logiface.Level) *zerolog.Event {
+	switch level {
+	case logiface.LevelTrace:
+		return x.Z.Trace()
+
+	case logiface.LevelDebug:
+		return x.Z.Debug()
+
+	case logiface.LevelInformational:
+		return x.Z.Info()
+
+	case logiface.LevelNotice:
+		return x.Z.Warn()
+
+	case logiface.LevelWarning:
+		return x.Z.Warn()
+
+	case logiface.LevelError:
+		return x.Z.Error()
+
+	case logiface.LevelCritical:
+		return x.Z.Error()
+
+	case logiface.LevelAlert:
+		return x.Z.Fatal()
+
+	case logiface.LevelEmergency:
+		return x.Z.Panic()
+
+	default:
+		// >= 9, translate to numeric levels in zerolog
+		// (9 -> -2, 10 -> -3, etc)
+		// WARNING: there are 8 levels unaddressable using this mechanism
+		return x.Z.WithLevel(zerolog.Level(7 - level))
+	}
 }

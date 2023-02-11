@@ -11,7 +11,8 @@ GODOC ?= godoc
 GODOC_FLAGS ?= -http=:6060
 STATICCHECK ?= staticcheck
 STATICCHECK_FLAGS ?=
-LIST_TOOLS = grep -P '^\t_' tools.go | cut -d '"' -f 2
+LIST_TOOLS = [ ! -e tools.go ] || grep -P '^\t_' tools.go | cut -d '"' -f 2
+LIST_WORKSPACES = grep -P '^\t\./' go.work | cut -d '	' -f 2
 
 .PHONY: all
 all: lint build test
@@ -23,24 +24,34 @@ clean:
 lint: vet staticcheck
 
 .PHONY: vet
-vet: vet-root vet-logiface vet-logiface-zerolog
+vet: vet-root vet-logiface vet-logiface-zerolog vet-logiface-logrus
 
 .PHONY: staticcheck
-staticcheck: staticcheck-root staticcheck-logiface staticcheck-logiface-zerolog
+staticcheck: staticcheck-root staticcheck-logiface staticcheck-logiface-zerolog staticcheck-logiface-logrus
 
 .PHONY: build
-build: build-root build-logiface build-logiface-zerolog
+build: build-root build-logiface build-logiface-zerolog build-logiface-logrus
 
 .PHONY: test
-test: test-root test-logiface test-logiface-zerolog
+test: test-root test-logiface test-logiface-zerolog test-logiface-logrus
 
 .PHONY: fmt
-fmt: fmt-root fmt-logiface fmt-logiface-zerolog
+fmt: fmt-root fmt-logiface fmt-logiface-zerolog fmt-logiface-logrus
 
 .PHONY: godoc
 godoc:
 	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/github.com/joeycumines/go-utilpkg/'
 	$(GODOC) $(GODOC_FLAGS)
+
+# use this to run on workspaces
+WORK_TARGETS ?=
+.PHONY: work
+work:
+	@for w in $$($(LIST_WORKSPACES)); do \
+		for t in $(WORK_TARGETS); do \
+			$(MAKE) -f '$(abspath $(lastword $(MAKEFILE_LIST)))' -C "$$w" "$$t"; \
+		done; \
+    done
 
 # this won't work on all systems
 .PHONY: update
@@ -124,5 +135,27 @@ test-logiface-zerolog:
 .PHONY: fmt-logiface-zerolog
 fmt-logiface-zerolog:
 	cd logiface/zerolog && $(GO_FMT) ./...
+
+# ---
+
+.PHONY: vet-logiface-logrus
+vet-logiface-logrus:
+	$(GO_VET) ./logiface/logrus/...
+
+.PHONY: staticcheck-logiface-logrus
+staticcheck-logiface-logrus:
+	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/logrus/...
+
+.PHONY: build-logiface-logrus
+build-logiface-logrus:
+	$(GO_BUILD) ./logiface/logrus/...
+
+.PHONY: test-logiface-logrus
+test-logiface-logrus:
+	$(GO_TEST) ./logiface/logrus/...
+
+.PHONY: fmt-logiface-logrus
+fmt-logiface-logrus:
+	cd logiface/logrus && $(GO_FMT) ./...
 
 # ---

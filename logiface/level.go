@@ -5,16 +5,61 @@ import (
 )
 
 const (
+	// LevelDisabled is a special value that disables logging.
 	LevelDisabled Level = iota - 1
+
+	// LevelEmergency is a syslog level.
+	// Indicates that the system is unusable, a panic condition.
+	//
+	// This log level should be used with caution, as it tends to be mapped to
+	// "panic", which, in at least several logger implementations, will call
+	// panic(). See also the recommended mappings, documented under Level.
 	LevelEmergency
+
+	// LevelAlert is a syslog level.
+	// Indicates that action must be taken immediately, or a condition that
+	// should be corrected immediately, such as a corrupted system database.
+	//
+	// This log level should be used with caution, as it tends to be mapped to
+	// "fatal", which, in at least several logger implementations, will call
+	// os.Exit(1). See also the recommended mappings, documented under Level.
 	LevelAlert
+
+	// LevelCritical is a syslog level.
+	// Indicates critical conditions, such as hard device errors.
 	LevelCritical
+
+	// LevelError is a syslog level.
+	// Indicates error conditions.
 	LevelError
+
+	// LevelWarning is a syslog level.
+	// Indicates warning conditions.
 	LevelWarning
+
+	// LevelNotice is a syslog level.
+	// Indicates normal but significant conditions, which may require special
+	// handling or attention, such as startup messages.
 	LevelNotice
+
+	// LevelInformational is a syslog level.
+	// Indicates informational messages, which confirm that the program is
+	// working as expected.
 	LevelInformational
+
+	// LevelDebug is a syslog level.
+	// Indicates a message contains information normally of use only when
+	// debugging a program.
 	LevelDebug
+
+	// LevelTrace is not a syslog level, and is intended to be used only when
+	// running using abnormal output mechanisms (e.g. a dedicated log file, as
+	// part of a debugging session).
+	// It is expected to be more verbose than LevelDebug, but serves a similar
+	// purpose.
 	LevelTrace
+
+	// the rest are custom log levels
 )
 
 type (
@@ -40,6 +85,19 @@ type (
 	//
 	// [9] https://linux.die.net/man/5/syslog.conf
 	// [10] https://pubs.opengroup.org/onlinepubs/009695399/functions/syslog.html
+	//
+	// Regarding mapping, to log levels in other systems, the recommended
+	// approach is:
+	//
+	// 	LevelEmergency	=>	PANIC
+	// 	LevelAlert		=>	FATAL
+	// 	LevelCritical	=>	ERROR
+	// 	LevelError		=>	ERROR
+	// 	LevelWarning	=>	WARN
+	// 	LevelNotice		=>	WARN
+	// 	LevelInformational	=>	INFO
+	// 	LevelDebug		=>	DEBUG
+	// 	LevelTrace		=>	TRACE (or disabled)
 	Level int8
 )
 
@@ -73,6 +131,12 @@ func (x Level) String() string {
 
 // Enabled returns true if the Level is enabled (greater than or equal to 0).
 func (x Level) Enabled() bool { return x > LevelDisabled }
+
+// Custom returns true if the Level is a custom level (greater than LevelTrace).
+func (x Level) Custom() bool { return x > LevelTrace }
+
+// Syslog returns true if the Level is a syslog level.
+func (x Level) Syslog() bool { return x >= LevelEmergency && x <= LevelDebug }
 
 // for convenience, expose the level enums as methods on LoggerFactory
 

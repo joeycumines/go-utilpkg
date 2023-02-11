@@ -64,6 +64,19 @@ func (x *Context[E]) ok() bool {
 	return x != nil && x.logger != nil
 }
 
+// Call is provided as a convenience, to facilitate code which uses the
+// receiver explicitly, without breaking out of the fluent-style API.
+//
+// Example use cases include access of the underlying Event implementation (to
+// utilize functionality not mapped by logiface), or to skip building /
+// formatting certain fields, based on if `b.Event.Level().Enabled()`.
+//
+// This method is not implemented by Context.
+func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
+	fn(x)
+	return x
+}
+
 // Log logs an event, with the given message, using the provided level and
 // modifier, if the relevant conditions are met (e.g. configured log level).
 //
