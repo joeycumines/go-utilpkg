@@ -149,6 +149,7 @@ _update: GO_TOOLS := $(shell $(LIST_TOOLS))
 _update:
 	$(GO) get -u -t ./...
 	$(foreach tool,$(GO_TOOLS),$(_update_TEMPLATE))
+	$(GO) mod tidy
 define _update_TEMPLATE =
 	$(GO) get -u $(tool)
 
