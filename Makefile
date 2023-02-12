@@ -39,7 +39,7 @@ go_module_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
 ifeq ($(OS),Windows_NT)
 	LIST_TOOLS := if exist tools.go (for /f tokens^=2^ delims^=^" %%a in ('findstr /r "^[\t ]*_ " tools.go') do echo %%a)
 else
-	LIST_TOOLS ?= [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
+	LIST_TOOLS := [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
 endif
 
 # ---
