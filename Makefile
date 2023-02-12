@@ -54,9 +54,19 @@ ALL_TARGETS = $(addprefix all.,$(GO_MODULE_SLUGS))
 all: $(ALL_TARGETS)
 
 .PHONY: $(ALL_TARGETS)
-$(ALL_TARGETS): all.%:
+$(ALL_TARGETS): all.%: _all__build.% _all__lint.% _all__test.%
+
+.PHONY: $(addprefix _all__build.,$(GO_MODULE_SLUGS))
+$(addprefix _all__build.,$(GO_MODULE_SLUGS)): _all__build.%:
 	@$(MAKE) --no-print-directory build.$*
-	@$(MAKE) --no-print-directory lint.$* test.$*
+
+.PHONY: $(addprefix _all__lint.,$(GO_MODULE_SLUGS))
+$(addprefix _all__lint.,$(GO_MODULE_SLUGS)): _all__lint.%: _all__build.%
+	@$(MAKE) --no-print-directory lint.$*
+
+.PHONY: $(addprefix _all__test.,$(GO_MODULE_SLUGS))
+$(addprefix _all__test.,$(GO_MODULE_SLUGS)): _all__test.%: _all__build.%
+	@$(MAKE) --no-print-directory test.$*
 
 # lint: runs the vet and staticcheck targets
 
