@@ -1,5 +1,9 @@
 -include config.mak
 
+# ---
+
+# intended to be configurable via config.mak
+
 GO ?= go
 GO_FLAGS ?=
 GO_TEST_FLAGS ?=
@@ -11,151 +15,177 @@ GODOC ?= godoc
 GODOC_FLAGS ?= -http=:6060
 STATICCHECK ?= staticcheck
 STATICCHECK_FLAGS ?=
-LIST_TOOLS = [ ! -e tools.go ] || grep -P '^\t_' tools.go | cut -d '"' -f 2
-LIST_WORKSPACES = grep -P '^\t\./' go.work | cut -d '	' -f 2
+
+# ---
+
+# recursive wildcard match function, $1 is the directory to search, $2 is the pattern to match
+# note 1: $1 requires a trailing slash
+# note 2: $2 does not support multiple wildcards
+rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+
+ROOT_MAKEFILE = $(abspath $(lastword $(MAKEFILE_LIST)))
+
+# note 1: paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
+GO_MODULE_PATHS = $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
+# example: root logiface logiface.logrus logiface.testsuite logiface.zerolog
+GO_MODULE_SLUGS = $(patsubst root.%,%,$(subst /,.,$(subst .,root,$(GO_MODULE_PATHS))))
+# the below are used to special-case tools which fail if they find no packages (e.g. go vet)
+# TODO update this if the root module gets packages
+GO_MODULE_SLUGS_NO_PACKAGES = root
+GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
+# resolves a go module path from a slog, e.g. logiface.logrus -> logiface/logrus, with special case for root
+go_module_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
+
+ifeq ($(OS),Windows_NT)
+	LIST_TOOLS := if exist tools.go (for /f tokens^=2^ delims^=^" %%a in ('findstr /r "^[\t ]*_ " tools.go') do echo %%a)
+else
+	LIST_TOOLS ?= [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
+endif
+
+# ---
+
+# module pattern rules
+
+# all: builds, then lints and tests in parallel (all modules in parallel)
+
+ALL_TARGETS = $(addprefix all.,$(GO_MODULE_SLUGS))
 
 .PHONY: all
-all: lint build test
+all: $(ALL_TARGETS)
+
+.PHONY: $(ALL_TARGETS)
+$(ALL_TARGETS): all.%:
+	@$(MAKE) --no-print-directory build.$*
+	@$(MAKE) --no-print-directory lint.$* test.$*
+
+# lint: runs the vet and staticcheck targets
+
+LINT_TARGETS = $(addprefix lint.,$(GO_MODULE_SLUGS))
+
+.PHONY: lint
+lint: $(LINT_TARGETS)
+
+.PHONY: $(LINT_TARGETS)
+$(LINT_TARGETS): lint.%: vet.% staticcheck.%
+
+# staticcheck: runs the staticcheck tool
+
+STATICCHECK_TARGETS = $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
+
+.PHONY: staticcheck
+staticcheck: $(STATICCHECK_TARGETS)
+
+.PHONY: $(STATICCHECK_TARGETS)
+$(STATICCHECK_TARGETS): staticcheck.%:
+	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_path,$*)/...
+
+# vet: runs the go vet tool
+
+VET_TARGETS = $(addprefix vet.,$(GO_MODULE_SLUGS))
+
+.PHONY: vet
+vet: $(VET_TARGETS)
+
+.PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
+	$(GO_VET) $(call go_module_path,$*)/...
+
+.PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
+
+# build: runs the go build tool
+
+BUILD_TARGETS = $(addprefix build.,$(GO_MODULE_SLUGS))
+
+.PHONY: build
+build: $(BUILD_TARGETS)
+
+.PHONY: $(BUILD_TARGETS)
+$(BUILD_TARGETS): build.%:
+	$(GO_BUILD) $(call go_module_path,$*)/...
+
+# test: runs the go test tool
+
+TEST_TARGETS = $(addprefix test.,$(GO_MODULE_SLUGS))
+
+.PHONY: test
+test: $(TEST_TARGETS)
+
+.PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
+	$(GO_TEST) $(call go_module_path,$*)/...
+
+.PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
+
+# fmt: runs go fmt on the module
+
+FMT_TARGETS = $(addprefix fmt.,$(GO_MODULE_SLUGS))
+
+.PHONY: fmt
+fmt: $(FMT_TARGETS)
+
+.PHONY: $(FMT_TARGETS)
+$(FMT_TARGETS): fmt.%:
+	$(MAKE) -s -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _fmt
+
+.PHONY: _fmt
+_fmt:
+	$(GO_FMT) ./...
+
+# update: runs go get -u -t ./... and go get -u on all tools
+
+UPDATE_TARGETS = $(addprefix update.,$(GO_MODULE_SLUGS))
+
+.PHONY: update
+update: $(UPDATE_TARGETS)
+
+.PHONY: $(UPDATE_TARGETS)
+$(UPDATE_TARGETS): update.%:
+	@$(MAKE) -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _update
+
+.PHONY: _update
+_update: GO_TOOLS := $(shell $(LIST_TOOLS))
+_update:
+	$(GO) get -u -t ./...
+	$(foreach tool,$(GO_TOOLS),$(_update_TEMPLATE))
+define _update_TEMPLATE =
+	$(GO) get -u $(tool)
+
+endef
+
+# tools: runs go install on all tools
+
+TOOLS_TARGETS = $(addprefix tools.,$(GO_MODULE_SLUGS))
+
+.PHONY: tools
+tools: $(TOOLS_TARGETS)
+
+.PHONY: $(TOOLS_TARGETS)
+$(TOOLS_TARGETS): tools.%:
+	$(MAKE) --no-print-directory -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _tools
+
+.PHONY: _tools
+_tools: GO_TOOLS := $(shell $(LIST_TOOLS))
+_tools:
+	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
+define _tools_TEMPLATE =
+	$(GO) install $(tool)
+
+endef
+
+# ---
 
 .PHONY: clean
 clean:
-
-.PHONY: lint
-lint: vet staticcheck
-
-.PHONY: vet
-vet: vet-root vet-logiface vet-logiface-zerolog vet-logiface-logrus
-
-.PHONY: staticcheck
-staticcheck: staticcheck-root staticcheck-logiface staticcheck-logiface-zerolog staticcheck-logiface-logrus
-
-.PHONY: build
-build: build-root build-logiface build-logiface-zerolog build-logiface-logrus
-
-.PHONY: test
-test: test-root test-logiface test-logiface-zerolog test-logiface-logrus
-
-.PHONY: fmt
-fmt: fmt-root fmt-logiface fmt-logiface-zerolog fmt-logiface-logrus
 
 .PHONY: godoc
 godoc:
 	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/github.com/joeycumines/go-utilpkg/'
 	$(GODOC) $(GODOC_FLAGS)
 
-# use this to run on workspaces
-WORK_TARGETS ?=
-.PHONY: work
-work:
-	@for w in $$($(LIST_WORKSPACES)); do \
-		for t in $(WORK_TARGETS); do \
-			$(MAKE) -f '$(abspath $(lastword $(MAKEFILE_LIST)))' -C "$$w" "$$t"; \
-		done; \
-    done
-
-# this won't work on all systems
-.PHONY: update
-update:
-	$(GO) get -u -t ./...
-	run_command() { echo "$$@" && "$$@"; } && \
-		$(LIST_TOOLS) | \
-		while read -r line; do run_command $(GO) get -u "$$line" || exit 1; done
-	$(GO) mod tidy
-
-# this won't work on all systems
-.PHONY: tools
-tools:
-	export CGO_ENABLED=0 && \
-		run_command() { echo "$$@" && "$$@"; } && \
-		$(LIST_TOOLS) | \
-		while read -r line; do run_command $(GO) install "$$line" || exit 1; done
-
-# ---
-
-.PHONY: vet-root
-vet-root:
-	#$(GO_VET) ./...
-
-.PHONY: build-root
-build-root:
-	#$(GO_BUILD) ./...
-
-.PHONY: staticcheck-root
-staticcheck-root:
-	#$(STATICCHECK) $(STATICCHECK_FLAGS) ./...
-
-.PHONY: test-root
-test-root:
-	#$(GO_TEST) ./...
-
-.PHONY: fmt-root
-fmt-root:
-	#$(GO_FMT) ./...
-
-# ---
-
-.PHONY: vet-logiface
-vet-logiface:
-	$(GO_VET) ./logiface/...
-
-.PHONY: staticcheck-logiface
-staticcheck-logiface:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/...
-
-.PHONY: build-logiface
-build-logiface:
-	$(GO_BUILD) ./logiface/...
-
-.PHONY: test-logiface
-test-logiface:
-	$(GO_TEST) ./logiface/...
-
-.PHONY: fmt-logiface
-fmt-logiface:
-	cd logiface && $(GO_FMT) ./...
-
-# ---
-
-.PHONY: vet-logiface-zerolog
-vet-logiface-zerolog:
-	$(GO_VET) ./logiface/zerolog/...
-
-.PHONY: staticcheck-logiface-zerolog
-staticcheck-logiface-zerolog:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/zerolog/...
-
-.PHONY: build-logiface-zerolog
-build-logiface-zerolog:
-	$(GO_BUILD) ./logiface/zerolog/...
-
-.PHONY: test-logiface-zerolog
-test-logiface-zerolog:
-	$(GO_TEST) ./logiface/zerolog/...
-
-.PHONY: fmt-logiface-zerolog
-fmt-logiface-zerolog:
-	cd logiface/zerolog && $(GO_FMT) ./...
-
-# ---
-
-.PHONY: vet-logiface-logrus
-vet-logiface-logrus:
-	$(GO_VET) ./logiface/logrus/...
-
-.PHONY: staticcheck-logiface-logrus
-staticcheck-logiface-logrus:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./logiface/logrus/...
-
-.PHONY: build-logiface-logrus
-build-logiface-logrus:
-	$(GO_BUILD) ./logiface/logrus/...
-
-.PHONY: test-logiface-logrus
-test-logiface-logrus:
-	$(GO_TEST) ./logiface/logrus/...
-
-.PHONY: fmt-logiface-logrus
-fmt-logiface-logrus:
-	cd logiface/logrus && $(GO_FMT) ./...
-
-# ---
+.PHONY: debug-env
+debug-env:
+	@echo GO_MODULE_PATHS = $(GO_MODULE_PATHS)
+	@echo GO_MODULE_SLUGS = $(GO_MODULE_SLUGS)
+	@echo go_module_path = $(foreach d,$(GO_MODULE_SLUGS),$d=$(call go_module_path,$d))
