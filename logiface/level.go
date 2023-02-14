@@ -70,34 +70,39 @@ type (
 	// expected to use abnormal output mechanisms (e.g. a separate log file).
 	// Negative values are treated as disabled, see also LevelDisabled.
 	//
-	// Severity level
-	// The list of severities is also described by the standard:
+	// Also supported are "custom levels" which are positive integer values,
+	// from 9 to 127, inclusive. Custom levels are handled differently than
+	// regular levels, in that they are not affected by the log level set on
+	// the Logger.
 	//
-	// Value	Severity	Keyword	Deprecated keywords	Description	Condition
-	// 0	Emergency	emerg	panic[9]	System is unusable	A panic condition.[10]
-	// 1	Alert	alert		Action must be taken immediately	A condition that should be corrected immediately, such as a corrupted system database.[10]
-	// 2	Critical	crit		Critical conditions	Hard device errors.[10]
-	// 3	Error	err	error[9]	Error conditions
-	// 4	Warning	warning	warn[9]	Warning conditions
-	// 5	Notice	notice		Normal but significant conditions	Conditions that are not error conditions, but that may require special handling.[10]
-	// 6	Informational	info		Informational messages	Confirmation that the program is working as expected.
-	// 7	Debug	debug		Debug-level messages	Messages that contain information normally of use only when debugging a program.[10]
+	// # Syslog severity levels
 	//
-	// [9] https://linux.die.net/man/5/syslog.conf
-	// [10] https://pubs.opengroup.org/onlinepubs/009695399/functions/syslog.html
+	//  Value	Severity	Keyword	Deprecated keywords	Description	Condition
+	//  0	Emergency	emerg	panic[9]	System is unusable	A panic condition.[10]
+	//  1	Alert	alert		Action must be taken immediately	A condition that should be corrected immediately, such as a corrupted system database.[10]
+	//  2	Critical	crit		Critical conditions	Hard device errors.[10]
+	//  3	Error	err	error[9]	Error conditions
+	//  4	Warning	warning	warn[9]	Warning conditions
+	//  5	Notice	notice		Normal but significant conditions	Conditions that are not error conditions, but that may require special handling.[10]
+	//  6	Informational	info		Informational messages	Confirmation that the program is working as expected.
+	//  7	Debug	debug		Debug-level messages	Messages that contain information normally of use only when debugging a program.[10]
+	//
+	//   - [9] https://linux.die.net/man/5/syslog.conf
+	//   - [10] https://pubs.opengroup.org/onlinepubs/009695399/functions/syslog.html
+	//
+	// # Mapping levels to logger implementations
 	//
 	// Regarding mapping, to log levels in other systems, the recommended
 	// approach is:
-	//
-	// 	LevelEmergency	=>	PANIC
-	// 	LevelAlert		=>	FATAL
-	// 	LevelCritical	=>	ERROR
-	// 	LevelError		=>	ERROR
-	// 	LevelWarning	=>	WARN
-	// 	LevelNotice		=>	WARN
-	// 	LevelInformational	=>	INFO
-	// 	LevelDebug		=>	DEBUG
-	// 	LevelTrace		=>	TRACE (or disabled)
+	//   - LevelEmergency => PANIC
+	//   - LevelAlert => FATAL
+	//   - LevelCritical => ERROR
+	//   - LevelError => ERROR
+	//   - LevelWarning => WARN
+	//   - LevelNotice => WARN
+	//   - LevelInformational => INFO
+	//   - LevelDebug => DEBUG
+	//   - LevelTrace => TRACE (or disabled)
 	Level int8
 )
 
