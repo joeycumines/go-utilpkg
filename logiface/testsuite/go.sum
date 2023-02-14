@@ -1,6 +1,10 @@
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230212040836-2098e4ad1fb0 h1:Z5TLRc8PjFURGA/nrxRfWhBv5w0XfmJa0yi3q42KMB4=
-github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230212040836-2098e4ad1fb0/go.mod h1:oiMvBxsJ12/gYlJEXLV+kxltbfa2uX3F/qV9UoVQcnM=
+github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230214142422-fa4ca4db0124 h1:lea6AowGWAIrSnorOR1GkqkM6QjqBYlZuBdHxYmaeWE=
+github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230214142422-fa4ca4db0124/go.mod h1:p50wQFq+IZUtGRFYgHV4cM4eQx6Xbn7BlffY2GahopY=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb h1:PaBZQdo+iSDyHT053FjUCgZQ/9uqVwPOcl7KSWhKn6w=
 golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb/go.mod h1:CxIveKay+FTh1D0yPZemJVgC/95VzuuOLq5Qi4xnoYc=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

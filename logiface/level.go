@@ -87,8 +87,8 @@ type (
 	//  6	Informational	info		Informational messages	Confirmation that the program is working as expected.
 	//  7	Debug	debug		Debug-level messages	Messages that contain information normally of use only when debugging a program.[10]
 	//
-	//   - [9] https://linux.die.net/man/5/syslog.conf
-	//   - [10] https://pubs.opengroup.org/onlinepubs/009695399/functions/syslog.html
+	//  [9] https://linux.die.net/man/5/syslog.conf
+	//  [10] https://pubs.opengroup.org/onlinepubs/009695399/functions/syslog.html
 	//
 	// # Mapping levels to logger implementations
 	//
