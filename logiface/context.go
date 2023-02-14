@@ -33,7 +33,11 @@ type (
 	// implementations such as Err and Str, that utilize the other Event.Add*
 	// methods (if implemented), with well-defined fallback behavior.
 	Builder[E Event] struct {
-		Event   E
+		Event E
+
+		// WARNING: If additional fields are added, they may need to be released
+		// (see Builder.release)
+
 		methods modifierMethods[E]
 		shared  *loggerShared[E]
 	}
@@ -86,7 +90,7 @@ func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) Log(msg string) {
-	if x == nil {
+	if !x.ok() {
 		return
 	}
 	defer x.release()
@@ -104,7 +108,7 @@ func (x *Builder[E]) Log(msg string) {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) Logf(format string, args ...any) {
-	if x == nil {
+	if !x.ok() {
 		return
 	}
 	defer x.release()
@@ -126,7 +130,7 @@ func (x *Builder[E]) Logf(format string, args ...any) {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) LogFunc(fn func() string) {
-	if x == nil {
+	if !x.ok() {
 		return
 	}
 	defer x.release()
@@ -143,11 +147,12 @@ func (x *Builder[E]) log(msg string) {
 }
 
 func (x *Builder[E]) release() {
-	if x.shared != nil {
-		if x.shared.releaser != nil {
-			x.shared.releaser.ReleaseEvent(x.Event)
+	if shared := x.shared; shared != nil {
+		x.shared = nil
+		if shared.releaser != nil {
+			shared.releaser.ReleaseEvent(x.Event)
 		}
-		x.shared.pool.Put(x)
+		shared.pool.Put(x)
 	}
 }
 

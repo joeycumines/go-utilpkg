@@ -232,6 +232,7 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 	// initialise the builder
 	b := x.shared.pool.Get().(*Builder[E])
 	b.Event = x.newEvent(level)
+	b.shared = x.shared
 
 	// always release b if we don't return it
 	var returned bool
