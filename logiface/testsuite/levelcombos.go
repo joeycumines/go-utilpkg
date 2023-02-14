@@ -25,13 +25,13 @@ func logLevelCombinations() (combinations map[struct {
 			}
 
 			switch {
-			case logger < 0 || arg < 0:
-				// if either are disabled, the log is disabled
-				a(false)
-
 			case arg > 8:
 				// if the arg level is a custom one, it's enabled
 				a(true)
+
+			case logger < 0 || arg < 0:
+				// for non-custom levels, if either are disabled, the log is disabled
+				a(false)
 
 			case logger == arg:
 				// if they are equal, it's enabled

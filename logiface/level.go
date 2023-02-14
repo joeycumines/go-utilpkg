@@ -73,9 +73,7 @@ type (
 	// Also supported are "custom levels" which are positive integer values,
 	// from 9 to 127, inclusive. Custom levels are handled differently than
 	// regular levels, in that they are not affected by the log level set on
-	// the Logger, excepting that a logger set to LevelDisabled will not log
-	// anything. Specifically, custom levels ignore the check for whether the
-	// log level is <= the logger level.
+	// the Logger.
 	//
 	// # Syslog severity levels
 	//

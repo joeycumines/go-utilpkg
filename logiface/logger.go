@@ -312,7 +312,6 @@ func (x *Logger[E]) canWrite() bool {
 func (x *Logger[E]) canLog(level Level) bool {
 	return x.canWrite() &&
 		level.Enabled() &&
-		x.level.Enabled() &&
 		(level <= x.level || level > LevelTrace)
 }
 
