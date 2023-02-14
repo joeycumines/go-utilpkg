@@ -136,7 +136,7 @@ func (x *Builder[E]) LogFunc(fn func() string) {
 }
 
 func (x *Builder[E]) log(msg string) {
-	if !x.Event.AddMessage(msg) {
+	if msg != `` && !x.Event.AddMessage(msg) {
 		x.Event.AddField(`msg`, msg)
 	}
 	_ = x.shared.writer.Write(x.Event)
