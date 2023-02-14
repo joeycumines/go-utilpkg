@@ -55,7 +55,7 @@ func (x *Context[E]) Logger() *Logger[E] {
 	return x.logger
 }
 
-func (x *Context[E]) add(fn ModifyFunc[E]) {
+func (x *Context[E]) add(fn ModifierFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
 }
 

@@ -4,5 +4,6 @@ use (
 	.
 	./logiface
 	./logiface/logrus
+	./logiface/testsuite
 	./logiface/zerolog
 )

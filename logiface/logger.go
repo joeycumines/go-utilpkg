@@ -31,8 +31,8 @@ type (
 		level    Level
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
-		writer   Writer[E]
-		modifier Modifier[E]
+		writer   WriterSlice[E]
+		modifier ModifierSlice[E]
 	}
 
 	// LoggerFactory provides aliases for package functions including New, as
@@ -95,12 +95,14 @@ func (LoggerFactory[E]) WithEventReleaser(releaser EventReleaser[E]) Option[E] {
 	return WithEventReleaser[E](releaser)
 }
 
-// WithWriter configures the logger's Writer.
+// WithWriter configures the logger's Writer, prepending it to an internal
+// WriterSlice.
 //
 // See also LoggerFactory.WithWriter and L (an instance of LoggerFactory[Event]{}).
 func WithWriter[E Event](writer Writer[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
-		c.writer = writer
+		// note: reversed on init
+		c.writer = append(c.writer, writer)
 	}
 }
 
@@ -109,12 +111,14 @@ func (LoggerFactory[E]) WithWriter(writer Writer[E]) Option[E] {
 	return WithWriter[E](writer)
 }
 
-// WithModifier configures the logger's Modifier.
+// WithModifier configures the logger's Modifier, prepending it to an internal
+// ModifierSlice.
 //
 // See also LoggerFactory.WithModifier and L (an instance of LoggerFactory[Event]{}).
 func WithModifier[E Event](modifier Modifier[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
-		c.modifier = modifier
+		// note: reversed on init
+		c.modifier = append(c.modifier, modifier)
 	}
 }
 
@@ -140,6 +144,13 @@ func (LoggerFactory[E]) WithLevel(level Level) Option[E] {
 	return WithLevel[E](level)
 }
 
+// New constructs a new Logger instance.
+//
+// Configure the logger using either the With* prefixed functions (or methods
+// of LoggerFactory, e.g. accessible via the L global), or via composite
+// options, implemented in external packages, e.g. logger integrations.
+//
+// See also LoggerFactory.New and L (an instance of LoggerFactory[Event]{}).
 func New[E Event](options ...Option[E]) *Logger[E] {
 	c := loggerConfig[E]{
 		level: LevelInformational,
@@ -151,12 +162,12 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 	shared := loggerShared[E]{
 		factory:  c.factory,
 		releaser: c.releaser,
-		writer:   c.writer,
+		writer:   c.resolveWriter(),
 	}
 	shared.pool = &sync.Pool{New: shared.newBuilder}
 
 	return &Logger[E]{
-		modifier: c.modifier,
+		modifier: c.resolveModifier(),
 		level:    c.level,
 		shared:   &shared,
 	}
@@ -256,7 +267,7 @@ func (x *Logger[E]) Clone() *Context[E] {
 	}
 	c.logger = &Logger[E]{
 		level: x.level,
-		modifier: ModifyFunc[E](func(event E) error {
+		modifier: ModifierFunc[E](func(event E) error {
 			return c.Modifiers.Modify(event)
 		}),
 		shared: x.shared,
@@ -313,4 +324,34 @@ func (x *Logger[E]) newEvent(level Level) (event E) {
 
 func (x *loggerShared[E]) newBuilder() any {
 	return &Builder[E]{shared: x}
+}
+
+func (x *loggerConfig[E]) resolveWriter() Writer[E] {
+	switch len(x.writer) {
+	case 0:
+		return nil
+	case 1:
+		return x.writer[0]
+	default:
+		reverseSlice(x.writer)
+		return x.writer
+	}
+}
+
+func (x *loggerConfig[E]) resolveModifier() Modifier[E] {
+	switch len(x.modifier) {
+	case 0:
+		return nil
+	case 1:
+		return x.modifier[0]
+	default:
+		reverseSlice(x.modifier)
+		return x.modifier
+	}
+}
+
+func reverseSlice[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }

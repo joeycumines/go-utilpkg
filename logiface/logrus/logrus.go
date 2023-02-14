@@ -46,6 +46,9 @@ var (
 	// Must contain only non-nil *Event values, with an associated non-nil
 	// *logrus.Entry, and non-nil logrus.Fields, note that all fields
 	// (including the fields map) must be reset, prior to putting events back.
+	//
+	// WARNING: "all fields reset" includes all three levels (Event,
+	// Event.Entry, and Event.Entry.Data).
 	Pool = sync.Pool{New: func() any {
 		return &Event{Entry: &logrus.Entry{
 			Data: make(logrus.Fields, 6),
@@ -106,10 +109,6 @@ func (x *Event) AddError(err error) bool {
 }
 
 func (x *Logger) NewEvent(level logiface.Level) *Event {
-	if !level.Enabled() {
-		return nil
-	}
-
 	// we _could_ check if the log level is enabled in the _logrus_ logger,
 	// but, unlike the zerolog implementation, the entry could potentially be
 	// used in conjunction with an external writer, since the check is only
@@ -125,17 +124,12 @@ func (x *Logger) NewEvent(level logiface.Level) *Event {
 func (x *Logger) ReleaseEvent(event *Event) {
 	maps.Clear(event.Entry.Data)
 	*event.Entry = logrus.Entry{Data: event.Entry.Data}
+	*event = Event{Entry: event.Entry}
 	Pool.Put(event)
 }
 
 func (x *Logger) Write(event *Event) error {
 	level := event.Level()
-	if !level.Enabled() {
-		// note that this isn't strictly necessary - it should never
-		// occur in implementations that aren't calling this directly
-		// (see the guard in Logger.NewEvent)
-		return logiface.ErrDisabled
-	}
 
 	// TODO consider strategy for supporting and/or exposing custom levels
 	logrusLevel, ok := toLogrusLevel(level)

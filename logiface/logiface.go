@@ -60,6 +60,7 @@ type (
 		NewEvent(level Level) E
 	}
 
+	// EventFactoryFunc implements EventFactory.
 	EventFactoryFunc[E Event] func(level Level) E
 
 	// EventReleaser is an optional implementation that may be used to either
@@ -71,6 +72,7 @@ type (
 		ReleaseEvent(event E)
 	}
 
+	// EventReleaserFunc implements EventReleaser.
 	EventReleaserFunc[E Event] func(event E)
 
 	// Writer writes out / finalizes an event.
@@ -80,13 +82,17 @@ type (
 		Write(event E) error
 	}
 
+	// Modifier is used to model the configuration of a log event, e.g. adding
+	// fields, including the message.
 	Modifier[E Event] interface {
 		Modify(event E) error
 	}
 
-	ModifyFunc[E Event] func(event E) error
+	// ModifierFunc implements Modifier.
+	ModifierFunc[E Event] func(event E) error
 
-	WriteFunc[E Event] func(event E) error
+	// WriterFunc implements Writer.
+	WriterFunc[E Event] func(event E) error
 
 	// ModifierSlice combines Modifier values, calling each in turn, returning
 	// the first non-nil error.
@@ -112,8 +118,8 @@ var (
 
 	_ EventFactory[Event]  = EventFactoryFunc[Event](nil)
 	_ EventReleaser[Event] = EventReleaserFunc[Event](nil)
-	_ Modifier[Event]      = ModifyFunc[Event](nil)
-	_ Writer[Event]        = WriteFunc[Event](nil)
+	_ Modifier[Event]      = ModifierFunc[Event](nil)
+	_ Writer[Event]        = WriterFunc[Event](nil)
 	_ Modifier[Event]      = ModifierSlice[Event](nil)
 	_ Writer[Event]        = WriterSlice[Event](nil)
 )
@@ -126,11 +132,11 @@ func (x EventReleaserFunc[E]) ReleaseEvent(event E) {
 	x(event)
 }
 
-func (x ModifyFunc[E]) Modify(event E) error {
+func (x ModifierFunc[E]) Modify(event E) error {
 	return x(event)
 }
 
-func (x WriteFunc[E]) Write(event E) error {
+func (x WriterFunc[E]) Write(event E) error {
 	return x(event)
 }
 

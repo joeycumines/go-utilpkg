@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
@@ -243,4 +244,92 @@ func TestLoggerFactory_WithOptions_callsAllOptions(t *testing.T) {
 	if !reflect.DeepEqual(out, []int{1, 2, 3}) {
 		t.Errorf(`unexpected output: %v`, out)
 	}
+}
+
+func TestReverseSlice(t *testing.T) {
+	t.Run("empty slice", func(t *testing.T) {
+		s := []int{}
+		reverseSlice(s)
+		if len(s) != 0 {
+			t.Errorf("expected empty slice, but got: %v", s)
+		}
+	})
+
+	t.Run("single element slice", func(t *testing.T) {
+		s := []int{1}
+		reverseSlice(s)
+		if s[0] != 1 {
+			t.Errorf("expected [1], but got: %v", s)
+		}
+	})
+
+	t.Run("even number of elements slice", func(t *testing.T) {
+		s := []int{1, 2, 3, 4}
+		reverseSlice(s)
+		expected := []int{4, 3, 2, 1}
+		if len(s) != len(expected) {
+			t.Errorf("expected length %d, but got length %d", len(expected), len(s))
+		}
+		for i := 0; i < len(s); i++ {
+			if s[i] != expected[i] {
+				t.Errorf("expected %v, but got: %v", expected, s)
+			}
+		}
+	})
+
+	t.Run("odd number of elements slice", func(t *testing.T) {
+		s := []int{1, 2, 3, 4, 5}
+		reverseSlice(s)
+		expected := []int{5, 4, 3, 2, 1}
+		if len(s) != len(expected) {
+			t.Errorf("expected length %d, but got length %d", len(expected), len(s))
+		}
+		for i := 0; i < len(s); i++ {
+			if s[i] != expected[i] {
+				t.Errorf("expected %v, but got: %v", expected, s)
+			}
+		}
+	})
+}
+
+func TestLoggerConfig_resolveWriter(t *testing.T) {
+	writer1 := &mockWriter[*mockEvent]{}
+	writer2 := &mockWriter[*mockEvent]{}
+	writer3 := &mockWriter[*mockEvent]{}
+
+	// Test empty writer slice
+	config := &loggerConfig[*mockEvent]{}
+	writer := config.resolveWriter()
+	assert.Nil(t, writer)
+
+	// Test single writer
+	config.writer = WriterSlice[*mockEvent]{writer1}
+	writer = config.resolveWriter()
+	assert.Equal(t, writer1, writer)
+
+	// Test multiple writers
+	config.writer = WriterSlice[*mockEvent]{writer1, writer2, writer3}
+	writer = config.resolveWriter()
+	assert.Equal(t, WriterSlice[*mockEvent]{writer3, writer2, writer1}, writer)
+}
+
+func TestLoggerConfig_resolveModifier(t *testing.T) {
+	modifier1 := &mockModifier[*mockEvent]{}
+	modifier2 := &mockModifier[*mockEvent]{}
+	modifier3 := &mockModifier[*mockEvent]{}
+
+	// Test empty modifier slice
+	config := &loggerConfig[*mockEvent]{}
+	modifier := config.resolveModifier()
+	assert.Nil(t, modifier)
+
+	// Test single modifier
+	config.modifier = ModifierSlice[*mockEvent]{modifier1}
+	modifier = config.resolveModifier()
+	assert.Equal(t, modifier1, modifier)
+
+	// Test multiple modifiers
+	config.modifier = ModifierSlice[*mockEvent]{modifier1, modifier2, modifier3}
+	modifier = config.resolveModifier()
+	assert.Equal(t, ModifierSlice[*mockEvent]{modifier3, modifier2, modifier1}, modifier)
 }

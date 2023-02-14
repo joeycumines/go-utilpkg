@@ -2,11 +2,138 @@ package zerolog
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/go-utilpkg/logiface/testsuite"
 	"github.com/rs/zerolog"
+	"io"
+	"math"
 	"testing"
+	"time"
 )
+
+var testSuiteConfig = testsuite.Config[*Event]{
+	LoggerFactory:    testSuiteLoggerFactory,
+	WriteTimeout:     time.Second * 10,
+	AlertCallsOsExit: true,
+	EmergencyPanics:  true,
+}
+
+func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.LoggerResponse[*Event] {
+	zerolog.SetGlobalLevel(math.MinInt8)
+	logger := zerolog.New(req.Writer).Level(math.MinInt8)
+
+	var options []logiface.Option[*Event]
+
+	options = append(options, L.WithZerolog(logger))
+
+	options = append(options, req.Options...)
+
+	return testsuite.LoggerResponse[*Event]{
+		Logger:       L.New(options...),
+		LevelMapping: testSuiteLevelMapping,
+		ParseEvent:   testSuiteParseEvent,
+	}
+}
+
+func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {
+	if !lvl.Enabled() {
+		return logiface.LevelDisabled
+	}
+	switch lvl {
+	case logiface.LevelNotice:
+		return logiface.LevelWarning
+	case logiface.LevelCritical:
+		return logiface.LevelError
+	default:
+		return lvl
+	}
+}
+
+func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
+	d := json.NewDecoder(r)
+	var b json.RawMessage
+	if err := d.Decode(&b); err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		panic(err)
+	}
+
+	var data struct {
+		Level   *zerolog.Level `json:"level"`
+		Message *string        `json:"message"`
+		Error   *string        `json:"error"`
+	}
+	if err := json.Unmarshal(b, &data); err != nil {
+		panic(err)
+	}
+	if data.Level == nil {
+		panic(`expected zerolog message to have a level`)
+	}
+
+	var fields map[string]interface{}
+	if err := json.Unmarshal(b, &fields); err != nil {
+		panic(err)
+	}
+	delete(fields, `level`)
+	delete(fields, `message`)
+	delete(fields, `error`)
+
+	ev := testsuite.Event{
+		Message: data.Message,
+		Error:   data.Error,
+		Fields:  fields,
+	}
+
+	switch *data.Level {
+	case zerolog.TraceLevel:
+		ev.Level = logiface.LevelTrace
+
+	case zerolog.DebugLevel:
+		ev.Level = logiface.LevelDebug
+
+	case zerolog.InfoLevel:
+		ev.Level = logiface.LevelInformational
+
+	case zerolog.WarnLevel:
+		ev.Level = logiface.LevelWarning
+
+	case zerolog.ErrorLevel:
+		ev.Level = logiface.LevelError
+
+	case zerolog.FatalLevel:
+		ev.Level = logiface.LevelAlert
+
+	case zerolog.PanicLevel:
+		ev.Level = logiface.LevelEmergency
+
+	default:
+		if *data.Level < -1 {
+			// custom level...
+			if lvl := -int(*data.Level) + 7; lvl <= math.MaxInt8 {
+				ev.Level = logiface.Level(lvl)
+				break
+			}
+		}
+		panic(fmt.Errorf(`unexpected zerolog level %d`, *data.Level))
+	}
+
+	b, err := io.ReadAll(d.Buffered())
+	if err != nil {
+		panic(err)
+	}
+
+	return b, &ev
+}
+
+// Test_TestSuite runs the consolidated/shared test suite.
+func Test_TestSuite(t *testing.T) {
+	t.Parallel()
+	testsuite.TestSuite(t, testSuiteConfig)
+}
 
 func TestLogger_simple(t *testing.T) {
 	t.Parallel()

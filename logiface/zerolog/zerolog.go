@@ -42,7 +42,8 @@ var (
 
 	// Pool is provided as a companion to Event.
 	//
-	// Must contain only non-nil *Event values, with nil Event.Z fields.
+	// Must contain only non-nil *Event values, reset to the zero value of
+	// Event.
 	Pool = sync.Pool{New: func() any { return new(Event) }}
 
 	// compile time assertions
@@ -107,11 +108,6 @@ func (x *Event) AddFloat32(key string, val float32) bool {
 }
 
 func (x *Logger) NewEvent(level logiface.Level) *Event {
-	// note: all levels are mapped
-	if !level.Enabled() {
-		return nil
-	}
-
 	// map the levels, initialize the zerolog.Event
 	z := x.newEvent(level)
 	if z == nil {
@@ -128,8 +124,11 @@ func (x *Logger) NewEvent(level logiface.Level) *Event {
 }
 
 func (x *Logger) ReleaseEvent(event *Event) {
-	event.Z = nil
-	Pool.Put(event)
+	// need to be able to handle default values, because NewEvent may return nil
+	if event != nil {
+		*event = Event{}
+		Pool.Put(event)
+	}
 }
 
 func (x *Logger) Write(event *Event) error {
@@ -171,7 +170,7 @@ func (x *Logger) newEvent(level logiface.Level) *zerolog.Event {
 	default:
 		// >= 9, translate to numeric levels in zerolog
 		// (9 -> -2, 10 -> -3, etc)
-		// WARNING: there are 8 levels unaddressable using this mechanism
+		// WARNING: there are 8 (zerolog) levels unaddressable using this mechanism
 		return x.Z.WithLevel(zerolog.Level(7 - level))
 	}
 }

@@ -22,6 +22,18 @@ type (
 	SimpleWriter struct {
 		Writer io.Writer
 	}
+
+	mockEvent struct {
+		Event
+	}
+
+	mockWriter[E Event] struct {
+		Writer[E]
+	}
+
+	mockModifier[E Event] struct {
+		Modifier[E]
+	}
 )
 
 var (
