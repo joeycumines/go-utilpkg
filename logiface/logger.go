@@ -8,6 +8,8 @@ type (
 	// Logger is the core logger implementation, and constitutes the core
 	// functionality, provided by this package.
 	Logger[E Event] struct {
+		// WARNING: Fields added must be initialized in both New and Logger.Logger
+
 		level    Level
 		modifier Modifier[E]
 		shared   *loggerShared[E]
@@ -16,6 +18,8 @@ type (
 	// loggerShared models the shared state, common between a root Logger
 	// instance, and all it's child instances.
 	loggerShared[E Event] struct {
+		// WARNING: Fields added must be initialized in both New and Logger.Logger
+
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
 		writer   Writer[E]
@@ -49,6 +53,9 @@ var (
 	//
 	// It's provided as a convenience.
 	L = LoggerFactory[Event]{}
+
+	// genericBuilderPool is a shared pool for the Builder[Event] type.
+	genericBuilderPool = sync.Pool{New: newBuilder[Event]}
 )
 
 // WithOptions combines multiple Option values into one.
@@ -164,7 +171,7 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 		releaser: c.releaser,
 		writer:   c.resolveWriter(),
 	}
-	shared.pool = &sync.Pool{New: shared.newBuilder}
+	shared.init()
 
 	return &Logger[E]{
 		modifier: c.resolveModifier(),
@@ -188,8 +195,19 @@ func (x *Logger[E]) Logger() *Logger[Event] {
 	if x, ok := any(x).(*Logger[Event]); ok {
 		return x
 	}
-	// TODO implement wrappers for the underlying implementation to make this possible
-	panic(`not implemented`)
+	if x == nil || x.shared == nil {
+		return nil
+	}
+	return &Logger[Event]{
+		level:    x.level,
+		modifier: generifyModifier(x.modifier),
+		shared: &loggerShared[Event]{
+			factory:  generifyEventFactory(x.shared.factory),
+			releaser: generifyEventReleaser(x.shared.releaser),
+			writer:   generifyWriter(x.shared.writer),
+			pool:     &genericBuilderPool,
+		},
+	}
 }
 
 // Log directly performs a Log operation, without the "fluent builder" pattern.
@@ -323,8 +341,13 @@ func (x *Logger[E]) newEvent(level Level) (event E) {
 	return
 }
 
-func (x *loggerShared[E]) newBuilder() any {
-	return &Builder[E]{shared: x}
+func (x *loggerShared[E]) init() {
+	switch any(x).(type) {
+	case *loggerShared[Event]:
+		x.pool = &genericBuilderPool
+	default:
+		x.pool = &sync.Pool{New: newBuilder[E]}
+	}
 }
 
 func (x *loggerConfig[E]) resolveWriter() Writer[E] {
@@ -355,4 +378,44 @@ func reverseSlice[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
+}
+
+func generifyModifier[E Event](modifier Modifier[E]) Modifier[Event] {
+	if modifier == nil {
+		return nil
+	}
+	return ModifierFunc[Event](func(event Event) error {
+		return modifier.Modify(any(event).(E))
+	})
+}
+
+func generifyWriter[E Event](writer Writer[E]) Writer[Event] {
+	if writer == nil {
+		return nil
+	}
+	return WriterFunc[Event](func(event Event) error {
+		return writer.Write(any(event).(E))
+	})
+}
+
+func generifyEventFactory[E Event](factory EventFactory[E]) EventFactory[Event] {
+	if factory == nil {
+		return nil
+	}
+	return EventFactoryFunc[Event](func(level Level) Event {
+		return factory.NewEvent(level)
+	})
+}
+
+func generifyEventReleaser[E Event](releaser EventReleaser[E]) EventReleaser[Event] {
+	if releaser == nil {
+		return nil
+	}
+	return EventReleaserFunc[Event](func(event Event) {
+		releaser.ReleaseEvent(any(event).(E))
+	})
+}
+
+func newBuilder[E Event]() any {
+	return new(Builder[E])
 }
