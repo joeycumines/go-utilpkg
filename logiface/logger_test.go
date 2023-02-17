@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -12,15 +13,15 @@ func TestLogger_simple(t *testing.T) {
 	t.Parallel()
 
 	type Harness struct {
-		L *Logger[*SimpleEvent]
+		L *Logger[*mockSimpleEvent]
 		B bytes.Buffer
 	}
 
-	newHarness := func(t *testing.T, options ...Option[*SimpleEvent]) *Harness {
+	newHarness := func(t *testing.T, options ...Option[*mockSimpleEvent]) *Harness {
 		var h Harness
-		h.L = New(append([]Option[*SimpleEvent]{
-			WithEventFactory[*SimpleEvent](EventFactoryFunc[*SimpleEvent](SimpleEventFactory)),
-			WithWriter[*SimpleEvent](&SimpleWriter{Writer: &h.B}),
+		h.L = New(append([]Option[*mockSimpleEvent]{
+			WithEventFactory[*mockSimpleEvent](EventFactoryFunc[*mockSimpleEvent](mockSimpleEventFactory)),
+			WithWriter[*mockSimpleEvent](&mockSimpleWriter{Writer: &h.B}),
 		}, options...)...)
 		return &h
 	}
@@ -48,7 +49,7 @@ func TestLogger_simple(t *testing.T) {
 		h.L.Emerg().
 			Log(`is emerg`)
 
-		if s := h.B.String(); s != "[info] hello world\n[warning] is warning\n[err] is err\n[emerg] is emerg\n" {
+		if s := h.B.String(); s != "[info] msg=hello world\n[warning] msg=is warning\n[err] msg=is err\n[emerg] msg=is emerg\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -64,7 +65,7 @@ func TestLogger_simple(t *testing.T) {
 			Field(`three`, 3).
 			Log(`hello world`)
 
-		if s := h.B.String(); s != "[info] one=1 two=2 three=3 hello world\n" {
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 msg=hello world\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -99,7 +100,7 @@ func TestLogger_simple(t *testing.T) {
 			Field(`five`, 5).
 			Log(`case 3`)
 
-		if s := h.B.String(); s != "[info] one=1 two=2 three=3 four=4 case 1\n[info] six=6 seven=7 eight=8 case 2\n[info] one=1 two=2 three=-3 five=5 case 3\n" {
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 four=4 msg=case 1\n[info] six=6 seven=7 eight=8 msg=case 2\n[info] one=1 two=2 three=-3 five=5 msg=case 3\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -152,26 +153,7 @@ func TestLogger_simple(t *testing.T) {
 			Field(`four`, []byte{244}).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== case 1\n" {
-			t.Errorf("unexpected output: %q\n%s", s, s)
-		}
-	})
-
-	t.Run(`field default bytes`, func(t *testing.T) {
-		t.Parallel()
-
-		h := newHarness(t)
-
-		h.L.Clone().
-			Field(`one`, []byte(`abc`)).
-			Field(`two`, []byte(nil)).
-			Logger().
-			Info().
-			Field(`three`, []byte(`hello world`)).
-			Field(`four`, []byte{244}).
-			Log(`case 1`)
-
-		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== case 1\n" {
+		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== msg=case 1\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -189,7 +171,7 @@ func TestLogger_simple(t *testing.T) {
 			Field(`three`, time.Unix(5, 9400000)).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=1970-01-01T00:00:05.009400Z two=0001-01-01T00:00:00Z three=1970-01-01T00:00:05.009400Z case 1\n" {
+		if s := h.B.String(); s != "[info] one=1970-01-01T00:00:05.009400Z two=0001-01-01T00:00:00Z three=1970-01-01T00:00:05.009400Z msg=case 1\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -208,7 +190,41 @@ func TestLogger_simple(t *testing.T) {
 			Field(`three`, -(time.Second*32 - (time.Microsecond * 100))).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=3600s zero=0s two=31.999900s three=-31.999900s case 1\n" {
+		if s := h.B.String(); s != "[info] one=3600s zero=0s two=31.999900s three=-31.999900s msg=case 1\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`using Logf`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Field(`one`, 1).
+			Field(`two`, 2).
+			Field(`three`, 3).
+			Logf(`unstructured a=%d b=%q`, -143, `hello world`)
+
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 msg=unstructured a=-143 b=\"hello world\"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`using LogFunc`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Field(`one`, 1).
+			Field(`two`, 2).
+			Field(`three`, 3).
+			LogFunc(func() string {
+				return fmt.Sprintf(`unstructured a=%d b=%q`, -143, `hello world`)
+			})
+
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 msg=unstructured a=-143 b=\"hello world\"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -223,11 +239,11 @@ func TestLogger_simpleGeneric(t *testing.T) {
 	}
 
 	// TODO use the other fields to check they're passed down correctly via Logger.Logger
-	newHarness := func(t *testing.T, options ...Option[*SimpleEvent]) *Harness {
+	newHarness := func(t *testing.T, options ...Option[*mockSimpleEvent]) *Harness {
 		var h Harness
-		l := New(append([]Option[*SimpleEvent]{
-			WithEventFactory[*SimpleEvent](EventFactoryFunc[*SimpleEvent](SimpleEventFactory)),
-			WithWriter[*SimpleEvent](&SimpleWriter{Writer: &h.B}),
+		l := New(append([]Option[*mockSimpleEvent]{
+			WithEventFactory[*mockSimpleEvent](EventFactoryFunc[*mockSimpleEvent](mockSimpleEventFactory)),
+			WithWriter[*mockSimpleEvent](&mockSimpleWriter{Writer: &h.B}),
 		}, options...)...)
 		if l.level != LevelInformational {
 			t.Error(l.level)
@@ -268,7 +284,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 		h.L.Emerg().
 			Log(`is emerg`)
 
-		if s := h.B.String(); s != "[info] hello world\n[warning] is warning\n[err] is err\n[emerg] is emerg\n" {
+		if s := h.B.String(); s != "[info] msg=hello world\n[warning] msg=is warning\n[err] msg=is err\n[emerg] msg=is emerg\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -284,7 +300,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			Field(`three`, 3).
 			Log(`hello world`)
 
-		if s := h.B.String(); s != "[info] one=1 two=2 three=3 hello world\n" {
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 msg=hello world\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -319,7 +335,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			Field(`five`, 5).
 			Log(`case 3`)
 
-		if s := h.B.String(); s != "[info] one=1 two=2 three=3 four=4 case 1\n[info] six=6 seven=7 eight=8 case 2\n[info] one=1 two=2 three=-3 five=5 case 3\n" {
+		if s := h.B.String(); s != "[info] one=1 two=2 three=3 four=4 msg=case 1\n[info] six=6 seven=7 eight=8 msg=case 2\n[info] one=1 two=2 three=-3 five=5 msg=case 3\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -372,26 +388,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			Field(`four`, []byte{244}).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== case 1\n" {
-			t.Errorf("unexpected output: %q\n%s", s, s)
-		}
-	})
-
-	t.Run(`field default bytes`, func(t *testing.T) {
-		t.Parallel()
-
-		h := newHarness(t)
-
-		h.L.Clone().
-			Field(`one`, []byte(`abc`)).
-			Field(`two`, []byte(nil)).
-			Logger().
-			Info().
-			Field(`three`, []byte(`hello world`)).
-			Field(`four`, []byte{244}).
-			Log(`case 1`)
-
-		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== case 1\n" {
+		if s := h.B.String(); s != "[info] one=YWJj two= three=aGVsbG8gd29ybGQ= four=9A== msg=case 1\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -409,7 +406,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			Field(`three`, time.Unix(5, 9400000)).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=1970-01-01T00:00:05.009400Z two=0001-01-01T00:00:00Z three=1970-01-01T00:00:05.009400Z case 1\n" {
+		if s := h.B.String(); s != "[info] one=1970-01-01T00:00:05.009400Z two=0001-01-01T00:00:00Z three=1970-01-01T00:00:05.009400Z msg=case 1\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
@@ -428,7 +425,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			Field(`three`, -(time.Second*32 - (time.Microsecond * 100))).
 			Log(`case 1`)
 
-		if s := h.B.String(); s != "[info] one=3600s zero=0s two=31.999900s three=-31.999900s case 1\n" {
+		if s := h.B.String(); s != "[info] one=3600s zero=0s two=31.999900s three=-31.999900s msg=case 1\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})

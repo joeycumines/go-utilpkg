@@ -304,6 +304,12 @@ func (x *Builder[E]) Interface(key string, val any) *Builder[E] {
 	return x
 }
 
+// Any is an alias for [Context.Interface].
+func (x *Context[E]) Any(key string, val any) *Context[E] { return x.Interface(key, val) }
+
+// Any is an alias for [Builder.Interface].
+func (x *Builder[E]) Any(key string, val any) *Builder[E] { return x.Interface(key, val) }
+
 func (x modifierMethods[E]) Err(event E, err error) error {
 	if !event.Level().Enabled() {
 		return ErrDisabled

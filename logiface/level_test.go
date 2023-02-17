@@ -3,6 +3,7 @@ package logiface
 import (
 	"fmt"
 	"math"
+	"testing"
 )
 
 func ExampleLevel_Enabled() {
@@ -108,4 +109,64 @@ func ExampleLevel_Syslog() {
 	//"trace" (8): false
 	//"9" (9): false
 	//"127" (127): false
+}
+
+func TestLoggerFactory_LevelDisabled(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelDisabled(); v != LevelDisabled {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelEmergency(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelEmergency(); v != LevelEmergency {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelAlert(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelAlert(); v != LevelAlert {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelCritical(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelCritical(); v != LevelCritical {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelError(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelError(); v != LevelError {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelWarning(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelWarning(); v != LevelWarning {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelNotice(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelNotice(); v != LevelNotice {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelInformational(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelInformational(); v != LevelInformational {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelDebug(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelDebug(); v != LevelDebug {
+		t.Errorf("unexpected value: %v", v)
+	}
+}
+
+func TestLoggerFactory_LevelTrace(t *testing.T) {
+	if v := (LoggerFactory[*mockEvent]{}).LevelTrace(); v != LevelTrace {
+		t.Errorf("unexpected value: %v", v)
+	}
 }
