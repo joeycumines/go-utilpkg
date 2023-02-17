@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230214224346-d5f314202f12 h1:wBBF0KLu5ExghppILbcSEvNtieRCBM2Dwu09trdwoe8=
-github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230214224346-d5f314202f12/go.mod h1:p50wQFq+IZUtGRFYgHV4cM4eQx6Xbn7BlffY2GahopY=
+github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230217141321-37e51c57301b h1:oAjXDVmafcd3owZvu+hKbXD/lE+qopowdoptsTcH5G0=
+github.com/joeycumines/go-utilpkg/logiface v0.0.0-20230217141321-37e51c57301b/go.mod h1:oxi29XP49yLcKYt2HF83HCTjKWn6Ks5MkKppFobjidk=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb h1:PaBZQdo+iSDyHT053FjUCgZQ/9uqVwPOcl7KSWhKn6w=
