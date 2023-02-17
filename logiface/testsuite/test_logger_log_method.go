@@ -94,7 +94,7 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 					if ev.Level != useLogLevel {
 						t.Error(`unexpected level`, ev.Level)
 					}
-					expected = append(expected, normaliseEvent(cfg, tr, ev))
+					expected = append(expected, NormalizeEvent(cfg, tr, ev))
 					return nil
 				})); err != nil {
 					t.Fatalf(`expected no error, got %v`, err)
@@ -130,12 +130,4 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 			}
 		})
 	})
-}
-
-func normaliseEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Event) Event {
-	ev.Level = tr.LevelMapping(ev.Level)
-	if ev.Message == nil && cfg.LogsEmptyMessage {
-		ev.Message = new(string)
-	}
-	return ev
 }

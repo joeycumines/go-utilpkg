@@ -3,6 +3,7 @@ package testsuite
 import (
 	"errors"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"time"
 )
 
 var eventTemplates = []func(in logiface.Event) (out Event){
@@ -49,6 +50,14 @@ func eventTemplate1(in logiface.Event) (out Event) {
 
 	if in.AddFloat32(`float32_1`, 25.5) {
 		out.Fields[`float32_1`] = 25.5
+	}
+
+	if v := time.Unix(0, 1609457732123456789); in.AddTime(`time_1`, v) {
+		out.Fields[`time_1`] = v
+	}
+
+	if v := time.Unix(0, 1578945643210987654).UTC(); in.AddTime(`time_2`, v) {
+		out.Fields[`time_2`] = v
 	}
 
 	return

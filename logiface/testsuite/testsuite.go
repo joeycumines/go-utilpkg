@@ -59,6 +59,9 @@ type (
 		// ParseEvent reads and parses the next event from the stream, returning any read but unused remainder.
 		// Returning a nil event indicates EOF.
 		ParseEvent func(r io.Reader) (remainder []byte, event *Event)
+
+		// FormatTime is optional, and must be used if logiface.Event.AddTime is implemented
+		FormatTime func(t time.Time) string
 	}
 
 	// TestRequest models the input from a test case, when it requests a logger.
@@ -86,6 +89,9 @@ type (
 
 		// ReceiveTimeout is determined by Config.WriteTimeout
 		ReceiveTimeout time.Duration
+
+		// FormatTime is a normalizer, used by NormalizeEvent.
+		FormatTime func(t time.Time) string
 	}
 
 	// Event models a parsed log event
@@ -184,6 +190,7 @@ func (x Config[E]) RunTest(req TestRequest[E], test func(res TestResponse[E])) {
 		Events:         events,
 		SendEOF:        func() { _ = w.Close() },
 		ReceiveTimeout: x.WriteTimeout,
+		FormatTime:     l.FormatTime,
 	})
 
 	// stop the reader / parser
@@ -339,4 +346,32 @@ func EventsDiff(expected, actual []Event) string {
 		s.WriteByte('\n')
 	}
 	return fmt.Sprint(diff.ToUnified(`expected`, `actual`, expectedStr, myers.ComputeEdits(``, expectedStr, s.String())))
+}
+
+// NormalizeEvent is used to convert templates into comparable values.
+func NormalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Event) Event {
+	ev.Level = tr.LevelMapping(ev.Level)
+	if ev.Message == nil && cfg.LogsEmptyMessage {
+		ev.Message = new(string)
+	}
+	var normalizeFields func(v any) any
+	normalizeFields = func(v any) any {
+		switch v := v.(type) {
+		case []interface{}:
+			for i, val := range v {
+				v[i] = normalizeFields(val)
+			}
+		case map[string]interface{}:
+			for k, val := range v {
+				v[k] = normalizeFields(val)
+			}
+		case time.Time:
+			if tr.FormatTime != nil {
+				return tr.FormatTime(v)
+			}
+		}
+		return v
+	}
+	ev.Fields = normalizeFields(ev.Fields).(map[string]any)
+	return ev
 }

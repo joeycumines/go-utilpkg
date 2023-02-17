@@ -158,7 +158,7 @@ func TestLogger_simple(t *testing.T) {
 		}
 	})
 
-	t.Run(`field default timestamp`, func(t *testing.T) {
+	t.Run(`field default time`, func(t *testing.T) {
 		t.Parallel()
 
 		h := newHarness(t)
@@ -393,7 +393,7 @@ func TestLogger_simpleGeneric(t *testing.T) {
 		}
 	})
 
-	t.Run(`field default timestamp`, func(t *testing.T) {
+	t.Run(`field default time`, func(t *testing.T) {
 		t.Parallel()
 
 		h := newHarness(t)

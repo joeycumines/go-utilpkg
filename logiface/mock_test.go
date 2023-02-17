@@ -133,6 +133,11 @@ func (x *mockComplexEvent) AddFloat32(key string, val float32) bool {
 	return true
 }
 
+func (x *mockComplexEvent) AddTime(key string, val time.Time) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddTime`, Key: key, Value: val})
+	return true
+}
+
 func (x *mockComplexEvent) mustEmbedUnimplementedEvent() {}
 
 func (x *mockComplexWriter) Write(event *mockComplexEvent) error {
@@ -149,11 +154,13 @@ func fluentCallerTemplate[T interface {
 	Interface(key string, val any) T
 	Any(key string, val any) T
 	Str(key string, val string) T
+	Time(key string, t time.Time) T
 }](x T) {
 	x.Err(errors.New(`err called`)).
 		Field(`field called with string`, `val 2`).
 		Field(`field called with bytes`, []byte(`val 3`)).
-		Field(`field called with time.Time`, time.Unix(0, 1558069640361696123).Local()).
+		Field(`field called with time.Time local`, time.Unix(0, 1558069640361696123)).
+		Field(`field called with time.Time utc`, time.Unix(0, 1558069640361696123).UTC()).
 		Field(`field called with duration`, time.Duration(3116139280723392)).
 		Field(`field called with int`, -51245).
 		Field(`field called with float32`, float32(math.SmallestNonzeroFloat32)).
@@ -164,7 +171,9 @@ func fluentCallerTemplate[T interface {
 		Interface(`interface called with bool`, true).
 		Interface(`interface called with nil`, nil).
 		Any(`any called with string`, `val 5`).
-		Str(`str called`, `val 6`)
+		Str(`str called`, `val 6`).
+		Time(`time called with local`, time.Unix(0, 1616592449876543213)).
+		Time(`time called with utc`, time.Unix(0, 1583023169456789123).UTC())
 }
 
 func stringDiff(expected, actual string) string {

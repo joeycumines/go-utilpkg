@@ -65,7 +65,7 @@ func TestEvent_min(t *testing.T) {
 			WithWriter[*mockSimpleEvent](&mockSimpleWriter{Writer: &buf, MultiLine: true}),
 		)
 		log(l)
-		const expected = "[info]\nerr=err called\nfield called with string=val 2\nfield called with bytes=dmFsIDM=\nfield called with time.Time=2019-05-17T05:07:20.361696123Z\nfield called with duration=3116139.280723392s\nfield called with int=-51245\nfield called with float32=1e-45\nfield called with unhandled type=-421\nfloat32 called=3.4028235e+38\nint called=9223372036854775807\ninterface called with string=val 4\ninterface called with bool=true\ninterface called with nil=<nil>\nany called with string=val 5\nstr called=val 6\nmsg=log called\n"
+		const expected = "[info]\nerr=err called\nfield called with string=val 2\nfield called with bytes=dmFsIDM=\nfield called with time.Time local=2019-05-17T05:07:20.361696123Z\nfield called with time.Time utc=2019-05-17T05:07:20.361696123Z\nfield called with duration=3116139.280723392s\nfield called with int=-51245\nfield called with float32=1e-45\nfield called with unhandled type=-421\nfloat32 called=3.4028235e+38\nint called=9223372036854775807\ninterface called with string=val 4\ninterface called with bool=true\ninterface called with nil=<nil>\nany called with string=val 5\nstr called=val 6\ntime called with local=2021-03-24T13:27:29.876543213Z\ntime called with utc=2020-03-01T00:39:29.456789123Z\nmsg=log called\n"
 		if actual := buf.String(); actual != expected {
 			t.Errorf("unexpected output: %q\n%s", actual, stringDiff(expected, actual))
 		}
@@ -116,9 +116,14 @@ func TestEvent_max(t *testing.T) {
 						Value: "dmFsIDM=",
 					},
 					{
-						Type:  `AddString`,
-						Key:   "field called with time.Time",
-						Value: "2019-05-17T05:07:20.361696123Z",
+						Type:  `AddTime`,
+						Key:   "field called with time.Time local",
+						Value: time.Unix(0, 1558069640361696123),
+					},
+					{
+						Type:  `AddTime`,
+						Key:   "field called with time.Time utc",
+						Value: time.Unix(0, 1558069640361696123).UTC(),
 					},
 					{
 						Type:  "AddString",
@@ -174,6 +179,16 @@ func TestEvent_max(t *testing.T) {
 						Type:  `AddString`,
 						Key:   "str called",
 						Value: "val 6",
+					},
+					{
+						Type:  `AddTime`,
+						Key:   "time called with local",
+						Value: time.Unix(0, 1616592449876543213),
+					},
+					{
+						Type:  `AddTime`,
+						Key:   "time called with utc",
+						Value: time.Unix(0, 1583023169456789123).UTC(),
 					},
 					{
 						Type:  `AddMessage`,

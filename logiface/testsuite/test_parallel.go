@@ -46,7 +46,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 				var once sync.Once
 				variants = append(variants, func(ID int64) (ev Event) {
 					if err := tr.Logger.Log(level, logiface.ModifierFunc[E](func(event E) error {
-						ev = normaliseEvent(cfg, tr, template(event))
+						ev = NormalizeEvent(cfg, tr, template(event))
 						event.AddField(messageIDField, float64(ID))
 						ev.Fields[messageIDField] = float64(ID)
 						once.Do(func() { t.Logf(`logged (expected) message: %s`, ev) })
@@ -70,7 +70,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 				var once sync.Once
 				variants = append(variants, func(ID int64) (ev Event) {
 					modifier := logiface.ModifierFunc[E](func(event E) error {
-						ev = normaliseEvent(cfg, tr, template(event))
+						ev = NormalizeEvent(cfg, tr, template(event))
 						event.AddField(messageIDField, float64(ID))
 						ev.Fields[messageIDField] = float64(ID)
 						once.Do(func() { t.Logf(`logged (expected) message: %s`, ev) })

@@ -4,6 +4,7 @@ import (
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/rs/zerolog"
 	"sync"
+	"time"
 )
 
 type (
@@ -88,22 +89,27 @@ func (x *Event) AddMessage(msg string) bool {
 }
 
 func (x *Event) AddError(err error) bool {
-	x.Z = x.Z.Err(err)
+	x.Z.Err(err)
 	return true
 }
 
 func (x *Event) AddString(key string, val string) bool {
-	x.Z = x.Z.Str(key, val)
+	x.Z.Str(key, val)
 	return true
 }
 
 func (x *Event) AddInt(key string, val int) bool {
-	x.Z = x.Z.Int(key, val)
+	x.Z.Int(key, val)
 	return true
 }
 
 func (x *Event) AddFloat32(key string, val float32) bool {
-	x.Z = x.Z.Float32(key, val)
+	x.Z.Float32(key, val)
+	return true
+}
+
+func (x *Event) AddTime(key string, val time.Time) bool {
+	x.Z.Time(key, val)
 	return true
 }
 

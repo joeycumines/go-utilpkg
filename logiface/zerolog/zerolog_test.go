@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"io"
 	"math"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -35,7 +36,12 @@ func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.Logge
 		Logger:       L.New(options...),
 		LevelMapping: testSuiteLevelMapping,
 		ParseEvent:   testSuiteParseEvent,
+		FormatTime:   testSuiteFormatTime,
 	}
+}
+
+func testSuiteFormatTime(t time.Time) string {
+	return t.Format(zerolog.TimeFieldFormat)
 }
 
 func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {
@@ -58,6 +64,9 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 	if err := d.Decode(&b); err != nil {
 		if err == io.EOF {
 			return nil, nil
+		}
+		if errors.Is(err, io.ErrClosedPipe) {
+			runtime.Goexit()
 		}
 		panic(err)
 	}

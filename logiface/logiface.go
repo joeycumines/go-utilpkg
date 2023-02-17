@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"errors"
+	"time"
 )
 
 type (
@@ -39,6 +40,8 @@ type (
 		AddInt(key string, val int) bool
 		// AddFloat32 adds a field of type float32. It's an optional optimisation.
 		AddFloat32(key string, val float32) bool
+		// AddTime adds a field of type time.Time. It's an optional optimisation.
+		AddTime(key string, val time.Time) bool
 
 		mustEmbedUnimplementedEvent()
 	}
@@ -165,4 +168,5 @@ func (UnimplementedEvent) AddError(error) bool             { return false }
 func (UnimplementedEvent) AddString(string, string) bool   { return false }
 func (UnimplementedEvent) AddInt(string, int) bool         { return false }
 func (UnimplementedEvent) AddFloat32(string, float32) bool { return false }
+func (UnimplementedEvent) AddTime(string, time.Time) bool  { return false }
 func (UnimplementedEvent) mustEmbedUnimplementedEvent()    {}

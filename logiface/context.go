@@ -171,9 +171,10 @@ func (x modifierMethods[E]) bytes(event E, key string, val []byte) {
 	x.str(event, key, base64.StdEncoding.EncodeToString(val))
 }
 
-func (x modifierMethods[E]) timestamp(event E, key string, val time.Time) {
-	// TODO allow custom handling via an optional method
-	x.str(event, key, formatTimestamp(val))
+func (x modifierMethods[E]) time(event E, key string, val time.Time) {
+	if !event.AddTime(key, val) {
+		x.str(event, key, formatTimestamp(val))
+	}
 }
 
 func (x modifierMethods[E]) duration(event E, key string, val time.Duration) {
@@ -237,7 +238,7 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 	case []byte:
 		x.bytes(event, key, val)
 	case time.Time:
-		x.timestamp(event, key, val)
+		x.time(event, key, val)
 	case time.Duration:
 		x.duration(event, key, val)
 	case int:
@@ -414,6 +415,44 @@ func (x *Context[E]) Float32(key string, val float32) *Context[E] {
 func (x *Builder[E]) Float32(key string, val float32) *Builder[E] {
 	if x.ok() {
 		_ = x.methods.Float32(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Time(event E, key string, t time.Time) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.time(event, key, t)
+	return nil
+}
+
+// Time adds a time.Time as a structured log field, using Event.AddTime if
+// available, otherwise falling back to formatting the time.Time as a string in
+// the RFC 3339 format, using the same semantics as the JSON encoding of
+// Protobuf's "well known type", google.protobuf.Timestamp. In this fallback
+// case, the behavior of [Context.Str] is used, to add the field.
+//
+// See also
+// [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/timestamp.proto].
+func (x *Context[E]) Time(key string, t time.Time) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Time(event, key, t) })
+	}
+	return x
+}
+
+// Time adds a time.Time as a structured log field, using Event.AddTime if
+// available, otherwise falling back to formatting the time.Time as a string in
+// the RFC 3339 format, using the same semantics as the JSON encoding of
+// Protobuf's "well known type", google.protobuf.Timestamp. In this fallback
+// case, the behavior of [Builder.Str] is used, to add the field.
+//
+// See also
+// [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/timestamp.proto].
+func (x *Builder[E]) Time(key string, t time.Time) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Time(x.Event, key, t)
 	}
 	return x
 }
