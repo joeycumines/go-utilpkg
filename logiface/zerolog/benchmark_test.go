@@ -13,7 +13,16 @@ var (
 	fakeMessage = "Test logging, but use a somewhat realistic message length."
 )
 
-func BenchmarkDisabled(b *testing.B) {
+func BenchmarkDisabled_baseline(b *testing.B) {
+	logger := zerolog.New(io.Discard).Level(zerolog.Disabled)
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Msg(fakeMessage)
+		}
+	})
+}
+func BenchmarkDisabled_generic(b *testing.B) {
 	logger := L.New(
 		L.WithZerolog(zerolog.New(io.Discard)),
 		L.WithLevel(L.LevelDisabled()),
@@ -25,18 +34,11 @@ func BenchmarkDisabled(b *testing.B) {
 		}
 	})
 }
-func Benchmark_zerolog_Disabled(b *testing.B) {
-	logger := zerolog.New(io.Discard).Level(zerolog.Disabled)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Msg(fakeMessage)
-		}
-	})
-}
-
-func BenchmarkInfo(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+func BenchmarkDisabled_interface(b *testing.B) {
+	logger := L.New(
+		L.WithZerolog(zerolog.New(io.Discard)),
+		L.WithLevel(L.LevelDisabled()),
+	).Logger()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -44,7 +46,8 @@ func BenchmarkInfo(b *testing.B) {
 		}
 	})
 }
-func Benchmark_zerolog_Info(b *testing.B) {
+
+func BenchmarkInfo_baseline(b *testing.B) {
 	logger := zerolog.New(io.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -53,22 +56,26 @@ func Benchmark_zerolog_Info(b *testing.B) {
 		}
 	})
 }
+func BenchmarkInfo_generic(b *testing.B) {
+	logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Log(fakeMessage)
+		}
+	})
+}
+func BenchmarkInfo_interface(b *testing.B) {
+	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Log(fakeMessage)
+		}
+	})
+}
 
-//	func BenchmarkContextFields(b *testing.B) {
-//		logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Clone().
-//			Str("string", "four!").
-//			Time("time", time.Time{}).
-//			Int("int", 123).
-//			Float32("float", -2.203230293249593).
-//			Logger()
-//		b.ResetTimer()
-//		b.RunParallel(func(pb *testing.PB) {
-//			for pb.Next() {
-//				logger.Info().Log(fakeMessage)
-//			}
-//		})
-//	}
-func Benchmark_zerolog_ContextFields(b *testing.B) {
+func BenchmarkContextFields_baseline(b *testing.B) {
 	logger := zerolog.New(io.Discard).With().
 		Str("string", "four!").
 		Time("time", time.Time{}).
@@ -82,8 +89,39 @@ func Benchmark_zerolog_ContextFields(b *testing.B) {
 		}
 	})
 }
+func BenchmarkContextFields_generic(b *testing.B) {
+	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+		Clone().
+		Str("string", "four!").
+		Time("time", time.Time{}).
+		Int("int", 123).
+		Float32("float", -2.203230293249593).
+		Logger()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Log(fakeMessage)
+		}
+	})
+}
+func BenchmarkContextFields_interface(b *testing.B) {
+	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+		Logger().
+		Clone().
+		Str("string", "four!").
+		Time("time", time.Time{}).
+		Int("int", 123).
+		Float32("float", -2.203230293249593).
+		Logger()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Log(fakeMessage)
+		}
+	})
+}
 
-func Benchmark_zerolog_ContextAppend(b *testing.B) {
+func BenchmarkContextAppend_baseline(b *testing.B) {
 	logger := zerolog.New(io.Discard).With().
 		Str("foo", "bar").
 		Logger()
@@ -95,7 +133,7 @@ func Benchmark_zerolog_ContextAppend(b *testing.B) {
 	})
 }
 
-func Benchmark_zerolog_LogFields(b *testing.B) {
+func BenchmarkLogFields_baseline(b *testing.B) {
 	logger := zerolog.New(io.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -122,7 +160,7 @@ func (o obj) MarshalZerologObject(e *zerolog.Event) {
 		Int("priv", o.priv)
 }
 
-func Benchmark_zerolog_LogArrayObject(b *testing.B) {
+func BenchmarkLogArrayObject_baseline(b *testing.B) {
 	obj1 := obj{"a", "b", 2}
 	obj2 := obj{"c", "d", 3}
 	obj3 := obj{"e", "f", 4}
@@ -138,7 +176,7 @@ func Benchmark_zerolog_LogArrayObject(b *testing.B) {
 	}
 }
 
-func Benchmark_zerolog_LogFieldType(b *testing.B) {
+func BenchmarkLogFieldType_baseline(b *testing.B) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	floats := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -258,7 +296,7 @@ func Benchmark_zerolog_LogFieldType(b *testing.B) {
 	}
 }
 
-func Benchmark_zerolog_ContextFieldType(b *testing.B) {
+func BenchmarkContextFieldType_baseline(b *testing.B) {
 	oldFormat := zerolog.TimeFieldFormat
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	defer func() { zerolog.TimeFieldFormat = oldFormat }()
