@@ -2,6 +2,14 @@
 
 # ---
 
+# intended to be provided on the command line, for certain targets
+
+# additional make flags to be used by the pattern targets like run.%, and implicit targets like run-%.<path>
+# (used to run subdir makefiles)
+RUN_FLAGS ?=
+
+# ---
+
 # intended to be configurable via config.mak
 
 GO ?= go
@@ -28,18 +36,36 @@ endif
 # note 2: $2 does not support multiple wildcards
 rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 
-ROOT_MAKEFILE = $(abspath $(lastword $(MAKEFILE_LIST)))
+# convert a path to a slug, e.g. ./logiface/logrus -> logiface.logrus, with special case for root
+path_to_slug = $(if $(filter .,$1),root,$(subst /,.,$(patsubst ./%,%,$1)))
 
-# note 1: paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
-GO_MODULE_PATHS = $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
+# convert a slug to a path, e.g. logiface.logrus -> ./logiface/logrus, with special case for root
+slug_to_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
+
+ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+
+# paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
+GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
 # example: root logiface logiface.logrus logiface.testsuite logiface.zerolog
-GO_MODULE_SLUGS = $(patsubst root.%,%,$(subst /,.,$(subst .,root,$(GO_MODULE_PATHS))))
+GO_MODULE_SLUGS := $(foreach d,$(GO_MODULE_PATHS),$(call path_to_slug,$d))
+# guard to ensure that GO_MODULE_PATHS doesn't contain any unsupported paths (e.g. containing .)
+ifneq ($(GO_MODULE_PATHS),$(foreach d,$(GO_MODULE_SLUGS),$(call slug_to_path,$d)))
+$(error GO_MODULE_PATHS contains unsupported paths)
+endif
 # the below are used to special-case tools which fail if they find no packages (e.g. go vet)
 # TODO update this if the root module gets packages
-GO_MODULE_SLUGS_NO_PACKAGES = root
-GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
-# resolves a go module path from a slog, e.g. logiface.logrus -> logiface/logrus, with special case for root
-go_module_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
+GO_MODULE_SLUGS_NO_PACKAGES := root
+GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
+
+# subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
+# note that the root Makefile (this file) is excluded
+SUBDIR_MAKEFILE_PATHS := $(filter-out .,$(patsubst %/Makefile,%,$(call rwildcard,./,Makefile)))
+# slugs for subdirectories, without a leading ./, / replaced with ., and the path . mapped to root
+SUBDIR_MAKEFILE_SLUGS := $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call path_to_slug,$d))
+# guard to ensure that SUBDIR_MAKEFILE_PATHS doesn't contain any unsupported paths (e.g. containing .)
+ifneq ($(SUBDIR_MAKEFILE_PATHS),$(foreach d,$(SUBDIR_MAKEFILE_SLUGS),$(call slug_to_path,$d)))
+$(error SUBDIR_MAKEFILE_PATHS contains unsupported paths)
+endif
 
 # ---
 
@@ -47,7 +73,7 @@ go_module_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
 
 # all: builds, then lints and tests in parallel (all modules in parallel)
 
-ALL_TARGETS = $(addprefix all.,$(GO_MODULE_SLUGS))
+ALL_TARGETS := $(addprefix all.,$(GO_MODULE_SLUGS))
 
 .PHONY: all
 all: $(ALL_TARGETS)
@@ -69,7 +95,7 @@ $(addprefix _all__test.,$(GO_MODULE_SLUGS)): _all__test.%: _all__build.%
 
 # lint: runs the vet and staticcheck targets
 
-LINT_TARGETS = $(addprefix lint.,$(GO_MODULE_SLUGS))
+LINT_TARGETS := $(addprefix lint.,$(GO_MODULE_SLUGS))
 
 .PHONY: lint
 lint: $(LINT_TARGETS)
@@ -79,64 +105,64 @@ $(LINT_TARGETS): lint.%: vet.% staticcheck.%
 
 # staticcheck: runs the staticcheck tool
 
-STATICCHECK_TARGETS = $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
+STATICCHECK_TARGETS := $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
 
 .PHONY: staticcheck
 staticcheck: $(STATICCHECK_TARGETS)
 
 .PHONY: $(STATICCHECK_TARGETS)
 $(STATICCHECK_TARGETS): staticcheck.%:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_path,$*)/...
+	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call slug_to_path,$*)/...
 
 # vet: runs the go vet tool
 
-VET_TARGETS = $(addprefix vet.,$(GO_MODULE_SLUGS))
+VET_TARGETS := $(addprefix vet.,$(GO_MODULE_SLUGS))
 
 .PHONY: vet
 vet: $(VET_TARGETS)
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
-	$(GO_VET) $(call go_module_path,$*)/...
+	$(GO_VET) $(call slug_to_path,$*)/...
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
 
 # build: runs the go build tool
 
-BUILD_TARGETS = $(addprefix build.,$(GO_MODULE_SLUGS))
+BUILD_TARGETS := $(addprefix build.,$(GO_MODULE_SLUGS))
 
 .PHONY: build
 build: $(BUILD_TARGETS)
 
 .PHONY: $(BUILD_TARGETS)
 $(BUILD_TARGETS): build.%:
-	$(GO_BUILD) $(call go_module_path,$*)/...
+	$(GO_BUILD) $(call slug_to_path,$*)/...
 
 # test: runs the go test tool
 
-TEST_TARGETS = $(addprefix test.,$(GO_MODULE_SLUGS))
+TEST_TARGETS := $(addprefix test.,$(GO_MODULE_SLUGS))
 
 .PHONY: test
 test: $(TEST_TARGETS)
 
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
-	$(GO_TEST) $(call go_module_path,$*)/...
+	$(GO_TEST) $(call slug_to_path,$*)/...
 
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
 
 # fmt: runs go fmt on the module
 
-FMT_TARGETS = $(addprefix fmt.,$(GO_MODULE_SLUGS))
+FMT_TARGETS := $(addprefix fmt.,$(GO_MODULE_SLUGS))
 
 .PHONY: fmt
 fmt: $(FMT_TARGETS)
 
 .PHONY: $(FMT_TARGETS)
 $(FMT_TARGETS): fmt.%:
-	$(MAKE) -s -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _fmt
+	$(MAKE) -s -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _fmt
 
 .PHONY: _fmt
 _fmt:
@@ -144,14 +170,14 @@ _fmt:
 
 # update: runs go get -u -t ./... and go get -u on all tools
 
-UPDATE_TARGETS = $(addprefix update.,$(GO_MODULE_SLUGS))
+UPDATE_TARGETS := $(addprefix update.,$(GO_MODULE_SLUGS))
 
 .PHONY: update
 update: $(UPDATE_TARGETS)
 
 .PHONY: $(UPDATE_TARGETS)
 $(UPDATE_TARGETS): update.%:
-	@$(MAKE) -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _update
+	@$(MAKE) -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
 
 .PHONY: _update
 _update: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -166,14 +192,14 @@ endef
 
 # tools: runs go install on all tools
 
-TOOLS_TARGETS = $(addprefix tools.,$(GO_MODULE_SLUGS))
+TOOLS_TARGETS := $(addprefix tools.,$(GO_MODULE_SLUGS))
 
 .PHONY: tools
 tools: $(TOOLS_TARGETS)
 
 .PHONY: $(TOOLS_TARGETS)
 $(TOOLS_TARGETS): tools.%:
-	$(MAKE) --no-print-directory -C $(call go_module_path,$*) -f $(ROOT_MAKEFILE) _tools
+	$(MAKE) --no-print-directory -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _tools
 
 .PHONY: _tools
 _tools: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -183,6 +209,31 @@ define _tools_TEMPLATE =
 	$(GO) install $(tool)
 
 endef
+
+# ---
+
+# makefile pattern rules
+
+# run.<./**/Makefile path as slug>: runs make at the given path
+
+SUBDIR_MAKEFILE_TARGETS := $(addprefix run.,$(SUBDIR_MAKEFILE_SLUGS))
+
+.PHONY: $(SUBDIR_MAKEFILE_TARGETS)
+$(SUBDIR_MAKEFILE_TARGETS): run.%:
+	@$(MAKE) -C $(call slug_to_path,$*) $(RUN_FLAGS)
+
+# makefile implicit rules
+
+# run-%.<./**/Makefile path as slug>: runs make target at the given path
+# note that eval is necessary to make this work properly (a pattern rule can only be used once)
+# additionally, note the FORCE target is to support .PHONY when using pattern rules to implement implicit rules
+define _run_TEMPLATE =
+run-%.$2: FORCE
+	@$$(MAKE) -C $1 $(RUN_FLAGS) $$*
+
+endef
+# warning: simply-expanded
+$(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call path_to_slug,$d))))
 
 # ---
 
@@ -198,4 +249,13 @@ godoc:
 debug-env:
 	@echo GO_MODULE_PATHS = $(GO_MODULE_PATHS)
 	@echo GO_MODULE_SLUGS = $(GO_MODULE_SLUGS)
-	@echo go_module_path = $(foreach d,$(GO_MODULE_SLUGS),$d=$(call go_module_path,$d))
+	@echo SUBDIR_MAKEFILE_PATHS = $(SUBDIR_MAKEFILE_PATHS)
+	@echo SUBDIR_MAKEFILE_SLUGS = $(SUBDIR_MAKEFILE_SLUGS)
+
+# we use .PHONY, but there's an edge case requiring this pattern
+.PHONY: FORCE
+FORCE:
+
+.PHONY: list
+list:
+	@LC_ALL=C $(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
