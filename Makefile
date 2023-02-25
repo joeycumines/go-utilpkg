@@ -23,6 +23,7 @@
 # Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
 
 -include config.mak
+-include project.mak
 
 # ---
 
@@ -77,9 +78,8 @@ ifneq ($(GO_MODULE_PATHS),$(foreach d,$(GO_MODULE_SLUGS),$(call slug_to_path,$d)
 $(error GO_MODULE_PATHS contains unsupported paths)
 endif
 # the below are used to special-case tools which fail if they find no packages (e.g. go vet)
-# TODO update this if the root module gets packages
-GO_MODULE_SLUGS_NO_PACKAGES := root
-GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_NO_PACKAGES ?=
+GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
 
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
