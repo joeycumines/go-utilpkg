@@ -1,3 +1,7 @@
+# MIT License
+# Copyright (c) 2023 Joseph Cumines
+# Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
+
 -include config.mak
 
 # ---
