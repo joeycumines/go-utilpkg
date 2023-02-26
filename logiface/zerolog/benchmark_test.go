@@ -304,6 +304,13 @@ func BenchmarkContextFieldType_Time(b *testing.B) {
 	benchmarkContextFieldType(b, `Time`)
 }
 
+func BenchmarkLogFieldType_Int(b *testing.B) {
+	benchmarkLogFieldType(b, `Int`)
+}
+func BenchmarkContextFieldType_Int(b *testing.B) {
+	benchmarkContextFieldType(b, `Int`)
+}
+
 func benchmarkLogFieldType(b *testing.B, typ string) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -433,6 +440,15 @@ func benchmarkLogFieldType(b *testing.B, typ string) {
 			},
 			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
 				return e.Time("k", times[0])
+			},
+		},
+		{
+			Type: `Int`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Int("k", ints[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Int("k", ints[0])
 			},
 		},
 	} {
@@ -614,16 +630,25 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 	}
 	for _, v := range []struct {
 		Type      string
-		Generic   func(e *logiface.Context[*Event]) *logiface.Context[*Event]
-		Interface func(e *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event]
+		Generic   func(c *logiface.Context[*Event]) *logiface.Context[*Event]
+		Interface func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event]
 	}{
 		{
 			Type: `Time`,
-			Generic: func(e *logiface.Context[*Event]) *logiface.Context[*Event] {
-				return e.Time("k", times[0])
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Time("k", times[0])
 			},
-			Interface: func(e *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
-				return e.Time("k", times[0])
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Time("k", times[0])
+			},
+		},
+		{
+			Type: `Int`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Int("k", ints[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Int("k", ints[0])
 			},
 		},
 	} {

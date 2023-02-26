@@ -28,6 +28,8 @@ BENCHMARK_NAMES = \
 	LogFields \
 	LogFieldType_Time \
 	ContextFieldType_Time \
+	LogFieldType_Int \
+	ContextFieldType_Int \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =
