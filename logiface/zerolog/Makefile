@@ -14,7 +14,7 @@
 GO ?= go
 BENCHSTAT ?= benchstat
 BENCHSTAT_FLAGS ?= -col /variant -row .name
-BENCHMARK_FLAGS ?= -timeout=30m -count=6 -benchmem
+BENCHMARK_FLAGS ?= -timeout=5m -count=6 -benchmem
 BENCHMARK_DIR ?= benchmarks
 ifeq ($(BENCHMARK_DIR),)
 $(error BENCHMARK_DIR must not be empty)
