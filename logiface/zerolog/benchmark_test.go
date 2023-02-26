@@ -9,196 +9,263 @@ import (
 	"time"
 )
 
+// Benchmarks in this file which compare the variants (baseline, generic,
+// interface) must have an appropriate structure to support comparison, using
+// the benchstat CLI tool. Additionally, all such benchmarks should be added to
+// Makefile (BENCHMARK_NAMES variable), to support easy usage.
+//
+// The VariantBenchmark struct is provided to make it easier to implement the
+// appropriate structure, and the Run method can be used to run all three.
+
+/*
+Template benchmark:
+
+func Benchmark(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+		},
+		Generic: func(b *testing.B) {
+		},
+		Interface: func(b *testing.B) {
+		},
+	}).Run(b)
+}
+*/
+
 var (
 	fakeMessage = "Test logging, but use a somewhat realistic message length."
 )
 
-func BenchmarkDisabled_baseline(b *testing.B) {
-	logger := zerolog.New(io.Discard).Level(zerolog.Disabled)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Msg(fakeMessage)
-		}
-	})
-}
-func BenchmarkDisabled_generic(b *testing.B) {
-	logger := L.New(
-		L.WithZerolog(zerolog.New(io.Discard)),
-		L.WithLevel(L.LevelDisabled()),
-	)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
-}
-func BenchmarkDisabled_interface(b *testing.B) {
-	logger := L.New(
-		L.WithZerolog(zerolog.New(io.Discard)),
-		L.WithLevel(L.LevelDisabled()),
-	).Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
+// VariantBenchmark models a set of benchmarks testing the relative performance
+// of the logiface wrapper implementation.
+type VariantBenchmark struct {
+	// Baseline should test zerolog directly, without any wrapper.
+	Baseline func(b *testing.B)
+	// Generic should test logiface using the logger returned by L.New.
+	Generic func(b *testing.B)
+	// Interface should be identical to Generic, except using the generic logger returned by L.New().Logger()
+	Interface func(b *testing.B)
 }
 
-func BenchmarkInfo_baseline(b *testing.B) {
-	logger := zerolog.New(io.Discard)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Msg(fakeMessage)
-		}
-	})
-}
-func BenchmarkInfo_generic(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
-}
-func BenchmarkInfo_interface(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
+// Run runs all three benchmarks as sub-benchmarks of the provided testing.B.
+func (x VariantBenchmark) Run(b *testing.B) {
+	if x.Baseline != nil {
+		b.Run(`variant=baseline`, x.Baseline)
+	}
+	if x.Generic != nil {
+		b.Run(`variant=generic`, x.Generic)
+	}
+	if x.Interface != nil {
+		b.Run(`variant=interface`, x.Interface)
+	}
 }
 
-func BenchmarkContextFields_baseline(b *testing.B) {
-	logger := zerolog.New(io.Discard).With().
-		Str("string", "four!").
-		Time("time", time.Time{}).
-		Int("int", 123).
-		Float32("float", -2.203230293249593).
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Msg(fakeMessage)
-		}
-	})
-}
-func BenchmarkContextFields_generic(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
-		Clone().
-		Str("string", "four!").
-		Time("time", time.Time{}).
-		Int("int", 123).
-		Float32("float", -2.203230293249593).
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
-}
-func BenchmarkContextFields_interface(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
-		Logger().
-		Clone().
-		Str("string", "four!").
-		Time("time", time.Time{}).
-		Int("int", 123).
-		Float32("float", -2.203230293249593).
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().Log(fakeMessage)
-		}
-	})
+func BenchmarkDisabled(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).Level(zerolog.Disabled)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(fakeMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(
+				L.WithZerolog(zerolog.New(io.Discard)),
+				L.WithLevel(L.LevelDisabled()),
+			)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(
+				L.WithZerolog(zerolog.New(io.Discard)),
+				L.WithLevel(L.LevelDisabled()),
+			).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+	}).Run(b)
 }
 
-func BenchmarkContextAppend_baseline(b *testing.B) {
-	logger := zerolog.New(io.Discard).With().
-		Str("foo", "bar").
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.With().Str("bar", "baz")
-		}
-	})
-}
-func BenchmarkContextAppend_generic(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
-		Clone().
-		Str("foo", "bar").
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Clone().Str("bar", "baz")
-		}
-	})
-}
-func BenchmarkContextAppend_interface(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
-		Logger().
-		Clone().
-		Str("foo", "bar").
-		Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Clone().Str("bar", "baz")
-		}
-	})
+func BenchmarkInfo(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(fakeMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+	}).Run(b)
 }
 
-func BenchmarkLogFields_baseline(b *testing.B) {
-	logger := zerolog.New(io.Discard)
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().
+func BenchmarkContextFields(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
 				Str("string", "four!").
 				Time("time", time.Time{}).
 				Int("int", 123).
 				Float32("float", -2.203230293249593).
-				Msg(fakeMessage)
-		}
-	})
-}
-func BenchmarkLogFields_generic(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(fakeMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
 				Str("string", "four!").
 				Time("time", time.Time{}).
 				Int("int", 123).
 				Float32("float", -2.203230293249593).
-				Log(fakeMessage)
-		}
-	})
-}
-func BenchmarkLogFields_interface(b *testing.B) {
-	logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			logger.Info().
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Logger().
+				Clone().
 				Str("string", "four!").
 				Time("time", time.Time{}).
 				Int("int", 123).
 				Float32("float", -2.203230293249593).
-				Log(fakeMessage)
-		}
-	})
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(fakeMessage)
+				}
+			})
+		},
+	}).Run(b)
+}
+
+func BenchmarkContextAppend(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
+				Str("foo", "bar").
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.With().Str("bar", "baz")
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				Str("foo", "bar").
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Clone().Str("bar", "baz")
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Logger().
+				Clone().
+				Str("foo", "bar").
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Clone().Str("bar", "baz")
+				}
+			})
+		},
+	}).Run(b)
+}
+
+func BenchmarkLogFields(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Str("string", "four!").
+						Time("time", time.Time{}).
+						Int("int", 123).
+						Float32("float", -2.203230293249593).
+						Msg(fakeMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Str("string", "four!").
+						Time("time", time.Time{}).
+						Int("int", 123).
+						Float32("float", -2.203230293249593).
+						Log(fakeMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Str("string", "four!").
+						Time("time", time.Time{}).
+						Int("int", 123).
+						Float32("float", -2.203230293249593).
+						Log(fakeMessage)
+				}
+			})
+		},
+	}).Run(b)
 }
 
 type obj struct {
@@ -213,7 +280,7 @@ func (o obj) MarshalZerologObject(e *zerolog.Event) {
 		Int("priv", o.priv)
 }
 
-func BenchmarkLogArrayObject_baseline(b *testing.B) {
+func BenchmarkLogArrayObject(b *testing.B) {
 	obj1 := obj{"a", "b", 2}
 	obj2 := obj{"c", "d", 3}
 	obj3 := obj{"e", "f", 4}
@@ -229,7 +296,7 @@ func BenchmarkLogArrayObject_baseline(b *testing.B) {
 	}
 }
 
-func BenchmarkLogFieldType_baseline(b *testing.B) {
+func BenchmarkLogFieldType(b *testing.B) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	floats := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -349,7 +416,7 @@ func BenchmarkLogFieldType_baseline(b *testing.B) {
 	}
 }
 
-func BenchmarkContextFieldType_baseline(b *testing.B) {
+func BenchmarkContextFieldType(b *testing.B) {
 	oldFormat := zerolog.TimeFieldFormat
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	defer func() { zerolog.TimeFieldFormat = oldFormat }()
