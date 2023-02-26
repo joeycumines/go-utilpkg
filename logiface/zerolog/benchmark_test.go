@@ -2,6 +2,7 @@ package zerolog
 
 import (
 	"errors"
+	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/rs/zerolog"
 	"io"
 	"net"
@@ -280,23 +281,30 @@ func (o obj) MarshalZerologObject(e *zerolog.Event) {
 		Int("priv", o.priv)
 }
 
-func BenchmarkLogArrayObject(b *testing.B) {
-	obj1 := obj{"a", "b", 2}
-	obj2 := obj{"c", "d", 3}
-	obj3 := obj{"e", "f", 4}
-	logger := zerolog.New(io.Discard)
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		arr := zerolog.Arr()
-		arr.Object(&obj1)
-		arr.Object(&obj2)
-		arr.Object(&obj3)
-		logger.Info().Array("objects", arr).Msg("test")
-	}
+//func BenchmarkLogArrayObject(b *testing.B) {
+//	obj1 := obj{"a", "b", 2}
+//	obj2 := obj{"c", "d", 3}
+//	obj3 := obj{"e", "f", 4}
+//	logger := zerolog.New(io.Discard)
+//	b.ResetTimer()
+//	b.ReportAllocs()
+//	for i := 0; i < b.N; i++ {
+//		arr := zerolog.Arr()
+//		arr.Object(&obj1)
+//		arr.Object(&obj2)
+//		arr.Object(&obj3)
+//		logger.Info().Array("objects", arr).Msg("test")
+//	}
+//}
+
+func BenchmarkLogFieldType_Time(b *testing.B) {
+	benchmarkLogFieldType(b, `Time`)
+}
+func BenchmarkContextFieldType_Time(b *testing.B) {
+	benchmarkContextFieldType(b, `Time`)
 }
 
-func BenchmarkLogFieldType(b *testing.B) {
+func benchmarkLogFieldType(b *testing.B, typ string) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	floats := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -343,7 +351,14 @@ func BenchmarkLogFieldType(b *testing.B) {
 		{"a", "a", 0},
 	}
 	errs := []error{errors.New("a"), errors.New("b"), errors.New("c"), errors.New("d"), errors.New("e")}
-	types := map[string]func(e *zerolog.Event) *zerolog.Event{
+	types := make(map[string]struct {
+		Baseline  func(e *zerolog.Event) *zerolog.Event
+		Generic   func(e *logiface.Builder[*Event]) *logiface.Builder[*Event]
+		Interface func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event]
+	})
+	// this looks funky because it's an attempt to avoid mutating the original test case as much as possible
+	// (to make it easier to propagate updates from upstream / the baseline)
+	for k, v := range map[string]func(e *zerolog.Event) *zerolog.Event{
 		"Bool": func(e *zerolog.Event) *zerolog.Event {
 			return e.Bool("k", bools[0])
 		},
@@ -401,22 +416,76 @@ func BenchmarkLogFieldType(b *testing.B) {
 		"Object": func(e *zerolog.Event) *zerolog.Event {
 			return e.Object("k", objects[0])
 		},
+	} {
+		val := types[k]
+		val.Baseline = v
+		types[k] = val
 	}
-	logger := zerolog.New(io.Discard)
-	b.ResetTimer()
-	for name := range types {
-		f := types[name]
-		b.Run(name, func(b *testing.B) {
+	for _, v := range []struct {
+		Type      string
+		Generic   func(e *logiface.Builder[*Event]) *logiface.Builder[*Event]
+		Interface func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event]
+	}{
+		{
+			Type: `Time`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Time("k", times[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Time("k", times[0])
+			},
+		},
+	} {
+		if v.Interface == nil || v.Generic == nil {
+			b.Fatalf("invalid test case for %q", v.Type)
+		}
+		val := types[v.Type]
+		if val.Baseline == nil {
+			b.Fatalf("unknown type %q", v.Type)
+		}
+		val.Generic = v.Generic
+		val.Interface = v.Interface
+		types[v.Type] = val
+	}
+	val := types[typ]
+	if val.Baseline == nil || val.Generic == nil || val.Interface == nil {
+		b.Fatalf("unknown type %q", typ)
+	}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			f := val.Baseline
+			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					f(logger.Info()).Msg("")
 				}
 			})
-		})
-	}
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			f := val.Generic
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					f(logger.Info()).Log("")
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			f := val.Interface
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					f(logger.Info()).Log("")
+				}
+			})
+		},
+	}).Run(b)
 }
 
-func BenchmarkContextFieldType(b *testing.B) {
+func benchmarkContextFieldType(b *testing.B, typ string) {
 	oldFormat := zerolog.TimeFieldFormat
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	defer func() { zerolog.TimeFieldFormat = oldFormat }()
@@ -467,7 +536,14 @@ func BenchmarkContextFieldType(b *testing.B) {
 		{"a", "a", 0},
 	}
 	errs := []error{errors.New("a"), errors.New("b"), errors.New("c"), errors.New("d"), errors.New("e")}
-	types := map[string]func(c zerolog.Context) zerolog.Context{
+	types := make(map[string]struct {
+		Baseline  func(c zerolog.Context) zerolog.Context
+		Generic   func(e *logiface.Context[*Event]) *logiface.Context[*Event]
+		Interface func(e *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event]
+	})
+	// this looks funky because it's an attempt to avoid mutating the original test case as much as possible
+	// (to make it easier to propagate updates from upstream / the baseline)
+	for k, v := range map[string]func(c zerolog.Context) zerolog.Context{
 		"Bool": func(c zerolog.Context) zerolog.Context {
 			return c.Bool("k", bools[0])
 		},
@@ -531,18 +607,74 @@ func BenchmarkContextFieldType(b *testing.B) {
 		"Timestamp": func(c zerolog.Context) zerolog.Context {
 			return c.Timestamp()
 		},
+	} {
+		val := types[k]
+		val.Baseline = v
+		types[k] = val
 	}
-	logger := zerolog.New(io.Discard)
-	b.ResetTimer()
-	for name := range types {
-		f := types[name]
-		b.Run(name, func(b *testing.B) {
+	for _, v := range []struct {
+		Type      string
+		Generic   func(e *logiface.Context[*Event]) *logiface.Context[*Event]
+		Interface func(e *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event]
+	}{
+		{
+			Type: `Time`,
+			Generic: func(e *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return e.Time("k", times[0])
+			},
+			Interface: func(e *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return e.Time("k", times[0])
+			},
+		},
+	} {
+		if v.Interface == nil || v.Generic == nil {
+			b.Fatalf("invalid test case for %q", v.Type)
+		}
+		val := types[v.Type]
+		if val.Baseline == nil {
+			b.Fatalf("unknown type %q", v.Type)
+		}
+		val.Generic = v.Generic
+		val.Interface = v.Interface
+		types[v.Type] = val
+	}
+	val := types[typ]
+	if val.Baseline == nil || val.Generic == nil || val.Interface == nil {
+		b.Fatalf("unknown type %q", typ)
+	}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			f := val.Baseline
+			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					l := f(logger.With()).Logger()
 					l.Info().Msg("")
 				}
 			})
-		})
-	}
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			f := val.Generic
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					l := f(logger.Clone()).Logger()
+					l.Info().Log("")
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			f := val.Interface
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					l := f(logger.Clone()).Logger()
+					l.Info().Log("")
+				}
+			})
+		},
+	}).Run(b)
 }

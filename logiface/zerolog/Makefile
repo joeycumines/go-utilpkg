@@ -14,7 +14,7 @@
 GO ?= go
 BENCHSTAT ?= benchstat
 BENCHSTAT_FLAGS ?= -col /variant -row .name
-BENCHMARK_FLAGS ?= -count=10 -benchmem
+BENCHMARK_FLAGS ?= -count=6 -benchmem
 BENCHMARK_DIR ?= benchmarks
 ifeq ($(BENCHMARK_DIR),)
 $(error BENCHMARK_DIR must not be empty)
@@ -26,6 +26,8 @@ BENCHMARK_NAMES = \
 	ContextFields \
 	ContextAppend \
 	LogFields \
+	LogFieldType_Time \
+	ContextFieldType_Time \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =
