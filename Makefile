@@ -21,6 +21,7 @@
 # SOFTWARE.
 #
 # Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
+# Example: https://github.com/joeycumines/go-utilpkg
 
 # windows gnu make seems to append includes to the end of MAKEFILE_LIST
 # hence the simple variable assignment, prior to any includes
