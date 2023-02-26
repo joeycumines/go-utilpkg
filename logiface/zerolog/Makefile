@@ -41,7 +41,7 @@ all: bench
 
 clean:
 ifeq ($(OS),Windows_NT)
-	rmdir /Q /S $(BENCHMARK_DIR)
+	del /Q /S $(BENCHMARK_DIR)
 else
 	rm -rf $(BENCHMARK_DIR)
 endif
