@@ -41,7 +41,7 @@ all: bench
 
 clean:
 ifeq ($(OS),Windows_NT)
-	del /Q /S $(BENCHMARK_DIR)
+	rmdir /Q /S $(BENCHMARK_DIR)
 else
 	rm -rf $(BENCHMARK_DIR)
 endif
@@ -60,10 +60,10 @@ endef
 $(BENCHMARK_TARGETS): bench-%: $(BENCHMARK_DIR)/%.txt
 	$(BENCHSTAT) $(BENCHSTAT_FLAGS) $(BENCHMARK_DIR)/$*.txt
 
-$(BENCHMARK_FILES): $(BENCHMARK_DIR)/%.txt: | $(BENCHMARK_DIR)/
+$(BENCHMARK_FILES): $(BENCHMARK_DIR)/%.txt: | $(BENCHMARK_DIR)
 	$(GO) test $(BENCHMARK_FLAGS) -run=^$$ -bench=^Benchmark$(call benchmark_lc_to_name,$*)$$ >$@
 
-$(BENCHMARK_DIR)/:
+$(BENCHMARK_DIR):
 	mkdir $@
 
 .PHONY: list
