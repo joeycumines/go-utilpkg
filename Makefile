@@ -213,7 +213,7 @@ _update:
 	$(foreach tool,$(GO_TOOLS),$(_update_TEMPLATE))
 	$(GO) mod tidy
 define _update_TEMPLATE =
-	$(GO) get -u $(tool)
+$(GO) get -u $(tool)
 
 endef
 
@@ -233,7 +233,7 @@ _tools: GO_TOOLS := $(shell $(LIST_TOOLS))
 _tools:
 	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
 define _tools_TEMPLATE =
-	$(GO) install $(tool)
+$(GO) install $(tool)
 
 endef
 
