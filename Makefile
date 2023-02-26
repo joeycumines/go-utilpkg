@@ -22,6 +22,10 @@
 #
 # Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
 
+# windows gnu make seems to append includes to the end of MAKEFILE_LIST
+# hence the simple variable assignment, prior to any includes
+ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+
 -include config.mak
 -include project.mak
 
@@ -66,8 +70,6 @@ path_to_slug = $(if $(filter .,$1),root,$(subst /,.,$(patsubst ./%,%,$1)))
 
 # convert a slug to a path, e.g. logiface.logrus -> ./logiface/logrus, with special case for root
 slug_to_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
-
-ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
