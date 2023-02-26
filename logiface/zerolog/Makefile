@@ -49,10 +49,10 @@ endif
 # could have defined BENCHMARK_FILES as prerequisites, didn't to avoid parallelism
 .PHONY: bench
 bench:
-	$(foreach target,$(BENCHMARK_FILES),$(_bench__TEMPLATE))
+	$(foreach target,$(BENCHMARK_FILES),@$(MAKE) $(_bench__TEMPLATE))
 	$(BENCHSTAT) $(BENCHSTAT_FLAGS) $(BENCHMARK_FILES)
 define _bench__TEMPLATE =
-	@$(MAKE) --no-print-directory $(target)
+--no-print-directory $(target)
 
 endef
 
