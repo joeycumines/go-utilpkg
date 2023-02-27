@@ -166,9 +166,13 @@ func (x modifierMethods[E]) str(event E, key string, val string) {
 	}
 }
 
-func (x modifierMethods[E]) bytes(event E, key string, val []byte) {
-	// TODO allow custom handling via an optional method
-	x.str(event, key, base64.StdEncoding.EncodeToString(val))
+func (x modifierMethods[E]) base64(event E, key string, val []byte, enc *base64.Encoding) {
+	if enc == nil {
+		enc = base64.StdEncoding
+	}
+	if !event.AddBase64Bytes(key, val, enc) {
+		x.str(event, key, enc.EncodeToString(val))
+	}
 }
 
 func (x modifierMethods[E]) time(event E, key string, val time.Time) {
@@ -177,9 +181,10 @@ func (x modifierMethods[E]) time(event E, key string, val time.Time) {
 	}
 }
 
-func (x modifierMethods[E]) duration(event E, key string, val time.Duration) {
-	// TODO allow custom handling via an optional method
-	x.str(event, key, formatDuration(val))
+func (x modifierMethods[E]) dur(event E, key string, val time.Duration) {
+	if !event.AddDuration(key, val) {
+		x.str(event, key, formatDuration(val))
+	}
 }
 
 func (x modifierMethods[E]) int(event E, key string, val int) {
@@ -236,11 +241,11 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 	case string:
 		x.str(event, key, val)
 	case []byte:
-		x.bytes(event, key, val)
+		x.base64(event, key, val, nil)
 	case time.Time:
 		x.time(event, key, val)
 	case time.Duration:
-		x.duration(event, key, val)
+		x.dur(event, key, val)
 	case int:
 		x.int(event, key, val)
 	case float32:
@@ -453,6 +458,84 @@ func (x *Context[E]) Time(key string, t time.Time) *Context[E] {
 func (x *Builder[E]) Time(key string, t time.Time) *Builder[E] {
 	if x.ok() {
 		_ = x.methods.Time(x.Event, key, t)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Dur(event E, key string, d time.Duration) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.dur(event, key, d)
+	return nil
+}
+
+// Dur adds a time.Duration as a structured log field, using
+// Event.AddDuration if available, otherwise falling back to formatting the
+// time.Duration as a string, formatted as a decimal in seconds (with unit),
+// using the same semantics as the JSON encoding of Protobuf's "well known
+// type", google.protobuf.Duration. In this fallback case, the behavior of
+// [Context.Str] is used, to add the field.
+//
+// See also
+// [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/duration.proto].
+func (x *Context[E]) Dur(key string, d time.Duration) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Dur(event, key, d) })
+	}
+	return x
+}
+
+// Dur adds a time.Duration as a structured log field, using
+// Event.AddDuration if available, otherwise falling back to formatting the
+// time.Duration as a string, formatted as a decimal in seconds (with unit),
+// using the same semantics as the JSON encoding of Protobuf's "well known
+// type", google.protobuf.Duration. In this fallback case, the behavior of
+// [Builder.Str] is used, to add the field.
+//
+// See also
+// [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/duration.proto].
+func (x *Builder[E]) Dur(key string, d time.Duration) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Dur(x.Event, key, d)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Base64(event E, key string, b []byte, enc *base64.Encoding) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.base64(event, key, b, enc)
+	return nil
+}
+
+// Base64 adds a []byte as a structured log field, using [Event.AddBase64Bytes]
+// if available, otherwise falling back to directly encoding the []byte as a
+// base64 string. The fallback behavior is intended to be the core behavior,
+// with the [Event.AddBase64Bytes] method being an optimization.
+//
+// If enc is nil or base64.StdEncoding, the behavior is the same as the JSON
+// encoding of Protobuf's bytes scalar.
+// See also [https://protobuf.dev/programming-guides/proto3/#json].
+func (x *Context[E]) Base64(key string, b []byte, enc *base64.Encoding) *Context[E] {
+	if x.ok() {
+		x.add(func(event E) error { return x.methods.Base64(event, key, b, enc) })
+	}
+	return x
+}
+
+// Base64 adds a []byte as a structured log field, using [Event.AddBase64Bytes]
+// if available, otherwise falling back to directly encoding the []byte as a
+// base64 string. The fallback behavior is intended to be the core behavior,
+// with the [Event.AddBase64Bytes] method being an optimization.
+//
+// If enc is nil or base64.StdEncoding, the behavior is the same as the JSON
+// encoding of Protobuf's bytes scalar.
+// See also [https://protobuf.dev/programming-guides/proto3/#json].
+func (x *Builder[E]) Base64(key string, b []byte, enc *base64.Encoding) *Builder[E] {
+	if x.ok() {
+		_ = x.methods.Base64(x.Event, key, b, enc)
 	}
 	return x
 }

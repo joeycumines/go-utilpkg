@@ -311,6 +311,48 @@ func BenchmarkContextFieldType_Int(b *testing.B) {
 	benchmarkContextFieldType(b, `Int`)
 }
 
+func BenchmarkLogFieldType_Float32(b *testing.B) {
+	benchmarkLogFieldType(b, `Float32`)
+}
+func BenchmarkContextFieldType_Float32(b *testing.B) {
+	benchmarkContextFieldType(b, `Float32`)
+}
+
+func BenchmarkLogFieldType_Err(b *testing.B) {
+	benchmarkLogFieldType(b, `Err`)
+}
+func BenchmarkContextFieldType_Err(b *testing.B) {
+	benchmarkContextFieldType(b, `Err`)
+}
+
+func BenchmarkLogFieldType_Str(b *testing.B) {
+	benchmarkLogFieldType(b, `Str`)
+}
+func BenchmarkContextFieldType_Str(b *testing.B) {
+	benchmarkContextFieldType(b, `Str`)
+}
+
+func BenchmarkLogFieldType_Interface(b *testing.B) {
+	benchmarkLogFieldType(b, `Interface`)
+}
+func BenchmarkContextFieldType_Interface(b *testing.B) {
+	benchmarkContextFieldType(b, `Interface`)
+}
+
+func BenchmarkLogFieldType_InterfaceObject(b *testing.B) {
+	benchmarkLogFieldType(b, `Interface(Object)`)
+}
+func BenchmarkContextFieldType_InterfaceObject(b *testing.B) {
+	benchmarkContextFieldType(b, `Interface(Object)`)
+}
+
+func BenchmarkLogFieldType_Dur(b *testing.B) {
+	benchmarkLogFieldType(b, `Dur`)
+}
+func BenchmarkContextFieldType_Dur(b *testing.B) {
+	benchmarkContextFieldType(b, `Dur`)
+}
+
 func benchmarkLogFieldType(b *testing.B, typ string) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -428,8 +470,11 @@ func benchmarkLogFieldType(b *testing.B, typ string) {
 		val.Baseline = v
 		types[k] = val
 	}
+	// again, down here to try and make the diff nicer
+	float32s := []float32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	for _, v := range []struct {
 		Type      string
+		Baseline  func(e *zerolog.Event) *zerolog.Event // only if not implemented by the upstream
 		Generic   func(e *logiface.Builder[*Event]) *logiface.Builder[*Event]
 		Interface func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event]
 	}{
@@ -451,13 +496,76 @@ func benchmarkLogFieldType(b *testing.B, typ string) {
 				return e.Int("k", ints[0])
 			},
 		},
+		{
+			Type: `Float32`,
+			Baseline: func(e *zerolog.Event) *zerolog.Event {
+				return e.Float32("k", float32s[0])
+			},
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Float32("k", float32s[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Float32("k", float32s[0])
+			},
+		},
+		{
+			Type: `Err`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Err(errs[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Err(errs[0])
+			},
+		},
+		{
+			Type: `Str`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Str("k", strings[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Str("k", strings[0])
+			},
+		},
+		{
+			Type: `Interface`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Interface("k", interfaces[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Interface("k", interfaces[0])
+			},
+		},
+		{
+			Type: `Interface(Object)`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Interface("k", objects[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Interface("k", objects[0])
+			},
+		},
+		{
+			Type: `Dur`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Dur("k", durations[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Dur("k", durations[0])
+			},
+		},
 	} {
 		if v.Interface == nil || v.Generic == nil {
 			b.Fatalf("invalid test case for %q", v.Type)
 		}
 		val := types[v.Type]
-		if val.Baseline == nil {
-			b.Fatalf("unknown type %q", v.Type)
+		if v.Baseline == nil {
+			if val.Baseline == nil {
+				b.Fatalf("unknown type %q", v.Type)
+			}
+		} else if val.Baseline != nil {
+			b.Fatalf("duplicate test case for %q", v.Type)
+		} else {
+			val.Baseline = v.Baseline
 		}
 		val.Generic = v.Generic
 		val.Interface = v.Interface
@@ -628,8 +736,11 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 		val.Baseline = v
 		types[k] = val
 	}
+	// again, down here to try and make the diff nicer
+	float32s := []float32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	for _, v := range []struct {
 		Type      string
+		Baseline  func(c zerolog.Context) zerolog.Context // only if not implemented by the upstream
 		Generic   func(c *logiface.Context[*Event]) *logiface.Context[*Event]
 		Interface func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event]
 	}{
@@ -651,13 +762,76 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 				return c.Int("k", ints[0])
 			},
 		},
+		{
+			Type: `Float32`,
+			Baseline: func(c zerolog.Context) zerolog.Context {
+				return c.Float32("k", float32s[0])
+			},
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Float32("k", float32s[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Float32("k", float32s[0])
+			},
+		},
+		{
+			Type: `Err`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Err(errs[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Err(errs[0])
+			},
+		},
+		{
+			Type: `Str`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Str("k", strings[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Str("k", strings[0])
+			},
+		},
+		{
+			Type: `Interface`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Interface("k", interfaces[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Interface("k", interfaces[0])
+			},
+		},
+		{
+			Type: `Interface(Object)`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Interface("k", objects[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Interface("k", objects[0])
+			},
+		},
+		{
+			Type: `Dur`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Dur("k", durations[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Dur("k", durations[0])
+			},
+		},
 	} {
 		if v.Interface == nil || v.Generic == nil {
 			b.Fatalf("invalid test case for %q", v.Type)
 		}
 		val := types[v.Type]
-		if val.Baseline == nil {
-			b.Fatalf("unknown type %q", v.Type)
+		if v.Baseline == nil {
+			if val.Baseline == nil {
+				b.Fatalf("unknown type %q", v.Type)
+			}
+		} else if val.Baseline != nil {
+			b.Fatalf("duplicate test case for %q", v.Type)
+		} else {
+			val.Baseline = v.Baseline
 		}
 		val.Generic = v.Generic
 		val.Interface = v.Interface

@@ -102,8 +102,8 @@ func (LoggerFactory[E]) WithEventReleaser(releaser EventReleaser[E]) Option[E] {
 	return WithEventReleaser[E](releaser)
 }
 
-// WithWriter configures the logger's Writer, prepending it to an internal
-// WriterSlice.
+// WithWriter configures the logger's [Writer], prepending it to an internal
+// [WriterSlice].
 //
 // See also LoggerFactory.WithWriter and L (an instance of LoggerFactory[Event]{}).
 func WithWriter[E Event](writer Writer[E]) Option[E] {
@@ -118,13 +118,12 @@ func (LoggerFactory[E]) WithWriter(writer Writer[E]) Option[E] {
 	return WithWriter[E](writer)
 }
 
-// WithModifier configures the logger's Modifier, prepending it to an internal
-// ModifierSlice.
+// WithModifier configures the logger's [Modifier], appending it to an internal
+// [ModifierSlice].
 //
 // See also LoggerFactory.WithModifier and L (an instance of LoggerFactory[Event]{}).
 func WithModifier[E Event](modifier Modifier[E]) Option[E] {
 	return func(c *loggerConfig[E]) {
-		// note: reversed on init
 		c.modifier = append(c.modifier, modifier)
 	}
 }
@@ -369,7 +368,6 @@ func (x *loggerConfig[E]) resolveModifier() Modifier[E] {
 	case 1:
 		return x.modifier[0]
 	default:
-		reverseSlice(x.modifier)
 		return x.modifier
 	}
 }

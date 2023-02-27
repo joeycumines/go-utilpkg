@@ -33,15 +33,32 @@ func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.Logge
 	options = append(options, req.Options...)
 
 	return testsuite.LoggerResponse[*Event]{
-		Logger:       L.New(options...),
-		LevelMapping: testSuiteLevelMapping,
-		ParseEvent:   testSuiteParseEvent,
-		FormatTime:   testSuiteFormatTime,
+		Logger:         L.New(options...),
+		LevelMapping:   testSuiteLevelMapping,
+		ParseEvent:     testSuiteParseEvent,
+		FormatTime:     testSuiteFormatTime,
+		FormatDuration: testSuiteFormatDuration,
 	}
 }
 
-func testSuiteFormatTime(t time.Time) string {
+func testSuiteFormatTime(t time.Time) any {
 	return t.Format(zerolog.TimeFieldFormat)
+}
+
+func testSuiteFormatDuration(d time.Duration) any {
+	if zerolog.DurationFieldInteger {
+		return float64(d / zerolog.DurationFieldUnit)
+	}
+	val := float64(d) / float64(zerolog.DurationFieldUnit)
+	switch {
+	case math.IsNaN(val):
+		return `NaN`
+	case math.IsInf(val, 1):
+		return `+Inf`
+	case math.IsInf(val, -1):
+		return `-Inf`
+	}
+	return val
 }
 
 func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {

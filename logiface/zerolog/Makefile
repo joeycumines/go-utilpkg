@@ -30,6 +30,18 @@ BENCHMARK_NAMES = \
 	ContextFieldType_Time \
 	LogFieldType_Int \
 	ContextFieldType_Int \
+	LogFieldType_Float32 \
+	ContextFieldType_Float32 \
+	LogFieldType_Err \
+	ContextFieldType_Err \
+	LogFieldType_Str \
+	ContextFieldType_Str \
+	LogFieldType_Interface \
+	ContextFieldType_Interface \
+	LogFieldType_InterfaceObject \
+	ContextFieldType_InterfaceObject \
+	LogFieldType_Dur \
+	ContextFieldType_Dur \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =

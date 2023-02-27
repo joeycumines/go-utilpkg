@@ -1,6 +1,7 @@
 package logiface
 
 import (
+	"encoding/base64"
 	"errors"
 	"time"
 )
@@ -16,6 +17,37 @@ type (
 	// All implementations must embed UnimplementedEvent, as it provides
 	// support for optional methods (and facilitates additional optional
 	// methods being added, without breaking changes).
+	//
+	// # Adding a new log field type
+	//
+	// In general, types of log fields are added via the implementation of new
+	// methods, which should be present in all of [Builder], [Context], and
+	// [Event], though the [Event] method will differ.
+	//
+	// The method name and arguments, for Builder and Context, are typically
+	// styled after the equivalent provided by zerolog, though they need not be.
+	// The arguments for Event are typically identical, returning a bool (to
+	// indicate support), with the method name being somewhat arbitrary, but
+	// ideally descriptive and consistent, e.g. Add<full type name>. The Event
+	// interface isn't used directly, by end users, making brevity unimportant.
+	//
+	// These are common development tasks, when a new field type is added:
+	//
+	//   1. Add the new field type method to the [Event] interface (e.g. AddDuration)
+	//   2. Add the new field type method to the [UnimplementedEvent] struct (return false)
+	//   3. Add the calling/fallback behavior as a new unexported method of the internal modifierMethods struct (e.g. dur)
+	//   4. Update the (internal) modifierMethods.Field method, with type case(s) using 3., for the new field type
+	//   5. Add a new (internal) method to the modifierMethods struct, using 3., named per [Builder] and [Context] (e.g. Dur)
+	//   6. Add to each of [Builder] and [Context] a method named the same as and using 5. (e.g. Dur)
+	//   7. Add the Event method to mockComplexEvent in mock_test.go
+	//   8. Run make in the root of the git repository, fix any issues
+	//   9. Add appropriate Field and specific method calls (e.g. Dur) to fluentCallerTemplate in mock_test.go (note: update the T generic interface)
+	//   10. Fix all test cases that fail
+	//   11. Update the testsuite module to include the new field type (e.g. throw it on eventTemplate1 in templates.go)
+	//   12. Run make in the root of the git repository, everything should still pass
+	//   13. Implement new field type in all relevant implementation modules (e.g. logiface/zerolog)
+	//   14. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface/testsuite, see also normalizeEvent
+	//   15. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface/zerolog
 	Event interface {
 		// required methods
 
@@ -42,6 +74,14 @@ type (
 		AddFloat32(key string, val float32) bool
 		// AddTime adds a field of type time.Time. It's an optional optimisation.
 		AddTime(key string, val time.Time) bool
+		// AddDuration adds a field of type time.Duration. It's an optional optimisation.
+		AddDuration(key string, val time.Duration) bool
+		// AddBase64Bytes adds bytes as a field, to be base64 encoded.
+		// The enc param will always be non-nil, and is the encoding to use.
+		// This abstraction is provided to allow implementations to use the
+		// most appropriate method, of the enc param.
+		// It's an optional optimisation.
+		AddBase64Bytes(key string, val []byte, enc *base64.Encoding) bool
 
 		mustEmbedUnimplementedEvent()
 	}
@@ -163,10 +203,20 @@ func (x WriterSlice[E]) Write(event E) (err error) {
 	return ErrDisabled
 }
 
-func (UnimplementedEvent) AddMessage(string) bool          { return false }
-func (UnimplementedEvent) AddError(error) bool             { return false }
-func (UnimplementedEvent) AddString(string, string) bool   { return false }
-func (UnimplementedEvent) AddInt(string, int) bool         { return false }
+func (UnimplementedEvent) AddMessage(string) bool { return false }
+
+func (UnimplementedEvent) AddError(error) bool { return false }
+
+func (UnimplementedEvent) AddString(string, string) bool { return false }
+
+func (UnimplementedEvent) AddInt(string, int) bool { return false }
+
 func (UnimplementedEvent) AddFloat32(string, float32) bool { return false }
-func (UnimplementedEvent) AddTime(string, time.Time) bool  { return false }
-func (UnimplementedEvent) mustEmbedUnimplementedEvent()    {}
+
+func (UnimplementedEvent) AddTime(string, time.Time) bool { return false }
+
+func (UnimplementedEvent) AddDuration(string, time.Duration) bool { return false }
+
+func (UnimplementedEvent) AddBase64Bytes(string, []byte, *base64.Encoding) bool { return false }
+
+func (UnimplementedEvent) mustEmbedUnimplementedEvent() {}

@@ -1,6 +1,7 @@
 package testsuite
 
 import (
+	"encoding/base64"
 	"errors"
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"time"
@@ -58,6 +59,22 @@ func eventTemplate1(in logiface.Event) (out Event) {
 
 	if v := time.Unix(0, 1578945643210987654).UTC(); in.AddTime(`time_2`, v) {
 		out.Fields[`time_2`] = v
+	}
+
+	if v := time.Duration(51238123523458989); in.AddDuration(`dur_1`, v) {
+		out.Fields[`dur_1`] = v
+	}
+
+	if v := time.Duration(-51238123523458989); in.AddDuration(`dur_2`, v) {
+		out.Fields[`dur_2`] = v
+	}
+
+	if v := time.Duration(0); in.AddDuration(`dur_3`, v) {
+		out.Fields[`dur_3`] = v
+	}
+
+	if v := (base64BytesField{Data: []byte(`val 7`), Enc: base64.RawStdEncoding}); in.AddBase64Bytes(`base64bytes_1`, v.Data, v.Enc) {
+		out.Fields[`base64bytes_1`] = v
 	}
 
 	return

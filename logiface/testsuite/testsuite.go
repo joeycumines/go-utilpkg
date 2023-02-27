@@ -4,6 +4,7 @@ package testsuite
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	diff "github.com/hexops/gotextdiff"
@@ -61,7 +62,13 @@ type (
 		ParseEvent func(r io.Reader) (remainder []byte, event *Event)
 
 		// FormatTime is optional, and must be used if logiface.Event.AddTime is implemented
-		FormatTime func(t time.Time) string
+		FormatTime func(t time.Time) any
+
+		// FormatDuration is optional, and must be used if logiface.Event.AddDuration is implemented
+		FormatDuration func(d time.Duration) any
+
+		// FormatBase64Bytes is optional, and must be used if logiface.Event.AddBase64Bytes is implemented
+		FormatBase64Bytes func(b []byte, enc *base64.Encoding) any
 	}
 
 	// TestRequest models the input from a test case, when it requests a logger.
@@ -90,8 +97,14 @@ type (
 		// ReceiveTimeout is determined by Config.WriteTimeout
 		ReceiveTimeout time.Duration
 
-		// FormatTime is a normalizer, used by NormalizeEvent.
-		FormatTime func(t time.Time) string
+		// FormatTime is a normalizer, used by normalizeEvent.
+		FormatTime func(t time.Time) any
+
+		// FormatDuration is a normalizer, used by normalizeEvent.
+		FormatDuration func(d time.Duration) any
+
+		// FormatBase64Bytes is a normalizer, used by normalizeEvent.
+		FormatBase64Bytes func(b []byte, enc *base64.Encoding) any
 	}
 
 	// Event models a parsed log event
@@ -103,6 +116,12 @@ type (
 		// It must include all fields added via the logiface.Event interface, except Message and Error.
 		// It must not include any additional fields (e.g. added by the logger, such as timestamp).
 		Fields map[string]interface{}
+	}
+
+	// base64BytesField models args to the logiface.Event.AddBase64 method.
+	base64BytesField struct {
+		Data []byte
+		Enc  *base64.Encoding
 	}
 )
 
@@ -185,12 +204,14 @@ func (x Config[E]) RunTest(req TestRequest[E], test func(res TestResponse[E])) {
 	}()
 
 	test(TestResponse[E]{
-		Logger:         l.Logger,
-		LevelMapping:   l.LevelMapping,
-		Events:         events,
-		SendEOF:        func() { _ = w.Close() },
-		ReceiveTimeout: x.WriteTimeout,
-		FormatTime:     l.FormatTime,
+		Logger:            l.Logger,
+		LevelMapping:      l.LevelMapping,
+		Events:            events,
+		SendEOF:           func() { _ = w.Close() },
+		ReceiveTimeout:    x.WriteTimeout,
+		FormatTime:        l.FormatTime,
+		FormatDuration:    l.FormatDuration,
+		FormatBase64Bytes: l.FormatBase64Bytes,
 	})
 
 	// stop the reader / parser
@@ -348,8 +369,8 @@ func EventsDiff(expected, actual []Event) string {
 	return fmt.Sprint(diff.ToUnified(`expected`, `actual`, expectedStr, myers.ComputeEdits(``, expectedStr, s.String())))
 }
 
-// NormalizeEvent is used to convert templates into comparable values.
-func NormalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Event) Event {
+// normalizeEvent is used to convert templates into comparable values.
+func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Event) Event {
 	ev.Level = tr.LevelMapping(ev.Level)
 	if ev.Message == nil && cfg.LogsEmptyMessage {
 		ev.Message = new(string)
@@ -368,6 +389,14 @@ func NormalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 		case time.Time:
 			if tr.FormatTime != nil {
 				return tr.FormatTime(v)
+			}
+		case time.Duration:
+			if tr.FormatDuration != nil {
+				return tr.FormatDuration(v)
+			}
+		case base64BytesField:
+			if tr.FormatBase64Bytes != nil {
+				return tr.FormatBase64Bytes(v.Data, v.Enc)
 			}
 		}
 		return v

@@ -113,6 +113,11 @@ func (x *Event) AddTime(key string, val time.Time) bool {
 	return true
 }
 
+func (x *Event) AddDuration(key string, val time.Duration) bool {
+	x.Z.Dur(key, val)
+	return true
+}
+
 func (x *Logger) NewEvent(level logiface.Level) *Event {
 	// map the levels, initialize the zerolog.Event
 	z := x.newEvent(level)

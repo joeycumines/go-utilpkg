@@ -527,7 +527,14 @@ func TestLoggerConfig_resolveWriter(t *testing.T) {
 	// Test multiple writers
 	config.writer = WriterSlice[*mockEvent]{writer1, writer2, writer3}
 	writer = config.resolveWriter()
-	assert.Equal(t, WriterSlice[*mockEvent]{writer3, writer2, writer1}, writer)
+	expected := WriterSlice[*mockEvent]{writer3, writer2, writer1}
+	assert.Equal(t, expected, writer)
+	// reflect.DeepEqual doesn't seem to catch the reference equality
+	for i, v := range writer.(WriterSlice[*mockEvent]) {
+		if v != expected[i] {
+			t.Errorf("[%d] expected %p, but got: %p", i, expected[i], v)
+		}
+	}
 }
 
 func TestLoggerConfig_resolveModifier(t *testing.T) {
@@ -548,7 +555,14 @@ func TestLoggerConfig_resolveModifier(t *testing.T) {
 	// Test multiple modifiers
 	config.modifier = ModifierSlice[*mockEvent]{modifier1, modifier2, modifier3}
 	modifier = config.resolveModifier()
-	assert.Equal(t, ModifierSlice[*mockEvent]{modifier3, modifier2, modifier1}, modifier)
+	expected := ModifierSlice[*mockEvent]{modifier1, modifier2, modifier3}
+	assert.Equal(t, expected, modifier)
+	// reflect.DeepEqual doesn't seem to catch the reference equality
+	for i, v := range modifier.(ModifierSlice[*mockEvent]) {
+		if v != expected[i] {
+			t.Errorf("[%d] expected %p, but got: %p", i, expected[i], v)
+		}
+	}
 }
 
 func TestLogger_Logger_nilReceiver(t *testing.T) {

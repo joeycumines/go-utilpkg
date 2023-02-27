@@ -1,6 +1,7 @@
 package logiface
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	diff "github.com/hexops/gotextdiff"
@@ -138,6 +139,16 @@ func (x *mockComplexEvent) AddTime(key string, val time.Time) bool {
 	return true
 }
 
+func (x *mockComplexEvent) AddDuration(key string, val time.Duration) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddDuration`, Key: key, Value: val})
+	return true
+}
+
+func (x *mockComplexEvent) AddBase64Bytes(key string, val []byte, enc *base64.Encoding) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddBase64Bytes`, Key: key, Value: enc.EncodeToString(val)})
+	return true
+}
+
 func (x *mockComplexEvent) mustEmbedUnimplementedEvent() {}
 
 func (x *mockComplexWriter) Write(event *mockComplexEvent) error {
@@ -155,6 +166,8 @@ func fluentCallerTemplate[T interface {
 	Any(key string, val any) T
 	Str(key string, val string) T
 	Time(key string, t time.Time) T
+	Dur(key string, d time.Duration) T
+	Base64(key string, b []byte, enc *base64.Encoding) T
 }](x T) {
 	x.Err(errors.New(`err called`)).
 		Field(`field called with string`, `val 2`).
@@ -173,7 +186,13 @@ func fluentCallerTemplate[T interface {
 		Any(`any called with string`, `val 5`).
 		Str(`str called`, `val 6`).
 		Time(`time called with local`, time.Unix(0, 1616592449876543213)).
-		Time(`time called with utc`, time.Unix(0, 1583023169456789123).UTC())
+		Time(`time called with utc`, time.Unix(0, 1583023169456789123).UTC()).
+		Dur(`dur called positive`, time.Duration(51238123523458989)).
+		Dur(`dur called negative`, time.Duration(-51238123523458989)).
+		Dur(`dur called zero`, time.Duration(0)).
+		Base64(`base64 called with nil enc`, []byte(`val 7`), nil).
+		Base64(`base64 called with padding`, []byte(`val 7`), base64.StdEncoding).
+		Base64(`base64 called without padding`, []byte(`val 7`), base64.RawStdEncoding)
 }
 
 func stringDiff(expected, actual string) string {
