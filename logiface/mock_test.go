@@ -62,7 +62,10 @@ type (
 )
 
 var (
+	simpleLoggerFactory = LoggerFactory[*mockSimpleEvent]{}
+
 	// compile time assertions
+
 	_ EventFactoryFunc[*mockSimpleEvent]  = mockSimpleEventFactory
 	_ Event                               = (*mockSimpleEvent)(nil)
 	_ Writer[*mockSimpleEvent]            = (*mockSimpleWriter)(nil)
@@ -197,4 +200,11 @@ func fluentCallerTemplate[T interface {
 
 func stringDiff(expected, actual string) string {
 	return fmt.Sprint(diff.ToUnified(`expected`, `actual`, expected, myers.ComputeEdits(``, expected, actual)))
+}
+
+func newSimpleLogger(w io.Writer, multiLine bool) *Logger[*mockSimpleEvent] {
+	return simpleLoggerFactory.New(
+		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: w, MultiLine: multiLine}),
+	)
 }

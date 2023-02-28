@@ -63,11 +63,6 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
 }
 
-// ok returns true if the receiver is initialized
-func (x *Context[E]) ok() bool {
-	return x != nil && x.logger != nil
-}
-
 // Call is provided as a convenience, to facilitate code which uses the
 // receiver explicitly, without breaking out of the fluent-style API.
 //
@@ -90,7 +85,7 @@ func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) Log(msg string) {
-	if !x.ok() {
+	if !x.Enabled() {
 		return
 	}
 	defer x.release()
@@ -108,7 +103,7 @@ func (x *Builder[E]) Log(msg string) {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) Logf(format string, args ...any) {
-	if !x.ok() {
+	if !x.Enabled() {
 		return
 	}
 	defer x.release()
@@ -130,7 +125,7 @@ func (x *Builder[E]) Logf(format string, args ...any) {
 //
 // This method is not implemented by Context.
 func (x *Builder[E]) LogFunc(fn func() string) {
-	if !x.ok() {
+	if !x.Enabled() {
 		return
 	}
 	defer x.release()
@@ -154,10 +149,6 @@ func (x *Builder[E]) release() {
 		}
 		shared.pool.Put(x)
 	}
-}
-
-func (x *Builder[E]) ok() bool {
-	return x != nil && x.shared != nil
 }
 
 func (x modifierMethods[E]) str(event E, key string, val string) {
@@ -230,6 +221,20 @@ func formatDuration(d time.Duration) string {
 	return x + "s"
 }
 
+// Implementations of non-field methods that are shared between Context and Builder.
+
+// Enabled indicates that this [Context] was initialized from a writable
+// [Logger], via [Logger.Clone].
+func (x *Context[E]) Enabled() bool {
+	return x != nil && x.logger != nil
+}
+
+// Enabled indicates that this [Builder] was initialized by a [Logger], using a
+// writable [Level], given the logger's configuration.
+func (x *Builder[E]) Enabled() bool {
+	return x != nil && x.shared != nil
+}
+
 // Implementations of field modifiers / builders.
 // All together, to make it easier to ensure both Context and Builder implement the same set of methods.
 
@@ -259,12 +264,13 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 // Field adds a field to the log context, making an effort to choose the most
 // appropriate handler for the value.
 //
-// WARNING: The behavior of this method may change without notice.
+// WARNING: The behavior of this method may change without notice, to
+// facilitate the addition of new field types.
 //
 // Use the Interface method if you want a direct pass-through to the
 // Event.AddField implementation.
 func (x *Context[E]) Field(key string, val any) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Field(event, key, val) })
 	}
 	return x
@@ -273,12 +279,13 @@ func (x *Context[E]) Field(key string, val any) *Context[E] {
 // Field adds a field to the log event, making an effort to choose the most
 // appropriate handler for the value.
 //
-// WARNING: The behavior of this method may change without notice.
+// WARNING: The behavior of this method may change without notice, to
+// facilitate the addition of new field types.
 //
 // Use the Interface method if you want a direct pass-through to the
 // Event.AddField implementation.
 func (x *Builder[E]) Field(key string, val any) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Field(x.Event, key, val)
 	}
 	return x
@@ -295,7 +302,7 @@ func (x modifierMethods[E]) Interface(event E, key string, val any) error {
 // Interface adds a structured log field, which will pass through to
 // Event.AddField.
 func (x *Context[E]) Interface(key string, val any) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Interface(event, key, val) })
 	}
 	return x
@@ -304,7 +311,7 @@ func (x *Context[E]) Interface(key string, val any) *Context[E] {
 // Interface adds a structured log field, which will pass through to
 // Event.AddField.
 func (x *Builder[E]) Interface(key string, val any) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Interface(x.Event, key, val)
 	}
 	return x
@@ -330,7 +337,7 @@ func (x modifierMethods[E]) Err(event E, err error) error {
 // be determined by the Event.AddError method, or will be "err" if not
 // implemented.
 func (x *Context[E]) Err(err error) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Err(event, err) })
 	}
 	return x
@@ -340,7 +347,7 @@ func (x *Context[E]) Err(err error) *Context[E] {
 // be determined by the Event.AddError method, or will be "err" if not
 // implemented.
 func (x *Builder[E]) Err(err error) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Err(x.Event, err)
 	}
 	return x
@@ -357,7 +364,7 @@ func (x modifierMethods[E]) Str(event E, key string, val string) error {
 // Str adds a string as a structured log field, using Event.AddString if
 // available, otherwise falling back to Event.AddField.
 func (x *Context[E]) Str(key string, val string) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Str(event, key, val) })
 	}
 	return x
@@ -366,7 +373,7 @@ func (x *Context[E]) Str(key string, val string) *Context[E] {
 // Str adds a string as a structured log field, using Event.AddString if
 // available, otherwise falling back to Event.AddField.
 func (x *Builder[E]) Str(key string, val string) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Str(x.Event, key, val)
 	}
 	return x
@@ -383,7 +390,7 @@ func (x modifierMethods[E]) Int(event E, key string, val int) error {
 // Int adds an int as a structured log field, using Event.AddInt if available,
 // otherwise falling back to Event.AddField.
 func (x *Context[E]) Int(key string, val int) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Int(event, key, val) })
 	}
 	return x
@@ -392,7 +399,7 @@ func (x *Context[E]) Int(key string, val int) *Context[E] {
 // Int adds an int as a structured log field, using Event.AddInt if available,
 // otherwise falling back to Event.AddField.
 func (x *Builder[E]) Int(key string, val int) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Int(x.Event, key, val)
 	}
 	return x
@@ -409,7 +416,7 @@ func (x modifierMethods[E]) Float32(event E, key string, val float32) error {
 // Float32 adds a float32 as a structured log field, using Event.AddFloat32 if
 // available, otherwise falling back to Event.AddField.
 func (x *Context[E]) Float32(key string, val float32) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Float32(event, key, val) })
 	}
 	return x
@@ -418,7 +425,7 @@ func (x *Context[E]) Float32(key string, val float32) *Context[E] {
 // Float32 adds a float32 as a structured log field, using Event.AddFloat32 if
 // available, otherwise falling back to Event.AddField.
 func (x *Builder[E]) Float32(key string, val float32) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Float32(x.Event, key, val)
 	}
 	return x
@@ -441,7 +448,7 @@ func (x modifierMethods[E]) Time(event E, key string, t time.Time) error {
 // See also
 // [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/timestamp.proto].
 func (x *Context[E]) Time(key string, t time.Time) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Time(event, key, t) })
 	}
 	return x
@@ -456,7 +463,7 @@ func (x *Context[E]) Time(key string, t time.Time) *Context[E] {
 // See also
 // [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/timestamp.proto].
 func (x *Builder[E]) Time(key string, t time.Time) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Time(x.Event, key, t)
 	}
 	return x
@@ -480,7 +487,7 @@ func (x modifierMethods[E]) Dur(event E, key string, d time.Duration) error {
 // See also
 // [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/duration.proto].
 func (x *Context[E]) Dur(key string, d time.Duration) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Dur(event, key, d) })
 	}
 	return x
@@ -496,7 +503,7 @@ func (x *Context[E]) Dur(key string, d time.Duration) *Context[E] {
 // See also
 // [https://github.com/protocolbuffers/protobuf/blob/4f6ef7e4d88a74dfcd82b36ef46844b22b9e54b1/src/google/protobuf/duration.proto].
 func (x *Builder[E]) Dur(key string, d time.Duration) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Dur(x.Event, key, d)
 	}
 	return x
@@ -519,7 +526,7 @@ func (x modifierMethods[E]) Base64(event E, key string, b []byte, enc *base64.En
 // encoding of Protobuf's bytes scalar.
 // See also [https://protobuf.dev/programming-guides/proto3/#json].
 func (x *Context[E]) Base64(key string, b []byte, enc *base64.Encoding) *Context[E] {
-	if x.ok() {
+	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Base64(event, key, b, enc) })
 	}
 	return x
@@ -534,7 +541,7 @@ func (x *Context[E]) Base64(key string, b []byte, enc *base64.Encoding) *Context
 // encoding of Protobuf's bytes scalar.
 // See also [https://protobuf.dev/programming-guides/proto3/#json].
 func (x *Builder[E]) Base64(key string, b []byte, enc *base64.Encoding) *Builder[E] {
-	if x.ok() {
+	if x.Enabled() {
 		_ = x.methods.Base64(x.Event, key, b, enc)
 	}
 	return x

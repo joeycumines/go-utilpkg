@@ -167,6 +167,46 @@ var (
 	_ Writer[Event]        = WriterSlice[Event](nil)
 )
 
+// NewEventFactoryFunc is an alias provided as a convenience, to make it easier to cast a function to an
+// EventFactoryFunc.
+//
+// It's equivalent to EventFactoryFunc[E](f), which is more verbose, as it cannot infer the type.
+//
+// See also [LoggerFactory.NewEventFactoryFunc].
+func NewEventFactoryFunc[E Event](f func(level Level) E) EventFactoryFunc[E] { return f }
+
+// NewEventReleaserFunc is an alias provided as a convenience, to make it easier to cast a function to an
+// EventReleaserFunc.
+//
+// It's equivalent to EventReleaserFunc[E](f), which is more verbose, as it cannot infer the type.
+//
+// See also [LoggerFactory.NewEventFactoryFunc].
+func NewEventReleaserFunc[E Event](f func(event E)) EventReleaserFunc[E] { return f }
+
+// NewModifierFunc is an alias provided as a convenience, to make it easier to cast a function to a ModifierFunc.
+//
+// It's equivalent to ModifierFunc[E](f), which is more verbose, as it cannot infer the type.
+//
+// See also [LoggerFactory.NewModifierFunc].
+func NewModifierFunc[E Event](f func(event E) error) ModifierFunc[E] { return f }
+
+// NewWriterFunc is an alias provided as a convenience, to make it easier to cast a function to a WriterFunc.
+//
+// It's equivalent to WriterFunc[E](f), which is more verbose, as it cannot infer the type.
+//
+// See also [LoggerFactory.NewWriterFunc].
+func NewWriterFunc[E Event](f func(event E) error) WriterFunc[E] { return f }
+
+// NewModifierSlice is an alias provided as a convenience, to make it easier to initialize a ModifierSlice.
+//
+// See also [LoggerFactory.NewModifierSlice].
+func NewModifierSlice[E Event](s ...Modifier[E]) ModifierSlice[E] { return s }
+
+// NewWriterSlice is an alias provided as a convenience, to make it easier to initialize a WriterSlice.
+//
+// See also [LoggerFactory.NewWriterSlice].
+func NewWriterSlice[E Event](s ...Writer[E]) WriterSlice[E] { return s }
+
 func (x EventFactoryFunc[E]) NewEvent(level Level) E {
 	return x(level)
 }
@@ -220,3 +260,47 @@ func (UnimplementedEvent) AddDuration(string, time.Duration) bool { return false
 func (UnimplementedEvent) AddBase64Bytes(string, []byte, *base64.Encoding) bool { return false }
 
 func (UnimplementedEvent) mustEmbedUnimplementedEvent() {}
+
+// NewEventFactoryFunc is an alias provided as a convenience, to make it easier to cast a function to an
+// EventFactoryFunc.
+//
+// It's equivalent to EventFactoryFunc[E](f), which is more verbose, as it requires specifying the type, which, for
+// this method, comes from the receiver.
+//
+// See also [logiface.NewEventFactoryFunc].
+func (LoggerFactory[E]) NewEventFactoryFunc(f func(level Level) E) EventFactoryFunc[E] { return f }
+
+// NewEventReleaserFunc is an alias provided as a convenience, to make it easier to cast a function to an
+// EventReleaserFunc.
+//
+// It's equivalent to EventReleaserFunc[E](f), which is more verbose, as it requires specifying the type, which, for
+// this method, comes from the receiver.
+//
+// See also [logiface.NewEventReleaserFunc].
+func (LoggerFactory[E]) NewEventReleaserFunc(f func(event E)) EventReleaserFunc[E] { return f }
+
+// NewModifierFunc is an alias provided as a convenience, to make it easier to cast a function to a ModifierFunc.
+//
+// It's equivalent to ModifierFunc[E](f), which is more verbose, as it requires specifying the type, which, for
+// this method, comes from the receiver.
+//
+// See also [logiface.NewModifierFunc].
+func (LoggerFactory[E]) NewModifierFunc(f func(event E) error) ModifierFunc[E] { return f }
+
+// NewWriterFunc is an alias provided as a convenience, to make it easier to cast a function to a WriterFunc.
+//
+// It's equivalent to WriterFunc[E](f), which is more verbose, as it requires specifying the type, which, for
+// this method, comes from the receiver.
+//
+// See also [logiface.NewWriterFunc].
+func (LoggerFactory[E]) NewWriterFunc(f func(event E) error) WriterFunc[E] { return f }
+
+// NewModifierSlice is an alias provided as a convenience, to make it easier to initialize a ModifierSlice.
+//
+// See also [logiface.NewModifierSlice].
+func (LoggerFactory[E]) NewModifierSlice(s ...Modifier[E]) ModifierSlice[E] { return s }
+
+// NewWriterSlice is an alias provided as a convenience, to make it easier to initialize a WriterSlice.
+//
+// See also [logiface.NewWriterSlice].
+func (LoggerFactory[E]) NewWriterSlice(s ...Writer[E]) WriterSlice[E] { return s }

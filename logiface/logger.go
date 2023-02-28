@@ -383,7 +383,7 @@ func generifyModifier[E Event](modifier Modifier[E]) Modifier[Event] {
 		return nil
 	}
 	return ModifierFunc[Event](func(event Event) error {
-		return modifier.Modify(any(event).(E))
+		return modifier.Modify(event.(E))
 	})
 }
 
@@ -392,7 +392,7 @@ func generifyWriter[E Event](writer Writer[E]) Writer[Event] {
 		return nil
 	}
 	return WriterFunc[Event](func(event Event) error {
-		return writer.Write(any(event).(E))
+		return writer.Write(event.(E))
 	})
 }
 
@@ -410,7 +410,7 @@ func generifyEventReleaser[E Event](releaser EventReleaser[E]) EventReleaser[Eve
 		return nil
 	}
 	return EventReleaserFunc[Event](func(event Event) {
-		releaser.ReleaseEvent(any(event).(E))
+		releaser.ReleaseEvent(event.(E))
 	})
 }
 

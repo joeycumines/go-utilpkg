@@ -60,10 +60,7 @@ func TestEvent_min(t *testing.T) {
 	test := func(log func(l *Logger[*mockSimpleEvent])) {
 		t.Helper()
 		var buf bytes.Buffer
-		l := New[*mockSimpleEvent](
-			WithEventFactory[*mockSimpleEvent](EventFactoryFunc[*mockSimpleEvent](mockSimpleEventFactory)),
-			WithWriter[*mockSimpleEvent](&mockSimpleWriter{Writer: &buf, MultiLine: true}),
-		)
+		l := newSimpleLogger(&buf, true)
 		log(l)
 		const expected = "[info]\nerr=err called\nfield called with string=val 2\nfield called with bytes=dmFsIDM=\nfield called with time.Time local=2019-05-17T05:07:20.361696123Z\nfield called with time.Time utc=2019-05-17T05:07:20.361696123Z\nfield called with duration=3116139.280723392s\nfield called with int=-51245\nfield called with float32=1e-45\nfield called with unhandled type=-421\nfloat32 called=3.4028235e+38\nint called=9223372036854775807\ninterface called with string=val 4\ninterface called with bool=true\ninterface called with nil=<nil>\nany called with string=val 5\nstr called=val 6\ntime called with local=2021-03-24T13:27:29.876543213Z\ntime called with utc=2020-03-01T00:39:29.456789123Z\ndur called positive=51238123.523458989s\ndur called negative=-51238123.523458989s\ndur called zero=0s\nbase64 called with nil enc=dmFsIDc=\nbase64 called with padding=dmFsIDc=\nbase64 called without padding=dmFsIDc\nmsg=log called\n"
 		if actual := buf.String(); actual != expected {
@@ -247,7 +244,7 @@ func TestEvent_max(t *testing.T) {
 
 func TestContext_disabledEvent(t *testing.T) {
 	c := Context[*mockComplexEvent]{logger: &Logger[*mockComplexEvent]{}}
-	if !c.ok() {
+	if !c.Enabled() {
 		t.Fatal()
 	}
 	fluentCallerTemplate(&c)
@@ -270,7 +267,7 @@ func TestBuilder_disabledEvent(t *testing.T) {
 		Event:  &mockComplexEvent{LevelValue: LevelDisabled},
 		shared: &loggerShared[*mockComplexEvent]{},
 	}
-	if !b.ok() {
+	if !b.Enabled() {
 		t.Fatal()
 	}
 	fluentCallerTemplate(&b)
@@ -374,14 +371,14 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 			defer close(in)
 			out := make(chan struct{})
 			var calls int64
-			s.writer = WriterFunc[*mockComplexEvent](func(event *mockComplexEvent) error {
+			s.writer = NewWriterFunc(func(event *mockComplexEvent) error {
 				if b.shared != &s {
 					t.Error(b.shared)
 				}
 				atomic.AddInt64(&calls, 1)
 				panic(err)
 			})
-			s.releaser = EventReleaserFunc[*mockComplexEvent](func(event *mockComplexEvent) {
+			s.releaser = NewEventReleaserFunc(func(event *mockComplexEvent) {
 				in <- event
 				<-out
 			})

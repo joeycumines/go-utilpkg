@@ -1,5 +1,9 @@
 package logiface
 
+import (
+	"testing"
+)
+
 type (
 	minimalEventMethods interface {
 		Level() Level
@@ -15,3 +19,7 @@ var (
 		UnimplementedEvent
 	}{}
 )
+
+func TestUnimplementedEvent_mustEmbedUnimplementedEvent(t *testing.T) {
+	(UnimplementedEvent{}).mustEmbedUnimplementedEvent()
+}

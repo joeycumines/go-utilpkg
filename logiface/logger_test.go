@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -575,4 +576,73 @@ func TestLogger_Logger_nilShared(t *testing.T) {
 	if (&Logger[*mockEvent]{}).Logger() != nil {
 		t.Error(`expected nil`)
 	}
+}
+
+// An example of how to use the non-fluent Log method.
+func ExampleLogger_Log() {
+	l := newSimpleLogger(os.Stdout, false).Logger()
+
+	if err := l.Log(LevelDisabled, nil); err != ErrDisabled {
+		panic(err)
+	} else {
+		fmt.Printf("disabled level wont log: %v\n", err)
+	}
+
+	// note: the method under test is intended for external log integrations
+	// (this isn't a real use case)
+	with := func(fields ...any) ModifierFunc[Event] {
+		return func(e Event) error {
+			if len(fields)%2 != 0 {
+				return fmt.Errorf("invalid number of fields: %d", len(fields))
+			}
+			for i := 0; i < len(fields); i += 2 {
+				e.AddField(fmt.Sprint(fields[i]), fields[i+1])
+			}
+			return nil
+		}
+	}
+
+	fmt.Print(`single modifier provided in the call: `)
+	if err := l.Log(LevelNotice, with(
+		`a`, `A`,
+		`b`, `B`,
+	)); err != nil {
+		panic(err)
+	}
+
+	fmt.Print(`cloned logger modifier + modifier in the call: `)
+	if err := l.Clone().Str(`a`, `A1`).Logger().Log(LevelNotice, with(`a`, `A2`)); err != nil {
+		panic(err)
+	}
+
+	fmt.Print(`just cloned logger modifier: `)
+	if err := l.Clone().Str(`a`, `A1`).Logger().Log(LevelNotice, nil); err != nil {
+		panic(err)
+	}
+
+	fmt.Print(`no logger modifier: `)
+	if err := l.Log(LevelNotice, nil); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("modifier error: %v\n", l.Log(LevelNotice, with(`willerror`)))
+
+	fmt.Printf("internal modifier error guards provided modifier: %v\n", New(
+		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+		simpleLoggerFactory.WithModifier(NewModifierFunc(func(e *mockSimpleEvent) error {
+			return fmt.Errorf(`some internal modifier error`)
+		})),
+	).Log(LevelNotice, ModifierFunc[*mockSimpleEvent](func(e *mockSimpleEvent) error {
+		panic(`should not be called`)
+	})))
+
+	//output:
+	//disabled level wont log: logger disabled
+	//single modifier provided in the call: [notice] a=A b=B
+	//cloned logger modifier + modifier in the call: [notice] a=A1 a=A2
+	//just cloned logger modifier: [notice] a=A1
+	//no logger modifier: [notice]
+	//modifier error: invalid number of fields: 1
+	//internal modifier error guards provided modifier: some internal modifier error
 }

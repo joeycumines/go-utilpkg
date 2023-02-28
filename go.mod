@@ -3,7 +3,7 @@ module github.com/joeycumines/go-utilpkg
 go 1.20
 
 require (
-	golang.org/x/perf v0.0.0-20230221235046-aebcfb61e84c
+	golang.org/x/perf v0.0.0-20230227161431-f7320a6d63e8
 	golang.org/x/tools v0.6.0
 	honnef.co/go/tools v0.4.2
 )
