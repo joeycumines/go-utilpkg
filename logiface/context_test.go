@@ -432,3 +432,97 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 		})
 	}
 }
+
+func TestBuilder_Release_nilReceiver(t *testing.T) {
+	(*Builder[*mockComplexEvent])(nil).Release()
+}
+
+func TestBuilder_Release_callReleaser(t *testing.T) {
+	in := make(chan *mockEvent)
+	out := make(chan struct{})
+	releaser := NewEventReleaserFunc(func(event *mockEvent) {
+		in <- event
+		<-out
+	})
+	ev := &mockEvent{}
+	pool := new(sync.Pool)
+	shared := &loggerShared[*mockEvent]{
+		pool:     pool,
+		releaser: releaser,
+	}
+	builder := &Builder[*mockEvent]{
+		Event:  ev,
+		shared: shared,
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		builder.Release()
+	}()
+	if v := <-in; v != ev {
+		t.Error(v)
+	}
+	if builder.shared != nil {
+		t.Error()
+	}
+	if v := pool.Get(); v != nil {
+		t.Error(v)
+	}
+	out <- struct{}{}
+	<-done
+	close(in)
+	close(out)
+	if v := pool.Get(); v != builder {
+		t.Error(v)
+	}
+	time.Sleep(time.Millisecond * 50)
+	if v := pool.Get(); v != nil {
+		t.Error(v)
+	}
+	if builder.Event != ev {
+		t.Error(builder)
+	}
+	if shared.pool != pool || shared.releaser == nil {
+		t.Error()
+	}
+	builder.Release()
+	if shared.pool != pool || shared.releaser == nil {
+		t.Error()
+	}
+}
+
+func TestBuilder_Release_noReleaser(t *testing.T) {
+	ev := &mockEvent{}
+	pool := new(sync.Pool)
+	shared := &loggerShared[*mockEvent]{
+		pool: pool,
+	}
+	builder := &Builder[*mockEvent]{
+		Event:  ev,
+		shared: shared,
+	}
+	builder.Release()
+	if builder.shared != nil {
+		t.Error()
+	}
+	if v := pool.Get(); v != builder {
+		t.Error(v)
+	}
+	time.Sleep(time.Millisecond * 50)
+	if v := pool.Get(); v != nil {
+		t.Error(v)
+	}
+	if builder.Event != ev {
+		t.Error(builder)
+	}
+	if shared.pool != pool || shared.releaser != nil {
+		t.Error()
+	}
+	builder.Release()
+	if shared.pool != pool || shared.releaser != nil {
+		t.Error()
+	}
+	if builder.Event != ev {
+		t.Error(builder)
+	}
+}

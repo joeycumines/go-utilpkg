@@ -36,7 +36,7 @@ type (
 		Event E
 
 		// WARNING: If additional fields are added, they may need to be released
-		// (see Builder.release)
+		// (see Builder.Release)
 
 		methods modifierMethods[E]
 		shared  *loggerShared[E]
@@ -48,10 +48,10 @@ type (
 // Logger returns the underlying (sub)logger, or nil.
 //
 // Note that the returned logger will apply all parent modifiers, including
-// Context.Modifiers. This method is intended to be used to get the actual
+// [Context.Modifiers]. This method is intended to be used to get the actual
 // sub-logger, after building the context that sub-logger is to apply.
 //
-// This method is not implemented by Builder.
+// This method is not implemented by [Builder].
 func (x *Context[E]) Logger() *Logger[E] {
 	if x == nil {
 		return nil
@@ -70,7 +70,7 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 // utilize functionality not mapped by logiface), or to skip building /
 // formatting certain fields, based on if `b.Event.Level().Enabled()`.
 //
-// This method is not implemented by Context.
+// This method is not implemented by [Context].
 func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
 	fn(x)
 	return x
@@ -83,7 +83,8 @@ func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
 // if Event.AddMessage is implemented, or the default field name "msg" will be
 // used.
 //
-// This method is not implemented by Context.
+// This method calls [Builder.Release].
+// This method is not implemented by [Context].
 func (x *Builder[E]) Log(msg string) {
 	if !x.Enabled() {
 		return
@@ -101,7 +102,8 @@ func (x *Builder[E]) Log(msg string) {
 // if Event.AddMessage is implemented, or the default field name "msg" will be
 // used.
 //
-// This method is not implemented by Context.
+// This method calls [Builder.Release].
+// This method is not implemented by [Context].
 func (x *Builder[E]) Logf(format string, args ...any) {
 	if !x.Enabled() {
 		return
@@ -123,7 +125,8 @@ func (x *Builder[E]) Logf(format string, args ...any) {
 // Note that the function will not be called if, for example, the given log
 // level is not enabled.
 //
-// This method is not implemented by Context.
+// This method calls [Builder.Release].
+// This method is not implemented by [Context].
 func (x *Builder[E]) LogFunc(fn func() string) {
 	if !x.Enabled() {
 		return
@@ -139,6 +142,23 @@ func (x *Builder[E]) log(msg string) {
 		x.Event.AddField(`msg`, msg)
 	}
 	_ = x.shared.writer.Write(x.Event)
+}
+
+// Release returns the Builder to the pool, calling any user-defined
+// EventReleaser to reset or release [Builder.Event] (e.g. if the concrete
+// event implementation also uses a pool).
+//
+// In most cases, it should not be necessary to call this directly. This method
+// is exported to allow for more advanced use cases, such as when the Builder
+// is used to build an event that is not logged, or when the Builder is used
+// to build an event that is logged by a different logger implementation.
+//
+// This method is called by other "terminal" methods, such as [Builder.Log].
+// This method is not implemented by [Context].
+func (x *Builder[E]) Release() {
+	if x.Enabled() {
+		x.release()
+	}
 }
 
 func (x *Builder[E]) release() {
