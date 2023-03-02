@@ -77,17 +77,10 @@ func TestMapFields_nilMap(t *testing.T) {
 }
 
 func ExampleArgFields() {
-	// note that the order of keys is not stable (sorted only to make the test pass)
-	w, out := sortedLineWriterSplitOnSpace(os.Stdout)
-	defer func() {
-		_ = w.Close()
-		<-out
-	}()
-
 	// l is an instance of logiface.Logger
 	l := simpleLoggerFactory.New(
 		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: w}),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
 		simpleLoggerFactory.WithLevel(LevelDebug),
 	)
 
@@ -102,6 +95,8 @@ func ExampleArgFields() {
 	ArgFields(l.Crit().
 		Str(`a`, `A1`).
 		Str(`b`, `B`), nil, "a", "A2", "c", "C1", "d", "D", "c", "C2", "e", "E").
+		Str(`c`, `C3`).
+		Str(`f`, `F`).
 		Log(``)
 
 	// supports conversion function
@@ -116,15 +111,10 @@ func ExampleArgFields() {
 	// passing an odd number of keys sets the last value to any(nil)
 	ArgFields(l.Info(), nil, "a", "A", "b").Log(``)
 
-	_ = w.Close()
-	if err := <-out; err != nil {
-		panic(err)
-	}
-
 	//output:
 	//[notice] a=A b=B
 	//[alert] a=A b=B
-	//[crit] a=A1 a=A2 b=B c=C1 c=C2 d=D e=E
+	//[crit] a=A1 b=B a=A2 c=C1 d=D c=C2 e=E c=C3 f=F
 	//[debug] a_converted=A b_converted=B
 	//[info] a=A b=<nil>
 }

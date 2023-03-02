@@ -167,6 +167,9 @@ func (x *Builder[E]) release() {
 		if shared.releaser != nil {
 			shared.releaser.ReleaseEvent(x.Event)
 		}
+		// clear the event value, in case it retains a reference
+		// this is important in cases where the E value is also pooled
+		x.Event = *new(E)
 		shared.pool.Put(x)
 	}
 }

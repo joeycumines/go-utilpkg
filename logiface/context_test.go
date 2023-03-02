@@ -318,13 +318,17 @@ func TestBuilder_logEventDisabled(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			s := loggerShared[*mockComplexEvent]{pool: new(sync.Pool)}
+			e := &mockComplexEvent{LevelValue: LevelDisabled}
 			b := Builder[*mockComplexEvent]{
-				Event:  &mockComplexEvent{LevelValue: LevelDisabled},
+				Event:  e,
 				shared: &s,
 			}
 			tc.log(&b)
-			if len(b.Event.FieldValues) != 0 {
-				t.Error(b.Event.FieldValues)
+			if b.Event != nil {
+				t.Error(b.Event)
+			}
+			if len(e.FieldValues) != 0 {
+				t.Error(e.FieldValues)
 			}
 			if b.shared != nil {
 				t.Error(b.shared)
@@ -479,7 +483,7 @@ func TestBuilder_Release_callReleaser(t *testing.T) {
 	if v := pool.Get(); v != nil {
 		t.Error(v)
 	}
-	if builder.Event != ev {
+	if builder.Event != nil {
 		t.Error(builder)
 	}
 	if shared.pool != pool || shared.releaser == nil {
@@ -505,6 +509,9 @@ func TestBuilder_Release_noReleaser(t *testing.T) {
 	if builder.shared != nil {
 		t.Error()
 	}
+	if builder.Event != nil {
+		t.Error(builder)
+	}
 	if v := pool.Get(); v != builder {
 		t.Error(v)
 	}
@@ -512,17 +519,11 @@ func TestBuilder_Release_noReleaser(t *testing.T) {
 	if v := pool.Get(); v != nil {
 		t.Error(v)
 	}
-	if builder.Event != ev {
-		t.Error(builder)
-	}
 	if shared.pool != pool || shared.releaser != nil {
 		t.Error()
 	}
 	builder.Release()
 	if shared.pool != pool || shared.releaser != nil {
 		t.Error()
-	}
-	if builder.Event != ev {
-		t.Error(builder)
 	}
 }
