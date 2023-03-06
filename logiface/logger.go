@@ -10,7 +10,6 @@ type (
 	Logger[E Event] struct {
 		// WARNING: Fields added must be initialized in both New and Logger.Logger
 
-		level    Level
 		modifier Modifier[E]
 		shared   *loggerShared[E]
 	}
@@ -20,6 +19,7 @@ type (
 	loggerShared[E Event] struct {
 		// WARNING: Fields added must be initialized in both New and Logger.Logger
 
+		level    Level
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
 		writer   Writer[E]
@@ -166,6 +166,7 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 	}
 
 	shared := loggerShared[E]{
+		level:    c.level,
 		factory:  c.factory,
 		releaser: c.releaser,
 		writer:   c.resolveWriter(),
@@ -174,7 +175,6 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 
 	return &Logger[E]{
 		modifier: c.resolveModifier(),
-		level:    c.level,
 		shared:   &shared,
 	}
 }
@@ -198,9 +198,9 @@ func (x *Logger[E]) Logger() *Logger[Event] {
 		return nil
 	}
 	return &Logger[Event]{
-		level:    x.level,
 		modifier: generifyModifier(x.modifier),
 		shared: &loggerShared[Event]{
+			level:    x.shared.level,
 			factory:  generifyEventFactory(x.shared.factory),
 			releaser: generifyEventReleaser(x.shared.releaser),
 			writer:   generifyWriter(x.shared.writer),
@@ -284,7 +284,6 @@ func (x *Logger[E]) Clone() *Context[E] {
 		c.Modifiers = append(c.Modifiers, x.modifier)
 	}
 	c.logger = &Logger[E]{
-		level: x.level,
 		modifier: ModifierFunc[E](func(event E) error {
 			return c.Modifiers.Modify(event)
 		}),
@@ -330,7 +329,7 @@ func (x *Logger[E]) canWrite() bool {
 func (x *Logger[E]) canLog(level Level) bool {
 	return x.canWrite() &&
 		level.Enabled() &&
-		(level <= x.level || level > LevelTrace)
+		(level <= x.shared.level || level > LevelTrace)
 }
 
 func (x *Logger[E]) newEvent(level Level) (event E) {

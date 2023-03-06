@@ -246,12 +246,12 @@ func TestLogger_simpleGeneric(t *testing.T) {
 			WithEventFactory[*mockSimpleEvent](EventFactoryFunc[*mockSimpleEvent](mockSimpleEventFactory)),
 			WithWriter[*mockSimpleEvent](&mockSimpleWriter{Writer: &h.B}),
 		}, options...)...)
-		if l.level != LevelInformational {
-			t.Error(l.level)
+		if l.shared.level != LevelInformational {
+			t.Error(l.shared.level)
 		}
 		h.L = l.Logger()
-		if h.L.level != l.level {
-			t.Error(h.L.level)
+		if h.L.shared.level != l.shared.level {
+			t.Error(h.L.shared.level)
 		}
 		if h.L.shared.pool != &genericBuilderPool {
 			t.Error(h.L.shared.pool)

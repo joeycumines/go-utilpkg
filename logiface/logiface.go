@@ -39,15 +39,16 @@ type (
 	//   4. Update the (internal) modifierMethods.Field method, with type case(s) using 3., for the new field type
 	//   5. Add a new (internal) method to the modifierMethods struct, using 3., named per [Builder] and [Context] (e.g. Dur)
 	//   6. Add to each of [Builder] and [Context] a method named the same as and using 5. (e.g. Dur)
-	//   7. Add the Event method to mockComplexEvent in mock_test.go
-	//   8. Run make in the root of the git repository, fix any issues
-	//   9. Add appropriate Field and specific method calls (e.g. Dur) to fluentCallerTemplate in mock_test.go (note: update the T generic interface)
-	//   10. Fix all test cases that fail
-	//   11. Update the testsuite module to include the new field type (e.g. throw it on eventTemplate1 in templates.go)
-	//   12. Run make in the root of the git repository, everything should still pass
-	//   13. Implement new field type in all relevant implementation modules (e.g. logiface/zerolog)
-	//   14. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface/testsuite, see also normalizeEvent
-	//   15. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface/zerolog
+	//   7. Add the same method to [ConditionalBuilder] (note: passes through to [Builder])
+	//   8. Add the Event method to mockComplexEvent in mock_test.go
+	//   9. Run make in the root of the git repository, fix any issues
+	//   10. Add appropriate Field and specific method calls (e.g. Dur) to fluentCallerTemplate in mock_test.go (note: update the T generic interface)
+	//   11. Fix all test cases that fail
+	//   12. Update the testsuite module to include the new field type (e.g. throw it on eventTemplate1 in templates.go)
+	//   13. Run make in the root of the git repository, everything should still pass
+	//   14. Implement new field type in all relevant implementation modules (e.g. logiface/zerolog)
+	//   15. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface/testsuite, see also normalizeEvent
+	//   16. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface/zerolog
 	Event interface {
 		// required methods
 
