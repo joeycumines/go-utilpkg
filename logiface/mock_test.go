@@ -221,9 +221,13 @@ func fluentCallerTemplate[T interface {
 		Base64(`base64 called with padding`, []byte(`val 7`), base64.StdEncoding).
 		Base64(`base64 called without padding`, []byte(`val 7`), base64.RawStdEncoding).
 		Bool(`bool called`, true).
+		Field(`field called with bool`, true).
 		Float64(`float64 called`, math.MaxFloat64).
+		Field(`field called with float64`, float64(math.MaxFloat64)).
 		Int64(`int64 called`, math.MaxInt64).
-		Uint64(`uint64 called`, math.MaxUint64)
+		Field(`field called with int64`, int64(math.MaxInt64)).
+		Uint64(`uint64 called`, math.MaxUint64).
+		Field(`field called with uint64`, uint64(math.MaxUint64))
 }
 
 func stringDiff(expected, actual string) string {
