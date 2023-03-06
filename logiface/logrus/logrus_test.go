@@ -9,6 +9,7 @@ import (
 	"github.com/joeycumines/go-utilpkg/logiface/testsuite"
 	"github.com/sirupsen/logrus"
 	"io"
+	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -296,6 +297,68 @@ func TestLogger_simple(t *testing.T) {
 			Log(`hello world`)
 
 		if s := h.B.String(); s != "" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+}
+
+func TestLogger_json(t *testing.T) {
+	t.Parallel()
+
+	type Harness struct {
+		L *logiface.Logger[*Event]
+		B bytes.Buffer
+	}
+
+	newHarness := func(t *testing.T, options ...logiface.Option[*Event]) *Harness {
+		var h Harness
+		l := logrus.New()
+		l.Formatter = &logrus.JSONFormatter{
+			DisableTimestamp: true,
+		}
+		l.Out = &h.B
+		h.L = L.New(append([]logiface.Option[*Event]{L.WithLogrus(l)}, options...)...)
+		return &h
+	}
+
+	t.Run(`int64 formatted as string`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Int64(`k`, math.MaxInt64).
+			Log(`some message`)
+
+		if s := h.B.String(); s != "{\"k\":\"9223372036854775807\",\"level\":\"info\",\"msg\":\"some message\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`uint64 formatted as string`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Uint64(`k`, math.MaxUint64).
+			Log(`some message`)
+
+		if s := h.B.String(); s != "{\"k\":\"18446744073709551615\",\"level\":\"info\",\"msg\":\"some message\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`float64 formatted as number`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Float64(`k`, math.MaxFloat64).
+			Log(`some message`)
+
+		if s := h.B.String(); s != "{\"k\":1.7976931348623157e+308,\"level\":\"info\",\"msg\":\"some message\"}\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})

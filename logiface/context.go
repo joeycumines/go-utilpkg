@@ -3,6 +3,7 @@ package logiface
 import (
 	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -230,13 +231,13 @@ func (x modifierMethods[E]) float64(event E, key string, val float64) {
 
 func (x modifierMethods[E]) int64(event E, key string, val int64) {
 	if !event.AddInt64(key, val) {
-		event.AddField(key, val)
+		x.str(event, key, strconv.FormatInt(val, 10))
 	}
 }
 
 func (x modifierMethods[E]) uint64(event E, key string, val uint64) {
 	if !event.AddUint64(key, val) {
-		event.AddField(key, val)
+		x.str(event, key, strconv.FormatUint(val, 10))
 	}
 }
 
@@ -666,7 +667,10 @@ func (x modifierMethods[E]) Int64(event E, key string, val int64) error {
 }
 
 // Int64 adds an int64 as a structured log field, using Event.AddInt64 if
-// available, otherwise falling back to Event.AddField.
+// available, otherwise falling back to encoding val as a decimal string, in
+// the same manner as Protobuf's JSON encoding.
+//
+// For the fallback, the behavior of [Context.Str] is used, to add the field.
 func (x *Context[E]) Int64(key string, val int64) *Context[E] {
 	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Int64(event, key, val) })
@@ -675,7 +679,10 @@ func (x *Context[E]) Int64(key string, val int64) *Context[E] {
 }
 
 // Int64 adds an int64 as a structured log field, using Event.AddInt64 if
-// available, otherwise falling back to Event.AddField.
+// available, otherwise falling back to encoding val as a decimal string, in
+// the same manner as Protobuf's JSON encoding.
+//
+// For the fallback, the behavior of [Builder.Str] is used, to add the field.
 func (x *Builder[E]) Int64(key string, val int64) *Builder[E] {
 	if x.Enabled() {
 		_ = x.methods.Int64(x.Event, key, val)
@@ -692,7 +699,10 @@ func (x modifierMethods[E]) Uint64(event E, key string, val uint64) error {
 }
 
 // Uint64 adds an uint64 as a structured log field, using Event.AddUint64 if
-// available, otherwise falling back to Event.AddField.
+// available, otherwise falling back to encoding val as a decimal string, in
+// the same manner as Protobuf's JSON encoding.
+//
+// For the fallback, the behavior of [Context.Str] is used, to add the field.
 func (x *Context[E]) Uint64(key string, val uint64) *Context[E] {
 	if x.Enabled() {
 		x.add(func(event E) error { return x.methods.Uint64(event, key, val) })
@@ -701,7 +711,10 @@ func (x *Context[E]) Uint64(key string, val uint64) *Context[E] {
 }
 
 // Uint64 adds an uint64 as a structured log field, using Event.AddUint64 if
-// available, otherwise falling back to Event.AddField.
+// available, otherwise falling back to encoding val as a decimal string, in
+// the same manner as Protobuf's JSON encoding.
+//
+// For the fallback, the behavior of [Builder.Str] is used, to add the field.
 func (x *Builder[E]) Uint64(key string, val uint64) *Builder[E] {
 	if x.Enabled() {
 		_ = x.methods.Uint64(x.Event, key, val)
