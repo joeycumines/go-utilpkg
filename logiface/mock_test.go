@@ -152,6 +152,26 @@ func (x *mockComplexEvent) AddBase64Bytes(key string, val []byte, enc *base64.En
 	return true
 }
 
+func (x *mockComplexEvent) AddBool(key string, val bool) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddBool`, Key: key, Value: val})
+	return true
+}
+
+func (x *mockComplexEvent) AddFloat64(key string, val float64) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddFloat64`, Key: key, Value: val})
+	return true
+}
+
+func (x *mockComplexEvent) AddInt64(key string, val int64) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddInt64`, Key: key, Value: val})
+	return true
+}
+
+func (x *mockComplexEvent) AddUint64(key string, val uint64) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddUint64`, Key: key, Value: val})
+	return true
+}
+
 func (x *mockComplexEvent) mustEmbedUnimplementedEvent() {}
 
 func (x *mockComplexWriter) Write(event *mockComplexEvent) error {
@@ -171,6 +191,10 @@ func fluentCallerTemplate[T interface {
 	Time(key string, t time.Time) T
 	Dur(key string, d time.Duration) T
 	Base64(key string, b []byte, enc *base64.Encoding) T
+	Bool(key string, val bool) T
+	Float64(key string, val float64) T
+	Int64(key string, val int64) T
+	Uint64(key string, val uint64) T
 }](x T) {
 	x.Err(errors.New(`err called`)).
 		Field(`field called with string`, `val 2`).
@@ -195,7 +219,11 @@ func fluentCallerTemplate[T interface {
 		Dur(`dur called zero`, time.Duration(0)).
 		Base64(`base64 called with nil enc`, []byte(`val 7`), nil).
 		Base64(`base64 called with padding`, []byte(`val 7`), base64.StdEncoding).
-		Base64(`base64 called without padding`, []byte(`val 7`), base64.RawStdEncoding)
+		Base64(`base64 called without padding`, []byte(`val 7`), base64.RawStdEncoding).
+		Bool(`bool called`, true).
+		Float64(`float64 called`, math.MaxFloat64).
+		Int64(`int64 called`, math.MaxInt64).
+		Uint64(`uint64 called`, math.MaxUint64)
 }
 
 func stringDiff(expected, actual string) string {

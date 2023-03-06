@@ -118,6 +118,26 @@ func (x *Event) AddDuration(key string, val time.Duration) bool {
 	return true
 }
 
+func (x *Event) AddBool(key string, val bool) bool {
+	x.Z.Bool(key, val)
+	return true
+}
+
+func (x *Event) AddFloat64(key string, val float64) bool {
+	x.Z.Float64(key, val)
+	return true
+}
+
+func (x *Event) AddInt64(key string, val int64) bool {
+	x.Z.Int64(key, val)
+	return true
+}
+
+func (x *Event) AddUint64(key string, val uint64) bool {
+	x.Z.Uint64(key, val)
+	return true
+}
+
 func (x *Logger) NewEvent(level logiface.Level) *Event {
 	// map the levels, initialize the zerolog.Event
 	z := x.newEvent(level)

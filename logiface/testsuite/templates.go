@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"math"
 	"time"
 )
 
@@ -75,6 +76,42 @@ func eventTemplate1(in logiface.Event) (out Event) {
 
 	if v := (base64BytesField{Data: []byte(`val 7`), Enc: base64.RawStdEncoding}); in.AddBase64Bytes(`base64bytes_1`, v.Data, v.Enc) {
 		out.Fields[`base64bytes_1`] = v
+	}
+
+	if k, v := `bool_1`, true; in.AddBool(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `bool_2`, false; in.AddBool(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `float64_1`, float64(math.MaxFloat64); in.AddFloat64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `float64_2`, -float64(math.MaxFloat64); in.AddFloat64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `float64_3`, float64(math.SmallestNonzeroFloat64); in.AddFloat64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `int64_1`, int64(math.MaxInt64); in.AddInt64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `int64_2`, int64(math.MinInt64); in.AddInt64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `uint64_1`, uint64(math.MaxUint64); in.AddUint64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `uint64_2`, uint64(0); in.AddUint64(k, v) {
+		out.Fields[k] = v
 	}
 
 	return

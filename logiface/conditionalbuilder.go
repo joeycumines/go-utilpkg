@@ -52,6 +52,18 @@ type (
 		// Time performs [Builder.Time] conditionally.
 		Time(key string, t time.Time) ConditionalBuilder[E]
 
+		// Bool performs [Builder.Bool] conditionally.
+		Bool(key string, val bool) ConditionalBuilder[E]
+
+		// Float64 performs [Builder.Float64] conditionally.
+		Float64(key string, val float64) ConditionalBuilder[E]
+
+		// Int64 performs [Builder.Int64] conditionally.
+		Int64(key string, val int64) ConditionalBuilder[E]
+
+		// Uint64 performs [Builder.Uint64] conditionally.
+		Uint64(key string, val uint64) ConditionalBuilder[E]
+
 		// future additions are expected + implemented within this pkg
 		private()
 	}
@@ -180,6 +192,22 @@ func (x *enabledBuilder[E]) Time(key string, t time.Time) ConditionalBuilder[E] 
 	return (*enabledBuilder[E])((*Builder[E])(x).Time(key, t))
 }
 
+func (x *enabledBuilder[E]) Bool(key string, val bool) ConditionalBuilder[E] {
+	return (*enabledBuilder[E])((*Builder[E])(x).Bool(key, val))
+}
+
+func (x *enabledBuilder[E]) Float64(key string, val float64) ConditionalBuilder[E] {
+	return (*enabledBuilder[E])((*Builder[E])(x).Float64(key, val))
+}
+
+func (x *enabledBuilder[E]) Int64(key string, val int64) ConditionalBuilder[E] {
+	return (*enabledBuilder[E])((*Builder[E])(x).Int64(key, val))
+}
+
+func (x *enabledBuilder[E]) Uint64(key string, val uint64) ConditionalBuilder[E] {
+	return (*enabledBuilder[E])((*Builder[E])(x).Uint64(key, val))
+}
+
 //lint:ignore U1000 implements interface
 func (x *enabledBuilder[E]) private() {}
 
@@ -210,6 +238,14 @@ func (x *disabledBuilder[E]) Interface(key string, val any) ConditionalBuilder[E
 func (x *disabledBuilder[E]) Str(key string, val string) ConditionalBuilder[E] { return x }
 
 func (x *disabledBuilder[E]) Time(key string, t time.Time) ConditionalBuilder[E] { return x }
+
+func (x *disabledBuilder[E]) Bool(key string, val bool) ConditionalBuilder[E] { return x }
+
+func (x *disabledBuilder[E]) Float64(key string, val float64) ConditionalBuilder[E] { return x }
+
+func (x *disabledBuilder[E]) Int64(key string, val int64) ConditionalBuilder[E] { return x }
+
+func (x *disabledBuilder[E]) Uint64(key string, val uint64) ConditionalBuilder[E] { return x }
 
 //lint:ignore U1000 implements interface
 func (x *disabledBuilder[E]) private() {}

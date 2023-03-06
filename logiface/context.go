@@ -216,6 +216,30 @@ func (x modifierMethods[E]) float32(event E, key string, val float32) {
 	}
 }
 
+func (x modifierMethods[E]) bool(event E, key string, val bool) {
+	if !event.AddBool(key, val) {
+		event.AddField(key, val)
+	}
+}
+
+func (x modifierMethods[E]) float64(event E, key string, val float64) {
+	if !event.AddFloat64(key, val) {
+		event.AddField(key, val)
+	}
+}
+
+func (x modifierMethods[E]) int64(event E, key string, val int64) {
+	if !event.AddInt64(key, val) {
+		event.AddField(key, val)
+	}
+}
+
+func (x modifierMethods[E]) uint64(event E, key string, val uint64) {
+	if !event.AddUint64(key, val) {
+		event.AddField(key, val)
+	}
+}
+
 // formatTimestamp uses the same behavior as protobuf's timestamp.
 // "1972-01-01T10:00:20.021Z"	Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted.
 func formatTimestamp(t time.Time) string {
@@ -281,6 +305,14 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 		x.int(event, key, val)
 	case float32:
 		x.float32(event, key, val)
+	case bool:
+		x.bool(event, key, val)
+	case float64:
+		x.float64(event, key, val)
+	case int64:
+		x.int64(event, key, val)
+	case uint64:
+		x.uint64(event, key, val)
 	default:
 		event.AddField(key, val)
 	}
@@ -569,6 +601,110 @@ func (x *Context[E]) Base64(key string, b []byte, enc *base64.Encoding) *Context
 func (x *Builder[E]) Base64(key string, b []byte, enc *base64.Encoding) *Builder[E] {
 	if x.Enabled() {
 		_ = x.methods.Base64(x.Event, key, b, enc)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Bool(event E, key string, val bool) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.bool(event, key, val)
+	return nil
+}
+
+// Bool adds a bool as a structured log field, using Event.AddBool if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Bool(key string, val bool) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Bool(event, key, val) })
+	}
+	return x
+}
+
+// Bool adds a bool as a structured log field, using Event.AddBool if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Bool(key string, val bool) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Bool(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Float64(event E, key string, val float64) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.float64(event, key, val)
+	return nil
+}
+
+// Float64 adds a float64 as a structured log field, using Event.AddFloat64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Float64(key string, val float64) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Float64(event, key, val) })
+	}
+	return x
+}
+
+// Float64 adds a float64 as a structured log field, using Event.AddFloat64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Float64(key string, val float64) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Float64(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Int64(event E, key string, val int64) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.int64(event, key, val)
+	return nil
+}
+
+// Int64 adds an int64 as a structured log field, using Event.AddInt64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Int64(key string, val int64) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Int64(event, key, val) })
+	}
+	return x
+}
+
+// Int64 adds an int64 as a structured log field, using Event.AddInt64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Int64(key string, val int64) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Int64(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) Uint64(event E, key string, val uint64) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.uint64(event, key, val)
+	return nil
+}
+
+// Uint64 adds an uint64 as a structured log field, using Event.AddUint64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Context[E]) Uint64(key string, val uint64) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Uint64(event, key, val) })
+	}
+	return x
+}
+
+// Uint64 adds an uint64 as a structured log field, using Event.AddUint64 if
+// available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) Uint64(key string, val uint64) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Uint64(x.Event, key, val)
 	}
 	return x
 }

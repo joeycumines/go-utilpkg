@@ -353,6 +353,34 @@ func BenchmarkContextFieldType_Dur(b *testing.B) {
 	benchmarkContextFieldType(b, `Dur`)
 }
 
+func BenchmarkLogFieldType_Bool(b *testing.B) {
+	benchmarkLogFieldType(b, `Bool`)
+}
+func BenchmarkContextFieldType_Bool(b *testing.B) {
+	benchmarkContextFieldType(b, `Bool`)
+}
+
+func BenchmarkLogFieldType_Float64(b *testing.B) {
+	benchmarkLogFieldType(b, `Float`)
+}
+func BenchmarkContextFieldType_Float64(b *testing.B) {
+	benchmarkContextFieldType(b, `Float`)
+}
+
+func BenchmarkLogFieldType_Int64(b *testing.B) {
+	benchmarkLogFieldType(b, `Int64`)
+}
+func BenchmarkContextFieldType_Int64(b *testing.B) {
+	benchmarkContextFieldType(b, `Int64`)
+}
+
+func BenchmarkLogFieldType_Uint64(b *testing.B) {
+	benchmarkLogFieldType(b, `Uint64`)
+}
+func BenchmarkContextFieldType_Uint64(b *testing.B) {
+	benchmarkContextFieldType(b, `Uint64`)
+}
+
 func benchmarkLogFieldType(b *testing.B, typ string) {
 	bools := []bool{true, false, true, false, true, false, true, false, true, false}
 	ints := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
@@ -472,6 +500,8 @@ func benchmarkLogFieldType(b *testing.B, typ string) {
 	}
 	// again, down here to try and make the diff nicer
 	float32s := []float32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	int64s := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	uint64s := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	for _, v := range []struct {
 		Type      string
 		Baseline  func(e *zerolog.Event) *zerolog.Event // only if not implemented by the upstream
@@ -551,6 +581,48 @@ func benchmarkLogFieldType(b *testing.B, typ string) {
 			},
 			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
 				return e.Dur("k", durations[0])
+			},
+		},
+		{
+			Type: `Bool`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Bool("k", bools[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Bool("k", bools[0])
+			},
+		},
+		{
+			Type: `Float`,
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Float64("k", floats[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Float64("k", floats[0])
+			},
+		},
+		{
+			Type: `Int64`,
+			Baseline: func(e *zerolog.Event) *zerolog.Event {
+				return e.Int64("k", int64s[0])
+			},
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Int64("k", int64s[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Int64("k", int64s[0])
+			},
+		},
+		{
+			Type: `Uint64`,
+			Baseline: func(e *zerolog.Event) *zerolog.Event {
+				return e.Uint64("k", uint64s[0])
+			},
+			Generic: func(e *logiface.Builder[*Event]) *logiface.Builder[*Event] {
+				return e.Uint64("k", uint64s[0])
+			},
+			Interface: func(e *logiface.Builder[logiface.Event]) *logiface.Builder[logiface.Event] {
+				return e.Uint64("k", uint64s[0])
 			},
 		},
 	} {
@@ -738,6 +810,8 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 	}
 	// again, down here to try and make the diff nicer
 	float32s := []float32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	int64s := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	uint64s := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
 	for _, v := range []struct {
 		Type      string
 		Baseline  func(c zerolog.Context) zerolog.Context // only if not implemented by the upstream
@@ -817,6 +891,48 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 			},
 			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
 				return c.Dur("k", durations[0])
+			},
+		},
+		{
+			Type: `Bool`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Bool("k", bools[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Bool("k", bools[0])
+			},
+		},
+		{
+			Type: `Float`,
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Float64("k", floats[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Float64("k", floats[0])
+			},
+		},
+		{
+			Type: `Int64`,
+			Baseline: func(c zerolog.Context) zerolog.Context {
+				return c.Int64("k", int64s[0])
+			},
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Int64("k", int64s[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Int64("k", int64s[0])
+			},
+		},
+		{
+			Type: `Uint64`,
+			Baseline: func(c zerolog.Context) zerolog.Context {
+				return c.Uint64("k", uint64s[0])
+			},
+			Generic: func(c *logiface.Context[*Event]) *logiface.Context[*Event] {
+				return c.Uint64("k", uint64s[0])
+			},
+			Interface: func(c *logiface.Context[logiface.Event]) *logiface.Context[logiface.Event] {
+				return c.Uint64("k", uint64s[0])
 			},
 		},
 	} {

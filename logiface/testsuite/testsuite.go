@@ -69,6 +69,12 @@ type (
 
 		// FormatBase64Bytes is optional, and must be used if logiface.Event.AddBase64Bytes is implemented
 		FormatBase64Bytes func(b []byte, enc *base64.Encoding) any
+
+		// FormatInt64 is optional, and must be used if logiface.Event.AddInt64 is implemented
+		FormatInt64 func(i int64) any
+
+		// FormatUint64 is optional, and must be used if logiface.Event.AddUint64 is implemented
+		FormatUint64 func(u uint64) any
 	}
 
 	// TestRequest models the input from a test case, when it requests a logger.
@@ -105,6 +111,12 @@ type (
 
 		// FormatBase64Bytes is a normalizer, used by normalizeEvent.
 		FormatBase64Bytes func(b []byte, enc *base64.Encoding) any
+
+		// FormatInt64 is a normalizer, used by normalizeEvent.
+		FormatInt64 func(i int64) any
+
+		// FormatUint64 is a normalizer, used by normalizeEvent.
+		FormatUint64 func(u uint64) any
 	}
 
 	// Event models a parsed log event
@@ -212,6 +224,8 @@ func (x Config[E]) RunTest(req TestRequest[E], test func(res TestResponse[E])) {
 		FormatTime:        l.FormatTime,
 		FormatDuration:    l.FormatDuration,
 		FormatBase64Bytes: l.FormatBase64Bytes,
+		FormatInt64:       l.FormatInt64,
+		FormatUint64:      l.FormatUint64,
 	})
 
 	// stop the reader / parser
@@ -397,6 +411,14 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 		case base64BytesField:
 			if tr.FormatBase64Bytes != nil {
 				return tr.FormatBase64Bytes(v.Data, v.Enc)
+			}
+		case int64:
+			if tr.FormatInt64 != nil {
+				return tr.FormatInt64(v)
+			}
+		case uint64:
+			if tr.FormatUint64 != nil {
+				return tr.FormatUint64(v)
 			}
 		}
 		return v

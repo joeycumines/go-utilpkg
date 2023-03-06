@@ -38,6 +38,8 @@ func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.Logge
 		ParseEvent:     testSuiteParseEvent,
 		FormatTime:     testSuiteFormatTime,
 		FormatDuration: testSuiteFormatDuration,
+		FormatInt64:    testSuiteFormatInt64,
+		FormatUint64:   testSuiteFormatUint64,
 	}
 }
 
@@ -59,6 +61,14 @@ func testSuiteFormatDuration(d time.Duration) any {
 		return `-Inf`
 	}
 	return val
+}
+
+func testSuiteFormatInt64(v int64) any {
+	return float64(v)
+}
+
+func testSuiteFormatUint64(v uint64) any {
+	return float64(v)
 }
 
 func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {

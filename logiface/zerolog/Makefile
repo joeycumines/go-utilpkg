@@ -42,6 +42,14 @@ BENCHMARK_NAMES = \
 	ContextFieldType_InterfaceObject \
 	LogFieldType_Dur \
 	ContextFieldType_Dur \
+	LogFieldType_Bool \
+	ContextFieldType_Bool \
+	LogFieldType_Float64 \
+	ContextFieldType_Float64 \
+	LogFieldType_Int64 \
+	ContextFieldType_Int64 \
+	LogFieldType_Uint64 \
+	ContextFieldType_Uint64 \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =

@@ -83,6 +83,14 @@ type (
 		// most appropriate method, of the enc param.
 		// It's an optional optimisation.
 		AddBase64Bytes(key string, val []byte, enc *base64.Encoding) bool
+		// AddBool adds a field of type bool. It's an optional optimisation.
+		AddBool(key string, val bool) bool
+		// AddFloat64 adds a field of type float64. It's an optional optimisation.
+		AddFloat64(key string, val float64) bool
+		// AddInt64 adds a field of type int64. It's an optional optimisation.
+		AddInt64(key string, val int64) bool
+		// AddUint64 adds a field of type uint64. It's an optional optimisation.
+		AddUint64(key string, val uint64) bool
 
 		mustEmbedUnimplementedEvent()
 	}
@@ -259,6 +267,14 @@ func (UnimplementedEvent) AddTime(string, time.Time) bool { return false }
 func (UnimplementedEvent) AddDuration(string, time.Duration) bool { return false }
 
 func (UnimplementedEvent) AddBase64Bytes(string, []byte, *base64.Encoding) bool { return false }
+
+func (UnimplementedEvent) AddBool(string, bool) bool { return false }
+
+func (UnimplementedEvent) AddFloat64(string, float64) bool { return false }
+
+func (UnimplementedEvent) AddInt64(string, int64) bool { return false }
+
+func (UnimplementedEvent) AddUint64(string, uint64) bool { return false }
 
 func (UnimplementedEvent) mustEmbedUnimplementedEvent() {}
 
