@@ -55,8 +55,17 @@ func testEnabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 		}
 		atomic.AddInt32(&calls, 1)
 	})
-	if v := atomic.LoadInt32(&calls); v != 1 {
-		t.Error(v)
+	switch atomic.LoadInt32(&calls) {
+	case 0:
+		if b != nil {
+			t.Error()
+		}
+	case 1:
+		if b == nil {
+			t.Error()
+		}
+	default:
+		t.Error()
 	}
 	if !c.Enabled() {
 		t.Error()

@@ -65,10 +65,7 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 
 // Call is provided as a convenience, to facilitate code which uses the
 // receiver explicitly, without breaking out of the fluent-style API.
-//
-// The provided closure is always called, even if [Builder.Enabled] returns
-// false, e.g. if the receiver is nil, as a result of the log level being
-// disabled.
+// The provided fn will not be called if not [Builder.Enabled].
 //
 // Example use cases include access of the underlying Event implementation (to
 // utilize functionality not mapped by logiface), or to skip building /
@@ -76,7 +73,9 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 //
 // This method is not implemented by [Context].
 func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
-	fn(x)
+	if x.Enabled() {
+		fn(x)
+	}
 	return x
 }
 

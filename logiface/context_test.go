@@ -21,13 +21,29 @@ func TestBuilder_Call_nilReceiver(t *testing.T) {
 	}) != nil {
 		t.Error()
 	}
-	if called != 1 {
+	if called != 0 {
+		t.Error(called)
+	}
+}
+
+func TestBuilder_Call_notEnabled(t *testing.T) {
+	b := &Builder[Event]{}
+	var called int
+	if b.Call(func(b *Builder[Event]) {
+		if b != nil {
+			t.Error()
+		}
+		called++
+	}) != b {
+		t.Error()
+	}
+	if called != 0 {
 		t.Error(called)
 	}
 }
 
 func TestBuilder_Call(t *testing.T) {
-	builder := &Builder[Event]{}
+	builder := &Builder[Event]{shared: &loggerShared[Event]{}}
 	var called int
 	if b := builder.Call(func(b *Builder[Event]) {
 		if b != builder {
