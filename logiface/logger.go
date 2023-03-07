@@ -186,6 +186,15 @@ func (LoggerFactory[E]) New(options ...Option[E]) *Logger[E] {
 	return New[E](options...)
 }
 
+// Level returns the logger's [Level], note that it will be [LevelDisabled] if
+// it isn't writeable, or if the provided level was any disabled value.
+func (x *Logger[E]) Level() Level {
+	if x.canWrite() && x.shared.level.Enabled() {
+		return x.shared.level
+	}
+	return LevelDisabled
+}
+
 // Logger returns a new generified logger.
 //
 // Use this for greater compatibility, but sacrificing ease of using the

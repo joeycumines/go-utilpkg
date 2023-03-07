@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"os"
 	"reflect"
 	"testing"
@@ -645,4 +646,38 @@ func ExampleLogger_Log() {
 	//no logger modifier: [notice]
 	//modifier error: invalid number of fields: 1
 	//internal modifier error guards provided modifier: some internal modifier error
+}
+
+func TestLogger_Level_nilReceiver(t *testing.T) {
+	if v := (*Logger[*mockEvent])(nil).Level(); v != LevelDisabled {
+		t.Error(v)
+	}
+}
+
+func TestLogger_Level_minus100(t *testing.T) {
+	l := New(
+		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
+		simpleLoggerFactory.WithLevel(-100),
+	)
+	if !l.canWrite() || l.shared.level != -100 {
+		t.Fatal()
+	}
+	if v := l.Level(); v != LevelDisabled {
+		t.Error(v)
+	}
+}
+
+func TestLogger_Level_crit(t *testing.T) {
+	l := New(
+		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
+		simpleLoggerFactory.WithLevel(LevelCritical),
+	)
+	if !l.canWrite() || l.shared.level != LevelCritical {
+		t.Fatal()
+	}
+	if v := l.Level(); v != LevelCritical {
+		t.Error(v)
+	}
 }
