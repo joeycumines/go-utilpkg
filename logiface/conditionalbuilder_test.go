@@ -1,8 +1,10 @@
 package logiface
 
 import (
+	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestDisabledBuilder_nil(t *testing.T) {
@@ -32,6 +34,43 @@ func testDisabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 		t.Error(v)
 	}
 	c.private()
+	if v := c.Else(); v != (*enabledBuilder[*mockComplexEvent])(b) {
+		t.Error(v)
+	}
+}
+
+func TestTerminatedBuilder_nil(t *testing.T) {
+	testTerminatedBuilder(t, nil)
+}
+
+func TestTerminatedBuilder_nonNil(t *testing.T) {
+	b := &Builder[*mockComplexEvent]{
+		Event:  &mockComplexEvent{LevelValue: LevelInformational},
+		shared: &loggerShared[*mockComplexEvent]{},
+	}
+	testTerminatedBuilder(t, b)
+}
+
+func testTerminatedBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
+	c := ConditionalBuilder[*mockComplexEvent]((*terminatedBuilder[*mockComplexEvent])(b))
+	fluentCallerTemplate(c)
+	c.Call(nil)
+	c.Call(func(b *Builder[*mockComplexEvent]) {
+		t.Error()
+		panic(`shouldnt`)
+	})
+	if c.Enabled() {
+		t.Error()
+	}
+	if v := c.Builder(); v != b {
+		t.Error(v)
+	}
+	c.private()
+	if v := c.Else(); v != c {
+		t.Error(v)
+	} else if v != (*terminatedBuilder[*mockComplexEvent])(b) {
+		t.Error(v)
+	}
 }
 
 func TestEnabledBuilder_nil(t *testing.T) {
@@ -74,6 +113,9 @@ func testEnabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 		t.Error(v)
 	}
 	c.private()
+	if v := c.Else(); v != (*terminatedBuilder[*mockComplexEvent])(b) {
+		t.Error(v)
+	}
 }
 
 func TestBuilder_If_nil(t *testing.T) {
@@ -286,4 +328,45 @@ func TestBuilder_IfLevel(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleBuilder_IfTrace() {
+	sharedOpts := WithOptions(
+		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+	)
+
+	infoLogger := New(sharedOpts).Logger().
+		Clone().
+		Str(`logger`, `infoLogger`).
+		Logger()
+
+	traceLogger := New(sharedOpts, simpleLoggerFactory.WithLevel(LevelTrace)).Logger().
+		Clone().
+		Str(`logger`, `traceLogger`).
+		Logger()
+
+	log := func(logger *Logger[Event]) {
+		user := struct {
+			ID        int64
+			Name      string
+			Email     string
+			CreatedAt time.Time
+		}{123, "John Doe", "johndoe@example.com", time.Unix(0, 1676147419539212123).UTC()}
+
+		logger.Info().
+			IfTrace().
+			Any("user", user).
+			Else().
+			Int64("user", user.ID).
+			Builder().
+			Log("user created")
+	}
+
+	log(infoLogger)
+	log(traceLogger)
+
+	//output:
+	//[info] logger=infoLogger user=123 msg=user created
+	//[info] logger=traceLogger user={123 John Doe johndoe@example.com 2023-02-11 20:30:19.539212123 +0000 UTC} msg=user created
 }
