@@ -3,7 +3,7 @@ module github.com/joeycumines/go-utilpkg/logiface/zerolog
 go 1.20
 
 require (
-	github.com/joeycumines/go-utilpkg/logiface v0.2.0
+	github.com/joeycumines/go-utilpkg/logiface v0.3.0
 	github.com/joeycumines/go-utilpkg/logiface/testsuite v0.1.0
 	github.com/rs/zerolog v1.29.0
 )

@@ -3,8 +3,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-utilpkg/logiface v0.2.0 h1:8x7wV7nodCweUSSlG7g4346Gk6/56kNJ2rWEbvS8R8Q=
-github.com/joeycumines/go-utilpkg/logiface v0.2.0/go.mod h1:VMwHDq8Up5qCY9obRyNHDyarq8ggDehYBOpVec1oFcw=
+github.com/joeycumines/go-utilpkg/logiface v0.3.0 h1:oG5ivATqjcIvOwFP1H60zWntmMCJAcY6YfrnvUsTbJ8=
+github.com/joeycumines/go-utilpkg/logiface v0.3.0/go.mod h1:VMwHDq8Up5qCY9obRyNHDyarq8ggDehYBOpVec1oFcw=
 github.com/joeycumines/go-utilpkg/logiface/testsuite v0.1.0 h1:aMKL/Nqp2hnuRyjRO1FvYmroqke4QGopEizlClyjob8=
 github.com/joeycumines/go-utilpkg/logiface/testsuite v0.1.0/go.mod h1:+kySZJcVQPjsOW6ZLz/MlIrzzIajUN6KSyiKTe/t+kE=
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
