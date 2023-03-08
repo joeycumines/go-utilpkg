@@ -1,6 +1,7 @@
 package logiface
 
 import (
+	"math"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -12,11 +13,16 @@ func TestDisabledBuilder_nil(t *testing.T) {
 }
 
 func TestDisabledBuilder_nonNil(t *testing.T) {
-	b := &Builder[*mockComplexEvent]{
-		Event:  &mockComplexEvent{LevelValue: LevelInformational},
-		shared: &loggerShared[*mockComplexEvent]{},
+	for lvl := math.MinInt8; lvl <= math.MaxInt8; lvl++ {
+		b := &Builder[*mockComplexEvent]{
+			Event:  &mockComplexEvent{LevelValue: Level(lvl)},
+			shared: &loggerShared[*mockComplexEvent]{},
+		}
+		testDisabledBuilder(t, b)
+		if t.Failed() {
+			t.Fatalf(`failed on level: %d`, lvl)
+		}
 	}
-	testDisabledBuilder(t, b)
 }
 
 func testDisabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
@@ -37,6 +43,7 @@ func testDisabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	if v := c.Else(); v != (*enabledBuilder[*mockComplexEvent])(b) {
 		t.Error(v)
 	}
+	testConditionalBuilderElseIfMethods(t, c, false)
 }
 
 func TestTerminatedBuilder_nil(t *testing.T) {
@@ -44,11 +51,16 @@ func TestTerminatedBuilder_nil(t *testing.T) {
 }
 
 func TestTerminatedBuilder_nonNil(t *testing.T) {
-	b := &Builder[*mockComplexEvent]{
-		Event:  &mockComplexEvent{LevelValue: LevelInformational},
-		shared: &loggerShared[*mockComplexEvent]{},
+	for lvl := math.MinInt8; lvl <= math.MaxInt8; lvl++ {
+		b := &Builder[*mockComplexEvent]{
+			Event:  &mockComplexEvent{LevelValue: Level(lvl)},
+			shared: &loggerShared[*mockComplexEvent]{},
+		}
+		testTerminatedBuilder(t, b)
+		if t.Failed() {
+			t.Fatalf(`failed on level: %d`, lvl)
+		}
 	}
-	testTerminatedBuilder(t, b)
 }
 
 func testTerminatedBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
@@ -71,6 +83,7 @@ func testTerminatedBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	} else if v != (*terminatedBuilder[*mockComplexEvent])(b) {
 		t.Error(v)
 	}
+	testConditionalBuilderElseIfMethods(t, c, true)
 }
 
 func TestEnabledBuilder_nil(t *testing.T) {
@@ -78,11 +91,16 @@ func TestEnabledBuilder_nil(t *testing.T) {
 }
 
 func TestEnabledBuilder_nonNil(t *testing.T) {
-	b := &Builder[*mockComplexEvent]{
-		Event:  &mockComplexEvent{LevelValue: LevelInformational},
-		shared: &loggerShared[*mockComplexEvent]{},
+	for lvl := math.MinInt8; lvl <= math.MaxInt8; lvl++ {
+		b := &Builder[*mockComplexEvent]{
+			Event:  &mockComplexEvent{LevelValue: Level(lvl)},
+			shared: &loggerShared[*mockComplexEvent]{},
+		}
+		testEnabledBuilder(t, b)
+		if t.Failed() {
+			t.Fatalf(`failed on level: %d`, lvl)
+		}
 	}
-	testEnabledBuilder(t, b)
 }
 
 func testEnabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
@@ -116,6 +134,39 @@ func testEnabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	if v := c.Else(); v != (*terminatedBuilder[*mockComplexEvent])(b) {
 		t.Error(v)
 	}
+	testConditionalBuilderElseIfMethods(t, c, true)
+}
+
+func testConditionalBuilderElseIfMethods(t *testing.T, c ConditionalBuilder[*mockComplexEvent], terminal bool) {
+	b := c.Builder()
+	test := func(v ConditionalBuilder[*mockComplexEvent], baseline ConditionalBuilder[*mockComplexEvent]) {
+		t.Helper()
+		if terminal {
+			if v != (*terminatedBuilder[*mockComplexEvent])(b) {
+				t.Errorf(`terminal: %T %v`, v, v)
+			}
+		} else if v != baseline {
+			t.Errorf(`baseline: %T %v`, v, v)
+		}
+	}
+	test(c.Else(), (*enabledBuilder[*mockComplexEvent])(b))
+	test(c.ElseIf(true), b.If(true))
+	test(c.ElseIf(false), b.If(false))
+	test(c.ElseIfFunc(nil), b.IfFunc(nil))
+	test(c.ElseIfFunc(func() bool { return true }), b.IfFunc(func() bool { return true }))
+	test(c.ElseIfFunc(func() bool { return false }), b.IfFunc(func() bool { return false }))
+	for lvl := math.MinInt8; lvl <= math.MaxInt8; lvl++ {
+		test(c.ElseIfLevel(Level(lvl)), b.IfLevel(Level(lvl)))
+	}
+	test(c.ElseIfEmerg(), b.IfEmerg())
+	test(c.ElseIfAlert(), b.IfAlert())
+	test(c.ElseIfCrit(), b.IfCrit())
+	test(c.ElseIfErr(), b.IfErr())
+	test(c.ElseIfWarning(), b.IfWarning())
+	test(c.ElseIfNotice(), b.IfNotice())
+	test(c.ElseIfInfo(), b.IfInfo())
+	test(c.ElseIfDebug(), b.IfDebug())
+	test(c.ElseIfTrace(), b.IfTrace())
 }
 
 func TestBuilder_If_nil(t *testing.T) {
@@ -369,4 +420,50 @@ func ExampleBuilder_IfTrace() {
 	//output:
 	//[info] logger=infoLogger user=123 msg=user created
 	//[info] logger=traceLogger user={123 John Doe johndoe@example.com 2023-02-11 20:30:19.539212123 +0000 UTC} msg=user created
+}
+
+func ExampleBuilder_degreesOfLogVerbosity() {
+	log := func(logger *Logger[Event]) {
+		user := struct {
+			ID   int
+			Name string
+			Role string
+		}{123, "Some Guy", "admin"}
+
+		entity := struct {
+			ID     int
+			Name   string
+			Type   string
+			Status string
+		}{456, "example entity", "document", "active"}
+
+		logger.Warning().
+			Int(`user_id`, user.ID).
+			Int(`entity_id`, entity.ID).
+			IfTrace().
+			Any(`user`, user).
+			Any(`entity`, entity).
+			ElseIfNotice().
+			Str(`entity_type`, entity.Type).
+			Str(`user_role`, user.Role).
+			Builder().
+			Log("access denied")
+	}
+
+	for lvl := LevelEmergency; lvl <= LevelTrace; lvl++ {
+		log(New(
+			simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+			simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+			simpleLoggerFactory.WithLevel(lvl),
+		).Logger().Clone().
+			Str(`loggerLevel`, lvl.String()).
+			Logger())
+	}
+
+	//output:
+	//[warning] loggerLevel=warning user_id=123 entity_id=456 msg=access denied
+	//[warning] loggerLevel=notice user_id=123 entity_id=456 entity_type=document user_role=admin msg=access denied
+	//[warning] loggerLevel=info user_id=123 entity_id=456 entity_type=document user_role=admin msg=access denied
+	//[warning] loggerLevel=debug user_id=123 entity_id=456 entity_type=document user_role=admin msg=access denied
+	//[warning] loggerLevel=trace user_id=123 entity_id=456 user={123 Some Guy admin} entity={456 example entity document active} msg=access denied
 }
