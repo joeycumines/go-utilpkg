@@ -59,6 +59,13 @@ else
 LIST_TOOLS ?= [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
 endif
 
+# configurable, but unlikely to need to be configured
+
+# separates keys and values, see also the map_* functions
+MAP_SEPARATOR ?= :
+# path separator (/ replacement) for slugs
+SLUG_SEPARATOR ?= .
+
 # ---
 
 # recursive wildcard match function, $1 is the directory to search, $2 is the pattern to match
@@ -66,19 +73,35 @@ endif
 # note 2: $2 does not support multiple wildcards
 rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
 
-# convert a path to a slug, e.g. ./logiface/logrus -> logiface.logrus, with special case for root
-path_to_slug = $(if $(filter .,$1),root,$(subst /,.,$(patsubst ./%,%,$1)))
+# looks up a value in a map, $1 is the map, $2 is the key associated with the value
+map_value_by_key = $(patsubst $2$(MAP_SEPARATOR)%,%,$(filter $2$(MAP_SEPARATOR)%,$1))
+# looks up a key in a map, $1 is the map, $2 is the value associated with the key
+map_key_by_value = $(patsubst %$(MAP_SEPARATOR)$2,%,$(filter %$(MAP_SEPARATOR)$2,$1))
+# builds a new map, from a set of keys, using a transform function to build values from the keys
+# $1 are the keys, $2 is the transform function
+map_transform_keys = $(foreach v,$1,$v$(MAP_SEPARATOR)$(call $2,$v))
 
-# convert a slug to a path, e.g. logiface.logrus -> ./logiface/logrus, with special case for root
-slug_to_path = $(if $(filter root,$1),.,./$(subst .,/,$(filter-out root,$1)))
+# convert a path to a slug, e.g. ./logiface/logrus -> logiface.logrus, with special case for root
+slug_transform = $(if $(filter .,$1),root,$(subst /,$(SLUG_SEPARATOR),$(patsubst ./%,%,$1)))
+
+go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
+go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
+
+subdir_makefile_path_to_slug = $(call map_value_by_key,$(_SUBDIR_MAKEFILE_MAP),$1)
+subdir_makefile_slug_to_path = $(call map_key_by_value,$(_SUBDIR_MAKEFILE_MAP),$1)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
+# used by go_module_path_to_slug and go_module_slug_to_path to lookup an associated path/slug
+_GO_MODULE_MAP := $(call map_transform_keys,$(GO_MODULE_PATHS),slug_transform)
 # example: root logiface logiface.logrus logiface.testsuite logiface.zerolog
-GO_MODULE_SLUGS := $(foreach d,$(GO_MODULE_PATHS),$(call path_to_slug,$d))
-# guard to ensure that GO_MODULE_PATHS doesn't contain any unsupported paths (e.g. containing .)
-ifneq ($(GO_MODULE_PATHS),$(foreach d,$(GO_MODULE_SLUGS),$(call slug_to_path,$d)))
+GO_MODULE_SLUGS := $(foreach d,$(GO_MODULE_PATHS),$(call go_module_path_to_slug,$d))
+# sanity check the path and slug lookups
+ifneq ($(GO_MODULE_PATHS),$(foreach d,$(GO_MODULE_SLUGS),$(call go_module_slug_to_path,$d)))
 $(error GO_MODULE_PATHS contains unsupported paths)
+endif
+ifneq ($(GO_MODULE_SLUGS),$(foreach d,$(GO_MODULE_PATHS),$(call go_module_path_to_slug,$d)))
+$(error GO_MODULE_SLUGS contains unsupported paths)
 endif
 # the below are used to special-case tools which fail if they find no packages (e.g. go vet)
 GO_MODULE_SLUGS_NO_PACKAGES ?=
@@ -87,11 +110,16 @@ GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
 SUBDIR_MAKEFILE_PATHS := $(filter-out .,$(patsubst %/Makefile,%,$(call rwildcard,./,Makefile)))
+# used by subdir_makefile_path_to_slug and subdir_makefile_slug_to_path to lookup an associated path/slug
+_SUBDIR_MAKEFILE_MAP := $(call map_transform_keys,$(SUBDIR_MAKEFILE_PATHS),slug_transform)
 # slugs for subdirectories, without a leading ./, / replaced with ., and the path . mapped to root
-SUBDIR_MAKEFILE_SLUGS := $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call path_to_slug,$d))
-# guard to ensure that SUBDIR_MAKEFILE_PATHS doesn't contain any unsupported paths (e.g. containing .)
-ifneq ($(SUBDIR_MAKEFILE_PATHS),$(foreach d,$(SUBDIR_MAKEFILE_SLUGS),$(call slug_to_path,$d)))
+SUBDIR_MAKEFILE_SLUGS := $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call subdir_makefile_path_to_slug,$d))
+# sanity check the path and slug lookups
+ifneq ($(SUBDIR_MAKEFILE_PATHS),$(foreach d,$(SUBDIR_MAKEFILE_SLUGS),$(call subdir_makefile_slug_to_path,$d)))
 $(error SUBDIR_MAKEFILE_PATHS contains unsupported paths)
+endif
+ifneq ($(SUBDIR_MAKEFILE_SLUGS),$(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call subdir_makefile_path_to_slug,$d)))
+$(error SUBDIR_MAKEFILE_SLUGS contains unsupported paths)
 endif
 
 # ---
@@ -139,7 +167,7 @@ staticcheck: $(STATICCHECK_TARGETS)
 
 .PHONY: $(STATICCHECK_TARGETS)
 $(STATICCHECK_TARGETS): staticcheck.%:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call slug_to_path,$*)/...
+	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_slug_to_path,$*)/...
 
 # vet: runs the go vet tool
 
@@ -150,7 +178,7 @@ vet: $(VET_TARGETS)
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
-	$(GO_VET) $(call slug_to_path,$*)/...
+	$(GO_VET) $(call go_module_slug_to_path,$*)/...
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
@@ -164,7 +192,7 @@ build: $(BUILD_TARGETS)
 
 .PHONY: $(BUILD_TARGETS)
 $(BUILD_TARGETS): build.%:
-	$(GO_BUILD) $(call slug_to_path,$*)/...
+	$(GO_BUILD) $(call go_module_slug_to_path,$*)/...
 
 # test: runs the go test tool
 
@@ -175,7 +203,7 @@ test: $(TEST_TARGETS)
 
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
-	$(GO_TEST) $(call slug_to_path,$*)/...
+	$(GO_TEST) $(call go_module_slug_to_path,$*)/...
 
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
@@ -189,7 +217,7 @@ fmt: $(FMT_TARGETS)
 
 .PHONY: $(FMT_TARGETS)
 $(FMT_TARGETS): fmt.%:
-	$(MAKE) -s -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _fmt
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _fmt
 
 .PHONY: _fmt
 _fmt:
@@ -204,7 +232,7 @@ update: $(UPDATE_TARGETS)
 
 .PHONY: $(UPDATE_TARGETS)
 $(UPDATE_TARGETS): update.%:
-	@$(MAKE) -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
+	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
 
 .PHONY: _update
 _update: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -226,7 +254,7 @@ tools: $(TOOLS_TARGETS)
 
 .PHONY: $(TOOLS_TARGETS)
 $(TOOLS_TARGETS): tools.%:
-	$(MAKE) --no-print-directory -C $(call slug_to_path,$*) -f $(ROOT_MAKEFILE) _tools
+	$(MAKE) --no-print-directory -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _tools
 
 .PHONY: _tools
 _tools: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -247,7 +275,7 @@ SUBDIR_MAKEFILE_TARGETS := $(addprefix run.,$(SUBDIR_MAKEFILE_SLUGS))
 
 .PHONY: $(SUBDIR_MAKEFILE_TARGETS)
 $(SUBDIR_MAKEFILE_TARGETS): run.%:
-	@$(MAKE) -C $(call slug_to_path,$*) $(RUN_FLAGS)
+	@$(MAKE) -C $(call subdir_makefile_slug_to_path,$*) $(RUN_FLAGS)
 
 # makefile implicit rules
 
@@ -260,7 +288,7 @@ run-%.$2: FORCE
 
 endef
 # warning: simply-expanded
-$(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call path_to_slug,$d))))
+$(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call subdir_makefile_path_to_slug,$d))))
 
 # ---
 
