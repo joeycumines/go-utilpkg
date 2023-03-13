@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"io"
 	"math"
+	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -328,4 +329,19 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+}
+
+func ExampleLogger_arrayField() {
+	logger := L.New(L.WithZerolog(zerolog.New(os.Stdout)))
+	logger.Info().
+		Str(`a`, `A`).
+		Array().
+		Field(1).
+		Field(2).
+		As(`b`).
+		Str(`c`, `C`).
+		Log(`msg 1`)
+
+	//output:
+	//{"level":"info","a":"A","b":[1,2],"c":"C","message":"msg 1"}
 }

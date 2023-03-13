@@ -18,6 +18,8 @@ type (
 
 	Logger struct {
 		Z zerolog.Logger
+		//lint:ignore U1000 embedded for it's methods
+		unimplementedArraySupport
 	}
 
 	// LoggerFactory is provided as a convenience, embedding
@@ -30,6 +32,9 @@ type (
 
 	//lint:ignore U1000 used to embed without exporting
 	unimplementedEvent = logiface.UnimplementedEvent
+
+	//lint:ignore U1000 used to embed without exporting
+	unimplementedArraySupport = logiface.UnimplementedArraySupport[*Event, zerolog.Array]
 
 	//lint:ignore U1000 used to embed without exporting
 	baseLoggerFactory = logiface.LoggerFactory[*Event]
@@ -49,10 +54,11 @@ var (
 
 	// compile time assertions
 
-	_ logiface.Event                 = (*Event)(nil)
-	_ logiface.EventFactory[*Event]  = (*Logger)(nil)
-	_ logiface.Writer[*Event]        = (*Logger)(nil)
-	_ logiface.EventReleaser[*Event] = (*Logger)(nil)
+	_ logiface.Event                               = (*Event)(nil)
+	_ logiface.EventFactory[*Event]                = (*Logger)(nil)
+	_ logiface.Writer[*Event]                      = (*Logger)(nil)
+	_ logiface.EventReleaser[*Event]               = (*Logger)(nil)
+	_ logiface.ArraySupport[*Event, zerolog.Array] = (*Logger)(nil)
 )
 
 // WithZerolog configures a logiface logger to use a zerolog logger.
@@ -64,6 +70,7 @@ func WithZerolog(logger zerolog.Logger) logiface.Option[*Event] {
 		L.WithWriter(&l),
 		L.WithEventFactory(&l),
 		L.WithEventReleaser(&l),
+		logiface.WithArraySupport[*Event, zerolog.Array](&l),
 	)
 }
 
@@ -204,4 +211,14 @@ func (x *Logger) newEvent(level logiface.Level) *zerolog.Event {
 		// WARNING: there are 8 (zerolog) levels unaddressable using this mechanism
 		return x.Z.WithLevel(zerolog.Level(7 - level))
 	}
+}
+
+func (x *Logger) NewArray() *zerolog.Array { return zerolog.Arr() }
+
+func (x *Logger) WriteArray(evt *Event, key string, arr *zerolog.Array) {
+	evt.Z.Array(key, arr)
+}
+
+func (x *Logger) AddArrayField(arr *zerolog.Array, val any) {
+	arr.Interface(val)
 }

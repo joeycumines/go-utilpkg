@@ -39,7 +39,7 @@ func testDisabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	if v := c.Builder(); v != b {
 		t.Error(v)
 	}
-	c.private()
+	c.isConditionalBuilder()
 	if v := c.Else(); v != (*enabledBuilder[*mockComplexEvent])(b) {
 		t.Error(v)
 	}
@@ -77,7 +77,7 @@ func testTerminatedBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	if v := c.Builder(); v != b {
 		t.Error(v)
 	}
-	c.private()
+	c.isConditionalBuilder()
 	if v := c.Else(); v != c {
 		t.Error(v)
 	} else if v != (*terminatedBuilder[*mockComplexEvent])(b) {
@@ -130,7 +130,7 @@ func testEnabledBuilder(t *testing.T, b *Builder[*mockComplexEvent]) {
 	if v := c.Builder(); v != b {
 		t.Error(v)
 	}
-	c.private()
+	c.isConditionalBuilder()
 	if v := c.Else(); v != (*terminatedBuilder[*mockComplexEvent])(b) {
 		t.Error(v)
 	}

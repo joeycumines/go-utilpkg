@@ -24,6 +24,7 @@ type (
 		releaser EventReleaser[E]
 		writer   Writer[E]
 		pool     *sync.Pool
+		array    arraySupport[E]
 	}
 
 	// Option is a configuration option for constructing Logger instances,
@@ -37,6 +38,7 @@ type (
 		releaser EventReleaser[E]
 		writer   WriterSlice[E]
 		modifier ModifierSlice[E]
+		array    *arraySupport[E]
 	}
 
 	// LoggerFactory provides aliases for package functions including New, as
@@ -170,6 +172,7 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 		factory:  c.factory,
 		releaser: c.releaser,
 		writer:   c.resolveWriter(),
+		array:    *c.resolveArray(),
 	}
 	shared.init()
 
@@ -378,6 +381,14 @@ func (x *loggerConfig[E]) resolveModifier() Modifier[E] {
 	default:
 		return x.modifier
 	}
+}
+
+func (x *loggerConfig[E]) resolveArray() *arraySupport[E] {
+	if x.array != nil {
+		return x.array
+	}
+	// TODO this needs to be defaulted properly
+	return new(arraySupport[E])
 }
 
 func reverseSlice[S ~[]E, E any](s S) {

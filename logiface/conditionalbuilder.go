@@ -124,7 +124,7 @@ type (
 		Uint64(key string, val uint64) ConditionalBuilder[E]
 
 		// future additions are expected + implemented within this pkg
-		private()
+		isConditionalBuilder()
 	}
 
 	enabledBuilder[E Event] Builder[E]
@@ -303,7 +303,7 @@ func (x *enabledBuilder[E]) Uint64(key string, val uint64) ConditionalBuilder[E]
 }
 
 //lint:ignore U1000 implements interface
-func (x *enabledBuilder[E]) private() {}
+func (x *enabledBuilder[E]) isConditionalBuilder() {}
 
 func (x *disabledBuilder[E]) Builder() *Builder[E] { return (*Builder[E])(x) }
 
@@ -392,7 +392,7 @@ func (x *disabledBuilder[E]) Int64(key string, val int64) ConditionalBuilder[E] 
 func (x *disabledBuilder[E]) Uint64(key string, val uint64) ConditionalBuilder[E] { return x }
 
 //lint:ignore U1000 implements interface
-func (x *disabledBuilder[E]) private() {}
+func (x *disabledBuilder[E]) isConditionalBuilder() {}
 
 func (x *terminatedBuilder[E]) Builder() *Builder[E] { return (*Builder[E])(x) }
 
@@ -457,4 +457,4 @@ func (x *terminatedBuilder[E]) Int64(key string, val int64) ConditionalBuilder[E
 func (x *terminatedBuilder[E]) Uint64(key string, val uint64) ConditionalBuilder[E] { return x }
 
 //lint:ignore U1000 implements interface
-func (x *terminatedBuilder[E]) private() {}
+func (x *terminatedBuilder[E]) isConditionalBuilder() {}
