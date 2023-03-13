@@ -332,7 +332,13 @@ func TestLogger_simple(t *testing.T) {
 }
 
 func ExampleLogger_arrayField() {
-	logger := L.New(L.WithZerolog(zerolog.New(os.Stdout)))
+	logger := L.New(L.WithZerolog(zerolog.New(os.Stdout))).
+		Clone().
+		Array().
+		Field(3).
+		Field(4).
+		As(`d`).
+		Logger()
 	logger.Info().
 		Str(`a`, `A`).
 		Array().
@@ -343,5 +349,5 @@ func ExampleLogger_arrayField() {
 		Log(`msg 1`)
 
 	//output:
-	//{"level":"info","a":"A","b":[1,2],"c":"C","message":"msg 1"}
+	//{"level":"info","d":[3,4],"a":"A","b":[1,2],"c":"C","message":"msg 1"}
 }
