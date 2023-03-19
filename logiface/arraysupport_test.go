@@ -1,6 +1,7 @@
 package logiface
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -29,4 +30,20 @@ func TestUnimplementedArraySupport_mustEmbedUnimplementedArraySupport(t *testing
 
 func TestSliceArraySupport_mustEmbedUnimplementedArraySupport(t *testing.T) {
 	sliceArraySupport[Event]{}.mustEmbedUnimplementedArraySupport()
+}
+
+func TestUnimplementedArraySupport_CanAppendArray(t *testing.T) {
+	if (UnimplementedArraySupport[Event, []any]{}).CanAppendArray() {
+		t.Error("expected false")
+	}
+}
+
+func TestUnimplementedArraySupport_AppendArray(t *testing.T) {
+	defer func() {
+		if v := fmt.Sprint(recover()); v != `not implemented` {
+			t.Errorf("expected panic, got %q", v)
+		}
+	}()
+	(UnimplementedArraySupport[Event, []any]{}).AppendArray(nil, nil)
+	t.Error("expected panic")
 }

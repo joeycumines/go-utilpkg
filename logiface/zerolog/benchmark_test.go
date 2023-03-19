@@ -1017,12 +1017,14 @@ func BenchmarkSingleArray(b *testing.B) {
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					logiface.Array[*Event](logger.Info()).
-						Field(`a`).
-						Field(`b`).
-						Field(`c`).
-						Field(`d`).
+					logger.Info().
+						Array().
+						Str(`a`).
+						Str(`b`).
+						Str(`c`).
+						Str(`d`).
 						As(`k`).
+						End().
 						Log(shortMessage)
 				}
 			})
@@ -1034,12 +1036,12 @@ func BenchmarkSingleArray(b *testing.B) {
 				for pb.Next() {
 					logger.Info().
 						Array().
-						Field(`a`).
-						Field(`b`).
-						Field(`c`).
-						Field(`d`).
+						Str(`a`).
+						Str(`b`).
+						Str(`c`).
+						Str(`d`).
 						As(`k`).
-						Parent().
+						End().
 						Log(shortMessage)
 				}
 			})

@@ -215,3 +215,9 @@ func (x *Logger) AppendField(arr *zerolog.Array, val any) *zerolog.Array {
 	arr.Interface(val)
 	return arr
 }
+
+func (x *Logger) CanAppendString() bool { return true }
+func (x *Logger) AppendString(arr *zerolog.Array, val string) *zerolog.Array {
+	arr.Str(val)
+	return arr
+}

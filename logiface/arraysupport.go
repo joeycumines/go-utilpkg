@@ -11,23 +11,28 @@ type (
 		CanAppendArray() bool
 		AppendArray(arr A, val A) A
 
+		CanAppendString() bool
+		AppendString(arr A, val string) A
+
 		mustEmbedUnimplementedArraySupport()
 	}
 
 	// arraySupport is available via loggerShared.array, and models an external
 	// array builder implementation.
 	arraySupport[E Event] struct {
-		iface       iArraySupport[E]
-		newArray    func() any
-		addArray    func(evt E, key string, arr any)
-		appendField func(arr, val any) any
-		appendArray func(arr, val any) any
+		iface        iArraySupport[E]
+		newArray     func() any
+		addArray     func(evt E, key string, arr any)
+		appendField  func(arr, val any) any
+		appendArray  func(arr, val any) any
+		appendString func(arr any, val string) any
 	}
 
 	// iArraySupport are the [ArraySupport] methods without array-specific behavior
 	// (e.g. flags / checking if certain methods can be used)
 	iArraySupport[E Event] interface {
 		CanAppendArray() bool
+		CanAppendString() bool
 	}
 
 	UnimplementedArraySupport[E Event, A any] struct{}
@@ -39,6 +44,8 @@ type (
 // [Array] / [ArrayBuilder] implementation.
 //
 // By default, slices of type `[]any` are used.
+//
+// See also [LoggerFactory.WithArraySupport].
 func WithArraySupport[E Event, A any](impl ArraySupport[E, A]) Option[E] {
 	return func(c *loggerConfig[E]) {
 		if impl == nil {
@@ -47,6 +54,16 @@ func WithArraySupport[E Event, A any](impl ArraySupport[E, A]) Option[E] {
 			c.array = newArraySupport(impl)
 		}
 	}
+}
+
+// WithArraySupport configures the implementation the logger uses to back the
+// [Array] / [ArrayBuilder] implementation. If your implementation uses a type
+// other than any (for the arrays) you will need to use the [WithArraySupport]
+// function instead.
+//
+// By default, slices of type `[]any` are used.
+func (LoggerFactory[E]) WithArraySupport(impl ArraySupport[E, any]) Option[E] {
+	return WithArraySupport(impl)
 }
 
 func newArraySupport[E Event, A any](impl ArraySupport[E, A]) *arraySupport[E] {
@@ -62,6 +79,9 @@ func newArraySupport[E Event, A any](impl ArraySupport[E, A]) *arraySupport[E] {
 		appendArray: func(arr, val any) any {
 			return impl.AppendArray(arr.(A), val.(A))
 		},
+		appendString: func(arr any, val string) any {
+			return impl.AppendString(arr.(A), val)
+		},
 	}
 }
 
@@ -72,14 +92,21 @@ func generifyArraySupport[E Event](array *arraySupport[E]) *arraySupport[Event] 
 		addArray: func(evt Event, key string, arr any) {
 			array.addArray(evt.(E), key, arr)
 		},
-		appendField: array.appendField,
-		appendArray: array.appendArray,
+		appendField:  array.appendField,
+		appendArray:  array.appendArray,
+		appendString: array.appendString,
 	}
 }
 
 func (UnimplementedArraySupport[E, A]) CanAppendArray() bool { return false }
 
 func (UnimplementedArraySupport[E, A]) AppendArray(arr A, val A) A {
+	panic("not implemented")
+}
+
+func (UnimplementedArraySupport[E, A]) CanAppendString() bool { return false }
+
+func (UnimplementedArraySupport[E, A]) AppendString(arr A, val string) A {
 	panic("not implemented")
 }
 
@@ -98,6 +125,12 @@ func (x sliceArraySupport[E]) AppendField(arr []any, val any) []any {
 func (x sliceArraySupport[E]) CanAppendArray() bool { return true }
 
 func (x sliceArraySupport[E]) AppendArray(arr []any, val []any) []any {
+	return append(arr, val)
+}
+
+func (x sliceArraySupport[E]) CanAppendString() bool { return true }
+
+func (x sliceArraySupport[E]) AppendString(arr []any, val string) []any {
 	return append(arr, val)
 }
 

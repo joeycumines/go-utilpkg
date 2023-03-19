@@ -7,11 +7,11 @@ import (
 var (
 	// compile time assertions
 
-	_ Parent[Event]             = (*Context[Event])(nil)
-	_ Parent[Event]             = (*Builder[Event])(nil)
-	_ Parent[Event]             = (*ArrayBuilder[Event, *Builder[Event]])(nil)
-	_ Parent[Event]             = (*Chainable[Event, *Builder[Event]])(nil)
-	_ chainableInterface[Event] = (*Chainable[Event, *Builder[Event]])(nil)
+	_ Parent[Event]         = (*Context[Event])(nil)
+	_ Parent[Event]         = (*Builder[Event])(nil)
+	_ Parent[Event]         = (*ArrayBuilder[Event, *Builder[Event]])(nil)
+	_ Parent[Event]         = (*Chain[Event, *Builder[Event]])(nil)
+	_ chainInterface[Event] = (*Chain[Event, *Builder[Event]])(nil)
 )
 
 func ExampleBuilder_Array_nestedArrays() {
@@ -37,7 +37,7 @@ func ExampleBuilder_Array_nestedArrays() {
 		Add().
 		Add().
 		As(`arr`).
-		Parent().
+		End().
 		Field(`b`, `B`).
 		Log(`msg 1`)
 
@@ -71,7 +71,7 @@ func ExampleContext_Array_nestedArrays() {
 		Add().
 		Add().
 		As(`arr`).
-		Parent().
+		End().
 		Field(`b`, `B`).
 		Logger().
 		Notice().

@@ -348,7 +348,7 @@ func ExampleLogger_arrayField() {
 		Field(3).
 		Field(4).
 		As(`d`).
-		Parent().
+		End().
 		Logger().
 		Info().
 		Str(`a`, `A`).
@@ -356,7 +356,7 @@ func ExampleLogger_arrayField() {
 		Field(1).
 		Field(2).
 		As(`b`).
-		Parent().
+		End().
 		Str(`c`, `C`).
 		Log(`msg 1`)
 

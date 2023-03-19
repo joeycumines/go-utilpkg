@@ -11,12 +11,16 @@ type (
 		// these methods are effectively arraySupport, but vary depending on
 		// both the top-level parent, and implementation details such as
 		// ArraySupport.CanAppendArray
+		//
+		// WARNING: The guarded methods must always return the input arr, even
+		// when false, in order to avoid allocs within the arrayFields methods.
 
 		arrSupport() iArraySupport[E]
 		arrNew() any
 		arrWrite(key string, arr any)
 		arrField(arr any, val any) any
 		arrArray(arr, val any) (any, bool)
+		arrStr(arr any, val string) (any, bool)
 	}
 
 	//lint:ignore U1000 it is actually used
@@ -92,7 +96,19 @@ func (x *Context[E]) arrArray(arr, val any) (any, bool) {
 		})
 		return arr, true
 	}
-	return nil, false
+	return arr, false
+}
+
+//lint:ignore U1000 it is actually used
+func (x *Context[E]) arrStr(arr any, val string) (any, bool) {
+	if x.logger.shared.array.iface.CanAppendString() {
+		a := arr.(*contextArray[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.array.appendString(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
 }
 
 // Builder
@@ -124,7 +140,15 @@ func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
 	if x.shared.array.iface.CanAppendArray() {
 		return x.shared.array.appendArray(arr, val), true
 	}
-	return nil, false
+	return arr, false
+}
+
+//lint:ignore U1000 it is actually used
+func (x *Builder[E]) arrStr(arr any, val string) (any, bool) {
+	if x.shared.array.iface.CanAppendString() {
+		return x.shared.array.appendString(arr, val), true
+	}
+	return arr, false
 }
 
 // ArrayBuilder
@@ -182,9 +206,12 @@ func (x *ArrayBuilder[E, P]) Call(fn func(a *ArrayBuilder[E, P])) *ArrayBuilder[
 }
 
 func (x *ArrayBuilder[E, P]) Field(val any) *ArrayBuilder[E, P] {
-	if x.Enabled() {
-		x.b = x.arrField(x.b, val)
-	}
+	_ = x.methods().Field(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Str(val string) *ArrayBuilder[E, P] {
+	_ = x.methods().Str(x.fields(), ``, val)
 	return x
 }
 
@@ -243,9 +270,8 @@ func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
 func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
 	if x.mustUseSliceArray() != nil {
 		return (sliceArraySupport[E]{}).AppendField(arr.([]any), val)
-	} else {
-		return x.p().arrField(arr, val)
 	}
+	return x.p().arrField(arr, val)
 }
 
 //lint:ignore U1000 it is actually used
@@ -254,6 +280,14 @@ func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
 		return (sliceArraySupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
 	return x.p().arrArray(arr, val)
+}
+
+//lint:ignore U1000 it is actually used
+func (x *ArrayBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
+	if x.mustUseSliceArray() != nil {
+		return (sliceArraySupport[E]{}).AppendString(arr.([]any), val), true
+	}
+	return x.p().arrStr(arr, val)
 }
 
 func (x *contextArray[E]) modifier(event E) error {
