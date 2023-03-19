@@ -27,6 +27,7 @@ type (
 	mockSimpleWriter struct {
 		Writer    io.Writer
 		MultiLine bool
+		Type      bool
 	}
 
 	// mockComplexEvent implements the entire Event interface
@@ -92,6 +93,25 @@ func (x *mockSimpleEvent) AddField(key string, val any) {
 func (x *mockSimpleWriter) Write(event *mockSimpleEvent) error {
 	_, _ = fmt.Fprintf(x.Writer, `[%s]`, event.level.String())
 	for _, field := range event.fields {
+		if x.Type {
+			switch val := field.Val.(type) {
+			case []any:
+				s := make([]string, len(val))
+				for i, v := range val {
+					s[i] = fmt.Sprintf(`(%T)%v`, v, v)
+				}
+				field.Val = s
+
+			default:
+				if x.MultiLine {
+					_, _ = fmt.Fprintf(x.Writer, "\n%s=(%T)%v", field.Key, field.Val, field.Val)
+				} else {
+					_, _ = fmt.Fprintf(x.Writer, ` %s=(%T)%v`, field.Key, field.Val, field.Val)
+				}
+				continue
+			}
+		}
+
 		if x.MultiLine {
 			_, _ = fmt.Fprintf(x.Writer, "\n%s=%v", field.Key, field.Val)
 		} else {
@@ -238,5 +258,12 @@ func newSimpleLogger(w io.Writer, multiLine bool) *Logger[*mockSimpleEvent] {
 	return mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: w, MultiLine: multiLine}),
+	)
+}
+
+func newSimpleLoggerPrintTypes(w io.Writer, multiLine bool) *Logger[*mockSimpleEvent] {
+	return mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: w, MultiLine: multiLine, Type: true}),
 	)
 }

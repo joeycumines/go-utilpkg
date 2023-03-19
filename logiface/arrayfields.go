@@ -35,7 +35,7 @@ func (x *arrayFields[E, P]) AddField(_ string, val any) {
 }
 
 func (x *arrayFields[E, P]) AddMessage(msg string) bool {
-	return false
+	panic(`unimplemented`)
 }
 
 func (x *arrayFields[E, P]) AddError(err error) bool {
