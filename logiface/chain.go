@@ -10,6 +10,7 @@ type (
 	}
 
 	chainInterface[E Event] interface {
+		isChain() *refPoolItem
 		newChain(current Parent[E]) any
 	}
 )
@@ -139,8 +140,11 @@ func (x *Chain[E, P]) setCurrent(p Parent[E]) {
 	x.b = p
 }
 
-// newChain is only implemented by [Chain]
-//
+//lint:ignore U1000 it is actually used
+func (x *Chain[E, P]) isChain() *refPoolItem {
+	return (*refPoolItem)(x)
+}
+
 //lint:ignore U1000 it is actually used
 func (x *Chain[E, P]) newChain(current Parent[E]) any {
 	return newChain[E](x.a.(P), current)

@@ -339,6 +339,79 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+
+	t.Run(`nested arrays`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Clone().
+			Array().
+			Field(1).
+			Field(true).
+			Array().
+			Field(2).
+			Field(false).
+			Add().
+			Array().
+			Field(3).
+			Array().
+			Field(4).
+			Array().
+			Field(5).
+			Add().
+			Add().
+			Add().
+			As(`arr_1`).
+			End().
+			Field(`a`, `A`).
+			Logger().
+			Notice().
+			Array().
+			Field(1).
+			Field(true).
+			Array().
+			Field(2).
+			Field(false).
+			Add().
+			Array().
+			Field(3).
+			Array().
+			Field(4).
+			Array().
+			Field(5).
+			Add().
+			Add().
+			Add().
+			As(`arr_2`).
+			End().
+			Field(`b`, `B`).
+			Log(`msg 1`)
+
+		if s := h.B.String(); s != "{\"level\":\"warn\",\"arr_1\":[1,true,[2,false],[3,[4,[5]]]],\"a\":\"A\",\"arr_2\":[1,true,[2,false],[3,[4,[5]]]],\"b\":\"B\",\"message\":\"msg 1\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`array str`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Array().
+			Str(`a`).
+			Str(`b`).
+			Str(`c`).
+			Str(`d`).
+			As(`k`).
+			End().
+			Log(shortMessage)
+
+		if s := h.B.String(); s != "{\"level\":\"info\",\"k\":[\"a\",\"b\",\"c\",\"d\"],\"message\":\"Test logging.\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
 }
 
 func ExampleLogger_arrayField() {

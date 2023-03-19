@@ -36,7 +36,7 @@ type (
 	}
 
 	arrayBuilderInterface interface {
-		arrayBuilderData() any
+		isArrayBuilder() *refPoolItem
 		as(key string) any
 	}
 )
@@ -281,19 +281,21 @@ func (x *ArrayBuilder[E, P]) as(key string) any {
 	return x.As(key)
 }
 
-// arrayBuilderData is only implemented by [ArrayBuilder], and returns the
-// array data pointer
-func (x *ArrayBuilder[E, P]) arrayBuilderData() any {
-	return x.b
+func (x *ArrayBuilder[E, P]) isArrayBuilder() *refPoolItem {
+	return (*refPoolItem)(x)
 }
 
-func (x *ArrayBuilder[E, P]) mustUseSliceArray() arrayBuilderInterface {
+func (x *ArrayBuilder[E, P]) mustUseSliceArray() (ok bool) {
 	if !x.p().arrSupport().CanAppendArray() {
-		if v, ok := any(x.p()).(arrayBuilderInterface); ok {
-			return v
+		switch x.a.(type) {
+		case arrayBuilderInterface:
+			return true
+		case chainInterface[E]:
+			_, ok = x.a.(chainInterface[E]).isChain().b.(arrayBuilderInterface)
+			return ok
 		}
 	}
-	return nil
+	return false
 }
 
 //lint:ignore U1000 it is actually used
@@ -303,14 +305,14 @@ func (x *ArrayBuilder[E, P]) root() *Logger[E] {
 
 //lint:ignore U1000 it is actually used
 func (x *ArrayBuilder[E, P]) arrSupport() iArraySupport[E] {
-	if x.mustUseSliceArray() != nil {
+	if x.mustUseSliceArray() {
 		return sliceArraySupport[E]{}
 	}
 	return x.p().arrSupport()
 }
 
 func (x *ArrayBuilder[E, P]) arrNew() any {
-	if x.mustUseSliceArray() != nil {
+	if x.mustUseSliceArray() {
 		return (sliceArraySupport[E]{}).NewArray()
 	}
 	return x.p().arrNew()
@@ -320,9 +322,9 @@ func (x *ArrayBuilder[E, P]) arrNew() any {
 func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
 	if key != `` {
 		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
-	} else if p := x.mustUseSliceArray(); p != nil {
-		x.b = x.p().arrField(p.arrayBuilderData(), arr.([]any))
-	} else if v, ok := x.p().arrArray(x.b, arr); !ok {
+	} else if !x.arrSupport().CanAppendArray() {
+		x.b = x.arrField(x.b, arr.([]any))
+	} else if v, ok := x.arrArray(x.b, arr); !ok {
 		x.root().DPanic().Log(`logiface: implementation disallows writing an array to an array`)
 	} else {
 		x.b = v
@@ -330,7 +332,7 @@ func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
 }
 
 func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
-	if x.mustUseSliceArray() != nil {
+	if x.mustUseSliceArray() {
 		return (sliceArraySupport[E]{}).AppendField(arr.([]any), val)
 	}
 	return x.p().arrField(arr, val)
@@ -338,7 +340,7 @@ func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
 
 //lint:ignore U1000 it is actually used
 func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
-	if x.mustUseSliceArray() != nil {
+	if x.mustUseSliceArray() {
 		return (sliceArraySupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
 	return x.p().arrArray(arr, val)
@@ -346,7 +348,7 @@ func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
 
 //lint:ignore U1000 it is actually used
 func (x *ArrayBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
-	if x.mustUseSliceArray() != nil {
+	if x.mustUseSliceArray() {
 		return (sliceArraySupport[E]{}).AppendString(arr.([]any), val), true
 	}
 	return x.p().arrStr(arr, val)

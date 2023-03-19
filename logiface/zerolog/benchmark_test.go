@@ -995,7 +995,8 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 	}).Run(b)
 }
 
-func BenchmarkSingleArray(b *testing.B) {
+func BenchmarkArray_Str(b *testing.B) {
+	// corresponding to TestLogger_simple/array_str
 	(VariantBenchmark{
 		Baseline: func(b *testing.B) {
 			logger := zerolog.New(io.Discard)
