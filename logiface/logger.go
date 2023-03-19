@@ -1,6 +1,8 @@
 package logiface
 
 import (
+	"fmt"
+	"os"
 	"sync"
 )
 
@@ -19,12 +21,14 @@ type (
 	loggerShared[E Event] struct {
 		// WARNING: Fields added must be initialized in both New and Logger.Logger
 
+		root     *Logger[E]
 		level    Level
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
 		writer   Writer[E]
 		pool     *sync.Pool
-		array    arraySupport[E]
+		array    *arraySupport[E]
+		dpanic   Level
 	}
 
 	// Option is a configuration option for constructing Logger instances,
@@ -39,6 +43,7 @@ type (
 		writer   WriterSlice[E]
 		modifier ModifierSlice[E]
 		array    *arraySupport[E]
+		dpanic   Level
 	}
 
 	// LoggerFactory provides aliases for package functions including New, as
@@ -152,6 +157,22 @@ func (LoggerFactory[E]) WithLevel(level Level) Option[E] {
 	return WithLevel[E](level)
 }
 
+// WithDPanicLevel configures the level that the [Logger.DPanic] method will
+// alias to, defaulting to [LevelCritical].
+//
+// See also LoggerFactory.WithDPanicLevel and L (an instance of
+// LoggerFactory[Event]{}).
+func WithDPanicLevel[E Event](level Level) Option[E] {
+	return func(c *loggerConfig[E]) {
+		c.dpanic = level
+	}
+}
+
+// WithDPanicLevel is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithDPanicLevel(level Level) Option[E] {
+	return WithDPanicLevel[E](level)
+}
+
 // New constructs a new Logger instance.
 //
 // Configure the logger using either the With* prefixed functions (or methods
@@ -159,9 +180,10 @@ func (LoggerFactory[E]) WithLevel(level Level) Option[E] {
 // options, implemented in external packages, e.g. logger integrations.
 //
 // See also LoggerFactory.New and L (an instance of LoggerFactory[Event]{}).
-func New[E Event](options ...Option[E]) *Logger[E] {
+func New[E Event](options ...Option[E]) (logger *Logger[E]) {
 	c := loggerConfig[E]{
-		level: LevelInformational,
+		level:  LevelInformational,
+		dpanic: LevelCritical,
 	}
 	for _, o := range options {
 		o(&c)
@@ -172,14 +194,18 @@ func New[E Event](options ...Option[E]) *Logger[E] {
 		factory:  c.factory,
 		releaser: c.releaser,
 		writer:   c.resolveWriter(),
-		array:    *c.resolveArray(),
+		array:    c.resolveArraySupport(),
+		dpanic:   c.dpanic,
 	}
 	shared.init()
 
-	return &Logger[E]{
+	logger = &Logger[E]{
 		modifier: c.resolveModifier(),
 		shared:   &shared,
 	}
+	shared.root = logger
+
+	return
 }
 
 // New is an alias of the package function of the same name.
@@ -198,18 +224,26 @@ func (x *Logger[E]) Level() Level {
 	return LevelDisabled
 }
 
+// Root returns the root [Logger] for this instance.
+func (x *Logger[E]) Root() *Logger[E] {
+	if x != nil && x.shared != nil {
+		return x.shared.root
+	}
+	return nil
+}
+
 // Logger returns a new generified logger.
 //
 // Use this for greater compatibility, but sacrificing ease of using the
 // underlying library directly.
-func (x *Logger[E]) Logger() *Logger[Event] {
+func (x *Logger[E]) Logger() (logger *Logger[Event]) {
 	if x, ok := any(x).(*Logger[Event]); ok {
 		return x
 	}
 	if x == nil || x.shared == nil {
 		return nil
 	}
-	return &Logger[Event]{
+	logger = &Logger[Event]{
 		modifier: generifyModifier(x.modifier),
 		shared: &loggerShared[Event]{
 			level:    x.shared.level,
@@ -217,8 +251,11 @@ func (x *Logger[E]) Logger() *Logger[Event] {
 			releaser: generifyEventReleaser(x.shared.releaser),
 			writer:   generifyWriter(x.shared.writer),
 			pool:     &genericBuilderPool,
+			array:    generifyArraySupport(x.shared.array),
 		},
 	}
+	logger.shared.root = logger
+	return
 }
 
 // Log directly performs a Log operation, without the "fluent builder" pattern.
@@ -332,6 +369,67 @@ func (x *Logger[E]) Debug() *Builder[E] { return x.Build(LevelDebug) }
 // Trace is an alias for Logger.Build(LevelTrace).
 func (x *Logger[E]) Trace() *Builder[E] { return x.Build(LevelTrace) }
 
+// Fatal constructs a [Builder] that behaves like [Logger.Alert], with the
+// additional behaviour that it will call [os.Exit](1) after the event has been
+// written.
+//
+// The recommended behavior is to map [LevelAlert] to a "fatal level", and most
+// log libraries seem to have their own implementation, so they may trigger the
+// actual exit.
+//
+// WARNING: An exit will occur immediately if that level is disabled.
+//
+// See also [OsExit].
+func (x *Logger[E]) Fatal() (b *Builder[E]) {
+	b = x.Build(LevelAlert)
+	if b == nil {
+		_, _ = fmt.Fprintln(os.Stderr, `logiface: fatal requested but logger is disabled`)
+		OsExit(1)
+		return nil
+	}
+	b.mode |= builderModeFatal
+	return b
+}
+
+// Panic constructs a [Builder] that behaves like [Logger.Emerg], with the
+// additional behaviour that it will panic after the event has been written.
+//
+// The recommended behavior is to map [LevelEmergency] to a "panic level", and
+// most log libraries seem to have their own implementation, so they may
+// trigger the actual panic.
+//
+// WARNING: A panic will occur immediately if that level is disabled.
+func (x *Logger[E]) Panic() (b *Builder[E]) {
+	b = x.Build(LevelEmergency)
+	if b == nil {
+		panic(`logiface: panic requested but logger is disabled`)
+	}
+	b.mode |= builderModePanic
+	return
+}
+
+// DPanic is a virtual log level, and stands for "panic in development". It is
+// intended to be used for errors that "shouldn't happen", but, if they occur
+// in production, shouldn't (necessarily) trigger an actual panic.
+//
+// If configured with LevelEmergency, it will behave like [Logger.Panic],
+// otherwise it will behave like [Logger.Build](dpanicLevel).
+//
+// It's default level is [LevelCritical], intended for production use.
+// See also [WithDPanicLevel].
+//
+// This method was inspired by
+// [zap](https://github.com/uber-go/zap/blob/85c4932ce3ea76b6babe3e0a3d79da10ef295b8d/FAQ.md#whats-dpanic).
+func (x *Logger[E]) DPanic() *Builder[E] {
+	if x != nil && x.shared != nil {
+		if x.shared.dpanic == LevelEmergency {
+			return x.Panic()
+		}
+		return x.Build(x.shared.dpanic)
+	}
+	return nil
+}
+
 func (x *Logger[E]) canWrite() bool {
 	return x != nil &&
 		x.shared != nil &&
@@ -383,12 +481,11 @@ func (x *loggerConfig[E]) resolveModifier() Modifier[E] {
 	}
 }
 
-func (x *loggerConfig[E]) resolveArray() *arraySupport[E] {
+func (x *loggerConfig[E]) resolveArraySupport() *arraySupport[E] {
 	if x.array != nil {
 		return x.array
 	}
-	// TODO this needs to be defaulted properly
-	return new(arraySupport[E])
+	return newArraySupport[E, []any](sliceArraySupport[E]{})
 }
 
 func reverseSlice[S ~[]E, E any](s S) {

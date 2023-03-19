@@ -62,7 +62,7 @@ type (
 )
 
 var (
-	simpleLoggerFactory = LoggerFactory[*mockSimpleEvent]{}
+	mockL = LoggerFactory[*mockSimpleEvent]{}
 
 	// compile time assertions
 
@@ -235,8 +235,8 @@ func stringDiff(expected, actual string) string {
 }
 
 func newSimpleLogger(w io.Writer, multiLine bool) *Logger[*mockSimpleEvent] {
-	return simpleLoggerFactory.New(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: w, MultiLine: multiLine}),
+	return mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: w, MultiLine: multiLine}),
 	)
 }

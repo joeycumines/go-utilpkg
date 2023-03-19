@@ -14,6 +14,8 @@ const (
 	// This log level should be used with caution, as it tends to be mapped to
 	// "panic", which, in at least several logger implementations, will call
 	// panic(). See also the recommended mappings, documented under Level.
+	//
+	// See also [Logger.Panic].
 	LevelEmergency
 
 	// LevelAlert is a syslog level.
@@ -23,6 +25,8 @@ const (
 	// This log level should be used with caution, as it tends to be mapped to
 	// "fatal", which, in at least several logger implementations, will call
 	// os.Exit(1). See also the recommended mappings, documented under Level.
+	//
+	// See also [Logger.Fatal].
 	LevelAlert
 
 	// LevelCritical is a syslog level.

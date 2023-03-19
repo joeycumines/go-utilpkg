@@ -8,6 +8,14 @@ import (
 	"time"
 )
 
+var (
+	// compile time assertions
+
+	_ ConditionalBuilder[Event] = (*enabledBuilder[Event])(nil)
+	_ ConditionalBuilder[Event] = (*disabledBuilder[Event])(nil)
+	_ ConditionalBuilder[Event] = (*terminatedBuilder[Event])(nil)
+)
+
 func TestDisabledBuilder_nil(t *testing.T) {
 	testDisabledBuilder(t, nil)
 }
@@ -383,8 +391,8 @@ func TestBuilder_IfLevel(t *testing.T) {
 
 func ExampleBuilder_IfTrace() {
 	sharedOpts := WithOptions(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
 	)
 
 	infoLogger := New(sharedOpts).Logger().
@@ -392,7 +400,7 @@ func ExampleBuilder_IfTrace() {
 		Str(`logger`, `infoLogger`).
 		Logger()
 
-	traceLogger := New(sharedOpts, simpleLoggerFactory.WithLevel(LevelTrace)).Logger().
+	traceLogger := New(sharedOpts, mockL.WithLevel(LevelTrace)).Logger().
 		Clone().
 		Str(`logger`, `traceLogger`).
 		Logger()
@@ -452,9 +460,9 @@ func ExampleBuilder_degreesOfLogVerbosity() {
 
 	for lvl := LevelEmergency; lvl <= LevelTrace; lvl++ {
 		log(New(
-			simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-			simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
-			simpleLoggerFactory.WithLevel(lvl),
+			mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+			mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+			mockL.WithLevel(lvl),
 		).Logger().Clone().
 			Str(`loggerLevel`, lvl.String()).
 			Logger())

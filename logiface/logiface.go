@@ -165,15 +165,6 @@ var (
 	//
 	// It may also return from Logger.Log.
 	ErrDisabled = errors.New(`logger disabled`)
-
-	// compile time assertions
-
-	_ EventFactory[Event]  = EventFactoryFunc[Event](nil)
-	_ EventReleaser[Event] = EventReleaserFunc[Event](nil)
-	_ Modifier[Event]      = ModifierFunc[Event](nil)
-	_ Writer[Event]        = WriterFunc[Event](nil)
-	_ Modifier[Event]      = ModifierSlice[Event](nil)
-	_ Writer[Event]        = WriterSlice[Event](nil)
 )
 
 // NewEventFactoryFunc is an alias provided as a convenience, to make it easier to cast a function to an

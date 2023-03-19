@@ -629,9 +629,9 @@ func ExampleLogger_Log() {
 	fmt.Printf("modifier error: %v\n", l.Log(LevelNotice, with(`willerror`)))
 
 	fmt.Printf("internal modifier error guards provided modifier: %v\n", New(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
-		simpleLoggerFactory.WithModifier(NewModifierFunc(func(e *mockSimpleEvent) error {
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+		mockL.WithModifier(NewModifierFunc(func(e *mockSimpleEvent) error {
 			return fmt.Errorf(`some internal modifier error`)
 		})),
 	).Log(LevelNotice, ModifierFunc[*mockSimpleEvent](func(e *mockSimpleEvent) error {
@@ -656,9 +656,9 @@ func TestLogger_Level_nilReceiver(t *testing.T) {
 
 func TestLogger_Level_minus100(t *testing.T) {
 	l := New(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
-		simpleLoggerFactory.WithLevel(-100),
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
+		mockL.WithLevel(-100),
 	)
 	if !l.canWrite() || l.shared.level != -100 {
 		t.Fatal()
@@ -670,14 +670,143 @@ func TestLogger_Level_minus100(t *testing.T) {
 
 func TestLogger_Level_crit(t *testing.T) {
 	l := New(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
-		simpleLoggerFactory.WithLevel(LevelCritical),
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
+		mockL.WithLevel(LevelCritical),
 	)
 	if !l.canWrite() || l.shared.level != LevelCritical {
 		t.Fatal()
 	}
 	if v := l.Level(); v != LevelCritical {
 		t.Error(v)
+	}
+}
+
+func ExampleLogger_Panic() {
+	opts := mockL.WithOptions(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+	)
+
+	func() {
+		defer func() { fmt.Printf("recover: %v\n", recover()) }()
+		New(opts).Panic().Log(`will panic after logging`)
+	}()
+
+	fmt.Println(`you should set the message though there is a default string that will be used if you don't`)
+	func() {
+		defer func() { fmt.Printf("recover: %v\n", recover()) }()
+		New(opts).Panic().Str(`some`, `data`).Log(``)
+	}()
+
+	func() {
+		defer func() { fmt.Printf("recover: %v\n", recover()) }()
+		fmt.Println(`will pre-emptively panic if the logger is disabled`)
+		New(opts, mockL.WithLevel(LevelDisabled), mockL.WithDPanicLevel(LevelEmergency)).DPanic()
+	}()
+
+	//output:
+	//[emerg] msg=will panic after logging
+	//recover: will panic after logging
+	//you should set the message though there is a default string that will be used if you don't
+	//[emerg] some=data
+	//recover: logiface: panic requested
+	//will pre-emptively panic if the logger is disabled
+	//recover: logiface: panic requested but logger is disabled
+}
+
+func ExampleLogger_DPanic() {
+	opts := mockL.WithOptions(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+	)
+
+	New(opts).DPanic().Log(`DPanic uses LevelCritical by default`)
+
+	func() {
+		defer func() { fmt.Printf("recover: %v\n", recover()) }()
+		New(opts, mockL.WithDPanicLevel(LevelEmergency)).DPanic().Log(`if set to LevelEmergency DPanic behaves per Panic`)
+	}()
+
+	func() {
+		defer func() { fmt.Printf("recover: %v\n", recover()) }()
+		fmt.Println(`like Panic, DPanic at LevelEmergency will pre-emptively panic if the logger is disabled`)
+		New(opts, mockL.WithLevel(LevelDisabled), mockL.WithDPanicLevel(LevelEmergency)).DPanic()
+	}()
+
+	fmt.Println(`note that if the DPanic level is not LevelEmergency it is possible that neither log or panic will occur`)
+	logger := New(opts, mockL.WithLevel(LevelDisabled))
+	logger.DPanic().Log(`does nothing as the logger is disabled and the DPanic level is not LevelEmergency`)
+	logger = nil
+	logger.DPanic().Log(`does nothing for the same reasons as above`)
+
+	//output:
+	//[crit] msg=DPanic uses LevelCritical by default
+	//[emerg] msg=if set to LevelEmergency DPanic behaves per Panic
+	//recover: if set to LevelEmergency DPanic behaves per Panic
+	//like Panic, DPanic at LevelEmergency will pre-emptively panic if the logger is disabled
+	//recover: logiface: panic requested but logger is disabled
+	//note that if the DPanic level is not LevelEmergency it is possible that neither log or panic will occur
+}
+
+func TestLogger_DPanic_nilShared(t *testing.T) {
+	(&Logger[*mockEvent]{}).DPanic().Log(`does nothing`)
+}
+
+func ExampleLogger_Fatal() {
+	{
+		old := OsExit
+		defer func() { OsExit = old }()
+	}
+	OsExit = func(code int) {
+		fmt.Printf("exited with code: %d\n", code)
+	}
+
+	l := newSimpleLogger(os.Stdout, false)
+
+	l.Fatal().Log(`will exit after logging`)
+
+	fmt.Println(`will pre-emptively exit if the logger or that log level is disabled`)
+	l = nil
+	if l.Fatal() != nil {
+		panic(`strange...`)
+	}
+
+	//output:
+	//[alert] msg=will exit after logging
+	//exited with code: 1
+	//will pre-emptively exit if the logger or that log level is disabled
+	//exited with code: 1
+}
+
+func TestLogger_Root(t *testing.T) {
+	l := newSimpleLogger(io.Discard, false)
+	if v := l.Root(); v != l {
+		t.Error(v)
+	}
+	if v := l.Clone().Logger().Root(); v != l {
+		t.Error(v)
+	}
+	if v := l.Clone().Logger().Clone().Logger().Clone().Logger().Root(); v != l {
+		t.Error(v)
+	}
+	g := l.Logger()
+	if v := g.Root(); v != g {
+		t.Error(v)
+	}
+	if v := g.Clone().Logger().Root(); v != g {
+		t.Error(v)
+	}
+	if v := g.Clone().Logger().Clone().Logger().Clone().Logger().Root(); v != g {
+		t.Error(v)
+	}
+	if (*Logger[*mockSimpleEvent])(nil).Root() != nil {
+		t.Error()
+	}
+	if (&Logger[*mockSimpleEvent]{}).Root() != nil {
+		t.Error()
+	}
+	if (&Logger[*mockSimpleEvent]{shared: new(loggerShared[*mockSimpleEvent])}).Root() != nil {
+		t.Error()
 	}
 }

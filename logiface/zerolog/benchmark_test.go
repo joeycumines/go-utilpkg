@@ -34,7 +34,8 @@ func Benchmark(b *testing.B) {
 */
 
 var (
-	fakeMessage = "Test logging, but use a somewhat realistic message length."
+	fakeMessage  = "Test logging, but use a somewhat realistic message length."
+	shortMessage = "Test logging."
 )
 
 // VariantBenchmark models a set of benchmarks testing the relative performance
@@ -988,6 +989,58 @@ func benchmarkContextFieldType(b *testing.B, typ string) {
 				for pb.Next() {
 					l := f(logger.Clone()).Logger()
 					l.Info().Log("")
+				}
+			})
+		},
+	}).Run(b)
+}
+
+func BenchmarkSingleArray(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array(`k`, zerolog.Arr().
+							Str(`a`).
+							Str(`b`).
+							Str(`c`).
+							Str(`d`)).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logiface.Array[*Event](logger.Info()).
+						Field(`a`).
+						Field(`b`).
+						Field(`c`).
+						Field(`d`).
+						As(`k`).
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array().
+						Field(`a`).
+						Field(`b`).
+						Field(`c`).
+						Field(`d`).
+						As(`k`).
+						Parent().
+						Log(shortMessage)
 				}
 			})
 		},

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -594,6 +595,61 @@ func TestBuilder_Release_noReleaser(t *testing.T) {
 	}
 	builder.Release()
 	if shared.pool != pool || shared.releaser != nil {
+		t.Error()
+	}
+}
+
+func ExampleContext_Call_arrayField() {
+	type E = *mockSimpleEvent
+	var logger *Logger[E] = newSimpleLogger(os.Stdout, false)
+
+	// while not a necessary part of the Array API, this pattern makes things easier to manage
+	subLogger := logger.Clone().
+		Call(func(c *Context[E]) { Array[E](c).Field(1).Field(2).Field(3).As(`arr_field`) }).
+		Str(`str_field`, `str_value`).
+		Logger()
+
+	subLogger.Info().Log(`log msg`)
+
+	//output:
+	//[info] arr_field=[1 2 3] str_field=str_value msg=log msg
+}
+
+func TestContext_Call_disabled(t *testing.T) {
+	(*Context[*mockSimpleEvent])(nil).Call(func(c *Context[*mockSimpleEvent]) { t.Error() })
+}
+
+func TestBuilder_root(t *testing.T) {
+	if (*Builder[*mockSimpleEvent])(nil).root() != nil {
+		t.Error()
+	}
+	if (&Builder[*mockSimpleEvent]{}).root() != nil {
+		t.Error()
+	}
+	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}).root() != nil {
+		t.Error()
+	}
+	var l Logger[*mockSimpleEvent]
+	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}).root() != &l {
+		t.Error()
+	}
+}
+
+func TestContext_root(t *testing.T) {
+	if (*Context[*mockSimpleEvent])(nil).root() != nil {
+		t.Error()
+	}
+	if (&Context[*mockSimpleEvent]{}).root() != nil {
+		t.Error()
+	}
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{}}).root() != nil {
+		t.Error()
+	}
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}}).root() != nil {
+		t.Error()
+	}
+	var l Logger[*mockSimpleEvent]
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}}).root() != &l {
 		t.Error()
 	}
 }

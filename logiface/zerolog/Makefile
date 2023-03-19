@@ -50,6 +50,7 @@ BENCHMARK_NAMES = \
 	ContextFieldType_Int64 \
 	LogFieldType_Uint64 \
 	ContextFieldType_Uint64 \
+	SingleArray \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =

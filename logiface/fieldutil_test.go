@@ -78,10 +78,10 @@ func TestMapFields_nilMap(t *testing.T) {
 
 func ExampleArgFields() {
 	// l is an instance of logiface.Logger
-	l := simpleLoggerFactory.New(
-		simpleLoggerFactory.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
-		simpleLoggerFactory.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
-		simpleLoggerFactory.WithLevel(LevelDebug),
+	l := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout}),
+		mockL.WithLevel(LevelDebug),
 	)
 
 	// supports logiface.Builder

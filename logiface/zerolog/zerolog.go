@@ -34,7 +34,7 @@ type (
 	unimplementedEvent = logiface.UnimplementedEvent
 
 	//lint:ignore U1000 used to embed without exporting
-	unimplementedArraySupport = logiface.UnimplementedArraySupport[*Event, zerolog.Array]
+	unimplementedArraySupport = logiface.UnimplementedArraySupport[*Event, *zerolog.Array]
 
 	//lint:ignore U1000 used to embed without exporting
 	baseLoggerFactory = logiface.LoggerFactory[*Event]
@@ -51,14 +51,6 @@ var (
 	// Must contain only non-nil *Event values, reset to the zero value of
 	// Event.
 	Pool = sync.Pool{New: func() any { return new(Event) }}
-
-	// compile time assertions
-
-	_ logiface.Event                               = (*Event)(nil)
-	_ logiface.EventFactory[*Event]                = (*Logger)(nil)
-	_ logiface.Writer[*Event]                      = (*Logger)(nil)
-	_ logiface.EventReleaser[*Event]               = (*Logger)(nil)
-	_ logiface.ArraySupport[*Event, zerolog.Array] = (*Logger)(nil)
 )
 
 // WithZerolog configures a logiface logger to use a zerolog logger.
@@ -70,7 +62,7 @@ func WithZerolog(logger zerolog.Logger) logiface.Option[*Event] {
 		L.WithWriter(&l),
 		L.WithEventFactory(&l),
 		L.WithEventReleaser(&l),
-		logiface.WithArraySupport[*Event, zerolog.Array](&l),
+		logiface.WithArraySupport[*Event, *zerolog.Array](&l),
 	)
 }
 
@@ -215,10 +207,11 @@ func (x *Logger) newEvent(level logiface.Level) *zerolog.Event {
 
 func (x *Logger) NewArray() *zerolog.Array { return zerolog.Arr() }
 
-func (x *Logger) WriteArray(evt *Event, key string, arr *zerolog.Array) {
+func (x *Logger) AddArray(evt *Event, key string, arr *zerolog.Array) {
 	evt.Z.Array(key, arr)
 }
 
-func (x *Logger) AddArrayField(arr *zerolog.Array, val any) {
+func (x *Logger) AppendField(arr *zerolog.Array, val any) *zerolog.Array {
 	arr.Interface(val)
+	return arr
 }

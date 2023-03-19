@@ -134,14 +134,6 @@ type (
 	terminatedBuilder[E Event] Builder[E]
 )
 
-var (
-	// compile time assertions
-
-	_ ConditionalBuilder[Event] = (*enabledBuilder[Event])(nil)
-	_ ConditionalBuilder[Event] = (*disabledBuilder[Event])(nil)
-	_ ConditionalBuilder[Event] = (*terminatedBuilder[Event])(nil)
-)
-
 // If converts the receiver into a [ConditionalBuilder], which exposes the same
 // set of non-terminating methods as [Builder], guarded such that they do not
 // log unless the given condition is true.

@@ -14,7 +14,13 @@ type (
 var (
 	// compile time assertions
 
-	_ Event = struct {
+	_ EventFactory[Event]  = EventFactoryFunc[Event](nil)
+	_ EventReleaser[Event] = EventReleaserFunc[Event](nil)
+	_ Modifier[Event]      = ModifierFunc[Event](nil)
+	_ Writer[Event]        = WriterFunc[Event](nil)
+	_ Modifier[Event]      = ModifierSlice[Event](nil)
+	_ Writer[Event]        = WriterSlice[Event](nil)
+	_ Event                = struct {
 		minimalEventMethods
 		UnimplementedEvent
 	}{}

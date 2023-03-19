@@ -54,13 +54,6 @@ var (
 			Data: make(logrus.Fields, 6),
 		}}
 	}}
-
-	// compile time assertions
-
-	_ logiface.Event                 = (*Event)(nil)
-	_ logiface.EventFactory[*Event]  = (*Logger)(nil)
-	_ logiface.Writer[*Event]        = (*Logger)(nil)
-	_ logiface.EventReleaser[*Event] = (*Logger)(nil)
 )
 
 // WithLogrus configures a logiface logger to use a logrus logger.

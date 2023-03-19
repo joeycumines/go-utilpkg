@@ -16,6 +16,16 @@ import (
 	"time"
 )
 
+var (
+	// compile time assertions
+
+	_ logiface.Event                                = (*Event)(nil)
+	_ logiface.EventFactory[*Event]                 = (*Logger)(nil)
+	_ logiface.Writer[*Event]                       = (*Logger)(nil)
+	_ logiface.EventReleaser[*Event]                = (*Logger)(nil)
+	_ logiface.ArraySupport[*Event, *zerolog.Array] = (*Logger)(nil)
+)
+
 var testSuiteConfig = testsuite.Config[*Event]{
 	LoggerFactory:    testSuiteLoggerFactory,
 	WriteTimeout:     time.Second * 10,
@@ -332,19 +342,21 @@ func TestLogger_simple(t *testing.T) {
 }
 
 func ExampleLogger_arrayField() {
-	logger := L.New(L.WithZerolog(zerolog.New(os.Stdout))).
+	L.New(L.WithZerolog(zerolog.New(os.Stdout))).
 		Clone().
 		Array().
 		Field(3).
 		Field(4).
 		As(`d`).
-		Logger()
-	logger.Info().
+		Parent().
+		Logger().
+		Info().
 		Str(`a`, `A`).
 		Array().
 		Field(1).
 		Field(2).
 		As(`b`).
+		Parent().
 		Str(`c`, `C`).
 		Log(`msg 1`)
 

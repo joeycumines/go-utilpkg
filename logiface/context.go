@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+const (
+	_ builderMode = 1 << iota >> 1
+	builderModePanic
+	builderModeFatal
+)
+
 type (
 	// Context is used to build a sub-logger, see Logger.Clone.
 	//
@@ -36,14 +42,20 @@ type (
 	Builder[E Event] struct {
 		Event E
 
-		// WARNING: If additional fields are added, they may need to be released
+		// WARNING: If additional fields are added, they may need to be reset
 		// (see Builder.Release)
 
 		methods modifierMethods[E]
 		shared  *loggerShared[E]
+
+		// mode provides switching behavior in the form of bit flags
+		mode builderMode
 	}
 
 	modifierMethods[E Event] struct{}
+
+	// builderMode models bit flags for [Builder], for special behavior
+	builderMode int32
 )
 
 // Logger returns the underlying (sub)logger, or nil.
@@ -60,8 +72,25 @@ func (x *Context[E]) Logger() *Logger[E] {
 	return x.logger
 }
 
+// Call is provided as a convenience, to facilitate code which uses the
+// receiver explicitly, without breaking out of the fluent-style API.
+// The provided fn will not be called if not [Context.Enabled].
+func (x *Context[E]) Call(fn func(c *Context[E])) *Context[E] {
+	if x.Enabled() {
+		fn(x)
+	}
+	return x
+}
+
 func (x *Context[E]) add(fn ModifierFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
+}
+
+func (x *Context[E]) root() *Logger[E] {
+	if x != nil {
+		return x.logger.Root()
+	}
+	return nil
 }
 
 // Call is provided as a convenience, to facilitate code which uses the
@@ -71,8 +100,6 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 // Example use cases include access of the underlying Event implementation (to
 // utilize functionality not mapped by logiface), or to skip building /
 // formatting certain fields, based on if `b.Event.Level().Enabled()`.
-//
-// This method is not implemented by [Context].
 func (x *Builder[E]) Call(fn func(b *Builder[E])) *Builder[E] {
 	if x.Enabled() {
 		fn(x)
@@ -146,6 +173,17 @@ func (x *Builder[E]) log(msg string) {
 		x.Event.AddField(`msg`, msg)
 	}
 	_ = x.shared.writer.Write(x.Event)
+	if x.mode != 0 {
+		if (x.mode & builderModePanic) == builderModePanic {
+			if msg == `` {
+				panic(`logiface: panic requested`)
+			}
+			panic(msg)
+		}
+		if (x.mode & builderModeFatal) == builderModeFatal {
+			OsExit(1)
+		}
+	}
 }
 
 // Release returns the Builder to the pool, calling any user-defined
@@ -174,8 +212,18 @@ func (x *Builder[E]) release() {
 		// clear the event value, in case it retains a reference
 		// this is important in cases where the E value is also pooled
 		x.Event = *new(E)
+		// reset the remaining state...
+		x.mode = 0
+		// ...and return to the pool
 		shared.pool.Put(x)
 	}
+}
+
+func (x *Builder[E]) root() *Logger[E] {
+	if x != nil && x.shared != nil {
+		return x.shared.root
+	}
+	return nil
 }
 
 func (x modifierMethods[E]) str(event E, key string, val string) {
