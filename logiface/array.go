@@ -1,5 +1,10 @@
 package logiface
 
+import (
+	"encoding/base64"
+	"time"
+)
+
 type (
 	ArrayBuilder[E Event, P ArrayParent[E]] refPoolItem
 
@@ -210,8 +215,65 @@ func (x *ArrayBuilder[E, P]) Field(val any) *ArrayBuilder[E, P] {
 	return x
 }
 
+func (x *ArrayBuilder[E, P]) Interface(val any) *ArrayBuilder[E, P] {
+	_ = x.methods().Interface(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Any(val any) *ArrayBuilder[E, P] { return x.Interface(val) }
+
+func (x *ArrayBuilder[E, P]) Err(val error) *ArrayBuilder[E, P] {
+	_ = x.methods().Err(x.fields(), val)
+	return x
+}
+
 func (x *ArrayBuilder[E, P]) Str(val string) *ArrayBuilder[E, P] {
 	_ = x.methods().Str(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Int(val int) *ArrayBuilder[E, P] {
+	_ = x.methods().Int(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Float32(val float32) *ArrayBuilder[E, P] {
+	_ = x.methods().Float32(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Time(val time.Time) *ArrayBuilder[E, P] {
+	_ = x.methods().Time(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Dur(val time.Duration) *ArrayBuilder[E, P] {
+	_ = x.methods().Dur(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Base64(b []byte, enc *base64.Encoding) *ArrayBuilder[E, P] {
+	_ = x.methods().Base64(x.fields(), ``, b, enc)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Bool(val bool) *ArrayBuilder[E, P] {
+	_ = x.methods().Bool(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Float64(val float64) *ArrayBuilder[E, P] {
+	_ = x.methods().Float64(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Int64(val int64) *ArrayBuilder[E, P] {
+	_ = x.methods().Int64(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Uint64(val uint64) *ArrayBuilder[E, P] {
+	_ = x.methods().Uint64(x.fields(), ``, val)
 	return x
 }
 
