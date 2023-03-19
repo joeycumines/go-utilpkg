@@ -63,12 +63,10 @@ func (x *Context[E]) arrNew() any {
 
 //lint:ignore U1000 it is actually used
 func (x *Context[E]) arrWrite(key string, arr any) {
-	if x.Enabled() {
-		a := arr.(*contextArray[E])
-		a.key = key
-		a.shared = x.logger.shared
-		x.Modifiers = append(x.Modifiers, ModifierFunc[E](a.modifier))
-	}
+	a := arr.(*contextArray[E])
+	a.key = key
+	a.shared = x.logger.shared
+	x.Modifiers = append(x.Modifiers, ModifierFunc[E](a.modifier))
 }
 
 //lint:ignore U1000 it is actually used
@@ -113,9 +111,7 @@ func (x *Builder[E]) arrNew() any {
 
 //lint:ignore U1000 it is actually used
 func (x *Builder[E]) arrWrite(key string, arr any) {
-	if x.Enabled() {
-		x.shared.array.addArray(x.Event, key, arr)
-	}
+	x.shared.array.addArray(x.Event, key, arr)
 }
 
 //lint:ignore U1000 it is actually used

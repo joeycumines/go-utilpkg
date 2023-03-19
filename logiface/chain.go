@@ -110,9 +110,7 @@ func (x *Chainable[E, P]) arrNew() any {
 
 //lint:ignore U1000 it is actually used
 func (x *Chainable[E, P]) arrWrite(key string, arr any) {
-	if current := x.current(); current != nil {
-		current.arrWrite(key, arr)
-	}
+	x.current().arrWrite(key, arr)
 }
 
 //lint:ignore U1000 it is actually used
