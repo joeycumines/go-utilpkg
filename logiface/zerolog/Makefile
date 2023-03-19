@@ -51,6 +51,7 @@ BENCHMARK_NAMES = \
 	LogFieldType_Uint64 \
 	ContextFieldType_Uint64 \
 	Array_Str \
+	NestedArrays \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =

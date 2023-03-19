@@ -1049,3 +1049,109 @@ func BenchmarkArray_Str(b *testing.B) {
 		},
 	}).Run(b)
 }
+
+func BenchmarkNestedArrays(b *testing.B) {
+	// corresponding to TestLogger_simple/nested_arrays
+	(VariantBenchmark{
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				Array().
+				Field(1).
+				Field(true).
+				Array().
+				Field(2).
+				Field(false).
+				Add().
+				Array().
+				Field(3).
+				Array().
+				Field(4).
+				Array().
+				Field(5).
+				Add().
+				Add().
+				Add().
+				As(`arr_1`).
+				End().
+				Field(`a`, `A`).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Notice().
+						Array().
+						Field(1).
+						Field(true).
+						Array().
+						Field(2).
+						Field(false).
+						Add().
+						Array().
+						Field(3).
+						Array().
+						Field(4).
+						Array().
+						Field(5).
+						Add().
+						Add().
+						Add().
+						As(`arr_2`).
+						End().
+						Field(`b`, `B`).
+						Log(`msg 1`)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().
+				Clone().
+				Array().
+				Field(1).
+				Field(true).
+				Array().
+				Field(2).
+				Field(false).
+				Add().
+				Array().
+				Field(3).
+				Array().
+				Field(4).
+				Array().
+				Field(5).
+				Add().
+				Add().
+				Add().
+				As(`arr_1`).
+				End().
+				Field(`a`, `A`).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Notice().
+						Array().
+						Field(1).
+						Field(true).
+						Array().
+						Field(2).
+						Field(false).
+						Add().
+						Array().
+						Field(3).
+						Array().
+						Field(4).
+						Array().
+						Field(5).
+						Add().
+						Add().
+						Add().
+						As(`arr_2`).
+						End().
+						Field(`b`, `B`).
+						Log(`msg 1`)
+				}
+			})
+		},
+	}).Run(b)
+}
