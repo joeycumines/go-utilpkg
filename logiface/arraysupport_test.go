@@ -40,7 +40,7 @@ func TestUnimplementedArraySupport_CanAppendArray(t *testing.T) {
 
 func TestUnimplementedArraySupport_AppendArray(t *testing.T) {
 	defer func() {
-		if v := fmt.Sprint(recover()); v != `not implemented` {
+		if v := fmt.Sprint(recover()); v != `unimplemented` {
 			t.Errorf("expected panic, got %q", v)
 		}
 	}()

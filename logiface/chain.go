@@ -129,6 +129,11 @@ func (x *Chain[E, P]) arrStr(arr any, val string) (any, bool) {
 	return x.current().arrStr(arr, val)
 }
 
+//lint:ignore U1000 it is actually used
+func (x *Chain[E, P]) arrBool(arr any, val bool) (any, bool) {
+	return x.current().arrBool(arr, val)
+}
+
 func (x *Chain[E, P]) current() (p Parent[E]) {
 	if x != nil {
 		p, _ = x.b.(Parent[E])

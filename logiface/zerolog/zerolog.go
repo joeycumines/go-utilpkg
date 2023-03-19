@@ -212,12 +212,17 @@ func (x *Logger) AddArray(evt *Event, key string, arr *zerolog.Array) {
 }
 
 func (x *Logger) AppendField(arr *zerolog.Array, val any) *zerolog.Array {
-	arr.Interface(val)
-	return arr
+	return arr.Interface(val)
 }
 
 func (x *Logger) CanAppendString() bool { return true }
+
 func (x *Logger) AppendString(arr *zerolog.Array, val string) *zerolog.Array {
-	arr.Str(val)
-	return arr
+	return arr.Str(val)
+}
+
+func (x *Logger) CanAppendBool() bool { return true }
+
+func (x *Logger) AppendBool(arr *zerolog.Array, val bool) *zerolog.Array {
+	return arr.Bool(val)
 }

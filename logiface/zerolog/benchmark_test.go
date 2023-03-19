@@ -1155,3 +1155,58 @@ func BenchmarkNestedArrays(b *testing.B) {
 		},
 	}).Run(b)
 }
+
+func BenchmarkArray_Bool(b *testing.B) {
+	// corresponding to TestLogger_simple/array_bool
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array(`k`, zerolog.Arr().
+							Bool(true).
+							Bool(false).
+							Bool(false).
+							Bool(true)).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array().
+						Bool(true).
+						Bool(false).
+						Bool(false).
+						Bool(true).
+						As(`k`).
+						End().
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array().
+						Bool(true).
+						Bool(false).
+						Bool(false).
+						Bool(true).
+						As(`k`).
+						End().
+						Log(shortMessage)
+				}
+			})
+		},
+	}).Run(b)
+}

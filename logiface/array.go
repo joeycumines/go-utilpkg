@@ -26,6 +26,7 @@ type (
 		arrField(arr any, val any) any
 		arrArray(arr, val any) (any, bool)
 		arrStr(arr any, val string) (any, bool)
+		arrBool(arr any, val bool) (any, bool)
 	}
 
 	//lint:ignore U1000 it is actually used
@@ -116,6 +117,18 @@ func (x *Context[E]) arrStr(arr any, val string) (any, bool) {
 	return arr, false
 }
 
+//lint:ignore U1000 it is actually used
+func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
+	if x.logger.shared.array.iface.CanAppendBool() {
+		a := arr.(*contextArray[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.array.appendBool(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
 // Builder
 // ---
 // Uses the arraySupport directly.
@@ -152,6 +165,14 @@ func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
 func (x *Builder[E]) arrStr(arr any, val string) (any, bool) {
 	if x.shared.array.iface.CanAppendString() {
 		return x.shared.array.appendString(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is actually used
+func (x *Builder[E]) arrBool(arr any, val bool) (any, bool) {
+	if x.shared.array.iface.CanAppendBool() {
+		return x.shared.array.appendBool(arr, val), true
 	}
 	return arr, false
 }
@@ -352,6 +373,14 @@ func (x *ArrayBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
 		return (sliceArraySupport[E]{}).AppendString(arr.([]any), val), true
 	}
 	return x.p().arrStr(arr, val)
+}
+
+//lint:ignore U1000 it is actually used
+func (x *ArrayBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
+	if x.mustUseSliceArray() {
+		return (sliceArraySupport[E]{}).AppendBool(arr.([]any), val), true
+	}
+	return x.p().arrBool(arr, val)
 }
 
 func (x *contextArray[E]) modifier(event E) error {

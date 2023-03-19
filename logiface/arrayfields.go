@@ -67,8 +67,9 @@ func (x *arrayFields[E, P]) AddBase64Bytes(_ string, val []byte, enc *base64.Enc
 	return false
 }
 
-func (x *arrayFields[E, P]) AddBool(_ string, val bool) bool {
-	return false
+func (x *arrayFields[E, P]) AddBool(_ string, val bool) (ok bool) {
+	x.b, ok = x.builder().arrBool(x.b, val)
+	return
 }
 
 func (x *arrayFields[E, P]) AddFloat64(_ string, val float64) bool {

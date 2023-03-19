@@ -14,6 +14,9 @@ type (
 		CanAppendString() bool
 		AppendString(arr A, val string) A
 
+		CanAppendBool() bool
+		AppendBool(arr A, val bool) A
+
 		mustEmbedUnimplementedArraySupport()
 	}
 
@@ -26,6 +29,7 @@ type (
 		appendField  func(arr, val any) any
 		appendArray  func(arr, val any) any
 		appendString func(arr any, val string) any
+		appendBool   func(arr any, val bool) any
 	}
 
 	// iArraySupport are the [ArraySupport] methods without array-specific behavior
@@ -33,6 +37,7 @@ type (
 	iArraySupport[E Event] interface {
 		CanAppendArray() bool
 		CanAppendString() bool
+		CanAppendBool() bool
 	}
 
 	UnimplementedArraySupport[E Event, A any] struct{}
@@ -82,6 +87,9 @@ func newArraySupport[E Event, A any](impl ArraySupport[E, A]) *arraySupport[E] {
 		appendString: func(arr any, val string) any {
 			return impl.AppendString(arr.(A), val)
 		},
+		appendBool: func(arr any, val bool) any {
+			return impl.AppendBool(arr.(A), val)
+		},
 	}
 }
 
@@ -95,19 +103,26 @@ func generifyArraySupport[E Event](array *arraySupport[E]) *arraySupport[Event] 
 		appendField:  array.appendField,
 		appendArray:  array.appendArray,
 		appendString: array.appendString,
+		appendBool:   array.appendBool,
 	}
 }
 
 func (UnimplementedArraySupport[E, A]) CanAppendArray() bool { return false }
 
 func (UnimplementedArraySupport[E, A]) AppendArray(arr A, val A) A {
-	panic("not implemented")
+	panic("unimplemented")
 }
 
 func (UnimplementedArraySupport[E, A]) CanAppendString() bool { return false }
 
 func (UnimplementedArraySupport[E, A]) AppendString(arr A, val string) A {
-	panic("not implemented")
+	panic("unimplemented")
+}
+
+func (UnimplementedArraySupport[E, A]) CanAppendBool() bool { return false }
+
+func (UnimplementedArraySupport[E, A]) AppendBool(arr A, val bool) A {
+	panic("unimplemented")
 }
 
 func (UnimplementedArraySupport[E, A]) mustEmbedUnimplementedArraySupport() {}
@@ -131,6 +146,12 @@ func (x sliceArraySupport[E]) AppendArray(arr []any, val []any) []any {
 func (x sliceArraySupport[E]) CanAppendString() bool { return true }
 
 func (x sliceArraySupport[E]) AppendString(arr []any, val string) []any {
+	return append(arr, val)
+}
+
+func (x sliceArraySupport[E]) CanAppendBool() bool { return true }
+
+func (x sliceArraySupport[E]) AppendBool(arr []any, val bool) []any {
 	return append(arr, val)
 }
 

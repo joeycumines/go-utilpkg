@@ -52,6 +52,7 @@ BENCHMARK_NAMES = \
 	ContextFieldType_Uint64 \
 	Array_Str \
 	NestedArrays \
+	Array_Bool \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =
