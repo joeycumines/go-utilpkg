@@ -7,7 +7,7 @@ import (
 
 type (
 	// arrayFields implements Event in order to use modifierMethods
-	arrayFields[E Event, P ArrayParent[E]] ArrayBuilder[E, P]
+	arrayFields[E Event, P Parent[E]] ArrayBuilder[E, P]
 )
 
 func (x *ArrayBuilder[E, P]) methods() modifierMethods[*arrayFields[E, P]] {

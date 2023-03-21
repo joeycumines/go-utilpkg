@@ -6,34 +6,13 @@ import (
 )
 
 type (
-	ArrayBuilder[E Event, P ArrayParent[E]] refPoolItem
+	ArrayBuilder[E Event, P Parent[E]] refPoolItem
 
-	ArrayParent[E Event] interface {
-		Enabled() bool
-
-		root() *Logger[E]
-
-		// these methods are effectively arraySupport, but vary depending on
-		// both the top-level parent, and implementation details such as
-		// ArraySupport.CanAppendArray
-		//
-		// WARNING: The guarded methods must always return the input arr, even
-		// when false, in order to avoid allocs within the arrayFields methods.
-
-		arrSupport() iArraySupport[E]
-		arrNew() any
-		arrWrite(key string, arr any)
-		arrField(arr any, val any) any
-		arrArray(arr, val any) (any, bool)
-		arrStr(arr any, val string) (any, bool)
-		arrBool(arr any, val bool) (any, bool)
-	}
-
-	//lint:ignore U1000 it is actually used
-	contextArray[E Event] struct {
+	//lint:ignore U1000 it is or will be used
+	contextFieldData[E Event] struct {
 		key    string
 		shared *loggerShared[E]
-		values []func(shared *loggerShared[E], arr any) any
+		values []func(shared *loggerShared[E], target any) any
 	}
 
 	arrayBuilderInterface interface {
@@ -47,11 +26,11 @@ type (
 //
 // In Go, generic methods are not allowed to introduce cyclic dependencies on
 // generic types, and cannot introduce further generic types.
-func Array[E Event, P ArrayParent[E]](p P) (arr *ArrayBuilder[E, P]) {
+func Array[E Event, P Parent[E]](p P) (arr *ArrayBuilder[E, P]) {
 	if p.Enabled() {
 		arr = (*ArrayBuilder[E, P])(refPoolGet())
 		arr.a = p
-		// note: takes into account mustUseSliceArray
+		// note: takes into account mustUseDefaultJSONSupport
 		arr.b = arr.arrNew()
 	}
 	return
@@ -59,70 +38,70 @@ func Array[E Event, P ArrayParent[E]](p P) (arr *ArrayBuilder[E, P]) {
 
 // Context
 // ---
-// Uses *contextArray[E] as the array, backed by the logger's arraySupport.
+// Uses *contextFieldData[E] as the array, backed by the logger's jsonSupport.
 
-//lint:ignore U1000 it is actually used
-func (x *Context[E]) arrSupport() iArraySupport[E] {
-	return x.logger.shared.array.iface
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) jsonSupport() iJSONSupport[E] {
+	return x.logger.shared.json.iface
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrNew() any {
-	return new(contextArray[E])
+	return new(contextFieldData[E])
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrWrite(key string, arr any) {
-	a := arr.(*contextArray[E])
+	a := arr.(*contextFieldData[E])
 	a.key = key
 	a.shared = x.logger.shared
-	x.Modifiers = append(x.Modifiers, ModifierFunc[E](a.modifier))
+	x.Modifiers = append(x.Modifiers, ModifierFunc[E](a.array))
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrField(arr any, val any) any {
-	a := arr.(*contextArray[E])
+	a := arr.(*contextFieldData[E])
 	a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-		return shared.array.appendField(arr, val)
+		return shared.json.appendField(arr, val)
 	})
 	return arr
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrArray(arr, val any) (any, bool) {
-	if x.logger.shared.array.iface.CanAppendArray() {
-		a := arr.(*contextArray[E])
-		v := val.(*contextArray[E])
+	if x.logger.shared.json.iface.CanAppendArray() {
+		a := arr.(*contextFieldData[E])
+		v := val.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.array.newArray()
+			val := shared.json.newArray()
 			for _, f := range v.values {
 				val = f(shared, val)
 			}
-			return shared.array.appendArray(arr, val)
+			return shared.json.appendArray(arr, val)
 		})
 		return arr, true
 	}
 	return arr, false
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrStr(arr any, val string) (any, bool) {
-	if x.logger.shared.array.iface.CanAppendString() {
-		a := arr.(*contextArray[E])
+	if x.logger.shared.json.iface.CanAppendString() {
+		a := arr.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			return shared.array.appendString(arr, val)
+			return shared.json.appendString(arr, val)
 		})
 		return arr, true
 	}
 	return arr, false
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
-	if x.logger.shared.array.iface.CanAppendBool() {
-		a := arr.(*contextArray[E])
+	if x.logger.shared.json.iface.CanAppendBool() {
+		a := arr.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			return shared.array.appendBool(arr, val)
+			return shared.json.appendBool(arr, val)
 		})
 		return arr, true
 	}
@@ -131,56 +110,56 @@ func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
 
 // Builder
 // ---
-// Uses the arraySupport directly.
+// Uses the jsonSupport directly.
 
-//lint:ignore U1000 it is actually used
-func (x *Builder[E]) arrSupport() iArraySupport[E] {
-	return x.shared.array.iface
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) jsonSupport() iJSONSupport[E] {
+	return x.shared.json.iface
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrNew() any {
-	return x.shared.array.newArray()
+	return x.shared.json.newArray()
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrWrite(key string, arr any) {
-	x.shared.array.addArray(x.Event, key, arr)
+	x.shared.json.addArray(x.Event, key, arr)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrField(arr any, val any) any {
-	return x.shared.array.appendField(arr, val)
+	return x.shared.json.appendField(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
-	if x.shared.array.iface.CanAppendArray() {
-		return x.shared.array.appendArray(arr, val), true
+	if x.shared.json.iface.CanAppendArray() {
+		return x.shared.json.appendArray(arr, val), true
 	}
 	return arr, false
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrStr(arr any, val string) (any, bool) {
-	if x.shared.array.iface.CanAppendString() {
-		return x.shared.array.appendString(arr, val), true
+	if x.shared.json.iface.CanAppendString() {
+		return x.shared.json.appendString(arr, val), true
 	}
 	return arr, false
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) arrBool(arr any, val bool) (any, bool) {
-	if x.shared.array.iface.CanAppendBool() {
-		return x.shared.array.appendBool(arr, val), true
+	if x.shared.json.iface.CanAppendBool() {
+		return x.shared.json.appendBool(arr, val), true
 	}
 	return arr, false
 }
 
 // ArrayBuilder
 // ---
-// Uses the same array types as it's parent, UNLESS it's immediate parent is an
-// ArrayBuilder, and the arraySupport type doesn't support nested arrays.
+// Uses the same array types as its parent, UNLESS its immediate parent is an
+// ArrayBuilder, and the jsonSupport type doesn't support nested arrays.
 
 // p returns the parent of this array builder
 func (x *ArrayBuilder[E, P]) p() (p P) {
@@ -306,8 +285,8 @@ func (x *ArrayBuilder[E, P]) isArrayBuilder() *refPoolItem {
 	return (*refPoolItem)(x)
 }
 
-func (x *ArrayBuilder[E, P]) mustUseSliceArray() (ok bool) {
-	if !x.p().arrSupport().CanAppendArray() {
+func (x *ArrayBuilder[E, P]) mustUseDefaultJSONSupport() (ok bool) {
+	if !x.p().jsonSupport().CanAppendArray() {
 		switch x.a.(type) {
 		case arrayBuilderInterface:
 			return true
@@ -319,31 +298,60 @@ func (x *ArrayBuilder[E, P]) mustUseSliceArray() (ok bool) {
 	return false
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) root() *Logger[E] {
 	return x.p().root()
 }
 
-//lint:ignore U1000 it is actually used
-func (x *ArrayBuilder[E, P]) arrSupport() iArraySupport[E] {
-	if x.mustUseSliceArray() {
-		return sliceArraySupport[E]{}
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) jsonSupport() iJSONSupport[E] {
+	if x.mustUseDefaultJSONSupport() {
+		return defaultJSONSupport[E]{}
 	}
-	return x.p().arrSupport()
+	return x.p().jsonSupport()
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objNew() any {
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).NewObject()
+	}
+	return x.p().objNew()
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objWrite(key string, obj any) {
+	x.root().DPanic().Log(`logiface: array builder unexpectedly called objWrite`)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objField(obj any, key string, val any) any {
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).SetField(obj.(map[string]any), key, val)
+	}
+	return x.p().objField(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objObject(obj any, key string, val any) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).SetObject(obj.(map[string]any), key, val.(map[string]any)), true
+	}
+	return x.p().objObject(obj, key, val)
 }
 
 func (x *ArrayBuilder[E, P]) arrNew() any {
-	if x.mustUseSliceArray() {
-		return (sliceArraySupport[E]{}).NewArray()
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).NewArray()
 	}
 	return x.p().arrNew()
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
 	if key != `` {
 		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
-	} else if !x.arrSupport().CanAppendArray() {
+	} else if !x.jsonSupport().CanAppendArray() {
 		x.b = x.arrField(x.b, arr.([]any))
 	} else if v, ok := x.arrArray(x.b, arr); !ok {
 		x.root().DPanic().Log(`logiface: implementation disallows writing an array to an array`)
@@ -353,41 +361,50 @@ func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
 }
 
 func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
-	if x.mustUseSliceArray() {
-		return (sliceArraySupport[E]{}).AppendField(arr.([]any), val)
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).AppendField(arr.([]any), val)
 	}
 	return x.p().arrField(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
-	if x.mustUseSliceArray() {
-		return (sliceArraySupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
 	return x.p().arrArray(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
-	if x.mustUseSliceArray() {
-		return (sliceArraySupport[E]{}).AppendString(arr.([]any), val), true
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).AppendString(arr.([]any), val), true
 	}
 	return x.p().arrStr(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
-	if x.mustUseSliceArray() {
-		return (sliceArraySupport[E]{}).AppendBool(arr.([]any), val), true
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).AppendBool(arr.([]any), val), true
 	}
 	return x.p().arrBool(arr, val)
 }
 
-func (x *contextArray[E]) modifier(event E) error {
-	arr := x.shared.array.newArray()
+func (x *contextFieldData[E]) array(event E) error {
+	arr := x.shared.json.newArray()
 	for _, v := range x.values {
 		arr = v(x.shared, arr)
 	}
-	x.shared.array.addArray(event, x.key, arr)
+	x.shared.json.addArray(event, x.key, arr)
+	return nil
+}
+
+func (x *contextFieldData[E]) object(event E) error {
+	obj := x.shared.json.newObject()
+	for _, v := range x.values {
+		obj = v(x.shared, obj)
+	}
+	x.shared.json.addObject(event, x.key, obj)
 	return nil
 }

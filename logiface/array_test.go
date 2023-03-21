@@ -7,10 +7,10 @@ import (
 var (
 	// compile time assertions
 
-	_ ArrayParent[Event]    = (*Context[Event])(nil)
-	_ ArrayParent[Event]    = (*Builder[Event])(nil)
-	_ ArrayParent[Event]    = (*ArrayBuilder[Event, *Builder[Event]])(nil)
-	_ ArrayParent[Event]    = (*ArrayBuilder[Event, *ArrayBuilder[Event, *Builder[Event]]])(nil)
+	_ Parent[Event]         = (*Context[Event])(nil)
+	_ Parent[Event]         = (*Builder[Event])(nil)
+	_ Parent[Event]         = (*ArrayBuilder[Event, *Builder[Event]])(nil)
+	_ Parent[Event]         = (*ArrayBuilder[Event, *ArrayBuilder[Event, *Builder[Event]]])(nil)
 	_ arrayBuilderInterface = (*ArrayBuilder[Event, *Builder[Event]])(nil)
 )
 

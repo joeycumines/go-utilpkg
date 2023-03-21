@@ -5,8 +5,32 @@ type (
 	// data structures.
 	Chain[E Event, P comparable] refPoolItem
 
+	// Parent models one of the fluent-style builder implementations, including
+	// [Builder], [Context], [ArrayBuilder], and others.
 	Parent[E Event] interface {
-		ArrayParent[E]
+		Enabled() bool
+
+		root() *Logger[E]
+		jsonSupport() iJSONSupport[E]
+
+		// these methods are effectively jsonSupport, but vary depending on
+		// both the top-level parent, and implementation details such as
+		// JSONSupport.CanAppendArray
+		//
+		// WARNING: The guarded methods must always return the input arr, even
+		// when false, in order to avoid allocs within the arrayFields methods.
+
+		objNew() any
+		objWrite(key string, obj any)
+		objField(obj any, key string, val any) any
+		objObject(obj any, key string, val any) (any, bool)
+
+		arrNew() any
+		arrWrite(key string, arr any)
+		arrField(arr any, val any) any
+		arrArray(arr, val any) (any, bool)
+		arrStr(arr any, val string) (any, bool)
+		arrBool(arr any, val bool) (any, bool)
 	}
 
 	chainInterface[E Event] interface {
@@ -99,37 +123,57 @@ func (x *Chain[E, P]) root() *Logger[E] {
 	return nil
 }
 
-//lint:ignore U1000 it is actually used
-func (x *Chain[E, P]) arrSupport() iArraySupport[E] {
-	return x.current().arrSupport()
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) jsonSupport() iJSONSupport[E] {
+	return x.current().jsonSupport()
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objNew() any {
+	return x.current().objNew()
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objWrite(key string, obj any) {
+	x.current().objWrite(key, obj)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objField(obj any, key string, val any) any {
+	return x.current().objField(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objObject(obj any, key string, val any) (any, bool) {
+	return x.current().objObject(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrNew() any {
 	return x.current().arrNew()
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrWrite(key string, arr any) {
 	x.current().arrWrite(key, arr)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrField(arr any, val any) any {
 	return x.current().arrField(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrArray(arr, val any) (any, bool) {
 	return x.current().arrArray(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrStr(arr any, val string) (any, bool) {
 	return x.current().arrStr(arr, val)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrBool(arr any, val bool) (any, bool) {
 	return x.current().arrBool(arr, val)
 }
@@ -145,12 +189,12 @@ func (x *Chain[E, P]) setCurrent(p Parent[E]) {
 	x.b = p
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) isChain() *refPoolItem {
 	return (*refPoolItem)(x)
 }
 
-//lint:ignore U1000 it is actually used
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) newChain(current Parent[E]) any {
 	return newChain[E](x.a.(P), current)
 }

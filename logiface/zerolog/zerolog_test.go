@@ -19,11 +19,11 @@ import (
 var (
 	// compile time assertions
 
-	_ logiface.Event                                = (*Event)(nil)
-	_ logiface.EventFactory[*Event]                 = (*Logger)(nil)
-	_ logiface.Writer[*Event]                       = (*Logger)(nil)
-	_ logiface.EventReleaser[*Event]                = (*Logger)(nil)
-	_ logiface.ArraySupport[*Event, *zerolog.Array] = (*Logger)(nil)
+	_ logiface.Event                                               = (*Event)(nil)
+	_ logiface.EventFactory[*Event]                                = (*Logger)(nil)
+	_ logiface.Writer[*Event]                                      = (*Logger)(nil)
+	_ logiface.EventReleaser[*Event]                               = (*Logger)(nil)
+	_ logiface.JSONSupport[*Event, *zerolog.Event, *zerolog.Array] = (*Logger)(nil)
 )
 
 var testSuiteConfig = testsuite.Config[*Event]{

@@ -28,6 +28,7 @@ type (
 		Writer    io.Writer
 		MultiLine bool
 		Type      bool
+		JSON      bool
 	}
 
 	// mockComplexEvent implements the entire Event interface
@@ -91,6 +92,9 @@ func (x *mockSimpleEvent) AddField(key string, val any) {
 }
 
 func (x *mockSimpleWriter) Write(event *mockSimpleEvent) error {
+	if x.Type && x.JSON {
+		panic(`cannot use both Type and JSON`)
+	}
 	_, _ = fmt.Fprintf(x.Writer, `[%s]`, event.level.String())
 	for _, field := range event.fields {
 		if x.Type {
@@ -110,6 +114,12 @@ func (x *mockSimpleWriter) Write(event *mockSimpleEvent) error {
 				}
 				continue
 			}
+		} else if x.JSON {
+			b, err := sortedJSONMarshal(field.Val)
+			if err != nil {
+				panic(err)
+			}
+			field.Val = string(b)
 		}
 
 		if x.MultiLine {

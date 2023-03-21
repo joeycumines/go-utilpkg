@@ -11,7 +11,7 @@ import (
 var (
 	// compile time assertions
 
-	_ Event = (*arrayFields[Event, ArrayParent[Event]])(nil)
+	_ Event = (*arrayFields[Event, Parent[Event]])(nil)
 )
 
 // Demonstrates the default array field formats, if the array support is defaulted.
@@ -51,7 +51,7 @@ func ExampleArrayBuilder_defaultFieldFormats() {
 }
 
 func TestArrayFields_mustEmbedUnimplementedEvent(t *testing.T) {
-	(*arrayFields[Event, ArrayParent[Event]])(nil).mustEmbedUnimplementedEvent()
+	(*arrayFields[Event, Parent[Event]])(nil).mustEmbedUnimplementedEvent()
 }
 
 func TestArrayFields_AddMessage(t *testing.T) {
@@ -60,7 +60,7 @@ func TestArrayFields_AddMessage(t *testing.T) {
 			t.Error(r)
 		}
 	}()
-	(*arrayFields[Event, ArrayParent[Event]])(nil).AddMessage(`asdads`)
+	(*arrayFields[Event, Parent[Event]])(nil).AddMessage(`asdads`)
 	t.Error(`expected panic`)
 }
 

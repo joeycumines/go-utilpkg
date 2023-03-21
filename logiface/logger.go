@@ -27,7 +27,7 @@ type (
 		releaser EventReleaser[E]
 		writer   Writer[E]
 		pool     *sync.Pool
-		array    *arraySupport[E]
+		json     *jsonSupport[E]
 		dpanic   Level
 	}
 
@@ -42,7 +42,7 @@ type (
 		releaser EventReleaser[E]
 		writer   WriterSlice[E]
 		modifier ModifierSlice[E]
-		array    *arraySupport[E]
+		json     *jsonSupport[E]
 		dpanic   Level
 	}
 
@@ -194,7 +194,7 @@ func New[E Event](options ...Option[E]) (logger *Logger[E]) {
 		factory:  c.factory,
 		releaser: c.releaser,
 		writer:   c.resolveWriter(),
-		array:    c.resolveArraySupport(),
+		json:     c.resolveJSONSupport(),
 		dpanic:   c.dpanic,
 	}
 	shared.init()
@@ -251,7 +251,7 @@ func (x *Logger[E]) Logger() (logger *Logger[Event]) {
 			releaser: generifyEventReleaser(x.shared.releaser),
 			writer:   generifyWriter(x.shared.writer),
 			pool:     &genericBuilderPool,
-			array:    generifyArraySupport(x.shared.array),
+			json:     generifyJSONSupport(x.shared.json),
 		},
 	}
 	logger.shared.root = logger
@@ -481,11 +481,11 @@ func (x *loggerConfig[E]) resolveModifier() Modifier[E] {
 	}
 }
 
-func (x *loggerConfig[E]) resolveArraySupport() *arraySupport[E] {
-	if x.array != nil {
-		return x.array
+func (x *loggerConfig[E]) resolveJSONSupport() *jsonSupport[E] {
+	if x.json != nil {
+		return x.json
 	}
-	return newArraySupport[E, []any](sliceArraySupport[E]{})
+	return newJSONSupport[E, map[string]any, []any](defaultJSONSupport[E]{})
 }
 
 func reverseSlice[S ~[]E, E any](s S) {
