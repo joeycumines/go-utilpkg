@@ -83,3 +83,77 @@ func ExampleContext_Array_nestedArrays() {
 	//b=B
 	//msg=msg 1
 }
+
+func ExampleBuilder_Object_nestedObjects() {
+	type E = *mockSimpleEvent
+	var logger *Logger[E] = mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
+	)
+
+	logger.Notice().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Object().
+		Field(`c`, 2).
+		Field(`d`, false).
+		As(`e`).
+		Object().
+		Field(`f`, 3).
+		Object().
+		Field(`g`, 4).
+		Object().
+		Field(`h`, 5).
+		As(`i`).
+		As(`j`).
+		As(`k`).
+		As(`l`).
+		End().
+		Field(`m`, `B`).
+		Log(`msg 1`)
+
+	//output:
+	//[notice]
+	//l={"a":1,"b":true,"e":{"c":2,"d":false},"k":{"f":3,"j":{"g":4,"i":{"h":5}}}}
+	//m="B"
+	//msg="msg 1"
+}
+
+func ExampleContext_Object_nestedObjects() {
+	type E = *mockSimpleEvent
+	var logger *Logger[E] = mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
+	)
+
+	logger.Clone().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Object().
+		Field(`c`, 2).
+		Field(`d`, false).
+		As(`e`).
+		Object().
+		Field(`f`, 3).
+		Object().
+		Field(`g`, 4).
+		Object().
+		Field(`h`, 5).
+		As(`i`).
+		As(`j`).
+		As(`k`).
+		As(`l`).
+		End().
+		Field(`m`, `B`).
+		Logger().
+		Notice().
+		Log(`msg 1`)
+
+	//output:
+	//[notice]
+	//l={"a":1,"b":true,"e":{"c":2,"d":false},"k":{"f":3,"j":{"g":4,"i":{"h":5}}}}
+	//m="B"
+	//msg="msg 1"
+}

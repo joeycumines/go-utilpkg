@@ -3,7 +3,6 @@ package logiface
 type (
 	ObjectBuilder[E Event, P Parent[E]] refPoolItem
 
-	//lint:ignore U1000 it is or will be used
 	objectBuilderInterface interface {
 		isObjectBuilder() *refPoolItem
 		as(key string) any

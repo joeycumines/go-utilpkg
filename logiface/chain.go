@@ -46,9 +46,23 @@ func (x *Context[E]) Array() *ArrayBuilder[E, *Chain[E, *Context[E]]] {
 	return nil
 }
 
+func (x *Context[E]) Object() *ObjectBuilder[E, *Chain[E, *Context[E]]] {
+	if x.Enabled() {
+		return Object[E](newChainParent[E](x))
+	}
+	return nil
+}
+
 func (x *Builder[E]) Array() *ArrayBuilder[E, *Chain[E, *Builder[E]]] {
 	if x.Enabled() {
 		return Array[E](newChainParent[E](x))
+	}
+	return nil
+}
+
+func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
+	if x.Enabled() {
+		return Object[E](newChainParent[E](x))
 	}
 	return nil
 }
@@ -67,9 +81,30 @@ func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 	return nil
 }
 
+// Object attempts to initialize a sub-object, which will succeed only if the
+// receiver is [Chain], otherwise performing [Logger.DPanic] (returning nil
+// if in a production configuration).
+func (x *ObjectBuilder[E, P]) Object() *ObjectBuilder[E, P] {
+	if x.Enabled() {
+		if c, ok := any(x.p()).(chainInterface[E]); !ok {
+			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
+		} else {
+			return Object[E](c.newChain(x).(P))
+		}
+	}
+	return nil
+}
+
 func (x *Chain[E, P]) Array() *ArrayBuilder[E, *Chain[E, P]] {
 	if x.Enabled() {
 		return Array[E](x)
+	}
+	return nil
+}
+
+func (x *Chain[E, P]) Object() *ObjectBuilder[E, *Chain[E, P]] {
+	if x.Enabled() {
+		return Object[E](x)
 	}
 	return nil
 }
@@ -78,6 +113,12 @@ func (x *Chain[E, P]) As(key string) *Chain[E, P] {
 	if current := x.current(); current != nil {
 		switch current := current.(type) {
 		case arrayBuilderInterface:
+			if current, ok := current.as(key).(*Chain[E, P]); ok && current != nil && current.a == x.a {
+				x.setCurrent(current.current())
+			} else {
+				x.setCurrent(nil)
+			}
+		case objectBuilderInterface:
 			if current, ok := current.as(key).(*Chain[E, P]); ok && current != nil && current.a == x.a {
 				x.setCurrent(current.current())
 			} else {

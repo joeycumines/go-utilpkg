@@ -4,6 +4,12 @@ import (
 	"os"
 )
 
+var (
+	// compile time assertions
+
+	_ objectBuilderInterface = (*ObjectBuilder[Event, *Builder[Event]])(nil)
+)
+
 func ExampleObject_nestedObjects() {
 	type E = *mockSimpleEvent
 	var logger *Logger[E] = mockL.New(
