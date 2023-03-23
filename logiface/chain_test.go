@@ -199,3 +199,47 @@ func ExampleBuilder_nestedObjectsAndArrays() {
 	//j="J"
 	//msg="msg 1"
 }
+
+func ExampleContext_nestedObjectsAndArrays() {
+	type E = *mockSimpleEvent
+	var logger *Logger[E] = mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	)
+
+	logger.Clone().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Array().
+		Field(2).
+		Object().
+		Field(`c`, false).
+		Add().
+		As(`d`).
+		CurObject().
+		Field(`D`, 3).
+		As(`e`).
+		Array().
+		Field(5).
+		Object().
+		Field(`f`, 4).
+		Add().
+		Object().
+		Field(`g`, 6).
+		Add().
+		As(`h`).
+		End().
+		Field(`j`, `J`).
+		Logger().
+		Notice().
+		Log(`msg 1`)
+
+	//output:
+	//[notice]
+	//e={"D":3,"a":1,"b":true,"d":[2,{"c":false}]}
+	//h=[5,{"f":4},{"g":6}]
+	//j="J"
+	//msg="msg 1"
+}
