@@ -51,7 +51,7 @@ func (x *Context[E]) arrNew() any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrWrite(key string, arr any) {
+func (x *Context[E]) jsonArray(key string, arr any) {
 	a := arr.(*contextFieldData[E])
 	a.key = key
 	a.shared = x.logger.shared
@@ -78,6 +78,23 @@ func (x *Context[E]) arrArray(arr, val any) (any, bool) {
 				val = f(shared, val)
 			}
 			return shared.json.appendArray(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrObject(arr, val any) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendObject() {
+		a := arr.(*contextFieldData[E])
+		v := val.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			val := shared.json.newObject()
+			for _, f := range v.values {
+				val = f(shared, val)
+			}
+			return shared.json.appendObject(arr, val)
 		})
 		return arr, true
 	}
@@ -123,7 +140,7 @@ func (x *Builder[E]) arrNew() any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrWrite(key string, arr any) {
+func (x *Builder[E]) jsonArray(key string, arr any) {
 	x.shared.json.addArray(x.Event, key, arr)
 }
 
@@ -136,6 +153,14 @@ func (x *Builder[E]) arrField(arr any, val any) any {
 func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
 	if x.shared.json.iface.CanAppendArray() {
 		return x.shared.json.appendArray(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrObject(arr, val any) (any, bool) {
+	if x.shared.json.iface.CanAppendObject() {
+		return x.shared.json.appendObject(arr, val), true
 	}
 	return arr, false
 }
@@ -185,7 +210,7 @@ func (x *ArrayBuilder[E, P]) Enabled() bool {
 func (x *ArrayBuilder[E, P]) As(key string) (p P) {
 	if x.Enabled() {
 		p = x.p()
-		p.arrWrite(key, x.b)
+		p.jsonArray(key, x.b)
 		refPoolPut((*refPoolItem)(x))
 	}
 	return
@@ -285,17 +310,15 @@ func (x *ArrayBuilder[E, P]) isArrayBuilder() *refPoolItem {
 	return (*refPoolItem)(x)
 }
 
-func (x *ArrayBuilder[E, P]) mustUseDefaultJSONSupport() (ok bool) {
-	if !x.p().jsonSupport().CanAppendArray() {
-		switch x.a.(type) {
-		case arrayBuilderInterface:
-			return true
-		case chainInterface[E]:
-			_, ok = x.a.(chainInterface[E]).isChain().b.(arrayBuilderInterface)
-			return ok
-		}
+func (x *ArrayBuilder[E, P]) mustUseDefaultJSONSupport() bool {
+	switch getParentJSONType(x.a) {
+	case parentJSONTypeArray:
+		return !x.p().jsonSupport().CanAppendArray()
+	case parentJSONTypeObject:
+		return !x.p().jsonSupport().CanSetArray()
+	default:
+		return false
 	}
-	return false
 }
 
 //lint:ignore U1000 it is or will be used
@@ -320,8 +343,16 @@ func (x *ArrayBuilder[E, P]) objNew() any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) objWrite(key string, obj any) {
-	x.root().DPanic().Log(`logiface: array builder unexpectedly called objWrite`)
+func (x *ArrayBuilder[E, P]) jsonObject(key string, obj any) {
+	if key != `` {
+		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
+	} else if !x.jsonSupport().CanAppendObject() {
+		x.b = x.arrField(x.b, obj.(map[string]any))
+	} else if v, ok := x.arrObject(x.b, obj); !ok {
+		x.root().DPanic().Log(`logiface: implementation disallows writing an object to an array`)
+	} else {
+		x.b = v
+	}
 }
 
 //lint:ignore U1000 it is or will be used
@@ -340,6 +371,14 @@ func (x *ArrayBuilder[E, P]) objObject(obj any, key string, val any) (any, bool)
 	return x.p().objObject(obj, key, val)
 }
 
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objArray(obj any, key string, val any) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).SetArray(obj.(map[string]any), key, val.([]any)), true
+	}
+	return x.p().objArray(obj, key, val)
+}
+
 func (x *ArrayBuilder[E, P]) arrNew() any {
 	if x.mustUseDefaultJSONSupport() {
 		return (defaultJSONSupport[E]{}).NewArray()
@@ -348,7 +387,7 @@ func (x *ArrayBuilder[E, P]) arrNew() any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) arrWrite(key string, arr any) {
+func (x *ArrayBuilder[E, P]) jsonArray(key string, arr any) {
 	if key != `` {
 		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
 	} else if !x.jsonSupport().CanAppendArray() {
@@ -373,6 +412,14 @@ func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
 		return (defaultJSONSupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
 	return x.p().arrArray(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrObject(arr, val any) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return (defaultJSONSupport[E]{}).AppendObject(arr.([]any), val.(map[string]any)), true
+	}
+	return x.p().arrObject(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used

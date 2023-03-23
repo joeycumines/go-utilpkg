@@ -21,6 +21,7 @@ var (
 
 	_ iJSONSupport[Event]                       = (*UnimplementedJSONSupport[Event, map[string]any, []any])(nil)
 	_ JSONSupport[Event, map[string]any, []any] = (*defaultJSONSupport[Event])(nil)
+	_ iJSONSupport[Event]                       = (*defaultJSONSupport[Event])(nil)
 	_ JSONSupport[Event, map[string]any, []any] = struct {
 		minimalJSONSupportMethods[Event, map[string]any, []any]
 		UnimplementedJSONSupport[Event, map[string]any, []any]

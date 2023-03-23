@@ -7,6 +7,8 @@ type (
 		SetField(obj O, key string, val any) O
 		CanSetObject() bool
 		SetObject(obj O, key string, val O) O
+		CanSetArray() bool
+		SetArray(obj O, key string, val A) O
 
 		NewArray() A
 		AddArray(evt E, key string, arr A)
@@ -17,6 +19,8 @@ type (
 		AppendString(arr A, val string) A
 		CanAppendBool() bool
 		AppendBool(arr A, val bool) A
+		CanAppendObject() bool
+		AppendObject(arr A, val O) A
 
 		mustEmbedUnimplementedJSONSupport()
 	}
@@ -29,10 +33,12 @@ type (
 		addObject    func(evt E, key string, obj any)
 		setField     func(obj any, key string, val any) any
 		setObject    func(obj any, key string, val any) any
+		setArray     func(obj any, key string, val any) any
 		newArray     func() any
 		addArray     func(evt E, key string, arr any)
 		appendField  func(arr, val any) any
 		appendArray  func(arr, val any) any
+		appendObject func(arr, val any) any
 		appendString func(arr any, val string) any
 		appendBool   func(arr any, val bool) any
 	}
@@ -40,10 +46,12 @@ type (
 	// iJSONSupport are the [JSONSupport] methods without type-specific behavior
 	// (e.g. flags / checking if certain methods can be used)
 	iJSONSupport[E Event] interface {
+		CanSetObject() bool
+		CanSetArray() bool
 		CanAppendArray() bool
+		CanAppendObject() bool
 		CanAppendString() bool
 		CanAppendBool() bool
-		CanSetObject() bool
 	}
 
 	UnimplementedJSONSupport[E Event, O any, A any] struct{}
@@ -93,6 +101,9 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		setObject: func(obj any, key string, val any) any {
 			return impl.SetObject(obj.(O), key, val.(O))
 		},
+		setArray: func(obj any, key string, val any) any {
+			return impl.SetArray(obj.(O), key, val.(A))
+		},
 		newArray: func() any { return impl.NewArray() },
 		addArray: func(evt E, key string, arr any) {
 			impl.AddArray(evt, key, arr.(A))
@@ -102,6 +113,9 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		},
 		appendArray: func(arr, val any) any {
 			return impl.AppendArray(arr.(A), val.(A))
+		},
+		appendObject: func(arr, val any) any {
+			return impl.AppendObject(arr.(A), val.(O))
 		},
 		appendString: func(arr any, val string) any {
 			return impl.AppendString(arr.(A), val)
@@ -121,12 +135,14 @@ func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 		},
 		setField:  impl.setField,
 		setObject: impl.setObject,
+		setArray:  impl.setArray,
 		newArray:  impl.newArray,
 		addArray: func(evt Event, key string, arr any) {
 			impl.addArray(evt.(E), key, arr)
 		},
 		appendField:  impl.appendField,
 		appendArray:  impl.appendArray,
+		appendObject: impl.appendObject,
 		appendString: impl.appendString,
 		appendBool:   impl.appendBool,
 	}
@@ -138,9 +154,21 @@ func (UnimplementedJSONSupport[E, O, A]) SetObject(obj O, key string, val O) O {
 	panic("unimplemented")
 }
 
+func (UnimplementedJSONSupport[E, O, A]) CanSetArray() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetArray(obj O, key string, val A) O {
+	panic("unimplemented")
+}
+
 func (UnimplementedJSONSupport[E, O, A]) CanAppendArray() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) AppendArray(arr A, val A) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendObject() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendObject(arr A, val O) A {
 	panic("unimplemented")
 }
 
@@ -178,6 +206,13 @@ func (x defaultJSONSupport[E]) SetObject(obj map[string]any, key string, val map
 	return obj
 }
 
+func (x defaultJSONSupport[E]) CanSetArray() bool { return true }
+
+func (x defaultJSONSupport[E]) SetArray(obj map[string]any, key string, val []any) map[string]any {
+	obj[key] = val
+	return obj
+}
+
 func (x defaultJSONSupport[E]) CanNewArray() bool { return true }
 
 func (x defaultJSONSupport[E]) NewArray() []any { return nil }
@@ -193,6 +228,12 @@ func (x defaultJSONSupport[E]) AppendField(arr []any, val any) []any {
 func (x defaultJSONSupport[E]) CanAppendArray() bool { return true }
 
 func (x defaultJSONSupport[E]) AppendArray(arr []any, val []any) []any {
+	return append(arr, val)
+}
+
+func (x defaultJSONSupport[E]) CanAppendObject() bool { return true }
+
+func (x defaultJSONSupport[E]) AppendObject(arr []any, val map[string]any) []any {
 	return append(arr, val)
 }
 

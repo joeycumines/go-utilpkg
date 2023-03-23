@@ -1,5 +1,11 @@
 package logiface
 
+const (
+	_ parentJSONType = iota
+	parentJSONTypeArray
+	parentJSONTypeObject
+)
+
 type (
 	// Chain wraps a [Parent] implementation in order to support nested
 	// data structures.
@@ -20,23 +26,32 @@ type (
 		// WARNING: The guarded methods must always return the input arr, even
 		// when false, in order to avoid allocs within the arrayFields methods.
 
+		jsonObject(key string, obj any)
+		jsonArray(key string, arr any)
+
 		objNew() any
-		objWrite(key string, obj any)
 		objField(obj any, key string, val any) any
 		objObject(obj any, key string, val any) (any, bool)
+		objArray(obj any, key string, val any) (any, bool)
 
 		arrNew() any
-		arrWrite(key string, arr any)
 		arrField(arr any, val any) any
 		arrArray(arr, val any) (any, bool)
+		arrObject(arr, val any) (any, bool)
 		arrStr(arr any, val string) (any, bool)
 		arrBool(arr any, val bool) (any, bool)
 	}
 
-	chainInterface[E Event] interface {
+	chainInterface interface {
 		isChain() *refPoolItem
+	}
+
+	chainInterfaceFull[E Event] interface {
+		chainInterface
 		newChain(current Parent[E]) any
 	}
+
+	parentJSONType int
 )
 
 func (x *Context[E]) Array() *ArrayBuilder[E, *Chain[E, *Context[E]]] {
@@ -68,11 +83,11 @@ func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
 }
 
 // Array attempts to initialize a sub-array, which will succeed only if the
-// receiver is [Chain], otherwise performing [Logger.DPanic] (returning nil
+// parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
 func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 	if x.Enabled() {
-		if c, ok := any(x.p()).(chainInterface[E]); !ok {
+		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
 			return Array[E](c.newChain(x).(P))
@@ -84,9 +99,37 @@ func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 // Object attempts to initialize a sub-object, which will succeed only if the
 // receiver is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
+func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
+	if x.Enabled() {
+		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
+			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
+		} else {
+			return Object[E](c.newChain(x).(P))
+		}
+	}
+	return nil
+}
+
+// Array attempts to initialize a sub-array, which will succeed only if the
+// parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
+// if in a production configuration).
+func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
+	if x.Enabled() {
+		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
+			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
+		} else {
+			return Array[E](c.newChain(x).(P))
+		}
+	}
+	return nil
+}
+
+// Object attempts to initialize a sub-object, which will succeed only if the
+// parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
+// if in a production configuration).
 func (x *ObjectBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 	if x.Enabled() {
-		if c, ok := any(x.p()).(chainInterface[E]); !ok {
+		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
 			return Object[E](c.newChain(x).(P))
@@ -105,6 +148,38 @@ func (x *Chain[E, P]) Array() *ArrayBuilder[E, *Chain[E, P]] {
 func (x *Chain[E, P]) Object() *ObjectBuilder[E, *Chain[E, P]] {
 	if x.Enabled() {
 		return Object[E](x)
+	}
+	return nil
+}
+
+// CurArray returns the current array, calls [Logger.DPanic] if the current
+// value is not an array, and returns nil if in a production configuration.
+//
+// Allows adding fields on the same level as nested object(s) and/or array(s).
+func (x *Chain[E, P]) CurArray() *ArrayBuilder[E, *Chain[E, P]] {
+	if x.Enabled() {
+		if current := x.current(); current != nil {
+			if current, ok := current.(*ArrayBuilder[E, *Chain[E, P]]); ok {
+				return current
+			}
+			x.root().DPanic().Log(`logiface: cannot access a non-array as an array`)
+		}
+	}
+	return nil
+}
+
+// CurObject returns the current object, calls [Logger.DPanic] if the current
+// value is not an array, and returns nil if in a production configuration.
+//
+// Allows adding fields on the same level as nested object(s) and/or array(s).
+func (x *Chain[E, P]) CurObject() *ObjectBuilder[E, *Chain[E, P]] {
+	if x.Enabled() {
+		if current := x.current(); current != nil {
+			if current, ok := current.(*ObjectBuilder[E, *Chain[E, P]]); ok {
+				return current
+			}
+			x.root().DPanic().Log(`logiface: cannot access a non-object as an object`)
+		}
 	}
 	return nil
 }
@@ -175,8 +250,8 @@ func (x *Chain[E, P]) objNew() any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) objWrite(key string, obj any) {
-	x.current().objWrite(key, obj)
+func (x *Chain[E, P]) jsonObject(key string, obj any) {
+	x.current().jsonObject(key, obj)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -190,13 +265,18 @@ func (x *Chain[E, P]) objObject(obj any, key string, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objArray(obj any, key string, val any) (any, bool) {
+	return x.current().objArray(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrNew() any {
 	return x.current().arrNew()
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrWrite(key string, arr any) {
-	x.current().arrWrite(key, arr)
+func (x *Chain[E, P]) jsonArray(key string, arr any) {
+	x.current().jsonArray(key, arr)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -207,6 +287,11 @@ func (x *Chain[E, P]) arrField(arr any, val any) any {
 //lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrArray(arr, val any) (any, bool) {
 	return x.current().arrArray(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrObject(arr, val any) (any, bool) {
+	return x.current().arrObject(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -252,4 +337,17 @@ func newChainParent[E Event, P interface {
 	comparable
 }](parent P) *Chain[E, P] {
 	return newChain[E, P](parent, parent)
+}
+
+func getParentJSONType(p any) parentJSONType {
+	switch p := p.(type) {
+	case arrayBuilderInterface:
+		return parentJSONTypeArray
+	case objectBuilderInterface:
+		return parentJSONTypeObject
+	case chainInterface:
+		return getParentJSONType(p.isChain().b)
+	default:
+		return 0
+	}
 }

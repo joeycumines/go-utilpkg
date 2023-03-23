@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	diff "github.com/hexops/gotextdiff"
@@ -115,7 +116,14 @@ func (x *mockSimpleWriter) Write(event *mockSimpleEvent) error {
 				continue
 			}
 		} else if x.JSON {
-			b, err := sortedJSONMarshal(field.Val)
+			b, err := json.Marshal(field.Val)
+			if err == nil {
+				var v any
+				err = json.Unmarshal(b, &v)
+				if err == nil {
+					b, err = sortedJSONMarshal(v)
+				}
+			}
 			if err != nil {
 				panic(err)
 			}

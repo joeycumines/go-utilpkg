@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"testing"
 )
 
 // sortedLineWriterSplitOnSpace scans and sorts each line, where the sort is performed by splitting on space.
@@ -36,7 +37,7 @@ func sortedLineWriterSplitOnSpace(writer io.Writer) (io.WriteCloser, <-chan erro
 
 type jsonKeyValue struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 type jsonKeyValueList []jsonKeyValue
@@ -53,16 +54,16 @@ func (k jsonKeyValueList) Less(i, j int) bool {
 	return k[i].Key < k[j].Key
 }
 
-func sortKeysForJSONData(data interface{}) interface{} {
+func sortKeysForJSONData(data any) any {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		keyValuePairs := make(jsonKeyValueList, 0, len(v))
 		for k, val := range v {
 			keyValuePairs = append(keyValuePairs, jsonKeyValue{Key: k, Value: sortKeysForJSONData(val)})
 		}
 		sort.Sort(keyValuePairs)
 		return keyValuePairs
-	case []interface{}:
+	case []any:
 		for i, e := range v {
 			v[i] = sortKeysForJSONData(e)
 		}
@@ -72,9 +73,8 @@ func sortKeysForJSONData(data interface{}) interface{} {
 	}
 }
 
-func sortedKeysJSONMarshal(data interface{}) ([]byte, error) {
-	buffer := bytes.Buffer{}
-	encoder := json.NewEncoder(&buffer)
+func sortedKeysJSONMarshal(data any) ([]byte, error) {
+	var buffer bytes.Buffer
 
 	switch v := data.(type) {
 	case jsonKeyValueList:
@@ -96,10 +96,20 @@ func sortedKeysJSONMarshal(data interface{}) ([]byte, error) {
 			buffer.Write(value)
 		}
 		buffer.WriteString("}")
-	case []interface{}:
-		if err := encoder.Encode(v); err != nil {
-			return nil, err
+	case []any:
+		buffer.WriteString("[")
+		for i, e := range v {
+			if i > 0 {
+				buffer.WriteString(",")
+			}
+			value, err := sortedKeysJSONMarshal(e)
+			if err != nil {
+				return nil, err
+			}
+			buffer.Write(value)
 		}
+		buffer.WriteString("]")
+
 	default:
 		return json.Marshal(data)
 	}
@@ -109,4 +119,35 @@ func sortedKeysJSONMarshal(data interface{}) ([]byte, error) {
 
 func sortedJSONMarshal(data any) ([]byte, error) {
 	return sortedKeysJSONMarshal(sortKeysForJSONData(data))
+}
+
+func Test_sortedJSONMarshal_success(t *testing.T) {
+	t.Parallel()
+	for _, tc := range [...]struct {
+		Name   string
+		Input  string
+		Output string
+	}{
+		{
+			Name:   `nested`,
+			Input:  `{"D":3,"a":1,"b":true,"d":[2,{"c":false}]}`,
+			Output: `{"D":3,"a":1,"b":true,"d":[2,{"c":false}]}`,
+		},
+	} {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			var input any
+			if err := json.Unmarshal([]byte(tc.Input), &input); err != nil {
+				t.Fatal(err)
+			}
+			output, err := sortedJSONMarshal(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(output) != tc.Output {
+				t.Errorf("unexpected output: %q\n%s", output, output)
+			}
+		})
+	}
 }

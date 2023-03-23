@@ -49,6 +49,10 @@ type (
 	//   14. Implement new field type in all relevant implementation modules (e.g. logiface/zerolog)
 	//   15. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface/testsuite, see also normalizeEvent
 	//   16. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface/zerolog
+	//   17. Add the field to fieldBuilderObjectInterface in method_test.go
+	//   18. Add the field to fieldBuilderArrayInterface, unless not applicable
+	//   19. Implement necessary methods and make necessary changes to add the methods to the peripheral implementations
+	//       including [ObjectBuilder], [ArrayBuilder], and [ConditionalBuilder] (may involve updating [JSONSupport])
 	Event interface {
 		// required methods
 

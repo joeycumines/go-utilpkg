@@ -7,11 +7,11 @@ import (
 var (
 	// compile time assertions
 
-	_ Parent[Event]         = (*Context[Event])(nil)
-	_ Parent[Event]         = (*Builder[Event])(nil)
-	_ Parent[Event]         = (*ArrayBuilder[Event, *Builder[Event]])(nil)
-	_ Parent[Event]         = (*Chain[Event, *Builder[Event]])(nil)
-	_ chainInterface[Event] = (*Chain[Event, *Builder[Event]])(nil)
+	_ Parent[Event]             = (*Context[Event])(nil)
+	_ Parent[Event]             = (*Builder[Event])(nil)
+	_ Parent[Event]             = (*ArrayBuilder[Event, *Builder[Event]])(nil)
+	_ Parent[Event]             = (*Chain[Event, *Builder[Event]])(nil)
+	_ chainInterfaceFull[Event] = (*Chain[Event, *Builder[Event]])(nil)
 )
 
 func ExampleBuilder_Array_nestedArrays() {
@@ -155,5 +155,47 @@ func ExampleContext_Object_nestedObjects() {
 	//[notice]
 	//l={"a":1,"b":true,"e":{"c":2,"d":false},"k":{"f":3,"j":{"g":4,"i":{"h":5}}}}
 	//m="B"
+	//msg="msg 1"
+}
+
+func ExampleBuilder_nestedObjectsAndArrays() {
+	type E = *mockSimpleEvent
+	var logger *Logger[E] = mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	)
+
+	logger.Notice().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Array().
+		Field(2).
+		Object().
+		Field(`c`, false).
+		Add().
+		As(`d`).
+		CurObject().
+		Field(`D`, 3).
+		As(`e`).
+		Array().
+		Field(5).
+		Object().
+		Field(`f`, 4).
+		Add().
+		Object().
+		Field(`g`, 6).
+		Add().
+		As(`h`).
+		End().
+		Field(`j`, `J`).
+		Log(`msg 1`)
+
+	//output:
+	//[notice]
+	//e={"D":3,"a":1,"b":true,"d":[2,{"c":false}]}
+	//h=[5,{"f":4},{"g":6}]
+	//j="J"
 	//msg="msg 1"
 }
