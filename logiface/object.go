@@ -81,6 +81,138 @@ func (x *Context[E]) objArray(obj any, key string, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *Context[E]) objString(obj any, key string, val string) (any, bool) {
+	if x.logger.shared.json.iface.CanSetString() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setString(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objBool(obj any, key string, val bool) (any, bool) {
+	if x.logger.shared.json.iface.CanSetBool() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setBool(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.logger.shared.json.iface.CanSetBase64Bytes() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setBase64Bytes(obj, key, b, enc)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objDuration(obj any, key string, d time.Duration) (any, bool) {
+	if x.logger.shared.json.iface.CanSetDuration() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setDuration(obj, key, d)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objError(obj any, err error) (any, bool) {
+	if x.logger.shared.json.iface.CanSetError() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setError(obj, err)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objInt(obj any, key string, val int) (any, bool) {
+	if x.logger.shared.json.iface.CanSetInt() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setInt(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objFloat32(obj any, key string, val float32) (any, bool) {
+	if x.logger.shared.json.iface.CanSetFloat32() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setFloat32(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objTime(obj any, key string, t time.Time) (any, bool) {
+	if x.logger.shared.json.iface.CanSetTime() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setTime(obj, key, t)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objFloat64(obj any, key string, val float64) (any, bool) {
+	if x.logger.shared.json.iface.CanSetFloat64() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setFloat64(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objInt64(obj any, key string, val int64) (any, bool) {
+	if x.logger.shared.json.iface.CanSetInt64() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setInt64(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objUint64(obj any, key string, val uint64) (any, bool) {
+	if x.logger.shared.json.iface.CanSetUint64() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setUint64(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) objNew() any {
 	return x.shared.json.newObject()
 }
@@ -107,6 +239,94 @@ func (x *Builder[E]) objObject(obj any, key string, val any) (any, bool) {
 func (x *Builder[E]) objArray(obj any, key string, val any) (any, bool) {
 	if x.shared.json.iface.CanSetArray() {
 		return x.shared.json.setArray(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objString(obj any, key string, val string) (any, bool) {
+	if x.shared.json.iface.CanSetString() {
+		return x.shared.json.setString(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objBool(obj any, key string, val bool) (any, bool) {
+	if x.shared.json.iface.CanSetBool() {
+		return x.shared.json.setBool(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.shared.json.iface.CanSetBase64Bytes() {
+		return x.shared.json.setBase64Bytes(obj, key, b, enc), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objDuration(obj any, key string, d time.Duration) (any, bool) {
+	if x.shared.json.iface.CanSetDuration() {
+		return x.shared.json.setDuration(obj, key, d), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objError(obj any, err error) (any, bool) {
+	if x.shared.json.iface.CanSetError() {
+		return x.shared.json.setError(obj, err), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objInt(obj any, key string, val int) (any, bool) {
+	if x.shared.json.iface.CanSetInt() {
+		return x.shared.json.setInt(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objFloat32(obj any, key string, val float32) (any, bool) {
+	if x.shared.json.iface.CanSetFloat32() {
+		return x.shared.json.setFloat32(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objTime(obj any, key string, t time.Time) (any, bool) {
+	if x.shared.json.iface.CanSetTime() {
+		return x.shared.json.setTime(obj, key, t), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objFloat64(obj any, key string, val float64) (any, bool) {
+	if x.shared.json.iface.CanSetFloat64() {
+		return x.shared.json.setFloat64(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objInt64(obj any, key string, val int64) (any, bool) {
+	if x.shared.json.iface.CanSetInt64() {
+		return x.shared.json.setInt64(obj, key, val), true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objUint64(obj any, key string, val uint64) (any, bool) {
+	if x.shared.json.iface.CanSetUint64() {
+		return x.shared.json.setUint64(obj, key, val), true
 	}
 	return obj, false
 }
@@ -303,6 +523,94 @@ func (x *ObjectBuilder[E, P]) objArray(obj any, key string, val any) (any, bool)
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objString(obj any, key string, val string) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objString(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objBool(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objBase64Bytes(obj, key, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objDuration(obj any, key string, d time.Duration) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objDuration(obj, key, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objError(obj any, err error) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objError(obj, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objInt(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objFloat32(obj any, key string, val float32) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objFloat32(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objTime(obj, key, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objFloat64(obj any, key string, val float64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objFloat64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objInt64(obj any, key string, val int64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objInt64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objUint64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrNew() any {
 	if x.mustUseDefaultJSONSupport() {
 		return (defaultJSONSupport[E]{}).NewArray()
@@ -346,17 +654,89 @@ func (x *ObjectBuilder[E, P]) arrObject(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
+func (x *ObjectBuilder[E, P]) arrString(arr any, val string) (any, bool) {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).AppendString(arr.([]any), val), true
+		return arr, false
 	}
-	return x.p().arrStr(arr, val)
+	return x.p().arrString(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).AppendBool(arr.([]any), val), true
+		return arr, false
 	}
 	return x.p().arrBool(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrBase64Bytes(arr, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrDuration(arr, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrError(arr any, err error) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrError(arr, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrInt(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrFloat32(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrTime(arr, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrFloat64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrInt64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrUint64(arr, val)
 }

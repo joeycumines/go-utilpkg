@@ -59,10 +59,8 @@ var (
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, *Context[*mockSimpleEvent], *Context[*mockSimpleEvent]]                                                                     = (*Context[*mockSimpleEvent])(nil)
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, ConditionalBuilder[*mockSimpleEvent], *Builder[*mockSimpleEvent]]                                                           = ConditionalBuilder[*mockSimpleEvent](nil)
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, *ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]], *ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
-	//_ fieldBuilderObjectInterface[Event, *Chain[Event, Parent[Event]], *Chain[Event, Parent[Event]]]                  = (*Chain[Event, Parent[Event]])(nil)
 
 	_ fieldBuilderArrayInterface[*mockSimpleEvent, *ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]], *ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
-	//_ fieldBuilderArrayInterface[Event, *Chain[Event, Parent[Event]], *Chain[Event, Parent[Event]]]                                                                          = (*Chain[Event, Parent[Event]])(nil)
 
 	_ fieldBuilderNestedInterface[*Builder[*mockSimpleEvent]]                           = (*ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 	_ fieldBuilderNestedInterface[*Builder[*mockSimpleEvent]]                           = (*ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
@@ -70,6 +68,5 @@ var (
 
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Builder[*mockSimpleEvent])(nil)
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Context[*mockSimpleEvent]]] = (*Context[*mockSimpleEvent])(nil)
-	// TODO ConditionalBuilder
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 )

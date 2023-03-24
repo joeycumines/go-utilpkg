@@ -38,48 +38,59 @@ func (x *objectFields[E, P]) AddMessage(msg string) bool {
 	panic(`unimplemented`)
 }
 
-func (x *objectFields[E, P]) AddError(err error) bool {
-	return false
-}
-
 func (x *objectFields[E, P]) AddString(key string, val string) (ok bool) {
+	x.b, ok = x.builder().objString(x.b, key, val)
 	return
-}
-
-func (x *objectFields[E, P]) AddInt(key string, val int) bool {
-	return false
-}
-
-func (x *objectFields[E, P]) AddFloat32(key string, val float32) bool {
-	return false
-}
-
-func (x *objectFields[E, P]) AddTime(key string, val time.Time) bool {
-	return false
-}
-
-func (x *objectFields[E, P]) AddDuration(key string, val time.Duration) bool {
-	return false
-}
-
-func (x *objectFields[E, P]) AddBase64Bytes(key string, val []byte, enc *base64.Encoding) bool {
-	return false
 }
 
 func (x *objectFields[E, P]) AddBool(key string, val bool) (ok bool) {
+	x.b, ok = x.builder().objBool(x.b, key, val)
 	return
 }
 
-func (x *objectFields[E, P]) AddFloat64(key string, val float64) bool {
-	return false
+func (x *objectFields[E, P]) AddError(err error) (ok bool) {
+	x.b, ok = x.builder().objError(x.b, err)
+	return
 }
 
-func (x *objectFields[E, P]) AddInt64(key string, val int64) bool {
-	return false
+func (x *objectFields[E, P]) AddInt(key string, val int) (ok bool) {
+	x.b, ok = x.builder().objInt(x.b, key, val)
+	return
 }
 
-func (x *objectFields[E, P]) AddUint64(key string, val uint64) bool {
-	return false
+func (x *objectFields[E, P]) AddFloat32(key string, val float32) (ok bool) {
+	x.b, ok = x.builder().objFloat32(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddTime(key string, val time.Time) (ok bool) {
+	x.b, ok = x.builder().objTime(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddDuration(key string, val time.Duration) (ok bool) {
+	x.b, ok = x.builder().objDuration(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddBase64Bytes(key string, val []byte, enc *base64.Encoding) (ok bool) {
+	x.b, ok = x.builder().objBase64Bytes(x.b, key, val, enc)
+	return
+}
+
+func (x *objectFields[E, P]) AddFloat64(key string, val float64) (ok bool) {
+	x.b, ok = x.builder().objFloat64(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddInt64(key string, val int64) (ok bool) {
+	x.b, ok = x.builder().objInt64(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddUint64(key string, val uint64) (ok bool) {
+	x.b, ok = x.builder().objUint64(x.b, key, val)
+	return
 }
 
 func (x *objectFields[E, P]) mustEmbedUnimplementedEvent() {}

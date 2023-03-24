@@ -456,3 +456,127 @@ func ExampleLogger_arrayField() {
 	//output:
 	//{"level":"info","d":[3,4],"a":"A","b":[1,2],"c":"C","message":"msg 1"}
 }
+
+func TestLogger_nestedObjectsAndArrays(t *testing.T) {
+	t.Parallel()
+	const expected = `{"level":"info","e1":{"a":1,"b":true,"d":[2,{"c":false}],"D":3,"aa":{"aa1":1,"aaa":[[],[],"aaa1"],"aa2":2}},"h1":[[2,{"aa":{"aa1":1,"aa2":2,"aaa":[[],[],"aaa1"]},"c":false}],5,{"f":4},{"g":6}],"j1":"J","e2":{"a":1,"b":true,"d":[2,{"c":false}],"D":3,"aa":{"aa1":1,"aa2":2}},"h2":[[2,{"aa":{"aa1":1,"aa2":2,"aaa":[[],[],"aaa1"]},"c":false}],5,{"f":4},{"g":6}],"j2":"J","message":"msg 1"}` + "\n"
+	t.Run(`generic`, func(t *testing.T) {
+		var b bytes.Buffer
+		nestedObjectsAndArraysInput[*Event](L.New(L.WithZerolog(zerolog.New(&b)), L.WithDPanicLevel(L.LevelEmergency())))
+		if s := b.String(); s != expected {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+	t.Run(`interface`, func(t *testing.T) {
+		var b bytes.Buffer
+		nestedObjectsAndArraysInput[logiface.Event](L.New(L.WithZerolog(zerolog.New(&b)), L.WithDPanicLevel(L.LevelEmergency())).Logger())
+		if s := b.String(); s != expected {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+}
+func nestedObjectsAndArraysInput[E logiface.Event](logger *logiface.Logger[E]) {
+	logger.Clone().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Array().
+		Field(2).
+		Object().
+		Field(`c`, false).
+		Add().
+		As(`d`).
+		CurObject().
+		Field(`D`, 3).
+		Object().
+		Field(`aa1`, 1).
+		Array().
+		Array().Add().
+		Array().Add().
+		CurArray().
+		Field(`aaa1`).
+		As(`aaa`).
+		CurObject().
+		Field(`aa2`, 2).
+		As(`aa`).
+		As(`e1`).
+		Array().
+		Array().
+		Field(2).
+		Object().
+		Object().
+		Field(`aa1`, 1).
+		Array().
+		Array().Add().
+		Array().Add().
+		CurArray().
+		Field(`aaa1`).
+		As(`aaa`).
+		CurObject().
+		Field(`aa2`, 2).
+		As(`aa`).
+		CurObject().
+		Field(`c`, false).
+		Add().
+		Add().
+		CurArray().
+		Field(5).
+		Object().
+		Field(`f`, 4).
+		Add().
+		Object().
+		Field(`g`, 6).
+		Add().
+		As(`h1`).
+		End().
+		Field(`j1`, `J`).
+		Logger().
+		Info().
+		Object().
+		Field(`a`, 1).
+		Field(`b`, true).
+		Array().
+		Field(2).
+		Object().
+		Field(`c`, false).
+		Add().
+		As(`d`).
+		CurObject().
+		Field(`D`, 3).
+		Object().
+		Field(`aa1`, 1).
+		Field(`aa2`, 2).
+		As(`aa`).
+		As(`e2`).
+		Array().
+		Array().
+		Field(2).
+		Object().
+		Object().
+		Field(`aa1`, 1).
+		Array().
+		Array().Add().
+		Array().Add().
+		CurArray().
+		Field(`aaa1`).
+		As(`aaa`).
+		CurObject().
+		Field(`aa2`, 2).
+		As(`aa`).
+		CurObject().
+		Field(`c`, false).
+		Add().
+		Add().
+		CurArray().
+		Field(5).
+		Object().
+		Field(`f`, 4).
+		Add().
+		Object().
+		Field(`g`, 6).
+		Add().
+		As(`h2`).
+		End().
+		Field(`j2`, `J`).
+		Log(`msg 1`)
+}

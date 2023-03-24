@@ -102,7 +102,7 @@ func (x *Context[E]) arrObject(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrStr(arr any, val string) (any, bool) {
+func (x *Context[E]) arrString(arr any, val string) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendString() {
 		a := arr.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
@@ -119,6 +119,114 @@ func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
 		a := arr.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
 			return shared.json.appendBool(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendBase64Bytes() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendBase64Bytes(arr, b, enc)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrDuration(arr any, d time.Duration) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendDuration() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendDuration(arr, d)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrError(arr any, err error) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendError() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendError(arr, err)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrInt(arr any, val int) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendInt() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendInt(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrFloat32(arr any, val float32) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendFloat32() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendFloat32(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrTime(arr any, t time.Time) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendTime() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendTime(arr, t)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrFloat64(arr any, val float64) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendFloat64() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendFloat64(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrInt64(arr any, val int64) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendInt64() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendInt64(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrUint64(arr any, val uint64) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendUint64() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendUint64(arr, val)
 		})
 		return arr, true
 	}
@@ -166,7 +274,7 @@ func (x *Builder[E]) arrObject(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrStr(arr any, val string) (any, bool) {
+func (x *Builder[E]) arrString(arr any, val string) (any, bool) {
 	if x.shared.json.iface.CanAppendString() {
 		return x.shared.json.appendString(arr, val), true
 	}
@@ -177,6 +285,78 @@ func (x *Builder[E]) arrStr(arr any, val string) (any, bool) {
 func (x *Builder[E]) arrBool(arr any, val bool) (any, bool) {
 	if x.shared.json.iface.CanAppendBool() {
 		return x.shared.json.appendBool(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.shared.json.iface.CanAppendBase64Bytes() {
+		return x.shared.json.appendBase64Bytes(arr, b, enc), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrDuration(arr any, d time.Duration) (any, bool) {
+	if x.shared.json.iface.CanAppendDuration() {
+		return x.shared.json.appendDuration(arr, d), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrError(arr any, err error) (any, bool) {
+	if x.shared.json.iface.CanAppendError() {
+		return x.shared.json.appendError(arr, err), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrInt(arr any, val int) (any, bool) {
+	if x.shared.json.iface.CanAppendInt() {
+		return x.shared.json.appendInt(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrFloat32(arr any, val float32) (any, bool) {
+	if x.shared.json.iface.CanAppendFloat32() {
+		return x.shared.json.appendFloat32(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrTime(arr any, t time.Time) (any, bool) {
+	if x.shared.json.iface.CanAppendTime() {
+		return x.shared.json.appendTime(arr, t), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrFloat64(arr any, val float64) (any, bool) {
+	if x.shared.json.iface.CanAppendFloat64() {
+		return x.shared.json.appendFloat64(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrInt64(arr any, val int64) (any, bool) {
+	if x.shared.json.iface.CanAppendInt64() {
+		return x.shared.json.appendInt64(arr, val), true
+	}
+	return arr, false
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrUint64(arr any, val uint64) (any, bool) {
+	if x.shared.json.iface.CanAppendUint64() {
+		return x.shared.json.appendUint64(arr, val), true
 	}
 	return arr, false
 }
@@ -379,6 +559,94 @@ func (x *ArrayBuilder[E, P]) objArray(obj any, key string, val any) (any, bool) 
 	return x.p().objArray(obj, key, val)
 }
 
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objString(obj any, key string, val string) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objString(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objBool(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objBase64Bytes(obj, key, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objDuration(obj any, key string, d time.Duration) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objDuration(obj, key, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objError(obj any, err error) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objError(obj, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objInt(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objFloat32(obj any, key string, val float32) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objFloat32(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objTime(obj, key, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objFloat64(obj any, key string, val float64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objFloat64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objInt64(obj any, key string, val int64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objInt64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return obj, false
+	}
+	return x.p().objUint64(obj, key, val)
+}
+
 func (x *ArrayBuilder[E, P]) arrNew() any {
 	if x.mustUseDefaultJSONSupport() {
 		return (defaultJSONSupport[E]{}).NewArray()
@@ -423,19 +691,91 @@ func (x *ArrayBuilder[E, P]) arrObject(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) arrStr(arr any, val string) (any, bool) {
+func (x *ArrayBuilder[E, P]) arrString(arr any, val string) (any, bool) {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).AppendString(arr.([]any), val), true
+		return arr, false
 	}
-	return x.p().arrStr(arr, val)
+	return x.p().arrString(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).AppendBool(arr.([]any), val), true
+		return arr, false
 	}
 	return x.p().arrBool(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrBase64Bytes(arr, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrDuration(arr, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrError(arr any, err error) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrError(arr, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrInt(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrFloat32(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrTime(arr, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrFloat64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrInt64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
+	if x.mustUseDefaultJSONSupport() {
+		return arr, false
+	}
+	return x.p().arrUint64(arr, val)
 }
 
 func (x *contextFieldData[E]) array(event E) error {

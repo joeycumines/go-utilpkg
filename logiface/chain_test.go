@@ -178,6 +178,17 @@ func ExampleBuilder_nestedObjectsAndArrays() {
 		As(`d`).
 		CurObject().
 		Field(`D`, 3).
+		Object().
+		Field(`aa1`, 1).
+		Array().
+		Array().Add().
+		Array().Add().
+		CurArray().
+		Field(`aaa1`).
+		As(`aaa`).
+		CurObject().
+		Field(`aa2`, 2).
+		As(`aa`).
 		As(`e`).
 		Array().
 		Field(5).
@@ -194,7 +205,7 @@ func ExampleBuilder_nestedObjectsAndArrays() {
 
 	//output:
 	//[notice]
-	//e={"D":3,"a":1,"b":true,"d":[2,{"c":false}]}
+	//e={"D":3,"a":1,"aa":{"aa1":1,"aa2":2,"aaa":[[],[],"aaa1"]},"b":true,"d":[2,{"c":false}]}
 	//h=[5,{"f":4},{"g":6}]
 	//j="J"
 	//msg="msg 1"
@@ -220,6 +231,17 @@ func ExampleContext_nestedObjectsAndArrays() {
 		As(`d`).
 		CurObject().
 		Field(`D`, 3).
+		Object().
+		Field(`aa1`, 1).
+		Array().
+		Array().Add().
+		Array().Add().
+		CurArray().
+		Field(`aaa1`).
+		As(`aaa`).
+		CurObject().
+		Field(`aa2`, 2).
+		As(`aa`).
 		As(`e`).
 		Array().
 		Field(5).
@@ -238,7 +260,7 @@ func ExampleContext_nestedObjectsAndArrays() {
 
 	//output:
 	//[notice]
-	//e={"D":3,"a":1,"b":true,"d":[2,{"c":false}]}
+	//e={"D":3,"a":1,"aa":{"aa1":1,"aa2":2,"aaa":[[],[],"aaa1"]},"b":true,"d":[2,{"c":false}]}
 	//h=[5,{"f":4},{"g":6}]
 	//j="J"
 	//msg="msg 1"

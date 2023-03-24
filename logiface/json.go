@@ -1,5 +1,10 @@
 package logiface
 
+import (
+	"encoding/base64"
+	"time"
+)
+
 type (
 	JSONSupport[E Event, O any, A any] interface {
 		NewObject() O
@@ -9,18 +14,58 @@ type (
 		SetObject(obj O, key string, val O) O
 		CanSetArray() bool
 		SetArray(obj O, key string, val A) O
+		CanSetString() bool
+		SetString(obj O, key string, val string) O
+		CanSetBool() bool
+		SetBool(obj O, key string, val bool) O
+		CanSetBase64Bytes() bool
+		SetBase64Bytes(obj O, key string, b []byte, enc *base64.Encoding) O
+		CanSetDuration() bool
+		SetDuration(obj O, key string, d time.Duration) O
+		CanSetError() bool
+		SetError(obj O, err error) O
+		CanSetInt() bool
+		SetInt(obj O, key string, val int) O
+		CanSetFloat32() bool
+		SetFloat32(obj O, key string, val float32) O
+		CanSetTime() bool
+		SetTime(obj O, key string, t time.Time) O
+		CanSetFloat64() bool
+		SetFloat64(obj O, key string, val float64) O
+		CanSetInt64() bool
+		SetInt64(obj O, key string, val int64) O
+		CanSetUint64() bool
+		SetUint64(obj O, key string, val uint64) O
 
 		NewArray() A
 		AddArray(evt E, key string, arr A)
 		AppendField(arr A, val any) A
+		CanAppendObject() bool
+		AppendObject(arr A, val O) A
 		CanAppendArray() bool
 		AppendArray(arr A, val A) A
 		CanAppendString() bool
 		AppendString(arr A, val string) A
 		CanAppendBool() bool
 		AppendBool(arr A, val bool) A
-		CanAppendObject() bool
-		AppendObject(arr A, val O) A
+		CanAppendBase64Bytes() bool
+		AppendBase64Bytes(arr A, b []byte, enc *base64.Encoding) A
+		CanAppendDuration() bool
+		AppendDuration(arr A, d time.Duration) A
+		CanAppendError() bool
+		AppendError(arr A, err error) A
+		CanAppendInt() bool
+		AppendInt(arr A, val int) A
+		CanAppendFloat32() bool
+		AppendFloat32(arr A, val float32) A
+		CanAppendTime() bool
+		AppendTime(arr A, t time.Time) A
+		CanAppendFloat64() bool
+		AppendFloat64(arr A, val float64) A
+		CanAppendInt64() bool
+		AppendInt64(arr A, val int64) A
+		CanAppendUint64() bool
+		AppendUint64(arr A, val uint64) A
 
 		mustEmbedUnimplementedJSONSupport()
 	}
@@ -28,19 +73,39 @@ type (
 	// jsonSupport is available via loggerShared.array, and models an external
 	// array builder implementation.
 	jsonSupport[E Event] struct {
-		iface        iJSONSupport[E]
-		newObject    func() any
-		addObject    func(evt E, key string, obj any)
-		setField     func(obj any, key string, val any) any
-		setObject    func(obj any, key string, val any) any
-		setArray     func(obj any, key string, val any) any
-		newArray     func() any
-		addArray     func(evt E, key string, arr any)
-		appendField  func(arr, val any) any
-		appendArray  func(arr, val any) any
-		appendObject func(arr, val any) any
-		appendString func(arr any, val string) any
-		appendBool   func(arr any, val bool) any
+		iface             iJSONSupport[E]
+		newObject         func() any
+		addObject         func(evt E, key string, obj any)
+		setField          func(obj any, key string, val any) any
+		setObject         func(obj any, key string, val any) any
+		setArray          func(obj any, key string, val any) any
+		setString         func(obj any, key string, val string) any
+		setBool           func(obj any, key string, val bool) any
+		setBase64Bytes    func(obj any, key string, b []byte, enc *base64.Encoding) any
+		setDuration       func(obj any, key string, d time.Duration) any
+		setError          func(obj any, err error) any
+		setInt            func(obj any, key string, val int) any
+		setFloat32        func(obj any, key string, val float32) any
+		setTime           func(obj any, key string, t time.Time) any
+		setFloat64        func(obj any, key string, val float64) any
+		setInt64          func(obj any, key string, val int64) any
+		setUint64         func(obj any, key string, val uint64) any
+		newArray          func() any
+		addArray          func(evt E, key string, arr any)
+		appendField       func(arr, val any) any
+		appendArray       func(arr, val any) any
+		appendObject      func(arr, val any) any
+		appendString      func(arr any, val string) any
+		appendBool        func(arr any, val bool) any
+		appendBase64Bytes func(arr any, b []byte, enc *base64.Encoding) any
+		appendDuration    func(arr any, d time.Duration) any
+		appendError       func(arr any, err error) any
+		appendInt         func(arr any, val int) any
+		appendFloat32     func(arr any, val float32) any
+		appendTime        func(arr any, t time.Time) any
+		appendFloat64     func(arr any, val float64) any
+		appendInt64       func(arr any, val int64) any
+		appendUint64      func(arr any, val uint64) any
 	}
 
 	// iJSONSupport are the [JSONSupport] methods without type-specific behavior
@@ -48,10 +113,30 @@ type (
 	iJSONSupport[E Event] interface {
 		CanSetObject() bool
 		CanSetArray() bool
+		CanSetString() bool
+		CanSetBool() bool
+		CanSetBase64Bytes() bool
+		CanSetDuration() bool
+		CanSetError() bool
+		CanSetInt() bool
+		CanSetFloat32() bool
+		CanSetTime() bool
+		CanSetFloat64() bool
+		CanSetInt64() bool
+		CanSetUint64() bool
 		CanAppendArray() bool
 		CanAppendObject() bool
 		CanAppendString() bool
 		CanAppendBool() bool
+		CanAppendBase64Bytes() bool
+		CanAppendDuration() bool
+		CanAppendError() bool
+		CanAppendInt() bool
+		CanAppendFloat32() bool
+		CanAppendTime() bool
+		CanAppendFloat64() bool
+		CanAppendInt64() bool
+		CanAppendUint64() bool
 	}
 
 	UnimplementedJSONSupport[E Event, O any, A any] struct{}
@@ -104,7 +189,42 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		setArray: func(obj any, key string, val any) any {
 			return impl.SetArray(obj.(O), key, val.(A))
 		},
-		newArray: func() any { return impl.NewArray() },
+		setString: func(obj any, key string, val string) any {
+			return impl.SetString(obj.(O), key, val)
+		},
+		setBool: func(obj any, key string, val bool) any {
+			return impl.SetBool(obj.(O), key, val)
+		},
+		setBase64Bytes: func(obj any, key string, b []byte, enc *base64.Encoding) any {
+			return impl.SetBase64Bytes(obj.(O), key, b, enc)
+		},
+		setDuration: func(obj any, key string, d time.Duration) any {
+			return impl.SetDuration(obj.(O), key, d)
+		},
+		setError: func(obj any, err error) any {
+			return impl.SetError(obj.(O), err)
+		},
+		setInt: func(obj any, key string, val int) any {
+			return impl.SetInt(obj.(O), key, val)
+		},
+		setFloat32: func(obj any, key string, val float32) any {
+			return impl.SetFloat32(obj.(O), key, val)
+		},
+		setTime: func(obj any, key string, t time.Time) any {
+			return impl.SetTime(obj.(O), key, t)
+		},
+		setFloat64: func(obj any, key string, val float64) any {
+			return impl.SetFloat64(obj.(O), key, val)
+		},
+		setInt64: func(obj any, key string, val int64) any {
+			return impl.SetInt64(obj.(O), key, val)
+		},
+		setUint64: func(obj any, key string, val uint64) any {
+			return impl.SetUint64(obj.(O), key, val)
+		},
+		newArray: func() any {
+			return impl.NewArray()
+		},
 		addArray: func(evt E, key string, arr any) {
 			impl.AddArray(evt, key, arr.(A))
 		},
@@ -123,6 +243,33 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		appendBool: func(arr any, val bool) any {
 			return impl.AppendBool(arr.(A), val)
 		},
+		appendBase64Bytes: func(arr any, b []byte, enc *base64.Encoding) any {
+			return impl.AppendBase64Bytes(arr.(A), b, enc)
+		},
+		appendDuration: func(arr any, d time.Duration) any {
+			return impl.AppendDuration(arr.(A), d)
+		},
+		appendError: func(arr any, err error) any {
+			return impl.AppendError(arr.(A), err)
+		},
+		appendInt: func(arr any, val int) any {
+			return impl.AppendInt(arr.(A), val)
+		},
+		appendFloat32: func(arr any, val float32) any {
+			return impl.AppendFloat32(arr.(A), val)
+		},
+		appendTime: func(arr any, t time.Time) any {
+			return impl.AppendTime(arr.(A), t)
+		},
+		appendFloat64: func(arr any, val float64) any {
+			return impl.AppendFloat64(arr.(A), val)
+		},
+		appendInt64: func(arr any, val int64) any {
+			return impl.AppendInt64(arr.(A), val)
+		},
+		appendUint64: func(arr any, val uint64) any {
+			return impl.AppendUint64(arr.(A), val)
+		},
 	}
 }
 
@@ -133,18 +280,38 @@ func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 		addObject: func(evt Event, key string, obj any) {
 			impl.addObject(evt.(E), key, obj)
 		},
-		setField:  impl.setField,
-		setObject: impl.setObject,
-		setArray:  impl.setArray,
-		newArray:  impl.newArray,
+		setField:       impl.setField,
+		setObject:      impl.setObject,
+		setArray:       impl.setArray,
+		setString:      impl.setString,
+		setBool:        impl.setBool,
+		setBase64Bytes: impl.setBase64Bytes,
+		setDuration:    impl.setDuration,
+		setError:       impl.setError,
+		setInt:         impl.setInt,
+		setFloat32:     impl.setFloat32,
+		setTime:        impl.setTime,
+		setFloat64:     impl.setFloat64,
+		setInt64:       impl.setInt64,
+		setUint64:      impl.setUint64,
+		newArray:       impl.newArray,
 		addArray: func(evt Event, key string, arr any) {
 			impl.addArray(evt.(E), key, arr)
 		},
-		appendField:  impl.appendField,
-		appendArray:  impl.appendArray,
-		appendObject: impl.appendObject,
-		appendString: impl.appendString,
-		appendBool:   impl.appendBool,
+		appendField:       impl.appendField,
+		appendArray:       impl.appendArray,
+		appendObject:      impl.appendObject,
+		appendString:      impl.appendString,
+		appendBool:        impl.appendBool,
+		appendBase64Bytes: impl.appendBase64Bytes,
+		appendDuration:    impl.appendDuration,
+		appendError:       impl.appendError,
+		appendInt:         impl.appendInt,
+		appendFloat32:     impl.appendFloat32,
+		appendTime:        impl.appendTime,
+		appendFloat64:     impl.appendFloat64,
+		appendInt64:       impl.appendInt64,
+		appendUint64:      impl.appendUint64,
 	}
 }
 
@@ -157,6 +324,72 @@ func (UnimplementedJSONSupport[E, O, A]) SetObject(obj O, key string, val O) O {
 func (UnimplementedJSONSupport[E, O, A]) CanSetArray() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) SetArray(obj O, key string, val A) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetString() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetString(obj O, key string, val string) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetBool() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetBool(obj O, key string, val bool) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetBase64Bytes() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetBase64Bytes(obj O, key string, b []byte, enc *base64.Encoding) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetDuration() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetDuration(obj O, key string, d time.Duration) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetError() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetError(obj O, err error) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetInt() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetInt(obj O, key string, val int) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetFloat32() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetFloat32(obj O, key string, val float32) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetTime() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetTime(obj O, key string, t time.Time) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetFloat64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetFloat64(obj O, key string, val float64) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetInt64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetInt64(obj O, key string, val int64) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetUint64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetUint64(obj O, key string, val uint64) O {
 	panic("unimplemented")
 }
 
@@ -184,9 +417,61 @@ func (UnimplementedJSONSupport[E, O, A]) AppendBool(arr A, val bool) A {
 	panic("unimplemented")
 }
 
-func (UnimplementedJSONSupport[E, O, A]) mustEmbedUnimplementedJSONSupport() {}
+func (UnimplementedJSONSupport[E, O, A]) CanAppendBase64Bytes() bool { return false }
 
-func (x defaultJSONSupport[E]) CanNewObject() bool { return true }
+func (UnimplementedJSONSupport[E, O, A]) AppendBase64Bytes(arr A, b []byte, enc *base64.Encoding) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendDuration() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendDuration(arr A, d time.Duration) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendError() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendError(arr A, err error) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendInt() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendInt(arr A, val int) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendFloat32() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendFloat32(arr A, val float32) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendTime() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendTime(arr A, t time.Time) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendFloat64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendFloat64(arr A, val float64) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendInt64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendInt64(arr A, val int64) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendUint64() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendUint64(arr A, val uint64) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) mustEmbedUnimplementedJSONSupport() {}
 
 func (x defaultJSONSupport[E]) NewObject() map[string]any { return make(map[string]any) }
 
@@ -213,9 +498,73 @@ func (x defaultJSONSupport[E]) SetArray(obj map[string]any, key string, val []an
 	return obj
 }
 
-func (x defaultJSONSupport[E]) CanNewArray() bool { return true }
+func (x defaultJSONSupport[E]) CanSetString() bool { return false }
 
-func (x defaultJSONSupport[E]) NewArray() []any { return nil }
+func (x defaultJSONSupport[E]) SetString(obj map[string]any, key string, val string) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetBool() bool { return false }
+
+func (x defaultJSONSupport[E]) SetBool(obj map[string]any, key string, val bool) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetBase64Bytes() bool { return false }
+
+func (x defaultJSONSupport[E]) SetBase64Bytes(obj map[string]any, key string, b []byte, enc *base64.Encoding) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetDuration() bool { return false }
+
+func (x defaultJSONSupport[E]) SetDuration(obj map[string]any, key string, d time.Duration) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetError() bool { return false }
+
+func (x defaultJSONSupport[E]) SetError(obj map[string]any, err error) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetInt() bool { return false }
+
+func (x defaultJSONSupport[E]) SetInt(obj map[string]any, key string, val int) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetFloat32() bool { return false }
+
+func (x defaultJSONSupport[E]) SetFloat32(obj map[string]any, key string, val float32) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetTime() bool { return false }
+
+func (x defaultJSONSupport[E]) SetTime(obj map[string]any, key string, t time.Time) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetFloat64() bool { return false }
+
+func (x defaultJSONSupport[E]) SetFloat64(obj map[string]any, key string, val float64) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetInt64() bool { return false }
+
+func (x defaultJSONSupport[E]) SetInt64(obj map[string]any, key string, val int64) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetUint64() bool { return false }
+
+func (x defaultJSONSupport[E]) SetUint64(obj map[string]any, key string, val uint64) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) NewArray() []any { return make([]any, 0) }
 
 func (x defaultJSONSupport[E]) AddArray(evt E, key string, arr []any) {
 	evt.AddField(key, arr)
@@ -237,16 +586,70 @@ func (x defaultJSONSupport[E]) AppendObject(arr []any, val map[string]any) []any
 	return append(arr, val)
 }
 
-func (x defaultJSONSupport[E]) CanAppendString() bool { return true }
+func (x defaultJSONSupport[E]) CanAppendString() bool { return false }
 
 func (x defaultJSONSupport[E]) AppendString(arr []any, val string) []any {
-	return append(arr, val)
+	panic("unimplemented")
 }
 
-func (x defaultJSONSupport[E]) CanAppendBool() bool { return true }
+func (x defaultJSONSupport[E]) CanAppendBool() bool { return false }
 
 func (x defaultJSONSupport[E]) AppendBool(arr []any, val bool) []any {
-	return append(arr, val)
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendBase64Bytes() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendBase64Bytes(arr []any, b []byte, enc *base64.Encoding) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendDuration() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendDuration(arr []any, d time.Duration) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendError() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendError(arr []any, err error) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendInt() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendInt(arr []any, val int) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendFloat32() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendFloat32(arr []any, val float32) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendTime() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendTime(arr []any, t time.Time) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendFloat64() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendFloat64(arr []any, val float64) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendInt64() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendInt64(arr []any, val int64) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendUint64() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendUint64(arr []any, val uint64) []any {
+	panic("unimplemented")
 }
 
 func (x defaultJSONSupport[E]) mustEmbedUnimplementedJSONSupport() {}

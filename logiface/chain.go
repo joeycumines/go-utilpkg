@@ -1,5 +1,10 @@
 package logiface
 
+import (
+	"encoding/base64"
+	"time"
+)
+
 const (
 	_ parentJSONType = iota
 	parentJSONTypeArray
@@ -33,13 +38,33 @@ type (
 		objField(obj any, key string, val any) any
 		objObject(obj any, key string, val any) (any, bool)
 		objArray(obj any, key string, val any) (any, bool)
+		objString(obj any, key string, val string) (any, bool)
+		objBool(obj any, key string, val bool) (any, bool)
+		objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool)
+		objDuration(obj any, key string, d time.Duration) (any, bool)
+		objError(obj any, err error) (any, bool)
+		objInt(obj any, key string, val int) (any, bool)
+		objFloat32(obj any, key string, val float32) (any, bool)
+		objTime(obj any, key string, t time.Time) (any, bool)
+		objFloat64(obj any, key string, val float64) (any, bool)
+		objInt64(obj any, key string, val int64) (any, bool)
+		objUint64(obj any, key string, val uint64) (any, bool)
 
 		arrNew() any
 		arrField(arr any, val any) any
 		arrArray(arr, val any) (any, bool)
 		arrObject(arr, val any) (any, bool)
-		arrStr(arr any, val string) (any, bool)
+		arrString(arr any, val string) (any, bool)
 		arrBool(arr any, val bool) (any, bool)
+		arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool)
+		arrDuration(arr any, d time.Duration) (any, bool)
+		arrError(arr any, err error) (any, bool)
+		arrInt(arr any, val int) (any, bool)
+		arrFloat32(arr any, val float32) (any, bool)
+		arrTime(arr any, t time.Time) (any, bool)
+		arrFloat64(arr any, val float64) (any, bool)
+		arrInt64(arr any, val int64) (any, bool)
+		arrUint64(arr any, val uint64) (any, bool)
 	}
 
 	chainInterface interface {
@@ -270,6 +295,61 @@ func (x *Chain[E, P]) objArray(obj any, key string, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objString(obj any, key string, val string) (any, bool) {
+	return x.current().objString(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objBool(obj any, key string, val bool) (any, bool) {
+	return x.current().objBool(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
+	return x.current().objBase64Bytes(obj, key, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objDuration(obj any, key string, d time.Duration) (any, bool) {
+	return x.current().objDuration(obj, key, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objError(obj any, err error) (any, bool) {
+	return x.current().objError(obj, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objInt(obj any, key string, val int) (any, bool) {
+	return x.current().objInt(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objFloat32(obj any, key string, val float32) (any, bool) {
+	return x.current().objFloat32(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objTime(obj any, key string, t time.Time) (any, bool) {
+	return x.current().objTime(obj, key, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objFloat64(obj any, key string, val float64) (any, bool) {
+	return x.current().objFloat64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objInt64(obj any, key string, val int64) (any, bool) {
+	return x.current().objInt64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
+	return x.current().objUint64(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrNew() any {
 	return x.current().arrNew()
 }
@@ -295,13 +375,58 @@ func (x *Chain[E, P]) arrObject(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrStr(arr any, val string) (any, bool) {
-	return x.current().arrStr(arr, val)
+func (x *Chain[E, P]) arrString(arr any, val string) (any, bool) {
+	return x.current().arrString(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrBool(arr any, val bool) (any, bool) {
 	return x.current().arrBool(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
+	return x.current().arrBase64Bytes(arr, b, enc)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
+	return x.current().arrDuration(arr, d)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrError(arr any, err error) (any, bool) {
+	return x.current().arrError(arr, err)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrInt(arr any, val int) (any, bool) {
+	return x.current().arrInt(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrFloat32(arr any, val float32) (any, bool) {
+	return x.current().arrFloat32(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrTime(arr any, t time.Time) (any, bool) {
+	return x.current().arrTime(arr, t)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrFloat64(arr any, val float64) (any, bool) {
+	return x.current().arrFloat64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrInt64(arr any, val int64) (any, bool) {
+	return x.current().arrInt64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrUint64(arr any, val uint64) (any, bool) {
+	return x.current().arrUint64(arr, val)
 }
 
 func (x *Chain[E, P]) current() (p Parent[E]) {

@@ -217,6 +217,78 @@ func (x *Logger) SetField(obj *zerolog.Event, key string, val any) *zerolog.Even
 	return obj.Interface(key, val)
 }
 
+func (x *Logger) CanSetObject() bool { return true }
+
+func (x *Logger) SetObject(obj *zerolog.Event, key string, val *zerolog.Event) *zerolog.Event {
+	return obj.Dict(key, val)
+}
+
+func (x *Logger) CanSetArray() bool { return true }
+
+func (x *Logger) SetArray(obj *zerolog.Event, key string, val *zerolog.Array) *zerolog.Event {
+	return obj.Array(key, val)
+}
+
+func (x *Logger) CanSetString() bool { return true }
+
+func (x *Logger) SetString(obj *zerolog.Event, key string, val string) *zerolog.Event {
+	return obj.Str(key, val)
+}
+
+func (x *Logger) CanSetBool() bool { return true }
+
+func (x *Logger) SetBool(obj *zerolog.Event, key string, val bool) *zerolog.Event {
+	return obj.Bool(key, val)
+}
+
+func (x *Logger) CanSetDuration() bool { return true }
+
+func (x *Logger) SetDuration(obj *zerolog.Event, key string, d time.Duration) *zerolog.Event {
+	return obj.Dur(key, d)
+}
+
+func (x *Logger) CanSetError() bool { return true }
+
+func (x *Logger) SetError(obj *zerolog.Event, err error) *zerolog.Event {
+	return obj.Err(err)
+}
+
+func (x *Logger) CanSetInt() bool { return true }
+
+func (x *Logger) SetInt(obj *zerolog.Event, key string, val int) *zerolog.Event {
+	return obj.Int(key, val)
+}
+
+func (x *Logger) CanSetFloat32() bool { return true }
+
+func (x *Logger) SetFloat32(obj *zerolog.Event, key string, val float32) *zerolog.Event {
+	return obj.Float32(key, val)
+}
+
+func (x *Logger) CanSetTime() bool { return true }
+
+func (x *Logger) SetTime(obj *zerolog.Event, key string, t time.Time) *zerolog.Event {
+	return obj.Time(key, t)
+}
+
+func (x *Logger) CanSetFloat64() bool { return true }
+
+func (x *Logger) SetFloat64(obj *zerolog.Event, key string, val float64) *zerolog.Event {
+	return obj.Float64(key, val)
+}
+
+func (x *Logger) CanSetInt64() bool { return true }
+
+func (x *Logger) SetInt64(obj *zerolog.Event, key string, val int64) *zerolog.Event {
+	return obj.Int64(key, val)
+}
+
+func (x *Logger) CanSetUint64() bool { return true }
+
+func (x *Logger) SetUint64(obj *zerolog.Event, key string, val uint64) *zerolog.Event {
+	return obj.Uint64(key, val)
+}
+
 func (x *Logger) NewArray() *zerolog.Array { return zerolog.Arr() }
 
 func (x *Logger) AddArray(evt *Event, key string, arr *zerolog.Array) {
@@ -225,6 +297,12 @@ func (x *Logger) AddArray(evt *Event, key string, arr *zerolog.Array) {
 
 func (x *Logger) AppendField(arr *zerolog.Array, val any) *zerolog.Array {
 	return arr.Interface(val)
+}
+
+func (x *Logger) CanAppendObject() bool { return true }
+
+func (x *Logger) AppendObject(arr *zerolog.Array, val *zerolog.Event) *zerolog.Array {
+	return arr.Dict(val)
 }
 
 func (x *Logger) CanAppendString() bool { return true }
@@ -237,4 +315,52 @@ func (x *Logger) CanAppendBool() bool { return true }
 
 func (x *Logger) AppendBool(arr *zerolog.Array, val bool) *zerolog.Array {
 	return arr.Bool(val)
+}
+
+func (x *Logger) CanAppendDuration() bool { return true }
+
+func (x *Logger) AppendDuration(arr *zerolog.Array, d time.Duration) *zerolog.Array {
+	return arr.Dur(d)
+}
+
+func (x *Logger) CanAppendError() bool { return true }
+
+func (x *Logger) AppendError(arr *zerolog.Array, err error) *zerolog.Array {
+	return arr.Err(err)
+}
+
+func (x *Logger) CanAppendInt() bool { return true }
+
+func (x *Logger) AppendInt(arr *zerolog.Array, val int) *zerolog.Array {
+	return arr.Int(val)
+}
+
+func (x *Logger) CanAppendFloat32() bool { return true }
+
+func (x *Logger) AppendFloat32(arr *zerolog.Array, val float32) *zerolog.Array {
+	return arr.Float32(val)
+}
+
+func (x *Logger) CanAppendTime() bool { return true }
+
+func (x *Logger) AppendTime(arr *zerolog.Array, t time.Time) *zerolog.Array {
+	return arr.Time(t)
+}
+
+func (x *Logger) CanAppendFloat64() bool { return true }
+
+func (x *Logger) AppendFloat64(arr *zerolog.Array, val float64) *zerolog.Array {
+	return arr.Float64(val)
+}
+
+func (x *Logger) CanAppendInt64() bool { return true }
+
+func (x *Logger) AppendInt64(arr *zerolog.Array, val int64) *zerolog.Array {
+	return arr.Int64(val)
+}
+
+func (x *Logger) CanAppendUint64() bool { return true }
+
+func (x *Logger) AppendUint64(arr *zerolog.Array, val uint64) *zerolog.Array {
+	return arr.Uint64(val)
 }

@@ -43,28 +43,33 @@ func (x *arrayFields[E, P]) AddError(err error) bool {
 }
 
 func (x *arrayFields[E, P]) AddString(_ string, val string) (ok bool) {
-	x.b, ok = x.builder().arrStr(x.b, val)
+	x.b, ok = x.builder().arrString(x.b, val)
 	return
 }
 
-func (x *arrayFields[E, P]) AddInt(_ string, val int) bool {
-	return false
+func (x *arrayFields[E, P]) AddInt(_ string, val int) (ok bool) {
+	x.b, ok = x.builder().arrInt(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddFloat32(_ string, val float32) bool {
-	return false
+func (x *arrayFields[E, P]) AddFloat32(_ string, val float32) (ok bool) {
+	x.b, ok = x.builder().arrFloat32(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddTime(_ string, val time.Time) bool {
-	return false
+func (x *arrayFields[E, P]) AddTime(_ string, val time.Time) (ok bool) {
+	x.b, ok = x.builder().arrTime(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddDuration(_ string, val time.Duration) bool {
-	return false
+func (x *arrayFields[E, P]) AddDuration(_ string, val time.Duration) (ok bool) {
+	x.b, ok = x.builder().arrDuration(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddBase64Bytes(_ string, val []byte, enc *base64.Encoding) bool {
-	return false
+func (x *arrayFields[E, P]) AddBase64Bytes(_ string, val []byte, enc *base64.Encoding) (ok bool) {
+	x.b, ok = x.builder().arrBase64Bytes(x.b, val, enc)
+	return
 }
 
 func (x *arrayFields[E, P]) AddBool(_ string, val bool) (ok bool) {
@@ -72,16 +77,19 @@ func (x *arrayFields[E, P]) AddBool(_ string, val bool) (ok bool) {
 	return
 }
 
-func (x *arrayFields[E, P]) AddFloat64(_ string, val float64) bool {
-	return false
+func (x *arrayFields[E, P]) AddFloat64(_ string, val float64) (ok bool) {
+	x.b, ok = x.builder().arrFloat64(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddInt64(_ string, val int64) bool {
-	return false
+func (x *arrayFields[E, P]) AddInt64(_ string, val int64) (ok bool) {
+	x.b, ok = x.builder().arrInt64(x.b, val)
+	return
 }
 
-func (x *arrayFields[E, P]) AddUint64(_ string, val uint64) bool {
-	return false
+func (x *arrayFields[E, P]) AddUint64(_ string, val uint64) (ok bool) {
+	x.b, ok = x.builder().arrUint64(x.b, val)
+	return
 }
 
 func (x *arrayFields[E, P]) mustEmbedUnimplementedEvent() {}
