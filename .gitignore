@@ -1,2 +1,4 @@
 /config.mak
 /logiface/zerolog/benchmarks
+coverage.out
+/coverage-all.out

@@ -64,8 +64,10 @@ BENCHMARK_FILES := $(addprefix $(BENCHMARK_DIR)/,$(addsuffix .txt,$(call lc,$(BE
 BENCHMARK_NAME_TO_LC := $(foreach name,$(BENCHMARK_NAMES),$(name)$(BENCHMARK_NAME_SEPARATOR)$(call lc,$(name)))
 benchmark_lc_to_name = $(patsubst %$(BENCHMARK_NAME_SEPARATOR)$1,%,$(filter %$(BENCHMARK_NAME_SEPARATOR)$1,$(BENCHMARK_NAME_TO_LC)))
 
+.PHONY: all
 all: bench
 
+.PHONY: clean
 clean:
 ifeq ($(OS),Windows_NT)
 	del /Q /S $(BENCHMARK_DIR)

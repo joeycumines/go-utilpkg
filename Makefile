@@ -49,6 +49,9 @@ GO_TEST ?= $(GO) test $(GO_FLAGS) $(GO_TEST_FLAGS)
 GO_BUILD ?= $(GO) build $(GO_FLAGS)
 GO_VET ?= $(GO) vet $(GO_FLAGS)
 GO_FMT ?= $(GO) fmt
+GO_COVERAGE_MODULE_FILE ?= coverage.out
+GO_COVERAGE_ALL_MODULES_FILE ?= coverage-all.out
+GO_TOOL_COVER ?= $(GO) tool cover
 GODOC ?= godoc
 GODOC_FLAGS ?= -http=:6060
 STATICCHECK ?= staticcheck
@@ -208,6 +211,34 @@ $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
 
+# cover: runs the go test tool with -covermode=count and generates a coverage report
+
+COVER_TARGETS := $(addprefix cover.,$(GO_MODULE_SLUGS))
+
+.PHONY: cover
+cover: $(COVER_TARGETS)
+	echo mode: count >$(GO_COVERAGE_ALL_MODULES_FILE)
+	$(foreach d,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES),$(cover__TEMPLATE))
+	$(GO_TOOL_COVER) -html=$(GO_COVERAGE_ALL_MODULES_FILE)
+ifeq ($(OS),Windows_NT)
+define cover__TEMPLATE =
+type $(subst /,\,$(call go_module_slug_to_path,$d)/$(GO_COVERAGE_MODULE_FILE)) | more +1 | findstr /v /r "^$$" >>$(GO_COVERAGE_ALL_MODULES_FILE)
+
+endef
+else
+define cover__TEMPLATE =
+tail -n +2 $(call go_module_slug_to_path,$d)/$(GO_COVERAGE_MODULE_FILE) >>$(GO_COVERAGE_ALL_MODULES_FILE)
+
+endef
+endif
+
+.PHONY: $(addprefix cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): cover.%:
+	$(GO_TEST) -coverprofile=$(call go_module_slug_to_path,$*)/$(GO_COVERAGE_MODULE_FILE) -covermode=count $(call go_module_slug_to_path,$*)/...
+
+.PHONY: $(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): cover.%:
+
 # fmt: runs go fmt on the module
 
 FMT_TARGETS := $(addprefix fmt.,$(GO_MODULE_SLUGS))
@@ -315,4 +346,13 @@ FORCE:
 list:
 ifneq ($(OS),Windows_NT)
 	@LC_ALL=C $(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
+endif
+
+.PHONY: clean
+clean: CLEAN_PATHS := $(GO_COVERAGE_ALL_MODULES_FILE) $(addsuffix /$(GO_COVERAGE_MODULE_FILE),$(GO_MODULE_PATHS))
+clean:
+ifeq ($(OS),Windows_NT)
+	del /Q /S $(subst /,\,$(CLEAN_PATHS))
+else
+	rm -rf $(CLEAN_PATHS)
 endif
