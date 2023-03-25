@@ -10,9 +10,10 @@ type (
 
 	//lint:ignore U1000 it is or will be used
 	contextFieldData[E Event] struct {
-		key    string
-		shared *loggerShared[E]
-		values []func(shared *loggerShared[E], target any) any
+		options []any
+		key     string
+		shared  *loggerShared[E]
+		values  []func(shared *loggerShared[E], event E, target any) any
 	}
 
 	arrayBuilderInterface interface {
@@ -26,12 +27,12 @@ type (
 //
 // In Go, generic methods are not allowed to introduce cyclic dependencies on
 // generic types, and cannot introduce further generic types.
-func Array[E Event, P Parent[E]](p P) (arr *ArrayBuilder[E, P]) {
+func Array[E Event, P Parent[E]](p P, options ...any) (arr *ArrayBuilder[E, P]) {
 	if p.Enabled() {
 		arr = (*ArrayBuilder[E, P])(refPoolGet())
 		arr.a = p
 		// note: takes into account mustUseDefaultJSONSupport
-		arr.b = arr.arrNew()
+		arr.b = arr.arrNew(options)
 	}
 	return
 }
@@ -46,8 +47,8 @@ func (x *Context[E]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrNew() any {
-	return new(contextFieldData[E])
+func (x *Context[E]) arrNew(options []any) any {
+	return &contextFieldData[E]{options: options}
 }
 
 //lint:ignore U1000 it is or will be used
@@ -61,7 +62,7 @@ func (x *Context[E]) jsonArray(key string, arr any) {
 //lint:ignore U1000 it is or will be used
 func (x *Context[E]) arrField(arr any, val any) any {
 	a := arr.(*contextFieldData[E])
-	a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+	a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 		return shared.json.appendField(arr, val)
 	})
 	return arr
@@ -72,10 +73,10 @@ func (x *Context[E]) arrArray(arr, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendArray() {
 		a := arr.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newArray()
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
+			val := shared.json.newArray(event, v.options)
 			for _, f := range v.values {
-				val = f(shared, val)
+				val = f(shared, event, val)
 			}
 			return shared.json.appendArray(arr, val)
 		})
@@ -89,10 +90,10 @@ func (x *Context[E]) arrObject(arr, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendObject() {
 		a := arr.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newObject()
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
+			val := shared.json.newObject(event, v.options)
 			for _, f := range v.values {
-				val = f(shared, val)
+				val = f(shared, event, val)
 			}
 			return shared.json.appendObject(arr, val)
 		})
@@ -105,7 +106,7 @@ func (x *Context[E]) arrObject(arr, val any) (any, bool) {
 func (x *Context[E]) arrString(arr any, val string) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendString() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendString(arr, val)
 		})
 		return arr, true
@@ -117,7 +118,7 @@ func (x *Context[E]) arrString(arr any, val string) (any, bool) {
 func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendBool() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendBool(arr, val)
 		})
 		return arr, true
@@ -129,7 +130,7 @@ func (x *Context[E]) arrBool(arr any, val bool) (any, bool) {
 func (x *Context[E]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendBase64Bytes() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendBase64Bytes(arr, b, enc)
 		})
 		return arr, true
@@ -141,7 +142,7 @@ func (x *Context[E]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (an
 func (x *Context[E]) arrDuration(arr any, d time.Duration) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendDuration() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendDuration(arr, d)
 		})
 		return arr, true
@@ -153,7 +154,7 @@ func (x *Context[E]) arrDuration(arr any, d time.Duration) (any, bool) {
 func (x *Context[E]) arrError(arr any, err error) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendError() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendError(arr, err)
 		})
 		return arr, true
@@ -165,7 +166,7 @@ func (x *Context[E]) arrError(arr any, err error) (any, bool) {
 func (x *Context[E]) arrInt(arr any, val int) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendInt() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendInt(arr, val)
 		})
 		return arr, true
@@ -177,7 +178,7 @@ func (x *Context[E]) arrInt(arr any, val int) (any, bool) {
 func (x *Context[E]) arrFloat32(arr any, val float32) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendFloat32() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendFloat32(arr, val)
 		})
 		return arr, true
@@ -189,7 +190,7 @@ func (x *Context[E]) arrFloat32(arr any, val float32) (any, bool) {
 func (x *Context[E]) arrTime(arr any, t time.Time) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendTime() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendTime(arr, t)
 		})
 		return arr, true
@@ -201,7 +202,7 @@ func (x *Context[E]) arrTime(arr any, t time.Time) (any, bool) {
 func (x *Context[E]) arrFloat64(arr any, val float64) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendFloat64() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendFloat64(arr, val)
 		})
 		return arr, true
@@ -213,7 +214,7 @@ func (x *Context[E]) arrFloat64(arr any, val float64) (any, bool) {
 func (x *Context[E]) arrInt64(arr any, val int64) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendInt64() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendInt64(arr, val)
 		})
 		return arr, true
@@ -225,7 +226,7 @@ func (x *Context[E]) arrInt64(arr any, val int64) (any, bool) {
 func (x *Context[E]) arrUint64(arr any, val uint64) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendUint64() {
 		a := arr.(*contextFieldData[E])
-		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+		a.values = append(a.values, func(shared *loggerShared[E], event E, arr any) any {
 			return shared.json.appendUint64(arr, val)
 		})
 		return arr, true
@@ -243,8 +244,8 @@ func (x *Builder[E]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrNew() any {
-	return x.shared.json.newArray()
+func (x *Builder[E]) arrNew(options []any) any {
+	return x.shared.json.newArray(x.Event, options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -515,11 +516,11 @@ func (x *ArrayBuilder[E, P]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) objNew() any {
+func (x *ArrayBuilder[E, P]) objNew(options []any) any {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewObject()
+		return make(map[string]any)
 	}
-	return x.p().objNew()
+	return x.p().objNew(options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -647,11 +648,11 @@ func (x *ArrayBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bo
 	return x.p().objUint64(obj, key, val)
 }
 
-func (x *ArrayBuilder[E, P]) arrNew() any {
+func (x *ArrayBuilder[E, P]) arrNew(options []any) any {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewArray()
+		return make([]any, 0)
 	}
-	return x.p().arrNew()
+	return x.p().arrNew(options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -779,18 +780,18 @@ func (x *ArrayBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
 }
 
 func (x *contextFieldData[E]) array(event E) error {
-	arr := x.shared.json.newArray()
+	arr := x.shared.json.newArray(event, x.options)
 	for _, v := range x.values {
-		arr = v(x.shared, arr)
+		arr = v(x.shared, event, arr)
 	}
 	x.shared.json.addArray(event, x.key, arr)
 	return nil
 }
 
 func (x *contextFieldData[E]) object(event E) error {
-	obj := x.shared.json.newObject()
+	obj := x.shared.json.newObject(event, x.options)
 	for _, v := range x.values {
-		obj = v(x.shared, obj)
+		obj = v(x.shared, event, obj)
 	}
 	x.shared.json.addObject(event, x.key, obj)
 	return nil

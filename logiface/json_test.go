@@ -7,10 +7,10 @@ import (
 
 type (
 	minimalJSONSupportMethods[E Event, O any, A any] interface {
-		NewObject() O
+		NewObject(evt E, options ...any) O
 		AddObject(evt E, key string, obj O)
 		SetField(obj O, key string, val any) O
-		NewArray() A
+		NewArray(evt E, options ...any) A
 		AddArray(evt E, key string, arr A)
 		AppendField(arr A, val any) A
 	}

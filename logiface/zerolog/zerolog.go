@@ -205,7 +205,7 @@ func (x *Logger) newEvent(level logiface.Level) *zerolog.Event {
 	}
 }
 
-func (x *Logger) NewObject() *zerolog.Event {
+func (x *Logger) NewObject(evt *Event, options ...any) *zerolog.Event {
 	return zerolog.Dict()
 }
 
@@ -289,7 +289,7 @@ func (x *Logger) SetUint64(obj *zerolog.Event, key string, val uint64) *zerolog.
 	return obj.Uint64(key, val)
 }
 
-func (x *Logger) NewArray() *zerolog.Array { return zerolog.Arr() }
+func (x *Logger) NewArray(evt *Event, options ...any) *zerolog.Array { return zerolog.Arr() }
 
 func (x *Logger) AddArray(evt *Event, key string, arr *zerolog.Array) {
 	evt.Z.Array(key, arr)

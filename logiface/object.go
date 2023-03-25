@@ -14,19 +14,19 @@ type (
 	}
 )
 
-func Object[E Event, P Parent[E]](p P) (obj *ObjectBuilder[E, P]) {
+func Object[E Event, P Parent[E]](p P, options ...any) (obj *ObjectBuilder[E, P]) {
 	if p.Enabled() {
 		obj = (*ObjectBuilder[E, P])(refPoolGet())
 		obj.a = p
 		// note: takes into account mustUseDefaultJSONSupport
-		obj.b = p.objNew()
+		obj.b = p.objNew(options)
 	}
 	return
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) objNew() any {
-	return new(contextFieldData[E])
+func (x *Context[E]) objNew(options []any) any {
+	return &contextFieldData[E]{options: options}
 }
 
 //lint:ignore U1000 it is or will be used
@@ -40,7 +40,7 @@ func (x *Context[E]) jsonObject(key string, arr any) {
 //lint:ignore U1000 it is or will be used
 func (x *Context[E]) objField(obj any, key string, val any) any {
 	o := obj.(*contextFieldData[E])
-	o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+	o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 		return shared.json.setField(obj, key, val)
 	})
 	return obj
@@ -51,10 +51,10 @@ func (x *Context[E]) objObject(obj any, key string, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanSetObject() {
 		o := obj.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newObject()
+		o.values = append(o.values, func(shared *loggerShared[E], event E, arr any) any {
+			val := shared.json.newObject(event, v.options)
 			for _, f := range v.values {
-				val = f(shared, val)
+				val = f(shared, event, val)
 			}
 			return shared.json.setObject(arr, key, val)
 		})
@@ -68,10 +68,10 @@ func (x *Context[E]) objArray(obj any, key string, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanSetArray() {
 		o := obj.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
-			val := shared.json.newArray()
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
+			val := shared.json.newArray(event, v.options)
 			for _, f := range v.values {
-				val = f(shared, val)
+				val = f(shared, event, val)
 			}
 			return shared.json.setArray(obj, key, val)
 		})
@@ -84,7 +84,7 @@ func (x *Context[E]) objArray(obj any, key string, val any) (any, bool) {
 func (x *Context[E]) objString(obj any, key string, val string) (any, bool) {
 	if x.logger.shared.json.iface.CanSetString() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setString(obj, key, val)
 		})
 		return obj, true
@@ -96,7 +96,7 @@ func (x *Context[E]) objString(obj any, key string, val string) (any, bool) {
 func (x *Context[E]) objBool(obj any, key string, val bool) (any, bool) {
 	if x.logger.shared.json.iface.CanSetBool() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setBool(obj, key, val)
 		})
 		return obj, true
@@ -108,7 +108,7 @@ func (x *Context[E]) objBool(obj any, key string, val bool) (any, bool) {
 func (x *Context[E]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
 	if x.logger.shared.json.iface.CanSetBase64Bytes() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setBase64Bytes(obj, key, b, enc)
 		})
 		return obj, true
@@ -120,7 +120,7 @@ func (x *Context[E]) objBase64Bytes(obj any, key string, b []byte, enc *base64.E
 func (x *Context[E]) objDuration(obj any, key string, d time.Duration) (any, bool) {
 	if x.logger.shared.json.iface.CanSetDuration() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setDuration(obj, key, d)
 		})
 		return obj, true
@@ -132,7 +132,7 @@ func (x *Context[E]) objDuration(obj any, key string, d time.Duration) (any, boo
 func (x *Context[E]) objError(obj any, err error) (any, bool) {
 	if x.logger.shared.json.iface.CanSetError() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setError(obj, err)
 		})
 		return obj, true
@@ -144,7 +144,7 @@ func (x *Context[E]) objError(obj any, err error) (any, bool) {
 func (x *Context[E]) objInt(obj any, key string, val int) (any, bool) {
 	if x.logger.shared.json.iface.CanSetInt() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setInt(obj, key, val)
 		})
 		return obj, true
@@ -156,7 +156,7 @@ func (x *Context[E]) objInt(obj any, key string, val int) (any, bool) {
 func (x *Context[E]) objFloat32(obj any, key string, val float32) (any, bool) {
 	if x.logger.shared.json.iface.CanSetFloat32() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setFloat32(obj, key, val)
 		})
 		return obj, true
@@ -168,7 +168,7 @@ func (x *Context[E]) objFloat32(obj any, key string, val float32) (any, bool) {
 func (x *Context[E]) objTime(obj any, key string, t time.Time) (any, bool) {
 	if x.logger.shared.json.iface.CanSetTime() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setTime(obj, key, t)
 		})
 		return obj, true
@@ -180,7 +180,7 @@ func (x *Context[E]) objTime(obj any, key string, t time.Time) (any, bool) {
 func (x *Context[E]) objFloat64(obj any, key string, val float64) (any, bool) {
 	if x.logger.shared.json.iface.CanSetFloat64() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setFloat64(obj, key, val)
 		})
 		return obj, true
@@ -192,7 +192,7 @@ func (x *Context[E]) objFloat64(obj any, key string, val float64) (any, bool) {
 func (x *Context[E]) objInt64(obj any, key string, val int64) (any, bool) {
 	if x.logger.shared.json.iface.CanSetInt64() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setInt64(obj, key, val)
 		})
 		return obj, true
@@ -204,7 +204,7 @@ func (x *Context[E]) objInt64(obj any, key string, val int64) (any, bool) {
 func (x *Context[E]) objUint64(obj any, key string, val uint64) (any, bool) {
 	if x.logger.shared.json.iface.CanSetUint64() {
 		o := obj.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+		o.values = append(o.values, func(shared *loggerShared[E], event E, obj any) any {
 			return shared.json.setUint64(obj, key, val)
 		})
 		return obj, true
@@ -213,8 +213,8 @@ func (x *Context[E]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) objNew() any {
-	return x.shared.json.newObject()
+func (x *Builder[E]) objNew(options []any) any {
+	return x.shared.json.newObject(x.Event, options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -482,11 +482,11 @@ func (x *ObjectBuilder[E, P]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) objNew() any {
+func (x *ObjectBuilder[E, P]) objNew(options []any) any {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewObject()
+		return make(map[string]any)
 	}
-	return x.p().objNew()
+	return x.p().objNew(options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -611,11 +611,11 @@ func (x *ObjectBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, b
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) arrNew() any {
+func (x *ObjectBuilder[E, P]) arrNew(options []any) any {
 	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewArray()
+		return make([]any, 0)
 	}
-	return x.p().arrNew()
+	return x.p().arrNew(options)
 }
 
 //lint:ignore U1000 it is or will be used

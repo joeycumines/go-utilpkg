@@ -7,7 +7,7 @@ import (
 
 type (
 	JSONSupport[E Event, O any, A any] interface {
-		NewObject() O
+		NewObject(evt E, options ...any) O
 		AddObject(evt E, key string, obj O)
 		SetField(obj O, key string, val any) O
 		CanSetObject() bool
@@ -37,7 +37,7 @@ type (
 		CanSetUint64() bool
 		SetUint64(obj O, key string, val uint64) O
 
-		NewArray() A
+		NewArray(evt E, options ...any) A
 		AddArray(evt E, key string, arr A)
 		AppendField(arr A, val any) A
 		CanAppendObject() bool
@@ -74,7 +74,7 @@ type (
 	// array builder implementation.
 	jsonSupport[E Event] struct {
 		iface             iJSONSupport[E]
-		newObject         func() any
+		newObject         func(evt E, options []any) any
 		addObject         func(evt E, key string, obj any)
 		setField          func(obj any, key string, val any) any
 		setObject         func(obj any, key string, val any) any
@@ -90,7 +90,7 @@ type (
 		setFloat64        func(obj any, key string, val float64) any
 		setInt64          func(obj any, key string, val int64) any
 		setUint64         func(obj any, key string, val uint64) any
-		newArray          func() any
+		newArray          func(evt E, options []any) any
 		addArray          func(evt E, key string, arr any)
 		appendField       func(arr, val any) any
 		appendArray       func(arr, val any) any
@@ -174,8 +174,8 @@ func (LoggerFactory[E]) WithJSONSupport(impl JSONSupport[E, any, any]) Option[E]
 func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSupport[E] {
 	return &jsonSupport[E]{
 		iface: impl,
-		newObject: func() any {
-			return impl.NewObject()
+		newObject: func(evt E, options []any) any {
+			return impl.NewObject(evt, options...)
 		},
 		addObject: func(evt E, key string, obj any) {
 			impl.AddObject(evt, key, obj.(O))
@@ -222,8 +222,8 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		setUint64: func(obj any, key string, val uint64) any {
 			return impl.SetUint64(obj.(O), key, val)
 		},
-		newArray: func() any {
-			return impl.NewArray()
+		newArray: func(evt E, options []any) any {
+			return impl.NewArray(evt, options...)
 		},
 		addArray: func(evt E, key string, arr any) {
 			impl.AddArray(evt, key, arr.(A))
@@ -275,8 +275,10 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 
 func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 	return &jsonSupport[Event]{
-		iface:     impl.iface,
-		newObject: impl.newObject,
+		iface: impl.iface,
+		newObject: func(evt Event, options []any) any {
+			return impl.newObject(evt.(E), options)
+		},
 		addObject: func(evt Event, key string, obj any) {
 			impl.addObject(evt.(E), key, obj)
 		},
@@ -294,7 +296,9 @@ func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 		setFloat64:     impl.setFloat64,
 		setInt64:       impl.setInt64,
 		setUint64:      impl.setUint64,
-		newArray:       impl.newArray,
+		newArray: func(evt Event, options []any) any {
+			return impl.newArray(evt.(E), options)
+		},
 		addArray: func(evt Event, key string, arr any) {
 			impl.addArray(evt.(E), key, arr)
 		},
@@ -473,7 +477,9 @@ func (UnimplementedJSONSupport[E, O, A]) AppendUint64(arr A, val uint64) A {
 
 func (UnimplementedJSONSupport[E, O, A]) mustEmbedUnimplementedJSONSupport() {}
 
-func (x defaultJSONSupport[E]) NewObject() map[string]any { return make(map[string]any) }
+func (x defaultJSONSupport[E]) NewObject(evt E, options ...any) map[string]any {
+	return make(map[string]any)
+}
 
 func (x defaultJSONSupport[E]) AddObject(evt E, key string, obj map[string]any) {
 	evt.AddField(key, obj)
@@ -564,7 +570,7 @@ func (x defaultJSONSupport[E]) SetUint64(obj map[string]any, key string, val uin
 	panic("unimplemented")
 }
 
-func (x defaultJSONSupport[E]) NewArray() []any { return make([]any, 0) }
+func (x defaultJSONSupport[E]) NewArray(evt E, options ...any) []any { return make([]any, 0) }
 
 func (x defaultJSONSupport[E]) AddArray(evt E, key string, arr []any) {
 	evt.AddField(key, arr)

@@ -34,7 +34,7 @@ type (
 		jsonObject(key string, obj any)
 		jsonArray(key string, arr any)
 
-		objNew() any
+		objNew(options []any) any
 		objField(obj any, key string, val any) any
 		objObject(obj any, key string, val any) (any, bool)
 		objArray(obj any, key string, val any) (any, bool)
@@ -50,7 +50,7 @@ type (
 		objInt64(obj any, key string, val int64) (any, bool)
 		objUint64(obj any, key string, val uint64) (any, bool)
 
-		arrNew() any
+		arrNew(options []any) any
 		arrField(arr any, val any) any
 		arrArray(arr, val any) (any, bool)
 		arrObject(arr, val any) (any, bool)
@@ -79,30 +79,30 @@ type (
 	parentJSONType int
 )
 
-func (x *Context[E]) Array() *ArrayBuilder[E, *Chain[E, *Context[E]]] {
+func (x *Context[E]) Array(options ...any) *ArrayBuilder[E, *Chain[E, *Context[E]]] {
 	if x.Enabled() {
-		return Array[E](newChainParent[E](x))
+		return Array[E](newChainParent[E](x), options...)
 	}
 	return nil
 }
 
-func (x *Context[E]) Object() *ObjectBuilder[E, *Chain[E, *Context[E]]] {
+func (x *Context[E]) Object(options ...any) *ObjectBuilder[E, *Chain[E, *Context[E]]] {
 	if x.Enabled() {
-		return Object[E](newChainParent[E](x))
+		return Object[E](newChainParent[E](x), options...)
 	}
 	return nil
 }
 
-func (x *Builder[E]) Array() *ArrayBuilder[E, *Chain[E, *Builder[E]]] {
+func (x *Builder[E]) Array(options ...any) *ArrayBuilder[E, *Chain[E, *Builder[E]]] {
 	if x.Enabled() {
-		return Array[E](newChainParent[E](x))
+		return Array[E](newChainParent[E](x), options...)
 	}
 	return nil
 }
 
-func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
+func (x *Builder[E]) Object(options ...any) *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
 	if x.Enabled() {
-		return Object[E](newChainParent[E](x))
+		return Object[E](newChainParent[E](x), options...)
 	}
 	return nil
 }
@@ -110,12 +110,12 @@ func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
 // Array attempts to initialize a sub-array, which will succeed only if the
 // parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
-func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
+func (x *ArrayBuilder[E, P]) Array(options ...any) *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
-			return Array[E](c.newChain(x).(P))
+			return Array[E](c.newChain(x).(P), options...)
 		}
 	}
 	return nil
@@ -124,12 +124,12 @@ func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 // Object attempts to initialize a sub-object, which will succeed only if the
 // receiver is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
-func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
+func (x *ArrayBuilder[E, P]) Object(options ...any) *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
-			return Object[E](c.newChain(x).(P))
+			return Object[E](c.newChain(x).(P), options...)
 		}
 	}
 	return nil
@@ -138,12 +138,12 @@ func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 // Array attempts to initialize a sub-array, which will succeed only if the
 // parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
-func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
+func (x *ObjectBuilder[E, P]) Array(options ...any) *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
-			return Array[E](c.newChain(x).(P))
+			return Array[E](c.newChain(x).(P), options...)
 		}
 	}
 	return nil
@@ -152,27 +152,27 @@ func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 // Object attempts to initialize a sub-object, which will succeed only if the
 // parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
-func (x *ObjectBuilder[E, P]) Object() *ObjectBuilder[E, P] {
+func (x *ObjectBuilder[E, P]) Object(options ...any) *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
-			return Object[E](c.newChain(x).(P))
+			return Object[E](c.newChain(x).(P), options...)
 		}
 	}
 	return nil
 }
 
-func (x *Chain[E, P]) Array() *ArrayBuilder[E, *Chain[E, P]] {
+func (x *Chain[E, P]) Array(options ...any) *ArrayBuilder[E, *Chain[E, P]] {
 	if x.Enabled() {
-		return Array[E](x)
+		return Array[E](x, options...)
 	}
 	return nil
 }
 
-func (x *Chain[E, P]) Object() *ObjectBuilder[E, *Chain[E, P]] {
+func (x *Chain[E, P]) Object(options ...any) *ObjectBuilder[E, *Chain[E, P]] {
 	if x.Enabled() {
-		return Object[E](x)
+		return Object[E](x, options...)
 	}
 	return nil
 }
@@ -272,8 +272,8 @@ func (x *Chain[E, P]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) objNew() any {
-	return x.current().objNew()
+func (x *Chain[E, P]) objNew(options []any) any {
+	return x.current().objNew(options)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -352,8 +352,8 @@ func (x *Chain[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrNew() any {
-	return x.current().arrNew()
+func (x *Chain[E, P]) arrNew(options []any) any {
+	return x.current().arrNew(options)
 }
 
 //lint:ignore U1000 it is or will be used
