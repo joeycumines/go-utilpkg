@@ -47,9 +47,12 @@ type fieldBuilderNestedInterface[TParent any] interface {
 	Add() TParent
 }
 
-type fieldBuilderFactoryInterface[TEvent Event, P Parent[TEvent]] interface {
-	Array() *ArrayBuilder[TEvent, P]
-	Object() *ObjectBuilder[TEvent, P]
+type fieldBuilderFactoryInterface[TEvent Event, TParent interface {
+	Parent[TEvent]
+	comparable
+}] interface {
+	Array() *ArrayBuilder[TEvent, *Chain[TEvent, TParent]]
+	Object() *ObjectBuilder[TEvent, *Chain[TEvent, TParent]]
 }
 
 var (
@@ -66,7 +69,9 @@ var (
 	_ fieldBuilderNestedInterface[*Builder[*mockSimpleEvent]]                           = (*ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 	_ fieldBuilderNestedInterface[*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Builder[*mockSimpleEvent])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Context[*mockSimpleEvent]]] = (*Context[*mockSimpleEvent])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
+	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Builder[*mockSimpleEvent])(nil)
+	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Context[*mockSimpleEvent]] = (*Context[*mockSimpleEvent])(nil)
+	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
+	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
 )
