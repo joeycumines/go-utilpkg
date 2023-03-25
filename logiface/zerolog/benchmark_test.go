@@ -1210,3 +1210,55 @@ func BenchmarkArray_Bool(b *testing.B) {
 		},
 	}).Run(b)
 }
+
+func BenchmarkEventTemplate1(b *testing.B) {
+	benchmarkEventTemplate(b, 1)
+}
+
+func BenchmarkEventTemplate2(b *testing.B) {
+	benchmarkEventTemplate(b, 2)
+}
+
+func BenchmarkEventTemplate3(b *testing.B) {
+	benchmarkEventTemplate(b, 3)
+}
+
+func BenchmarkEventTemplate4(b *testing.B) {
+	benchmarkEventTemplate(b, 4)
+}
+
+func BenchmarkEventTemplate5(b *testing.B) {
+	benchmarkEventTemplate(b, 5)
+}
+
+func benchmarkEventTemplate(b *testing.B, num int) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := newEventTemplateBaselineLogger(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					eventTemplates[num-1].Baseline(logger)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := newEventTemplateGenericLogger(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					eventTemplates[num-1].Generic(logger)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := newEventTemplateInterfaceLogger(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					eventTemplates[num-1].Interface(logger)
+				}
+			})
+		},
+	}).Run(b)
+}

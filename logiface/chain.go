@@ -215,12 +215,14 @@ func (x *Chain[E, P]) As(key string) *Chain[E, P] {
 		case arrayBuilderInterface:
 			if current, ok := current.as(key).(*Chain[E, P]); ok && current != nil && current.a == x.a {
 				x.setCurrent(current.current())
+				refPoolPut((*refPoolItem)(current))
 			} else {
 				x.setCurrent(nil)
 			}
 		case objectBuilderInterface:
 			if current, ok := current.as(key).(*Chain[E, P]); ok && current != nil && current.a == x.a {
 				x.setCurrent(current.current())
+				refPoolPut((*refPoolItem)(current))
 			} else {
 				x.setCurrent(nil)
 			}
