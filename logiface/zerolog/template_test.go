@@ -942,5 +942,33 @@ func newEventTemplate5() *eventTemplate {
 			Log("")
 	}
 
+	t.CallForNesting = func(logger *logiface.Logger[*Event]) {
+		logger.Info().
+			Call(func(b *logiface.Builder[*Event]) {
+				b.Array().
+					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+						b.Object().
+							Add().
+							End()
+					}).
+					As("k").
+					End()
+			}).
+			Log("")
+	}
+
+	t.CallForNestingSansChain = func(logger *logiface.Logger[*Event]) {
+		logger.Info().
+			Call(func(b *logiface.Builder[*Event]) {
+				logiface.Array[*Event](b).
+					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Builder[*Event]]) {
+						logiface.Object[*Event](b).
+							Add()
+					}).
+					As("k")
+			}).
+			Log("")
+	}
+
 	return &t
 }

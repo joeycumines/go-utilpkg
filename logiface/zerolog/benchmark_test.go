@@ -33,6 +33,11 @@ func Benchmark(b *testing.B) {
 }
 */
 
+const (
+	variantCallForNesting          = `callForNesting`
+	variantCallForNestingSansChain = `callForNestingSansChain`
+)
+
 var (
 	fakeMessage  = "Test logging, but use a somewhat realistic message length."
 	shortMessage = "Test logging."
@@ -1056,6 +1061,45 @@ func BenchmarkArray_Str(b *testing.B) {
 				}
 			})
 		},
+		Variants: []Variant{
+			{variantCallForNesting, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Call(func(b *logiface.Builder[*Event]) {
+								b.Array().
+									Str(`a`).
+									Str(`b`).
+									Str(`c`).
+									Str(`d`).
+									As(`k`).
+									End()
+							}).
+							Log(shortMessage)
+					}
+				})
+			}},
+			{variantCallForNestingSansChain, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Call(func(b *logiface.Builder[*Event]) {
+								logiface.Array[*Event](b).
+									Str(`a`).
+									Str(`b`).
+									Str(`c`).
+									Str(`d`).
+									As(`k`)
+							}).
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
 	}).Run(b)
 }
 
@@ -1299,7 +1343,7 @@ func benchmarkEventTemplate(b *testing.B, num int, enabled bool) {
 			})
 		},
 		Variants: []Variant{
-			{`callForNesting`, func(b *testing.B) {
+			{variantCallForNesting, func(b *testing.B) {
 				if eventTemplates[num-1].CallForNesting == nil {
 					b.Skip(`not implemented`)
 				}
@@ -1311,7 +1355,7 @@ func benchmarkEventTemplate(b *testing.B, num int, enabled bool) {
 					}
 				})
 			}},
-			{`callForNestingSansChain`, func(b *testing.B) {
+			{variantCallForNestingSansChain, func(b *testing.B) {
 				if eventTemplates[num-1].CallForNestingSansChain == nil {
 					b.Skip(`not implemented`)
 				}
