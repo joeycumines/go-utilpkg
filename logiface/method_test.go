@@ -60,7 +60,6 @@ var (
 
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent], *Builder[*mockSimpleEvent]]                                                                     = (*Builder[*mockSimpleEvent])(nil)
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, *Context[*mockSimpleEvent], *Context[*mockSimpleEvent]]                                                                     = (*Context[*mockSimpleEvent])(nil)
-	_ fieldBuilderObjectInterface[*mockSimpleEvent, ConditionalBuilder[*mockSimpleEvent], *Builder[*mockSimpleEvent]]                                                           = ConditionalBuilder[*mockSimpleEvent](nil)
 	_ fieldBuilderObjectInterface[*mockSimpleEvent, *ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]], *ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 
 	_ fieldBuilderArrayInterface[*mockSimpleEvent, *ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]], *ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*ArrayBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)

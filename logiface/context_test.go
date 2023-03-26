@@ -98,13 +98,6 @@ func TestEvent_min(t *testing.T) {
 			b.Log(message)
 		})
 	})
-	t.Run(`enabledBuilder`, func(t *testing.T) {
-		test(func(l *Logger[*mockSimpleEvent]) {
-			b := l.Info()
-			fluentCallerTemplate[ConditionalBuilder[*mockSimpleEvent]]((*enabledBuilder[*mockSimpleEvent])(b))
-			b.Log(message)
-		})
-	})
 }
 
 // TestEvent_max tests an implementation using the complete set of available Event methods.
@@ -301,13 +294,6 @@ func TestEvent_max(t *testing.T) {
 		test(func(l *Logger[*mockComplexEvent]) {
 			b := l.Info()
 			fluentCallerTemplate(b)
-			b.Log(message)
-		})
-	})
-	t.Run(`enabledBuilder`, func(t *testing.T) {
-		test(func(l *Logger[*mockComplexEvent]) {
-			b := l.Info()
-			fluentCallerTemplate[ConditionalBuilder[*mockComplexEvent]]((*enabledBuilder[*mockComplexEvent])(b))
 			b.Log(message)
 		})
 	})
