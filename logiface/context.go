@@ -75,7 +75,7 @@ func (x *Context[E]) Logger() *Logger[E] {
 // Call is provided as a convenience, to facilitate code which uses the
 // receiver explicitly, without breaking out of the fluent-style API.
 // The provided fn will not be called if not [Context.Enabled].
-func (x *Context[E]) Call(fn func(c *Context[E])) *Context[E] {
+func (x *Context[E]) Call(fn func(b *Context[E])) *Context[E] {
 	if x.Enabled() {
 		fn(x)
 	}

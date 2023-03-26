@@ -53,11 +53,16 @@ BENCHMARK_NAMES = \
 	Array_Str \
 	NestedArrays \
 	Array_Bool \
-	EventTemplate1 \
-	EventTemplate2 \
-	EventTemplate3 \
-	EventTemplate4 \
-	EventTemplate5 \
+	EventTemplate1_Enabled \
+	EventTemplate1_Disabled \
+	EventTemplate2_Enabled \
+	EventTemplate2_Disabled \
+	EventTemplate3_Enabled \
+	EventTemplate3_Disabled \
+	EventTemplate4_Enabled \
+	EventTemplate4_Disabled \
+	EventTemplate5_Enabled \
+	EventTemplate5_Disabled \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =

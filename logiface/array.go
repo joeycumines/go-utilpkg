@@ -408,7 +408,7 @@ func (x *ArrayBuilder[E, P]) Add() (p P) {
 // Call is provided as a convenience, to facilitate code which uses the
 // receiver explicitly, without breaking out of the fluent-style API.
 // The provided fn will not be called if not [ArrayBuilder.Enabled].
-func (x *ArrayBuilder[E, P]) Call(fn func(a *ArrayBuilder[E, P])) *ArrayBuilder[E, P] {
+func (x *ArrayBuilder[E, P]) Call(fn func(b *ArrayBuilder[E, P])) *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		fn(x)
 	}

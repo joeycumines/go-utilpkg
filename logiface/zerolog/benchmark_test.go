@@ -47,6 +47,12 @@ type VariantBenchmark struct {
 	Generic func(b *testing.B)
 	// Interface should be identical to Generic, except using the generic logger returned by L.New().Logger()
 	Interface func(b *testing.B)
+	Variants  []Variant
+}
+
+type Variant struct {
+	Name      string
+	Benchmark func(b *testing.B)
 }
 
 // Run runs all three benchmarks as sub-benchmarks of the provided testing.B.
@@ -59,6 +65,9 @@ func (x VariantBenchmark) Run(b *testing.B) {
 	}
 	if x.Interface != nil {
 		b.Run(`variant=interface`, x.Interface)
+	}
+	for _, variant := range x.Variants {
+		b.Run(`variant=`+variant.Name, variant.Benchmark)
 	}
 }
 
@@ -1211,30 +1220,53 @@ func BenchmarkArray_Bool(b *testing.B) {
 	}).Run(b)
 }
 
-func BenchmarkEventTemplate1(b *testing.B) {
-	benchmarkEventTemplate(b, 1)
+func BenchmarkEventTemplate1_Enabled(b *testing.B) {
+	benchmarkEventTemplate(b, 1, true)
 }
 
-func BenchmarkEventTemplate2(b *testing.B) {
-	benchmarkEventTemplate(b, 2)
+func BenchmarkEventTemplate1_Disabled(b *testing.B) {
+	benchmarkEventTemplate(b, 1, false)
 }
 
-func BenchmarkEventTemplate3(b *testing.B) {
-	benchmarkEventTemplate(b, 3)
+func BenchmarkEventTemplate2_Enabled(b *testing.B) {
+	benchmarkEventTemplate(b, 2, true)
 }
 
-func BenchmarkEventTemplate4(b *testing.B) {
-	benchmarkEventTemplate(b, 4)
+func BenchmarkEventTemplate2_Disabled(b *testing.B) {
+	benchmarkEventTemplate(b, 2, false)
 }
 
-func BenchmarkEventTemplate5(b *testing.B) {
-	benchmarkEventTemplate(b, 5)
+func BenchmarkEventTemplate3_Enabled(b *testing.B) {
+	benchmarkEventTemplate(b, 3, true)
 }
 
-func benchmarkEventTemplate(b *testing.B, num int) {
+func BenchmarkEventTemplate3_Disabled(b *testing.B) {
+	benchmarkEventTemplate(b, 3, false)
+}
+
+func BenchmarkEventTemplate4_Enabled(b *testing.B) {
+	benchmarkEventTemplate(b, 4, true)
+}
+
+func BenchmarkEventTemplate4_Disabled(b *testing.B) {
+	benchmarkEventTemplate(b, 4, false)
+}
+
+func BenchmarkEventTemplate5_Enabled(b *testing.B) {
+	benchmarkEventTemplate(b, 5, true)
+}
+
+func BenchmarkEventTemplate5_Disabled(b *testing.B) {
+	benchmarkEventTemplate(b, 5, false)
+}
+
+func benchmarkEventTemplate(b *testing.B, num int, enabled bool) {
 	(VariantBenchmark{
 		Baseline: func(b *testing.B) {
-			logger := newEventTemplateBaselineLogger(io.Discard)
+			if eventTemplates[num-1].Baseline == nil {
+				b.Skip(`not implemented`)
+			}
+			logger := newEventTemplateBaselineLogger(io.Discard, enabled)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
@@ -1243,7 +1275,10 @@ func benchmarkEventTemplate(b *testing.B, num int) {
 			})
 		},
 		Generic: func(b *testing.B) {
-			logger := newEventTemplateGenericLogger(io.Discard)
+			if eventTemplates[num-1].Generic == nil {
+				b.Skip(`not implemented`)
+			}
+			logger := newEventTemplateGenericLogger(io.Discard, enabled)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
@@ -1252,13 +1287,42 @@ func benchmarkEventTemplate(b *testing.B, num int) {
 			})
 		},
 		Interface: func(b *testing.B) {
-			logger := newEventTemplateInterfaceLogger(io.Discard)
+			if eventTemplates[num-1].Interface == nil {
+				b.Skip(`not implemented`)
+			}
+			logger := newEventTemplateInterfaceLogger(io.Discard, enabled)
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					eventTemplates[num-1].Interface(logger)
 				}
 			})
+		},
+		Variants: []Variant{
+			{`callForNesting`, func(b *testing.B) {
+				if eventTemplates[num-1].CallForNesting == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateGenericLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].CallForNesting(logger)
+					}
+				})
+			}},
+			{`callForNestingSansChain`, func(b *testing.B) {
+				if eventTemplates[num-1].CallForNestingSansChain == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateGenericLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].CallForNestingSansChain(logger)
+					}
+				})
+			}},
 		},
 	}).Run(b)
 }

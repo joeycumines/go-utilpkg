@@ -373,7 +373,7 @@ func (x *ObjectBuilder[E, P]) Add() (p P) {
 // Call is provided as a convenience, to facilitate code which uses the
 // receiver explicitly, without breaking out of the fluent-style API.
 // The provided fn will not be called if not [ObjectBuilder.Enabled].
-func (x *ObjectBuilder[E, P]) Call(fn func(a *ObjectBuilder[E, P])) *ObjectBuilder[E, P] {
+func (x *ObjectBuilder[E, P]) Call(fn func(b *ObjectBuilder[E, P])) *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		fn(x)
 	}

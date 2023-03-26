@@ -605,7 +605,7 @@ func ExampleContext_Call_arrayField() {
 
 	// while not a necessary part of the Array API, this pattern makes things easier to manage
 	subLogger := logger.Clone().
-		Call(func(c *Context[E]) { Array[E](c).Field(1).Field(2).Field(3).As(`arr_field`) }).
+		Call(func(b *Context[E]) { Array[E](b).Field(1).Field(2).Field(3).As(`arr_field`) }).
 		Str(`str_field`, `str_value`).
 		Logger()
 
@@ -616,7 +616,7 @@ func ExampleContext_Call_arrayField() {
 }
 
 func TestContext_Call_disabled(t *testing.T) {
-	(*Context[*mockSimpleEvent])(nil).Call(func(c *Context[*mockSimpleEvent]) { t.Error() })
+	(*Context[*mockSimpleEvent])(nil).Call(func(b *Context[*mockSimpleEvent]) { t.Error() })
 }
 
 func TestBuilder_root(t *testing.T) {
