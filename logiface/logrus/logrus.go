@@ -41,15 +41,7 @@ var (
 	// package.
 	L = LoggerFactory{}
 
-	// Pool is provided as a companion to Event.
-	//
-	// Must contain only non-nil *Event values, with an associated non-nil
-	// *logrus.Entry, and non-nil logrus.Fields, note that all fields
-	// (including the fields map) must be reset, prior to putting events back.
-	//
-	// WARNING: "all fields reset" includes all three levels (Event,
-	// Event.Entry, and Event.Entry.Data).
-	Pool = sync.Pool{New: func() any {
+	eventPool = sync.Pool{New: func() any {
 		return &Event{Entry: &logrus.Entry{
 			Data: make(logrus.Fields, 6),
 		}}
@@ -107,7 +99,7 @@ func (x *Logger) NewEvent(level logiface.Level) *Event {
 	// used in conjunction with an external writer, since the check is only
 	// on write (not on builder init)
 
-	event := Pool.Get().(*Event)
+	event := eventPool.Get().(*Event)
 	event.lvl = level
 	event.Entry.Logger = x.Logrus
 
@@ -118,7 +110,7 @@ func (x *Logger) ReleaseEvent(event *Event) {
 	maps.Clear(event.Entry.Data)
 	*event.Entry = logrus.Entry{Data: event.Entry.Data}
 	*event = Event{Entry: event.Entry}
-	Pool.Put(event)
+	eventPool.Put(event)
 }
 
 func (x *Logger) Write(event *Event) error {

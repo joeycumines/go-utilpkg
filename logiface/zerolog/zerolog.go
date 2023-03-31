@@ -46,11 +46,7 @@ var (
 	// package.
 	L = LoggerFactory{}
 
-	// Pool is provided as a companion to Event.
-	//
-	// Must contain only non-nil *Event values, reset to the zero value of
-	// Event.
-	Pool = sync.Pool{New: func() any { return new(Event) }}
+	eventPool = sync.Pool{New: func() any { return new(Event) }}
 )
 
 // WithZerolog configures a logiface logger to use a zerolog logger.
@@ -146,7 +142,7 @@ func (x *Logger) NewEvent(level logiface.Level) *Event {
 		return nil
 	}
 
-	event := Pool.Get().(*Event)
+	event := eventPool.Get().(*Event)
 	event.lvl = level
 	event.Z = z
 
@@ -157,7 +153,7 @@ func (x *Logger) ReleaseEvent(event *Event) {
 	// need to be able to handle default values, because NewEvent may return nil
 	if event != nil {
 		*event = Event{}
-		Pool.Put(event)
+		eventPool.Put(event)
 	}
 }
 
