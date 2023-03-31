@@ -59,6 +59,11 @@ type eventBuilderInterface[TEvent Event, TFluent any] interface {
 	Modifier(val Modifier[TEvent]) TFluent
 }
 
+type commonFluentInterface[TEvent Event] interface {
+	Enabled() bool
+	Root() *Logger[TEvent]
+}
+
 var (
 	// compile time assertions
 
@@ -80,4 +85,11 @@ var (
 
 	_ eventBuilderInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Builder[*mockSimpleEvent])(nil)
 	_ eventBuilderInterface[*mockSimpleEvent, *Context[*mockSimpleEvent]] = (*Context[*mockSimpleEvent])(nil)
+
+	_ commonFluentInterface[*mockSimpleEvent] = (*Builder[*mockSimpleEvent])(nil)
+	_ commonFluentInterface[*mockSimpleEvent] = (*Context[*mockSimpleEvent])(nil)
+	_ commonFluentInterface[*mockSimpleEvent] = (*Logger[*mockSimpleEvent])(nil)
+	_ commonFluentInterface[*mockSimpleEvent] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
+	_ commonFluentInterface[*mockSimpleEvent] = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ commonFluentInterface[*mockSimpleEvent] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
 )

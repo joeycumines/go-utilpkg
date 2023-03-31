@@ -468,9 +468,9 @@ func (x *ObjectBuilder[E, P]) mustUseDefaultJSONSupport() bool {
 	}
 }
 
-//lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) root() *Logger[E] {
-	return x.p().root()
+// Root returns the root [Logger] for this instance.
+func (x *ObjectBuilder[E, P]) Root() *Logger[E] {
+	return x.p().Root()
 }
 
 //lint:ignore U1000 it is or will be used
@@ -494,7 +494,7 @@ func (x *ObjectBuilder[E, P]) jsonObject(key string, obj any) {
 	if !x.jsonSupport().CanSetObject() {
 		x.b = x.objField(x.b, key, obj.(map[string]any))
 	} else if v, ok := x.objObject(x.b, key, obj); !ok {
-		x.root().DPanic().Log(`logiface: implementation disallows writing an object to an object`)
+		x.Root().DPanic().Log(`logiface: implementation disallows writing an object to an object`)
 	} else {
 		x.b = v
 	}
@@ -623,7 +623,7 @@ func (x *ObjectBuilder[E, P]) jsonArray(key string, arr any) {
 	if !x.jsonSupport().CanSetArray() {
 		x.b = x.objField(x.b, key, arr.([]any))
 	} else if v, ok := x.objArray(x.b, key, arr); !ok {
-		x.root().DPanic().Log(`logiface: implementation disallows writing an array to an object`)
+		x.Root().DPanic().Log(`logiface: implementation disallows writing an array to an object`)
 	} else {
 		x.b = v
 	}

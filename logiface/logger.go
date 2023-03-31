@@ -218,7 +218,7 @@ func (LoggerFactory[E]) New(options ...Option[E]) *Logger[E] {
 // Level returns the logger's [Level], note that it will be [LevelDisabled] if
 // it isn't writeable, or if the provided level was any disabled value.
 func (x *Logger[E]) Level() Level {
-	if x.canWrite() && x.shared.level.Enabled() {
+	if x.Enabled() && x.shared.level.Enabled() {
 		return x.shared.level
 	}
 	return LevelDisabled
@@ -306,7 +306,7 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 // Clone returns a new Context, which is a mechanism to configure a sub-logger,
 // which will be available via Context.Logger, note that it may return nil.
 func (x *Logger[E]) Clone() *Context[E] {
-	if !x.canWrite() {
+	if !x.Enabled() {
 		return nil
 	}
 
@@ -412,14 +412,15 @@ func (x *Logger[E]) DPanic() *Builder[E] {
 	return nil
 }
 
-func (x *Logger[E]) canWrite() bool {
+// Enabled returns true if the logger can write.
+func (x *Logger[E]) Enabled() bool {
 	return x != nil &&
 		x.shared != nil &&
 		x.shared.writer != nil
 }
 
 func (x *Logger[E]) canLog(level Level) bool {
-	return x.canWrite() &&
+	return x.Enabled() &&
 		level.Enabled() &&
 		(level <= x.shared.level || level > LevelTrace)
 }

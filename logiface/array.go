@@ -501,9 +501,9 @@ func (x *ArrayBuilder[E, P]) mustUseDefaultJSONSupport() bool {
 	}
 }
 
-//lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) root() *Logger[E] {
-	return x.p().root()
+// Root returns the root [Logger] for this instance.
+func (x *ArrayBuilder[E, P]) Root() *Logger[E] {
+	return x.p().Root()
 }
 
 //lint:ignore U1000 it is or will be used
@@ -525,11 +525,11 @@ func (x *ArrayBuilder[E, P]) objNew() any {
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) jsonObject(key string, obj any) {
 	if key != `` {
-		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
+		x.Root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
 	} else if !x.jsonSupport().CanAppendObject() {
 		x.b = x.arrField(x.b, obj.(map[string]any))
 	} else if v, ok := x.arrObject(x.b, obj); !ok {
-		x.root().DPanic().Log(`logiface: implementation disallows writing an object to an array`)
+		x.Root().DPanic().Log(`logiface: implementation disallows writing an object to an array`)
 	} else {
 		x.b = v
 	}
@@ -657,11 +657,11 @@ func (x *ArrayBuilder[E, P]) arrNew() any {
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) jsonArray(key string, arr any) {
 	if key != `` {
-		x.root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
+		x.Root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
 	} else if !x.jsonSupport().CanAppendArray() {
 		x.b = x.arrField(x.b, arr.([]any))
 	} else if v, ok := x.arrArray(x.b, arr); !ok {
-		x.root().DPanic().Log(`logiface: implementation disallows writing an array to an array`)
+		x.Root().DPanic().Log(`logiface: implementation disallows writing an array to an array`)
 	} else {
 		x.b = v
 	}

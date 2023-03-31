@@ -660,7 +660,7 @@ func TestLogger_Level_minus100(t *testing.T) {
 		mockL.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
 		mockL.WithLevel(-100),
 	)
-	if !l.canWrite() || l.shared.level != -100 {
+	if !l.Enabled() || l.shared.level != -100 {
 		t.Fatal()
 	}
 	if v := l.Level(); v != LevelDisabled {
@@ -674,7 +674,7 @@ func TestLogger_Level_crit(t *testing.T) {
 		mockL.WithWriter(&mockSimpleWriter{Writer: io.Discard}),
 		mockL.WithLevel(LevelCritical),
 	)
-	if !l.canWrite() || l.shared.level != LevelCritical {
+	if !l.Enabled() || l.shared.level != LevelCritical {
 		t.Fatal()
 	}
 	if v := l.Level(); v != LevelCritical {

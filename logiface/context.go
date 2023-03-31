@@ -95,7 +95,8 @@ func (x *Context[E]) add(fn ModifierFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
 }
 
-func (x *Context[E]) root() *Logger[E] {
+// Root returns the root [Logger] for this instance.
+func (x *Context[E]) Root() *Logger[E] {
 	if x != nil {
 		return x.logger.Root()
 	}
@@ -257,7 +258,8 @@ func (x *Builder[E]) release() {
 	}
 }
 
-func (x *Builder[E]) root() *Logger[E] {
+// Root returns the root [Logger] for this instance.
+func (x *Builder[E]) Root() *Logger[E] {
 	if x != nil && x.shared != nil {
 		return x.shared.root
 	}

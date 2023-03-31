@@ -20,8 +20,8 @@ type (
 	// [Builder], [Context], [ArrayBuilder], and others.
 	Parent[E Event] interface {
 		Enabled() bool
+		Root() *Logger[E]
 
-		root() *Logger[E]
 		jsonSupport() iJSONSupport[E]
 
 		// these methods are effectively jsonSupport, but vary depending on
@@ -113,7 +113,7 @@ func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
 func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
-			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
+			x.Root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
 			return Array[E](c.newChain(x).(P))
 		}
@@ -127,7 +127,7 @@ func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
-			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
+			x.Root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
 			return Object[E](c.newChain(x).(P))
 		}
@@ -141,7 +141,7 @@ func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
-			x.root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
+			x.Root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
 			return Array[E](c.newChain(x).(P))
 		}
@@ -155,7 +155,7 @@ func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 func (x *ObjectBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
-			x.root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
+			x.Root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
 			return Object[E](c.newChain(x).(P))
 		}
@@ -187,7 +187,7 @@ func (x *Chain[E, P]) CurArray() *ArrayBuilder[E, *Chain[E, P]] {
 			if current, ok := current.(*ArrayBuilder[E, *Chain[E, P]]); ok {
 				return current
 			}
-			x.root().DPanic().Log(`logiface: cannot access a non-array as an array`)
+			x.Root().DPanic().Log(`logiface: cannot access a non-array as an array`)
 		}
 	}
 	return nil
@@ -203,7 +203,7 @@ func (x *Chain[E, P]) CurObject() *ObjectBuilder[E, *Chain[E, P]] {
 			if current, ok := current.(*ObjectBuilder[E, *Chain[E, P]]); ok {
 				return current
 			}
-			x.root().DPanic().Log(`logiface: cannot access a non-object as an object`)
+			x.Root().DPanic().Log(`logiface: cannot access a non-object as an object`)
 		}
 	}
 	return nil
@@ -230,7 +230,7 @@ func (x *Chain[E, P]) As(key string) *Chain[E, P] {
 			x.setCurrent(nil)
 		}
 		if x.current() == nil {
-			x.root().DPanic().Log(`logiface: chain as failed: called on invalid or terminated parent`)
+			x.Root().DPanic().Log(`logiface: chain as failed: called on invalid or terminated parent`)
 		}
 	}
 	return x
@@ -259,9 +259,10 @@ func (x *Chain[E, P]) Enabled() bool {
 	return false
 }
 
-func (x *Chain[E, P]) root() *Logger[E] {
+// Root returns the root [Logger] for this instance.
+func (x *Chain[E, P]) Root() *Logger[E] {
 	if current := x.current(); current != nil {
-		return current.root()
+		return current.Root()
 	}
 	return nil
 }

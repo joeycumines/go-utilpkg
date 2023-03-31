@@ -606,36 +606,36 @@ func TestContext_Call_disabled(t *testing.T) {
 }
 
 func TestBuilder_root(t *testing.T) {
-	if (*Builder[*mockSimpleEvent])(nil).root() != nil {
+	if (*Builder[*mockSimpleEvent])(nil).Root() != nil {
 		t.Error()
 	}
-	if (&Builder[*mockSimpleEvent]{}).root() != nil {
+	if (&Builder[*mockSimpleEvent]{}).Root() != nil {
 		t.Error()
 	}
-	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}).root() != nil {
+	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}).Root() != nil {
 		t.Error()
 	}
 	var l Logger[*mockSimpleEvent]
-	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}).root() != &l {
+	if (&Builder[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}).Root() != &l {
 		t.Error()
 	}
 }
 
 func TestContext_root(t *testing.T) {
-	if (*Context[*mockSimpleEvent])(nil).root() != nil {
+	if (*Context[*mockSimpleEvent])(nil).Root() != nil {
 		t.Error()
 	}
-	if (&Context[*mockSimpleEvent]{}).root() != nil {
+	if (&Context[*mockSimpleEvent]{}).Root() != nil {
 		t.Error()
 	}
-	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{}}).root() != nil {
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{}}).Root() != nil {
 		t.Error()
 	}
-	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}}).root() != nil {
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{}}}).Root() != nil {
 		t.Error()
 	}
 	var l Logger[*mockSimpleEvent]
-	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}}).root() != &l {
+	if (&Context[*mockSimpleEvent]{logger: &Logger[*mockSimpleEvent]{shared: &loggerShared[*mockSimpleEvent]{root: &l}}}).Root() != &l {
 		t.Error()
 	}
 }
