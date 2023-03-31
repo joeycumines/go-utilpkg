@@ -55,6 +55,10 @@ type fieldBuilderFactoryInterface[TEvent Event, TParent interface {
 	Object() *ObjectBuilder[TEvent, *Chain[TEvent, TParent]]
 }
 
+type eventBuilderInterface[TEvent Event, TFluent any] interface {
+	Modifier(val Modifier[TEvent]) TFluent
+}
+
 var (
 	// compile time assertions
 
@@ -73,4 +77,7 @@ var (
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
 	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+
+	_ eventBuilderInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Builder[*mockSimpleEvent])(nil)
+	_ eventBuilderInterface[*mockSimpleEvent, *Context[*mockSimpleEvent]] = (*Context[*mockSimpleEvent])(nil)
 )

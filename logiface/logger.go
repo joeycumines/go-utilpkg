@@ -300,25 +300,7 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 	b.Event = x.newEvent(level)
 	b.shared = x.shared
 
-	// always release b if we don't return it
-	var returned bool
-	defer func() {
-		if !returned {
-			b.release()
-		}
-	}()
-
-	if x.modifier != nil {
-		if err := x.modifier.Modify(b.Event); err != nil {
-			if err == ErrDisabled {
-				return nil
-			}
-			panic(err)
-		}
-	}
-
-	returned = true
-	return b
+	return b.Modifier(x.modifier)
 }
 
 // Clone returns a new Context, which is a mechanism to configure a sub-logger,

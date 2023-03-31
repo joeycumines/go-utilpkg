@@ -82,6 +82,15 @@ func (x *Context[E]) Call(fn func(b *Context[E])) *Context[E] {
 	return x
 }
 
+// Modifier appends val to the receiver, if the receiver is enabled, and val is
+// non-nil.
+func (x *Context[E]) Modifier(val Modifier[E]) *Context[E] {
+	if x.Enabled() && val != nil {
+		x.Modifiers = append(x.Modifiers, val)
+	}
+	return x
+}
+
 func (x *Context[E]) add(fn ModifierFunc[E]) {
 	x.Modifiers = append(x.Modifiers, fn)
 }
@@ -91,6 +100,35 @@ func (x *Context[E]) root() *Logger[E] {
 		return x.logger.Root()
 	}
 	return nil
+}
+
+// Modifier calls val.Modify, if the receiver is enabled, and val is non-nil.
+// If the modifier returns [ErrDisabled], the return value will be nil, and the
+// receiver will be released.
+// If the modifier returns any other non-nil error, [Logger.DPanic] will be
+// called.
+func (x *Builder[E]) Modifier(val Modifier[E]) *Builder[E] {
+	if x.Enabled() && val != nil {
+		// always release x if we don't return it
+		var returned bool
+		defer func() {
+			if !returned {
+				x.release()
+			}
+		}()
+
+		if err := val.Modify(x.Event); err != nil {
+			if err != ErrDisabled {
+				x.shared.root.DPanic().
+					Err(err).
+					Log("modifier error")
+			}
+			return nil
+		}
+
+		returned = true
+	}
+	return x
 }
 
 // Call is provided as a convenience, to facilitate code which uses the
