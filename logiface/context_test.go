@@ -639,3 +639,174 @@ func TestContext_root(t *testing.T) {
 		t.Error()
 	}
 }
+
+func TestBuilder_Modifier_nilReceiver(t *testing.T) {
+	if v := (*Builder[*mockEvent])(nil).Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+		t.Error()
+		return nil
+	})); v != nil {
+		t.Error(v)
+	}
+}
+
+func TestBuilder_Modifier_nilModifier(t *testing.T) {
+	b := &Builder[*mockEvent]{shared: new(loggerShared[*mockEvent])}
+	if v := b.Modifier(nil); v != b {
+		t.Error(v)
+	}
+}
+
+func TestBuilder_Modifier_callModifier(t *testing.T) {
+	ev := &mockEvent{}
+	shared := &loggerShared[*mockEvent]{
+		pool: new(sync.Pool),
+	}
+	builder := &Builder[*mockEvent]{
+		Event:  ev,
+		shared: shared,
+	}
+	var called bool
+	builder.Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+		if event != ev {
+			t.Error(event)
+		}
+		called = true
+		return nil
+	}))
+	if !called {
+		t.Error()
+	}
+	if v := shared.pool.Get(); v != nil {
+		t.Error(v)
+	}
+}
+
+func TestBuilder_Modifier_error(t *testing.T) {
+	var buf bytes.Buffer
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: &buf}),
+	)
+	var called bool
+	if v := logger.Info().Modifier(ModifierFunc[*mockSimpleEvent](func(event *mockSimpleEvent) error {
+		if event == nil {
+			t.Error(`nil event`)
+		}
+		called = true
+		return errors.New(`test`)
+	})); v != nil {
+		t.Error(v)
+	}
+	if !called {
+		t.Error()
+	}
+	if v := buf.String(); v != `[crit] err=test msg=modifier error`+"\n" {
+		t.Errorf(`unexpected output: %s`, v)
+	}
+}
+
+func TestBuilder_Modifier_callReleaser(t *testing.T) {
+	in := make(chan *mockEvent)
+	out := make(chan struct{})
+	releaser := NewEventReleaserFunc(func(event *mockEvent) {
+		in <- event
+		<-out
+	})
+	ev := &mockEvent{}
+	pool := new(sync.Pool)
+	shared := &loggerShared[*mockEvent]{
+		pool:     pool,
+		releaser: releaser,
+	}
+	builder := &Builder[*mockEvent]{
+		Event:  ev,
+		shared: shared,
+	}
+	done := make(chan struct{})
+	go func() {
+		// call the modifier, but panic - the builder should be released
+		var called bool
+		expected := new(struct{})
+		defer func() {
+			if !called {
+				t.Error()
+			}
+			if v := recover(); v != expected {
+				t.Error(v)
+			}
+			close(done)
+		}()
+		if v := builder.Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+			called = true
+			panic(expected)
+		})); v != nil {
+			t.Error(v)
+		}
+	}()
+	if v := <-in; v != ev {
+		t.Error(v)
+	}
+	if builder.shared != nil {
+		t.Error()
+	}
+	if v := pool.Get(); v != nil {
+		t.Error(v)
+	}
+	out <- struct{}{}
+	<-done
+	close(in)
+	close(out)
+	if v := pool.Get(); v != builder {
+		t.Error(v)
+	}
+	time.Sleep(time.Millisecond * 50)
+	if v := pool.Get(); v != nil {
+		t.Error(v)
+	}
+	if builder.Event != nil {
+		t.Error(builder)
+	}
+}
+
+func TestContext_Modifier_nilReceiver(t *testing.T) {
+	if v := (*Context[*mockEvent])(nil).Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+		t.Error()
+		return nil
+	})); v != nil {
+		t.Error(v)
+	}
+}
+
+func TestContext_Modifier_nilModifier(t *testing.T) {
+	c := &Context[*mockEvent]{logger: &Logger[*mockEvent]{}}
+	if v := c.Modifier(nil); v != c {
+		t.Error(c)
+	}
+}
+
+func TestContext_Modifier_appendsToSlice(t *testing.T) {
+	c := &Context[*mockEvent]{logger: &Logger[*mockEvent]{}}
+	var called bool
+	expected := new(mockEvent)
+	if v := c.Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+		if event != expected {
+			t.Error(event)
+		}
+		called = true
+		return nil
+	})); v != c {
+		t.Error(v)
+	}
+	if called {
+		t.Error()
+	}
+	if len(c.Modifiers) != 1 {
+		t.Error(c.Modifiers)
+	}
+	if err := c.Modifiers.Modify(expected); err != nil {
+		t.Error(err)
+	}
+	if !called {
+		t.Error()
+	}
+}
