@@ -82,10 +82,7 @@ func mockSimpleEventFactory(level Level) *mockSimpleEvent {
 }
 
 func (x *mockSimpleEvent) Level() Level {
-	if x != nil {
-		return x.level
-	}
-	return LevelDisabled
+	return x.level
 }
 
 func (x *mockSimpleEvent) AddField(key string, val any) {
