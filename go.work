@@ -5,6 +5,7 @@ use (
 	./jsonenc
 	./logiface
 	./logiface/logrus
+	./logiface/stumpy
 	./logiface/testsuite
 	./logiface/zerolog
 )
