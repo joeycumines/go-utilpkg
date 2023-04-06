@@ -120,6 +120,8 @@ func FuzzAppendFloat64(f *testing.F) {
 				if !math.IsInf(val, -1) {
 					t.Fatalf("expected %v got -Inf", val)
 				}
+			default:
+				t.Fatalf("unexpected string: %s", actual)
 			}
 			return
 		}
@@ -255,6 +257,8 @@ func FuzzAppendFloat32(f *testing.F) {
 				if !math.IsInf(val, -1) {
 					t.Fatalf("expected %v got -Inf", val)
 				}
+			default:
+				t.Fatalf("unexpected string: %s", actual)
 			}
 			return
 		}
