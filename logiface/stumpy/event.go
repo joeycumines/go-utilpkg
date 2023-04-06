@@ -12,8 +12,12 @@ type (
 		//lint:ignore U1000 embedded for it's methods
 		unimplementedEvent
 
-		lvl logiface.Level
-		buf []byte
+		// WARNING: if adding fields consider if they may need to be reset when added back to the pool
+		// (e.g. the reference to the logger - slices which are reused and are reset on init are fine)
+
+		logger *Logger
+		lvl    logiface.Level
+		buf    []byte
 		// off is a stack with the index to insert the key content for each nested json object
 		// negative values indicate already set keys
 		off []int
@@ -34,11 +38,14 @@ func (x *Event) AddField(key string, val any) {
 	x.appendInterface(val)
 }
 
-//func (x *Event) AddMessage(msg string) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
+func (x *Event) AddMessage(msg string) bool {
+	x.appendFieldSeparator()
+	x.buf = append(x.buf, x.logger.messageField...)
+	x.buf = append(x.buf, ':')
+	x.appendString(msg)
+	return true
+}
+
 //func (x *Event) AddError(err error) bool {
 //	//TODO implement me
 //	panic("implement me")

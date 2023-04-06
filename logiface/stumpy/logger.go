@@ -12,9 +12,13 @@ type (
 		//lint:ignore U1000 embedded for it's methods
 		unimplementedJSONSupport
 
-		writer     io.Writer
-		timeField  string
-		levelField string
+		writer io.Writer
+
+		// these are pre-emptively json encoded
+
+		timeField    string
+		levelField   string
+		messageField string
 	}
 
 	//lint:ignore U1000 used to embed without exporting
@@ -33,6 +37,8 @@ var (
 
 func (x *Logger) NewEvent(level logiface.Level) (e *Event) {
 	e = eventPool.Get().(*Event)
+
+	e.logger = x
 
 	e.lvl = level
 
@@ -69,6 +75,9 @@ func (x *Logger) Write(event *Event) (err error) {
 func (x *Logger) ReleaseEvent(e *Event) {
 	// sync.Pool depends on each item consuming roughly the same amount of memory
 	if cap(e.buf) <= 1<<16 && cap(e.off) <= 1<<13 {
+		// clear references that might need to be garbage collected
+		e.logger = nil
+
 		eventPool.Put(e)
 	}
 }
