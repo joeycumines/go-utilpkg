@@ -46,11 +46,17 @@ func (x *Event) AddMessage(msg string) bool {
 	return true
 }
 
-//func (x *Event) AddError(err error) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
+func (x *Event) AddError(err error) bool {
+	if err != nil {
+		x.appendFieldSeparator()
+		x.buf = append(x.buf, x.logger.errorField...)
+		x.buf = append(x.buf, ':')
+		// this seems sensible, even if it's inefficient
+		x.appendString(fmt.Sprint(err))
+	}
+	return true
+}
+
 //func (x *Event) AddString(key string, val string) bool {
 //	//TODO implement me
 //	panic("implement me")

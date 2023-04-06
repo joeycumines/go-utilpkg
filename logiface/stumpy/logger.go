@@ -19,6 +19,7 @@ type (
 		timeField    string
 		levelField   string
 		messageField string
+		errorField   string
 	}
 
 	//lint:ignore U1000 used to embed without exporting

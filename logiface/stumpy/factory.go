@@ -28,6 +28,7 @@ type (
 		timeField    *string
 		levelField   *string
 		messageField *string
+		errorField   *string
 	}
 )
 
@@ -81,6 +82,16 @@ func WithStumpy(options ...Option) logiface.Option[*Event] {
 		l.messageField = string(b)
 	}
 
+	if c.errorField == nil || *c.errorField == `` {
+		l.errorField = `"err"`
+	} else {
+		b, err := json.Marshal(*c.errorField)
+		if err != nil {
+			panic(err)
+		}
+		l.errorField = string(b)
+	}
+
 	return L.WithOptions(
 		L.WithWriter(&l),
 		L.WithEventFactory(&l),
@@ -115,5 +126,11 @@ func WithLevelField(field string) Option {
 func WithMessageField(field string) Option {
 	return func(c *loggerConfig) {
 		c.messageField = &field
+	}
+}
+
+func WithErrorField(field string) Option {
+	return func(c *loggerConfig) {
+		c.errorField = &field
 	}
 }
