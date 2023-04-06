@@ -14,6 +14,27 @@ type (
 		SetObject(obj O, key string, val O) O
 		CanSetArray() bool
 		SetArray(obj O, key string, val A) O
+		// CanAddStartObject indicates if the JSONSupport implementation can
+		// start building an object with the key provided at the beginning when
+		// adding to an event.
+		CanAddStartObject() bool
+		// AddStartObject initializes a new object with the given event and
+		// key, and returns the new object.
+		AddStartObject(evt E, key string) O
+		// CanSetStartObject indicates if the JSONSupport implementation can
+		// start building an object with the key provided at the beginning
+		// when setting to an object.
+		CanSetStartObject() bool
+		// SetStartObject initializes a new object with the given parent object
+		// and key, and returns the new object.
+		SetStartObject(obj O, key string) O
+		// CanSetStartArray indicates if the JSONSupport implementation can
+		// start building an array with the key provided at the beginning when
+		// setting to an object.
+		CanSetStartArray() bool
+		// SetStartArray initializes a new array with the given parent object
+		// and key, and returns the new array.
+		SetStartArray(obj O, key string) A
 		CanSetString() bool
 		SetString(obj O, key string, val string) O
 		CanSetBool() bool
@@ -44,6 +65,25 @@ type (
 		AppendObject(arr A, val O) A
 		CanAppendArray() bool
 		AppendArray(arr A, val A) A
+		// CanAddStartArray indicates if the JSONSupport implementation can
+		// start building an array with the key provided at the beginning when
+		// adding to an event.
+		CanAddStartArray() bool
+		// AddStartArray initializes a new array with the given event and key,
+		// and returns the new array.
+		AddStartArray(evt E, key string) A
+		// CanAppendStartObject indicates if the JSONSupport implementation can
+		// append an object to an array with the key provided at the beginning.
+		CanAppendStartObject() bool
+		// AppendStartObject appends a new object to the given array and
+		// returns the new object.
+		AppendStartObject(arr A) O
+		// CanAppendStartArray indicates if the JSONSupport implementation can
+		// append an array to an array with the key provided at the beginning.
+		CanAppendStartArray() bool
+		// AppendStartArray appends a new array to the given array and returns
+		// the new array.
+		AppendStartArray(arr A) A
 		CanAppendString() bool
 		AppendString(arr A, val string) A
 		CanAppendBool() bool
@@ -79,6 +119,9 @@ type (
 		setField          func(obj any, key string, val any) any
 		setObject         func(obj any, key string, val any) any
 		setArray          func(obj any, key string, val any) any
+		addStartObject    func(evt E, key string) any
+		setStartObject    func(obj any, key string) any
+		setStartArray     func(obj any, key string) any
 		setString         func(obj any, key string, val string) any
 		setBool           func(obj any, key string, val bool) any
 		setBase64Bytes    func(obj any, key string, b []byte, enc *base64.Encoding) any
@@ -95,6 +138,9 @@ type (
 		appendField       func(arr, val any) any
 		appendArray       func(arr, val any) any
 		appendObject      func(arr, val any) any
+		addStartArray     func(evt E, key string) any
+		appendStartObject func(arr any) any
+		appendStartArray  func(arr any) any
 		appendString      func(arr any, val string) any
 		appendBool        func(arr any, val bool) any
 		appendBase64Bytes func(arr any, b []byte, enc *base64.Encoding) any
@@ -113,6 +159,9 @@ type (
 	iJSONSupport[E Event] interface {
 		CanSetObject() bool
 		CanSetArray() bool
+		CanAddStartObject() bool
+		CanSetStartObject() bool
+		CanSetStartArray() bool
 		CanSetString() bool
 		CanSetBool() bool
 		CanSetBase64Bytes() bool
@@ -126,6 +175,9 @@ type (
 		CanSetUint64() bool
 		CanAppendArray() bool
 		CanAppendObject() bool
+		CanAddStartArray() bool
+		CanAppendStartObject() bool
+		CanAppendStartArray() bool
 		CanAppendString() bool
 		CanAppendBool() bool
 		CanAppendBase64Bytes() bool
@@ -189,6 +241,15 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		setArray: func(obj any, key string, val any) any {
 			return impl.SetArray(obj.(O), key, val.(A))
 		},
+		addStartObject: func(evt E, key string) any {
+			return impl.AddStartObject(evt, key)
+		},
+		setStartObject: func(obj any, key string) any {
+			return impl.SetStartObject(obj.(O), key)
+		},
+		setStartArray: func(obj any, key string) any {
+			return impl.SetStartArray(obj.(O), key)
+		},
 		setString: func(obj any, key string, val string) any {
 			return impl.SetString(obj.(O), key, val)
 		},
@@ -237,6 +298,15 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		appendObject: func(arr, val any) any {
 			return impl.AppendObject(arr.(A), val.(O))
 		},
+		addStartArray: func(evt E, key string) any {
+			return impl.AddStartArray(evt, key)
+		},
+		appendStartObject: func(arr any) any {
+			return impl.AppendStartObject(arr.(A))
+		},
+		appendStartArray: func(arr any) any {
+			return impl.AppendStartArray(arr.(A))
+		},
 		appendString: func(arr any, val string) any {
 			return impl.AppendString(arr.(A), val)
 		},
@@ -275,32 +345,34 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 
 func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 	return &jsonSupport[Event]{
-		iface:     impl.iface,
-		newObject: impl.newObject,
-		addObject: func(evt Event, key string, obj any) {
-			impl.addObject(evt.(E), key, obj)
-		},
-		setField:       impl.setField,
-		setObject:      impl.setObject,
-		setArray:       impl.setArray,
-		setString:      impl.setString,
-		setBool:        impl.setBool,
-		setBase64Bytes: impl.setBase64Bytes,
-		setDuration:    impl.setDuration,
-		setError:       impl.setError,
-		setInt:         impl.setInt,
-		setFloat32:     impl.setFloat32,
-		setTime:        impl.setTime,
-		setFloat64:     impl.setFloat64,
-		setInt64:       impl.setInt64,
-		setUint64:      impl.setUint64,
-		newArray:       impl.newArray,
-		addArray: func(evt Event, key string, arr any) {
-			impl.addArray(evt.(E), key, arr)
-		},
+		iface:             impl.iface,
+		newObject:         impl.newObject,
+		addObject:         func(evt Event, key string, obj any) { impl.addObject(evt.(E), key, obj) },
+		setField:          impl.setField,
+		setObject:         impl.setObject,
+		setArray:          impl.setArray,
+		addStartObject:    func(evt Event, key string) any { return impl.addStartObject(evt.(E), key) },
+		setStartObject:    impl.setStartObject,
+		setStartArray:     impl.setStartArray,
+		setString:         impl.setString,
+		setBool:           impl.setBool,
+		setBase64Bytes:    impl.setBase64Bytes,
+		setDuration:       impl.setDuration,
+		setError:          impl.setError,
+		setInt:            impl.setInt,
+		setFloat32:        impl.setFloat32,
+		setTime:           impl.setTime,
+		setFloat64:        impl.setFloat64,
+		setInt64:          impl.setInt64,
+		setUint64:         impl.setUint64,
+		newArray:          impl.newArray,
+		addArray:          func(evt Event, key string, arr any) { impl.addArray(evt.(E), key, arr) },
 		appendField:       impl.appendField,
 		appendArray:       impl.appendArray,
 		appendObject:      impl.appendObject,
+		addStartArray:     func(evt Event, key string) any { return impl.addStartArray(evt.(E), key) },
+		appendStartObject: impl.appendStartObject,
+		appendStartArray:  impl.appendStartArray,
 		appendString:      impl.appendString,
 		appendBool:        impl.appendBool,
 		appendBase64Bytes: impl.appendBase64Bytes,
@@ -324,6 +396,24 @@ func (UnimplementedJSONSupport[E, O, A]) SetObject(obj O, key string, val O) O {
 func (UnimplementedJSONSupport[E, O, A]) CanSetArray() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) SetArray(obj O, key string, val A) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAddStartObject() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AddStartObject(evt E, key string) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetStartObject() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetStartObject(obj O, key string) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanSetStartArray() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetStartArray(obj O, key string) A {
 	panic("unimplemented")
 }
 
@@ -402,6 +492,24 @@ func (UnimplementedJSONSupport[E, O, A]) AppendArray(arr A, val A) A {
 func (UnimplementedJSONSupport[E, O, A]) CanAppendObject() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) AppendObject(arr A, val O) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAddStartArray() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AddStartArray(evt E, key string) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendStartObject() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendStartObject(arr A) O {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendStartArray() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendStartArray(arr A) A {
 	panic("unimplemented")
 }
 
@@ -498,6 +606,24 @@ func (x defaultJSONSupport[E]) SetArray(obj map[string]any, key string, val []an
 	return obj
 }
 
+func (x defaultJSONSupport[E]) CanAddStartObject() bool { return false }
+
+func (x defaultJSONSupport[E]) AddStartObject(evt E, key string) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetStartObject() bool { return false }
+
+func (x defaultJSONSupport[E]) SetStartObject(obj map[string]any, key string) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanSetStartArray() bool { return false }
+
+func (x defaultJSONSupport[E]) SetStartArray(obj map[string]any, key string) []any {
+	panic("unimplemented")
+}
+
 func (x defaultJSONSupport[E]) CanSetString() bool { return false }
 
 func (x defaultJSONSupport[E]) SetString(obj map[string]any, key string, val string) map[string]any {
@@ -586,6 +712,24 @@ func (x defaultJSONSupport[E]) AppendObject(arr []any, val map[string]any) []any
 	return append(arr, val)
 }
 
+func (x defaultJSONSupport[E]) CanAddStartArray() bool { return false }
+
+func (x defaultJSONSupport[E]) AddStartArray(evt E, key string) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendStartObject() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendStartObject(arr []any) map[string]any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendStartArray() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendStartArray(arr []any) []any {
+	panic("unimplemented")
+}
+
 func (x defaultJSONSupport[E]) CanAppendString() bool { return false }
 
 func (x defaultJSONSupport[E]) AppendString(arr []any, val string) []any {
@@ -653,3 +797,45 @@ func (x defaultJSONSupport[E]) AppendUint64(arr []any, val uint64) []any {
 }
 
 func (x defaultJSONSupport[E]) mustEmbedUnimplementedJSONSupport() {}
+
+func (x *jsonSupport[E]) addStartOrNewObject(event E, key string) any {
+	if x.iface.CanAddStartObject() {
+		return x.addStartObject(event, key)
+	}
+	return x.newObject()
+}
+
+func (x *jsonSupport[E]) setStartOrNewObject(obj any, key string) any {
+	if x.iface.CanSetStartObject() {
+		return x.setStartObject(obj, key)
+	}
+	return x.newObject()
+}
+
+func (x *jsonSupport[E]) appendStartOrNewObject(arr any) any {
+	if x.iface.CanAppendStartObject() {
+		return x.appendStartObject(arr)
+	}
+	return x.newObject()
+}
+
+func (x *jsonSupport[E]) addStartOrNewArray(event E, key string) any {
+	if x.iface.CanAddStartArray() {
+		return x.addStartArray(event, key)
+	}
+	return x.newArray()
+}
+
+func (x *jsonSupport[E]) setStartOrNewArray(obj any, key string) any {
+	if x.iface.CanSetStartArray() {
+		return x.setStartArray(obj, key)
+	}
+	return x.newArray()
+}
+
+func (x *jsonSupport[E]) appendStartOrNewArray(arr any) any {
+	if x.iface.CanAppendStartArray() {
+		return x.appendStartArray(arr)
+	}
+	return x.newArray()
+}

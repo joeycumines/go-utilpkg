@@ -31,13 +31,23 @@ type (
 		// WARNING: The guarded methods must always return the input arr, even
 		// when false, in order to avoid allocs within the arrayFields methods.
 
-		jsonObject(key string, obj any)
-		jsonArray(key string, arr any)
+		// necessary for the top-level logic when initializing objects or arrays
+		// (guarded recursively internally, but not possible on the top level)
+		jsonMustUseDefault() bool
 
-		objNew() any
+		jsonNewObject(key string) any
+		jsonWriteObject(key string, obj any)
+
+		jsonNewArray(key string) any
+		jsonWriteArray(key string, arr any)
+
+		objNewObject(obj any, key string) any
+		objWriteObject(obj any, key string, val any) (any, bool)
+
+		objNewArray(obj any, key string) any
+		objWriteArray(obj any, key string, val any) (any, bool)
+
 		objField(obj any, key string, val any) any
-		objObject(obj any, key string, val any) (any, bool)
-		objArray(obj any, key string, val any) (any, bool)
 		objString(obj any, key string, val string) (any, bool)
 		objBool(obj any, key string, val bool) (any, bool)
 		objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool)
@@ -50,10 +60,13 @@ type (
 		objInt64(obj any, key string, val int64) (any, bool)
 		objUint64(obj any, key string, val uint64) (any, bool)
 
-		arrNew() any
+		arrNewObject(arr any) any
+		arrWriteObject(arr, val any) (any, bool)
+
+		arrNewArray(arr any) any
+		arrWriteArray(arr, val any) (any, bool)
+
 		arrField(arr any, val any) any
-		arrArray(arr, val any) (any, bool)
-		arrObject(arr, val any) (any, bool)
 		arrString(arr any, val string) (any, bool)
 		arrBool(arr any, val bool) (any, bool)
 		arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool)
@@ -273,13 +286,28 @@ func (x *Chain[E, P]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) objNew() any {
-	return x.current().objNew()
+func (x *Chain[E, P]) jsonMustUseDefault() bool {
+	return x.current().jsonMustUseDefault()
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) jsonObject(key string, obj any) {
-	x.current().jsonObject(key, obj)
+func (x *Chain[E, P]) jsonNewObject(key string) any {
+	return x.current().jsonNewObject(key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objNewObject(obj any, key string) any {
+	return x.current().objNewObject(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrNewObject(arr any) any {
+	return x.current().arrNewObject(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) jsonWriteObject(key string, obj any) {
+	x.current().jsonWriteObject(key, obj)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -288,13 +316,13 @@ func (x *Chain[E, P]) objField(obj any, key string, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) objObject(obj any, key string, val any) (any, bool) {
-	return x.current().objObject(obj, key, val)
+func (x *Chain[E, P]) objWriteObject(obj any, key string, val any) (any, bool) {
+	return x.current().objWriteObject(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) objArray(obj any, key string, val any) (any, bool) {
-	return x.current().objArray(obj, key, val)
+func (x *Chain[E, P]) objWriteArray(obj any, key string, val any) (any, bool) {
+	return x.current().objWriteArray(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -353,13 +381,23 @@ func (x *Chain[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrNew() any {
-	return x.current().arrNew()
+func (x *Chain[E, P]) jsonNewArray(key string) any {
+	return x.current().jsonNewArray(key)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) jsonArray(key string, arr any) {
-	x.current().jsonArray(key, arr)
+func (x *Chain[E, P]) objNewArray(obj any, key string) any {
+	return x.current().objNewArray(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrNewArray(arr any) any {
+	return x.current().arrNewArray(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) jsonWriteArray(key string, arr any) {
+	x.current().jsonWriteArray(key, arr)
 }
 
 //lint:ignore U1000 it is or will be used
@@ -368,13 +406,13 @@ func (x *Chain[E, P]) arrField(arr any, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrArray(arr, val any) (any, bool) {
-	return x.current().arrArray(arr, val)
+func (x *Chain[E, P]) arrWriteArray(arr, val any) (any, bool) {
+	return x.current().arrWriteArray(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Chain[E, P]) arrObject(arr, val any) (any, bool) {
-	return x.current().arrObject(arr, val)
+func (x *Chain[E, P]) arrWriteObject(arr, val any) (any, bool) {
+	return x.current().arrWriteObject(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used

@@ -14,25 +14,45 @@ type (
 	}
 )
 
-func Object[E Event, P Parent[E]](p P) (obj *ObjectBuilder[E, P]) {
+func Object[E Event, P Parent[E]](p P) *ObjectBuilder[E, P] {
+	return ObjectWithKey[E, P](p, ``)
+}
+
+func ObjectWithKey[E Event, P Parent[E]](p P, key string) (obj *ObjectBuilder[E, P]) {
 	if p.Enabled() {
 		obj = (*ObjectBuilder[E, P])(refPoolGet())
 		obj.a = p
-		// note: takes into account mustUseDefaultJSONSupport
-		obj.b = p.objNew()
+		if obj.jsonMustUseDefault() {
+			obj.b = (defaultJSONSupport[E]{}).NewObject()
+		} else {
+			// note: also takes into account jsonMustUseDefault for p (and it's parent(s))
+			obj.b = p.jsonNewObject(key)
+		}
 	}
 	return
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) objNew() any {
-	return new(contextFieldData[E])
+func (x *Context[E]) jsonNewObject(key string) any {
+	return &contextFieldData[E]{key: key}
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) jsonObject(key string, arr any) {
+func (x *Context[E]) objNewObject(obj any, key string) any {
+	return &contextFieldData[E]{key: key}
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrNewObject(arr any) any {
+	return &contextFieldData[E]{}
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) jsonWriteObject(key string, arr any) {
 	o := arr.(*contextFieldData[E])
-	o.key = key
+	if key != `` && o.key == `` {
+		o.key = key
+	}
 	o.shared = x.logger.shared
 	x.Modifiers = append(x.Modifiers, ModifierFunc[E](o.object))
 }
@@ -47,16 +67,16 @@ func (x *Context[E]) objField(obj any, key string, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) objObject(obj any, key string, val any) (any, bool) {
+func (x *Context[E]) objWriteObject(obj any, key string, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanSetObject() {
 		o := obj.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
-		o.values = append(o.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newObject()
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			val := shared.json.setStartOrNewObject(obj, key)
 			for _, f := range v.values {
 				val = f(shared, val)
 			}
-			return shared.json.setObject(arr, key, val)
+			return shared.json.setObject(obj, key, val)
 		})
 		return obj, true
 	}
@@ -64,12 +84,12 @@ func (x *Context[E]) objObject(obj any, key string, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) objArray(obj any, key string, val any) (any, bool) {
+func (x *Context[E]) objWriteArray(obj any, key string, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanSetArray() {
 		o := obj.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
 		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
-			val := shared.json.newArray()
+			val := shared.json.setStartOrNewArray(obj, key)
 			for _, f := range v.values {
 				val = f(shared, val)
 			}
@@ -213,12 +233,22 @@ func (x *Context[E]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) objNew() any {
-	return x.shared.json.newObject()
+func (x *Builder[E]) jsonNewObject(key string) any {
+	return x.shared.json.addStartOrNewObject(x.Event, key)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) jsonObject(key string, obj any) {
+func (x *Builder[E]) objNewObject(obj any, key string) any {
+	return x.shared.json.setStartOrNewObject(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrNewObject(arr any) any {
+	return x.shared.json.appendStartOrNewObject(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) jsonWriteObject(key string, obj any) {
 	x.shared.json.addObject(x.Event, key, obj)
 }
 
@@ -228,7 +258,7 @@ func (x *Builder[E]) objField(obj any, key string, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) objObject(obj any, key string, val any) (any, bool) {
+func (x *Builder[E]) objWriteObject(obj any, key string, val any) (any, bool) {
 	if x.shared.json.iface.CanSetObject() {
 		return x.shared.json.setObject(obj, key, val), true
 	}
@@ -236,7 +266,7 @@ func (x *Builder[E]) objObject(obj any, key string, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) objArray(obj any, key string, val any) (any, bool) {
+func (x *Builder[E]) objWriteArray(obj any, key string, val any) (any, bool) {
 	if x.shared.json.iface.CanSetArray() {
 		return x.shared.json.setArray(obj, key, val), true
 	}
@@ -355,7 +385,7 @@ func (x *ObjectBuilder[E, P]) Enabled() bool {
 func (x *ObjectBuilder[E, P]) As(key string) (p P) {
 	if x.Enabled() {
 		p = x.p()
-		p.jsonObject(key, x.b)
+		p.jsonWriteObject(key, x.b)
 		refPoolPut((*refPoolItem)(x))
 	}
 	return
@@ -457,7 +487,7 @@ func (x *ObjectBuilder[E, P]) isObjectBuilder() *refPoolItem {
 	return (*refPoolItem)(x)
 }
 
-func (x *ObjectBuilder[E, P]) mustUseDefaultJSONSupport() bool {
+func (x *ObjectBuilder[E, P]) jsonMustUseDefault() bool {
 	switch getParentJSONType(x.a) {
 	case parentJSONTypeArray:
 		return !x.p().jsonSupport().CanAppendObject()
@@ -475,25 +505,38 @@ func (x *ObjectBuilder[E, P]) Root() *Logger[E] {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) jsonSupport() iJSONSupport[E] {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return defaultJSONSupport[E]{}
 	}
 	return x.p().jsonSupport()
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) objNew() any {
-	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewObject()
-	}
-	return x.p().objNew()
+func (x *ObjectBuilder[E, P]) jsonNewObject(key string) any {
+	return x.objNewObject(x.b, key)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) jsonObject(key string, obj any) {
+func (x *ObjectBuilder[E, P]) objNewObject(obj any, key string) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewObject()
+	}
+	return x.p().objNewObject(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrNewObject(arr any) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewObject()
+	}
+	return x.p().arrNewObject(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) jsonWriteObject(key string, obj any) {
 	if !x.jsonSupport().CanSetObject() {
 		x.b = x.objField(x.b, key, obj.(map[string]any))
-	} else if v, ok := x.objObject(x.b, key, obj); !ok {
+	} else if v, ok := x.objWriteObject(x.b, key, obj); !ok {
 		x.Root().DPanic().Log(`logiface: implementation disallows writing an object to an object`)
 	} else {
 		x.b = v
@@ -501,30 +544,30 @@ func (x *ObjectBuilder[E, P]) jsonObject(key string, obj any) {
 }
 
 func (x *ObjectBuilder[E, P]) objField(obj any, key string, val any) any {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetField(obj.(map[string]any), key, val)
 	}
 	return x.p().objField(obj, key, val)
 }
 
-func (x *ObjectBuilder[E, P]) objObject(obj any, key string, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ObjectBuilder[E, P]) objWriteObject(obj any, key string, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetObject(obj.(map[string]any), key, val.(map[string]any)), true
 	}
-	return x.p().objObject(obj, key, val)
+	return x.p().objWriteObject(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) objArray(obj any, key string, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ObjectBuilder[E, P]) objWriteArray(obj any, key string, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetArray(obj.(map[string]any), key, val.([]any)), true
 	}
-	return x.p().objArray(obj, key, val)
+	return x.p().objWriteArray(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objString(obj any, key string, val string) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objString(obj, key, val)
@@ -532,7 +575,7 @@ func (x *ObjectBuilder[E, P]) objString(obj any, key string, val string) (any, b
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objBool(obj, key, val)
@@ -540,7 +583,7 @@ func (x *ObjectBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool)
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objBase64Bytes(obj, key, b, enc)
@@ -548,7 +591,7 @@ func (x *ObjectBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc 
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objDuration(obj any, key string, d time.Duration) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objDuration(obj, key, d)
@@ -556,7 +599,7 @@ func (x *ObjectBuilder[E, P]) objDuration(obj any, key string, d time.Duration) 
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objError(obj any, err error) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objError(obj, err)
@@ -564,7 +607,7 @@ func (x *ObjectBuilder[E, P]) objError(obj any, err error) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objInt(obj, key, val)
@@ -572,7 +615,7 @@ func (x *ObjectBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objFloat32(obj any, key string, val float32) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objFloat32(obj, key, val)
@@ -580,7 +623,7 @@ func (x *ObjectBuilder[E, P]) objFloat32(obj any, key string, val float32) (any,
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objTime(obj, key, t)
@@ -588,7 +631,7 @@ func (x *ObjectBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, bo
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objFloat64(obj any, key string, val float64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objFloat64(obj, key, val)
@@ -596,7 +639,7 @@ func (x *ObjectBuilder[E, P]) objFloat64(obj any, key string, val float64) (any,
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objInt64(obj any, key string, val int64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objInt64(obj, key, val)
@@ -604,25 +647,38 @@ func (x *ObjectBuilder[E, P]) objInt64(obj any, key string, val int64) (any, boo
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objUint64(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) arrNew() any {
-	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewArray()
-	}
-	return x.p().arrNew()
+func (x *ObjectBuilder[E, P]) jsonNewArray(key string) any {
+	return x.objNewArray(x.b, key)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) jsonArray(key string, arr any) {
+func (x *ObjectBuilder[E, P]) objNewArray(obj any, key string) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewArray()
+	}
+	return x.p().objNewArray(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrNewArray(arr any) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewArray()
+	}
+	return x.p().arrNewArray(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) jsonWriteArray(key string, arr any) {
 	if !x.jsonSupport().CanSetArray() {
 		x.b = x.objField(x.b, key, arr.([]any))
-	} else if v, ok := x.objArray(x.b, key, arr); !ok {
+	} else if v, ok := x.objWriteArray(x.b, key, arr); !ok {
 		x.Root().DPanic().Log(`logiface: implementation disallows writing an array to an object`)
 	} else {
 		x.b = v
@@ -631,31 +687,31 @@ func (x *ObjectBuilder[E, P]) jsonArray(key string, arr any) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrField(arr any, val any) any {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendField(arr.([]any), val)
 	}
 	return x.p().arrField(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) arrArray(arr, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ObjectBuilder[E, P]) arrWriteArray(arr, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
-	return x.p().arrArray(arr, val)
+	return x.p().arrWriteArray(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ObjectBuilder[E, P]) arrObject(arr, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ObjectBuilder[E, P]) arrWriteObject(arr, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendObject(arr.([]any), val.(map[string]any)), true
 	}
-	return x.p().arrObject(arr, val)
+	return x.p().arrWriteObject(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrString(arr any, val string) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrString(arr, val)
@@ -663,7 +719,7 @@ func (x *ObjectBuilder[E, P]) arrString(arr any, val string) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrBool(arr, val)
@@ -671,7 +727,7 @@ func (x *ObjectBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrBase64Bytes(arr, b, enc)
@@ -679,7 +735,7 @@ func (x *ObjectBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Enco
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrDuration(arr, d)
@@ -687,7 +743,7 @@ func (x *ObjectBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) 
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrError(arr any, err error) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrError(arr, err)
@@ -695,7 +751,7 @@ func (x *ObjectBuilder[E, P]) arrError(arr any, err error) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrInt(arr, val)
@@ -703,7 +759,7 @@ func (x *ObjectBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrFloat32(arr, val)
@@ -711,7 +767,7 @@ func (x *ObjectBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrTime(arr, t)
@@ -719,7 +775,7 @@ func (x *ObjectBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrFloat64(arr, val)
@@ -727,7 +783,7 @@ func (x *ObjectBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrInt64(arr, val)
@@ -735,7 +791,7 @@ func (x *ObjectBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrUint64(arr, val)

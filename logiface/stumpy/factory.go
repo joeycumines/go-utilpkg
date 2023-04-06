@@ -74,6 +74,7 @@ func WithStumpy(options ...Option) logiface.Option[*Event] {
 		L.WithWriter(&l),
 		L.WithEventFactory(&l),
 		L.WithEventReleaser(&l),
+		logiface.WithJSONSupport[*Event, *Event, *Event](&l),
 	)
 }
 

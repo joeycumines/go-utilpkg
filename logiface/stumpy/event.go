@@ -3,16 +3,20 @@ package stumpy
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/joeycumines/go-utilpkg/jsonenc"
 	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface/stumpy/internal/zljson"
 )
 
 type (
 	Event struct {
-		lvl logiface.Level
-		buf []byte
 		//lint:ignore U1000 embedded for it's methods
 		unimplementedEvent
+
+		lvl logiface.Level
+		buf []byte
+		// off is a stack with the index to insert the key content for each nested json object
+		// negative values indicate already set keys
+		off []int
 	}
 
 	//lint:ignore U1000 used to embed without exporting
@@ -96,8 +100,32 @@ func (x *Event) appendFieldSeparator() {
 	}
 }
 
+func (x *Event) appendArraySeparator() {
+	if x.buf[len(x.buf)-1] != '[' {
+		x.buf = append(x.buf, ',')
+	}
+}
+
 func (x *Event) appendString(val string) {
-	x.buf = zljson.AppendString(x.buf, val)
+	x.buf = jsonenc.AppendString(x.buf, val)
+}
+
+func (x *Event) insertStringContent(index int, value string) {
+	if value == `` {
+		return
+	}
+	n := len(x.buf)
+	x.buf = jsonenc.InsertStringContent(x.buf, index, value)
+	n = len(x.buf) - n
+	for i := len(x.off) - 1; i >= 0; i-- {
+		if x.off[i] < 0 {
+			continue
+		}
+		if x.off[i] <= index {
+			break
+		}
+		x.off[i] += n
+	}
 }
 
 func (x *Event) appendInterface(val any) {
@@ -106,4 +134,31 @@ func (x *Event) appendInterface(val any) {
 	} else {
 		x.buf = append(x.buf, b...)
 	}
+}
+
+func (x *Event) appendKey(key string) {
+	x.appendFieldSeparator()
+	x.appendString(key)
+	x.buf = append(x.buf, ':')
+}
+
+func (x *Event) enterKey(key string) {
+	x.appendFieldSeparator()
+	if key == `` {
+		// off is the index where the key should be inserted
+		x.off = append(x.off, len(x.buf)+1)
+		x.buf = append(x.buf, '"', '"', ':')
+	} else {
+		// key already set, so off is -1
+		x.off = append(x.off, -1)
+		x.appendString(key)
+		x.buf = append(x.buf, ':')
+	}
+}
+
+func (x *Event) exitKey(key string) {
+	if index := x.off[len(x.off)-1]; index >= 0 {
+		x.insertStringContent(index, key)
+	}
+	x.off = x.off[:len(x.off)-1]
 }

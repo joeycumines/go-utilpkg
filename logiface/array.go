@@ -26,12 +26,20 @@ type (
 //
 // In Go, generic methods are not allowed to introduce cyclic dependencies on
 // generic types, and cannot introduce further generic types.
-func Array[E Event, P Parent[E]](p P) (arr *ArrayBuilder[E, P]) {
+func Array[E Event, P Parent[E]](p P) *ArrayBuilder[E, P] {
+	return ArrayWithKey[E, P](p, ``)
+}
+
+func ArrayWithKey[E Event, P Parent[E]](p P, key string) (arr *ArrayBuilder[E, P]) {
 	if p.Enabled() {
 		arr = (*ArrayBuilder[E, P])(refPoolGet())
 		arr.a = p
-		// note: takes into account mustUseDefaultJSONSupport
-		arr.b = arr.arrNew()
+		if arr.jsonMustUseDefault() {
+			arr.b = (defaultJSONSupport[E]{}).NewArray()
+		} else {
+			// note: also takes into account jsonMustUseDefault for p (and it's parent(s))
+			arr.b = p.jsonNewArray(key)
+		}
 	}
 	return
 }
@@ -46,14 +54,31 @@ func (x *Context[E]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrNew() any {
-	return new(contextFieldData[E])
+func (x *Context[E]) jsonMustUseDefault() bool {
+	return false
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) jsonArray(key string, arr any) {
+func (x *Context[E]) jsonNewArray(key string) any {
+	return &contextFieldData[E]{key: key}
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) objNewArray(obj any, key string) any {
+	return &contextFieldData[E]{key: key}
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrNewArray(arr any) any {
+	return &contextFieldData[E]{}
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) jsonWriteArray(key string, arr any) {
 	a := arr.(*contextFieldData[E])
-	a.key = key
+	if key != `` && a.key == `` {
+		a.key = key
+	}
 	a.shared = x.logger.shared
 	x.Modifiers = append(x.Modifiers, ModifierFunc[E](a.array))
 }
@@ -68,12 +93,12 @@ func (x *Context[E]) arrField(arr any, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrArray(arr, val any) (any, bool) {
+func (x *Context[E]) arrWriteArray(arr, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendArray() {
 		a := arr.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newArray()
+			val := shared.json.appendStartOrNewArray(arr)
 			for _, f := range v.values {
 				val = f(shared, val)
 			}
@@ -85,12 +110,12 @@ func (x *Context[E]) arrArray(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Context[E]) arrObject(arr, val any) (any, bool) {
+func (x *Context[E]) arrWriteObject(arr, val any) (any, bool) {
 	if x.logger.shared.json.iface.CanAppendObject() {
 		a := arr.(*contextFieldData[E])
 		v := val.(*contextFieldData[E])
 		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
-			val := shared.json.newObject()
+			val := shared.json.appendStartOrNewObject(arr)
 			for _, f := range v.values {
 				val = f(shared, val)
 			}
@@ -243,12 +268,27 @@ func (x *Builder[E]) jsonSupport() iJSONSupport[E] {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrNew() any {
-	return x.shared.json.newArray()
+func (x *Builder[E]) jsonMustUseDefault() bool {
+	return false
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) jsonArray(key string, arr any) {
+func (x *Builder[E]) jsonNewArray(key string) any {
+	return x.shared.json.addStartOrNewArray(x.Event, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objNewArray(obj any, key string) any {
+	return x.shared.json.setStartOrNewArray(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrNewArray(arr any) any {
+	return x.shared.json.appendStartOrNewArray(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) jsonWriteArray(key string, arr any) {
 	x.shared.json.addArray(x.Event, key, arr)
 }
 
@@ -258,7 +298,7 @@ func (x *Builder[E]) arrField(arr any, val any) any {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
+func (x *Builder[E]) arrWriteArray(arr, val any) (any, bool) {
 	if x.shared.json.iface.CanAppendArray() {
 		return x.shared.json.appendArray(arr, val), true
 	}
@@ -266,7 +306,7 @@ func (x *Builder[E]) arrArray(arr, val any) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *Builder[E]) arrObject(arr, val any) (any, bool) {
+func (x *Builder[E]) arrWriteObject(arr, val any) (any, bool) {
 	if x.shared.json.iface.CanAppendObject() {
 		return x.shared.json.appendObject(arr, val), true
 	}
@@ -390,7 +430,7 @@ func (x *ArrayBuilder[E, P]) Enabled() bool {
 func (x *ArrayBuilder[E, P]) As(key string) (p P) {
 	if x.Enabled() {
 		p = x.p()
-		p.jsonArray(key, x.b)
+		p.jsonWriteArray(key, x.b)
 		refPoolPut((*refPoolItem)(x))
 	}
 	return
@@ -490,7 +530,7 @@ func (x *ArrayBuilder[E, P]) isArrayBuilder() *refPoolItem {
 	return (*refPoolItem)(x)
 }
 
-func (x *ArrayBuilder[E, P]) mustUseDefaultJSONSupport() bool {
+func (x *ArrayBuilder[E, P]) jsonMustUseDefault() bool {
 	switch getParentJSONType(x.a) {
 	case parentJSONTypeArray:
 		return !x.p().jsonSupport().CanAppendArray()
@@ -508,27 +548,43 @@ func (x *ArrayBuilder[E, P]) Root() *Logger[E] {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) jsonSupport() iJSONSupport[E] {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return defaultJSONSupport[E]{}
 	}
 	return x.p().jsonSupport()
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) objNew() any {
-	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewObject()
+func (x *ArrayBuilder[E, P]) jsonNewObject(key string) any {
+	if key != `` {
+		x.Root().DPanic().Log(`logiface: cannot start writing to an array with a non-empty key`)
 	}
-	return x.p().objNew()
+	return x.arrNewObject(x.b)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) jsonObject(key string, obj any) {
+func (x *ArrayBuilder[E, P]) arrNewObject(arr any) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewObject()
+	}
+	return x.p().arrNewObject(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objNewObject(obj any, key string) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewObject()
+	}
+	return x.p().objNewObject(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) jsonWriteObject(key string, obj any) {
 	if key != `` {
 		x.Root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
 	} else if !x.jsonSupport().CanAppendObject() {
 		x.b = x.arrField(x.b, obj.(map[string]any))
-	} else if v, ok := x.arrObject(x.b, obj); !ok {
+	} else if v, ok := x.arrWriteObject(x.b, obj); !ok {
 		x.Root().DPanic().Log(`logiface: implementation disallows writing an object to an array`)
 	} else {
 		x.b = v
@@ -537,31 +593,31 @@ func (x *ArrayBuilder[E, P]) jsonObject(key string, obj any) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objField(obj any, key string, val any) any {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetField(obj.(map[string]any), key, val)
 	}
 	return x.p().objField(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) objObject(obj any, key string, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ArrayBuilder[E, P]) objWriteObject(obj any, key string, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetObject(obj.(map[string]any), key, val.(map[string]any)), true
 	}
-	return x.p().objObject(obj, key, val)
+	return x.p().objWriteObject(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) objArray(obj any, key string, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ArrayBuilder[E, P]) objWriteArray(obj any, key string, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetArray(obj.(map[string]any), key, val.([]any)), true
 	}
-	return x.p().objArray(obj, key, val)
+	return x.p().objWriteArray(obj, key, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objString(obj any, key string, val string) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objString(obj, key, val)
@@ -569,7 +625,7 @@ func (x *ArrayBuilder[E, P]) objString(obj any, key string, val string) (any, bo
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objBool(obj, key, val)
@@ -577,7 +633,7 @@ func (x *ArrayBuilder[E, P]) objBool(obj any, key string, val bool) (any, bool) 
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *base64.Encoding) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objBase64Bytes(obj, key, b, enc)
@@ -585,7 +641,7 @@ func (x *ArrayBuilder[E, P]) objBase64Bytes(obj any, key string, b []byte, enc *
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objDuration(obj any, key string, d time.Duration) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objDuration(obj, key, d)
@@ -593,7 +649,7 @@ func (x *ArrayBuilder[E, P]) objDuration(obj any, key string, d time.Duration) (
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objError(obj any, err error) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objError(obj, err)
@@ -601,7 +657,7 @@ func (x *ArrayBuilder[E, P]) objError(obj any, err error) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objInt(obj, key, val)
@@ -609,7 +665,7 @@ func (x *ArrayBuilder[E, P]) objInt(obj any, key string, val int) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objFloat32(obj any, key string, val float32) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objFloat32(obj, key, val)
@@ -617,7 +673,7 @@ func (x *ArrayBuilder[E, P]) objFloat32(obj any, key string, val float32) (any, 
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objTime(obj, key, t)
@@ -625,7 +681,7 @@ func (x *ArrayBuilder[E, P]) objTime(obj any, key string, t time.Time) (any, boo
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objFloat64(obj any, key string, val float64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objFloat64(obj, key, val)
@@ -633,7 +689,7 @@ func (x *ArrayBuilder[E, P]) objFloat64(obj any, key string, val float64) (any, 
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objInt64(obj any, key string, val int64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objInt64(obj, key, val)
@@ -641,26 +697,43 @@ func (x *ArrayBuilder[E, P]) objInt64(obj any, key string, val int64) (any, bool
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return obj, false
 	}
 	return x.p().objUint64(obj, key, val)
 }
 
-func (x *ArrayBuilder[E, P]) arrNew() any {
-	if x.mustUseDefaultJSONSupport() {
-		return (defaultJSONSupport[E]{}).NewArray()
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) jsonNewArray(key string) any {
+	if key != `` {
+		x.Root().DPanic().Log(`logiface: cannot start writing to an array with a non-empty key`)
 	}
-	return x.p().arrNew()
+	return x.arrNewArray(x.b)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) jsonArray(key string, arr any) {
+func (x *ArrayBuilder[E, P]) arrNewArray(arr any) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewArray()
+	}
+	return x.p().arrNewArray(arr)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objNewArray(obj any, key string) any {
+	if x.jsonMustUseDefault() {
+		return (defaultJSONSupport[E]{}).NewArray()
+	}
+	return x.p().objNewArray(obj, key)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) jsonWriteArray(key string, arr any) {
 	if key != `` {
 		x.Root().DPanic().Log(`logiface: cannot write to an array with a non-empty key`)
 	} else if !x.jsonSupport().CanAppendArray() {
 		x.b = x.arrField(x.b, arr.([]any))
-	} else if v, ok := x.arrArray(x.b, arr); !ok {
+	} else if v, ok := x.arrWriteArray(x.b, arr); !ok {
 		x.Root().DPanic().Log(`logiface: implementation disallows writing an array to an array`)
 	} else {
 		x.b = v
@@ -668,31 +741,31 @@ func (x *ArrayBuilder[E, P]) jsonArray(key string, arr any) {
 }
 
 func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendField(arr.([]any), val)
 	}
 	return x.p().arrField(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) arrArray(arr, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ArrayBuilder[E, P]) arrWriteArray(arr, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendArray(arr.([]any), val.([]any)), true
 	}
-	return x.p().arrArray(arr, val)
+	return x.p().arrWriteArray(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
-func (x *ArrayBuilder[E, P]) arrObject(arr, val any) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+func (x *ArrayBuilder[E, P]) arrWriteObject(arr, val any) (any, bool) {
+	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendObject(arr.([]any), val.(map[string]any)), true
 	}
-	return x.p().arrObject(arr, val)
+	return x.p().arrWriteObject(arr, val)
 }
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrString(arr any, val string) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrString(arr, val)
@@ -700,7 +773,7 @@ func (x *ArrayBuilder[E, P]) arrString(arr any, val string) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrBool(arr, val)
@@ -708,7 +781,7 @@ func (x *ArrayBuilder[E, P]) arrBool(arr any, val bool) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encoding) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrBase64Bytes(arr, b, enc)
@@ -716,7 +789,7 @@ func (x *ArrayBuilder[E, P]) arrBase64Bytes(arr any, b []byte, enc *base64.Encod
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrDuration(arr, d)
@@ -724,7 +797,7 @@ func (x *ArrayBuilder[E, P]) arrDuration(arr any, d time.Duration) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrError(arr any, err error) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrError(arr, err)
@@ -732,7 +805,7 @@ func (x *ArrayBuilder[E, P]) arrError(arr any, err error) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrInt(arr, val)
@@ -740,7 +813,7 @@ func (x *ArrayBuilder[E, P]) arrInt(arr any, val int) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrFloat32(arr, val)
@@ -748,7 +821,7 @@ func (x *ArrayBuilder[E, P]) arrFloat32(arr any, val float32) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrTime(arr, t)
@@ -756,7 +829,7 @@ func (x *ArrayBuilder[E, P]) arrTime(arr any, t time.Time) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrFloat64(arr, val)
@@ -764,7 +837,7 @@ func (x *ArrayBuilder[E, P]) arrFloat64(arr any, val float64) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrInt64(arr, val)
@@ -772,14 +845,14 @@ func (x *ArrayBuilder[E, P]) arrInt64(arr any, val int64) (any, bool) {
 
 //lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
-	if x.mustUseDefaultJSONSupport() {
+	if x.jsonMustUseDefault() {
 		return arr, false
 	}
 	return x.p().arrUint64(arr, val)
 }
 
 func (x *contextFieldData[E]) array(event E) error {
-	arr := x.shared.json.newArray()
+	arr := x.shared.json.addStartOrNewArray(event, x.key)
 	for _, v := range x.values {
 		arr = v(x.shared, arr)
 	}
@@ -788,7 +861,7 @@ func (x *contextFieldData[E]) array(event E) error {
 }
 
 func (x *contextFieldData[E]) object(event E) error {
-	obj := x.shared.json.newObject()
+	obj := x.shared.json.addStartOrNewObject(event, x.key)
 	for _, v := range x.values {
 		obj = v(x.shared, obj)
 	}
