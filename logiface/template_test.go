@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/go-utilpkg/logiface/internal/mocklog"
 	"github.com/joeycumines/go-utilpkg/logiface/internal/stumpy"
 	"io"
 	"strings"
@@ -13,6 +14,7 @@ import (
 type (
 	eventTemplate struct {
 		Stumpy                  func(t *testing.T, s string)
+		Mocklog                 func(t *testing.T, s string)
 		Fluent                  func(logger *logiface.Logger[logiface.Event])
 		CallForNesting          func(logger *logiface.Logger[logiface.Event])
 		CallForNestingSansChain func(logger *logiface.Logger[logiface.Event])
@@ -26,6 +28,7 @@ var (
 		newEventTemplate3(),
 		newEventTemplate4(),
 		newEventTemplate5(),
+		newEventTemplate6(),
 	}
 )
 
@@ -35,6 +38,17 @@ func newEventTemplateStumpyLogger(w io.Writer, enabled bool) *logiface.Logger[lo
 		lvl = stumpy.L.WithLevel(logiface.LevelError)
 	}
 	return stumpy.L.New(stumpy.L.WithStumpy(stumpy.WithWriter(w)), lvl).Logger()
+}
+
+func newEventTemplateMocklogLogger(w io.Writer, enabled bool) *logiface.Logger[logiface.Event] {
+	lvl := mocklog.L.WithLevel(logiface.LevelTrace)
+	if !enabled {
+		lvl = mocklog.L.WithLevel(logiface.LevelError)
+	}
+	return mocklog.L.New(mocklog.WithMocklog(&mocklog.Writer{
+		Writer: w,
+		JSON:   true,
+	}), lvl).Logger()
 }
 
 func TestEventTemplate(t *testing.T) {
@@ -73,6 +87,11 @@ func TestEventTemplate(t *testing.T) {
 							Name:    `stumpy`,
 							Factory: newEventTemplateStumpyLogger,
 							Assert:  template.Stumpy,
+						},
+						{
+							Name:    `mocklog`,
+							Factory: newEventTemplateMocklogLogger,
+							Assert:  template.Mocklog,
 						},
 					} {
 						tc2 := tc2
@@ -162,6 +181,13 @@ func newEventTemplate1() *eventTemplate {
 	t.Stumpy = func(t *testing.T, s string) {
 		t.Helper()
 		if s != `{"lvl":"info","request_id":"c7d5a8f1-7e39-4d07-a9f5-73b96d31c036","user_id":1234,"username":"johndoe","roles":[{"id":1,"name":"admin"},{"id":2,"name":"user"}],"preferences":{"language":"en","notifications":{"email":true,"sms":false}},"endpoint":"/api/v1/users","method":"GET","response":{"status":200,"users":[{"id":5678,"username":"janedoe","email":"janedoe@example.com","groups":[{"id":101,"name":"group1"},{"id":102,"name":"group2"}]},{"id":9101,"username":"mike92","email":"mike92@example.com","groups":[{"id":103,"name":"group3"}]}]},"elapsed":230,"unit":"ms","msg":"API request processed"}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] request_id="c7d5a8f1-7e39-4d07-a9f5-73b96d31c036" user_id=1234 username="johndoe" roles=[{"id":1,"name":"admin"},{"id":2,"name":"user"}] preferences={"language":"en","notifications":{"email":true,"sms":false}} endpoint="/api/v1/users" method="GET" response={"status":200,"users":[{"email":"janedoe@example.com","groups":[{"id":101,"name":"group1"},{"id":102,"name":"group2"}],"id":5678,"username":"janedoe"},{"email":"mike92@example.com","groups":[{"id":103,"name":"group3"}],"id":9101,"username":"mike92"}]} elapsed=230 unit="ms" msg="API request processed"`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
@@ -466,6 +492,13 @@ func newEventTemplate2() *eventTemplate {
 		}
 	}
 
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] request_id="3c3cb9d9-9a14-41e2-a23a-49d50f684fbf" user_id=123 username="alice" age=27 location={"country":"USA","state":"CA"} msg="User information updated"`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
 	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
 			Str("request_id", requestID).
@@ -506,6 +539,13 @@ func newEventTemplate3() *eventTemplate {
 	t.Stumpy = func(t *testing.T, s string) {
 		t.Helper()
 		if s != `{"lvl":"info","server_id":"webserver-01","server_ip":"192.168.0.10","server_hostname":"webserver-01.example.com","os":{"type":"Linux","version":"5.4.0-91-generic"},"load_average":[0.25,0.17,0.12],"processes":130,"apps":[{"name":"webapp-01","port":8080,"status":"running"},{"name":"webapp-02","port":8081,"status":"stopped"}],"msg":"Server status updated"}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] server_id="webserver-01" server_ip="192.168.0.10" server_hostname="webserver-01.example.com" os={"type":"Linux","version":"5.4.0-91-generic"} load_average=[0.25,0.17,0.12] processes=130 apps=[{"name":"webapp-01","port":8080,"status":"running"},{"name":"webapp-02","port":8081,"status":"stopped"}] msg="Server status updated"`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
@@ -580,6 +620,13 @@ func newEventTemplate4() *eventTemplate {
 		}
 	}
 
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] order_id="ORD-12345" customer={"id":5678,"name":"John Smith"} delivery_method="Standard" order_total=124.99 currency="USD" order_date="2023-03-25" estimated_delivery_date="2023-03-31" tracking_number="1234567890" items=[{"name":"Widget","price":24.99,"product_id":"P123","quantity":5}] msg="Order placed"`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
 	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
 			Str("order_id", orderID).
@@ -619,6 +666,13 @@ func newEventTemplate5() *eventTemplate {
 		}
 	}
 
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] k=[{}]`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
 	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
 			Array().
@@ -654,6 +708,71 @@ func newEventTemplate5() *eventTemplate {
 					}).
 					As("k")
 			}).
+			Log("")
+	}
+
+	return &t
+}
+
+// newEventTemplate6 is a copy of newEventTemplate5 that's built using context
+func newEventTemplate6() *eventTemplate {
+	var t eventTemplate
+
+	t.Stumpy = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `{"lvl":"info","k":[{}]}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] k=[{}]`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Array().
+			Object().
+			Add().
+			As("k").
+			End().
+			Logger().
+			Info().
+			Log("")
+	}
+
+	t.CallForNesting = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Call(func(b *logiface.Context[logiface.Event]) {
+				b.Array().
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Context[logiface.Event]]]) {
+						b.Object().
+							Add().
+							End()
+					}).
+					As("k").
+					End()
+			}).
+			Logger().
+			Info().
+			Log("")
+	}
+
+	t.CallForNestingSansChain = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Call(func(b *logiface.Context[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Context[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
+							Add()
+					}).
+					As("k")
+			}).
+			Logger().
+			Info().
 			Log("")
 	}
 
