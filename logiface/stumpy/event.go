@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/jsonenc"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"strconv"
 )
 
 type (
@@ -57,21 +58,24 @@ func (x *Event) AddError(err error) bool {
 	return true
 }
 
-//func (x *Event) AddString(key string, val string) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (x *Event) AddInt(key string, val int) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (x *Event) AddFloat32(key string, val float32) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
+func (x *Event) AddString(key string, val string) bool {
+	x.appendKey(key)
+	x.appendString(val)
+	return true
+}
+
+func (x *Event) AddInt(key string, val int) bool {
+	x.appendKey(key)
+	x.appendInt(val)
+	return true
+}
+
+func (x *Event) AddFloat32(key string, val float32) bool {
+	x.appendKey(key)
+	x.appendFloat32(val)
+	return true
+}
+
 //func (x *Event) AddTime(key string, val time.Time) bool {
 //	//TODO implement me
 //	panic("implement me")
@@ -91,12 +95,13 @@ func (x *Event) AddError(err error) bool {
 //	//TODO implement me
 //	panic("implement me")
 //}
-//
-//func (x *Event) AddFloat64(key string, val float64) bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
+
+func (x *Event) AddFloat64(key string, val float64) bool {
+	x.appendKey(key)
+	x.appendFloat64(val)
+	return true
+}
+
 //func (x *Event) AddInt64(key string, val int64) bool {
 //	//TODO implement me
 //	panic("implement me")
@@ -121,6 +126,18 @@ func (x *Event) appendArraySeparator() {
 
 func (x *Event) appendString(val string) {
 	x.buf = jsonenc.AppendString(x.buf, val)
+}
+
+func (x *Event) appendInt(val int) {
+	x.buf = strconv.AppendInt(x.buf, int64(val), 10)
+}
+
+func (x *Event) appendFloat64(val float64) {
+	x.buf = jsonenc.AppendFloat64(x.buf, val)
+}
+
+func (x *Event) appendFloat32(val float32) {
+	x.buf = jsonenc.AppendFloat32(x.buf, val)
 }
 
 func (x *Event) insertStringContent(index int, value string) {
