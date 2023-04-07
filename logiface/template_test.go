@@ -29,6 +29,8 @@ var (
 		newEventTemplate4(),
 		newEventTemplate5(),
 		newEventTemplate6(),
+		newEventTemplate7(),
+		newEventTemplate8(),
 	}
 )
 
@@ -767,6 +769,130 @@ func newEventTemplate6() *eventTemplate {
 				logiface.Array[logiface.Event](b).
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Context[logiface.Event]]) {
 						logiface.Object[logiface.Event](b).
+							Add()
+					}).
+					As("k")
+			}).
+			Logger().
+			Info().
+			Log("")
+	}
+
+	return &t
+}
+
+// newEventTemplate7 is a nested array
+func newEventTemplate7() *eventTemplate {
+	var t eventTemplate
+
+	t.Stumpy = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `{"lvl":"info","k":[[]]}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] k=[[]]`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			Array().
+			Array().
+			Add().
+			As("k").
+			End().
+			Log("")
+	}
+
+	t.CallForNesting = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				b.Array().
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+						b.Array().
+							Add().
+							End()
+					}).
+					As("k").
+					End()
+			}).
+			Log("")
+	}
+
+	t.CallForNestingSansChain = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Array[logiface.Event](b).
+							Add()
+					}).
+					As("k")
+			}).
+			Log("")
+	}
+
+	return &t
+}
+
+// newEventTemplate8 is a copy of newEventTemplate7 that's built using context
+func newEventTemplate8() *eventTemplate {
+	var t eventTemplate
+
+	t.Stumpy = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `{"lvl":"info","k":[[]]}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Mocklog = func(t *testing.T, s string) {
+		t.Helper()
+		if s != `[info] k=[[]]`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	}
+
+	t.Fluent = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Array().
+			Array().
+			Add().
+			As("k").
+			End().
+			Logger().
+			Info().
+			Log("")
+	}
+
+	t.CallForNesting = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Call(func(b *logiface.Context[logiface.Event]) {
+				b.Array().
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Context[logiface.Event]]]) {
+						b.Array().
+							Add().
+							End()
+					}).
+					As("k").
+					End()
+			}).
+			Logger().
+			Info().
+			Log("")
+	}
+
+	t.CallForNestingSansChain = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			Call(func(b *logiface.Context[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Context[logiface.Event]]) {
+						logiface.Array[logiface.Event](b).
 							Add()
 					}).
 					As("k")
