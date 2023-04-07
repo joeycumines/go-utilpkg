@@ -73,14 +73,14 @@ var float64Tests = []struct {
 		Want: `"NaN"`,
 	},
 	{
-		Name: "+Inf",
+		Name: "Infinity",
 		Val:  math.Inf(1),
-		Want: `"+Inf"`,
+		Want: `"Infinity"`,
 	},
 	{
-		Name: "-Inf",
+		Name: "-Infinity",
 		Val:  math.Inf(-1),
-		Want: `"-Inf"`,
+		Want: `"-Infinity"`,
 	},
 }
 
@@ -112,11 +112,11 @@ func FuzzAppendFloat64(f *testing.F) {
 				if !math.IsNaN(val) {
 					t.Fatalf("expected %v got NaN", val)
 				}
-			case `"+Inf"`:
+			case `"Infinity"`:
 				if !math.IsInf(val, 1) {
 					t.Fatalf("expected %v got +Inf", val)
 				}
-			case `"-Inf"`:
+			case `"-Infinity"`:
 				if !math.IsInf(val, -1) {
 					t.Fatalf("expected %v got -Inf", val)
 				}
@@ -209,14 +209,14 @@ var float32Tests = []struct {
 		Want: `"NaN"`,
 	},
 	{
-		Name: "+Inf",
+		Name: "Infinity",
 		Val:  float32(math.Inf(1)),
-		Want: `"+Inf"`,
+		Want: `"Infinity"`,
 	},
 	{
-		Name: "-Inf",
+		Name: "-Infinity",
 		Val:  float32(math.Inf(-1)),
-		Want: `"-Inf"`,
+		Want: `"-Infinity"`,
 	},
 }
 
@@ -249,11 +249,11 @@ func FuzzAppendFloat32(f *testing.F) {
 				if !math.IsNaN(val) {
 					t.Fatalf("expected %v got NaN", val)
 				}
-			case `"+Inf"`:
+			case `"Infinity"`:
 				if !math.IsInf(val, 1) {
 					t.Fatalf("expected %v got +Inf", val)
 				}
-			case `"-Inf"`:
+			case `"-Infinity"`:
 				if !math.IsInf(val, -1) {
 					t.Fatalf("expected %v got -Inf", val)
 				}

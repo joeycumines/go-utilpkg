@@ -19,9 +19,9 @@ func appendFloat(dst []byte, val float64, bitSize int) []byte {
 	case math.IsNaN(val):
 		return append(dst, `"NaN"`...)
 	case math.IsInf(val, 1):
-		return append(dst, `"+Inf"`...)
+		return append(dst, `"Infinity"`...)
 	case math.IsInf(val, -1):
-		return append(dst, `"-Inf"`...)
+		return append(dst, `"-Infinity"`...)
 	}
 	// see also https://cs.opensource.google/go/go/+/refs/tags/go1.20.3:src/encoding/json/encode.go;l=573
 	fmt := byte('f')
