@@ -432,6 +432,27 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+
+	t.Run(`array error`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Array().
+			Err(nil).
+			Err(errors.New(`some error`)).
+			Err(logObjectMarshaler(func(e *zerolog.Event) {
+				e.Str(`k`, `v`)
+			})).
+			As(`k`).
+			End().
+			Log(shortMessage)
+
+		if s := h.B.String(); s != `{"level":"info","k":[null,"some error",{"k":"v"}],"message":"Test logging."}`+"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
 }
 
 func ExampleLogger_arrayField() {
