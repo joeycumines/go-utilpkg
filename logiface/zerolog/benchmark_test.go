@@ -36,6 +36,11 @@ func Benchmark(b *testing.B) {
 const (
 	variantCallForNesting          = `callForNesting`
 	variantCallForNestingSansChain = `callForNestingSansChain`
+	variantJSONFunc                = `jsonFunc`
+	variantNoChain                 = `noChain`
+	variantStumpy                  = `stumpy`
+	variantStumpyJSONFunc          = variantStumpy + `_` + variantJSONFunc
+	variantStumpyNoChain           = variantStumpy + `_` + variantNoChain
 )
 
 var (
@@ -1063,12 +1068,12 @@ func BenchmarkArray_Str(b *testing.B) {
 		},
 		Variants: []Variant{
 			{variantCallForNesting, func(b *testing.B) {
-				logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
 				b.ResetTimer()
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
 						logger.Info().
-							Call(func(b *logiface.Builder[*Event]) {
+							Call(func(b *logiface.Builder[logiface.Event]) {
 								b.Array().
 									Str(`a`).
 									Str(`b`).
@@ -1082,19 +1087,50 @@ func BenchmarkArray_Str(b *testing.B) {
 				})
 			}},
 			{variantCallForNestingSansChain, func(b *testing.B) {
-				logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
 				b.ResetTimer()
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
 						logger.Info().
-							Call(func(b *logiface.Builder[*Event]) {
-								logiface.Array[*Event](b).
+							Call(func(b *logiface.Builder[logiface.Event]) {
+								logiface.Array[logiface.Event](b).
 									Str(`a`).
 									Str(`b`).
 									Str(`c`).
 									Str(`d`).
 									As(`k`)
 							}).
+							Log(shortMessage)
+					}
+				})
+			}},
+			{variantJSONFunc, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							ArrayFunc(`k`, func(b logiface.BuilderArray) {
+								b.Str(`a`).
+									Str(`b`).
+									Str(`c`).
+									Str(`d`)
+							}).
+							Log(shortMessage)
+					}
+				})
+			}},
+			{variantNoChain, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logiface.Array[logiface.Event](logger.Info()).
+							Str(`a`).
+							Str(`b`).
+							Str(`c`).
+							Str(`d`).
+							As(`k`).
 							Log(shortMessage)
 					}
 				})
@@ -1347,7 +1383,7 @@ func benchmarkEventTemplate(b *testing.B, num int, enabled bool) {
 				if eventTemplates[num-1].CallForNesting == nil {
 					b.Skip(`not implemented`)
 				}
-				logger := newEventTemplateGenericLogger(io.Discard, enabled)
+				logger := newEventTemplateInterfaceLogger(io.Discard, enabled)
 				b.ResetTimer()
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
@@ -1359,11 +1395,71 @@ func benchmarkEventTemplate(b *testing.B, num int, enabled bool) {
 				if eventTemplates[num-1].CallForNestingSansChain == nil {
 					b.Skip(`not implemented`)
 				}
-				logger := newEventTemplateGenericLogger(io.Discard, enabled)
+				logger := newEventTemplateInterfaceLogger(io.Discard, enabled)
 				b.ResetTimer()
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
 						eventTemplates[num-1].CallForNestingSansChain(logger)
+					}
+				})
+			}},
+			{variantJSONFunc, func(b *testing.B) {
+				if eventTemplates[num-1].JSONFunc == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateInterfaceLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].JSONFunc(logger)
+					}
+				})
+			}},
+			{variantNoChain, func(b *testing.B) {
+				if eventTemplates[num-1].NoChain == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateInterfaceLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].NoChain(logger)
+					}
+				})
+			}},
+			{variantStumpy, func(b *testing.B) {
+				if eventTemplates[num-1].Interface == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateStumpyLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].Interface(logger)
+					}
+				})
+			}},
+			{variantStumpyJSONFunc, func(b *testing.B) {
+				if eventTemplates[num-1].JSONFunc == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateStumpyLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].JSONFunc(logger)
+					}
+				})
+			}},
+			{variantStumpyNoChain, func(b *testing.B) {
+				if eventTemplates[num-1].NoChain == nil {
+					b.Skip(`not implemented`)
+				}
+				logger := newEventTemplateStumpyLogger(io.Discard, enabled)
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						eventTemplates[num-1].NoChain(logger)
 					}
 				})
 			}},

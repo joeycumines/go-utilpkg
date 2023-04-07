@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/go-utilpkg/logiface/stumpy"
 	"github.com/rs/zerolog"
 	"io"
 	"strings"
@@ -16,8 +17,10 @@ type (
 		Baseline                func(logger *zerolog.Logger)
 		Generic                 func(logger *logiface.Logger[*Event])
 		Interface               func(logger *logiface.Logger[logiface.Event])
-		CallForNesting          func(logger *logiface.Logger[*Event])
-		CallForNestingSansChain func(logger *logiface.Logger[*Event])
+		CallForNesting          func(logger *logiface.Logger[logiface.Event])
+		CallForNestingSansChain func(logger *logiface.Logger[logiface.Event])
+		JSONFunc                func(logger *logiface.Logger[logiface.Event])
+		NoChain                 func(logger *logiface.Logger[logiface.Event])
 	}
 )
 
@@ -54,6 +57,20 @@ func newEventTemplateInterfaceLogger(w io.Writer, enabled bool) *logiface.Logger
 		lvl = L.WithLevel(L.LevelError())
 	}
 	return L.New(L.WithZerolog(*newEventTemplateBaselineLogger(w, true)), lvl).Logger()
+}
+
+func newEventTemplateStumpyLogger(w io.Writer, enabled bool) *logiface.Logger[logiface.Event] {
+	lvl := stumpy.L.WithLevel(stumpy.L.LevelTrace())
+	if !enabled {
+		lvl = stumpy.L.WithLevel(stumpy.L.LevelError())
+	}
+	return stumpy.L.New(stumpy.L.WithStumpy(
+		stumpy.WithWriter(w),
+		// try to make the test more fair
+		stumpy.WithLevelField(`level`),
+		stumpy.WithMessageField(`message`),
+		stumpy.WithErrorField(`error`),
+	), lvl).Logger()
 }
 
 func TestEventTemplate(t *testing.T) {
@@ -126,7 +143,7 @@ func testEventTemplate(t *testing.T, template *eventTemplate, enabled bool, nilL
 			t.Skip(`not implemented`)
 		}
 		var buffer bytes.Buffer
-		logger := newEventTemplateGenericLogger(&buffer, enabled)
+		logger := newEventTemplateInterfaceLogger(&buffer, enabled)
 		if nilLogger {
 			logger = nil
 		}
@@ -138,11 +155,35 @@ func testEventTemplate(t *testing.T, template *eventTemplate, enabled bool, nilL
 			t.Skip(`not implemented`)
 		}
 		var buffer bytes.Buffer
-		logger := newEventTemplateGenericLogger(&buffer, enabled)
+		logger := newEventTemplateInterfaceLogger(&buffer, enabled)
 		if nilLogger {
 			logger = nil
 		}
 		template.CallForNestingSansChain(logger)
+		assert(t, buffer.String())
+	})
+	t.Run(`jsonFunc`, func(t *testing.T) {
+		if template.JSONFunc == nil {
+			t.Skip(`not implemented`)
+		}
+		var buffer bytes.Buffer
+		logger := newEventTemplateInterfaceLogger(&buffer, enabled)
+		if nilLogger {
+			logger = nil
+		}
+		template.JSONFunc(logger)
+		assert(t, buffer.String())
+	})
+	t.Run(`noChain`, func(t *testing.T) {
+		if template.NoChain == nil {
+			t.Skip(`not implemented`)
+		}
+		var buffer bytes.Buffer
+		logger := newEventTemplateInterfaceLogger(&buffer, enabled)
+		if nilLogger {
+			logger = nil
+		}
+		template.NoChain(logger)
 		assert(t, buffer.String())
 	})
 }
@@ -412,21 +453,21 @@ func newEventTemplate1() *eventTemplate {
 			Log("API request processed")
 	}
 
-	t.CallForNesting = func(logger *logiface.Logger[*Event]) {
+	t.CallForNesting = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
-			Call(func(b *logiface.Builder[*Event]) {
+			Call(func(b *logiface.Builder[logiface.Event]) {
 				b.Array().
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Object().
 							Int("id", role1ID).
 							Str("name", role1Name).
 							Add().
 							End()
 					}).
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Object().
 							Int("id", role2ID).
 							Str("name", role2Name).
@@ -436,10 +477,10 @@ func newEventTemplate1() *eventTemplate {
 					As("roles").
 					End()
 			}).
-			Call(func(b *logiface.Builder[*Event]) {
+			Call(func(b *logiface.Builder[logiface.Event]) {
 				b.Object().
 					Str("language", language).
-					Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+					Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Object().
 							Bool("email", emailNotification).
 							Bool("sms", smsNotification).
@@ -451,26 +492,26 @@ func newEventTemplate1() *eventTemplate {
 			}).
 			Str("endpoint", endpoint).
 			Str("method", method).
-			Call(func(b *logiface.Builder[*Event]) {
+			Call(func(b *logiface.Builder[logiface.Event]) {
 				b.Object().
 					Int("status", responseStatus).
-					Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+					Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Array().
-							Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 								b.Object().
 									Int("id", user1ID).
 									Str("username", user1Username).
 									Str("email", user1Email).
-									Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+									Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 										b.Array().
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 												b.Object().
 													Int("id", group1ID).
 													Str("name", group1Name).
 													Add().
 													End()
 											}).
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 												b.Object().
 													Int("id", group2ID).
 													Str("name", group2Name).
@@ -483,14 +524,14 @@ func newEventTemplate1() *eventTemplate {
 									Add().
 									End()
 							}).
-							Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 								b.Object().
 									Int("id", user2ID).
 									Str("username", user2Username).
 									Str("email", user2Email).
-									Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+									Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 										b.Array().
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 												b.Object().
 													Int("id", group3ID).
 													Str("name", group3Name).
@@ -514,32 +555,32 @@ func newEventTemplate1() *eventTemplate {
 			Log("API request processed")
 	}
 
-	t.CallForNestingSansChain = func(logger *logiface.Logger[*Event]) {
+	t.CallForNestingSansChain = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
-			Call(func(b *logiface.Builder[*Event]) {
-				logiface.Array[*Event](b).
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Builder[*Event]]) {
-						logiface.Object[*Event](b).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
 							Int("id", role1ID).
 							Str("name", role1Name).
 							Add()
 					}).
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Builder[*Event]]) {
-						logiface.Object[*Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
 							Int("id", role2ID).
 							Str("name", role2Name).
 							Add()
 					}).
 					As("roles")
 			}).
-			Call(func(b *logiface.Builder[*Event]) {
-				logiface.Object[*Event](b).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Object[logiface.Event](b).
 					Str("language", language).
-					Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]) {
-						logiface.Object[*Event](b).
+					Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
 							Bool("email", emailNotification).
 							Bool("sms", smsNotification).
 							As("notifications")
@@ -548,26 +589,26 @@ func newEventTemplate1() *eventTemplate {
 			}).
 			Str("endpoint", endpoint).
 			Str("method", method).
-			Call(func(b *logiface.Builder[*Event]) {
-				logiface.Object[*Event](b).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Object[logiface.Event](b).
 					Int("status", responseStatus).
-					Call(func(b *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]) {
-						logiface.Array[*Event](b).
-							Call(func(b *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]) {
-								logiface.Object[*Event](b).
+					Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Array[logiface.Event](b).
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+								logiface.Object[logiface.Event](b).
 									Int("id", user1ID).
 									Str("username", user1Username).
 									Str("email", user1Email).
-									Call(func(b *logiface.ObjectBuilder[*Event, *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]]) {
-										logiface.Array[*Event](b).
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]]]) {
-												logiface.Object[*Event](b).
+									Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]]) {
+										logiface.Array[logiface.Event](b).
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]]]) {
+												logiface.Object[logiface.Event](b).
 													Int("id", group1ID).
 													Str("name", group1Name).
 													Add()
 											}).
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]]]) {
-												logiface.Object[*Event](b).
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]]]) {
+												logiface.Object[logiface.Event](b).
 													Int("id", group2ID).
 													Str("name", group2Name).
 													Add()
@@ -576,15 +617,15 @@ func newEventTemplate1() *eventTemplate {
 									}).
 									Add()
 							}).
-							Call(func(b *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]) {
-								logiface.Object[*Event](b).
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+								logiface.Object[logiface.Event](b).
 									Int("id", user2ID).
 									Str("username", user2Username).
 									Str("email", user2Email).
-									Call(func(b *logiface.ObjectBuilder[*Event, *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]]) {
-										logiface.Array[*Event](b).
-											Call(func(b *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.ArrayBuilder[*Event, *logiface.ObjectBuilder[*Event, *logiface.Builder[*Event]]]]]) {
-												logiface.Object[*Event](b).
+									Call(func(b *logiface.ObjectBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]]) {
+										logiface.Array[logiface.Event](b).
+											Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.ObjectBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]]]) {
+												logiface.Object[logiface.Event](b).
 													Int("id", group3ID).
 													Str("name", group3Name).
 													Add()
@@ -597,6 +638,126 @@ func newEventTemplate1() *eventTemplate {
 					}).
 					As("response")
 			}).
+			Int("elapsed", elapsed).
+			Str("unit", unit).
+			Log("API request processed")
+	}
+
+	t.JSONFunc = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			Str("request_id", requestID).
+			Int("user_id", userID).
+			Str("username", username).
+			ArrayFunc("roles", func(b logiface.BuilderArray) {
+				b.
+					ObjectFunc(func(b logiface.BuilderObject) {
+						b.
+							Int("id", role1ID).
+							Str("name", role1Name)
+					}).
+					ObjectFunc(func(b logiface.BuilderObject) {
+						b.
+							Int("id", role2ID).
+							Str("name", role2Name)
+					})
+			}).
+			ObjectFunc("preferences", func(b logiface.BuilderObject) {
+				b.
+					Str("language", language).
+					ObjectFunc("notifications", func(b logiface.BuilderObject) {
+						b.
+							Bool("email", emailNotification).
+							Bool("sms", smsNotification)
+					})
+			}).
+			Str("endpoint", endpoint).
+			Str("method", method).
+			ObjectFunc("response", func(b logiface.BuilderObject) {
+				b.
+					Int("status", responseStatus).
+					ArrayFunc("users", func(b logiface.BuilderArray) {
+						b.
+							ObjectFunc(func(b logiface.BuilderObject) {
+								b.
+									Int("id", user1ID).
+									Str("username", user1Username).
+									Str("email", user1Email).
+									ArrayFunc("groups", func(b logiface.BuilderArray) {
+										b.
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group1ID).
+													Str("name", group1Name)
+											}).
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group2ID).
+													Str("name", group2Name)
+											})
+									})
+							}).
+							ObjectFunc(func(b logiface.BuilderObject) {
+								b.
+									Int("id", user2ID).
+									Str("username", user2Username).
+									Str("email", user2Email).
+									ArrayFunc("groups", func(b logiface.BuilderArray) {
+										b.
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group3ID).
+													Str("name", group3Name)
+											})
+									})
+							})
+					})
+			}).
+			Int("elapsed", elapsed).
+			Str("unit", unit).
+			Log("API request processed")
+	}
+
+	t.NoChain = func(logger *logiface.Logger[logiface.Event]) {
+		logiface.Object[logiface.Event](logiface.Array[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Array[logiface.Event](logiface.Object[logiface.Event](logiface.Array[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Object[logiface.Event](logiface.Array[logiface.Event](logger.Info().
+			Str("request_id", requestID).
+			Int("user_id", userID).
+			Str("username", username))).
+			Int("id", role1ID).
+			Str("name", role1Name).
+			Add()).
+			Int("id", role2ID).
+			Str("name", role2Name).
+			Add().
+			As("roles")).
+			Str("language", language)).
+			Bool("email", emailNotification).
+			Bool("sms", smsNotification).
+			As("notifications").
+			As("preferences").
+			Str("endpoint", endpoint).
+			Str("method", method)).
+			Int("status", responseStatus))).
+			Int("id", user1ID).
+			Str("username", user1Username).
+			Str("email", user1Email))).
+			Int("id", group1ID).
+			Str("name", group1Name).
+			Add()).
+			Int("id", group2ID).
+			Str("name", group2Name).
+			Add().
+			As("groups").
+			Add()).
+			Int("id", user2ID).
+			Str("username", user2Username).
+			Str("email", user2Email))).
+			Int("id", group3ID).
+			Str("name", group3Name).
+			Add().
+			As("groups").
+			Add().
+			As("users").
+			As("response").
 			Int("elapsed", elapsed).
 			Str("unit", unit).
 			Log("API request processed")
@@ -942,11 +1103,11 @@ func newEventTemplate5() *eventTemplate {
 			Log("")
 	}
 
-	t.CallForNesting = func(logger *logiface.Logger[*Event]) {
+	t.CallForNesting = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
-			Call(func(b *logiface.Builder[*Event]) {
+			Call(func(b *logiface.Builder[logiface.Event]) {
 				b.Array().
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Chain[*Event, *logiface.Builder[*Event]]]) {
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Object().
 							Add().
 							End()
@@ -957,12 +1118,12 @@ func newEventTemplate5() *eventTemplate {
 			Log("")
 	}
 
-	t.CallForNestingSansChain = func(logger *logiface.Logger[*Event]) {
+	t.CallForNestingSansChain = func(logger *logiface.Logger[logiface.Event]) {
 		logger.Info().
-			Call(func(b *logiface.Builder[*Event]) {
-				logiface.Array[*Event](b).
-					Call(func(b *logiface.ArrayBuilder[*Event, *logiface.Builder[*Event]]) {
-						logiface.Object[*Event](b).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
 							Add()
 					}).
 					As("k")
