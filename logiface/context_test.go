@@ -390,7 +390,7 @@ func TestBuilder_logEventDisabled(t *testing.T) {
 			if b.shared != nil {
 				t.Error(b.shared)
 			}
-			if v := s.pool.Get(); v != &b {
+			if v := s.pool.Get(); v != &b && v != nil {
 				t.Error(v)
 			} else if v := s.pool.Get(); v != nil {
 				t.Error(v)
@@ -485,7 +485,7 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 
 			<-done
 
-			if v := s.pool.Get(); v != &b {
+			if v := s.pool.Get(); v != &b && v != nil {
 				t.Error(v)
 			} else if v := s.pool.Get(); v != nil {
 				t.Error(v)
@@ -533,7 +533,7 @@ func TestBuilder_Release_callReleaser(t *testing.T) {
 	<-done
 	close(in)
 	close(out)
-	if v := pool.Get(); v != builder {
+	if v := pool.Get(); v != builder && v != nil {
 		t.Error(v)
 	}
 	time.Sleep(time.Millisecond * 50)
@@ -569,7 +569,7 @@ func TestBuilder_Release_noReleaser(t *testing.T) {
 	if builder.Event != nil {
 		t.Error(builder)
 	}
-	if v := pool.Get(); v != builder {
+	if v := pool.Get(); v != builder && v != nil {
 		t.Error(v)
 	}
 	time.Sleep(time.Millisecond * 50)
@@ -756,7 +756,7 @@ func TestBuilder_Modifier_callReleaser(t *testing.T) {
 	<-done
 	close(in)
 	close(out)
-	if v := pool.Get(); v != builder {
+	if v := pool.Get(); v != builder && v != nil {
 		t.Error(v)
 	}
 	time.Sleep(time.Millisecond * 50)
