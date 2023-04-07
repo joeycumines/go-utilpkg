@@ -3,6 +3,7 @@ package stumpy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/joeycumines/go-utilpkg/logiface/testsuite"
 	"io"
@@ -30,11 +31,21 @@ func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.Logge
 		Logger:       L.New(options...),
 		LevelMapping: testSuiteLevelMapping,
 		ParseEvent:   testSuiteParseEvent,
+		FormatInt64:  testSuiteFormatInt64,
+		FormatUint64: testSuiteFormatUint64,
 	}
 }
 
 func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {
 	return lvl
+}
+
+func testSuiteFormatInt64(v int64) any {
+	return fmt.Sprintf(`%d`, v)
+}
+
+func testSuiteFormatUint64(v uint64) any {
+	return fmt.Sprintf(`%d`, v)
 }
 
 func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {

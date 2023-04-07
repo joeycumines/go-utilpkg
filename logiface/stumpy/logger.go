@@ -135,12 +135,6 @@ func (x *Logger) AddObject(evt *Event, key string, obj *Event) {
 	x.SetObject(evt, key, obj)
 }
 
-func (x *Logger) SetField(obj *Event, key string, val any) *Event {
-	obj.appendKey(key)
-	obj.appendInterface(val)
-	return obj
-}
-
 func (x *Logger) NewArray() *Event {
 	panic(`stumpy.Logger.NewArray() should never be called`)
 }
@@ -188,11 +182,5 @@ func (x *Logger) AppendArray(arr *Event, val *Event) *Event {
 		panic(`stumpy.Logger.AppendArray() should never be called with a different *Event`)
 	}
 	arr.buf = append(arr.buf, ']')
-	return arr
-}
-
-func (x *Logger) AppendField(arr *Event, val any) *Event {
-	arr.appendArraySeparator()
-	arr.appendInterface(val)
 	return arr
 }
