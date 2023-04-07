@@ -38,8 +38,9 @@ func (x *arrayFields[E, P]) AddMessage(msg string) bool {
 	panic(`unimplemented`)
 }
 
-func (x *arrayFields[E, P]) AddError(err error) bool {
-	return false
+func (x *arrayFields[E, P]) AddError(err error) (ok bool) {
+	x.b, ok = x.builder().arrError(x.b, err)
+	return
 }
 
 func (x *arrayFields[E, P]) AddString(_ string, val string) (ok bool) {
