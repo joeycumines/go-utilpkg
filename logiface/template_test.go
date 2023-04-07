@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/joeycumines/go-utilpkg/logiface/internal/mocklog"
-	"github.com/joeycumines/go-utilpkg/logiface/internal/stumpy"
+	"github.com/joeycumines/go-utilpkg/logiface/stumpy"
 	"io"
 	"strings"
 	"testing"

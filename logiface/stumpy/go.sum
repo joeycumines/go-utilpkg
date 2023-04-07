@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230406002012-80ff2fc9d7ee h1:vJzotSMRA2x1psU45uCF4c8OFiaxiwfNhAsiZirk4TI=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230406002012-80ff2fc9d7ee/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230407021111-436e77a338eb h1:Pc4o9+dGShMvECCektCVw37pCoYPV3WQL6zCbMfZV3A=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230407021111-436e77a338eb/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/go-utilpkg/logiface v0.6.0 h1:r6IW0Ojp2NENVGBdS6f55InCOGdFn+wF1XZPcMYcrN8=
 github.com/joeycumines/go-utilpkg/logiface v0.6.0/go.mod h1:VMwHDq8Up5qCY9obRyNHDyarq8ggDehYBOpVec1oFcw=
 github.com/joeycumines/go-utilpkg/logiface/testsuite v0.3.0 h1:jjR9n2EEAY6d9VgZdCYimBMLbStPgYqlLVRn6QEPkZU=
