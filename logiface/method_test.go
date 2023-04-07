@@ -50,9 +50,27 @@ type fieldBuilderNestedInterface[TParent any] interface {
 type fieldBuilderFactoryInterface[TEvent Event, TParent interface {
 	Parent[TEvent]
 	comparable
-}] interface {
+}, TSelf any] interface {
 	Array() *ArrayBuilder[TEvent, *Chain[TEvent, TParent]]
 	Object() *ObjectBuilder[TEvent, *Chain[TEvent, TParent]]
+}
+
+type fieldBuilderFactoryInterfaceArray[TEvent Event, TParent interface {
+	Parent[TEvent]
+	comparable
+}, TSelf any] interface {
+	fieldBuilderFactoryInterface[TEvent, TParent, TSelf]
+	ArrayFunc(fn func(b *ArrayBuilder[TEvent, *Chain[TEvent, TParent]])) TSelf
+	ObjectFunc(fn func(b *ObjectBuilder[TEvent, *Chain[TEvent, TParent]])) TSelf
+}
+
+type fieldBuilderFactoryInterfaceObject[TEvent Event, TParent interface {
+	Parent[TEvent]
+	comparable
+}, TSelf any] interface {
+	fieldBuilderFactoryInterface[TEvent, TParent, TSelf]
+	ArrayFunc(key string, fn func(b *ArrayBuilder[TEvent, *Chain[TEvent, TParent]])) TSelf
+	ObjectFunc(key string, fn func(b *ObjectBuilder[TEvent, *Chain[TEvent, TParent]])) TSelf
 }
 
 type eventBuilderInterface[TEvent Event, TFluent any] interface {
@@ -77,11 +95,11 @@ var (
 	_ fieldBuilderNestedInterface[*Builder[*mockSimpleEvent]]                           = (*ObjectBuilder[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 	_ fieldBuilderNestedInterface[*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Builder[*mockSimpleEvent])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Context[*mockSimpleEvent]] = (*Context[*mockSimpleEvent])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
-	_ fieldBuilderFactoryInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ fieldBuilderFactoryInterfaceObject[*mockSimpleEvent, *Builder[*mockSimpleEvent], *Builder[*mockSimpleEvent]]                                                             = (*Builder[*mockSimpleEvent])(nil)
+	_ fieldBuilderFactoryInterfaceObject[*mockSimpleEvent, *Context[*mockSimpleEvent], *Context[*mockSimpleEvent]]                                                             = (*Context[*mockSimpleEvent])(nil)
+	_ fieldBuilderFactoryInterfaceObject[*mockSimpleEvent, *Builder[*mockSimpleEvent], *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]                                   = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
+	_ fieldBuilderFactoryInterfaceArray[*mockSimpleEvent, *Builder[*mockSimpleEvent], *ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]]   = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ fieldBuilderFactoryInterfaceObject[*mockSimpleEvent, *Builder[*mockSimpleEvent], *ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
 
 	_ eventBuilderInterface[*mockSimpleEvent, *Builder[*mockSimpleEvent]] = (*Builder[*mockSimpleEvent])(nil)
 	_ eventBuilderInterface[*mockSimpleEvent, *Context[*mockSimpleEvent]] = (*Context[*mockSimpleEvent])(nil)

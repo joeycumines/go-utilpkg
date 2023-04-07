@@ -18,6 +18,7 @@ type (
 		Fluent                  func(logger *logiface.Logger[logiface.Event])
 		CallForNesting          func(logger *logiface.Logger[logiface.Event])
 		CallForNestingSansChain func(logger *logiface.Logger[logiface.Event])
+		JSONFunc                func(logger *logiface.Logger[logiface.Event])
 	}
 )
 
@@ -116,6 +117,10 @@ func TestEventTemplate(t *testing.T) {
 								{
 									Name: `CallForNestingSansChain`,
 									Log:  template.CallForNestingSansChain,
+								},
+								{
+									Name: `JSONFunc`,
+									Log:  template.JSONFunc,
 								},
 							} {
 								tc3 := tc3
@@ -474,6 +479,80 @@ func newEventTemplate1() *eventTemplate {
 			Log("API request processed")
 	}
 
+	t.JSONFunc = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			Str("request_id", requestID).
+			Int("user_id", userID).
+			Str("username", username).
+			ArrayFunc("roles", func(b logiface.BuilderArray) {
+				b.
+					ObjectFunc(func(b logiface.BuilderObject) {
+						b.
+							Int("id", role1ID).
+							Str("name", role1Name)
+					}).
+					ObjectFunc(func(b logiface.BuilderObject) {
+						b.
+							Int("id", role2ID).
+							Str("name", role2Name)
+					})
+			}).
+			ObjectFunc("preferences", func(b logiface.BuilderObject) {
+				b.
+					Str("language", language).
+					ObjectFunc("notifications", func(b logiface.BuilderObject) {
+						b.
+							Bool("email", emailNotification).
+							Bool("sms", smsNotification)
+					})
+			}).
+			Str("endpoint", endpoint).
+			Str("method", method).
+			ObjectFunc("response", func(b logiface.BuilderObject) {
+				b.
+					Int("status", responseStatus).
+					ArrayFunc("users", func(b logiface.BuilderArray) {
+						b.
+							ObjectFunc(func(b logiface.BuilderObject) {
+								b.
+									Int("id", user1ID).
+									Str("username", user1Username).
+									Str("email", user1Email).
+									ArrayFunc("groups", func(b logiface.BuilderArray) {
+										b.
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group1ID).
+													Str("name", group1Name)
+											}).
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group2ID).
+													Str("name", group2Name)
+											})
+									})
+							}).
+							ObjectFunc(func(b logiface.BuilderObject) {
+								b.
+									Int("id", user2ID).
+									Str("username", user2Username).
+									Str("email", user2Email).
+									ArrayFunc("groups", func(b logiface.BuilderArray) {
+										b.
+											ObjectFunc(func(b logiface.BuilderObject) {
+												b.
+													Int("id", group3ID).
+													Str("name", group3Name)
+											})
+									})
+							})
+					})
+			}).
+			Int("elapsed", elapsed).
+			Str("unit", unit).
+			Log("API request processed")
+	}
+
 	return &t
 }
 
@@ -787,14 +866,14 @@ func newEventTemplate7() *eventTemplate {
 
 	t.Stumpy = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `{"lvl":"info","k":[[]]}`+"\n" {
+		if s != `{"lvl":"info","k":[[[]]]}`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
 
 	t.Mocklog = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `[info] k=[[]]`+"\n" {
+		if s != `[info] k=[[[]]]`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
@@ -803,6 +882,8 @@ func newEventTemplate7() *eventTemplate {
 		logger.Info().
 			Array().
 			Array().
+			Array().
+			Add().
 			Add().
 			As("k").
 			End().
@@ -815,6 +896,11 @@ func newEventTemplate7() *eventTemplate {
 				b.Array().
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
 						b.Array().
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+								b.Array().
+									Add().
+									End()
+							}).
 							Add().
 							End()
 					}).
@@ -830,11 +916,21 @@ func newEventTemplate7() *eventTemplate {
 				logiface.Array[logiface.Event](b).
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
 						logiface.Array[logiface.Event](b).
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+								logiface.Array[logiface.Event](b).
+									Add()
+							}).
 							Add()
 					}).
 					As("k")
 			}).
 			Log("")
+	}
+
+	t.JSONFunc = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Info().
+			ArrayFunc("k", func(b logiface.BuilderArray) { b.ArrayFunc(func(b logiface.BuilderArray) { b.ArrayFunc(nil) }) }).
+			Log(``)
 	}
 
 	return &t
@@ -846,14 +942,14 @@ func newEventTemplate8() *eventTemplate {
 
 	t.Stumpy = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `{"lvl":"info","k":[[]]}`+"\n" {
+		if s != `{"lvl":"info","k":[[[]]]}`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
 
 	t.Mocklog = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `[info] k=[[]]`+"\n" {
+		if s != `[info] k=[[[]]]`+"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
@@ -862,6 +958,8 @@ func newEventTemplate8() *eventTemplate {
 		logger.Clone().
 			Array().
 			Array().
+			Array().
+			Add().
 			Add().
 			As("k").
 			End().
@@ -876,6 +974,11 @@ func newEventTemplate8() *eventTemplate {
 				b.Array().
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Context[logiface.Event]]]) {
 						b.Array().
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Context[logiface.Event]]]) {
+								b.Array().
+									Add().
+									End()
+							}).
 							Add().
 							End()
 					}).
@@ -893,6 +996,10 @@ func newEventTemplate8() *eventTemplate {
 				logiface.Array[logiface.Event](b).
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Context[logiface.Event]]) {
 						logiface.Array[logiface.Event](b).
+							Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.ArrayBuilder[logiface.Event, *logiface.Context[logiface.Event]]]) {
+								logiface.Array[logiface.Event](b).
+									Add()
+							}).
 							Add()
 					}).
 					As("k")
@@ -900,6 +1007,14 @@ func newEventTemplate8() *eventTemplate {
 			Logger().
 			Info().
 			Log("")
+	}
+
+	t.JSONFunc = func(logger *logiface.Logger[logiface.Event]) {
+		logger.Clone().
+			ArrayFunc("k", func(b logiface.ContextArray) { b.ArrayFunc(func(b logiface.ContextArray) { b.ArrayFunc(nil) }) }).
+			Logger().
+			Info().
+			Log(``)
 	}
 
 	return &t

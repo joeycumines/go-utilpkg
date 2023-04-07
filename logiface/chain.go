@@ -16,6 +16,22 @@ type (
 	// data structures.
 	Chain[E Event, P comparable] refPoolItem
 
+	// BuilderArray is an alias for the fluent-style builder provided
+	// by the [Builder] type (when the [Event] interface is used as the type).
+	BuilderArray = *ArrayBuilder[Event, *Chain[Event, *Builder[Event]]]
+
+	// BuilderObject is an alias for the fluent-style builder provided
+	// by the [Builder] type (when the [Event] interface is used as the type).
+	BuilderObject = *ObjectBuilder[Event, *Chain[Event, *Builder[Event]]]
+
+	// ContextArray is an alias for the fluent-style builder provided
+	// by the [Context] type (when the [Event] interface is used as the type).
+	ContextArray = *ArrayBuilder[Event, *Chain[Event, *Context[Event]]]
+
+	// ContextObject is an alias for the fluent-style builder provided
+	// by the [Context] type (when the [Event] interface is used as the type).
+	ContextObject = *ObjectBuilder[Event, *Chain[Event, *Context[Event]]]
+
 	// Parent models one of the fluent-style builder implementations, including
 	// [Builder], [Context], [ArrayBuilder], and others.
 	Parent[E Event] interface {
@@ -99,11 +115,33 @@ func (x *Context[E]) Array() *ArrayBuilder[E, *Chain[E, *Context[E]]] {
 	return nil
 }
 
+func (x *Context[E]) ArrayFunc(key string, fn func(b *ArrayBuilder[E, *Chain[E, *Context[E]]])) *Context[E] {
+	if x.Enabled() {
+		b := ArrayWithKey[E](newChainParent[E](x), key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key).End()
+	}
+	return x
+}
+
 func (x *Context[E]) Object() *ObjectBuilder[E, *Chain[E, *Context[E]]] {
 	if x.Enabled() {
 		return Object[E](newChainParent[E](x))
 	}
 	return nil
+}
+
+func (x *Context[E]) ObjectFunc(key string, fn func(b *ObjectBuilder[E, *Chain[E, *Context[E]]])) *Context[E] {
+	if x.Enabled() {
+		b := ObjectWithKey[E](newChainParent[E](x), key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key).End()
+	}
+	return x
 }
 
 func (x *Builder[E]) Array() *ArrayBuilder[E, *Chain[E, *Builder[E]]] {
@@ -113,11 +151,33 @@ func (x *Builder[E]) Array() *ArrayBuilder[E, *Chain[E, *Builder[E]]] {
 	return nil
 }
 
+func (x *Builder[E]) ArrayFunc(key string, fn func(b *ArrayBuilder[E, *Chain[E, *Builder[E]]])) *Builder[E] {
+	if x.Enabled() {
+		b := ArrayWithKey[E](newChainParent[E](x), key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key).End()
+	}
+	return x
+}
+
 func (x *Builder[E]) Object() *ObjectBuilder[E, *Chain[E, *Builder[E]]] {
 	if x.Enabled() {
 		return Object[E](newChainParent[E](x))
 	}
 	return nil
+}
+
+func (x *Builder[E]) ObjectFunc(key string, fn func(b *ObjectBuilder[E, *Chain[E, *Builder[E]]])) *Builder[E] {
+	if x.Enabled() {
+		b := ObjectWithKey[E](newChainParent[E](x), key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key).End()
+	}
+	return x
 }
 
 // Array attempts to initialize a sub-array, which will succeed only if the
@@ -134,6 +194,16 @@ func (x *ArrayBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 	return nil
 }
 
+func (x *ArrayBuilder[E, P]) ArrayFunc(fn func(b *ArrayBuilder[E, P])) *ArrayBuilder[E, P] {
+	if b := x.Array(); b != nil {
+		if fn != nil {
+			fn(b)
+		}
+		endChain(b.Add())
+	}
+	return x
+}
+
 // Object attempts to initialize a sub-object, which will succeed only if the
 // receiver is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
@@ -148,15 +218,39 @@ func (x *ArrayBuilder[E, P]) Object() *ObjectBuilder[E, P] {
 	return nil
 }
 
+func (x *ArrayBuilder[E, P]) ObjectFunc(fn func(b *ObjectBuilder[E, P])) *ArrayBuilder[E, P] {
+	if b := x.Object(); b != nil {
+		if fn != nil {
+			fn(b)
+		}
+		endChain(b.Add())
+	}
+	return x
+}
+
 // Array attempts to initialize a sub-array, which will succeed only if the
 // parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
 func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
+	return x.arrayWithKey(``)
+}
+
+func (x *ObjectBuilder[E, P]) ArrayFunc(key string, fn func(b *ArrayBuilder[E, P])) *ObjectBuilder[E, P] {
+	if b := x.arrayWithKey(key); b != nil {
+		if fn != nil {
+			fn(b)
+		}
+		endChain(b.As(key))
+	}
+	return x
+}
+
+func (x *ObjectBuilder[E, P]) arrayWithKey(key string) *ArrayBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.Root().DPanic().Log(`logiface: cannot chain a sub-array from a non-chain parent`)
 		} else {
-			return Array[E](c.newChain(x).(P))
+			return ArrayWithKey[E](c.newChain(x).(P), key)
 		}
 	}
 	return nil
@@ -166,11 +260,25 @@ func (x *ObjectBuilder[E, P]) Array() *ArrayBuilder[E, P] {
 // parent is [Chain], otherwise performing [Logger.DPanic] (returning nil
 // if in a production configuration).
 func (x *ObjectBuilder[E, P]) Object() *ObjectBuilder[E, P] {
+	return x.objectWithKey(``)
+}
+
+func (x *ObjectBuilder[E, P]) ObjectFunc(key string, fn func(b *ObjectBuilder[E, P])) *ObjectBuilder[E, P] {
+	if b := x.objectWithKey(key); b != nil {
+		if fn != nil {
+			fn(b)
+		}
+		endChain(b.As(key))
+	}
+	return x
+}
+
+func (x *ObjectBuilder[E, P]) objectWithKey(key string) *ObjectBuilder[E, P] {
 	if x.Enabled() {
 		if c, ok := any(x.p()).(chainInterfaceFull[E]); !ok {
 			x.Root().DPanic().Log(`logiface: cannot chain a sub-object from a non-chain parent`)
 		} else {
-			return Object[E](c.newChain(x).(P))
+			return ObjectWithKey[E](c.newChain(x).(P), key)
 		}
 	}
 	return nil
@@ -183,11 +291,33 @@ func (x *Chain[E, P]) Array() *ArrayBuilder[E, *Chain[E, P]] {
 	return nil
 }
 
+func (x *Chain[E, P]) ArrayFunc(key string, fn func(b *ArrayBuilder[E, *Chain[E, P]])) *Chain[E, P] {
+	if x.Enabled() {
+		b := ArrayWithKey[E](x, key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key)
+	}
+	return x
+}
+
 func (x *Chain[E, P]) Object() *ObjectBuilder[E, *Chain[E, P]] {
 	if x.Enabled() {
 		return Object[E](x)
 	}
 	return nil
+}
+
+func (x *Chain[E, P]) ObjectFunc(key string, fn func(b *ObjectBuilder[E, *Chain[E, P]])) *Chain[E, P] {
+	if x.Enabled() {
+		b := ObjectWithKey[E](x, key)
+		if fn != nil {
+			fn(b)
+		}
+		b.As(key)
+	}
+	return x
 }
 
 // CurArray returns the current array, calls [Logger.DPanic] if the current
@@ -263,6 +393,10 @@ func (x *Chain[E, P]) End() (p P) {
 		refPoolPut((*refPoolItem)(x))
 	}
 	return
+}
+
+func endChain(v any) {
+	refPoolPut(v.(chainInterface).isChain())
 }
 
 func (x *Chain[E, P]) Enabled() bool {

@@ -1,7 +1,9 @@
 package logiface
 
 import (
+	"bytes"
 	"os"
+	"testing"
 )
 
 var (
@@ -264,4 +266,90 @@ func ExampleContext_nestedObjectsAndArrays() {
 	//h=[5,{"f":4},{"g":6}]
 	//j="J"
 	//msg="msg 1"
+}
+
+func TestLogger_nestedJSONFunc(t *testing.T) {
+	var buf bytes.Buffer
+
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: &buf, MultiLine: true, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	).Logger()
+
+	logger.
+		Clone().
+		// nil case for Context.ArrayFunc
+		ArrayFunc(`a`, nil).
+		// nil case for Context.ObjectFunc
+		ObjectFunc(`b`, nil).
+		Array().
+		// nil case for ArrayBuilder.ArrayFunc
+		ArrayFunc(nil).
+		// nil case for ArrayBuilder.ObjectFunc
+		ObjectFunc(nil).
+		As(`e`).
+		// nil case for Chain.ArrayFunc
+		ArrayFunc(`f`, nil).
+		// nil case for Chain.ObjectFunc
+		ObjectFunc(`g`, nil).
+		// Chain.ArrayFunc
+		ArrayFunc(`f`, func(b ContextArray) {
+			b.
+				// nil case for ArrayBuilder.ArrayFunc
+				ArrayFunc(nil).
+				// nil case for ArrayBuilder.ObjectFunc
+				ObjectFunc(nil)
+		}).
+		// Chain.ObjectFunc
+		ObjectFunc(`g`, func(b ContextObject) {
+			b.
+				// nil case for ArrayBuilder.ArrayFunc
+				ArrayFunc(``, nil).
+				// nil case for ArrayBuilder.ObjectFunc
+				ObjectFunc(``, nil)
+		}).
+		End().
+		Logger().
+		Notice().
+		// nil case for Builder.ArrayFunc
+		ArrayFunc(`c`, nil).
+		// nil case for Builder.ObjectFunc
+		ObjectFunc(`d`, nil).
+		Array().
+		// nil case for ArrayBuilder.ArrayFunc
+		ArrayFunc(nil).
+		// nil case for ArrayBuilder.ObjectFunc
+		ObjectFunc(nil).
+		As(`e`).
+		// nil case for Chain.ArrayFunc
+		ArrayFunc(`f`, nil).
+		// nil case for Chain.ObjectFunc
+		ObjectFunc(`g`, nil).
+		// Chain.ArrayFunc
+		ArrayFunc(`f`, nil).
+		// Chain.ObjectFunc
+		ObjectFunc(`g`, nil).
+		// Chain.ArrayFunc
+		ArrayFunc(`f`, func(b BuilderArray) {
+			b.
+				// nil case for ArrayBuilder.ArrayFunc
+				ArrayFunc(nil).
+				// nil case for ArrayBuilder.ObjectFunc
+				ObjectFunc(nil)
+		}).
+		// Chain.ObjectFunc
+		ObjectFunc(`g`, func(b BuilderObject) {
+			b.
+				// nil case for ArrayBuilder.ArrayFunc
+				ArrayFunc(``, nil).
+				// nil case for ArrayBuilder.ObjectFunc
+				ObjectFunc(``, nil)
+		}).
+		End().
+		Log(``)
+
+	if s := buf.String(); s != "[notice]\na=[]\nb={}\ne=[[],{}]\nf=[]\ng={}\nf=[[],{}]\ng={\"\":{}}\nc=[]\nd={}\ne=[[],{}]\nf=[]\ng={}\nf=[]\ng={}\nf=[[],{}]\ng={\"\":{}}\n" {
+		t.Errorf("unexpected output: %q\n%s", s, s)
+	}
 }
