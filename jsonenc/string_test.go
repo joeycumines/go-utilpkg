@@ -94,13 +94,41 @@ var encodeStringTests = []struct {
 	{"\xc0", `"\ufffd"`},                               // start of a two-byte sequence without a continuation byte
 	{"\xed\xa0\x80", `"\ufffd\ufffd\ufffd"`},           // an overlong three-byte sequence
 	{"\xf4\x90\x80\x80", `"\ufffd\ufffd\ufffd\ufffd"`}, // a four-byte sequence representing a code point outside the valid range
+	{"\u0022", `"\""`},                                 // double quote
+	{"\u0027", `"'"`},                                  // single quote
+	{"\u005c", `"\\"`},                                 // backslash
+	{"\u00a9", `"©"`},                                  // copyright symbol
+	{"\u2603", `"☃"`},                                  // snowman
+	{"\u20ac", `"€"`},                                  // euro symbol
+	{"\u1f600", `"ὠ0"`},
+	{"\u1f9a3", `"ᾚ3"`},
+	{"\u1f468\u200d\u2695\ufe0f", `"὆8‍⚕️"`},
+	{"\u1f9d1\u200d\u1f52c", `"ᾝ1‍ὒc"`},
+	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`},
+	{"\u0654", `"ٔ"`},
+	{"\u0301", string([]byte{0x22, 0xcc, 0x81, 0x22})},
+	{"\u3099", string([]byte{0x22, 0xe3, 0x82, 0x99, 0x22})},
+	{"\u1100\u1161\u11a8", string([]byte{0x22, 0xe1, 0x84, 0x80, 0xe1, 0x85, 0xa1, 0xe1, 0x86, 0xa8, 0x22})},
+	{"\u3042", `"あ"`},
+	{"\u30a2", `"ア"`},
+	{"\u1f00", `"ἀ"`},
+	{"\u1f82", `"ᾂ"`},
+	{"\u05d0", `"א"`},
+	{"\u0627", `"ا"`},
+	{"\u0628", `"ب"`},
+	{"\u0e01", `"ก"`},
+	{`ช`, `"ช"`},
+	{"\u0e8a", string([]byte{0x22, 0xe0, 0xba, 0x8a, 0x22})},
+	{"\U00010c01", string([]byte{0x22, 0xf0, 0x90, 0xb0, 0x81, 0x22})},
+	{"\U00013000", string([]byte{0x22, 0xf0, 0x93, 0x80, 0x80, 0x22})},
+	{"\U0001f9db\U0001f3fd", string([]byte{0x22, 0xf0, 0x9f, 0xa7, 0x9b, 0xf0, 0x9f, 0x8f, 0xbd, 0x22})},
 }
 
 func TestAppendString(t *testing.T) {
 	for _, tt := range encodeStringTests {
 		b := AppendString([]byte{}, tt.in)
 		if got, want := string(b), tt.out; got != want {
-			t.Errorf("AppendString(%q) = %#q, want %#q", tt.in, got, want)
+			t.Errorf("AppendString(%q) = %#q/string(%#v), want %#q", tt.in, got, []byte(got), want)
 		}
 	}
 }
