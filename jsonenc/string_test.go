@@ -30,7 +30,12 @@ SOFTWARE.
 package jsonenc
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/json"
+	"math/big"
 	"testing"
+	"unicode/utf8"
 )
 
 var encodeStringTests = []struct {
@@ -86,6 +91,9 @@ var encodeStringTests = []struct {
 	{"\u2028", `"\u2028"`},
 	{"\u2029", `"\u2029"`},
 	{"foo \u2028\u2029 \u2028 \u2029  bar", `"foo \u2028\u2029 \u2028 \u2029  bar"`},
+	{"\xc0", `"\ufffd"`},                               // start of a two-byte sequence without a continuation byte
+	{"\xed\xa0\x80", `"\ufffd\ufffd\ufffd"`},           // an overlong three-byte sequence
+	{"\xf4\x90\x80\x80", `"\ufffd\ufffd\ufffd\ufffd"`}, // a four-byte sequence representing a code point outside the valid range
 }
 
 func TestAppendString(t *testing.T) {
@@ -209,4 +217,115 @@ func TestInsertStringContent(t *testing.T) {
 			}
 		})
 	}
+}
+
+var validatedReplacementRune = func() rune {
+	const replacementRune = '�'
+	const replacementRuneEncoding = `"\ufffd"`
+
+	// sanity check
+	b, err := json.Marshal(string(replacementRune))
+	if err != nil {
+		panic(err)
+	}
+	if string(b) != `"`+string(replacementRune)+`"` {
+		panic("unexpected replacementRune encoding: " + string(b))
+	}
+
+	b, err = json.Marshal(string([]byte{'\xc0'}))
+	if err != nil {
+		panic(err)
+	}
+	if string(b) != replacementRuneEncoding {
+		panic("unexpected replacementRune encoding: " + string(b))
+	}
+
+	var s string
+	if err := json.Unmarshal([]byte(replacementRuneEncoding), &s); err != nil {
+		panic(err)
+	}
+	if s != string(replacementRune) {
+		panic("unexpected replacementRune decoding: " + s)
+	}
+
+	return replacementRune
+}()
+
+func normalizeToUTF8(input string) string {
+	if utf8.ValidString(input) {
+		return input
+	}
+	var result []rune
+	for len(input) > 0 {
+		r, size := utf8.DecodeRuneInString(input)
+		if r != utf8.RuneError {
+			result = append(result, r)
+		} else {
+			result = append(result, validatedReplacementRune)
+		}
+		input = input[size:]
+	}
+	return string(result)
+}
+
+func FuzzAppendString(f *testing.F) {
+	for _, tc := range encodeStringTests {
+		f.Add(``, tc.in)
+
+		f.Add(`{`+tc.out+`:`, tc.in)
+
+		{
+			length, err := rand.Int(rand.Reader, big.NewInt(1<<10))
+			if err != nil {
+				f.Fatal(err)
+			}
+			randBytes := make([]byte, length.Int64()+1)
+			if _, err := rand.Read(randBytes); err != nil {
+				f.Fatal(err)
+			}
+
+			f.Add(``, string(randBytes))
+			f.Add(string(randBytes), tc.in)
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, dstInput string, val string) {
+		var dstOriginal []byte
+		if dstInput != `` {
+			dstOriginal = make([]byte, len(dstInput))
+			copy(dstOriginal, dstInput)
+		}
+
+		dst := AppendString(dstOriginal, val)
+		if dstInput != string(dstOriginal) {
+			t.Errorf("%q: unexpected original: %q", val, dst)
+		}
+		if dstInput != string(dst[:len(dstInput)]) {
+			t.Fatalf("%q: unexpected prefix: %q", val, dst)
+		}
+
+		dst = dst[len(dstInput):]
+
+		if len(dst) < 2 || (len(dst) == 2 && (string(dst) != `""` || val != "")) {
+			t.Errorf("%q: unexpected output: %q", val, dst)
+		}
+
+		// ensure dst is a valid JSON string encoded per normalizeToUTF8
+		{
+			norm := normalizeToUTF8(val)
+			var decoded string
+			if err := json.Unmarshal(dst, &decoded); err != nil {
+				t.Errorf("%q: error decoding %q: %v", val, dst, err)
+			} else if decoded != norm {
+				t.Errorf("%q: got %q, want %q", val, decoded, norm)
+			}
+		}
+
+		// ensure dst is encoded per the behavior of json.Marshal, after going through normalizeToUTF8
+		if want, err := json.Marshal(val); err != nil {
+			t.Errorf("%q: encoding error: %v", val, err)
+		} else if !bytes.Equal(dst, want) {
+			t.Errorf("%q: got %s, want %s", val, dst, want)
+		}
+	})
 }
