@@ -42,55 +42,55 @@ var encodeStringTests = []struct {
 	in  string
 	out string
 }{
-	{"", `""`},
-	{"\\", `"\\"`},
-	{"\x00", `"\u0000"`},
-	{"\x01", `"\u0001"`},
-	{"\x02", `"\u0002"`},
-	{"\x03", `"\u0003"`},
-	{"\x04", `"\u0004"`},
-	{"\x05", `"\u0005"`},
-	{"\x06", `"\u0006"`},
-	{"\x07", `"\u0007"`},
-	{"\x08", `"\u0008"`},
-	{"\x09", `"\t"`},
-	{"\x0a", `"\n"`},
-	{"\x0b", `"\u000b"`},
-	{"\x0c", `"\u000c"`},
-	{"\x0d", `"\r"`},
-	{"\x0e", `"\u000e"`},
-	{"\x0f", `"\u000f"`},
-	{"\x10", `"\u0010"`},
-	{"\x11", `"\u0011"`},
-	{"\x12", `"\u0012"`},
-	{"\x13", `"\u0013"`},
-	{"\x14", `"\u0014"`},
-	{"\x15", `"\u0015"`},
-	{"\x16", `"\u0016"`},
-	{"\x17", `"\u0017"`},
-	{"\x18", `"\u0018"`},
-	{"\x19", `"\u0019"`},
-	{"\x1a", `"\u001a"`},
-	{"\x1b", `"\u001b"`},
-	{"\x1c", `"\u001c"`},
-	{"\x1d", `"\u001d"`},
-	{"\x1e", `"\u001e"`},
-	{"\x1f", `"\u001f"`},
-	{"✭", `"✭"`},
-	{"foo\xc2\x7fbar", `"foo\ufffd` + "\x7f" + `bar"`},
-	{"ascii", `"ascii"`},
-	{"\"a", `"\"a"`},
-	{"\x1fa", `"\u001fa"`},
-	{"foo\"bar\"baz", `"foo\"bar\"baz"`},
-	{"\x1ffoo\x1fbar\x1fbaz", `"\u001ffoo\u001fbar\u001fbaz"`},
-	{"emoji \u2764\ufe0f!", `"emoji ❤️!"`},
-	{"<", `"\u003c"`},
-	{">", `"\u003e"`},
-	{"&", `"\u0026"`},
-	{"\x7f", "\"\x7f\""},
-	{"\u2028", `"\u2028"`},
-	{"\u2029", `"\u2029"`},
-	{"foo \u2028\u2029 \u2028 \u2029  bar", `"foo \u2028\u2029 \u2028 \u2029  bar"`},
+	{"", `""`},           // empty string
+	{"\\", `"\\"`},       // backslash
+	{"\x00", `"\u0000"`}, // null character
+	{"\x01", `"\u0001"`}, // start of heading
+	{"\x02", `"\u0002"`}, // start of text
+	{"\x03", `"\u0003"`}, // end of text
+	{"\x04", `"\u0004"`}, // end of transmission
+	{"\x05", `"\u0005"`}, // enquiry
+	{"\x06", `"\u0006"`}, // acknowledge
+	{"\x07", `"\u0007"`}, // bell
+	{"\x08", `"\u0008"`}, // backspace
+	{"\x09", `"\t"`},     // horizontal tab
+	{"\x0a", `"\n"`},     // line feed
+	{"\x0b", `"\u000b"`}, // vertical tab
+	{"\x0c", `"\u000c"`}, // form feed
+	{"\x0d", `"\r"`},     // carriage return
+	{"\x0e", `"\u000e"`}, // shift out
+	{"\x0f", `"\u000f"`}, // shift in
+	{"\x10", `"\u0010"`}, // data link escape
+	{"\x11", `"\u0011"`}, // device control 1
+	{"\x12", `"\u0012"`}, // device control 2
+	{"\x13", `"\u0013"`}, // device control 3
+	{"\x14", `"\u0014"`}, // device control 4
+	{"\x15", `"\u0015"`}, // negative acknowledge
+	{"\x16", `"\u0016"`}, // synchronous idle
+	{"\x17", `"\u0017"`}, // end of transmission block
+	{"\x18", `"\u0018"`}, // cancel
+	{"\x19", `"\u0019"`}, // end of medium
+	{"\x1a", `"\u001a"`}, // substitute
+	{"\x1b", `"\u001b"`}, // escape
+	{"\x1c", `"\u001c"`}, // file separator
+	{"\x1d", `"\u001d"`}, // group separator
+	{"\x1e", `"\u001e"`}, // record separator
+	{"\x1f", `"\u001f"`}, // unit separator
+	{"✭", `"✭"`},         // star symbol
+	{"foo\xc2\x7fbar", `"foo\ufffd` + "\x7f" + `bar"`}, // replaces invalid byte sequence
+	{"ascii", `"ascii"`},                 // ASCII characters
+	{"\"a", `"\"a"`},                     // double quote with letter
+	{"\x1fa", `"\u001fa"`},               // letter with escape character
+	{"foo\"bar\"baz", `"foo\"bar\"baz"`}, // string with double quotes
+	{"\x1ffoo\x1fbar\x1fbaz", `"\u001ffoo\u001fbar\u001fbaz"`}, // string with escape characters
+	{"emoji \u2764\ufe0f!", `"emoji ❤️!"`},                     // string with emoji
+	{"<", `"\u003c"`},      // less than symbol
+	{">", `"\u003e"`},      // greater than symbol
+	{"&", `"\u0026"`},      // ampersand symbol
+	{"\x7f", "\"\x7f\""},   // delete character
+	{"\u2028", `"\u2028"`}, // line separator
+	{"\u2029", `"\u2029"`}, // paragraph separator
+	{"foo \u2028\u2029 \u2028 \u2029  bar", `"foo \u2028\u2029 \u2028 \u2029  bar"`}, // string with line and paragraph separators
 	{"\xc0", `"\ufffd"`},                               // start of a two-byte sequence without a continuation byte
 	{"\xed\xa0\x80", `"\ufffd\ufffd\ufffd"`},           // an overlong three-byte sequence
 	{"\xf4\x90\x80\x80", `"\ufffd\ufffd\ufffd\ufffd"`}, // a four-byte sequence representing a code point outside the valid range
@@ -100,28 +100,28 @@ var encodeStringTests = []struct {
 	{"\u00a9", `"©"`},                                  // copyright symbol
 	{"\u2603", `"☃"`},                                  // snowman
 	{"\u20ac", `"€"`},                                  // euro symbol
-	{"\u1f600", `"ὠ0"`},
-	{"\u1f9a3", `"ᾚ3"`},
-	{"\u1f468\u200d\u2695\ufe0f", `"὆8‍⚕️"`},
-	{"\u1f9d1\u200d\u1f52c", `"ᾝ1‍ὒc"`},
-	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`},
-	{"\u0654", `"ٔ"`},
-	{"\u0301", string([]byte{0x22, 0xcc, 0x81, 0x22})},
-	{"\u3099", string([]byte{0x22, 0xe3, 0x82, 0x99, 0x22})},
-	{"\u1100\u1161\u11a8", string([]byte{0x22, 0xe1, 0x84, 0x80, 0xe1, 0x85, 0xa1, 0xe1, 0x86, 0xa8, 0x22})},
-	{"\u3042", `"あ"`},
-	{"\u30a2", `"ア"`},
-	{"\u1f00", `"ἀ"`},
-	{"\u1f82", `"ᾂ"`},
-	{"\u05d0", `"א"`},
-	{"\u0627", `"ا"`},
-	{"\u0628", `"ب"`},
-	{"\u0e01", `"ก"`},
-	{`ช`, `"ช"`},
-	{"\u0e8a", string([]byte{0x22, 0xe0, 0xba, 0x8a, 0x22})},
-	{"\U00010c01", string([]byte{0x22, 0xf0, 0x90, 0xb0, 0x81, 0x22})},
-	{"\U00013000", string([]byte{0x22, 0xf0, 0x93, 0x80, 0x80, 0x22})},
-	{"\U0001f9db\U0001f3fd", string([]byte{0x22, 0xf0, 0x9f, 0xa7, 0x9b, 0xf0, 0x9f, 0x8f, 0xbd, 0x22})},
+	{"\u1f600", `"ὠ0"`},                                // grinning face
+	{"\u1f9a3", `"ᾚ3"`},                                // zombie
+	{"\u1f468\u200d\u2695\ufe0f", `"὆8‍⚕️"`},           // man health worker
+	{"\u1f9d1\u200d\u1f52c", `"ᾝ1‍ὒc"`},                // woman mage
+	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`}, // man facepalming
+	{"\u0654", `"ٔ"`}, // arabic hamza above
+	{"\u0301", string([]byte{0x22, 0xcc, 0x81, 0x22})},                                                       // combining acute accent
+	{"\u3099", string([]byte{0x22, 0xe3, 0x82, 0x99, 0x22})},                                                 // combining katakana-hiragana voiced sound mark
+	{"\u1100\u1161\u11a8", string([]byte{0x22, 0xe1, 0x84, 0x80, 0xe1, 0x85, 0xa1, 0xe1, 0x86, 0xa8, 0x22})}, // hangul syllables
+	{"\u3042", `"あ"`}, // Japanese Hiragana character "あ"
+	{"\u30a2", `"ア"`}, // Japanese Katakana character "ア"
+	{"\u1f00", `"ἀ"`}, // Greek character "ἀ"
+	{"\u1f82", `"ᾂ"`}, // Greek character "ᾂ"
+	{"\u05d0", `"א"`}, // Hebrew character "א"
+	{"\u0627", `"ا"`}, // Arabic character "ا"
+	{"\u0628", `"ب"`}, // Arabic character "ب"
+	{"\u0e01", `"ก"`}, // Thai character "ก"
+	{`ช`, `"ช"`},      // Thai character "ช"
+	{"\u0e8a", string([]byte{0x22, 0xe0, 0xba, 0x8a, 0x22})},           // Thai character "จ" encoded as bytes
+	{"\U00010c01", string([]byte{0x22, 0xf0, 0x90, 0xb0, 0x81, 0x22})}, // Old Hungarian character "𐰁" encoded as bytes
+	{"\U00013000", string([]byte{0x22, 0xf0, 0x93, 0x80, 0x80, 0x22})}, // Egyptian hieroglyph "𓀀" encoded as bytes
+	{"\U0001f9db\U0001f3fd", `"🧛🏽"`},                                   // Emoji sequence: "🧛🏽" (vampire woman with skin tone modifier) encoded as bytes
 }
 
 func TestAppendString(t *testing.T) {
