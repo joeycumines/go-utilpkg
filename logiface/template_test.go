@@ -6,8 +6,14 @@ import (
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/joeycumines/go-utilpkg/logiface/internal/mocklog"
 	"github.com/joeycumines/go-utilpkg/logiface/stumpy"
+	"golang.org/x/exp/maps"
 	"io"
+	"math"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -1018,4 +1024,126 @@ func newEventTemplate8() *eventTemplate {
 	}
 
 	return &t
+}
+
+type ioWriterFunc func(p []byte) (n int, err error)
+
+func (x ioWriterFunc) Write(p []byte) (int, error) { return x(p) }
+
+func TestLogger_concurrency(t *testing.T) {
+	const (
+		workers    = 50
+		iterations = 1000
+	)
+
+	var templateFuncs []func(logger *logiface.Logger[logiface.Event])
+	for _, template := range eventTemplates {
+		for _, fn := range [...]func(logger *logiface.Logger[logiface.Event]){
+			template.Fluent,
+			template.CallForNesting,
+			template.CallForNestingSansChain,
+			template.JSONFunc,
+		} {
+			if fn != nil {
+				templateFuncs = append(templateFuncs, fn)
+			}
+		}
+	}
+
+	// first, identify and initialize each log line, from the template test cases
+	logCounts := make(map[string]*int64)
+	{
+		var mu sync.Mutex
+		var done bool
+		logger := newEventTemplateStumpyLogger(ioWriterFunc(func(p []byte) (n int, err error) {
+			mu.Lock()
+			defer mu.Unlock()
+			if done {
+				t.Fatal()
+			}
+			s := string(p)
+			v := logCounts[s]
+			if v == nil {
+				v = new(int64)
+			}
+			*v = *v + 1
+			logCounts[s] = v
+			return len(p), nil
+		}), true)
+		for _, fn := range templateFuncs {
+			fn(logger)
+		}
+		mu.Lock()
+		done = true
+		mu.Unlock()
+	}
+
+	// copy the log counts as they are the baseline ratios (per line)
+	// also reset the logCounts map
+	if len(logCounts) == 0 {
+		t.Fatal()
+	}
+	logCountsBaseline := make(map[string]int64, len(logCounts))
+	for k, p := range logCounts {
+		v := *p
+		if v <= 0 {
+			t.Fatal(k, v)
+		}
+		logCountsBaseline[k] = v
+		logCounts[k] = new(int64)
+	}
+
+	// now, run the same test cases, but with concurrency
+	var mu sync.Mutex // only used on failure / exit
+	logger := newEventTemplateStumpyLogger(ioWriterFunc(func(p []byte) (n int, err error) {
+		v := logCounts[string(p)]
+		if v == nil {
+			mu.Lock()
+			if !t.Failed() {
+				t.Errorf("unexpected log line: %q\n%s", p, p)
+			}
+			mu.Unlock()
+			runtime.Goexit()
+		}
+		if atomic.AddInt64(v, 1) == math.MinInt64 {
+			t.Error(`overflow`)
+			panic(`overflow`)
+		}
+		return len(p), nil
+	}), true)
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				for _, fn := range templateFuncs {
+					fn(logger)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if t.Failed() {
+		return
+	}
+
+	logLines := maps.Keys(logCounts)
+	sort.Strings(logLines)
+
+	for _, logLine := range logLines {
+		v := *logCounts[logLine]
+		if v != logCountsBaseline[logLine]*int64(workers)*int64(iterations) {
+			t.Errorf("unexpected log count: %q: %d != %d", logLine, v, logCountsBaseline[logLine]*int64(workers)*int64(iterations))
+		} else {
+			t.Logf("log count: %q: %d", logLine, v)
+		}
+	}
 }
