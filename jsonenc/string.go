@@ -36,8 +36,13 @@ import (
 const hex = "0123456789abcdef"
 
 var noEscapeTable = func() (noEscapeTable [256]bool) {
-	for i := 0; i <= 0x7e; i++ {
-		noEscapeTable[i] = i >= 0x20 && i != '\\' && i != '"'
+	// note: includes the "delete" character (0x7f)
+	for i := 0x20; i <= 0x7f; i++ {
+		switch i {
+		case '\\', '"', '<', '>', '&':
+		default:
+			noEscapeTable[i] = true
+		}
 	}
 	return
 }()
@@ -89,7 +94,12 @@ func insertString(dst []byte, index int, s string, quotes bool) []byte {
 	}
 	for i := 0; i < len(s); i++ {
 		if !noEscapeTable[s[i]] {
-			encodedLen += 6
+			switch s[i] {
+			case '\\', '"', '\n', '\r', '\t':
+				encodedLen += 2
+			default:
+				encodedLen += 6
+			}
 		} else {
 			encodedLen++
 		}
@@ -160,6 +170,17 @@ func appendStringComplex(dst []byte, s string, i int) []byte {
 				start = i
 				continue
 			}
+			// line separator and paragraph separator special cases
+			// https://cs.opensource.google/go/go/+/refs/tags/go1.20.3:src/encoding/json/encode.go;l=1082
+			if r == '\u2028' || r == '\u2029' {
+				if start < i {
+					dst = append(dst, s[start:i]...)
+				}
+				dst = append(dst, '\\', 'u', '2', '0', '2', hex[r&0xF])
+				i += size
+				start = i
+				continue
+			}
 			i += size
 			continue
 		}
@@ -177,10 +198,6 @@ func appendStringComplex(dst []byte, s string, i int) []byte {
 		switch b {
 		case '"', '\\':
 			dst = append(dst, '\\', b)
-		case '\b':
-			dst = append(dst, '\\', 'b')
-		case '\f':
-			dst = append(dst, '\\', 'f')
 		case '\n':
 			dst = append(dst, '\\', 'n')
 		case '\r':
