@@ -487,3 +487,19 @@ func BenchmarkInsertString(b *testing.B) {
 		}
 	}
 }
+
+func TestInsertString_panic(t *testing.T) {
+	const original = `aaaaaaaaaaaa`
+	for _, index := range []int{-1, len(original) + 1} {
+		for _, quotes := range []bool{true, false} {
+			func() {
+				defer func() {
+					if r := recover(); r != `jsonenc: index out of range` {
+						t.Errorf("unexpected recover for index %d / quotes %v: %v", index, quotes, r)
+					}
+				}()
+				insertString([]byte(original), index, ``, false)
+			}()
+		}
+	}
+}

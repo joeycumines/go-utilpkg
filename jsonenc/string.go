@@ -52,6 +52,14 @@ var noEscapeTable = func() (noEscapeTable [256]bool) {
 func AppendString(dst []byte, s string) []byte {
 	// Start with a double quote.
 	dst = append(dst, '"')
+	dst = AppendStringContent(dst, s)
+	// End with a double quote
+	return append(dst, '"')
+}
+
+// AppendStringContent behaves per [AppendString], but without appending the
+// surrounding double quotes.
+func AppendStringContent(dst []byte, s string) []byte {
 	// Loop through each character in the string.
 	for i := 0; i < len(s); i++ {
 		// Check if the character needs encoding. Control characters, slashes,
@@ -60,15 +68,12 @@ func AppendString(dst []byte, s string) []byte {
 		if !noEscapeTable[s[i]] {
 			// We encountered a character that needs to be encoded. Switch
 			// to complex version of the algorithm.
-			dst = appendStringComplex(dst, s, i)
-			return append(dst, '"')
+			return appendStringComplex(dst, s, i)
 		}
 	}
 	// The string has no need for encoding and therefore is directly
 	// appended to the byte slice.
-	dst = append(dst, s...)
-	// End with a double quote
-	return append(dst, '"')
+	return append(dst, s...)
 }
 
 // InsertString inserts a string into a byte slice, encoding it as a JSON string.
@@ -84,16 +89,33 @@ func InsertStringContent(dst []byte, index int, s string) []byte {
 }
 
 func insertString(dst []byte, index int, s string, quotes bool) []byte {
+	if index < 0 || index > len(dst) {
+		panic(`jsonenc: index out of range`)
+	}
+
 	if !quotes && s == `` {
 		return dst
 	}
 
-	var encodedLen int
+	if index == len(dst) {
+		if quotes {
+			return AppendString(dst, s)
+		}
+		return AppendStringContent(dst, s)
+	}
+
+	var (
+		startIndex = -1
+		encodedLen int
+	)
 	if quotes {
 		encodedLen = 2
 	}
 	for i := 0; i < len(s); i++ {
 		if !noEscapeTable[s[i]] {
+			if startIndex < 0 {
+				startIndex = i
+			}
 			switch s[i] {
 			case '\\', '"', '\n', '\r', '\t':
 				encodedLen += 2
@@ -114,7 +136,7 @@ func insertString(dst []byte, index int, s string, quotes bool) []byte {
 		index++
 	}
 
-	if (quotes && encodedLen == len(s)+2) || (!quotes && encodedLen == len(s)) {
+	if startIndex < 0 {
 		index += copy(dst[index:], s)
 	} else {
 		// the offset of any suffix data we copied
@@ -123,7 +145,7 @@ func insertString(dst []byte, index int, s string, quotes bool) []byte {
 			encodedLen--
 		}
 
-		dst, index = appendStringComplex(dst[:index], s, 0), len(dst)
+		dst, index = appendStringComplex(dst[:index], s, startIndex), len(dst)
 		dst, index = dst[:index], len(dst)
 
 		// the number of empty bytes that we didn't need
