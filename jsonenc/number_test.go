@@ -92,6 +92,26 @@ var float64Tests = []struct {
 		Val:  -2.236734e-9,
 		Want: "-2.236734e-9",
 	},
+	{
+		Name: `Exponent bound case 1e20`,
+		Val:  1e20,
+		Want: "100000000000000000000",
+	},
+	{
+		Name: `Exponent bound case 1e21`,
+		Val:  1e+21,
+		Want: "1e+21",
+	},
+	{
+		Name: `Exponent bound case 1e-6`,
+		Val:  1e-6,
+		Want: "0.000001",
+	},
+	{
+		Name: `Exponent bound case 1e-7`,
+		Val:  1e-7,
+		Want: "1e-7",
+	},
 }
 
 func TestAppendFloat64(t *testing.T) {
@@ -237,6 +257,26 @@ var float32Tests = []struct {
 		Name: `Clean up e-09 to e-9 case 2`,
 		Val:  -2.236734e-9,
 		Want: "-2.236734e-9",
+	},
+	{
+		Name: `Exponent bound case 1e20`,
+		Val:  1e20,
+		Want: "100000000000000000000",
+	},
+	{
+		Name: `Exponent bound case 1e21`,
+		Val:  1e+21,
+		Want: "1e+21",
+	},
+	{
+		Name: `Exponent bound case 1e-6`,
+		Val:  1e-6,
+		Want: "0.000001",
+	},
+	{
+		Name: `Exponent bound case 1e-7`,
+		Val:  1e-7,
+		Want: "1e-7",
 	},
 }
 
