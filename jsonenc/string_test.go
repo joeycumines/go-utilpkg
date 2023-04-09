@@ -102,9 +102,9 @@ var encodeStringTests = []struct {
 	{"\u20ac", `"€"`},                                  // euro symbol
 	{"\u1f600", `"ὠ0"`},                                // grinning face
 	{"\u1f9a3", `"ᾚ3"`},                                // zombie
-	{"\u1f468\u200d\u2695\ufe0f", `"὆8‍⚕️"`},           // man health worker
-	{"\u1f9d1\u200d\u1f52c", `"ᾝ1‍ὒc"`},                // woman mage
-	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`}, // man facepalming
+	{"\u1f468\u200d\u2695\ufe0f", `"` + "\u1f468\u200d\u2695\ufe0f" + `"`}, // man health worker
+	{"\u1f9d1\u200d\u1f52c", `"` + "\u1f9d1\u200d\u1f52c" + `"`},           // woman mage
+	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`},                  // man facepalming
 	{"\u0654", `"ٔ"`}, // arabic hamza above
 	{"\u0301", string([]byte{0x22, 0xcc, 0x81, 0x22})},                                                       // combining acute accent
 	{"\u3099", string([]byte{0x22, 0xe3, 0x82, 0x99, 0x22})},                                                 // combining katakana-hiragana voiced sound mark
@@ -336,6 +336,103 @@ func FuzzAppendString(f *testing.F) {
 
 		if len(dst) < 2 || (len(dst) == 2 && (string(dst) != `""` || val != "")) {
 			t.Errorf("%q: unexpected output: %q", val, dst)
+		}
+
+		// ensure dst is a valid JSON string encoded per normalizeToUTF8
+		{
+			norm := normalizeToUTF8(val)
+			var decoded string
+			if err := json.Unmarshal(dst, &decoded); err != nil {
+				t.Errorf("%q: error decoding %q: %v", val, dst, err)
+			} else if decoded != norm {
+				t.Errorf("%q: got %q, want %q", val, decoded, norm)
+			}
+		}
+
+		// ensure dst is encoded per the behavior of json.Marshal, after going through normalizeToUTF8
+		if want, err := json.Marshal(val); err != nil {
+			t.Errorf("%q: encoding error: %v", val, err)
+		} else if !bytes.Equal(dst, want) {
+			t.Errorf("%q: got %s, want %s", val, dst, want)
+		}
+	})
+}
+
+func FuzzInsertString(f *testing.F) {
+	for _, tc := range encodeStringTests {
+		// case: append
+		f.Add(``, 0, tc.in, true)
+		f.Add(``, 0, tc.in, false)
+		// case: insert at a random index of each of the test cases
+		for _, tc2 := range encodeStringTests {
+			indexBig, err := rand.Int(rand.Reader, big.NewInt(int64(len(tc2.in))+1))
+			if err != nil {
+				f.Fatal(err)
+			}
+			index := int(indexBig.Int64())
+			f.Add(tc2.in, index, tc.in, true)
+			f.Add(tc2.in, index, tc.in, false)
+		}
+		// case: insert at a random index of a random string
+		for i := 0; i < 3; i++ {
+			lRand, err := rand.Int(rand.Reader, big.NewInt(1<<10))
+			if err != nil {
+				f.Fatal(err)
+			}
+			randBytes := make([]byte, lRand.Int64()+1)
+			if _, err := rand.Read(randBytes); err != nil {
+				f.Fatal(err)
+			}
+
+			indexBig, err := rand.Int(rand.Reader, big.NewInt(int64(len(randBytes))+1))
+			if err != nil {
+				f.Fatal(err)
+			}
+			index := int(indexBig.Int64())
+
+			f.Add(string(randBytes), index, tc.in, true)
+			f.Add(string(randBytes), index, tc.in, false)
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, dstInput string, index int, val string, quotes bool) {
+		if index < 0 || index > len(dstInput) {
+			t.SkipNow()
+		}
+
+		var dstOriginal []byte
+		if dstInput != `` {
+			dstOriginal = make([]byte, len(dstInput))
+			copy(dstOriginal, dstInput)
+		}
+
+		dst := insertString(dstOriginal, index, val, quotes)
+
+		if dstInput[:index] != string(dstOriginal[:index]) {
+			t.Errorf("%q: unexpected original prefix: %q", val, dstOriginal[:index])
+		}
+
+		if string(dst[:index]) != dstInput[:index] {
+			t.Errorf("%q: unexpected prefix: %q", val, dst[:index])
+		}
+
+		indexCut := len(dst) - (len(dstInput) - index)
+
+		if string(dst[indexCut:]) != dstInput[index:] {
+			t.Errorf("%q: unexpected suffix: %q", val, dst[indexCut:])
+		}
+
+		dst = dst[index:indexCut]
+
+		if quotes {
+			if len(dst) < 2 || (len(dst) == 2 && (string(dst) != `""` || val != "")) {
+				t.Errorf("%q: unexpected output: %q", val, dst)
+			}
+		} else {
+			if len(dst) == 0 && val != "" {
+				t.Errorf("%q: unexpected output: %q", val, dst)
+			}
+			dst = append(append([]byte(`"`), dst...), '"')
 		}
 
 		// ensure dst is a valid JSON string encoded per normalizeToUTF8
