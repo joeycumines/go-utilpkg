@@ -61,3 +61,33 @@ func argFieldKeyConverter[E any](f func(key E) (string, bool), key E) (string, b
 	}
 	return f(key)
 }
+
+// SliceArray adds a slice as an array field, to the given [Builder],
+// [Context], [ArrayBuilder], [ObjectBuilder], or [Chain].
+//
+// Note that the key must be empty if the parent parameter is an array.
+func SliceArray[E Event, V any, P Parent[E]](parent P, key string, slice []V) P {
+	if parent.Enabled() {
+		b := ArrayWithKey[E](parent, key)
+		for _, v := range slice {
+			b.Field(v)
+		}
+		b.As(key)
+	}
+	return parent
+}
+
+// MapObject adds a map as an object field, to the given [Builder],
+// [Context], [ArrayBuilder], [ObjectBuilder], or [Chain].
+//
+// Note that the key must be empty if the parent parameter is an array.
+func MapObject[E Event, K ~string, V any, P Parent[E]](parent P, key string, m map[K]V) P {
+	if parent.Enabled() {
+		b := ObjectWithKey[E](parent, key)
+		for k, v := range m {
+			b.Field(string(k), v)
+		}
+		b.As(key)
+	}
+	return parent
+}

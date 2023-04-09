@@ -150,3 +150,144 @@ func TestArgFields_oddNumberKeys(t *testing.T) {
 		t.Errorf("unexpected output: got=%q, want=%q", got, want)
 	}
 }
+
+func ExampleSliceArray() {
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	).Logger()
+
+	// it can be used directly
+	SliceArray[Event](logger.Info(), `k`, []float64{1, 2, 3, 1e-9, 1e20, 1e21, 1e-6, 1e-7}).Log(``)
+
+	// it can be used with the Call method to aid in formatting, and on other builders
+	logger.Info().
+		Call(func(b *Builder[Event]) {
+			SliceArray[Event](b, `a`, []any{nil, "some value", 1.123, 5})
+			SliceArray[Event](b, `b`, []bool{false, false, true})
+		}).
+		ArrayFunc(`c`, func(b BuilderArray) {
+			// NOTE: key must be empty, since it's within an array
+			SliceArray[Event](b, ``, []int{-1})
+		}).
+		ObjectFunc(`d`, func(b BuilderObject) {
+			SliceArray[Event](b, `da`, []string{"foo bar"})
+		}).
+		Log(``)
+
+	// it can also be used context + nested builders
+	loggerCtx := logger.Clone().
+		Call(func(b *Context[Event]) {
+			SliceArray[Event](b, `a`, []any{nil, "some value", 1.123, 5})
+			SliceArray[Event](b, `b`, []bool{false, false, true})
+		}).
+		ArrayFunc(`c`, func(b ContextArray) {
+			// NOTE: key must be empty, since it's within an array
+			SliceArray[Event](b, ``, []int{-1})
+		}).
+		ObjectFunc(`d`, func(b ContextObject) {
+			SliceArray[Event](b, `da`, []string{"foo bar"})
+		}).
+		Logger()
+	loggerCtx.Info().Log(`fields from context`)
+
+	//output:
+	//[info] k=[1,2,3,1e-9,100000000000000000000,1e+21,0.000001,1e-7]
+	//[info] a=[null,"some value",1.123,5] b=[false,false,true] c=[[-1]] d={"da":["foo bar"]}
+	//[info] a=[null,"some value",1.123,5] b=[false,false,true] c=[[-1]] d={"da":["foo bar"]} msg="fields from context"
+}
+
+func TestSliceArray_typedSlice(t *testing.T) {
+	type SomeSlice []string
+	slice := SomeSlice{"a", "b", "c"}
+	var buf bytes.Buffer
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: &buf, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	).Logger()
+	SliceArray[Event](logger.Info(), `k`, slice).Log(``)
+	if got, want := buf.String(), "[info] k=[\"a\",\"b\",\"c\"]\n"; got != want {
+		t.Errorf("unexpected output: got=%q, want=%q", got, want)
+	}
+}
+
+func ExampleMapObject() {
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	).Logger()
+
+	// it can be used directly
+	MapObject[Event](logger.Info(), `k`, map[string]int{"a": 1, "b": 2, "c": 3}).Log(``)
+
+	// it can be used with the Call method to aid in formatting, and on other builders
+	logger.Info().
+		Call(func(b *Builder[Event]) {
+			MapObject[Event](b, `a`, map[string]int{"a": 1, "b": 2, "c": 3})
+			MapObject[Event](b, `b`, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+			MapObject[Event](b, `c`, map[string]bool{"a": false, "b": false, "c": true})
+		}).
+		ArrayFunc(`d`, func(b BuilderArray) {
+			// NOTE: key must be empty, since it's within an array
+			MapObject[Event](b, ``, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+		}).
+		ObjectFunc(`e`, func(b BuilderObject) {
+			MapObject[Event](b, `ea`, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+		}).
+		Log(``)
+
+	// it can also be used context + nested builders
+	loggerCtx := logger.Clone().
+		Call(func(b *Context[Event]) {
+			MapObject[Event](b, `a`, map[string]int{"a": 1, "b": 2, "c": 3})
+			MapObject[Event](b, `b`, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+			MapObject[Event](b, `c`, map[string]bool{"a": false, "b": false, "c": true})
+		}).
+		ArrayFunc(`d`, func(b ContextArray) {
+			// NOTE: key must be empty, since it's within an array
+			MapObject[Event](b, ``, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+		}).
+		ObjectFunc(`e`, func(b ContextObject) {
+			MapObject[Event](b, `ea`, map[string]any{"a": nil, "b": "some value", "c": 1.123, "d": 5})
+		}).
+		Logger()
+	loggerCtx.Info().Log(`fields from context`)
+
+	//output:
+	//[info] k={"a":1,"b":2,"c":3}
+	//[info] a={"a":1,"b":2,"c":3} b={"a":null,"b":"some value","c":1.123,"d":5} c={"a":false,"b":false,"c":true} d=[{"a":null,"b":"some value","c":1.123,"d":5}] e={"ea":{"a":null,"b":"some value","c":1.123,"d":5}}
+	//[info] a={"a":1,"b":2,"c":3} b={"a":null,"b":"some value","c":1.123,"d":5} c={"a":false,"b":false,"c":true} d=[{"a":null,"b":"some value","c":1.123,"d":5}] e={"ea":{"a":null,"b":"some value","c":1.123,"d":5}} msg="fields from context"
+}
+
+func TestMapObject_typedMap(t *testing.T) {
+	type SomeString string
+	type SomeMap map[SomeString]int
+	m := SomeMap{SomeString("a"): 1, SomeString("b"): 2, SomeString("c"): 3}
+	var buf bytes.Buffer
+	logger := mockL.New(
+		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
+		mockL.WithWriter(&mockSimpleWriter{Writer: &buf, JSON: true}),
+		mockL.WithDPanicLevel(LevelEmergency),
+	).Logger()
+	MapObject[Event](logger.Info(), `k`, m).Log(``)
+	if got, want := buf.String(), "[info] k={\"a\":1,\"b\":2,\"c\":3}\n"; got != want {
+		t.Errorf("unexpected output: got=%q, want=%q", got, want)
+	}
+}
+
+func TestSliceArray_disabled(t *testing.T) {
+	var b Builder[Event]
+	if v := SliceArray[Event](&b, `k`, []string{"a", "b", "c"}); v != &b {
+		t.Error(v)
+	}
+}
+
+func TestMapObject_disabled(t *testing.T) {
+	var b Builder[Event]
+	if v := MapObject[Event](&b, `k`, map[string]any{}); v != &b {
+		t.Error(v)
+	}
+}

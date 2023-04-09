@@ -381,6 +381,7 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 	if !event.Level().Enabled() {
 		return ErrDisabled
 	}
+	// TODO add cases for pointers
 	switch val := val.(type) {
 	case string:
 		x.str(event, key, val)
