@@ -454,3 +454,36 @@ func FuzzInsertString(f *testing.F) {
 		}
 	})
 }
+
+type insertStringTest struct {
+	original string
+	index    int
+	value    string
+	quotes   bool
+}
+
+func generateInsertStringBenchmarks() (testCases []*insertStringTest) {
+	const original = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`
+	const index = len(original) / 2
+	for _, tc1 := range encodeStringTests {
+		testCases = append(testCases, &insertStringTest{original, index, tc1.in, true})
+		testCases = append(testCases, &insertStringTest{original, index, tc1.in, false})
+	}
+	return
+}
+
+func BenchmarkInsertString(b *testing.B) {
+	testCases := generateInsertStringBenchmarks()
+	buffers := make([][]byte, len(testCases))
+	for i, tc := range testCases {
+		buffers[i] = append([]byte(nil), tc.original...)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for j, tc := range testCases {
+			buffers[j] = insertString(buffers[j], tc.index, tc.value, tc.quotes)
+		}
+	}
+}
