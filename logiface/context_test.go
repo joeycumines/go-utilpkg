@@ -3,6 +3,7 @@ package logiface
 import (
 	"bytes"
 	"errors"
+	"github.com/joeycumines/go-utilpkg/logiface/internal/fieldtest"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"os"
@@ -87,14 +88,14 @@ func TestEvent_min(t *testing.T) {
 	t.Run(`Context`, func(t *testing.T) {
 		test(func(l *Logger[*mockSimpleEvent]) {
 			c := l.Clone()
-			fluentCallerTemplate(c)
+			fieldtest.FluentCallerTemplate(c)
 			c.Logger().Info().Log(message)
 		})
 	})
 	t.Run(`Builder`, func(t *testing.T) {
 		test(func(l *Logger[*mockSimpleEvent]) {
 			b := l.Info()
-			fluentCallerTemplate(b)
+			fieldtest.FluentCallerTemplate(b)
 			b.Log(message)
 		})
 	})
@@ -157,7 +158,7 @@ func TestEvent_max(t *testing.T) {
 					{
 						Type:  `AddField`,
 						Key:   "field called with unhandled type",
-						Value: mockIntDataType(-421),
+						Value: fieldtest.IntDataType(-421),
 					},
 					{
 						Type:  "AddFloat32",
@@ -286,14 +287,14 @@ func TestEvent_max(t *testing.T) {
 	t.Run(`Context`, func(t *testing.T) {
 		test(func(l *Logger[*mockComplexEvent]) {
 			c := l.Clone()
-			fluentCallerTemplate(c)
+			fieldtest.FluentCallerTemplate(c)
 			c.Logger().Info().Log(message)
 		})
 	})
 	t.Run(`Builder`, func(t *testing.T) {
 		test(func(l *Logger[*mockComplexEvent]) {
 			b := l.Info()
-			fluentCallerTemplate(b)
+			fieldtest.FluentCallerTemplate(b)
 			b.Log(message)
 		})
 	})
@@ -304,7 +305,7 @@ func TestContext_disabledEvent(t *testing.T) {
 	if !c.Enabled() {
 		t.Fatal()
 	}
-	fluentCallerTemplate(&c)
+	fieldtest.FluentCallerTemplate(&c)
 	if len(c.Modifiers) == 0 {
 		t.Fatal()
 	}
@@ -327,7 +328,7 @@ func TestBuilder_disabledEvent(t *testing.T) {
 	if !b.Enabled() {
 		t.Fatal()
 	}
-	fluentCallerTemplate(&b)
+	fieldtest.FluentCallerTemplate(&b)
 }
 
 func TestBuilder_Log_nilReceiver(t *testing.T) {
