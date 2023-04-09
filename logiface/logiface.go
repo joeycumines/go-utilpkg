@@ -41,7 +41,7 @@ type (
 	//   6. Add to each of [Builder] and [Context] a method named the same as and using 5. (e.g. Dur)
 	//   9. Add the Event method to mockComplexEvent in mock_test.go
 	//   10. Run make in the root of the git repository, fix any issues
-	//   11. Add appropriate Field and specific method calls (e.g. Dur) to internal/fieldtest.FluentCallerTemplate (note: update the T generic interface)
+	//   11. Add appropriate Field and specific method calls (e.g. Dur) to internal/fieldtest.FluentObjectTemplate (note: update the T generic interface)
 	//   12. Fix all test cases that fail
 	//   13. Update the testsuite module to include the new field type (e.g. throw it on eventTemplate1 in templates.go)
 	//   14. Run make in the root of the git repository, everything should still pass

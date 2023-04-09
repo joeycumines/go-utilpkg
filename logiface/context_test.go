@@ -75,7 +75,7 @@ func TestBuilder_Any_nilReceiver(t *testing.T) {
 // TestEvent_min tests the minimum set of methods required to implement the Event interface.
 func TestEvent_min(t *testing.T) {
 	const message = `log called`
-	test := func(log func(l *Logger[*mockSimpleEvent])) {
+	test := func(t *testing.T, log func(l *Logger[*mockSimpleEvent])) {
 		t.Helper()
 		var buf bytes.Buffer
 		l := newSimpleLogger(&buf, true)
@@ -86,16 +86,16 @@ func TestEvent_min(t *testing.T) {
 		}
 	}
 	t.Run(`Context`, func(t *testing.T) {
-		test(func(l *Logger[*mockSimpleEvent]) {
+		test(t, func(l *Logger[*mockSimpleEvent]) {
 			c := l.Clone()
-			fieldtest.FluentCallerTemplate(c)
+			fieldtest.FluentObjectTemplate(c)
 			c.Logger().Info().Log(message)
 		})
 	})
 	t.Run(`Builder`, func(t *testing.T) {
-		test(func(l *Logger[*mockSimpleEvent]) {
+		test(t, func(l *Logger[*mockSimpleEvent]) {
 			b := l.Info()
-			fieldtest.FluentCallerTemplate(b)
+			fieldtest.FluentObjectTemplate(b)
 			b.Log(message)
 		})
 	})
@@ -104,7 +104,7 @@ func TestEvent_min(t *testing.T) {
 // TestEvent_max tests an implementation using the complete set of available Event methods.
 func TestEvent_max(t *testing.T) {
 	const message = `log called`
-	test := func(log func(l *Logger[*mockComplexEvent])) {
+	test := func(t *testing.T, log func(l *Logger[*mockComplexEvent])) {
 		t.Helper()
 		w := mockComplexWriter{}
 		l := New[*mockComplexEvent](
@@ -285,16 +285,16 @@ func TestEvent_max(t *testing.T) {
 		assert.Equal(t, w.events, expected)
 	}
 	t.Run(`Context`, func(t *testing.T) {
-		test(func(l *Logger[*mockComplexEvent]) {
+		test(t, func(l *Logger[*mockComplexEvent]) {
 			c := l.Clone()
-			fieldtest.FluentCallerTemplate(c)
+			fieldtest.FluentObjectTemplate(c)
 			c.Logger().Info().Log(message)
 		})
 	})
 	t.Run(`Builder`, func(t *testing.T) {
-		test(func(l *Logger[*mockComplexEvent]) {
+		test(t, func(l *Logger[*mockComplexEvent]) {
 			b := l.Info()
-			fieldtest.FluentCallerTemplate(b)
+			fieldtest.FluentObjectTemplate(b)
 			b.Log(message)
 		})
 	})
@@ -305,7 +305,7 @@ func TestContext_disabledEvent(t *testing.T) {
 	if !c.Enabled() {
 		t.Fatal()
 	}
-	fieldtest.FluentCallerTemplate(&c)
+	fieldtest.FluentObjectTemplate(&c)
 	if len(c.Modifiers) == 0 {
 		t.Fatal()
 	}
@@ -328,7 +328,7 @@ func TestBuilder_disabledEvent(t *testing.T) {
 	if !b.Enabled() {
 		t.Fatal()
 	}
-	fieldtest.FluentCallerTemplate(&b)
+	fieldtest.FluentObjectTemplate(&b)
 }
 
 func TestBuilder_Log_nilReceiver(t *testing.T) {
