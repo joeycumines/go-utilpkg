@@ -8,4 +8,6 @@ use (
 	./logiface/stumpy
 	./logiface/testsuite
 	./logiface/zerolog
+	./sql
+	./sql/export/mysql
 )
