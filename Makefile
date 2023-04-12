@@ -61,6 +61,10 @@ LIST_TOOLS ?= if exist tools.go (for /f tokens^=2^ delims^=^" %%a in ('findstr /
 else
 LIST_TOOLS ?= [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
 endif
+# used to special-case modules for tools which fail if they find no packages (e.g. go vet)
+GO_MODULE_SLUGS_NO_PACKAGES ?=
+# used to exclude modules from the update* targets
+GO_MODULE_SLUGS_NO_UPDATE ?=
 
 # configurable, but unlikely to need to be configured
 
@@ -106,9 +110,8 @@ endif
 ifneq ($(GO_MODULE_SLUGS),$(foreach d,$(GO_MODULE_PATHS),$(call go_module_path_to_slug,$d)))
 $(error GO_MODULE_SLUGS contains unsupported paths)
 endif
-# the below are used to special-case tools which fail if they find no packages (e.g. go vet)
-GO_MODULE_SLUGS_NO_PACKAGES ?=
-GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_EXCL_NO_UPDATE := $(filter-out $(GO_MODULE_SLUGS_NO_UPDATE),$(GO_MODULE_SLUGS))
 
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
@@ -261,9 +264,12 @@ UPDATE_TARGETS := $(addprefix update.,$(GO_MODULE_SLUGS))
 .PHONY: update
 update: $(UPDATE_TARGETS)
 
-.PHONY: $(UPDATE_TARGETS)
-$(UPDATE_TARGETS): update.%:
+.PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE))
+$(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): update.%:
 	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
+
+.PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE))
+$(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%:
 
 .PHONY: _update
 _update: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -335,6 +341,10 @@ godoc:
 debug-env:
 	@echo GO_MODULE_PATHS = $(GO_MODULE_PATHS)
 	@echo GO_MODULE_SLUGS = $(GO_MODULE_SLUGS)
+	@echo GO_MODULE_SLUGS_NO_PACKAGES = $(GO_MODULE_SLUGS_NO_PACKAGES)
+	@echo GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)
+	@echo GO_MODULE_SLUGS_NO_UPDATE = $(GO_MODULE_SLUGS_NO_UPDATE)
+	@echo GO_MODULE_SLUGS_EXCL_NO_UPDATE = $(GO_MODULE_SLUGS_EXCL_NO_UPDATE)
 	@echo SUBDIR_MAKEFILE_PATHS = $(SUBDIR_MAKEFILE_PATHS)
 	@echo SUBDIR_MAKEFILE_SLUGS = $(SUBDIR_MAKEFILE_SLUGS)
 
