@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/sql/log"
+	"github.com/joeycumines/go-utilpkg/logiface"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -19,7 +19,7 @@ const (
 type (
 	Exporter struct {
 		Schema *Schema
-		Logger log.Logger
+		Logger *logiface.Logger[logiface.Event]
 		Reader Reader
 		Writer Writer
 		// BatchSize configures the max limit, and defaults to DefaultBatchSize if 0.
@@ -98,8 +98,8 @@ func (x *Exporter) Export(ctx context.Context) error {
 			tableRows     = make(map[Table][]int64, len(x.Schema.PrimaryKeys))
 		)
 		if err := func() error {
-			x.log().Debug(`fetch started`)
-			defer x.log().Debug(`fetch stopped`)
+			x.Logger.Debug().Log(`fetch started`)
+			defer x.Logger.Debug().Log(`fetch stopped`)
 
 			rows, err := x.Reader.QueryContext(ctx, snippet.SQL, snippet.Args...)
 			if err != nil {
@@ -221,10 +221,13 @@ func (x *Exporter) Export(ctx context.Context) error {
 		}
 
 		if excludedCount != 0 {
-			x.log().WithField(`excluded`, excludedCount).
-				WithField(`batch`, batchCount).
-				WithField(`offset`, offset).
-				Warn(`excluded rows not after offset`)
+			logiface.MapObject[logiface.Event](
+				x.Logger.Warning().
+					Int(`excluded`, excludedCount).
+					Int(`batch`, batchCount),
+				`offset`,
+				offset,
+			).Log(`excluded rows not after offset`)
 		}
 
 		if excludedCount >= batchCount {
@@ -275,13 +278,6 @@ func (x *Exporter) validateWriter() error {
 	return nil
 }
 
-func (x *Exporter) log() log.Logger {
-	if x.Logger == nil {
-		return log.Discard{}
-	}
-	return x.Logger
-}
-
 func (x *Exporter) batchSize() int {
 	if x.BatchSize == 0 {
 		return DefaultBatchSize
@@ -313,8 +309,8 @@ func (x *Exporter) startReader(ctx context.Context, cfg exporterReaderConfig) <-
 }
 
 func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
-	x.log().Debug(`reader started`)
-	defer x.log().Debug(`reader stopped`)
+	x.Logger.Debug().Log(`reader started`)
+	defer x.Logger.Debug().Log(`reader stopped`)
 
 	// we skip sending rows that reference rows we failed to read
 	missingTableRows := make(map[Table][]int64)
@@ -462,8 +458,27 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 	}
 
 	if len(missingTableRows) != 0 {
-		x.log().WithField(`missing`, missingTableRows).
-			Warn(`reader missing rows`)
+		if b := x.Logger.Warning(); b.Enabled() {
+			tables := maps.Keys(missingTableRows)
+			slices.SortFunc(tables, lessTables)
+			obj := logiface.Object[logiface.Event](b)
+			for _, table := range tables {
+				if len(missingTableRows[table]) == 0 {
+					continue
+				}
+				b, err := table.MarshalText()
+				if err != nil {
+					continue
+				}
+				arr := logiface.Array[logiface.Event](obj)
+				for _, ID := range missingTableRows[table] {
+					arr.Int64(ID)
+				}
+				arr.As(string(b))
+			}
+			obj.As(`missing`)
+			b.Log(`reader missing rows`)
+		}
 	}
 
 	// tells the writer that we are done
@@ -483,8 +498,8 @@ func (x *Exporter) startWriter(ctx context.Context, cfg exporterWriterConfig) <-
 }
 
 func (x *Exporter) write(ctx context.Context, cfg exporterWriterConfig) error {
-	x.log().Debug(`writer started`)
-	defer x.log().Debug(`writer stopped`)
+	x.Logger.Debug().Log(`writer started`)
+	defer x.Logger.Debug().Log(`writer stopped`)
 
 	var rowCount int
 WriteLoop:
@@ -522,11 +537,12 @@ WriteLoop:
 					}
 					if !ok {
 						// race condition etc...
-						x.log().WithField(`table`, table).
-							WithField(`id`, value.Int64).
-							WithField(`fk_table`, row.table).
-							WithField(`fk_column`, data.Columns[i]).
-							Error(`writer missing row`)
+						x.Logger.Err().
+							Str(`table`, table.String()).
+							Int64(`id`, value.Int64).
+							Str(`fk_table`, row.table.String()).
+							Str(`fk_column`, data.Columns[i]).
+							Log(`writer missing row`)
 						continue WriteLoop
 					}
 					data.Values[i] = mapped
@@ -573,8 +589,9 @@ WriteLoop:
 		}
 	}
 
-	x.log().WithField(`count`, rowCount).
-		Info(`inserted row(s)`)
+	x.Logger.Info().
+		Int(`count`, rowCount).
+		Log(`inserted row(s)`)
 
 	return nil
 }

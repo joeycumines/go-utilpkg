@@ -18,16 +18,18 @@ const (
 
 type (
 	Dialect struct {
-		unimplementedDialect
-
 		Charset   string
 		Collation string
 
 		// NullSafeEqual may be set to true to indicate the availability of the "<=>" operator (null-safe equal to,
 		// also known as the spaceship operator).
 		NullSafeEqual bool
+
+		//lint:ignore U1000 embedded for it's methods
+		unimplementedDialect
 	}
 
+	//lint:ignore U1000 used to embed without exporting
 	unimplementedDialect = export.UnimplementedDialect
 )
 
