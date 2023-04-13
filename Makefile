@@ -54,6 +54,11 @@ GO_COVERAGE_ALL_MODULES_FILE ?= coverage-all.out
 GO_TOOL_COVER ?= $(GO) tool cover
 GODOC ?= godoc
 GODOC_FLAGS ?= -http=:6060
+GRIT ?= grit
+GRIT_FLAGS ?= -push -linearize
+GRIT_BRANCH ?= main
+GRIT_SRC ?=
+GRIT_DST ?=
 STATICCHECK ?= staticcheck
 STATICCHECK_FLAGS ?=
 ifeq ($(OS),Windows_NT)
@@ -87,6 +92,8 @@ map_key_by_value = $(patsubst %$(MAP_SEPARATOR)$2,%,$(filter %$(MAP_SEPARATOR)$2
 # builds a new map, from a set of keys, using a transform function to build values from the keys
 # $1 are the keys, $2 is the transform function
 map_transform_keys = $(foreach v,$1,$v$(MAP_SEPARATOR)$(call $2,$v))
+# extracts only the keys from a map variable, $1 is the map variable
+map_keys = $(foreach v,$1,$(word 1,$(subst $(MAP_SEPARATOR), ,$v)))
 
 # convert a path to a slug, e.g. ./logiface/logrus -> logiface.logrus, with special case for root
 slug_transform = $(if $(filter .,$1),root,$(subst /,$(SLUG_SEPARATOR),$(patsubst ./%,%,$1)))
@@ -96,6 +103,9 @@ go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
 
 subdir_makefile_path_to_slug = $(call map_value_by_key,$(_SUBDIR_MAKEFILE_MAP),$1)
 subdir_makefile_slug_to_path = $(call map_key_by_value,$(_SUBDIR_MAKEFILE_MAP),$1)
+
+go_module_slug_to_grit_src = $(GRIT_SRC),$(patsubst ./%,%,$(call go_module_slug_to_path,$1))/,$(GRIT_BRANCH)
+go_module_slug_to_grit_dst = $(call map_value_by_key,$(GRIT_DST),$1),,$(GRIT_BRANCH)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
@@ -112,6 +122,8 @@ $(error GO_MODULE_SLUGS contains unsupported paths)
 endif
 GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_EXCL_NO_UPDATE := $(filter-out $(GO_MODULE_SLUGS_NO_UPDATE),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_GRIT_DST := $(filter $(call map_keys,$(GRIT_DST)),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_EXCL_GRIT_DST := $(filter-out $(GO_MODULE_SLUGS_GRIT_DST),$(GO_MODULE_SLUGS))
 
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
@@ -302,6 +314,20 @@ $(GO) install $(tool)
 
 endef
 
+# grit: runs grit to sync modules to defined target repositories
+
+GRIT_TARGETS := $(addprefix grit.,$(GO_MODULE_SLUGS))
+
+.PHONY: grit
+grit: $(GRIT_TARGETS)
+
+.PHONY: $(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST))
+$(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST)): grit.%:
+	$(GRIT) $(GRIT_FLAGS) $(call go_module_slug_to_grit_src,$*) $(call go_module_slug_to_grit_dst,$*)
+
+.PHONY: $(addprefix grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST))
+$(addprefix grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): grit.%:
+
 # ---
 
 # makefile pattern rules
@@ -345,6 +371,8 @@ debug-env:
 	@echo GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)
 	@echo GO_MODULE_SLUGS_NO_UPDATE = $(GO_MODULE_SLUGS_NO_UPDATE)
 	@echo GO_MODULE_SLUGS_EXCL_NO_UPDATE = $(GO_MODULE_SLUGS_EXCL_NO_UPDATE)
+	@echo GO_MODULE_SLUGS_GRIT_DST = $(GO_MODULE_SLUGS_GRIT_DST)
+	@echo GO_MODULE_SLUGS_EXCL_GRIT_DST = $(GO_MODULE_SLUGS_EXCL_GRIT_DST)
 	@echo SUBDIR_MAKEFILE_PATHS = $(SUBDIR_MAKEFILE_PATHS)
 	@echo SUBDIR_MAKEFILE_SLUGS = $(SUBDIR_MAKEFILE_SLUGS)
 
