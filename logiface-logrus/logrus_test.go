@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface/testsuite"
+	"github.com/joeycumines/go-utilpkg/logiface/logiface-testsuite"
 	"github.com/sirupsen/logrus"
 	"io"
 	"math"
@@ -89,7 +89,7 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		panic(err)
 	}
 	if data.Level == nil {
-		panic(`expected logrus message to have a level`)
+		panic(`expected logiface-logrus message to have a level`)
 	}
 
 	var fields map[string]interface{}
@@ -129,7 +129,7 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		ev.Level = logiface.LevelEmergency
 
 	default:
-		panic(fmt.Errorf(`unexpected logrus level %d`, *data.Level))
+		panic(fmt.Errorf(`unexpected logiface-logrus level %d`, *data.Level))
 	}
 
 	b, err := io.ReadAll(d.Buffered())

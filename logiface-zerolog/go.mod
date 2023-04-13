@@ -1,4 +1,4 @@
-module github.com/joeycumines/go-utilpkg/logiface/zerolog
+module github.com/joeycumines/izerolog
 
 go 1.20
 
