@@ -34,7 +34,7 @@ type (
 // Interpolate is presumably like mysql_real_escape_string, and has been copied from go-sql-driver/mysql.
 // WARNING see https://stackoverflow.com/a/12118602 for potential vul.
 // https://github.com/go-sql-driver/mysql/blob/ad9fa14acdcf7d0533e7fbe58728f3d216213ade/connection.go#L198
-func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (string, error) {
+func (x *InterpolateConfig) Interpolate(query string, args ...driver.Value) (string, error) {
 	// Number of ? should be same to len(args)
 	if strings.Count(query, "?") != len(args) {
 		return "", driver.ErrSkip
@@ -81,7 +81,7 @@ func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (stri
 				buf = append(buf, "'0000-00-00'"...)
 			} else {
 				buf = append(buf, '\'')
-				buf, err = appendDateTime(buf, v.In(x.loc()))
+				buf, err = appendDateTime(buf, v.In(x.location()))
 				if err != nil {
 					return "", err
 				}
@@ -89,7 +89,7 @@ func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (stri
 			}
 		case json.RawMessage:
 			buf = append(buf, '\'')
-			if !x.NoBackslashEscapes {
+			if !x.noBackslashEscapes() {
 				buf = escapeBytesBackslash(buf, v)
 			} else {
 				buf = escapeBytesQuotes(buf, v)
@@ -100,7 +100,7 @@ func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (stri
 				buf = append(buf, "NULL"...)
 			} else {
 				buf = append(buf, "_binary'"...)
-				if !x.NoBackslashEscapes {
+				if !x.noBackslashEscapes() {
 					buf = escapeBytesBackslash(buf, v)
 				} else {
 					buf = escapeBytesQuotes(buf, v)
@@ -109,7 +109,7 @@ func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (stri
 			}
 		case string:
 			buf = append(buf, '\'')
-			if !x.NoBackslashEscapes {
+			if !x.noBackslashEscapes() {
 				buf = escapeStringBackslash(buf, v)
 			} else {
 				buf = escapeStringQuotes(buf, v)
@@ -127,11 +127,21 @@ func (x InterpolateConfig) Interpolate(query string, args ...driver.Value) (stri
 	return string(buf), nil
 }
 
-func (x InterpolateConfig) loc() *time.Location {
-	if x.Location == nil {
-		return time.UTC
+func (x *InterpolateConfig) location() (loc *time.Location) {
+	if x != nil {
+		loc = x.Location
 	}
-	return x.Location
+	if loc == nil {
+		loc = time.UTC
+	}
+	return
+}
+
+func (x *InterpolateConfig) noBackslashEscapes() bool {
+	if x == nil {
+		return false
+	}
+	return x.NoBackslashEscapes
 }
 
 func appendDateTime(buf []byte, t time.Time) ([]byte, error) {
