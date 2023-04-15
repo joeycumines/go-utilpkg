@@ -45,9 +45,9 @@ type (
 	//   12. Fix all test cases that fail
 	//   13. Update the testsuite module to include the new field type (e.g. throw it on eventTemplate1 in templates.go)
 	//   14. Run make in the root of the git repository, everything should still pass
-	//   15. Implement new field type in all relevant implementation modules (e.g. logiface/zerolog)
-	//   16. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface/testsuite, see also normalizeEvent
-	//   17. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface/zerolog
+	//   15. Implement new field type in all relevant implementation modules (e.g. logiface-stumpy, logiface-zerolog)
+	//   16. Fix any issues with the test harness implementations, which may require adding additional functionality to logiface-testsuite, see also normalizeEvent
+	//   17. Consider adding or updating benchmarks, e.g. the comparison (vs direct use) benchmarks in logiface-zerolog
 	//   18. Add the field to fieldBuilderObjectInterface in method_test.go
 	//   19. Add the field to fieldBuilderArrayInterface, unless not applicable
 	//   20. Implement necessary methods and make necessary changes to add the methods to the peripheral implementations, including [ObjectBuilder], [ArrayBuilder], and [JSONSupport]

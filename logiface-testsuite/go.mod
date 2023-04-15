@@ -1,4 +1,4 @@
-module github.com/joeycumines/go-utilpkg/logiface/testsuite
+module github.com/joeycumines/go-utilpkg/logiface-testsuite
 
 go 1.20
 

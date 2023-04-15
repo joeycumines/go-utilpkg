@@ -3,7 +3,7 @@ package mysql
 import (
 	"bytes"
 	"database/sql"
-	"github.com/joeycumines/go-utilpkg/sql/export"
+	"github.com/joeycumines/go-sql/export"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/format"
 	"github.com/pingcap/tidb/parser/model"

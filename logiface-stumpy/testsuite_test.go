@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface/testsuite"
+	"github.com/joeycumines/go-utilpkg/logiface-testsuite"
 	"io"
 	"math"
 	"runtime"

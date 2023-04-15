@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"github.com/go-test/deep"
-	"github.com/joeycumines/go-utilpkg/sql/export"
+	"github.com/joeycumines/go-sql/export"
 	"strings"
 	"testing"
 )

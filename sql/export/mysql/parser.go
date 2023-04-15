@@ -3,7 +3,7 @@ package mysql
 import (
 	"errors"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/sql/export"
+	"github.com/joeycumines/go-sql/export"
 	"github.com/pingcap/tidb/parser"
 	"github.com/pingcap/tidb/parser/ast"
 	"github.com/pingcap/tidb/parser/model"

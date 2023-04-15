@@ -1,11 +1,10 @@
-module github.com/joeycumines/go-utilpkg/sql/export/mysql
+module github.com/joeycumines/go-sql/export/mysql
 
 go 1.20
 
 require (
 	github.com/go-test/deep v1.1.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/joeycumines/go-utilpkg/sql v0.0.0-20230411193236-a9b49e092e9a
 )
 
 // to update, identify TIDB_HASH, delete go.sum and all dependencies listed in go.mod, then run:

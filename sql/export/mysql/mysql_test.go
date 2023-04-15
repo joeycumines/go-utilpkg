@@ -3,7 +3,7 @@ package mysql
 import (
 	"database/sql"
 	"github.com/go-test/deep"
-	"github.com/joeycumines/go-utilpkg/sql/export"
+	"github.com/joeycumines/go-sql/export"
 	_ "github.com/pingcap/tidb/types/parser_driver"
 	"reflect"
 	"strings"

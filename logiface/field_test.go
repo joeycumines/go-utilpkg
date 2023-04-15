@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/joeycumines/go-utilpkg/logiface"
 	"github.com/joeycumines/go-utilpkg/logiface/internal/fieldtest"
-	"github.com/joeycumines/go-utilpkg/logiface/stumpy"
+	"github.com/joeycumines/go-utilpkg/logiface-stumpy"
 	"math"
 	"strings"
 	"testing"
