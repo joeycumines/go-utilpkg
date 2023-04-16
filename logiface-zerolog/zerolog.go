@@ -1,7 +1,8 @@
-package zerolog
+// Package izerolog implements support for using github.com/rs/zerolog with github.com/joeycumines/logiface.
+package izerolog
 
 import (
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"github.com/rs/zerolog"
 	"sync"
 	"time"

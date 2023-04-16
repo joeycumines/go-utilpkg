@@ -1,8 +1,8 @@
-package zerolog
+package izerolog
 
 import (
 	"errors"
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"github.com/rs/zerolog"
 	"io"
 	"net"

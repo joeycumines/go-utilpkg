@@ -1,10 +1,10 @@
-package zerolog
+package izerolog
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface-stumpy"
+	"github.com/joeycumines/logiface"
+	"github.com/joeycumines/stumpy"
 	"github.com/rs/zerolog"
 	"io"
 	"strings"

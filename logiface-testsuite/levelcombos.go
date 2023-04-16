@@ -2,7 +2,7 @@ package testsuite
 
 import (
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"golang.org/x/exp/slices"
 	"math"
 )

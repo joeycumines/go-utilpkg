@@ -1,7 +1,7 @@
 package testsuite
 
 import (
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"testing"
 )
 

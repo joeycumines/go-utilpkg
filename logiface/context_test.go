@@ -3,7 +3,7 @@ package logiface
 import (
 	"bytes"
 	"errors"
-	"github.com/joeycumines/go-utilpkg/logiface/internal/fieldtest"
+	"github.com/joeycumines/logiface/internal/fieldtest"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"os"

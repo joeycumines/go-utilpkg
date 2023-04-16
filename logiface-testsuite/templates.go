@@ -3,7 +3,7 @@ package testsuite
 import (
 	"encoding/base64"
 	"errors"
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"math"
 	"time"
 )

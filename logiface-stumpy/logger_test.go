@@ -1,7 +1,7 @@
 package stumpy
 
 import (
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 )
 
 var (

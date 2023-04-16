@@ -2,9 +2,9 @@ package logiface_test
 
 import (
 	"bytes"
-	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface/internal/fieldtest"
-	"github.com/joeycumines/go-utilpkg/logiface-stumpy"
+	"github.com/joeycumines/logiface"
+	"github.com/joeycumines/logiface/internal/fieldtest"
+	"github.com/joeycumines/stumpy"
 	"math"
 	"strings"
 	"testing"

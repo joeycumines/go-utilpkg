@@ -1,7 +1,7 @@
 package logiface
 
 import (
-	"github.com/joeycumines/go-utilpkg/logiface/internal/fieldtest"
+	"github.com/joeycumines/logiface/internal/fieldtest"
 )
 
 type fieldBuilderCommonInterface[TFluent any, TCall any] interface {

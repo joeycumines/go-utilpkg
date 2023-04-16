@@ -3,9 +3,6 @@ module github.com/joeycumines/izerolog
 go 1.20
 
 require (
-	github.com/joeycumines/go-utilpkg/logiface v0.6.0
-	github.com/joeycumines/go-utilpkg/logiface-stumpy v0.0.0-20230415235719-ff298aeee06c
-	github.com/joeycumines/go-utilpkg/logiface-testsuite v0.0.0-20230415235719-ff298aeee06c
 	github.com/rs/zerolog v1.29.1
 )
 

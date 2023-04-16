@@ -55,7 +55,7 @@ GO_TOOL_COVER ?= $(GO) tool cover
 GODOC ?= godoc
 GODOC_FLAGS ?= -http=:6060
 GRIT ?= grit
-GRIT_FLAGS ?= -push -linearize
+GRIT_FLAGS ?= -push
 GRIT_BRANCH ?= main
 GRIT_SRC ?=
 GRIT_DST ?=

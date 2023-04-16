@@ -1,12 +1,12 @@
-package logrus
+package ilogrus
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface-testsuite"
+	"github.com/joeycumines/logiface"
+	"github.com/joeycumines/logiface-testsuite"
 	"github.com/sirupsen/logrus"
 	"io"
 	"math"

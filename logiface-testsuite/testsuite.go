@@ -9,7 +9,7 @@ import (
 	"fmt"
 	diff "github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"io"
 	"reflect"
 	"strings"

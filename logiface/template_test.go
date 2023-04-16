@@ -3,9 +3,9 @@ package logiface_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/logiface"
-	"github.com/joeycumines/go-utilpkg/logiface/internal/mocklog"
-	"github.com/joeycumines/go-utilpkg/logiface-stumpy"
+	"github.com/joeycumines/logiface"
+	"github.com/joeycumines/logiface/internal/mocklog"
+	"github.com/joeycumines/stumpy"
 	"golang.org/x/exp/maps"
 	"io"
 	"math"

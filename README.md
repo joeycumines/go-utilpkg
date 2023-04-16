@@ -6,7 +6,7 @@ A monorepo to consolidate peripheral or related modules, which I don't wish to m
 
 ### logiface
 
-https://pkg.go.dev/github.com/joeycumines/go-utilpkg/logiface
+https://pkg.go.dev/github.com/joeycumines/logiface
 
 Answering the question: Is it at all feasible to generalize structured loggers without sacrificing on performance,
 functionality, or developer experience?

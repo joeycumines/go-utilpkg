@@ -1,8 +1,8 @@
-// Package logrus implements support for using github.com/sirupsen/logrus with github.com/joeycumines/go-utilpkg/logiface.
-package logrus
+// Package ilogrus implements support for using github.com/sirupsen/logrus with github.com/joeycumines/logiface.
+package ilogrus
 
 import (
-	"github.com/joeycumines/go-utilpkg/logiface"
+	"github.com/joeycumines/logiface"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	"sync"
