@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/go-test/deep v1.1.0
 	github.com/hexops/gotextdiff v1.0.3
+	github.com/joeycumines/go-sql v0.0.0-20230416021903-7c8e7340cd46
 )
 
 // to update, identify TIDB_HASH, delete go.sum and all dependencies listed in go.mod, then run:
@@ -32,6 +33,8 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/joeycumines/go-detect-cycle v1.0.1 // indirect
+	github.com/joeycumines/logiface v0.0.0-20230416213456-f0a3e63e9455 // indirect
+	github.com/joeycumines/stumpy v0.0.0-20230416223453-8a09ccba882c // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
@@ -52,7 +55,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.1 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tikv/client-go/v2 v2.0.7-0.20230328075239-e72043db9e79 // indirect
 	github.com/tikv/pd/client v0.0.0-20230329122654-da5a4e95ca0a // indirect

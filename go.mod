@@ -2,6 +2,10 @@ module github.com/joeycumines/go-utilpkg
 
 go 1.20
 
+// Update via:
+//   go mod edit -replace github.com/grailbio/grit=github.com/joeycumines/grit@latest && go mod tidy
+replace github.com/grailbio/grit => github.com/joeycumines/grit v0.0.0-20230416222730-bf226e10ae38
+
 require (
 	github.com/grailbio/grit v0.0.0-20200605233837-2ad5ef8ce918
 	golang.org/x/perf v0.0.0-20230227161431-f7320a6d63e8
