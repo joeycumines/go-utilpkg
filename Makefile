@@ -281,7 +281,7 @@ $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): update.%:
 	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
 
 .PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE))
-$(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%:
+$(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%: tidy.%
 
 .PHONY: _update
 _update: GO_TOOLS := $(shell $(LIST_TOOLS))
@@ -293,6 +293,21 @@ define _update_TEMPLATE =
 $(GO) get -u $(tool)
 
 endef
+
+# tidy: runs go mod tidy
+
+TIDY_TARGETS := $(addprefix tidy.,$(GO_MODULE_SLUGS))
+
+.PHONY: tidy
+tidy: $(TIDY_TARGETS)
+
+.PHONY: $(TIDY_TARGETS)
+$(TIDY_TARGETS): tidy.%:
+	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _tidy
+
+.PHONY: _tidy
+_tidy:
+	$(GO) mod tidy
 
 # tools: runs go install on all tools
 
