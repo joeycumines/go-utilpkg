@@ -4,4 +4,6 @@
 GO_MODULE_SLUGS_NO_PACKAGES = root
 GO_MODULE_SLUGS_NO_UPDATE = sql.export.mysql
 GRIT_SRC ?= git@github.com:joeycumines/go-utilpkg.git
-GRIT_DST ?= logiface$(MAP_SEPARATOR)git@github.com:joeycumines/logiface.git
+GRIT_DST ?= \
+    logiface$(MAP_SEPARATOR)git@github.com:joeycumines/logiface.git \
+    sql$(MAP_SEPARATOR)git@github.com:joeycumines/go-sql.git
