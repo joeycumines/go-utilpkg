@@ -1,0 +1,163 @@
+{
+  "Template": {
+    "Targets": {
+      "ap": {
+        "Table": "angryPandas",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "bs",
+          "Column": "angryPandaId"
+        }
+      },
+      "bs": {
+        "Table": "big_show",
+        "Order": 1,
+        "PrimaryKey": "_id"
+      },
+      "d": {
+        "Table": "drongos",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "bs",
+          "Column": "drongo_id"
+        }
+      },
+      "da": {
+        "Table": "drongo_arrivals",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "d",
+          "Column": "drongo_arrival"
+        }
+      },
+      "df": {
+        "Table": "foods",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "d",
+          "Column": "drongo_id",
+          "Reverse": true
+        }
+      },
+      "o": {
+        "Table": "outtakes",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "bs",
+          "Column": "outtake_id"
+        }
+      },
+      "orf": {
+        "Table": "foods",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "o",
+          "Column": "outtake_id",
+          "Reverse": true
+        }
+      },
+      "sm": {
+        "Table": "smallMongooses",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "bs",
+          "Column": "smallMongooseId"
+        }
+      },
+      "w": {
+        "Table": "wheelbarrows",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "bs",
+          "Column": "wheelbarrow_id"
+        }
+      },
+      "wa": {
+        "Table": "wide_aunties",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "w",
+          "Column": "wide_auntie"
+        }
+      },
+      "wf": {
+        "Table": "foods",
+        "PrimaryKey": "_id",
+        "ForeignKey": {
+          "Alias": "w",
+          "Column": "wheelbarrow_id",
+          "Reverse": true
+        }
+      }
+    },
+    "Filters": [
+      {
+        "SQL": "(CASE WHEN sm.type IS NOT NULL THEN sm.type = 'LARGE' ELSE 1 END)"
+      }
+    ]
+  },
+  "PrimaryKeys": {
+    "angryPandas": "_id",
+    "big_show": "_id",
+    "drongo_arrivals": "_id",
+    "drongos": "_id",
+    "foods": "_id",
+    "outtakes": "_id",
+    "smallMongooses": "_id",
+    "wide_aunties": "_id",
+    "wheelbarrows": "_id"
+  },
+  "ForeignKeys": {
+    "big_show": {
+      "angryPandaId": "angryPandas",
+      "drongo_id": "drongos",
+      "outtake_id": "outtakes",
+      "smallMongooseId": "smallMongooses",
+      "wheelbarrow_id": "wheelbarrows"
+    },
+    "drongos": {
+      "drongo_arrival": "drongo_arrivals"
+    },
+    "foods": {
+      "drongo_id": "drongos",
+      "outtake_id": "outtakes",
+      "wheelbarrow_id": "wheelbarrows"
+    },
+    "wheelbarrows": {
+      "wide_auntie": "wide_aunties"
+    }
+  },
+  "Dependencies": {
+    "big_show": [
+      "angryPandas",
+      "drongos",
+      "outtakes",
+      "smallMongooses",
+      "wheelbarrows"
+    ],
+    "drongos": [
+      "drongo_arrivals"
+    ],
+    "foods": [
+      "drongos",
+      "outtakes",
+      "wheelbarrows"
+    ],
+    "wheelbarrows": [
+      "wide_aunties"
+    ]
+  },
+  "AliasOrder": [
+    "bs",
+    "ap",
+    "d",
+    "da",
+    "df",
+    "o",
+    "orf",
+    "sm",
+    "w",
+    "wa",
+    "wf"
+  ]
+}
