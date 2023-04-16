@@ -1,11 +1,10 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230415235719-ff298aeee06c h1:LqcNrTYdQFRsKw4+8RJiBaun0cM2u0vs9QN+cZocdaE=
-github.com/joeycumines/logiface v0.0.0-20230416213456-f0a3e63e9455 h1:B8iyuQQ2S5sXBKLMJiW3Ts33w0lAGDmYtjsj16kr+dE=
-github.com/joeycumines/logiface v0.0.0-20230416213456-f0a3e63e9455/go.mod h1:SEDjCsaCII77glqwMkgI4Ap5sMfSbwKxkJblnAVN7bw=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230416221917-7291057419f8 h1:Ux84hQrZ9kuaJBRD+SjY4bqG4gftg3dw5ZT0tAFju/0=
+github.com/joeycumines/logiface v0.0.0-20230416224237-c83478e40dbe h1:atMsHHGj7g+k5REPmRRrA0YvspzCM2lT4vOkWpfKSuo=
+github.com/joeycumines/logiface v0.0.0-20230416224237-c83478e40dbe/go.mod h1:ym6aB96s4VOb2p6A2gzOtKgXjaUx2jK+RJJsquH0B98=
 github.com/joeycumines/stumpy v0.0.0-20230416223453-8a09ccba882c h1:VokaLZTDcaM2ieEFwqYpUKLPYaoFzgfpXELZrmRXL/c=
-github.com/joeycumines/stumpy v0.0.0-20230416223453-8a09ccba882c/go.mod h1:+bCPdZAVQGTnPj341GdDpJaId74pS4pUx0T6zki0A8w=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
 golang.org/x/exp v0.0.0-20230321023759-10a507213a29 h1:ooxPy7fPvB4kwsA2h+iBNHkAbp/4JxTSwCmvdjEYmug=

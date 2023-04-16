@@ -2,12 +2,6 @@ module github.com/joeycumines/go-sql/export/mysql
 
 go 1.20
 
-require (
-	github.com/go-test/deep v1.1.0
-	github.com/hexops/gotextdiff v1.0.3
-	github.com/joeycumines/go-sql v0.0.0-20230416021903-7c8e7340cd46
-)
-
 // to update, identify TIDB_HASH, delete go.sum and all dependencies listed in go.mod, then run:
 // go get -u github.com/pingcap/tidb/parser@$TIDB_HASH
 // go get -u github.com/pingcap/tidb@$TIDB_HASH
@@ -15,6 +9,12 @@ require (
 require (
 	github.com/pingcap/tidb v1.1.0-beta.0.20230411092701-ac70ae9e4cbf
 	github.com/pingcap/tidb/parser v0.0.0-20230411092701-ac70ae9e4cbf
+)
+
+require (
+	github.com/go-test/deep v1.1.0
+	github.com/hexops/gotextdiff v1.0.3
+	github.com/joeycumines/go-sql v0.0.0-20230416224407-b0937817733f
 )
 
 require (
@@ -34,7 +34,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/joeycumines/go-detect-cycle v1.0.1 // indirect
 	github.com/joeycumines/logiface v0.0.0-20230416213456-f0a3e63e9455 // indirect
-	github.com/joeycumines/stumpy v0.0.0-20230416223453-8a09ccba882c // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
@@ -52,7 +51,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -64,13 +63,13 @@ require (
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/genproto v0.0.0-20230202175211-008b39050e57 // indirect
 	google.golang.org/grpc v1.52.3 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
