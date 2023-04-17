@@ -1,6 +1,7 @@
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
-github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57/go.mod h1:lzbWb51Z7wIhZuZ7N1Z29PWtf5DrbZOXLG43FAVJDWA=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230415235719-ff298aeee06c/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
+github.com/pingcap/tidb v1.1.0-beta.0.20230411092701-ac70ae9e4cbf/go.mod h1:HHvoayxhhphuu/F51KuiKeLT67y2TAxMR4WnlMO5YOE=
+github.com/pingcap/tidb/parser v0.0.0-20230411092701-ac70ae9e4cbf/go.mod h1:IxXRBZ14Of1KkR3NXEwsoKrM8JbkOIHJHpwS/Ad8vPY=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/shirou/gopsutil v2.19.9+incompatible h1:IrPVlK4nfwW10DF7pW+7YJKws9NkgNzWozwwWv9FsgY=

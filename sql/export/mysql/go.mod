@@ -14,7 +14,7 @@ require (
 require (
 	github.com/go-test/deep v1.1.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/joeycumines/go-sql v0.0.0-20230416224407-b0937817733f
+	github.com/joeycumines/go-sql v0.0.0-20230416225703-9c49bd577d0d
 )
 
 require (
@@ -33,7 +33,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/joeycumines/go-detect-cycle v1.0.1 // indirect
-	github.com/joeycumines/logiface v0.0.0-20230416213456-f0a3e63e9455 // indirect
+	github.com/joeycumines/logiface v0.0.0-20230416224237-c83478e40dbe // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
