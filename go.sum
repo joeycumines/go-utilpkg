@@ -101,6 +101,8 @@ github.com/grailbio/base v0.0.1/go.mod h1:wVM2Cq2/HT0rt6WYGQhXJ3CCLkNnGjeAAOPHCZ
 github.com/grailbio/base v0.0.6/go.mod h1:OFVz7zmqb1D+Jbew0B4DCIpl4ozzVFxf+JKQZBBIQzE=
 github.com/grailbio/base v0.0.10 h1:FL7DEolplFFhvxNn9T6WQejBRZOcQWb92SBTHcPLX74=
 github.com/grailbio/base v0.0.10/go.mod h1:lzK85oI6emqHxO2Cy+xzPzEAC/GcbfH3dqGgZCD3dA4=
+github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57 h1:4GqnglpBK9ubtSbWsf5+9JQT7oSMjECbYkFzDr9jPtQ=
+github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57/go.mod h1:lzbWb51Z7wIhZuZ7N1Z29PWtf5DrbZOXLG43FAVJDWA=
 github.com/grailbio/testutil v0.0.1/go.mod h1:j7teGaXqRY1n6m7oM8oy954lxL37Myt7nEJZlif3nMA=
 github.com/grailbio/testutil v0.0.3 h1:Um0OOTtYVvyxwQbO48K3t6lNmLPY4sL3Vn6Sw0srNy8=
 github.com/grailbio/testutil v0.0.3/go.mod h1:f9+y7xMXeXwyNcdV5cmo6GzRiitSOubMmqcqEON7NQQ=
@@ -114,8 +116,6 @@ github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
-github.com/joeycumines/grit v0.0.0-20230416222730-bf226e10ae38 h1:Yc6LOZzifk5wqw79cO52qKQNgpCGNj0rmCi7Trz7k1I=
-github.com/joeycumines/grit v0.0.0-20230416222730-bf226e10ae38/go.mod h1:lzbWb51Z7wIhZuZ7N1Z29PWtf5DrbZOXLG43FAVJDWA=
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/jteeuwen/go-bindata v3.0.7+incompatible/go.mod h1:JVvhzYOiGBnFSYRyV00iY8q7/0PThjIYav1p9h5dmKs=
 github.com/jung-kurt/gofpdf v1.0.0/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
