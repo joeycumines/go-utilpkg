@@ -12,8 +12,8 @@ type (
 	Row struct {
 		Schema     *Schema
 		Table      Table
-		PrimaryKey int64
 		Columns    []string
 		Values     []any
+		PrimaryKey int64
 	}
 )

@@ -5,6 +5,7 @@ GO_MODULE_SLUGS_NO_PACKAGES = root
 GO_MODULE_SLUGS_NO_UPDATE = sql.export.mysql
 GRIT_SRC ?= https://github.com/joeycumines/go-utilpkg.git
 GRIT_DST ?= \
+    catrate$(MAP_SEPARATOR)https://github.com/joeycumines/go-catrate.git \
     logiface$(MAP_SEPARATOR)https://github.com/joeycumines/logiface.git \
     logiface-logrus$(MAP_SEPARATOR)https://github.com/joeycumines/ilogrus.git \
     logiface-stumpy$(MAP_SEPARATOR)https://github.com/joeycumines/stumpy.git \

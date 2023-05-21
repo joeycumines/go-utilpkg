@@ -20,15 +20,15 @@ type (
 	// instance, and all it's child instances.
 	loggerShared[E Event] struct {
 		// WARNING: Fields added must be initialized in both New and Logger.Logger
-
-		root     *Logger[E]
-		level    Level
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
 		writer   Writer[E]
-		pool     *sync.Pool
-		json     *jsonSupport[E]
-		dpanic   Level
+
+		root   *Logger[E]
+		pool   *sync.Pool
+		json   *jsonSupport[E]
+		level  Level
+		dpanic Level
 	}
 
 	// Option is a configuration option for constructing Logger instances,
@@ -37,12 +37,12 @@ type (
 
 	// loggerConfig is the internal configuration type used by the New function
 	loggerConfig[E Event] struct {
-		level    Level
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
+		json     *jsonSupport[E]
 		writer   WriterSlice[E]
 		modifier ModifierSlice[E]
-		json     *jsonSupport[E]
+		level    Level
 		dpanic   Level
 	}
 

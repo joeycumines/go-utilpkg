@@ -18,10 +18,18 @@ const (
 
 type (
 	Exporter struct {
-		Schema *Schema
-		Logger *logiface.Logger[logiface.Event]
 		Reader Reader
 		Writer Writer
+		// Mapper maps old ids to new ids.
+		Mapper Mapper
+		// RowTransformer may be provided as a hook to modify rows before they are inserted.
+		RowTransformer RowTransformer
+		Schema         *Schema
+		Logger         *logiface.Logger[logiface.Event]
+		// Offset provides an initial offset, to start querying from.
+		Offset map[string]int64
+		// Filters further restrict the target data set.
+		Filters []*Snippet
 		// BatchSize configures the max limit, and defaults to DefaultBatchSize if 0.
 		BatchSize int
 		// MaxSelectIn configures the maximum number of IDs to "SELECT ... WHERE <id> in (...<values>)".
@@ -30,14 +38,6 @@ type (
 		// MaxOffsetConditions configures the maximum number of offsets columns to support.
 		// Default is unlimited.
 		MaxOffsetConditions int
-		// Filters further restrict the target data set.
-		Filters []*Snippet
-		// Mapper maps old ids to new ids.
-		Mapper Mapper
-		// RowTransformer may be provided as a hook to modify rows before they are inserted.
-		RowTransformer RowTransformer
-		// Offset provides an initial offset, to start querying from.
-		Offset map[string]int64
 	}
 
 	exporterRow struct {

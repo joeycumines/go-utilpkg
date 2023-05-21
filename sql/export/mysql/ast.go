@@ -10,8 +10,8 @@ import (
 
 type (
 	astVisitor struct {
-		done bool
 		fn   func(node ast.Node) (skip, ok bool)
+		done bool
 	}
 
 	astNode = ast.Node

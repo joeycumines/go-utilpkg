@@ -3,10 +3,10 @@ module github.com/joeycumines/ilogrus
 go 1.20
 
 require (
-	github.com/joeycumines/logiface v0.0.0-20230515073953-5fe7da669696
-	github.com/joeycumines/logiface-testsuite v0.0.0-20230515073959-f6e63cf946e3
-	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/exp v0.0.0-20230515195305-f3d0a9c9a5cc
+	github.com/joeycumines/logiface v0.1.0
+	github.com/joeycumines/logiface-testsuite v0.0.0-20230515215422-e0d82f95820e
+	github.com/sirupsen/logrus v1.9.2
+	golang.org/x/exp v0.0.0-20230519143937-03e91628a987
 )
 
 require (

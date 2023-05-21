@@ -33,14 +33,14 @@ type (
 	}
 
 	Target struct {
-		Table Table
+		// ForeignKey is optional, and models the join condition for this Target.
+		ForeignKey *JoinRef
+		Table      Table
+		// PrimaryKey is the column of the table's primary key. It's after SELECT and (in some cases) ON.
+		PrimaryKey string
 		// Order is used to indicate the order of the predicates (expressions in WHERE and ORDER BY).
 		// Larger numbers should appear first.
 		Order int
-		// PrimaryKey is the column of the table's primary key. It's after SELECT and (in some cases) ON.
-		PrimaryKey string
-		// ForeignKey is optional, and models the join condition for this Target.
-		ForeignKey *JoinRef
 	}
 
 	Table struct {

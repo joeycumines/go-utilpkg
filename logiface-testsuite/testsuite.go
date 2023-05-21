@@ -100,9 +100,6 @@ type (
 		// This will (indirectly) close Events.
 		SendEOF func()
 
-		// ReceiveTimeout is determined by Config.WriteTimeout
-		ReceiveTimeout time.Duration
-
 		// FormatTime is a normalizer, used by normalizeEvent.
 		FormatTime func(t time.Time) any
 
@@ -117,23 +114,26 @@ type (
 
 		// FormatUint64 is a normalizer, used by normalizeEvent.
 		FormatUint64 func(u uint64) any
+
+		// ReceiveTimeout is determined by Config.WriteTimeout
+		ReceiveTimeout time.Duration
 	}
 
 	// Event models a parsed log event
 	Event struct {
-		Level   logiface.Level
 		Message *string
 		Error   *string
 		// Fields is a map of field names to values, and must be the same format encoding/json.Unmarshal.
 		// It must include all fields added via the logiface.Event interface, except Message and Error.
 		// It must not include any additional fields (e.g. added by the logger, such as timestamp).
 		Fields map[string]interface{}
+		Level  logiface.Level
 	}
 
 	// base64BytesField models args to the logiface.Event.AddBase64 method.
 	base64BytesField struct {
-		Data []byte
 		Enc  *base64.Encoding
+		Data []byte
 	}
 )
 

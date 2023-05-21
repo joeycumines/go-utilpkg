@@ -27,8 +27,8 @@ type (
 
 	SelectBatch struct {
 		Schema              *Schema
-		Filters             []*Snippet
 		Offset              map[string]int64
+		Filters             []*Snippet
 		Limit               uint64
 		MaxOffsetConditions int
 	}

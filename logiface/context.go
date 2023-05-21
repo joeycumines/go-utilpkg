@@ -25,9 +25,9 @@ type (
 	// implementations that utilize the other Event.Add* methods (if
 	// implemented), with well-defined fallback behavior.
 	Context[E Event] struct {
-		Modifiers ModifierSlice[E]
 		methods   modifierMethods[E]
 		logger    *Logger[E]
+		Modifiers ModifierSlice[E]
 	}
 
 	// Builder is used to build a log event, see Logger.Build, Logger.Info, etc.

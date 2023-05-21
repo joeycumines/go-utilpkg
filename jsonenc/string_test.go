@@ -77,19 +77,19 @@ var encodeStringTests = []struct {
 	{"\x1e", `"\u001e"`}, // record separator
 	{"\x1f", `"\u001f"`}, // unit separator
 	{"✭", `"✭"`},         // star symbol
-	{"foo\xc2\x7fbar", `"foo\ufffd` + "\x7f" + `bar"`}, // replaces invalid byte sequence
-	{"ascii", `"ascii"`},                 // ASCII characters
-	{"\"a", `"\"a"`},                     // double quote with letter
-	{"\x1fa", `"\u001fa"`},               // letter with escape character
-	{"foo\"bar\"baz", `"foo\"bar\"baz"`}, // string with double quotes
+	{"foo\xc2\x7fbar", `"foo\ufffd` + "\x7f" + `bar"`},         // replaces invalid byte sequence
+	{"ascii", `"ascii"`},                                       // ASCII characters
+	{"\"a", `"\"a"`},                                           // double quote with letter
+	{"\x1fa", `"\u001fa"`},                                     // letter with escape character
+	{"foo\"bar\"baz", `"foo\"bar\"baz"`},                       // string with double quotes
 	{"\x1ffoo\x1fbar\x1fbaz", `"\u001ffoo\u001fbar\u001fbaz"`}, // string with escape characters
 	{"emoji \u2764\ufe0f!", `"emoji ❤️!"`},                     // string with emoji
-	{"<", `"\u003c"`},      // less than symbol
-	{">", `"\u003e"`},      // greater than symbol
-	{"&", `"\u0026"`},      // ampersand symbol
-	{"\x7f", "\"\x7f\""},   // delete character
-	{"\u2028", `"\u2028"`}, // line separator
-	{"\u2029", `"\u2029"`}, // paragraph separator
+	{"<", `"\u003c"`},                                          // less than symbol
+	{">", `"\u003e"`},                                          // greater than symbol
+	{"&", `"\u0026"`},                                          // ampersand symbol
+	{"\x7f", "\"\x7f\""},                                       // delete character
+	{"\u2028", `"\u2028"`},                                     // line separator
+	{"\u2029", `"\u2029"`},                                     // paragraph separator
 	{"foo \u2028\u2029 \u2028 \u2029  bar", `"foo \u2028\u2029 \u2028 \u2029  bar"`}, // string with line and paragraph separators
 	{"\xc0", `"\ufffd"`},                               // start of a two-byte sequence without a continuation byte
 	{"\xed\xa0\x80", `"\ufffd\ufffd\ufffd"`},           // an overlong three-byte sequence

@@ -17,11 +17,11 @@ type (
 		// (e.g. the reference to the logger - slices which are reused and are reset on init are fine)
 
 		logger *Logger
-		lvl    logiface.Level
 		buf    []byte
 		// off is a stack with the index to insert the key content for each nested json object
 		// negative values indicate already set keys
 		off []int
+		lvl logiface.Level
 	}
 
 	//lint:ignore U1000 used to embed without exporting

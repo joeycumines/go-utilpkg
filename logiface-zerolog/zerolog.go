@@ -10,17 +10,17 @@ import (
 
 type (
 	Event struct {
-		Z   *zerolog.Event
-		lvl logiface.Level
-		msg string
 		//lint:ignore U1000 embedded for it's methods
 		unimplementedEvent
+		Z   *zerolog.Event
+		msg string
+		lvl logiface.Level
 	}
 
 	Logger struct {
-		Z zerolog.Logger
 		//lint:ignore U1000 embedded for it's methods
 		unimplementedJSONSupport
+		Z zerolog.Logger
 	}
 
 	// LoggerFactory is provided as a convenience, embedding

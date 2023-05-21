@@ -12,13 +12,13 @@ import (
 type (
 	Event struct {
 		logiface.UnimplementedEvent
-		Lvl    logiface.Level
 		Fields []Field
+		Lvl    logiface.Level
 	}
 
 	Field struct {
-		Key string
 		Val any
+		Key string
 	}
 
 	Writer struct {
@@ -114,8 +114,8 @@ func (x *Writer) Write(event *Event) error {
 }
 
 type jsonKeyValue struct {
-	Key   string
 	Value any
+	Key   string
 }
 
 type jsonKeyValueList []jsonKeyValue
