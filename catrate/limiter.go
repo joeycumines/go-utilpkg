@@ -44,7 +44,7 @@ var (
 
 var categoryDataPool = sync.Pool{New: func() any {
 	return &categoryData{
-		// note: the value of atomic is initialized within reserve
+		// note: the value of atomic is initialized within allow
 		atomic: new([2]int64),
 		events: newRingBuffer[int64](8),
 	}
@@ -68,13 +68,13 @@ func (x *Limiter) ok() bool {
 	return x != nil && len(x.rates) != 0
 }
 
-// Reserve is a non-blocking call that attempts to register an event for the
-// given category. True indicates that a reservation was made. In all cases,
+// Allow is a non-blocking call that attempts to register an event for the
+// given category. True indicates that an event was registered. In all cases,
 // the returned time is the next time that an event can be registered for the
 // given category. If at least one more event may be registered prior to a rate
 // limit being applied (at the current system time), the time will be the zero
 // value.
-func (x *Limiter) Reserve(category any) (time.Time, bool) {
+func (x *Limiter) Allow(category any) (time.Time, bool) {
 	if !x.ok() {
 		// no rate limits applied
 		return time.Time{}, true
@@ -193,7 +193,7 @@ func (x *Limiter) cleanupThreshold() int64 {
 }
 
 func (x *Limiter) cleanup(toDelete []cleanupCategory, chanceOfStop bool) (mustStop bool) {
-	// avoid racing with Reserve (loading from Limiter.categories vs deleting)
+	// avoid racing with Allow (loading from Limiter.categories vs deleting)
 	x.mu.Lock()
 	defer x.mu.Unlock()
 

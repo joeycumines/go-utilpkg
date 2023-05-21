@@ -37,14 +37,14 @@ func TestLimiter_Ok(t *testing.T) {
 	}
 }
 
-func TestLimiter_Reserve(t *testing.T) {
+func TestLimiter_Allow(t *testing.T) {
 	limiter := NewLimiter(map[time.Duration]int{
 		time.Second: 5,
 	})
 
 	category := "testCategory"
 
-	next, ok := limiter.Reserve(category)
+	next, ok := limiter.Allow(category)
 
 	if next != (time.Time{}) {
 		t.Fatal("Expected next time to be zero value")
@@ -103,7 +103,7 @@ func TestCategoryData_StoreRecent(t *testing.T) {
 	}
 }
 
-func TestLimiter_Reserve_suite1(t *testing.T) {
+func TestLimiter_Allow_suite1(t *testing.T) {
 	old := timeNow
 	defer func() { timeNow = old }()
 
@@ -114,12 +114,12 @@ func TestLimiter_Reserve_suite1(t *testing.T) {
 		return <-timeNowOut
 	}
 
-	type ReserveOut struct {
+	type AllowOut struct {
 		Next time.Time
 		Ok   bool
 	}
-	callReserve := func(t *testing.T, limiter *Limiter, category any) <-chan ReserveOut {
-		out := make(chan ReserveOut)
+	callAllow := func(t *testing.T, limiter *Limiter, category any) <-chan AllowOut {
+		out := make(chan AllowOut)
 		go func() {
 			var success bool
 			defer func() {
@@ -127,28 +127,28 @@ func TestLimiter_Reserve_suite1(t *testing.T) {
 					t.Error("unexpected panic")
 				}
 			}()
-			next, ok := limiter.Reserve(category)
-			out <- ReserveOut{next, ok}
+			next, ok := limiter.Allow(category)
+			out <- AllowOut{next, ok}
 			success = true
 		}()
 		return out
 	}
 
-	t.Run("reserve_allowed", func(t *testing.T) {
+	t.Run("allow_allowed", func(t *testing.T) {
 		rates := map[time.Duration]int{time.Second: 1}
 		limiter := NewLimiter(rates)
 		*limiter.running = 1
 
-		out := callReserve(t, limiter, 1)
+		out := callAllow(t, limiter, 1)
 		<-timeNowIn
 		timeNowOut <- time.Unix(0, 0)
 
-		// expected limited until 1s from now, but successfully reserved
+		// expected limited until 1s from now, but successfully allowd
 		if v := <-out; !v.Ok || !v.Next.Equal(time.Unix(1, 0)) {
 			t.Errorf("unexpected result: %+v", v)
 		}
 
-		out = callReserve(t, limiter, 1)
+		out = callAllow(t, limiter, 1)
 		<-timeNowIn
 		timeNowOut <- time.Unix(0, 0)
 
@@ -163,12 +163,12 @@ func TestLimiter_Reserve_suite1(t *testing.T) {
 		limiter := NewLimiter(rates)
 		*limiter.running = 1
 
-		// Reserve 10 events within one minute - only the last one should start rate limiting, and even then it should
+		// Allow 10 events within one minute - only the last one should start rate limiting, and even then it should
 		// be discarded / trimmed immediately, since the window is only 1 minute, and the first event was at 0s.
 		next := time.Unix(60, 0)
 		initialIntervalSeconds := 6
 		for i := 0; i < 10; i++ {
-			out := callReserve(t, limiter, 1)
+			out := callAllow(t, limiter, 1)
 			<-timeNowIn
 			timeNowOut <- time.Unix(int64(i*initialIntervalSeconds), 0)
 			var n time.Time
@@ -180,8 +180,8 @@ func TestLimiter_Reserve_suite1(t *testing.T) {
 			}
 		}
 
-		// we should be a-ok to go ahead and reserve at next, but it'll require us to wait until 1m6s
-		out := callReserve(t, limiter, 1)
+		// we should be a-ok to go ahead and allow at next, but it'll require us to wait until 1m6s
+		out := callAllow(t, limiter, 1)
 		<-timeNowIn
 		timeNowOut <- next
 		next = next.Add(time.Second * time.Duration(initialIntervalSeconds))
@@ -189,8 +189,8 @@ func TestLimiter_Reserve_suite1(t *testing.T) {
 			t.Errorf("unexpected result: %+v", v)
 		}
 
-		// any attempts to reserve before 1m6s will fail
-		out = callReserve(t, limiter, 1)
+		// any attempts to allow before 1m6s will fail
+		out = callAllow(t, limiter, 1)
 		<-timeNowIn
 		timeNowOut <- next.Add(-1)
 		if v := <-out; v.Ok || !v.Next.Equal(next) {
@@ -221,12 +221,12 @@ func TestLimiter_worker(t *testing.T) {
 		return <-timeNowOut
 	}
 
-	type ReserveOut struct {
+	type AllowOut struct {
 		Next time.Time
 		Ok   bool
 	}
-	callReserve := func(t *testing.T, limiter *Limiter, category any) <-chan ReserveOut {
-		out := make(chan ReserveOut)
+	callAllow := func(t *testing.T, limiter *Limiter, category any) <-chan AllowOut {
+		out := make(chan AllowOut)
 		go func() {
 			var success bool
 			defer func() {
@@ -234,8 +234,8 @@ func TestLimiter_worker(t *testing.T) {
 					t.Error("unexpected panic")
 				}
 			}()
-			next, ok := limiter.Reserve(category)
-			out <- ReserveOut{next, ok}
+			next, ok := limiter.Allow(category)
+			out <- AllowOut{next, ok}
 			success = true
 		}()
 		return out
@@ -246,11 +246,11 @@ func TestLimiter_worker(t *testing.T) {
 	category := 1
 
 	// note: starts worker
-	out := callReserve(t, limiter, category)
+	out := callAllow(t, limiter, category)
 	<-timeNowIn
 	timeNowOut <- time.Unix(0, 0)
 
-	// expected limited until 1s from now, but successfully reserved
+	// expected limited until 1s from now, but successfully allowd
 	if v := <-out; !v.Ok || !v.Next.Equal(time.Unix(1, 0)) {
 		t.Errorf("unexpected result: %+v", v)
 	}
