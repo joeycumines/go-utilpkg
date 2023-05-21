@@ -87,6 +87,12 @@ func (x *Limiter) Allow(category any) (time.Time, bool) {
 	now := timeNow()
 	nowUnixNano := now.UnixNano()
 
+	// start the worker if not running
+	// WARNING: avoiding race on STOP of the worker is handled via Limiter.mu
+	if atomic.CompareAndSwapInt32(x.running, 0, 1) {
+		go x.worker()
+	}
+
 	// load or store data for category...
 	var (
 		data   *categoryData
@@ -143,12 +149,6 @@ func (x *Limiter) Allow(category any) (time.Time, bool) {
 	// reservation success, but rate limit is now in effect
 	next := now.Add(remaining)
 	data.storeNext(next.UnixNano())
-
-	// start the worker if not running
-	// WARNING: avoiding race on STOP of the worker is handled via Limiter.mu
-	if atomic.CompareAndSwapInt32(x.running, 0, 1) {
-		go x.worker()
-	}
 
 	return next, true
 }
