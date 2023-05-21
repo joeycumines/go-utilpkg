@@ -23,6 +23,21 @@
 # Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
 # Example: https://github.com/joeycumines/go-utilpkg
 
+# Example tools.go:
+# ---
+#//go:build tools
+#// +build tools
+#
+#package tools
+#
+#import (
+#	_ "github.com/dkorunic/betteralign/cmd/betteralign"
+#	_ "github.com/grailbio/grit"
+#	_ "golang.org/x/perf/cmd/benchstat"
+#	_ "golang.org/x/tools/cmd/godoc"
+#	_ "honnef.co/go/tools/cmd/staticcheck"
+#)
+
 # windows gnu make seems to append includes to the end of MAKEFILE_LIST
 # hence the simple variable assignment, prior to any includes
 ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -61,6 +76,8 @@ GRIT_SRC ?=
 GRIT_DST ?=
 STATICCHECK ?= staticcheck
 STATICCHECK_FLAGS ?=
+BETTERALIGN ?= betteralign
+BETTERALIGN_FLAGS ?=
 ifeq ($(OS),Windows_NT)
 LIST_TOOLS ?= if exist tools.go (for /f tokens^=2^ delims^=^" %%a in ('findstr /r "^[\t ]*_" tools.go') do echo %%a)
 else
@@ -174,7 +191,7 @@ LINT_TARGETS := $(addprefix lint.,$(GO_MODULE_SLUGS))
 lint: $(LINT_TARGETS)
 
 .PHONY: $(LINT_TARGETS)
-$(LINT_TARGETS): lint.%: vet.% staticcheck.%
+$(LINT_TARGETS): lint.%: vet.% staticcheck.% betteralign.%
 
 # staticcheck: runs the staticcheck tool
 
@@ -200,6 +217,24 @@ $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
+
+# betteralign: runs the betteralign tool
+
+BETTERALIGN_TARGETS := $(addprefix betteralign.,$(GO_MODULE_SLUGS))
+
+.PHONY: betteralign
+betteralign: $(BETTERALIGN_TARGETS)
+
+.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): betteralign.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _betteralign BETTERALIGN_FLAGS='$(BETTERALIGN_FLAGS)'
+
+.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix betteralign.,$(GO_MODULE_SLUGS_NO_PACKAGES)): betteralign.%:
+
+.PHONY: _betteralign
+_betteralign:
+	$(BETTERALIGN) $(BETTERALIGN_FLAGS) ./...
 
 # build: runs the go build tool
 
