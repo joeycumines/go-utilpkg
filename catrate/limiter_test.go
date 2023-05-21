@@ -41,6 +41,7 @@ func TestLimiter_Allow(t *testing.T) {
 	limiter := NewLimiter(map[time.Duration]int{
 		time.Second: 5,
 	})
+	*limiter.running = 1
 
 	category := "testCategory"
 
