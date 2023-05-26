@@ -79,7 +79,7 @@ func (x *ringBuffer[E]) Insert(index int, value E) {
 	}
 
 	if l == len(x.s) {
-		// full, special case , requires expanding the buffer
+		// full, special case: requires expanding the buffer
 		s := make([]E, uint(len(x.s))<<1)
 		if len(s) == 0 {
 			panic(`catrate: ring: insert: overflow`)
@@ -125,7 +125,7 @@ func (x *ringBuffer[E]) Insert(index int, value E) {
 	// fastest case: not wrapped around, and there's room to write
 	if l == 0 || i < j {
 		// still need to insert at index...
-		copy(x.s[i+index+1:], x.s[i+index:])
+		copy(x.s[i+index+1:], x.s[i+index:j])
 		x.s[i+index] = value
 		x.w++
 		return
