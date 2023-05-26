@@ -179,6 +179,7 @@ func (x *Limiter) worker() {
 		})
 
 		if len(toDelete) != 0 {
+			// note: all elements of toDelete will be zeroed as part of cleanup
 			mustStop := x.cleanup(toDelete, chanceOfStop)
 			if mustStop {
 				return
