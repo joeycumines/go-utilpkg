@@ -1,9 +1,11 @@
 package catrate
 
 import (
+	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func TestNewLimiter(t *testing.T) {
@@ -271,5 +273,319 @@ func TestLimiter_worker(t *testing.T) {
 
 	if v, ok := limiter.categories.Load(category); ok {
 		t.Errorf("cleanup did not remove category as expected: %v", v.(*categoryData).events.Slice())
+	}
+}
+
+func TestLimiter_worker_cleanupRace(t *testing.T) {
+	{
+		oldTimeNow := timeNow
+		defer func() { timeNow = oldTimeNow }()
+		oldTimeNewTicker := timeNewTicker
+		defer func() { timeNewTicker = oldTimeNewTicker }()
+	}
+
+	nowIn := make(chan struct{})
+	nowOut := make(chan time.Time)
+	timeNow = func() time.Time {
+		nowIn <- struct{}{}
+		return <-nowOut
+	}
+
+	tickerIn := make(chan time.Duration)
+	tickerOut := make(chan *time.Ticker)
+	timeNewTicker = func(d time.Duration) *time.Ticker {
+		tickerIn <- d
+		return <-tickerOut
+	}
+
+	now := new(time.Time)
+	*now = time.Unix(0, 12356677542152131)
+	getNow := func() time.Time {
+		return *(*time.Time)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&now))))
+	}
+	setNow := func(v time.Time) {
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&now)), unsafe.Pointer(&v))
+	}
+	var incNow func(d time.Duration)
+	{
+		r := rand.New(rand.NewSource(12355123))
+		incNow = func(d time.Duration) {
+			if d <= 0 {
+				t.Error(d)
+				panic("invalid duration")
+			}
+			d = time.Duration(r.Int63n(int64(d)) + 1)
+			o := (*time.Time)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&now))))
+			v := o.Add(d)
+			if !atomic.CompareAndSwapPointer((*unsafe.Pointer)(unsafe.Pointer(&now)), unsafe.Pointer(o), unsafe.Pointer(&v)) {
+				t.Error(`race on incrementing "now"`)
+			}
+		}
+	}
+
+	limiter := &Limiter{
+		running:   new(int32),
+		retention: time.Hour * 24,
+	}
+	*limiter.running = 1
+
+	cat1 := categoryDataPool.Get().(*categoryData)
+	cat1Last := getNow()
+	*cat1.atomic = [2]int64{nextZeroValue, cat1Last.UnixNano()}
+	limiter.categories.Store(1, cat1)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		var success bool
+		defer func() {
+			if !success {
+				t.Errorf("unexpected panic: %v", recover())
+			}
+		}()
+		limiter.worker()
+		success = true
+	}()
+
+	if v := <-tickerIn; v != time.Hour*12 {
+		t.Fatal(v)
+	}
+	tickerCh := make(chan time.Time)
+	ticker := time.NewTicker(1)
+	ticker.C = tickerCh
+	tickerOut <- ticker
+
+	tickerCh <- time.Time{}
+
+	// checking cat1
+	<-nowIn
+	incNow(time.Second)
+	nowOut <- getNow()
+
+	// not time to delete yet
+
+	tickerCh <- time.Time{}
+
+	// checking cat1 again
+	<-nowIn
+	incNow(time.Second)
+	nowOut <- getNow()
+
+	whileNotSentToTicker := func() {
+		sentToTicker := make(chan struct{})
+		go func() {
+			tickerCh <- time.Time{}
+			close(sentToTicker)
+		}()
+		for {
+			select {
+			case <-sentToTicker:
+				return
+			case <-nowIn:
+				nowOut <- getNow()
+				select {
+				case <-sentToTicker:
+					return
+				default:
+				}
+			}
+		}
+	}
+
+	const addCount = 10000
+
+	// adding other tickers work fine and can happen in parallel
+	{
+		addDone := make(chan struct{})
+		go func() {
+			for i := 0; i < addCount; i++ {
+				cat := categoryDataPool.Get().(*categoryData)
+				incNow(time.Second)
+				last := getNow()
+				*cat.atomic = [2]int64{nextZeroValue, last.UnixNano()}
+				limiter.categories.Store(-(i + 1), cat)
+				time.Sleep(100 * time.Nanosecond)
+			}
+			incNow(time.Second)
+			close(addDone)
+		}()
+		{
+			ticker := time.NewTicker(1)
+			defer ticker.Stop()
+			tickerCh <- time.Time{}
+		CheckLoop:
+			for {
+				select {
+				case <-addDone:
+					// twice because the worker range needs to after addDone in order for the final range to be correct
+					whileNotSentToTicker()
+					whileNotSentToTicker()
+					break CheckLoop
+				case <-ticker.C:
+					whileNotSentToTicker()
+				}
+			}
+		}
+		{
+			tickerDone := make(chan struct{})
+			go func() {
+				tickerCh <- time.Time{}
+				close(tickerDone)
+			}()
+			var size int
+			limiter.categories.Range(func(_, _ interface{}) bool {
+				size++
+				<-nowIn
+				incNow(time.Second)
+				nowOut <- getNow()
+				return true
+			})
+			select {
+			case <-tickerCh:
+			case <-tickerDone:
+			}
+			if size != addCount+1 {
+				t.Fatal(size)
+			}
+		}
+	}
+
+	// bounds check: cat1 won't be deleted until after last+retention
+	{
+		cat1Deadline := cat1Last.Add(limiter.retention)
+		if now := getNow(); !now.Before(cat1Deadline) {
+			t.Fatal(now, cat1Deadline)
+		}
+		setNow(cat1Deadline)
+		whileNotSentToTicker()
+		whileNotSentToTicker()
+		if _, ok := limiter.categories.Load(1); !ok {
+			t.Fatal("cat1 deleted too early")
+		}
+	}
+
+	// bounds check: cat1 deletion attempted after last+retention
+	{
+		limiter.mu.Lock()
+		// still works fine
+		whileNotSentToTicker()
+		setNow(getNow().Add(1))
+		tickerDone := make(chan struct{})
+		go func() {
+			tickerCh <- time.Time{}
+			close(tickerDone)
+		}()
+		for {
+			select {
+			case <-nowIn:
+				nowOut <- getNow()
+				continue
+			default:
+			}
+			time.Sleep(time.Millisecond * 50)
+			select {
+			case <-nowIn:
+				nowOut <- getNow()
+				continue
+			default:
+			}
+			break
+		}
+		time.Sleep(time.Millisecond * 70)
+		// shouldn't be deleted yet - mutex
+		if v, ok := limiter.categories.Load(1); !ok || v != cat1 {
+			t.Fatal("cat1 deleted too early")
+		}
+		if cat1.atomic[1] != cat1Last.UnixNano() {
+			t.Fatal()
+		}
+		cat1.atomic[1]++
+		limiter.mu.Unlock()
+		for {
+			select {
+			case <-nowIn:
+				nowOut <- getNow()
+				continue
+			case <-tickerCh:
+			case <-tickerDone:
+			}
+			break
+		}
+		whileNotSentToTicker()
+		whileNotSentToTicker()
+		// shouldn't be deleted yet
+		if v, ok := limiter.categories.Load(1); !ok || v != cat1 {
+			t.Fatal("cat1 deleted too early")
+		}
+	}
+
+	// bounds check: cat1 deletion success
+	{
+		setNow(getNow().Add(1))
+		whileNotSentToTicker()
+		whileNotSentToTicker()
+		whileNotSentToTicker()
+		if _, ok := limiter.categories.Load(1); ok {
+			t.Fatal("cat1 should have been deleted")
+		}
+	}
+
+	// no others should be deleted
+	{
+		var size int
+		limiter.categories.Range(func(_, _ interface{}) bool {
+			size++
+			return true
+		})
+		if size != addCount {
+			t.Fatal(size)
+		}
+	}
+
+	// increase time ahead, make everything cleaned up, wait for worker to finish
+	setNow(getNow().Add(limiter.retention + 1))
+	for i := 0; i < 3; i++ {
+		sentToTicker := make(chan struct{})
+		go func() {
+			select {
+			case <-done:
+			case tickerCh <- time.Time{}:
+			}
+			close(sentToTicker)
+		}()
+		for {
+			select {
+			case <-done:
+			case <-sentToTicker:
+			case <-nowIn:
+				nowOut <- getNow()
+				select {
+				case <-sentToTicker:
+				default:
+					continue
+				}
+			}
+			break
+		}
+	}
+
+	// the worker should be complete
+	<-done
+
+	// all categories should be deleted
+	{
+		var size int
+		limiter.categories.Range(func(_, _ interface{}) bool {
+			size++
+			return true
+		})
+		if size != 0 {
+			t.Fatal(size)
+		}
+	}
+
+	// and running should be 0
+	if *limiter.running != 0 {
+		t.Fatal(limiter.running)
 	}
 }
