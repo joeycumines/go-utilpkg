@@ -3,6 +3,7 @@ package logiface
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/joeycumines/logiface/internal/fieldtest"
 	"github.com/stretchr/testify/assert"
 	"math"
@@ -707,65 +708,72 @@ func TestBuilder_Modifier_error(t *testing.T) {
 }
 
 func TestBuilder_Modifier_callReleaser(t *testing.T) {
-	in := make(chan *mockEvent)
-	out := make(chan struct{})
-	releaser := NewEventReleaserFunc(func(event *mockEvent) {
-		in <- event
-		<-out
-	})
-	ev := &mockEvent{}
-	pool := new(sync.Pool)
-	shared := &loggerShared[*mockEvent]{
-		pool:     pool,
-		releaser: releaser,
-	}
-	builder := &Builder[*mockEvent]{
-		Event:  ev,
-		shared: shared,
-	}
-	done := make(chan struct{})
-	go func() {
-		// call the modifier, but panic - the builder should be released
-		var called bool
-		expected := new(struct{})
-		defer func() {
-			if !called {
-				t.Error()
+	for _, sentinel := range [...]error{
+		ErrDisabled,
+		ErrLimited,
+		fmt.Errorf(`wrapped: %w`, ErrDisabled),
+		fmt.Errorf(`wrapped: %w`, ErrLimited),
+	} {
+		sentinel := sentinel
+		t.Run(sentinel.Error(), func(t *testing.T) {
+			in := make(chan *mockEvent)
+			out := make(chan struct{})
+			releaser := NewEventReleaserFunc(func(event *mockEvent) {
+				in <- event
+				<-out
+			})
+			ev := &mockEvent{}
+			pool := new(sync.Pool)
+			shared := &loggerShared[*mockEvent]{
+				pool:     pool,
+				releaser: releaser,
 			}
-			if v := recover(); v != expected {
+			builder := &Builder[*mockEvent]{
+				Event:  ev,
+				shared: shared,
+			}
+			done := make(chan struct{})
+			go func() {
+				var called bool
+				var success bool
+				defer func() {
+					if !called || !success {
+						t.Error(called, success, recover())
+					}
+					close(done)
+				}()
+				if v := builder.Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
+					called = true
+					return sentinel
+				})); v != nil {
+					t.Error(v)
+				}
+				success = true
+			}()
+			if v := <-in; v != ev {
 				t.Error(v)
 			}
-			close(done)
-		}()
-		if v := builder.Modifier(ModifierFunc[*mockEvent](func(event *mockEvent) error {
-			called = true
-			panic(expected)
-		})); v != nil {
-			t.Error(v)
-		}
-	}()
-	if v := <-in; v != ev {
-		t.Error(v)
-	}
-	if builder.shared != nil {
-		t.Error()
-	}
-	if v := pool.Get(); v != nil {
-		t.Error(v)
-	}
-	out <- struct{}{}
-	<-done
-	close(in)
-	close(out)
-	if v := pool.Get(); v != builder && v != nil {
-		t.Error(v)
-	}
-	time.Sleep(time.Millisecond * 50)
-	if v := pool.Get(); v != nil {
-		t.Error(v)
-	}
-	if builder.Event != nil {
-		t.Error(builder)
+			if builder.shared != nil {
+				t.Error()
+			}
+			if v := pool.Get(); v != nil {
+				t.Error(v)
+			}
+			out <- struct{}{}
+			<-done
+			close(in)
+			close(out)
+			if v := pool.Get(); v != builder && v != nil {
+				t.Error(v)
+			}
+			time.Sleep(time.Millisecond * 50)
+			if v := pool.Get(); v != nil {
+				t.Error(v)
+			}
+			if builder.Event != nil {
+				t.Error(builder)
+			}
+		})
 	}
 }
 

@@ -2,8 +2,11 @@ package logiface
 
 import (
 	"fmt"
+	"github.com/joeycumines/go-catrate"
+	"golang.org/x/exp/maps"
 	"os"
 	"sync"
+	"time"
 )
 
 type (
@@ -23,12 +26,12 @@ type (
 		factory  EventFactory[E]
 		releaser EventReleaser[E]
 		writer   Writer[E]
-
-		root   *Logger[E]
-		pool   *sync.Pool
-		json   *jsonSupport[E]
-		level  Level
-		dpanic Level
+		root     *Logger[E]
+		pool     *sync.Pool
+		json     *jsonSupport[E]
+		catrate  *catrate.Limiter
+		level    Level
+		dpanic   Level
 	}
 
 	// Option is a configuration option for constructing Logger instances,
@@ -37,13 +40,14 @@ type (
 
 	// loggerConfig is the internal configuration type used by the New function
 	loggerConfig[E Event] struct {
-		factory  EventFactory[E]
-		releaser EventReleaser[E]
-		json     *jsonSupport[E]
-		writer   WriterSlice[E]
-		modifier ModifierSlice[E]
-		level    Level
-		dpanic   Level
+		factory            EventFactory[E]
+		releaser           EventReleaser[E]
+		json               *jsonSupport[E]
+		categoryRateLimits map[time.Duration]int
+		writer             WriterSlice[E]
+		modifier           ModifierSlice[E]
+		level              Level
+		dpanic             Level
 	}
 
 	// LoggerFactory provides aliases for package functions including New, as
@@ -173,6 +177,28 @@ func (LoggerFactory[E]) WithDPanicLevel(level Level) Option[E] {
 	return WithDPanicLevel[E](level)
 }
 
+// WithCategoryRateLimits configures the logger to support category-based rate limiting.
+//
+// Rate limits may be enabled on a per-event basis, see also [Builder.Limit],
+// and [Logger.CallerCategoryRateLimitModifier].
+//
+// There are specific constraints on the map keys and values:
+//
+//  1. The key (duration) must be greater than zero
+//  2. The value (count) must be greater than zero
+//  3. The count must be less than that of any longer durations
+//  4. The effective rate (count/duration) must be less than that of any shorter durations
+func WithCategoryRateLimits[E Event](rates map[time.Duration]int) Option[E] {
+	return func(c *loggerConfig[E]) {
+		c.categoryRateLimits = rates
+	}
+}
+
+// WithCategoryRateLimits is an alias of the package function of the same name.
+func (LoggerFactory[E]) WithCategoryRateLimits(rates map[time.Duration]int) Option[E] {
+	return WithCategoryRateLimits[E](rates)
+}
+
 // New constructs a new Logger instance.
 //
 // Configure the logger using either the With* prefixed functions (or methods
@@ -196,6 +222,7 @@ func New[E Event](options ...Option[E]) (logger *Logger[E]) {
 		writer:   c.resolveWriter(),
 		json:     c.resolveJSONSupport(),
 		dpanic:   c.dpanic,
+		catrate:  c.resolveCategoryRateLimiter(),
 	}
 	shared.init()
 
@@ -296,11 +323,17 @@ func (x *Logger[E]) Build(level Level) *Builder[E] {
 	}
 
 	// initialise the builder
-	b := x.shared.pool.Get().(*Builder[E])
-	b.Event = x.newEvent(level)
-	b.shared = x.shared
+	b := x.shared.newBuilder(x.newEvent(level))
 
+	// apply the logger's modifier, if any
 	return b.Modifier(x.modifier)
+}
+
+func (x *loggerShared[E]) newBuilder(event E) *Builder[E] {
+	b := x.pool.Get().(*Builder[E])
+	b.Event = event
+	b.shared = x
+	return b
 }
 
 // Clone returns a new Context, which is a mechanism to configure a sub-logger,
@@ -469,6 +502,13 @@ func (x *loggerConfig[E]) resolveJSONSupport() *jsonSupport[E] {
 		return x.json
 	}
 	return newJSONSupport[E, map[string]any, []any](defaultJSONSupport[E]{})
+}
+
+func (x *loggerConfig[E]) resolveCategoryRateLimiter() *catrate.Limiter {
+	if len(x.categoryRateLimits) != 0 {
+		return catrate.NewLimiter(maps.Clone(x.categoryRateLimits))
+	}
+	return nil
 }
 
 func reverseSlice[S ~[]E, E any](s S) {

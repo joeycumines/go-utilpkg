@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,6 +13,9 @@ const (
 	_ builderMode = 1 << iota >> 1
 	builderModePanic
 	builderModeFatal
+	// apply category rate limit, based on the caller (runtime)
+	// see also limit.go
+	builderModeCallerCategoryRateLimit
 )
 
 type (
@@ -104,30 +108,24 @@ func (x *Context[E]) Root() *Logger[E] {
 }
 
 // Modifier calls val.Modify, if the receiver is enabled, and val is non-nil.
-// If the modifier returns [ErrDisabled], the return value will be nil, and the
-// receiver will be released.
+// If the modifier returns [ErrDisabled] or [ErrLimited], the return value will
+// be nil, and the receiver will be released.
 // If the modifier returns any other non-nil error, [Logger.DPanic] will be
 // called.
 func (x *Builder[E]) Modifier(val Modifier[E]) *Builder[E] {
 	if x.Enabled() && val != nil {
-		// always release x if we don't return it
-		var returned bool
-		defer func() {
-			if !returned {
-				x.release()
-			}
-		}()
-
 		if err := val.Modify(x.Event); err != nil {
-			if err != ErrDisabled {
+			switch {
+			case errors.Is(err, ErrDisabled):
+			case errors.Is(err, ErrLimited):
+			default:
 				x.shared.root.DPanic().
 					Err(err).
 					Log("modifier error")
 			}
+			x.releaseAll()
 			return nil
 		}
-
-		returned = true
 	}
 	return x
 }
@@ -159,7 +157,7 @@ func (x *Builder[E]) Log(msg string) {
 	if !x.Enabled() {
 		return
 	}
-	defer x.release()
+	defer x.releaseAll()
 	if x.Event.Level().Enabled() {
 		x.log(msg)
 	}
@@ -178,7 +176,7 @@ func (x *Builder[E]) Logf(format string, args ...any) {
 	if !x.Enabled() {
 		return
 	}
-	defer x.release()
+	defer x.releaseAll()
 	if x.Event.Level().Enabled() {
 		x.log(fmt.Sprintf(format, args...))
 	}
@@ -201,13 +199,23 @@ func (x *Builder[E]) LogFunc(fn func() string) {
 	if !x.Enabled() {
 		return
 	}
-	defer x.release()
+	defer x.releaseAll()
 	if x.Event.Level().Enabled() {
 		x.log(fn())
 	}
 }
 
 func (x *Builder[E]) log(msg string) {
+	if (x.mode & builderModeCallerCategoryRateLimit) == builderModeCallerCategoryRateLimit {
+		// skip 2 because there's this method + the (exported) caller of this method
+		caller, next, ok := x.shared.catrateAllowCaller(2)
+		if !ok {
+			return
+		}
+		if next != (time.Time{}) {
+			x.attachCallerRateLimitWarning(caller, next)
+		}
+	}
 	if msg != `` && !x.Event.AddMessage(msg) {
 		x.Event.AddField(`msg`, msg)
 	}
@@ -238,14 +246,18 @@ func (x *Builder[E]) log(msg string) {
 // This method is not implemented by [Context].
 func (x *Builder[E]) Release() {
 	if x.Enabled() {
-		x.release()
+		x.releaseAll()
 	}
 }
 
-func (x *Builder[E]) release() {
+func (x *Builder[E]) releaseAll() {
+	x.release(true)
+}
+
+func (x *Builder[E]) release(event bool) {
 	if shared := x.shared; shared != nil {
 		x.shared = nil
-		if shared.releaser != nil {
+		if event && shared.releaser != nil {
 			shared.releaser.ReleaseEvent(x.Event)
 		}
 		// clear the event value, in case it retains a reference

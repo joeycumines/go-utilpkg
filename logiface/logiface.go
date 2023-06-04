@@ -155,8 +155,6 @@ type (
 	// WriterSlice combines writers, returning success on the first writer
 	// that succeeds, returning the first error that isn't ErrDisabled, or
 	// ErrDisabled if every writer returns ErrDisabled (or if empty).
-	//
-	// WARNING: ErrDisabled must be returned directly (not wrapped).
 	WriterSlice[E Event] []Writer[E]
 )
 
@@ -167,6 +165,13 @@ var (
 	//
 	// It may also return from Logger.Log.
 	ErrDisabled = errors.New(`logger disabled`)
+
+	// ErrLimited is a sentinel value that can be returned by Modifier
+	// implementations, to indicate that writing should be skipped.
+	//
+	// WARNING: Limiting, especially rate limiting, is best performed just
+	// prior to writing, to avoid unnecessarily consuming tokens etc.
+	ErrLimited = errors.New(`log limited`)
 )
 
 // NewEventFactoryFunc is an alias provided as a convenience, to make it easier to cast a function to an
@@ -238,7 +243,7 @@ func (x ModifierSlice[E]) Modify(event E) (err error) {
 func (x WriterSlice[E]) Write(event E) (err error) {
 	for _, w := range x {
 		err = w.Write(event)
-		if err != ErrDisabled {
+		if !errors.Is(err, ErrDisabled) {
 			return
 		}
 	}
