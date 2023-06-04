@@ -203,13 +203,13 @@ type (
 //
 // See also [LoggerFactory.WithJSONSupport].
 func WithJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		if impl == nil {
 			c.json = nil
 		} else {
 			c.json = newJSONSupport(impl)
 		}
-	}
+	})
 }
 
 // WithJSONSupport configures the implementation the logger uses to back

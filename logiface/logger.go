@@ -36,7 +36,11 @@ type (
 
 	// Option is a configuration option for constructing Logger instances,
 	// using the New function, or it's alias(es), e.g. LoggerFactory.New.
-	Option[E Event] func(c *loggerConfig[E])
+	Option[E Event] interface {
+		apply(c *loggerConfig[E])
+	}
+
+	optionFunc[E Event] func(c *loggerConfig[E])
 
 	// loggerConfig is the internal configuration type used by the New function
 	loggerConfig[E Event] struct {
@@ -69,15 +73,18 @@ var (
 	genericBuilderPool = sync.Pool{New: newBuilder[Event]}
 )
 
+//lint:ignore U1000 it is used
+func (x optionFunc[E]) apply(c *loggerConfig[E]) { x(c) }
+
 // WithOptions combines multiple Option values into one.
 //
 // See also LoggerFactory.WithOptions and L (an instance of LoggerFactory[Event]{}).
 func WithOptions[E Event](options ...Option[E]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		for _, option := range options {
-			option(c)
+			option.apply(c)
 		}
-	}
+	})
 }
 
 // WithOptions is an alias of the package function of the same name.
@@ -89,9 +96,9 @@ func (LoggerFactory[E]) WithOptions(options ...Option[E]) Option[E] {
 //
 // See also LoggerFactory.WithEventFactory and L (an instance of LoggerFactory[Event]{}).
 func WithEventFactory[E Event](factory EventFactory[E]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.factory = factory
-	}
+	})
 }
 
 // WithEventFactory is an alias of the package function of the same name.
@@ -103,9 +110,9 @@ func (LoggerFactory[E]) WithEventFactory(factory EventFactory[E]) Option[E] {
 //
 // See also LoggerFactory.WithEventReleaser and L (an instance of LoggerFactory[Event]{}).
 func WithEventReleaser[E Event](releaser EventReleaser[E]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.releaser = releaser
-	}
+	})
 }
 
 // WithEventReleaser is an alias of the package function of the same name.
@@ -118,10 +125,10 @@ func (LoggerFactory[E]) WithEventReleaser(releaser EventReleaser[E]) Option[E] {
 //
 // See also LoggerFactory.WithWriter and L (an instance of LoggerFactory[Event]{}).
 func WithWriter[E Event](writer Writer[E]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		// note: reversed on init
 		c.writer = append(c.writer, writer)
-	}
+	})
 }
 
 // WithWriter is an alias of the package function of the same name.
@@ -134,9 +141,9 @@ func (LoggerFactory[E]) WithWriter(writer Writer[E]) Option[E] {
 //
 // See also LoggerFactory.WithModifier and L (an instance of LoggerFactory[Event]{}).
 func WithModifier[E Event](modifier Modifier[E]) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.modifier = append(c.modifier, modifier)
-	}
+	})
 }
 
 // WithModifier is an alias of the package function of the same name.
@@ -151,9 +158,9 @@ func (LoggerFactory[E]) WithModifier(modifier Modifier[E]) Option[E] {
 //
 // See also LoggerFactory.WithLevel and L (an instance of LoggerFactory[Event]{}).
 func WithLevel[E Event](level Level) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.level = level
-	}
+	})
 }
 
 // WithLevel is an alias of the package function of the same name.
@@ -167,9 +174,9 @@ func (LoggerFactory[E]) WithLevel(level Level) Option[E] {
 // See also LoggerFactory.WithDPanicLevel and L (an instance of
 // LoggerFactory[Event]{}).
 func WithDPanicLevel[E Event](level Level) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.dpanic = level
-	}
+	})
 }
 
 // WithDPanicLevel is an alias of the package function of the same name.
@@ -189,9 +196,9 @@ func (LoggerFactory[E]) WithDPanicLevel(level Level) Option[E] {
 //  3. The count must be less than that of any longer durations
 //  4. The effective rate (count/duration) must be less than that of any shorter durations
 func WithCategoryRateLimits[E Event](rates map[time.Duration]int) Option[E] {
-	return func(c *loggerConfig[E]) {
+	return optionFunc[E](func(c *loggerConfig[E]) {
 		c.categoryRateLimits = rates
-	}
+	})
 }
 
 // WithCategoryRateLimits is an alias of the package function of the same name.
@@ -211,9 +218,8 @@ func New[E Event](options ...Option[E]) (logger *Logger[E]) {
 		level:  LevelInformational,
 		dpanic: LevelCritical,
 	}
-	for _, o := range options {
-		o(&c)
-	}
+
+	WithOptions(options...).apply(&c)
 
 	shared := loggerShared[E]{
 		level:    c.level,

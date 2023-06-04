@@ -8,7 +8,11 @@ import (
 )
 
 type (
-	LimitOption func(c *limitConfig)
+	LimitOption interface {
+		apply(c *limitConfig)
+	}
+
+	limitOption func(c *limitConfig)
 
 	limitConfig struct {
 	}
@@ -23,6 +27,12 @@ type (
 	}
 )
 
+var (
+	// compile time assertions
+
+	_ LimitOption = (limitOption)(nil)
+)
+
 // used to automatically skip this package when determining the caller
 var pkgPath = func() string {
 	_, file, _, _ := runtime.Caller(0)
@@ -33,6 +43,8 @@ var pkgPath = func() string {
 var (
 	runtimeutilCallerSkipPackage = runtimeutil.CallerSkipPackage
 )
+
+func (x limitOption) apply(c *limitConfig) { x(c) }
 
 // Limit configures limiting behavior for this log message.
 //
