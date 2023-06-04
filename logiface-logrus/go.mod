@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/joeycumines/logiface v0.1.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20230515215422-e0d82f95820e
-	github.com/sirupsen/logrus v1.9.2
-	golang.org/x/exp v0.0.0-20230519143937-03e91628a987
+	github.com/joeycumines/logiface-testsuite v0.0.0-20230521132327-07e7cdf2ede9
+	github.com/sirupsen/logrus v1.9.3
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
 require (
