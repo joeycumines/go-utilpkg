@@ -21,7 +21,11 @@ type (
 
 	// Option models a configuration option for this package's logger, see also
 	// the package level functions, returning values of this type.
-	Option func(c *loggerConfig)
+	Option interface {
+		apply(c *loggerConfig)
+	}
+
+	optionFunc func(c *loggerConfig)
 
 	loggerConfig struct {
 		writer       io.Writer
@@ -33,17 +37,25 @@ type (
 )
 
 var (
+	// compile time assertions
+
+	_ Option = optionFunc(nil)
+)
+
+var (
 	// L is a LoggerFactory, and may be used to configure a
 	// logiface.Logger[*Event], using the implementations provided by this
 	// package.
 	L = LoggerFactory{}
 )
 
+func (x optionFunc) apply(c *loggerConfig) { x(c) }
+
 // WithStumpy configures a logiface logger to use a stumpy logger.
 func WithStumpy(options ...Option) logiface.Option[*Event] {
 	var c loggerConfig
 	for _, o := range options {
-		o(&c)
+		o.apply(&c)
 	}
 
 	l := Logger{}
@@ -106,31 +118,31 @@ func (LoggerFactory) WithStumpy(options ...Option) logiface.Option[*Event] {
 }
 
 func WithWriter(writer io.Writer) Option {
-	return func(c *loggerConfig) {
+	return optionFunc(func(c *loggerConfig) {
 		c.writer = writer
-	}
+	})
 }
 
 func WithTimeField(field string) Option {
-	return func(c *loggerConfig) {
+	return optionFunc(func(c *loggerConfig) {
 		c.timeField = &field
-	}
+	})
 }
 
 func WithLevelField(field string) Option {
-	return func(c *loggerConfig) {
+	return optionFunc(func(c *loggerConfig) {
 		c.levelField = &field
-	}
+	})
 }
 
 func WithMessageField(field string) Option {
-	return func(c *loggerConfig) {
+	return optionFunc(func(c *loggerConfig) {
 		c.messageField = &field
-	}
+	})
 }
 
 func WithErrorField(field string) Option {
-	return func(c *loggerConfig) {
+	return optionFunc(func(c *loggerConfig) {
 		c.errorField = &field
-	}
+	})
 }
