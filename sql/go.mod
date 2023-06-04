@@ -8,4 +8,6 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
-require github.com/joeycumines/logiface v0.1.0
+require github.com/joeycumines/logiface v0.2.0
+
+require github.com/joeycumines/go-catrate v0.0.0-20230604061006-5fe8a721ebe0 // indirect
