@@ -410,7 +410,7 @@ clean:
 
 .PHONY: godoc
 godoc:
-	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/github.com/joeycumines/go-utilpkg/'
+	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/'
 	$(GODOC) $(GODOC_FLAGS)
 
 .PHONY: debug-env
