@@ -3,6 +3,7 @@ package fieldtest
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 )
@@ -25,6 +26,7 @@ type (
 		Float64(key string, val float64) T
 		Int64(key string, val int64) T
 		Uint64(key string, val uint64) T
+		Stringer(key string, val fmt.Stringer) T
 	}
 
 	ArrayMethods[T any] interface {
@@ -42,7 +44,10 @@ type (
 		Float64(val float64) T
 		Int64(val int64) T
 		Uint64(val uint64) T
+		Stringer(val fmt.Stringer) T
 	}
+
+	ByteStringer []byte
 )
 
 // FluentObjectTemplate exercises every fluent method that's common between Builder and Context
@@ -78,7 +83,9 @@ func FluentObjectTemplate[T ObjectMethods[T]](x T) {
 		Int64(`int64 called`, math.MaxInt64).
 		Field(`field called with int64`, int64(math.MaxInt64)).
 		Uint64(`uint64 called`, math.MaxUint64).
-		Field(`field called with uint64`, uint64(math.MaxUint64))
+		Field(`field called with uint64`, uint64(math.MaxUint64)).
+		Stringer(`stringer called`, ByteStringer(`byte stringer 1`)).
+		Stringer(`stringer called with nil value`, nil)
 }
 
 func FluentArrayTemplate[T ArrayMethods[T]](x T) {
@@ -113,5 +120,11 @@ func FluentArrayTemplate[T ArrayMethods[T]](x T) {
 		Int64(math.MaxInt64).
 		Field(int64(math.MaxInt64)).
 		Uint64(math.MaxUint64).
-		Field(uint64(math.MaxUint64))
+		Field(uint64(math.MaxUint64)).
+		Stringer(ByteStringer(`byte stringer 1`)).
+		Stringer(nil)
+}
+
+func (x ByteStringer) String() string {
+	return string(x)
 }

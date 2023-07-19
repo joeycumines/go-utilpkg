@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"fmt"
 	"time"
 )
 
@@ -474,6 +475,11 @@ func (x *ArrayBuilder[E, P]) Err(val error) *ArrayBuilder[E, P] {
 
 func (x *ArrayBuilder[E, P]) Str(val string) *ArrayBuilder[E, P] {
 	_ = x.methods().Str(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) Stringer(val fmt.Stringer) *ArrayBuilder[E, P] {
+	_ = x.methods().Stringer(x.fields(), ``, val)
 	return x
 }
 

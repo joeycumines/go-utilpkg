@@ -81,7 +81,7 @@ func TestEvent_min(t *testing.T) {
 		var buf bytes.Buffer
 		l := newSimpleLogger(&buf, true)
 		log(l)
-		const expected = "[info]\nerr=err called\nfield called with string=val 2\nfield called with bytes=dmFsIDM=\nfield called with time.Time local=2019-05-17T05:07:20.361696123Z\nfield called with time.Time utc=2019-05-17T05:07:20.361696123Z\nfield called with duration=3116139.280723392s\nfield called with int=-51245\nfield called with float32=1e-45\nfield called with unhandled type=-421\nfloat32 called=3.4028235e+38\nint called=9223372036854775807\ninterface called with string=val 4\ninterface called with bool=true\ninterface called with nil=<nil>\nany called with string=val 5\nstr called=val 6\ntime called with local=2021-03-24T13:27:29.876543213Z\ntime called with utc=2020-03-01T00:39:29.456789123Z\ndur called positive=51238123.523458989s\ndur called negative=-51238123.523458989s\ndur called zero=0s\nbase64 called with nil enc=dmFsIDc=\nbase64 called with padding=dmFsIDc=\nbase64 called without padding=dmFsIDc\nbool called=true\nfield called with bool=true\nfloat64 called=1.7976931348623157e+308\nfield called with float64=1.7976931348623157e+308\nint64 called=9223372036854775807\nfield called with int64=9223372036854775807\nuint64 called=18446744073709551615\nfield called with uint64=18446744073709551615\nmsg=log called\n"
+		const expected = "[info]\nerr=err called\nfield called with string=val 2\nfield called with bytes=dmFsIDM=\nfield called with time.Time local=2019-05-17T05:07:20.361696123Z\nfield called with time.Time utc=2019-05-17T05:07:20.361696123Z\nfield called with duration=3116139.280723392s\nfield called with int=-51245\nfield called with float32=1e-45\nfield called with unhandled type=-421\nfloat32 called=3.4028235e+38\nint called=9223372036854775807\ninterface called with string=val 4\ninterface called with bool=true\ninterface called with nil=<nil>\nany called with string=val 5\nstr called=val 6\ntime called with local=2021-03-24T13:27:29.876543213Z\ntime called with utc=2020-03-01T00:39:29.456789123Z\ndur called positive=51238123.523458989s\ndur called negative=-51238123.523458989s\ndur called zero=0s\nbase64 called with nil enc=dmFsIDc=\nbase64 called with padding=dmFsIDc=\nbase64 called without padding=dmFsIDc\nbool called=true\nfield called with bool=true\nfloat64 called=1.7976931348623157e+308\nfield called with float64=1.7976931348623157e+308\nint64 called=9223372036854775807\nfield called with int64=9223372036854775807\nuint64 called=18446744073709551615\nfield called with uint64=18446744073709551615\nstringer called=byte stringer 1\nstringer called with nil value=<nil>\nmsg=log called\n"
 		if actual := buf.String(); actual != expected {
 			t.Errorf("unexpected output: %q\n%s", actual, stringDiff(expected, actual))
 		}
@@ -275,6 +275,16 @@ func TestEvent_max(t *testing.T) {
 						Type:  `AddUint64`,
 						Key:   `field called with uint64`,
 						Value: uint64(math.MaxUint64),
+					},
+					{
+						Type:  `AddString`,
+						Key:   `stringer called`,
+						Value: `byte stringer 1`,
+					},
+					{
+						Type:  `AddString`,
+						Key:   `stringer called with nil value`,
+						Value: `<nil>`,
 					},
 					{
 						Type:  `AddMessage`,

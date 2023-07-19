@@ -539,6 +539,38 @@ func (x *Builder[E]) Str(key string, val string) *Builder[E] {
 	return x
 }
 
+func (x modifierMethods[E]) Stringer(event E, key string, val fmt.Stringer) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	if val == nil {
+		x.str(event, key, `<nil>`)
+	} else {
+		x.str(event, key, val.String())
+	}
+	return nil
+}
+
+// Stringer adds a string as a structured log field, using Event.AddString if
+// available, otherwise falling back to Event.AddField. Nil values will be
+// encoded as `<nil>`.
+func (x *Context[E]) Stringer(key string, val fmt.Stringer) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Stringer(event, key, val) })
+	}
+	return x
+}
+
+// Stringer adds a string as a structured log field, using Event.AddString if
+// available, otherwise falling back to Event.AddField. Nil values will be
+// encoded as `<nil>`.
+func (x *Builder[E]) Stringer(key string, val fmt.Stringer) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Stringer(x.Event, key, val)
+	}
+	return x
+}
+
 func (x modifierMethods[E]) Int(event E, key string, val int) error {
 	if !event.Level().Enabled() {
 		return ErrDisabled
