@@ -2,8 +2,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/go-test/deep v1.1.0 h1:WOcxcdHcvdgThNXjw0t76K42FXTU7HpNQWHpA2HHNlg=
 github.com/go-test/deep v1.1.0/go.mod h1:5C2ZWiW0ErCdrYzpqxLbTX7MG14M9iiw8DgHncVwcsE=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
-github.com/joeycumines/go-catrate v0.0.0-20230711071432-809ae2b364f2 h1://EFhkWGICNp7pxZw0P4LJ3O6Cz83UFLMuBdVruCrvY=
-github.com/joeycumines/go-catrate v0.0.0-20230711071432-809ae2b364f2/go.mod h1:H5sSv9yX63jb//qFmljSQ8lmgo91l1P5alCFrp08k/0=
+github.com/joeycumines/go-catrate v0.0.0-20230801223135-1f34224e5a77 h1:YIRmPY960xIXA8afVt38WyaB2tKiQvc41OhkuvIeL0Y=
+github.com/joeycumines/go-catrate v0.0.0-20230801223135-1f34224e5a77/go.mod h1:jjWI1DRbKyKgUQcXCNlWJSqUqMdEMyBS9C81gmLnKtE=
 github.com/joeycumines/go-detect-cycle v1.0.1 h1:ku62D9m31K6yp/lmvoA/nEPm0rR0Q/VuWCY9LJGfbTI=
 github.com/joeycumines/go-detect-cycle v1.0.1/go.mod h1:Dr2MQx3rLnA//tSlImZo6ogxPouTTbQmfIsd5rfSQ8g=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230709000833-296958a4d58c h1:p8vtTftskfygev6lgzyZ3XWefFORt5PVB3VMe5mlj7k=
