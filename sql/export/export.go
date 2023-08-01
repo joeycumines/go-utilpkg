@@ -316,7 +316,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 	missingTableRows := make(map[Table][]int64)
 
 	// for stable ordering (not strictly necessary - might remove later)
-	tableOrder := callOn(maps.Keys(cfg.tableRows), func(v []Table) { slices.SortFunc(v, lessTables) })
+	tableOrder := callOn(maps.Keys(cfg.tableRows), func(v []Table) { slices.SortFunc(v, lessCmp(lessTables)) })
 
 	for len(cfg.tableRows) != 0 {
 		table, ok := func() (table Table, ok bool) {
@@ -335,7 +335,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 		if !ok {
 			return fmt.Errorf(
 				`reader error: cyclic dependency: %+v`,
-				callOn(maps.Keys(cfg.tableRows), func(v []Table) { slices.SortFunc(v, lessTables) }),
+				callOn(maps.Keys(cfg.tableRows), func(v []Table) { slices.SortFunc(v, lessCmp(lessTables)) }),
 			)
 		}
 
@@ -460,7 +460,7 @@ func (x *Exporter) read(ctx context.Context, cfg exporterReaderConfig) error {
 	if len(missingTableRows) != 0 {
 		if b := x.Logger.Warning(); b.Enabled() {
 			tables := maps.Keys(missingTableRows)
-			slices.SortFunc(tables, lessTables)
+			slices.SortFunc(tables, lessCmp(lessTables))
 			obj := logiface.Object[logiface.Event](b)
 			for _, table := range tables {
 				if len(missingTableRows[table]) == 0 {

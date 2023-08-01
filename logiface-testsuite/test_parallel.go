@@ -135,10 +135,15 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 		if len(allMessages) != maxMessages {
 			t.Errorf("expected len(allMessages) == maxMessages, got %d != %d", len(allMessages), maxMessages)
 		}
-		slices.SortFunc(allMessages, func(a, b Event) bool {
+		slices.SortFunc(allMessages, func(a, b Event) int {
 			af, _ := a.Fields[messageIDField].(float64)
 			bf, _ := b.Fields[messageIDField].(float64)
-			return af < bf
+			if af < bf {
+				return -1
+			} else if af > bf {
+				return 1
+			}
+			return 0
 		})
 		for i, msg := range allMessages {
 			ID := int64(i) + 1

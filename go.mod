@@ -3,10 +3,10 @@ module github.com/joeycumines/go-utilpkg
 go 1.20
 
 require (
-	github.com/dkorunic/betteralign v0.2.6
+	github.com/dkorunic/betteralign v0.3.0
 	github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57
-	golang.org/x/perf v0.0.0-20230427221525-d343f6398b76
-	golang.org/x/tools v0.11.0
+	golang.org/x/perf v0.0.0-20230717203022-1ba3a21238c9
+	golang.org/x/tools v0.11.1
 	honnef.co/go/tools v0.4.3
 )
 
@@ -21,13 +21,13 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
 	github.com/grailbio/base v0.0.10 // indirect
-	github.com/opencontainers/runtime-spec v1.0.2 // indirect
+	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/sirkon/dst v0.26.4 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/yuin/goldmark v1.5.4 // indirect
-	go.uber.org/automaxprocs v1.5.2 // indirect
-	golang.org/x/exp v0.0.0-20230711023510-fffb14384f22 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20230711023510-fffb14384f22 // indirect
+	github.com/yuin/goldmark v1.5.5 // indirect
+	go.uber.org/automaxprocs v1.5.3 // indirect
+	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b // indirect
+	golang.org/x/exp/typeparams v0.0.0-20230801115018-d63ba01acd4b // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect

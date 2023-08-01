@@ -47,7 +47,7 @@ func Test_insertSortFunc(t *testing.T) {
 func Test_lessTables(t *testing.T) {
 	expect := func(input, expected []Table) {
 		t.Helper()
-		actual := callOn(slices.Clone(input), func(v []Table) { slices.SortFunc(v, lessTables) })
+		actual := callOn(slices.Clone(input), func(v []Table) { slices.SortFunc(v, lessCmp(lessTables)) })
 		if diff := deep.Equal(actual, expected); diff != nil {
 			t.Errorf("unexpected sort value: %#v\n%s", actual, strings.Join(diff, "\n"))
 		}
@@ -171,14 +171,14 @@ func Test_compare2(t *testing.T) {
 		{24, 44},
 	}
 	less := cmpLess(func(a, b [2]int) int { return compare2(a[0], a[1], b[0], b[1]) })
-	slices.SortFunc(values, less)
+	slices.SortFunc(values, lessCmp(less))
 	if diff := deep.Equal(values, expected); diff != nil {
 		t.Fatalf("unexpected value: %#v\n%s", values, strings.Join(diff, "\n"))
 	}
 	rnd := rand.New(rand.NewSource(9235344))
 	for i := 0; i < 100; i++ {
 		rnd.Shuffle(len(values), func(i, j int) { values[i], values[j] = values[j], values[i] })
-		slices.SortFunc(values, less)
+		slices.SortFunc(values, lessCmp(less))
 		if diff := deep.Equal(values, expected); diff != nil {
 			t.Fatalf("unexpected value: %#v\n%s", values, strings.Join(diff, "\n"))
 		}

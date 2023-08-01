@@ -65,7 +65,7 @@ func filterLevelCombinations(fn func(logger, arg logiface.Level, enabled bool) b
 			Arg:    v.Arg,
 		})
 	}
-	slices.SortFunc[struct {
+	slices.SortFunc[[]struct {
 		Name   string
 		Logger logiface.Level
 		Arg    logiface.Level
@@ -73,8 +73,13 @@ func filterLevelCombinations(fn func(logger, arg logiface.Level, enabled bool) b
 		Name   string
 		Logger logiface.Level
 		Arg    logiface.Level
-	}) bool {
-		return a.Name < b.Name
+	}) int {
+		if a.Name < b.Name {
+			return -1
+		} else if a.Name > b.Name {
+			return 1
+		}
+		return 0
 	})
 	return
 }
