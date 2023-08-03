@@ -2,6 +2,7 @@ package fieldtest
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -27,6 +28,7 @@ type (
 		Int64(key string, val int64) T
 		Uint64(key string, val uint64) T
 		Stringer(key string, val fmt.Stringer) T
+		RawJSON(key string, val json.RawMessage) T
 	}
 
 	ArrayMethods[T any] interface {
@@ -45,6 +47,7 @@ type (
 		Int64(val int64) T
 		Uint64(val uint64) T
 		Stringer(val fmt.Stringer) T
+		RawJSON(val json.RawMessage) T
 	}
 
 	ByteStringer []byte
@@ -85,7 +88,9 @@ func FluentObjectTemplate[T ObjectMethods[T]](x T) {
 		Uint64(`uint64 called`, math.MaxUint64).
 		Field(`field called with uint64`, uint64(math.MaxUint64)).
 		Stringer(`stringer called`, ByteStringer(`byte stringer 1`)).
-		Stringer(`stringer called with nil value`, nil)
+		Stringer(`stringer called with nil value`, nil).
+		RawJSON(`raw json called`, json.RawMessage(`{"key":"val"}`)).
+		Field(`field called with raw json`, json.RawMessage(`[ false, null ]`))
 }
 
 func FluentArrayTemplate[T ArrayMethods[T]](x T) {
@@ -122,7 +127,9 @@ func FluentArrayTemplate[T ArrayMethods[T]](x T) {
 		Uint64(math.MaxUint64).
 		Field(uint64(math.MaxUint64)).
 		Stringer(ByteStringer(`byte stringer 1`)).
-		Stringer(nil)
+		Stringer(nil).
+		RawJSON(json.RawMessage(`{"key":"val"}`)).
+		Field(json.RawMessage(`[ false, null ]`))
 }
 
 func (x ByteStringer) String() string {

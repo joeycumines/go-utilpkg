@@ -2,6 +2,7 @@ package testsuite
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"github.com/joeycumines/logiface"
 	"math"
@@ -111,6 +112,14 @@ func eventTemplate1(in logiface.Event) (out Event) {
 	}
 
 	if k, v := `uint64_2`, uint64(0); in.AddUint64(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `rawjson_1`, json.RawMessage(`{"key":"val"}`); in.AddRawJSON(k, v) {
+		out.Fields[k] = v
+	}
+
+	if k, v := `rawjson_2`, json.RawMessage(`123`); in.AddRawJSON(k, v) {
 		out.Fields[k] = v
 	}
 

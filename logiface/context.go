@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -341,6 +342,12 @@ func (x modifierMethods[E]) uint64(event E, key string, val uint64) {
 	}
 }
 
+func (x modifierMethods[E]) rawJSON(event E, key string, val json.RawMessage) {
+	if !event.AddRawJSON(key, val) {
+		event.AddField(key, val)
+	}
+}
+
 // formatTimestamp uses the same behavior as protobuf's timestamp.
 // "1972-01-01T10:00:20.021Z"	Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted.
 func formatTimestamp(t time.Time) string {
@@ -415,6 +422,8 @@ func (x modifierMethods[E]) Field(event E, key string, val any) error {
 		x.int64(event, key, val)
 	case uint64:
 		x.uint64(event, key, val)
+	case json.RawMessage:
+		x.rawJSON(event, key, val)
 	default:
 		event.AddField(key, val)
 	}
@@ -851,6 +860,32 @@ func (x *Context[E]) Uint64(key string, val uint64) *Context[E] {
 func (x *Builder[E]) Uint64(key string, val uint64) *Builder[E] {
 	if x.Enabled() {
 		_ = x.methods.Uint64(x.Event, key, val)
+	}
+	return x
+}
+
+func (x modifierMethods[E]) RawJSON(event E, key string, val json.RawMessage) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	x.rawJSON(event, key, val)
+	return nil
+}
+
+// RawJSON adds a json.RawMessage as a structured log field, using
+// Event.AddRawJSON if available, otherwise falling back to Event.AddField.
+func (x *Context[E]) RawJSON(key string, val json.RawMessage) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.RawJSON(event, key, val) })
+	}
+	return x
+}
+
+// RawJSON adds a json.RawMessage as a structured log field, using
+// Event.AddRawJSON if available, otherwise falling back to Event.AddField.
+func (x *Builder[E]) RawJSON(key string, val json.RawMessage) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.RawJSON(x.Event, key, val)
 	}
 	return x
 }

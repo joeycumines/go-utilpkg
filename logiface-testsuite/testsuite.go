@@ -420,6 +420,12 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 			if tr.FormatUint64 != nil {
 				return tr.FormatUint64(v)
 			}
+		case json.RawMessage:
+			var j any
+			if err := json.Unmarshal(v, &j); err != nil {
+				panic(err)
+			}
+			return j
 		}
 		return v
 	}

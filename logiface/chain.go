@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"time"
 )
 
@@ -75,6 +76,7 @@ type (
 		objFloat64(obj any, key string, val float64) (any, bool)
 		objInt64(obj any, key string, val int64) (any, bool)
 		objUint64(obj any, key string, val uint64) (any, bool)
+		objRawJSON(obj any, key string, val json.RawMessage) (any, bool)
 
 		arrNewObject(arr any) any
 		arrWriteObject(arr, val any) (any, bool)
@@ -94,6 +96,7 @@ type (
 		arrFloat64(arr any, val float64) (any, bool)
 		arrInt64(arr any, val int64) (any, bool)
 		arrUint64(arr any, val uint64) (any, bool)
+		arrRawJSON(arr any, val json.RawMessage) (any, bool)
 	}
 
 	chainInterface interface {
@@ -515,6 +518,11 @@ func (x *Chain[E, P]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) objRawJSON(obj any, key string, val json.RawMessage) (any, bool) {
+	return x.current().objRawJSON(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) jsonNewArray(key string) any {
 	return x.current().jsonNewArray(key)
 }
@@ -602,6 +610,11 @@ func (x *Chain[E, P]) arrInt64(arr any, val int64) (any, bool) {
 //lint:ignore U1000 it is or will be used
 func (x *Chain[E, P]) arrUint64(arr any, val uint64) (any, bool) {
 	return x.current().arrUint64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *Chain[E, P]) arrRawJSON(arr any, val json.RawMessage) (any, bool) {
+	return x.current().arrRawJSON(arr, val)
 }
 
 func (x *Chain[E, P]) current() (p Parent[E]) {

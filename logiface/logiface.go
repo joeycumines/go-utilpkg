@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -89,10 +90,15 @@ type (
 		AddBool(key string, val bool) bool
 		// AddFloat64 adds a field of type float64. It's an optional optimisation.
 		AddFloat64(key string, val float64) bool
-		// AddInt64 adds a field of type int64. It's an optional optimisation.
+		// AddInt64 adds a field of type int64.
+		// If not implemented, it will be encoded then handled as a string, in base 10.
 		AddInt64(key string, val int64) bool
 		// AddUint64 adds a field of type uint64. It's an optional optimisation.
+		// If not implemented, it will be encoded then handled as a string, in base 10.
 		AddUint64(key string, val uint64) bool
+		// AddRawJSON adds a field of type json.RawMessage.
+		// If not implemented, AddField will be used instead.
+		AddRawJSON(key string, val json.RawMessage) bool
 
 		mustEmbedUnimplementedEvent()
 	}
@@ -273,6 +279,8 @@ func (UnimplementedEvent) AddFloat64(string, float64) bool { return false }
 func (UnimplementedEvent) AddInt64(string, int64) bool { return false }
 
 func (UnimplementedEvent) AddUint64(string, uint64) bool { return false }
+
+func (UnimplementedEvent) AddRawJSON(string, json.RawMessage) bool { return false }
 
 func (UnimplementedEvent) mustEmbedUnimplementedEvent() {}
 

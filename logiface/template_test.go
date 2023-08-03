@@ -2,6 +2,7 @@ package logiface_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/joeycumines/logiface"
 	"github.com/joeycumines/logiface/internal/mocklog"
@@ -174,6 +175,7 @@ func newEventTemplate1() *eventTemplate {
 	responseStatus := 200
 	elapsed := 230
 	unit := "ms"
+	metaVal := json.RawMessage("[\n  1,\n  4\n]")
 
 	user1ID := 5678
 	user1Username := "janedoe"
@@ -189,18 +191,20 @@ func newEventTemplate1() *eventTemplate {
 	group3ID := 103
 	group3Name := "group3"
 
+	jsonNum1 := json.RawMessage(`3e0`)
+
 	var t eventTemplate
 
 	t.Stumpy = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `{"lvl":"info","request_id":"c7d5a8f1-7e39-4d07-a9f5-73b96d31c036","user_id":1234,"username":"johndoe","roles":[{"id":1,"name":"admin"},{"id":2,"name":"user"}],"preferences":{"language":"en","notifications":{"email":true,"sms":false}},"endpoint":"/api/v1/users","method":"GET","response":{"status":200,"users":[{"id":5678,"username":"janedoe","email":"janedoe@example.com","groups":[{"id":101,"name":"group1"},{"id":102,"name":"group2"}]},{"id":9101,"username":"mike92","email":"mike92@example.com","groups":[{"id":103,"name":"group3"}]}]},"elapsed":230,"unit":"ms","msg":"API request processed"}`+"\n" {
+		if s != "{\"lvl\":\"info\",\"request_id\":\"c7d5a8f1-7e39-4d07-a9f5-73b96d31c036\",\"user_id\":1234,\"username\":\"johndoe\",\"flags\":[\n  1,\n  4\n],\"extra_list\":[3e0,{\"1\":3e0}],\"roles\":[{\"id\":1,\"name\":\"admin\"},{\"id\":2,\"name\":\"user\"}],\"preferences\":{\"language\":\"en\",\"notifications\":{\"email\":true,\"sms\":false}},\"endpoint\":\"/api/v1/users\",\"method\":\"GET\",\"response\":{\"status\":200,\"users\":[{\"id\":5678,\"username\":\"janedoe\",\"email\":\"janedoe@example.com\",\"groups\":[{\"id\":101,\"name\":\"group1\"},{\"id\":102,\"name\":\"group2\"}]},{\"id\":9101,\"username\":\"mike92\",\"email\":\"mike92@example.com\",\"groups\":[{\"id\":103,\"name\":\"group3\"}]}]},\"elapsed\":230,\"unit\":\"ms\",\"msg\":\"API request processed\"}\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
 
 	t.Mocklog = func(t *testing.T, s string) {
 		t.Helper()
-		if s != `[info] request_id="c7d5a8f1-7e39-4d07-a9f5-73b96d31c036" user_id=1234 username="johndoe" roles=[{"id":1,"name":"admin"},{"id":2,"name":"user"}] preferences={"language":"en","notifications":{"email":true,"sms":false}} endpoint="/api/v1/users" method="GET" response={"status":200,"users":[{"email":"janedoe@example.com","groups":[{"id":101,"name":"group1"},{"id":102,"name":"group2"}],"id":5678,"username":"janedoe"},{"email":"mike92@example.com","groups":[{"id":103,"name":"group3"}],"id":9101,"username":"mike92"}]} elapsed=230 unit="ms" msg="API request processed"`+"\n" {
+		if s != "[info] request_id=\"c7d5a8f1-7e39-4d07-a9f5-73b96d31c036\" user_id=1234 username=\"johndoe\" flags=[1,4] extra_list=[3,{\"1\":3}] roles=[{\"id\":1,\"name\":\"admin\"},{\"id\":2,\"name\":\"user\"}] preferences={\"language\":\"en\",\"notifications\":{\"email\":true,\"sms\":false}} endpoint=\"/api/v1/users\" method=\"GET\" response={\"status\":200,\"users\":[{\"email\":\"janedoe@example.com\",\"groups\":[{\"id\":101,\"name\":\"group1\"},{\"id\":102,\"name\":\"group2\"}],\"id\":5678,\"username\":\"janedoe\"},{\"email\":\"mike92@example.com\",\"groups\":[{\"id\":103,\"name\":\"group3\"}],\"id\":9101,\"username\":\"mike92\"}]} elapsed=230 unit=\"ms\" msg=\"API request processed\"\n" {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	}
@@ -210,6 +214,13 @@ func newEventTemplate1() *eventTemplate {
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
+			RawJSON("flags", metaVal).
+			Array().
+			RawJSON(jsonNum1).
+			Object().
+			RawJSON("1", jsonNum1).
+			Add().
+			As("extra_list").
 			//>roles[*]
 			Array().
 			//>roles[0].*
@@ -300,6 +311,19 @@ func newEventTemplate1() *eventTemplate {
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
+			RawJSON("flags", metaVal).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				b.Array().
+					RawJSON(jsonNum1).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
+						b.Object().
+							RawJSON("1", jsonNum1).
+							Add().
+							End()
+					}).
+					As("extra_list").
+					End()
+			}).
 			Call(func(b *logiface.Builder[logiface.Event]) {
 				b.Array().
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Chain[logiface.Event, *logiface.Builder[logiface.Event]]]) {
@@ -402,6 +426,17 @@ func newEventTemplate1() *eventTemplate {
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
+			RawJSON("flags", metaVal).
+			Call(func(b *logiface.Builder[logiface.Event]) {
+				logiface.Array[logiface.Event](b).
+					RawJSON(jsonNum1).
+					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
+						logiface.Object[logiface.Event](b).
+							RawJSON("1", jsonNum1).
+							Add()
+					}).
+					As("extra_list")
+			}).
 			Call(func(b *logiface.Builder[logiface.Event]) {
 				logiface.Array[logiface.Event](b).
 					Call(func(b *logiface.ArrayBuilder[logiface.Event, *logiface.Builder[logiface.Event]]) {
@@ -490,6 +525,13 @@ func newEventTemplate1() *eventTemplate {
 			Str("request_id", requestID).
 			Int("user_id", userID).
 			Str("username", username).
+			RawJSON("flags", metaVal).
+			ArrayFunc("extra_list", func(b logiface.BuilderArray) {
+				b.RawJSON(jsonNum1).
+					ObjectFunc(func(b logiface.BuilderObject) {
+						b.RawJSON("1", jsonNum1)
+					})
+			}).
 			ArrayFunc("roles", func(b logiface.BuilderArray) {
 				b.
 					ObjectFunc(func(b logiface.BuilderObject) {

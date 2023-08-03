@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"time"
 )
 
@@ -57,6 +58,8 @@ type (
 		SetInt64(obj O, key string, val int64) O
 		CanSetUint64() bool
 		SetUint64(obj O, key string, val uint64) O
+		CanSetRawJSON() bool
+		SetRawJSON(obj O, key string, b json.RawMessage) O
 
 		NewArray() A
 		AddArray(evt E, key string, arr A)
@@ -106,6 +109,8 @@ type (
 		AppendInt64(arr A, val int64) A
 		CanAppendUint64() bool
 		AppendUint64(arr A, val uint64) A
+		CanAppendRawJSON() bool
+		AppendRawJSON(arr A, b json.RawMessage) A
 
 		mustEmbedUnimplementedJSONSupport()
 	}
@@ -133,6 +138,7 @@ type (
 		setFloat64        func(obj any, key string, val float64) any
 		setInt64          func(obj any, key string, val int64) any
 		setUint64         func(obj any, key string, val uint64) any
+		setRawJSON        func(obj any, key string, b json.RawMessage) any
 		newArray          func() any
 		addArray          func(evt E, key string, arr any)
 		appendField       func(arr, val any) any
@@ -152,6 +158,7 @@ type (
 		appendFloat64     func(arr any, val float64) any
 		appendInt64       func(arr any, val int64) any
 		appendUint64      func(arr any, val uint64) any
+		appendRawJSON     func(arr any, b json.RawMessage) any
 	}
 
 	// iJSONSupport are the [JSONSupport] methods without type-specific behavior
@@ -173,6 +180,7 @@ type (
 		CanSetFloat64() bool
 		CanSetInt64() bool
 		CanSetUint64() bool
+		CanSetRawJSON() bool
 		CanAppendArray() bool
 		CanAppendObject() bool
 		CanAddStartArray() bool
@@ -189,6 +197,7 @@ type (
 		CanAppendFloat64() bool
 		CanAppendInt64() bool
 		CanAppendUint64() bool
+		CanAppendRawJSON() bool
 	}
 
 	UnimplementedJSONSupport[E Event, O any, A any] struct{}
@@ -283,6 +292,9 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		setUint64: func(obj any, key string, val uint64) any {
 			return impl.SetUint64(obj.(O), key, val)
 		},
+		setRawJSON: func(obj any, key string, b json.RawMessage) any {
+			return impl.SetRawJSON(obj.(O), key, b)
+		},
 		newArray: func() any {
 			return impl.NewArray()
 		},
@@ -340,6 +352,9 @@ func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSuppo
 		appendUint64: func(arr any, val uint64) any {
 			return impl.AppendUint64(arr.(A), val)
 		},
+		appendRawJSON: func(arr any, b json.RawMessage) any {
+			return impl.AppendRawJSON(arr.(A), b)
+		},
 	}
 }
 
@@ -365,6 +380,7 @@ func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 		setFloat64:        impl.setFloat64,
 		setInt64:          impl.setInt64,
 		setUint64:         impl.setUint64,
+		setRawJSON:        impl.setRawJSON,
 		newArray:          impl.newArray,
 		addArray:          func(evt Event, key string, arr any) { impl.addArray(evt.(E), key, arr) },
 		appendField:       impl.appendField,
@@ -384,6 +400,7 @@ func generifyJSONSupport[E Event](impl *jsonSupport[E]) *jsonSupport[Event] {
 		appendFloat64:     impl.appendFloat64,
 		appendInt64:       impl.appendInt64,
 		appendUint64:      impl.appendUint64,
+		appendRawJSON:     impl.appendRawJSON,
 	}
 }
 
@@ -483,6 +500,12 @@ func (UnimplementedJSONSupport[E, O, A]) SetUint64(obj O, key string, val uint64
 	panic("unimplemented")
 }
 
+func (UnimplementedJSONSupport[E, O, A]) CanSetRawJSON() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) SetRawJSON(obj O, key string, val json.RawMessage) O {
+	panic("unimplemented")
+}
+
 func (UnimplementedJSONSupport[E, O, A]) CanAppendArray() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) AppendArray(arr A, val A) A {
@@ -576,6 +599,12 @@ func (UnimplementedJSONSupport[E, O, A]) AppendInt64(arr A, val int64) A {
 func (UnimplementedJSONSupport[E, O, A]) CanAppendUint64() bool { return false }
 
 func (UnimplementedJSONSupport[E, O, A]) AppendUint64(arr A, val uint64) A {
+	panic("unimplemented")
+}
+
+func (UnimplementedJSONSupport[E, O, A]) CanAppendRawJSON() bool { return false }
+
+func (UnimplementedJSONSupport[E, O, A]) AppendRawJSON(arr A, val json.RawMessage) A {
 	panic("unimplemented")
 }
 
@@ -690,6 +719,12 @@ func (x defaultJSONSupport[E]) SetUint64(obj map[string]any, key string, val uin
 	panic("unimplemented")
 }
 
+func (x defaultJSONSupport[E]) CanSetRawJSON() bool { return false }
+
+func (x defaultJSONSupport[E]) SetRawJSON(obj map[string]any, key string, val json.RawMessage) map[string]any {
+	panic("unimplemented")
+}
+
 func (x defaultJSONSupport[E]) NewArray() []any { return make([]any, 0) }
 
 func (x defaultJSONSupport[E]) AddArray(evt E, key string, arr []any) {
@@ -793,6 +828,12 @@ func (x defaultJSONSupport[E]) AppendInt64(arr []any, val int64) []any {
 func (x defaultJSONSupport[E]) CanAppendUint64() bool { return false }
 
 func (x defaultJSONSupport[E]) AppendUint64(arr []any, val uint64) []any {
+	panic("unimplemented")
+}
+
+func (x defaultJSONSupport[E]) CanAppendRawJSON() bool { return false }
+
+func (x defaultJSONSupport[E]) AppendRawJSON(arr []any, val json.RawMessage) []any {
 	panic("unimplemented")
 }
 

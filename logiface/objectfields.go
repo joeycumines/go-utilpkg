@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"time"
 )
 
@@ -90,6 +91,11 @@ func (x *objectFields[E, P]) AddInt64(key string, val int64) (ok bool) {
 
 func (x *objectFields[E, P]) AddUint64(key string, val uint64) (ok bool) {
 	x.b, ok = x.builder().objUint64(x.b, key, val)
+	return
+}
+
+func (x *objectFields[E, P]) AddRawJSON(key string, val json.RawMessage) (ok bool) {
+	x.b, ok = x.builder().objRawJSON(x.b, key, val)
 	return
 }
 

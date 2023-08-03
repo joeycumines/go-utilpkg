@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -234,6 +235,18 @@ func (x *Context[E]) objUint64(obj any, key string, val uint64) (any, bool) {
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *Context[E]) objRawJSON(obj any, key string, val json.RawMessage) (any, bool) {
+	if x.logger.shared.json.iface.CanSetRawJSON() {
+		o := obj.(*contextFieldData[E])
+		o.values = append(o.values, func(shared *loggerShared[E], obj any) any {
+			return shared.json.setRawJSON(obj, key, val)
+		})
+		return obj, true
+	}
+	return obj, false
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *Builder[E]) jsonNewObject(key string) any {
 	return x.shared.json.addStartOrNewObject(x.Event, key)
 }
@@ -362,6 +375,14 @@ func (x *Builder[E]) objUint64(obj any, key string, val uint64) (any, bool) {
 	return obj, false
 }
 
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) objRawJSON(obj any, key string, val json.RawMessage) (any, bool) {
+	if x.shared.json.iface.CanSetRawJSON() {
+		return x.shared.json.setRawJSON(obj, key, val), true
+	}
+	return obj, false
+}
+
 // p returns the parent of this object builder
 func (x *ObjectBuilder[E, P]) p() (p P) {
 	if x != nil && x.a != nil {
@@ -482,6 +503,11 @@ func (x *ObjectBuilder[E, P]) Int64(key string, val int64) *ObjectBuilder[E, P] 
 
 func (x *ObjectBuilder[E, P]) Uint64(key string, val uint64) *ObjectBuilder[E, P] {
 	_ = x.methods().Uint64(x.fields(), key, val)
+	return x
+}
+
+func (x *ObjectBuilder[E, P]) RawJSON(key string, val json.RawMessage) *ObjectBuilder[E, P] {
+	_ = x.methods().RawJSON(x.fields(), key, val)
 	return x
 }
 
@@ -660,6 +686,14 @@ func (x *ObjectBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, b
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) objRawJSON(obj any, key string, val json.RawMessage) (any, bool) {
+	if x.jsonMustUseDefault() {
+		return obj, false
+	}
+	return x.p().objRawJSON(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) jsonNewArray(key string) any {
 	return x.objNewArray(x.b, key)
 }
@@ -801,4 +835,12 @@ func (x *ObjectBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
 		return arr, false
 	}
 	return x.p().arrUint64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ObjectBuilder[E, P]) arrRawJSON(arr any, val json.RawMessage) (any, bool) {
+	if x.jsonMustUseDefault() {
+		return arr, false
+	}
+	return x.p().arrRawJSON(arr, val)
 }

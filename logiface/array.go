@@ -2,6 +2,7 @@ package logiface
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -259,6 +260,18 @@ func (x *Context[E]) arrUint64(arr any, val uint64) (any, bool) {
 	return arr, false
 }
 
+//lint:ignore U1000 it is or will be used
+func (x *Context[E]) arrRawJSON(arr any, val json.RawMessage) (any, bool) {
+	if x.logger.shared.json.iface.CanAppendRawJSON() {
+		a := arr.(*contextFieldData[E])
+		a.values = append(a.values, func(shared *loggerShared[E], arr any) any {
+			return shared.json.appendRawJSON(arr, val)
+		})
+		return arr, true
+	}
+	return arr, false
+}
+
 // Builder
 // ---
 // Uses the jsonSupport directly.
@@ -402,6 +415,14 @@ func (x *Builder[E]) arrUint64(arr any, val uint64) (any, bool) {
 	return arr, false
 }
 
+//lint:ignore U1000 it is or will be used
+func (x *Builder[E]) arrRawJSON(arr any, val json.RawMessage) (any, bool) {
+	if x.shared.json.iface.CanAppendRawJSON() {
+		return x.shared.json.appendRawJSON(arr, val), true
+	}
+	return arr, false
+}
+
 // ArrayBuilder
 // ---
 // Uses the same array types as its parent, UNLESS its immediate parent is an
@@ -525,6 +546,11 @@ func (x *ArrayBuilder[E, P]) Int64(val int64) *ArrayBuilder[E, P] {
 
 func (x *ArrayBuilder[E, P]) Uint64(val uint64) *ArrayBuilder[E, P] {
 	_ = x.methods().Uint64(x.fields(), ``, val)
+	return x
+}
+
+func (x *ArrayBuilder[E, P]) RawJSON(val json.RawMessage) *ArrayBuilder[E, P] {
+	_ = x.methods().RawJSON(x.fields(), ``, val)
 	return x
 }
 
@@ -710,6 +736,14 @@ func (x *ArrayBuilder[E, P]) objUint64(obj any, key string, val uint64) (any, bo
 }
 
 //lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) objRawJSON(obj any, key string, val json.RawMessage) (any, bool) {
+	if x.jsonMustUseDefault() {
+		return obj, false
+	}
+	return x.p().objRawJSON(obj, key, val)
+}
+
+//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) jsonNewArray(key string) any {
 	if key != `` {
 		x.Root().DPanic().Log(`logiface: cannot start writing to an array with a non-empty key`)
@@ -855,6 +889,14 @@ func (x *ArrayBuilder[E, P]) arrUint64(arr any, val uint64) (any, bool) {
 		return arr, false
 	}
 	return x.p().arrUint64(arr, val)
+}
+
+//lint:ignore U1000 it is or will be used
+func (x *ArrayBuilder[E, P]) arrRawJSON(arr any, val json.RawMessage) (any, bool) {
+	if x.jsonMustUseDefault() {
+		return arr, false
+	}
+	return x.p().arrRawJSON(arr, val)
 }
 
 func (x *contextFieldData[E]) array(event E) error {

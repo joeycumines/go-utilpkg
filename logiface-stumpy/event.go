@@ -211,6 +211,24 @@ func (*Logger) AppendUint64(arr *Event, val uint64) *Event {
 	return arr
 }
 
+func (x *Event) AddRawJSON(key string, val json.RawMessage) bool {
+	x.appendKey(key)
+	x.buf = append(x.buf, val...)
+	return true
+}
+func (*Logger) CanSetRawJSON() bool { return true }
+func (*Logger) SetRawJSON(obj *Event, key string, val json.RawMessage) *Event {
+	obj.appendKey(key)
+	obj.buf = append(obj.buf, val...)
+	return obj
+}
+func (*Logger) CanAppendRawJSON() bool { return true }
+func (*Logger) AppendRawJSON(arr *Event, val json.RawMessage) *Event {
+	arr.appendArraySeparator()
+	arr.buf = append(arr.buf, val...)
+	return arr
+}
+
 func (x *Event) appendFieldSeparator() {
 	if x.buf[len(x.buf)-1] != '{' {
 		x.buf = append(x.buf, ',')
