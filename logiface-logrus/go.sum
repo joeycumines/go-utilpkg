@@ -8,8 +8,8 @@ github.com/joeycumines/go-catrate v0.0.0-20230801223135-1f34224e5a77/go.mod h1:j
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230709000833-296958a4d58c h1:p8vtTftskfygev6lgzyZ3XWefFORt5PVB3VMe5mlj7k=
 github.com/joeycumines/logiface v0.4.0 h1:4p3Gq85SKhKbDsiBzNEwK6NEexRr+VfHEVdBDSG3Mns=
 github.com/joeycumines/logiface v0.4.0/go.mod h1:rInMFTuTzzBH271Er+A4k/VjDPSdth1f7slbTB2yQYc=
-github.com/joeycumines/logiface-testsuite v0.0.0-20230801223128-d121afa05108 h1:l3i8D34zcPi9oR+SFveUqM1CcQqH1ybwpdPwg55kBK0=
-github.com/joeycumines/logiface-testsuite v0.0.0-20230801223128-d121afa05108/go.mod h1:k/0l5ZnjxClmWy58gupWduvVsX6/sTp5GDYjJdPKuJw=
+github.com/joeycumines/logiface-testsuite v0.0.0-20230803131600-c3af6016c81a h1:o1SUvuC5ElYK5PSMY9r/UFC8GJDwMQQUGMrz24XtR0o=
+github.com/joeycumines/logiface-testsuite v0.0.0-20230803131600-c3af6016c81a/go.mod h1:4Xp4WXqlMLTC7WrjhzFaHqK0eqqjnZeSLyt7Qlm6HTM=
 github.com/joeycumines/stumpy v0.2.0 h1:fLvyJdhcjBwJLIRGzI16Ah4FeHrJYaoyQlKjT+0f+Io=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
