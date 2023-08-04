@@ -309,6 +309,34 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+
+	t.Run(`invalid raw json`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			RawJSON(`k`, json.RawMessage(`{`)).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" k=\"{\"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`valid raw json`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			RawJSON(`k`, json.RawMessage(`{"some key": ["some value", true, null, 1.3]}`)).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" k=\"{\\\"some key\\\": [\\\"some value\\\", true, null, 1.3]}\"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
 }
 
 func TestLogger_json(t *testing.T) {

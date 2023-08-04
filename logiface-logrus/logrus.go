@@ -2,6 +2,7 @@
 package ilogrus
 
 import (
+	"encoding/json"
 	"github.com/joeycumines/logiface"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -91,6 +92,14 @@ func (x *Event) AddError(err error) bool {
 	// consistent with logrus.Entry.WithError
 	x.Entry.Data[logrus.ErrorKey] = err
 	return true
+}
+
+func (x *Event) AddRawJSON(key string, val json.RawMessage) bool {
+	if _, ok := x.Entry.Logger.Formatter.(*logrus.TextFormatter); ok {
+		x.AddField(key, string(val))
+		return true
+	}
+	return false
 }
 
 func (x *Logger) NewEvent(level logiface.Level) *Event {
