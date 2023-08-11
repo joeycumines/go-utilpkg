@@ -1,6 +1,9 @@
 package prompt
 
-import "github.com/joeycumines/go-prompt/internal/debug"
+import (
+	"github.com/joeycumines/go-prompt/debug"
+	istrings "github.com/joeycumines/go-prompt/strings"
+)
 
 /*
 
@@ -42,79 +45,113 @@ var emacsKeyBindings = []KeyBind{
 	// Go to the End of the line
 	{
 		Key: ControlE,
-		Fn: func(buf *Buffer) {
-			x := []rune(buf.Document().TextAfterCursor())
-			buf.CursorRight(len(x))
+		Fn: func(p *Prompt) bool {
+			return p.CursorRightRunes(
+				istrings.RuneCountInString(p.buffer.Document().CurrentLineAfterCursor()),
+			)
 		},
 	},
 	// Go to the beginning of the line
 	{
 		Key: ControlA,
-		Fn: func(buf *Buffer) {
-			x := []rune(buf.Document().TextBeforeCursor())
-			buf.CursorLeft(len(x))
+		Fn: func(p *Prompt) bool {
+			return p.CursorLeftRunes(
+				p.buffer.Document().FindStartOfFirstWordOfLine(),
+			)
 		},
 	},
 	// Cut the Line after the cursor
 	{
 		Key: ControlK,
-		Fn: func(buf *Buffer) {
-			x := []rune(buf.Document().TextAfterCursor())
-			buf.Delete(len(x))
+		Fn: func(p *Prompt) bool {
+			p.buffer.DeleteRunes(
+				istrings.RuneCountInString(p.buffer.Document().CurrentLineAfterCursor()),
+				p.renderer.col,
+				p.renderer.row,
+			)
+			return true
 		},
 	},
 	// Cut/delete the Line before the cursor
 	{
 		Key: ControlU,
-		Fn: func(buf *Buffer) {
-			x := []rune(buf.Document().TextBeforeCursor())
-			buf.DeleteBeforeCursor(len(x))
+		Fn: func(p *Prompt) bool {
+			p.buffer.DeleteBeforeCursorRunes(
+				istrings.RuneCountInString(p.buffer.Document().CurrentLineBeforeCursor()),
+				p.renderer.col,
+				p.renderer.row,
+			)
+			return true
 		},
 	},
 	// Delete character under the cursor
 	{
 		Key: ControlD,
-		Fn: func(buf *Buffer) {
-			if buf.Text() != "" {
-				buf.Delete(1)
+		Fn: func(p *Prompt) bool {
+			if p.buffer.Text() != "" {
+				p.buffer.Delete(1, p.renderer.col, p.renderer.row)
+				return true
 			}
+			return false
 		},
 	},
 	// Backspace
 	{
 		Key: ControlH,
-		Fn: func(buf *Buffer) {
-			buf.DeleteBeforeCursor(1)
+		Fn: func(p *Prompt) bool {
+			p.buffer.DeleteBeforeCursor(1, p.renderer.col, p.renderer.row)
+			return true
 		},
 	},
 	// Right allow: Forward one character
 	{
 		Key: ControlF,
-		Fn: func(buf *Buffer) {
-			buf.CursorRight(1)
+		Fn: func(p *Prompt) bool {
+			return p.CursorRight(1)
+		},
+	},
+	// Alt Right allow: Forward one word
+	{
+		Key: AltRight,
+		Fn: func(p *Prompt) bool {
+			return p.CursorRightRunes(
+				p.buffer.Document().FindRuneNumberUntilEndOfCurrentWord(),
+			)
 		},
 	},
 	// Left allow: Backward one character
 	{
 		Key: ControlB,
-		Fn: func(buf *Buffer) {
-			buf.CursorLeft(1)
+		Fn: func(p *Prompt) bool {
+			return p.CursorLeft(1)
+		},
+	},
+	// Alt Left allow: Backward one word
+	{
+		Key: AltLeft,
+		Fn: func(p *Prompt) bool {
+			return p.CursorLeftRunes(
+				p.buffer.Document().FindRuneNumberUntilStartOfPreviousWord(),
+			)
 		},
 	},
 	// Cut the Word before the cursor.
 	{
 		Key: ControlW,
-		Fn: func(buf *Buffer) {
-			buf.DeleteBeforeCursor(len([]rune(buf.Document().GetWordBeforeCursorWithSpace())))
-		},
+		Fn:  DeleteWordBeforeCursor,
+	},
+	{
+		Key: AltBackspace,
+		Fn:  DeleteWordBeforeCursor,
 	},
 	// Clear the Screen, similar to the clear command
 	{
 		Key: ControlL,
-		Fn: func(buf *Buffer) {
+		Fn: func(p *Prompt) bool {
 			consoleWriter.EraseScreen()
 			consoleWriter.CursorGoTo(0, 0)
 			debug.AssertNoError(consoleWriter.Flush())
+			return true
 		},
 	},
 }

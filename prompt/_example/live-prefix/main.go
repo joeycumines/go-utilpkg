@@ -4,45 +4,44 @@ import (
 	"fmt"
 
 	prompt "github.com/joeycumines/go-prompt"
+	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
-var LivePrefixState struct {
-	LivePrefix string
-	IsEnable   bool
-}
+var LivePrefix string = ">>> "
 
 func executor(in string) {
 	fmt.Println("Your input: " + in)
 	if in == "" {
-		LivePrefixState.IsEnable = false
-		LivePrefixState.LivePrefix = in
+		LivePrefix = ">>> "
 		return
 	}
-	LivePrefixState.LivePrefix = in + "> "
-	LivePrefixState.IsEnable = true
+	LivePrefix = in + "> "
 }
 
-func completer(in prompt.Document) []prompt.Suggest {
+func completer(in prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
+	endIndex := in.CurrentRuneIndex()
+	w := in.GetWordBeforeCursor()
+	startIndex := endIndex - istrings.RuneCountInString(w)
+
 	s := []prompt.Suggest{
 		{Text: "users", Description: "Store the username and age"},
 		{Text: "articles", Description: "Store the article text posted by user"},
 		{Text: "comments", Description: "Store the text commented to articles"},
 		{Text: "groups", Description: "Combine users with specific rules"},
 	}
-	return prompt.FilterHasPrefix(s, in.GetWordBeforeCursor(), true)
+	return prompt.FilterHasPrefix(s, w, true), startIndex, endIndex
 }
 
-func changeLivePrefix() (string, bool) {
-	return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
+func changeLivePrefix() string {
+	return LivePrefix
 }
 
 func main() {
 	p := prompt.New(
 		executor,
-		completer,
-		prompt.OptionPrefix(">>> "),
-		prompt.OptionLivePrefix(changeLivePrefix),
-		prompt.OptionTitle("live-prefix-example"),
+		prompt.WithPrefixCallback(changeLivePrefix),
+		prompt.WithTitle("live-prefix-example"),
+		prompt.WithCompleter(completer),
 	)
 	p.Run()
 }

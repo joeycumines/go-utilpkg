@@ -1,7 +1,7 @@
 package prompt
 
 // KeyBindFunc receives buffer and processed it.
-type KeyBindFunc func(*Buffer)
+type KeyBindFunc func(p *Prompt) (rerender bool)
 
 // KeyBind represents which key should do what operation.
 type KeyBind struct {
@@ -16,13 +16,13 @@ type ASCIICodeBind struct {
 }
 
 // KeyBindMode to switch a key binding flexibly.
-type KeyBindMode string
+type KeyBindMode uint8
 
 const (
 	// CommonKeyBind is a mode without any keyboard shortcut
-	CommonKeyBind KeyBindMode = "common"
+	CommonKeyBind KeyBindMode = iota
 	// EmacsKeyBind is a mode to use emacs-like keyboard shortcut
-	EmacsKeyBind KeyBindMode = "emacs"
+	EmacsKeyBind
 )
 
 var commonKeyBindings = []KeyBind{

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"unicode/utf8"
+
+	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
 func ExampleDocument_CurrentLine() {
@@ -13,7 +15,7 @@ func ExampleDocument_CurrentLine() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.CurrentLine())
@@ -24,11 +26,11 @@ This is a exam`),
 func ExampleDocument_DisplayCursorPosition() {
 	d := &Document{
 		Text:           `Hello! my name is c-bata.`,
-		cursorPosition: len(`Hello`),
+		cursorPosition: istrings.RuneCountInString(`Hello`),
 	}
-	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition())
+	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition(50))
 	// Output:
-	// DisplayCursorPosition 5
+	// DisplayCursorPosition {5 0}
 }
 
 func ExampleDocument_CursorPositionRow() {
@@ -37,7 +39,7 @@ func ExampleDocument_CursorPositionRow() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println("CursorPositionRow", d.CursorPositionRow())
@@ -51,7 +53,7 @@ func ExampleDocument_CursorPositionCol() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println("CursorPositionCol", d.CursorPositionCol())
@@ -65,7 +67,7 @@ func ExampleDocument_TextBeforeCursor() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.TextBeforeCursor())
@@ -80,7 +82,7 @@ func ExampleDocument_TextAfterCursor() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.TextAfterCursor())
@@ -94,9 +96,9 @@ func ExampleDocument_DisplayCursorPosition_withJapanese() {
 		Text:           `こんにちは、芝田 将です。`,
 		cursorPosition: 3,
 	}
-	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition())
+	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition(30))
 	// Output:
-	// DisplayCursorPosition 6
+	// DisplayCursorPosition {6 0}
 }
 
 func ExampleDocument_CurrentLineBeforeCursor() {
@@ -105,7 +107,7 @@ func ExampleDocument_CurrentLineBeforeCursor() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.CurrentLineBeforeCursor())
@@ -119,7 +121,7 @@ func ExampleDocument_CurrentLineAfterCursor() {
 This is a example of Document component.
 This component has texts displayed in terminal and cursor position.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.CurrentLineAfterCursor())
@@ -132,7 +134,7 @@ func ExampleDocument_GetWordBeforeCursor() {
 		Text: `Hello! my name is c-bata.
 This is a example of Document component.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.GetWordBeforeCursor())
@@ -145,7 +147,7 @@ func ExampleDocument_GetWordAfterCursor() {
 		Text: `Hello! my name is c-bata.
 This is a example of Document component.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a exam`),
 	}
 	fmt.Println(d.GetWordAfterCursor())
@@ -158,7 +160,7 @@ func ExampleDocument_GetWordBeforeCursorWithSpace() {
 		Text: `Hello! my name is c-bata.
 This is a example of Document component.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a example `),
 	}
 	fmt.Println(d.GetWordBeforeCursorWithSpace())
@@ -171,7 +173,7 @@ func ExampleDocument_GetWordAfterCursorWithSpace() {
 		Text: `Hello! my name is c-bata.
 This is a example of Document component.
 `,
-		cursorPosition: len(`Hello! my name is c-bata.
+		cursorPosition: istrings.RuneCountInString(`Hello! my name is c-bata.
 This is a`),
 	}
 	fmt.Println(d.GetWordAfterCursorWithSpace())
@@ -182,7 +184,7 @@ This is a`),
 func ExampleDocument_GetWordBeforeCursorUntilSeparator() {
 	d := &Document{
 		Text:           `hello,i am c-bata`,
-		cursorPosition: len(`hello,i am c`),
+		cursorPosition: istrings.RuneCountInString(`hello,i am c`),
 	}
 	fmt.Println(d.GetWordBeforeCursorUntilSeparator(","))
 	// Output:
@@ -192,7 +194,7 @@ func ExampleDocument_GetWordBeforeCursorUntilSeparator() {
 func ExampleDocument_GetWordAfterCursorUntilSeparator() {
 	d := &Document{
 		Text:           `hello,i am c-bata,thank you for using go-prompt`,
-		cursorPosition: len(`hello,i a`),
+		cursorPosition: istrings.RuneCountInString(`hello,i a`),
 	}
 	fmt.Println(d.GetWordAfterCursorUntilSeparator(","))
 	// Output:
@@ -202,7 +204,7 @@ func ExampleDocument_GetWordAfterCursorUntilSeparator() {
 func ExampleDocument_GetWordBeforeCursorUntilSeparatorIgnoreNextToCursor() {
 	d := &Document{
 		Text:           `hello,i am c-bata,thank you for using go-prompt`,
-		cursorPosition: len(`hello,i am c-bata,`),
+		cursorPosition: istrings.RuneCountInString(`hello,i am c-bata,`),
 	}
 	fmt.Println(d.GetWordBeforeCursorUntilSeparatorIgnoreNextToCursor(","))
 	// Output:
@@ -212,7 +214,7 @@ func ExampleDocument_GetWordBeforeCursorUntilSeparatorIgnoreNextToCursor() {
 func ExampleDocument_GetWordAfterCursorUntilSeparatorIgnoreNextToCursor() {
 	d := &Document{
 		Text:           `hello,i am c-bata,thank you for using go-prompt`,
-		cursorPosition: len(`hello`),
+		cursorPosition: istrings.RuneCountInString(`hello`),
 	}
 	fmt.Println(d.GetWordAfterCursorUntilSeparatorIgnoreNextToCursor(","))
 	// Output:
@@ -222,21 +224,21 @@ func ExampleDocument_GetWordAfterCursorUntilSeparatorIgnoreNextToCursor() {
 func TestDocument_DisplayCursorPosition(t *testing.T) {
 	patterns := []struct {
 		document *Document
-		expected int
+		expected Position
 	}{
 		{
 			document: &Document{
 				Text:           "hello",
 				cursorPosition: 2,
 			},
-			expected: 2,
+			expected: Position{X: 2},
 		},
 		{
 			document: &Document{
 				Text:           "こんにちは",
 				cursorPosition: 2,
 			},
-			expected: 4,
+			expected: Position{X: 4},
 		},
 		{
 			// If you're facing test failure on this test case and your terminal is iTerm2,
@@ -247,12 +249,12 @@ func TestDocument_DisplayCursorPosition(t *testing.T) {
 				Text:           "Добрый день",
 				cursorPosition: 3,
 			},
-			expected: 3,
+			expected: Position{X: 3},
 		},
 	}
 
 	for _, p := range patterns {
-		ac := p.document.DisplayCursorPosition()
+		ac := p.document.DisplayCursorPosition(30)
 		if ac != p.expected {
 			t.Errorf("Should be %#v, got %#v", p.expected, ac)
 		}
@@ -267,7 +269,7 @@ func TestDocument_GetCharRelativeToCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "line 1\nline 2\nline 3\nline 4\n",
-				cursorPosition: len([]rune("line 1\n" + "lin")),
+				cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 			},
 			expected: "e",
 		},
@@ -304,7 +306,7 @@ func TestDocument_TextBeforeCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "line 1\nline 2\nline 3\nline 4\n",
-				cursorPosition: len("line 1\n" + "lin"),
+				cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 			},
 			expected: "line 1\nlin",
 		},
@@ -331,6 +333,90 @@ func TestDocument_TextBeforeCursor(t *testing.T) {
 	}
 }
 
+func TestDocument_LastLineIndentLevel(t *testing.T) {
+	tests := []struct {
+		document   *Document
+		indentSize int
+		want       int
+	}{
+		{
+			document: &Document{
+				Text: "line 1\nline 2\nline 3\n      line 4",
+			},
+			indentSize: 2,
+			want:       3,
+		},
+		{
+			document: &Document{
+				Text: "line 1\nline 2\nline 3\n      line 4",
+			},
+			indentSize: 1,
+			want:       6,
+		},
+		{
+			document: &Document{
+				Text: "line 1\nline 2\nline 3\n      line 4",
+			},
+			indentSize: 4,
+			want:       1,
+		},
+		{
+			document: &Document{
+				Text: "line 1\nline 2\nline 3\n      line 4",
+			},
+			indentSize: 0,
+			want:       0,
+		},
+	}
+
+	for i, tc := range tests {
+		got := tc.document.LastLineIndentLevel(tc.indentSize)
+		if got != tc.want {
+			t.Errorf("[%d] Should be %#v, got %#v", i, tc.want, got)
+		}
+	}
+}
+
+func TestDocument_PreviousLine(t *testing.T) {
+	tests := []struct {
+		document *Document
+		want     string
+		ok       bool
+	}{
+		{
+			document: &Document{
+				Text:           "line 1\nline 2\nline 3\n      line 4",
+				cursorPosition: 32,
+			},
+			want: "line 3",
+			ok:   true,
+		},
+		{
+			document: &Document{
+				Text:           "line 1\nline 2\nline 3\n      line 4",
+				cursorPosition: 19,
+			},
+			want: "line 2",
+			ok:   true,
+		},
+		{
+			document: &Document{
+				Text:           "line 1\nline 2\nline 3\n      line 4",
+				cursorPosition: 1,
+			},
+			want: "",
+			ok:   false,
+		},
+	}
+
+	for i, tc := range tests {
+		got, ok := tc.document.PreviousLine()
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("[%d] Should be (%#v, %#v), got (%#v, %#v)", i, tc.want, tc.ok, got, ok)
+		}
+	}
+}
+
 func TestDocument_TextAfterCursor(t *testing.T) {
 	pattern := []struct {
 		document *Document
@@ -339,7 +425,7 @@ func TestDocument_TextAfterCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "line 1\nline 2\nline 3\nline 4\n",
-				cursorPosition: len("line 1\n" + "lin"),
+				cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 			},
 			expected: "e 2\nline 3\nline 4\n",
 		},
@@ -383,14 +469,14 @@ func TestDocument_GetWordBeforeCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
 			expected: "bana",
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./file/foo.json"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./file/foo.json"),
 			},
 			expected: "foo.json",
 			sep:      " /",
@@ -398,14 +484,14 @@ func TestDocument_GetWordBeforeCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple banana orange",
-				cursorPosition: len("apple ba"),
+				cursorPosition: istrings.RuneCountInString("apple ba"),
 			},
 			expected: "ba",
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./fi"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./fi"),
 			},
 			expected: "fi",
 			sep:      " /",
@@ -413,7 +499,7 @@ func TestDocument_GetWordBeforeCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple ",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
 			expected: "",
 		},
@@ -461,14 +547,14 @@ func TestDocument_GetWordBeforeCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana ",
-				cursorPosition: len("apple bana "),
+				cursorPosition: istrings.RuneCountInString("apple bana "),
 			},
 			expected: "bana ",
 		},
 		{
 			document: &Document{
 				Text:           "apply -f /path/to/file/",
-				cursorPosition: len("apply -f /path/to/file/"),
+				cursorPosition: istrings.RuneCountInString("apply -f /path/to/file/"),
 			},
 			expected: "file/",
 			sep:      " /",
@@ -476,14 +562,14 @@ func TestDocument_GetWordBeforeCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple ",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
 			expected: "apple ",
 		},
 		{
 			document: &Document{
 				Text:           "path/",
-				cursorPosition: len("path/"),
+				cursorPosition: istrings.RuneCountInString("path/"),
 			},
 			expected: "path/",
 			sep:      " /",
@@ -526,37 +612,37 @@ func TestDocument_GetWordBeforeCursorWithSpace(t *testing.T) {
 func TestDocument_FindStartOfPreviousWord(t *testing.T) {
 	pattern := []struct {
 		document *Document
-		expected int
+		expected istrings.ByteNumber
 		sep      string
 	}{
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
-			expected: len("apple "),
+			expected: istrings.Len("apple "),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./file/foo.json"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./file/foo.json"),
 			},
-			expected: len("apply -f ./file/"),
+			expected: istrings.Len("apply -f ./file/"),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple ",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
-			expected: len("apple "),
+			expected: istrings.Len("apple "),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./"),
 			},
-			expected: len("apply -f ./"),
+			expected: istrings.Len("apply -f ./"),
 			sep:      " /",
 		},
 		{
@@ -564,14 +650,14 @@ func TestDocument_FindStartOfPreviousWord(t *testing.T) {
 				Text:           "あいうえお かきくけこ さしすせそ",
 				cursorPosition: 8, // between 'き' and 'く'
 			},
-			expected: len("あいうえお "), // this function returns index byte in string
+			expected: istrings.Len("あいうえお "), // this function returns index byte in string
 		},
 		{
 			document: &Document{
 				Text:           "Добрый день Добрый день",
 				cursorPosition: 9,
 			},
-			expected: len("Добрый "), // this function returns index byte in string
+			expected: istrings.Len("Добрый "), // this function returns index byte in string
 		},
 	}
 
@@ -597,37 +683,37 @@ func TestDocument_FindStartOfPreviousWord(t *testing.T) {
 func TestDocument_FindStartOfPreviousWordWithSpace(t *testing.T) {
 	pattern := []struct {
 		document *Document
-		expected int
+		expected istrings.ByteNumber
 		sep      string
 	}{
 		{
 			document: &Document{
 				Text:           "apple bana ",
-				cursorPosition: len("apple bana "),
+				cursorPosition: istrings.RuneCountInString("apple bana "),
 			},
-			expected: len("apple "),
+			expected: istrings.Len("apple "),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f /file/foo/",
-				cursorPosition: len("apply -f /file/foo/"),
+				cursorPosition: istrings.RuneCountInString("apply -f /file/foo/"),
 			},
-			expected: len("apply -f /file/"),
+			expected: istrings.Len("apply -f /file/"),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple ",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 		},
 		{
 			document: &Document{
 				Text:           "file/",
-				cursorPosition: len("file/"),
+				cursorPosition: istrings.RuneCountInString("file/"),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 			sep:      " /",
 		},
 		{
@@ -635,14 +721,14 @@ func TestDocument_FindStartOfPreviousWordWithSpace(t *testing.T) {
 				Text:           "あいうえお かきくけこ ",
 				cursorPosition: 12, // cursor points to last
 			},
-			expected: len("あいうえお "), // this function returns index byte in string
+			expected: istrings.Len("あいうえお "), // this function returns index byte in string
 		},
 		{
 			document: &Document{
 				Text:           "Добрый день ",
 				cursorPosition: 12,
 			},
-			expected: len("Добрый "), // this function returns index byte in string
+			expected: istrings.Len("Добрый "), // this function returns index byte in string
 		},
 	}
 
@@ -674,14 +760,14 @@ func TestDocument_GetWordAfterCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
 			expected: "",
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./fi"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./fi"),
 			},
 			expected: "le",
 			sep:      " /",
@@ -689,21 +775,21 @@ func TestDocument_GetWordAfterCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
 			expected: "bana",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple"),
+				cursorPosition: istrings.RuneCountInString("apple"),
 			},
 			expected: "",
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ."),
+				cursorPosition: istrings.RuneCountInString("apply -f ."),
 			},
 			expected: "",
 			sep:      " /",
@@ -711,7 +797,7 @@ func TestDocument_GetWordAfterCursor(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("ap"),
+				cursorPosition: istrings.RuneCountInString("ap"),
 			},
 			expected: "ple",
 		},
@@ -759,21 +845,21 @@ func TestDocument_GetWordAfterCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
 			expected: "",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
 			expected: "bana",
 		},
 		{
 			document: &Document{
 				Text:           "/path/to",
-				cursorPosition: len("/path/"),
+				cursorPosition: istrings.RuneCountInString("/path/"),
 			},
 			expected: "to",
 			sep:      " /",
@@ -781,7 +867,7 @@ func TestDocument_GetWordAfterCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "/path/to/file",
-				cursorPosition: len("/path/"),
+				cursorPosition: istrings.RuneCountInString("/path/"),
 			},
 			expected: "to",
 			sep:      " /",
@@ -789,14 +875,14 @@ func TestDocument_GetWordAfterCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple"),
+				cursorPosition: istrings.RuneCountInString("apple"),
 			},
 			expected: " bana",
 		},
 		{
 			document: &Document{
 				Text:           "path/to",
-				cursorPosition: len("path"),
+				cursorPosition: istrings.RuneCountInString("path"),
 			},
 			expected: "/to",
 			sep:      " /",
@@ -804,7 +890,7 @@ func TestDocument_GetWordAfterCursorWithSpace(t *testing.T) {
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("ap"),
+				cursorPosition: istrings.RuneCountInString("ap"),
 			},
 			expected: "ple",
 		},
@@ -846,52 +932,52 @@ func TestDocument_GetWordAfterCursorWithSpace(t *testing.T) {
 func TestDocument_FindEndOfCurrentWord(t *testing.T) {
 	pattern := []struct {
 		document *Document
-		expected int
+		expected istrings.ByteNumber
 		sep      string
 	}{
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
-			expected: len("bana"),
+			expected: istrings.Len("bana"),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ./"),
+				cursorPosition: istrings.RuneCountInString("apply -f ./"),
 			},
-			expected: len("file"),
+			expected: istrings.Len("file"),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple"),
+				cursorPosition: istrings.RuneCountInString("apple"),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f ./file/foo.json",
-				cursorPosition: len("apply -f ."),
+				cursorPosition: istrings.RuneCountInString("apply -f ."),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("ap"),
+				cursorPosition: istrings.RuneCountInString("ap"),
 			},
-			expected: len("ple"),
+			expected: istrings.Len("ple"),
 		},
 		{
 			// りん(cursor)ご ばなな
@@ -899,7 +985,7 @@ func TestDocument_FindEndOfCurrentWord(t *testing.T) {
 				Text:           "りんご ばなな",
 				cursorPosition: 2,
 			},
-			expected: len("ご"),
+			expected: istrings.Len("ご"),
 		},
 		{
 			document: &Document{
@@ -914,7 +1000,7 @@ func TestDocument_FindEndOfCurrentWord(t *testing.T) {
 				Text:           "Добрый день",
 				cursorPosition: 3,
 			},
-			expected: len("рый"),
+			expected: istrings.Len("рый"),
 		},
 	}
 
@@ -940,73 +1026,73 @@ func TestDocument_FindEndOfCurrentWord(t *testing.T) {
 func TestDocument_FindEndOfCurrentWordWithSpace(t *testing.T) {
 	pattern := []struct {
 		document *Document
-		expected int
+		expected istrings.ByteNumber
 		sep      string
 	}{
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple bana"),
+				cursorPosition: istrings.RuneCountInString("apple bana"),
 			},
-			expected: len(""),
+			expected: istrings.Len(""),
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple "),
+				cursorPosition: istrings.RuneCountInString("apple "),
 			},
-			expected: len("bana"),
+			expected: istrings.Len("bana"),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f /file/foo.json",
-				cursorPosition: len("apply -f /"),
+				cursorPosition: istrings.RuneCountInString("apply -f /"),
 			},
-			expected: len("file"),
+			expected: istrings.Len("file"),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("apple"),
+				cursorPosition: istrings.RuneCountInString("apple"),
 			},
-			expected: len(" bana"),
+			expected: istrings.Len(" bana"),
 		},
 		{
 			document: &Document{
 				Text:           "apply -f /path/to",
-				cursorPosition: len("apply -f /path"),
+				cursorPosition: istrings.RuneCountInString("apply -f /path"),
 			},
-			expected: len("/to"),
+			expected: istrings.Len("/to"),
 			sep:      " /",
 		},
 		{
 			document: &Document{
 				Text:           "apple bana",
-				cursorPosition: len("ap"),
+				cursorPosition: istrings.RuneCountInString("ap"),
 			},
-			expected: len("ple"),
+			expected: istrings.Len("ple"),
 		},
 		{
 			document: &Document{
 				Text:           "あいうえお かきくけこ",
 				cursorPosition: 6,
 			},
-			expected: len("かきくけこ"),
+			expected: istrings.Len("かきくけこ"),
 		},
 		{
 			document: &Document{
 				Text:           "あいうえお かきくけこ",
 				cursorPosition: 5,
 			},
-			expected: len(" かきくけこ"),
+			expected: istrings.Len(" かきくけこ"),
 		},
 		{
 			document: &Document{
 				Text:           "Добрый день",
 				cursorPosition: 6,
 			},
-			expected: len(" день"),
+			expected: istrings.Len(" день"),
 		},
 	}
 
@@ -1032,7 +1118,7 @@ func TestDocument_FindEndOfCurrentWordWithSpace(t *testing.T) {
 func TestDocument_CurrentLineBeforeCursor(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.CurrentLineBeforeCursor()
 	ex := "lin"
@@ -1044,7 +1130,7 @@ func TestDocument_CurrentLineBeforeCursor(t *testing.T) {
 func TestDocument_CurrentLineAfterCursor(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.CurrentLineAfterCursor()
 	ex := "e 2"
@@ -1056,7 +1142,7 @@ func TestDocument_CurrentLineAfterCursor(t *testing.T) {
 func TestDocument_CurrentLine(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.CurrentLine()
 	ex := "line 2"
@@ -1068,11 +1154,11 @@ func TestDocument_CurrentLine(t *testing.T) {
 func TestDocument_CursorPositionRowAndCol(t *testing.T) {
 	var cursorPositionTests = []struct {
 		document    *Document
-		expectedRow int
-		expectedCol int
+		expectedRow istrings.RuneNumber
+		expectedCol istrings.Width
 	}{
 		{
-			document:    &Document{Text: "line 1\nline 2\nline 3\n", cursorPosition: len("line 1\n" + "lin")},
+			document:    &Document{Text: "line 1\nline 2\nline 3\n", cursorPosition: istrings.RuneCountInString("line 1\n" + "lin")},
 			expectedRow: 1,
 			expectedCol: 3,
 		},
@@ -1083,13 +1169,13 @@ func TestDocument_CursorPositionRowAndCol(t *testing.T) {
 		},
 	}
 	for _, test := range cursorPositionTests {
-		ac := test.document.CursorPositionRow()
-		if ac != test.expectedRow {
-			t.Errorf("Should be %#v, got %#v", test.expectedRow, ac)
+		r := test.document.CursorPositionRow()
+		if r != test.expectedRow {
+			t.Errorf("Should be %#v, got %#v", test.expectedRow, r)
 		}
-		ac = test.document.CursorPositionCol()
-		if ac != test.expectedCol {
-			t.Errorf("Should be %#v, got %#v", test.expectedCol, ac)
+		c := test.document.CursorPositionCol()
+		if c != test.expectedCol {
+			t.Errorf("Should be %#v, got %#v", test.expectedCol, c)
 		}
 	}
 }
@@ -1097,15 +1183,21 @@ func TestDocument_CursorPositionRowAndCol(t *testing.T) {
 func TestDocument_GetCursorLeftPosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "line 2\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "line 2\n" + "lin"),
 	}
 	ac := d.GetCursorLeftPosition(2)
-	ex := -2
+	var ex istrings.RuneNumber = -2
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
 	ac = d.GetCursorLeftPosition(10)
-	ex = -3
+	ex = -10
+	if ac != ex {
+		t.Errorf("Should be %#v, got %#v", ex, ac)
+	}
+
+	ac = d.GetCursorLeftPosition(30)
+	ex = -17
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
@@ -1114,16 +1206,16 @@ func TestDocument_GetCursorLeftPosition(t *testing.T) {
 func TestDocument_GetCursorUpPosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "line 2\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "line 2\n" + "lin"),
 	}
 	ac := d.GetCursorUpPosition(2, -1)
-	ex := len("lin") - len("line 1\n"+"line 2\n"+"lin")
+	ex := istrings.RuneCountInString("lin") - istrings.RuneCountInString("line 1\n"+"line 2\n"+"lin")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
 
 	ac = d.GetCursorUpPosition(100, -1)
-	ex = len("lin") - len("line 1\n"+"line 2\n"+"lin")
+	ex = istrings.RuneCountInString("lin") - istrings.RuneCountInString("line 1\n"+"line 2\n"+"lin")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
@@ -1132,16 +1224,16 @@ func TestDocument_GetCursorUpPosition(t *testing.T) {
 func TestDocument_GetCursorDownPosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("lin"),
+		cursorPosition: istrings.RuneCountInString("lin"),
 	}
 	ac := d.GetCursorDownPosition(2, -1)
-	ex := len("line 1\n"+"line 2\n"+"lin") - len("lin")
+	ex := istrings.RuneCountInString("line 1\n"+"line 2\n"+"lin") - istrings.RuneCountInString("lin")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
 
 	ac = d.GetCursorDownPosition(100, -1)
-	ex = len("line 1\n"+"line 2\n"+"line 3\n"+"line 4\n") - len("lin")
+	ex = istrings.RuneCountInString("line 1\n"+"line 2\n"+"line 3\n"+"line 4\n") - istrings.RuneCountInString("lin")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
@@ -1150,15 +1242,21 @@ func TestDocument_GetCursorDownPosition(t *testing.T) {
 func TestDocument_GetCursorRightPosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "line 2\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "line 2\n" + "lin"),
 	}
 	ac := d.GetCursorRightPosition(2)
-	ex := 2
+	var ex istrings.RuneNumber = 2
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
 	ac = d.GetCursorRightPosition(10)
-	ex = 3
+	ex = 10
+	if ac != ex {
+		t.Errorf("Should be %#v, got %#v", ex, ac)
+	}
+
+	ac = d.GetCursorRightPosition(30)
+	ex = 11
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
@@ -1167,7 +1265,7 @@ func TestDocument_GetCursorRightPosition(t *testing.T) {
 func TestDocument_Lines(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.Lines()
 	ex := []string{"line 1", "line 2", "line 3", "line 4", ""}
@@ -1179,7 +1277,7 @@ func TestDocument_Lines(t *testing.T) {
 func TestDocument_LineCount(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.LineCount()
 	ex := 5
@@ -1191,9 +1289,9 @@ func TestDocument_LineCount(t *testing.T) {
 func TestDocument_TranslateIndexToPosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
-	row, col := d.TranslateIndexToPosition(len("line 1\nline 2\nlin"))
+	row, col := d.TranslateIndexToPosition(istrings.RuneCountInString("line 1\nline 2\nlin"))
 	if row != 2 {
 		t.Errorf("Should be %#v, got %#v", 2, row)
 	}
@@ -1212,10 +1310,10 @@ func TestDocument_TranslateIndexToPosition(t *testing.T) {
 func TestDocument_TranslateRowColToIndex(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3\nline 4\n",
-		cursorPosition: len("line 1\n" + "lin"),
+		cursorPosition: istrings.RuneCountInString("line 1\n" + "lin"),
 	}
 	ac := d.TranslateRowColToIndex(2, 3)
-	ex := len("line 1\nline 2\nlin")
+	ex := istrings.RuneCountInString("line 1\nline 2\nlin")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}
@@ -1229,13 +1327,13 @@ func TestDocument_TranslateRowColToIndex(t *testing.T) {
 func TestDocument_OnLastLine(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3",
-		cursorPosition: len("line 1\nline"),
+		cursorPosition: istrings.RuneCountInString("line 1\nline"),
 	}
 	ac := d.OnLastLine()
 	if ac {
 		t.Errorf("Should be %#v, got %#v", false, ac)
 	}
-	d.cursorPosition = len("line 1\nline 2\nline")
+	d.cursorPosition = istrings.RuneCountInString("line 1\nline 2\nline")
 	ac = d.OnLastLine()
 	if !ac {
 		t.Errorf("Should be %#v, got %#v", true, ac)
@@ -1245,10 +1343,10 @@ func TestDocument_OnLastLine(t *testing.T) {
 func TestDocument_GetEndOfLinePosition(t *testing.T) {
 	d := &Document{
 		Text:           "line 1\nline 2\nline 3",
-		cursorPosition: len("line 1\nli"),
+		cursorPosition: istrings.RuneCountInString("line 1\nli"),
 	}
 	ac := d.GetEndOfLinePosition()
-	ex := len("ne 2")
+	ex := istrings.RuneCountInString("ne 2")
 	if ac != ex {
 		t.Errorf("Should be %#v, got %#v", ex, ac)
 	}

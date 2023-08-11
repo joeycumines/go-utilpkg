@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	prompt "github.com/joeycumines/go-prompt"
+	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
 type RequestContext struct {
@@ -92,11 +93,13 @@ var suggestions = []prompt.Suggest{
 	{"X-XSRF-TOKEN", "Prevent cross-site request forgery"},
 }
 
-func livePrefix() (string, bool) {
-	if ctx.url.Path == "/" {
-		return "", false
+func livePrefix(defaultPrefix string) prompt.PrefixCallback {
+	return func() string {
+		if ctx.url.Path == "/" {
+			return defaultPrefix
+		}
+		return ctx.url.String() + "> "
 	}
-	return ctx.url.String() + "> ", true
 }
 
 func executor(in string) {
@@ -155,12 +158,15 @@ func executor(in string) {
 	}
 }
 
-func completer(in prompt.Document) []prompt.Suggest {
+func completer(in prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
+	endIndex := in.CurrentRuneIndex()
+	in.
 	w := in.GetWordBeforeCursor()
 	if w == "" {
-		return []prompt.Suggest{}
+		return []prompt.Suggest{}, 0, 0
 	}
-	return prompt.FilterHasPrefix(suggestions, w, true)
+	startIndex := endIndex - istrings.RuneCountInString(w)
+	return prompt.FilterHasPrefix(suggestions, w, true), startIndex, endIndex
 }
 
 func main() {
@@ -183,10 +189,9 @@ func main() {
 
 	p := prompt.New(
 		executor,
-		completer,
-		prompt.OptionPrefix(u.String()+"> "),
-		prompt.OptionLivePrefix(livePrefix),
-		prompt.OptionTitle("http-prompt"),
+		prompt.WithPrefixCallback(livePrefix(u.String()+"> ")),
+		prompt.WithTitle("http-prompt"),
+		prompt.WithCompleter(completer),
 	)
 	p.Run()
 }

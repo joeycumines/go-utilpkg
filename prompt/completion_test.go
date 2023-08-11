@@ -3,14 +3,16 @@ package prompt
 import (
 	"reflect"
 	"testing"
+
+	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
 func TestFormatShortSuggestion(t *testing.T) {
 	var scenarioTable = []struct {
 		in       []Suggest
 		expected []Suggest
-		max      int
-		exWidth  int
+		max      istrings.Width
+		exWidth  istrings.Width
 	}{
 		{
 			in: []Suggest{
@@ -38,7 +40,7 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " coconut ", Description: " This is coconut. "},
 			},
 			max:     100,
-			exWidth: len(" apple   " + " This is apple.   "),
+			exWidth: istrings.Width(len(" apple   " + " This is apple.   ")),
 		},
 		{
 			in: []Suggest{
@@ -82,7 +84,7 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " --include-extended-apis       ", Description: " --------------... "},
 			},
 			max:     50,
-			exWidth: len(" --include-extended-apis       " + " ---------------..."),
+			exWidth: istrings.Width(len(" --include-extended-apis       " + " ---------------...")),
 		},
 		{
 			in: []Suggest{
@@ -102,7 +104,7 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " --include-extended-apis       ", Description: " If true, include definitions of new APIs via calls to the API server. [default true]                                                            "},
 			},
 			max:     500,
-			exWidth: len(" --include-extended-apis       " + " If true, include definitions of new APIs via calls to the API server. [default true]                                                            "),
+			exWidth: istrings.Width(len(" --include-extended-apis       " + " If true, include definitions of new APIs via calls to the API server. [default true]                                                            ")),
 		},
 	}
 
@@ -121,8 +123,8 @@ func TestFormatText(t *testing.T) {
 	var scenarioTable = []struct {
 		in       []string
 		expected []string
-		max      int
-		exWidth  int
+		max      istrings.Width
+		exWidth  istrings.Width
 	}{
 		{
 			in: []string{
@@ -161,7 +163,7 @@ func TestFormatText(t *testing.T) {
 				"",
 				"",
 			},
-			max:     len(" " + " " + shortenSuffix),
+			max:     istrings.GetWidth(" " + " " + shortenSuffix),
 			exWidth: 0,
 		},
 		{
@@ -176,7 +178,7 @@ func TestFormatText(t *testing.T) {
 				" coconut ",
 			},
 			max:     100,
-			exWidth: len(" coconut "),
+			exWidth: istrings.GetWidth(" coconut "),
 		},
 		{
 			in: []string{
@@ -202,5 +204,12 @@ func TestFormatText(t *testing.T) {
 		if !reflect.DeepEqual(actual, s.expected) {
 			t.Errorf("[scenario %d] Want %#v, but got %#v\n", i, s.expected, actual)
 		}
+	}
+}
+
+func TestNoopCompleter(t *testing.T) {
+	sug, start, end := NoopCompleter(Document{})
+	if sug != nil || start != 0 || end != 0 {
+		t.Errorf("NoopCompleter should return nil")
 	}
 }

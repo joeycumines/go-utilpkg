@@ -57,7 +57,9 @@ const (
 	Up
 	Down
 	Right
+	AltRight
 	Left
+	AltLeft
 
 	ShiftLeft
 	ShiftUp
@@ -74,6 +76,7 @@ const (
 	BackTab
 	Insert
 	Backspace
+	AltBackspace
 
 	// Aliases.
 	Tab
