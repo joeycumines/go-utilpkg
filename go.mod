@@ -6,7 +6,7 @@ require (
 	github.com/dkorunic/betteralign v0.3.0
 	github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57
 	golang.org/x/perf v0.0.0-20230717203022-1ba3a21238c9
-	golang.org/x/tools v0.11.1
+	golang.org/x/tools v0.12.0
 	honnef.co/go/tools v0.4.3
 )
 
@@ -26,9 +26,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/yuin/goldmark v1.5.5 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
-	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b // indirect
-	golang.org/x/exp/typeparams v0.0.0-20230801115018-d63ba01acd4b // indirect
+	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb // indirect
+	golang.org/x/exp/typeparams v0.0.0-20230811145659-89c5cff77bcb // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )

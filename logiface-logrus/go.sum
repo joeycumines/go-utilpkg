@@ -8,8 +8,8 @@ github.com/joeycumines/go-catrate v0.0.0-20230801223135-1f34224e5a77/go.mod h1:j
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=
 github.com/joeycumines/logiface v0.5.0/go.mod h1:ivS8dtJp7dLyHPZjloZXdDs1AJ50ZTj9hXnwHzLFXb8=
-github.com/joeycumines/logiface-testsuite v0.0.0-20230803131600-c3af6016c81a h1:o1SUvuC5ElYK5PSMY9r/UFC8GJDwMQQUGMrz24XtR0o=
-github.com/joeycumines/logiface-testsuite v0.0.0-20230803131600-c3af6016c81a/go.mod h1:4Xp4WXqlMLTC7WrjhzFaHqK0eqqjnZeSLyt7Qlm6HTM=
+github.com/joeycumines/logiface-testsuite v0.0.0-20230803164242-a5700377c78a h1:iF/U6r9wLY7LGC8tNtWJaJEd7S9RGGm8qot62Dy3Tdc=
+github.com/joeycumines/logiface-testsuite v0.0.0-20230803164242-a5700377c78a/go.mod h1:wZvvCSEISFLwlr6Tx4BnnIoyjdTP/7BGVnSJugF0XMg=
 github.com/joeycumines/stumpy v0.2.0 h1:fLvyJdhcjBwJLIRGzI16Ah4FeHrJYaoyQlKjT+0f+Io=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
@@ -18,11 +18,11 @@ github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVs
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
-golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b h1:r+vk0EmXNmekl0S0BascoeeoHk/L7wmaW2QF90K+kYI=
-golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b/go.mod h1:FXUEEKJgO7OQYeo8N01OfiKP8RXMtf6e8aTskBGqWdc=
+golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb h1:mIKbk8weKhSeLH2GmUTrvx8CjkyJmnU1wFmg59CUjFA=
+golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb/go.mod h1:FXUEEKJgO7OQYeo8N01OfiKP8RXMtf6e8aTskBGqWdc=
 golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.10.0 h1:SqMFp9UcQJZa+pmYuAKjd9xq1f0j5rLcDIk0mj4qAsA=
-golang.org/x/sys v0.10.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.11.0 h1:eG7RXZHdqOJ1i+0lgLgCpSXAp6M3LYlAo6osgSi0xOM=
+golang.org/x/sys v0.11.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
