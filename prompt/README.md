@@ -5,10 +5,18 @@
 [![GoDoc](https://godoc.org/github.com/joeycumines/go-prompt?status.svg)](https://godoc.org/github.com/joeycumines/go-prompt)
 ![tests](https://github.com/joeycumines/go-prompt/workflows/tests/badge.svg)
 
-This is a fork of [c-bata/go-prompt](https://github.com/c-bata/go-prompt).
+**This is a maintained fork of
+[elk-language/go-prompt](https://github.com/elk-language/go-prompt),
+which itself is a maintained fork of
+[c-bata/go-prompt](https://github.com/c-bata/go-prompt).**
 It's a great library but it's been abandoned
 for quite a while.
 This project aims to continue its development.
+
+**I recommend using
+[elk-language/go-prompt](https://github.com/elk-language/go-prompt), as I am not
+prepared to commit to v1 API compatibility just yet, though I intend to avoid
+making breaking changes if I can.**
 
 The library has been rewritten in many aspects, fixing existing bugs and adding new essential functionality.
 
