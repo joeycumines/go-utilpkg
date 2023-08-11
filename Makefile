@@ -95,7 +95,9 @@ MAP_SEPARATOR ?= :
 # path separator (/ replacement) for slugs
 SLUG_SEPARATOR ?= .
 # runs LIST_TOOLS in the shell (when templated)
-GO_TOOLS = $(shell $(LIST_TOOLS))
+GO_TOOLS ?= $(shell $(LIST_TOOLS))
+# paths to be deleted on clean
+CLEAN_PATHS ?= $(GO_COVERAGE_ALL_MODULES_FILE) $(addsuffix /$(GO_COVERAGE_MODULE_FILE),$(GO_MODULE_PATHS))
 
 # ---
 
@@ -431,7 +433,6 @@ debug-env:
 FORCE:
 
 .PHONY: clean
-clean: CLEAN_PATHS := $(GO_COVERAGE_ALL_MODULES_FILE) $(addsuffix /$(GO_COVERAGE_MODULE_FILE),$(GO_MODULE_PATHS))
 clean:
 ifeq ($(OS),Windows_NT)
 	del /Q /S $(subst /,\,$(CLEAN_PATHS))
