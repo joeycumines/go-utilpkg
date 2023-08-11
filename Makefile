@@ -94,6 +94,8 @@ GO_MODULE_SLUGS_NO_UPDATE ?=
 MAP_SEPARATOR ?= :
 # path separator (/ replacement) for slugs
 SLUG_SEPARATOR ?= .
+# runs LIST_TOOLS in the shell (when templated)
+GO_TOOLS = $(shell $(LIST_TOOLS))
 
 # ---
 
@@ -319,7 +321,6 @@ $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): update.%:
 $(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%: tidy.%
 
 .PHONY: _update
-_update: GO_TOOLS := $(shell $(LIST_TOOLS))
 _update:
 	$(GO) get -u -t ./...
 	$(foreach tool,$(GO_TOOLS),$(_update_TEMPLATE))
@@ -356,7 +357,6 @@ $(TOOLS_TARGETS): tools.%:
 	$(MAKE) --no-print-directory -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _tools
 
 .PHONY: _tools
-_tools: GO_TOOLS := $(shell $(LIST_TOOLS))
 _tools:
 	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
 define _tools_TEMPLATE =
