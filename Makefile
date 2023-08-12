@@ -40,6 +40,8 @@
 
 # What is `grit` and how to use it?
 # ---
+# Godoc: https://pkg.go.dev/github.com/grailbio/grit
+#
 # Preface:
 #
 # The tooling provided by this Makefile allows you to publish modules to their
@@ -61,7 +63,8 @@
 #   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main")
 # 3. Sync _from_ the target to the source (this repository) like
 #   `make grit-init GRIT_INIT_TARGET=go-module-slug`, where go-module-slug is
-#   the map key, used in GRIT_DST
+#   the map key, used in GRIT_DST, note that you may need to specify
+#   GRIT_FLAGS='-push -linearize' (see the docs)
 # 4. Add the new module to the Go workspace
 # 5. Run (either automatically or manually) `make grit` to sync _to_ the
 #   configured target(s), to propagate
@@ -454,7 +457,6 @@ ifeq ($(OS),Windows_NT)
 else
 	if [ -d $(_grit_init_DIR) ]; then exit 1; fi
 endif
-	mkdir $(_grit_init_DIR)
 	$(GRIT) $(GRIT_FLAGS) $(_grit_init_SRC) $(_grit_init_DST)
 
 _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
