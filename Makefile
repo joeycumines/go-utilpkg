@@ -38,6 +38,34 @@
 #	_ "honnef.co/go/tools/cmd/staticcheck"
 #)
 
+# What is `grit` and how to use it?
+# ---
+# Preface:
+#
+# The tooling provided by this Makefile allows you to publish modules to their
+# own repositories, from a single monorepo. This is useful when there are
+# tricky dependencies between modules, but you want to be able to publish them
+# independently, manage GitHub issues independently, etc.
+#
+# Caveats:
+#
+# - Currently only supports configuring the same branch for all modules,
+#   source and target
+# - Does not currently provide tooling to support bi-directional syncing;
+#   though `grit` does support it, it's a bit... hairy
+#
+# Usage:
+#
+# 1. Prepare the target repository (presumably the canonical one per go.mod)
+# 2. Update `project.mak`, setting `GRIT_SRC` (if you haven't already) and
+#   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main")
+# 3. Sync _from_ the target to the source (this repository) like
+#   `make grit-init GRIT_INIT_TARGET=go-module-slug`, where go-module-slug is
+#   the map key, used in GRIT_DST
+# 4. Add the new module to the Go workspace
+# 5. Run (either automatically or manually) `make grit` to sync _to_ the
+#   configured target(s), to propagate
+
 # windows gnu make seems to append includes to the end of MAKEFILE_LIST
 # hence the simple variable assignment, prior to any includes
 ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -74,6 +102,7 @@ GRIT_FLAGS ?= -push
 GRIT_BRANCH ?= main
 GRIT_SRC ?=
 GRIT_DST ?=
+GRIT_INIT_TARGET ?=
 STATICCHECK ?= staticcheck
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= betteralign
@@ -118,6 +147,8 @@ map_keys = $(foreach v,$1,$(word 1,$(subst $(MAP_SEPARATOR), ,$v)))
 
 # convert a path to a slug, e.g. ./logiface/logrus -> logiface.logrus, with special case for root
 slug_transform = $(if $(filter .,$1),root,$(subst /,$(SLUG_SEPARATOR),$(patsubst ./%,%,$1)))
+# attempts to perform the opposite of slug_parse, note that it may not be possible to recover the original path
+slug_parse = $(if $(filter root,$1),$(SLUG_SEPARATOR),$(SLUG_SEPARATOR)/$(subst $(SLUG_SEPARATOR),/,$(filter-out root,$1)))
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
 go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
@@ -125,8 +156,8 @@ go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
 subdir_makefile_path_to_slug = $(call map_value_by_key,$(_SUBDIR_MAKEFILE_MAP),$1)
 subdir_makefile_slug_to_path = $(call map_key_by_value,$(_SUBDIR_MAKEFILE_MAP),$1)
 
-go_module_slug_to_grit_src = $(GRIT_SRC),$(patsubst ./%,%,$(call go_module_slug_to_path,$1))/,$(GRIT_BRANCH)
-go_module_slug_to_grit_dst = $(call map_value_by_key,$(GRIT_DST),$1),,$(GRIT_BRANCH)
+go_module_slug_to_grit_src = $(GRIT_SRC),$(patsubst ./%,%,$(or $(call go_module_slug_to_path,$1),$(error no go module found for $1)))/,$(GRIT_BRANCH)
+go_module_slug_to_grit_dst = $(or $(call map_value_by_key,$(GRIT_DST),$1),$(error no GRIT_DST entry for $1)),,$(GRIT_BRANCH)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
@@ -414,6 +445,19 @@ clean:
 godoc:
 	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/'
 	$(GODOC) $(GODOC_FLAGS)
+
+# grit-init: runs grit to initialize a new GRIT_DST, see the doc comment near the top of this file
+.PHONY: grit-init
+grit-init:
+ifeq ($(OS),Windows_NT)
+	if exist $(_grit_init_DST) exit 1
+else
+	if [ -d $(_grit_init_DST) ]; then exit 1; fi
+endif
+	@echo $(GRIT) $(_grit_init_SRC) $(_grit_init_DST)
+
+_grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
+_grit_init_DST = $(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))
 
 .PHONY: debug-env
 debug-env:

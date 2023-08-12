@@ -11,4 +11,5 @@ GRIT_DST ?= \
     logiface-stumpy$(MAP_SEPARATOR)https://github.com/joeycumines/stumpy.git \
     logiface-testsuite$(MAP_SEPARATOR)https://github.com/joeycumines/logiface-testsuite.git \
     logiface-zerolog$(MAP_SEPARATOR)https://github.com/joeycumines/izerolog.git \
-    sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git
+    sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
+    prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git
