@@ -450,14 +450,16 @@ godoc:
 .PHONY: grit-init
 grit-init:
 ifeq ($(OS),Windows_NT)
-	if exist $(_grit_init_DST) exit 1
+	if exist $(_grit_init_DIR) exit 1
 else
-	if [ -d $(_grit_init_DST) ]; then exit 1; fi
+	if [ -d $(_grit_init_DIR) ]; then exit 1; fi
 endif
+	mkdir $(_grit_init_DIR)
 	$(GRIT) $(GRIT_FLAGS) $(_grit_init_SRC) $(_grit_init_DST)
 
 _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
-_grit_init_DST = $(GRIT_SRC),$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))/,$(GRIT_BRANCH)
+_grit_init_DIR = $(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))
+_grit_init_DST = $(GRIT_SRC),$(_grit_init_DIR)/,$(GRIT_BRANCH)
 
 .PHONY: debug-env
 debug-env:
