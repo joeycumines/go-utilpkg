@@ -457,7 +457,7 @@ endif
 	$(GRIT) $(GRIT_FLAGS) $(_grit_init_SRC) $(_grit_init_DST)
 
 _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
-_grit_init_DST = $(GRIT_SRC),$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set)),$(GRIT_BRANCH)
+_grit_init_DST = $(GRIT_SRC),$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))/,$(GRIT_BRANCH)
 
 .PHONY: debug-env
 debug-env:
