@@ -454,7 +454,7 @@ ifeq ($(OS),Windows_NT)
 else
 	if [ -d $(_grit_init_DST) ]; then exit 1; fi
 endif
-	@echo $(GRIT) $(_grit_init_SRC) $(_grit_init_DST)
+	$(GRIT) $(_grit_init_SRC) $(_grit_init_DST)
 
 _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
 _grit_init_DST = $(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dst: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))
