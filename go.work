@@ -9,6 +9,7 @@ use (
 	./logiface-stumpy
 	./logiface-testsuite
 	./logiface-zerolog
+	./prompt
 	./sql
 	./sql/export/mysql
 )
