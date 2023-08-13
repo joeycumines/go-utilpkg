@@ -119,6 +119,8 @@ endif
 GO_MODULE_SLUGS_NO_PACKAGES ?=
 # used to exclude modules from the update* targets
 GO_MODULE_SLUGS_NO_UPDATE ?=
+# used to exclude modules from the betteralign targets
+GO_MODULE_SLUGS_NO_BETTERALIGN ?=
 
 # configurable, but unlikely to need to be configured
 
@@ -177,6 +179,9 @@ $(error GO_MODULE_SLUGS contains unsupported paths)
 endif
 GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_EXCL_NO_UPDATE := $(filter-out $(GO_MODULE_SLUGS_NO_UPDATE),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_NO_BETTERALIGN),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+# because GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN is composite (with no packages), and we need a target for _all_ modules
+GO_MODULE_SLUGS_INCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_GRIT_DST := $(filter $(call map_keys,$(GRIT_DST)),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_EXCL_GRIT_DST := $(filter-out $(GO_MODULE_SLUGS_GRIT_DST),$(GO_MODULE_SLUGS))
 
@@ -263,12 +268,12 @@ BETTERALIGN_TARGETS := $(addprefix betteralign.,$(GO_MODULE_SLUGS))
 .PHONY: betteralign
 betteralign: $(BETTERALIGN_TARGETS)
 
-.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
-$(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): betteralign.%:
+.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
+$(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): betteralign.%:
 	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _betteralign BETTERALIGN_FLAGS='$(BETTERALIGN_FLAGS)'
 
-.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_NO_PACKAGES))
-$(addprefix betteralign.,$(GO_MODULE_SLUGS_NO_PACKAGES)): betteralign.%:
+.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN))
+$(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): betteralign.%:
 
 .PHONY: _betteralign
 _betteralign:

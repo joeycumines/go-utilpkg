@@ -3,6 +3,7 @@
 # TODO update this if the root module gets packages
 GO_MODULE_SLUGS_NO_PACKAGES = root
 GO_MODULE_SLUGS_NO_UPDATE = sql.export.mysql
+GO_MODULE_SLUGS_NO_BETTERALIGN = prompt
 GRIT_SRC ?= https://github.com/joeycumines/go-utilpkg.git
 GRIT_DST ?= \
     catrate$(MAP_SEPARATOR)https://github.com/joeycumines/go-catrate.git \
