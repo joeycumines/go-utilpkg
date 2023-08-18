@@ -4,8 +4,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/joeycumines/go-catrate v0.0.0-20230811213309-dabd07727055 h1:vxQmEneJvnOeTlep6tenNyKnwL7WLqDHx1vS3gdimwc=
 github.com/joeycumines/go-catrate v0.0.0-20230811213309-dabd07727055/go.mod h1:pBJSN32A3Llv/Lt0lyUk9JTy3bMhKqVN0DlKMRmBomg=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230812221705-31d1c041628d h1:+oVqLIIFYRqeiAjRDH4rq3Hcqkl0/aL0GinqSilOYBs=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230812221705-31d1c041628d/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230814234649-68880c5fe2d7 h1:MXw4aASk/qfZRILD5hwrs1kOTfvFfO17f+xaHFHJcbM=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230814234649-68880c5fe2d7/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/logiface-testsuite v0.0.0-20230803131600-c3af6016c81a h1:o1SUvuC5ElYK5PSMY9r/UFC8GJDwMQQUGMrz24XtR0o=
 github.com/joeycumines/stumpy v0.3.0 h1:c5jIQu8If95br8QEXExupv8FmIRxjiP0ixmWNQ+HJB4=
 github.com/joeycumines/stumpy v0.3.0/go.mod h1:8GSnL52B48LCfI59E0ZtGls5jE3M8iOSK3Puoxjnvq0=
@@ -13,8 +13,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb h1:mIKbk8weKhSeLH2GmUTrvx8CjkyJmnU1wFmg59CUjFA=
-golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb/go.mod h1:FXUEEKJgO7OQYeo8N01OfiKP8RXMtf6e8aTskBGqWdc=
+golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 h1:m64FZMko/V45gv0bNmrNYoDEq8U5YUhetc9cBWKS1TQ=
+golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63/go.mod h1:0v4NqG35kSWCMzLaMeX+IQrlSnVE/bqGSyC2cz/9Le8=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

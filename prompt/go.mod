@@ -9,9 +9,9 @@ require (
 	github.com/mattn/go-tty v0.0.5
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.4
-	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb
+	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/sys v0.11.0
-	golang.org/x/tools v0.12.0
+	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846
 )
 
 require (
