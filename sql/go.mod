@@ -10,4 +10,4 @@ require (
 
 require github.com/joeycumines/logiface v0.5.0
 
-require github.com/joeycumines/go-catrate v0.0.0-20231210034933-34ef2cf0dbce // indirect
+require github.com/joeycumines/go-catrate v0.0.0-20240113051756-0b19f6e64c0b // indirect
