@@ -212,7 +212,6 @@ func (x *Batcher[Job]) run() {
 	}
 
 	// runs the next batch, blocking on max concurrency limiting
-	// if expected is non-nil and not x.state, then it does nothing
 	runBatch := func() {
 		if len(x.state.jobs) == 0 {
 			return
