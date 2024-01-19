@@ -3,7 +3,7 @@ package longpoll_test
 import (
 	"context"
 	"fmt"
-	"github.com/joeycumines/go-utilpkg/longpoll"
+	"github.com/joeycumines/go-longpoll"
 	"strings"
 	"time"
 )
