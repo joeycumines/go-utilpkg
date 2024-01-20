@@ -6,7 +6,7 @@ require (
 	github.com/joeycumines/logiface v0.5.0
 	github.com/joeycumines/logiface-testsuite v0.0.0-20240114151808-e0ed8228f81e
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 )
 
 require (

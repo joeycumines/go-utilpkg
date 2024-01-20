@@ -26,8 +26,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/yuin/goldmark v1.6.0 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
-	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20240112132812-db7319d0e0e3 // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
+	golang.org/x/exp/typeparams v0.0.0-20240119083558-1b970713d09a // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
