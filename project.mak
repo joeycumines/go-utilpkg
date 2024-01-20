@@ -15,5 +15,6 @@ GRIT_DST ?= \
     logiface-zerolog$(MAP_SEPARATOR)https://github.com/joeycumines/izerolog.git \
     longpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-longpoll.git \
     microbatch$(MAP_SEPARATOR)https://github.com/joeycumines/go-microbatch.git \
+    smartpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-smartpoll.git \
     sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
     prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git
