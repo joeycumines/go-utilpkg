@@ -13,6 +13,7 @@ use (
 	./longpoll
 	./microbatch
 	./prompt
+	./smartpoll
 	./sql
 	./sql/export/mysql
 )
