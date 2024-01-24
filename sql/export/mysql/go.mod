@@ -1,37 +1,34 @@
 module github.com/joeycumines/go-sql/export/mysql
 
-go 1.20
+go 1.21
 
-// To update, identify TIDB_HASH, delete go.sum and all dependencies listed in go.mod, then run:
+toolchain go1.21.6
+
+// To update, identify TIDB_HASH (probably from a release branch), delete
+// go.sum and all dependencies listed in go.mod, then run:
 //
-// go get -u github.com/pingcap/tidb/parser@$TIDB_HASH
+// go get -u github.com/pingcap/tidb/pkg/parser@$TIDB_HASH
 // go get -u github.com/pingcap/tidb@$TIDB_HASH
 // go mod tidy
 //
 // OR (if override is necessary), reset it to just:
 //
-// replace github.com/pingcap/tidb/parser => github.com/joeycumines/tidb/parser latest
+// replace github.com/pingcap/tidb/pkg/parser => github.com/joeycumines/tidb/pkg/parser latest
 // replace github.com/pingcap/tidb => github.com/joeycumines/tidb latest
 //
 // Then run:
 //
 // go mod tidy
 
-replace github.com/pingcap/tidb/parser => github.com/joeycumines/tidb/parser v0.0.0-20230801221520-2af76fb26a9f
-
-replace github.com/pingcap/tidb => github.com/joeycumines/tidb v0.0.0-20230801221520-2af76fb26a9f
-
 require (
 	github.com/go-test/deep v1.1.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/joeycumines/go-sql v0.0.0-20230711071507-8a4cc559eb3c
-	github.com/pingcap/tidb v0.0.0-00010101000000-000000000000
-	github.com/pingcap/tidb/parser v0.0.0-20211011031125-9b13dc409c5e
+	github.com/joeycumines/go-sql v0.0.0-20240121153107-ec42efde5c12
+	github.com/pingcap/tidb v1.1.0-beta.0.20240122141050-52794d985ba6
+	github.com/pingcap/tidb/pkg/parser v0.0.0-20240122141050-52794d985ba6
 )
 
 require (
-	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudfoundry/gosigar v1.3.6 // indirect
@@ -39,67 +36,61 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
-	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
+	github.com/coreos/go-semver v0.3.1 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
-	github.com/danjacques/gofslock v0.0.0-20191023191349-0a45f885bc37 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
-	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
-	github.com/influxdata/tdigest v0.0.1 // indirect
-	github.com/jellydator/ttlcache/v3 v3.0.1 // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20230604061006-5fe8a721ebe0 // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20240113051756-0b19f6e64c0b // indirect
 	github.com/joeycumines/go-detect-cycle v1.0.1 // indirect
-	github.com/joeycumines/logiface v0.3.0 // indirect
+	github.com/joeycumines/logiface v0.5.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/opentracing/basictracer-go v1.0.0 // indirect
+	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/pingcap/errors v0.11.5-0.20221009092201-b66cddb77c32 // indirect
+	github.com/pingcap/errors v0.11.5-0.20231212100244-799fae176cfb // indirect
 	github.com/pingcap/failpoint v0.0.0-20220801062533-2eaa32854a6c // indirect
-	github.com/pingcap/kvproto v0.0.0-20230728080053-8a9db88bc88a // indirect
+	github.com/pingcap/kvproto v0.0.0-20231226064240-4f28b82c7860 // indirect
 	github.com/pingcap/log v1.1.1-0.20230317032135-a0d097d16e22 // indirect
 	github.com/pingcap/sysutil v1.0.1-0.20230407040306-fb007c5aff21 // indirect
-	github.com/pingcap/tipb v0.0.0-20230607071926-bda24015c2d6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
-	github.com/prometheus/client_golang v1.16.0 // indirect
-	github.com/prometheus/client_model v0.4.0 // indirect
-	github.com/prometheus/common v0.44.0 // indirect
-	github.com/prometheus/procfs v0.11.1 // indirect
+	github.com/prometheus/client_golang v1.18.0 // indirect
+	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/common v0.45.0 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.23.5 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
+	github.com/shirou/gopsutil/v3 v3.23.10 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tiancaiamao/gp v0.0.0-20221230034425-4025bc8a4d4a // indirect
-	github.com/tikv/client-go/v2 v2.0.8-0.20230731032349-719e6456f7d5 // indirect
-	github.com/tikv/pd/client v0.0.0-20230724080549-de985b8e0afc // indirect
-	github.com/tklauser/go-sysconf v0.3.11 // indirect
-	github.com/tklauser/numcpus v0.6.0 // indirect
+	github.com/tikv/client-go/v2 v2.0.8-0.20231227070846-61c486af13a5 // indirect
+	github.com/tikv/pd/client v0.0.0-20240109100024-dd8df25316e9 // indirect
+	github.com/tklauser/go-sysconf v0.3.12 // indirect
+	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twmb/murmur3 v1.1.6 // indirect
-	github.com/uber/jaeger-client-go v2.22.1+incompatible // indirect
-	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.2 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.2 // indirect
-	go.etcd.io/etcd/client/v3 v3.5.2 // indirect
+	go.etcd.io/etcd/api/v3 v3.5.10 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.10 // indirect
+	go.etcd.io/etcd/client/v3 v3.5.10 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b // indirect
-	golang.org/x/net v0.11.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
-	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
-	google.golang.org/grpc v1.54.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
+	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
+	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0 // indirect
+	google.golang.org/grpc v1.60.1 // indirect
+	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )

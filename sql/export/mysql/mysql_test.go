@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"github.com/go-test/deep"
 	"github.com/joeycumines/go-sql/export"
-	_ "github.com/pingcap/tidb/types/parser_driver"
+	_ "github.com/pingcap/tidb/pkg/types/parser_driver"
 	"reflect"
 	"strings"
 	"testing"
