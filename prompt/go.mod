@@ -8,13 +8,14 @@ require (
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/mattn/go-tty v0.0.5
 	github.com/pkg/term v1.2.0-beta.2
-	github.com/rivo/uniseg v0.4.4
-	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
-	golang.org/x/sys v0.16.0
-	golang.org/x/tools v0.17.0
+	github.com/rivo/uniseg v0.4.7
+	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
+	golang.org/x/sys v0.19.0
+	golang.org/x/tools v0.20.0
 )
 
 require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 )
