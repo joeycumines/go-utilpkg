@@ -52,11 +52,11 @@ var encodeStringTests = []struct {
 	{"\x05", `"\u0005"`}, // enquiry
 	{"\x06", `"\u0006"`}, // acknowledge
 	{"\x07", `"\u0007"`}, // bell
-	{"\x08", `"\u0008"`}, // backspace
+	{"\x08", `"\b"`},     // backspace
 	{"\x09", `"\t"`},     // horizontal tab
 	{"\x0a", `"\n"`},     // line feed
 	{"\x0b", `"\u000b"`}, // vertical tab
-	{"\x0c", `"\u000c"`}, // form feed
+	{"\x0c", `"\f"`},     // form feed
 	{"\x0d", `"\r"`},     // carriage return
 	{"\x0e", `"\u000e"`}, // shift out
 	{"\x0f", `"\u000f"`}, // shift in
@@ -353,7 +353,7 @@ func FuzzAppendString(f *testing.F) {
 		if want, err := json.Marshal(val); err != nil {
 			t.Errorf("%q: encoding error: %v", val, err)
 		} else if !bytes.Equal(dst, want) {
-			t.Errorf("%q: got %s, want %s", val, dst, want)
+			t.Errorf("val: %q\ngot: %s\nwant: %s", val, dst, want)
 		}
 	})
 }
@@ -450,7 +450,7 @@ func FuzzInsertString(f *testing.F) {
 		if want, err := json.Marshal(val); err != nil {
 			t.Errorf("%q: encoding error: %v", val, err)
 		} else if !bytes.Equal(dst, want) {
-			t.Errorf("%q: got %s, want %s", val, dst, want)
+			t.Errorf("val: %q\ngot: %s\nwant: %s", val, dst, want)
 		}
 	})
 }

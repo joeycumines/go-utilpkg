@@ -220,6 +220,10 @@ func appendStringComplex(dst []byte, s string, i int) []byte {
 		switch b {
 		case '"', '\\':
 			dst = append(dst, '\\', b)
+		case '\b':
+			dst = append(dst, '\\', 'b')
+		case '\f':
+			dst = append(dst, '\\', 'f')
 		case '\n':
 			dst = append(dst, '\\', 'n')
 		case '\r':
