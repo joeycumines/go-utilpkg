@@ -68,8 +68,9 @@ func (x *Logger) NewEvent(level logiface.Level) (e *Event) {
 }
 
 func (x *Logger) Write(event *Event) (err error) {
-	event.buf = append(event.buf, '}', '\n')
-	_, err = x.writer.Write(event.buf)
+	b := append(event.buf, '}', '\n') // always missing from event.buf
+	event.buf = b[:len(event.buf)]    // update event.buf but NOT its bytes
+	_, err = x.writer.Write(b)        // includes the "}\n" we appended
 	return
 }
 

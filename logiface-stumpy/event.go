@@ -28,6 +28,13 @@ type (
 	unimplementedEvent = logiface.UnimplementedEvent
 )
 
+// Bytes returns the current buffer, for the event.
+// It may be used, for example, to customise the writer.
+// Always missing the final `}`, and without a trailing newline.
+func (x *Event) Bytes() []byte {
+	return x.buf
+}
+
 func (x *Event) Level() logiface.Level {
 	return x.lvl
 }
