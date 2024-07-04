@@ -19,8 +19,8 @@ func startTestAPI(t *testing.T, server testapi.FangRpcStreamServiceServer, optio
 	testapi.RegisterFangRpcStreamServiceServer(srv, server)
 	lis := bufconn.Listen(1024 * 1024)
 	go func() { _ = srv.Serve(lis) }()
-	conn, err := grpc.Dial(
-		"",
+	conn, err := grpc.NewClient(
+		"dns:///127.0.0.1:1234",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
