@@ -58,10 +58,10 @@ func TestEagerLexerNext(t *testing.T) {
 				cmp.AllowUnexported(SimpleToken{}, EagerLexer{}),
 			}
 			if diff := cmp.Diff(tc.want, got, opts...); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 			if diff := cmp.Diff(tc.ok, ok, opts...); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
@@ -112,7 +112,7 @@ func TestEagerLexerInit(t *testing.T) {
 				cmpopts.IgnoreFields(EagerLexer{}, "lexFunc"),
 			}
 			if diff := cmp.Diff(tc.want, tc.lexer, opts...); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}

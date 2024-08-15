@@ -78,7 +78,7 @@ func TestPositionAtEndOfString(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := positionAtEndOfString(tc.input, tc.columns)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
@@ -131,7 +131,7 @@ baz`,
 		t.Run(name, func(t *testing.T) {
 			got := positionAtEndOfStringLine(tc.input, tc.cols, tc.line)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
@@ -174,7 +174,7 @@ func TestPositionAdd(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := tc.left.Add(tc.right)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
@@ -217,7 +217,7 @@ func TestPositionSubtract(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := tc.left.Subtract(tc.right)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
@@ -260,7 +260,7 @@ func TestPositionJoin(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got := tc.left.Join(tc.right)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}
