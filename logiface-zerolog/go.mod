@@ -12,7 +12,7 @@ require (
 require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20240704033849-cd1590ea7137 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20240704033740-10c82901cfda // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20240815141224-b63fefc6b052 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
