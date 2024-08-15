@@ -1,6 +1,6 @@
 module github.com/joeycumines/logiface-testsuite
 
-go 1.20
+go 1.23
 
 require (
 	github.com/hexops/gotextdiff v1.0.3

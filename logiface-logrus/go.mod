@@ -1,6 +1,6 @@
 module github.com/joeycumines/ilogrus
 
-go 1.20
+go 1.23
 
 require (
 	github.com/joeycumines/logiface v0.5.0

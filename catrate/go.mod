@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-catrate
 
-go 1.20
+go 1.23
 
 require (
 	github.com/stretchr/testify v1.9.0

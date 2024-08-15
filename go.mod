@@ -1,8 +1,6 @@
 module github.com/joeycumines/go-utilpkg
 
-go 1.22.1
-
-toolchain go1.22.6
+go 1.23
 
 require (
 	github.com/dkorunic/betteralign v0.5.1
