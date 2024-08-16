@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-sql/export/mysql
 
-go 1.23
+go 1.23.0
 
 // To update, identify TIDB_HASH (probably from a release branch), delete
 // go.sum and all dependencies listed in go.mod, then run:

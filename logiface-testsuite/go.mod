@@ -1,6 +1,6 @@
 module github.com/joeycumines/logiface-testsuite
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/hexops/gotextdiff v1.0.3
@@ -8,4 +8,4 @@ require (
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
 )
 
-require github.com/joeycumines/go-catrate v0.0.0-20240704033849-cd1590ea7137 // indirect
+require github.com/joeycumines/go-catrate v0.0.0-20240815230336-e1cfa6193d10 // indirect
