@@ -1,0 +1,5 @@
+go test fuzz v1
+bool(false)
+uint64(56)
+uint64(24)
+byte('\x01')

@@ -6,6 +6,7 @@ use (
 	.
 	./catrate
 	./fangrpcstream
+	./floater
 	./jsonenc
 	./logiface
 	./logiface-logrus
