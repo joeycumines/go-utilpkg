@@ -220,6 +220,7 @@ func FuzzFormatDecimalRat_variant1(f *testing.F) {
 	add(true, 3, 6)
 	add(false, 7, 2)
 	add(true, 7, 2)
+	add(true, 17174554827281306677, 34482763)
 
 	f.Fuzz(func(t *testing.T, signbit bool, num uint64, denomSub1 uint64) {
 		denom := new(big.Int)
@@ -337,6 +338,7 @@ func FuzzFormatDecimalRat_variant2(f *testing.F) {
 		add(true, 7, 2, prec)
 		add(true, 3, 757894378, prec)
 		add(false, 3, 757894378, prec)
+		add(true, 17174554827281306677, 34482763, prec)
 	}
 
 	f.Fuzz(func(t *testing.T, signbit bool, num uint64, denomSub1 uint64, prec uint8) {

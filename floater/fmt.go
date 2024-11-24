@@ -16,12 +16,16 @@ import (
 // all digits will be exact.
 //
 // Results are derived from the [math/big.Rat.FloatString] method, by
-// formatting to a higher precision than the derived "target", then applying
-// to-nearest-even rounding, excepting cases that would round to 0, where
-// `abs(rat) < 0.5` AND the same value would round up using an away-from-zero
-// rounding strategy. This is handled as a special case, and will round up,
-// instead. Note that rounding down to zero is still possible (the switching
-// logic only applies to that specific case, on tie).
+// formatting to a higher precision than the derived "target", then, in most
+// cases, applying to-nearest-even rounding, excepting cases that would round
+// to 0, where `abs(rat) < 0.5` AND the same value would round up using an
+// away-from-zero rounding strategy. This is handled as a special case, and
+// will round up, instead. Note that rounding down to zero is still possible
+// (the switching logic only applies to that specific case, on tie).
+// N.B. The "in most cases" qualifier is a tradeoff - for performance and ease
+// of implementation reasons, the rat is simply formatted using 3 more decimal
+// places than required, using [math/big.Rat.FloatString], which notably rounds
+// halves away from zero.
 //
 // Using a specific prec will, like stdlib formatters, include exactly that
 // many decimal places, with rounding or trailing zeros as necessary.
