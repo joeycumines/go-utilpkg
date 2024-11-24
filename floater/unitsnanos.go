@@ -1,8 +1,11 @@
 package floater
 
 import (
+	"golang.org/x/exp/slices"
 	"math"
 	"math/big"
+	"strconv"
+	"unsafe"
 )
 
 const (
@@ -156,4 +159,59 @@ func RatToUnitsNanos(rat *big.Rat) (int64, int32, bool) {
 	}
 
 	return units, nanos, true
+}
+
+// FormatUnitsNanos formats the units and nanos to a string, with nanos always
+// having 9 digits, and returns the formatted string.
+//
+// See also [FormatUnitsNanosTrimmed], for a variant that removes trailing
+// zeros, and [AppendUnitsNanos], for a byte slice append variant.
+func FormatUnitsNanos(units int64, nanos int32) string {
+	b := AppendUnitsNanos(nil, units, nanos)
+	p := unsafe.SliceData(b)
+	return unsafe.String(p, len(b))
+}
+
+// FormatUnitsNanosTrimmed formats the units and nanos to a string, without any
+// extra trailing zeros.
+//
+// See also [FormatUnitsNanos], [AppendUnitsNanos], [TrimTrailingZeros].
+func FormatUnitsNanosTrimmed(units int64, nanos int32) string {
+	if nanos == 0 {
+		return strconv.FormatInt(units, 10)
+	}
+	b := AppendUnitsNanos(nil, units, nanos)
+	b, _ = TrimTrailingZeros(b, unitNanosDecimals)
+	p := unsafe.SliceData(b)
+	return unsafe.String(p, len(b))
+}
+
+// AppendUnitsNanos appends the formatted units and nanos to the byte slice,
+// with nanos always having 9 digits, and returns the extended slice.
+//
+// See also [TrimTrailingZeros], for removing trailing zeros from the formatted
+// string, and [FormatUnitsNanos] and [FormatUnitsNanosTrimmed], for string
+// variants.
+func AppendUnitsNanos(b []byte, units int64, nanos int32) []byte {
+	if nanos < 0 {
+		nanos = -nanos
+		if units == 0 {
+			b = append(b, '-')
+		}
+	}
+	b = strconv.AppendInt(b, units, 10)
+	b = slices.Grow(b, unitNanosDecimals+1)
+	b = append(b, '.')
+	for range decimalsForNanos(nanos) {
+		b = append(b, '0')
+	}
+	b = strconv.AppendInt(b, int64(nanos), 10)
+	return b
+}
+
+func decimalsForNanos(nanos int32) int8 {
+	if nanos == 0 {
+		return unitNanosDecimals - 1
+	}
+	return unitNanosDecimals - int8(math.Log10(float64(nanos))) - 1
 }

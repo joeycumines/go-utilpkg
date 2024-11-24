@@ -130,7 +130,7 @@ func AppendDecimalRat(b []byte, rat *big.Rat, prec int, floatPrec uint) []byte {
 
 	// ensure there are no trailing zeros
 	if decimals != 0 {
-		b, decimals = trimTrailingZeros(b, decimals)
+		b, decimals = TrimTrailingZeros(b, decimals)
 	}
 
 	// guard against no decimals remaining
@@ -214,7 +214,7 @@ func AppendDecimalRat(b []byte, rat *big.Rat, prec int, floatPrec uint) []byte {
 		}
 	} else if prec < 0 { // ensure we've trimmed trailing zeros
 		if !noDecimal {
-			b, _ = trimTrailingZeros(b, len(b)-1-dec)
+			b, _ = TrimTrailingZeros(b, len(b)-1-dec)
 		}
 	} else if prec > 0 { // add padding as needed
 		if noDecimal {
@@ -235,7 +235,10 @@ func appendZeros(b []byte, n int) []byte {
 	return b
 }
 
-func trimTrailingZeros(b []byte, decimals int) ([]byte, int) {
+// TrimTrailingZeros trims trailing zeros from a byte slice b, which MUST have
+// the specified number of decimals, returning the right-trimmed slice, and the
+// number of decimals remaining.
+func TrimTrailingZeros(b []byte, decimals int) ([]byte, int) {
 	dec := len(b) - 1 - decimals
 	for i := len(b) - 1; i >= dec; i-- {
 		if i == dec {

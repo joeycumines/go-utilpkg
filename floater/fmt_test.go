@@ -1092,7 +1092,7 @@ func formatDecimalFloatUnsafe(b []byte, f *big.Float, bCap, decimals int, panicO
 	}
 
 	if decimals != 0 {
-		b, decimals = trimTrailingZeros(b, decimals)
+		b, decimals = TrimTrailingZeros(b, decimals)
 	}
 
 	return b, decimals

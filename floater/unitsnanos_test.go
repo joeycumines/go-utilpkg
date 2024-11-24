@@ -1,9 +1,12 @@
 package floater
 
 import (
+	"bytes"
 	"fmt"
+	"golang.org/x/exp/slices"
 	math "math"
 	"math/big"
+	"math/rand/v2"
 	"strconv"
 	"strings"
 	"testing"
@@ -142,9 +145,13 @@ var unitsNanosTestCases = unitsNanosTestCaseSlice{
 	{rat: nwrt(`9223372036854775808`), invalid: true},
 	{rat: nwrt(`-9223372036854775809`), invalid: true},
 	{rat: nwrt(`-1/728646390911527288831`), invalid: true},
+	{units: 15},
+	{units: 81234812},
+	{units: -15},
+	{units: -81234812},
 }.init()
 
-// this is basically a control case, more testing the test case generation
+// this is a combined fuzz test for all to-string variants of units nanos precision
 func FuzzFormatDecimalRat_withUnitsNanos(f *testing.F) {
 	for _, tc := range unitsNanosTestCases {
 		if tc.valid {
@@ -193,6 +200,10 @@ func FuzzFormatDecimalRat_withUnitsNanos(f *testing.F) {
 		assert(FormatDecimalRat(tc.rat, 9, 0))
 		assert(FormatDecimalRat(tc.rat, -1, 0))
 		assert(FormatDecimalRat(tc.rat, -1, 128))
+
+		assert(FormatUnitsNanos(tc.units, tc.nanos))
+		assert(FormatUnitsNanosTrimmed(tc.units, tc.nanos))
+		assert(string(AppendUnitsNanos(nil, tc.units, tc.nanos)))
 	})
 }
 
@@ -489,4 +500,66 @@ func ratToUnitsNanosControl(rat *big.Rat) (units int64, nanos int32, _ bool) {
 	}
 
 	return units, nanos, true
+}
+
+func TestFormatUnitsNanos_valid(t *testing.T) {
+	for _, tc := range unitsNanosTestCases {
+		if !tc.valid {
+			continue
+		}
+		t.Run(tc.string, func(t *testing.T) {
+			s := FormatUnitsNanos(tc.units, tc.nanos)
+			if s != tc.string {
+				t.Errorf(`unexpected string: %s`, s)
+			}
+			b := make([]byte, len(s)+20)
+			for i := range b {
+				b[i] = uint8(rand.IntN(math.MaxUint8 + 1))
+			}
+			b1 := AppendUnitsNanos(b[:10], tc.units, tc.nanos)
+			if len(b1) != len(s)+10 ||
+				!bytes.Equal(b1[len(b1):len(b1)+10], b[len(b)-10:]) ||
+				!bytes.Equal(b1[:10], b[:10]) ||
+				string(b1[10:]) != s ||
+				&b[0] != &b1[0] {
+				t.Errorf(`unexpected append result: %q`, slices.Grow(b1, 10)[:len(b1)+10])
+			}
+			trimmed := FormatUnitsNanosTrimmed(tc.units, tc.nanos)
+			rat, ok := new(big.Rat).SetString(trimmed)
+			if !ok ||
+				tc.rat.Cmp(rat) != 0 ||
+				(tc.nanos != 0 && strings.HasSuffix(trimmed, "0")) ||
+				!strings.HasPrefix(s, trimmed) {
+				t.Errorf(`unexpected trimmed string: %s`, trimmed)
+			}
+		})
+	}
+}
+
+func runBenchmarkFormatUnitsNanos(b *testing.B, units int64, nanos int32, f func(units int64, nanos int32) string) {
+	b.Helper()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		bmr = f(units, nanos)
+	}
+}
+
+func BenchmarkFormatUnitsNanos(b *testing.B) {
+	for _, tc := range unitsNanosTestCases {
+		if tc.valid {
+			b.Run(fmt.Sprintf(`%s`, tc.string), func(b *testing.B) {
+				runBenchmarkFormatUnitsNanos(b, tc.units, tc.nanos, FormatUnitsNanos)
+			})
+		}
+	}
+}
+
+func BenchmarkFormatUnitsNanosTrimmed(b *testing.B) {
+	for _, tc := range unitsNanosTestCases {
+		if tc.valid {
+			b.Run(fmt.Sprintf(`%s`, tc.string), func(b *testing.B) {
+				runBenchmarkFormatUnitsNanos(b, tc.units, tc.nanos, FormatUnitsNanosTrimmed)
+			})
+		}
+	}
 }
