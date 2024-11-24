@@ -547,7 +547,7 @@ func runBenchmarkFormatUnitsNanos(b *testing.B, units int64, nanos int32, f func
 func BenchmarkFormatUnitsNanos(b *testing.B) {
 	for _, tc := range unitsNanosTestCases {
 		if tc.valid {
-			b.Run(fmt.Sprintf(`%s`, tc.string), func(b *testing.B) {
+			b.Run(tc.string, func(b *testing.B) {
 				runBenchmarkFormatUnitsNanos(b, tc.units, tc.nanos, FormatUnitsNanos)
 			})
 		}
@@ -557,7 +557,7 @@ func BenchmarkFormatUnitsNanos(b *testing.B) {
 func BenchmarkFormatUnitsNanosTrimmed(b *testing.B) {
 	for _, tc := range unitsNanosTestCases {
 		if tc.valid {
-			b.Run(fmt.Sprintf(`%s`, tc.string), func(b *testing.B) {
+			b.Run(tc.string, func(b *testing.B) {
 				runBenchmarkFormatUnitsNanos(b, tc.units, tc.nanos, FormatUnitsNanosTrimmed)
 			})
 		}
