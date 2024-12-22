@@ -1,3 +1,3 @@
 module github.com/joeycumines/go-utilpkg/jsonenc
 
-go 1.23.3
+go 1.23.4
