@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: [ '1.23', '1.22', '1.21' ]
     steps:
       - name: Configure `number_of_cpus`
         run: |
@@ -24,9 +21,9 @@ jobs:
           >>"$GITHUB_ENV"
       - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: 'stable'
       - name: Install tools
         run: ${{ env.make_command }} tools
       - name: Build and test
