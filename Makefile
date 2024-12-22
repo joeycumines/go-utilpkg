@@ -95,6 +95,7 @@ GO_TEST ?= $(GO) test $(GO_FLAGS) $(GO_TEST_FLAGS)
 GO_BUILD ?= $(GO) build $(GO_FLAGS)
 GO_VET ?= $(GO) vet $(GO_FLAGS)
 GO_FMT ?= $(GO) fmt
+GO_FIX ?= $(GO) fix
 GO_COVERAGE_MODULE_FILE ?= coverage.out
 GO_COVERAGE_ALL_MODULES_FILE ?= coverage-all.out
 GO_TOOL_COVER ?= $(GO) tool cover
@@ -346,6 +347,21 @@ $(FMT_TARGETS): fmt.%:
 .PHONY: _fmt
 _fmt:
 	$(GO_FMT) ./...
+
+# fix: runs go fix on the module
+
+FIX_TARGETS := $(addprefix fix.,$(GO_MODULE_SLUGS))
+
+.PHONY: fix
+fix: $(FIX_TARGETS)
+
+.PHONY: $(FIX_TARGETS)
+$(FIX_TARGETS): fix.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _fix
+
+.PHONY: _fix
+_fix:
+	$(GO_FIX) ./...
 
 # update: runs go get -u -t ./... and go get -u on all tools
 
