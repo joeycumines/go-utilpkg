@@ -2,4 +2,4 @@ module github.com/joeycumines/floater
 
 go 1.23.4
 
-require golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
+require golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
