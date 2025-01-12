@@ -17,7 +17,7 @@ func isNumericByte(b byte) bool {
 	return b >= '0' && b <= '9'
 }
 
-var bmr string
+var bmrStr string
 
 func runBenchmarkFormatDecimalRat(b *testing.B, input string, prec int, floatPrec uint, output string) {
 	b.Helper()
@@ -25,10 +25,10 @@ func runBenchmarkFormatDecimalRat(b *testing.B, input string, prec int, floatPre
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bmr = FormatDecimalRat(r, prec, floatPrec)
+		bmrStr = FormatDecimalRat(r, prec, floatPrec)
 	}
-	if bmr != output {
-		b.Fatalf(`unexpected output: %q != %q`, bmr, output)
+	if bmrStr != output {
+		b.Fatalf(`unexpected output: %q != %q`, bmrStr, output)
 	}
 }
 
@@ -38,12 +38,12 @@ func runBenchmarkBigRatFloatString(b *testing.B, input string, prec int) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bmr = r.FloatString(prec)
+		bmrStr = r.FloatString(prec)
 	}
 	b.StopTimer()
-	dec := len(bmr) - 1 - prec
-	if dec < 0 || dec >= len(bmr) || (bmr[dec] == '.') != (prec != 0) {
-		b.Fatalf(`unexpected output (%d): %q`, prec, bmr)
+	dec := len(bmrStr) - 1 - prec
+	if dec < 0 || dec >= len(bmrStr) || (bmrStr[dec] == '.') != (prec != 0) {
+		b.Fatalf(`unexpected output (%d): %q`, prec, bmrStr)
 	}
 }
 
@@ -60,13 +60,13 @@ func runBenchmarkBigRatFloatText(b *testing.B, input string, prec int, floatPrec
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bmr = f.Text('f', precForCall)
+		bmrStr = f.Text('f', precForCall)
 	}
 	b.StopTimer()
 	if !auto {
-		dec := len(bmr) - 1 - prec
-		if dec < 0 || dec >= len(bmr) || (bmr[dec] == '.') != (prec != 0) {
-			b.Fatalf(`unexpected output (specific, %d): %q`, prec, bmr)
+		dec := len(bmrStr) - 1 - prec
+		if dec < 0 || dec >= len(bmrStr) || (bmrStr[dec] == '.') != (prec != 0) {
+			b.Fatalf(`unexpected output (specific, %d): %q`, prec, bmrStr)
 		}
 	}
 }
@@ -84,13 +84,13 @@ func runBenchmarkStrconvFormatFloat(b *testing.B, input string, prec int, auto b
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bmr = strconv.FormatFloat(f, 'f', precForCall, 64)
+		bmrStr = strconv.FormatFloat(f, 'f', precForCall, 64)
 	}
 	b.StopTimer()
 	if !auto {
-		dec := len(bmr) - 1 - prec
-		if dec < 0 || dec >= len(bmr) || (bmr[dec] == '.') != (prec != 0) {
-			b.Fatalf(`unexpected output (specific, %d): %q`, prec, bmr)
+		dec := len(bmrStr) - 1 - prec
+		if dec < 0 || dec >= len(bmrStr) || (bmrStr[dec] == '.') != (prec != 0) {
+			b.Fatalf(`unexpected output (specific, %d): %q`, prec, bmrStr)
 		}
 	}
 }

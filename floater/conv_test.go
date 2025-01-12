@@ -6,11 +6,20 @@ import (
 	"testing"
 )
 
-func nf(t *testing.T, s string, p uint) *big.Float {
-	t.Helper()
+func nf(t interface {
+	Fatal(args ...any)
+}, s string, p uint) *big.Float {
+	if t, ok := t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
 	f, ok := new(big.Float).SetPrec(p).SetString(s)
 	if !ok {
-		t.Fatal(s)
+		msg := `unable to parse big.Float from string: ` + s
+		if t != nil {
+			t.Fatal(msg)
+		} else {
+			panic(msg)
+		}
 	}
 	return f
 }

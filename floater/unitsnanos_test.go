@@ -540,7 +540,7 @@ func runBenchmarkFormatUnitsNanos(b *testing.B, units int64, nanos int32, f func
 	b.Helper()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		bmr = f(units, nanos)
+		bmrStr = f(units, nanos)
 	}
 }
 
