@@ -5,7 +5,7 @@ package prompt
 
 // Key is the type express the key inserted from user.
 //
-//go:generate stringer -type=Key
+//go:generate go tool golang.org/x/tools/cmd/stringer -type=Key
 type Key int
 
 // ASCIICode is the type contains Key and it's ascii byte array.

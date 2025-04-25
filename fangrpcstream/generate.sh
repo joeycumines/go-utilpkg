@@ -5,13 +5,11 @@
 set -euo pipefail || exit 1
 trap 'echo [FAILURE] line_number=${LINENO} exit_code=${?} bash_version=${BASH_VERSION}' ERR
 
+command -v go >/dev/null 2>&1
 command -v protoc >/dev/null 2>&1
 
-CGO_ENABLED=0 go install google.golang.org/protobuf/cmd/protoc-gen-go || true
-command -v protoc-gen-go >/dev/null 2>&1
-
-CGO_ENABLED=0 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc || true
-command -v protoc-gen-go-grpc >/dev/null 2>&1
+PATH="$(pwd)/bin:${PATH}"
+export PATH
 
 # shellcheck disable=SC2054
 cmd=(

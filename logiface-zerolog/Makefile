@@ -12,7 +12,7 @@
 #   debug-env: Outputs debug information about the environment.
 
 GO ?= go
-BENCHSTAT ?= benchstat
+BENCHSTAT ?= go tool golang.org/x/perf/cmd/benchstat
 BENCHSTAT_FLAGS ?= -col /variant -row .name
 BENCHMARK_FLAGS ?= -timeout=5m -count=6 -benchmem
 BENCHMARK_DIR ?= benchmarks

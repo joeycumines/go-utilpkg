@@ -1,6 +1,6 @@
 module github.com/joeycumines/stumpy
 
-go 1.23.4
+go 1.24.2
 
 require (
 	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250118062819-b4a877269643

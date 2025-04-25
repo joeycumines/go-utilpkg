@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-prompt
 
-go 1.23.4
+go 1.24.2
 
 require (
 	github.com/google/go-cmp v0.7.0
@@ -11,11 +11,13 @@ require (
 	github.com/rivo/uniseg v0.4.7
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/sys v0.32.0
-	golang.org/x/tools v0.32.0
 )
 
 require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/tools v0.32.0 // indirect
 )
+
+tool golang.org/x/tools/cmd/stringer

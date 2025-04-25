@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2023 Joseph Cumines
+# Copyright (c) 2025 Joseph Cumines
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,20 +23,58 @@
 # Source: https://gist.github.com/joeycumines/3352c393c1bf43df72b120ae9134168d
 # Example: https://github.com/joeycumines/go-utilpkg
 
-# Example tools.go:
+# Usage
 # ---
-#//go:build tools
-#// +build tools
+# Extensible multi-module Makefile tailored for Go projects.
 #
-#package tools
+# This Makefile is designed to be used in a monorepo, where multiple Go modules
+# are contained within a single repository. The implementor's primary use case
+# was easing overhead of managing many _personal_ projects, as one author.
+# The `grit` tool is a key factor in this, see comments in-source, for more
+# details.
 #
-#import (
-#	_ "github.com/dkorunic/betteralign/cmd/betteralign"
-#	_ "github.com/grailbio/grit"
-#	_ "golang.org/x/perf/cmd/benchstat"
-#	_ "golang.org/x/tools/cmd/godoc"
-#	_ "honnef.co/go/tools/cmd/staticcheck"
-#)
+# Go module targets
+# ---
+# Each of these targets has multiple corresponding sub-targets, and with the
+# primary target being to run all of them, in parallel, if enabled.
+# The relative paths of modules are mapped to period-separated slugs, which may
+# be used as a suffix, for any of these targets.
+#
+# For example:
+#   make -j4 all                                  # all checks for all modules with parallelism of 4
+#   make staticcheck.dir1.dir-2.modulerootdir     # staticcheck in ./dir1/dir-2/modulerootdir
+#   make all.dir1.dir-2.modulerootdir             # all checks in ./dir1/dir-2/modulerootdir
+#
+# Sub-directory Makefiles
+# ---
+# In a similar vein to Go modules, Makefiles are also discovered, and exposed
+# using pattern and implicit rules, to implement targets to:
+#
+#   1. Run the default target in the subdirectory (e.g. `make run.dir1`)
+#   2. Run a specific target in the subdirectory (e.g. `make run-<target>.dir1`)
+#
+# Please be aware that these targets are primarily for convenience. Limitations
+# exist, e.g. each of these invocations are separate, and therefore cannot
+# avoid duplicated work, and may be at risk of concurrency-related problems.
+#
+# Customization
+# ---
+# The behavior of this implementation is quite configurable, e.g. commands,
+# flags, and settings controlling certain behavior, are exposed, and documented
+# in the source. Makefiles are also composable by nature, though global scoping
+# can cause issues. Be mindful, when choosing how to integrate this Makefile.
+# While no guarantees are provided, an effort to maintain compatibility has,
+# and will continue, to be made, e.g. as features are added, or tweaked.
+#
+# Multiple customization patterns are supported, including:
+#
+#   1. Environment variables or command line arguments
+#   2. Creating a ./config.mak (uncommitted, user-specific)
+#   3. Creating a ./project.mak (committed, project-specific)
+#   4. Including* this Makefile from another Makefile
+#
+# (*) This is the most likely to break, e.g. ROOT_MAKEFILE would likely need to
+#     be set in the including Makefile.
 
 # What is `grit` and how to use it?
 # ---
@@ -69,12 +107,45 @@
 # 5. Run (either automatically or manually) `make grit` to sync _to_ the
 #   configured target(s), to propagate
 
+# simple variables that either represent invariants, or need to be interacted
+# with in an imperative manner
+
 # windows gnu make seems to append includes to the end of MAKEFILE_LIST
 # hence the simple variable assignment, prior to any includes
+ifeq ($(ROOT_MAKEFILE),)
 ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+endif
 
--include config.mak
+ifeq ($(PROJECT_ROOT),)
+PROJECT_ROOT := $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
+endif
+
+ifeq ($(PROJECT_NAME),)
+PROJECT_NAME := $(notdir $(PROJECT_ROOT))
+endif
+
+# N.B. this is a multi-platform makefile
+# so far only two switching cases have been required (Windows and Unix)
+ifeq ($(IS_WINDOWS),)
+ifeq ($(OS),Windows_NT)
+IS_WINDOWS := true
+else
+IS_WINDOWS := false
+endif
+endif
+
+# There is a built-in help target. This variable is to mitigate collisions.
+# Setting SKIP_FURTHER_MAKEFILE_HELP=true will disable the help target.
+ifeq ($(SKIP_FURTHER_MAKEFILE_HELP),)
+SKIP_FURTHER_MAKEFILE_HELP := false
+endif
+
+# optional project-specific (committed) overrides and extensions
 -include project.mak
+# user-specific (uncommitted) overrides and extensions
+# N.B. to use this, add the following to .gitignore: /config.mak
+#      and, if you use docker, add the following to .dockerignore: config.mak
+-include config.mak
 
 # ---
 
@@ -83,6 +154,10 @@ ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 # additional make flags to be used by the pattern targets like run.%, and implicit targets like run-%.<path>
 # (used to run subdir makefiles)
 RUN_FLAGS ?=
+
+# determines the output of the debug-vars target
+# N.B. only _defined_ variables will be present in the output
+DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS
 
 # ---
 
@@ -99,23 +174,21 @@ GO_FIX ?= $(GO) fix
 GO_COVERAGE_MODULE_FILE ?= coverage.out
 GO_COVERAGE_ALL_MODULES_FILE ?= coverage-all.out
 GO_TOOL_COVER ?= $(GO) tool cover
-GODOC ?= godoc
-GODOC_FLAGS ?= -http=:6060
-GRIT ?= grit
+GODOC ?= $(GO) tool $(GO_PKG_GODOC)
+_GODOC_FLAGS := -http=localhost:6060 # ignore this (use GODOC_FLAGS)
+GODOC_FLAGS ?= $(_GODOC_FLAGS)
+GRIT ?= $(GO) tool $(GO_PKG_GRIT)
 GRIT_FLAGS ?= -push
 GRIT_BRANCH ?= main
 GRIT_SRC ?=
 GRIT_DST ?=
 GRIT_INIT_TARGET ?=
-STATICCHECK ?= staticcheck
+STATICCHECK ?= $(GO) tool $(GO_PKG_STATICCHECK)
 STATICCHECK_FLAGS ?=
-BETTERALIGN ?= betteralign
+BETTERALIGN ?= $(GO) tool $(GO_PKG_BETTERALIGN)
 BETTERALIGN_FLAGS ?=
-ifeq ($(OS),Windows_NT)
-LIST_TOOLS ?= if exist tools.go (for /f tokens^=2^ delims^=^" %%a in ('findstr /r "^[\t ]*_" tools.go') do echo %%a)
-else
-LIST_TOOLS ?= [ ! -e tools.go ] || grep -E '^[	 ]*_' tools.go | cut -d '"' -f 2
-endif
+# for the tools target, to update the root go.mod (only relevant when setting up or updating this makefile)
+GO_TOOLS ?= $(GO_TOOLS_DEFAULT)
 # used to special-case modules for tools which fail if they find no packages (e.g. go vet)
 GO_MODULE_SLUGS_NO_PACKAGES ?=
 # used to exclude modules from the update* targets
@@ -129,8 +202,15 @@ GO_MODULE_SLUGS_NO_BETTERALIGN ?=
 MAP_SEPARATOR ?= :
 # path separator (/ replacement) for slugs
 SLUG_SEPARATOR ?= .
-# runs LIST_TOOLS in the shell (when templated)
-GO_TOOLS ?= $(shell $(LIST_TOOLS))
+GO_TOOLS_DEFAULT ?= \
+		$(GO_PKG_BETTERALIGN) \
+		$(GO_PKG_GRIT) \
+		$(GO_PKG_GODOC) \
+		$(GO_PKG_STATICCHECK)
+GO_PKG_BETTERALIGN ?= github.com/dkorunic/betteralign/cmd/betteralign
+GO_PKG_GRIT ?= github.com/grailbio/grit
+GO_PKG_GODOC ?= golang.org/x/tools/cmd/godoc
+GO_PKG_STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck
 # paths to be deleted on clean
 CLEAN_PATHS ?= $(GO_COVERAGE_ALL_MODULES_FILE) $(addsuffix /$(GO_COVERAGE_MODULE_FILE),$(GO_MODULE_PATHS))
 
@@ -155,6 +235,14 @@ map_keys = $(foreach v,$1,$(word 1,$(subst $(MAP_SEPARATOR), ,$v)))
 slug_transform = $(if $(filter .,$1),root,$(subst /,$(SLUG_SEPARATOR),$(patsubst ./%,%,$1)))
 # attempts to perform the opposite of slug_parse, note that it may not be possible to recover the original path
 slug_parse = $(if $(filter root,$1),$(SLUG_SEPARATOR),$(SLUG_SEPARATOR)/$(subst $(SLUG_SEPARATOR),/,$(filter-out root,$1)))
+
+# escaping for use with a recipe like: echo $(call escape_for_echo,$(TO_BE_ECHOED))
+# WARNING: you may get unexpected results under windows, particularly if TO_BE_ECHOED is empty
+ifeq ($(IS_WINDOWS),true)
+escape_for_echo = $(strip $(subst %,%%,$(subst |,^|,$(subst >,^>,$(subst <,^<,$(subst &,^&,$(subst ^,^^,$1)))))))
+else
+escape_for_echo ?= '$(subst ','\'',$1)'
+endif
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
 go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
@@ -193,6 +281,7 @@ SUBDIR_MAKEFILE_PATHS := $(filter-out .,$(patsubst %/Makefile,%,$(call rwildcard
 _SUBDIR_MAKEFILE_MAP := $(call map_transform_keys,$(SUBDIR_MAKEFILE_PATHS),slug_transform)
 # slugs for subdirectories, without a leading ./, / replaced with ., and the path . mapped to root
 SUBDIR_MAKEFILE_SLUGS := $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call subdir_makefile_path_to_slug,$d))
+
 # sanity check the path and slug lookups
 ifneq ($(SUBDIR_MAKEFILE_PATHS),$(foreach d,$(SUBDIR_MAKEFILE_SLUGS),$(call subdir_makefile_slug_to_path,$d)))
 $(error SUBDIR_MAKEFILE_PATHS contains unsupported paths)
@@ -203,14 +292,14 @@ endif
 
 # ---
 
-# module pattern rules
+##@ Go module targets
 
-# all: builds, then lints and tests in parallel (all modules in parallel)
+# all, all.<go module slug>
 
 ALL_TARGETS := $(addprefix all.,$(GO_MODULE_SLUGS))
 
 .PHONY: all
-all: $(ALL_TARGETS)
+all: $(ALL_TARGETS) ## Builds, then lints and tests, in parallel (all modules in parallel).
 
 .PHONY: $(ALL_TARGETS)
 $(ALL_TARGETS): all.%: _all__build.% _all__lint.% _all__test.%
@@ -227,33 +316,33 @@ $(addprefix _all__lint.,$(GO_MODULE_SLUGS)): _all__lint.%: _all__build.%
 $(addprefix _all__test.,$(GO_MODULE_SLUGS)): _all__test.%: _all__build.%
 	@$(MAKE) --no-print-directory test.$*
 
-# lint: runs the vet and staticcheck targets
+# build, build.<go module slug>
+
+BUILD_TARGETS := $(addprefix build.,$(GO_MODULE_SLUGS))
+
+.PHONY: build
+build: $(BUILD_TARGETS) ## Runs the go build tool.
+
+.PHONY: $(BUILD_TARGETS)
+$(BUILD_TARGETS): build.%:
+	$(GO_BUILD) $(call go_module_slug_to_path,$*)/...
+
+# lint, lint.<go module slug>
 
 LINT_TARGETS := $(addprefix lint.,$(GO_MODULE_SLUGS))
 
 .PHONY: lint
-lint: $(LINT_TARGETS)
+lint: $(LINT_TARGETS) ## Runs the vet, staticcheck, and betteralign targets.
 
 .PHONY: $(LINT_TARGETS)
 $(LINT_TARGETS): lint.%: vet.% staticcheck.% betteralign.%
 
-# staticcheck: runs the staticcheck tool
-
-STATICCHECK_TARGETS := $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
-
-.PHONY: staticcheck
-staticcheck: $(STATICCHECK_TARGETS)
-
-.PHONY: $(STATICCHECK_TARGETS)
-$(STATICCHECK_TARGETS): staticcheck.%:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_slug_to_path,$*)/...
-
-# vet: runs the go vet tool
+# vet, vet.<go module slug>
 
 VET_TARGETS := $(addprefix vet.,$(GO_MODULE_SLUGS))
 
 .PHONY: vet
-vet: $(VET_TARGETS)
+vet: $(VET_TARGETS) ## Runs the go vet tool.
 
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
@@ -262,12 +351,23 @@ $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
 .PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
 
-# betteralign: runs the betteralign tool
+# staticcheck, staticcheck.<go module slug>
+
+STATICCHECK_TARGETS := $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
+
+.PHONY: staticcheck
+staticcheck: $(STATICCHECK_TARGETS) ## Runs the staticcheck tool.
+
+.PHONY: $(STATICCHECK_TARGETS)
+$(STATICCHECK_TARGETS): staticcheck.%:
+	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_slug_to_path,$*)/...
+
+# betteralign, betteralign.<go module slug>
 
 BETTERALIGN_TARGETS := $(addprefix betteralign.,$(GO_MODULE_SLUGS))
 
 .PHONY: betteralign
-betteralign: $(BETTERALIGN_TARGETS)
+betteralign: $(BETTERALIGN_TARGETS) ## Runs the betteralign tool.
 
 .PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
 $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): betteralign.%:
@@ -280,23 +380,12 @@ $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): betteralign.%:
 _betteralign:
 	$(BETTERALIGN) $(BETTERALIGN_FLAGS) ./...
 
-# build: runs the go build tool
-
-BUILD_TARGETS := $(addprefix build.,$(GO_MODULE_SLUGS))
-
-.PHONY: build
-build: $(BUILD_TARGETS)
-
-.PHONY: $(BUILD_TARGETS)
-$(BUILD_TARGETS): build.%:
-	$(GO_BUILD) $(call go_module_slug_to_path,$*)/...
-
-# test: runs the go test tool
+# test, test.<go module slug>
 
 TEST_TARGETS := $(addprefix test.,$(GO_MODULE_SLUGS))
 
 .PHONY: test
-test: $(TEST_TARGETS)
+test: $(TEST_TARGETS) ## Runs the go test tool.
 
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
@@ -305,16 +394,16 @@ $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
 .PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
 
-# cover: runs the go test tool with -covermode=count and generates a coverage report
+# cover, cover.<go module slug>
 
 COVER_TARGETS := $(addprefix cover.,$(GO_MODULE_SLUGS))
 
 .PHONY: cover
-cover: $(COVER_TARGETS)
+cover: $(COVER_TARGETS) ## Runs the go test tool with -covermode=count and generates a coverage report.
 	echo mode: count >$(GO_COVERAGE_ALL_MODULES_FILE)
 	$(foreach d,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES),$(cover__TEMPLATE))
 	$(GO_TOOL_COVER) -html=$(GO_COVERAGE_ALL_MODULES_FILE)
-ifeq ($(OS),Windows_NT)
+ifeq ($(IS_WINDOWS),true)
 define cover__TEMPLATE =
 type $(subst /,\,$(call go_module_slug_to_path,$d)/$(GO_COVERAGE_MODULE_FILE)) | more +1 | findstr /v /r "^$$" >>$(GO_COVERAGE_ALL_MODULES_FILE)
 
@@ -333,12 +422,12 @@ $(addprefix cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): cover.%:
 .PHONY: $(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): cover.%:
 
-# fmt: runs go fmt on the module
+# fmt, fmt.<go module slug>
 
 FMT_TARGETS := $(addprefix fmt.,$(GO_MODULE_SLUGS))
 
 .PHONY: fmt
-fmt: $(FMT_TARGETS)
+fmt: $(FMT_TARGETS) ## Runs the go fmt command.
 
 .PHONY: $(FMT_TARGETS)
 $(FMT_TARGETS): fmt.%:
@@ -348,12 +437,12 @@ $(FMT_TARGETS): fmt.%:
 _fmt:
 	$(GO_FMT) ./...
 
-# fix: runs go fix on the module
+# fix, fix.<go module slug>
 
 FIX_TARGETS := $(addprefix fix.,$(GO_MODULE_SLUGS))
 
 .PHONY: fix
-fix: $(FIX_TARGETS)
+fix: $(FIX_TARGETS) ## Runs the go fix command.
 
 .PHONY: $(FIX_TARGETS)
 $(FIX_TARGETS): fix.%:
@@ -363,12 +452,12 @@ $(FIX_TARGETS): fix.%:
 _fix:
 	$(GO_FIX) ./...
 
-# update: runs go get -u -t ./... and go get -u on all tools
+# update, update.<go module slug>
 
 UPDATE_TARGETS := $(addprefix update.,$(GO_MODULE_SLUGS))
 
 .PHONY: update
-update: $(UPDATE_TARGETS)
+update: $(UPDATE_TARGETS) ## Runs go get -u -t ./..., go get -u tool, then go mod tidy.
 
 .PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE))
 $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): update.%:
@@ -380,19 +469,15 @@ $(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%: tidy.%
 .PHONY: _update
 _update:
 	$(GO) get -u -t ./...
-	$(foreach tool,$(GO_TOOLS),$(_update_TEMPLATE))
+	$(GO) get -u tool
 	$(GO) mod tidy
-define _update_TEMPLATE =
-$(GO) get -u $(tool)
 
-endef
-
-# tidy: runs go mod tidy
+# tidy, tidy.<go module slug>
 
 TIDY_TARGETS := $(addprefix tidy.,$(GO_MODULE_SLUGS))
 
 .PHONY: tidy
-tidy: $(TIDY_TARGETS)
+tidy: $(TIDY_TARGETS) ## Runs go mod tidy.
 
 .PHONY: $(TIDY_TARGETS)
 $(TIDY_TARGETS): tidy.%:
@@ -402,31 +487,12 @@ $(TIDY_TARGETS): tidy.%:
 _tidy:
 	$(GO) mod tidy
 
-# tools: runs go install on all tools
-
-TOOLS_TARGETS := $(addprefix tools.,$(GO_MODULE_SLUGS))
-
-.PHONY: tools
-tools: $(TOOLS_TARGETS)
-
-.PHONY: $(TOOLS_TARGETS)
-$(TOOLS_TARGETS): tools.%:
-	$(MAKE) --no-print-directory -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _tools
-
-.PHONY: _tools
-_tools:
-	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
-define _tools_TEMPLATE =
-$(GO) install $(tool)
-
-endef
-
-# grit: runs grit to sync modules to defined target repositories
+# grit, grit.<go module slug>
 
 GRIT_TARGETS := $(addprefix grit.,$(GO_MODULE_SLUGS))
 
 .PHONY: grit
-grit: $(GRIT_TARGETS)
+grit: $(GRIT_TARGETS) ## Runs grit to sync modules to defined target repositories.
 
 .PHONY: $(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST))
 $(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST)): grit.%:
@@ -462,18 +528,30 @@ $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call subdi
 
 # ---
 
-.PHONY: clean
-clean:
+##@ Other targets
+
+.PHONY: tools
+tools: ## Adds the tools for _this_ Makefile to go.mod, then runs go mod tidy.
+	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
+define _tools_TEMPLATE =
+$(GO) get -tool $(tool)
+
+endef
 
 .PHONY: godoc
-godoc:
-	@echo 'Running godoc, the default URL is http://localhost:6060/pkg/'
+godoc: ## Runs the godoc tool, serving on localhost.
+ifeq ($(GODOC_FLAGS),$(_GODOC_FLAGS))
+	@echo '#################################################'
+	@echo '## Serving godoc on http://localhost:6060/pkg/ ##'
+	@echo '## Press Ctrl+C to stop godoc server.          ##'
+	@echo '#################################################'
+	@echo
+endif
 	$(GODOC) $(GODOC_FLAGS)
 
-# grit-init: runs grit to initialize a new GRIT_DST, see the doc comment near the top of this file
 .PHONY: grit-init
-grit-init:
-ifeq ($(OS),Windows_NT)
+grit-init: ## Runs grit to initialize a new GRIT_DST, see Makefile for docs.
+ifeq ($(IS_WINDOWS),true)
 	if exist $(_grit_init_DIR) exit 1
 else
 	if [ -d $(_grit_init_DIR) ]; then exit 1; fi
@@ -484,18 +562,13 @@ _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_ds
 _grit_init_DIR = $(or $(patsubst ./%,%,$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))
 _grit_init_DST = $(GRIT_SRC),$(_grit_init_DIR)/,$(GRIT_BRANCH)
 
-.PHONY: debug-env
-debug-env:
-	@echo GO_MODULE_PATHS = $(GO_MODULE_PATHS)
-	@echo GO_MODULE_SLUGS = $(GO_MODULE_SLUGS)
-	@echo GO_MODULE_SLUGS_NO_PACKAGES = $(GO_MODULE_SLUGS_NO_PACKAGES)
-	@echo GO_MODULE_SLUGS_EXCL_NO_PACKAGES = $(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)
-	@echo GO_MODULE_SLUGS_NO_UPDATE = $(GO_MODULE_SLUGS_NO_UPDATE)
-	@echo GO_MODULE_SLUGS_EXCL_NO_UPDATE = $(GO_MODULE_SLUGS_EXCL_NO_UPDATE)
-	@echo GO_MODULE_SLUGS_GRIT_DST = $(GO_MODULE_SLUGS_GRIT_DST)
-	@echo GO_MODULE_SLUGS_EXCL_GRIT_DST = $(GO_MODULE_SLUGS_EXCL_GRIT_DST)
-	@echo SUBDIR_MAKEFILE_PATHS = $(SUBDIR_MAKEFILE_PATHS)
-	@echo SUBDIR_MAKEFILE_SLUGS = $(SUBDIR_MAKEFILE_SLUGS)
+.PHONY: debug-vars
+debug-vars:
+	$(foreach debug_var,$(DEBUG_VARS),$(_debug_vars_TEMPLATE))
+define _debug_vars_TEMPLATE =
+@echo $(debug_var)=$(call escape_for_echo,$($(debug_var)))
+
+endef
 
 # we use .PHONY, but there's an edge case requiring this pattern
 .PHONY: FORCE
@@ -503,8 +576,168 @@ FORCE:
 
 .PHONY: clean
 clean:
-ifeq ($(OS),Windows_NT)
+ifeq ($(IS_WINDOWS),true)
 	del /Q /S $(subst /,\,$(CLEAN_PATHS))
 else
 	rm -rf $(CLEAN_PATHS)
+endif
+
+ifneq ($(IS_WINDOWS),true)
+ifneq ($(SKIP_FURTHER_MAKEFILE_HELP),true)
+SKIP_FURTHER_MAKEFILE_HELP := true
+ifndef MAKEFILE_HELP_SCRIPT
+define _MAKEFILE_HELP_SCRIPT :=
+# Use cat and a heredoc (EOF) to define the multi-line awk script clearly.
+# Pass PROJECT_ROOT to awk using -v for relative path calculation.
+# Use single quotes around EOF to prevent shell variable expansion within the script.
+awk -v project_root="$(PROJECT_ROOT)" '
+BEGIN {
+    FS = ":.*##";
+    # Print the initial usage message
+    printf "\nUsage:\n  $(or $(notdir $(MAKE)),make) \033[36m<target>\033[0m\n";
+
+    # Variables for parsing free-text documentation
+    in_usage_block = 0;       # Flag: currently inside a documentation block
+    usage_marker_found = 0;   # Flag: Saw "# Usage" line, looking for "# ---"
+    current_doc_file = "";    # Key (relative path or special marker) for storing docs
+    doc_separator = "\n\n";   # Separator between doc blocks if multiple in one file
+}
+
+# Match section headers (##@ ) - Print only when not capturing docs
+/^##@ / {
+    if (!in_usage_block) {
+        printf "\n\033[1m%s\033[0m\n", substr($$0, 5);
+    }
+}
+
+# Match target lines (target: ... ## description) - Print only when not capturing docs
+# Adjusted regex to allow dots and percent signs in target names more reliably
+/^[a-zA-Z0-9._%-]+:.*?##/ {
+    if (!in_usage_block) {
+        # Use slightly wider padding if needed, 18 seems reasonable
+        printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2;
+    }
+}
+
+# --- Documentation Block Parsing Logic ---
+
+# Detect start of documentation block: line 1 "# Usage"
+# Note: Exact match, case-sensitive. Anchored start/end.
+/^# Usage$$/ {
+    usage_marker_found = 1; # Mark that we found the first part
+    next; # Skip processing this line further, move to the next line
+}
+
+# Detect start of documentation block: line 2 "# ---" (only if line 1 matched)
+# Note: Exact match, case-sensitive. Anchored start/end.
+/^# ---$$/ && usage_marker_found {
+    in_usage_block = 1;       # We are now officially inside a documentation block
+    usage_marker_found = 0;   # Reset the marker for the next potential block
+
+    # Calculate relative path for this file
+    rel_path = FILENAME;
+    # Ensure project_root has no trailing slash for safety, then remove prefix
+    # Use gsub for global replacement in case project_root appears elsewhere, though unlikely here.
+    gsub(/\/$$/, "", project_root); # Remove trailing slash from project_root if exists
+    # Escape potential regex special chars in project_root before using in sub() if needed,
+    # but direct string prefix removal is usually safe here.
+    # Add ^ to anchor the substitution at the beginning.
+    sub("^" project_root "/", "", rel_path);
+
+    # Determine the storage key: special for "Makefile", relative path otherwise
+    # Use tolower() for case-insensitive comparison of the filename part
+    if (tolower(rel_path) == "makefile") {
+        current_doc_file = "__MAIN_MAKEFILE__"; # Special key for root Makefile
+    } else {
+        current_doc_file = rel_path; # Use relative path as key
+    }
+
+    # Initialize documentation storage if this is the first block for this file
+    if (!(current_doc_file in makefile_docs)) {
+        makefile_docs[current_doc_file] = "";
+    } else if (makefile_docs[current_doc_file] != "") {
+        # If adding another block from the *same* file, add a separator
+        makefile_docs[current_doc_file] = makefile_docs[current_doc_file] doc_separator;
+    }
+    next; # Skip processing the "---" line itself
+}
+
+# Capture documentation lines (lines starting with '#' while inside a block)
+in_usage_block && /^#/ {
+    line = $$0;
+    # Remove leading "# " or just "#"
+    sub(/^# ?/, "", line);
+    # Append the cleaned line, prefixed with indent, suffixed with a newline character
+    makefile_docs[current_doc_file] = makefile_docs[current_doc_file] "  " line "\n";
+    next; # Process next line
+}
+
+# End of documentation block (non-comment line encountered while inside a block)
+in_usage_block && !/^#/ {
+    in_usage_block = 0;     # Exit documentation capture mode
+    current_doc_file = "";  # Clear the current file key
+    # Reset the initial marker just in case, though !/^#/ below also handles it
+    usage_marker_found = 0;
+    # IMPORTANT: This line itself is NOT processed further in this cycle.
+    # If it were a target or header, it would be missed. This is a simplification:
+    # assumes documentation blocks are not immediately followed by lines
+    # that *also* need processing by other rules in the same cycle.
+    # The checks `if (!in_usage_block)` in other rules prevent them from running
+    # while capturing, so this non-comment line effectively stops capture and is ignored.
+}
+
+# Reset usage marker if we see a non-matching line while waiting for "# ---"
+!/^# ---$$/ && usage_marker_found {
+    usage_marker_found = 0; # Failed to find "# ---" immediately after "# Usage"
+}
+
+# --- END Block: Print Collected Documentation ---
+
+END {
+    # Check if any documentation was collected
+    doc_exists = 0;
+    for (file_key in makefile_docs) {
+        # Remove trailing newline from the collected block before checking if empty
+        gsub(/\n$$/, "", makefile_docs[file_key]);
+        if (makefile_docs[file_key] != "") {
+            doc_exists = 1;
+            break;
+        }
+    }
+
+    if (doc_exists) {
+        # Print a main header for the documentation section
+        printf "\n\033[1mNotes\033[0m\n";
+
+        # Print main Makefile documentation first if it exists and is not empty
+        main_doc_key = "__MAIN_MAKEFILE__";
+        if (main_doc_key in makefile_docs && makefile_docs[main_doc_key] != "") {
+            # Header with underline
+            printf "\n\033[4mMakefile:\033[0m\n%s\n", makefile_docs[main_doc_key];
+        }
+
+        # Print documentation from other Makefiles
+        # Awk array iteration order is not guaranteed, but often insertion order or hash order.
+        # Sorting keys would require GNU awk typically. For simplicity, accept awk default order.
+        for (file_key in makefile_docs) {
+            if (file_key != main_doc_key && makefile_docs[file_key] != "") {
+                # Header with underline, showing the relative path
+                printf "\n\033[4m%s:\033[0m\n%s\n", file_key, makefile_docs[file_key];
+            }
+        }
+    }
+}
+' $(MAKEFILE_LIST) # Pass the list of makefiles to awk
+endef
+export _MAKEFILE_HELP_SCRIPT
+MAKEFILE_HELP_SCRIPT := eval "$$_MAKEFILE_HELP_SCRIPT"
+endif
+endif
+
+.PHONY: help
+help:  ## Display this help.
+	@$(MAKEFILE_HELP_SCRIPT)
+
+.PHONY: h
+h: help ## Alias for help.
 endif
