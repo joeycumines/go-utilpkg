@@ -18,4 +18,5 @@ GRIT_DST ?= \
     smartpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-smartpoll.git \
     sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
     prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
-    floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git
+    floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
+    atlas2jooq$(MAP_SEPARATOR)https://github.com/joeycumines/atlas2jooq.git
