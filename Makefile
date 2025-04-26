@@ -187,6 +187,8 @@ STATICCHECK ?= $(GO) tool $(GO_PKG_STATICCHECK)
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(GO) tool $(GO_PKG_BETTERALIGN)
 BETTERALIGN_FLAGS ?=
+DEADCODE ?= $(GO) tool $(GO_PKG_DEADCODE)
+DEADCODE_FLAGS ?=
 # for the tools target, to update the root go.mod (only relevant when setting up or updating this makefile)
 GO_TOOLS ?= $(GO_TOOLS_DEFAULT)
 # used to special-case modules for tools which fail if they find no packages (e.g. go vet)
@@ -195,6 +197,8 @@ GO_MODULE_SLUGS_NO_PACKAGES ?=
 GO_MODULE_SLUGS_NO_UPDATE ?=
 # used to exclude modules from the betteralign targets
 GO_MODULE_SLUGS_NO_BETTERALIGN ?=
+# used to include modules in the deadcode targets
+GO_MODULE_SLUGS_USE_DEADCODE ?=
 
 # configurable, but unlikely to need to be configured
 
@@ -206,11 +210,13 @@ GO_TOOLS_DEFAULT ?= \
 		$(GO_PKG_BETTERALIGN) \
 		$(GO_PKG_GRIT) \
 		$(GO_PKG_GODOC) \
-		$(GO_PKG_STATICCHECK)
+		$(GO_PKG_STATICCHECK) \
+		$(GO_PKG_DEADCODE)
 GO_PKG_BETTERALIGN ?= github.com/dkorunic/betteralign/cmd/betteralign
 GO_PKG_GRIT ?= github.com/grailbio/grit
 GO_PKG_GODOC ?= golang.org/x/tools/cmd/godoc
 GO_PKG_STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck
+GO_PKG_DEADCODE ?= golang.org/x/tools/cmd/deadcode
 # paths to be deleted on clean
 CLEAN_PATHS ?= $(GO_COVERAGE_ALL_MODULES_FILE) $(addsuffix /$(GO_COVERAGE_MODULE_FILE),$(GO_MODULE_PATHS))
 
@@ -236,12 +242,12 @@ slug_transform = $(if $(filter .,$1),root,$(subst /,$(SLUG_SEPARATOR),$(patsubst
 # attempts to perform the opposite of slug_parse, note that it may not be possible to recover the original path
 slug_parse = $(if $(filter root,$1),$(SLUG_SEPARATOR),$(SLUG_SEPARATOR)/$(subst $(SLUG_SEPARATOR),/,$(filter-out root,$1)))
 
-# escaping for use with a recipe like: echo $(call escape_for_echo,$(TO_BE_ECHOED))
-# WARNING: you may get unexpected results under windows, particularly if TO_BE_ECHOED is empty
+# escaping for use in recipies, e.g.: echo $(call escape_command_arg,$(MESSAGE))
+# WARNING: you may get unexpected results under windows, e.g. if MESSAGE is empty, in the above example
 ifeq ($(IS_WINDOWS),true)
-escape_for_echo = $(strip $(subst %,%%,$(subst |,^|,$(subst >,^>,$(subst <,^<,$(subst &,^&,$(subst ^,^^,$1)))))))
+escape_command_arg ?= $(strip $(subst %,%%,$(subst |,^|,$(subst >,^>,$(subst <,^<,$(subst &,^&,$(subst ^,^^,$1)))))))
 else
-escape_for_echo ?= '$(subst ','\'',$1)'
+escape_command_arg ?= '$(subst ','\'',$1)'
 endif
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
@@ -271,6 +277,9 @@ GO_MODULE_SLUGS_EXCL_NO_UPDATE := $(filter-out $(GO_MODULE_SLUGS_NO_UPDATE),$(GO
 GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_NO_BETTERALIGN),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 # because GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN is composite (with no packages), and we need a target for _all_ modules
 GO_MODULE_SLUGS_INCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN),$(GO_MODULE_SLUGS))
+GO_MODULE_SLUGS_INCL_USE_DEADCODE := $(filter $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+# because GO_MODULE_SLUGS_INCL_USE_DEADCODE is composite (with no packages), and we need a target for _all_ modules
+GO_MODULE_SLUGS_EXCL_USE_DEADCODE := $(filter-out $(GO_MODULE_SLUGS_INCL_USE_DEADCODE),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_GRIT_DST := $(filter $(call map_keys,$(GRIT_DST)),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_EXCL_GRIT_DST := $(filter-out $(GO_MODULE_SLUGS_GRIT_DST),$(GO_MODULE_SLUGS))
 
@@ -288,6 +297,22 @@ $(error SUBDIR_MAKEFILE_PATHS contains unsupported paths)
 endif
 ifneq ($(SUBDIR_MAKEFILE_SLUGS),$(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(call subdir_makefile_path_to_slug,$d)))
 $(error SUBDIR_MAKEFILE_SLUGS contains unsupported paths)
+endif
+
+# ---
+
+##@ Standard targets
+
+.PHONY: all
+all: ## Run a local "full build", e.g. all targets for Go modules.
+	@
+
+.PHONY: clean
+clean: ## Cleans up outputs of other targets, e.g. removing coverage files.
+ifeq ($(IS_WINDOWS),true)
+	del /Q /S $(subst /,\,$(CLEAN_PATHS))
+else
+	rm -rf $(CLEAN_PATHS)
 endif
 
 # ---
@@ -332,10 +357,10 @@ $(BUILD_TARGETS): build.%:
 LINT_TARGETS := $(addprefix lint.,$(GO_MODULE_SLUGS))
 
 .PHONY: lint
-lint: $(LINT_TARGETS) ## Runs the vet, staticcheck, and betteralign targets.
+lint: $(LINT_TARGETS) ## Runs the vet, staticcheck, betteralign, and deadcode targets.
 
 .PHONY: $(LINT_TARGETS)
-$(LINT_TARGETS): lint.%: vet.% staticcheck.% betteralign.%
+$(LINT_TARGETS): lint.%: vet.% staticcheck.% betteralign.% deadcode.%
 
 # vet, vet.<go module slug>
 
@@ -371,7 +396,7 @@ betteralign: $(BETTERALIGN_TARGETS) ## Runs the betteralign tool.
 
 .PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
 $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): betteralign.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _betteralign BETTERALIGN_FLAGS='$(BETTERALIGN_FLAGS)'
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _betteralign BETTERALIGN_FLAGS=$(call escape_command_arg,$(BETTERALIGN_FLAGS))
 
 .PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN))
 $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): betteralign.%:
@@ -379,6 +404,24 @@ $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): betteralign.%:
 .PHONY: _betteralign
 _betteralign:
 	$(BETTERALIGN) $(BETTERALIGN_FLAGS) ./...
+
+# deadcode, deadcode.<go module slug>
+
+DEADCODE_TARGETS := $(addprefix deadcode.,$(GO_MODULE_SLUGS))
+
+.PHONY: deadcode
+deadcode: $(DEADCODE_TARGETS) ## Runs the deadcode tool.
+
+.PHONY: $(addprefix deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE))
+$(addprefix deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE)): deadcode.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _deadcode DEADCODE_FLAGS=$(call escape_command_arg,$(DEADCODE_FLAGS))
+
+.PHONY: $(addprefix deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE))
+$(addprefix deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE)): deadcode.%:
+
+.PHONY: _deadcode
+_deadcode:
+	$(DEADCODE) $(DEADCODE_FLAGS) ./...
 
 # test, test.<go module slug>
 
@@ -562,35 +605,58 @@ _grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_ds
 _grit_init_DIR = $(or $(patsubst ./%,%,$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))
 _grit_init_DST = $(GRIT_SRC),$(_grit_init_DIR)/,$(GRIT_BRANCH)
 
-.PHONY: debug-vars
-debug-vars:
-	$(foreach debug_var,$(DEBUG_VARS),$(_debug_vars_TEMPLATE))
-define _debug_vars_TEMPLATE =
-@echo $(debug_var)=$(call escape_for_echo,$($(debug_var)))
-
-endef
-
-# we use .PHONY, but there's an edge case requiring this pattern
-.PHONY: FORCE
-FORCE:
-
-.PHONY: clean
-clean:
-ifeq ($(IS_WINDOWS),true)
-	del /Q /S $(subst /,\,$(CLEAN_PATHS))
-else
-	rm -rf $(CLEAN_PATHS)
-endif
-
 ifneq ($(IS_WINDOWS),true)
 ifneq ($(SKIP_FURTHER_MAKEFILE_HELP),true)
 SKIP_FURTHER_MAKEFILE_HELP := true
 ifndef MAKEFILE_HELP_SCRIPT
 define _MAKEFILE_HELP_SCRIPT :=
+# Run a command with args, auto-detecting color stripping and paging of stdout.
+run_with_smart_human_readable_output() {
+  if ! [ $$# -ge 1 ]; then
+    echo "Usage: run_with_smart_human_readable_output <command> [args...]" >&2
+    return 2
+  fi
+
+  # ansi color stripping sed script https://stackoverflow.com/a/51141872
+  # N.B. local variables are not POSIX
+  _run_with_smart_human_readable_output_strip_color='s/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
+
+  if ! [ -t 1 ]; then
+    # non-terminal output (e.g., piped or redirected) - strip color
+    "$$@" | sed "$$_run_with_smart_human_readable_output_strip_color"
+    return "$$?"
+  fi
+
+  # terminal output...
+
+  # check if color is supported
+  command -v tput >/dev/null 2>&1 &&
+  _run_with_smart_human_readable_output_tput_colors="$$(tput colors 2>/dev/null)" ||
+  _run_with_smart_human_readable_output_tput_colors=0
+
+  # run command, with pager, if available
+  if command -v less >/dev/null 2>&1; then
+    if [ "$$_run_with_smart_human_readable_output_tput_colors" -gt 0 ]; then
+      "$$@" | less -R
+    else
+      "$$@" | sed "$$_run_with_smart_human_readable_output_strip_color" | less
+    fi
+  elif command -v more >/dev/null; then
+    # note 1: the above deliberately leaves stderr alone, so that error from at
+    # least one `command` builtin is shown (idk, might be some weird shells
+    # around)
+    # note 2: didnt bother checking if `more` (consistently) supports color
+    "$$@" | sed "$$_run_with_smart_human_readable_output_strip_color" | more
+  elif [ "$$_run_with_smart_human_readable_output_tput_colors" -gt 0 ]; then
+    "$$@"
+  else
+    "$$@" | sed "$$_run_with_smart_human_readable_output_strip_color"
+  fi
+} &&
 # Use cat and a heredoc (EOF) to define the multi-line awk script clearly.
 # Pass PROJECT_ROOT to awk using -v for relative path calculation.
 # Use single quotes around EOF to prevent shell variable expansion within the script.
-awk -v project_root="$(PROJECT_ROOT)" '
+run_with_smart_human_readable_output awk -v project_root="$(PROJECT_ROOT)" '
 BEGIN {
     FS = ":.*##";
     # Print the initial usage message
@@ -741,3 +807,19 @@ help:  ## Display this help.
 .PHONY: h
 h: help ## Alias for help.
 endif
+
+.PHONY: debug-vars
+debug-vars: ## Prints the values of the specified variables.
+	$(foreach debug_var,$(DEBUG_VARS),$(_debug_vars_TEMPLATE))
+define _debug_vars_TEMPLATE =
+@echo $(debug_var)=$(call escape_command_arg,$($(debug_var)))
+
+endef
+
+# ---
+
+# misc targets users can ignore
+
+# we use .PHONY, but there's an edge case requiring this pattern
+.PHONY: FORCE
+FORCE:
