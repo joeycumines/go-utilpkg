@@ -142,11 +142,9 @@ IS_WINDOWS := false
 endif
 endif
 
-# There is a built-in help target. This variable is to mitigate collisions.
-# Setting SKIP_FURTHER_MAKEFILE_HELP=true will disable the help target.
-ifeq ($(SKIP_FURTHER_MAKEFILE_HELP),)
-SKIP_FURTHER_MAKEFILE_HELP := false
-endif
+# ---
+
+# includes, for optionally-configurable, standalone use
 
 # optional project-specific (committed) overrides and extensions
 -include project.mak
@@ -154,6 +152,16 @@ endif
 # N.B. to use this, add the following to .gitignore: /config.mak
 #      and, if you use docker, add the following to .dockerignore: config.mak
 -include config.mak
+
+# ---
+
+# special-case post-include variables
+
+# There is a built-in help target. This variable is to mitigate collisions.
+# Setting SKIP_FURTHER_MAKEFILE_HELP=true will disable the help target.
+ifeq ($(SKIP_FURTHER_MAKEFILE_HELP),)
+SKIP_FURTHER_MAKEFILE_HELP := false
+endif
 
 # ---
 
