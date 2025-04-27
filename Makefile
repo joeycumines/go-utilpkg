@@ -83,7 +83,7 @@
 # Valid uses:
 #
 #   1. Target acts as a script with arguments
-#   2. Enforcing ordering, via a PHONY and/or _optional_ prerequisite
+#   2. Optional prerequisites (not possible using order-only prerequisites)
 #
 # Details:
 # Case 1 is simple convenience - "script" implies no dependencies.
