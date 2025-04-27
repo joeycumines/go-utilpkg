@@ -69,8 +69,8 @@
 # Multiple customization patterns are supported, including:
 #
 #   1. Environment variables or command line arguments
-#   2. Creating a ./config.mak (uncommitted, user-specific)
-#   3. Creating a ./project.mak (committed, project-specific)
+#   2. Creating a ./config.mk (uncommitted, user-specific)
+#   3. Creating a ./project.mk (committed, project-specific)
 #   4. Including* this Makefile from another Makefile
 #
 # (*) This is the most likely to break, e.g. ROOT_MAKEFILE would likely need to
@@ -112,7 +112,7 @@
 # Usage:
 #
 # 1. Prepare the target repository (presumably the canonical one per go.mod)
-# 2. Update `project.mak`, setting `GRIT_SRC` (if you haven't already) and
+# 2. Update `project.mk`, setting `GRIT_SRC` (if you haven't already) and
 #   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main")
 # 3. Sync _from_ the target to the source (this repository) like
 #   `make grit-init GRIT_INIT_TARGET=go-module-slug`, where go-module-slug is
@@ -145,13 +145,15 @@ endif
 # ---
 
 # includes, for optionally-configurable, standalone use
+# N.B. The file extension .mk is somewhat standard. The file extension .mak is
+# supported for historical reasons, applicable to a specific project.
 
 # optional project-specific (committed) overrides and extensions
--include project.mak
+-include project.mk project.mak
 # user-specific (uncommitted) overrides and extensions
-# N.B. to use this, add the following to .gitignore: /config.mak
-#      and, if you use docker, add the following to .dockerignore: config.mak
--include config.mak
+# N.B. to use this, add the following to .gitignore: /config.mk
+#      and, if you use docker, add the following to .dockerignore: config.mk
+-include config.mk config.mak
 
 # ---
 
@@ -167,7 +169,7 @@ endif
 # If you wish to use this as part of a larger project, you might set this like:
 #   GO_TARGET_PREFIX := go.
 # Within your root Makefile (which would also need to set ROOT_MAKEFILE), or
-# within project.mak.
+# within project.mk.
 ifeq ($(GO_TARGET_PREFIX),)
 GO_TARGET_PREFIX :=
 endif
@@ -186,7 +188,7 @@ DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS
 
 # ---
 
-# intended to be configurable via config.mak
+# intended to be configurable via config.mk
 
 # for the benefit of other implementations, and used to make file paths relative
 PROJECT_ROOT ?= $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
