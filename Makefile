@@ -41,17 +41,17 @@
 # be used as a suffix, for any of these targets.
 #
 # For example:
-#   make -j4 all                                  # all checks for all modules with parallelism of 4
-#   make staticcheck.dir1.dir-2.modulerootdir     # staticcheck in ./dir1/dir-2/modulerootdir
-#   make all.dir1.dir-2.modulerootdir             # all checks in ./dir1/dir-2/modulerootdir
+#   make -j4 $(GO_TARGET_PREFIX)all                                  # all checks for all modules with parallelism of 4
+#   make $(GO_TARGET_PREFIX)staticcheck.dir1.dir-2.modulerootdir     # staticcheck in ./dir1/dir-2/modulerootdir
+#   make $(GO_TARGET_PREFIX)all.dir1.dir-2.modulerootdir             # all checks in ./dir1/dir-2/modulerootdir
 #
 # Sub-directory Makefiles
 # ---
 # In a similar vein to Go modules, Makefiles are also discovered, and exposed
 # using pattern and implicit rules, to implement targets to:
 #
-#   1. Run the default target in the subdirectory (e.g. `make run.dir1`)
-#   2. Run a specific target in the subdirectory (e.g. `make run-<target>.dir1`)
+#   1. Run the default target in the subdirectory (e.g. `make $(GO_TARGET_PREFIX)run.dir1`)
+#   2. Run a specific target in the subdirectory (e.g. `make $(GO_TARGET_PREFIX)run-<target>.dir1`)
 #
 # Please be aware that these targets are primarily for convenience. Limitations
 # exist, e.g. each of these invocations are separate, and therefore cannot
@@ -163,6 +163,15 @@ ifeq ($(SKIP_FURTHER_MAKEFILE_HELP),)
 SKIP_FURTHER_MAKEFILE_HELP := false
 endif
 
+# If set, then ALL targets except help/h will be prefixed with this value.
+# If you wish to use this as part of a larger project, you might set this like:
+#   GO_TARGET_PREFIX := go.
+# Within your root Makefile (which would also need to set ROOT_MAKEFILE), or
+# within project.mak.
+ifeq ($(GO_TARGET_PREFIX),)
+GO_TARGET_PREFIX :=
+endif
+
 # ---
 
 # intended to be provided on the command line, for certain targets
@@ -173,14 +182,17 @@ RUN_FLAGS ?=
 
 # determines the output of the debug-vars target
 # N.B. only _defined_ variables will be present in the output
-DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS
+DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX
 
 # ---
 
 # intended to be configurable via config.mak
 
+# for the benefit of other implementations, and used to make file paths relative
 PROJECT_ROOT ?= $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
 PROJECT_NAME ?= $(notdir $(PROJECT_ROOT))
+# set (build) these to support dynamically building the help target with replacements
+MAKEFILE_TARGET_PREFIXES ?=
 GO ?= go
 GO_FLAGS ?=
 GO_TEST_FLAGS ?=
@@ -321,12 +333,12 @@ endif
 
 ##@ Standard Targets
 
-.PHONY: all
-all: ## Builds all, and (non-standard per GNU) runs all checks.
+.PHONY: $(GO_TARGET_PREFIX)all
+$(GO_TARGET_PREFIX)all: ## Builds all, and (non-standard per GNU) runs all checks.
 	@
 
-.PHONY: clean
-clean: ## Cleans up outputs of other targets, e.g. removing coverage files.
+.PHONY: $(GO_TARGET_PREFIX)clean
+$(GO_TARGET_PREFIX)clean: ## Cleans up outputs of other targets, e.g. removing coverage files.
 ifeq ($(IS_WINDOWS),true)
 	del /Q /S $(subst /,\,$(CLEAN_PATHS))
 else
@@ -339,128 +351,128 @@ endif
 
 # all, all.<go module slug>
 
-ALL_TARGETS := $(addprefix all.,$(GO_MODULE_SLUGS))
+ALL_TARGETS := $(addprefix $(GO_TARGET_PREFIX)all.,$(GO_MODULE_SLUGS))
 
-.PHONY: all
-all: $(ALL_TARGETS) ## Builds, then lints and tests (modules in parallel, two stages).
+.PHONY: $(GO_TARGET_PREFIX)all
+$(GO_TARGET_PREFIX)all: $(ALL_TARGETS) ## Builds, then lints and tests (modules in parallel, two stages).
 
 .PHONY: $(ALL_TARGETS)
-$(ALL_TARGETS): all.%: _all__build.% _all__lint.% _all__test.%
+$(ALL_TARGETS): $(GO_TARGET_PREFIX)all.%: $(GO_TARGET_PREFIX)_all__build.% $(GO_TARGET_PREFIX)_all__lint.% $(GO_TARGET_PREFIX)_all__test.%
 
-.PHONY: $(addprefix _all__build.,$(GO_MODULE_SLUGS))
-$(addprefix _all__build.,$(GO_MODULE_SLUGS)): _all__build.%:
-	@$(MAKE) --no-print-directory build.$*
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)_all__build.,$(GO_MODULE_SLUGS))
+$(addprefix $(GO_TARGET_PREFIX)_all__build.,$(GO_MODULE_SLUGS)): $(GO_TARGET_PREFIX)_all__build.%:
+	@$(MAKE) --no-print-directory $(GO_TARGET_PREFIX)build.$*
 
-.PHONY: $(addprefix _all__lint.,$(GO_MODULE_SLUGS))
-$(addprefix _all__lint.,$(GO_MODULE_SLUGS)): _all__lint.%: _all__build.%
-	@$(MAKE) --no-print-directory lint.$*
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)_all__lint.,$(GO_MODULE_SLUGS))
+$(addprefix $(GO_TARGET_PREFIX)_all__lint.,$(GO_MODULE_SLUGS)): $(GO_TARGET_PREFIX)_all__lint.%: $(GO_TARGET_PREFIX)_all__build.%
+	@$(MAKE) --no-print-directory $(GO_TARGET_PREFIX)lint.$*
 
-.PHONY: $(addprefix _all__test.,$(GO_MODULE_SLUGS))
-$(addprefix _all__test.,$(GO_MODULE_SLUGS)): _all__test.%: _all__build.%
-	@$(MAKE) --no-print-directory test.$*
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)_all__test.,$(GO_MODULE_SLUGS))
+$(addprefix $(GO_TARGET_PREFIX)_all__test.,$(GO_MODULE_SLUGS)): $(GO_TARGET_PREFIX)_all__test.%: $(GO_TARGET_PREFIX)_all__build.%
+	@$(MAKE) --no-print-directory $(GO_TARGET_PREFIX)test.$*
 
 # build, build.<go module slug>
 
-BUILD_TARGETS := $(addprefix build.,$(GO_MODULE_SLUGS))
+BUILD_TARGETS := $(addprefix $(GO_TARGET_PREFIX)build.,$(GO_MODULE_SLUGS))
 
-.PHONY: build
-build: $(BUILD_TARGETS) ## Runs the go build tool.
+.PHONY: $(GO_TARGET_PREFIX)build
+$(GO_TARGET_PREFIX)build: $(BUILD_TARGETS) ## Runs the go build tool.
 
 .PHONY: $(BUILD_TARGETS)
-$(BUILD_TARGETS): build.%:
+$(BUILD_TARGETS): $(GO_TARGET_PREFIX)build.%:
 	$(GO_BUILD) $(call go_module_slug_to_path,$*)/...
 
 # lint, lint.<go module slug>
 
-LINT_TARGETS := $(addprefix lint.,$(GO_MODULE_SLUGS))
+LINT_TARGETS := $(addprefix $(GO_TARGET_PREFIX)lint.,$(GO_MODULE_SLUGS))
 
-.PHONY: lint
-lint: $(LINT_TARGETS) ## Runs the vet, staticcheck, betteralign, and deadcode targets.
+.PHONY: $(GO_TARGET_PREFIX)lint
+$(GO_TARGET_PREFIX)lint: $(LINT_TARGETS) ## Runs the vet, staticcheck, betteralign, and deadcode targets.
 
 .PHONY: $(LINT_TARGETS)
-$(LINT_TARGETS): lint.%: vet.% staticcheck.% betteralign.% deadcode.%
+$(LINT_TARGETS): $(GO_TARGET_PREFIX)lint.%: $(GO_TARGET_PREFIX)vet.% $(GO_TARGET_PREFIX)staticcheck.% $(GO_TARGET_PREFIX)betteralign.% $(GO_TARGET_PREFIX)deadcode.%
 
 # vet, vet.<go module slug>
 
-VET_TARGETS := $(addprefix vet.,$(GO_MODULE_SLUGS))
+VET_TARGETS := $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS))
 
-.PHONY: vet
-vet: $(VET_TARGETS) ## Runs the go vet tool.
+.PHONY: $(GO_TARGET_PREFIX)vet
+$(GO_TARGET_PREFIX)vet: $(VET_TARGETS) ## Runs the go vet tool.
 
-.PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
-$(addprefix vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): vet.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
 	$(GO_VET) $(call go_module_slug_to_path,$*)/...
 
-.PHONY: $(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
-$(addprefix vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): vet.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
 
 # staticcheck, staticcheck.<go module slug>
 
-STATICCHECK_TARGETS := $(addprefix staticcheck.,$(GO_MODULE_SLUGS))
+STATICCHECK_TARGETS := $(addprefix $(GO_TARGET_PREFIX)staticcheck.,$(GO_MODULE_SLUGS))
 
-.PHONY: staticcheck
-staticcheck: $(STATICCHECK_TARGETS) ## Runs the staticcheck tool.
+.PHONY: $(GO_TARGET_PREFIX)staticcheck
+$(GO_TARGET_PREFIX)staticcheck: $(STATICCHECK_TARGETS) ## Runs the staticcheck tool.
 
 .PHONY: $(STATICCHECK_TARGETS)
-$(STATICCHECK_TARGETS): staticcheck.%:
+$(STATICCHECK_TARGETS): $(GO_TARGET_PREFIX)staticcheck.%:
 	$(STATICCHECK) $(STATICCHECK_FLAGS) $(call go_module_slug_to_path,$*)/...
 
 # betteralign, betteralign.<go module slug>
 
-BETTERALIGN_TARGETS := $(addprefix betteralign.,$(GO_MODULE_SLUGS))
+BETTERALIGN_TARGETS := $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS))
 
-.PHONY: betteralign
-betteralign: $(BETTERALIGN_TARGETS) ## Runs the betteralign tool.
+.PHONY: $(GO_TARGET_PREFIX)betteralign
+$(GO_TARGET_PREFIX)betteralign: $(BETTERALIGN_TARGETS) ## Runs the betteralign tool.
 
-.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
-$(addprefix betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): betteralign.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _betteralign BETTERALIGN_FLAGS=$(call escape_command_arg,$(BETTERALIGN_FLAGS))
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
+$(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): $(GO_TARGET_PREFIX)betteralign.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_betteralign BETTERALIGN_FLAGS=$(call escape_command_arg,$(BETTERALIGN_FLAGS))
 
-.PHONY: $(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN))
-$(addprefix betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): betteralign.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN))
+$(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): $(GO_TARGET_PREFIX)betteralign.%:
 
-.PHONY: _betteralign
-_betteralign:
+.PHONY: $(GO_TARGET_PREFIX)_betteralign
+$(GO_TARGET_PREFIX)_betteralign:
 	$(BETTERALIGN) $(BETTERALIGN_FLAGS) ./...
 
 # deadcode, deadcode.<go module slug>
 
-DEADCODE_TARGETS := $(addprefix deadcode.,$(GO_MODULE_SLUGS))
+DEADCODE_TARGETS := $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS))
 
-.PHONY: deadcode
-deadcode: $(DEADCODE_TARGETS) ## Runs the deadcode tool.
+.PHONY: $(GO_TARGET_PREFIX)deadcode
+$(GO_TARGET_PREFIX)deadcode: $(DEADCODE_TARGETS) ## Runs the deadcode tool.
 
-.PHONY: $(addprefix deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE))
-$(addprefix deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE)): deadcode.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _deadcode DEADCODE_FLAGS=$(call escape_command_arg,$(DEADCODE_FLAGS))
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE))
+$(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE)): $(GO_TARGET_PREFIX)deadcode.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_deadcode DEADCODE_FLAGS=$(call escape_command_arg,$(DEADCODE_FLAGS))
 
-.PHONY: $(addprefix deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE))
-$(addprefix deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE)): deadcode.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE))
+$(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE)): $(GO_TARGET_PREFIX)deadcode.%:
 
-.PHONY: _deadcode
-_deadcode:
+.PHONY: $(GO_TARGET_PREFIX)_deadcode
+$(GO_TARGET_PREFIX)_deadcode:
 	$(DEADCODE) $(DEADCODE_FLAGS) ./...
 
 # test, test.<go module slug>
 
-TEST_TARGETS := $(addprefix test.,$(GO_MODULE_SLUGS))
+TEST_TARGETS := $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS))
 
-.PHONY: test
-test: $(TEST_TARGETS) ## Runs the go test tool.
+.PHONY: $(GO_TARGET_PREFIX)test
+$(GO_TARGET_PREFIX)test: $(TEST_TARGETS) ## Runs the go test tool.
 
-.PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
-$(addprefix test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): test.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
 	$(GO_TEST) $(call go_module_slug_to_path,$*)/...
 
-.PHONY: $(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
-$(addprefix test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): test.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
 
 # cover, cover.<go module slug>
 
-COVER_TARGETS := $(addprefix cover.,$(GO_MODULE_SLUGS))
+COVER_TARGETS := $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS))
 
-.PHONY: cover
-cover: $(COVER_TARGETS) ## Runs the go test tool with -covermode=count and generates a coverage report.
+.PHONY: $(GO_TARGET_PREFIX)cover
+$(GO_TARGET_PREFIX)cover: $(COVER_TARGETS) ## Runs the go test tool with -covermode=count and generates a coverage report.
 	echo mode: count >$(GO_COVERAGE_ALL_MODULES_FILE)
 	$(foreach d,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES),$(cover__TEMPLATE))
 	$(GO_TOOL_COVER) -html=$(GO_COVERAGE_ALL_MODULES_FILE)
@@ -476,91 +488,91 @@ tail -n +2 $(call go_module_slug_to_path,$d)/$(GO_COVERAGE_MODULE_FILE) >>$(GO_C
 endef
 endif
 
-.PHONY: $(addprefix cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
-$(addprefix cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): cover.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
 	$(GO_TEST) -coverprofile=$(call go_module_slug_to_path,$*)/$(GO_COVERAGE_MODULE_FILE) -covermode=count $(call go_module_slug_to_path,$*)/...
 
-.PHONY: $(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
-$(addprefix cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): cover.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
 
 # fmt, fmt.<go module slug>
 
-FMT_TARGETS := $(addprefix fmt.,$(GO_MODULE_SLUGS))
+FMT_TARGETS := $(addprefix $(GO_TARGET_PREFIX)fmt.,$(GO_MODULE_SLUGS))
 
-.PHONY: fmt
-fmt: $(FMT_TARGETS) ## Runs the go fmt command.
+.PHONY: $(GO_TARGET_PREFIX)fmt
+$(GO_TARGET_PREFIX)fmt: $(FMT_TARGETS) ## Runs the go fmt command.
 
 .PHONY: $(FMT_TARGETS)
-$(FMT_TARGETS): fmt.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _fmt
+$(FMT_TARGETS): $(GO_TARGET_PREFIX)fmt.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fmt
 
-.PHONY: _fmt
-_fmt:
+.PHONY: $(GO_TARGET_PREFIX)_fmt
+$(GO_TARGET_PREFIX)_fmt:
 	$(GO_FMT) ./...
 
 # fix, fix.<go module slug>
 
-FIX_TARGETS := $(addprefix fix.,$(GO_MODULE_SLUGS))
+FIX_TARGETS := $(addprefix $(GO_TARGET_PREFIX)fix.,$(GO_MODULE_SLUGS))
 
-.PHONY: fix
-fix: $(FIX_TARGETS) ## Runs the go fix command.
+.PHONY: $(GO_TARGET_PREFIX)fix
+$(GO_TARGET_PREFIX)fix: $(FIX_TARGETS) ## Runs the go fix command.
 
 .PHONY: $(FIX_TARGETS)
-$(FIX_TARGETS): fix.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _fix
+$(FIX_TARGETS): $(GO_TARGET_PREFIX)fix.%:
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fix
 
-.PHONY: _fix
-_fix:
+.PHONY: $(GO_TARGET_PREFIX)_fix
+$(GO_TARGET_PREFIX)_fix:
 	$(GO_FIX) ./...
 
 # update, update.<go module slug>
 
-UPDATE_TARGETS := $(addprefix update.,$(GO_MODULE_SLUGS))
+UPDATE_TARGETS := $(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS))
 
-.PHONY: update
-update: $(UPDATE_TARGETS) ## Runs go get -u -t ./..., go get -u tool, then go mod tidy.
+.PHONY: $(GO_TARGET_PREFIX)update
+$(GO_TARGET_PREFIX)update: $(UPDATE_TARGETS) ## Runs go get -u -t ./..., go get -u tool, then go mod tidy.
 
-.PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE))
-$(addprefix update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): update.%:
-	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _update
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE))
+$(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS_EXCL_NO_UPDATE)): $(GO_TARGET_PREFIX)update.%:
+	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_update
 
-.PHONY: $(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE))
-$(addprefix update.,$(GO_MODULE_SLUGS_NO_UPDATE)): update.%: tidy.%
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS_NO_UPDATE))
+$(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS_NO_UPDATE)): $(GO_TARGET_PREFIX)update.%: $(GO_TARGET_PREFIX)tidy.%
 
-.PHONY: _update
-_update:
+.PHONY: $(GO_TARGET_PREFIX)_update
+$(GO_TARGET_PREFIX)_update:
 	$(GO) get -u -t ./...
 	$(GO) get -u tool
 	$(GO) mod tidy
 
 # tidy, tidy.<go module slug>
 
-TIDY_TARGETS := $(addprefix tidy.,$(GO_MODULE_SLUGS))
+TIDY_TARGETS := $(addprefix $(GO_TARGET_PREFIX)tidy.,$(GO_MODULE_SLUGS))
 
-.PHONY: tidy
-tidy: $(TIDY_TARGETS) ## Runs go mod tidy.
+.PHONY: $(GO_TARGET_PREFIX)tidy
+$(GO_TARGET_PREFIX)tidy: $(TIDY_TARGETS) ## Runs go mod tidy.
 
 .PHONY: $(TIDY_TARGETS)
-$(TIDY_TARGETS): tidy.%:
-	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) _tidy
+$(TIDY_TARGETS): $(GO_TARGET_PREFIX)tidy.%:
+	@$(MAKE) -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_tidy
 
-.PHONY: _tidy
-_tidy:
+.PHONY: $(GO_TARGET_PREFIX)_tidy
+$(GO_TARGET_PREFIX)_tidy:
 	$(GO) mod tidy
 
 # grit, grit.<go module slug>
 
-GRIT_TARGETS := $(addprefix grit.,$(GO_MODULE_SLUGS))
+GRIT_TARGETS := $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS))
 
-.PHONY: grit
-grit: $(GRIT_TARGETS) ## Runs grit to sync modules to defined target repositories.
+.PHONY: $(GO_TARGET_PREFIX)grit
+$(GO_TARGET_PREFIX)grit: $(GRIT_TARGETS) ## Runs grit to sync modules to defined target repositories.
 
-.PHONY: $(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST))
-$(addprefix grit.,$(GO_MODULE_SLUGS_GRIT_DST)): grit.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST))
+$(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
 	$(GRIT) $(GRIT_FLAGS) $(call go_module_slug_to_grit_src,$*) $(call go_module_slug_to_grit_dst,$*)
 
-.PHONY: $(addprefix grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST))
-$(addprefix grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): grit.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST))
+$(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
 
 # ---
 
@@ -568,10 +580,10 @@ $(addprefix grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): grit.%:
 
 # run.<./**/Makefile path as slug>: runs make at the given path
 
-SUBDIR_MAKEFILE_TARGETS := $(addprefix run.,$(SUBDIR_MAKEFILE_SLUGS))
+SUBDIR_MAKEFILE_TARGETS := $(addprefix $(GO_TARGET_PREFIX)run.,$(SUBDIR_MAKEFILE_SLUGS))
 
 .PHONY: $(SUBDIR_MAKEFILE_TARGETS)
-$(SUBDIR_MAKEFILE_TARGETS): run.%:
+$(SUBDIR_MAKEFILE_TARGETS): $(GO_TARGET_PREFIX)run.%:
 	@$(MAKE) -C $(call subdir_makefile_slug_to_path,$*) $(RUN_FLAGS)
 
 # makefile implicit rules
@@ -580,7 +592,7 @@ $(SUBDIR_MAKEFILE_TARGETS): run.%:
 # note that eval is necessary to make this work properly (a pattern rule can only be used once)
 # additionally, note the FORCE target is to support .PHONY when using pattern rules to implement implicit rules
 define _run_TEMPLATE =
-run-%.$2: FORCE
+$(GO_TARGET_PREFIX)run-%.$2: $(GO_TARGET_PREFIX)FORCE
 	@$$(MAKE) -C $1 $(RUN_FLAGS) $$*
 
 endef
@@ -591,16 +603,16 @@ $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call subdi
 
 ##@ Other Targets
 
-.PHONY: tools
-tools: ## Uses go get -tool to add the tools for _this_ Makefile to go.mod.
+.PHONY: $(GO_TARGET_PREFIX)tools
+$(GO_TARGET_PREFIX)tools: ## Uses go get -tool to add the tools for _this_ Makefile to go.mod.
 	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
 define _tools_TEMPLATE =
 $(GO) get -tool $(tool)
 
 endef
 
-.PHONY: godoc
-godoc: ## Runs the godoc tool, serving on localhost.
+.PHONY: $(GO_TARGET_PREFIX)godoc
+$(GO_TARGET_PREFIX)godoc: ## Runs the godoc tool, serving on localhost.
 ifeq ($(GODOC_FLAGS),$(_GODOC_FLAGS))
 	@echo '#################################################'
 	@echo '## Serving godoc on http://localhost:6060/pkg/ ##'
@@ -610,8 +622,8 @@ ifeq ($(GODOC_FLAGS),$(_GODOC_FLAGS))
 endif
 	$(GODOC) $(GODOC_FLAGS)
 
-.PHONY: grit-init
-grit-init: ## Runs grit to initialize a new GRIT_DST, see Makefile for docs.
+.PHONY: $(GO_TARGET_PREFIX)grit-init
+$(GO_TARGET_PREFIX)grit-init: ## Runs grit to initialize a new GRIT_DST, see Makefile for docs.
 ifeq ($(IS_WINDOWS),true)
 	if exist $(_grit_init_DIR) exit 1
 else
@@ -671,36 +683,33 @@ run_with_smart_human_readable_output() {
     "$$@" | sed "$$_run_with_smart_human_readable_output_strip_color"
   fi
 } &&
-# Use cat and a heredoc (EOF) to define the multi-line awk script clearly.
-# Pass PROJECT_ROOT to awk using -v for relative path calculation.
-# Use single quotes around EOF to prevent shell variable expansion within the script.
-run_with_smart_human_readable_output awk -v project_root="$(PROJECT_ROOT)" '
+generate_help='
 BEGIN {
-    FS = ":.*##";
-    # Print the initial usage message
-    printf "\nUsage:\n  $(or $(notdir $(MAKE)),make) \033[36m<target>\033[0m\n";
+  FS = ":.*##";
+  # Print the initial usage message
+  printf "\nUsage:\n  $(or $(notdir $(MAKE)),make) \033[36m<target>\033[0m\n";
 
-    # Variables for parsing free-text documentation
-    in_usage_block = 0;       # Flag: currently inside a documentation block
-    usage_marker_found = 0;   # Flag: Saw "# Usage" line, looking for "# ---"
-    current_doc_file = "";    # Key (relative path or special marker) for storing docs
-    doc_separator = "\n\n";   # Separator between doc blocks if multiple in one file
+  # Variables for parsing free-text documentation
+  in_usage_block = 0;       # Flag: currently inside a documentation block
+  usage_marker_found = 0;   # Flag: Saw "# Usage" line, looking for "# ---"
+  current_doc_file = "";    # Key (relative path or special marker) for storing docs
+  doc_separator = "\n\n";   # Separator between doc blocks if multiple in one file
 }
 
 # Match section headers (##@ ) - Print only when not capturing docs
 /^##@ / {
-    if (!in_usage_block) {
-        printf "\n\033[1m%s\033[0m\n", substr($$0, 5);
-    }
+  if (!in_usage_block) {
+    printf "\n\033[1m%s\033[0m\n", substr($$0, 5);
+  }
 }
 
 # Match target lines (target: ... ## description) - Print only when not capturing docs
-# Adjusted regex to allow dots and percent signs in target names more reliably
-/^[a-zA-Z0-9._%-]+:.*?##/ {
-    if (!in_usage_block) {
-        # Use slightly wider padding if needed, 18 seems reasonable
-        printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2;
-    }
+# N.B. Inclusive of target prefix variables - that is handled afterwards
+/^[\$$\(\)a-zA-Z0-9._%-]+:.*?##/ {
+  if (!in_usage_block) {
+    # Use slightly wider padding if needed, 18 seems reasonable
+    printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2;
+  }
 }
 
 # --- Documentation Block Parsing Logic ---
@@ -708,110 +717,113 @@ BEGIN {
 # Detect start of documentation block: line 1 "# Usage"
 # Note: Exact match, case-sensitive. Anchored start/end.
 /^# Usage$$/ {
-    usage_marker_found = 1; # Mark that we found the first part
-    next; # Skip processing this line further, move to the next line
+  usage_marker_found = 1; # Mark that we found the first part
+  next; # Skip processing this line further, move to the next line
 }
 
 # Detect start of documentation block: line 2 "# ---" (only if line 1 matched)
 # Note: Exact match, case-sensitive. Anchored start/end.
 /^# ---$$/ && usage_marker_found {
-    in_usage_block = 1;       # We are now officially inside a documentation block
-    usage_marker_found = 0;   # Reset the marker for the next potential block
+  in_usage_block = 1;       # We are now officially inside a documentation block
+  usage_marker_found = 0;   # Reset the marker for the next potential block
 
-    # Calculate relative path for this file
-    rel_path = FILENAME;
-    # Ensure project_root has no trailing slash for safety, then remove prefix
-    # Use gsub for global replacement in case project_root appears elsewhere, though unlikely here.
-    gsub(/\/$$/, "", project_root); # Remove trailing slash from project_root if exists
-    # Escape potential regex special chars in project_root before using in sub() if needed,
-    # but direct string prefix removal is usually safe here.
-    # Add ^ to anchor the substitution at the beginning.
-    sub("^" project_root "/", "", rel_path);
+  # Calculate relative path for this file
+  rel_path = FILENAME;
+  # Ensure project_root has no trailing slash for safety, then remove prefix
+  # Use gsub for global replacement in case project_root appears elsewhere, though unlikely here.
+  gsub(/\/$$/, "", project_root); # Remove trailing slash from project_root if exists
+  # Escape potential regex special chars in project_root before using in sub() if needed,
+  # but direct string prefix removal is usually safe here.
+  # Add ^ to anchor the substitution at the beginning.
+  sub("^" project_root "/", "", rel_path);
 
-    # Determine the storage key: special for "Makefile", relative path otherwise
-    # Use tolower() for case-insensitive comparison of the filename part
-    if (tolower(rel_path) == "makefile") {
-        current_doc_file = "__MAIN_MAKEFILE__"; # Special key for root Makefile
-    } else {
-        current_doc_file = rel_path; # Use relative path as key
-    }
+  # Determine the storage key: special for "Makefile", relative path otherwise
+  # Use tolower() for case-insensitive comparison of the filename part
+  if (tolower(rel_path) == "makefile") {
+    current_doc_file = "__MAIN_MAKEFILE__"; # Special key for root Makefile
+  } else {
+    current_doc_file = rel_path; # Use relative path as key
+  }
 
-    # Initialize documentation storage if this is the first block for this file
-    if (!(current_doc_file in makefile_docs)) {
-        makefile_docs[current_doc_file] = "";
-    } else if (makefile_docs[current_doc_file] != "") {
-        # If adding another block from the *same* file, add a separator
-        makefile_docs[current_doc_file] = makefile_docs[current_doc_file] doc_separator;
-    }
-    next; # Skip processing the "---" line itself
+  # Initialize documentation storage if this is the first block for this file
+  if (!(current_doc_file in makefile_docs)) {
+    makefile_docs[current_doc_file] = "";
+  } else if (makefile_docs[current_doc_file] != "") {
+    # If adding another block from the *same* file, add a separator
+    makefile_docs[current_doc_file] = makefile_docs[current_doc_file] doc_separator;
+  }
+  next; # Skip processing the "---" line itself
 }
 
 # Capture documentation lines (lines starting with '#' while inside a block)
 in_usage_block && /^#/ {
-    line = $$0;
-    # Remove leading "# " or just "#"
-    sub(/^# ?/, "", line);
-    # Append the cleaned line, prefixed with indent, suffixed with a newline character
-    makefile_docs[current_doc_file] = makefile_docs[current_doc_file] "  " line "\n";
-    next; # Process next line
+  line = $$0;
+  # Remove leading "# " or just "#"
+  sub(/^# ?/, "", line);
+  # Append the cleaned line, prefixed with indent, suffixed with a newline character
+  makefile_docs[current_doc_file] = makefile_docs[current_doc_file] "  " line "\n";
+  next; # Process next line
 }
 
 # End of documentation block (non-comment line encountered while inside a block)
 in_usage_block && !/^#/ {
-    in_usage_block = 0;     # Exit documentation capture mode
-    current_doc_file = "";  # Clear the current file key
-    # Reset the initial marker just in case, though !/^#/ below also handles it
-    usage_marker_found = 0;
-    # IMPORTANT: This line itself is NOT processed further in this cycle.
-    # If it were a target or header, it would be missed. This is a simplification:
-    # assumes documentation blocks are not immediately followed by lines
-    # that *also* need processing by other rules in the same cycle.
-    # The checks `if (!in_usage_block)` in other rules prevent them from running
-    # while capturing, so this non-comment line effectively stops capture and is ignored.
+  in_usage_block = 0;     # Exit documentation capture mode
+  current_doc_file = "";  # Clear the current file key
+  # Reset the initial marker just in case, though !/^#/ below also handles it
+  usage_marker_found = 0;
+  # IMPORTANT: This line itself is NOT processed further in this cycle.
+  # If it were a target or header, it would be missed. This is a simplification:
+  # assumes documentation blocks are not immediately followed by lines
+  # that *also* need processing by other rules in the same cycle.
+  # The checks `if (!in_usage_block)` in other rules prevent them from running
+  # while capturing, so this non-comment line effectively stops capture and is ignored.
 }
 
 # Reset usage marker if we see a non-matching line while waiting for "# ---"
 !/^# ---$$/ && usage_marker_found {
-    usage_marker_found = 0; # Failed to find "# ---" immediately after "# Usage"
+  usage_marker_found = 0; # Failed to find "# ---" immediately after "# Usage"
 }
 
 # --- END Block: Print Collected Documentation ---
 
 END {
-    # Check if any documentation was collected
-    doc_exists = 0;
+  # Check if any documentation was collected
+  doc_exists = 0;
+  for (file_key in makefile_docs) {
+    # Remove trailing newline from the collected block before checking if empty
+    gsub(/\n$$/, "", makefile_docs[file_key]);
+    if (makefile_docs[file_key] != "") {
+      doc_exists = 1;
+      break;
+    }
+  }
+
+  if (doc_exists) {
+    # Print a main header for the documentation section
+    printf "\n\033[1mNotes\033[0m\n";
+
+    # Print main Makefile documentation first if it exists and is not empty
+    main_doc_key = "__MAIN_MAKEFILE__";
+    if (main_doc_key in makefile_docs && makefile_docs[main_doc_key] != "") {
+      # Header with underline
+      printf "\n\033[4mMakefile:\033[0m\n%s\n", makefile_docs[main_doc_key];
+    }
+
+    # Print documentation from other Makefiles
+    # Awk array iteration order is not guaranteed, but often insertion order or hash order.
+    # Sorting keys would require GNU awk typically. For simplicity, accept awk default order.
     for (file_key in makefile_docs) {
-        # Remove trailing newline from the collected block before checking if empty
-        gsub(/\n$$/, "", makefile_docs[file_key]);
-        if (makefile_docs[file_key] != "") {
-            doc_exists = 1;
-            break;
-        }
+      if (file_key != main_doc_key && makefile_docs[file_key] != "") {
+        # Header with underline, showing the relative path
+        printf "\n\033[4m%s:\033[0m\n%s\n", file_key, makefile_docs[file_key];
+      }
     }
-
-    if (doc_exists) {
-        # Print a main header for the documentation section
-        printf "\n\033[1mNotes\033[0m\n";
-
-        # Print main Makefile documentation first if it exists and is not empty
-        main_doc_key = "__MAIN_MAKEFILE__";
-        if (main_doc_key in makefile_docs && makefile_docs[main_doc_key] != "") {
-            # Header with underline
-            printf "\n\033[4mMakefile:\033[0m\n%s\n", makefile_docs[main_doc_key];
-        }
-
-        # Print documentation from other Makefiles
-        # Awk array iteration order is not guaranteed, but often insertion order or hash order.
-        # Sorting keys would require GNU awk typically. For simplicity, accept awk default order.
-        for (file_key in makefile_docs) {
-            if (file_key != main_doc_key && makefile_docs[file_key] != "") {
-                # Header with underline, showing the relative path
-                printf "\n\033[4m%s:\033[0m\n%s\n", file_key, makefile_docs[file_key];
-            }
-        }
-    }
+  }
 }
-' $(MAKEFILE_LIST) # Pass the list of makefiles to awk
+' &&
+help_text="$$(awk -v project_root=$(call escape_command_arg,$(PROJECT_ROOT)) "$$generate_help" $(MAKEFILE_LIST))" &&
+help_text="$$(echo "$$help_text" | sed $(foreach target_prefix,GO_TARGET_PREFIX $(MAKEFILE_TARGET_PREFIXES), -e s/\$$\($(call escape_command_arg,$(target_prefix))\)/$(call escape_command_arg,$($(target_prefix)))/g\;))" &&
+run_with_smart_human_readable_output echo "$$help_text"
 endef
 export _MAKEFILE_HELP_SCRIPT
 MAKEFILE_HELP_SCRIPT := eval "$$_MAKEFILE_HELP_SCRIPT"
@@ -826,8 +838,8 @@ help:  ## Display this help.
 h: help ## Alias for help.
 endif
 
-.PHONY: debug-vars
-debug-vars: ## Prints the values of the specified variables.
+.PHONY: $(GO_TARGET_PREFIX)debug-vars
+$(GO_TARGET_PREFIX)debug-vars: ## Prints the values of the specified variables.
 	$(foreach debug_var,$(DEBUG_VARS),$(_debug_vars_TEMPLATE))
 define _debug_vars_TEMPLATE =
 @echo $(debug_var)=$(call escape_command_arg,$($(debug_var)))
@@ -839,5 +851,5 @@ endef
 # misc targets users can ignore
 
 # we use .PHONY, but there's an edge case requiring this pattern
-.PHONY: FORCE
-FORCE:
+.PHONY: $(GO_TARGET_PREFIX)FORCE
+$(GO_TARGET_PREFIX)FORCE:
