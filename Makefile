@@ -823,7 +823,7 @@ END {
   }
 }
 ' &&
-help_text="$$(awk -v project_root=$(call escape_command_arg,$(PROJECT_ROOT)) "$$generate_help" $(MAKEFILE_LIST))" &&
+help_text="$$(awk -v project_root=$(call escape_command_arg,$(PROJECT_ROOT)) "$$generate_help" $${MAKEFILE_LIST})" &&
 help_text="$$(echo "$$help_text" | sed $(foreach target_prefix,GO_TARGET_PREFIX $(MAKEFILE_TARGET_PREFIXES), -e s/\$$\($(call escape_command_arg,$(target_prefix))\)/$(call escape_command_arg,$($(target_prefix)))/g\;))" &&
 run_with_smart_human_readable_output echo "$$help_text"
 endef
@@ -834,7 +834,7 @@ endif
 
 .PHONY: help
 help:  ## Display this help.
-	@$(MAKEFILE_HELP_SCRIPT)
+	@export MAKEFILE_LIST=$(call escape_command_arg,$(MAKEFILE_LIST)); $(MAKEFILE_HELP_SCRIPT)
 
 .PHONY: h
 h: help ## Alias for help.
