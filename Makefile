@@ -132,14 +132,6 @@ ifeq ($(ROOT_MAKEFILE),)
 ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 endif
 
-ifeq ($(PROJECT_ROOT),)
-PROJECT_ROOT := $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
-endif
-
-ifeq ($(PROJECT_NAME),)
-PROJECT_NAME := $(notdir $(PROJECT_ROOT))
-endif
-
 # N.B. this is a multi-platform makefile
 # so far only two switching cases have been required (Windows and Unix)
 ifeq ($(IS_WINDOWS),)
@@ -179,6 +171,8 @@ DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS
 
 # intended to be configurable via config.mak
 
+PROJECT_ROOT ?= $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
+PROJECT_NAME ?= $(notdir $(PROJECT_ROOT))
 GO ?= go
 GO_FLAGS ?=
 GO_TEST_FLAGS ?=
