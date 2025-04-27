@@ -33,7 +33,7 @@
 # The `grit` tool is a key factor in this, see comments in-source, for more
 # details.
 #
-# Go module targets
+# Go Module Targets
 # ---
 # Each of these targets has multiple corresponding sub-targets, and with the
 # primary target being to run all of them, in parallel, if enabled.
@@ -75,6 +75,21 @@
 #
 # (*) This is the most likely to break, e.g. ROOT_MAKEFILE would likely need to
 #     be set in the including Makefile.
+#
+# Make Subprocesses Reevaluating This Makefile
+# ---
+# Beware: Some targets use `$(MAKE) ... -f $(ROOT_MAKEFILE) ...`, running in
+# independent subprocesses. This is intentional but can affect behavior.
+# Valid uses:
+#
+#   1. Target acts as a script with arguments
+#   2. Enforcing ordering, via a PHONY and/or _optional_ prerequisite
+#
+# Details:
+# Case 1 is simple convenience - "script" implies no dependencies.
+# Case 2 enables multiple configurations/ordering (e.g., `test` standalone
+# vs. after `build`). This sometimes necessitates alias targets and accepts
+# known tradeoffs like isolated dependencies and potential duplicate work.
 
 # What is `grit` and how to use it?
 # ---
@@ -108,7 +123,8 @@
 #   configured target(s), to propagate
 
 # simple variables that either represent invariants, or need to be interacted
-# with in an imperative manner
+# with in an imperative manner, e.g. "building" values across includes, without
+# separating the output of each include into its own discrete variable
 
 # windows gnu make seems to append includes to the end of MAKEFILE_LIST
 # hence the simple variable assignment, prior to any includes
@@ -301,10 +317,10 @@ endif
 
 # ---
 
-##@ Standard targets
+##@ Standard Targets
 
 .PHONY: all
-all: ## Run a local "full build", e.g. all targets for Go modules.
+all: ## Builds all, and (non-standard per GNU) runs all checks.
 	@
 
 .PHONY: clean
@@ -317,14 +333,14 @@ endif
 
 # ---
 
-##@ Go module targets
+##@ Go Module Targets
 
 # all, all.<go module slug>
 
 ALL_TARGETS := $(addprefix all.,$(GO_MODULE_SLUGS))
 
 .PHONY: all
-all: $(ALL_TARGETS) ## Builds, then lints and tests, in parallel (all modules in parallel).
+all: $(ALL_TARGETS) ## Builds, then lints and tests (modules in parallel, two stages).
 
 .PHONY: $(ALL_TARGETS)
 $(ALL_TARGETS): all.%: _all__build.% _all__lint.% _all__test.%
@@ -571,10 +587,10 @@ $(foreach d,$(SUBDIR_MAKEFILE_PATHS),$(eval $(call _run_TEMPLATE,$d,$(call subdi
 
 # ---
 
-##@ Other targets
+##@ Other Targets
 
 .PHONY: tools
-tools: ## Adds the tools for _this_ Makefile to go.mod, then runs go mod tidy.
+tools: ## Uses go get -tool to add the tools for _this_ Makefile to go.mod.
 	$(foreach tool,$(GO_TOOLS),$(_tools_TEMPLATE))
 define _tools_TEMPLATE =
 $(GO) get -tool $(tool)

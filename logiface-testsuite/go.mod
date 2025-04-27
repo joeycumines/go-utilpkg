@@ -8,4 +8,4 @@ require (
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 )
 
-require github.com/joeycumines/go-catrate v0.0.0-20250111020130-2a9a739e4a65 // indirect
+require github.com/joeycumines/go-catrate v0.0.0-20250425074531-4bedb5fa0877 // indirect

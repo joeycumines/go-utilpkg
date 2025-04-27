@@ -21,6 +21,8 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/telemetry v0.0.0-20250417124945-06ef541f3fa3 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	honnef.co/go/tools v0.6.1 // indirect
 )
@@ -28,6 +30,7 @@ require (
 tool (
 	github.com/dkorunic/betteralign/cmd/betteralign
 	github.com/grailbio/grit
+	golang.org/x/tools/cmd/deadcode
 	golang.org/x/tools/cmd/godoc
 	honnef.co/go/tools/cmd/staticcheck
 )
