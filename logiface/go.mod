@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250426072507-56f22e955a4e // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250427232701-8c6b2b807834 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

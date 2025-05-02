@@ -15,7 +15,7 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirkon/dst v0.26.4 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
-	github.com/yuin/goldmark v1.7.10 // indirect
+	github.com/yuin/goldmark v1.7.11 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250408133849-7e4ce0ab07d0 // indirect

@@ -13,7 +13,7 @@ require (
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20250425074531-4bedb5fa0877 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250426072507-56f22e955a4e // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250427232701-8c6b2b807834 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
