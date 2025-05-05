@@ -889,7 +889,6 @@ endef
 export _MAKEFILE_HELP_SCRIPT
 MAKEFILE_HELP_SCRIPT := eval "$$_MAKEFILE_HELP_SCRIPT"
 endif
-endif
 
 .PHONY: help
 help: ## Display this help.
@@ -897,6 +896,7 @@ help: ## Display this help.
 
 .PHONY: h
 h: help ## Alias for help.
+endif
 endif
 
 # ---
