@@ -232,7 +232,6 @@ STATICCHECK ?= $(call go_tool_binary_path,$(GO_PKG_STATICCHECK))
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(call go_tool_binary_path,$(GO_PKG_BETTERALIGN))
 BETTERALIGN_FLAGS ?=
-BETTERALIGN_ENABLED ?= true
 DEADCODE ?= $(call go_tool_binary_path,$(GO_PKG_DEADCODE))
 DEADCODE_FLAGS ?=
 # for the tools target, to update the root go.mod (only relevant when setting up or updating this makefile)
@@ -322,7 +321,7 @@ $(error GO_MODULE_SLUGS contains unsupported paths)
 endif
 GO_MODULE_SLUGS_EXCL_NO_PACKAGES := $(filter-out $(GO_MODULE_SLUGS_NO_PACKAGES),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_EXCL_NO_UPDATE := $(filter-out $(GO_MODULE_SLUGS_NO_UPDATE),$(GO_MODULE_SLUGS))
-GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN := $(if $(filter true,$(BETTERALIGN_ENABLED)),$(filter-out $(GO_MODULE_SLUGS_NO_BETTERALIGN),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)),)
+GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_NO_BETTERALIGN),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 # because GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN is composite (with no packages), and we need a target for _all_ modules
 GO_MODULE_SLUGS_INCL_NO_BETTERALIGN := $(filter-out $(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN),$(GO_MODULE_SLUGS))
 GO_MODULE_SLUGS_INCL_USE_DEADCODE := $(filter $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
