@@ -433,7 +433,7 @@ $(GO_TARGET_PREFIX)staticcheck: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS) ## Run
 
 .PHONY: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS)
 $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS): $(GO_TARGET_PREFIX)staticcheck.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_staticcheck
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_staticcheck STATICCHECK_FLAGS=$(call escape_command_arg,$(STATICCHECK_FLAGS))
 
 .PHONY: $(GO_TARGET_PREFIX)_staticcheck
 $(GO_TARGET_PREFIX)_staticcheck:
