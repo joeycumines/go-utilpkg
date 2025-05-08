@@ -13,12 +13,12 @@ require (
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20250425074531-4bedb5fa0877 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250427232701-8c6b2b807834 // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250506233736-6ee250c4dfa6 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/perf v0.0.0-20250414141303-3fc2b901edf3 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
+	golang.org/x/perf v0.0.0-20250505210442-a54a20dddd97 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 )
 
 tool golang.org/x/perf/cmd/benchstat
