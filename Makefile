@@ -74,7 +74,7 @@
 #   4. Including* this Makefile from another Makefile
 #
 # (*) This is the most likely to break, e.g. ROOT_MAKEFILE would likely need to
-#     be set in the including Makefile.
+#     be set in the including Makefile, as would PROJECT_ROOT.
 #
 # Make Subprocesses Reevaluating This Makefile
 # ---
@@ -132,6 +132,11 @@ ifeq ($(ROOT_MAKEFILE),)
 ROOT_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
 endif
 
+# used to support changing the working directory + resolve relative paths
+ifeq ($(PROJECT_ROOT),)
+PROJECT_ROOT := $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
+endif
+
 # N.B. this is a multi-platform makefile
 # so far only two switching cases have been required (Windows and Unix)
 ifeq ($(IS_WINDOWS),)
@@ -149,11 +154,11 @@ endif
 # supported for historical reasons, applicable to a specific project.
 
 # optional project-specific (committed) overrides and extensions
--include project.mk project.mak
+-include $(PROJECT_ROOT)/project.mk $(PROJECT_ROOT)/project.mak
 # user-specific (uncommitted) overrides and extensions
 # N.B. to use this, add the following to .gitignore: /config.mk
 #      and, if you use docker, add the following to .dockerignore: config.mk
--include config.mk config.mak
+-include $(PROJECT_ROOT)/config.mk $(PROJECT_ROOT)/config.mak
 
 # ---
 
@@ -202,8 +207,6 @@ DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS
 
 # intended to be configurable via config.mk
 
-# for the benefit of other implementations, and used to make file paths relative
-PROJECT_ROOT ?= $(patsubst %/,%,$(dir $(ROOT_MAKEFILE)))
 PROJECT_NAME ?= $(notdir $(PROJECT_ROOT))
 # set (build) these to support dynamically building the help target with replacements
 MAKEFILE_TARGET_PREFIXES ?=
