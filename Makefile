@@ -298,7 +298,9 @@ else
 escape_command_arg ?= '$(subst ','\'',$1)'
 endif
 
-go_tool_binary_path = $(or $(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(error no go tool found for $1))
+# includes workaround for https://github.com/golang/go/issues/72824
+# (the workaround is running go tool -n _twice_)
+go_tool_binary_path = $(if $(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(error no go tool found for $1))
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
 go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
