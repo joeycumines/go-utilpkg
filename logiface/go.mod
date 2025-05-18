@@ -1,6 +1,6 @@
 module github.com/joeycumines/logiface
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/hexops/gotextdiff v1.0.3
@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250506233736-6ee250c4dfa6 // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250509002103-cddd49d77921 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

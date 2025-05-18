@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-sql
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/go-test/deep v1.1.1

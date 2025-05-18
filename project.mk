@@ -19,3 +19,5 @@ GRIT_DST ?= \
     sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
     prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
     floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git
+# N.B. relative to the go module it applies to
+DEADCODE_IGNORE_PATTERNS_FILE ?= .deadcodeignore

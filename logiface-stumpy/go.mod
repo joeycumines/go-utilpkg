@@ -1,9 +1,9 @@
 module github.com/joeycumines/stumpy
 
-go 1.24.2
+go 1.24.3
 
 require (
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250506233736-6ee250c4dfa6
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250509002103-cddd49d77921
 	github.com/joeycumines/logiface v0.5.0
 	github.com/joeycumines/logiface-testsuite v0.0.0-20250425074605-bff722a24206
 )
