@@ -235,13 +235,16 @@ STATICCHECK ?= $(call go_tool_binary_path,$(GO_PKG_STATICCHECK))
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(call go_tool_binary_path,$(GO_PKG_BETTERALIGN))
 BETTERALIGN_FLAGS ?=
-DEADCODE ?= $(if $(DEADCODE_IGNORE_PATTERNS_FILE),$(if $(wildcard $(DEADCODE_IGNORE_PATTERNS_FILE)),$(call go_tool_binary_path,$(GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER)) -v $(addprefix -f ,$(wildcard $(DEADCODE_IGNORE_PATTERNS_FILE))) -- ,),)$(call go_tool_binary_path,$(GO_PKG_DEADCODE))
+DEADCODE ?= $(if $(or $(filter true,$(DEADCODE_ERROR_ON_UNIGNORED)),$(and $(DEADCODE_IGNORE_PATTERNS_FILE),$(wildcard $(DEADCODE_IGNORE_PATTERNS_FILE)))),$(call go_tool_binary_path,$(GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER)) -v $(and $(filter true,$(DEADCODE_ERROR_ON_UNIGNORED)),-e on-content) $(addprefix -f ,$(and $(DEADCODE_IGNORE_PATTERNS_FILE),$(wildcard $(DEADCODE_IGNORE_PATTERNS_FILE)))) -- ,)$(call go_tool_binary_path,$(GO_PKG_DEADCODE))
 DEADCODE_FLAGS ?=
 # N.B. If set, by default, used with simple-command-output-filter to exclude false-positives.
 # Contains glob-like patterns to excluded lines from the deadcode output. See that tool's docs:
 #   https://pkg.go.dev/github.com/joeycumines/simple-command-output-filter#section-readme
 # The file's path is relative to the module root, where the ignores apply.
 DEADCODE_IGNORE_PATTERNS_FILE ?= # .deadcodeignore
+# If set to true then, by default, the simple-command-output-filter tool will
+# be used to treat any detected deadcode, not otherwise ignored, as an error.
+DEADCODE_ERROR_ON_UNIGNORED ?= false
 # for the tools target, to update the root go.mod (only relevant when setting up or updating this makefile)
 GO_TOOLS ?= $(GO_TOOLS_DEFAULT)
 # used to special-case modules for tools which fail if they find no packages (e.g. go vet)
@@ -264,7 +267,7 @@ GO_TOOLS_DEFAULT ?= \
 		$(GO_PKG_GRIT) \
 		$(GO_PKG_GODOC) \
 		$(GO_PKG_STATICCHECK) \
-		$(if $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_PKG_DEADCODE) $(if $(DEADCODE_IGNORE_PATTERNS_FILE),$(GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER),),)
+		$(if $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_PKG_DEADCODE) $(if $(or $(filter true,$(DEADCODE_ERROR_ON_UNIGNORED)),$(DEADCODE_IGNORE_PATTERNS_FILE)),$(GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER),),)
 GO_PKG_BETTERALIGN ?= github.com/dkorunic/betteralign/cmd/betteralign
 GO_PKG_GRIT ?= github.com/grailbio/grit
 GO_PKG_GODOC ?= golang.org/x/tools/cmd/godoc
