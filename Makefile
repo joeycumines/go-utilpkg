@@ -592,7 +592,8 @@ $(addprefix $(GO_TARGET_PREFIX)update.,$(GO_MODULE_SLUGS_NO_UPDATE)): $(GO_TARGE
 # N.B. Uses the "all" reserved package - see `go help packages | less`.
 .PHONY: $(GO_TARGET_PREFIX)_update
 $(GO_TARGET_PREFIX)_update:
-	$(GO) get -u all
+	$(GO) get -u -t ./...
+	$(GO) get -u tool
 	$(GO) mod tidy
 
 # tidy, tidy.<go module slug>
