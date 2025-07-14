@@ -213,9 +213,11 @@ MAKEFILE_TARGET_PREFIXES ?=
 GO ?= go
 GO_FLAGS ?=
 GO_TEST_FLAGS ?=
-GO_TEST ?= $(GO) test $(GO_FLAGS) $(GO_TEST_FLAGS)
-GO_BUILD ?= $(GO) build $(GO_FLAGS)
-GO_VET ?= $(GO) vet $(GO_FLAGS)
+# callable variables, with param $1 being a go module slug (see go_module_slug_to_path)
+GO_TEST ?= $(GO) -C $(call go_module_slug_to_path,$1) test $(GO_FLAGS) $(GO_TEST_FLAGS)
+GO_BUILD ?= $(GO) -C $(call go_module_slug_to_path,$1) build $(GO_FLAGS)
+GO_VET ?= $(GO) -C $(call go_module_slug_to_path,$1) vet $(GO_FLAGS)
+# simple command variables
 GO_FMT ?= $(GO) fmt
 GO_GENERATE ?= $(GO) generate
 GO_FIX ?= $(GO) fix
@@ -411,7 +413,7 @@ $(GO_TARGET_PREFIX)build: $($(GO_MK_VAR_PREFIX)BUILD_TARGETS) ## Runs the go bui
 
 .PHONY: $($(GO_MK_VAR_PREFIX)BUILD_TARGETS)
 $($(GO_MK_VAR_PREFIX)BUILD_TARGETS): $(GO_TARGET_PREFIX)build.%:
-	$(GO_BUILD) -C $(call go_module_slug_to_path,$*) ./...
+	$(call GO_BUILD,$*) ./...
 
 # lint, lint.<go module slug>
 
@@ -432,7 +434,7 @@ $(GO_TARGET_PREFIX)vet: $($(GO_MK_VAR_PREFIX)VET_TARGETS) ## Runs the go vet too
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
-	$(GO_VET) -C $(call go_module_slug_to_path,$*) ./...
+	$(call GO_VET,$*) ./...
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
@@ -497,7 +499,7 @@ $(GO_TARGET_PREFIX)test: $($(GO_MK_VAR_PREFIX)TEST_TARGETS) ## Runs the go test 
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
-	$(GO_TEST) -C $(call go_module_slug_to_path,$*) ./...
+	$(call GO_TEST,$*) ./...
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
@@ -525,7 +527,7 @@ endif
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
-	$(GO_TEST) -C $(call go_module_slug_to_path,$*) -coverprofile=$(GO_COVERAGE_MODULE_FILE) -covermode=count ./...
+	$(call GO_TEST,$*) -coverprofile=$(GO_COVERAGE_MODULE_FILE) -covermode=count ./...
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
