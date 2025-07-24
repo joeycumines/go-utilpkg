@@ -18,6 +18,7 @@ GRIT_DST ?= \
     smartpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-smartpoll.git \
     sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
     prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
+    grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
     floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
