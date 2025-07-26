@@ -5,6 +5,7 @@ use (
 	./catrate
 	./fangrpcstream
 	./floater
+	./grpc-proxy
 	./jsonenc
 	./logiface
 	./logiface-logrus

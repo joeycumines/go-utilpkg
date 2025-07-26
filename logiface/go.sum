@@ -5,8 +5,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/joeycumines/go-catrate v0.0.0-20250425074531-4bedb5fa0877 h1:EZJ7rETixS5J7YOT+Y0ZK4cZ0qERaSy2z5c+/Et+4xA=
 github.com/joeycumines/go-catrate v0.0.0-20250425074531-4bedb5fa0877/go.mod h1:/dK4jQNlqalo8r/DILvbuQidKQZmCCB6N+Q7uPJX2ww=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250714112400-d06b5cd73845 h1:uW5d4U2ZPrQT21k6miEBQ1PCM1rmIZuqC8XQKpCJG/U=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250714112400-d06b5cd73845/go.mod h1:Ge4Frdwahq80ATXxa8RTmLiBx3L9CfrBe78aRjxFRv4=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250724142202-798252fa933c h1:dW5NJ+avAeMaWL2clqxg7NFFw1h3DfhWJTCYDjLxGDc=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250724142202-798252fa933c/go.mod h1:TXohiMh5RkqK529m23HD3sx+IAqDb+bYfmTDN4ZjyxY=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8 h1:4gaPSRcwW29nLQX8o6wD6L/NLwK7q4CatYylOcxTVro=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8/go.mod h1:ImPViOpLLb/M0YOd5EQHQBct5MjK8wTFDu7xBfJzn8Q=
 github.com/joeycumines/stumpy v0.4.0 h1:kwfEEUz1s+iBV+HCbPj3f3FhYrk/+pE7fMoObG0UWSk=
