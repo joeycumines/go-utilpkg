@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/mwitkow/grpc-proxy/proxy"
+	"github.com/joeycumines/grpc-proxy/proxy"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -21,7 +21,7 @@ var (
 )
 
 func ExampleNewProxy() {
-	dst, err := grpc.Dial("example.com")
+	dst, err := grpc.NewClient("example.com")
 	if err != nil {
 		log.Fatalf("dialing example.org: %v", err)
 	}
@@ -57,11 +57,11 @@ func ExampleStreamDirector() {
 		if ok {
 			// Decide on which backend to dial
 			if val, exists := md[":authority"]; exists && val[0] == "staging.api.example.com" {
-				// Make sure we use DialContext so the dialing can be cancelled/time out together with the context.
-				conn, err := grpc.DialContext(ctx, "api-service.staging.svc.local")
+				// Use a custom dialer to ensure the dial attempt cancels if the context is canceled.
+				conn, err := grpc.NewClient("api-service.staging.svc.local", grpc.WithContextDialer(proxy.DialWithCancel(ctx, proxy.DialTCP)))
 				return outCtx, conn, err
 			} else if val, exists := md[":authority"]; exists && val[0] == "api.example.com" {
-				conn, err := grpc.DialContext(ctx, "api-service.prod.svc.local")
+				conn, err := grpc.NewClient("api-service.staging.svc.local", grpc.WithContextDialer(proxy.DialWithCancel(ctx, proxy.DialTCP)))
 				return outCtx, conn, err
 			}
 		}

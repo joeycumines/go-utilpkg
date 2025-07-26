@@ -6,6 +6,7 @@ package proxy_test
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/connectivity"
 	"io"
 	"net"
 	"strings"
@@ -17,13 +18,14 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/mwitkow/grpc-proxy/proxy"
-	pb "github.com/mwitkow/grpc-proxy/testservice"
+	"github.com/joeycumines/grpc-proxy/proxy"
+	pb "github.com/joeycumines/grpc-proxy/testservice"
 )
 
 const (
@@ -197,8 +199,7 @@ func (s *ProxyHappySuite) SetupSuite() {
 	pb.RegisterTestServiceServer(s.server, &assertingService{t: s.T()})
 
 	// Setup of the proxy's Director.
-	//lint:ignore SA1019 regression test
-	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithCodec(proxy.Codec()))
+	s.serverClientConn, err = grpc.NewClient(s.serverListener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
 	director := func(ctx context.Context, fullName string) (context.Context, grpc.ClientConnInterface, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
@@ -212,8 +213,6 @@ func (s *ProxyHappySuite) SetupSuite() {
 		return outCtx, s.serverClientConn, nil
 	}
 	s.proxy = grpc.NewServer(
-		//lint:ignore SA1019 regression test
-		grpc.CustomCodec(proxy.Codec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	// Ping handler is handled as an explicit registration and not as a TransparentHandler.
@@ -231,10 +230,28 @@ func (s *ProxyHappySuite) SetupSuite() {
 		s.proxy.Serve(s.proxyListener)
 	}()
 
-	dCtx, ccl := context.WithTimeout(context.Background(), time.Second)
-	defer ccl()
-	clientConn, err := grpc.DialContext(dCtx, strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1), grpc.WithInsecure())
+	clientConn, err := grpc.NewClient(
+		strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(proxy.DialWithTimeout(time.Second, proxy.DialWithCancel(context.Background(), proxy.DialTCP))),
+	)
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	for {
+		state := clientConn.GetState()
+		if state == connectivity.Ready {
+			break
+		} else if state == connectivity.Idle {
+			clientConn.Connect()
+		}
+		if !clientConn.WaitForStateChange(ctx, connectivity.Idle) {
+			s.T().Fatal("timed out waiting for client connection to become ready")
+		}
+	}
+
 	s.testClient = pb.NewTestServiceClient(clientConn)
 }
 

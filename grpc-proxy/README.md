@@ -1,11 +1,18 @@
 # gRPC Proxy
 
 [![Travis Build](https://travis-ci.org/mwitkow/grpc-proxy.svg?branch=master)](https://travis-ci.org/mwitkow/grpc-proxy)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mwitkow/grpc-proxy)](https://goreportcard.com/report/github.com/mwitkow/grpc-proxy)
-[![Go Reference](https://pkg.go.dev/badge/github.com/mwitkow/grpc-proxy.svg)](https://pkg.go.dev/github.com/mwitkow/grpc-proxy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/joeycumines/grpc-proxy)](https://goreportcard.com/report/github.com/joeycumines/grpc-proxy)
+[![Go Reference](https://pkg.go.dev/badge/github.com/joeycumines/grpc-proxy.svg)](https://pkg.go.dev/github.com/joeycumines/grpc-proxy)
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 [gRPC Go](https://github.com/grpc/grpc-go) Proxy server
+
+## **Fork Information**
+
+This is a maintained fork. The original is not active or responsive.
+
+N.B. I did not bother searching for other maintained variants - there were no PRs of note, and there is a nontrivial
+chance I'll want full control over changes.
 
 ## Project Goal
 
@@ -21,7 +28,7 @@ is a generic gRPC reverse proxy handler.
 ## Proxy Handler
 
 The package [`proxy`](proxy/) contains a generic gRPC reverse proxy handler that allows a gRPC server to
-not know about registered handlers or their data types. Please consult the docs, here's an exaple usage.
+not know about registered handlers or their data types. Please consult the docs, here's an example usage.
 
 You can call `proxy.NewProxy` to create a `*grpc.Server` that proxies requests.
 ```go
