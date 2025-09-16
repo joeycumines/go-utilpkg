@@ -905,7 +905,8 @@ END {
   }
 }
 ' &&
-help_text="$$(awk -v project_root=$(call escape_command_arg,$(PROJECT_ROOT)) "$$generate_help" $${MAKEFILE_LIST})" &&
+deduplicated_makefile_list="$$(printf '%s\n' "$$MAKEFILE_LIST" | awk '{for(i=NF;i>=1;i--)if(!a[$$i]++)s=$$i (s==""?"":" ")s;printf "%s",s}')" &&
+help_text="$$(awk -v project_root=$(call escape_command_arg,$(PROJECT_ROOT)) "$$generate_help" $${deduplicated_makefile_list})" &&
 help_text="$$(echo "$$help_text" | sed $(foreach target_prefix,GO_TARGET_PREFIX $(MAKEFILE_TARGET_PREFIXES), -e s/\$$\($(call escape_command_arg,$(target_prefix))\)/$(call escape_command_arg,$($(target_prefix)))/g\;))" &&
 run_with_smart_human_readable_output echo "$$help_text"
 endef
