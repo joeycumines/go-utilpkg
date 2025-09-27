@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 21.05.2025
+
+[Diff](https://github.com/elk-language/go-prompt/compare/v1.2.0...elk-language:go-prompt:v1.3.0)
+
+### Added
+- [PR#26](https://github.com/elk-language/go-prompt/pull/26) - add `HistoryInterface` to let users implement their own custom history
+- Fix multiline editing
+- Add maximum size to history
+- Add new methods to History
+  - `Get`
+  - `Entries`
+  - `DeleteAll`
+
+## [1.2.0] - 28.03.2025
+
+[Diff](https://github.com/elk-language/go-prompt/compare/v1.1.5...elk-language:go-prompt:v1.2.0)
+
+### Added
+- [PR#24](https://github.com/elk-language/go-prompt/pull/24) - the project now builds for other environments than windows or unix (WASM)
+- Update Go to 1.24
+
+## [1.1.5] - 15.08.2023
+
+[Diff](https://github.com/elk-language/go-prompt/compare/v1.1.4...elk-language:go-prompt:v1.1.5)
+
+### Fixed
+- [PR#18](https://github.com/elk-language/go-prompt/pull/18) - fix the `http-prompt` example and refactor the example building script (make it fail when an example doesn't compile)
+- [PR#17](https://github.com/elk-language/go-prompt/pull/17) - correctly restore terminal parameters
+- [PR#16](https://github.com/elk-language/go-prompt/pull/16) - propagate `getOriginalTermios` error when called multiple times
+
 ## [1.1.4] - 29.07.2023
 
 [Diff](https://github.com/elk-language/go-prompt/compare/v1.1.3...elk-language:go-prompt:v1.1.4)
