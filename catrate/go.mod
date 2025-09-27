@@ -3,8 +3,8 @@ module github.com/joeycumines/go-catrate
 go 1.24.5
 
 require (
-	github.com/stretchr/testify v1.10.0
-	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
+	github.com/stretchr/testify v1.11.1
+	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 )
 
 require (
