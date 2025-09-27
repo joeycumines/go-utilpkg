@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-fangrpcstream
 
-go 1.24.5
+go 1.25.1
 
 require (
 	github.com/joeycumines/go-bigbuff v1.21.0
