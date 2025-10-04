@@ -92,6 +92,36 @@ func (c *CompletionManager) Completing() bool {
 	return c.selected != -1
 }
 
+// adjustWindowHeight adjusts the vertical scroll position to account for
+// the actual window height, which may differ from max due to dynamic completion.
+// This must be called before rendering to ensure state consistency.
+func (c *CompletionManager) adjustWindowHeight(windowHeight, contentHeight int) {
+	if windowHeight <= 0 || contentHeight <= 0 {
+		return
+	}
+
+	// Ensure selected item is visible
+	if c.Completing() && c.selected >= 0 {
+		if c.selected >= contentHeight {
+			c.selected = contentHeight - 1
+		}
+		if c.selected >= c.verticalScroll+windowHeight {
+			c.verticalScroll = c.selected - windowHeight + 1
+		}
+		if c.selected < c.verticalScroll {
+			c.verticalScroll = c.selected
+		}
+	}
+
+	// Clamp scroll to valid range (necessary and sufficient)
+	if c.verticalScroll+windowHeight > contentHeight {
+		c.verticalScroll = contentHeight - windowHeight
+	}
+	if c.verticalScroll < 0 {
+		c.verticalScroll = 0
+	}
+}
+
 func (c *CompletionManager) update() {
 	max := int(c.max)
 	if len(c.tmp) < max {

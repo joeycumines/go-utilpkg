@@ -37,6 +37,10 @@ type Renderer struct {
 	selectedDescriptionBGColor   Color
 	scrollbarThumbColor          Color
 	scrollbarBGColor             Color
+
+	// dynamicCompletion controls whether the completion dropdown adapts to
+	// the available space below the cursor.
+	dynamicCompletion bool
 }
 
 // Build a new Renderer.
@@ -120,10 +124,28 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 	// +1 means a width of scrollbar.
 	width++
 
-	windowHeight := len(formatted)
+	contentHeight := len(formatted)
+	windowHeight := contentHeight
 	if windowHeight > int(completions.max) {
 		windowHeight = int(completions.max)
 	}
+	if r.dynamicCompletion {
+		cursorLine := buf.DisplayCursorPosition(r.UserInputColumns()).Y
+		availableRows := r.row - cursorLine - 1
+		if availableRows <= 0 {
+			return
+		}
+		if windowHeight > availableRows {
+			windowHeight = availableRows
+		}
+	}
+	if windowHeight <= 0 {
+		return
+	}
+
+	// Adjust CompletionManager state to match actual window height
+	completions.adjustWindowHeight(windowHeight, contentHeight)
+
 	formatted = formatted[completions.verticalScroll : completions.verticalScroll+windowHeight]
 	r.prepareArea(windowHeight)
 
@@ -133,8 +155,6 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 	if x+width >= r.col {
 		cursor = r.backward(cursor, x+width-r.col)
 	}
-
-	contentHeight := len(completions.tmp)
 
 	fractionVisible := float64(windowHeight) / float64(contentHeight)
 	fractionAbove := float64(completions.verticalScroll) / float64(contentHeight)

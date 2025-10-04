@@ -301,6 +301,15 @@ func WithShowCompletionAtStart() Option {
 	}
 }
 
+// WithDynamicCompletion enables adaptive completion dropdown height based on
+// the available space beneath the cursor.
+func WithDynamicCompletion(value bool) Option {
+	return func(p *Prompt) error {
+		p.renderer.dynamicCompletion = value
+		return nil
+	}
+}
+
 // WithBreakLineCallback to run a callback at every break line
 func WithBreakLineCallback(fn func(*Document)) Option {
 	return func(p *Prompt) error {

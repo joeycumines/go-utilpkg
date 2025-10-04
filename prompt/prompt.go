@@ -12,7 +12,9 @@ import (
 	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
-const inputBufferSize = 1024
+const (
+	inputBufferSize = 1024
+)
 
 // Executor is called when the user
 // inputs a line of text.
@@ -72,11 +74,7 @@ func (p *Prompt) Run() {
 	p.setup()
 	defer p.Close()
 
-	if p.completion.showAtStart {
-		p.completion.Update(*p.buffer.Document())
-	}
-
-	p.renderer.Render(p.buffer, p.completion, p.lexer)
+	p.render(p.completion.showAtStart)
 
 	bufCh := make(chan []byte, 128)
 	stopReadBufCh := make(chan struct{})
@@ -105,9 +103,7 @@ func (p *Prompt) Run() {
 				debug.AssertNoError(p.reader.Close())
 				p.executor(input.input)
 
-				p.completion.Update(*p.buffer.Document())
-
-				p.renderer.Render(p.buffer, p.completion, p.lexer)
+				p.render(true)
 
 				if p.exitChecker != nil && p.exitChecker(input.input, true) {
 					p.skipClose = true
@@ -118,16 +114,13 @@ func (p *Prompt) Run() {
 				go p.readBuffer(bufCh, stopReadBufCh)
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else if rerender {
-				if p.completion.shouldUpdate {
-					p.completion.Update(*p.buffer.Document())
-				}
-				p.renderer.Render(p.buffer, p.completion, p.lexer)
+				p.render(false)
 			}
 		case w := <-winSizeCh:
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
 			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), int(p.renderer.row))
-			p.renderer.Render(p.buffer, p.completion, p.lexer)
+			p.render(false)
 		case code := <-exitCh:
 			p.renderer.BreakLine(p.buffer, p.lexer)
 			p.Close()
@@ -178,6 +171,7 @@ func (p *Prompt) Buffer() *Buffer {
 
 func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *UserInput) {
 	key := GetKey(b)
+
 	p.buffer.lastKeyStroke = key
 	// completion
 	completing := p.completion.Completing()
@@ -442,6 +436,14 @@ func (p *Prompt) handleKeyBinding(key Key, cols istrings.Width, rows int) (shoul
 	return shouldExit, rerender
 }
 
+func (p *Prompt) render(forceCompletions bool) {
+	if forceCompletions || p.completion.shouldUpdate {
+		p.completion.Update(*p.buffer.Document())
+		p.completion.shouldUpdate = false
+	}
+	p.renderer.Render(p.buffer, p.completion, p.lexer)
+}
+
 func (p *Prompt) handleASCIICodeBinding(b []byte, cols istrings.Width, rows int) (checked, rerender bool) {
 	for _, kb := range p.ASCIICodeBindings {
 		if bytes.Equal(kb.ASCIICode, b) {
@@ -463,11 +465,7 @@ func (p *Prompt) Input() string {
 	p.setup()
 	defer p.Close()
 
-	if p.completion.showAtStart {
-		p.completion.Update(*p.buffer.Document())
-	}
-
-	p.renderer.Render(p.buffer, p.completion, p.lexer)
+	p.render(p.completion.showAtStart)
 	bufCh := make(chan []byte, 128)
 	stopReadBufCh := make(chan struct{})
 	go p.readBuffer(bufCh, stopReadBufCh)
@@ -484,8 +482,7 @@ func (p *Prompt) Input() string {
 				stopReadBufCh <- struct{}{}
 				return input.input
 			} else if rerender {
-				p.completion.Update(*p.buffer.Document())
-				p.renderer.Render(p.buffer, p.completion, p.lexer)
+				p.render(false)
 			}
 		default:
 			time.Sleep(10 * time.Millisecond)
