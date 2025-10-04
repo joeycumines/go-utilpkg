@@ -36,6 +36,13 @@ type CompletionManager struct {
 	verticalScroll int
 	wordSeparator  string
 	showAtStart    bool
+
+	// hidden controls whether the completion window is explicitly hidden,
+	// independent of whether there are suggestions available.
+	hidden bool
+	// hideAfterExecute controls whether the completion window should be hidden
+	// when a new input prompt starts (e.g., after submitting input).
+	hideAfterExecute bool
 }
 
 // GetSelectedSuggestion returns the selected item.
@@ -90,6 +97,31 @@ func (c *CompletionManager) Next() int {
 // Completing returns true when the CompletionManager selects something.
 func (c *CompletionManager) Completing() bool {
 	return c.selected != -1
+}
+
+// Hide explicitly hides the completion window.
+func (c *CompletionManager) Hide() {
+	c.hidden = true
+}
+
+// Show explicitly shows the completion window.
+func (c *CompletionManager) Show() {
+	c.hidden = false
+}
+
+// IsHidden returns true if the completion window is explicitly hidden.
+func (c *CompletionManager) IsHidden() bool {
+	return c.hidden
+}
+
+// HideAfterExecute sets whether completions should be hidden when a new input prompt starts.
+func (c *CompletionManager) HideAfterExecute(hide bool) {
+	c.hideAfterExecute = hide
+}
+
+// ShouldHideAfterExecute returns whether completions should be hidden on new input.
+func (c *CompletionManager) ShouldHideAfterExecute() bool {
+	return c.hideAfterExecute
 }
 
 // adjustWindowHeight adjusts the vertical scroll position to account for
@@ -217,6 +249,14 @@ type CompletionManagerOption func(*CompletionManager)
 func CompletionManagerWithCompleter(completer Completer) CompletionManagerOption {
 	return func(c *CompletionManager) {
 		c.completer = completer
+	}
+}
+
+// CompletionManagerWithHideAfterExecute configures whether the completion window should be hidden
+// when a new input prompt starts (e.g., after submitting input).
+func CompletionManagerWithHideAfterExecute(hide bool) CompletionManagerOption {
+	return func(c *CompletionManager) {
+		c.hideAfterExecute = hide
 	}
 }
 

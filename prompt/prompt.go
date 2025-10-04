@@ -44,21 +44,22 @@ type Completer func(Document) (suggestions []Suggest, startChar, endChar istring
 
 // Prompt is a core struct of go-prompt.
 type Prompt struct {
-	reader                 Reader
-	buffer                 *Buffer
-	renderer               *Renderer
-	executor               Executor
-	history                HistoryInterface
-	lexer                  Lexer
-	completion             *CompletionManager
-	keyBindings            []KeyBind
-	ASCIICodeBindings      []ASCIICodeBind
-	keyBindMode            KeyBindMode
-	completionOnDown       bool
-	exitChecker            ExitChecker
-	executeOnEnterCallback ExecuteOnEnterCallback
-	skipClose              bool
-	completionReset        bool
+	reader                    Reader
+	buffer                    *Buffer
+	renderer                  *Renderer
+	executor                  Executor
+	history                   HistoryInterface
+	lexer                     Lexer
+	completion                *CompletionManager
+	keyBindings               []KeyBind
+	ASCIICodeBindings         []ASCIICodeBind
+	keyBindMode               KeyBindMode
+	completionOnDown          bool
+	exitChecker               ExitChecker
+	executeOnEnterCallback    ExecuteOnEnterCallback
+	skipClose                 bool
+	completionReset           bool
+	completionHiddenByExecute bool
 }
 
 // UserInput is the struct that contains the user input context.
@@ -203,10 +204,14 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 		if userInput.input != "" {
 			p.history.Add(userInput.input)
 		}
+		// Hide completions on new input if configured
+		p.hideCompletionsAfterExecute()
 	case ControlC:
 		p.renderer.BreakLine(p.buffer, p.lexer)
 		p.buffer = NewBuffer()
 		p.history.Clear()
+		// Hide completions on new input if configured
+		p.hideCompletionsAfterExecute()
 	case Up, ControlP:
 		line := p.buffer.Document().CursorPositionRow()
 		if line > 0 {
@@ -253,6 +258,9 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 			return false, false, nil
 		}
 
+		if p.completionHiddenByExecute {
+			p.showCompletionsForUserIntent()
+		}
 		p.buffer.InsertTextMoveCursor(string(b), cols, rows, false)
 	}
 
@@ -271,18 +279,24 @@ keySwitch:
 	switch key {
 	case Down:
 		if completing || p.completionOnDown {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
 			p.updateSuggestions(func() {
 				p.completion.Next()
 			})
 			return true
 		}
 	case ControlI:
+		// Explicit navigation implies a desire to see completions.
+		p.showCompletionsForUserIntent()
 		p.updateSuggestions(func() {
 			p.completion.Next()
 		})
 		return true
 	case Up:
 		if completing {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
 			p.updateSuggestions(func() {
 				p.completion.Previous()
 			})
@@ -290,6 +304,8 @@ keySwitch:
 		}
 	case Tab:
 		if completionLen > 0 {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
 			// If there are any suggestions, select the next one
 			p.updateSuggestions(func() {
 				p.completion.Next()
@@ -314,6 +330,8 @@ keySwitch:
 		return true
 	case BackTab:
 		if completionLen > 0 {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
 			// If there are any suggestions, select the previous one
 			p.updateSuggestions(func() {
 				p.completion.Previous()
@@ -343,6 +361,19 @@ keySwitch:
 		p.completion.Reset()
 	}
 	return false
+}
+
+func (p *Prompt) hideCompletionsAfterExecute() {
+	if !p.completion.ShouldHideAfterExecute() {
+		return
+	}
+	p.completion.Hide()
+	p.completionHiddenByExecute = true
+}
+
+func (p *Prompt) showCompletionsForUserIntent() {
+	p.completion.Show()
+	p.completionHiddenByExecute = false
 }
 
 func (p *Prompt) updateSuggestions(fn func()) {
@@ -659,6 +690,11 @@ func (p *Prompt) InsertTextMoveCursor(text string, overwrite bool) {
 
 func (p *Prompt) History() HistoryInterface {
 	return p.history
+}
+
+// Completion returns the CompletionManager.
+func (p *Prompt) Completion() *CompletionManager {
+	return p.completion
 }
 
 func (p *Prompt) Close() {

@@ -46,3 +46,16 @@ func DeleteWordBeforeCursor(p *Prompt) bool {
 	)
 	return true
 }
+
+// HideCompletions hides the completion window.
+func HideCompletions(p *Prompt) bool {
+	p.completion.Hide()
+	p.completionHiddenByExecute = false
+	return true
+}
+
+// ShowCompletions shows the completion window.
+func ShowCompletions(p *Prompt) bool {
+	p.showCompletionsForUserIntent()
+	return true
+}

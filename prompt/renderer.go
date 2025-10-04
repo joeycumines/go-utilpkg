@@ -112,7 +112,7 @@ func (r *Renderer) UpdateWinSize(ws *WinSize) {
 
 func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager) {
 	suggestions := completions.GetSuggestions()
-	if len(suggestions) == 0 {
+	if len(suggestions) == 0 || completions.IsHidden() {
 		return
 	}
 	prefix := r.prefixCallback()

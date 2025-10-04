@@ -285,6 +285,11 @@ func WithKeyBind(b ...KeyBind) Option {
 	}
 }
 
+// WithKeyBindings is an alias for WithKeyBind for convenience.
+func WithKeyBindings(b ...KeyBind) Option {
+	return WithKeyBind(b...)
+}
+
 // WithASCIICodeBind to set a custom key bind.
 func WithASCIICodeBind(b ...ASCIICodeBind) Option {
 	return func(p *Prompt) error {
@@ -306,6 +311,18 @@ func WithShowCompletionAtStart() Option {
 func WithDynamicCompletion(value bool) Option {
 	return func(p *Prompt) error {
 		p.renderer.dynamicCompletion = value
+		return nil
+	}
+}
+
+// WithExecuteHidesCompletions configures whether executing input hides the completion window
+// until the next explicit interaction (e.g., typing or navigating completions).
+func WithExecuteHidesCompletions(enabled bool) Option {
+	return func(p *Prompt) error {
+		p.completion.HideAfterExecute(enabled)
+		if !enabled {
+			p.completionHiddenByExecute = false
+		}
 		return nil
 	}
 }
