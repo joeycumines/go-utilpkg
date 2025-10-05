@@ -46,3 +46,9 @@ Run another CLI tool via `os/exec` package.
 More practical example is [a source code of kube-prompt](https://github.com/c-bata/kube-prompt).
 I recommend you to look this if you want to create tools like kube-prompt.
 
+## page-navigation
+
+A demonstration of the page navigation feature for large completion lists.
+Shows how to use <kbd>PageDown</kbd> and <kbd>PageUp</kbd> keys to efficiently navigate through many suggestions.
+This example also demonstrates dynamic completion, which adapts the completion window size to available terminal space.
+
