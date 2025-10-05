@@ -147,6 +147,9 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 		return 0
 	}
 
+	// Store the actual window height for paging calculations
+	completions.lastWindowHeight = windowHeight
+
 	// Adjust CompletionManager state to match actual window height
 	completions.adjustWindowHeight(windowHeight, contentHeight)
 

@@ -121,7 +121,11 @@ func (p *Prompt) Run() {
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
 			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), int(p.renderer.row))
-			p.render(false)
+			// Clear cached geometry to force recalculation with new terminal size
+			p.completion.ClearWindowCache()
+			// Force full re-render with updated suggestions for new terminal size
+			// adjustWindowHeight will clamp selection/scroll to valid range
+			p.render(true)
 		case code := <-exitCh:
 			p.renderer.BreakLine(p.buffer, p.lexer)
 			p.Close()
@@ -131,18 +135,6 @@ func (p *Prompt) Run() {
 		}
 	}
 }
-
-// For debugging
-// func log(format string, a ...any) {
-// 	f, err := os.OpenFile("log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-// 	if err != nil {
-// 		panic(fmt.Sprintf("error opening file: %v", err))
-// 	}
-// 	defer f.Close()
-// 	if _, err := fmt.Fprintf(f, format+"\n", a...); err != nil {
-// 		panic(err)
-// 	}
-// }
 
 // Returns the configured indent size.
 func (p *Prompt) IndentSize() int {
@@ -210,6 +202,9 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 		p.renderer.BreakLine(p.buffer, p.lexer)
 		p.buffer = NewBuffer()
 		p.history.Clear()
+		// Reset completion state and clear cached geometry
+		p.completion.Reset()
+		p.completion.ClearWindowCache()
 		// Hide completions on new input if configured
 		p.hideCompletionsAfterExecute()
 	case Up, ControlP:
@@ -347,6 +342,20 @@ keySwitch:
 		}
 		p.buffer.DeleteBeforeCursorRunes(istrings.RuneNumber(p.renderer.indentSize), cols, rows)
 		return true
+	case PageDown:
+		if completionLen > 0 {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
+			p.completion.NextPage()
+			return true
+		}
+	case PageUp:
+		if completionLen > 0 {
+			// Explicit navigation implies a desire to see completions.
+			p.showCompletionsForUserIntent()
+			p.completion.PreviousPage()
+			return true
+		}
 	default:
 		if s, ok := p.completion.GetSelectedSuggestion(); ok {
 			w := p.buffer.Document().GetWordBeforeCursorUntilSeparator(p.completion.wordSeparator)

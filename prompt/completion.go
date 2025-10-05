@@ -37,6 +37,10 @@ type CompletionManager struct {
 	wordSeparator  string
 	showAtStart    bool
 
+	// lastWindowHeight tracks the actual rendered window height from the last render,
+	// used to calculate effective page height for paging operations.
+	lastWindowHeight int
+
 	// hidden controls whether the completion window is explicitly hidden,
 	// independent of whether there are suggestions available.
 	hidden bool
@@ -70,6 +74,13 @@ func (c *CompletionManager) Reset() {
 	c.Update(*NewDocument())
 }
 
+// ClearWindowCache resets the cached window height, forcing recalculation on next render.
+// This must be called when external events (resize) invalidate the cached geometry.
+// Selection state is preserved and will be adjusted by adjustWindowHeight if needed.
+func (c *CompletionManager) ClearWindowCache() {
+	c.lastWindowHeight = 0
+}
+
 // Update the suggestions.
 func (c *CompletionManager) Update(in Document) {
 	c.tmp, c.startCharIndex, c.endCharIndex = c.completer(in)
@@ -77,6 +88,10 @@ func (c *CompletionManager) Update(in Document) {
 
 // Select the previous suggestion item.
 func (c *CompletionManager) Previous() {
+	pageHeight := c.effectivePageHeight()
+	if pageHeight <= 0 {
+		return
+	}
 	if c.verticalScroll == c.selected && c.selected > 0 {
 		c.verticalScroll--
 	}
@@ -84,14 +99,117 @@ func (c *CompletionManager) Previous() {
 	c.update()
 }
 
+// effectivePageHeight returns the page height to use for paging operations.
+// It uses the last rendered window height if available, otherwise falls back to max.
+func (c *CompletionManager) effectivePageHeight() int {
+	if c.lastWindowHeight > 0 {
+		return c.lastWindowHeight
+	}
+	return int(c.max)
+}
+
 // Next to select the next suggestion item.
 func (c *CompletionManager) Next() int {
-	if c.verticalScroll+int(c.max)-1 == c.selected {
+	pageHeight := c.effectivePageHeight()
+	if pageHeight <= 0 {
+		return c.selected
+	}
+	if c.verticalScroll+pageHeight-1 == c.selected {
 		c.verticalScroll++
 	}
 	c.selected++
 	c.update()
 	return c.selected
+}
+
+// NextPage selects the suggestion item one page (max window height) down.
+func (c *CompletionManager) NextPage() {
+	pageHeight := c.effectivePageHeight()
+	if pageHeight <= 0 || len(c.tmp) == 0 {
+		return
+	}
+
+	// On first press from no selection, select the first item.
+	if c.selected == -1 {
+		c.selected = 0
+		c.verticalScroll = 0
+		return
+	}
+
+	// Calculate the maximum scroll position (start of the last possible page).
+	maxScroll := len(c.tmp) - pageHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+
+	// If we're already on the last page...
+	if c.verticalScroll >= maxScroll {
+		// ...and not yet on the last item, select the last item (for small lists or partial pages).
+		if c.selected < len(c.tmp)-1 {
+			c.selected = len(c.tmp) - 1
+		}
+		// Otherwise, we're already at the last item; do nothing (idempotent).
+		return
+	}
+
+	// Normal case: advance by one page.
+	newScroll := c.verticalScroll + pageHeight
+	if newScroll > maxScroll {
+		newScroll = maxScroll
+	}
+
+	c.verticalScroll = newScroll
+	c.selected = newScroll // Select the top item of the new page.
+}
+
+// PreviousPage selects the suggestion item one page (max window height) up.
+func (c *CompletionManager) PreviousPage() {
+	pageHeight := c.effectivePageHeight()
+	if pageHeight <= 0 || len(c.tmp) == 0 {
+		return
+	}
+
+	// On first press from no selection, go to the last item on the last page.
+	if c.selected == -1 {
+		c.selected = len(c.tmp) - 1
+		maxScroll := len(c.tmp) - pageHeight
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		c.verticalScroll = maxScroll
+		return
+	}
+
+	// If we're not at the top of the current page, go to the top first.
+	// This provides better UX: PageUp from middle of page goes to page top.
+	if c.selected != c.verticalScroll {
+		c.selected = c.verticalScroll
+		return
+	}
+
+	// If we're already at the first page, stay there (idempotent).
+	if c.verticalScroll == 0 {
+		c.selected = 0
+		return
+	}
+
+	// Go back one page. If we're at a non-page-boundary position (e.g., clamped
+	// last page), align to the previous page boundary first.
+	var newScroll int
+	if c.verticalScroll%pageHeight == 0 {
+		// At a page boundary; go back one full page.
+		newScroll = c.verticalScroll - pageHeight
+	} else {
+		// Not at a page boundary; align to the previous boundary.
+		newScroll = (c.verticalScroll / pageHeight) * pageHeight
+	}
+
+	if newScroll < 0 {
+		newScroll = 0
+	}
+
+	c.verticalScroll = newScroll
+	c.selected = newScroll // Select the top item of the new page.
 }
 
 // Completing returns true when the CompletionManager selects something.
@@ -160,12 +278,17 @@ func (c *CompletionManager) update() {
 		max = len(c.tmp)
 	}
 
+	// Reset to -1 when going past the end to create "unfocused" cycling behavior.
+	// This allows TAB/Down to cycle: 0 → 1 → ... → N-1 → -1 (unfocused) → 0 → ...
 	if c.selected >= len(c.tmp) {
 		c.selected = -1
 		c.verticalScroll = 0
 	} else if c.selected < -1 {
 		c.selected = len(c.tmp) - 1
 		c.verticalScroll = len(c.tmp) - max
+		if c.verticalScroll < 0 {
+			c.verticalScroll = 0
+		}
 	}
 }
 

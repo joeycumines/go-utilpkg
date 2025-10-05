@@ -1,6 +1,8 @@
 package prompt
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Option is the type to replace default parameters.
 // prompt.New accepts any number of options (this is functional option pattern).
