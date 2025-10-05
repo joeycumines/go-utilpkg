@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/joeycumines/logiface v0.5.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20250927082428-457460f6abd1
+	github.com/joeycumines/logiface-testsuite v0.0.0-20251004081749-baf454334121
 	github.com/joeycumines/stumpy v0.4.0
 	github.com/rs/zerolog v1.34.0
 )
@@ -12,8 +12,8 @@ require (
 require (
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20250927082400-57b2d6cde61a // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250927082322-d8a14d70dc6d // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20251004081841-5ba25baf432a // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20251004161439-a84b16ef0c1f // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9 // indirect

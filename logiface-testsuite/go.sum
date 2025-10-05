@@ -2,8 +2,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-catrate v0.0.0-20250927082400-57b2d6cde61a h1:EuxIDk9JlYzZqy+j2EYSHFnxMWrozI9s/n/ecS06duw=
-github.com/joeycumines/go-catrate v0.0.0-20250927082400-57b2d6cde61a/go.mod h1:OyVFRLMjayyGfQnm446NM3NLiHRIYUOLx6kifzy+zfM=
+github.com/joeycumines/go-catrate v0.0.0-20251004081841-5ba25baf432a h1:KMLHdpXJ0jKevf638jbUxtDxOrDGxQ2D3C1Irs6iTC0=
+github.com/joeycumines/go-catrate v0.0.0-20251004081841-5ba25baf432a/go.mod h1:ZFURfkP6U7KCL9bV/AeKTBd+mlcySSqudG1hz9l5dC4=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=

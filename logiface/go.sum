@@ -3,10 +3,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-catrate v0.0.0-20250927082400-57b2d6cde61a h1:EuxIDk9JlYzZqy+j2EYSHFnxMWrozI9s/n/ecS06duw=
-github.com/joeycumines/go-catrate v0.0.0-20250927082400-57b2d6cde61a/go.mod h1:OyVFRLMjayyGfQnm446NM3NLiHRIYUOLx6kifzy+zfM=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250927082322-d8a14d70dc6d h1:nbYJ3CSJPGzOqPFgGzvVqJYuEPLZDWsS/T2G0fTQDKY=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20250927082322-d8a14d70dc6d/go.mod h1:/edhaD70giYM7n39mqj6NnKwO5lIDnuVYGpFCU/sE/g=
+github.com/joeycumines/go-catrate v0.0.0-20251004081841-5ba25baf432a h1:KMLHdpXJ0jKevf638jbUxtDxOrDGxQ2D3C1Irs6iTC0=
+github.com/joeycumines/go-catrate v0.0.0-20251004081841-5ba25baf432a/go.mod h1:ZFURfkP6U7KCL9bV/AeKTBd+mlcySSqudG1hz9l5dC4=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20251004161439-a84b16ef0c1f h1:YpwQFfajlJ+VU0vqvNz/z09W8s13glimePKK6one4K8=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20251004161439-a84b16ef0c1f/go.mod h1:/edhaD70giYM7n39mqj6NnKwO5lIDnuVYGpFCU/sE/g=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8 h1:4gaPSRcwW29nLQX8o6wD6L/NLwK7q4CatYylOcxTVro=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8/go.mod h1:ImPViOpLLb/M0YOd5EQHQBct5MjK8wTFDu7xBfJzn8Q=
 github.com/joeycumines/stumpy v0.4.0 h1:kwfEEUz1s+iBV+HCbPj3f3FhYrk/+pE7fMoObG0UWSk=
