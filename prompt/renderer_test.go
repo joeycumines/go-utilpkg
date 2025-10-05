@@ -138,3 +138,123 @@ func TestGetMultilinePrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderer_countInputLines(t *testing.T) {
+	tests := []struct {
+		name      string
+		text      string
+		startLine int
+		col       istrings.Width
+		want      int
+	}{
+		{
+			name:      "empty input",
+			text:      "",
+			startLine: 0,
+			col:       80,
+			want:      1,
+		},
+		{
+			name:      "single line shorter than width",
+			text:      "hello",
+			startLine: 0,
+			col:       80,
+			want:      1,
+		},
+		{
+			name:      "input wraps exactly to screen width",
+			text:      "12345678901234567890", // 20 chars
+			startLine: 0,
+			col:       10,
+			want:      2,
+		},
+		{
+			name:      "input wraps past screen width",
+			text:      "123456789012345", // 15 chars
+			startLine: 0,
+			col:       10,
+			want:      2,
+		},
+		{
+			name:      "input with single newline",
+			text:      "hello\nworld",
+			startLine: 0,
+			col:       80,
+			want:      2,
+		},
+		{
+			name:      "input with multiple newlines",
+			text:      "line1\nline2\nline3",
+			startLine: 0,
+			col:       80,
+			want:      3,
+		},
+		{
+			name:      "wrapped input with newline",
+			text:      "12345678901234567890\n12345", // wraps then newline
+			startLine: 0,
+			col:       10,
+			want:      3,
+		},
+		{
+			name:      "scrolled view with startLine non-zero",
+			text:      "line1\nline2\nline3\nline4\nline5",
+			startLine: 2,
+			col:       80,
+			want:      3, // lines 2, 3, 4 (zero-indexed: line3, line4, line5)
+		},
+		{
+			name:      "scrolled view beyond content",
+			text:      "line1\nline2",
+			startLine: 5,
+			col:       80,
+			want:      1, // Should return at least 1
+		},
+		{
+			name:      "multi-width characters (CJK)",
+			text:      "こんにちは", // 5 double-width chars = 10 width
+			startLine: 0,
+			col:       8,
+			want:      2, // Should wrap
+		},
+		{
+			name:      "mixed single and multi-width",
+			text:      "hello本日", // 5 + 4 = 9 width, total > col but doesn't trigger wrap
+			startLine: 0,
+			col:       8,
+			want:      1, // lineCharIndex reaches 7, then 9, but never >= 8 BEFORE adding char
+		},
+		{
+			name:      "newline at end",
+			text:      "hello\n",
+			startLine: 0,
+			col:       80,
+			want:      2, // The newline moves cursor to a new line, using 2 terminal rows
+		},
+		{
+			name:      "only newlines",
+			text:      "\n\n\n",
+			startLine: 0,
+			col:       80,
+			want:      4, // Three newlines create four empty lines (first line + 3 breaks)
+		},
+		{
+			name:      "complex wrapping with scroll",
+			text:      "123456789012345\n67890\nabcdefghij", // 3 logical lines, first wraps
+			startLine: 1,
+			col:       10,
+			want:      3, // line 1 (second wrap of first line), line 2, line 3
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := NewRenderer()
+			r.row = 100 // Set large row to avoid premature cutoff in most tests
+			got := r.countInputLines(tt.text, tt.startLine, tt.col)
+			if got != tt.want {
+				t.Errorf("countInputLines() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

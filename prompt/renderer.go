@@ -22,6 +22,10 @@ type Renderer struct {
 
 	previousCursor Position
 
+	// Track previous frame dimensions for precise clearing
+	previousInputLines      int
+	previousCompletionLines int
+
 	// colors,
 	prefixTextColor              Color
 	prefixBGColor                Color
@@ -110,10 +114,10 @@ func (r *Renderer) UpdateWinSize(ws *WinSize) {
 	r.col = istrings.Width(ws.Col)
 }
 
-func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager) {
+func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager) int {
 	suggestions := completions.GetSuggestions()
 	if len(suggestions) == 0 || completions.IsHidden() {
-		return
+		return 0
 	}
 	prefix := r.prefixCallback()
 	prefixWidth := istrings.GetWidth(prefix)
@@ -133,14 +137,14 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 		cursorLine := buf.DisplayCursorPosition(r.UserInputColumns()).Y
 		availableRows := r.row - cursorLine - 1
 		if availableRows <= 0 {
-			return
+			return 0
 		}
 		if windowHeight > availableRows {
 			windowHeight = availableRows
 		}
 	}
 	if windowHeight <= 0 {
-		return
+		return 0
 	}
 
 	// Adjust CompletionManager state to match actual window height
@@ -211,6 +215,57 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 
 	r.out.CursorUp(windowHeight)
 	r.out.SetColor(DefaultColor, DefaultColor, false)
+	return windowHeight
+}
+
+// countInputLines calculates how many lines the input text will occupy when rendered.
+func (r *Renderer) countInputLines(text string, startLine int, col istrings.Width) int {
+	if text == "" {
+		return 1
+	}
+
+	lineCount := 0
+	var lineCharIndex istrings.Width
+	var lineNumber int
+	endLine := startLine + int(r.row)
+
+	for _, char := range text {
+		if lineCharIndex >= col || char == '\n' {
+			lineNumber++
+			lineCharIndex = 0
+			if lineNumber-1 >= startLine && lineNumber-1 < endLine {
+				lineCount++
+			}
+			if lineNumber >= endLine {
+				break
+			}
+			if char != '\n' {
+				lineCharIndex += istrings.GetRuneWidth(char)
+			}
+			continue
+		}
+
+		lineCharIndex += istrings.GetRuneWidth(char)
+	}
+
+	// Count the final line
+	// If the text ends with a newline, the cursor is on a new empty line
+	if strings.HasSuffix(text, "\n") {
+		if lineNumber >= startLine && lineNumber < endLine {
+			lineCount++
+		}
+	} else {
+		// If the text doesn't end with a newline and has content, count the final line
+		if lineCharIndex > 0 && lineNumber >= startLine && lineNumber < endLine {
+			lineCount++
+		}
+	}
+
+	if lineCount == 0 {
+		lineCount = 1
+	}
+
+	return lineCount
 }
 
 // Render renders to the console.
@@ -235,6 +290,10 @@ func (r *Renderer) Render(buffer *Buffer, completion *CompletionManager, lexer L
 	r.out.HideCursor()
 	defer r.out.ShowCursor()
 
+	// Track input lines for next frame's clear operation
+	inputLineCount := r.countInputLines(buffer.Text(), buffer.startLine, col)
+	r.previousInputLines = inputLineCount
+
 	r.renderText(lexer, buffer.Text(), buffer.startLine)
 
 	r.out.SetColor(DefaultColor, DefaultColor, false)
@@ -244,7 +303,8 @@ func (r *Renderer) Render(buffer *Buffer, completion *CompletionManager, lexer L
 	// Log("col: %#v, targetCursor: %#v, cursor: %#v\n", col, targetCursor, cursor)
 	cursor = r.move(cursor, targetCursor)
 
-	r.renderCompletion(buffer, completion)
+	completionLines := r.renderCompletion(buffer, completion)
+	r.previousCompletionLines = completionLines
 	r.previousCursor = cursor
 }
 
@@ -505,9 +565,35 @@ func (r *Renderer) UserInputColumns() istrings.Width {
 
 // clear erases the screen from a beginning of input
 // even if there is line break which means input length exceeds a window's width.
+// Uses precise line-by-line clearing with cursor save/restore to handle terminal reflow.
 func (r *Renderer) clear(cursor Position) {
+	totalLines := r.previousInputLines + r.previousCompletionLines
+	if totalLines <= 0 {
+		// Fallback to simple clear if we don't have previous frame info
+		r.move(cursor, Position{})
+		r.out.EraseDown()
+		return
+	}
+
+	// Move to the start position
 	r.move(cursor, Position{})
-	r.out.EraseDown()
+
+	// Save cursor at the start position (top-left of our content area)
+	r.out.SaveCursor()
+
+	// Clear each line precisely
+	for i := 0; i < totalLines; i++ {
+		r.out.EraseLine()
+		if i < totalLines-1 {
+			r.out.CursorDown(1)
+			if _, err := r.out.WriteString("\r"); err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// Restore cursor to the start position (top-left)
+	r.out.UnSaveCursor()
 }
 
 // backward moves cursor to backward from a current cursor position
