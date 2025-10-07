@@ -68,7 +68,7 @@ Loop:
 					break Loop
 				}
 
-			case syscall.SIGWINCH:
+			case syscallSIGWINCH:
 				debug.Log("Catch SIGWINCH")
 
 				select {
