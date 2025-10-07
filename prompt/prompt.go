@@ -68,7 +68,16 @@ type UserInput struct {
 }
 
 // Run starts the prompt.
+//
+// See also RunNoExit which never calls [os.Exit], even on SIGTERM etc.
 func (p *Prompt) Run() {
+	if exitCode := p.RunNoExit(); exitCode >= 0 {
+		os.Exit(exitCode)
+	}
+}
+
+// RunNoExit is [Prompt.Run] that never calls [os.Exit], even on SIGTERM etc.
+func (p *Prompt) RunNoExit() int {
 	p.skipClose = false
 	defer debug.Close()
 	debug.Log("start prompt")
@@ -79,11 +88,13 @@ func (p *Prompt) Run() {
 
 	bufCh := make(chan []byte, 128)
 	stopReadBufCh := make(chan struct{})
+	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh)
 
 	exitCh := make(chan int)
 	winSizeCh := make(chan *WinSize)
 	stopHandleSignalCh := make(chan struct{})
+	defer close(stopHandleSignalCh)
 	go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 
 	for {
@@ -91,12 +102,15 @@ func (p *Prompt) Run() {
 		case b := <-bufCh:
 			if shouldExit, rerender, input := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
+
 				stopReadBufCh <- struct{}{}
 				stopHandleSignalCh <- struct{}{}
-				return
+
+				return -1
 			} else if input != nil {
 				// Stop goroutine to run readBuffer function
 				stopReadBufCh <- struct{}{}
+				// Stop signal handling, because we are about to close the reader (SIGWINCH)
 				stopHandleSignalCh <- struct{}{}
 
 				// Unset raw mode
@@ -108,8 +122,10 @@ func (p *Prompt) Run() {
 
 				if p.exitChecker != nil && p.exitChecker(input.input, true) {
 					p.skipClose = true
-					return
+
+					return -1
 				}
+
 				// Set raw mode
 				debug.AssertNoError(p.reader.Open())
 				go p.readBuffer(bufCh, stopReadBufCh)
@@ -117,19 +133,26 @@ func (p *Prompt) Run() {
 			} else if rerender {
 				p.render(false)
 			}
+
 		case w := <-winSizeCh:
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
-			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), int(p.renderer.row))
+			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), p.renderer.row)
 			// Clear cached geometry to force recalculation with new terminal size
 			p.completion.ClearWindowCache()
 			// Force full re-render with updated suggestions for new terminal size
 			// adjustWindowHeight will clamp selection/scroll to valid range
 			p.render(true)
+
 		case code := <-exitCh:
 			p.renderer.BreakLine(p.buffer, p.lexer)
-			p.Close()
-			os.Exit(code)
+			// N.B. Close will be called (deferred) after this function returns
+
+			stopReadBufCh <- struct{}{}
+			stopHandleSignalCh <- struct{}{}
+
+			return code
+
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -508,41 +531,44 @@ func (p *Prompt) Input() string {
 	p.render(p.completion.showAtStart)
 	bufCh := make(chan []byte, 128)
 	stopReadBufCh := make(chan struct{})
+	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh)
 
-	exitCh := make(chan int)
 	winSizeCh := make(chan *WinSize)
 	stopHandleSignalCh := make(chan struct{})
-	go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
+	defer close(stopHandleSignalCh)
+	go p.handleSignals(nil, winSizeCh, stopHandleSignalCh)
 
 	for {
 		select {
 		case b := <-bufCh:
-			if shouldExit, rerender, input := p.feed(b); shouldExit {
+			shouldExit, rerender, input := p.feed(b)
+
+			if shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
 				stopReadBufCh <- struct{}{}
 				stopHandleSignalCh <- struct{}{}
 				return ""
-			} else if input != nil {
+			}
+
+			if input != nil {
 				// Stop goroutine to run readBuffer function
 				stopReadBufCh <- struct{}{}
 				stopHandleSignalCh <- struct{}{}
 				return input.input
-			} else if rerender {
+			}
+
+			if rerender {
 				p.render(false)
 			}
+
 		case w := <-winSizeCh:
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
 			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), int(p.renderer.row))
 			p.completion.ClearWindowCache()
 			p.render(true)
-		case code := <-exitCh:
-			p.renderer.BreakLine(p.buffer, p.lexer)
-			stopReadBufCh <- struct{}{}
-			stopHandleSignalCh <- struct{}{}
-			p.Close()
-			os.Exit(code)
+
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -554,26 +580,37 @@ const IndentUnitString = string(IndentUnit)
 
 func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
 	debug.Log("start reading buffer")
+
+ReadBufferLoop:
 	for {
 		select {
 		case <-stopCh:
-			debug.Log("stop reading buffer")
-			return
+			break ReadBufferLoop
+
 		default:
-			bytes := make([]byte, inputBufferSize)
-			n, err := p.reader.Read(bytes)
+			buf := make([]byte, inputBufferSize)
+
+			n, err := p.reader.Read(buf)
 			if err != nil {
-				break
+				// A read error is expected for non-blocking I/O when no input is ready.
+				// Do nothing and allow the for loop to proceed to its time.Sleep.
+				// DO NOT block on stopCh here.
+				goto ReadBufferSleep
 			}
-			bytes = bytes[:n]
-			// Log("%#v", bytes)
-			if len(bytes) == 1 && bytes[0] == '\t' {
+
+			buf = buf[:n]
+
+			if len(buf) == 1 && buf[0] == '\t' {
 				// if only a single Tab key has been pressed
 				// handle it as a keybind
-				bufCh <- bytes
-			} else if len(bytes) != 1 || bytes[0] != 0 {
-				newBytes := make([]byte, 0, len(bytes))
-				for _, byt := range bytes {
+				select {
+				case bufCh <- buf:
+				case <-stopCh:
+					break ReadBufferLoop
+				}
+			} else if len(buf) != 1 || buf[0] != 0 {
+				newBytes := make([]byte, 0, len(buf))
+				for _, byt := range buf {
 					switch byt {
 					// translate raw mode \r into \n
 					// to make pasting multiline text
@@ -590,11 +627,20 @@ func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
 						newBytes = append(newBytes, byt)
 					}
 				}
-				bufCh <- newBytes
+
+				select {
+				case bufCh <- newBytes:
+				case <-stopCh:
+					break ReadBufferLoop
+				}
 			}
 		}
+
+	ReadBufferSleep:
 		time.Sleep(10 * time.Millisecond)
 	}
+
+	debug.Log("stop reading buffer")
 }
 
 func (p *Prompt) setup() {
