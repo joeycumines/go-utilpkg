@@ -88,7 +88,7 @@ func (p *Prompt) RunNoExit() int {
 	p.render(p.completion.showAtStart)
 
 	bufCh := make(chan []byte, 128)
-	stopReadBufCh := make(chan struct{})
+	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh)
 
@@ -104,13 +104,17 @@ func (p *Prompt) RunNoExit() int {
 			if shouldExit, rerender, input := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
 
-				stopReadBufCh <- struct{}{}
+				pongCh := make(chan []byte, 1)
+				stopReadBufCh <- pongCh
+				<-pongCh
 				stopHandleSignalCh <- struct{}{}
 
 				return -1
 			} else if input != nil {
 				// Stop goroutine to run readBuffer function
-				stopReadBufCh <- struct{}{}
+				pongCh := make(chan []byte, 1)
+				stopReadBufCh <- pongCh
+				leftoverData := <-pongCh
 				// Stop signal handling, because we are about to close the reader (SIGWINCH)
 				stopHandleSignalCh <- struct{}{}
 
@@ -129,6 +133,9 @@ func (p *Prompt) RunNoExit() int {
 
 				// Set raw mode
 				debug.AssertNoError(p.reader.Open())
+				if len(leftoverData) > 0 {
+					bufCh <- leftoverData
+				}
 				go p.readBuffer(bufCh, stopReadBufCh)
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else if rerender {
@@ -149,7 +156,9 @@ func (p *Prompt) RunNoExit() int {
 			p.renderer.BreakLine(p.buffer, p.lexer)
 			// N.B. Close will be called (deferred) after this function returns
 
-			stopReadBufCh <- struct{}{}
+			pongCh := make(chan []byte, 1)
+			stopReadBufCh <- pongCh
+			<-pongCh
 			stopHandleSignalCh <- struct{}{}
 
 			return code
@@ -531,7 +540,7 @@ func (p *Prompt) Input() string {
 
 	p.render(p.completion.showAtStart)
 	bufCh := make(chan []byte, 128)
-	stopReadBufCh := make(chan struct{})
+	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh)
 
@@ -547,14 +556,18 @@ func (p *Prompt) Input() string {
 
 			if shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
-				stopReadBufCh <- struct{}{}
+				pongCh := make(chan []byte, 1)
+				stopReadBufCh <- pongCh
+				<-pongCh
 				stopHandleSignalCh <- struct{}{}
 				return ""
 			}
 
 			if input != nil {
 				// Stop goroutine to run readBuffer function
-				stopReadBufCh <- struct{}{}
+				pongCh := make(chan []byte, 1)
+				stopReadBufCh <- pongCh
+				<-pongCh
 				stopHandleSignalCh <- struct{}{}
 				return input.input
 			}
@@ -579,13 +592,17 @@ func (p *Prompt) Input() string {
 const IndentUnit = ' '
 const IndentUnitString = string(IndentUnit)
 
-func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
+func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan chan []byte) {
 	debug.Log("start reading buffer")
 
 ReadBufferLoop:
 	for {
 		select {
-		case <-stopCh:
+		case pongCh, ok := <-stopCh:
+			if !ok {
+				break ReadBufferLoop
+			}
+			pongCh <- nil
 			break ReadBufferLoop
 
 		default:
@@ -599,9 +616,14 @@ ReadBufferLoop:
 
 				if err == io.EOF {
 					// On io.EOF, send a Control-D to signal the main loop, to exit cleanly.
+					data := []byte{0x4}
 					select {
-					case bufCh <- []byte{0x4}: // Control-D
-					case <-stopCh:
+					case bufCh <- data: // Control-D
+					case pongCh, ok := <-stopCh:
+						if !ok {
+							break ReadBufferLoop
+						}
+						pongCh <- data
 						break ReadBufferLoop
 					}
 				}
@@ -617,7 +639,11 @@ ReadBufferLoop:
 				// handle it as a keybind
 				select {
 				case bufCh <- buf:
-				case <-stopCh:
+				case pongCh, ok := <-stopCh:
+					if !ok {
+						break ReadBufferLoop
+					}
+					pongCh <- buf
 					break ReadBufferLoop
 				}
 			} else if len(buf) != 1 || buf[0] != 0 {
@@ -629,8 +655,8 @@ ReadBufferLoop:
 					// work properly
 					case '\r':
 						newBytes = append(newBytes, '\n')
-					// translate \t into two spaces
-					// to avoid problems with cursor positions
+						// translate \t into two spaces
+						// to avoid problems with cursor positions
 					case '\t':
 						for range p.renderer.indentSize {
 							newBytes = append(newBytes, IndentUnit)
@@ -642,7 +668,11 @@ ReadBufferLoop:
 
 				select {
 				case bufCh <- newBytes:
-				case <-stopCh:
+				case pongCh, ok := <-stopCh:
+					if !ok {
+						break ReadBufferLoop
+					}
+					pongCh <- newBytes
 					break ReadBufferLoop
 				}
 			}
@@ -661,7 +691,7 @@ func (p *Prompt) setup() {
 	p.renderer.UpdateWinSize(p.reader.GetWinSize())
 }
 
-// Move to the left on the current line  by the given amount of graphemes (visible characters).
+// Move to the left on the current line by the given amount of graphemes (visible characters).
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorLeft(count istrings.GraphemeNumber) bool {
 	return promptCursorHorizontalMove(p, p.buffer.CursorLeft, count)
