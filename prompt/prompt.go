@@ -61,6 +61,7 @@ type Prompt struct {
 	skipClose                 bool
 	completionReset           bool
 	completionHiddenByExecute bool
+	inputBufferChannelSize    int // For testing: allows configuring the bufCh size
 }
 
 // UserInput is the struct that contains the user input context.
@@ -87,10 +88,14 @@ func (p *Prompt) RunNoExit() int {
 
 	p.render(p.completion.showAtStart)
 
-	bufCh := make(chan []byte, 128)
+	bufferSize := p.inputBufferChannelSize
+	if bufferSize == 0 {
+		bufferSize = 128
+	}
+	bufCh := make(chan []byte, bufferSize)
 	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
-	go p.readBuffer(bufCh, stopReadBufCh)
+	go p.readBuffer(bufCh, stopReadBufCh, nil)
 
 	exitCh := make(chan int)
 	winSizeCh := make(chan *WinSize)
@@ -133,10 +138,7 @@ func (p *Prompt) RunNoExit() int {
 
 				// Set raw mode
 				debug.AssertNoError(p.reader.Open())
-				if len(leftoverData) > 0 {
-					bufCh <- leftoverData
-				}
-				go p.readBuffer(bufCh, stopReadBufCh)
+				go p.readBuffer(bufCh, stopReadBufCh, leftoverData)
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else if rerender {
 				p.render(false)
@@ -539,10 +541,14 @@ func (p *Prompt) Input() string {
 	defer p.Close()
 
 	p.render(p.completion.showAtStart)
-	bufCh := make(chan []byte, 128)
+	bufferSize := p.inputBufferChannelSize
+	if bufferSize == 0 {
+		bufferSize = 128
+	}
+	bufCh := make(chan []byte, bufferSize)
 	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
-	go p.readBuffer(bufCh, stopReadBufCh)
+	go p.readBuffer(bufCh, stopReadBufCh, nil)
 
 	winSizeCh := make(chan *WinSize)
 	stopHandleSignalCh := make(chan struct{})
@@ -592,17 +598,29 @@ func (p *Prompt) Input() string {
 const IndentUnit = ' '
 const IndentUnitString = string(IndentUnit)
 
-func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan chan []byte) {
+func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan chan []byte, initialData []byte) {
 	debug.Log("start reading buffer")
+
+	if len(initialData) > 0 {
+		select {
+		case bufCh <- initialData:
+		case pongCh := <-stopCh:
+			if pongCh != nil {
+				// If we're stopped before processing initialData, it becomes the new leftover data.
+				pongCh <- initialData
+			}
+			debug.Log("stop reading buffer")
+			return
+		}
+	}
 
 ReadBufferLoop:
 	for {
 		select {
-		case pongCh, ok := <-stopCh:
-			if !ok {
-				break ReadBufferLoop
+		case pongCh := <-stopCh:
+			if pongCh != nil {
+				pongCh <- nil
 			}
-			pongCh <- nil
 			break ReadBufferLoop
 
 		default:
@@ -619,11 +637,10 @@ ReadBufferLoop:
 					data := []byte{0x4}
 					select {
 					case bufCh <- data: // Control-D
-					case pongCh, ok := <-stopCh:
-						if !ok {
-							break ReadBufferLoop
+					case pongCh := <-stopCh:
+						if pongCh != nil {
+							pongCh <- data
 						}
-						pongCh <- data
 						break ReadBufferLoop
 					}
 				}
@@ -639,11 +656,10 @@ ReadBufferLoop:
 				// handle it as a keybind
 				select {
 				case bufCh <- buf:
-				case pongCh, ok := <-stopCh:
-					if !ok {
-						break ReadBufferLoop
+				case pongCh := <-stopCh:
+					if pongCh != nil {
+						pongCh <- buf
 					}
-					pongCh <- buf
 					break ReadBufferLoop
 				}
 			} else if len(buf) != 1 || buf[0] != 0 {
@@ -668,11 +684,10 @@ ReadBufferLoop:
 
 				select {
 				case bufCh <- newBytes:
-				case pongCh, ok := <-stopCh:
-					if !ok {
-						break ReadBufferLoop
+				case pongCh := <-stopCh:
+					if pongCh != nil {
+						pongCh <- newBytes
 					}
-					pongCh <- newBytes
 					break ReadBufferLoop
 				}
 			}
