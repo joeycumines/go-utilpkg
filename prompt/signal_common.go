@@ -8,7 +8,7 @@ import (
 	"github.com/joeycumines/go-prompt/debug"
 )
 
-func (p *Prompt) handleSignalsImpl(exitCh chan int, winSizeCh chan *WinSize, stop chan struct{}) {
+func (p *Prompt) handleSignals(exitCh chan int, winSizeCh chan *WinSize, stop chan struct{}) {
 	in := p.reader
 
 	var signals []os.Signal
@@ -20,8 +20,8 @@ func (p *Prompt) handleSignalsImpl(exitCh chan int, winSizeCh chan *WinSize, sto
 			syscall.SIGQUIT,
 		)
 	}
-	if winSizeCh != nil {
-		signals = append(signals, syscall.SIGWINCH)
+	if winSizeCh != nil && syscallSIGWINCH != 0 {
+		signals = append(signals, syscallSIGWINCH)
 	}
 
 	// we can avoid missing up to 128 signals

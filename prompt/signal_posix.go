@@ -2,6 +2,8 @@
 
 package prompt
 
-func (p *Prompt) handleSignals(exitCh chan int, winSizeCh chan *WinSize, stop chan struct{}) {
-	p.handleSignalsImpl(exitCh, winSizeCh, stop)
-}
+import (
+	"syscall"
+)
+
+const syscallSIGWINCH = syscall.SIGWINCH
