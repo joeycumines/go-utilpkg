@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -594,7 +595,18 @@ ReadBufferLoop:
 			if err != nil {
 				// A read error is expected for non-blocking I/O when no input is ready.
 				// Do nothing and allow the for loop to proceed to its time.Sleep.
-				// DO NOT block on stopCh here.
+				// DO NOT block on stopCh here, aside from the EOF case, below.
+
+				if err == io.EOF {
+					// On io.EOF, send a Control-D to signal the main loop, to exit cleanly.
+					select {
+					case bufCh <- []byte{0x4}: // Control-D
+					case <-stopCh:
+						break ReadBufferLoop
+					}
+				}
+
+				// For other errors (like EAGAIN), they are assumed to be transient, so we continue.
 				goto ReadBufferSleep
 			}
 
