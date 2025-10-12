@@ -9,16 +9,16 @@ require (
 	github.com/mattn/go-tty v0.0.7
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.7
-	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
-	golang.org/x/sys v0.36.0
+	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b
+	golang.org/x/sys v0.37.0
 )
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	golang.org/x/mod v0.28.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 )
 
 tool golang.org/x/tools/cmd/stringer
