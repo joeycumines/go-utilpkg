@@ -345,6 +345,17 @@ func WithExitChecker(fn ExitChecker) Option {
 	}
 }
 
+// WithGracefulClose enables or disables the graceful close feature.
+// When enabled, calling Close will cause the prompt to process and execute all
+// pending input from its buffers and underlying reader before shutting down.
+// This behavior mirrors the main run loop. The default is disabled.
+func WithGracefulClose(enabled bool) Option {
+	return func(p *Prompt) error {
+		p.gracefulCloseEnabled = enabled
+		return nil
+	}
+}
+
 func DefaultExecuteOnEnterCallback(p *Prompt, indentSize int) (int, bool) {
 	return 0, true
 }

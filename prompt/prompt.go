@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -62,6 +63,10 @@ type Prompt struct {
 	completionReset           bool
 	completionHiddenByExecute bool
 	inputBufferChannelSize    int // For testing: allows configuring the bufCh size
+	gracefulCloseEnabled      bool
+	runMu                     sync.Mutex
+	stopCh                    chan struct{}
+	stopWG                    sync.WaitGroup
 }
 
 // UserInput is the struct that contains the user input context.
@@ -80,11 +85,28 @@ func (p *Prompt) Run() {
 
 // RunNoExit is [Prompt.Run] that never calls [os.Exit], even on SIGTERM etc.
 func (p *Prompt) RunNoExit() int {
+	p.runMu.Lock()
+	if p.stopCh != nil {
+		p.runMu.Unlock()
+		debug.Log("run error: prompt already running")
+		return 1
+	}
+	p.stopWG.Add(1)
+	var stopDoneOnce sync.Once
+	// N.B. mitigates deadlock waiting for missed p.stopWG.Done (panic in setup, etc)
+	defer stopDoneOnce.Do(p.stopWG.Done)
+	stopCh := make(chan struct{})
+	p.stopCh = stopCh
+	p.runMu.Unlock()
+
 	p.skipClose = false
+
 	defer debug.Close()
 	debug.Log("start prompt")
 	p.setup()
 	defer p.Close()
+	// N.B. this is the strictly-necessary p.stopWG.Done call, that MUST be BEFORE p.Close
+	defer stopDoneOnce.Do(p.stopWG.Done)
 
 	p.render(p.completion.showAtStart)
 
@@ -105,6 +127,10 @@ func (p *Prompt) RunNoExit() int {
 
 	for {
 		select {
+		case <-stopCh:
+			p.shutdown(stopReadBufCh, bufCh, stopHandleSignalCh)
+			return -1
+
 		case b := <-bufCh:
 			if shouldExit, rerender, input := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
@@ -535,12 +561,27 @@ func (p *Prompt) handleASCIICodeBinding(b []byte, cols istrings.Width, rows int)
 // Input starts the prompt, lets the user
 // input a single line and returns this line as a string.
 func (p *Prompt) Input() string {
+	p.runMu.Lock()
+	if p.stopCh != nil {
+		p.runMu.Unlock()
+		debug.Log("run error: prompt already running")
+		return ""
+	}
+	p.stopWG.Add(1)
+	var stopDoneOnce sync.Once
+	defer stopDoneOnce.Do(p.stopWG.Done)
+	stopCh := make(chan struct{})
+	p.stopCh = stopCh
+	p.runMu.Unlock()
+
 	defer debug.Close()
 	debug.Log("start prompt")
 	p.setup()
 	defer p.Close()
+	defer stopDoneOnce.Do(p.stopWG.Done)
 
 	p.render(p.completion.showAtStart)
+
 	bufferSize := p.inputBufferChannelSize
 	if bufferSize == 0 {
 		bufferSize = 128
@@ -557,6 +598,10 @@ func (p *Prompt) Input() string {
 
 	for {
 		select {
+		case <-stopCh:
+			p.shutdown(stopReadBufCh, bufCh, stopHandleSignalCh)
+			return ""
+
 		case b := <-bufCh:
 			shouldExit, rerender, input := p.feed(b)
 
@@ -597,6 +642,35 @@ func (p *Prompt) Input() string {
 
 const IndentUnit = ' '
 const IndentUnitString = string(IndentUnit)
+
+// processInputBytes processes raw input bytes, handling special characters
+// like carriage returns and tabs, preparing them for the feed method.
+func (p *Prompt) processInputBytes(buf []byte) []byte {
+	if len(buf) == 1 && buf[0] == '\t' {
+		// if only a single Tab key has been pressed, handle it as a keybind
+		return buf
+	}
+	if len(buf) == 0 || (len(buf) == 1 && buf[0] == 0) {
+		return nil
+	}
+
+	newBytes := make([]byte, 0, len(buf))
+	for _, byt := range buf {
+		switch byt {
+		// translate raw mode \r into \n to make pasting multiline text work properly
+		case '\r':
+			newBytes = append(newBytes, '\n')
+		// translate \t into spaces to avoid problems with cursor positions
+		case '\t':
+			for range p.renderer.indentSize {
+				newBytes = append(newBytes, IndentUnit)
+			}
+		default:
+			newBytes = append(newBytes, byt)
+		}
+	}
+	return newBytes
+}
 
 func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan chan []byte, initialData []byte) {
 	debug.Log("start reading buffer")
@@ -651,42 +725,12 @@ ReadBufferLoop:
 
 			buf = buf[:n]
 
-			if len(buf) == 1 && buf[0] == '\t' {
-				// if only a single Tab key has been pressed
-				// handle it as a keybind
+			if processedBytes := p.processInputBytes(buf); len(processedBytes) > 0 {
 				select {
-				case bufCh <- buf:
+				case bufCh <- processedBytes:
 				case pongCh := <-stopCh:
 					if pongCh != nil {
-						pongCh <- buf
-					}
-					break ReadBufferLoop
-				}
-			} else if len(buf) != 1 || buf[0] != 0 {
-				newBytes := make([]byte, 0, len(buf))
-				for _, byt := range buf {
-					switch byt {
-					// translate raw mode \r into \n
-					// to make pasting multiline text
-					// work properly
-					case '\r':
-						newBytes = append(newBytes, '\n')
-						// translate \t into two spaces
-						// to avoid problems with cursor positions
-					case '\t':
-						for range p.renderer.indentSize {
-							newBytes = append(newBytes, IndentUnit)
-						}
-					default:
-						newBytes = append(newBytes, byt)
-					}
-				}
-
-				select {
-				case bufCh <- newBytes:
-				case pongCh := <-stopCh:
-					if pongCh != nil {
-						pongCh <- newBytes
+						pongCh <- processedBytes
 					}
 					break ReadBufferLoop
 				}
@@ -698,6 +742,113 @@ ReadBufferLoop:
 	}
 
 	debug.Log("stop reading buffer")
+}
+
+// processBytesInShutdown processes bytes one-by-one to handle both text and key sequences.
+// It returns true if an exit condition was encountered.
+func (p *Prompt) processBytesInShutdown(data []byte) bool {
+	for len(data) > 0 {
+		// Try to match a key sequence starting at the current position
+		matched := false
+		for _, k := range ASCIISequences {
+			if len(data) >= len(k.ASCIICode) && bytes.Equal(data[:len(k.ASCIICode)], k.ASCIICode) {
+				// Found a key sequence, process it
+				if shouldExit, _, userInput := p.feed(k.ASCIICode); shouldExit {
+					return true
+				} else if userInput != nil {
+					p.executor(userInput.input)
+					if p.exitChecker != nil && p.exitChecker(userInput.input, true) {
+						return true
+					}
+				}
+				data = data[len(k.ASCIICode):]
+				matched = true
+				break
+			}
+		}
+
+		if !matched {
+			// No key sequence matched, process as a single byte/character
+			if shouldExit, _, userInput := p.feed(data[:1]); shouldExit {
+				return true
+			} else if userInput != nil {
+				p.executor(userInput.input)
+				if p.exitChecker != nil && p.exitChecker(userInput.input, true) {
+					return true
+				}
+			}
+			data = data[1:]
+		}
+	}
+	return false
+}
+
+func (p *Prompt) shutdown(stopReadBufCh chan chan []byte, bufCh chan []byte, stopHandleSignalCh chan struct{}) {
+	if !p.gracefulCloseEnabled {
+		p.renderer.BreakLine(p.buffer, p.lexer)
+		pongCh := make(chan []byte, 1)
+		stopReadBufCh <- pongCh
+		<-pongCh
+		stopHandleSignalCh <- struct{}{}
+		return
+	}
+
+	// Graceful shutdown:
+	// 1. Stop the reader goroutine to gain exclusive access to p.reader.
+	pongCh := make(chan []byte, 1)
+	stopReadBufCh <- pongCh
+	leftoverData := <-pongCh
+
+	// 2. Process any leftover data from the reader goroutine's buffer.
+	// TODO: Fix handling of sequences split over multiple reads?
+	//       (This is a known limitation; such sequences may not be processed correctly.)
+	if len(leftoverData) > 0 {
+		if processedBytes := p.processInputBytes(leftoverData); len(processedBytes) > 0 {
+			if p.processBytesInShutdown(processedBytes) {
+				goto finalize
+			}
+		}
+	}
+
+	// 3. Drain and process remaining data from the buffer channel.
+drainBufChLoop:
+	for {
+		select {
+		case b := <-bufCh:
+			if p.processBytesInShutdown(b) {
+				goto finalize
+			}
+		default:
+			break drainBufChLoop
+		}
+	}
+
+	// 4. Drain and process any final data from the underlying reader.
+drainReaderLoop:
+	for {
+		buf := make([]byte, inputBufferSize)
+		n, err := p.reader.Read(buf)
+		if n > 0 {
+			if processedBytes := p.processInputBytes(buf[:n]); len(processedBytes) > 0 {
+				if p.processBytesInShutdown(processedBytes) {
+					break drainReaderLoop
+				}
+			}
+		}
+		if err != nil {
+			// For a non-blocking reader, any error including io.EOF or a transient error
+			// like EAGAIN indicates that we are done draining the input buffer for now.
+			// Breaking the loop is the correct behavior to prevent a busy-wait and
+			// ensure shutdown completes.
+			break drainReaderLoop
+		}
+	}
+
+	// 5. Perform final render and exit.
+finalize:
+	p.render(false)
+	p.renderer.BreakLine(p.buffer, p.lexer)
+	stopHandleSignalCh <- struct{}{}
 }
 
 func (p *Prompt) setup() {
@@ -829,8 +980,19 @@ func (p *Prompt) Completion() *CompletionManager {
 }
 
 func (p *Prompt) Close() {
+	p.runMu.Lock()
+	defer p.runMu.Unlock()
+
+	// if there is anything running signal it to stop and wait for it to finish
+	if p.stopCh != nil {
+		close(p.stopCh)
+		p.stopCh = nil
+		p.stopWG.Wait()
+	}
+
 	if !p.skipClose {
 		debug.AssertNoError(p.reader.Close())
 	}
+
 	p.renderer.Close()
 }

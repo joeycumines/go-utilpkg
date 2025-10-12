@@ -3,6 +3,7 @@ package prompt
 import (
 	"bytes"
 	"io"
+	"slices"
 )
 
 // WinSize represents the width and height of terminal.
@@ -178,4 +179,23 @@ var ASCIISequences = []*ASCIICode{
 	// MacOS Keybind
 	{Key: AltRight, ASCIICode: []byte{0x1b, 0x66}},
 	{Key: AltLeft, ASCIICode: []byte{0x1b, 0x62}},
+}
+
+// init ensures ASCIISequences is sorted from longest to shortest sequence.
+// This is critical for correct key matching: if one sequence is a prefix of another
+// (e.g., \x1b for ESC and \x1b[A for UpArrow), the matching algorithm in GetKey
+// would fail by finding the shorter prefix first, leading to incorrect interpretation
+// of subsequent bytes. By sorting longest-to-shortest, we guarantee that the most
+// specific (longest) match is attempted first, ensuring correctness.
+func init() {
+	slices.SortStableFunc(ASCIISequences, func(a, b *ASCIICode) int {
+		// Sort by length descending (longest first)
+		if len(a.ASCIICode) > len(b.ASCIICode) {
+			return -1
+		}
+		if len(a.ASCIICode) < len(b.ASCIICode) {
+			return 1
+		}
+		return 0
+	})
 }
