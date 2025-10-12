@@ -22,14 +22,23 @@ func completer(in prompt.Document) ([]prompt.Suggest, pstrings.RuneNumber, pstri
 }
 
 func main() {
-	in := prompt.Input(
-		prompt.WithPrefix(">>> "),
-		prompt.WithTitle("sql-prompt"),
-		prompt.WithHistory([]string{"SELECT * FROM users;"}),
-		prompt.WithPrefixTextColor(prompt.Yellow),
-		prompt.WithSelectedSuggestionBGColor(prompt.LightGray),
-		prompt.WithSuggestionBGColor(prompt.DarkGray),
-		prompt.WithCompleter(completer),
-	)
-	fmt.Println("Your input: " + in)
+	for {
+		in := prompt.Input(
+			prompt.WithPrefix(">>> "),
+			prompt.WithTitle("sql-prompt"),
+			prompt.WithHistory([]string{"SELECT * FROM users;"}),
+			prompt.WithPrefixTextColor(prompt.Yellow),
+			prompt.WithSelectedSuggestionBGColor(prompt.LightGray),
+			prompt.WithSuggestionBGColor(prompt.DarkGray),
+			prompt.WithCompleter(completer),
+		)
+		var info string
+		if in != "exit" && in != "quit" {
+			info = "\n---\nType 'exit' or 'quit' to stop."
+		}
+		fmt.Println("Your input: " + in + info)
+		if info == "" {
+			break
+		}
+	}
 }
