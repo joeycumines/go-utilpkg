@@ -48,7 +48,7 @@ func (p *WindowsReader) Close() error {
 	// N.B. This error will be visible ONLY if tty.Close() panics (for subsequent calls to Close).
 	p.err = errors.New("panic during reader close")
 	p.open = false
-	p.err = tty.Close()
+	p.err = p.tty.Close()
 	return p.err
 }
 
