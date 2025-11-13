@@ -249,6 +249,9 @@ DEADCODE_IGNORE_PATTERNS_FILE ?= # .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED ?= false
 # for the tools target, to update the root go.mod (only relevant when setting up or updating this makefile)
 GO_TOOLS ?= $(GO_TOOLS_DEFAULT)
+# Used to prune _paths_ when searching for go modules. Single wildcard (%) supported. May match intermediate directories.
+# Example: %/vendor %/node_modules ./managed-separately
+GO_MODULE_PATHS_EXCLUDE_PATTERNS ?=
 # used to special-case modules for tools which fail if they find no packages (e.g. go vet)
 GO_MODULE_SLUGS_NO_PACKAGES ?=
 # used to exclude modules from the update* targets
@@ -281,10 +284,21 @@ $(eval $(GO_MK_VAR_PREFIX)CLEAN_PATHS ?= $$(GO_COVERAGE_ALL_MODULES_FILE) $$(add
 
 # ---
 
-# recursive wildcard match function, $1 is the directory to search, $2 is the pattern to match
-# note 1: $1 requires a trailing slash
-# note 2: $2 does not support multiple wildcards
-rwildcard = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+# Recursive wildcard match function, with support for optional pruning.
+#
+# Signature: $(call rwildcard,<dir>,<pattern>,[filter-out])
+#
+# $1: directory to search (requires a trailing slash, e.g., "src/")
+# $2: pattern to match (e.g., "*.go")
+# $3: (optional) A whitespace-separated list of patterns to $(filter-out ...).
+#     Applied to both files and directories, "guarding" further recursion.
+rwildcard = \
+$(call _rwildcard_filter_out,$(wildcard $1$2),$3) \
+$(foreach d,\
+$(call _rwildcard_filter_out,$(patsubst %/./,%,$(wildcard $1*/./)),$3),\
+$(call rwildcard,$d/,$2,$3)\
+)
+_rwildcard_filter_out = $(if $2,$(filter-out $2,$1),$1)
 
 # looks up a value in a map, $1 is the map, $2 is the key associated with the value
 map_value_by_key = $(patsubst $2$(MAP_SEPARATOR)%,%,$(filter $2$(MAP_SEPARATOR)%,$1))
@@ -323,7 +337,7 @@ go_module_slug_to_grit_src = $(GRIT_SRC),$(patsubst ./%,%,$(or $(call go_module_
 go_module_slug_to_grit_dst = $(or $(call map_value_by_key,$(GRIT_DST),$1),$(error no GRIT_DST entry for $1)),,$(GRIT_BRANCH)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
-GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod))
+GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod,$(GO_MODULE_PATHS_EXCLUDE_PATTERNS)))
 # used by go_module_path_to_slug and go_module_slug_to_path to lookup an associated path/slug
 _GO_MODULE_MAP := $(call map_transform_keys,$(GO_MODULE_PATHS),slug_transform)
 # example: root logiface logiface.logrus logiface.testsuite logiface.zerolog
