@@ -1,4 +1,4 @@
-go 1.25.1
+go 1.25.5
 
 use (
 	.
@@ -15,6 +15,7 @@ use (
 	./longpoll
 	./microbatch
 	./prompt
+	./prompt/termtest
 	./smartpoll
 	./sql
 	./sql/export/mysql
