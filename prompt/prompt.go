@@ -67,6 +67,13 @@ type Prompt struct {
 	runMu                     sync.Mutex
 	stopCh                    chan struct{}
 	stopWG                    sync.WaitGroup
+	syncProtocol              *syncState // For test harness synchronization
+	// syncEnabled indicates the intent to enable the synchronization protocol.
+	// Actual sync protocol state is lazily initialized in setup(), after the
+	// renderer is finalized.
+	syncEnabled bool
+	// syncWakeCh is used to wake the main loop so it can flush sync acks.
+	syncWakeCh chan struct{}
 }
 
 // UserInput is the struct that contains the user input context.
@@ -115,6 +122,7 @@ func (p *Prompt) RunNoExit() int {
 		bufferSize = 128
 	}
 	bufCh := make(chan []byte, bufferSize)
+	p.syncWakeCh = make(chan struct{}, 1)
 	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh, nil)
@@ -135,6 +143,11 @@ func (p *Prompt) RunNoExit() int {
 			if shouldExit, rerender, input := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
 
+				// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+				if p.syncProtocol != nil {
+					p.syncProtocol.FlushAcks()
+				}
+
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
@@ -142,6 +155,11 @@ func (p *Prompt) RunNoExit() int {
 
 				return -1
 			} else if input != nil {
+				// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+				if p.syncProtocol != nil {
+					p.syncProtocol.FlushAcks()
+				}
+
 				// Stop goroutine to run readBuffer function
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
@@ -168,7 +186,14 @@ func (p *Prompt) RunNoExit() int {
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else if rerender {
 				p.render(false)
+			} else if p.syncProtocol != nil {
+				p.syncProtocol.FlushAcks()
 			}
+
+		case <-p.syncWakeCh:
+			// Received wake from reader indicating sync-only requests were
+			// queued. Trigger a render cycle so pending acks are flushed.
+			p.render(false)
 
 		case w := <-winSizeCh:
 			p.renderer.UpdateWinSize(w)
@@ -182,7 +207,11 @@ func (p *Prompt) RunNoExit() int {
 
 		case code := <-exitCh:
 			p.renderer.BreakLine(p.buffer, p.lexer)
-			// N.B. Close will be called (deferred) after this function returns
+
+			// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+			if p.syncProtocol != nil {
+				p.syncProtocol.FlushAcks()
+			}
 
 			pongCh := make(chan []byte, 1)
 			stopReadBufCh <- pongCh
@@ -223,6 +252,11 @@ func (p *Prompt) Buffer() *Buffer {
 	return p.buffer
 }
 
+// NOTE: drainSyncWake removed deliberately - draining the wake channel is
+// unsafe because it cannot distinguish a stale wake from a fresh one. It's
+// better to ignore redundant wakes than risk consuming a wake meant for a
+// later sync request.
+
 func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *UserInput) {
 	key := GetKey(b)
 
@@ -259,6 +293,7 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 		}
 		// Hide completions on new input if configured
 		p.hideCompletionsAfterExecute()
+
 	case ControlC:
 		p.renderer.BreakLine(p.buffer, p.lexer)
 		p.buffer = NewBuffer()
@@ -268,6 +303,7 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 		p.completion.ClearWindowCache()
 		// Hide completions on new input if configured
 		p.hideCompletionsAfterExecute()
+
 	case Up, ControlP:
 		line := p.buffer.Document().CursorPositionRow()
 		if line > 0 {
@@ -298,10 +334,12 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 			p.buffer = newBuf
 		}
 		return false, true, nil
+
 	case ControlD:
 		if p.buffer.Text() == "" {
 			return true, true, nil
 		}
+
 	case NotDefined:
 		var checked bool
 		checked, rerender = p.handleASCIICodeBinding(b, cols, rows)
@@ -543,6 +581,12 @@ func (p *Prompt) render(forceCompletions bool) {
 		p.completion.shouldUpdate = false
 	}
 	p.renderer.Render(p.buffer, p.completion, p.lexer)
+
+	// Flush any pending sync acknowledgments after render completes.
+	// This ensures the ack is sent AFTER all output has been written.
+	if p.syncProtocol != nil {
+		p.syncProtocol.FlushAcks()
+	}
 }
 
 func (p *Prompt) handleASCIICodeBinding(b []byte, cols istrings.Width, rows int) (checked, rerender bool) {
@@ -587,6 +631,7 @@ func (p *Prompt) Input() string {
 		bufferSize = 128
 	}
 	bufCh := make(chan []byte, bufferSize)
+	p.syncWakeCh = make(chan struct{}, 1)
 	stopReadBufCh := make(chan chan []byte)
 	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh, nil)
@@ -607,6 +652,12 @@ func (p *Prompt) Input() string {
 
 			if shouldExit {
 				p.renderer.BreakLine(p.buffer, p.lexer)
+
+				// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+				if p.syncProtocol != nil {
+					p.syncProtocol.FlushAcks()
+				}
+
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
@@ -615,17 +666,30 @@ func (p *Prompt) Input() string {
 			}
 
 			if input != nil {
+				// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+				if p.syncProtocol != nil {
+					p.syncProtocol.FlushAcks()
+				}
+
 				// Stop goroutine to run readBuffer function
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
 				stopHandleSignalCh <- struct{}{}
+
 				return input.input
 			}
 
 			if rerender {
 				p.render(false)
+			} else {
+				// Ensure we still flush any pending acks even when nothing visually changed.
+				if p.syncProtocol != nil {
+					p.syncProtocol.FlushAcks()
+				}
 			}
+		case <-p.syncWakeCh:
+			p.render(false)
 
 		case w := <-winSizeCh:
 			p.renderer.UpdateWinSize(w)
@@ -645,13 +709,47 @@ const IndentUnitString = string(IndentUnit)
 
 // processInputBytes processes raw input bytes, handling special characters
 // like carriage returns and tabs, preparing them for the feed method.
+// If sync protocol is enabled, it also extracts sync requests from the input
+// and queues acknowledgments to be sent after the next render cycle.
 func (p *Prompt) processInputBytes(buf []byte) []byte {
+	// Extract sync requests if sync protocol is enabled
+	if p.syncProtocol != nil && p.syncProtocol.Enabled() {
+		remaining, ids := p.syncProtocol.ProcessInputBytes(buf)
+		for _, id := range ids {
+			p.syncProtocol.QueueAck(id)
+		}
+		// If we extracted sync requests, signal the main loop so it can
+		// perform a render and flush ACKs. Do this unconditionally when
+		// IDs were found - independent of whether the remaining buffer
+		// contains other bytes. This prevents the deadlock where filtered
+		// input caused no buffer wake and no sync wake.
+		if len(ids) > 0 && p.syncWakeCh != nil {
+			select {
+			case p.syncWakeCh <- struct{}{}:
+			default:
+			}
+		}
+		buf = remaining
+	}
+
 	if len(buf) == 1 && buf[0] == '\t' {
 		// if only a single Tab key has been pressed, handle it as a keybind
 		return buf
 	}
 	if len(buf) == 0 || (len(buf) == 1 && buf[0] == 0) {
 		return nil
+	}
+
+	// fast path: if no CR or TAB to translate, reuse the incoming buffer
+	needTranslate := false
+	for _, byt := range buf {
+		if byt == '\r' || byt == '\t' {
+			needTranslate = true
+			break
+		}
+	}
+	if !needTranslate {
+		return buf
 	}
 
 	newBytes := make([]byte, 0, len(buf))
@@ -786,11 +884,22 @@ func (p *Prompt) processBytesInShutdown(data []byte) bool {
 func (p *Prompt) shutdown(stopReadBufCh chan chan []byte, bufCh chan []byte, stopHandleSignalCh chan struct{}) {
 	if !p.gracefulCloseEnabled {
 		p.renderer.BreakLine(p.buffer, p.lexer)
+
+		// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+		if p.syncProtocol != nil {
+			p.syncProtocol.FlushAcks()
+		}
+
 		pongCh := make(chan []byte, 1)
 		stopReadBufCh <- pongCh
 		<-pongCh
 		stopHandleSignalCh <- struct{}{}
 		return
+	}
+
+	// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
+	if p.syncProtocol != nil {
+		p.syncProtocol.FlushAcks()
 	}
 
 	// Graceful shutdown:
@@ -854,6 +963,17 @@ finalize:
 func (p *Prompt) setup() {
 	debug.AssertNoError(p.reader.Open())
 	p.renderer.Setup()
+	// Lazy-initialize sync protocol here. We avoid creating the sync state
+	// during option application because the renderer may not be finalized
+	// until setup() runs.
+	if p.syncEnabled {
+		p.runMu.Lock()
+		if p.syncProtocol == nil {
+			p.syncProtocol = newSyncState(p.renderer)
+			p.syncProtocol.SetEnabled(true)
+		}
+		p.runMu.Unlock()
+	}
 	p.renderer.UpdateWinSize(p.reader.GetWinSize())
 }
 
@@ -979,20 +1099,27 @@ func (p *Prompt) Completion() *CompletionManager {
 	return p.completion
 }
 
+// Close shuts down the Prompt, stopping goroutines, releasing resources,
+// and resetting state for reuse. Thread-safe.
 func (p *Prompt) Close() {
 	p.runMu.Lock()
 	defer p.runMu.Unlock()
 
-	// if there is anything running signal it to stop and wait for it to finish
+	// Stop running goroutines and wait for them to finish.
 	if p.stopCh != nil {
 		close(p.stopCh)
 		p.stopCh = nil
 		p.stopWG.Wait()
 	}
 
+	// Restore terminal state unless skipClose is set (e.g., for exitChecker exits).
 	if !p.skipClose {
 		debug.AssertNoError(p.reader.Close())
 	}
 
+	// Clean up rendering state (cursor, display).
 	p.renderer.Close()
+
+	// Reset sync protocol for reuse.
+	p.syncProtocol = nil
 }

@@ -3,6 +3,7 @@ package prompt
 import (
 	"bytes"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -104,6 +105,7 @@ func (r *mockReader) Read(p []byte) (n int, err error) {
 
 // mockWriter is a minimal implementation of Writer for testing.
 type mockWriter struct {
+	mu  sync.Mutex
 	buf *bytes.Buffer
 }
 
@@ -111,11 +113,29 @@ func newMockWriter() *mockWriter {
 	return &mockWriter{buf: &bytes.Buffer{}}
 }
 
-func (w *mockWriter) Write(p []byte) (n int, err error)                            { return w.buf.Write(p) }
-func (w *mockWriter) WriteString(s string) (n int, err error)                      { return w.buf.WriteString(s) }
-func (w *mockWriter) WriteRaw(data []byte)                                         {}
-func (w *mockWriter) WriteRawString(data string)                                   {}
-func (w *mockWriter) Flush() error                                                 { return nil }
+func (w *mockWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.Write(p)
+}
+
+func (w *mockWriter) WriteString(s string) (n int, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.WriteString(s)
+}
+
+func (w *mockWriter) WriteRaw(data []byte) { w.mu.Lock(); _, _ = w.buf.Write(data); w.mu.Unlock() }
+
+func (w *mockWriter) WriteRawString(data string) {
+	w.mu.Lock()
+	_, _ = w.buf.WriteString(data)
+	w.mu.Unlock()
+}
+
+func (w *mockWriter) Flush() error { return nil }
+
+func (w *mockWriter) String() string                                               { w.mu.Lock(); defer w.mu.Unlock(); return w.buf.String() }
 func (w *mockWriter) EraseScreen()                                                 {}
 func (w *mockWriter) EraseUp()                                                     {}
 func (w *mockWriter) EraseDown()                                                   {}
@@ -754,6 +774,237 @@ func TestRunNoExit(t *testing.T) {
 			t.Fatal("RunNoExit did not return")
 		}
 	})
+}
+
+func TestRunNoExit_FlushesAckOnImmediateExit(t *testing.T) {
+	r := newMockReader()
+	p := newTestPrompt(r, nil, nil)
+	p.syncEnabled = true
+
+	runDone := make(chan struct{})
+	go func() {
+		defer func() { _ = r.Close() }()
+		p.RunNoExit()
+		close(runDone)
+	}()
+
+	r.WaitReady()
+
+	id := "runnoexit-immediate-exit"
+	// Send a sync request immediately followed by Ctrl-D in the same read
+	r.Feed([]byte(BuildSyncRequest(id) + string(findASCIICode(ControlD))))
+
+	mw := p.renderer.out.(*mockWriter)
+
+	// Wait for the ACK to appear in the writer buffer
+	deadline := time.After(2 * time.Second)
+	for {
+		if strings.Contains(mw.String(), BuildSyncAck(id)) {
+			break
+		}
+		select {
+		case <-time.After(5 * time.Millisecond):
+			// loop
+		case <-deadline:
+			t.Fatalf("timeout waiting for sync ack %q in RunNoExit path", id)
+		}
+	}
+
+	// Ensure RunNoExit returned
+	select {
+	case <-runDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunNoExit did not return after immediate exit sequence")
+	}
+}
+
+func TestInput_FlushesAckOnImmediateExit(t *testing.T) {
+	r := newMockReader()
+	p := newTestPrompt(r, nil, nil)
+	p.syncEnabled = true
+
+	resultCh := make(chan string, 1)
+	go func() {
+		defer func() { _ = r.Close() }()
+		resultCh <- p.Input()
+	}()
+
+	r.WaitReady()
+
+	id := "input-immediate-exit"
+	r.Feed([]byte(BuildSyncRequest(id) + string(findASCIICode(ControlD))))
+
+	mw := p.renderer.out.(*mockWriter)
+
+	// Wait for ACK
+	deadline := time.After(2 * time.Second)
+	for {
+		if strings.Contains(mw.String(), BuildSyncAck(id)) {
+			break
+		}
+		select {
+		case <-time.After(5 * time.Millisecond):
+		case <-deadline:
+			t.Fatalf("timeout waiting for sync ack %q in Input path", id)
+		}
+	}
+
+	// Confirm Input returned (Control-D yields empty string)
+	select {
+	case res := <-resultCh:
+		if res != "" {
+			t.Fatalf("expected empty result on immediate exit, got %q", res)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Input did not return after immediate exit sequence")
+	}
+}
+
+func TestInput_FlushesAckOnSubmission(t *testing.T) {
+	r := newMockReader()
+	p := newTestPrompt(r, nil, nil)
+	p.syncEnabled = true
+
+	resultCh := make(chan string, 1)
+	go func() {
+		defer func() { _ = r.Close() }()
+		resultCh <- p.Input()
+	}()
+
+	r.WaitReady()
+
+	id := "input-submission"
+	// Send a sync request immediately followed by Enter in the same read
+	r.Feed([]byte(BuildSyncRequest(id) + string(findASCIICode(Enter))))
+
+	mw := p.renderer.out.(*mockWriter)
+
+	// Wait for ACK
+	deadline := time.After(2 * time.Second)
+	for {
+		if strings.Contains(mw.String(), BuildSyncAck(id)) {
+			break
+		}
+		select {
+		case <-time.After(5 * time.Millisecond):
+		case <-deadline:
+			t.Fatalf("timeout waiting for sync ack %q in Input submission path", id)
+		}
+	}
+
+	// Confirm Input returned (empty string when Enter was sent without text)
+	select {
+	case res := <-resultCh:
+		if res != "" {
+			t.Fatalf("expected empty result on Enter-only submission, got %q", res)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Input did not return after submission")
+	}
+}
+
+func TestSyncProtocolReinitializesOnRepeatedRuns(t *testing.T) {
+	r := newMockReader()
+
+	// Exit after any execution to make runs short.
+	exitChecker := func(in string, breakline bool) bool { return breakline }
+
+	p := newTestPrompt(r, func(s string) {}, exitChecker)
+	p.syncEnabled = true
+
+	runDone := make(chan struct{})
+	// First run
+	go func() {
+		defer func() { _ = r.Close() }()
+		p.RunNoExit()
+		close(runDone)
+	}()
+
+	// Wait for setup to initialize sync state
+	waitUntil := time.After(500 * time.Millisecond)
+	for {
+		p.runMu.Lock()
+		if p.syncProtocol != nil {
+			p.runMu.Unlock()
+			break
+		}
+		p.runMu.Unlock()
+		select {
+		case <-waitUntil:
+			t.Fatal("timeout waiting for first syncProtocol init")
+		default:
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
+	p.runMu.Lock()
+	firstRenderer := p.syncProtocol.renderer
+	p.runMu.Unlock()
+
+	// Trigger exit of first run
+	r.WaitReady()
+	r.Feed([]byte("run1"))
+	r.Feed(findASCIICode(Enter))
+
+	// Wait run to complete
+	select {
+	case <-runDone:
+	case <-time.After(1 * time.Second):
+		t.Fatal("first RunNoExit did not finish")
+	}
+
+	p.runMu.Lock()
+	sp := p.syncProtocol
+	p.runMu.Unlock()
+	if sp != nil {
+		t.Fatalf("expected syncProtocol to be nil after Close(), got non-nil")
+	}
+
+	// Replace renderer to a new instance and run again
+	p.runMu.Lock()
+	p.renderer = &Renderer{out: newMockWriter(), prefixCallback: func() string { return "> " }, indentSize: 2}
+	p.runMu.Unlock()
+
+	secondRunDone := make(chan struct{})
+	go func() {
+		defer func() { _ = r.Close() }()
+		p.RunNoExit()
+		close(secondRunDone)
+	}()
+
+	waitUntil2 := time.After(500 * time.Millisecond)
+	for {
+		p.runMu.Lock()
+		if p.syncProtocol != nil {
+			p.runMu.Unlock()
+			break
+		}
+		p.runMu.Unlock()
+		select {
+		case <-waitUntil2:
+			t.Fatal("timeout waiting for second syncProtocol init")
+		default:
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
+	p.runMu.Lock()
+	secondRenderer := p.syncProtocol.renderer
+	p.runMu.Unlock()
+
+	if secondRenderer == firstRenderer {
+		t.Fatalf("expected new syncState to reference new renderer, but renderer pointer was unchanged")
+	}
+
+	// Trigger exit of second run
+	r.Feed([]byte("run2"))
+	r.Feed(findASCIICode(Enter))
+
+	select {
+	case <-secondRunDone:
+	case <-time.After(1 * time.Second):
+		t.Fatal("second RunNoExit did not finish")
+	}
 }
 
 // TestConcurrentRunPrevention tests that invoking RunNoExit or Input while already running

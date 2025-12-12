@@ -345,6 +345,46 @@ func WithExitChecker(fn ExitChecker) Option {
 	}
 }
 
+// WithSyncProtocol enables the test harness synchronization protocol.
+// When enabled, go-prompt will detect and respond to sync request sequences
+// (APC escape sequences) in the input stream, allowing test code to achieve
+// deterministic synchronization with the prompt's render cycle.
+//
+// The protocol uses Application Program Command (APC) escape sequences
+// which are ignored by standard terminal emulators, making this safe for
+// production code that happens to receive such sequences.
+//
+// Protocol:
+//   - Request (sent by test harness):  ESC _ go-prompt:sync:<id> ESC \
+//   - Response (sent by go-prompt):    ESC _ go-prompt:sync-ack:<id> ESC \
+//
+// The response is written after the current render cycle completes.
+//
+// WARNING: Because the synchronization protocol is recognized by scanning
+// for the APC introducer (ESC) followed by the prefix, enabling it will
+// cause input bytes that look like the start of a sync sequence (for
+// example a single ESC from a user pressing the ESC key) to be treated as
+// a potentially fragmented prefix and buffered until the sequence is
+// completed. This can introduce noticeable latency for raw ESC keypresses
+// (common in modal editors) and is a trade-off tests must accept when
+// enabling the feature.
+//
+// Note: To enable deterministic testing, the protocol buffers raw ESC bytes
+// indefinitely while waiting for a potential protocol sequence. Test
+// harnesses that send a raw ESC (for example to cancel completion) MUST
+// follow it immediately with either a sync request or a normal key so the
+// buffer is flushed; otherwise input will be buffered indefinitely.
+func WithSyncProtocol(enabled bool) Option {
+	return func(p *Prompt) error {
+		// Don't eagerly instantiate sync protocol here because renderer may
+		// be replaced/configured after options are applied. Instead remember
+		// the intent and perform lazy initialization in setup(), where the
+		// renderer is guaranteed to be finalized.
+		p.syncEnabled = enabled
+		return nil
+	}
+}
+
 // WithGracefulClose enables or disables the graceful close feature.
 // When enabled, calling Close will cause the prompt to process and execute all
 // pending input from its buffers and underlying reader before shutting down.

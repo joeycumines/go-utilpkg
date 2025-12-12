@@ -89,6 +89,18 @@ func main() {
 
 go-prompt provides many options. Please check [option section of GoDoc](https://godoc.org/github.com/joeycumines/go-prompt#Option) for more details.
 
+### Synchronization protocol (testing)
+
+go-prompt exposes an optional synchronization protocol (enabled via WithSyncProtocol)
+to help test harnesses deterministically wait for the prompt to finish rendering.
+This feature is off by default and should only be enabled in test code.
+
+WARNING: Enabling the sync protocol scans for the APC escape sequence
+introducer (ESC _) followed by the protocol prefix. As a result a single ESC
+byte (for example an ESC key press) may be interpreted as the start of a
+potential prefix and buffered until completion, causing a small but observable
+delay for raw ESC keypress handling. Avoid turning this on in interactive
+production paths where ESC latency would be noticeable.
 [![options](https://github.com/c-bata/assets/raw/master/go-prompt/prompt-options.png)](#flexible-options)
 
 ### Keyboard Shortcuts
