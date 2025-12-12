@@ -4,11 +4,11 @@ go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/KimMachineGun/automemlimit v0.7.4 // indirect
+	github.com/KimMachineGun/automemlimit v0.7.5 // indirect
 	github.com/aws/aws-sdk-go v1.44.259 // indirect
-	github.com/dkorunic/betteralign v0.7.3 // indirect
+	github.com/dkorunic/betteralign v0.8.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/renameio/v2 v2.0.0 // indirect
+	github.com/google/renameio/v2 v2.0.1 // indirect
 	github.com/grailbio/base v0.0.11 // indirect
 	github.com/grailbio/grit v0.0.0-20230416231552-d3b81e617b57 // indirect
 	github.com/joeycumines/simple-command-output-filter v0.2.1 // indirect
@@ -19,12 +19,12 @@ require (
 	github.com/yuin/goldmark v1.7.13 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20251009144603-d2f985daa21b // indirect
-	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/telemetry v0.0.0-20251009181524-91c411e14f39 // indirect
-	golang.org/x/tools v0.38.0 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20251209150349-8475f28825e9 // indirect
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/telemetry v0.0.0-20251208220230-2638a1023523 // indirect
+	golang.org/x/tools v0.40.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
