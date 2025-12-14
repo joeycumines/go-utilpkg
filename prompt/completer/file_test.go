@@ -16,7 +16,7 @@ func TestCleanFilePath(t *testing.T) {
 	}
 
 	dir, base, err = cleanFilePath("/tmp/example/")
-	if err != nil || base != "" || dir != "/tmp/example/" {
+	if err != nil || base != "" || dir != filepath.FromSlash("/tmp/example/") {
 		t.Fatalf("trailing slash: dir=%q base=%q err=%v", dir, base, err)
 	}
 
@@ -68,8 +68,8 @@ func TestCleanFilePathEnvExpansion(t *testing.T) {
 	if base != "file.txt" {
 		t.Fatalf("env expansion: expected base=file.txt, got %q", base)
 	}
-	if dir != "/test/path" {
-		t.Fatalf("env expansion: expected dir=/test/path, got %q", dir)
+	if dir != filepath.FromSlash("/test/path") {
+		t.Fatalf("env expansion: expected dir=%q, got %q", filepath.FromSlash("/test/path"), dir)
 	}
 }
 

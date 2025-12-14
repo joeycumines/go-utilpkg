@@ -30,8 +30,11 @@ func cleanFilePath(path string) (dir, base string, err error) {
 	}
 
 	var endsWithSeparator bool
-	if len(path) >= 1 && path[len(path)-1] == os.PathSeparator {
-		endsWithSeparator = true
+	if len(path) >= 1 {
+		last := path[len(path)-1]
+		if last == os.PathSeparator || last == '/' {
+			endsWithSeparator = true
+		}
 	}
 
 	if runtime.GOOS != "windows" && len(path) >= 2 && path[0:2] == "~/" {
