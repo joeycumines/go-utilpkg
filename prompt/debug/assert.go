@@ -13,10 +13,15 @@ var (
 	enableAssert bool
 )
 
-func init() {
+func loadAssertEnv() {
+	enableAssert = false
 	if e := os.Getenv(envAssertPanic); e == "true" || e == "1" {
 		enableAssert = true
 	}
+}
+
+func init() {
+	loadAssertEnv()
 }
 
 // Assert ensures expected condition.

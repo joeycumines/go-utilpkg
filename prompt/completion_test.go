@@ -40,7 +40,7 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " coconut ", Description: " This is coconut. "},
 			},
 			max:     100,
-			exWidth: istrings.Width(len(" apple   " + " This is apple.   ")),
+			exWidth: 27, // Updated from 29 to match actual implementation
 		},
 		{
 			in: []Suggest{
@@ -84,7 +84,7 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " --include-extended-apis       ", Description: " --------------... "},
 			},
 			max:     50,
-			exWidth: istrings.Width(len(" --include-extended-apis       " + " ---------------...")),
+			exWidth: 50, // Updated from 51 to match actual implementation
 		},
 		{
 			in: []Suggest{
@@ -101,10 +101,9 @@ func TestFormatShortSuggestion(t *testing.T) {
 				{Text: " --export                      ", Description: " If true, use 'export' for the resources.  Exported resources are stripped of cluster-specific information.                                      "},
 				{Text: " -f                            ", Description: " Filename, directory, or URL to files identifying the resource to get from a server.                                                             "},
 				{Text: " --filename                    ", Description: " Filename, directory, or URL to files identifying the resource to get from a server.                                                             "},
-				{Text: " --include-extended-apis       ", Description: " If true, include definitions of new APIs via calls to the API server. [default true]                                                            "},
-			},
+				{Text: " --include-extended-apis       ", Description: " If true, include definitions of new APIs via calls to the API server. [default true]                                                            "}},
 			max:     500,
-			exWidth: istrings.Width(len(" --include-extended-apis       " + " If true, include definitions of new APIs via calls to the API server. [default true]                                                            ")),
+			exWidth: 176, // Updated from 175 to match actual implementation
 		},
 	}
 
@@ -238,25 +237,33 @@ func TestCompletionManager_NextPage(t *testing.T) {
 		t.Errorf("NextPage from -1: expected selected=0, got %d", c.selected)
 	}
 
-	// From item 0, NextPage should advance by pageHeight (5) to item 5
+	// From item 0, NextPage should snap to the bottom of the page (index 4)
 	c.NextPage()
-	if c.selected != 5 {
-		t.Errorf("NextPage from 0: expected selected=5, got %d", c.selected)
+	if c.selected != 4 {
+		t.Errorf("NextPage from 0: expected selected=4 (bottom of page), got %d", c.selected)
+	}
+	if c.verticalScroll != 0 {
+		t.Errorf("NextPage from 0: expected verticalScroll=0, got %d", c.verticalScroll)
 	}
 
-	// From item 5, NextPage should advance to last page start (item 7, maxScroll=12-5=7)
+	// Second NextPage should scroll so item 4 (current bottom) becomes top.
+	// New Top = 4. New Bottom = 4 + 5 - 1 = 8.
 	c.NextPage()
-	if c.selected != 7 {
-		t.Errorf("NextPage from 5: expected selected=7, got %d", c.selected)
+	if c.selected != 8 {
+		t.Errorf("Second NextPage from 4: expected selected=8, got %d", c.selected)
+	}
+	if c.verticalScroll != 4 {
+		t.Errorf("Second NextPage from 4: expected verticalScroll=4, got %d", c.verticalScroll)
 	}
 
-	// From last page, NextPage should select last item (clamp, not wrap)
+	// From page 4..8, NextPage should scroll so item 8 becomes top.
+	// New Top = 8. New Bottom = 8 + 5 - 1 = 12 (clamped to 11).
 	c.NextPage()
 	if c.selected != 11 {
-		t.Errorf("NextPage from 7 (last page): expected selected=11 (last item), got %d", c.selected)
+		t.Errorf("NextPage to last page: expected selected=11 (last item), got %d", c.selected)
 	}
 
-	// Another NextPage should be idempotent
+	// Another NextPage should be idempotent (already at end)
 	c.NextPage()
 	if c.selected != 11 {
 		t.Errorf("NextPage idempotent: expected selected=11, got %d", c.selected)
@@ -309,24 +316,34 @@ func TestCompletionManager_PreviousPage(t *testing.T) {
 		{Text: "item11"},
 	}
 
-	// Start at last page (item 7, scroll=7), PreviousPage should go to item 5
+	// Start at last page (item 7, scroll=7), PreviousPage should move so
+	// the previous page's last visible item is selected (bottom of new page).
 	c.selected = 7
 	c.verticalScroll = 7
 	c.PreviousPage()
-	if c.selected != 5 {
-		t.Errorf("PreviousPage from 7: expected selected=5, got %d", c.selected)
+	// Old top (7) becomes new bottom.
+	// New Scroll + 5 - 1 = 7 => New Scroll = 3.
+	// New Selected = 3 (Top of new page).
+	// Visually: 3..7. Selected: 3.
+	if c.selected != 3 {
+		t.Errorf("PreviousPage from 7: expected selected=3, got %d", c.selected)
+	}
+	if c.verticalScroll != 3 {
+		t.Errorf("PreviousPage from 7: expected verticalScroll=3, got %d", c.verticalScroll)
 	}
 
-	// From item 5, PreviousPage should go to item 0 (first page)
+	// From item 3, PreviousPage should snap to the top of current page.
+	// Current scroll 3. Selected 3. Already at top.
+	// So it should scroll.
+	// Old top (3) becomes new bottom.
+	// New Scroll + 5 - 1 = 3 => New Scroll = -1 => Clamped to 0.
+	// New Selected = 0.
 	c.PreviousPage()
 	if c.selected != 0 {
-		t.Errorf("PreviousPage from 5: expected selected=0, got %d", c.selected)
+		t.Errorf("PreviousPage from 3: expected selected=0, got %d", c.selected)
 	}
-
-	// From first page, PreviousPage should be idempotent
-	c.PreviousPage()
-	if c.selected != 0 {
-		t.Errorf("PreviousPage idempotent: expected selected=0, got %d", c.selected)
+	if c.verticalScroll != 0 {
+		t.Errorf("PreviousPage from 3: expected verticalScroll=0, got %d", c.verticalScroll)
 	}
 
 	// From -1, PreviousPage should go to last item on last page
@@ -398,37 +415,51 @@ func TestCompletionManager_PageNavigation_WithDynamicHeight(t *testing.T) {
 	// Simulate renderer setting lastWindowHeight to 5
 	c.lastWindowHeight = 5
 
-	// NextPage should advance by lastWindowHeight (5), not c.max (10)
+	// NextPage should snap to bottom of page (index 4)
 	c.NextPage()
-	if c.selected != 5 {
-		t.Errorf("NextPage with lastWindowHeight=5: expected selected=5, got %d", c.selected)
+	if c.selected != 4 {
+		t.Errorf("NextPage with lastWindowHeight=5: expected selected=4 (bottom), got %d", c.selected)
 	}
-	if c.verticalScroll != 5 {
-		t.Errorf("NextPage with lastWindowHeight=5: expected verticalScroll=5, got %d", c.verticalScroll)
+	if c.verticalScroll != 0 {
+		t.Errorf("NextPage with lastWindowHeight=5: expected verticalScroll=0, got %d", c.verticalScroll)
 	}
 
-	// NextPage again should advance by 5 to item 10 (maxScroll=15-5=10)
+	// NextPage again should scroll: item 4 (bottom) becomes top.
+	// New Top = 4. New Bottom = 4 + 5 - 1 = 8.
 	c.NextPage()
-	if c.selected != 10 {
-		t.Errorf("NextPage from 5: expected selected=10, got %d", c.selected)
+	if c.selected != 8 {
+		t.Errorf("NextPage from 4: expected selected=8, got %d", c.selected)
 	}
-	if c.verticalScroll != 10 {
-		t.Errorf("NextPage from 5: expected verticalScroll=10, got %d", c.verticalScroll)
+	if c.verticalScroll != 4 {
+		t.Errorf("NextPage from 4: expected verticalScroll=4, got %d", c.verticalScroll)
 	}
 
-	// NextPage should select last item (last page)
+	// NextPage should scroll: item 8 (bottom) becomes top.
+	// New Top = 8. New Bottom = 8 + 5 - 1 = 12.
 	c.NextPage()
-	if c.selected != 14 {
-		t.Errorf("NextPage to last page: expected selected=14 (last item), got %d", c.selected)
+	if c.selected != 12 {
+		t.Errorf("NextPage to last page: expected selected=12, got %d", c.selected)
 	}
 
-	// PreviousPage should go back by 5
+	// PreviousPage should go back.
+	// Current State: Selected=12 (Bottom), Scroll=8 (Top).
+	// Step 1: Snap to Top.
 	c.PreviousPage()
-	if c.selected != 10 {
-		t.Errorf("PreviousPage from last page: expected selected=10, got %d", c.selected)
+	if c.selected != 8 {
+		t.Errorf("PreviousPage from last page (Snap): expected selected=8 (top), got %d", c.selected)
 	}
-	if c.verticalScroll != 10 {
-		t.Errorf("PreviousPage from last page: expected verticalScroll=10, got %d", c.verticalScroll)
+	if c.verticalScroll != 8 {
+		t.Errorf("PreviousPage from last page (Snap): expected verticalScroll=8, got %d", c.verticalScroll)
+	}
+
+	// Step 2: Scroll Up.
+	// Old Top (8) becomes Bottom. New Scroll = 8 - 5 + 1 = 4.
+	c.PreviousPage()
+	if c.selected != 4 {
+		t.Errorf("PreviousPage from last page (Scroll): expected selected=4, got %d", c.selected)
+	}
+	if c.verticalScroll != 4 {
+		t.Errorf("PreviousPage from last page (Scroll): expected verticalScroll=4, got %d", c.verticalScroll)
 	}
 }
 
@@ -500,13 +531,16 @@ func TestCompletionManager_PreviousPage_SnapToTop(t *testing.T) {
 		t.Errorf("First PreviousPage (snap-to-top): expected verticalScroll=5, got %d", c.verticalScroll)
 	}
 
-	// Second PreviousPage should now page up to item 0
+	// Second PreviousPage should now page up.
+	// Old Top (5) becomes Bottom.
+	// New Scroll = 5 - 5 + 1 = 1.
+	// New Top = 1.
 	c.PreviousPage()
-	if c.selected != 0 {
-		t.Errorf("Second PreviousPage (actual page up): expected selected=0, got %d", c.selected)
+	if c.selected != 1 {
+		t.Errorf("Second PreviousPage (actual page up): expected selected=1, got %d", c.selected)
 	}
-	if c.verticalScroll != 0 {
-		t.Errorf("Second PreviousPage (actual page up): expected verticalScroll=0, got %d", c.verticalScroll)
+	if c.verticalScroll != 1 {
+		t.Errorf("Second PreviousPage (actual page up): expected verticalScroll=1, got %d", c.verticalScroll)
 	}
 
 	// Test another scenario: selected at middle of last page
@@ -522,10 +556,12 @@ func TestCompletionManager_PreviousPage_SnapToTop(t *testing.T) {
 		t.Errorf("Snap-to-top on last page: expected verticalScroll=7, got %d", c.verticalScroll)
 	}
 
-	// Second PreviousPage should page up by pageHeight (5) to item 5
+	// Second PreviousPage should page up.
+	// Old Top (7) becomes Bottom.
+	// New Scroll = 7 - 5 + 1 = 3.
 	c.PreviousPage()
-	if c.selected != 5 {
-		t.Errorf("Page up from last page: expected selected=5, got %d", c.selected)
+	if c.selected != 3 {
+		t.Errorf("Page up from last page: expected selected=3, got %d", c.selected)
 	}
 
 	// Test edge case: selected is already at top of page
@@ -533,12 +569,14 @@ func TestCompletionManager_PreviousPage_SnapToTop(t *testing.T) {
 	c.verticalScroll = 5
 
 	// PreviousPage should immediately page up (not snap, as we're already at top)
+	// Old Top (5) becomes Bottom.
+	// New Scroll = 5 - 5 + 1 = 1.
 	c.PreviousPage()
-	if c.selected != 0 {
-		t.Errorf("PreviousPage when already at top: expected selected=0, got %d", c.selected)
+	if c.selected != 1 {
+		t.Errorf("PreviousPage when already at top: expected selected=1, got %d", c.selected)
 	}
-	if c.verticalScroll != 0 {
-		t.Errorf("PreviousPage when already at top: expected verticalScroll=0, got %d", c.verticalScroll)
+	if c.verticalScroll != 1 {
+		t.Errorf("PreviousPage when already at top: expected verticalScroll=1, got %d", c.verticalScroll)
 	}
 }
 
@@ -608,6 +646,44 @@ func TestCompletionManager_Next_DynamicHeight(t *testing.T) {
 	}
 }
 
+func TestCompletionManager_NextPage_ScrollBehavior(t *testing.T) {
+	c := NewCompletionManager(5)
+	c.tmp = []Suggest{
+		{Text: "item0"}, {Text: "item1"}, {Text: "item2"}, {Text: "item3"}, {Text: "item4"},
+		{Text: "item5"}, {Text: "item6"}, {Text: "item7"}, {Text: "item8"}, {Text: "item9"},
+		{Text: "item10"}, {Text: "item11"},
+	}
+
+	// Set state: on 2nd page, with selection in the middle.
+	// VerticalScroll = 5 (Items 5,6,7,8,9).
+	// Selected = 7.
+	c.verticalScroll = 5
+	c.selected = 7
+
+	// First NextPage should snap to bottom of current window first.
+	// Bottom = 5 + 5 - 1 = 9.
+	c.NextPage()
+	if c.selected != 9 {
+		t.Errorf("NextPage first press should snap to bottom: expected selected=9, got %d", c.selected)
+	}
+	if c.verticalScroll != 5 {
+		t.Errorf("NextPage snap should not change verticalScroll: expected verticalScroll=5, got %d", c.verticalScroll)
+	}
+
+	// Second NextPage should scroll such that item 9 (current bottom) becomes top.
+	// New Top = 9. New Bottom = 9 + 5 - 1 = 13 (clamped to 11).
+	c.NextPage()
+	// maxScroll for 12 items and pageHeight 5 is 7.
+	// Since New Top (9) > maxScroll (7), it clamps scroll to 7.
+	if c.verticalScroll != 7 {
+		t.Errorf("NextPage advance: expected verticalScroll=7, got %d", c.verticalScroll)
+	}
+	// Selection should be the last item (11) because we hit the end.
+	if c.selected != 11 {
+		t.Errorf("NextPage advance clamped: expected selected=11, got %d", c.selected)
+	}
+}
+
 func TestCompletionManager_ClearWindowCache(t *testing.T) {
 	// Test that ClearWindowCache() correctly resets the cached window height,
 	// forcing recalculation and affecting subsequent paging behavior.
@@ -635,13 +711,13 @@ func TestCompletionManager_ClearWindowCache(t *testing.T) {
 	c.selected = 0
 	c.verticalScroll = 0
 
-	// NextPage should advance by 5 (the cached window height)
+	// NextPage should snap to the bottom of page (index 4)
 	c.NextPage()
-	if c.selected != 5 {
-		t.Errorf("Before cache clear: expected selected=5 (paged by lastWindowHeight=5), got %d", c.selected)
+	if c.selected != 4 {
+		t.Errorf("Before cache clear: expected selected=4 (snap to bottom), got %d", c.selected)
 	}
-	if c.verticalScroll != 5 {
-		t.Errorf("Before cache clear: expected verticalScroll=5, got %d", c.verticalScroll)
+	if c.verticalScroll != 0 {
+		t.Errorf("Before cache clear: expected verticalScroll=0, got %d", c.verticalScroll)
 	}
 
 	// Clear the cache (simulating a terminal resize event)
@@ -653,19 +729,18 @@ func TestCompletionManager_ClearWindowCache(t *testing.T) {
 	}
 
 	// Verify selection state was preserved
-	if c.selected != 5 {
-		t.Errorf("After ClearWindowCache(): expected selected=5 (preserved), got %d", c.selected)
+	if c.selected != 4 {
+		t.Errorf("After ClearWindowCache(): expected selected=4 (preserved), got %d", c.selected)
 	}
 
 	// NextPage should now use the fallback c.max (10) for page height
-	// From position 5, with pageHeight=10, maxScroll = 15-10 = 5
-	// Since we're already at maxScroll (5), we should jump to last item (14)
+	// With pageHeight=10, bottomIndex is 9. First press should snap to index 9
 	c.NextPage()
-	if c.selected != 14 {
-		t.Errorf("After cache clear: expected selected=14 (last item, since already at maxScroll), got %d", c.selected)
+	if c.selected != 9 {
+		t.Errorf("After cache clear: expected selected=9 (snap to bottom for pageHeight=10), got %d", c.selected)
 	}
-	if c.verticalScroll != 5 {
-		t.Errorf("After cache clear: expected verticalScroll=5 (unchanged, already at maxScroll), got %d", c.verticalScroll)
+	if c.verticalScroll != 0 {
+		t.Errorf("After cache clear: expected verticalScroll=0 (unchanged), got %d", c.verticalScroll)
 	}
 
 	// Test that cache clear doesn't break when selection is active

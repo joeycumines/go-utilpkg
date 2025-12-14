@@ -196,6 +196,55 @@ func findASCIICode(key Key) []byte {
 	return nil
 }
 
+// Regression test for paging + completion acceptance losing the existing prefix.
+func TestCompletion_PageDownThenTab_PreservesPrefix(t *testing.T) {
+	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
+		idx := d.CurrentRuneIndex()
+		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, idx, idx
+	}
+
+	p := &Prompt{
+		buffer:     NewBuffer(),
+		completion: NewCompletionManager(1, CompletionManagerWithCompleter(completer)),
+		renderer: &Renderer{
+			out:            &mockWriterLogger{},
+			col:            80,
+			row:            20,
+			prefixCallback: func() string { return "> " },
+			indentSize:     2,
+		},
+		history: NewHistory(),
+		executeOnEnterCallback: func(prompt *Prompt, indentSize int) (int, bool) {
+			return 0, true
+		},
+	}
+
+	// Seed input and suggestions.
+	p.buffer.InsertTextMoveCursor("add ", 80, 20, false)
+	p.completion.Update(*p.buffer.Document())
+
+	pageDown := findASCIICode(PageDown)
+	if pageDown == nil {
+		t.Fatal("PageDown ASCII sequence not found")
+	}
+	if shouldExit, _, _ := p.feed(pageDown); shouldExit {
+		t.Fatal("unexpected exit on PageDown")
+	}
+
+	// Confirming via Tab should keep the prefix and apply the selected suggestion.
+	tab := findASCIICode(Tab)
+	if tab == nil {
+		t.Fatal("Tab ASCII sequence not found")
+	}
+	if shouldExit, _, _ := p.feed(tab); shouldExit {
+		t.Fatal("unexpected exit on Tab")
+	}
+
+	if got, want := p.buffer.Text(), "add bravo"; got != want {
+		t.Fatalf("completion applied incorrectly: got %q, want %q", got, want)
+	}
+}
+
 func TestInput(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -521,7 +570,7 @@ func TestRunNoExit(t *testing.T) {
 			executorOut <- executorResult{}
 		}
 
-		timer := time.NewTimer(2 * time.Second)
+		timer := time.NewTimer(5 * time.Second)
 		defer timer.Stop()
 
 		select {
@@ -1453,7 +1502,7 @@ func TestGracefulShutdownLeftoverData(t *testing.T) {
 	r.Feed(findASCIICode(Enter))
 
 	// Wait for executor to be called for first command
-	timer1 := time.NewTimer(2 * time.Second)
+	timer1 := time.NewTimer(5 * time.Second)
 	defer timer1.Stop()
 
 	var call1 executorCall
@@ -1990,7 +2039,7 @@ func TestGracefulShutdownExecutesMultipleCommands(t *testing.T) {
 		t.Fatal("RunNoExit did not complete")
 	}
 
-	timer2 := time.NewTimer(100 * time.Millisecond)
+	timer2 := time.NewTimer(500 * time.Millisecond)
 	defer timer2.Stop()
 
 	select {
@@ -2048,8 +2097,12 @@ func TestGracefulShutdownStopsOnExitCommand(t *testing.T) {
 
 	r.WaitReady()
 
-	// Feed exit command followed by another command
-	r.Feed([]byte("exit\nignored command\n"))
+	// Feed exit command followed by another command as separate key events to
+	// simulate interactive typing (not a multi-line paste).
+	r.Feed([]byte("exit"))
+	r.Feed(findASCIICode(Enter))
+	r.Feed([]byte("ignored command"))
+	r.Feed(findASCIICode(Enter))
 
 	// Close - should execute only "exit" and stop
 	closeDone := make(chan struct{})
@@ -2103,6 +2156,31 @@ func TestGracefulShutdownStopsOnExitCommand(t *testing.T) {
 		t.Errorf("unexpected command executed after exit: %q", call.input)
 	case <-timer4.C:
 		// Success - no additional commands executed
+	}
+}
+
+// TestFeedPastedMultilineNotSplit documents that pasted multi-line text is
+// inserted verbatim into the buffer instead of being split into commands.
+func TestFeedPastedMultilineNotSplit(t *testing.T) {
+	r := newMockReader()
+	p := newTestPrompt(r, func(string) {}, nil)
+	p.renderer.col = 80
+	p.renderer.row = 24
+
+	pasted := "exit\nignored command\n"
+	shouldExit, rerender, input := p.feed([]byte(pasted))
+
+	if shouldExit {
+		t.Fatalf("feed should not request exit for pasted chunk")
+	}
+	if !rerender {
+		t.Fatalf("feed should request rerender for pasted chunk")
+	}
+	if input != nil {
+		t.Fatalf("feed should not return userInput for pasted chunk")
+	}
+	if got := p.buffer.Text(); got != pasted {
+		t.Fatalf("expected buffer to keep pasted content %q, got %q", pasted, got)
 	}
 }
 

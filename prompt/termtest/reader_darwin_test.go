@@ -100,12 +100,22 @@ func TestDarwinPoller_ErrorBranches(t *testing.T) {
 		ops.kevent = func(int, []unix.Kevent_t, []unix.Kevent_t, *unix.Timespec) (int, error) {
 			return 0, sentinel
 		}
+		// Mock closeFD to avoid closing real fds used by concurrent tests
+		closed := make(map[int]bool)
+		ops.closeFD = func(fd int) error {
+			closed[fd] = true
+			return nil
+		}
 		r := &ptyReader{fd: 9, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.initPoller()
 		require.ErrorIs(t, err, sentinel)
 		require.Equal(t, -1, r.pollFD)
 		require.Equal(t, -1, r.wakeR)
 		require.Equal(t, -1, r.wakeW)
+		// Verify FDs were cleaned up
+		require.True(t, closed[10], "pollFD closed")
+		require.True(t, closed[11], "wakeR closed")
+		require.True(t, closed[12], "wakeW closed")
 	})
 
 	t.Run("initPoller kevent error on wake registration cleans up", func(t *testing.T) {

@@ -15,7 +15,6 @@ use (
 	./longpoll
 	./microbatch
 	./prompt
-	./prompt/termtest
 	./smartpoll
 	./sql
 	./sql/export/mysql

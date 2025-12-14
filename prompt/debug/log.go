@@ -16,7 +16,7 @@ var (
 	logger  *log.Logger
 )
 
-func init() {
+func loadLoggerEnv() {
 	if e := os.Getenv(envEnableLog); e == "true" || e == "1" {
 		var err error
 		logfile, err = os.OpenFile(logFileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
@@ -26,6 +26,10 @@ func init() {
 		}
 	}
 	logger = log.New(io.Discard, "", log.Llongfile)
+}
+
+func init() {
+	loadLoggerEnv()
 }
 
 // Close to close logfile

@@ -122,7 +122,11 @@ func (c *CompletionManager) Next() int {
 	return c.selected
 }
 
-// NextPage selects the suggestion item one page (max window height) down.
+// NextPage selects the suggestion item one page down.
+// Behavior uses a "Snap-then-Scroll" sliding window strategy:
+//  1. If not at the bottom of the visible window, snap to the bottom.
+//  2. If at the bottom, scroll such that the current bottom item becomes the
+//     first visible item (top) of the new page, and select the new bottom.
 func (c *CompletionManager) NextPage() {
 	pageHeight := c.effectivePageHeight()
 	if pageHeight <= 0 || len(c.tmp) == 0 {
@@ -136,33 +140,56 @@ func (c *CompletionManager) NextPage() {
 		return
 	}
 
-	// Calculate the maximum scroll position (start of the last possible page).
+	// Snap to Bottom
+	bottomIndex := c.verticalScroll + pageHeight - 1
+	// Clamp bottomIndex to available items
+	if bottomIndex >= len(c.tmp) {
+		bottomIndex = len(c.tmp) - 1
+	}
+
+	if c.selected != bottomIndex {
+		c.selected = bottomIndex
+		return
+	}
+
+	// Scroll Page
+	// The item that was at the bottom (c.selected) becomes the top.
+	newScroll := c.selected
+	// Special case: If pageHeight is 1, top and bottom are same. Force advance.
+	if pageHeight == 1 {
+		newScroll++
+	}
+
 	maxScroll := len(c.tmp) - pageHeight
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
 
-	// If we're already on the last page...
-	if c.verticalScroll >= maxScroll {
-		// ...and not yet on the last item, select the last item (for small lists or partial pages).
-		if c.selected < len(c.tmp)-1 {
-			c.selected = len(c.tmp) - 1
-		}
-		// Otherwise, we're already at the last item; do nothing (idempotent).
-		return
-	}
-
-	// Normal case: advance by one page.
-	newScroll := c.verticalScroll + pageHeight
 	if newScroll > maxScroll {
 		newScroll = maxScroll
+		// If we hit the bottom boundary, ensure we select the very last item.
+		// (This handles cases where the jump would overshoot the list end).
+		c.selected = len(c.tmp) - 1
+	} else {
+		// Normal sliding window: selected item becomes top.
+		c.verticalScroll = newScroll
+		// Select the new bottom of the viewport
+		newSelected := c.verticalScroll + pageHeight - 1
+		if newSelected >= len(c.tmp) {
+			newSelected = len(c.tmp) - 1
+		}
+		c.selected = newSelected
 	}
 
+	// Ensure scroll is applied (redundant if branch fell through, but safe)
 	c.verticalScroll = newScroll
-	c.selected = newScroll // Select the top item of the new page.
 }
 
-// PreviousPage selects the suggestion item one page (max window height) up.
+// PreviousPage selects the suggestion item one page up.
+// Behavior uses a "Snap-then-Scroll" sliding window strategy:
+//  1. If not at the top of the visible window, snap to the top.
+//  2. If at the top, scroll such that the current top item becomes the
+//     last visible item (bottom) of the new page, and select the new top.
 func (c *CompletionManager) PreviousPage() {
 	pageHeight := c.effectivePageHeight()
 	if pageHeight <= 0 || len(c.tmp) == 0 {
@@ -180,28 +207,21 @@ func (c *CompletionManager) PreviousPage() {
 		return
 	}
 
-	// If we're not at the top of the current page, go to the top first.
-	// This provides better UX: PageUp from middle of page goes to page top.
-	if c.selected != c.verticalScroll {
-		c.selected = c.verticalScroll
+	// Snap to Top
+	topIndex := c.verticalScroll
+	if c.selected != topIndex {
+		c.selected = topIndex
 		return
 	}
 
-	// If we're already at the first page, stay there (idempotent).
-	if c.verticalScroll == 0 {
-		c.selected = 0
-		return
-	}
-
-	// Go back one page. If we're at a non-page-boundary position (e.g., clamped
-	// last page), align to the previous page boundary first.
-	var newScroll int
-	if c.verticalScroll%pageHeight == 0 {
-		// At a page boundary; go back one full page.
-		newScroll = c.verticalScroll - pageHeight
-	} else {
-		// Not at a page boundary; align to the previous boundary.
-		newScroll = (c.verticalScroll / pageHeight) * pageHeight
+	// Scroll Page
+	// The item that was at the top (c.selected) becomes the bottom.
+	// New Bottom = c.selected
+	// New Top = New Bottom - pageHeight + 1
+	newScroll := c.selected - pageHeight + 1
+	// Special case: If pageHeight is 1, top and bottom are same. Force retreat.
+	if pageHeight == 1 {
+		newScroll--
 	}
 
 	if newScroll < 0 {
@@ -209,7 +229,8 @@ func (c *CompletionManager) PreviousPage() {
 	}
 
 	c.verticalScroll = newScroll
-	c.selected = newScroll // Select the top item of the new page.
+	// Select the new top of the viewport
+	c.selected = newScroll
 }
 
 // Completing returns true when the CompletionManager selects something.

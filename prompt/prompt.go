@@ -46,28 +46,30 @@ type Completer func(Document) (suggestions []Suggest, startChar, endChar istring
 
 // Prompt is a core struct of go-prompt.
 type Prompt struct {
-	reader                    Reader
-	buffer                    *Buffer
-	renderer                  *Renderer
-	executor                  Executor
-	history                   HistoryInterface
-	lexer                     Lexer
-	completion                *CompletionManager
-	keyBindings               []KeyBind
-	ASCIICodeBindings         []ASCIICodeBind
-	keyBindMode               KeyBindMode
-	completionOnDown          bool
-	exitChecker               ExitChecker
-	executeOnEnterCallback    ExecuteOnEnterCallback
-	skipClose                 bool
-	completionReset           bool
-	completionHiddenByExecute bool
-	inputBufferChannelSize    int // For testing: allows configuring the bufCh size
-	gracefulCloseEnabled      bool
-	runMu                     sync.Mutex
-	stopCh                    chan struct{}
-	stopWG                    sync.WaitGroup
-	syncProtocol              *syncState // For test harness synchronization
+	reader                     Reader
+	buffer                     *Buffer
+	renderer                   *Renderer
+	executor                   Executor
+	exitFunc                   func(int)
+	history                    HistoryInterface
+	lexer                      Lexer
+	completion                 *CompletionManager
+	keyBindings                []KeyBind
+	ASCIICodeBindings          []ASCIICodeBind
+	keyBindMode                KeyBindMode
+	completionOnDown           bool
+	exitChecker                ExitChecker
+	executeOnEnterCallback     ExecuteOnEnterCallback
+	skipClose                  bool
+	completionReset            bool
+	completionSelectionApplied bool
+	completionHiddenByExecute  bool
+	inputBufferChannelSize     int // For testing: allows configuring the bufCh size
+	gracefulCloseEnabled       bool
+	runMu                      sync.Mutex
+	stopCh                     chan struct{}
+	stopWG                     sync.WaitGroup
+	syncProtocol               *syncState // For test harness synchronization
 	// syncEnabled indicates the intent to enable the synchronization protocol.
 	// Actual sync protocol state is lazily initialized in setup(), after the
 	// renderer is finalized.
@@ -86,7 +88,11 @@ type UserInput struct {
 // See also RunNoExit which never calls [os.Exit], even on SIGTERM etc.
 func (p *Prompt) Run() {
 	if exitCode := p.RunNoExit(); exitCode >= 0 {
-		os.Exit(exitCode)
+		exitFunc := p.exitFunc
+		if exitFunc == nil {
+			exitFunc = os.Exit
+		}
+		exitFunc(exitCode)
 	}
 }
 
@@ -300,6 +306,7 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 		p.history.Clear()
 		// Reset completion state and clear cached geometry
 		p.completion.Reset()
+		p.completionSelectionApplied = false
 		p.completion.ClearWindowCache()
 		// Hide completions on new input if configured
 		p.hideCompletionsAfterExecute()
@@ -362,6 +369,9 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, rerender bool, userInput *User
 	return shouldExit, rerender, userInput
 }
 
+// handleCompletionKeyBinding manages keys that navigate or apply completions.
+// Navigation keys (Tab/BackTab/Down/Up/PageDown/PageUp) must call p.updateSuggestions
+// so the buffer and application state remain consistent (no silent deselects).
 func (p *Prompt) handleCompletionKeyBinding(b []byte, key Key, completing bool) (handled bool) {
 	p.completion.shouldUpdate = true
 	cols := p.renderer.UserInputColumns()
@@ -445,14 +455,18 @@ keySwitch:
 		if completionLen > 0 {
 			// Explicit navigation implies a desire to see completions.
 			p.showCompletionsForUserIntent()
-			p.completion.NextPage()
+			p.updateSuggestions(func() {
+				p.completion.NextPage()
+			})
 			return true
 		}
 	case PageUp:
 		if completionLen > 0 {
 			// Explicit navigation implies a desire to see completions.
 			p.showCompletionsForUserIntent()
-			p.completion.PreviousPage()
+			p.updateSuggestions(func() {
+				p.completion.PreviousPage()
+			})
 			return true
 		}
 	default:
@@ -467,6 +481,7 @@ keySwitch:
 			p.completionReset = true
 		}
 		p.completion.Reset()
+		p.completionSelectionApplied = false
 	}
 	return false
 }
@@ -484,6 +499,11 @@ func (p *Prompt) showCompletionsForUserIntent() {
 	p.completionHiddenByExecute = false
 }
 
+// updateSuggestions updates the buffer when completion selection changes.
+// Navigation inputs (Tab/Up/Down/PageUp/PageDown) must always select a suggestion
+// if one is visible, and must not silently deselect it. When a new selection replaces
+// a previously-applied suggestion, replace the previous inserted text. When a selection
+// is added (wasn't selected) delete the original token range and insert the selected text.
 func (p *Prompt) updateSuggestions(fn func()) {
 	cols := p.renderer.UserInputColumns()
 	rows := p.renderer.row
@@ -491,6 +511,10 @@ func (p *Prompt) updateSuggestions(fn func()) {
 	prevStart := p.completion.startCharIndex
 	prevEnd := p.completion.endCharIndex
 	prevSuggestion, prevSelected := p.completion.GetSelectedSuggestion()
+	prevApplied := p.completionSelectionApplied
+	if prevSelected && !prevApplied {
+		prevSelected = false
+	}
 
 	fn()
 
@@ -499,13 +523,19 @@ func (p *Prompt) updateSuggestions(fn func()) {
 
 	// do nothing
 	if !prevSelected && !newSelected {
+		p.completionSelectionApplied = false
 		return
 	}
 
 	// insert the new selection
 	if !prevSelected {
 		p.buffer.DeleteBeforeCursorRunes(p.completion.endCharIndex-p.completion.startCharIndex, cols, rows)
-		p.buffer.InsertTextMoveCursor(newSuggestion.Text, cols, rows, false)
+		if newSelected {
+			p.buffer.InsertTextMoveCursor(newSuggestion.Text, cols, rows, false)
+			p.completionSelectionApplied = true
+		} else {
+			p.completionSelectionApplied = false
+		}
 		return
 	}
 	// delete the previous selection
@@ -515,6 +545,7 @@ func (p *Prompt) updateSuggestions(fn func()) {
 			cols,
 			rows,
 		)
+		p.completionSelectionApplied = false
 		return
 	}
 
@@ -526,6 +557,7 @@ func (p *Prompt) updateSuggestions(fn func()) {
 	)
 
 	p.buffer.InsertTextMoveCursor(newSuggestion.Text, cols, rows, false)
+	p.completionSelectionApplied = true
 }
 
 func (p *Prompt) handleKeyBinding(key Key, cols istrings.Width, rows int) (shouldExit bool, rerender bool) {
