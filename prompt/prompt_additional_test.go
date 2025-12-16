@@ -528,6 +528,15 @@ func TestOptionSettersApply(t *testing.T) {
 			}
 			return nil
 		}},
+		{WithInitialCommand("hello-cmd", false), func(pr *Prompt) error {
+			if pr.initialCommand != "hello-cmd" {
+				return errors.New("initialcmd")
+			}
+			if pr.initialCommandVisible {
+				return errors.New("initialcmdvisible should be false")
+			}
+			return nil
+		}},
 		{WithCompletionWordSeparator(","), func(pr *Prompt) error {
 			if pr.completion.wordSeparator != "," {
 				return errors.New("sep")

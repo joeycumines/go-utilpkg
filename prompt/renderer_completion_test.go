@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
 // mockWriterLogger captures all calls to the Writer interface for verification.
 type mockWriterLogger struct {
 	Writer
+	mu    sync.Mutex
 	calls []mockCall
 }
 
@@ -20,11 +22,24 @@ type mockCall struct {
 }
 
 func (m *mockWriterLogger) reset() {
+	m.mu.Lock()
 	m.calls = []mockCall{}
+	m.mu.Unlock()
 }
 
 func (m *mockWriterLogger) addCall(method string, args ...any) {
+	m.mu.Lock()
 	m.calls = append(m.calls, mockCall{method: method, args: args})
+	m.mu.Unlock()
+}
+
+// Calls returns a snapshot copy of the logged calls for safe concurrent inspection.
+func (m *mockWriterLogger) Calls() []mockCall {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c := make([]mockCall, len(m.calls))
+	copy(c, m.calls)
+	return c
 }
 
 // Writer interface implementation
@@ -49,8 +64,14 @@ func (m *mockWriterLogger) CursorForward(n int)     { m.addCall("CursorForward",
 func (m *mockWriterLogger) CursorBackward(n int)    { m.addCall("CursorBackward", n) }
 func (m *mockWriterLogger) EraseDown()              { m.addCall("EraseDown") }
 func (m *mockWriterLogger) EraseScreen()            { m.addCall("EraseScreen") }
+func (m *mockWriterLogger) EraseStartOfLine()       { m.addCall("EraseStartOfLine") }
+func (m *mockWriterLogger) EraseEndOfLine()         { m.addCall("EraseEndOfLine") }
+func (m *mockWriterLogger) EraseLine()              { m.addCall("EraseLine") }
 func (m *mockWriterLogger) ShowCursor()             { m.addCall("ShowCursor") }
 func (m *mockWriterLogger) HideCursor()             { m.addCall("HideCursor") }
+func (m *mockWriterLogger) SaveCursor()             { m.addCall("SaveCursor") }
+func (m *mockWriterLogger) UnSaveCursor()           { m.addCall("UnSaveCursor") }
+func (m *mockWriterLogger) AskForCPR()              { m.addCall("AskForCPR") }
 func (m *mockWriterLogger) Flush() error            { m.addCall("Flush"); return nil }
 func (m *mockWriterLogger) SetTitle(title string)   { m.addCall("SetTitle", title) }
 func (m *mockWriterLogger) ClearTitle()             { m.addCall("ClearTitle") }

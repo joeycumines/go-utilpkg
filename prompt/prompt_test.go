@@ -379,6 +379,393 @@ func TestRunNoExit(t *testing.T) {
 		}
 	})
 
+	t.Run("initial command executes and exit", func(t *testing.T) {
+		executorIn := make(chan string)
+		executorOut := make(chan struct{})
+
+		executor := func(s string) {
+			executorIn <- s
+			<-executorOut
+		}
+
+		exitChecker := func(in string, breakline bool) bool { return breakline }
+
+		r := newMockReader()
+		p := newTestPrompt(r, executor, exitChecker)
+		// Apply option
+		if err := WithInitialCommand("initial command", false)(p); err != nil {
+			t.Fatal(err)
+		}
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		// Wait for executor call
+		timer := time.NewTimer(5 * time.Second)
+		defer timer.Stop()
+		select {
+		case got := <-executorIn:
+			if got != "initial command" {
+				t.Fatalf("expected %q, got %q", "initial command", got)
+			}
+		case <-timer.C:
+			t.Fatal("executor was not called for initial command")
+		}
+
+		// Unblock executor to allow RunNoExit to finish
+		executorOut <- struct{}{}
+
+		select {
+		case <-runDone:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not return after initial command")
+		}
+	})
+
+	t.Run("initial command visible renders before execution", func(t *testing.T) {
+		r := newMockReader()
+		// Prepare prompt with mock writer logger
+		// exitChecker returns false for initial command so interactive loop starts
+		p := newTestPrompt(r, nil, func(in string, b bool) bool {
+			// Only exit on empty input (ControlD)
+			return in == "" && b
+		})
+		logger := &mockWriterLogger{}
+		p.renderer.out = logger
+		p.renderer.col = 80
+		p.renderer.row = 20
+		// Apply option: visible
+		if err := WithInitialCommand("visible-cmd", true)(p); err != nil {
+			t.Fatal(err)
+		}
+
+		executorCalled := make(chan struct{})
+		p.executor = func(s string) {
+			// Simulate executor output being written to the renderer's writer
+			_, _ = p.renderer.out.WriteString("EXEC-OUT\n")
+			executorCalled <- struct{}{}
+		}
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		select {
+		case <-executorCalled:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("executor was not called for initial visible command")
+		}
+
+		// Wait for reader to be ready before feeding exit signal
+		r.WaitReady()
+		time.Sleep(50 * time.Millisecond)
+
+		// Inspect logger calls: ensure command was rendered before executor output
+		var cmdIdx, outIdx, promptIdx int = -1, -1, -1
+		calls := logger.Calls()
+		for i, c := range calls {
+			if c.method == "WriteString" {
+				s := c.args[0].(string)
+				if strings.Contains(s, "visible-cmd") {
+					cmdIdx = i
+				}
+				if strings.Contains(s, "EXEC-OUT") {
+					outIdx = i
+				}
+				// Look for prompt prefix after executor output
+				if i > outIdx && outIdx != -1 && strings.Contains(s, "> ") {
+					promptIdx = i
+				}
+			}
+		}
+		if cmdIdx == -1 {
+			t.Fatal("rendered output does not contain initial command text")
+		}
+		if outIdx == -1 {
+			t.Fatal("executor did not write expected output")
+		}
+		if cmdIdx > outIdx {
+			t.Fatalf("expected command render before executor output, but render index %d > output index %d", cmdIdx, outIdx)
+		}
+		// CRITICAL: Verify prompt re-renders after execution
+		if promptIdx == -1 {
+			t.Fatal("prompt prefix '> ' not found after executor output - prompt did not re-render")
+		}
+
+		// Feed ControlD to exit
+		r.Feed([]byte{0x04})
+		select {
+		case <-runDone:
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not return")
+		}
+	})
+
+	t.Run("initial command invisible does not render prompt before output", func(t *testing.T) {
+		r := newMockReader()
+		// exitChecker returns false for initial command so interactive loop starts
+		p := newTestPrompt(r, nil, func(in string, b bool) bool {
+			// Only exit on empty input (ControlD)
+			return in == "" && b
+		})
+		logger := &mockWriterLogger{}
+		p.renderer.out = logger
+		p.renderer.col = 80
+		p.renderer.row = 20
+		if err := WithInitialCommand("invisible-cmd", false)(p); err != nil {
+			t.Fatal(err)
+		}
+
+		executorCalled := make(chan struct{})
+		p.executor = func(s string) {
+			_, _ = p.renderer.out.WriteString("EXEC-OUT\n")
+			executorCalled <- struct{}{}
+		}
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		select {
+		case <-executorCalled:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("executor was not called for initial invisible command")
+		}
+
+		// Wait for reader to be ready before feeding exit signal
+		r.WaitReady()
+		time.Sleep(50 * time.Millisecond)
+
+		// Find the index of the executor output
+		var outIdx, promptIdx int = -1, -1
+		calls := logger.Calls()
+		for i, c := range calls {
+			if c.method == "WriteString" {
+				s := c.args[0].(string)
+				if strings.Contains(s, "EXEC-OUT") {
+					outIdx = i
+				}
+				// Look for prompt prefix after executor output
+				if i > outIdx && outIdx != -1 && strings.Contains(s, "> ") {
+					promptIdx = i
+				}
+			}
+		}
+		if outIdx == -1 {
+			t.Fatal("executor did not write expected output")
+		}
+
+		// Ensure no prefix or input was rendered before executor output
+		calls = logger.Calls()
+		for i := 0; i < outIdx; i++ {
+			c := calls[i]
+			if c.method == "WriteString" {
+				s := c.args[0].(string)
+				if strings.Contains(s, "\r") || strings.Contains(s, "> ") || strings.Contains(s, "invisible-cmd") {
+					t.Fatalf("found prompt or command output before executor output: %q", s)
+				}
+			}
+		}
+
+		// CRITICAL: Verify prompt re-renders after execution
+		if promptIdx == -1 {
+			t.Fatal("prompt prefix '> ' not found after executor output - prompt did not re-render")
+		}
+
+		// Feed ControlD to exit
+		r.Feed([]byte{0x04})
+		select {
+		case <-runDone:
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not return")
+		}
+	})
+
+	t.Run("visible initial command overwrites initial text", func(t *testing.T) {
+		r := newMockReader()
+		// exitChecker returns false for initial command so interactive loop starts
+		p := newTestPrompt(r, nil, func(in string, b bool) bool {
+			// Only exit on empty input (ControlD)
+			return in == "" && b
+		})
+		logger := &mockWriterLogger{}
+		p.renderer.out = logger
+		p.renderer.col = 80
+		p.renderer.row = 20
+		// Apply initial text, then visible initial command
+		if err := WithInitialText("hello")(p); err != nil {
+			t.Fatal(err)
+		}
+		if err := WithInitialCommand("danger-cmd", true)(p); err != nil {
+			t.Fatal(err)
+		}
+
+		executorCalled := make(chan struct{})
+		p.executor = func(s string) {
+			_, _ = p.renderer.out.WriteString("EXEC-OUT\n")
+			executorCalled <- struct{}{}
+		}
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		select {
+		case <-executorCalled:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("executor was not called for visible overwrite test")
+		}
+
+		// Wait for reader to be ready before feeding exit signal
+		r.WaitReady()
+		time.Sleep(50 * time.Millisecond)
+
+		// Ensure the rendered input contains the command and not the initial text
+		foundCmd := false
+		foundHello := false
+		foundPrompt := false
+		calls := logger.Calls()
+		for _, c := range calls {
+			if c.method == "WriteString" {
+				s := c.args[0].(string)
+				if strings.Contains(s, "danger-cmd") {
+					foundCmd = true
+				}
+				if strings.Contains(s, "hello") {
+					foundHello = true
+				}
+				if strings.Contains(s, "> ") {
+					foundPrompt = true
+				}
+			}
+		}
+		if !foundCmd {
+			t.Fatal("did not find visible initial command in rendered output")
+		}
+		if foundHello {
+			t.Fatal("found initial text that should have been overwritten")
+		}
+		// CRITICAL: Verify prompt re-renders after execution
+		if !foundPrompt {
+			t.Fatal("prompt prefix '> ' not found - prompt did not re-render")
+		}
+
+		// Feed ControlD to exit
+		r.Feed([]byte{0x04})
+		select {
+		case <-runDone:
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not return")
+		}
+	})
+
+	t.Run("invisible initial command preserves initial text", func(t *testing.T) {
+		r := newMockReader()
+		callCount := 0
+		// exitChecker: exit after the deferred text is executed (second call)
+		p := newTestPrompt(r, nil, func(in string, b bool) bool {
+			if b {
+				callCount++
+				// Exit after second execution (initial cmd + deferred text)
+				return callCount >= 2
+			}
+			return false
+		})
+		logger := &mockWriterLogger{}
+		p.renderer.out = logger
+		p.renderer.col = 80
+		p.renderer.row = 20
+		// Apply initial text, then invisible initial command
+		if err := WithInitialText("deferred-text")(p); err != nil {
+			t.Fatal(err)
+		}
+		if err := WithInitialCommand("silent-cmd", false)(p); err != nil {
+			t.Fatal(err)
+		}
+
+		executorCalled := make(chan struct{}, 2)
+		p.executor = func(s string) {
+			_, _ = p.renderer.out.WriteString("EXEC-OUT:" + s + "\n")
+			executorCalled <- struct{}{}
+		}
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		// Wait for initial command execution
+		select {
+		case <-executorCalled:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("executor was not called for invisible preserve test")
+		}
+
+		// Wait for reader to be ready and for prompt to render
+		r.WaitReady()
+		time.Sleep(100 * time.Millisecond)
+
+		// Feed Enter to execute the deferred text
+		r.Feed([]byte{'\r'})
+
+		// Wait for second execution
+		select {
+		case <-executorCalled:
+			// success
+		case <-time.After(2 * time.Second):
+			t.Fatal("executor was not called for deferred text")
+		}
+
+		select {
+		case <-runDone:
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not return")
+		}
+
+		// CRITICAL: Verify WithInitialText is preserved and appears after execution
+		foundInitialText := false
+		foundCmdRendered := false
+		calls := logger.Calls()
+		for _, c := range calls {
+			if c.method == "WriteString" {
+				s := c.args[0].(string)
+				if strings.Contains(s, "deferred-text") {
+					foundInitialText = true
+				}
+				// Check if the command was rendered as user input (not in EXEC-OUT)
+				if strings.Contains(s, "silent-cmd") && !strings.Contains(s, "EXEC-OUT:silent-cmd") {
+					foundCmdRendered = true
+				}
+			}
+		}
+		if !foundInitialText {
+			t.Fatal("WithInitialText 'deferred-text' was not preserved - invisible path incorrectly called NewBuffer()")
+		}
+		if foundCmdRendered {
+			t.Fatal("found invisible command text rendered as input - should not be visible")
+		}
+	})
+
 	t.Run("concurrency safety with leftover data", func(t *testing.T) {
 		// Define input/output channels for executor orchestration
 		type executorCall struct {

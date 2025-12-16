@@ -22,6 +22,10 @@ lint: ## Run golangci-lint.
 test:  ## Run tests with race condition checking.
 	go test -race ./...
 
+.PHONY: vet
+vet:  ## Run go vet on packages.
+	go vet ./...
+
 .PHONY: bench
 bench:  ## Run benchmarks.
 	go test -bench=. -run=- -benchmem ./...

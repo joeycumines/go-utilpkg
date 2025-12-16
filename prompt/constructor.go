@@ -89,6 +89,24 @@ func WithInitialText(text string) Option {
 	}
 }
 
+// WithInitialCommand executes a command on startup.
+//
+// The second parameter `visible` controls whether the initial command is shown
+// in the prompt before execution:
+//   - visible=true  : simulates a user typing the command. The command text is
+//     placed into the input buffer, rendered via `p.render(true)`,
+//     a `BreakLine` is issued and then the command is executed.
+//   - visible=false : runs the command silently; the prompt MUST NOT render
+//     before the command runs and the user should only see the
+//     command's output.
+func WithInitialCommand(cmd string, visible bool) Option {
+	return func(p *Prompt) error {
+		p.initialCommand = cmd
+		p.initialCommandVisible = visible
+		return nil
+	}
+}
+
 // WithCompletionWordSeparator can be used to set word separators. Enable only ' ' if empty.
 func WithCompletionWordSeparator(sep string) Option {
 	return func(p *Prompt) error {

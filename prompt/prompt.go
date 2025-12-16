@@ -65,6 +65,8 @@ type Prompt struct {
 	completionSelectionApplied bool
 	completionHiddenByExecute  bool
 	inputBufferChannelSize     int // For testing: allows configuring the bufCh size
+	initialCommand             string
+	initialCommandVisible      bool
 	gracefulCloseEnabled       bool
 	runMu                      sync.Mutex
 	stopCh                     chan struct{}
@@ -96,6 +98,47 @@ func (p *Prompt) Run() {
 	}
 }
 
+func (p *Prompt) runInitialCommand() (int, bool) {
+	cmd := p.initialCommand
+
+	if p.initialCommandVisible {
+		// Visible: Overwrite any deferred InitialText (simulation of typing).
+		// 1. Reset buffer to ensure clean slate.
+		p.buffer = NewBuffer()
+		// 2. Insert command logic.
+		cols := p.renderer.UserInputColumns()
+		rows := p.renderer.row
+		p.buffer.InsertTextMoveCursor(cmd, cols, rows, true)
+		// 3. Render the input + command.
+		p.render(true)
+		// 4. Break line (simulating Enter).
+		p.renderer.BreakLine(p.buffer, p.lexer)
+		// 5. Clean buffer for next input.
+		p.buffer = NewBuffer()
+		// 6. Add to history.
+		if cmd != "" {
+			p.history.Add(cmd)
+		}
+	}
+	// Note: If invisible, we DO NOT NewBuffer(). We must preserve
+	// any WithInitialText state so it appears "deferred" after this command.
+	// We also avoid adding it to history, since user never "saw" it.
+
+	p.hideCompletionsAfterExecute()
+	p.executor(cmd)
+
+	if p.exitChecker != nil && p.exitChecker(cmd, true) {
+		return -1, true
+	}
+
+	// Post-Command Render:
+	// Whether visible or invisible, we must now render the prompt state
+	// to begin interaction. We respect the showAtStart config.
+	p.render(p.completion.showAtStart)
+
+	return 0, false
+}
+
 // RunNoExit is [Prompt.Run] that never calls [os.Exit], even on SIGTERM etc.
 func (p *Prompt) RunNoExit() int {
 	p.runMu.Lock()
@@ -121,7 +164,16 @@ func (p *Prompt) RunNoExit() int {
 	// N.B. this is the strictly-necessary p.stopWG.Done call, that MUST be BEFORE p.Close
 	defer stopDoneOnce.Do(p.stopWG.Done)
 
-	p.render(p.completion.showAtStart)
+	// Handle initial command if configured.
+	if p.initialCommand != "" {
+		if code, exit := p.runInitialCommand(); exit {
+			p.skipClose = true
+			return code
+		}
+	} else {
+		// Standard start: render the prompt (and potentially completions)
+		p.render(p.completion.showAtStart)
+	}
 
 	bufferSize := p.inputBufferChannelSize
 	if bufferSize == 0 {
