@@ -46,8 +46,14 @@ func TestPositionAtEndOfString(t *testing.T) {
 				X: 2,
 				Y: 0,
 			},
-		},
-		"one-line fits in columns": {
+		}, "wide overflow": {
+			input:   "🙆🏿‍♂️",
+			columns: 1,
+			want: Position{
+				X: 2,
+				Y: 1,
+			},
+		}, "one-line fits in columns": {
 			input:   "foo bar",
 			columns: 20,
 			want: Position{

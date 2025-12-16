@@ -96,7 +96,15 @@ func positionAtEndOfString(str string, columns istrings.Width) Position {
 		}
 
 		right += istrings.Width(g.Width())
-		if right == columns {
+		// If the grapheme overflows the current line, it starts on the next line
+		// and occupies its own width there. If it exactly fills the line, move
+		// to the beginning of the next line.
+		if right > columns {
+			// overflow: place grapheme at the beginning of the next line
+			right = istrings.Width(g.Width())
+			down++
+		} else if right == columns {
+			// exactly filled: move cursor to start of next line
 			right = 0
 			down++
 		}
