@@ -2,8 +2,9 @@ package prompt
 
 import (
 	"fmt"
-	istrings "github.com/joeycumines/go-prompt/strings"
 	"testing"
+
+	istrings "github.com/joeycumines/go-prompt/strings"
 )
 
 // Compare pressing PageDown vs Right arrow after Tab-applied selection
@@ -394,5 +395,55 @@ func TestCompletion_PageUp_PreservesPreviousSelectionVisibility(t *testing.T) {
 	// Check if prevSelected is within the current visible window [verticalScroll, verticalScroll + pageHeight)
 	if !(prevSelected >= p.completion.verticalScroll && prevSelected < p.completion.verticalScroll+pageHeight) {
 		t.Fatalf("previously-selected item %d not visible after PageUp: scroll=%d height=%d", prevSelected, p.completion.verticalScroll, pageHeight)
+	}
+}
+
+// Ensure DeleteBeforeCursorRunes is defensive against negative counts and does not panic.
+func TestBuffer_DeleteBeforeCursorRunes_NegativeCount_NoPanic(t *testing.T) {
+	b := NewBuffer()
+	b.InsertTextMoveCursor("hello", 80, 20, false)
+	// simulate negative count via direct call
+	deleted := b.DeleteBeforeCursorRunes(-2, 80, 20)
+	if deleted != "" {
+		t.Fatalf("expected empty delete result for negative count, got %q", deleted)
+	}
+	if got, want := b.Text(), "hello"; got != want {
+		t.Fatalf("buffer mutated unexpectedly: got %q want %q", got, want)
+	}
+}
+
+// Ensure updateSuggestions does not panic if completion indices are inverted (end < start).
+func TestPrompt_UpdateSuggestions_InvertedIndices_NoPanic(t *testing.T) {
+	p := &Prompt{
+		buffer:     NewBuffer(),
+		completion: NewCompletionManager(1),
+		renderer: &Renderer{
+			out:            &mockWriterLogger{},
+			col:            80,
+			row:            20,
+			prefixCallback: func() string { return "> " },
+			indentSize:     2,
+		},
+		history: NewHistory(),
+		executeOnEnterCallback: func(prompt *Prompt, indentSize int) (int, bool) {
+			return 0, true
+		},
+	}
+
+	p.buffer.InsertTextMoveCursor("add ", 80, 20, false)
+	// Set up a suggestion but with inverted indices (end < start)
+	p.completion.tmp = []Suggest{{Text: "bravo"}}
+	p.completion.startCharIndex = 5
+	p.completion.endCharIndex = 3
+	p.completion.selected = -1
+
+	// This should not panic; it should insert the suggestion at cursor
+	p.updateSuggestions(func() {
+		// select the first suggestion
+		p.completion.selected = 0
+	})
+
+	if got, want := p.buffer.Text(), "add bravo"; got != want {
+		t.Fatalf("unexpected buffer after insertion: got %q want %q", got, want)
 	}
 }

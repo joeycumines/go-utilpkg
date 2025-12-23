@@ -222,7 +222,12 @@ func (b *Buffer) DeleteBeforeCursor(count istrings.GraphemeNumber, columns istri
 
 // Deletes the specified number of runes before the cursor and returns the deleted text.
 func (b *Buffer) DeleteBeforeCursorRunes(count istrings.RuneNumber, columns istrings.Width, rows int) (deleted string) {
+	// Defensive: ensure non-negative count. Debug assertion is helpful in tests,
+	// but in production builds the assert is a no-op, so explicitly guard here.
 	debug.Assert(count >= 0, "count should be positive")
+	if count <= 0 {
+		return ""
+	}
 	if b.cursorPosition <= 0 {
 		return ""
 	}
@@ -231,6 +236,11 @@ func (b *Buffer) DeleteBeforeCursorRunes(count istrings.RuneNumber, columns istr
 	start := b.cursorPosition - count
 	if start < 0 {
 		start = 0
+	}
+	// Ensure we do not produce a slice with start > end which would panic.
+	if int(start) > len(r) || int(b.cursorPosition) > len(r) {
+		// Fall back to safe no-op delete when indices are out of range.
+		return ""
 	}
 	deleted = string(r[start:b.cursorPosition])
 	b.setDocument(
