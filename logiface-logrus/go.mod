@@ -4,9 +4,9 @@ go 1.25.1
 
 require (
 	github.com/joeycumines/logiface v0.5.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20251214074516-bf9de7d144e1
+	github.com/joeycumines/logiface-testsuite v0.0.0-20251216225613-588df48fb557
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
+	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
 )
 
 require (

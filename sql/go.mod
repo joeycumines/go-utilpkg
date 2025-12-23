@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/go-test/deep v1.1.1
 	github.com/joeycumines/go-detect-cycle v1.0.1
-	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
+	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
 )
 
 require github.com/joeycumines/logiface v0.5.0
