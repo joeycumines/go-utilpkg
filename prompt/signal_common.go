@@ -8,9 +8,20 @@ import (
 	"github.com/joeycumines/go-prompt/debug"
 )
 
-func (p *Prompt) handleSignals(exitCh chan int, winSizeCh chan *WinSize, stop chan struct{}) {
-	in := p.reader
+// nonBlockingSend tries to send a notification into the provided channel
+// without blocking if the channel is full. It is used by signal handlers to
+// notify the main loop about events like SIGWINCH without risking blocking.
+func nonBlockingSend(ch chan<- struct{}) {
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
 
+// handleExitSignals listens for exit-related signals (SIGINT, SIGTERM, SIGQUIT)
+// and notifies the provided exitCh when they are received. The listener can be
+// stopped by sending on the provided stop channel.
+func (p *Prompt) handleExitSignals(exitCh chan int, stop chan struct{}) {
 	var signals []os.Signal
 	if exitCh != nil {
 		signals = append(
@@ -19,9 +30,6 @@ func (p *Prompt) handleSignals(exitCh chan int, winSizeCh chan *WinSize, stop ch
 			syscall.SIGTERM,
 			syscall.SIGQUIT,
 		)
-	}
-	if winSizeCh != nil && syscallSIGWINCH != 0 {
-		signals = append(signals, syscallSIGWINCH)
 	}
 
 	// we can avoid missing up to 128 signals
@@ -67,18 +75,40 @@ Loop:
 				case <-stop:
 					break Loop
 				}
-
-			case syscallSIGWINCH:
-				debug.Log("Catch SIGWINCH")
-
-				select {
-				case winSizeCh <- in.GetWinSize():
-				case <-stop:
-					break Loop
-				}
 			}
 		}
 	}
 
-	debug.Log("stop handleSignals")
+	debug.Log("stop handleExitSignals")
+}
+
+// handleWinSizeSignals listens for SIGWINCH and performs a non-blocking send
+// into winSizeEventCh to notify the main loop that the window size changed.
+// The listener is intended to stay active for the lifetime of the prompt and
+// can be stopped by sending on the provided stop channel.
+func (p *Prompt) handleWinSizeSignals(winSizeEventCh chan<- struct{}, stop chan struct{}) {
+	// we can avoid missing up to 128 signals
+	sigCh := make(chan os.Signal, 128)
+
+	// WARNING: we can't just exit early, because we need something receiving from stop
+	if winSizeEventCh != nil && syscallSIGWINCH != 0 {
+		signal.Notify(sigCh, syscallSIGWINCH)
+		defer signal.Stop(sigCh)
+	}
+
+Loop:
+	for {
+		select {
+		case <-stop:
+			break Loop
+
+		case s := <-sigCh:
+			if s == syscallSIGWINCH {
+				debug.Log("Catch SIGWINCH")
+				nonBlockingSend(winSizeEventCh)
+			}
+		}
+	}
+
+	debug.Log("stop handleWinSizeSignals")
 }

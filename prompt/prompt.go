@@ -186,15 +186,18 @@ func (p *Prompt) RunNoExit() int {
 	go p.readBuffer(bufCh, stopReadBufCh, nil)
 
 	exitCh := make(chan int)
-	winSizeCh := make(chan *WinSize)
-	stopHandleSignalCh := make(chan struct{})
-	defer close(stopHandleSignalCh)
-	go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
+	winSizeEventCh := make(chan struct{}, 1)
+	stopExitHandleSignalCh := make(chan struct{})
+	stopWinHandleSignalCh := make(chan struct{})
+	defer close(stopExitHandleSignalCh)
+	defer close(stopWinHandleSignalCh)
+	go p.handleExitSignals(exitCh, stopExitHandleSignalCh)
+	go p.handleWinSizeSignals(winSizeEventCh, stopWinHandleSignalCh)
 
 	for {
 		select {
 		case <-stopCh:
-			p.shutdown(stopReadBufCh, bufCh, stopHandleSignalCh)
+			p.shutdown(stopReadBufCh, bufCh, stopExitHandleSignalCh, stopWinHandleSignalCh)
 			return -1
 
 		case b := <-bufCh:
@@ -209,8 +212,9 @@ func (p *Prompt) RunNoExit() int {
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
-				stopHandleSignalCh <- struct{}{}
-
+				// Stopping both listeners since we are exiting Run loop completely.
+				stopExitHandleSignalCh <- struct{}{}
+				stopWinHandleSignalCh <- struct{}{}
 				return -1
 			} else if input != nil {
 				// Flush any pending ACKs before exit or sending to stopReadBufCh so ack isn't lost on Close / so we don't deadlock.
@@ -222,8 +226,9 @@ func (p *Prompt) RunNoExit() int {
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				leftoverData := <-pongCh
-				// Stop signal handling, because we are about to close the reader (SIGWINCH)
-				stopHandleSignalCh <- struct{}{}
+				// Stop exit signal handling, because we are about to close the reader while
+				// the executor is running. Window-size notifications remain active.
+				stopExitHandleSignalCh <- struct{}{}
 
 				// Unset raw mode
 				// Reset to Blocking mode because returned EAGAIN when still set non-blocking mode.
@@ -241,7 +246,8 @@ func (p *Prompt) RunNoExit() int {
 				// Set raw mode
 				debug.AssertNoError(p.reader.Open())
 				go p.readBuffer(bufCh, stopReadBufCh, leftoverData)
-				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
+				// Re-start exit signal monitoring. Window-size listener remains active.
+				go p.handleExitSignals(exitCh, stopExitHandleSignalCh)
 			} else if rerender {
 				p.render(false)
 			} else if p.syncProtocol != nil {
@@ -253,7 +259,11 @@ func (p *Prompt) RunNoExit() int {
 			// queued. Trigger a render cycle so pending acks are flushed.
 			p.render(false)
 
-		case w := <-winSizeCh:
+		case <-winSizeEventCh:
+			// Received a notification that the terminal size changed. The handler
+			// performs non-blocking notifications; the main loop is responsible
+			// for querying the current size from the reader and updating state.
+			w := p.reader.GetWinSize()
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
 			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), p.renderer.row)
@@ -274,7 +284,9 @@ func (p *Prompt) RunNoExit() int {
 			pongCh := make(chan []byte, 1)
 			stopReadBufCh <- pongCh
 			<-pongCh
-			stopHandleSignalCh <- struct{}{}
+			// Stopping both listeners since we are exiting Run loop completely.
+			stopExitHandleSignalCh <- struct{}{}
+			stopWinHandleSignalCh <- struct{}{}
 
 			return code
 
@@ -729,15 +741,18 @@ func (p *Prompt) Input() string {
 	defer close(stopReadBufCh)
 	go p.readBuffer(bufCh, stopReadBufCh, nil)
 
-	winSizeCh := make(chan *WinSize)
-	stopHandleSignalCh := make(chan struct{})
-	defer close(stopHandleSignalCh)
-	go p.handleSignals(nil, winSizeCh, stopHandleSignalCh)
+	winSizeEventCh := make(chan struct{}, 1)
+	stopExitHandleSignalCh := make(chan struct{})
+	stopWinHandleSignalCh := make(chan struct{})
+	defer close(stopExitHandleSignalCh)
+	defer close(stopWinHandleSignalCh)
+	go p.handleExitSignals(nil, stopExitHandleSignalCh)
+	go p.handleWinSizeSignals(winSizeEventCh, stopWinHandleSignalCh)
 
 	for {
 		select {
 		case <-stopCh:
-			p.shutdown(stopReadBufCh, bufCh, stopHandleSignalCh)
+			p.shutdown(stopReadBufCh, bufCh, stopExitHandleSignalCh, stopWinHandleSignalCh)
 			return ""
 
 		case b := <-bufCh:
@@ -754,7 +769,9 @@ func (p *Prompt) Input() string {
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
-				stopHandleSignalCh <- struct{}{}
+				// Stopping both listeners since Input() is returning.
+				stopExitHandleSignalCh <- struct{}{}
+				stopWinHandleSignalCh <- struct{}{}
 				return ""
 			}
 
@@ -768,7 +785,9 @@ func (p *Prompt) Input() string {
 				pongCh := make(chan []byte, 1)
 				stopReadBufCh <- pongCh
 				<-pongCh
-				stopHandleSignalCh <- struct{}{}
+				// Stopping both listeners since Input() is returning with a line.
+				stopExitHandleSignalCh <- struct{}{}
+				stopWinHandleSignalCh <- struct{}{}
 
 				return input.input
 			}
@@ -784,7 +803,11 @@ func (p *Prompt) Input() string {
 		case <-p.syncWakeCh:
 			p.render(false)
 
-		case w := <-winSizeCh:
+		case <-winSizeEventCh:
+			// Received a notification that the terminal size changed. The handler
+			// performs non-blocking notifications; the main loop is responsible
+			// for querying the current size from the reader and updating state.
+			w := p.reader.GetWinSize()
 			p.renderer.UpdateWinSize(w)
 			p.buffer.resetStartLine()
 			p.buffer.recalculateStartLine(p.renderer.UserInputColumns(), int(p.renderer.row))
@@ -974,7 +997,7 @@ func (p *Prompt) processBytesInShutdown(data []byte) bool {
 	return false
 }
 
-func (p *Prompt) shutdown(stopReadBufCh chan chan []byte, bufCh chan []byte, stopHandleSignalCh chan struct{}) {
+func (p *Prompt) shutdown(stopReadBufCh chan chan []byte, bufCh chan []byte, stopExitHandleSignalCh chan struct{}, stopWinHandleSignalCh chan struct{}) {
 	if !p.gracefulCloseEnabled {
 		p.renderer.BreakLine(p.buffer, p.lexer)
 
@@ -986,7 +1009,9 @@ func (p *Prompt) shutdown(stopReadBufCh chan chan []byte, bufCh chan []byte, sto
 		pongCh := make(chan []byte, 1)
 		stopReadBufCh <- pongCh
 		<-pongCh
-		stopHandleSignalCh <- struct{}{}
+		// Stopping both listeners since shutdown is proceeding immediately.
+		stopExitHandleSignalCh <- struct{}{}
+		stopWinHandleSignalCh <- struct{}{}
 		return
 	}
 
@@ -1050,7 +1075,9 @@ drainReaderLoop:
 finalize:
 	p.render(false)
 	p.renderer.BreakLine(p.buffer, p.lexer)
-	stopHandleSignalCh <- struct{}{}
+	// Stopping both listeners now that shutdown has finalized.
+	stopExitHandleSignalCh <- struct{}{}
+	stopWinHandleSignalCh <- struct{}{}
 }
 
 func (p *Prompt) setup() {
