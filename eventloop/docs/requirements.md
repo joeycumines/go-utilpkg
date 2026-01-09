@@ -44,6 +44,22 @@ StateTerminated (1)  → (terminal)
 
 **D01 (Critical):** `poll()` must use CAS to restore `StateSleeping` → `StateRunning`, NOT `Store(Awake)`. If CAS fails (state changed to `Terminating`), poll must return immediately without overwriting the termination state.
 
+### I-5. Loop Cycle (Tick Orchestration)
+
+Each tick MUST execute operations in this exact order:
+
+1. **Update Time:** Cache `time.Now()` at tick start (VII-1)
+2. **Run Timers:** Execute all expired timer callbacks (VI-B)
+3. **Process Ingress:** Internal first, then external (IV-3)
+4. **Microtask Barrier:** Drain all microtasks (VI)
+5. **Poll:** Block on I/O with calculated timeout (VIII)
+6. **Process I/O:** Execute ready I/O callbacks (VIII)
+7. **Microtask Barrier:** Drain all microtasks again (VI)
+
+**Failure Modes:**
+- Poll before Timers: Timer latency bugs
+- Ingress before Time Update: Stale timestamps
+
 ---
 
 ## II. Memory Safety Invariants
@@ -77,6 +93,8 @@ func returnChunk(c *chunk) {
 - Future modifications to `popLocked` that skip per-pop zeroing
 - Non-standard chunk returns (error handling/shutdown)
 - Corrupted `pos` values
+
+**Defense-in-Depth Requirement:** Clearing all 128 slots (not just `c.pos`) is MANDATORY to guard against: (a) corrupted `pos` values, (b) non-standard return paths during errors, (c) future modifications that skip per-pop zeroing.
 
 **P2 — FIFO Semantic Correctness**
 
@@ -234,6 +252,8 @@ This ensures that if the Loop is in the process of transitioning to sleep, the P
 
 If submitting a wake-up fails (e.g., syscall error), the `wakeUpSignalPending` flag must be cleared to allow subsequent retry attempts.
 
+**Wake-Up Retry Semantics (D07 Clarification):** `Submit` must **retry indefinitely** on transient errors (`EAGAIN`, `EINTR`) for the wake-up signal. It is UNSAFE to clear the pending flag on failure if other concurrent producers may have elided their signals.
+
 **Wake-Up Implementation:**
 
 - The `Loop Routine` must register the Wake-Up Primitive FD with the Poller
@@ -251,6 +271,8 @@ The Ingress Queue must support separate submission paths for external and intern
 
 - Subject to a **Hard Limit** (Tick Budget, e.g., 1024 tasks per tick)
 - If budget is exhausted or queue depth exceeds a High-Water Mark (e.g., 100k items), the Loop must emit a "System Overload" signal or return `ErrLoopOverloaded`
+
+**External Ingress Rejection Policy:** `Submit()` MUST reject new tasks with `ErrLoopTerminated` immediately once the loop transitions to `StateTerminating`. This ensures no new external work enters during shutdown while internal cleanup work continues.
 
 #### IV-1-B. Internal Ingress
 
@@ -274,6 +296,8 @@ In `processIngress()`, the loop must:
 1. **Drain ALL internal tasks FIRST** with **NO budget limit**
 2. Then process external tasks with the tick budget
 
+**Internal Queue Safety Valve:** While internal tasks have no budget limit, implementations SHOULD add a "Panic/Bailout" threshold (e.g., 100k internal tasks per tick) to detect runaway internal recursion and emit a diagnostic error.
+
 ### IV-4. Submission Semantics
 
 `Submit()` APIs must **not** block the caller waiting for the consumer to process queued items.
@@ -291,6 +315,8 @@ When the external tick budget is exhausted and tasks remain in the queue, the lo
 ## V. Shutdown Sequence (D16 - Critical)
 
 The shutdown sequence must strictly follow this order:
+
+**Stop() Idempotency (Critical):** The `Stop()` method MUST be idempotent and thread-safe. Multiple concurrent calls MUST all return correctly, utilizing `sync.Once` to ensure shutdown logic runs exactly once while all callers receive appropriate result (first caller gets actual result, subsequent callers get `ErrLoopTerminated`).
 
 ### V-1. Correct Order (Mandatory)
 
@@ -346,11 +372,13 @@ func (l *Loop) Stop(ctx context.Context) error {
 
 Shutdown must close all file descriptors opened by the loop:
 
-**Order:**
+**Order (Explicit):**
 
-1. **Stop Event Delivery:** Close poller (epfd/kq) FIRST
-2. **Close Wake Pipe FDs:** Then close wakePipe and wakePipeWrite
+1. **Stop Event Delivery:** Close poller (`epfd`/`kq`) **FIRST** to stop event emission
+2. **Close Wake Pipe FDs:** Close `wakePipe` and `wakePipeWrite` **AFTER** poller closed
 3. **Guard Against Double-Close:** Check if `wakePipeWrite != wakePipe` before closing the write FD separately
+
+**FD Initialization Guard:** `closeFDs()` must check if FDs are initialized (e.g., `> 0` or set to `-1` as sentinel) before closing. Alternatively, `New()` must initialize FDs to `-1` on failure paths.
 
 **Implementation:**
 
@@ -420,6 +448,16 @@ If `MaxMicrotaskBudget` is exceeded in the current tick:
 
 **Strict Mode:** If `StrictMicrotaskOrdering` is enabled, execute the **[Microtask Barrier]** after *every* individual callback.
 
+### VI-B. Timer Execution
+
+The `tick()` function MUST call `runTimers()` which:
+
+1. Reads current tick time
+2. Pops all expired timers from the timer heap
+3. Executes callbacks with microtask barriers after each timer callback
+
+**Failure Mode:** Without timer execution, all `setTimeout` equivalents silently fail; high-CPU spin once first timer expires.
+
 ---
 
 ## VII. Performance Requirements
@@ -448,6 +486,8 @@ Internal logic (timer expiration, timeout checks) must use this **Cached Tick Ti
 - Monotonic clock integrity (NTP jumps ignored)
 - Time reconstruction is correct
 
+**Reconstruction:** `CurrentTickTime() = tickAnchor.Add(time.Duration(tickOffset.Load()))`
+
 ### VII-2. Zero Allocation Hot Paths (D14 - Critical)
 
 The loop must avoid allocations on hot paths by reusing persistent buffers for poll and ingress processing.
@@ -457,6 +497,12 @@ The loop must avoid allocations on hot paths by reusing persistent buffers for p
 **Requirement:** Must NOT allocate a buffer on every wake-up.
 
 **Implementation:** Use a persistent `[8]byte` buffer stored in the `Loop` struct instead of `make([]byte, 8)` per call.
+
+**Wake Drain Error Handling:** The `wakeUpSignalPending` flag MUST ONLY be cleared if the pipe is successfully and completely drained. Behavior by error:
+- `EAGAIN`/`EWOULDBLOCK`: Successfully drained (empty pipe), clear flag
+- `EINTR`: Retry the read
+- `EBADF`: Shutdown in progress, do NOT clear flag
+- Other errors: Log and do NOT clear flag
 
 #### VII-2-B. Poll Event Buffers
 
@@ -509,6 +555,8 @@ This architecture targets **POSIX-compliant systems only** (Linux/BSD/macOS). Wi
 
 ### VIII-2. Lock Starvation Prevention (T10-C1 - Critical)
 
+**Buffer Immutability Constraint:** The `ioPoller.eventBuf` slice MUST be allocated with a fixed capacity at initialization and NEVER reallocated or swapped during the poller's lifetime.
+
 #### VIII-2-A. Problem
 
 If `pollIO` holds a lock during blocking `EpollWait`/`Kevent`, `RegisterFD` blocks for the entire sleep duration.
@@ -545,6 +593,8 @@ func (p *ioPoller) pollIO(timeout int, maxEvents int) error {
 
 - `RegisterFD`/`UnregisterFD` can proceed during blocking poll
 - Prevents lock starvation
+
+**Post-Syscall Liveness Check (Critical):** After re-acquiring the lock following the blocking syscall, `pollIO` MUST check if the poller has been closed. If closed, it must release the lock and return `ErrPollerClosed` immediately.
 
 ---
 
@@ -667,6 +717,15 @@ To avoid mutex contention and ensure sequential consistency (a requirement for d
 - Synchronous state mutation bypassing the microtask queue is forbidden to maintain predictable execution order and prevent priority inversion
 
 **Re-entrancy Check Implementation (D08):** `isLoopThread()` must reliably detect the loop thread identity so that `Start()` calls originating from inside the loop can be detected and prevented.
+
+---
+
+### X-4. Wake-Up Safety
+
+**Requirement:** Implementation must prevent `SIGPIPE` crashes during shutdown.
+
+* **Linux:** MUST use `eventfd` (returns `EBADF`/`EINVAL` on write-to-closed, not `SIGPIPE`).
+* **Darwin/BSD:** Preferred use of `EVFILT_USER` (no FD write). If using Self-Pipe, `write()` calls must handle `EPIPE` gracefully.
 
 ---
 
