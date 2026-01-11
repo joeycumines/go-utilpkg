@@ -40,7 +40,7 @@ StateTerminated (1)  → (terminal)
 
 ### I-4. Critical State Transition Constraints
 
-**D04 (Critical):** `Start()` must atomically transition the loop from `StateAwake` → `StateRunning` (CAS) to prevent multiple goroutines from concurrently executing the loop.
+**D04 (Critical):** `Run(ctx)` must atomically transition the loop from `StateAwake` → `StateRunning` (CAS) to prevent multiple goroutines from concurrently executing the loop.
 
 **D01 (Critical):** `poll()` must use CAS to restore `StateSleeping` → `StateRunning`, NOT `Store(Awake)`. If CAS fails (state changed to `Terminating`), poll must return immediately without overwriting the termination state.
 
@@ -57,6 +57,7 @@ Each tick MUST execute operations in this exact order:
 7. **Microtask Barrier:** Drain all microtasks again (VI)
 
 **Failure Modes:**
+
 - Poll before Timers: Timer latency bugs
 - Ingress before Time Update: Stale timestamps
 
@@ -316,7 +317,7 @@ When the external tick budget is exhausted and tasks remain in the queue, the lo
 
 The shutdown sequence must strictly follow this order:
 
-**Stop() Idempotency (Critical):** The `Stop()` method MUST be idempotent and thread-safe. Multiple concurrent calls MUST all return correctly, utilizing `sync.Once` to ensure shutdown logic runs exactly once while all callers receive appropriate result (first caller gets actual result, subsequent callers get `ErrLoopTerminated`).
+**Shutdown() Idempotency (Critical):** The `Shutdown(ctx)` method MUST be idempotent and thread-safe. Multiple concurrent calls MUST all return correctly, utilizing `sync.Once` to ensure shutdown logic runs exactly once while all callers receive appropriate result (first caller gets actual result, subsequent callers get `ErrLoopTerminated`).
 
 ### V-1. Correct Order (Mandatory)
 
@@ -329,11 +330,14 @@ The shutdown sequence must strictly follow this order:
 7. **Close All FDs:** Close wakePipe and wakePipeWrite (poller FIRST, then FDs)
 8. **Close Done Channel:** Signal loop completion
 
-### V-2. Incorrect Order (Causes Data Loss)
+### V-2. Close() Immediate Termination (D16 - Critical)
 
-The following order is **INCORRECT** and causes data loss:
+The `Close()` method implements immediate termination semantics, bypassing graceful shutdown:
 
-- ❌ `Ingress → Microtasks → Internal` (loses microtasks spawned by internal tasks)
+- ❌ Does NOT wait for in-flight work completion
+- ❌ Closes all FDs immediately
+- ❌ Drains remaining queues WITHOUT executing tasks
+- ❌ Rejects all pending promises with termination error
 
 **Data Loss Scenario (Wrong Order):**
 
@@ -342,29 +346,28 @@ The following order is **INCORRECT** and causes data loss:
 3. Task B (when run) submits Microtask C
 4. With wrong order: A runs → Microtasks drained (empty) → B runs → C queued → Shutdown completes → **C is lost**
 
-### V-3. Stop() on Unstarted Loop (D16 - Critical)
+### V-3. Shutdown() on Unstarted Loop (D16 - Critical)
 
-`Stop()` must handle the case where the loop was never started (i.e., `New()` was called but `Start()` was not):
+`Shutdown(ctx)` must handle the case where the loop was never started (i.e., `New()` was called but `Run(ctx)` was not):
 
-1. If the loop is in `StateAwake` when `Stop()` is called, `Stop()` must **NOT** block waiting for `<-l.done`
-2. `Stop()` must perform direct cleanup (close FDs, close `done` channel) and return immediately
+1. If the loop is in `StateAwake` when `Shutdown(ctx)` is called, `Shutdown()` must **NOT** block
+2. `Shutdown()` must perform direct cleanup (close FDs) and return immediately
 
-**Failure Mode:** Without this check, `Stop()` on an unstarted loop causes a permanent deadlock because `run()` (which closes `done`) was never invoked.
+**Failure Mode:** Without this check, `Shutdown()` on an unstarted loop causes a permanent deadlock.
 
 **Implementation:**
 
 ```go
 package example
 
-func (l *Loop) Stop(ctx context.Context) error {
+func (l *Loop) Shutdown(ctx context.Context) error {
 	oldState := l.state.Swap(StateTerminating)
 	if oldState == StateAwake {
 		// Loop was never started, clean up directly
 		l.closeFDs()
-		close(l.done)
 		return nil
 	}
-	// ... existing wait logic for running loop
+	// ... existing wait logic for running loop with context timeout
 }
 ```
 
@@ -499,6 +502,7 @@ The loop must avoid allocations on hot paths by reusing persistent buffers for p
 **Implementation:** Use a persistent `[8]byte` buffer stored in the `Loop` struct instead of `make([]byte, 8)` per call.
 
 **Wake Drain Error Handling:** The `wakeUpSignalPending` flag MUST ONLY be cleared if the pipe is successfully and completely drained. Behavior by error:
+
 - `EAGAIN`/`EWOULDBLOCK`: Successfully drained (empty pipe), clear flag
 - `EINTR`: Retry the read
 - `EBADF`: Shutdown in progress, do NOT clear flag
@@ -712,11 +716,11 @@ To avoid mutex contention and ensure sequential consistency (a requirement for d
 
 **Requirements:**
 
-- The API must detect if `Loop.Start()` is called from within the Loop itself and return an error or no-op
+- The API must detect if `Loop.Run(ctx)` is called from within the Loop itself and return an error or no-op
 - All Promise resolution must be asynchronous and queued to the microtask queue
 - Synchronous state mutation bypassing the microtask queue is forbidden to maintain predictable execution order and prevent priority inversion
 
-**Re-entrancy Check Implementation (D08):** `isLoopThread()` must reliably detect the loop thread identity so that `Start()` calls originating from inside the loop can be detected and prevented.
+**Re-entrancy Check Implementation (D08):** `isLoopThread()` must reliably detect the loop thread identity so that `Run()` calls originating from inside the loop can be detected and prevented.
 
 ---
 
@@ -740,7 +744,7 @@ var (
 	ErrLoopAlreadyRunning = errors.New("eventloop: already running")
 	ErrLoopTerminated     = errors.New("eventloop: terminated")
 	ErrLoopOverloaded     = errors.New("eventloop: overloaded")
-	ErrReentrantStart     = errors.New("eventloop: reentrant Start() call from loop thread")
+	ErrReentrantRun       = errors.New("eventloop: reentrant Run() call from loop thread")
 )
 ```
 
@@ -793,7 +797,7 @@ var (
 | D01  | poll() Zombie Prevention (CAS-based state transitions) |
 | D02  | Budget Breach Non-Blocking Poll                        |
 | D03  | Check-Then-Sleep Protocol / Lost Wake-up Fix           |
-| D04  | Atomic State Machine (Start() CAS)                     |
+| D04  | Atomic State Machine (Run(ctx) CAS)                    |
 | D05  | Promisify Single-Owner (SubmitInternal resolution)     |
 | D06  | Panic Isolation (safeExecute wrapper)                  |
 | D07  | Wake-Up Signal Safety (clear on failure)               |
@@ -805,7 +809,7 @@ var (
 | D13  | Task Slot Zeroing (scavenge settled + nil)             |
 | D14  | Zero Allocation Hot Paths (buffer reuse)               |
 | D15  | Scavenge Rate (per-tick with batch)                    |
-| D16  | Graceful Shutdown (RejectAll + correct order)          |
+| D16  | Graceful Shutdown (Shutdown(ctx) + correct order)      |
 | D17  | Ingress Budget / ErrLoopOverloaded                     |
 | D18  | Time Freshness (start-of-tick update)                  |
 | D19  | ToChannel Non-Blocking Send                            |
@@ -815,23 +819,24 @@ var (
 
 ## XIV. Summary Checklist
 
-| Component           | Critical Requirement                                                     | Failure Mode if Ignored                                                     |
-|---------------------|--------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| **State Machine**   | Exact numeric values (0-4), CAS for temporary states                     | Contract violation / State corruption                                       |
-| **Microtasks**      | Drain after **every** callback (not just phases).                        | Priority Inversion / Latency Spikes.                                        |
-| **Ingress**         | Chunked MPSC + **Backpressure** / High-Water Mark.                       | OOM Crash or Deadlock.                                                      |
-| **Ingress**         | **Check-Then-Sleep Protocol** (Double-Check Memory Barrier)              | **TOCTOU Race** (Lost wake-ups / Indefinite sleep).                         |
-| **Ingress**         | Priority Lanes (Internal Bypass)                                         | **Deadlock** (Internal results dropped on load).                            |
-| **GC**              | Use **`weak.Pointer`** for Registry/Cycles.                              | Memory Leaks (Zombies).                                                     |
-| **GC**              | **Hybrid Ring-Renewal Strategy** (Deterministic Discovery + Map Renewal) | **Memory Leak** (Scavenger Lottery + Bucket Ghost).                         |
-| **I/O Barrier**     | **Batching Strategy** (Default batch, Strict mode per-callback)          | **Cache Locality Loss** (Chatty Barrier) or **Starvation** (Over-batching). |
-| **Budget Breach**   | **Non-Blocking Poll** (timeout=0) when exceeded                          | **Liveness Hazard** (Queue non-empty during sleep).                         |
-| **Pooling**         | Pool **Internals Only** (Nodes/Tasks).                                   | Data Corruption (Race on Stale Ptrs).                                       |
-| **Poller Lock**     | Release RLock before blocking syscall                                    | **Lock starvation** (RegisterFD blocks during poll).                        |
-| **Poller Callback** | Collect then Execute (re-entrancy safe)                                  | **Deadlock** (Callback calls UnregisterFD).                                 |
-| **Hot Paths**       | **Zero Allocation** (persistent buffers for poll/ingress)                | **GC Pressure** (Allocation every tick).                                    |
-| **Await**           | **Unique Channel Ownership** (NEW channel per call)                      | **Race Conditions** (Multiple consumers deadlock).                          |
-| **Await**           | **Non-Blocking Send** (Drop on full + Warn)                              | **Deadlock** (Loop blocks on slow consumer).                                |
-| **Promisify**       | **Context Injection** + **Weak Pointer Precision**                       | **Cancellation Impossible** / **Type Safety Violation**.                    |
-| **Shutdown Order**  | **Ingress → Internal → Microtasks → RejectAll**                          | **Data Loss** (Microtasks from internal tasks lost).                        |
-| **Workers**         | **Panic Recovery** -> Result                                             | **Hanging Promise** (User await never returns).                             |
+| Component                 | Critical Requirement                                                     | Failure Mode if Ignored                                                     |
+|---------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| **State Machine**         | Exact numeric values (0-4), CAS for temporary states                     | Contract violation / State corruption                                       |
+| **Microtasks**            | Drain after **every** callback (not just phases).                        | Priority Inversion / Latency Spikes.                                        |
+| **Ingress**               | Chunked MPSC + **Backpressure** / High-Water Mark.                       | OOM Crash or Deadlock.                                                      |
+| **Ingress**               | **Check-Then-Sleep Protocol** (Double-Check Memory Barrier)              | **TOCTOU Race** (Lost wake-ups / Indefinite sleep).                         |
+| **Ingress**               | Priority Lanes (Internal Bypass)                                         | **Deadlock** (Internal results dropped on load).                            |
+| **GC**                    | Use **`weak.Pointer`** for Registry/Cycles.                              | Memory Leaks (Zombies).                                                     |
+| **GC**                    | **Hybrid Ring-Renewal Strategy** (Deterministic Discovery + Map Renewal) | **Memory Leak** (Scavenger Lottery + Bucket Ghost).                         |
+| **I/O Barrier**           | **Batching Strategy** (Default batch, Strict mode per-callback)          | **Cache Locality Loss** (Chatty Barrier) or **Starvation** (Over-batching). |
+| **Budget Breach**         | **Non-Blocking Poll** (timeout=0) when exceeded                          | **Liveness Hazard** (Queue non-empty during sleep).                         |
+| **Pooling**               | Pool **Internals Only** (Nodes/Tasks).                                   | Data Corruption (Race on Stale Ptrs).                                       |
+| **Poller Lock**           | Release RLock before blocking syscall                                    | **Lock starvation** (RegisterFD blocks during poll).                        |
+| **Poller Callback**       | Collect then Execute (re-entrancy safe)                                  | **Deadlock** (Callback calls UnregisterFD).                                 |
+| **Hot Paths**             | **Zero Allocation** (persistent buffers for poll/ingress)                | **GC Pressure** (Allocation every tick).                                    |
+| **Await**                 | **Unique Channel Ownership** (NEW channel per call)                      | **Race Conditions** (Multiple consumers deadlock).                          |
+| **Await**                 | **Non-Blocking Send** (Drop on full + Warn)                              | **Deadlock** (Loop blocks on slow consumer).                                |
+| **Promisify**             | **Context Injection** + **Weak Pointer Precision**                       | **Cancellation Impossible** / **Type Safety Violation**.                    |
+| **Shutdown Order**        | **Ingress → Internal → Microtasks → RejectAll**                          | **Data Loss** (Microtasks from internal tasks lost).                        |
+| **Graceful vs Immediate** | **Shutdown(ctx) for graceful, Close() for immediate**                    | **Resource Leak** (FDs not closed on timeout).                              |
+| **Workers**               | **Panic Recovery** -> Result                                             | **Hanging Promise** (User await never returns).                             |
