@@ -33,9 +33,12 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	// Submit some tasks to keep loop busy
 	for i := 0; i < 100; i++ {
@@ -64,7 +67,7 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 			stopCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 
-			err := loop.Stop(stopCtx)
+			err := loop.Shutdown(stopCtx)
 			if err != nil && err != context.DeadlineExceeded {
 				// ErrLoopTerminated is expected for subsequent callers
 				errors.Add(1)
@@ -137,9 +140,12 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var stopCompleted atomic.Int64
@@ -180,7 +186,7 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 			stopCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 
-			_ = loop.Stop(stopCtx)
+			_ = loop.Shutdown(stopCtx)
 			stopCompleted.Add(1)
 		}()
 	}
@@ -197,6 +203,7 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 	case <-time.After(timeout + 5*time.Second):
 		t.Fatal("Test hung")
 	}
+	runWg.Wait()
 
 	passed := stopCompleted.Load() == numStoppers && !panicked.Load()
 
@@ -255,9 +262,12 @@ func testConcurrentStopRepeated(t *testing.T, impl Implementation) {
 			}
 
 			ctx := context.Background()
-			if err := loop.Start(ctx); err != nil {
-				t.Fatalf("Failed to start loop: %v", err)
-			}
+			var runWg sync.WaitGroup
+			runWg.Add(1)
+			go func() {
+				loop.Run(ctx)
+				runWg.Done()
+			}()
 
 			// Brief work
 			_ = loop.Submit(func() {})
@@ -270,7 +280,7 @@ func testConcurrentStopRepeated(t *testing.T, impl Implementation) {
 					defer wg.Done()
 					stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 					defer cancel()
-					_ = loop.Stop(stopCtx)
+					_ = loop.Shutdown(stopCtx)
 				}()
 			}
 			wg.Wait()

@@ -27,9 +27,12 @@ func benchmarkGCPressure(b *testing.B, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -64,7 +67,8 @@ func benchmarkGCPressure(b *testing.B, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	result := BenchmarkResult{
 		BenchmarkName:  "GCPressure",
@@ -101,9 +105,12 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var executed atomic.Int64
 	var rejected atomic.Int64
@@ -153,7 +160,8 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	exec := executed.Load()
 	rej := rejected.Load()
@@ -198,9 +206,12 @@ func benchmarkGCPressureAllocations(b *testing.B, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	// Warm up
 	warmupDone := make(chan struct{})
@@ -229,7 +240,8 @@ func benchmarkGCPressureAllocations(b *testing.B, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	// Note: ReportAllocs will show allocs/op in benchmark output
 	result := BenchmarkResult{
@@ -271,9 +283,12 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 		}
 
 		ctx := context.Background()
-		if err := loop.Start(ctx); err != nil {
-			t.Fatalf("Failed to start loop: %v", err)
-		}
+		var runWg sync.WaitGroup
+		runWg.Add(1)
+		go func() {
+			loop.Run(ctx)
+			runWg.Done()
+		}()
 
 		var wg sync.WaitGroup
 		for i := 0; i < tasksPerIteration; i++ {
@@ -285,7 +300,8 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 		wg.Wait()
 
 		stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		_ = loop.Stop(stopCtx)
+		_ = loop.Shutdown(stopCtx)
+		runWg.Wait()
 		cancel()
 
 		// Force GC and measure memory

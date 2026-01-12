@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// ErrLoopAlreadyRunning is returned when Start() is called on a loop that is already running.
+	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
 	ErrLoopAlreadyRunning = errors.New("eventloop: loop is already running")
 
 	// ErrLoopTerminated is returned when operations are attempted on a terminated loop.
@@ -27,8 +27,8 @@ var (
 	// ErrLoopOverloaded is returned when the external queue exceeds the tick budget.
 	ErrLoopOverloaded = errors.New("eventloop: loop is overloaded")
 
-	// ErrReentrantStart is returned when Start() is called from within the loop itself.
-	ErrReentrantStart = errors.New("eventloop: cannot call Start() from within the loop")
+	// ErrReentrantRun is returned when Run() is called from within the loop itself.
+	ErrReentrantRun = errors.New("eventloop: cannot call Run() from within the loop")
 )
 
 // loopTestHooks provides injection points for deterministic race testing.
@@ -45,7 +45,7 @@ type loopTestHooks struct {
 // The Loop routine owns exclusive write access to most Loop fields.
 // External callers must use the thread-safe Submit/Schedule APIs.
 // The Loop state variable is accessed atomically by both producers and consumers.
-type Loop struct {
+type Loop struct { // betteralign:ignore
 
 	// No copying allowed
 	_ [0]func()
@@ -62,9 +62,6 @@ type Loop struct {
 
 	// D17: Overload callback
 	OnOverload func(error)
-
-	// done is closed when the loop has fully terminated
-	done chan struct{}
 
 	// === Slice fields (24 bytes each: pointer + len + cap) ===
 
@@ -103,6 +100,10 @@ type Loop struct {
 
 	// stopOnce ensures Stop() is idempotent across multiple goroutines
 	stopOnce sync.Once
+
+	// loopDone signals loop termination to shutdown waiters.
+	// Created in New(), closed when run() returns.
+	loopDone chan struct{}
 
 	// Mutex fields (start on 8-byte boundary)
 	ingressMu  sync.Mutex
@@ -168,11 +169,12 @@ func New() (*Loop, error) {
 	loop := &Loop{
 		wakePipe:      wakeFd,
 		wakePipeWrite: wakeWriteFd,
-		done:          make(chan struct{}),
 		registry:      newRegistry(),
 		// Initialize slices with modest capacity
 		microtasks: make([]Task, 0, 64),
 		timers:     make(timerHeap, 0),
+		// Initialize loopDone here to avoid data race with shutdownImpl
+		loopDone: make(chan struct{}),
 	}
 	loop.state.Store(int32(StateAwake))
 	loop.wakeUpSignalPending.Store(0)
@@ -202,17 +204,25 @@ func New() (*Loop, error) {
 	return loop, nil
 }
 
-// Start begins running the event loop in a new goroutine.
+// Run begins running the event loop and blocks until it fully stops.
 // It returns an error if the loop is already running or if called recursively.
 //
 // # Thread Pinning
 //
 // The loop goroutine calls runtime.LockOSThread() to prevent scheduler migration
 // and maximize cache locality.
-func (l *Loop) Start(ctx context.Context) error {
-	// Re-entrancy check: ensure we're not calling Start() from within the loop
+//
+// # Blocking Semantics
+//
+// Run() blocks until the loop fully terminates (via Shutdown() or Close()).
+// To run the loop in a separate goroutine, wrap in a goroutine:
+//
+//	go loop.Run(ctx)
+//	loop.Shutdown(ctx) // later
+func (l *Loop) Run(ctx context.Context) error {
+	// Re-entrancy check: ensure we're not calling Run() from within the loop
 	if l.isLoopThread() {
-		return ErrReentrantStart
+		return ErrReentrantRun
 	}
 
 	// D04: Use CAS to transition from StateAwake to StateRunning
@@ -227,17 +237,21 @@ func (l *Loop) Start(ctx context.Context) error {
 		return ErrLoopAlreadyRunning
 	}
 
-	// T5 FIX: Initialize the Monotonic Anchor before starting the loop goroutine.
+	// T5 FIX: Initialize the Monotonic Anchor before running the loop.
 	// This captures the monotonic clock reference. Read-only after this point.
 	l.tickAnchor = time.Now()
 
-	// Start loop routine
-	go l.run(ctx)
+	// Close loopDone when run exits to signal completion to Shutdown waiters
+	// The channel is created in New() to avoid a data race with shutdownImpl
+	defer close(l.loopDone)
+
+	// Run the loop directly (blocking) - no goroutine spawn
+	l.run(ctx)
 
 	return nil
 }
 
-// Stop gracefully shuts down the event loop.
+// Shutdown gracefully shuts down the event loop.
 //
 // # Graceful Shutdown Protocol
 //
@@ -248,33 +262,36 @@ func (l *Loop) Start(ctx context.Context) error {
 // 5. Respect ctx.Done() timeout
 // 6. Loop goroutine exits gracefully
 //
-// # Defect 2 Fix: Stop on unstarted loop
-// If the loop was never started (StateAwake), Stop() closes the done channel
-// directly instead of waiting indefinitely for run() which never started.
-// Stop initiates graceful shutdown of the event loop.
+// # Blocking Semantics
 //
-// It is safe to call Stop() from multiple goroutines concurrently.
+// Shutdown() blocks until the loop fully terminates. If the loop is running
+// in a separate goroutine (via `go loop.Run(ctx)`), Shutdown() will wait for
+// that goroutine to complete.
+//
+// # Idempotence
+//
+// It is safe to call Shutdown() from multiple goroutines concurrently.
 // Only the first caller will perform the actual shutdown; subsequent
 // callers will wait for the loop to terminate and return nil.
 //
 // If ctx cancels before termination completes, ctx.Err() is returned.
 // The loop continues shutting down in the background.
-func (l *Loop) Stop(ctx context.Context) error {
-	var stopErr error
+func (l *Loop) Shutdown(ctx context.Context) error {
+	var shutdownErr error
 	l.stopOnce.Do(func() {
-		stopErr = l.stopImpl(ctx)
+		shutdownErr = l.shutdownImpl(ctx)
 	})
 
-	if stopErr == nil && l.state.Load() != int32(StateTerminated) {
-		// Already stopped by another caller (stopOnce.Do ran but didn't complete)
+	if shutdownErr == nil && l.state.Load() != int32(StateTerminated) {
+		// Already shutting down by another caller (stopOnce.Do ran but didn't complete)
 		return ErrLoopTerminated
 	}
-	return stopErr
+	return shutdownErr
 }
 
-// stopImpl contains the actual Stop() implementation.
+// shutdownImpl contains the actual Shutdown() implementation.
 // Called via stopOnce.Do() to ensure idempotence.
-func (l *Loop) stopImpl(ctx context.Context) error {
+func (l *Loop) shutdownImpl(ctx context.Context) error {
 	// Attempt to transition to Terminating state
 	for {
 		currentState := LoopState(l.state.Load())
@@ -283,13 +300,11 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 		}
 
 		if l.state.CompareAndSwap(int32(currentState), int32(StateTerminating)) {
-			// Defect 2 Fix: If loop was never started (StateAwake), clean up directly
+			// Special case: Unstarted loop (StateAwake)
+			// If we CAS from Awake -> Terminating, Run() cannot succeed
 			if currentState == StateAwake {
-				// Loop was never started, run() never executed
-				// Set final state, close FDs, close done channel directly
 				l.state.Store(int32(StateTerminated))
 				l.closeFDs()
-				close(l.done)
 				return nil
 			}
 
@@ -301,9 +316,15 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 		}
 	}
 
-	// Wait for termination or timeout
+	// Handle nil channel edge case: Run() was never called
+	// This should already be handled above (StateAwake case), but defensive check
+	if l.loopDone == nil {
+		return nil
+	}
+
+	// Wait for termination via channel, NOT polling
 	select {
-	case <-l.done:
+	case <-l.loopDone:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -443,11 +464,10 @@ func (l *Loop) shutdown() {
 	// These are promises that were never resolved during shutdown
 	l.registry.RejectAll(ErrLoopTerminated)
 
-	// 9. Defect 3/7 Fix: Close wake FDs before signaling waiters
+	// 9. Defect 3/7 Fix: Close wake FDs
 	l.closeFDs()
 
-	// 10. Finalize - signal waiters
-	close(l.done)
+	// 10. Loop goroutine will naturally return to Run() caller
 }
 
 // closeFDs closes the wake-up file descriptors and I/O poller.
@@ -468,6 +488,49 @@ func (l *Loop) closeFDs() {
 	if l.wakePipeWrite != l.wakePipe {
 		_ = unix.Close(l.wakePipeWrite)
 	}
+}
+
+// Close immediately terminates the event loop without waiting for graceful shutdown.
+// This implements the io.Closer interface.
+//
+// # Immediate Termination
+//
+// Unlike Shutdown() which gracefully drains queues and respects timeouts,
+// Close() transitions to Terminating immediately, closes file descriptors without
+// waiting, and allows the loop to exit as soon as possible.
+//
+// # Use Case
+//
+// Use Close() in emergency situations where waiting for graceful shutdown
+// (via Shutdown()) is not acceptable, such as:
+// - Process termination signal handling
+// - Fatal error conditions
+// - Timeout scenarios
+//
+// # Error Handling
+//
+// If the loop is already terminated (StateTerminated), Close() returns ErrLoopTerminated.
+// Otherwise, it initiates termination and returns nil.
+func (l *Loop) Close() error {
+	for {
+		currentState := LoopState(l.state.Load())
+		if currentState == StateTerminated {
+			return ErrLoopTerminated
+		}
+
+		if l.state.CompareAndSwap(int32(currentState), int32(StateTerminating)) {
+			// If sleeping, wake up to process termination
+			if currentState == StateSleeping {
+				_ = l.submitWakeup()
+			}
+			break
+		}
+	}
+
+	// Close FDs immediately - don't wait for loop to drain
+	l.closeFDs()
+
+	return nil
 }
 
 // tick is a single iteration of the event loop cycle.
@@ -845,9 +908,6 @@ func (l *Loop) submitWakeup() error {
 // This prevents "task creep" where new work keeps arriving during shutdown.
 // Internal tasks (via SubmitInternal) continue to be accepted until StateTerminated.
 //
-// If you need to submit a task during shutdown (e.g., for cleanup that MUST run),
-// use SubmitTerminating() instead.
-//
 // If the loop is already terminated (StateTerminated), returns ErrLoopTerminated.
 func (l *Loop) Submit(task Task) error {
 	// Enqueue first (Write) - Protected by mutex
@@ -873,43 +933,6 @@ func (l *Loop) Submit(task Task) error {
 		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
 			// We successfully claimed the wake-up responsibility
 			// D07: Clear flag on failure to prevent signal loss
-			if err := l.submitWakeup(); err != nil {
-				l.wakeUpSignalPending.Store(0)
-			}
-		}
-	}
-
-	return nil
-}
-
-// SubmitTerminating enqueues a task that is allowed during shutdown.
-//
-// Unlike Submit(), this method accepts tasks during StateTerminating.
-// Only rejects when the loop has fully terminated (StateTerminated).
-//
-// **Use Case**: Cleanup tasks that MUST run during graceful shutdown.
-// For example: closing network connections, flushing buffers, etc.
-//
-// WARNING: SubmitTerminating() tasks will be processed before the loop
-// fully terminates, so they execute quickly. Avoid long-running work.
-//
-// If the loop is already terminated (StateTerminated), returns ErrLoopTerminated.
-func (l *Loop) SubmitTerminating(task Task) error {
-	l.ingressMu.Lock()
-
-	// Only reject on StateTerminated - allow StateTerminating
-	currentState := LoopState(l.state.Load())
-	if currentState == StateTerminated {
-		l.ingressMu.Unlock()
-		return ErrLoopTerminated
-	}
-
-	l.ingress.Push(task)
-	l.ingressMu.Unlock()
-
-	// Wake up if sleeping
-	if l.state.Load() == int32(StateSleeping) {
-		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
 			if err := l.submitWakeup(); err != nil {
 				l.wakeUpSignalPending.Store(0)
 			}

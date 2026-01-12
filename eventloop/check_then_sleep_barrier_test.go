@@ -33,11 +33,26 @@ func TestMutexBarrierProtocol(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start the loop
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	// Start the loop in a goroutine since Run() is blocking
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Give the loop time to enter its run routine
 	time.Sleep(10 * time.Millisecond)
@@ -74,10 +89,25 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Wait for loop to start
 	time.Sleep(10 * time.Millisecond)
@@ -163,10 +193,25 @@ func TestWakeUpDeduplication(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Wait for loop to start and enter sleeping state
 	time.Sleep(20 * time.Millisecond)
@@ -249,10 +294,25 @@ func TestTOCTOURacePrevention(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Wait for initialization
 	time.Sleep(10 * time.Millisecond)
@@ -357,10 +417,25 @@ func TestMultipleProducersNoRedundantSyscalls(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if err := loop.Start(ctx); err != nil {
-				t.Fatalf("Start() failed: %v", err)
-			}
-			defer cancel()
+			runDone := make(chan struct{})
+			errChan := make(chan error, 1)
+			go func() {
+				if err := loop.Run(ctx); err != nil {
+					errChan <- err
+					return
+				}
+				close(runDone)
+			}()
+			defer func() {
+				cancel()
+				loop.Shutdown(context.Background())
+				<-runDone
+				select {
+				case err := <-errChan:
+					t.Fatalf("Run() failed: %v", err)
+				default:
+				}
+			}()
 
 			// Wait for loop to be ready
 			time.Sleep(10 * time.Millisecond)
@@ -438,10 +513,25 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Track state transitions using simple counter instead of atomic.Int64 (sync.Map doesn't allow atomic types)
 	var stateTransitions sync.Map
@@ -516,10 +606,25 @@ func TestBarrierProtocolUnderStress(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	const numGoroutines = 200
 	const iterationsPerGoroutine = 100
@@ -567,10 +672,25 @@ func TestWriteThenCheckProtocol(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Verify Write-Then-Check ordering
 	var enqueueOccurred atomic.Bool
@@ -638,10 +758,25 @@ func TestCheckThenSleepNoLostWakeups(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Track submitted and "processed" tasks
 	const numProducers = 100

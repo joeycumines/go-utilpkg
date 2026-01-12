@@ -42,11 +42,25 @@ func TestPriorityLane_InternalBypassesBudget(t *testing.T) {
 		record("internal-priority")
 	}})
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	// Run in goroutine since Run() is blocking
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
 
 	time.Sleep(500 * time.Millisecond)
+
+	// Check for errors
+	select {
+	case err := <-errChan:
+		t.Fatal(err)
+	default:
+	}
 
 	orderMu.Lock()
 	defer orderMu.Unlock()

@@ -28,7 +28,7 @@ import (
 //
 // The Loop is thread-safe. External callers use Submit/SubmitInternal/ScheduleTimer.
 // The loop goroutine owns exclusive access to most internal state.
-type Loop struct {
+type Loop struct { // betteralign:ignore
 	// No copying allowed
 	_ [0]func()
 
@@ -42,7 +42,9 @@ type Loop struct {
 	shutdownMgr *ShutdownManager  // Shutdown management
 	OnError     func(*LoopError)  // Error handler (optional)
 	OnPanic     func(*PanicError) // Panic handler (optional)
-	done        chan struct{}     // Done channel for shutdown coordination
+
+	// loopDone signals loop termination
+	loopDone chan struct{}
 
 	// Timers (slice: 24 bytes)
 	timers timerHeap
@@ -59,8 +61,11 @@ type Loop struct {
 	wakePipe      int
 	wakePipeWrite int
 
+	// Loop ID for debugging
+	id uint64
+
 	// Mutexes together
-	stopOnce sync.Once
+	shutOnce sync.Once
 	timersMu sync.Mutex
 
 	// 4-byte atomic and 4 bytes padding
@@ -68,9 +73,6 @@ type Loop struct {
 
 	// 8-byte array
 	wakeBuf [8]byte
-
-	// Loop ID for debugging
-	id uint64
 }
 
 // timer represents a scheduled task
@@ -117,11 +119,13 @@ func NewWithObserver(observer StateObserver) (*Loop, error) {
 		id:      loopIDCounter.Add(1),
 		state:   NewSafeStateMachine(observer),
 		ingress: NewSafeIngress(),
-		done:    make(chan struct{}),
 		timers:  make(timerHeap, 0),
 
 		wakePipe:      wakeFd,
 		wakePipeWrite: wakeWriteFd,
+
+		// Initialize loopDone here to avoid data race with shutdownImpl
+		loopDone: make(chan struct{}),
 	}
 
 	// Initialize poller
@@ -151,14 +155,19 @@ func NewWithObserver(observer StateObserver) (*Loop, error) {
 	return loop, nil
 }
 
-// Start begins running the event loop in a new goroutine.
+// Run begins running the event loop and blocks until the loop is fully stopped.
+//
+// Run returns only when:
+// 1. The context is canceled (initiates shutdown)
+// 2. Shutdown() is called (graceful shutdown)
+// 3. Close() is called (immediate termination)
 //
 // SAFETY: Uses strict state transition validation.
-// Returns error on invalid transition.
-func (l *Loop) Start(ctx context.Context) error {
+// Returns error on invalid transition or context cancellation.
+func (l *Loop) Run(ctx context.Context) error {
 	// Re-entrancy check
 	if l.isLoopThread() {
-		return ErrReentrantStart
+		return ErrReentrantRun
 	}
 
 	// SAFETY: Strict transition validation - will panic on invalid transition
@@ -170,23 +179,33 @@ func (l *Loop) Start(ctx context.Context) error {
 		return ErrLoopAlreadyRunning
 	}
 
+	// Close loopDone when run exits to signal completion to Shutdown waiters
+	// The channel is created in New() to avoid a data race with shutdownImpl
+	defer close(l.loopDone)
+
 	// Initialize monotonic anchor
 	l.tickAnchor = time.Now()
 
-	// Start loop goroutine
-	go l.run(ctx)
-
-	return nil
+	// Run the loop directly (blocking, NOT in goroutine)
+	return l.run(ctx)
 }
 
-// Stop gracefully shuts down the event loop.
+// Shutdown gracefully shuts down the event loop.
+//
+// Shutdown initiates a graceful shutdown that:
+// 1. Rejects new submissions (Submit returns ErrLoopTerminated)
+// 2. Processes all queued tasks
+// 3. Drains FD registrations
+// 4. Closes file descriptors
+// 5. Blocks until termination completes
+//
+// Shutdown is idempotent and safe to call multiple times or concurrently with Close.
 //
 // SAFETY: Uses sync.Once for idempotence.
-// Guaranteed single execution of shutdown sequence.
-func (l *Loop) Stop(ctx context.Context) error {
+func (l *Loop) Shutdown(ctx context.Context) error {
 	var result error
-	l.stopOnce.Do(func() {
-		result = l.stopImpl(ctx)
+	l.shutOnce.Do(func() {
+		result = l.shutdownImpl(ctx)
 	})
 	if result == nil && l.state.Load() != StateTerminated {
 		return ErrLoopTerminated // Subsequent callers
@@ -194,8 +213,8 @@ func (l *Loop) Stop(ctx context.Context) error {
 	return result
 }
 
-// stopImpl contains the actual Stop implementation.
-func (l *Loop) stopImpl(ctx context.Context) error {
+// shutdownImpl contains the actual Shutdown implementation.
+func (l *Loop) shutdownImpl(ctx context.Context) error {
 	// Attempt to transition to Terminating
 	for {
 		currentState := l.state.Load()
@@ -209,7 +228,6 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 			if currentState == StateAwake {
 				l.state.ForceTerminated()
 				l.closeFDs()
-				close(l.done)
 				return nil
 			}
 
@@ -221,17 +239,17 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 		}
 	}
 
-	// Wait for termination or timeout
+	// Wait for termination via channel, NOT polling
 	select {
-	case <-l.done:
+	case <-l.loopDone:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-// run is the main loop goroutine.
-func (l *Loop) run(ctx context.Context) {
+// run is the main loop. It blocks until termination.
+func (l *Loop) run(ctx context.Context) error {
 	// Pin to OS thread
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -241,6 +259,16 @@ func (l *Loop) run(ctx context.Context) {
 	defer l.loopGoroutineID.Store(0)
 
 	for {
+		// Early termination check
+		state := l.state.Load()
+		if state == StateTerminating || state == StateTerminated {
+			if state == StateTerminated {
+				return nil
+			}
+			l.shutdown(ctx)
+			return nil
+		}
+
 		// Check context
 		select {
 		case <-ctx.Done():
@@ -256,14 +284,9 @@ func (l *Loop) run(ctx context.Context) {
 						break
 					}
 				}
+				return ctx.Err()
 			}
 		default:
-		}
-
-		// Check for termination
-		if l.state.Load() == StateTerminating {
-			l.shutdown(ctx)
-			return
 		}
 
 		l.tick(ctx)
@@ -281,15 +304,19 @@ func (l *Loop) shutdown(ctx context.Context) {
 	// Set final state
 	l.state.ForceTerminated()
 
-	// Close ingress
-	l.ingress.Close()
-
-	// Signal done
-	close(l.done)
+	// Close ingress (if not already closed by Close())
+	if !l.ingress.IsClosed() {
+		l.ingress.Close()
+	}
 }
 
 // tick is a single iteration of the event loop.
 func (l *Loop) tick(ctx context.Context) {
+	// Check for termination early
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
+
 	l.tickCount.Add(1)
 
 	// Update tick time
@@ -298,17 +325,42 @@ func (l *Loop) tick(ctx context.Context) {
 	// Run expired timers
 	l.runTimers()
 
+	// Check for termination
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
+
 	// Process internal tasks (priority)
 	l.processInternal()
+
+	// Check for termination
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
 
 	// Process external tasks
 	l.processExternal(ctx)
 
+	// Check for termination
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
+
 	// Process microtasks
 	l.processMicrotasks()
 
+	// Check for termination
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
+
 	// Poll for I/O with Check-Then-Sleep protocol
 	l.poll(ctx)
+
+	// Check for termination
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		return
+	}
 
 	// Final microtask pass
 	l.processMicrotasks()
@@ -320,6 +372,12 @@ func (l *Loop) runTimers() {
 
 	l.timersMu.Lock()
 	for len(l.timers) > 0 {
+		// Check for termination between timer executions
+		if l.state.Load() == StateTerminating {
+			l.timersMu.Unlock()
+			return
+		}
+
 		if l.timers[0].when.After(now) {
 			break
 		}
@@ -402,8 +460,10 @@ func (l *Loop) poll(ctx context.Context) {
 	_, err := l.poller.PollIO(timeout)
 	if err != nil {
 		log.Printf("alternateone: pollIO error: %v", err)
-		// Initiate shutdown on poll failure
-		l.state.Transition(StateSleeping, StateTerminating)
+	}
+
+	// Check for termination (may have been called while polling)
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
 		return
 	}
 
@@ -603,12 +663,52 @@ func getGoroutineID() uint64 {
 	return id
 }
 
-// Done returns a channel that is closed when the loop terminates.
-func (l *Loop) Done() <-chan struct{} {
-	return l.done
-}
-
 // State returns the current loop state.
 func (l *Loop) State() LoopState {
 	return l.state.Load()
+}
+
+// Close immediately terminates the event loop.
+//
+// Close is NOT graceful. It:
+// 1. Transitions to Terminating immediately
+// 2. Wakes up loop if sleeping
+// 3. Closes file descriptors without waiting for task completion
+// 4. Returns ErrLoopTerminated if already terminated
+//
+// Close is safe to call multiple times or concurrently with Shutdown.
+// Use Shutdown() for graceful termination instead.
+//
+// Close implements io.Closer semantics.
+func (l *Loop) Close() error {
+	// Idempotent: check current state first
+	currentState := l.state.Load()
+	if currentState == StateTerminated {
+		return ErrLoopTerminated
+	}
+
+	// Attempt transition to Terminating (non-blocking)
+	for {
+		currentState = l.state.Load()
+		if currentState == StateTerminated {
+			return ErrLoopTerminated
+		}
+		if currentState == StateTerminating {
+			// Already terminating, just close FDs immediately
+			l.closeFDs()
+			return nil
+		}
+		if l.state.Transition(currentState, StateTerminating) {
+			// Wake up loop if sleeping to avoid deadlock
+			if currentState == StateSleeping {
+				_ = l.submitWakeup()
+			}
+			// Force immediate cleanup - close FDs immediately
+			// Note: ingress.Close() is NOT called here to avoid lock contention
+			// It will be closed as part of shutdown process when loop exits
+			l.state.ForceTerminated()
+			l.closeFDs()
+			return nil
+		}
+	}
 }

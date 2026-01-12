@@ -49,9 +49,15 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := l.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := l.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
 
 	// Without hooks, we try to catch the race probabilistically
 	// Wait for loop to likely be in poll/sleeping state
@@ -70,7 +76,7 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 		defer wg.Done()
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer stopCancel()
-		stopDone <- l.Stop(stopCtx)
+		stopDone <- l.Shutdown(stopCtx)
 	}()
 
 	time.Sleep(10 * time.Millisecond)
@@ -92,8 +98,21 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 		l.submitWakeup()
 		// Give it a moment to clean up
 		time.Sleep(50 * time.Millisecond)
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Logf("Loop error: %v", err)
+		default:
+		}
 	} else if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
+	} else {
+		// Clean shutdown - wait for runDone
+		select {
+		case <-runDone:
+		case err := <-errChan:
+			t.Fatalf("Loop Run() failed: %v", err)
+		}
 	}
 
 	wg.Wait()

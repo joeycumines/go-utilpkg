@@ -102,8 +102,8 @@ func (q *SafeIngress) PopExternal() (SafeTask, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.validateInvariants()
-	defer q.validateInvariants()
+	validateListInvariants(&q.external, "external")
+	defer validateListInvariants(&q.external, "external")
 
 	return q.external.pop()
 }
@@ -114,8 +114,8 @@ func (q *SafeIngress) PopInternal() (SafeTask, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.validateInvariants()
-	defer q.validateInvariants()
+	validateListInvariants(&q.internal, "internal")
+	defer validateListInvariants(&q.internal, "internal")
 
 	return q.internal.pop()
 }
@@ -126,8 +126,8 @@ func (q *SafeIngress) PopMicrotask() (SafeTask, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.validateInvariants()
-	defer q.validateInvariants()
+	validateListInvariants(&q.microtasks, "microtasks")
+	defer validateListInvariants(&q.microtasks, "microtasks")
 
 	return q.microtasks.pop()
 }

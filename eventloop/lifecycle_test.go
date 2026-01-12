@@ -34,7 +34,7 @@ func TestStart_ConcurrentCallsOnlyOneSucceeds(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-ready
-			err := loop.Start(ctx)
+			err := loop.Run(ctx)
 			if err == nil {
 				successCount.Add(1)
 			} else {
@@ -44,7 +44,17 @@ func TestStart_ConcurrentCallsOnlyOneSucceeds(t *testing.T) {
 	}
 
 	close(ready)
+
+	// Shutdown will unblock the successful Run() call
+	shutdownDone := make(chan struct{})
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		loop.Shutdown(context.Background())
+		close(shutdownDone)
+	}()
+
 	wg.Wait()
+	<-shutdownDone
 
 	if successCount.Load() != 1 {
 		t.Fatalf("RACE DETECTED: %d successful Start() calls (expected 1)", successCount.Load())
@@ -54,7 +64,7 @@ func TestStart_ConcurrentCallsOnlyOneSucceeds(t *testing.T) {
 	}
 }
 
-// TestStart_SecondCallReturnsError verifies that calling Start() twice returns
+// TestStart_SecondCallReturnsError verifies that calling Run() twice returns
 // ErrLoopAlreadyRunning on the second call.
 func TestStart_SecondCallReturnsError(t *testing.T) {
 	loop, err := New()
@@ -64,24 +74,30 @@ func TestStart_SecondCallReturnsError(t *testing.T) {
 
 	ctx := context.Background()
 
-	err1 := loop.Start(ctx)
-	if err1 != nil {
-		t.Fatalf("First Start() failed: %v", err1)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
 
 	time.Sleep(10 * time.Millisecond)
 
-	err2 := loop.Start(ctx)
+	err2 := loop.Run(ctx)
 	if err2 == nil {
-		t.Fatal("Second Start() should return error, got nil")
+		t.Fatal("Second Run() should return error, got nil")
 	}
 	if err2 != ErrLoopAlreadyRunning {
 		t.Fatalf("Expected ErrLoopAlreadyRunning, got: %v", err2)
 	}
+
+	loop.Shutdown(context.Background())
+	<-runDone
 }
 
 // TestLoop_Stop_Race_Torture is a stress test that verifies the loop can be
-// stopped without deadlock. It catches the "Zombie Loop" bug where Stop()
+// stopped without deadlock. It catches the "Zombie Loop" bug where Shutdown()
 // hangs forever due to state overwrite in poll().
 func TestLoop_Stop_Race_Torture(t *testing.T) {
 	for i := 0; i < 100; i++ {
@@ -90,22 +106,23 @@ func TestLoop_Stop_Race_Torture(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		startErr := l.Start(context.Background())
-		if startErr != nil {
-			t.Fatalf("Failed to start loop: %v", startErr)
-		}
+		go func() {
+			if err := l.Run(context.Background()); err != nil && err != context.Canceled {
+				t.Errorf("Iteration %d: Run returned error: %v", i, err)
+			}
+		}()
 
 		time.Sleep(1 * time.Millisecond)
 
 		doneCh := make(chan error)
 		go func() {
-			doneCh <- l.Stop(context.Background())
+			doneCh <- l.Shutdown(context.Background())
 		}()
 
 		select {
 		case err := <-doneCh:
 			if err != nil {
-				t.Errorf("Iteration %d: Stop returned error: %v", i, err)
+				t.Errorf("Iteration %d: Shutdown returned error: %v", i, err)
 			}
 		case <-time.After(100 * time.Millisecond):
 			t.Fatalf("Iteration %d: DEADLOCK! Loop failed to shut down. The Zombie State bug is present.", i)

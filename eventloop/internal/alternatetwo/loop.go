@@ -17,6 +17,7 @@ var (
 	ErrLoopAlreadyRunning = errors.New("alternatetwo: loop is already running")
 	ErrLoopTerminated     = errors.New("alternatetwo: loop has been terminated")
 	ErrLoopNotRunning     = errors.New("alternatetwo: loop is not running")
+	ErrReentrantRun       = errors.New("alternatetwo: cannot call Run() from within the loop")
 )
 
 // Loop is the "Maximum Performance" event loop implementation.
@@ -44,7 +45,6 @@ type Loop struct { // betteralign:ignore
 	poller FastPoller
 
 	// Synchronization
-	done     chan struct{}
 	stopOnce sync.Once
 
 	// Wake-up mechanism
@@ -63,6 +63,9 @@ type Loop struct { // betteralign:ignore
 
 	// Loop ID
 	id uint64
+
+	// Loop termination signaling
+	loopDone chan struct{}
 
 	// Task batch buffer (avoid allocation)
 	batchBuf [256]Task
@@ -83,10 +86,12 @@ func New() (*Loop, error) {
 		external:   NewLockFreeIngress(),
 		internal:   NewLockFreeIngress(),
 		microtasks: NewMicrotaskRing(),
-		done:       make(chan struct{}),
 
 		wakePipe:      wakeFd,
 		wakePipeWrite: wakeWriteFd,
+
+		// Initialize loopDone here to avoid data race with shutdownImpl
+		loopDone: make(chan struct{}),
 	}
 
 	// Initialize poller
@@ -113,10 +118,13 @@ func New() (*Loop, error) {
 	return loop, nil
 }
 
-// Start begins running the event loop in a new goroutine.
-func (l *Loop) Start(ctx context.Context) error {
+// Run runs the event loop and blocks until fully stopped.
+//
+// Run blocks until the loop terminates (via Shutdown(), Close(), or ctx cancellation).
+// To run in a separate goroutine, use: `go loop.Run(ctx)`.
+func (l *Loop) Run(ctx context.Context) error {
 	if l.isLoopThread() {
-		return errors.New("alternatetwo: cannot call Start() from within the loop")
+		return ErrReentrantRun
 	}
 
 	if !l.state.TryTransition(StateAwake, StateRunning) {
@@ -127,18 +135,25 @@ func (l *Loop) Start(ctx context.Context) error {
 		return ErrLoopAlreadyRunning
 	}
 
+	// Close loopDone when run exits to signal completion to Shutdown waiters
+	// The channel is created in New() to avoid a data race with shutdownImpl
+	defer close(l.loopDone)
+
 	// Initialize timing anchor
 	l.tickAnchor = time.Now()
 
-	go l.run(ctx)
-	return nil
+	// Run the loop directly (blocking)
+	return l.run(ctx)
 }
 
-// Stop gracefully shuts down the event loop.
-func (l *Loop) Stop(ctx context.Context) error {
+// Shutdown gracefully shuts down the event loop.
+//
+// Shutdown initiates graceful shutdown that waits for all queued tasks to complete.
+// It blocks until termination completes or ctx expires.
+func (l *Loop) Shutdown(ctx context.Context) error {
 	var result error
 	l.stopOnce.Do(func() {
-		result = l.stopImpl(ctx)
+		result = l.shutdownImpl(ctx)
 	})
 	if result == nil && l.state.Load() != StateTerminated {
 		return ErrLoopTerminated
@@ -146,8 +161,8 @@ func (l *Loop) Stop(ctx context.Context) error {
 	return result
 }
 
-// stopImpl performs the actual stop operation.
-func (l *Loop) stopImpl(ctx context.Context) error {
+// shutdownImpl contains the actual Shutdown implementation.
+func (l *Loop) shutdownImpl(ctx context.Context) error {
 	for {
 		currentState := l.state.Load()
 		if currentState == StateTerminated || currentState == StateTerminating {
@@ -158,7 +173,6 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 			if currentState == StateAwake {
 				l.state.Store(StateTerminated)
 				l.closeFDs()
-				close(l.done)
 				return nil
 			}
 
@@ -169,8 +183,9 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 		}
 	}
 
+	// Wait for termination via channel, NOT polling
 	select {
-	case <-l.done:
+	case <-l.loopDone:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -178,7 +193,7 @@ func (l *Loop) stopImpl(ctx context.Context) error {
 }
 
 // run is the main loop goroutine.
-func (l *Loop) run(ctx context.Context) {
+func (l *Loop) run(ctx context.Context) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -186,26 +201,31 @@ func (l *Loop) run(ctx context.Context) {
 	defer l.loopGoroutineID.Store(0)
 
 	for {
-		select {
-		case <-ctx.Done():
-			current := l.state.Load()
-			if current != StateTerminating && current != StateTerminated {
-				for {
-					if l.state.TryTransition(current, StateTerminating) {
-						break
-					}
-					current = l.state.Load()
-					if current == StateTerminating || current == StateTerminated {
-						break
-					}
-				}
-			}
-		default:
+		// Early termination check
+		if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+			l.shutdown()
+			return nil
 		}
 
-		if l.state.Load() == StateTerminating {
-			l.shutdown()
-			return
+		// Check context for external cancellation
+		select {
+		case <-ctx.Done():
+			// Context cancelled, initiate shutdown via CAS
+			for {
+				current := l.state.Load()
+				if current == StateTerminating || current == StateTerminated {
+					break
+				}
+				if l.state.TryTransition(current, StateTerminating) {
+					// Wake up if we were sleeping
+					if current == StateSleeping {
+						_ = l.submitWakeup()
+					}
+					break
+				}
+			}
+			return ctx.Err()
+		default:
 		}
 
 		l.tick()
@@ -241,7 +261,6 @@ func (l *Loop) shutdown() {
 
 	l.state.Store(StateTerminated)
 	l.closeFDs()
-	close(l.done)
 }
 
 // tick is a single iteration of the event loop.
@@ -319,8 +338,15 @@ func (l *Loop) poll() {
 		return
 	}
 
-	// Default timeout: 10 seconds
-	timeout := 10000
+	// Check for termination before blocking poll
+	// Critical: Return immediately if terminating was set
+	if l.state.Load() == StateTerminating {
+		return
+	}
+
+	// Use shorter timeout to allow quick response to termination
+	// This ensures poll() returns quickly for context cancellation
+	timeout := 10
 
 	_, err := l.poller.PollIO(timeout)
 	if err != nil {
@@ -471,12 +497,35 @@ func getGoroutineID() uint64 {
 	return id
 }
 
-// Done returns a channel that is closed when the loop terminates.
-func (l *Loop) Done() <-chan struct{} {
-	return l.done
-}
-
 // State returns the current loop state.
 func (l *Loop) State() LoopState {
 	return l.state.Load()
+}
+
+// Close immediately terminates the event loop without waiting for graceful shutdown.
+//
+// Close implements io.Closer. It transitions to Terminating immediately,
+// closes file descriptors, and allows the loop to exit as soon as possible.
+//
+// If the loop is already terminated, Close() returns ErrLoopTerminated.
+func (l *Loop) Close() error {
+	for {
+		currentState := l.state.Load()
+		if currentState == StateTerminated {
+			return ErrLoopTerminated
+		}
+
+		if l.state.TryTransition(currentState, StateTerminating) {
+			if currentState == StateAwake {
+				// Never started - fully terminate now
+				l.state.Store(StateTerminated)
+				l.closeFDs()
+				return nil
+			}
+			if currentState == StateSleeping {
+				_ = l.submitWakeup()
+			}
+			return nil
+		}
+	}
 }

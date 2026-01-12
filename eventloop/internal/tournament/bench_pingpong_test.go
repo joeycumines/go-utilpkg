@@ -26,9 +26,12 @@ func benchmarkPingPong(b *testing.B, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -52,7 +55,8 @@ func benchmarkPingPong(b *testing.B, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	// Record benchmark result
 	result := BenchmarkResult{
@@ -82,9 +86,12 @@ func benchmarkPingPongLatency(b *testing.B, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	// Warm up
 	done := make(chan struct{})
@@ -103,7 +110,8 @@ func benchmarkPingPongLatency(b *testing.B, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	result := BenchmarkResult{
 		BenchmarkName:  "PingPongLatency",
@@ -134,9 +142,12 @@ func benchmarkBurstSubmit(b *testing.B, impl Implementation, burstSize int) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -166,7 +177,8 @@ func benchmarkBurstSubmit(b *testing.B, impl Implementation, burstSize int) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	totalOps := bursts * burstSize
 	result := BenchmarkResult{

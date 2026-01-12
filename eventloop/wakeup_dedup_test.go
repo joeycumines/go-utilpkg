@@ -36,10 +36,25 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Give loop time to start
 	time.Sleep(10 * time.Millisecond)
@@ -135,10 +150,25 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Give loop time to start
 	time.Sleep(10 * time.Millisecond)
@@ -184,10 +214,25 @@ func TestWriteThenCheckIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Wait for loop to potentially enter sleep
 	time.Sleep(20 * time.Millisecond)
@@ -228,10 +273,25 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Stress test parameters
 	const numProducers = 1000
@@ -304,10 +364,25 @@ func TestWakeUpSignalFlagResetIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Submit a task to trigger wake-up
 	task := eventloop.Task{}
@@ -348,10 +423,25 @@ func TestWakeMethodDeduplicationIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Wait for loop to possibly sleep
 	time.Sleep(20 * time.Millisecond)
@@ -392,13 +482,28 @@ func TestWakeUpDuringPollingIntegration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
-	// Wait for loop to enter polling (sleeping state)
-	time.Sleep(50 * time.Millisecond)
+	// Give loop time to start
+	time.Sleep(10 * time.Millisecond)
 
 	// Submit a task - should wake up the loop
 	task := eventloop.Task{}
@@ -433,10 +538,25 @@ func BenchmarkWakeUpDeduplicationIntegration(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Start() failed: %v", err)
-	}
-	defer cancel()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			b.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	// Warm up
 	time.Sleep(10 * time.Millisecond)

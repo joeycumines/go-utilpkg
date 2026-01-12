@@ -12,6 +12,15 @@
 //  4. Extensive Validation: Runtime invariant checks always enabled
 //  5. Deterministic Behavior: No reliance on timing assumptions
 //
+// # API Contract
+//
+//   - Run(ctx) error: Starts the event loop, BLOCKS until fully stopped (NOT async)
+//   - Shutdown(ctx) error: Graceful shutdown, drains queues, blocks until termination
+//   - Close() error: Immediate termination, closes FDs without waiting (io.Closer)
+//   - Submit(fn func()) error: Submit external task
+//   - SubmitInternal(fn func()) error: Submit internal priority task
+//   - ScheduleMicrotask, ScheduleTimer, RegisterFD, UnregisterFD: As in main
+//
 // # Key Differences from Main Implementation
 //
 //   - Single Mutex: Uses one mutex for entire ingress subsystem (vs fine-grained RWMutex)

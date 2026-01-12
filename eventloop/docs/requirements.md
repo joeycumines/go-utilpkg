@@ -38,6 +38,16 @@ StateTerminated (1)  → (terminal)
 - Use `Store()` ONLY for irreversible states (Terminated, Terminating)
 - Using `Store(Running)` or `Store(Sleeping)` is a BUG (breaks CAS logic)
 
+### I-3-A. Completion Channel (loopDone)
+
+**Requirement:** `Run(ctx)` MUST close a completion channel (`loopDone`) when the loop terminates.
+
+- The `loopDone` channel is created at the start of `Run(ctx)` and closed via `defer close(l.loopDone)` when Run exits
+- `Shutdown(ctx)` waits on this channel (NOT via polling) to detect loop completion
+- This enables deterministic synchronization without `time.Sleep` or ticker-based polling
+
+**See Also:** Section XV for strict synchronization standards.
+
 ### I-4. Critical State Transition Constraints
 
 **D04 (Critical):** `Run(ctx)` must atomically transition the loop from `StateAwake` → `StateRunning` (CAS) to prevent multiple goroutines from concurrently executing the loop.
@@ -318,6 +328,26 @@ When the external tick budget is exhausted and tasks remain in the queue, the lo
 The shutdown sequence must strictly follow this order:
 
 **Shutdown() Idempotency (Critical):** The `Shutdown(ctx)` method MUST be idempotent and thread-safe. Multiple concurrent calls MUST all return correctly, utilizing `sync.Once` to ensure shutdown logic runs exactly once while all callers receive appropriate result (first caller gets actual result, subsequent callers get `ErrLoopTerminated`).
+
+**Shutdown() Blocking Semantics (Critical):** `Shutdown(ctx)` MUST block using the `loopDone` channel, NOT via polling or `time.Sleep`:
+
+```go
+package example
+
+func (l *Loop) Shutdown(ctx context.Context) error {
+	// ... trigger termination, wake loop if sleeping ...
+	
+	// Wait for loop completion via channel (NOT polling)
+	select {
+	case <-l.loopDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+```
+
+**BANNED Patterns:** Polling loops with `time.NewTicker`, `time.Sleep` for race avoidance, and spin-wait loops are **STRICTLY FORBIDDEN**. See Section XV for complete synchronization standards.
 
 ### V-1. Correct Order (Mandatory)
 
@@ -840,3 +870,145 @@ var (
 | **Shutdown Order**        | **Ingress → Internal → Microtasks → RejectAll**                          | **Data Loss** (Microtasks from internal tasks lost).                        |
 | **Graceful vs Immediate** | **Shutdown(ctx) for graceful, Close() for immediate**                    | **Resource Leak** (FDs not closed on timeout).                              |
 | **Workers**               | **Panic Recovery** -> Result                                             | **Hanging Promise** (User await never returns).                             |
+| **Sync Primitives**       | Channel/Cond for completion, **NO sleep/poll**                           | **Race Conditions** / CPU waste / Non-deterministic failures.               |
+
+---
+
+## XV. Strict Synchronization Standards
+
+### XV-1. BANNED Synchronization Patterns
+
+The following patterns are **STRICTLY FORBIDDEN** in production code:
+
+#### XV-1-A. time.Sleep for Synchronization
+
+```go
+package example
+
+// ❌ FORBIDDEN: Sleep-based race avoidance
+if l.loopGoroutineID.Load() == 0 {
+	time.Sleep(10 * time.Millisecond)  // ← BANNED
+	if l.loopGoroutineID.Load() == 0 {
+		// ...
+	}
+}
+```
+
+**Why it's wrong:** Sleeping doesn't eliminate races—it hides them. On loaded systems or during GC pauses, any sleep duration is insufficient. On fast systems, it wastes time.
+
+#### XV-1-B. Ticker/Polling Loops for State Waiting
+
+```go
+package example
+
+// ❌ FORBIDDEN: Polling for completion
+ticker := time.NewTicker(10 * time.Millisecond)
+defer ticker.Stop()
+for {
+	if l.state.Load() == StateTerminated {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ticker.C:
+		// Continue polling ← BANNED
+	}
+}
+```
+
+**Why it's wrong:** Polling wastes CPU cycles, introduces arbitrary latency (up to tick interval), and doesn't scale.
+
+#### XV-1-C. Spin-Wait Loops
+
+```go
+package example
+
+// ❌ FORBIDDEN: Unbounded spinning
+for !l.state.CompareAndSwap(old, new) {
+	runtime.Gosched()  // Even with Gosched, still forbidden for waits
+}
+```
+
+**Why it's wrong:** Unbounded spinning causes priority inversion and CPU starvation.
+
+### XV-2. REQUIRED Synchronization Patterns
+
+#### XV-2-A. Channel-Based Completion Signaling
+
+```go
+package example
+
+// ✅ CORRECT: Run() signals completion via channel
+func (l *Loop) Run(ctx context.Context) error {
+	l.loopDone = make(chan struct{})
+	defer close(l.loopDone)
+	
+	return l.run(ctx)
+}
+
+// ✅ CORRECT: Shutdown() waits on channel
+func (l *Loop) Shutdown(ctx context.Context) error {
+	// ... trigger termination ...
+	
+	select {
+	case <-l.loopDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+```
+
+#### XV-2-B. sync.Cond for State Notification
+
+For complex state machines requiring multiple waiters:
+
+```go
+package example
+
+func (l *Loop) waitForTermination(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		l.mu.Lock()
+		for l.state != StateTerminated {
+			l.stateCond.Wait()
+		}
+		l.mu.Unlock()
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		l.stateCond.Broadcast()
+		return ctx.Err()
+	}
+}
+```
+
+#### XV-2-C. sync.WaitGroup for Goroutine Lifecycle
+
+For tracking goroutine completion:
+
+```go
+package example
+
+func (l *Loop) Run(ctx context.Context) error {
+	l.loopWg.Add(1)
+	defer l.loopWg.Done()
+	
+	return l.run(ctx)
+}
+```
+
+### XV-3. Verification Requirements
+
+Before any implementation is considered complete:
+
+- `grep -r "time.Sleep" eventloop/` returns ZERO hits in non-test production files (test files may use sleep for setup/teardown only, not synchronization)
+- `grep -r "time.NewTicker" eventloop/` returns ZERO hits for polling patterns in production code
+- All state waits use channels, `sync.Cond`, or `sync.WaitGroup`
+- `go test -race -count=100` passes 100% with no timing-dependent failures
+

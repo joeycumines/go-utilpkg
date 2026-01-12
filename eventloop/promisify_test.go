@@ -17,9 +17,13 @@ func TestPromisify_ContextCancellation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
 
 	taskCtx, cancel := context.WithCancel(context.Background())
 
@@ -46,14 +50,20 @@ func TestPromisify_ContextCancellation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Promise never resolved after cancellation")
 	}
+
+	loop.Shutdown(context.Background())
+	<-runDone
 }
 
-// TestPromisify_Cancellation_GoroutineLeak verifies that cancelling the context
 // does not leak the Promisify worker goroutine.
 func TestPromisify_Cancellation_GoroutineLeak(t *testing.T) {
 	l, _ := New()
-	l.Start(context.Background())
-	defer l.Stop(context.Background())
+	go func() {
+		if err := l.Run(context.Background()); err != nil {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+	}()
+	defer l.Shutdown(context.Background())
 
 	runtime.GC()
 	startRoutines := runtime.NumGoroutine()

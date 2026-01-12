@@ -37,14 +37,24 @@ func TestTask1_2_CheckThenSleepBarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	// Start the loop
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	// Start the loop in goroutine since Run() is blocking
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
 	defer func() {
-		// Graceful shutdown will be implemented in Phase 9
-		cancel()
-		time.Sleep(100 * time.Millisecond)
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
 	}()
 
 	// Track number of submitted tasks
@@ -114,13 +124,25 @@ func BenchmarkTask1_2_ConcurrentSubmissions(b *testing.B) {
 		b.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Start() failed: %v", err)
-	}
-	defer time.Sleep(100 * time.Millisecond)
+	ctx := context.Background()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			b.Fatalf("Run() failed: %v", err)
+		default:
+		}
+	}()
 
 	b.ResetTimer()
 

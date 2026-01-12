@@ -17,10 +17,13 @@ func TestTickTimeDataRace(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = l.Start(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := l.Run(ctx); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
 
 	// Submit tasks to force high-frequency tick updates
 	go func() {
@@ -46,5 +49,6 @@ func TestTickTimeDataRace(t *testing.T) {
 	}()
 
 	<-done
-	l.Stop(context.Background())
+	l.Shutdown(context.Background())
+	<-runDone
 }

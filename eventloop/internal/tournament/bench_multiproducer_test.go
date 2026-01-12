@@ -32,9 +32,12 @@ func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -74,7 +77,8 @@ func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	totalTasks := numProducers * tasksPerProducer
 	result := BenchmarkResult{
@@ -114,9 +118,12 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -171,7 +178,8 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	duration := time.Since(start)
 	exec := counter.Load()
@@ -233,9 +241,12 @@ func benchmarkMultiProducerContention(b *testing.B, impl Implementation, numProd
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -263,7 +274,8 @@ func benchmarkMultiProducerContention(b *testing.B, impl Implementation, numProd
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	totalTasks := numProducers * tasksPerProducer
 	result := BenchmarkResult{

@@ -62,9 +62,12 @@ func runSingleWakeupTest(t *testing.T, impl Implementation) bool {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	// Wait for loop to be running and potentially sleeping
 	time.Sleep(1 * time.Millisecond)
@@ -81,7 +84,8 @@ func runSingleWakeupTest(t *testing.T, impl Implementation) bool {
 	if err != nil {
 		// Rejected is also acceptable if loop is shutting down
 		wg.Done()
-		_ = loop.Stop(ctx)
+		_ = loop.Shutdown(ctx)
+		runWg.Wait()
 		return true
 	}
 
@@ -97,13 +101,15 @@ func runSingleWakeupTest(t *testing.T, impl Implementation) bool {
 		// Task executed
 	case <-time.After(500 * time.Millisecond):
 		// Potential lost wakeup
-		_ = loop.Stop(ctx)
+		_ = loop.Shutdown(ctx)
+		runWg.Wait()
 		return false
 	}
 
 	stopCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	return executed.Load()
 }
@@ -135,9 +141,12 @@ func testRaceWakeupAggressive(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 
@@ -172,7 +181,8 @@ func testRaceWakeupAggressive(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	failCount := failures.Load()
 	passed := failCount == 0

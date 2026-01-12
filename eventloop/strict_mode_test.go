@@ -23,9 +23,25 @@ func TestBarrierOrderingModes(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		if err := l.Start(ctx); err != nil {
-			t.Fatalf("Failed to start loop: %v", err)
-		}
+
+		runDone := make(chan struct{})
+		errChan := make(chan error, 1)
+		go func() {
+			if err := l.Run(ctx); err != nil {
+				errChan <- err
+				return
+			}
+			close(runDone)
+		}()
+		defer func() {
+			l.Shutdown(context.Background())
+			<-runDone
+			select {
+			case err := <-errChan:
+				t.Fatalf("Failed to start loop: %v", err)
+			default:
+			}
+		}()
 
 		var executionOrder []string
 		var mu sync.Mutex
@@ -108,9 +124,25 @@ func TestBarrierOrderingModes(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		if err := l.Start(ctx); err != nil {
-			t.Fatalf("Failed to start loop: %v", err)
-		}
+
+		runDone := make(chan struct{})
+		errChan := make(chan error, 1)
+		go func() {
+			if err := l.Run(ctx); err != nil {
+				errChan <- err
+				return
+			}
+			close(runDone)
+		}()
+		defer func() {
+			l.Shutdown(context.Background())
+			<-runDone
+			select {
+			case err := <-errChan:
+				t.Fatalf("Failed to start loop: %v", err)
+			default:
+			}
+		}()
 
 		var executionOrder []string
 		var mu sync.Mutex
@@ -204,7 +236,25 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	l.Start(ctx)
+
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := l.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+	defer func() {
+		l.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Errorf("Run() unexpected error: %v", err)
+		default:
+		}
+	}()
 
 	var ops atomic.Int32
 	done := make(chan struct{})

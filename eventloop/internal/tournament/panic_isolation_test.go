@@ -29,9 +29,12 @@ func testPanicIsolation(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var wg sync.WaitGroup
 	var beforePanic atomic.Bool
@@ -102,7 +105,8 @@ func testPanicIsolation(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	stopErr := loop.Stop(stopCtx)
+	stopErr := loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	passed := beforePanic.Load() && afterPanic.Load()
 	errMsg := ""
@@ -152,9 +156,12 @@ func testPanicIsolationMultiple(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var normalExecuted atomic.Int64
 	var wg sync.WaitGroup
@@ -194,7 +201,8 @@ func testPanicIsolationMultiple(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	executed := normalExecuted.Load()
 	passed := executed == numNormal
@@ -240,9 +248,12 @@ func testPanicIsolationInternal(t *testing.T, impl Implementation) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Failed to start loop: %v", err)
-	}
+	var runWg sync.WaitGroup
+	runWg.Add(1)
+	go func() {
+		loop.Run(ctx)
+		runWg.Done()
+	}()
 
 	var afterPanic atomic.Bool
 	var wg sync.WaitGroup
@@ -278,7 +289,8 @@ func testPanicIsolationInternal(t *testing.T, impl Implementation) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
+	runWg.Wait()
 
 	passed := afterPanic.Load()
 	result := TestResult{

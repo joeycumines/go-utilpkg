@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		_ = loop.Stop(ctx)
+		_ = loop.Shutdown(ctx)
 	}()
 
 	if loop.State() != StateAwake {
@@ -24,16 +24,18 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestStartStop(t *testing.T) {
+func TestRunShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
+	// Run Loop in a goroutine since Run() is blocking
+	runDone := make(chan error, 1)
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
 
 	// Give loop time to start
 	time.Sleep(10 * time.Millisecond)
@@ -45,8 +47,13 @@ func TestStartStop(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := loop.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop() failed: %v", err)
+	if err := loop.Shutdown(stopCtx); err != nil {
+		t.Fatalf("Shutdown() failed: %v", err)
+	}
+
+	// Wait for Run() to return
+	if err := <-runDone; err != nil && err != context.Canceled {
+		t.Fatalf("Run() returned error: %v", err)
 	}
 
 	if loop.State() != StateTerminated {
@@ -61,9 +68,7 @@ func TestSubmit(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -89,7 +94,7 @@ func TestSubmit(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
 func TestSubmitInternal(t *testing.T) {
@@ -99,9 +104,7 @@ func TestSubmitInternal(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -127,7 +130,7 @@ func TestSubmitInternal(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
 func TestMicrotask(t *testing.T) {
@@ -137,9 +140,7 @@ func TestMicrotask(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -168,7 +169,7 @@ func TestMicrotask(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
 func TestConcurrentSubmit(t *testing.T) {
@@ -178,9 +179,7 @@ func TestConcurrentSubmit(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	const numTasks = 1000
 	var executed atomic.Int64
@@ -218,7 +217,7 @@ func TestConcurrentSubmit(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
 func TestDoubleStart(t *testing.T) {
@@ -228,61 +227,58 @@ func TestDoubleStart(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
-	// Second start should fail
-	err = loop.Start(ctx)
+	// Give loop time to start
+	time.Sleep(10 * time.Millisecond)
+
+	// Second start attempt (from different goroutine) should fail with ErrLoopAlreadyRunning
+	err = loop.Run(ctx)
 	if err != ErrLoopAlreadyRunning {
 		t.Errorf("Expected ErrLoopAlreadyRunning, got %v", err)
 	}
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
-func TestDoubleStop(t *testing.T) {
+func TestDoubleShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	if err := loop.Stop(stopCtx); err != nil {
-		t.Fatalf("First Stop() failed: %v", err)
+	if err := loop.Shutdown(stopCtx); err != nil {
+		t.Fatalf("First Shutdown() failed: %v", err)
 	}
 
-	// Second stop should not error (idempotent via sync.Once)
-	if err := loop.Stop(stopCtx); err != nil && err != ErrLoopTerminated {
-		t.Errorf("Second Stop() failed unexpectedly: %v", err)
+	// Second shutdown should not error (idempotent via sync.Once)
+	if err := loop.Shutdown(stopCtx); err != nil && err != ErrLoopTerminated {
+		t.Errorf("Second Shutdown() failed unexpectedly: %v", err)
 	}
 }
 
-func TestSubmitAfterStop(t *testing.T) {
+func TestSubmitAfterShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 
-	// Submit after stop should fail
+	// Submit after shutdown should fail
 	err = loop.Submit(func() {})
 	if err != ErrLoopTerminated {
 		t.Errorf("Expected ErrLoopTerminated, got %v", err)
@@ -396,35 +392,106 @@ func TestChunkMinimalClearing(t *testing.T) {
 	}
 }
 
-func TestDoneChannel(t *testing.T) {
+func TestBlockingRun(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
+	// Test that Run blocks until terminated
+	runDone := make(chan error, 1)
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
 
-	// Done channel should not be closed yet
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Give loop time to start
+	time.Sleep(10 * time.Millisecond)
+
+	// Run should not have returned yet
 	select {
-	case <-loop.Done():
-		t.Fatal("Done channel should not be closed before Stop")
+	case <-runDone:
+		t.Fatal("Run() returned early, should be blocking")
 	default:
-		// OK
+		// OK - Run is still blocking
 	}
 
+	// Shutdown the loop
 	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	if err := loop.Shutdown(stopCtx); err != nil {
+		t.Fatalf("Shutdown() failed: %v", err)
+	}
 
-	// Done channel should be closed after Stop
+	// Now Run should have returned
 	select {
-	case <-loop.Done():
-		// OK
+	case err := <-runDone:
+		if err != nil && err != context.Canceled {
+			t.Errorf("Run() returned unexpected error: %v", err)
+		}
 	case <-time.After(time.Second):
-		t.Fatal("Done channel not closed after Stop")
+		t.Fatal("Run() did not return after Shutdown")
+	}
+}
+
+func TestCloseImmediate(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	// Close on unstarted loop should succeed and set state to Terminated
+	if err := loop.Close(); err != nil {
+		t.Fatalf("First Close() failed: %v", err)
+	}
+
+	if loop.State() != StateTerminated {
+		t.Errorf("Expected state Terminated, got %v", loop.State())
+	}
+
+	// Second Close should return ErrLoopTerminated
+	err = loop.Close()
+	if err != ErrLoopTerminated {
+		t.Errorf("Expected ErrLoopTerminated, got %v", err)
+	}
+}
+
+func TestRunWithContextCancel(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	// Test that Run exits when context is canceled
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Give loop time to start
+	time.Sleep(10 * time.Millisecond)
+
+	// Cancel the context
+	cancel()
+
+	// Run should exit
+	select {
+	case err := <-runDone:
+		if err != nil && err != context.Canceled {
+			t.Logf("Run() returned: %v (expected context.Canceled or nil)", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Run() did not exit after context cancel")
+	}
+
+	// State should be Terminating or Terminated after context cancel
+	// Since Run() returns early on context cancel, state may not be Terminated yet
+	state := loop.State()
+	if state != StateTerminated && state != StateTerminating {
+		t.Errorf("Expected state Terminating or Terminated, got %v", state)
 	}
 }
 
@@ -435,9 +502,7 @@ func BenchmarkSubmit(b *testing.B) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		b.Fatalf("Start() failed: %v", err)
-	}
+	go loop.Run(ctx)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -447,7 +512,7 @@ func BenchmarkSubmit(b *testing.B) {
 
 	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	_ = loop.Stop(stopCtx)
+	_ = loop.Shutdown(stopCtx)
 }
 
 func BenchmarkLockFreeIngress_Push(b *testing.B) {

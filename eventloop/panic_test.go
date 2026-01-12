@@ -18,9 +18,13 @@ func TestPanicIsolation_IngressTaskPanic(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
 
 	var (
 		task1Executed atomic.Bool
@@ -54,6 +58,9 @@ func TestPanicIsolation_IngressTaskPanic(t *testing.T) {
 	if !task3Executed.Load() {
 		t.Fatal("PANIC ISOLATION FAILURE: Task 3 did not execute after Task 2 panicked")
 	}
+
+	loop.Shutdown(context.Background())
+	<-runDone
 }
 
 // TestLoopSurvivesPanic_ContinuesProcessing verifies that the loop survives
@@ -68,9 +75,13 @@ func TestLoopSurvivesPanic_ContinuesProcessing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
 
 	const total = 100
 	var executed atomic.Int32
@@ -108,8 +119,19 @@ func TestLoop_SurvivesPanic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.Start(context.Background())
-	defer l.Stop(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	runDone := make(chan struct{})
+	go func() {
+		if err := l.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
+
+	// Give loop time to start
+	time.Sleep(10 * time.Millisecond)
 
 	l.Submit(Task{Runnable: func() {
 		panic("This should not crash the loop")
@@ -128,4 +150,8 @@ func TestLoop_SurvivesPanic(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("Loop dead: Panic crashed the worker")
 	}
+
+	// Shutdown and wait for loop to complete
+	l.Shutdown(context.Background())
+	<-runDone
 }

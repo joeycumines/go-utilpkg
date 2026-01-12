@@ -18,16 +18,24 @@ func TestRegisterFD_Basic(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	ctx := context.Background()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
 	defer func() {
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
-		defer stopCancel()
-		loop.Stop(stopCtx)
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
 	}()
 
 	// Create a socket pair for testing
@@ -410,16 +418,24 @@ func TestIOPoller_Integration_Deterministic(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := loop.Start(ctx); err != nil {
-		t.Fatalf("Start() failed: %v", err)
-	}
+	ctx := context.Background()
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
 	defer func() {
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
-		defer stopCancel()
-		loop.Stop(stopCtx)
+		loop.Shutdown(context.Background())
+		<-runDone
+		select {
+		case err := <-errChan:
+			t.Fatalf("Run() failed: %v", err)
+		default:
+		}
 	}()
 
 	// Create a pipe for deterministic signaling

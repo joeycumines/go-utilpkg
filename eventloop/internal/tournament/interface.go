@@ -13,16 +13,17 @@ import (
 // EventLoop is the common interface that all event loop implementations must satisfy.
 // This defines the minimal API surface required for tournament testing.
 type EventLoop interface {
-	// Start begins the event loop in a new goroutine.
-	// Returns an error if the loop is already running or terminated.
-	Start(ctx context.Context) error
+	// Run begins the event loop and BLOCKS until the loop is FULLY stopped.
+	// Returns an error if the loop is already running or if context is cancelled.
+	Run(ctx context.Context) error
 
-	// Stop gracefully shuts down the event loop.
-	// Should wait for the loop to fully terminate before returning.
-	Stop(ctx context.Context) error
+	// Shutdown gracefully shuts down the event loop and BLOCKS until complete.
+	// Must have graceful shutdown semantics exactly like Go's http.Server.Shutdown(ctx).
+	// Returns an error if context expires before shutdown completes or if already terminated.
+	Shutdown(ctx context.Context) error
 
 	// Submit submits a task to the external queue for execution on the loop.
-	// Returns an error if the loop is not running or terminated.
+	// Returns an error if the loop is terminated.
 	Submit(fn func()) error
 
 	// SubmitInternal submits a task to the internal priority queue.
@@ -30,9 +31,9 @@ type EventLoop interface {
 	// Returns an error if the loop is terminated.
 	SubmitInternal(fn func()) error
 
-	// Done returns a channel that is closed when the loop terminates.
-	// Used to wait for loop completion after Stop().
-	Done() <-chan struct{}
+	// Close immediately terminates the event loop without waiting for graceful shutdown.
+	// Implements io.Closer semantics for immediate termination.
+	Close() error
 }
 
 // FullEventLoop extends EventLoop with optional capabilities that some

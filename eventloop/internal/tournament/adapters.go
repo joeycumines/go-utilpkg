@@ -6,6 +6,7 @@ import (
 	eventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-eventloop/internal/alternateone"
 	"github.com/joeycumines/go-eventloop/internal/alternatetwo"
+	"github.com/joeycumines/go-eventloop/internal/gojabaseline"
 )
 
 // MainLoopAdapter adapts the main eventloop.Loop to the EventLoop interface.
@@ -22,12 +23,16 @@ func NewMainLoop() (EventLoop, error) {
 	return &MainLoopAdapter{loop: loop}, nil
 }
 
-func (a *MainLoopAdapter) Start(ctx context.Context) error {
-	return a.loop.Start(ctx)
+func (a *MainLoopAdapter) Run(ctx context.Context) error {
+	return a.loop.Run(ctx)
 }
 
-func (a *MainLoopAdapter) Stop(ctx context.Context) error {
-	return a.loop.Stop(ctx)
+func (a *MainLoopAdapter) Shutdown(ctx context.Context) error {
+	return a.loop.Shutdown(ctx)
+}
+
+func (a *MainLoopAdapter) Close() error {
+	return a.loop.Close()
 }
 
 func (a *MainLoopAdapter) Submit(fn func()) error {
@@ -36,13 +41,6 @@ func (a *MainLoopAdapter) Submit(fn func()) error {
 
 func (a *MainLoopAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(eventloop.Task{Runnable: fn})
-}
-
-func (a *MainLoopAdapter) Done() <-chan struct{} {
-	// Main loop doesn't expose Done() directly, so we return a proxy
-	// that is closed when Stop() completes.
-	// For tournament purposes, we'll use a nil channel and rely on Stop() waiting.
-	return nil
 }
 
 // AlternateOneAdapter adapts the alternateone.Loop to the EventLoop interface.
@@ -59,12 +57,16 @@ func NewAlternateOneLoop() (EventLoop, error) {
 	return &AlternateOneAdapter{loop: loop}, nil
 }
 
-func (a *AlternateOneAdapter) Start(ctx context.Context) error {
-	return a.loop.Start(ctx)
+func (a *AlternateOneAdapter) Run(ctx context.Context) error {
+	return a.loop.Run(ctx)
 }
 
-func (a *AlternateOneAdapter) Stop(ctx context.Context) error {
-	return a.loop.Stop(ctx)
+func (a *AlternateOneAdapter) Shutdown(ctx context.Context) error {
+	return a.loop.Shutdown(ctx)
+}
+
+func (a *AlternateOneAdapter) Close() error {
+	return a.loop.Close()
 }
 
 func (a *AlternateOneAdapter) Submit(fn func()) error {
@@ -73,10 +75,6 @@ func (a *AlternateOneAdapter) Submit(fn func()) error {
 
 func (a *AlternateOneAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
-}
-
-func (a *AlternateOneAdapter) Done() <-chan struct{} {
-	return a.loop.Done()
 }
 
 // AlternateTwoAdapter adapts the alternatetwo.Loop to the EventLoop interface.
@@ -93,12 +91,16 @@ func NewAlternateTwoLoop() (EventLoop, error) {
 	return &AlternateTwoAdapter{loop: loop}, nil
 }
 
-func (a *AlternateTwoAdapter) Start(ctx context.Context) error {
-	return a.loop.Start(ctx)
+func (a *AlternateTwoAdapter) Run(ctx context.Context) error {
+	return a.loop.Run(ctx)
 }
 
-func (a *AlternateTwoAdapter) Stop(ctx context.Context) error {
-	return a.loop.Stop(ctx)
+func (a *AlternateTwoAdapter) Shutdown(ctx context.Context) error {
+	return a.loop.Shutdown(ctx)
+}
+
+func (a *AlternateTwoAdapter) Close() error {
+	return a.loop.Close()
 }
 
 func (a *AlternateTwoAdapter) Submit(fn func()) error {
@@ -109,8 +111,39 @@ func (a *AlternateTwoAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
 }
 
-func (a *AlternateTwoAdapter) Done() <-chan struct{} {
-	return a.loop.Done()
+// BaselineAdapter adapts the gojabaseline.Loop to the EventLoop interface.
+// This serves as the reference implementation from goja_nodejs.
+type BaselineAdapter struct {
+	loop *gojabaseline.Loop
+}
+
+// NewBaselineLoop creates a new baseline (goja_nodejs) event loop.
+func NewBaselineLoop() (EventLoop, error) {
+	loop, err := gojabaseline.New()
+	if err != nil {
+		return nil, err
+	}
+	return &BaselineAdapter{loop: loop}, nil
+}
+
+func (a *BaselineAdapter) Run(ctx context.Context) error {
+	return a.loop.Run(ctx)
+}
+
+func (a *BaselineAdapter) Shutdown(ctx context.Context) error {
+	return a.loop.Shutdown(ctx)
+}
+
+func (a *BaselineAdapter) Close() error {
+	return a.loop.Close()
+}
+
+func (a *BaselineAdapter) Submit(fn func()) error {
+	return a.loop.Submit(fn)
+}
+
+func (a *BaselineAdapter) SubmitInternal(fn func()) error {
+	return a.loop.SubmitInternal(fn)
 }
 
 // Implementations returns all available implementations for tournament testing.
@@ -119,5 +152,6 @@ func Implementations() []Implementation {
 		{Name: "Main", Factory: NewMainLoop},
 		{Name: "AlternateOne", Factory: NewAlternateOneLoop},
 		{Name: "AlternateTwo", Factory: NewAlternateTwoLoop},
+		{Name: "Baseline", Factory: NewBaselineLoop},
 	}
 }

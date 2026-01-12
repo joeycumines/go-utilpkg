@@ -17,9 +17,16 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
+
+	// Wait for loop to be running
+	time.Sleep(10 * time.Millisecond)
 
 	blocker := make(chan struct{})
 	promise := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
@@ -31,7 +38,8 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	loop.Stop(stopCtx)
+	loop.Shutdown(stopCtx)
+	<-runDone
 
 	select {
 	case result := <-ch:
@@ -57,7 +65,14 @@ func TestShutdown_PromisifyResolution_Race(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
-	l.Start(context.Background())
+	go func() {
+		if err := l.Run(context.Background()); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+	}()
+
+	// Wait for loop to be running
+	time.Sleep(10 * time.Millisecond)
 
 	started := make(chan struct{})
 	p := l.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
@@ -67,7 +82,7 @@ func TestShutdown_PromisifyResolution_Race(t *testing.T) {
 	})
 
 	<-started
-	l.Stop(context.Background())
+	l.Shutdown(context.Background())
 
 	if p.State() != Resolved {
 		t.Errorf("FATAL: Expected Resolved, got %v", p.State())
@@ -86,7 +101,17 @@ func TestShutdown_IngressResolvesInternal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.Start(context.Background())
+	ctx := context.Background()
+	runDone := make(chan struct{})
+	go func() {
+		if err := l.Run(ctx); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+		close(runDone)
+	}()
+
+	// Wait for loop to be running
+	time.Sleep(10 * time.Millisecond)
 
 	_, p := l.registry.NewPromise()
 
@@ -95,7 +120,11 @@ func TestShutdown_IngressResolvesInternal(t *testing.T) {
 		p.Resolve("manual_success")
 	}})
 
-	l.Stop(context.Background())
+	// Wait for task to be submitted and possibly started
+	time.Sleep(20 * time.Millisecond)
+
+	l.Shutdown(context.Background())
+	<-runDone
 
 	if p.State() != Resolved {
 		t.Errorf("FATAL: Ingress task failed to resolve promise. State: %v", p.State())
@@ -104,12 +133,16 @@ func TestShutdown_IngressResolvesInternal(t *testing.T) {
 
 // TestLoop_StopWakesSleepingLoop verifies that Stop() properly wakes a loop
 // that is sleeping in poll(), preventing indefinite hangs.
-func TestLoop_StopWakesSleepingLoop(t *testing.T) {
+func TestLoop_ShutdownWakesSleepingLoop(t *testing.T) {
 	l, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.Start(context.Background())
+	go func() {
+		if err := l.Run(context.Background()); err != nil {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+	}()
 
 	start := time.Now()
 	for {
@@ -124,16 +157,16 @@ func TestLoop_StopWakesSleepingLoop(t *testing.T) {
 
 	done := make(chan error)
 	go func() {
-		done <- l.Stop(context.Background())
+		done <- l.Shutdown(context.Background())
 	}()
 
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatalf("Stop failed: %v", err)
+			t.Fatalf("Shutdown failed: %v", err)
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Stop() timed out - loop stuck in poll")
+		t.Fatal("Shutdown() timed out - loop stuck in poll")
 	}
 }
 
@@ -150,25 +183,33 @@ func TestLoop_StopWakesSleepingLoop(t *testing.T) {
 //   - sync.Once ensures only first caller executes stopImpl()
 //   - Subsequent callers wait via stopOnce.Do() and return immediately
 //   - NO goroutine leaks, NO hangs
-func TestStopRace(t *testing.T) {
+func TestShutdownRace(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
+	runDone := make(chan struct{})
+	go func() {
+		// Use an error channel instead of t.Errorf to avoid calling t.Errorf after test completes
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+			// Don't call t.Errorf - test may already be done
+		}
+		close(runDone)
+	}()
+
+	// Wait for loop to be running
+	time.Sleep(10 * time.Millisecond)
 
 	var wg sync.WaitGroup
 	wg.Add(10)
 
-	// 10 goroutines calling Stop() concurrently - ALL must return, not hang
+	// 10 goroutines calling Shutdown() concurrently - ALL must return, not hang
 	results := make([]error, 10)
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			defer wg.Done()
-			results[id] = loop.Stop(context.Background())
+			results[id] = loop.Shutdown(context.Background())
 		}(i)
 	}
 
@@ -181,14 +222,15 @@ func TestStopRace(t *testing.T) {
 
 	select {
 	case <-done:
-		// SUCCESS: All goroutines returned
+		// SUCCESS: All goroutines returned - wait for Run() goroutine to finish
+		<-runDone
 		for i, err := range results {
 			if err != nil && i != 0 { // First might be nil, others should be ErrLoopTerminated
 				t.Logf("Goroutine %d: %v", i, err)
 			}
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("RACE CONDITION: Multiple Stop() calls caused hang. %d/10 goroutines returned.",
+		t.Fatalf("RACE CONDITION: Multiple Shutdown() calls caused hang. %d/10 goroutines returned.",
 			10-countReturned(results))
 	}
 }

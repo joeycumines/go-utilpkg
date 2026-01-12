@@ -9,7 +9,7 @@ import (
 
 // Standard errors returned by the event loop.
 var (
-	// ErrLoopAlreadyRunning is returned when Start() is called on a loop that is already running.
+	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
 	ErrLoopAlreadyRunning = errors.New("alternateone: loop is already running")
 
 	// ErrLoopTerminated is returned when operations are attempted on a terminated loop.
@@ -24,8 +24,8 @@ var (
 	// ErrInvalidTransition is returned when an invalid state transition is attempted.
 	ErrInvalidTransition = errors.New("alternateone: invalid state transition")
 
-	// ErrReentrantStart is returned when Start() is called from within the loop itself.
-	ErrReentrantStart = errors.New("alternateone: cannot call Start() from within the loop")
+	// ErrReentrantRun is returned when Run() is called from within the loop itself.
+	ErrReentrantRun = errors.New("alternateone: cannot call Run() from within the loop")
 
 	// ErrNilPromise is returned when a nil promise is registered.
 	ErrNilPromise = errors.New("alternateone: nil promise registration")

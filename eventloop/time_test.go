@@ -26,8 +26,8 @@ func TestLoop_TimeFreshness(t *testing.T) {
 		},
 	}
 
-	go l.Start(context.Background())
-	defer l.Stop(context.Background())
+	go l.Run(context.Background())
+	defer l.Shutdown(context.Background())
 
 	l.Submit(task)
 

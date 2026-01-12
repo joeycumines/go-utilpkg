@@ -17,10 +17,24 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := l.Start(context.Background()); err != nil {
-		t.Fatal(err)
+	// First, start the loop and wait for it to be running
+	go func() {
+		if err := l.Run(context.Background()); err != nil && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+	}()
+
+	// Wait for the loop to actually be running before starting the race test
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		state := LoopState(l.state.Load())
+		if state == StateRunning || state == StateSleeping {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
 	}
-	defer l.Stop(context.Background())
+
+	defer l.Shutdown(context.Background())
 
 	var wg sync.WaitGroup
 	done := make(chan struct{})
@@ -47,12 +61,13 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 			wg.Wait()
 			return
 		default:
-			err := l.Start(context.Background())
+			err := l.Run(context.Background())
 			if err == nil {
 				close(done)
 				wg.Wait()
-				t.Fatalf("CRITICAL: Double Start succeeded")
+				t.Fatalf("CRITICAL: Double Run succeeded")
 			}
+			// Expected: ErrLoopAlreadyRunning
 		}
 	}
 }

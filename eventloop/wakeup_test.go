@@ -19,10 +19,24 @@ func TestWakeup_HighContention(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := loop.Start(ctx); err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Stop(context.Background())
+	runDone := make(chan struct{})
+	errChan := make(chan error, 1)
+	go func() {
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+			errChan <- err
+			return
+		}
+		close(runDone)
+	}()
+
+	defer func() {
+		loop.Shutdown(context.Background())
+		select {
+		case <-runDone:
+		case err := <-errChan:
+			t.Fatal(err)
+		}
+	}()
 
 	const producers = 100
 	const tasksPerProducer = 1000
