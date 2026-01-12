@@ -79,7 +79,8 @@ func TestLoop_RunRace(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			err := l.Run(ctx) // Use timeout context instead of context.Background()
-			if err == nil {
+			// Success = nil OR context deadline exceeded (the winning Run hit timeout)
+			if err == nil || err == context.DeadlineExceeded {
 				successes.Add(1)
 			} else if err == ErrLoopAlreadyRunning {
 				failures.Add(1)

@@ -5,6 +5,7 @@ import (
 
 	eventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-eventloop/internal/alternateone"
+	"github.com/joeycumines/go-eventloop/internal/alternatethree"
 	"github.com/joeycumines/go-eventloop/internal/alternatetwo"
 	"github.com/joeycumines/go-eventloop/internal/gojabaseline"
 )
@@ -146,12 +147,49 @@ func (a *BaselineAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
 }
 
+// AlternateThreeAdapter adapts the alternatethree.Loop to the EventLoop interface.
+// AlternateThree is the "Balanced" variant - the original Main implementation
+// before Phase 18 promotion of AlternateTwo.
+type AlternateThreeAdapter struct {
+	loop *alternatethree.Loop
+}
+
+// NewAlternateThreeLoop creates a new "balanced" event loop (original Main).
+func NewAlternateThreeLoop() (EventLoop, error) {
+	loop, err := alternatethree.New()
+	if err != nil {
+		return nil, err
+	}
+	return &AlternateThreeAdapter{loop: loop}, nil
+}
+
+func (a *AlternateThreeAdapter) Run(ctx context.Context) error {
+	return a.loop.Run(ctx)
+}
+
+func (a *AlternateThreeAdapter) Shutdown(ctx context.Context) error {
+	return a.loop.Shutdown(ctx)
+}
+
+func (a *AlternateThreeAdapter) Close() error {
+	return a.loop.Close()
+}
+
+func (a *AlternateThreeAdapter) Submit(fn func()) error {
+	return a.loop.Submit(fn)
+}
+
+func (a *AlternateThreeAdapter) SubmitInternal(fn func()) error {
+	return a.loop.SubmitInternal(alternatethree.Task{Runnable: fn})
+}
+
 // Implementations returns all available implementations for tournament testing.
 func Implementations() []Implementation {
 	return []Implementation{
 		{Name: "Main", Factory: NewMainLoop},
 		{Name: "AlternateOne", Factory: NewAlternateOneLoop},
 		{Name: "AlternateTwo", Factory: NewAlternateTwoLoop},
+		{Name: "AlternateThree", Factory: NewAlternateThreeLoop},
 		{Name: "Baseline", Factory: NewBaselineLoop},
 	}
 }

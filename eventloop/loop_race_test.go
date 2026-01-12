@@ -94,7 +94,7 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 	if err == context.DeadlineExceeded {
 		t.Log("BUG CONFIRMED: poll() likely overwrote StateTerminating, causing shutdown hang")
 		// Force cleanup for test hygiene
-		l.state.Store(int32(StateTerminating))
+		l.state.Store(StateTerminating)
 		l.submitWakeup()
 		// Give it a moment to clean up
 		time.Sleep(50 * time.Millisecond)

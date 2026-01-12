@@ -39,11 +39,10 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -153,11 +152,10 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -217,11 +215,10 @@ func TestWriteThenCheckIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -276,11 +273,10 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -367,11 +363,10 @@ func TestWakeUpSignalFlagResetIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -426,11 +421,10 @@ func TestWakeMethodDeduplicationIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -485,11 +479,10 @@ func TestWakeUpDuringPollingIntegration(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -541,11 +534,10 @@ func BenchmarkWakeUpDeduplicationIntegration(b *testing.B) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
-			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()

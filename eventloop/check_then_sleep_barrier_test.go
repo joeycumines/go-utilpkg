@@ -37,11 +37,11 @@ func TestMutexBarrierProtocol(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -92,11 +92,11 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -196,11 +196,11 @@ func TestWakeUpDeduplication(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -297,11 +297,11 @@ func TestTOCTOURacePrevention(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -420,11 +420,11 @@ func TestMultipleProducersNoRedundantSyscalls(t *testing.T) {
 			runDone := make(chan struct{})
 			errChan := make(chan error, 1)
 			go func() {
-				if err := loop.Run(ctx); err != nil {
+				defer close(runDone)
+				if err := loop.Run(ctx); err != nil && err != context.Canceled {
 					errChan <- err
 					return
 				}
-				close(runDone)
 			}()
 			defer func() {
 				cancel()
@@ -516,11 +516,11 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -532,7 +532,6 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 		default:
 		}
 	}()
-
 	// Track state transitions using simple counter instead of atomic.Int64 (sync.Map doesn't allow atomic types)
 	var stateTransitions sync.Map
 	var lastState atomic.Int32
@@ -609,11 +608,11 @@ func TestBarrierProtocolUnderStress(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -675,11 +674,11 @@ func TestWriteThenCheckProtocol(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()
@@ -761,11 +760,11 @@ func TestCheckThenSleepNoLostWakeups(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		defer close(runDone)
+		if err := loop.Run(ctx); err != nil && err != context.Canceled {
 			errChan <- err
 			return
 		}
-		close(runDone)
 	}()
 	defer func() {
 		cancel()

@@ -1,3 +1,19 @@
+//go:build ignore
+// +build ignore
+
+// NOTE: This file tests the OLD chunked IngressQueue implementation which has been
+// replaced by the lock-free LockFreeIngress. The old implementation is preserved
+// in eventloop/internal/alternatethree/ along with its tests.
+//
+// This file is disabled because:
+// 1. newChunk, returnChunk, chunkPool no longer exist
+// 2. chunk type with tasks/pos/readPos no longer exists
+// 3. IngressQueue is now a thin wrapper around LockFreeIngress
+//
+// For lock-free ingress testing, see:
+// - eventloop/internal/alternatetwo/ingress.go (implementation)
+// - eventloop/internal/tournament/ (integration tests)
+
 package eventloop
 
 import (

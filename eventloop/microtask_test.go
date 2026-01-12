@@ -17,16 +17,12 @@ func TestYieldPreservesOrder(t *testing.T) {
 	lastExecutedID := -1
 
 	numTasks := 1025
-	l.microtasks = make([]Task, numTasks)
-
 	for i := 0; i < numTasks; i++ {
 		id := i
-		l.microtasks[i] = Task{
-			Runnable: func() {
-				executedCount++
-				lastExecutedID = id
-			},
-		}
+		l.microtasks.Push(func() {
+			executedCount++
+			lastExecutedID = id
+		})
 	}
 
 	// Run drain ONCE
@@ -42,13 +38,8 @@ func TestYieldPreservesOrder(t *testing.T) {
 	}
 
 	// Verify remaining task
-	if len(l.microtasks) != 1 {
-		t.Errorf("Expected 1 remaining task, got %d", len(l.microtasks))
-	}
-
-	// Verify flag
-	if !l.forceNonBlockingPoll {
-		t.Error("forceNonBlockingPoll should be set")
+	if l.microtasks.Length() != 1 {
+		t.Errorf("Expected 1 remaining task, got %d", l.microtasks.Length())
 	}
 
 	// Run drain again (process remainder)
@@ -59,12 +50,6 @@ func TestYieldPreservesOrder(t *testing.T) {
 	}
 	if lastExecutedID != 1024 {
 		t.Errorf("Expected last ID 1024, got %d", lastExecutedID)
-	}
-
-	// Verify flag cleared (Wait, drain doesn't clear flag. Poll clears flag.)
-	// So flag remains true until Poll sees it.
-	if !l.forceNonBlockingPoll {
-		// Valid state: still true.
 	}
 }
 

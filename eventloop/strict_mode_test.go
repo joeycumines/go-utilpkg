@@ -55,13 +55,11 @@ func TestBarrierOrderingModes(t *testing.T) {
 			mu.Unlock()
 
 			// Schedule Microtask
-			l.microtasks = append(l.microtasks, Task{
-				Runnable: func() {
-					mu.Lock()
-					executionOrder = append(executionOrder, "Microtask")
-					mu.Unlock()
-					wg.Done()
-				},
+			l.microtasks.Push(func() {
+				mu.Lock()
+				executionOrder = append(executionOrder, "Microtask")
+				mu.Unlock()
+				wg.Done()
 			})
 			wg.Done()
 		}
@@ -165,15 +163,13 @@ func TestBarrierOrderingModes(t *testing.T) {
 			// Let's assume we have a way to schedule microtask.
 			// Currently `l.microtasks` is public.
 			// Ideally we should use a method `l.ScheduleMicrotask(task)`.
-			// Since we don't have that exposed yet, we'll append to the slice.
+			// Since we don't have that exposed yet, we'll push to the ring.
 			// However, this test runs the closure ON the loop, so it has access to `l`.
-			l.microtasks = append(l.microtasks, Task{
-				Runnable: func() {
-					mu.Lock()
-					executionOrder = append(executionOrder, "Microtask")
-					mu.Unlock()
-					wg.Done()
-				},
+			l.microtasks.Push(func() {
+				mu.Lock()
+				executionOrder = append(executionOrder, "Microtask")
+				mu.Unlock()
+				wg.Done()
 			})
 			wg.Done()
 		}
@@ -263,12 +259,12 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 	task := func() {
 		// Spawn 2000 microtasks (Budget is 1024)
 		for i := 0; i < 2000; i++ {
-			l.microtasks = append(l.microtasks, Task{Runnable: func() {
+			l.microtasks.Push(func() {
 				ops.Add(1)
 				if ops.Load() == 2000 {
 					close(done)
 				}
-			}})
+			})
 		}
 	}
 

@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"testing"
 )
 
@@ -15,33 +14,30 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 
 		var order []string
 
-		// Fill ingress queue directly
-		l.ingressMu.Lock()
-
+		// Fill ingress queue directly using lock-free Push
 		// Task A: Queues M1
-		l.ingress.Push(Task{Runnable: func() {
+		l.external.Push(func() {
 			order = append(order, "A")
-			l.microtasks = append(l.microtasks, Task{Runnable: func() {
+			l.microtasks.Push(func() {
 				order = append(order, "M1")
-			}})
-		}})
+			})
+		})
 
 		// Task B: Queues M2
-		l.ingress.Push(Task{Runnable: func() {
+		l.external.Push(func() {
 			order = append(order, "B")
-			l.microtasks = append(l.microtasks, Task{Runnable: func() {
+			l.microtasks.Push(func() {
 				order = append(order, "M2")
-			}})
-		}})
-		l.ingressMu.Unlock()
+			})
+		})
 
 		// Simulate Tick
-		// tick() calls processIngress() then drainMicrotasks()
-		l.processIngress(context.TODO())
+		// tick() calls processExternal() then drainMicrotasks()
+		l.processExternal()
 		l.drainMicrotasks()
 
 		// Check Order
-		// Default mode: processIngress runs A, B. Then drainMicrotasks runs M1, M2.
+		// Default mode: processExternal runs A, B. Then drainMicrotasks runs M1, M2.
 		expected := []string{"A", "B", "M1", "M2"}
 
 		if len(order) != 4 {
@@ -61,31 +57,28 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 
 		var order []string
 
-		l.ingressMu.Lock()
-
 		// Task A
-		l.ingress.Push(Task{Runnable: func() {
+		l.external.Push(func() {
 			order = append(order, "A")
-			l.microtasks = append(l.microtasks, Task{Runnable: func() {
+			l.microtasks.Push(func() {
 				order = append(order, "M1")
-			}})
-		}})
+			})
+		})
 
 		// Task B
-		l.ingress.Push(Task{Runnable: func() {
+		l.external.Push(func() {
 			order = append(order, "B")
-			l.microtasks = append(l.microtasks, Task{Runnable: func() {
+			l.microtasks.Push(func() {
 				order = append(order, "M2")
-			}})
-		}})
-		l.ingressMu.Unlock()
+			})
+		})
 
 		// Simulate Tick
-		l.processIngress(context.TODO())
+		l.processExternal()
 		l.drainMicrotasks() // Cleanup any remainder
 
 		// Check Order
-		// Strict mode: processIngress runs A, then drains (M1). Then runs B, then drains (M2).
+		// Strict mode: processExternal runs A, then drains (M1). Then runs B, then drains (M2).
 		expected := []string{"A", "M1", "B", "M2"}
 
 		if len(order) != 4 {

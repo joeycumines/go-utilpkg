@@ -1,9 +1,7 @@
 package eventloop
 
 import (
-	"context"
 	"testing"
-	"time"
 )
 
 // TestMicrotaskBudget_ResetsPolling verifies that the forceNonBlockingPoll flag
@@ -14,11 +12,13 @@ func TestMicrotaskBudget_ResetsPolling(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Set up state to Running so poll() doesn't early-return
+	l.state.Store(StateRunning)
+
 	l.forceNonBlockingPoll = true
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancel()
-	l.tick(ctx)
+	// tick() no longer takes context - it's handled by run()
+	l.tick()
 
 	if l.forceNonBlockingPoll {
 		t.Fatalf("CRITICAL: forceNonBlockingPoll was not reset after usage. Loop will busy-spin.")
