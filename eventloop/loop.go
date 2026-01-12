@@ -98,8 +98,8 @@ type Loop struct { // betteralign:ignore
 	wakePending   atomic.Uint32
 
 	// Timing
-	tickAnchorNano atomic.Int64 // UnixNano of tick anchor (atomic for thread safety)
-	tickTimeOffset atomic.Int64
+	tickAnchor      time.Time    // Reference time for monotonicity (initialized once, never changes)
+	tickElapsedTime atomic.Int64 // Nanoseconds offset from anchor (monotonic, atomic for thread safety)
 
 	// Goroutine tracking
 	loopGoroutineID atomic.Uint64
@@ -227,8 +227,9 @@ func (l *Loop) Run(ctx context.Context) error {
 	// Close loopDone when run exits to signal completion to Shutdown waiters
 	defer close(l.loopDone)
 
-	// Initialize timing anchor (atomic for thread safety)
-	l.tickAnchorNano.Store(time.Now().UnixNano())
+	// Initialize timing anchor - this is our reference point for monotonic time
+	l.tickAnchor = time.Now()
+	l.tickElapsedTime.Store(0)
 
 	// Run the loop directly (blocking)
 	return l.run(ctx)
@@ -435,10 +436,12 @@ func (l *Loop) shutdown() {
 // tick is a single iteration of the event loop.
 func (l *Loop) tick() {
 	l.tickCount++
-	anchorNano := l.tickAnchorNano.Load()
-	if anchorNano != 0 {
-		l.tickTimeOffset.Store(time.Now().UnixNano() - anchorNano)
-	}
+
+	// D6 FIX: Update elapsed monotonic time offset from anchor
+	// time.Since(tickAnchor) uses the monotonic clock when available,
+	// ensuring accuracy even if wall-clock is adjusted (e.g., NTP)
+	elapsed := time.Since(l.tickAnchor)
+	l.tickElapsedTime.Store(int64(elapsed))
 
 	// Execute expired timers
 	l.runTimers()
@@ -597,24 +600,51 @@ func (l *Loop) drainWakeUpPipe() {
 }
 
 // submitWakeup writes to the wake-up pipe.
+//
+// Wake-up Policy:
+//   - REJECTS: StateTerminated (fully stopped, no tasks to process)
+//   - ALLOWS: StateTerminating (loop needs to wake and drain remaining tasks)
+//   - ALLOWS: StateSleeping, StateRunning, StateAwake
+//
+// Safe to call concurrently during shutdown - pipe write errors during shutdown are
+// gracefully handled by callers.
 func (l *Loop) submitWakeup() error {
+	// D10 FIX: Check state and reject ONLY if fully terminated
+	// We MUST allow wake-up during StateTerminating so the loop can
+	// drain queued tasks and complete shutdown
+	state := l.state.Load()
+	if state == StateTerminated {
+		// Loop is already fully terminated - no need to wake up
+		return ErrLoopTerminated
+	}
+
 	// PERFORMANCE: Native endianness, no binary.LittleEndian overhead
 	var one uint64 = 1
 	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
 
 	_, err := unix.Write(l.wakePipeWrite, buf)
+	// Note: Pipe write errors (e.g., "broken pipe") are expected during shutdown
+	// when the pipe is being closed. Callers must handle these gracefully.
 	return err
 }
 
 // Submit submits a task to the external queue.
+//
+// State Policy during shutdown:
+//   - StateTerminated: returns ErrLoopTerminated
+//   - StateTerminating: ALLOWS submission (loop needs to drain in-flight work)
+//   - StateSleeping/StateRunning: normal operation
 func (l *Loop) Submit(task Task) error {
 	// Increment inflight counter FIRST, before checking state
 	l.inflight.Add(1)
 	defer l.inflight.Add(-1)
 
-	// Check state - reject if shutting down or terminated
+	// D10 FIX: Only reject if fully terminated, NOT during StateTerminating
+	// We must allow submissions during StateTerminating to ensure:
+	// 1. In-flight operations (e.g., Promisify) can complete
+	// 2. The loop can drain all queued work before shutting down
 	state := l.state.Load()
-	if state == StateTerminating || state == StateTerminated {
+	if state == StateTerminated {
 		return ErrLoopTerminated
 	}
 
@@ -627,7 +657,14 @@ func (l *Loop) Submit(task Task) error {
 	if state == StateSleeping {
 		if l.wakePending.CompareAndSwap(0, 1) {
 			if err := l.submitWakeup(); err != nil {
+				// D10 FIX: Gracefully handle wake-up failures during shutdown
+				// Expected errors during shutdown:
+				//   - EBADF (bad file descriptor): pipe closed
+				//   - EPIPE (broken pipe): write end closed
+				// These are not fatal - the task is already queued and will be
+				// processed if the loop wakes via other means
 				l.wakePending.Store(0)
+				// Don't return error from Submit - task is already queued
 			}
 		}
 	}
@@ -636,11 +673,18 @@ func (l *Loop) Submit(task Task) error {
 }
 
 // SubmitInternal submits a task to the internal priority queue.
+//
+// State Policy during shutdown:
+//   - StateTerminated: returns ErrLoopTerminated
+//   - StateTerminating: ALLOWS submission (loop needs to drain in-flight work)
+//   - StateSleeping/StateRunning: normal operation
 func (l *Loop) SubmitInternal(task Task) error {
 	// Increment inflight counter FIRST
 	l.inflight.Add(1)
 	defer l.inflight.Add(-1)
 
+	// D10 FIX: Only reject if fully terminated, NOT during StateTerminating
+	// Consistent with Submit() - allows loop to drain in-flight work
 	state := l.state.Load()
 	if state == StateTerminated {
 		return ErrLoopTerminated
@@ -650,8 +694,12 @@ func (l *Loop) SubmitInternal(task Task) error {
 
 	if l.state.Load() == StateSleeping {
 		if l.wakePending.CompareAndSwap(0, 1) {
+			// D10 FIX: Gracefully handle wake-up failures during shutdown
 			if err := l.submitWakeup(); err != nil {
+				// Expected errors during shutdown (EBADF, EPIPE)
+				// Task is already queued, will be processed if loop wakes
 				l.wakePending.Store(0)
+				// Don't return error - task is already queued
 			}
 		}
 	}
@@ -660,16 +708,33 @@ func (l *Loop) SubmitInternal(task Task) error {
 }
 
 // Wake attempts to wake up the loop from a suspended state.
+//
+// State Policy:
+//   - StateSleeping: performs wake-up (if not already pending)
+//   - StateTerminated: returns nil (no-op on terminated loop)
+//   - StateTerminating/StateRunning/StateAwake: returns nil (loop already active)
+//
+// Wake-up failures during shutdown are silently ignored (expected when pipe closes).
 func (l *Loop) Wake() error {
 	state := l.state.Load()
+
+	// Early returns for non-sleeping states
 	if state != StateSleeping {
+		// If already terminated, sleeping, or transitioning, no wake-up needed
 		return nil
 	}
 
 	if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
-		if err := l.submitWakeup(); err != nil {
+		// D10 FIX: Gracefully handle wake-up failures
+		// submitWakeup will reject if StateTerminated, so we don't need
+		// to check state again here
+		err := l.submitWakeup()
+		if err != nil {
+			// Reset pending flag on failure so future Wake() can retry
 			l.wakeUpSignalPending.Store(0)
-			return err
+			// Don't propagate error - during shutdown, pipe write errors
+			// (EBADF, EPIPE) are expected and not fatal
+			return nil
 		}
 	}
 
@@ -677,20 +742,23 @@ func (l *Loop) Wake() error {
 }
 
 // ScheduleMicrotask schedules a microtask.
+//
+// D2 FIX: MicrotaskRing now implements dynamic growth, so Push never fails.
+// Removed error check for full buffer.
 func (l *Loop) ScheduleMicrotask(fn func()) error {
 	state := l.state.Load()
 	if state == StateTerminated {
 		return ErrLoopTerminated
 	}
 
-	if !l.microtasks.Push(fn) {
-		return errors.New("eventloop: microtask buffer full")
-	}
-
+	l.microtasks.Push(fn)
 	return nil
 }
 
 // scheduleMicrotask adds a task to the microtask queue (internal use).
+//
+// D2 FIX: MicrotaskRing now implements dynamic growth, so Push never fails.
+// Removed fallback to SubmitInternal - always push to microtask ring.
 func (l *Loop) scheduleMicrotask(task Task) {
 	if task.Runnable != nil {
 		l.microtasks.Push(task.Runnable)
@@ -713,27 +781,27 @@ func (l *Loop) ModifyFD(fd int, events IOEvents) error {
 }
 
 // CurrentTickTime returns the cached time for the current tick.
+// The returned value uses the monotonic clock and is safe to use for timer calculations.
 func (l *Loop) CurrentTickTime() time.Time {
-	anchorNano := l.tickAnchorNano.Load()
-	if anchorNano == 0 {
+	// If anchor not initialized (shouldn't happen after Run), return current wall-clock time
+	if l.tickAnchor.IsZero() {
 		return time.Now()
 	}
-	offset := l.tickTimeOffset.Load()
-	return time.Unix(0, anchorNano+offset)
+	// Add elapsed monotonic offset to anchor to get current monotonic time
+	// This ensures timer accuracy even if wall-clock is adjusted
+	elapsed := time.Duration(l.tickElapsedTime.Load())
+	return l.tickAnchor.Add(elapsed)
 }
 
 // SetTickAnchor sets the tick anchor time (for testing only).
 func (l *Loop) SetTickAnchor(t time.Time) {
-	l.tickAnchorNano.Store(t.UnixNano())
+	l.tickAnchor = t
+	l.tickElapsedTime.Store(0)
 }
 
 // TickAnchor returns the tick anchor time (for testing only).
 func (l *Loop) TickAnchor() time.Time {
-	nano := l.tickAnchorNano.Load()
-	if nano == 0 {
-		return time.Time{}
-	}
-	return time.Unix(0, nano)
+	return l.tickAnchor
 }
 
 // State returns the current loop state.
@@ -784,7 +852,9 @@ func (l *Loop) runTimers() {
 
 // ScheduleTimer schedules a task to be executed after the specified delay.
 func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
-	when := time.Now().Add(delay)
+	// D6 FIX: Use monotonic time by computing when relative to current tick time
+	now := l.CurrentTickTime()
+	when := now.Add(delay)
 	t := timer{
 		when: when,
 		task: Task{Runnable: fn},

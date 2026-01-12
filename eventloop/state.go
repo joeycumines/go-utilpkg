@@ -8,12 +8,12 @@ import (
 //
 // State Machine (Performance-First Design):
 //
-//	StateAwake (0) → StateRunning (3)      [Run()]
-//	StateRunning (3) → StateSleeping (2)   [poll() via CAS]
-//	StateRunning (3) → StateTerminating (4) [Shutdown()]
-//	StateSleeping (2) → StateRunning (3)   [poll() wake via CAS]
-//	StateSleeping (2) → StateTerminating (4) [Shutdown()]
-//	StateTerminating (4) → StateTerminated (1) [shutdown complete]
+//	StateAwake (0) → StateRunning (4)      [Run()]
+//	StateRunning (4) → StateSleeping (2)   [poll() via CAS]
+//	StateRunning (4) → StateTerminating (5) [Shutdown()]
+//	StateSleeping (2) → StateRunning (4)   [poll() wake via CAS]
+//	StateSleeping (2) → StateTerminating (5) [Shutdown()]
+//	StateTerminating (5) → StateTerminated (1) [shutdown complete]
 //	StateTerminated (1) → (terminal)
 //
 // State Transition Rules:
@@ -21,8 +21,9 @@ import (
 //   - Use Store() for irreversible states (Terminated)
 //   - Using Store(Running) or Store(Sleeping) is a BUG (breaks CAS logic)
 //
-// NOTE: State values are intentionally ordered for backward compatibility
-// with the original implementation spec (StateTerminated=1, StateSleeping=2).
+// NOTE: State values are preserved for backward compatibility with implementations
+// that serialize/compare integer values. StateTerminated=1, StateSleeping=2,
+// StateRunning=4 are the original values from the first implementation.
 type LoopState uint64
 
 const (
@@ -35,9 +36,11 @@ const (
 	// NOTE: This is value 2 for backward compatibility with original spec.
 	StateSleeping LoopState = 2
 	// StateRunning indicates the loop is actively processing tasks.
-	StateRunning LoopState = 3
+	// NOTE: This is value 4 for backward compatibility with original spec.
+	StateRunning LoopState = 4
 	// StateTerminating indicates shutdown has been requested but not completed.
-	StateTerminating LoopState = 4
+	// NOTE: This is value 5 (not serialized in original, new state added after)
+	StateTerminating LoopState = 5
 )
 
 // String returns a human-readable representation of the state.

@@ -326,7 +326,7 @@ func TestRegression_StateSpecCompliance(t *testing.T) {
 
 // TestRegression_TickTimeNoHeapEscape verifies that tickTime storage
 // does not cause heap allocations. T5 fix: Use Anchor+Offset pattern
-// (tickAnchor + tickTimeOffset) to avoid heap escape while preserving monotonic clock.
+// (tickAnchor + tickElapsedTime) to avoid heap escape while preserving monotonic clock.
 func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 	l, err := New()
 	if err != nil {
@@ -336,13 +336,13 @@ func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 	// Warm up the loop - simulate what Start() does
 	l.SetTickAnchor(time.Now())
 	anchor := l.TickAnchor()
-	l.tickTimeOffset.Store(time.Since(anchor).Nanoseconds())
+	l.tickElapsedTime.Store(time.Since(anchor).Nanoseconds())
 	_ = l.CurrentTickTime()
 
 	allocs := testing.AllocsPerRun(100, func() {
 		// This simulates what tick() does - should be zero allocations
 		anchor := l.TickAnchor()
-		l.tickTimeOffset.Store(time.Since(anchor).Nanoseconds())
+		l.tickElapsedTime.Store(time.Since(anchor).Nanoseconds())
 		_ = l.CurrentTickTime()
 	})
 
@@ -395,7 +395,7 @@ func TestRegression_ChunkPooling(t *testing.T) {
 
 // TestRegression_MonotonicTimerIntegrity verifies that the tickTime implementation
 // provides consistent timing for timer calculations using the Anchor+Offset pattern.
-// T5 FIX (REVISED): Uses tickAnchor + tickTimeOffset for monotonic clock stability.
+// T5 FIX (REVISED): Uses tickAnchor + tickElapsedTime for monotonic clock stability.
 func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 	l, err := New()
 	if err != nil {
@@ -408,7 +408,7 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 
 	// Simulate one tick - store monotonic offset
 	initialOffset := time.Since(anchor)
-	l.tickTimeOffset.Store(int64(initialOffset))
+	l.tickElapsedTime.Store(int64(initialOffset))
 
 	// Get the calculated time
 	tickTime := l.CurrentTickTime()
@@ -422,7 +422,7 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 	}
 
 	// PROOF 2: Monotonicity Check - tickTime should equal tickAnchor.Add(offset)
-	reconstructed := anchor.Add(time.Duration(l.tickTimeOffset.Load()))
+	reconstructed := anchor.Add(time.Duration(l.tickElapsedTime.Load()))
 	// Allow small tolerance due to atomic conversion
 	diff := tickTime.Sub(reconstructed)
 	if diff < -time.Microsecond || diff > time.Microsecond {
@@ -432,7 +432,7 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 	// PROOF 3: Tick time updates correctly with monotonic progression
 	time.Sleep(10 * time.Millisecond)
 	newOffset := time.Since(anchor)
-	l.tickTimeOffset.Store(int64(newOffset))
+	l.tickElapsedTime.Store(int64(newOffset))
 	newTickTime := l.CurrentTickTime()
 
 	if !newTickTime.After(tickTime) {
@@ -550,10 +550,10 @@ func TestRegression_MonotonicIntegrity(t *testing.T) {
 	}
 
 	// 2. Monotonicity Sanity Check
-	l.tickTimeOffset.Store(int64(10 * time.Millisecond))
+	l.tickElapsedTime.Store(int64(10 * time.Millisecond))
 	t1 := l.CurrentTickTime()
 
-	l.tickTimeOffset.Store(int64(20 * time.Millisecond))
+	l.tickElapsedTime.Store(int64(20 * time.Millisecond))
 	t2 := l.CurrentTickTime()
 
 	if !t2.After(t1) {

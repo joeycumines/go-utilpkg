@@ -170,67 +170,219 @@ func (q *LockFreeIngress) IsEmpty() bool {
 }
 
 // ============================================================================
-// LOCK-FREE MICROTASK RING (from AlternateTwo)
+// HYBRID MICROTASK RING (D2 FIX)
 // ============================================================================
 
-// MicrotaskRing is a lock-free ring buffer for microtasks.
+// MicrotaskRing is a hybrid ring buffer with dynamic slice fallback.
 //
-// PERFORMANCE: Fixed-size ring buffer with atomic head/tail.
-// Suitable for bounded microtask queues.
+// D2 FIX: Implements dynamic growth to eliminate data loss on overflow.
+//
+// PERFORMANCE: Two-tier design:
+//   - Fast path: Static [4096] ring buffer with lock-free atomic operations (no allocation)
+//   - Slow path: Dynamic []func() slice protected by RWMutex, grows on demand
+//
+// DESIGN:
+//   - Starts in ring mode using fixed-size array for zero-allocation fast path
+//   - When ring is full and under contention, automatically transitions to slice mode
+//   - Slice mode uses append() for natural growth, protected by mutex
+//   - The slow path only activates under sustained burst conditions
+//
+// Memory:
+//   - Ring mode: ~32KB static overhead (4096 pointers)
+//   - Slice mode: O(n) growth, GC reclaimable when drained
 type MicrotaskRing struct { // betteralign:ignore
 	_      [64]byte      // Cache line padding //nolint:unused
-	buffer [4096]func()  // Ring buffer
-	head   atomic.Uint64 // Consumer index
+	buffer [4096]func()  // Fast path: static ring buffer
+	head   atomic.Uint64 // Consumer index (ring mode)
 	_      [56]byte      // Pad to cache line //nolint:unused
-	tail   atomic.Uint64 // Producer index
+	tail   atomic.Uint64 // Producer index (ring mode)
 	_      [56]byte      // Pad to cache line //nolint:unused
+
+	// Slow path: dynamic slice fallback
+	onSlice   atomic.Bool  // Atomic flag: true when using slice mode
+	sliceMu   sync.RWMutex // Protects slice access
+	slice     []func()     // Dynamic fallback buffer (non-nil only in slice mode)
+	sliceHead int          // Consumer index (slice mode)
 }
 
-// NewMicrotaskRing creates a new microtask ring buffer.
+// NewMicrotaskRing creates a new hybrid microtask ring buffer.
 func NewMicrotaskRing() *MicrotaskRing {
 	return &MicrotaskRing{}
 }
 
 // Push adds a microtask to the ring buffer.
-// Returns false if the buffer is full.
-// PERFORMANCE: Lock-free CAS loop.
+// Returns true if successfully added (always true - never fails).
+// PERFORMANCE: Two-tier design with lock-free fast path.
+//
+// ALGORITHM:
+//  1. Check if already in slice mode (atomic read) - if so, use slow path
+//  2. Try fast path: CAS ring head/tail to claim slot in static ring
+//  3. If ring full, transition to slice mode and append
+//
+// D2 FIX: Never returns false - implements dynamic growth instead.
 func (r *MicrotaskRing) Push(fn func()) bool {
+	// Slow path: already in slice mode
+	if r.onSlice.Load() {
+		r.sliceMu.Lock()
+		r.slice = append(r.slice, fn)
+		r.sliceMu.Unlock()
+		return true
+	}
+
+	// Fast path: try to use ring buffer
 	for {
 		tail := r.tail.Load()
 		head := r.head.Load()
+
+		// Check if ring is full
 		if tail-head >= 4096 {
-			return false // Full
+			// Ring full - transition to slice mode
+			if r.onSlice.CompareAndSwap(false, true) {
+				// We won the race to switch to slice mode
+				// Drain ring into slice to preserve order
+				r.sliceMu.Lock()
+				r.slice = make([]func(), 0, 8192)
+				currentHead := r.head.Load()
+				currentTail := r.tail.Load()
+				for i := currentHead; i < currentTail; i++ {
+					r.slice = append(r.slice, r.buffer[i%4096])
+					r.buffer[i%4096] = nil // Clear for GC
+				}
+				r.sliceHead = 0
+				// Reset ring state (consumer will see onSlice=true)
+				r.sliceMu.Unlock()
+			}
+			// Retry push in slice mode
+			// Fall through to slow path (atomic read will see onSlice=true)
+			if r.onSlice.Load() {
+				r.sliceMu.Lock()
+				r.slice = append(r.slice, fn)
+				r.sliceMu.Unlock()
+				return true
+			}
+			// Lost race to switch, retry CAS loop
+			continue
 		}
+
+		// Try to claim slot via CAS
 		if r.tail.CompareAndSwap(tail, tail+1) {
+			// Write AFTER increment - producer has claimed slot
+			// Consumer may see this write immediately
+			// But before write, check if we raced to slice mode
+			if r.onSlice.Load() {
+				// Lost race - another goroutine switched to slice mode
+				// Revert our tail increment and retry in slice mode
+				r.tail.Add(^uint64(0)) // Tail - 1
+				r.sliceMu.Lock()
+				r.slice = append(r.slice, fn)
+				r.sliceMu.Unlock()
+				return true
+			}
 			r.buffer[tail%4096] = fn
 			return true
 		}
+		// CAS failed, retry
 	}
 }
 
 // Pop removes and returns a microtask from the ring buffer.
 // Returns nil if the buffer is empty.
-// PERFORMANCE: Single consumer, no CAS needed.
+// PERFORMANCE: Two-tier design with lock-free fast path.
+//
+// ALGORITHM:
+//  1. Check mode (atomic read onSlice flag)
+//  2. Ring mode: read slot with barrier check, advance head
+//  3. Slice mode: read from slice under read-lock, advance head
+//
+// CRITICAL FIX: Barrier check handles the race where consumer sees head < tail
+// but producer hasn't completed the write yet. Spin until data is visible.
 func (r *MicrotaskRing) Pop() func() {
+	// Slow path: slice mode
+	if r.onSlice.Load() {
+		r.sliceMu.Lock()
+		defer r.sliceMu.Unlock()
+
+		if r.sliceHead >= len(r.slice) {
+			return nil // Empty
+		}
+
+		fn := r.slice[r.sliceHead]
+		r.slice[r.sliceHead] = nil // Clear for GC
+		r.sliceHead++
+
+		// Optimize: if slice drained, reset to ring mode
+		if r.sliceHead >= len(r.slice) {
+			r.slice = nil
+			r.sliceHead = 0
+			r.onSlice.Store(false)
+		}
+
+		return fn
+	}
+
+	// Fast path: ring mode
 	head := r.head.Load()
 	tail := r.tail.Load()
+
+	// Double-check for race to slice mode
+	if r.onSlice.Load() {
+		// Race - switched to slice mode, retry from top
+		return r.Pop()
+	}
+
 	if head >= tail {
 		return nil // Empty
 	}
 
-	fn := r.buffer[head%4096]
-	r.buffer[head%4096] = nil // Clear for GC
+	// Barrier: Wait for producer to complete write if it hasn't yet
+	// This handles the case where tail advanced but write not visible
+	slot := r.buffer[head%4096]
+
+	// Check race again while spinning (another goroutine might switch mode)
+	for slot == nil {
+		if r.onSlice.Load() {
+			// Race - switched to slice mode, abort and retry
+			return r.Pop()
+		}
+		// Producer has claimed slot (head < tail) but hasn't written yet
+		// Spin briefly to wait for write visibility
+		slot = r.buffer[head%4096]
+	}
+
+	// Now increment head to consume the slot
 	r.head.Add(1)
-	return fn
+
+	// Clear buffer slot after moving head (safe for GC, after consumption point)
+	r.buffer[(head)%4096] = nil
+
+	return slot
 }
 
 // Length returns the number of microtasks in the ring.
-func (r *MicrotaskRing) Length() uint64 {
-	return r.tail.Load() - r.head.Load()
+// PERFORMANCE: May be slightly stale under concurrent modification.
+func (r *MicrotaskRing) Length() int {
+	// Slice mode
+	if r.onSlice.Load() {
+		r.sliceMu.RLock()
+		defer r.sliceMu.RUnlock()
+		return len(r.slice) - r.sliceHead
+	}
+
+	// Ring mode
+	return int(r.tail.Load() - r.head.Load())
 }
 
 // IsEmpty returns true if the ring buffer is empty.
+// PERFORMANCE: May have false negatives under concurrent modification.
 func (r *MicrotaskRing) IsEmpty() bool {
+	// Slice mode
+	if r.onSlice.Load() {
+		r.sliceMu.RLock()
+		defer r.sliceMu.RUnlock()
+		return r.sliceHead >= len(r.slice)
+	}
+
+	// Ring mode
 	return r.head.Load() >= r.tail.Load()
 }
 

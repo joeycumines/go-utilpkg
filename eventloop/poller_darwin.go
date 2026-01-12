@@ -13,6 +13,9 @@ import (
 // Maximum file descriptor we support with direct indexing.
 const maxFDs = 65536
 
+// MaxFDLimit is the maximum FD value we support for dynamic growth.
+const MaxFDLimit = 100000000 // 100M, enough for production with ulimit -n > 1M
+
 // IOEvents represents the type of I/O events to monitor.
 type IOEvents uint32
 
@@ -29,7 +32,7 @@ const (
 
 // Standard errors.
 var (
-	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 65535)")
+	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 100000000)")
 	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
 	ErrFDNotRegistered     = errors.New("eventloop: fd not registered")
 	ErrPollerClosed        = errors.New("eventloop: poller closed")
@@ -49,14 +52,14 @@ type fdInfo struct {
 //
 // PERFORMANCE: Uses RWMutex for fdInfo access. The mutex is only held briefly
 // during registration/callback dispatch. The polling syscall itself is lock-free.
+// - Dynamic slice instead of fixed array for flexible FD support
+// - No version check - rely on fdMu for concurrent modification safety
 type FastPoller struct { // betteralign:ignore
 	_        [64]byte           // Cache line padding //nolint:unused
 	kq       int32              // kqueue file descriptor
 	_        [60]byte           // Pad to cache line //nolint:unused
-	version  atomic.Uint64      // Version counter for consistency
-	_        [56]byte           // Pad to cache line //nolint:unused
 	eventBuf [256]unix.Kevent_t // Larger buffer, preallocated
-	fds      [maxFDs]fdInfo     // Direct indexing, no map
+	fds      []fdInfo           // Dynamic slice, grows on demand
 	fdMu     sync.RWMutex       // Protects fds array access
 	closed   atomic.Bool        // Closed flag
 }
@@ -73,6 +76,10 @@ func (p *FastPoller) Init() error {
 	}
 	unix.CloseOnExec(kq)
 	p.kq = int32(kq)
+
+	// Initialize dynamic FD slice with initial capacity
+	p.fds = make([]fdInfo, maxFDs)
+
 	return nil
 }
 
@@ -90,18 +97,31 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
-	if fd < 0 || fd >= maxFDs {
+	if fd < 0 {
+		return ErrFDOutOfRange
+	}
+	if fd >= MaxFDLimit {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
+	// Grow slice if necessary
+	if fd >= len(p.fds) {
+		newSize := fd*2 + 1
+		if newSize > MaxFDLimit {
+			newSize = MaxFDLimit + 1
+		}
+		newFds := make([]fdInfo, newSize)
+		copy(newFds, p.fds)
+		p.fds = newFds
+	}
+
 	if p.fds[fd].active {
 		p.fdMu.Unlock()
 		return ErrFDAlreadyRegistered
 	}
 
 	p.fds[fd] = fdInfo{callback: cb, events: events, active: true}
-	p.version.Add(1)
 	p.fdMu.Unlock()
 
 	kevents := eventsToKevents(fd, events, unix.EV_ADD|unix.EV_ENABLE)
@@ -119,19 +139,18 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 
 // UnregisterFD removes a file descriptor from monitoring.
 func (p *FastPoller) UnregisterFD(fd int) error {
-	if fd < 0 || fd >= maxFDs {
+	if fd < 0 {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
-	if !p.fds[fd].active {
+	if fd >= len(p.fds) || !p.fds[fd].active {
 		p.fdMu.Unlock()
 		return ErrFDNotRegistered
 	}
 
 	events := p.fds[fd].events
 	p.fds[fd] = fdInfo{}
-	p.version.Add(1)
 	p.fdMu.Unlock()
 
 	kevents := eventsToKevents(fd, events, unix.EV_DELETE)
@@ -143,19 +162,18 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 
 // ModifyFD updates the events being monitored for a file descriptor.
 func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
-	if fd < 0 || fd >= maxFDs {
+	if fd < 0 {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
-	if !p.fds[fd].active {
+	if fd >= len(p.fds) || !p.fds[fd].active {
 		p.fdMu.Unlock()
 		return ErrFDNotRegistered
 	}
 
 	oldEvents := p.fds[fd].events
 	p.fds[fd].events = events
-	p.version.Add(1)
 	p.fdMu.Unlock()
 
 	// Delete old events
@@ -184,8 +202,6 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 		return 0, ErrPollerClosed
 	}
 
-	v := p.version.Load()
-
 	var ts *unix.Timespec
 	if timeoutMs >= 0 {
 		ts = &unix.Timespec{
@@ -202,11 +218,6 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 		return 0, err
 	}
 
-	// Check version after syscall
-	if p.version.Load() != v {
-		return 0, nil
-	}
-
 	// Dispatch events inline
 	p.dispatchEvents(n)
 
@@ -219,16 +230,21 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 func (p *FastPoller) dispatchEvents(n int) {
 	for i := 0; i < n; i++ {
 		fd := int(p.eventBuf[i].Ident)
-		if fd >= 0 && fd < maxFDs {
-			// Copy fdInfo under read lock
-			p.fdMu.RLock()
-			info := p.fds[fd]
-			p.fdMu.RUnlock()
+		if fd < 0 {
+			continue
+		}
 
-			if info.active && info.callback != nil {
-				events := keventToEvents(&p.eventBuf[i])
-				info.callback(events)
-			}
+		// Copy fdInfo under read lock
+		p.fdMu.RLock()
+		var info fdInfo
+		if fd < len(p.fds) {
+			info = p.fds[fd]
+		}
+		p.fdMu.RUnlock()
+
+		if info.active && info.callback != nil {
+			events := keventToEvents(&p.eventBuf[i])
+			info.callback(events)
 		}
 	}
 }
