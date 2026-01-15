@@ -1,6 +1,7 @@
 package eventloop
 
 import (
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"weak"
@@ -8,56 +9,54 @@ import (
 
 // Task represents a unit of work submitted to the event loop.
 type Task struct {
-	// Runnable is the function to execute.
 	Runnable func()
 }
 
 // ============================================================================
-// LOCK-FREE MPSC QUEUE (from AlternateTwo)
+// LOCK-FREE MPSC QUEUE
 // ============================================================================
 
-// node is a node in the lock-free MPSC queue.
 type node struct {
 	task Task
 	next atomic.Pointer[node]
 }
 
-// nodePool pools MPSC queue nodes.
 var nodePool = sync.Pool{
 	New: func() any {
 		return &node{}
 	},
 }
 
-// getNode gets a node from the pool.
 func getNode() *node {
 	return nodePool.Get().(*node)
 }
 
-// putNode returns a node to the pool.
 func putNode(n *node) {
 	n.task = Task{}
 	n.next.Store(nil)
 	nodePool.Put(n)
 }
 
-// LockFreeIngress is a lock-free multi-producer single-consumer queue.
+// LockFreeIngress is a lock-free multi-producer single-consumer (MPSC) queue.
 //
-// PERFORMANCE: Uses atomic CAS for producers with no mutex on hot paths.
-// Single-threaded consumer pops in batches to amortize cache misses.
+// Theoretical Classification: Linearizing Queue (Not a Multiplexer).
+// This implementation enforces a total global order via tail swapping.
+// A single stalled producer can block the consumer, meaning acausality within
+// streams is not preserved. However, this is required to satisfy "Zero-allocation"
+// and "Unbounded" requirements.
 //
-// Design: Intrusive linked list with stub node.
-// Producers: Atomic swap of tail pointer, then link previous.
-// Consumer: Walk from head, reclaiming nodes to pool.
+// Performance:
+// - Uses atomic CAS for producers with no mutex on hot paths.
+// - Single-threaded consumer pops in batches to amortize cache misses.
 type LockFreeIngress struct { // betteralign:ignore
-	_    [64]byte             // Cache line padding //nolint:unused
+	_    [64]byte             // Cache line padding
 	head atomic.Pointer[node] // Consumer reads from head
-	_    [56]byte             // Pad to cache line //nolint:unused
+	_    [56]byte             // Pad to cache line
 	tail atomic.Pointer[node] // Producers swap tail
-	_    [56]byte             // Pad to cache line //nolint:unused
+	_    [56]byte             // Pad to cache line
 	stub node                 // Sentinel node
-	len  atomic.Int64         // Queue length (approximate)
-	_    [56]byte             // Pad to cache line //nolint:unused
+	len  atomic.Int64         // Approximate queue length
+	_    [56]byte             // Pad to cache line
 }
 
 // NewLockFreeIngress creates a new lock-free MPSC queue.
@@ -68,57 +67,51 @@ func NewLockFreeIngress() *LockFreeIngress {
 	return q
 }
 
-// Push adds a task to the queue (thread-safe for multiple producers).
-// PERFORMANCE: Lock-free using atomic swap.
+// Push adds a task to the queue. Safe for concurrent use by multiple producers.
+// It establishes a causal link via atomic tail swapping (Linearization point).
 func (q *LockFreeIngress) Push(fn func()) {
 	n := getNode()
 	n.task = Task{Runnable: fn}
 	n.next.Store(nil)
 
-	// Atomically swap tail, linking previous tail to new node
+	// Atomically swap tail, linking previous tail to new node.
 	prev := q.tail.Swap(n)
-	prev.next.Store(n) // Linearization point
+	prev.next.Store(n)
 
 	q.len.Add(1)
 }
 
-// PushTask adds a task struct to the queue (thread-safe for multiple producers).
-// PERFORMANCE: Lock-free using atomic swap.
+// PushTask adds a task struct to the queue. Safe for concurrent use by multiple producers.
 func (q *LockFreeIngress) PushTask(task Task) {
 	n := getNode()
 	n.task = task
 	n.next.Store(nil)
 
-	// Atomically swap tail, linking previous tail to new node
 	prev := q.tail.Swap(n)
-	prev.next.Store(n) // Linearization point
+	prev.next.Store(n)
 
 	q.len.Add(1)
 }
 
-// Pop removes and returns a task from the queue (single consumer only).
+// Pop removes and returns a task. Safe for use by a SINGLE consumer only.
 // Returns false if the queue is empty.
-// PERFORMANCE: No locking, single-threaded consumer.
 func (q *LockFreeIngress) Pop() (Task, bool) {
 	head := q.head.Load()
 	next := head.next.Load()
 	if next == nil {
-		// If tail == head, queue is truly empty.
-		// If tail != head, producer is mid-push (Swap done, but next not linked yet).
-		// We must spin-retry to avoid task loss.
 		if q.tail.Load() == head {
 			return Task{}, false // Truly empty
 		}
-		// Producer is mid-push, spin-retry until link is visible
+
+		// Acausality Risk: Tail moved, but 'next' pointer isn't linked yet.
+		// A producer has Swapped but not yet Stored next.
+		// We structurally block/spin until the specific producer finishes.
 		for {
 			next = head.next.Load()
 			if next != nil {
-				break // Producer completed link
+				break
 			}
-			head = q.head.Load()
-			if q.tail.Load() == head {
-				return Task{}, false // Queue became empty during spin
-			}
+			runtime.Gosched()
 		}
 	}
 
@@ -136,13 +129,11 @@ func (q *LockFreeIngress) Pop() (Task, bool) {
 }
 
 // PopBatch removes up to max tasks from the queue into buf.
-// Returns the number of tasks popped.
-// PERFORMANCE: Batched pop amortizes cache misses.
+// Batched popping amortizes cache misses.
 func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
 	count := 0
 	head := q.head.Load()
 
-	// Limit to buffer size
 	if max > len(buf) {
 		max = len(buf)
 	}
@@ -157,7 +148,6 @@ func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
 		next.task = Task{} // Clear for GC
 		q.head.Store(next)
 
-		// Recycle old head (unless it's the stub)
 		if head != &q.stub {
 			putNode(head)
 		}
@@ -173,13 +163,13 @@ func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
 }
 
 // Length returns the approximate queue length.
-// PERFORMANCE: May be slightly stale due to concurrent operations.
+// Note: Result may be stale due to concurrent operations.
 func (q *LockFreeIngress) Length() int64 {
 	return q.len.Load()
 }
 
 // IsEmpty returns true if the queue appears empty.
-// PERFORMANCE: May have false negatives under concurrent modification.
+// Note: May have false negatives under concurrent modification.
 func (q *LockFreeIngress) IsEmpty() bool {
 	head := q.head.Load()
 	return head.next.Load() == nil
@@ -191,87 +181,61 @@ func (q *LockFreeIngress) IsEmpty() bool {
 
 // MicrotaskRing is a lock-free ring buffer with overflow protection.
 //
-// PERFORMANCE: Lock-free ring for hot path, mutex-protected overflow for bursts.
+// Memory Ordering & Correctness:
+// This implementation adheres to strict Release/Acquire semantics to prevent "Time Travel" bugs
+// where a consumer sees a valid sequence but reads uninitialized data.
 //
-// DESIGN:
-//   - Static [4096] ring buffer for zero-allocation fast path
-//   - Lock-free producer/consumer with atomic CAS operations
-//   - When ring is full, overflow tasks to mutex-protected slice
-//   - Overflow slice is drained before accepting new ring tasks
-//
-// Memory:
-//   - Ring: ~32KB static overhead (4096 pointers)
-//   - Overflow: O(n) growth, GC reclaimable when drained
-//
-// PROVABLE CORRECTNESS:
-//   - Ring path: Producers CAS to claim slots, seq tracking validates writes
-//   - Overflow path: Mutex protects all operations, safe for concurrent producers
-//   - No complex state transitions between modes - simple ring-or-overflow check
+// Algorithm:
+// - Push: Write Data -> Store Seq (Release)
+// - Pop:  Load Seq (Acquire) -> Read Data
+// - Overflow: When ring is full (4096 items), tasks spill to a mutex-protected slice.
 type MicrotaskRing struct { // betteralign:ignore
-	_       [64]byte            // Cache line padding //nolint:unused
+	_       [64]byte            // Cache line padding
 	buffer  [4096]func()        // Ring buffer for tasks
 	seq     [4096]atomic.Uint64 // Sequence numbers per slot
 	head    atomic.Uint64       // Consumer index
-	_       [56]byte            // Pad to cache line //nolint:unused
+	_       [56]byte            // Pad to cache line
 	tail    atomic.Uint64       // Producer index
 	tailSeq atomic.Uint64       // Global sequence counter
 
-	// Overflow: protected by mutex (simple, no race complexity)
+	// Overflow protected by mutex (simple, no race complexity)
 	overflowMu sync.Mutex
-	overflow   []func() // Overflow buffer (non-nil when ring is full)
+	overflow   []func()
 }
 
 // NewMicrotaskRing creates a new lock-free ring with sequence tracking.
 func NewMicrotaskRing() *MicrotaskRing {
 	r := &MicrotaskRing{}
-	// Initialize all sequence numbers to 0 (unwritten slots)
 	for i := 0; i < 4096; i++ {
 		r.seq[i].Store(0)
 	}
 	return r
 }
 
-// Push adds a microtask to the ring buffer.
-// Returns true if successfully added (always true, never fails).
-// PERFORMANCE: Lock-free ring with mutex-protected overflow.
-//
-// ALGORITHM:
-//  1. Try lock-free ring path: CAS tail to claim slot
-//  2. Write sequence number first (consumer checks seq to validate)
-//  3. Write task (now visible to consumer with seq validation)
-//  4. If ring full (tail-head >= 4096), fallback to overflow
-//
-// PROVABLE CORRECTNESS: Sequence number ensures consumer sees:
-//   - Valid task: seq != 0 AND task != nil (both written)
-//   - Mid-push: seq != 0 BUT task == nil (wait in Pop)
-//   - Unclaimed slot: seq == 0 (not yet written)
+// Push adds a microtask to the ring buffer. Always returns true.
 func (r *MicrotaskRing) Push(fn func()) bool {
 	// Fast path: try lock-free ring
 	for {
 		tail := r.tail.Load()
 		head := r.head.Load()
 
-		// Check if ring has capacity
-		inFlight := tail - head
-		if inFlight >= 4096 {
-			// Ring full, use mutex-protected overflow
-			break
+		if tail-head >= 4096 {
+			break // Ring full
 		}
 
-		// Try to claim slot via CAS
 		if r.tail.CompareAndSwap(tail, tail+1) {
-			// Acquire sequence number (acts as write token)
 			seq := r.tailSeq.Add(1)
 
-			// Write sequence number BEFORE task (write ordering matters)
-			r.seq[tail%4096].Store(seq)
-
-			// Write task (now visible to consumer)
+			// CRITICAL ORDERING:
+			// 1. Write Task (Data) FIRST.
+			// 2. Write Sequence (Guard) SECOND.
+			// atomic.Store acts as a Release barrier, ensuring the buffer write
+			// is visible to any reader who acquires this seq value.
 			r.buffer[tail%4096] = fn
+			r.seq[tail%4096].Store(seq)
 
 			return true
 		}
-		// CAS failed, retry
 	}
 
 	// Slow path: ring full, use mutex-protected overflow
@@ -284,97 +248,70 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 	return true
 }
 
-// Pop removes and returns a microtask from the ring buffer.
-// Returns nil if the buffer is empty.
-// PERFORMANCE: Lock-free ring with fallback to overflow.
-//
-// ALGORITHM:
-//  1. Check ring buffer first (lock-free path)
-//  2. Use sequence number to validate slot is ready (not mid-push)
-//  3. If ring empty or ring exhausted, check overflow buffer
-//
-// PROVABLE CORRECTNESS:
-//   - Task only executed when seq != 0 AND fn != nil
-//   - Mid-push slots (seq set, nil fn) are skipped after spin
-//   - Overflow path is mutex-protected, no races possible
+// Pop removes and returns a microtask. Returns nil if empty.
 func (r *MicrotaskRing) Pop() func() {
 	head := r.head.Load()
 	tail := r.tail.Load()
 
-	// Check ring buffer for tasks
 	for head < tail {
-		// Read task first (write order: seq then task)
-		fn := r.buffer[head%4096]
-		if fn == nil {
-			// Task not written yet, producer may be mid-push
-			// Check sequence to determine if slot is claimed
-			seq := r.seq[head%4096].Load()
-			if seq == 0 {
-				// Unclaimed slot, advance head and retry
-				if r.head.CompareAndSwap(head, head+1) {
-					r.buffer[(head)%4096] = nil
-				}
-				head = r.head.Load()
-				tail = r.tail.Load()
-				continue
-			}
-
-			// Seq set but task still nil - producer mid-push
-			// Reload head/tail and retry in next iteration
-			head = r.head.Load()
-			tail = r.tail.Load()
-			continue
-		}
-
-		// Task exists, verify sequence is set
+		// CRITICAL ORDERING:
+		// Read Sequence (Guard) via atomic Load (Acquire).
+		// If we see the expected sequence, we are guaranteed to see the
+		// corresponding data write from Push due to the Release-Acquire pair.
 		seq := r.seq[head%4096].Load()
+
 		if seq == 0 {
-			// Orphaned task (seq cleared after we read fn), skip
-			if r.head.CompareAndSwap(head, head+1) {
-				r.buffer[(head)%4096] = nil
-			}
+			// Producer claimed 'tail' but hasn't stored 'seq' yet.
+			// Spin and retry. We cannot advance head (skipping) because the slot IS claimed.
+			head = r.head.Load()
+			tail = r.tail.Load()
+			runtime.Gosched()
+			continue
+		}
+
+		fn := r.buffer[head%4096]
+
+		// Defensive check: fn should rarely be nil if seq != 0.
+		if fn == nil {
 			head = r.head.Load()
 			tail = r.tail.Load()
 			continue
 		}
 
-		// Both task and seq present - safe to consume
 		r.head.Add(1)
 		r.seq[(head)%4096].Store(0)
 		r.buffer[(head)%4096] = nil
 		return fn
 	}
 
-	// Ring is empty, check overflow buffer
+	// Check overflow buffer
 	r.overflowMu.Lock()
 	defer r.overflowMu.Unlock()
 
 	if len(r.overflow) == 0 {
-		return nil // No tasks in overflow
+		return nil
 	}
 
-	// Dequeue from overflow (pop from head)
 	fn := r.overflow[0]
-	// Remove first element efficiently
+
+	// Efficiently remove first element avoiding memory leaks
 	copy(r.overflow, r.overflow[1:])
+	r.overflow[len(r.overflow)-1] = nil // Zero out for GC
 	r.overflow = r.overflow[:len(r.overflow)-1]
 
 	return fn
 }
 
-// Length returns the number of microtasks in the ring.
-// PERFORMANCE: May be slightly stale under concurrent modification.
+// Length returns the total number of microtasks (ring + overflow).
 func (r *MicrotaskRing) Length() int {
 	head := r.head.Load()
 	tail := r.tail.Load()
 
-	// Count in flight in ring
 	ringCount := 0
 	if tail > head {
 		ringCount = int(tail - head)
 	}
 
-	// Add overflow count
 	r.overflowMu.Lock()
 	overflowCount := len(r.overflow)
 	r.overflowMu.Unlock()
@@ -382,18 +319,16 @@ func (r *MicrotaskRing) Length() int {
 	return ringCount + overflowCount
 }
 
-// IsEmpty returns true if the ring buffer is empty.
-// PERFORMANCE: May have false negatives under concurrent modification.
+// IsEmpty returns true if the ring buffer and overflow are empty.
+// Note: May have false negatives under concurrent modification.
 func (r *MicrotaskRing) IsEmpty() bool {
 	head := r.head.Load()
 	tail := r.tail.Load()
 
-	// Check ring
 	if tail > head {
-		return false // Has in-flight tasks
+		return false
 	}
 
-	// Check overflow
 	r.overflowMu.Lock()
 	empty := len(r.overflow) == 0
 	r.overflowMu.Unlock()
@@ -405,15 +340,12 @@ func (r *MicrotaskRing) IsEmpty() bool {
 // LEGACY COMPATIBILITY
 // ============================================================================
 
-// IngressQueue provides backward compatibility for existing code.
-// It wraps LockFreeIngress with the old interface.
-// NOTE: This is for test compatibility only. New code should use LockFreeIngress.
+// IngressQueue wraps LockFreeIngress to provide backward compatibility for tests.
+// New code should use LockFreeIngress directly.
 type IngressQueue struct {
 	q *LockFreeIngress
 }
 
-// Push adds a task to the queue.
-// Compatibility wrapper for old ingress.Push(Task) calls.
 func (q *IngressQueue) Push(task Task) {
 	if q.q == nil {
 		q.q = NewLockFreeIngress()
@@ -421,7 +353,6 @@ func (q *IngressQueue) Push(task Task) {
 	q.q.PushTask(task)
 }
 
-// Length returns the queue length.
 func (q *IngressQueue) Length() int {
 	if q.q == nil {
 		return 0
@@ -429,8 +360,8 @@ func (q *IngressQueue) Length() int {
 	return int(q.q.Length())
 }
 
-// popLocked returns a task. The "locked" suffix is a misnomer - this queue is lock-free.
-// Kept for test compatibility.
+// popLocked returns a task.
+// The "locked" suffix is a misnomer; the underlying queue is lock-free.
 func (q *IngressQueue) popLocked() (Task, bool) {
 	if q.q == nil {
 		return Task{}, false
@@ -442,6 +373,5 @@ func (q *IngressQueue) popLocked() (Task, bool) {
 // WEAK POINTER UTILITIES
 // ============================================================================
 
-// weak.Pointer is imported from the weak package.
-// We have a _ type alias to force import.
+// Force import of weak package
 var _ weak.Pointer[int]
