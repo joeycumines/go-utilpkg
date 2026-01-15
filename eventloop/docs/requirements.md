@@ -1012,3 +1012,555 @@ Before any implementation is considered complete:
 - All state waits use channels, `sync.Cond`, or `sync.WaitGroup`
 - `go test -race -count=100` passes 100% with no timing-dependent failures
 
+---
+
+## XVI. Defect Tracking & Required Fixes
+
+This section documents all identified defects from the PR correctness analysis. Each defect is classified by severity and includes required fixes and verification criteria.
+
+### XVI-1. Severity Classifications
+
+| Severity | Definition | SLA |
+|----------|------------|-----|
+| **CRITICAL** | System crash, data corruption, deadlock, or undefined behavior | Must fix before merge |
+| **HIGH** | Liveness failures, task starvation, or significant inconsistencies | Must fix before merge |
+| **MODERATE** | Resource leaks, platform inconsistencies, or maintainability issues | Should fix before merge |
+| **LOW** | Theoretical edge cases or minor improvements | May defer with documentation |
+
+### XVI-2. Critical Defects
+
+#### DEFECT-001: `initPoller()` Initialization Race
+
+**Severity:** CRITICAL (Panic/Undefined Behavior)
+**Location:** `eventloop/poller_darwin.go` & `eventloop/poller_linux.go`
+**Consensus:** UNANIMOUS
+
+**Description:**
+The `initPoller` method uses an atomic CAS to ensure only one thread initializes the poller, but it incorrectly assumes that losing the CAS race means initialization is complete.
+
+```go
+if !p.initialized.CompareAndSwap(false, true) {
+    // BUG: Returns success immediately without waiting for Init() to complete!
+    return nil
+}
+// Actual initialization takes time...
+if err := p.p.Init(); err != nil { ... }
+```
+
+**Race Scenario:**
+1. Goroutine A wins CAS, sets `initialized` to `true`, begins `p.p.Init()` (syscall takes time)
+2. Goroutine B loses CAS, returns `nil` immediately
+3. Goroutine B proceeds to call `RegisterFD`
+4. **CRASH:** `RegisterFD` runs against a `FastPoller` struct that hasn't finished `Init()`
+
+**Required Fix:**
+Replace `atomic.Bool` + `CompareAndSwap` with `sync.Once`:
+
+```go
+type ioPoller struct {
+    p      FastPoller
+    once   sync.Once
+    closed atomic.Bool
+}
+
+func (p *ioPoller) initPoller() error {
+    var err error
+    p.once.Do(func() {
+        if p.closed.Load() {
+            err = ErrPollerClosed
+            return
+        }
+        err = p.p.Init()
+    })
+    return err
+}
+```
+
+**Verification:** `TestPoller_Init_Race` must pass with `-race -count=100`
+
+---
+
+#### DEFECT-002: Data Race on `ioPoller.closed`
+
+**Severity:** CRITICAL
+**Location:** Both platforms (`poller_darwin.go`, `poller_linux.go`)
+
+**Description:**
+The `closed` field is a non-atomic `bool` with concurrent access from `initPoller()` and `closePoller()`.
+
+```go
+func (p *ioPoller) closePoller() error {
+    p.closed = true  // Non-atomic write
+}
+
+func (p *ioPoller) initPoller() error {
+    if p.closed {  // Non-atomic read
+        return ...
+    }
+}
+```
+
+**Required Fix:**
+Change `closed bool` to `closed atomic.Bool` and use `Store(true)`/`Load()` for all access.
+
+**Verification:** `TestIOPollerClosedDataRace` must pass with `-race -count=100`
+
+---
+
+#### DEFECT-003: `MicrotaskRing.Pop()` Write-After-Free Race
+
+**Severity:** CATASTROPHIC (Deadlock/Data Loss)
+**Location:** `eventloop/ingress.go` (Pop method)
+
+**Description:**
+The code increments `head` (making the slot available to producers) **before** clearing the sequence guard for that slot.
+
+```go
+// BUGGY ORDER:
+r.head.Add(1)                   // [A] Slot released to producer
+r.seq[(head)%4096].Store(0)     // [B] Guard cleared using OLD index
+```
+
+**Race Scenario:**
+1. Consumer reads data at index `i`, executes `r.head.Add(1)` - slot `i` is now logically free
+2. Producer claims slot `i`, writes new task, stores new valid sequence `S > 0`
+3. Consumer resumes, executes `r.seq[i].Store(0)` - **clobbers valid sequence**
+4. **DEADLOCK:** Next `Pop` sees `seq == 0`, enters infinite spin-loop
+
+**Required Fix:**
+Enforce strict Release semantics - clear the sequence guard **before** advancing the head:
+
+```go
+// FIXED ORDER:
+r.seq[(head)%4096].Store(0) // Clear guard FIRST
+r.head.Add(1)               // Release slot SECOND
+```
+
+**Verification:** `TestMicrotaskRing_WriteAfterFree_Race` torture test must complete without deadlock
+
+---
+
+#### DEFECT-004: `MicrotaskRing` FIFO Violation (Overflow Priority Inversion)
+
+**Severity:** CRITICAL (Acausality)
+**Location:** `eventloop/ingress.go`
+
+**Description:**
+The hybrid design of Ring (lock-free) + Overflow (mutex) creates priority inversion where newer tasks can be processed before older tasks.
+
+**Failure Scenario:**
+1. Ring fills up (4096 items)
+2. Task A (Seq 4097) goes to `overflow` buffer
+3. Consumer pops one item, Ring now has 4095 items
+4. Task B (Seq 4098) enters the Ring (has space)
+5. **BUG:** Consumer processes Task B before Task A
+
+**Required Fix:**
+In `Push`: If the overflow buffer is non-empty, append to overflow, even if the ring has space:
+
+```go
+func (r *MicrotaskRing) Push(fn func()) bool {
+    r.overflowMu.Lock()
+    if len(r.overflow) > 0 {
+        r.overflow = append(r.overflow, fn)
+        r.overflowMu.Unlock()
+        return true
+    }
+    r.overflowMu.Unlock()
+    // Continue with Fast Path...
+}
+```
+
+**Verification:** `TestMicrotaskRing_FIFO_Violation` deterministic test must pass
+
+---
+
+### XVI-3. High Severity Defects
+
+#### DEFECT-005: `PopBatch` Inconsistency with `Pop`
+
+**Severity:** HIGH
+**Location:** `eventloop/ingress.go`
+
+**Description:**
+`Pop()` was correctly patched to spin-wait when a producer has claimed the tail but not yet linked the new node. However, `PopBatch()` was not given the same fix.
+
+```go
+// Pop(): spins correctly
+for { next = head.next.Load(); if next != nil { break }; runtime.Gosched() }
+
+// PopBatch(): just exits - BUG
+if next == nil { break }
+```
+
+**Impact:** Consumer calling `PopBatch` in a loop can fail to retrieve tasks that a subsequent `Pop` would correctly retrieve.
+
+**Required Fix:**
+`PopBatch` must perform the same spin-wait logic if `head.next.Load()` is `nil` but `q.tail.Load() != head`.
+
+**Verification:** `TestPopBatchInconsistencyWithPop` must pass
+
+---
+
+#### DEFECT-006: `MicrotaskRing.Pop()` Infinite Loop on `nil` Input
+
+**Severity:** HIGH (Liveness Failure)
+**Location:** `eventloop/ingress.go`
+
+**Description:**
+The `Push` method does not prevent `nil` functions from being added. If `Push(nil)` is called, `Pop` enters an infinite loop:
+
+1. `Pop` reads valid sequence for slot containing `nil` task
+2. Reads `fn`, which is `nil`
+3. Hits defensive check `if fn == nil`
+4. Continues loop **without advancing head**
+5. Infinite loop on same slot
+
+**Required Fix (Option A - Recommended):**
+Modify `Pop` to consume `nil` tasks by advancing head:
+
+```go
+if fn == nil {
+    r.seq[(head)%4096].Store(0)
+    r.head.Add(1) // Advance head to avoid infinite loop
+    continue
+}
+```
+
+**Required Fix (Option B):**
+Modify `Push` to reject or silently drop `nil` functions.
+
+**Verification:** `TestMicrotaskRing_NilInput_Liveness` must pass
+
+---
+
+### XVI-4. Moderate Severity Defects
+
+#### DEFECT-007: `closeFDs()` Double-Close
+
+**Severity:** MODERATE
+**Location:** `eventloop/loop.go`
+
+**Description:**
+When `poll()` errors and calls `shutdown()`, the `run()` loop can also call `shutdown()` again, resulting in double-close of FDs.
+
+**Required Fix:**
+Use `sync.Once` for `closeFDs()`:
+
+```go
+type Loop struct {
+    closeOnce sync.Once
+}
+
+func (l *Loop) closeFDs() {
+    l.closeOnce.Do(func() {
+        // existing close logic
+    })
+}
+```
+
+**Verification:** `TestCloseFDsInvokedOnce` must pass
+
+---
+
+#### DEFECT-008: Platform Error Inconsistency
+
+**Severity:** MODERATE
+**Location:** `poller_darwin.go` vs `poller_linux.go`
+
+**Description:**
+
+| Condition | Linux | Darwin |
+|-----------|-------|--------|
+| `initPoller()` when closed | `ErrPollerClosed` | `errEventLoopClosed` |
+
+**Required Fix:**
+Change Darwin `errEventLoopClosed` to `ErrPollerClosed` for consistency.
+
+**Verification:** `TestInitPollerClosedReturnsConsistentError` must pass on both platforms
+
+---
+
+#### DEFECT-009: `pollIO` Method Location Inconsistency
+
+**Severity:** LOW-MODERATE
+**Location:** Platform-specific files
+
+**Description:**
+
+| Platform | Method Receiver |
+|----------|-----------------|
+| Linux | `func (p *ioPoller) pollIO(...)` |
+| Darwin | `func (l *Loop) pollIO(...)` |
+
+Code calling `loop.pollIO()` compiles on Darwin but fails on Linux.
+
+**Required Fix:**
+Standardize method location across platforms.
+
+**Verification:** `TestPollIOCompiles` must pass on both platforms
+
+---
+
+### XVI-5. Theoretical/Low Severity Defects
+
+#### DEFECT-010: Sequence Counter Wrap-Around
+
+**Severity:** LOW (Theoretical)
+**Location:** `eventloop/ingress.go`
+
+**Description:**
+`tailSeq` is a `uint64` starting at 0, always incremented. After 2^64 operations (~58 years at 10B ops/sec), it wraps to `0`. Since `0` is the sentinel for "empty slot", the consumer will incorrectly assume the slot is empty.
+
+**Required Fix:**
+In `Push`, skip `0` when sequence wraps:
+
+```go
+seq := r.tailSeq.Add(1)
+if seq == 0 {
+    seq = r.tailSeq.Add(1) // Skip 0
+}
+```
+
+**Verification:** Unit test with mocked sequence near max value
+
+---
+
+## XVII. Verification Test Requirements
+
+### XVII-1. Required Test Files
+
+The following test files must be created/updated to verify defect fixes:
+
+#### `eventloop/ingress_torture_test.go`
+
+| Test Name | Verifies | Run Flags |
+|-----------|----------|-----------|
+| `TestMicrotaskRing_WriteAfterFree_Race` | DEFECT-003 | `-race -timeout=30s` |
+| `TestMicrotaskRing_FIFO_Violation` | DEFECT-004 | Deterministic |
+| `TestMicrotaskRing_NilInput_Liveness` | DEFECT-006 | `-timeout=5s` |
+
+#### `eventloop/poller_race_test.go`
+
+| Test Name | Verifies | Run Flags |
+|-----------|----------|-----------|
+| `TestPoller_Init_Race` | DEFECT-001 | `-race -count=100` |
+| `TestIOPollerClosedDataRace` | DEFECT-002 | `-race -count=10` |
+
+#### `eventloop/correctness_test.go`
+
+| Test Name | Verifies | Run Flags |
+|-----------|----------|-----------|
+| `TestCloseFDsInvokedOnce` | DEFECT-007 | Standard |
+| `TestInitPollerClosedReturnsConsistentError` | DEFECT-008 | Cross-platform |
+| `TestMicrotaskRingMultiConsumerCorruption` | Single-consumer constraint | Standard |
+| `TestLockFreeIngressPopWaitsForProducer` | Pop spin-wait | Stress |
+
+#### `eventloop/popbatch_test.go`
+
+| Test Name | Verifies | Run Flags |
+|-----------|----------|-----------|
+| `TestPopBatchInconsistencyWithPop` | DEFECT-005 | `-count=10` |
+
+#### `eventloop/poller_api_test.go`
+
+| Test Name | Verifies | Run Flags |
+|-----------|----------|-----------|
+| `TestPollerAPI_InitOnClosedReturnsStandardError` | DEFECT-008 | Cross-platform |
+| `TestLoopAPI_PollIOMethodExists` | DEFECT-009 | Cross-platform |
+
+### XVII-2. CI Integration Requirements
+
+```yaml
+name: Correctness Tests
+
+on:
+  push:
+    paths:
+      - 'eventloop/**'
+  pull_request:
+    paths:
+      - 'eventloop/**'
+
+jobs:
+  race-detection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Race Detection Tests
+        run: |
+          go test -race -v -count=5 ./eventloop/... \
+            -run "TestIOPollerClosedDataRace|TestMicrotaskRingMultiConsumer"
+        timeout-minutes: 10
+
+  cross-platform-consistency:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Platform Consistency Tests
+        run: |
+          go test -v ./eventloop/... \
+            -run "TestInitPollerClosedReturnsConsistentError|TestPollIOCompiles"
+
+  stress-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Stress Tests
+        run: |
+          go test -v -count=10 -timeout=10m ./eventloop/... \
+            -run "TestLockFreeIngressPopWaitsForProducer|TestPopBatchInconsistencyWithPop"
+```
+
+### XVII-3. Pre-Merge Checklist
+
+Before merging any PR affecting eventloop:
+
+- [ ] All CRITICAL defects (001-004) have verified fixes
+- [ ] All HIGH defects (005-006) have verified fixes
+- [ ] `go test -race -count=100 ./eventloop/...` passes 100%
+- [ ] Tests pass on both Linux and macOS
+- [ ] No timing-dependent failures in any test
+- [ ] No `time.Sleep` for synchronization in production code
+
+---
+
+## XVIII. Verified Correct Components
+
+The following components have been reviewed and verified as correctly implemented:
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `LockFreeIngress.Pop()` spin logic | ✓ Correct | Properly handles in-flight producers |
+| `MicrotaskRing` memory ordering | ✓ Correct | Release-acquire semantics valid (Go 1.19+) |
+| Race-Free Poller Initialization Reset | ✓ Correct | Resets `initialized` on failure |
+| `UnregisterFD` Callback Lifetime Docs | ✓ Correct | Critical documentation improvement |
+| Error Handling in `poll()` | ✓ Correct | Now calls `shutdown()` on `PollIO` failure |
+
+**Note:** These components should be preserved during refactoring. Any changes must maintain their verified behavior.
+
+---
+
+## XIX. Platform Consistency Requirements
+
+### XIX-1. Error Constants
+
+All platform-specific poller implementations must use consistent error constants:
+
+| Condition | Required Error |
+|-----------|----------------|
+| Init when closed | `ErrPollerClosed` |
+| Register on closed | `ErrPollerClosed` |
+| Poll on closed | `ErrPollerClosed` |
+
+### XIX-2. Method Signatures
+
+The following methods must have identical signatures across platforms:
+
+```go
+// Required on both Linux and Darwin
+func (p *ioPoller) initPoller() error
+func (p *ioPoller) closePoller() error
+func (p *ioPoller) pollIO(timeout int, maxEvents int) error
+```
+
+### XIX-3. Struct Layout
+
+Both `poller_darwin.go` and `poller_linux.go` must use identical `ioPoller` struct layout:
+
+```go
+type ioPoller struct {
+    p      FastPoller
+    once   sync.Once
+    closed atomic.Bool
+    // ... platform-specific fields below
+}
+```
+
+---
+
+## XX. Latent Issues & Documented Constraints
+
+### XX-1. Single-Consumer Constraint
+
+**Component:** `MicrotaskRing.Pop()`
+
+**Constraint:** The implementation uses `r.head.Add(1)` without CAS, meaning concurrent consumers can consume the same slot.
+
+**Mitigation:** The event loop's single-tick-goroutine architecture ensures single-consumer access.
+
+**Documentation Requirement:** This constraint MUST be documented in the `MicrotaskRing` type documentation:
+
+```go
+// MicrotaskRing is a lock-free ring buffer for microtask functions.
+// IMPORTANT: Pop() is NOT safe for concurrent consumers. Only a single
+// goroutine (the event loop tick goroutine) may call Pop().
+type MicrotaskRing struct { ... }
+```
+
+### XX-2. `getGoroutineID()` Fragility
+
+**Component:** `isLoopThread()` check
+
+**Constraint:** The implementation relies on `getGoroutineID()`, which parses `runtime.Stack` output.
+
+**Risk:** The Go team explicitly warns that the stack output format is not a guaranteed API.
+
+**Mitigation:** Currently acceptable for debugging/assertions. Should not be used for correctness-critical paths.
+
+**Alternative:** Consider using goroutine-local storage patterns or explicit thread tracking.
+
+### XX-3. Memory Ordering Assumptions
+
+**Component:** All atomic operations in `ingress.go`
+
+**Constraint:** The implementation relies on Go 1.19+ memory model semantics for `sync/atomic` operations.
+
+**Requirement:** Go 1.19 or later is required. Earlier versions may exhibit undefined behavior.
+
+**Documentation Requirement:** Add to `go.mod` or package documentation:
+
+```go
+// Package eventloop requires Go 1.19 or later for correct atomic memory ordering.
+```
+
+---
+
+## XXI. Defect Fix Summary Matrix
+
+| Defect | File(s) | Fix Type | Complexity | Dependencies |
+|--------|---------|----------|------------|--------------|
+| DEFECT-001 | `poller_*.go` | Replace atomic with sync.Once | Low | DEFECT-002 |
+| DEFECT-002 | `poller_*.go` | Change bool to atomic.Bool | Low | None |
+| DEFECT-003 | `ingress.go` | Reorder atomic ops | Low | None |
+| DEFECT-004 | `ingress.go` | Add overflow check in Push | Medium | None |
+| DEFECT-005 | `ingress.go` | Add spin-wait to PopBatch | Medium | None |
+| DEFECT-006 | `ingress.go` | Handle nil in Pop | Low | DEFECT-003 |
+| DEFECT-007 | `loop.go` | Add sync.Once for closeFDs | Low | None |
+| DEFECT-008 | `poller_darwin.go` | Change error constant | Trivial | None |
+| DEFECT-009 | `poller_*.go` | Standardize method receiver | Medium | None |
+| DEFECT-010 | `ingress.go` | Skip seq=0 on wrap | Low | None |
+
+**Recommended Fix Order:**
+1. DEFECT-002 (atomic.Bool for closed)
+2. DEFECT-001 (sync.Once - depends on #2)
+3. DEFECT-003 (Pop ordering)
+4. DEFECT-006 (nil handling - after #3)
+5. DEFECT-004 (FIFO fix)
+6. DEFECT-005 (PopBatch)
+7. DEFECT-007 (closeFDs)
+8. DEFECT-008, DEFECT-009 (platform consistency)
+9. DEFECT-010 (sequence wrap - optional)
+
