@@ -21,11 +21,7 @@
 // stale event delivery due to FD recycling.
 package eventloop
 
-import "errors"
-
 // Note: RegisterFD, UnregisterFD, ModifyFD, and pollIO are implemented
 // in platform-specific files:
 //   - poller_linux.go (epoll)
 //   - poller_darwin.go (kqueue)
-
-var errEventLoopClosed = errors.New("poller: event loop is closed")

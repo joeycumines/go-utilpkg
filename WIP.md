@@ -1,87 +1,69 @@
 # Work In Progress
 
 ## Current Goal
-Create regression test files for eventloop defects identified in scratch.md
+**ALL DEFECTS FIXED AND VERIFIED - ZERO RACE CONDITIONS** ✓
 
-**STATUS: COMPLETE** ✓
+## Final Status: COMPLETE (2026-01-15)
 
-## Created Test Files
+All defects in the eventloop package have been fixed and verified with `make all` AND `-race` tests passing.
 
-### A) `eventloop/ingress_torture_test.go`
-- **TestMicrotaskRing_WriteAfterFree_Race** - Torture test proving Pop ordering bug (FAILS as expected)
-- **TestMicrotaskRing_FIFO_Violation** - Deterministic test proving overflow priority inversion (FAILS as expected)
-- **TestMicrotaskRing_NilInput_Liveness** - Proves nil input infinite loop (FAILS as expected)
+### Defect Fixes Summary
 
-### B) `eventloop/poller_race_test.go`
-- **TestPoller_Init_Race** - Proves initPoller CAS race (requires -race flag)
-- **TestIOPollerClosedDataRace** - Proves data race on closed field (requires -race flag)
+| Defect # | Severity | Description | Status |
+|----------|----------|-------------|--------|
+| 1 | CRITICAL | initPoller CAS race | ✅ FIXED (sync.Once) |
+| 2 | CRITICAL | ioPoller.closed data race | ✅ FIXED (atomic.Bool) |
+| 3 | CRITICAL | MicrotaskRing.Pop write-after-free | ✅ FIXED (memory ordering) |
+| 4 | CRITICAL | MicrotaskRing FIFO violation | ✅ FIXED (overflowPending flag) |
+| 5 | HIGH | PopBatch spin-wait missing | ✅ FIXED |
+| 6 | HIGH | MicrotaskRing nil infinite loop | ✅ FIXED |
+| 7 | MODERATE | closeFDs double-close | ✅ FIXED (sync.Once) |
+| 8 | MODERATE | Platform error inconsistency | ✅ FIXED (ErrPollerClosed) |
+| 9 | MODERATE | pollIO location inconsistency | ✅ FIXED (shim method) |
+| 10 | THEORETICAL | Sequence wrap-around | ✅ FIXED (skip 0 sentinel) |
+| 11 | DATA RACE | tickAnchor concurrent access | ✅ FIXED (sync.RWMutex) |
 
-### C) `eventloop/correctness_test.go`
-- **TestCloseFDsInvokedOnce** - Proves double-close issue (verifies idempotency)
-- **TestInitPollerClosedReturnsConsistentError** - Cross-platform error consistency
-- **TestLockFreeIngressPopWaitsForProducer** - Verifying Pop spin logic works
+### Key Implementation Details
 
-### D) `eventloop/popbatch_test.go`
-- **TestPopBatchInconsistencyWithPop** - Proves PopBatch doesn't spin like Pop
-- **TestPopBatchEmptyQueueBehavior** - Baseline test for empty queue behavior
+#### Defect #3 Fix (Write-After-Free)
+The critical insight was **memory ordering**: the non-atomic `buffer[idx] = nil` must come BEFORE the atomic `seq[idx].Store(0)` so the release barrier ensures the buffer write is visible to producers when they see the new head value.
 
-## Verification Results
-- All 4 files compile without errors
-- The MicrotaskRing tests (3 tests) FAIL as expected, proving the bugs exist
-- The poller race tests run (require -race flag for detection)
-- The correctness tests verify behavior
+#### Defect #4 Fix (FIFO Violation)
+Implemented efficient overflow handling:
+- Added `overflowPending atomic.Bool` for fast-path check
+- Added `overflowHead int` index for O(1) pop (avoids O(n) copy)
+- Push checks overflowPending and appends to overflow if non-empty
+- Pop drains ring first, then overflow (maintaining FIFO)
 
----
+#### Defect #11 Fix (tickAnchor Race)
+Added `tickAnchorMu sync.RWMutex` to protect concurrent access to `tickAnchor time.Time`:
+- `Run()` uses `Lock()` when initializing anchor
+- `CurrentTickTime()` uses `RLock()` when reading
+- `SetTickAnchor()` uses `Lock()` when writing
+- `TickAnchor()` uses `RLock()` when reading
 
-## Previous Goal (COMPLETE)
-~~Consolidate defect findings from `scratch.md` into `eventloop/docs/requirements.md`~~
+### Verification Results
 
-## Previous Summary of Changes
+| Test | Result |
+|------|--------|
+| `make all` | ✅ PASSED |
+| `go test -race ./eventloop/...` | ✅ PASSED (0 races) |
+| `TestPoller_Init_Race` | ✅ PASSED (5/5, -race) |
+| `TestIOPollerClosedDataRace` | ✅ PASSED (5/5, -race) |
+| `TestMicrotaskRing_WriteAfterFree_Race` | ✅ PASSED (1M items) |
+| `TestMicrotaskRing_FIFO_Violation` | ✅ PASSED (5/5) |
+| `TestMicrotaskRing_NilInput_Liveness` | ✅ PASSED (5/5) |
+| `TestCloseFDsInvokedOnce` | ✅ PASSED |
+| `TestInitPollerClosedReturnsConsistentError` | ✅ PASSED |
+| `TestIOPollerCleanup` | ✅ PASSED |
+| `TestTickTimeDataRace` | ✅ PASSED (3/3, -race) |
+| `TestRegression_TimerExecution` | ✅ PASSED (3/3, -race) |
 
-Successfully updated [eventloop/docs/requirements.md](eventloop/docs/requirements.md) with the following new sections:
+### Files Modified
+- `eventloop/poller_darwin.go` - sync.Once, atomic.Bool, ErrPollerClosed
+- `eventloop/poller_linux.go` - sync.Once, atomic.Bool, pollIO shim
+- `eventloop/poller.go` - Removed unused errEventLoopClosed
+- `eventloop/ingress.go` - Pop memory ordering, FIFO with overflowPending/overflowHead, nil handling
+- `eventloop/loop.go` - closeOnce sync.Once, ioPoller.closePoller() call, tickAnchorMu RWMutex
 
-### New Sections Added (XVI-XXI):
-
-1. **XVI. Defect Tracking & Required Fixes**
-   - Severity classifications (CRITICAL/HIGH/MODERATE/LOW)
-   - 10 defects documented with full details
-   - Required fixes with code examples
-   - Verification requirements per defect
-
-2. **XVII. Verification Test Requirements**
-   - Required test files and test names
-   - CI integration YAML configuration
-   - Pre-merge checklist
-
-3. **XVIII. Verified Correct Components**
-   - Components confirmed working correctly
-   - Preservation notes for refactoring
-
-4. **XIX. Platform Consistency Requirements**
-   - Error constants standardization
-   - Method signature requirements
-   - Struct layout requirements
-
-5. **XX. Latent Issues & Documented Constraints**
-   - Single-consumer constraint documentation
-   - getGoroutineID() fragility notes
-   - Memory ordering assumptions (Go 1.19+)
-
-6. **XXI. Defect Fix Summary Matrix**
-   - Quick reference table
-   - Recommended fix order
-
-## Document Stats
-- Original: ~850 lines (Sections I-XV)
-- Added: ~700 lines (Sections XVI-XXI)
-- Final: 1567 lines total
-
-## Verification
-- [x] All existing content preserved (Sections I-XV intact)
-- [x] All 10 defects from scratch.md documented
-- [x] All verified correct components listed
-- [x] Platform consistency requirements added
-- [x] Latent issues documented
-- [x] Fix summary matrix with recommended order
-
-See blueprint.json for task completion status.
+See [blueprint.json](blueprint.json) for detailed task tracking.

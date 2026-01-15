@@ -130,6 +130,8 @@ func (q *LockFreeIngress) Pop() (Task, bool) {
 
 // PopBatch removes up to max tasks from the queue into buf.
 // Batched popping amortizes cache misses.
+// DEFECT #5 FIX: Implements the same spin-wait logic as Pop() to handle
+// the acausality window where tail has moved but next pointer isn't linked yet.
 func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
 	count := 0
 	head := q.head.Load()
@@ -141,7 +143,20 @@ func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
 	for count < max {
 		next := head.next.Load()
 		if next == nil {
-			break
+			// DEFECT #5 FIX: Check if tail != head, indicating a producer is in-flight.
+			// A producer has Swapped tail but not yet Stored next pointer.
+			// We must spin-wait just like Pop() does, or we'll miss tasks.
+			if q.tail.Load() == head {
+				break // Truly empty - both tail and next confirm no pending tasks
+			}
+			// Producer in-flight: spin until next pointer is linked
+			for {
+				next = head.next.Load()
+				if next != nil {
+					break
+				}
+				runtime.Gosched()
+			}
 		}
 
 		buf[count] = next.task
@@ -189,6 +204,7 @@ func (q *LockFreeIngress) IsEmpty() bool {
 // - Push: Write Data -> Store Seq (Release)
 // - Pop:  Load Seq (Acquire) -> Read Data
 // - Overflow: When ring is full (4096 items), tasks spill to a mutex-protected slice.
+// - FIFO: If overflow has items, Push appends to overflow to maintain ordering.
 type MicrotaskRing struct { // betteralign:ignore
 	_       [64]byte            // Cache line padding
 	buffer  [4096]func()        // Ring buffer for tasks
@@ -199,8 +215,10 @@ type MicrotaskRing struct { // betteralign:ignore
 	tailSeq atomic.Uint64       // Global sequence counter
 
 	// Overflow protected by mutex (simple, no race complexity)
-	overflowMu sync.Mutex
-	overflow   []func()
+	overflowMu      sync.Mutex
+	overflow        []func()
+	overflowHead    int         // FIFO: Index of first valid item in overflow (avoids O(n) copy)
+	overflowPending atomic.Bool // FIFO: Flag indicating overflow has items
 }
 
 // NewMicrotaskRing creates a new lock-free ring with sequence tracking.
@@ -214,17 +232,37 @@ func NewMicrotaskRing() *MicrotaskRing {
 
 // Push adds a microtask to the ring buffer. Always returns true.
 func (r *MicrotaskRing) Push(fn func()) bool {
+	// DEFECT #4 FIX: If overflow has items, append to overflow to maintain FIFO.
+	// This fast-path check uses atomic bool to avoid mutex in common case.
+	if r.overflowPending.Load() {
+		r.overflowMu.Lock()
+		// Double-check under lock
+		if len(r.overflow)-r.overflowHead > 0 {
+			r.overflow = append(r.overflow, fn)
+			r.overflowMu.Unlock()
+			return true
+		}
+		r.overflowMu.Unlock()
+	}
+
 	// Fast path: try lock-free ring
 	for {
 		tail := r.tail.Load()
 		head := r.head.Load()
 
 		if tail-head >= 4096 {
-			break // Ring full
+			break // Ring full, must use overflow
 		}
 
 		if r.tail.CompareAndSwap(tail, tail+1) {
 			seq := r.tailSeq.Add(1)
+
+			// DEFECT #10 FIX: Handle sequence wrap-around.
+			// 0 is the sentinel value for "empty slot", so if we wrap to 0,
+			// we must skip it to avoid confusion with uninitialized slots.
+			if seq == 0 {
+				seq = r.tailSeq.Add(1)
+			}
 
 			// CRITICAL ORDERING:
 			// 1. Write Task (Data) FIRST.
@@ -244,12 +282,14 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 		r.overflow = make([]func(), 0, 1024)
 	}
 	r.overflow = append(r.overflow, fn)
+	r.overflowPending.Store(true)
 	r.overflowMu.Unlock()
 	return true
 }
 
 // Pop removes and returns a microtask. Returns nil if empty.
 func (r *MicrotaskRing) Pop() func() {
+	// Try ring buffer first (maintains FIFO - ring items are older)
 	head := r.head.Load()
 	tail := r.tail.Load()
 
@@ -258,7 +298,8 @@ func (r *MicrotaskRing) Pop() func() {
 		// Read Sequence (Guard) via atomic Load (Acquire).
 		// If we see the expected sequence, we are guaranteed to see the
 		// corresponding data write from Push due to the Release-Acquire pair.
-		seq := r.seq[head%4096].Load()
+		idx := head % 4096
+		seq := r.seq[idx].Load()
 
 		if seq == 0 {
 			// Producer claimed 'tail' but hasn't stored 'seq' yet.
@@ -269,35 +310,69 @@ func (r *MicrotaskRing) Pop() func() {
 			continue
 		}
 
-		fn := r.buffer[head%4096]
+		fn := r.buffer[idx]
 
-		// Defensive check: fn should rarely be nil if seq != 0.
+		// DEFECT #6 FIX: Handle nil tasks to avoid infinite loop.
+		// If fn is nil but seq != 0, the slot was claimed but contains nil.
+		// We must still consume the slot and continue to the next one.
 		if fn == nil {
+			// DEFECT #3 FIX: Clear buffer FIRST, then seq (release barrier),
+			// then advance head. This ordering ensures:
+			// 1. buffer=nil happens before seq.Store (seq.Store is release barrier)
+			// 2. seq=0 happens before head.Add
+			// 3. When producer reads new head value, it sees buffer=nil and seq=0
+			r.buffer[idx] = nil
+			r.seq[idx].Store(0)
+			r.head.Add(1)
 			head = r.head.Load()
 			tail = r.tail.Load()
 			continue
 		}
 
+		// DEFECT #3 FIX: Clear buffer and seq BEFORE advancing head.
+		// CRITICAL ORDERING for memory visibility:
+		// 1. Clear buffer (non-atomic) - must happen first
+		// 2. Clear seq (atomic release) - provides memory barrier, ensures buffer write visible
+		// 3. Advance head (atomic) - signals slot is free to producers
+		// The seq.Store's release semantics ensure that when a producer sees the
+		// new head value (via head.Load's acquire semantics), it also sees buffer=nil.
+		r.buffer[idx] = nil
+		r.seq[idx].Store(0)
 		r.head.Add(1)
-		r.seq[(head)%4096].Store(0)
-		r.buffer[(head)%4096] = nil
 		return fn
 	}
 
-	// Check overflow buffer
+	// Ring empty, check overflow buffer
+	if !r.overflowPending.Load() {
+		return nil // Fast path: no overflow items
+	}
+
 	r.overflowMu.Lock()
 	defer r.overflowMu.Unlock()
 
-	if len(r.overflow) == 0 {
+	// Calculate actual overflow count
+	overflowCount := len(r.overflow) - r.overflowHead
+	if overflowCount == 0 {
+		r.overflowPending.Store(false)
 		return nil
 	}
 
-	fn := r.overflow[0]
+	fn := r.overflow[r.overflowHead]
+	r.overflow[r.overflowHead] = nil // Zero out for GC
+	r.overflowHead++
 
-	// Efficiently remove first element avoiding memory leaks
-	copy(r.overflow, r.overflow[1:])
-	r.overflow[len(r.overflow)-1] = nil // Zero out for GC
-	r.overflow = r.overflow[:len(r.overflow)-1]
+	// Compact overflow slice if more than half is consumed
+	if r.overflowHead > len(r.overflow)/2 && r.overflowHead > 512 {
+		remaining := len(r.overflow) - r.overflowHead
+		copy(r.overflow, r.overflow[r.overflowHead:])
+		r.overflow = r.overflow[:remaining]
+		r.overflowHead = 0
+	}
+
+	// Clear pending flag if overflow is now empty
+	if r.overflowHead >= len(r.overflow) {
+		r.overflowPending.Store(false)
+	}
 
 	return fn
 }
@@ -313,7 +388,7 @@ func (r *MicrotaskRing) Length() int {
 	}
 
 	r.overflowMu.Lock()
-	overflowCount := len(r.overflow)
+	overflowCount := len(r.overflow) - r.overflowHead
 	r.overflowMu.Unlock()
 
 	return ringCount + overflowCount

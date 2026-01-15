@@ -287,52 +287,51 @@ func epollToEvents(epollEvents uint32) IOEvents {
 
 // ioPoller wraps FastPoller for backward compatibility with tests.
 type ioPoller struct {
-	mu          sync.RWMutex // For test compatibility
-	p           FastPoller
-	initialized atomic.Bool // Atomic initialization flag prevents race
-	closed      bool
+	mu      sync.RWMutex // For test compatibility
+	p       FastPoller
+	once    sync.Once   // DEFECT #1 FIX: sync.Once ensures all callers block until init completes
+	closed  atomic.Bool // DEFECT #2 FIX: atomic.Bool prevents data race between init and close
+	initErr error       // Captures init error for callers that didn't win the once.Do
 }
 
-// initPoller initializes the epoll poller with atomic guard to prevent concurrent initialization.
-// Uses CompareAndSwap to ensure only one goroutine successfully calls p.p.Init().
-// Multiple concurrent calls are safe - first one succeeds, others return nil.
+// initPoller initializes the epoll poller using sync.Once to prevent concurrent initialization.
+// DEFECT #1 FIX: sync.Once ensures all concurrent callers block until initialization completes,
+// rather than returning nil prematurely when losing the CAS race.
 func (p *ioPoller) initPoller() error {
-	// Check closed first (no race - closed is set atomically in closePoller)
-	if p.closed {
+	// DEFECT #2 FIX: Use atomic.Bool.Load() to avoid data race
+	if p.closed.Load() {
 		return ErrPollerClosed
 	}
 
-	// Fast path: already initialized
-	if p.initialized.Load() {
-		return nil
-	}
+	// sync.Once guarantees:
+	// 1. The init function runs exactly once
+	// 2. All callers block until the function completes
+	// 3. Memory effects are synchronized - initErr is visible after Do returns
+	p.once.Do(func() {
+		// Double-check closed inside Once to handle race with closePoller
+		if p.closed.Load() {
+			p.initErr = ErrPollerClosed
+			return
+		}
+		p.initErr = p.p.Init()
+	})
 
-	// Try to claim initialization via CAS
-	if !p.initialized.CompareAndSwap(false, true) {
-		// Another goroutine claimed it while we were checking
-		return nil
-	}
-
-	// We won the CAS race - initialize poller
-	if err := p.p.Init(); err != nil {
-		// Initialization failed - reset flag so another thread can try
-		p.initialized.Store(false)
-		return err
-	}
-
-	return nil
+	return p.initErr
 }
 
 func (p *ioPoller) closePoller() error {
-	p.closed = true
-	p.initialized.Store(false)
+	// DEFECT #2 FIX: Use atomic.Bool.Store() to avoid data race
+	p.closed.Store(true)
 	return p.p.Close()
 }
 
-// testHookRegisterFDPreInit is a test hook for deterministic race testing.
-var testHookRegisterFDPreInit func()
-
-// pollIO is a compatibility method for Loop.pollIO calls.
+// pollIO is a compatibility method for ioPoller.
 func (p *ioPoller) pollIO(timeout int, maxEvents int) (int, error) {
 	return p.p.PollIO(timeout)
+}
+
+// DEFECT #9 FIX: Add pollIO method on Loop for platform consistency with Darwin.
+// pollIO is a compatibility method for Loop.pollIO calls.
+func (l *Loop) pollIO(timeout int, maxEvents int) (int, error) {
+	return l.poller.PollIO(timeout)
 }

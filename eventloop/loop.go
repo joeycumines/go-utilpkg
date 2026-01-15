@@ -86,7 +86,8 @@ type Loop struct { // betteralign:ignore
 	ioPoller ioPoller
 
 	// Synchronization
-	stopOnce sync.Once
+	stopOnce  sync.Once
+	closeOnce sync.Once // DEFECT #7 FIX: Ensures closeFDs is called exactly once
 
 	// promisifyWg tracks in-flight Promisify goroutines.
 	promisifyWg sync.WaitGroup
@@ -98,6 +99,7 @@ type Loop struct { // betteralign:ignore
 	wakePending   atomic.Uint32
 
 	// Timing
+	tickAnchorMu    sync.RWMutex // Protects tickAnchor from concurrent access
 	tickAnchor      time.Time    // Reference time for monotonicity (initialized once, never changes)
 	tickElapsedTime atomic.Int64 // Nanoseconds offset from anchor (monotonic, atomic for thread safety)
 
@@ -228,7 +230,9 @@ func (l *Loop) Run(ctx context.Context) error {
 	defer close(l.loopDone)
 
 	// Initialize timing anchor - this is our reference point for monotonic time
+	l.tickAnchorMu.Lock()
 	l.tickAnchor = time.Now()
+	l.tickAnchorMu.Unlock()
 	l.tickElapsedTime.Store(0)
 
 	// Run the loop directly (blocking)
@@ -787,24 +791,32 @@ func (l *Loop) ModifyFD(fd int, events IOEvents) error {
 // CurrentTickTime returns the cached time for the current tick.
 // The returned value uses the monotonic clock and is safe to use for timer calculations.
 func (l *Loop) CurrentTickTime() time.Time {
+	l.tickAnchorMu.RLock()
+	anchor := l.tickAnchor
+	l.tickAnchorMu.RUnlock()
+
 	// If anchor not initialized (shouldn't happen after Run), return current wall-clock time
-	if l.tickAnchor.IsZero() {
+	if anchor.IsZero() {
 		return time.Now()
 	}
 	// Add elapsed monotonic offset to anchor to get current monotonic time
 	// This ensures timer accuracy even if wall-clock is adjusted
 	elapsed := time.Duration(l.tickElapsedTime.Load())
-	return l.tickAnchor.Add(elapsed)
+	return anchor.Add(elapsed)
 }
 
 // SetTickAnchor sets the tick anchor time (for testing only).
 func (l *Loop) SetTickAnchor(t time.Time) {
+	l.tickAnchorMu.Lock()
 	l.tickAnchor = t
+	l.tickAnchorMu.Unlock()
 	l.tickElapsedTime.Store(0)
 }
 
 // TickAnchor returns the tick anchor time (for testing only).
 func (l *Loop) TickAnchor() time.Time {
+	l.tickAnchorMu.RLock()
+	defer l.tickAnchorMu.RUnlock()
 	return l.tickAnchor
 }
 
@@ -900,12 +912,17 @@ func (l *Loop) safeExecuteFn(fn func()) {
 }
 
 // closeFDs closes file descriptors.
+// DEFECT #7 FIX: Uses sync.Once to ensure FDs are only closed once,
+// even if closeFDs is called from multiple paths (shutdown + poll error).
 func (l *Loop) closeFDs() {
-	_ = l.poller.Close()
-	_ = unix.Close(l.wakePipe)
-	if l.wakePipeWrite != l.wakePipe {
-		_ = unix.Close(l.wakePipeWrite)
-	}
+	l.closeOnce.Do(func() {
+		_ = l.poller.Close()
+		_ = l.ioPoller.closePoller() // Also close legacy ioPoller for test compatibility
+		_ = unix.Close(l.wakePipe)
+		if l.wakePipeWrite != l.wakePipe {
+			_ = unix.Close(l.wakePipeWrite)
+		}
+	})
 }
 
 // isLoopThread checks if we're on the loop goroutine.

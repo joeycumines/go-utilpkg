@@ -71,7 +71,8 @@ func TestCloseFDsInvokedOnce(t *testing.T) {
 func TestInitPollerClosedReturnsConsistentError(t *testing.T) {
 	p := &ioPoller{}
 
-	p.closed = true
+	// FIX: Use atomic.Bool.Store() instead of direct assignment
+	p.closed.Store(true)
 
 	err := p.initPoller()
 	if err == nil {
@@ -80,13 +81,9 @@ func TestInitPollerClosedReturnsConsistentError(t *testing.T) {
 
 	t.Logf("initPoller on closed poller returned: %v", err)
 
-	errStr := err.Error()
-	if errStr != ErrPollerClosed.Error() && errStr != errEventLoopClosed.Error() {
-		t.Errorf("Unexpected error message: %q", errStr)
-	}
-
-	if err == errEventLoopClosed {
-		t.Log("NOTE: Darwin returns errEventLoopClosed - should be changed to ErrPollerClosed for consistency")
+	// After the fix, both platforms should return ErrPollerClosed
+	if err != ErrPollerClosed {
+		t.Errorf("Expected ErrPollerClosed, got: %v", err)
 	}
 }
 

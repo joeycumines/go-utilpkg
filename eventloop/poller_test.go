@@ -293,11 +293,11 @@ func TestIOPollerCleanup(t *testing.T) {
 	// Close should clean up the poller
 	loop.closeFDs()
 
-	// Verify poller is closed
-	initialized := loop.ioPoller.initialized.Load()
-
-	if initialized {
-		t.Error("Expected poller to be uninitialized after closeFDs")
+	// Verify poller is closed by checking closed flag
+	// Note: With sync.Once, we can't check "initialized" anymore.
+	// Instead, verify that the closed flag is set.
+	if !loop.ioPoller.closed.Load() {
+		t.Error("Expected poller to be marked as closed after closeFDs")
 	}
 }
 

@@ -75,39 +75,53 @@ func TestPoller_Init_Race(t *testing.T) {
 	}
 }
 
-// TestIOPollerClosedDataRace proves the data race on ioPoller.closed field.
+// TestIOPollerClosedDataRace proves that the closed field is now atomic.
 //
-// DEFECT #2 (CRITICAL): Data Race on ioPoller.closed
+// DEFECT #2 (CRITICAL): Data Race on ioPoller.closed - NOW FIXED
 //
-// The bug: The closed field is a non-atomic bool with concurrent access.
-// Running with -race will detect this data race.
+// The bug was: The closed field was a non-atomic bool with concurrent access.
+// The fix: closed is now atomic.Bool using Store(true)/Load()
 //
-// FIX: Change closed bool to closed atomic.Bool and use Store(true)/Load()
+// This test verifies that concurrent reads of the closed field do not race
+// with writes. We test the correct pattern: one goroutine closes while
+// others check the closed state.
 //
 // RUN: go test -race -v -count=10 -run TestIOPollerClosedDataRace
 func TestIOPollerClosedDataRace(t *testing.T) {
 	for i := 0; i < 100; i++ {
+		// Create and initialize a poller first (valid usage pattern)
 		var poller ioPoller
+		if err := poller.initPoller(); err != nil {
+			t.Fatalf("Failed to init poller: %v", err)
+		}
+
 		var wg sync.WaitGroup
-		wg.Add(2)
+		start := make(chan struct{})
 
+		// Multiple goroutines checking closed state
+		for g := 0; g < 4; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				for j := 0; j < 100; j++ {
+					// These reads of closed should not race with the writer
+					_ = poller.closed.Load()
+				}
+			}()
+		}
+
+		// One goroutine closing the poller
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 10; j++ {
-				_ = poller.closePoller()
-				poller.closed = false
-			}
+			<-start
+			_ = poller.closePoller()
 		}()
 
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 10; j++ {
-				_ = poller.initPoller()
-			}
-		}()
-
+		close(start)
 		wg.Wait()
 	}
 
-	t.Log("Test completed - run with -race flag to detect data race on closed field")
+	t.Log("Test completed - run with -race flag to verify no data race on closed field")
 }

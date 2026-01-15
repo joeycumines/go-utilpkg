@@ -22,21 +22,22 @@ import (
 // The bug: In Pop(), the code increments head (making the slot available to producers)
 // BEFORE clearing the sequence guard for that slot:
 //
-//   r.head.Add(1)                   // [A] Slot released to producer
-//   r.seq[(head)%4096].Store(0)     // [B] Guard cleared (using OLD head)
+//	r.head.Add(1)                   // [A] Slot released to producer
+//	r.seq[(head)%4096].Store(0)     // [B] Guard cleared (using OLD head)
 //
 // Race Scenario:
-//   1. Consumer reads data at index i
-//   2. Consumer executes r.head.Add(1) - slot i is now logically free
-//   3. *Context Switch*
-//   4. Producer claims slot i, writes new task, stores new valid sequence S > 0
-//   5. Consumer resumes, executes r.seq[i].Store(0)
-//   6. Result: Slot i has valid data, but sequence guard is 0
-//   7. Impact: Next Pop sees seq == 0, enters infinite spin-loop
+//  1. Consumer reads data at index i
+//  2. Consumer executes r.head.Add(1) - slot i is now logically free
+//  3. *Context Switch*
+//  4. Producer claims slot i, writes new task, stores new valid sequence S > 0
+//  5. Consumer resumes, executes r.seq[i].Store(0)
+//  6. Result: Slot i has valid data, but sequence guard is 0
+//  7. Impact: Next Pop sees seq == 0, enters infinite spin-loop
 //
 // FIX: Clear sequence guard BEFORE advancing head:
-//   r.seq[(head)%4096].Store(0)  // Clear guard FIRST
-//   r.head.Add(1)                // Release slot SECOND
+//
+//	r.seq[(head)%4096].Store(0)  // Clear guard FIRST
+//	r.head.Add(1)                // Release slot SECOND
 //
 // RUN: go test -v -timeout 30s -run TestMicrotaskRing_WriteAfterFree_Race
 func TestMicrotaskRing_WriteAfterFree_Race(t *testing.T) {
@@ -116,11 +117,11 @@ func TestMicrotaskRing_WriteAfterFree_Race(t *testing.T) {
 // buffer if the Ring is empty.
 //
 // Failure Scenario:
-//   1. Saturation: Ring fills up (4096 items)
-//   2. Overflow: Producer pushes Task A (Seq 4097). Goes into overflow.
-//   3. Drain: Consumer pops one item from Ring. Ring now has 4095 items.
-//   4. Race: Producer pushes Task B (Seq 4098). Ring has space, Task B enters Ring.
-//   5. Ordering Failure: Consumer processes Task B before Task A.
+//  1. Saturation: Ring fills up (4096 items)
+//  2. Overflow: Producer pushes Task A (Seq 4097). Goes into overflow.
+//  3. Drain: Consumer pops one item from Ring. Ring now has 4095 items.
+//  4. Race: Producer pushes Task B (Seq 4098). Ring has space, Task B enters Ring.
+//  5. Ordering Failure: Consumer processes Task B before Task A.
 //
 // FIX: In Push, if overflow buffer is non-empty, append to overflow even if ring has space.
 //
@@ -214,14 +215,16 @@ func TestMicrotaskRing_FIFO_Violation(t *testing.T) {
 // The bug: Push does not prevent nil functions. If Push(nil) is called,
 // Pop enters an infinite loop:
 //
-//   1. Pop reads a valid sequence number for the slot containing nil
-//   2. It reads fn, which is nil
-//   3. It hits the defensive check: if fn == nil
-//   4. It re-reads head and tail and continues WITHOUT advancing head
-//   5. Next iteration pops the exact same nil task, repeating indefinitely
+//  1. Pop reads a valid sequence number for the slot containing nil
+//  2. It reads fn, which is nil
+//  3. It hits the defensive check: if fn == nil
+//  4. It re-reads head and tail and continues WITHOUT advancing head
+//  5. Next iteration pops the exact same nil task, repeating indefinitely
 //
 // FIX Option A: In Pop, when nil is encountered, still consume it by advancing
-//               head and clearing sequence, then continue.
+//
+//	head and clearing sequence, then continue.
+//
 // FIX Option B: In Push, silently drop or return error for nil functions.
 //
 // RUN: go test -v -timeout 10s -run TestMicrotaskRing_NilInput_Liveness
