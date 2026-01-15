@@ -294,9 +294,7 @@ func TestIOPollerCleanup(t *testing.T) {
 	loop.closeFDs()
 
 	// Verify poller is closed
-	loop.ioPoller.mu.RLock()
-	initialized := loop.ioPoller.initialized
-	loop.ioPoller.mu.RUnlock()
+	initialized := loop.ioPoller.initialized.Load()
 
 	if initialized {
 		t.Error("Expected poller to be uninitialized after closeFDs")

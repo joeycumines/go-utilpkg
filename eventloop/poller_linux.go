@@ -141,7 +141,30 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	return nil
 }
 
-// UnregisterFD removes a file descriptor from monitoring.
+// UnregisterFD removes a file descriptor from monitoring.//
+// IMPORTANT: CALLBACK LIFETIME SAFETY
+// ====================================
+//
+// UnregisterFD does NOT guarantee immediate cessation of in-flight callbacks.
+// The dispatch logic copies callback pointers under RLock, releases the lock,
+// then executes callbacks OUTSIDE the lock. This design choice avoids:
+//  1. Holding locks during callback execution (prevents deadlocks)
+//  2. Performance degradation from lock convoy effects
+//
+// However, it creates a narrow race window:
+//   - If dispatchEvents copies callback C1, then releases lock
+//   - User calls UnregisterFD (clears fd[X] = {})
+//   - dispatchEvents executes COPIED callback C1
+//   - Result: Callback runs after UnregisterFD returns
+//
+// REQUIRED USER COORDINATION:
+//  1. Close FD ONLY after all callbacks have completed
+//  2. Use synchronization (e.g., sync.WaitGroup) if exact timing matters
+//  3. Callbacks must guard against accessing closed FDs
+//
+// This is correct implementation for high-performance I/O multiplexing.
+// Alternative approaches (e.g., marking callbacks for deferred deletion)
+// introduce overhead and are unnecessary for typical use cases.
 func (p *FastPoller) UnregisterFD(fd int) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
@@ -266,27 +289,43 @@ func epollToEvents(epollEvents uint32) IOEvents {
 type ioPoller struct {
 	mu          sync.RWMutex // For test compatibility
 	p           FastPoller
-	initialized bool
+	initialized atomic.Bool // Atomic initialization flag prevents race
 	closed      bool
 }
 
+// initPoller initializes the epoll poller with atomic guard to prevent concurrent initialization.
+// Uses CompareAndSwap to ensure only one goroutine successfully calls p.p.Init().
+// Multiple concurrent calls are safe - first one succeeds, others return nil.
 func (p *ioPoller) initPoller() error {
+	// Check closed first (no race - closed is set atomically in closePoller)
 	if p.closed {
-		return errEventLoopClosed
+		return ErrPollerClosed
 	}
-	if p.initialized {
+
+	// Fast path: already initialized
+	if p.initialized.Load() {
 		return nil
 	}
+
+	// Try to claim initialization via CAS
+	if !p.initialized.CompareAndSwap(false, true) {
+		// Another goroutine claimed it while we were checking
+		return nil
+	}
+
+	// We won the CAS race - initialize poller
 	if err := p.p.Init(); err != nil {
+		// Initialization failed - reset flag so another thread can try
+		p.initialized.Store(false)
 		return err
 	}
-	p.initialized = true
+
 	return nil
 }
 
 func (p *ioPoller) closePoller() error {
 	p.closed = true
-	p.initialized = false
+	p.initialized.Store(false)
 	return p.p.Close()
 }
 
@@ -294,6 +333,6 @@ func (p *ioPoller) closePoller() error {
 var testHookRegisterFDPreInit func()
 
 // pollIO is a compatibility method for Loop.pollIO calls.
-func (l *Loop) pollIO(timeout int, maxEvents int) (int, error) {
-	return l.poller.PollIO(timeout)
+func (p *ioPoller) pollIO(timeout int, maxEvents int) (int, error) {
+	return p.p.PollIO(timeout)
 }

@@ -86,7 +86,7 @@ func TestRegression_RegisterFD_ZombieRace(t *testing.T) {
 	// Verify Body Count: Check for zombie poller
 	l.ioPoller.mu.RLock()
 	leakedFD := l.ioPoller.epfd
-	isInit := l.ioPoller.initialized
+	isInit := l.ioPoller.initialized.Load()
 	isClosed := l.ioPoller.closed
 	l.ioPoller.mu.RUnlock()
 

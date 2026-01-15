@@ -576,7 +576,11 @@ func (l *Loop) poll() {
 	_, err := l.poller.PollIO(timeout)
 	if err != nil {
 		log.Printf("CRITICAL: pollIO failed: %v - terminating loop", err)
-		l.state.TryTransition(StateSleeping, StateTerminating)
+		// Transition to StateTerminating and initiate full shutdown sequence
+		// This ensures all queues are drained and resources cleaned up
+		if l.state.TryTransition(StateSleeping, StateTerminating) {
+			l.shutdown()
+		}
 		return
 	}
 
