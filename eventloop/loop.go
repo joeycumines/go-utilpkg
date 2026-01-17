@@ -22,9 +22,6 @@ var (
 	// ErrLoopTerminated is returned when operations are attempted on a terminated loop.
 	ErrLoopTerminated = errors.New("eventloop: loop has been terminated")
 
-	// ErrLoopNotRunning is returned when operations are attempted on a loop that hasn't been started.
-	ErrLoopNotRunning = errors.New("eventloop: loop is not running")
-
 	// ErrLoopOverloaded is returned when the external queue exceeds the tick budget.
 	ErrLoopOverloaded = errors.New("eventloop: loop is overloaded")
 
