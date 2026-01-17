@@ -115,9 +115,13 @@ func (sm *SafeStateMachine) Transition(from, to LoopState) bool {
 
 // ForceTerminated forces the state to Terminated.
 // This is used during shutdown when we need to set the final state.
-// SAFETY: Only valid from StateTerminating state.
+// SAFETY: Only valid from StateTerminating state, or idempotent if already Terminated.
 func (sm *SafeStateMachine) ForceTerminated() {
 	from := sm.Load()
+	if from == StateTerminated {
+		// Already terminated - idempotent
+		return
+	}
 	if from != StateTerminating {
 		panic(&TransitionError{From: from, To: StateTerminated})
 	}

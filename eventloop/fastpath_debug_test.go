@@ -76,7 +76,8 @@ func TestFastPath_EntryDebug(t *testing.T) {
 	t.Logf("=== FAST PATH DEBUG REPORT ===")
 	t.Logf("FastPathEntries counter: %d", entries)
 	t.Logf("OnFastPathEntry hook calls: %d", hooks)
-	t.Logf("fastPathEnabled: %v", loop.fastPathEnabled.Load())
+	t.Logf("fastPathMode: %v (0=Auto, 1=Forced, 2=Disabled)", FastPathMode(loop.fastPathMode.Load()))
+	t.Logf("canUseFastPath: %v", loop.canUseFastPath())
 	t.Logf("userIOFDCount: %d", loop.userIOFDCount.Load())
 	t.Logf("timers pending: %d", len(loop.timers))
 	t.Logf("state: %v", loop.state.Load())
@@ -85,8 +86,8 @@ func TestFastPath_EntryDebug(t *testing.T) {
 	if entries == 0 {
 		t.Logf("⚠️  Fast path NOT entered!")
 		t.Logf("Possible reasons:")
-		if !loop.fastPathEnabled.Load() {
-			t.Logf("  - fastPathEnabled is false")
+		if !loop.canUseFastPath() {
+			t.Logf("  - canUseFastPath() returned false")
 		}
 		if loop.userIOFDCount.Load() != 0 {
 			t.Logf("  - userIOFDCount != 0 (I/O FDs registered)")
@@ -180,7 +181,7 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	} else {
 		t.Logf("⚠️  SubmitInternal did NOT use direct execution")
 		t.Logf("Requirements for direct exec:")
-		t.Logf("  - fastPathEnabled: %v (need true)", loop.fastPathEnabled.Load())
+		t.Logf("  - canUseFastPath(): %v (need true)", loop.canUseFastPath())
 		t.Logf("  - state == StateRunning: %v", loop.state.Load() == StateRunning)
 		t.Logf("  - isLoopThread(): called from loop thread")
 		t.Logf("  - external queue empty: checked at runtime")

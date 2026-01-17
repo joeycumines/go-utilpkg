@@ -30,6 +30,9 @@ var (
 
 	// ErrReentrantRun is returned when Run() is called from within the loop itself.
 	ErrReentrantRun = errors.New("eventloop: cannot call Run() from within the loop")
+
+	// ErrFastPathIncompatible is returned when fast path mode is forced but I/O FDs are registered.
+	ErrFastPathIncompatible = errors.New("eventloop: fast path incompatible with registered I/O FDs")
 )
 
 // loopTestHooks provides injection points for deterministic race testing.
@@ -38,6 +41,24 @@ type loopTestHooks struct {
 	PrePollAwake    func() // Called before CAS back to StateRunning
 	OnFastPathEntry func() // Called when entering fast path (runFastPath or direct exec)
 }
+
+// FastPathMode controls how fast path mode selection works.
+type FastPathMode int32
+
+const (
+	// FastPathDisabled always uses poll path (default for backward compatibility).
+	// This matches the original behavior where fast path was opt-in.
+	FastPathDisabled FastPathMode = iota
+
+	// FastPathAuto automatically selects mode based on conditions.
+	// Uses fast path when userIOFDCount == 0, otherwise uses poll.
+	// Must be explicitly set via SetFastPathMode(FastPathAuto).
+	FastPathAuto
+
+	// FastPathForced always uses fast path.
+	// Returns ErrFastPathIncompatible if I/O FDs are registered.
+	FastPathForced
+)
 
 // Loop is the "Maximum Performance" event loop implementation.
 //
@@ -154,10 +175,8 @@ type Loop struct { // betteralign:ignore
 
 	// StrictMicrotaskOrdering controls the timing of the microtask barrier.
 	StrictMicrotaskOrdering bool
-	// OPTIMIZATION: Fast-path for direct execution when loop is running
-	// This achieves Baseline’s ~500ns latency for single tasks by bypassing
-	// queue and executing immediately when loop is in StateRunning.
-	fastPathEnabled atomic.Bool
+	// Fast path mode selection (see FastPathMode constants)
+	fastPathMode atomic.Int32
 }
 
 // timer represents a scheduled task
@@ -240,35 +259,47 @@ func New() (*Loop, error) {
 	return loop, nil
 }
 
-// SetFastPathEnabled enables or disables the fast-path optimization.
+// SetFastPathMode sets the fast path mode for this loop.
 //
-// When enabled, tasks submitted while the loop is in StateRunning may execute
-// immediately instead of being queued, achieving Baseline's ~1-2μs latency for
-// single tasks.
-//
-// CRITICAL THREAD AFFINITY REQUIREMENT:
-// The fast path ONLY executes when SubmitInternal() is called FROM THE EVENT LOOP
-// GOROUTINE itself. When called from any other goroutine, the fast path is
-// bypassed and the task is queued for later execution on the loop goroutine.
-//
-// This design choice ensures thread safety and maintains the reactor pattern's
-// single-threaded execution guarantee. The isLoopThread() check prevents data races
-// that would occur if tasks executed on arbitrary caller goroutines.
+// Modes:
+//   - FastPathAuto (default): Automatically uses fast path when no I/O FDs registered.
+//   - FastPathForced: Always uses fast path (returns error if I/O FDs present).
+//   - FastPathDisabled: Always uses poll path (for debugging/testing).
 //
 // Performance Characteristics:
-//   - When called from loop goroutine: ~1-2μs direct execution (fast path)
-//   - When called from external goroutine: ~10μs queued execution (slow path)
-//   - Concurrent submissions: still batched when there's backpressure
-//   - Burst submissions: still queued when queue has pending tasks
+//   - Fast path: ~1-2μs latency for internal submissions
+//   - Poll path: ~10μs latency but supports I/O multiplexing
 //
-// Recommendation: Keep enabled. The fast path is safe due to the isLoopThread()
-// check, and provides latency benefits for internal submissions from within the
-// event loop (e.g., timers, promises, microtasks).
+// Returns ErrFastPathIncompatible if trying to force fast path with I/O FDs registered.
+func (l *Loop) SetFastPathMode(mode FastPathMode) error {
+	if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
+		return ErrFastPathIncompatible
+	}
+	l.fastPathMode.Store(int32(mode))
+	return nil
+}
+
+// SetFastPathEnabled is deprecated. Use SetFastPathMode instead.
+// Kept for backward compatibility.
 func (l *Loop) SetFastPathEnabled(enabled bool) {
 	if enabled {
-		l.fastPathEnabled.Store(true)
+		l.fastPathMode.Store(int32(FastPathAuto))
 	} else {
-		l.fastPathEnabled.Store(false)
+		l.fastPathMode.Store(int32(FastPathDisabled))
+	}
+}
+
+// canUseFastPath returns true if fast path can be used right now.
+// This consolidates all conditions into a single check.
+func (l *Loop) canUseFastPath() bool {
+	mode := FastPathMode(l.fastPathMode.Load())
+	switch mode {
+	case FastPathForced:
+		return true
+	case FastPathDisabled:
+		return false
+	default: // FastPathAuto
+		return l.userIOFDCount.Load() == 0
 	}
 }
 
@@ -276,6 +307,12 @@ func (l *Loop) SetFastPathEnabled(enabled bool) {
 // This counts both runFastPath entries and SubmitInternal direct executions.
 func (l *Loop) FastPathEntries() int64 {
 	return l.fastPathEntries.Load()
+}
+
+// TickCount returns the number of tick iterations completed (for debugging/monitoring).
+// Only increments when using poll path (not in fast path mode).
+func (l *Loop) TickCount() uint64 {
+	return l.tickCount
 }
 
 // Run runs the event loop and blocks until fully stopped.
@@ -414,10 +451,10 @@ func (l *Loop) run(ctx context.Context) error {
 			return nil
 		}
 
-		// LATENCY OPTIMIZATION: Use fast-path loop when no I/O FDs registered.
+		// LATENCY OPTIMIZATION: Use fast-path loop when appropriate.
 		// This bypasses the full tick machinery for task-only workloads,
 		// achieving Baseline-level latency (~500ns vs ~10,000ns with full tick).
-		if l.fastPathEnabled.Load() && l.userIOFDCount.Load() == 0 && !l.hasTimersPending() && !l.hasInternalTasks() {
+		if l.canUseFastPath() && !l.hasTimersPending() && !l.hasInternalTasks() {
 			// Fast-path: tight loop for external tasks only
 			if l.runFastPath(ctx) {
 				// Fast path completed or needs mode switch - continue to check termination
@@ -448,7 +485,7 @@ func (l *Loop) run(ctx context.Context) error {
 //
 // This achieves near-parity with Baseline's ~500ns latency by:
 // - Using batch swap (like goja) for task draining
-// - Keeping state transitions for shutdown/test compatibility
+// - Maintaining state transitions for correct shutdown semantics
 func (l *Loop) runFastPath(ctx context.Context) bool {
 	// DEBUG: Track fast path entry
 	l.fastPathEntries.Add(1)
@@ -458,6 +495,11 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 
 	// Initial drain before entering the main select loop
 	l.runAux()
+
+	// CRITICAL: Check termination after initial drain (Issue #4 fix)
+	if l.state.Load() >= StateTerminating {
+		return true
+	}
 
 	// GOJA-STYLE LOOP: Simple blocking select with batch drain
 	// This is the EXACT pattern from goja_nodejs eventloop.run():
@@ -479,6 +521,12 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 			// Check for shutdown
 			if l.state.Load() >= StateTerminating {
 				return true
+			}
+
+			// Check if we need to switch to poll path (e.g., I/O FDs registered)
+			// This ensures proper mode transition when canUseFastPath() becomes false.
+			if !l.canUseFastPath() {
+				return false // exit to main loop to switch to poll path
 			}
 		}
 	}
@@ -596,7 +644,7 @@ func (l *Loop) shutdown() {
 			drained = true
 		}
 
-		// Drain fast path queue (auxJobs) - used when fastPathEnabled
+		// Drain fast path queue (auxJobs) - used in fast path mode
 		l.externalMu.Lock()
 		jobs := l.auxJobs
 		l.auxJobs = l.auxJobsSpare
@@ -633,8 +681,6 @@ func (l *Loop) shutdown() {
 }
 
 // tick is a single iteration of the event loop.
-
-// tick is a single iteration of the event loop.
 func (l *Loop) tick() {
 	l.tickCount++
 
@@ -669,8 +715,9 @@ func (l *Loop) tick() {
 	// Final microtask pass
 	l.drainMicrotasks()
 
-	// Scavenge registry
-	l.registry.Scavenge(20)
+	// Scavenge registry - limit per tick to avoid stalling
+	const registryScavengeLimit = 20 // Max completed promises to clean up per tick
+	l.registry.Scavenge(registryScavengeLimit)
 }
 
 // processInternalQueue drains the internal priority queue.
@@ -725,8 +772,16 @@ func (l *Loop) processExternal() {
 	}
 
 	// D17: Emit overload signal if more tasks remain after budget
+	// Use defer/recover to protect against panicking callbacks (Issue #7 fix)
 	if remainingTasks > 0 && l.OnOverload != nil {
-		l.OnOverload(ErrLoopOverloaded)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("ERROR: eventloop: OnOverload callback panicked: %v", r)
+				}
+			}()
+			l.OnOverload(ErrLoopOverloaded)
+		}()
 	}
 }
 
@@ -943,7 +998,7 @@ func (l *Loop) submitWakeup() error {
 func (l *Loop) Submit(task Task) error {
 	// FAST PATH: Check fast mode conditions BEFORE taking lock
 	// This avoids atomic loads inside the critical section.
-	fastMode := l.fastPathEnabled.Load() && l.userIOFDCount.Load() == 0
+	fastMode := l.canUseFastPath()
 
 	// Lock external mutex for atomic state-check-and-push
 	l.externalMu.Lock()
@@ -986,16 +1041,19 @@ func (l *Loop) Submit(task Task) error {
 // doWakeup sends the appropriate wakeup signal based on mode.
 // In fast mode (no user I/O FDs): sends to channel (~50ns)
 // In I/O mode (user I/O FDs registered): writes to pipe (~10µs)
+//
+// IMPORTANT: We must wake BOTH channels when transitioning from fast to I/O mode.
+// The loop might be blocked in runFastPath on fastWakeupCh when I/O FDs are registered.
 func (l *Loop) doWakeup() {
-	if l.userIOFDCount.Load() == 0 {
-		// Fast mode: channel-based wakeup
-		select {
-		case l.fastWakeupCh <- struct{}{}:
-		default:
-			// Channel already has pending wakeup
-		}
-	} else {
-		// I/O mode: pipe-based wakeup
+	// Always try channel wakeup first (covers fast path mode)
+	select {
+	case l.fastWakeupCh <- struct{}{}:
+	default:
+		// Channel already has pending wakeup
+	}
+
+	// Also do pipe wakeup if I/O FDs are registered
+	if l.userIOFDCount.Load() > 0 {
 		_ = l.submitWakeup()
 	}
 }
@@ -1014,12 +1072,17 @@ func (l *Loop) SubmitInternal(task Task) error {
 	// If fast path is enabled, loop is running, AND we're ON the loop thread,
 	// execute immediately. This achieves baseline's low latency (~1-2μs).
 	state := l.state.Load()
-	if l.fastPathEnabled.Load() && state == StateRunning && l.isLoopThread() {
+	if l.canUseFastPath() && state == StateRunning && l.isLoopThread() {
 		// Check external queue length (need to lock for this)
 		l.externalMu.Lock()
 		extLen := l.external.lengthLocked()
 		l.externalMu.Unlock()
 		if extLen == 0 {
+			// CRITICAL: Re-check state before execution (Issue #2 fix)
+			// State could have changed to Terminating/Terminated between checks.
+			if l.state.Load() == StateTerminated {
+				return ErrLoopTerminated
+			}
 			// DEBUG: Track fast path entry
 			l.fastPathEntries.Add(1)
 			if l.testHooks != nil && l.testHooks.OnFastPathEntry != nil {
@@ -1334,26 +1397,10 @@ func (l *Loop) Close() error {
 				l.closeFDs()
 				return nil
 			}
-			if currentState == StateSleeping {
-				_ = l.submitWakeup()
-			}
+			// Always wake the loop - could be in poll path (StateSleeping) or
+			// fast path (StateRunning but blocked on fastWakeupCh)
+			l.doWakeup()
 			return nil
 		}
 	}
 }
-
-// ============================================================================
-// LEGACY COMPATIBILITY - for existing test access to internal structures
-// ============================================================================
-// Legacy API compatibility
-// ============================================================================
-
-// processIngress handles tasks from the ingress queue (legacy compatibility).
-// This method exists for tests that call it directly.
-func (l *Loop) processIngress(ctx context.Context) {
-	_ = ctx // unused but kept for API compat
-	l.processExternal()
-}
-
-// Ensure processIngress is not removed by staticcheck
-var _ = (*Loop)(nil).processIngress

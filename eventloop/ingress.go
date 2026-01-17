@@ -215,6 +215,11 @@ func (q *ChunkedIngress) lengthLocked() int64 {
 // This implementation adheres to strict Release/Acquire semantics to prevent "Time Travel" bugs
 // where a consumer sees a valid sequence but reads uninitialized data.
 //
+// Concurrency Model: MPSC (Multiple Producers, Single Consumer)
+// - Push: Called from any goroutine (producers)
+// - Pop: Called ONLY from the event loop goroutine (single consumer)
+// This allows Pop() to use non-CAS head advancement safely.
+//
 // Algorithm:
 // - Push: Write Data -> Store Seq (Release)
 // - Pop:  Load Seq (Acquire) -> Read Data

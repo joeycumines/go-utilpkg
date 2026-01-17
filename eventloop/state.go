@@ -21,25 +21,20 @@ import (
 //   - Use Store() for irreversible states (Terminated)
 //   - Using Store(Running) or Store(Sleeping) is a BUG (breaks CAS logic)
 //
-// NOTE: State values are preserved for backward compatibility with implementations
-// that serialize/compare integer values. StateTerminated=1, StateSleeping=2,
-// StateRunning=4 are the original values from the first implementation.
+// NOTE: State values (0, 1, 2, 4, 5) are deliberately non-sequential to preserve
+// stable serialization. Do not renumber.
 type LoopState uint64
 
 const (
 	// StateAwake indicates the loop has been created but not started.
 	StateAwake LoopState = 0
 	// StateTerminated indicates the loop has been stopped and is fully shut down.
-	// NOTE: This is value 1 for backward compatibility with original spec.
 	StateTerminated LoopState = 1
 	// StateSleeping indicates the loop is blocked in poll waiting for events.
-	// NOTE: This is value 2 for backward compatibility with original spec.
 	StateSleeping LoopState = 2
 	// StateRunning indicates the loop is actively processing tasks.
-	// NOTE: This is value 4 for backward compatibility with original spec.
 	StateRunning LoopState = 4
 	// StateTerminating indicates shutdown has been requested but not completed.
-	// NOTE: This is value 5 (not serialized in original, new state added after)
 	StateTerminating LoopState = 5
 )
 

@@ -14,6 +14,7 @@ import (
 const maxFDs = 65536
 
 // MaxFDLimit is the maximum FD value we support for dynamic growth.
+// Note: This must be < math.MaxInt32 (2147483647) because EpollEvent.Fd is int32.
 const MaxFDLimit = 100000000 // 100M, enough for production with ulimit -n > 1M
 
 // IOEvents represents the type of I/O events to monitor.

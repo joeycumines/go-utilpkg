@@ -925,11 +925,3 @@ func TestRegression_EndiannessRoundTrip(t *testing.T) {
 		t.Fatalf("Endianness Mismatch! Wrote 1, Kernel would read: %d", readBack)
 	}
 }
-
-// PROOF 2: PollIO Failure Recovery (Death Spiral Prevention)
-func TestRegression_PollIO_DeathSpiral(t *testing.T) {
-	// SKIPPED: This test relied on done channel which was removed
-	// The poll error handling is now verified through code review
-	// and other integration tests
-	t.Skip("Test requires Done() channel which was removed in Phase 12 refactoring")
-}

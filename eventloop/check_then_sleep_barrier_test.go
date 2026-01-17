@@ -536,9 +536,11 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 	var stateTransitions sync.Map
 	var lastState atomic.Int32
 
-	// Monitor state changes over time
+	// Monitor state changes over time - use done channel to coordinate with test end
+	monitorDone := make(chan struct{})
 	go func() {
-		for i := 0; i < 100; i++ {
+		defer close(monitorDone)
+		for i := 0; i < 50; i++ { // 50 * 10ms = 500ms max
 			currentState := int32(loadLoopState(loop))
 			if currentState != lastState.Load() {
 				// State transition occurred
@@ -558,15 +560,14 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 				stateTransitions.Store(transition, count)
 
 				lastState.Store(currentState)
-
-				t.Logf("State transition: %s -> %s", transition.from, transition.to)
+				// Don't log here - it may race with test completion
 			}
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
 
-	// Wait for observation
-	time.Sleep(500 * time.Millisecond)
+	// Wait for monitoring goroutine to finish
+	<-monitorDone
 
 	// Verify expected transitions occurred
 	transitionsFound := false
@@ -832,14 +833,9 @@ func TestCheckThenSleepNoLostWakeups(t *testing.T) {
 
 // Helper functions
 
-// loadLoopState loads the current state of the loop.
-// In a real implementation, this would require exposing the state field
-// or providing a testing accessor method.
+// loadLoopState loads the current state of the loop using the exported State() method.
 func loadLoopState(loop *eventloop.Loop) eventloop.LoopState {
-	// This is a placeholder - the actual implementation would need
-	// to expose the loop state for testing purposes.
-	// For now, return Awake as a safe default.
-	return eventloop.StateAwake
+	return loop.State()
 }
 
 // stateToString converts a LoopState to a human-readable string.
