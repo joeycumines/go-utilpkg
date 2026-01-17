@@ -21,6 +21,8 @@ func NewMainLoop() (EventLoop, error) {
 	if err != nil {
 		return nil, err
 	}
+	// ENABLE FAST PATH: Critical for benchmark parity with Baseline
+	loop.SetFastPathEnabled(true)
 	return &MainLoopAdapter{loop: loop}, nil
 }
 
