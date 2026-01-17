@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -144,7 +145,7 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Loop Run() error: %v", err)
 		}
 		close(runDone)
@@ -221,7 +222,7 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Loop Run() error: %v", err)
 		}
 		close(runDone)
@@ -301,8 +302,13 @@ func TestLoop_TickAnchor_DataRace(t *testing.T) {
 		_ = l.Run(ctx)
 	}()
 
-	// Wait for loop to start
-	for l.state.Load() != StateRunning {
+	// Wait for loop to start (check for both Running and Sleeping states,
+	// since the loop may quickly transition to Sleeping after starting)
+	for {
+		state := l.state.Load()
+		if state == StateRunning || state == StateSleeping {
+			break
+		}
 		time.Sleep(time.Millisecond)
 	}
 

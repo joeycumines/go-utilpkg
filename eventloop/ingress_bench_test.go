@@ -1,35 +1,52 @@
 package eventloop
 
 import (
-	"fmt"
 	"testing"
 )
 
-// BenchmarkIngressPop benchmarks the popLocked operation at various queue depths.
-// This verifies O(1) complexity - ns/op should be constant regardless of depth.
-//
-// SUCCESS CRITERIA: Depth-10000 must have roughly same ns/op as Depth-100
-func BenchmarkIngressPop(b *testing.B) {
-	counts := []int{100, 1000, 10000, 100000}
+// BenchmarkChunkedIngress_PushPop benchmarks push/pop on ChunkedIngress.
+func BenchmarkChunkedIngress_PushPop(b *testing.B) {
+	q := NewChunkedIngress()
 
-	for _, count := range counts {
-		b.Run(fmt.Sprintf("Depth-%d", count), func(b *testing.B) {
-			q := &IngressQueue{}
-			for i := 0; i < count; i++ {
-				q.Push(Task{Runnable: func() {}})
-			}
-
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				if q.Length() == 0 {
-					b.StopTimer()
-					for k := 0; k < count; k++ {
-						q.Push(Task{Runnable: func() {}})
-					}
-					b.StartTimer()
-				}
-				_, _ = q.popLocked()
-			}
-		})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Push(func() {})
+		q.Pop()
 	}
+}
+
+// BenchmarkChunkedIngress_Push benchmarks push on ChunkedIngress.
+func BenchmarkChunkedIngress_Push(b *testing.B) {
+	q := NewChunkedIngress()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Push(func() {})
+	}
+}
+
+// BenchmarkChunkedIngress_Pop benchmarks pop on ChunkedIngress.
+func BenchmarkChunkedIngress_Pop(b *testing.B) {
+	q := NewChunkedIngress()
+
+	// Pre-fill queue
+	for i := 0; i < b.N; i++ {
+		q.Push(func() {})
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		q.Pop()
+	}
+}
+
+// BenchmarkChunkedIngress_Parallel benchmarks parallel push/pop.
+func BenchmarkChunkedIngress_Parallel(b *testing.B) {
+	q := NewChunkedIngress()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			q.Push(func() {})
+		}
+	})
 }

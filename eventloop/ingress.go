@@ -73,17 +73,15 @@ func returnChunk(c *chunk) {
 
 // ChunkedIngress is a chunked linked-list queue for task submission.
 //
-// Thread Safety: This struct has NO internal mutex. The caller MUST hold an
-// external mutex when calling any method. This design allows the Loop to
-// perform atomic state-check-and-push operations under a single mutex.
+// Thread Safety: This struct has an OPTIONAL internal mutex. For highest
+// performance, use the *Locked methods with an external mutex held by the caller.
+// For convenience (e.g., in tests), use the non-Locked methods which acquire
+// the internal mutex.
 //
-// Usage pattern (from Loop.Submit):
-//
-//	l.externalMu.Lock()
-//	if terminated { l.externalMu.Unlock(); return ErrLoopTerminated }
-//	l.external.pushLocked(task)  // No mutex needed - caller holds externalMu
-//	l.externalMu.Unlock()
+// The Loop uses the Locked methods for optimal performance, while tests can
+// use the convenience methods directly.
 type ChunkedIngress struct { // betteralign:ignore
+	mu         sync.Mutex // Internal mutex for convenience methods
 	head, tail *chunk
 	length     int64
 }
@@ -91,6 +89,44 @@ type ChunkedIngress struct { // betteralign:ignore
 // NewChunkedIngress creates a new chunked ingress queue.
 func NewChunkedIngress() *ChunkedIngress {
 	return &ChunkedIngress{}
+}
+
+// Push adds a function to the queue. Thread-safe via internal mutex.
+// For higher performance, use pushLocked with an external mutex.
+func (q *ChunkedIngress) Push(fn func()) {
+	q.mu.Lock()
+	q.pushLocked(Task{Runnable: fn})
+	q.mu.Unlock()
+}
+
+// PushTask adds a task to the queue. Thread-safe via internal mutex.
+// For higher performance, use pushLocked with an external mutex.
+func (q *ChunkedIngress) PushTask(task Task) {
+	q.mu.Lock()
+	q.pushLocked(task)
+	q.mu.Unlock()
+}
+
+// Pop removes and returns a task. Thread-safe via internal mutex.
+// For higher performance, use popLocked with an external mutex.
+func (q *ChunkedIngress) Pop() (Task, bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.popLocked()
+}
+
+// Length returns the queue length. Thread-safe via internal mutex.
+func (q *ChunkedIngress) Length() int64 {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.length
+}
+
+// IsEmpty returns true if the queue is empty. Thread-safe via internal mutex.
+func (q *ChunkedIngress) IsEmpty() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.length == 0
 }
 
 // pushLocked adds a task to the queue. CALLER MUST HOLD EXTERNAL MUTEX.
@@ -167,302 +203,6 @@ func (q *ChunkedIngress) popLocked() (Task, bool) {
 // lengthLocked returns the queue length. CALLER MUST HOLD EXTERNAL MUTEX.
 func (q *ChunkedIngress) lengthLocked() int64 {
 	return q.length
-}
-		// Alloc new chunk
-		newTail := newChunk()
-		q.tail.next = newTail
-		q.tail = newTail
-	}
-
-	q.tail.tasks[q.tail.pos] = task
-	q.tail.pos++
-	q.length++
-
-	q.mu.Unlock()
-}
-
-// Pop removes and returns a task. Safe for concurrent use.
-// Returns false if the queue is empty.
-func (q *ChunkedIngress) Pop() (Task, bool) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.popLocked()
-}
-
-// popLocked removes and returns a task. Caller must hold q.mu.
-func (q *ChunkedIngress) popLocked() (Task, bool) {
-	if q.head == nil {
-		return Task{}, false
-	}
-
-	// Check if current chunk is exhausted (readPos == pos means all written tasks read)
-	if q.head.readPos >= q.head.pos {
-		// If this is the only chunk, queue is empty - reset cursors for reuse
-		if q.head == q.tail {
-			// Reset cursors instead of keeping stale chunk.
-			// This is safe because popLocked() zeros each slot before incrementing readPos,
-			// so all slots [0..pos) are already zero. Resetting cursors allows the chunk
-			// to be reused without sync.Pool churn.
-			q.head.pos = 0
-			q.head.readPos = 0
-			return Task{}, false
-		}
-		// Move to next chunk
-		oldHead := q.head
-		q.head = q.head.next
-		// Return exhausted chunk to pool
-		returnChunk(oldHead)
-	}
-
-	// Double-check after potential chunk advancement
-	if q.head.readPos >= q.head.pos {
-		return Task{}, false
-	}
-
-	// O(1) read at readPos, then increment
-	task := q.head.tasks[q.head.readPos]
-	// Zero out popped slot for GC safety
-	q.head.tasks[q.head.readPos] = Task{}
-	q.head.readPos++
-	q.length--
-
-	// If chunk is now exhausted, free it or reset cursors
-	if q.head.readPos >= q.head.pos {
-		if q.head == q.tail {
-			// Reset cursors instead of allocating new chunk.
-			// This eliminates sync.Pool churn in ping-pong workloads (Push 1, Pop 1).
-			q.head.pos = 0
-			q.head.readPos = 0
-			return task, true
-		}
-		// Multiple chunks: Move to next chunk and return old to pool
-		oldHead := q.head
-		q.head = q.head.next
-		returnChunk(oldHead)
-	}
-
-	return task, true
-}
-
-// PopBatch removes up to max tasks from the queue into buf.
-// Returns the number of tasks popped.
-func (q *ChunkedIngress) PopBatch(buf []Task, max int) int {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if max > len(buf) {
-		max = len(buf)
-	}
-
-	count := 0
-	for count < max {
-		task, ok := q.popLocked()
-		if !ok {
-			break
-		}
-		buf[count] = task
-		count++
-	}
-
-	return count
-}
-
-// Length returns the queue length.
-func (q *ChunkedIngress) Length() int64 {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.length
-}
-
-// IsEmpty returns true if the queue is empty.
-func (q *ChunkedIngress) IsEmpty() bool {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.length == 0
-}
-
-// ============================================================================
-// LEGACY LOCK-FREE MPSC QUEUE (Preserved for backward compatibility)
-// ============================================================================
-// This implementation is preserved for backward compatibility and testing.
-// New code should use ChunkedIngress which performs better under contention.
-// ============================================================================
-
-type node struct {
-	task Task
-	next atomic.Pointer[node]
-}
-
-var nodePool = sync.Pool{
-	New: func() any {
-		return &node{}
-	},
-}
-
-func getNode() *node {
-	return nodePool.Get().(*node)
-}
-
-func putNode(n *node) {
-	n.task = Task{}
-	n.next.Store(nil)
-	nodePool.Put(n)
-}
-
-// LockFreeIngress is a lock-free multi-producer single-consumer (MPSC) queue.
-//
-// Theoretical Classification: Linearizing Queue (Not a Multiplexer).
-// This implementation enforces a total global order via tail swapping.
-// A single stalled producer can block the consumer, meaning acausality within
-// streams is not preserved. However, this is required to satisfy "Zero-allocation"
-// and "Unbounded" requirements.
-//
-// Performance:
-// - Uses atomic CAS for producers with no mutex on hot paths.
-// - Single-threaded consumer pops in batches to amortize cache misses.
-//
-// NOTE: ChunkedIngress outperforms this under high contention. This is preserved
-// for backward compatibility and edge cases where lock-free is preferred.
-type LockFreeIngress struct { // betteralign:ignore
-	_    [64]byte             // Cache line padding
-	head atomic.Pointer[node] // Consumer reads from head
-	_    [56]byte             // Pad to cache line
-	tail atomic.Pointer[node] // Producers swap tail
-	_    [56]byte             // Pad to cache line
-	stub node                 // Sentinel node
-	len  atomic.Int64         // Approximate queue length
-	_    [56]byte             // Pad to cache line
-}
-
-// NewLockFreeIngress creates a new lock-free MPSC queue.
-func NewLockFreeIngress() *LockFreeIngress {
-	q := &LockFreeIngress{}
-	q.head.Store(&q.stub)
-	q.tail.Store(&q.stub)
-	return q
-}
-
-// Push adds a task to the queue. Safe for concurrent use by multiple producers.
-// It establishes a causal link via atomic tail swapping (Linearization point).
-func (q *LockFreeIngress) Push(fn func()) {
-	n := getNode()
-	n.task = Task{Runnable: fn}
-	n.next.Store(nil)
-
-	// Atomically swap tail, linking previous tail to new node.
-	prev := q.tail.Swap(n)
-	prev.next.Store(n)
-
-	q.len.Add(1)
-}
-
-// PushTask adds a task struct to the queue. Safe for concurrent use by multiple producers.
-func (q *LockFreeIngress) PushTask(task Task) {
-	n := getNode()
-	n.task = task
-	n.next.Store(nil)
-
-	prev := q.tail.Swap(n)
-	prev.next.Store(n)
-
-	q.len.Add(1)
-}
-
-// Pop removes and returns a task. Safe for use by a SINGLE consumer only.
-// Returns false if the queue is empty.
-func (q *LockFreeIngress) Pop() (Task, bool) {
-	head := q.head.Load()
-	next := head.next.Load()
-	if next == nil {
-		if q.tail.Load() == head {
-			return Task{}, false // Truly empty
-		}
-
-		// Acausality Risk: Tail moved, but 'next' pointer isn't linked yet.
-		// A producer has Swapped but not yet Stored next.
-		// We structurally block/spin until the specific producer finishes.
-		for {
-			next = head.next.Load()
-			if next != nil {
-				break
-			}
-			runtime.Gosched()
-		}
-	}
-
-	task := next.task
-	next.task = Task{} // Clear for GC
-	q.head.Store(next)
-
-	// Recycle old head (unless it's the stub)
-	if head != &q.stub {
-		putNode(head)
-	}
-
-	q.len.Add(-1)
-	return task, true
-}
-
-// PopBatch removes up to max tasks from the queue into buf.
-// Batched popping amortizes cache misses.
-// DEFECT #5 FIX: Implements the same spin-wait logic as Pop() to handle
-// the acausality window where tail has moved but next pointer isn't linked yet.
-func (q *LockFreeIngress) PopBatch(buf []Task, max int) int {
-	count := 0
-	head := q.head.Load()
-
-	if max > len(buf) {
-		max = len(buf)
-	}
-
-	for count < max {
-		next := head.next.Load()
-		if next == nil {
-			// DEFECT #5 FIX: Check if tail != head, indicating a producer is in-flight.
-			// A producer has Swapped tail but not yet Stored next pointer.
-			// We must spin-wait just like Pop() does, or we'll miss tasks.
-			if q.tail.Load() == head {
-				break // Truly empty - both tail and next confirm no pending tasks
-			}
-			// Producer in-flight: spin until next pointer is linked
-			for {
-				next = head.next.Load()
-				if next != nil {
-					break
-				}
-				runtime.Gosched()
-			}
-		}
-
-		buf[count] = next.task
-		next.task = Task{} // Clear for GC
-		q.head.Store(next)
-
-		if head != &q.stub {
-			putNode(head)
-		}
-
-		head = next
-		count++
-	}
-
-	if count > 0 {
-		q.len.Add(int64(-count))
-	}
-	return count
-}
-
-// Length returns the approximate queue length.
-// Note: Result may be stale due to concurrent operations.
-func (q *LockFreeIngress) Length() int64 {
-	return q.len.Load()
-}
-
-// IsEmpty returns true if the queue appears empty.
-// Note: May have false negatives under concurrent modification.
-func (q *LockFreeIngress) IsEmpty() bool {
-	head := q.head.Load()
-	return head.next.Load() == nil
 }
 
 // ============================================================================
@@ -692,39 +432,6 @@ func (r *MicrotaskRing) IsEmpty() bool {
 	r.overflowMu.Unlock()
 
 	return empty
-}
-
-// ============================================================================
-// LEGACY COMPATIBILITY
-// ============================================================================
-
-// IngressQueue wraps LockFreeIngress to provide backward compatibility for tests.
-// New code should use LockFreeIngress directly.
-type IngressQueue struct {
-	q *LockFreeIngress
-}
-
-func (q *IngressQueue) Push(task Task) {
-	if q.q == nil {
-		q.q = NewLockFreeIngress()
-	}
-	q.q.PushTask(task)
-}
-
-func (q *IngressQueue) Length() int {
-	if q.q == nil {
-		return 0
-	}
-	return int(q.q.Length())
-}
-
-// popLocked returns a task.
-// The "locked" suffix is a misnomer; the underlying queue is lock-free.
-func (q *IngressQueue) popLocked() (Task, bool) {
-	if q.q == nil {
-		return Task{}, false
-	}
-	return q.q.Pop()
 }
 
 // ============================================================================

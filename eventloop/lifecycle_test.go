@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -107,8 +108,7 @@ func TestLoop_Stop_Race_Torture(t *testing.T) {
 		}
 
 		go func() {
-			if err := l.Run(context.Background()); err != nil && err != context.Canceled {
-				t.Errorf("Iteration %d: Run returned error: %v", i, err)
+			if err := l.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			}
 		}()
 

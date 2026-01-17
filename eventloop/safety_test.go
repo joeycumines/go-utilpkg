@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sync"
 	"testing"
@@ -19,7 +20,7 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 
 	// First, start the loop and wait for it to be running
 	go func() {
-		if err := l.Run(context.Background()); err != nil && err != context.Canceled {
+		if err := l.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 	}()

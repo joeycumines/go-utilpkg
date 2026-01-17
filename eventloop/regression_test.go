@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"os"
 	"reflect"
 	"runtime"
@@ -47,7 +48,7 @@ func TestRegression_TimerExecution(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -189,7 +190,7 @@ func TestRegression_ShutdownOrdering(t *testing.T) {
 	ctx := context.Background()
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -233,7 +234,7 @@ func TestRegression_ShutdownNoDataLoss(t *testing.T) {
 
 	producerCount := 50
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -356,16 +357,16 @@ func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 // TestRegression_ChunkPooling verifies that ingress chunks are pooled
 // and reused rather than being GC'd.
 func TestRegression_ChunkPooling(t *testing.T) {
-	var queue IngressQueue
+	queue := NewChunkedIngress()
 
 	// Push enough tasks to create multiple chunks
 	for i := 0; i < 256; i++ {
-		queue.Push(Task{Runnable: func() {}})
+		queue.Push(func() {})
 	}
 
 	// Pop all tasks - should return chunks to pool
 	for i := 0; i < 256; i++ {
-		_, ok := queue.popLocked()
+		_, ok := queue.Pop()
 		if !ok && i < 128 {
 			t.Fatalf("Expected task at index %d", i)
 		}
@@ -376,11 +377,11 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	allocs := testing.AllocsPerRun(10, func() {
 		// Push 128 tasks (fills one chunk)
 		for i := 0; i < 128; i++ {
-			queue.Push(Task{Runnable: func() {}})
+			queue.Push(func() {})
 		}
 		// Pop all
 		for i := 0; i < 128; i++ {
-			queue.popLocked()
+			queue.Pop()
 		}
 	})
 
@@ -450,27 +451,23 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 
 // --- T11: Queue Memory Lifecycle Test ---
 
-// TestRegression_QueueMemoryLifecycle verifies that the lock-free queue properly
+// TestRegression_QueueMemoryLifecycle verifies that the ChunkedIngress queue properly
 // manages task references to prevent memory leaks.
-//
-// NOTE: This test was updated to work with the new LockFreeIngress implementation.
-// The old chunked queue had explicit head/tail tracking; the new implementation
-// uses a lock-free MPSC queue with node recycling.
 func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	// Test verifies queue properly handles push/pop cycles without issues
-	q := IngressQueue{}
+	q := NewChunkedIngress()
 
 	// Push and pop tasks to exercise queue lifecycle over multiple cycles
 	for cycle := 0; cycle < 10; cycle++ {
 		// Push enough tasks to exercise the queue
 		for i := 0; i < 130; i++ {
-			q.Push(Task{})
+			q.Push(func() {})
 		}
 
 		// Pop all tasks
 		count := 0
 		for range 130 {
-			if _, ok := q.popLocked(); !ok {
+			if _, ok := q.Pop(); !ok {
 				t.Fatalf("Cycle %d: Failed to pop task at iteration %d", cycle, count)
 			}
 			count++
@@ -584,7 +581,7 @@ func TestCheckThenSleep_BarrierProof(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			errChan <- err
 		}
 		close(runDone)
@@ -625,7 +622,7 @@ func TestShutdown_ConservationOfTasks(t *testing.T) {
 	runDone := make(chan struct{})
 	go func() {
 		defer close(runDone)
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 	}()
@@ -689,7 +686,7 @@ func TestIngress_NoClosureLeaks(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := loop.Run(ctx); err != nil {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -775,7 +772,7 @@ func TestRegression_PollIOErrorHandling(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)

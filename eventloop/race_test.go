@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -19,7 +20,7 @@ func TestTickTimeDataRace(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)

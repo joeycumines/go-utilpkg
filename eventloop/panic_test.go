@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -77,7 +78,7 @@ func TestLoopSurvivesPanic_ContinuesProcessing(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -124,7 +125,7 @@ func TestLoop_SurvivesPanic(t *testing.T) {
 
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)

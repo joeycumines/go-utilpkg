@@ -78,17 +78,11 @@ type Loop struct { // betteralign:ignore
 	internal   *ChunkedIngress // Internal priority tasks
 	microtasks *MicrotaskRing  // Microtask ring buffer
 
-	// Legacy compatibility shim for tests accessing l.ingress
-	ingress IngressQueue
-
 	// Phase 3: Timers
 	timers timerHeap
 
 	// I/O poller (zero-lock FastPoller)
 	poller FastPoller
-
-	// Legacy ioPoller shim for test compatibility
-	ioPoller ioPoller
 
 	// Synchronization
 	stopOnce  sync.Once
@@ -118,18 +112,15 @@ type Loop struct { // betteralign:ignore
 	// Loop termination signaling
 	loopDone chan struct{}
 
-	// In-flight submit counter for shutdown synchronization
-	inflight atomic.Int64
+	// External queue mutex - used for atomic state-check-and-push pattern
+	// This eliminates the need for inflight counters in Submit()
+	externalMu sync.Mutex
+
+	// Internal queue mutex - used for atomic state-check-and-push pattern
+	internalQueueMu sync.Mutex
 
 	// Task batch buffer (avoid allocation)
 	batchBuf [256]Task
-
-	// Internal queue mutex (for backward compat with SubmitInternal)
-	internalMu    sync.Mutex
-	internalQueue []Task
-	internalBuf   []Task
-	ingressMu     sync.Mutex // Legacy - for test compat
-	_             []Task     // Legacy ingressBuffer - reserved for processIngress compat
 
 	wakeUpSignalPending atomic.Uint32 // Wake-up deduplication
 
@@ -396,31 +387,19 @@ func (l *Loop) shutdown() {
 	// in the drain below. Any Submit that checks state after will be rejected.
 	l.state.Store(StateTerminated)
 
-	// Drain loop: continue until BOTH conditions are met:
-	// 1. inflight == 0 (no Submit operations in progress)
-	// 2. All queues are empty
-	// We need to check BOTH because:
-	// - A Submit could be between Push and defer (inflight > 0 but queue has task)
-	// - A Submit could have just completed defer (inflight == 0 and queue has task)
+	// Drain loop: continue until all queues are empty for multiple consecutive checks.
+	// With mutex-based synchronization, we don't need inflight counters - once we
+	// hold the mutex and see the queue is empty, no new tasks can appear.
 	emptyChecks := 0
 	const requiredEmptyChecks = 3 // Need multiple consecutive empty checks
 	for emptyChecks < requiredEmptyChecks {
-		// Wait for any in-flight submits to complete
-		spinCount := 0
-		for l.inflight.Load() > 0 {
-			spinCount++
-			if spinCount > 1000 {
-				time.Sleep(100 * time.Microsecond)
-			} else {
-				runtime.Gosched()
-			}
-		}
-
 		drained := false
 
-		// Drain internal queue
+		// Drain internal queue (with mutex)
 		for {
-			task, ok := l.internal.Pop()
+			l.internalQueueMu.Lock()
+			task, ok := l.internal.popLocked()
+			l.internalQueueMu.Unlock()
 			if !ok {
 				break
 			}
@@ -428,9 +407,11 @@ func (l *Loop) shutdown() {
 			drained = true
 		}
 
-		// Drain external queue
+		// Drain external queue (with mutex)
 		for {
-			task, ok := l.external.Pop()
+			l.externalMu.Lock()
+			task, ok := l.external.popLocked()
+			l.externalMu.Unlock()
 			if !ok {
 				break
 			}
@@ -448,22 +429,8 @@ func (l *Loop) shutdown() {
 			drained = true
 		}
 
-		// Also drain legacy internal queue
-		l.internalMu.Lock()
-		if len(l.internalQueue) > 0 {
-			tasks := l.internalQueue
-			l.internalQueue = nil
-			l.internalMu.Unlock()
-			for _, t := range tasks {
-				l.safeExecute(t)
-			}
-			drained = true
-		} else {
-			l.internalMu.Unlock()
-		}
-
-		if drained || l.inflight.Load() > 0 {
-			emptyChecks = 0 // Reset if we drained or there are in-flight submits
+		if drained {
+			emptyChecks = 0 // Reset if we drained any tasks
 		} else {
 			emptyChecks++
 			runtime.Gosched() // Yield to let any racing submits complete
@@ -519,45 +486,45 @@ func (l *Loop) tick() {
 
 // processInternalQueue drains the internal priority queue.
 func (l *Loop) processInternalQueue() bool {
-	// First, drain the new lock-free internal queue
+	// Drain the chunked internal queue
+	processed := false
 	for {
-		task, ok := l.internal.Pop()
+		l.internalQueueMu.Lock()
+		task, ok := l.internal.popLocked()
+		l.internalQueueMu.Unlock()
 		if !ok {
 			break
 		}
 		l.safeExecute(task)
+		processed = true
 	}
 
-	// Then, drain the legacy mutex-protected internal queue
-	l.internalMu.Lock()
-	if len(l.internalQueue) == 0 {
-		l.internalMu.Unlock()
-		return false
+	if processed {
+		l.drainMicrotasks()
 	}
-	tasks := l.internalQueue
-	l.internalQueue = l.internalBuf[:0]
-	l.internalBuf = tasks[:0]
-	l.internalMu.Unlock()
-
-	for i, t := range tasks {
-		l.safeExecute(t)
-		tasks[i] = Task{}
-	}
-
-	l.drainMicrotasks()
-	return true
+	return processed
 }
 
 // processExternal processes external tasks with budget.
 func (l *Loop) processExternal() {
 	const budget = 1024
 
-	// PERFORMANCE: Batch pop for better cache behavior
-	n := l.external.PopBatch(l.batchBuf[:], budget)
+	// Pop tasks in batch while holding the external mutex
+	l.externalMu.Lock()
+	n := 0
+	for n < budget && n < len(l.batchBuf) {
+		task, ok := l.external.popLocked()
+		if !ok {
+			break
+		}
+		l.batchBuf[n] = task
+		n++
+	}
+	// Check remaining tasks while still holding lock
+	remainingTasks := l.external.lengthLocked()
+	l.externalMu.Unlock()
 
-	// D17: Check if more tasks remain after budget exhausted
-	remainingTasks := l.external.Length()
-
+	// Execute tasks (without holding mutex)
 	for i := 0; i < n; i++ {
 		l.safeExecute(l.batchBuf[i])
 		l.batchBuf[i] = Task{} // Clear for GC
@@ -608,8 +575,16 @@ func (l *Loop) poll() {
 		return
 	}
 
-	// Quick length check (may have false negatives)
-	if l.external.Length() > 0 || l.internal.Length() > 0 || !l.microtasks.IsEmpty() {
+	// Quick length check (need to hold mutexes for accurate count)
+	l.externalMu.Lock()
+	extLen := l.external.lengthLocked()
+	l.externalMu.Unlock()
+
+	l.internalQueueMu.Lock()
+	intLen := l.internal.lengthLocked()
+	l.internalQueueMu.Unlock()
+
+	if extLen > 0 || intLen > 0 || !l.microtasks.IsEmpty() {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
@@ -690,37 +665,31 @@ func (l *Loop) submitWakeup() error {
 //   - StateTerminated: returns ErrLoopTerminated
 //   - StateTerminating: ALLOWS submission (loop needs to drain in-flight work)
 //   - StateSleeping/StateRunning: normal operation
+//
+// Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
+// This eliminates the need for inflight counters and provides better
+// performance than lock-free CAS under high contention (proven in benchmarks).
 func (l *Loop) Submit(task Task) error {
-	// Increment inflight counter FIRST, before checking state
-	l.inflight.Add(1)
-	defer l.inflight.Add(-1)
+	// Lock external mutex for atomic state-check-and-push
+	l.externalMu.Lock()
 
-	// D10 FIX: Only reject if fully terminated, NOT during StateTerminating
-	// We must allow submissions during StateTerminating to ensure:
-	// 1. In-flight operations (e.g., Promisify) can complete
-	// 2. The loop can drain all queued work before shutting down
+	// Check state while holding mutex - this is atomic with the push
 	state := l.state.Load()
 	if state == StateTerminated {
+		l.externalMu.Unlock()
 		return ErrLoopTerminated
 	}
 
-	// Push the task (this is the linearization point)
-	// The push is complete (visible to Pop) after PushTask returns.
-	l.external.PushTask(task)
+	// Push the task (mutex already held - pushLocked requires external mutex)
+	l.external.pushLocked(task)
+	l.externalMu.Unlock()
 
-	// Wake if sleeping
-	state = l.state.Load()
-	if state == StateSleeping {
+	// Wake if sleeping (check state after releasing mutex)
+	if l.state.Load() == StateSleeping {
 		if l.wakePending.CompareAndSwap(0, 1) {
 			if err := l.submitWakeup(); err != nil {
-				// D10 FIX: Gracefully handle wake-up failures during shutdown
-				// Expected errors during shutdown:
-				//   - EBADF (bad file descriptor): pipe closed
-				//   - EPIPE (broken pipe): write end closed
-				// These are not fatal - the task is already queued and will be
-				// processed if the loop wakes via other means
+				// Gracefully handle wake-up failures during shutdown
 				l.wakePending.Store(0)
-				// Don't return error from Submit - task is already queued
 			}
 		}
 	}
@@ -734,49 +703,45 @@ func (l *Loop) Submit(task Task) error {
 //   - StateTerminated: returns ErrLoopTerminated
 //   - StateTerminating: ALLOWS submission (loop needs to drain in-flight work)
 //   - StateSleeping/StateRunning: normal operation
+//
+// Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
 func (l *Loop) SubmitInternal(task Task) error {
-	// Increment inflight counter FIRST
-	l.inflight.Add(1)
-	defer l.inflight.Add(-1)
-
-	// D10 FIX: Only reject if fully terminated, NOT during StateTerminating
-	// Consistent with Submit() - allows loop to drain in-flight work
-	state := l.state.Load()
-	if state == StateTerminated {
-		return ErrLoopTerminated
-	}
-
 	// CRITICAL FIX #1: Fast-path with thread affinity check
 	// The fast path optimization executes tasks immediately instead of queueing them.
-	// CRITICAL REQUIREMENT: Fast path MUST only execute on the event loop goroutine
-	// to maintain reactor pattern guarantees and prevent data races.
-	//
 	// If fast path is enabled, loop is running, AND we're ON the loop thread,
-	// AND queue is empty, execute immediately. This achieves baseline's low
-	// latency (~1-2μs) for single tasks while maintaining thread safety.
-	//
-	// Thread affinity is enforced by l.isLoopThread() - if called from any
-	// other goroutine, the fast path is bypassed and the task is queued.
+	// execute immediately. This achieves baseline's low latency (~1-2μs).
+	state := l.state.Load()
 	if l.fastPathEnabled.Load() && state == StateRunning && l.isLoopThread() {
-		if l.external.Length() == 0 {
+		// Check external queue length (need to lock for this)
+		l.externalMu.Lock()
+		extLen := l.external.lengthLocked()
+		l.externalMu.Unlock()
+		if extLen == 0 {
 			// Direct execution - bypasses queue entirely
-			// This achieves ~1-2μs latency (vs ~10μs through queue)
-			// SAFE: Only executes on loop thread due to isLoopThread() check
 			l.safeExecute(task)
 			return nil
 		}
 	}
 
-	l.internal.PushTask(task)
+	// Lock internal queue mutex for atomic state-check-and-push
+	l.internalQueueMu.Lock()
 
+	// Check state while holding mutex
+	state = l.state.Load()
+	if state == StateTerminated {
+		l.internalQueueMu.Unlock()
+		return ErrLoopTerminated
+	}
+
+	// Push the task
+	l.internal.pushLocked(task)
+	l.internalQueueMu.Unlock()
+
+	// Wake if sleeping
 	if l.state.Load() == StateSleeping {
 		if l.wakePending.CompareAndSwap(0, 1) {
-			// D10 FIX: Gracefully handle wake-up failures during shutdown
 			if err := l.submitWakeup(); err != nil {
-				// Expected errors during shutdown (EBADF, EPIPE)
-				// Task is already queued, will be processed if loop wakes
 				l.wakePending.Store(0)
-				// Don't return error - task is already queued
 			}
 		}
 	}
@@ -986,7 +951,6 @@ func (l *Loop) safeExecuteFn(fn func()) {
 func (l *Loop) closeFDs() {
 	l.closeOnce.Do(func() {
 		_ = l.poller.Close()
-		_ = l.ioPoller.closePoller() // Also close legacy ioPoller for test compatibility
 		_ = unix.Close(l.wakePipe)
 		if l.wakePipeWrite != l.wakePipe {
 			_ = unix.Close(l.wakePipeWrite)

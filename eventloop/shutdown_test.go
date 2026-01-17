@@ -19,7 +19,7 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 	ctx := context.Background()
 	runDone := make(chan struct{})
 	go func() {
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -66,7 +66,7 @@ func TestShutdown_PromisifyResolution_Race(t *testing.T) {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
 	go func() {
-		if err := l.Run(context.Background()); err != nil && err != context.Canceled {
+		if err := l.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 	}()
@@ -104,7 +104,7 @@ func TestShutdown_IngressResolvesInternal(t *testing.T) {
 	ctx := context.Background()
 	runDone := make(chan struct{})
 	go func() {
-		if err := l.Run(ctx); err != nil && err != context.Canceled {
+		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
 		close(runDone)
@@ -192,7 +192,7 @@ func TestShutdownRace(t *testing.T) {
 	runDone := make(chan struct{})
 	go func() {
 		// Use an error channel instead of t.Errorf to avoid calling t.Errorf after test completes
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			// Don't call t.Errorf - test may already be done
 		}
 		close(runDone)

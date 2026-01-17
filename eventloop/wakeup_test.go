@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -22,7 +23,7 @@ func TestWakeup_HighContention(t *testing.T) {
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
 			errChan <- err
 			return
 		}

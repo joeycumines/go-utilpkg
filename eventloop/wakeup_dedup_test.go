@@ -40,7 +40,7 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -153,7 +153,7 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -216,7 +216,7 @@ func TestWriteThenCheckIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -274,7 +274,7 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -364,7 +364,7 @@ func TestWakeUpSignalFlagResetIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -422,7 +422,7 @@ func TestWakeMethodDeduplicationIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -480,7 +480,7 @@ func TestWakeUpDuringPollingIntegration(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()
@@ -535,7 +535,7 @@ func BenchmarkWakeUpDeduplicationIntegration(b *testing.B) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 		}
 	}()

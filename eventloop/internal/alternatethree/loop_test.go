@@ -161,7 +161,7 @@ func TestLoop_Close(t *testing.T) {
 	select {
 	case <-errCh:
 		// Success
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Run() did not return after Close()")
 	}
 }

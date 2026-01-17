@@ -38,7 +38,7 @@ func TestMutexBarrierProtocol(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -93,7 +93,7 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -197,7 +197,7 @@ func TestWakeUpDeduplication(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -298,7 +298,7 @@ func TestTOCTOURacePrevention(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -421,7 +421,7 @@ func TestMultipleProducersNoRedundantSyscalls(t *testing.T) {
 			errChan := make(chan error, 1)
 			go func() {
 				defer close(runDone)
-				if err := loop.Run(ctx); err != nil && err != context.Canceled {
+				if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 					errChan <- err
 					return
 				}
@@ -517,7 +517,7 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -609,7 +609,7 @@ func TestBarrierProtocolUnderStress(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -675,7 +675,7 @@ func TestWriteThenCheckProtocol(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}
@@ -761,7 +761,7 @@ func TestCheckThenSleepNoLostWakeups(t *testing.T) {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(runDone)
-		if err := loop.Run(ctx); err != nil && err != context.Canceled {
+		if err := loop.Run(ctx); !isExpectedShutdownError(err) {
 			errChan <- err
 			return
 		}

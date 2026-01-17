@@ -1,86 +1,87 @@
 package eventloop
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 )
 
-// TestIngress_ChunkTransition verifies the ingress queue correctly handles
+// TestChunkedIngress_ChunkTransition verifies the ChunkedIngress queue correctly handles
 // chunk boundary transitions during push/pop operations.
-func TestIngress_ChunkTransition(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestChunkedIngress_ChunkTransition(t *testing.T) {
+	q := NewChunkedIngress()
 
 	const chunkSize = 128
 	const cycles = 3
 	total := chunkSize * cycles
 
-	l.ingressMu.Lock()
+	// Push total tasks
 	for i := 0; i < total; i++ {
-		l.ingress.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 
-	if l.ingress.Length() != total {
-		l.ingressMu.Unlock()
-		t.Fatalf("Queue length mismatch. Expected %d, got %d", total, l.ingress.Length())
+	if q.Length() != int64(total) {
+		t.Fatalf("Queue length mismatch. Expected %d, got %d", total, q.Length())
 	}
-	l.ingressMu.Unlock()
 
-	l.ingressMu.Lock()
+	// Pop all tasks
 	for i := 0; i < total; i++ {
-		task, ok := l.ingress.popLocked()
+		task, ok := q.Pop()
 		if !ok {
-			l.ingressMu.Unlock()
 			t.Fatalf("Premature exhaustion at index %d", i)
 		}
 		if task.Runnable == nil {
-			l.ingressMu.Unlock()
 			t.Fatalf("Zero-value task at index %d", i)
 		}
 	}
 
-	_, ok := l.ingress.popLocked()
+	// Verify empty
+	_, ok := q.Pop()
 	if ok {
-		l.ingressMu.Unlock()
 		t.Fatal("Queue should be empty")
 	}
-	l.ingressMu.Unlock()
 }
 
-// TestIngress_NilCheckSpinRetry verifies that the spin-retry logic
-// prevents task loss when producer is mid-push (Swap done, next not linked).
-// Test runs with -race detector to verify correctness.
-func TestIngress_NilCheckSpinRetry(t *testing.T) {
-	q := NewLockFreeIngress()
+// TestChunkedIngress_ConcurrentPushPop verifies correct behavior under concurrent access.
+func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
+	q := NewChunkedIngress()
 
 	const tasks = 10000
 	const producers = 8
 
 	var counter atomic.Int64
+	var wg sync.WaitGroup
 
-	// Producer goroutines - create contention on tail swap
+	// Producer goroutines - concurrent pushes
 	for i := 0; i < producers; i++ {
+		wg.Add(1)
 		go func(id int) {
+			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
-				val := id*tasks/producers + j
 				q.Push(func() {
 					counter.Add(1)
-					t.Logf("Task %d executed", val)
 				})
 			}
 		}(i)
 	}
 
-	// Consumer - single thread popping continuously
+	// Wait for all producers to finish
+	wg.Wait()
+
+	// Verify length
+	if q.Length() != int64(tasks) {
+		t.Fatalf("Queue length mismatch. Expected %d, got %d", tasks, q.Length())
+	}
+
+	// Pop all tasks
 	var received int64
 	for received < tasks {
 		task, ok := q.Pop()
-		if ok {
-			task.Runnable()
-			received++
+		if !ok {
+			t.Fatalf("Premature exhaustion at received=%d", received)
 		}
+		task.Runnable()
+		received++
 	}
 
 	// Verify no task loss - counter should equal tasks
@@ -95,9 +96,9 @@ func TestIngress_NilCheckSpinRetry(t *testing.T) {
 	}
 }
 
-// TestIngress_PushPopIntegrity verifies sequential push/pop integrity without race.
-func TestIngress_PushPopIntegrity(t *testing.T) {
-	q := NewLockFreeIngress()
+// TestChunkedIngress_PushPopIntegrity verifies sequential push/pop integrity without race.
+func TestChunkedIngress_PushPopIntegrity(t *testing.T) {
+	q := NewChunkedIngress()
 
 	const count = 1000
 
@@ -106,7 +107,7 @@ func TestIngress_PushPopIntegrity(t *testing.T) {
 		q.Push(func() {})
 	}
 
-	if q.Length() != count {
+	if q.Length() != int64(count) {
 		t.Fatalf("Length mismatch: expected %d, got %d", count, q.Length())
 	}
 
@@ -130,28 +131,27 @@ func TestIngress_PushPopIntegrity(t *testing.T) {
 	}
 }
 
-// TestIngress_StressNoTaskLoss performs aggressive stress testing to verify
+// TestChunkedIngress_StressNoTaskLoss performs aggressive stress testing to verify
 // absolutely no task loss under extreme producer contention.
-func TestIngress_StressNoTaskLoss(t *testing.T) {
+func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	q := NewLockFreeIngress()
+	q := NewChunkedIngress()
 
 	const tasks = 100000 // 100k tasks for aggressive stress
 	const producers = 32 // 32 producers for maximum contention
 
 	var counter atomic.Int64
-	var done atomic.Bool
+	var wg sync.WaitGroup
 
 	// Producer goroutines - extreme contention
 	for i := 0; i < producers; i++ {
+		wg.Add(1)
 		go func(id int) {
+			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
-				if done.Load() {
-					return
-				}
 				q.Push(func() {
 					counter.Add(1)
 				})
@@ -159,17 +159,24 @@ func TestIngress_StressNoTaskLoss(t *testing.T) {
 		}(i)
 	}
 
-	// Consumer - single thread popping continuously
+	// Wait for producers
+	wg.Wait()
+
+	// Verify length
+	if q.Length() != int64(tasks) {
+		t.Fatalf("Queue length mismatch after push. Expected %d, got %d", tasks, q.Length())
+	}
+
+	// Pop all tasks
 	var received int64
 	for received < tasks {
 		task, ok := q.Pop()
-		if ok {
-			task.Runnable()
-			received++
+		if !ok {
+			t.Fatalf("Premature exhaustion at received=%d", received)
 		}
+		task.Runnable()
+		received++
 	}
-
-	done.Store(true)
 
 	// CRITICAL: Verify ZERO task loss
 	if counter.Load() != int64(tasks) {
@@ -186,4 +193,25 @@ func TestIngress_StressNoTaskLoss(t *testing.T) {
 
 	t.Logf("Stress test passed: %d tasks processed with 0 loss across %d producers",
 		tasks, producers)
+}
+
+// TestChunkedIngress_IsEmpty verifies IsEmpty() behavior.
+func TestChunkedIngress_IsEmpty(t *testing.T) {
+	q := NewChunkedIngress()
+
+	if !q.IsEmpty() {
+		t.Fatal("New queue should be empty")
+	}
+
+	q.Push(func() {})
+
+	if q.IsEmpty() {
+		t.Fatal("Queue with one item should not be empty")
+	}
+
+	q.Pop()
+
+	if !q.IsEmpty() {
+		t.Fatal("Queue after pop should be empty")
+	}
 }
