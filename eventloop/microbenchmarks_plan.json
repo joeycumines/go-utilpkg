@@ -1,0 +1,118 @@
+{
+  "microbenchmarks": [
+    {
+      "benchmark_name": "CAS Contention Benchmark",
+      "function_signature": "func BenchmarkMicroCASContention(b *testing.B)",
+      "hypothesis_to_test": "CAS contention on LockFreeIngress tail.Swap() scales linearly with concurrent producers. Under high contention (>8 producers), CAS failures increase, causing degraded throughput compared to mutex-based solutions.",
+      "implementation_approach": "Implement a multi-producer test that measures LockFreeIngress.Push() performance under varying concurrency levels. Use atomic counters to track CAS success/failure rates. Compare against a mutex-protected queue to establish baseline.",
+      "measurement_points": [
+        {
+          "metric": "Operations per second",
+          "description": "Push throughput at 1, 2, 4, 8, 16, and 32 concurrent producers",
+          "expected_pattern": "Throughput increases up to optimal producer count, then degrades under contention"
+        },
+        {
+          "metric": "CAS retry count",
+          "description": "Number of CompareAndSwap failures per successful Push operation",
+          "expected_pattern": "CAS failures increase exponentially with producer count, indicating contention"
+        },
+        {
+          "metric": "Latency distribution",
+          "description": "P50, P95, P99 latency for individual Push operations",
+          "expected_pattern": "Tail latency (P99) increases significantly under high contention"
+        },
+        {
+          "metric": "Comparison with mutex",
+          "description": "Relative performance vs mutex-based queue (alternatethree.IngressQueue)",
+          "expected_pattern": "Lock-free wins at low contention, mutex wins at high contention (>8 producers)"
+        },
+        {
+          "metric": "Cache-line false sharing",
+          "description": "Performance impact when producers span multiple cache lines",
+          "expected_pattern": "False sharing visible when producers > number of available cache lines on system"
+        }
+      ]
+    },
+    {
+      "benchmark_name": "Wakeup Syscall Overhead Benchmark",
+      "function_signature": "func BenchmarkMicroWakeupSyscall(b *testing.B)",
+      "hypothesis_to_test": "Wakeup syscall overhead (unix.Write to wakePipe) is the dominant cost in Submit() when loop is sleeping, not the queue insertion itself. syscall overhead is ~10x slower than Push() operation.",
+      "implementation_approach": "Measure three scenarios isolated: (1) Pure Push() without wakeup, (2) Pure wakeup syscall, (3) Combined Push() + wakeup. Use a sleeping loop to force wakeup codepath. Deduplication logic (wakePending CAS) should be measured separately.",
+      "measurement_points": [
+        {
+          "metric": "Push() only (no wakeup)",
+          "description": "LockFreeIngress.Push() performance without any wakeup logic",
+          "expected_pattern": "Baseline: ~50-100ns per Push (CAS operation only)"
+        },
+        {
+          "metric": "Syscall only (wakePipe write)",
+          "description": "unix.Write() to wakePipeWrite fd with 8-byte buffer",
+          "expected_pattern": "~500-1000ns per syscall (kernel context switch overhead)"
+        },
+        {
+          "metric": "Combined Push() + wakeup",
+          "description": "Full Submit() codepath including Push() and wakeup",
+          "expected_pattern": "~550-1100ns per Submit, dominated by syscall, not Push()"
+        },
+        {
+          "metric": "Deduplication benefit",
+          "description": "Performance when wakePending CAS prevents duplicate wakeups",
+          "expected_pattern": "~50% reduction in syscalls under bursty submission (batch deduplication)"
+        },
+        {
+          "metric": "Pipe write vs no-op",
+          "description": "Comparison: write to wakePipe vs no-op when StateRunning",
+          "expected_pattern": "StateRuntime fast path is ~10x faster than StateSleeping path"
+        },
+        {
+          "metric": "Write buffer size impact",
+          "description": "Performance with 1, 4, 8, 16 byte writes to wakePipe",
+          "expected_pattern": "Minimal variation (kernel overhead dominates)"
+        }
+      ]
+    },
+    {
+      "benchmark_name": "Batch Budget Variation Benchmark",
+      "function_signature": "func BenchmarkMicroBatchBudget(b *testing.B)",
+      "hypothesis_to_test": "Batch budget of 1024 in processExternal() is suboptimal for certain workloads. Too large (4096+) increases latency due to single-threaded processing, too small (256) reduces throughput due to frequent PopBatch calls.",
+      "implementation_approach": "Benchmark PopBatch() with varying budget sizes (64, 128, 256, 512, 1024, 2048, 4096). Measure both throughput (ops/sec) and tail latency (P99) under steady-state workloads and bursty workloads.",
+      "measurement_points": [
+        {
+          "metric": "PopBatch throughput by budget size",
+          "description": "Operations per second for budget sizes 64, 128, 256, 512, 1024, 2048, 4096",
+          "expected_pattern": "Throughput peaks at 512-1024, degrades at very large budgets due to cache pressure"
+        },
+        {
+          "metric": "P99 latency by budget size",
+          "description": "Tail latency for individual task execution time",
+          "expected_pattern": "Latency increases linearly with budget size (single-threaded processing duration)"
+        },
+        {
+          "metric": "Cache miss rate",
+          "description": "L1/L2 cache misses during PopBatch operations",
+          "expected_pattern": "Cache misses increase significantly beyond 1024 budget ( exceeds cache line budget)"
+        },
+        {
+          "metric": "Steady-state vs bursty workload",
+          "description": "Performance difference between continuous load vs intermittent bursts",
+          "expected_pattern": "Small budgets (256) better for bursty, large budgets (2048+) better for steady-state"
+        },
+        {
+          "metric": "PopBatch amortization benefit",
+          "description": "Per-task cost: PopBatch(N) vs N * Pop() operations",
+          "expected_pattern": "PopBatch provides 2-5x amortization benefit at optimal budget sizes"
+        },
+        {
+          "metric": "Memory bandwidth utilization",
+          "description": "Bytes transferred from memory per microsecond",
+          "expected_pattern": "Memory utilization increases with budget, diminishing returns after 1024"
+        },
+        {
+          "metric": "Comparison with alternatethree",
+          "description": "Lock-free PopBatch vs mutex-protected chunked queue",
+          "expected_pattern": "Lock-free wins at high budgets (>512), mutex competitive at low budgets"
+        }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,279 @@ type Task struct {
 }
 
 // ============================================================================
-// LOCK-FREE MPSC QUEUE
+// CHUNKED INGRESS QUEUE (Unlocked - caller must hold mutex)
+// ============================================================================
+// This implementation uses a chunked linked-list for task submission.
+// Unlike mutex-protected queues, this struct has NO internal mutex - the caller
+// (Loop) is responsible for synchronization via an external mutex.
+//
+// This design matches AlternateThree's architecture which was proven faster
+// in benchmarks because it allows the Loop to check state and push atomically
+// under a single mutex, eliminating the need for inflight counters.
+//
+// Performance rationale:
+// - External mutex: Loop can check shutdown state while holding the same mutex
+//   used for queue operations, making state+push atomic without extra atomics.
+// - Chunking: 128-task arrays provide cache locality and amortize allocations.
+// - sync.Pool: Chunk recycling prevents GC thrashing under high throughput.
+// ============================================================================
+
+// chunkPool prevents GC thrashing under high load.
+// Chunks are ~3KB each (128 Tasks * 24 bytes per Task).
+var chunkPool = sync.Pool{
+	New: func() any {
+		return &chunk{}
+	},
+}
+
+// chunk is a fixed-size node in the chunked linked-list.
+// This optimizes cache locality compared to standard linked lists.
+// Uses readPos/writePos cursors for O(1) push/pop without shifting.
+type chunk struct {
+	tasks   [128]Task
+	next    *chunk
+	readPos int // First unread slot (index into tasks)
+	pos     int // First unused slot / writePos (index into tasks)
+}
+
+// newChunk creates and returns a new chunk from the pool.
+func newChunk() *chunk {
+	c := chunkPool.Get().(*chunk)
+	// Reset fields for reuse (chunk may have been returned with stale data)
+	c.pos = 0
+	c.readPos = 0
+	c.next = nil
+	return c
+}
+
+// returnChunk returns an exhausted chunk to the pool.
+// Clears all task references before returning to prevent memory leaks.
+func returnChunk(c *chunk) {
+	// Zero out all task slots to ensure no leaking references remain
+	for i := 0; i < len(c.tasks); i++ {
+		c.tasks[i] = Task{}
+	}
+	c.pos = 0
+	c.readPos = 0
+	c.next = nil
+	chunkPool.Put(c)
+}
+
+// ChunkedIngress is a chunked linked-list queue for task submission.
+//
+// Thread Safety: This struct has NO internal mutex. The caller MUST hold an
+// external mutex when calling any method. This design allows the Loop to
+// perform atomic state-check-and-push operations under a single mutex.
+//
+// Usage pattern (from Loop.Submit):
+//
+//	l.externalMu.Lock()
+//	if terminated { l.externalMu.Unlock(); return ErrLoopTerminated }
+//	l.external.pushLocked(task)  // No mutex needed - caller holds externalMu
+//	l.externalMu.Unlock()
+type ChunkedIngress struct { // betteralign:ignore
+	head, tail *chunk
+	length     int64
+}
+
+// NewChunkedIngress creates a new chunked ingress queue.
+func NewChunkedIngress() *ChunkedIngress {
+	return &ChunkedIngress{}
+}
+
+// pushLocked adds a task to the queue. CALLER MUST HOLD EXTERNAL MUTEX.
+func (q *ChunkedIngress) pushLocked(task Task) {
+	if q.tail == nil {
+		q.tail = newChunk()
+		q.head = q.tail
+	}
+
+	if q.tail.pos == len(q.tail.tasks) {
+		// Alloc new chunk
+		newTail := newChunk()
+		q.tail.next = newTail
+		q.tail = newTail
+	}
+
+	q.tail.tasks[q.tail.pos] = task
+	q.tail.pos++
+	q.length++
+}
+
+// popLocked removes and returns a task. CALLER MUST HOLD EXTERNAL MUTEX.
+// Returns false if the queue is empty.
+func (q *ChunkedIngress) popLocked() (Task, bool) {
+	if q.head == nil {
+		return Task{}, false
+	}
+
+	// Check if current chunk is exhausted (readPos == pos means all written tasks read)
+	if q.head.readPos >= q.head.pos {
+		// If this is the only chunk, queue is empty - reset cursors for reuse
+		if q.head == q.tail {
+			// Reset cursors instead of keeping stale chunk.
+			q.head.pos = 0
+			q.head.readPos = 0
+			return Task{}, false
+		}
+		// Move to next chunk
+		oldHead := q.head
+		q.head = q.head.next
+		// Return exhausted chunk to pool
+		returnChunk(oldHead)
+	}
+
+	// Double-check after potential chunk advancement
+	if q.head.readPos >= q.head.pos {
+		return Task{}, false
+	}
+
+	// O(1) read at readPos, then increment
+	task := q.head.tasks[q.head.readPos]
+	// Zero out popped slot for GC safety
+	q.head.tasks[q.head.readPos] = Task{}
+	q.head.readPos++
+	q.length--
+
+	// If chunk is now exhausted, free it or reset cursors
+	if q.head.readPos >= q.head.pos {
+		if q.head == q.tail {
+			// Reset cursors instead of allocating new chunk.
+			q.head.pos = 0
+			q.head.readPos = 0
+			return task, true
+		}
+		// Multiple chunks: Move to next chunk and return old to pool
+		oldHead := q.head
+		q.head = q.head.next
+		returnChunk(oldHead)
+	}
+
+	return task, true
+}
+
+// lengthLocked returns the queue length. CALLER MUST HOLD EXTERNAL MUTEX.
+func (q *ChunkedIngress) lengthLocked() int64 {
+	return q.length
+}
+		// Alloc new chunk
+		newTail := newChunk()
+		q.tail.next = newTail
+		q.tail = newTail
+	}
+
+	q.tail.tasks[q.tail.pos] = task
+	q.tail.pos++
+	q.length++
+
+	q.mu.Unlock()
+}
+
+// Pop removes and returns a task. Safe for concurrent use.
+// Returns false if the queue is empty.
+func (q *ChunkedIngress) Pop() (Task, bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.popLocked()
+}
+
+// popLocked removes and returns a task. Caller must hold q.mu.
+func (q *ChunkedIngress) popLocked() (Task, bool) {
+	if q.head == nil {
+		return Task{}, false
+	}
+
+	// Check if current chunk is exhausted (readPos == pos means all written tasks read)
+	if q.head.readPos >= q.head.pos {
+		// If this is the only chunk, queue is empty - reset cursors for reuse
+		if q.head == q.tail {
+			// Reset cursors instead of keeping stale chunk.
+			// This is safe because popLocked() zeros each slot before incrementing readPos,
+			// so all slots [0..pos) are already zero. Resetting cursors allows the chunk
+			// to be reused without sync.Pool churn.
+			q.head.pos = 0
+			q.head.readPos = 0
+			return Task{}, false
+		}
+		// Move to next chunk
+		oldHead := q.head
+		q.head = q.head.next
+		// Return exhausted chunk to pool
+		returnChunk(oldHead)
+	}
+
+	// Double-check after potential chunk advancement
+	if q.head.readPos >= q.head.pos {
+		return Task{}, false
+	}
+
+	// O(1) read at readPos, then increment
+	task := q.head.tasks[q.head.readPos]
+	// Zero out popped slot for GC safety
+	q.head.tasks[q.head.readPos] = Task{}
+	q.head.readPos++
+	q.length--
+
+	// If chunk is now exhausted, free it or reset cursors
+	if q.head.readPos >= q.head.pos {
+		if q.head == q.tail {
+			// Reset cursors instead of allocating new chunk.
+			// This eliminates sync.Pool churn in ping-pong workloads (Push 1, Pop 1).
+			q.head.pos = 0
+			q.head.readPos = 0
+			return task, true
+		}
+		// Multiple chunks: Move to next chunk and return old to pool
+		oldHead := q.head
+		q.head = q.head.next
+		returnChunk(oldHead)
+	}
+
+	return task, true
+}
+
+// PopBatch removes up to max tasks from the queue into buf.
+// Returns the number of tasks popped.
+func (q *ChunkedIngress) PopBatch(buf []Task, max int) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if max > len(buf) {
+		max = len(buf)
+	}
+
+	count := 0
+	for count < max {
+		task, ok := q.popLocked()
+		if !ok {
+			break
+		}
+		buf[count] = task
+		count++
+	}
+
+	return count
+}
+
+// Length returns the queue length.
+func (q *ChunkedIngress) Length() int64 {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.length
+}
+
+// IsEmpty returns true if the queue is empty.
+func (q *ChunkedIngress) IsEmpty() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.length == 0
+}
+
+// ============================================================================
+// LEGACY LOCK-FREE MPSC QUEUE (Preserved for backward compatibility)
+// ============================================================================
+// This implementation is preserved for backward compatibility and testing.
+// New code should use ChunkedIngress which performs better under contention.
 // ============================================================================
 
 type node struct {
@@ -48,6 +320,9 @@ func putNode(n *node) {
 // Performance:
 // - Uses atomic CAS for producers with no mutex on hot paths.
 // - Single-threaded consumer pops in batches to amortize cache misses.
+//
+// NOTE: ChunkedIngress outperforms this under high contention. This is preserved
+// for backward compatibility and edge cases where lock-free is preferred.
 type LockFreeIngress struct { // betteralign:ignore
 	_    [64]byte             // Cache line padding
 	head atomic.Pointer[node] // Consumer reads from head
@@ -396,6 +671,11 @@ func (r *MicrotaskRing) Length() int {
 
 // IsEmpty returns true if the ring buffer and overflow are empty.
 // Note: May have false negatives under concurrent modification.
+//
+// IMPORTANT: This uses len(r.overflow) - r.overflowHead to properly account for
+// the FIFO head pointer, consistent with Length() method. The overflow slice is
+// not immediately compacted after pops; instead, overflowHead advances, and
+// compaction occurs lazily (see Pop()).
 func (r *MicrotaskRing) IsEmpty() bool {
 	head := r.head.Load()
 	tail := r.tail.Load()
@@ -405,7 +685,10 @@ func (r *MicrotaskRing) IsEmpty() bool {
 	}
 
 	r.overflowMu.Lock()
-	empty := len(r.overflow) == 0
+	// BUG FIX (2026-01-17): Previously checked len(r.overflow) == 0, which was
+	// incorrect when overflow had been partially drained (overflowHead > 0).
+	// Must check effective count: len(overflow) - overflowHead == 0.
+	empty := len(r.overflow)-r.overflowHead == 0
 	r.overflowMu.Unlock()
 
 	return empty

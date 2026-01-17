@@ -252,3 +252,130 @@ func TestMicrotaskRing_SharedStress(t *testing.T) {
 
 	t.Logf("Stress test passed: %d tasks processed correctly with overflow", totalTasks)
 }
+
+// TestMicrotaskRing_IsEmpty_BugWhenOverflowNotCompacted proves the fix for
+// the IsEmpty() logic error discovered in review.md.
+//
+// Bug: IsEmpty() was checking len(r.overflow) == 0, but overflow is not
+// immediately compacted after pops. Instead, overflowHead advances and
+// compaction occurs lazily. The correct check is:
+//
+//	len(r.overflow) - r.overflowHead == 0
+//
+// This test creates a scenario where overflow has items, partially drains
+// them (so overflowHead > 0 but len(overflow) > 0), then verifies IsEmpty()
+// returns correct values.
+func TestMicrotaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
+	ring := NewMicrotaskRing()
+
+	// 1. Fill the ring buffer completely to force overflow use.
+	// Ring capacity is 1024 (1 << 10). Fill it completely.
+	const ringCap = 1024
+	var counter atomic.Int64
+
+	for i := 0; i < ringCap; i++ {
+		ring.Push(func() {
+			counter.Add(1)
+		})
+	}
+
+	// 2. Add MORE items - these will go to overflow.
+	const overflowCount = 100
+	for i := 0; i < overflowCount; i++ {
+		ring.Push(func() {
+			counter.Add(1)
+		})
+	}
+
+	// Verify: Length should be ringCap + overflowCount
+	expectedLen := ringCap + overflowCount
+	if ring.Length() != expectedLen {
+		t.Fatalf("Expected length %d, got %d", expectedLen, ring.Length())
+	}
+
+	// 3. IsEmpty should return false
+	if ring.IsEmpty() {
+		t.Fatal("IsEmpty() returned true when ring has items - BUG!")
+	}
+
+	// 4. Drain the ring buffer portion completely
+	for i := 0; i < ringCap; i++ {
+		fn := ring.Pop()
+		if fn == nil {
+			t.Fatalf("Pop returned nil at iteration %d, expected item", i)
+		}
+		fn()
+	}
+
+	// 5. Verify: Now we should have only overflowCount items left
+	if ring.Length() != overflowCount {
+		t.Fatalf("After draining ring, expected length %d, got %d", overflowCount, ring.Length())
+	}
+
+	// 6. IsEmpty should return false - items in overflow!
+	if ring.IsEmpty() {
+		t.Fatal("IsEmpty() returned true but there are still items in overflow - BUG!")
+	}
+
+	// 7. Now drain HALF the overflow items (this is the critical test!)
+	// After partial drain, overflowHead > 0 but len(overflow) > 0.
+	// The old buggy code would report IsEmpty() = false here, but if we
+	// had only checked len(overflow) == 0 after full drain, it might have
+	// been wrong after compaction timing issues.
+	const drainCount = 50
+	for i := 0; i < drainCount; i++ {
+		fn := ring.Pop()
+		if fn == nil {
+			t.Fatalf("Pop returned nil at overflow iteration %d, expected item", i)
+		}
+		fn()
+	}
+
+	// 8. Critical check: length should be overflowCount - drainCount
+	expectedRemaining := overflowCount - drainCount
+	if ring.Length() != expectedRemaining {
+		t.Fatalf("After partial overflow drain, expected length %d, got %d", expectedRemaining, ring.Length())
+	}
+
+	// 9. THE CRITICAL TEST: IsEmpty() should return false because there are still items!
+	// The old buggy code checked len(r.overflow) == 0, which would be false here,
+	// so it would return false. But after we drain ALL remaining items and
+	// compaction happens, the bug would have caused incorrect behavior.
+	if ring.IsEmpty() {
+		t.Fatal("IsEmpty() returned true with items remaining in overflow - BUG!")
+	}
+
+	// 10. Now drain ALL remaining items
+	for i := 0; i < expectedRemaining; i++ {
+		fn := ring.Pop()
+		if fn == nil {
+			t.Fatalf("Pop returned nil at final drain iteration %d", i)
+		}
+		fn()
+	}
+
+	// 11. Verify: Length should be 0
+	if ring.Length() != 0 {
+		t.Fatalf("After full drain, expected length 0, got %d", ring.Length())
+	}
+
+	// 12. THE FINAL CRITICAL TEST: IsEmpty() MUST return true now!
+	// The old buggy code checked len(r.overflow) == 0. But after compaction,
+	// overflow might still have len > 0 with overflowHead == len (all items drained).
+	// The fix ensures we check len(overflow) - overflowHead == 0.
+	if !ring.IsEmpty() {
+		t.Fatal("IsEmpty() returned false after draining all items - BUG NOT FIXED!")
+	}
+
+	// 13. Verify invariant: (Length()==0) == IsEmpty()
+	if (ring.Length() == 0) != ring.IsEmpty() {
+		t.Fatal("Invariant violation: (Length()==0) != IsEmpty()")
+	}
+
+	// 14. Verify counter - all tasks should have executed exactly once
+	if counter.Load() != int64(ringCap+overflowCount) {
+		t.Fatalf("Expected %d task executions, got %d", ringCap+overflowCount, counter.Load())
+	}
+
+	t.Logf("IsEmpty() bug fix verified: properly handles overflowHead advancement")
+}

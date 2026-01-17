@@ -1,0 +1,990 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/joeycumines/go-eventloop/internal/tournament
+cpu: Apple M2 Pro
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=64-10         	 3409642	       338.7 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=128-10        	 5830278	       209.0 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=256-10        	 7548558	       157.6 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=512-10        	 8137723	       182.8 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=1024-10       	 6273510	       184.7 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=2048-10       	 6927001	       177.2 ns/op
+BenchmarkMicroBatchBudget_Throughput/Main/Burst=4096-10       	 6637172	       172.6 ns/op
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=64-10 	2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:00 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=complete
+ 3704468	       303.2 ns/op
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=128-10         	2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:02 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=complete
+ 6936061	       179.5 ns/op
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=256-10         	2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:03 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:04 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:04 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=complete
+ 8170718	       145.9 ns/op
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=512-10         	2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:05 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=complete
+ 7009002	       184.2 ns/op
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=1024-10        	2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:07 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=complete
+ 6756699	       169.3 ns/op
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=2048-10        	2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:08 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=complete
+ 7518362	       157.0 ns/op
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Throughput/AlternateOne/Burst=4096-10        	2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:09 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:10 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:10 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:11 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:11 alternateone: shutdown phase=fds status=complete
+ 7733758	       181.0 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=64-10          	 3545455	       342.8 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=128-10         	 5552076	       223.0 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=256-10         	 7688894	       170.4 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=512-10         	 8958615	       153.7 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=1024-10        	 8201188	       124.9 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=2048-10        	10286212	       115.5 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateTwo/Burst=4096-10        	11519322	       111.9 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=64-10        	 4221703	       285.6 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=128-10       	 7450274	       161.8 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=256-10       	10459612	       116.6 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=512-10       	11989284	       104.5 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=1024-10      	13106016	        93.76 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=2048-10      	14145326	        89.13 ns/op
+BenchmarkMicroBatchBudget_Throughput/AlternateThree/Burst=4096-10      	14468275	       103.7 ns/op
+BenchmarkMicroBatchBudget_Throughput/Baseline/Burst=1024-10            	 9981789	       113.3 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=64-10                     	 5475180	       236.0 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=128-10                    	 6675988	       184.6 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=256-10                    	 7023038	       154.1 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=512-10                    	 9392445	       123.3 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=1024-10                   	 9284691	       143.3 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=2048-10                   	 9221986	       171.1 ns/op
+BenchmarkMicroBatchBudget_Latency/Main/Burst=4096-10                   	 8143350	       154.9 ns/op
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=64-10             	2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:42 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=complete
+ 5281207	       227.0 ns/op
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=128-10            	2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:43 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:44 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:44 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=complete
+ 9562599	       128.1 ns/op
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=256-10            	2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:45 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=complete
+ 8131146	       140.2 ns/op
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=512-10            	2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:46 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=complete
+ 8267126	       145.6 ns/op
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=1024-10           	2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:47 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:48 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:48 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=complete
+ 6980025	       154.6 ns/op
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=2048-10           	2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:49 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=complete
+ 8113308	       154.9 ns/op
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Latency/AlternateOne/Burst=4096-10           	2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:50 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=internal status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=timers status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=promises status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:51:51 alternateone: shutdown phase=fds status=start
+2026/01/17 16:51:51 alternateone: shutdown phase=fds status=complete
+ 7841292	       143.5 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=64-10             	 4025826	       253.3 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=128-10            	 7139738	       165.8 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=256-10            	 8089868	       164.4 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=512-10            	 8833276	       137.3 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=1024-10           	10006417	       116.3 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=2048-10           	 9742852	       126.8 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateTwo/Burst=4096-10           	 8894766	       121.3 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=64-10           	 5318854	       198.5 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=128-10          	10406762	       117.3 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=256-10          	10581406	       117.8 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=512-10          	11548603	       100.1 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=1024-10         	12658428	        93.86 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=2048-10         	12993850	        88.62 ns/op
+BenchmarkMicroBatchBudget_Latency/AlternateThree/Burst=4096-10         	14698752	        90.15 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=64-10                 	11555168	       108.6 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=128-10                	11232475	       111.6 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=256-10                	10510580	       108.0 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=512-10                	11288264	       102.1 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=1024-10               	10872080	       115.5 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=2048-10               	10823238	       110.3 ns/op
+BenchmarkMicroBatchBudget_Latency/Baseline/Burst=4096-10               	11961006	       105.4 ns/op
+BenchmarkMicroBatchBudget_Continuous/Main-10                           	 4575657	       258.3 ns/op
+2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=complete
+BenchmarkMicroBatchBudget_Continuous/AlternateOne-10                   	2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=start
+2026/01/17 16:52:21 alternateone: shutdown phase=fds status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=ingress status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=ingress status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=internal status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=internal status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=microtasks status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=microtasks status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=timers status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=timers status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=promises status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=promises status=complete
+2026/01/17 16:52:22 alternateone: shutdown phase=fds status=start
+2026/01/17 16:52:22 alternateone: shutdown phase=fds status=complete
+ 1000000	      1284 ns/op
+BenchmarkMicroBatchBudget_Continuous/AlternateTwo-10                   	 5252728	       245.0 ns/op
+BenchmarkMicroBatchBudget_Continuous/AlternateThree-10                 	 6608377	       187.0 ns/op
+BenchmarkMicroBatchBudget_Continuous/Baseline-10                       	 4949709	       245.6 ns/op
+BenchmarkMicroBatchBudget_Mixed/Main/Burst=100-10                      	  319867	      3731 ns/op
+BenchmarkMicroBatchBudget_Mixed/Main/Burst=500-10                      	  337178	      3588 ns/op
+BenchmarkMicroBatchBudget_Mixed/Main/Burst=1000-10                     	  332851	      3579 ns/op
+BenchmarkMicroBatchBudget_Mixed/Main/Burst=2000-10                     	  334672	      3574 ns/op
+BenchmarkMicroBatchBudget_Mixed/Main/Burst=5000-10                     	  345770	      3581 ns/op
+BenchmarkMicroBatchBudget_Mixed/AlternateThree/Burst=100-10            	  347472	      3512 ns/op
+BenchmarkMicroBatchBudget_Mixed/AlternateThree/Burst=500-10            	  342657	      3681 ns/op
+BenchmarkMicroBatchBudget_Mixed/AlternateThree/Burst=1000-10           	  349534	      3663 ns/op
+BenchmarkMicroBatchBudget_Mixed/AlternateThree/Burst=2000-10           	  290419	      3462 ns/op
+BenchmarkMicroBatchBudget_Mixed/AlternateThree/Burst=5000-10           	  360279	      3415 ns/op
+BenchmarkMicroBatchBudget_Mixed/Baseline/Burst=100-10                  	  503835	      2354 ns/op
+BenchmarkMicroBatchBudget_Mixed/Baseline/Burst=500-10                  	  519903	      2316 ns/op
+BenchmarkMicroBatchBudget_Mixed/Baseline/Burst=1000-10                 	  518360	      2319 ns/op
+BenchmarkMicroBatchBudget_Mixed/Baseline/Burst=2000-10                 	  441381	      2322 ns/op
+BenchmarkMicroBatchBudget_Mixed/Baseline/Burst=5000-10                 	  520491	      2310 ns/op
+PASS
+ok  	github.com/joeycumines/go-eventloop/internal/tournament	116.309s

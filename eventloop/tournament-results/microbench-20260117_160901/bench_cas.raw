@@ -1,0 +1,27 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/joeycumines/go-eventloop/internal/tournament
+cpu: Apple M2 Pro
+BenchmarkMicroCASContention/Main/N=01-10  	 8526867	       152.2 ns/op
+BenchmarkMicroCASContention/Main/N=02-10  	 4761235	       249.0 ns/op
+BenchmarkMicroCASContention/Main/N=04-10  	 5261784	       218.3 ns/op
+BenchmarkMicroCASContention/Main/N=08-10  	 6214902	       213.6 ns/op
+BenchmarkMicroCASContention/Main/N=16-10  	 6521298	       187.9 ns/op
+BenchmarkMicroCASContention/Main/N=32-10  	 6312796	       208.0 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=01-10         	13557470	        78.51 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=02-10         	 9370963	       128.6 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=04-10         	 8166368	       146.9 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=08-10         	 8371201	       143.3 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=16-10         	 8143094	       148.3 ns/op
+BenchmarkMicroCASContention/AlternateThree/N=32-10         	 8540600	       153.8 ns/op
+BenchmarkMicroCASContention/Baseline/N=01-10               	10895341	        93.69 ns/op
+BenchmarkMicroCASContention/Baseline/N=02-10               	10520635	       115.7 ns/op
+BenchmarkMicroCASContention/Baseline/N=04-10               	 5742492	       205.2 ns/op
+BenchmarkMicroCASContention/Baseline/N=08-10               	 5706092	       204.5 ns/op
+BenchmarkMicroCASContention/Baseline/N=16-10               	 6101599	       196.1 ns/op
+BenchmarkMicroCASContention/Baseline/N=32-10               	 6426196	       186.3 ns/op
+BenchmarkMicroCASContention_Latency/Main-10                	  118417	      9840 ns/op	     12417 p50_ns	     15125 p95_ns	      8041 p99_ns
+BenchmarkMicroCASContention_Latency/AlternateThree-10      	  108232	      9679 ns/op	      8834 p50_ns	      9208 p95_ns	      7625 p99_ns
+BenchmarkMicroCASContention_Latency/Baseline-10            	 2044609	       581.2 ns/op	       375.0 p50_ns	       459.0 p95_ns	       291.0 p99_ns
+PASS
+ok  	github.com/joeycumines/go-eventloop/internal/tournament	30.661s

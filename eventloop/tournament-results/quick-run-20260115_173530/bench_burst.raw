@@ -1,0 +1,71 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/joeycumines/go-eventloop/internal/tournament
+cpu: Apple M2 Pro
+BenchmarkBurstSubmit/Main-10         	 6984045	       155.8 ns/op
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=complete
+BenchmarkBurstSubmit/AlternateOne-10 	2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=ingress status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=internal status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=microtasks status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=timers status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=promises status=complete
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=start
+2026/01/15 17:35:59 alternateone: shutdown phase=fds status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=ingress status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=ingress status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=internal status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=internal status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=microtasks status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=microtasks status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=timers status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=timers status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=promises status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=promises status=complete
+2026/01/15 17:36:00 alternateone: shutdown phase=fds status=start
+2026/01/15 17:36:00 alternateone: shutdown phase=fds status=complete
+ 8617802	       138.5 ns/op
+BenchmarkBurstSubmit/AlternateTwo-10 	10252882	       132.8 ns/op
+BenchmarkBurstSubmit/AlternateThree-10         	12308528	        95.75 ns/op
+BenchmarkBurstSubmit/Baseline-10               	11627061	       108.3 ns/op
+PASS
+ok  	github.com/joeycumines/go-eventloop/internal/tournament	7.189s
