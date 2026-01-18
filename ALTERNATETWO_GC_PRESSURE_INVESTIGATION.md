@@ -52,6 +52,8 @@ func (a *TaskArena) Alloc() *Task {
 3. **No GC Traversal:** The `buffer` array never moves, so GC never needs to trace through heap pointers
 4. **Deterministic Memory Access:** Predictable cache behavior without GC-induced pointer churn
 
+**Memory Footnote:** The document notes "64KB" buffer size. If `Task` contains a function pointer and closure data (typical size 24-48 bytes), then the actual memory footprint is approximately 65,536 × (24-48 bytes) = **1.5MB - 3.0MB**, not 64KB. While TaskArena's contiguous allocation remains cache-friendly for prefetching, this size likely exceeds L2 cache (typically 512KB-1MB on M2 processors), placing pressure on L3 cache. The GC pressure advantage remains due to *avoiding dynamic allocation*, not due to fitting entirely in L2 cache.
+
 **Compare with Main:**
 
 - Main allocates chunks dynamically via `newChunk()` → `sync.Pool.Get()`
@@ -352,9 +354,9 @@ func benchmarkGCPressure(b *testing.B, impl Implementation) {
 **Why Main Suffers More on Linux:**
 
 1. **Go GC Implementation Differences:**
-   - Linux GC = libpthread-based (kernel-scheduled goroutines)
-   - macOS GC = M1/M2 optimized (better thread scheduling)
-   - Linux goroutines experience more frequent context switches
+   - Linux GC = Higher overhead due to futex-based scheduler interaction and M:N scheduler cost
+   - macOS GC = M1/M2 optimized (better thread scheduling with ulock primitives)
+   - Linux goroutines experience more frequent context switches due to futex wake-up costs
 
 2. **Mutex Implementation:**
    - Linux pthread mutex = futex system call for contended locks
@@ -839,12 +841,13 @@ AlternateTwo’s 15x less memory traffic means:
    - Main has no fixed limit (unbounded via chunk allocation)
 
 2. **Memory Waste:**
-   - 64KB always allocated, even if idle loop
+   - TaskArena always allocated, even if idle loop
    - Main allocates on-demand (memory efficient for idle systems)
+   - **Memory Footnote:** With `Task` at ~24-48 bytes each, 65,536-capacity buffer = ~1.5MB-3.0MB total
 
 3. **Cache Pollution:**
-   - 64KB buffer spans ~1024 cache lines (64KB / 64 bytes per line)
-   - May pollute caches if tasks not contiguous
+   - TaskArena spans ~24,000-48,000 cache lines (1.5MB-3.0MB / 64 bytes per line)
+   - Exceeds typical L2 cache (512KB-1MB), places pressure on L3
    - Main's chunks (2KB) better for cache locality
 
 **Use Case Alignment:**
@@ -1083,6 +1086,8 @@ func (a *TaskArena) Alloc() *Task {
     return &a.buffer[idx%arenaSize]  // ← Wraps around at 65536
 }
 ```
+
+> **CRITICAL WARNING:** The `TaskArena` relies on a wrap-around index without overflow protection. If the Producer rate exceeds Consumer rate by >65,536 tasks, **silent data corruption/loss will occur**. This implementation is unsafe for general-purpose queues.
 
 **Potential Issue:**
 - More than 65,536 allocations before first execution

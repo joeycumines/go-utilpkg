@@ -4,6 +4,8 @@
 **Priority:** 1 - Critical (emergent question from integrated findings)
 **Status:** Investigation Complete - Root Cause Identified
 
+> **IMPORTANT NOTE:** The analysis of `goja_nodejs` architecture presented in this document represents an **"Inferred High-Confidence Hypothesis"** based on observed performance data and architectural patterns common to Node.js event loop implementations. No source code audit of the goja_nodejs library was performed. While the data strongly supports the "channel-tight-loop" theory, this document should not be treated as a verified code audit.
+
 ---
 
 ## The Puzzle

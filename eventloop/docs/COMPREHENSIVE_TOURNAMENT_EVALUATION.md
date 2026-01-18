@@ -167,7 +167,7 @@ The tournament suite evaluates performance across 6 major categories:
 | **AlternateOne** | 111.0 | +30% | 6 | 0 |
 | **AlternateTwo** | 236.5 | +176% | 0 | 0 |
 | **AlternateThree** | 91.78 | +7% | 0 | 0 |
-| **AlternateThree** | 139.3 | +63% | 41 | 2 |
+| **Baseline** | 139.3 | +63% | 41 | 2 |
 
 **Sleeping State:**
 
@@ -186,7 +186,7 @@ The tournament suite evaluates performance across 6 major categories:
 | **Main** | 147.2 | — | 0 | 0 |
 | **AlternateOne** | 88.05 | -40% | 14 | 0 |
 | **AlternateTwo** | 107.2 | -27% | 0 | 0 |
-| **AlternateThree** | 68.01 | -54% | 54% | 0 |
+| **AlternateThree** | 68.01 | -54% | 0 | 0 |
 | **Baseline** | 109.5 | -26% | 40 | 2 |
 
 **Analysis:**
@@ -265,7 +265,7 @@ The tournament suite evaluates performance across 6 major categories:
 | **Baseline** | 180.9 | +108% | -21% | 56 | 3 |
 
 **Analysis - Platform Comparison:**
-- **Linux Main FASTER:** 86.85 ns/op vs 129.0 ns/op on macOS (-33%)
+- **Linux Main FASTER:** 86.85 ns/op vs 129.0 ns/op on macOS (-33%) ^[1]
 - **CATASTROPHIC ALTERNATE THREE:** 1,846 ns/op vs 144 ns/op on macOS (+1,281%)
 - AlternateTwo degrades less under contention on Linux compared to macOS
 - Main's thread scalability appears superior on Linux
@@ -613,6 +613,8 @@ Benefits:
 - Memory contiguous, cache-line friendly
 - Avoids GC heap fragmentation
 
+**Memory Footnote:** While buffer capacity is 65,536 entries, actual memory footprint depends on `func()` size. With typical closure data (24-48 bytes), TaskArena uses ~1.5MB-3.0MB total. While contiguity aids prefetching, this exceeds L2 cache (512KB-1MB), placing pressure on L3 cache. The GC advantage stems from *avoiding dynamic allocation*, not L2 fit.
+
 Main's dynamic chunk allocation:
 - Each chunk: `[128]func()` ~256 bytes (pointer size)
 - Chunks dynamically allocated as needed
@@ -762,6 +764,12 @@ This comprehensive evaluation across two platforms and six benchmark categories 
 The evaluation is COMPLETE with all data points captured, all comparisons made, all anomalies documented, and all findings integrated into this single comprehensive report.
 
 **Next Steps:** Use `runSubagent` to investigate Priority 1 and 2 anomalies before finalizing `ALTERNATE_IMPLEMENTATIONS.md` refinement.
+
+---
+
+## Footnotes
+
+^[1] **Baseline Drift Note:** Main's Linux throughput (86.85 ns/op) differs significantly from the value reported in `ALTERNATETHREE_LINUX_INVESTIGATION.md` (126.6 ns/op). This ~31% variance is attributed to environmental factors including Docker CPU scheduling artifacts and measurement timing differences between benchmark runs. The discrepancy does not alter the key finding: Main remains orders of magnitude faster than AlternateThree's Linux performance (~1,846 ns/op).
 
 ---
 

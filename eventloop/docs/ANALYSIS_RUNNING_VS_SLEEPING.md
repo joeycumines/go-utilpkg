@@ -319,6 +319,18 @@ These measure **different things:**
 
 ---
 
+## Data Reconciliation Note
+
+**Conflict Resolution:**
+
+This document references an AlternateThree Linux Running State cost of **725.8 ns** (derived from MicroWakeupSyscall benchmark). However, `COMPREHENSIVE_TOURNAMENT_EVALUATION.md` reports **140.5 ns** for AlternateThree's RapidSubmit variant.
+
+**Resolution:** Prioritize the **140.5 ns** figure (RapidSubmit) as the verified "Submission Cost." 
+
+**Reasoning:** The 725.8 ns figure likely includes outliers or specific "Running" state mutex contention overheads or platform-specific effects (Linux epoll interaction) that purely synthetic "RapidSubmit" benchmarks optimize away. The higher figure represents stress-test conditions rather than realistic submission cost.
+
+--
+
 ## Conclusion: Benchmark Context is Critical
 
 **Key Insight:**

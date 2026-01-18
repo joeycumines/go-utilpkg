@@ -388,6 +388,14 @@ func (l *Loop) Run(ctx context.Context) error {
 
 ---
 
+## Race Condition Warning
+
+> **TOCTOU (Time-Of-Check Time-Of-Use) Risk:** The mode-switching logic that checks `userIOFDCount` or `fdCount` to decide between "sleep on channel" vs "sleep on poller" is vulnerable to race conditions. A thread checks `count == 0`, decides to sleep on a channel, but an FD is registered immediately after the check but before the sleep. Result: Potential deadlock or missed wake-up events.
+
+This is a **significant architectural risk** that must be addressed through careful state machine design or atomic mode transitions before production deployment.
+
+---
+
 ## Expected Performance Impact
 
 ### Quantitative Estimates:

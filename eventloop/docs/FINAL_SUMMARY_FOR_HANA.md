@@ -21,7 +21,7 @@ Hana-sama, the fresh start tournament evaluation is **COMPLETE**. I have:
 2. `ANALYSIS_BASELINE_LATENCY.md` - Baseline competitive latency investigation
 3. `ANALYSIS_ALTERNATETWO_HYBRID.md` - AlternateTwo-Plus hybrid design analysis
 4. `ANALYSIS_RUNNING_VS_SLEEPING.md` - MicroWakeupSyscall anomaly explanation
-5. Raw benchmark logs preserved for verification
+5. Raw benchmark logs were referenced in analysis but are not included in this text artifact bundle.
 
 ---
 
