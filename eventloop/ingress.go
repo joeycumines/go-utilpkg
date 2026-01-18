@@ -8,13 +8,14 @@ import (
 
 const (
 	// chunkSize is the number of tasks per node in the ChunkedIngress linked list.
-	// 128 tasks * 24 bytes/task = ~3KB per chunk.
+	// 128 tasks * 8 bytes/task + overhead = ~1KB per chunk.
 	chunkSize = 128
 
 	// ringBufferSize is the fixed size of the MicrotaskRing buffer.
 	// It must be a power of 2 to allow for efficient bitwise wrapping.
 	ringBufferSize = 4096
 
+	// ringOverflowInitCap is the initial capacity for the overflow slice in MicrotaskRing.
 	ringOverflowInitCap = 1024
 
 	// ringOverflowCompactThreshold is the threshold for compacting the overflow slice.
