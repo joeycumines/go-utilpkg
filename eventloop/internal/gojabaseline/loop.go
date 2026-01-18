@@ -16,8 +16,6 @@ var (
 	ErrLoopAlreadyRunning = errors.New("gojabaseline: loop is already running")
 	// ErrLoopTerminated is returned when operations are attempted on a stopped loop.
 	ErrLoopTerminated = errors.New("gojabaseline: loop has been terminated")
-	// ErrLoopNotRunning is returned when Shutdown is called on an unstarted loop.
-	ErrLoopNotRunning = errors.New("gojabaseline: loop is not running")
 )
 
 // Loop wraps goja_nodejs eventloop to implement the tournament interface.
