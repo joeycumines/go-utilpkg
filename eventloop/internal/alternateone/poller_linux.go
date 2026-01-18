@@ -34,10 +34,10 @@ type fdCallback struct {
 // This prevents any concurrent modifications during poll processing.
 // We accept potential starvation for correctness.
 type SafePoller struct {
-	mu          sync.Mutex
-	epfd        int
 	callbacks   map[int]*fdCallback
 	eventBuf    []unix.EpollEvent
+	epfd        int
+	mu          sync.Mutex
 	initialized bool
 	closed      bool
 }

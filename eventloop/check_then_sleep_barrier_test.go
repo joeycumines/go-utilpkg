@@ -59,10 +59,9 @@ func TestMutexBarrierProtocol(t *testing.T) {
 
 	// Verify the loop is still running
 	// The main verification is that the loop doesn't deadlock
-	// In the full implementation, the loop would transition to Sleeping state
-	// periodically, but for now we just verify it runs without issues
+	// The loop may be in Running (fast-path) or Sleeping (poll) depending on mode
 	state := loadLoopState(loop)
-	if state == eventloop.StateAwake || state == eventloop.StateSleeping {
+	if state == eventloop.StateAwake || state == eventloop.StateSleeping || state == eventloop.StateRunning {
 		t.Logf("✓ Loop is running (state: %s)", stateToString(int32(state)))
 	} else {
 		t.Errorf("Unexpected loop state: %v", state)

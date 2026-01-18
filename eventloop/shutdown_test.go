@@ -138,6 +138,10 @@ func TestLoop_ShutdownWakesSleepingLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Ensure we're in poll (sleep) mode for this test
+	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
+		t.Fatal(err)
+	}
 	go func() {
 		if err := l.Run(context.Background()); err != nil {
 			t.Errorf("Run() unexpected error: %v", err)

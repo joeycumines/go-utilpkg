@@ -20,6 +20,10 @@ func TestBarrierOrderingModes(t *testing.T) {
 		}
 		// Ensure StrictMode is false (default)
 		l.StrictMicrotaskOrdering = false
+		// Force poll path for deterministic behavior
+		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
+			t.Fatalf("SetFastPathMode failed: %v", err)
+		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -119,6 +123,10 @@ func TestBarrierOrderingModes(t *testing.T) {
 		}
 		// Enable Strict Mode
 		l.StrictMicrotaskOrdering = true
+		// Force poll path for deterministic behavior
+		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
+			t.Fatalf("SetFastPathMode failed: %v", err)
+		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -229,6 +237,10 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	l.StrictMicrotaskOrdering = true
+	// Force poll path for deterministic behavior
+	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
+		t.Fatalf("SetFastPathMode failed: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

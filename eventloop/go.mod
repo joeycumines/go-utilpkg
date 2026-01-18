@@ -1,16 +1,16 @@
 module github.com/joeycumines/go-eventloop
 
-go 1.25.5
+go 1.25.6
 
 require (
-	github.com/dop251/goja v0.0.0-20240707163329-b1681fb2a2f5
-	github.com/dop251/goja_nodejs v0.0.0-20240728170619-29b559befffc
-	golang.org/x/sys v0.39.0
+	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3
+	github.com/dop251/goja_nodejs v0.0.0-20251015164255-5e94316bedaf
+	golang.org/x/sys v0.40.0
 )
 
 require (
-	github.com/dlclark/regexp2 v1.11.2 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
+	golang.org/x/text v0.33.0 // indirect
 )

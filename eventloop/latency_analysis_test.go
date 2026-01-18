@@ -116,7 +116,9 @@ func TestLatencyAnalysis_FastPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
-	loop.SetFastPathEnabled(true)
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		t.Fatalf("SetFastPathMode failed: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

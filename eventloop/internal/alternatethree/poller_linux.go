@@ -32,15 +32,16 @@ type fdCallback struct {
 // ioPoller manages I/O event registration using epoll (Linux).
 // Thread-safe: all methods can be called from any goroutine.
 type ioPoller struct {
+	callbacks map[int]*fdCallback // fd -> callback mapping
+
 	// T10-FIX-4: Pre-allocated event buffer for zero-allocation pollIO.
 	// Sized to 128 events to match typical high-throughput usage.
 	// Placed first for optimal alignment (slice = 24 bytes).
 	eventBuf []unix.EpollEvent
 
-	callbacks map[int]*fdCallback // fd -> callback mapping
+	epfd int // epoll file descriptor
 
 	mu          sync.RWMutex
-	epfd        int // epoll file descriptor
 	initialized bool
 	closed      bool // Mark permanently closed to prevent zombie resurrection
 }

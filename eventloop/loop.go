@@ -34,27 +34,27 @@ var (
 
 // loopTestHooks provides injection points for deterministic race testing.
 type loopTestHooks struct {
-	PrePollSleep    func() // Called before CAS to StateSleeping
-	PrePollAwake    func() // Called before CAS back to StateRunning
-	OnFastPathEntry func() // Called when entering fast path (runFastPath or direct exec)
+	PrePollSleep           func() // Called before CAS to StateSleeping
+	PrePollAwake           func() // Called before CAS back to StateRunning
+	OnFastPathEntry        func() // Called when entering fast path (runFastPath or direct exec)
+	AfterOptimisticCheck   func() // Called after STEP 1 optimistic check, before STEP 2 Swap
+	BeforeFastPathRollback func() // Called before attempting to rollback fast path mode
 }
 
 // FastPathMode controls how fast path mode selection works.
 type FastPathMode int32
 
 const (
-	// FastPathDisabled always uses poll path (default for backward compatibility).
-	// This matches the original behavior where fast path was opt-in.
-	FastPathDisabled FastPathMode = iota
-
 	// FastPathAuto automatically selects mode based on conditions.
-	// Uses fast path when userIOFDCount == 0, otherwise uses poll.
-	// Must be explicitly set via SetFastPathMode(FastPathAuto).
-	FastPathAuto
+	// Default (zero value): uses fast path when userIOFDCount == 0.
+	FastPathAuto FastPathMode = iota
 
 	// FastPathForced always uses fast path.
 	// Returns ErrFastPathIncompatible if I/O FDs are registered.
 	FastPathForced
+
+	// FastPathDisabled always uses poll path (useful for debugging/testing).
+	FastPathDisabled
 )
 
 // Loop is the "Maximum Performance" event loop implementation.
@@ -263,27 +263,88 @@ func New() (*Loop, error) {
 //   - FastPathForced: Always uses fast path (returns error if I/O FDs present).
 //   - FastPathDisabled: Always uses poll path (for debugging/testing).
 //
-// Performance Characteristics:
-//   - Fast path: ~1-2μs latency for internal submissions
-//   - Poll path: ~10μs latency but supports I/O multiplexing
+// SetFastPathMode sets the fast path mode for this loop.
+//
+// Modes:
+//   - FastPathAuto (default): Automatically use fast path when no I/O FDs.
+//   - FastPathForced: Always use fast path. Incompatible with registered I/O FDs.
+//   - FastPathDisabled: Always use poll path (for debugging/testing).
+//
+// Invariant: When mode is FastPathForced, userIOFDCount must be 0.
+//   - SetFastPathMode(FastPathForced) with FDs registered → ErrFastPathIncompatible
+//   - RegisterFD when mode is FastPathForced → ErrFastPathIncompatible
+//
+// Thread Safety: Safe to call concurrently with RegisterFD using Store-Load barrier.
+// Concurrent operations use optimistic stores with CAS-based rollback on conflict.
+// The rollback uses CompareAndSwap to prevent overwriting concurrent mode changes.
+//
+// ABA Race Mitigation - ACCEPTED TRADE-OFF:
+// When SetFastPathMode is called concurrently with RegisterFD (misuse pattern),
+// the CAS-based rollback provides a safe final state but may have de-synchronization
+// from the caller's perspective:
+//
+//  1. At least one operation returns ErrFastPathIncompatible (guaranteed)
+//  2. Final mode is NEVER FastPathForced when count > 0 (safety guaranteed)
+//  3. However, final mode may be either FastPathAuto OR FastPathDisabled (both safe)
+//  4. The specific operation that failed may not correspond to final state ordering
+//
+// This trade-off only occurs when SetFastPathMode and RegisterFD race across
+// goroutines (misuse). Proper usage synchronizes mode changes with FD registration.
+// The alternative (full write serialization) would harm performance for proper usage.
 //
 // Returns ErrFastPathIncompatible if trying to force fast path with I/O FDs registered.
 func (l *Loop) SetFastPathMode(mode FastPathMode) error {
+	// STEP 1: Optimistic Check (Optimization only)
+	// Fast rejection if mode is impossible at current count
 	if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
 		return ErrFastPathIncompatible
 	}
-	l.fastPathMode.Store(int32(mode))
-	return nil
-}
 
-// SetFastPathEnabled is deprecated. Use SetFastPathMode instead.
-// Kept for backward compatibility.
-func (l *Loop) SetFastPathEnabled(enabled bool) {
-	if enabled {
-		l.fastPathMode.Store(int32(FastPathAuto))
-	} else {
-		l.fastPathMode.Store(int32(FastPathDisabled))
+	// HOOK: Injection point to simulate race with RegisterFD
+	// This allows deterministic testing of the rollback path by
+	// incrementing count between the optimistic check and the Swap.
+	if l.testHooks != nil && l.testHooks.AfterOptimisticCheck != nil {
+		l.testHooks.AfterOptimisticCheck()
 	}
+
+	// STEP 2: Store Mode FIRST (CRITICAL: Establishes Store-Load barrier)
+	// This is the "Act" phase. Atomically swap in the new mode and capture
+	// the previous mode so we can restore it on rollback if needed.
+	prev := FastPathMode(l.fastPathMode.Swap(int32(mode)))
+
+	// STEP 3: Verification/Validation (After Store)
+	// Now that mode is stored, re-check count. If RegisterFD raced between
+	// STEP 1 and STEP 2, it would have incremented count after our check
+	// but it MUST see our stored mode in its validation. However, there's
+	// still a theoretical window where RegisterFD saw old mode but hasn't
+	// validated yet. By checking again here, we detect if we created
+	// an inconsistent state.
+	countAfterSwap := l.userIOFDCount.Load()
+	if mode == FastPathForced && countAfterSwap > 0 {
+		// Call test hook if present (for deterministic race testing)
+		if l.testHooks != nil && l.testHooks.BeforeFastPathRollback != nil {
+			l.testHooks.BeforeFastPathRollback()
+		}
+
+		// Invariant violated: We stored Forced but count > 0
+		// Restore the previous mode and return error
+		// FIX: Use CompareAndSwap to prevent lost update bug.
+		// If current state is no longer 'mode', it means another
+		// SetFastPathMode already intervened and we must not overwrite it.
+		if !l.fastPathMode.CompareAndSwap(int32(mode), int32(prev)) {
+			// CAS failed: another goroutine changed mode after us.
+			// Their write wins, so we just return error without rollback.
+		}
+
+		return ErrFastPathIncompatible
+	}
+
+	// STEP 4: Liveness - Wake the loop
+	// If loop is sleeping in poll() or channel receive, wake it
+	// so it immediately re-evaluates the mode and applies the change.
+	l.doWakeup()
+
+	return nil
 }
 
 // canUseFastPath returns true if fast path can be used right now.
@@ -298,18 +359,6 @@ func (l *Loop) canUseFastPath() bool {
 	default: // FastPathAuto
 		return l.userIOFDCount.Load() == 0
 	}
-}
-
-// FastPathEntries returns the count of fast path entries (for debugging/testing).
-// This counts both runFastPath entries and SubmitInternal direct executions.
-func (l *Loop) FastPathEntries() int64 {
-	return l.fastPathEntries.Load()
-}
-
-// TickCount returns the number of tick iterations completed (for debugging/monitoring).
-// Only increments when using poll path (not in fast path mode).
-func (l *Loop) TickCount() uint64 {
-	return l.tickCount
 }
 
 // Run runs the event loop and blocks until fully stopped.
@@ -850,6 +899,12 @@ func (l *Loop) poll() {
 
 	// FAST MODE: No user I/O FDs registered - use channel-based wakeup
 	// This matches Baseline's ~500ns latency for task-only workloads.
+	//
+	// NOTE: When userIOFDCount == 0, we use channel-based wakeup regardless
+	// of FastPathMode setting (including FastPathDisabled). This is a
+	// performance optimization separate from the mode selection. FastPathDisabled
+	// only affects canUseFastPath() logic in the main loop, forcing the loop
+	// to call poll() instead of runFastPath() even when count=0.
 	if l.userIOFDCount.Load() == 0 {
 		l.pollFastMode(timeout)
 		return
@@ -1178,29 +1233,85 @@ func (l *Loop) scheduleMicrotask(task Task) {
 //
 // When a user FD is registered, the loop switches to pipe-based wakeup mode
 // which has higher latency (~10µs) but supports I/O event notification.
+// RegisterFD registers a file descriptor for I/O event monitoring.
+//
+// Invariant: RegisterFD is incompatible with FastPathForced mode.
+//   - Returns ErrFastPathIncompatible if mode is FastPathForced.
+//   - If mode changes to FastPathForced during registration (race),
+//     the FD is automatically unregistered and error returned.
+//
+// When a user FD is registered, the loop switches to poll-based mode
+// which has higher latency (~10µs) but supports I/O event notification.
 //
 // CRITICAL: If the loop is sleeping in fast mode (channel-based), we must
 // wake it up so it can switch to I/O mode and start monitoring the new FD.
 // We send to BOTH mechanisms because the loop may be blocked on either one
 // during the mode transition.
+//
+// Thread Safety: Safe to call concurrently with SetFastPathMode.
+// Uses optimistic increment with validation/rollback on conflict.
+//
+// Returns ErrFastPathIncompatible if mode is FastPathForced.
 func (l *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents)) error {
-	err := l.poller.RegisterFD(fd, events, callback)
-	if err == nil {
-		l.userIOFDCount.Add(1)
-		// CRITICAL: Wake the loop so it exits fast path and enters I/O mode.
-		// In fast path, loop blocks on fastWakeupCh while in StateRunning,
-		// so we must always send to the channel when in fast mode.
-		// In I/O mode, loop blocks on kqueue while in StateSleeping.
-		select {
-		case l.fastWakeupCh <- struct{}{}:
-		default:
-		}
-		// Also wake via pipe in case loop is in I/O mode
-		if l.state.Load() == StateSleeping {
-			_ = l.submitWakeup()
-		}
+	// STEP 1: Fast rejection before expensive syscall
+	// Optimization: If mode is already Forced, reject immediately
+	// without making expensive poller syscall.
+	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+		return ErrFastPathIncompatible
 	}
-	return err
+
+	// STEP 2: Perform registration with OS/poller (syscall: epoll_ctl/kevent)
+	// This is the actual I/O registration. Failure here means no state change.
+	err := l.poller.RegisterFD(fd, events, callback)
+	if err != nil {
+		return err
+	}
+
+	// STEP 3: Increment Count (Store our side of the invariant)
+	// We successfully registered the FD. Now increment count to reflect
+	// that we have an active FD that requires poll()-based wakeup.
+	l.userIOFDCount.Add(1)
+
+	// NOTE: Between the increment above and the subsequent mode check,
+	// there is a tiny observable window where a concurrent SetFastPathMode
+	// may have stored FastPathForced. A concurrent call to canUseFastPath()
+	// could therefore briefly observe mode==Forced and count==1. This is a
+	// transient, nanoscale window and will be corrected by the rollback
+	// behavior below (which removes the FD and decrements the count).
+
+	// STEP 4: Verify Mode (Load to check secondary state)
+	// After incrementing count, re-check mode. If SetFastPathMode(Forced)
+	// completed and stored the new mode after our initial check but before
+	// our increment, we need to detect it here and rollback.
+	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+		// ROLLBACK: Mode incompatibility detected
+		// CRITICAL FIX #2: Conditional decrement to prevent underflow.
+		// Only decrement if UnregisterFD succeeds (we removed the FD).
+		// If UnregisterFD returns ErrFDNotRegistered, another concurrent
+		// UnregisterFD already removed the FD and decremented the count.
+		if err := l.poller.UnregisterFD(fd); err != ErrFDNotRegistered {
+			l.userIOFDCount.Add(-1)
+		}
+		return ErrFastPathIncompatible
+	}
+
+	// STEP 5: Wake loop to apply I/O mode
+	// Successfully registered FD in non-Forced mode. Wake the loop
+	// to transition from fast-path to poll-path if needed.
+	// CRITICAL: Wake the loop so it exits fast path and enters I/O mode.
+	// In fast path, loop blocks on fastWakeupCh while in StateRunning,
+	// so we must always send to the channel when in fast mode.
+	// In I/O mode, loop blocks on kqueue while in StateSleeping.
+	select {
+	case l.fastWakeupCh <- struct{}{}:
+	default:
+	}
+	// Also wake via pipe in case loop is in I/O mode
+	if l.state.Load() == StateSleeping {
+		_ = l.submitWakeup()
+	}
+
+	return nil
 }
 
 // UnregisterFD removes a file descriptor from monitoring.

@@ -15,7 +15,9 @@ func BenchmarkMicroPingPong(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	loop.SetFastPathEnabled(true)
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		b.Fatal(err)
+	}
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
@@ -290,7 +292,9 @@ func BenchmarkLoopDirect(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	loop.SetFastPathEnabled(true)
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		b.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -355,7 +359,9 @@ func BenchmarkLoopDirectWithSubmit(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	loop.SetFastPathEnabled(true)
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		b.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -406,7 +412,9 @@ func BenchmarkMicroPingPongWithCount(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	loop.SetFastPathEnabled(true)
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		b.Fatal(err)
+	}
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup

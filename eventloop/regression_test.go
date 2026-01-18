@@ -562,6 +562,11 @@ func TestRegression_MonotonicIntegrity(t *testing.T) {
 func TestCheckThenSleep_BarrierProof(t *testing.T) {
 	loop, _ := New()
 
+	// For this proof we require the loop to be in poll (sleep) mode.
+	if err := loop.SetFastPathMode(FastPathDisabled); err != nil {
+		t.Fatalf("SetFastPathMode failed: %v", err)
+	}
+
 	sleepPhaseEntered := make(chan struct{}, 1)
 	resumePoll := make(chan struct{}, 1)
 

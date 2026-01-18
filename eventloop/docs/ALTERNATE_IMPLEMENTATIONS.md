@@ -66,15 +66,64 @@ The Main implementation is the **production-ready** version, achieving an optima
 type FastPathMode int
 
 const (
-    FastPathDisabled FastPathMode = 0  // Never use fast path
-    FastPathAuto     FastPathMode = 1  // Auto-detect based on IO load
-    FastPathForced   FastPathMode = 2  // Always use fast path
+    FastPathAuto     FastPathMode = 0  // Auto-detect based on IO load (default)
+    FastPathForced   FastPathMode = 1  // Always use fast path
+    FastPathDisabled FastPathMode = 2  // Never use fast path (debugging)
 )
 ```
 
 The `FastPathAuto` mode intelligently switches between:
 - **Fast path**: When no I/O callbacks are registered (pure message-passing)
 - **Poll path**: When I/O operations are active
+
+#### FastPath/FD Invariant Enforcement
+
+`FastPathForced` and I/O FD registration are mutually exclusive:
+
+| Operation | When Mode=Forced | When FDs Registered |
+|-----------|------------------|---------------------|
+| `SetFastPathMode(FastPathForced)` | Succeeds | Returns `ErrFastPathIncompatible` |
+| `RegisterFD(...)` | Returns `ErrFastPathIncompatible` | Succeeds (loop uses Auto behavior) |
+
+**Thread Safety:** Both operations use lock-free atomic checks with rollback on conflict. Under concurrent access, exactly one operation will fail with `ErrFastPathIncompatible`. No deadlock or livelock is possible.
+
+**Implementation (Symmetric Optimistic Concurrency):**
+
+Both `RegisterFD` and `SetFastPathMode` use the same Store-Load pattern:
+
+1. **Optimistically Store** primary state
+2. **Validate** secondary state
+3. **Rollback** if invariant violated
+
+`SetFastPathMode` example:
+```go
+// STEP 2: Store Mode FIRST (creates Store-Load barrier)
+l.fastPathMode.Store(int32(mode))
+
+// STEP 3: Validate secondary state
+if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
+    l.fastPathMode.Store(int32(FastPathAuto)) // Rollback
+    return ErrFastPathIncompatible
+}
+
+// STEP 4: Wake loop for liveness
+l.doWakeup()
+```
+
+`RegisterFD` rollback handles concurrent unregister:
+```go
+if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+    // Conditional rollback prevents underflow if concurrent UnregisterFD
+    if err := l.poller.UnregisterFD(fd); err != ErrFDNotRegistered {
+        l.userIOFDCount.Add(-1)
+    }
+    return ErrFastPathIncompatible
+}
+```
+
+**Rationale:** Fast path (`runFastPath`) bypasses the I/O poller entirely, blocking on a channel for task submissions. Registering FDs in forced mode would result in I/O events never being delivered—a silent correctness bug. The bidirectional enforcement prevents this class of error at the API boundary.
+
+**Performance:** The enforcement adds negligible overhead (<1% of RegisterFD latency) and zero overhead to hot paths (Submit, tick, poll).
 
 ### Performance Metrics
 

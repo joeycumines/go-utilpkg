@@ -137,8 +137,10 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Enable fast path to test the optimization
-	l.SetFastPathEnabled(true)
+	// Force fast path to test the optimization
+	if err := l.SetFastPathMode(FastPathForced); err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -215,7 +217,9 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	}
 
 	// Disable fast path
-	l.SetFastPathEnabled(false)
+	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

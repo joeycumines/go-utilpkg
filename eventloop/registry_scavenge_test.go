@@ -3,7 +3,6 @@ package eventloop
 import (
 	"runtime"
 	"testing"
-	"time"
 )
 
 func TestScavengerPruning(t *testing.T) {
@@ -180,25 +179,4 @@ func TestRegistry_BucketReclaim(t *testing.T) {
 		t.Errorf("Memory Leak Detected: Retaining too much memory. \nBaseline: %d\nPeak: %d\nFinal: %d\nretained: %d%%",
 			ms1.HeapAlloc, ms2.HeapAlloc, ms3.HeapAlloc, (usageDiff*100)/peakDiff)
 	}
-}
-
-// TestScavengeRate_RunsEveryTick verifies that the scavenger runs frequently enough
-// to clean up settled promises within a reasonable number of ticks.
-func TestScavengeRate_RunsEveryTick(t *testing.T) {
-	t.Skip("Requires loop integration - scavenge rate is controlled by tick count")
-
-	// This test is designed to verify D15: Scavenge Rate
-	// Currently the loop scavenges every 10000 ticks, which is too slow.
-	// The requirement is to scavenge every tick with batch ~20.
-
-	// The test creates 1000 settled promises and verifies that after 100 ticks,
-	// most should be cleaned up. With the current 10000-tick interval, this will fail.
-
-	// When fixed, this test should:
-	// 1. Start loop
-	// 2. Create 1000 promises, resolve all
-	// 3. Submit 100 tasks to force 100+ ticks
-	// 4. Verify remaining < 100
-
-	_ = time.Second // suppress unused import
 }

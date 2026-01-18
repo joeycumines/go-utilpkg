@@ -18,9 +18,6 @@ func TestFastPath_EntryDebug(t *testing.T) {
 	}
 	defer loop.Close()
 
-	// Enable fast path
-	loop.SetFastPathEnabled(true)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -68,7 +65,7 @@ func TestFastPath_EntryDebug(t *testing.T) {
 	}
 
 	// Check counters
-	entries := loop.FastPathEntries()
+	entries := loop.fastPathEntries.Load()
 	hookMu.Lock()
 	hooks := hookCalls
 	hookMu.Unlock()
@@ -115,9 +112,6 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	}
 	defer loop.Close()
 
-	// Enable fast path
-	loop.SetFastPathEnabled(true)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -137,7 +131,7 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	}
 
 	// Reset counter
-	initialEntries := loop.FastPathEntries()
+	initialEntries := loop.fastPathEntries.Load()
 
 	// Submit a task that submits another task (from loop thread)
 	done := make(chan struct{})
@@ -167,7 +161,7 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	}
 
 	// Check if SubmitInternal used fast path
-	finalEntries := loop.FastPathEntries()
+	finalEntries := loop.fastPathEntries.Load()
 	directExecEntries := finalEntries - initialEntries
 
 	t.Logf("=== SUBMIT INTERNAL DIRECT EXEC DEBUG ===")

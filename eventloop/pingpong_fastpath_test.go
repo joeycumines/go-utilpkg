@@ -15,11 +15,13 @@ func TestPingPongFastPathCounter(t *testing.T) {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
 
-	// Enable fast path
-	loop.SetFastPathEnabled(true)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Force fast path for deterministic test
+	if err := loop.SetFastPathMode(FastPathForced); err != nil {
+		t.Fatalf("SetFastPathMode failed: %v", err)
+	}
 
 	// Start the loop in background
 	loopDone := make(chan error, 1)
@@ -31,7 +33,7 @@ func TestPingPongFastPathCounter(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Initial fast path entries
-	initialEntries := loop.FastPathEntries()
+	initialEntries := loop.fastPathEntries.Load()
 	t.Logf("Initial FastPathEntries: %d", initialEntries)
 
 	// Submit 100 tasks one at a time, waiting for each to complete
@@ -49,7 +51,7 @@ func TestPingPongFastPathCounter(t *testing.T) {
 	}
 
 	// Read final fast path entries
-	finalEntries := loop.FastPathEntries()
+	finalEntries := loop.fastPathEntries.Load()
 
 	// Report
 	t.Logf("Final FastPathEntries: %d", finalEntries)
