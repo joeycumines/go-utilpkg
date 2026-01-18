@@ -4,7 +4,6 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"weak"
 )
 
 const (
@@ -423,6 +422,3 @@ func (r *MicrotaskRing) IsEmpty() bool {
 
 	return empty
 }
-
-// Force import of weak package
-var _ weak.Pointer[int]
