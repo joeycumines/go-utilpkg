@@ -4,6 +4,8 @@ use (
 	.
 	./catrate
 	./eventloop
+	./eventloop/internal/gojabaseline
+	./eventloop/internal/tournament
 	./fangrpcstream
 	./floater
 	./grpc-proxy
