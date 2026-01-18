@@ -97,12 +97,12 @@ Both `RegisterFD` and `SetFastPathMode` use the same Store-Load pattern:
 
 `SetFastPathMode` example:
 ```go
-// STEP 2: Store Mode FIRST (creates Store-Load barrier)
-l.fastPathMode.Store(int32(mode))
+// STEP 2: Swap Mode FIRST (creates Store-Load barrier, returns previous mode)
+prev := FastPathMode(l.fastPathMode.Swap(int32(mode)))
 
 // STEP 3: Validate secondary state
 if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
-    l.fastPathMode.Store(int32(FastPathAuto)) // Rollback
+    l.fastPathMode.CompareAndSwap(int32(mode), int32(prev)) // Rollback to PREV
     return ErrFastPathIncompatible
 }
 

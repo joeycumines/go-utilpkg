@@ -134,13 +134,15 @@ func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
 		}
+		defer l.Close()
 
 		// Create test FD for registration attempts
 		var fds [2]int
 		if err := unix.Pipe(fds[:]); err != nil {
-			l.Close()
 			t.Fatalf("Pipe failed: %v", err)
 		}
+		// fds[1] is the write end, never registered - close it on cleanup
+		defer unix.Close(fds[1])
 
 		var wg sync.WaitGroup
 		var registerErr error
@@ -171,13 +173,11 @@ func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 
 		// INVARIANT: mode == Forced ⟹ count == 0
 		if finalMode == FastPathForced && finalCount != 0 {
-			// Clean up before failing
+			// If registration succeeded, unregister to close the FD's read end
+			// fds[1] will be closed by defer
 			if registerErr == nil {
 				_ = l.poller.UnregisterFD(fds[0])
 			}
-			l.Close()
-			unix.Close(fds[0])
-			unix.Close(fds[1])
 			t.Fatalf("Iteration %d: INVARIANT VIOLATED - mode=Forced but count=%d", iteration, finalCount)
 		}
 
@@ -188,8 +188,6 @@ func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 			// This is allowed: RegisterFD succeeded (FD registered),
 			// and SetFastPathMode(Forced) also succeeded (after RegisterFD)
 			// BUT then we should have Mode=Forced and Count=0 via rollback
-			unix.Close(fds[0])
-			unix.Close(fds[1])
 			if finalMode == FastPathForced && finalCount == 0 {
 				// This is correctly handled - rollback occurred
 			} else {
@@ -197,13 +195,17 @@ func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 			}
 		}
 
-		// Cleanup
+		// Cleanup: if registerErr == nil, the FD was successfully registered
+		// We need to UnregisterFD it (to remove from poller) AND close it
+		// If registerErr != nil, the FD was never registered, so we must close it directly
 		if registerErr == nil {
 			_ = l.poller.UnregisterFD(fds[0])
+			// Close the FD since neither UnregisterFD nor l.Close() will do it
+			unix.Close(fds[0])
+		} else {
+			// FD was never registered, so just close it to avoid leak
+			unix.Close(fds[0])
 		}
-		l.Close()
-		unix.Close(fds[0])
-		unix.Close(fds[1])
 	}
 }
 
