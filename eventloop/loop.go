@@ -599,7 +599,7 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 //   - Execute without holding lock
 //   - Buffer reuse (zero allocations in steady state)
 //
-// EXTENSION: Also drains internal queue (for SubmitInternal).
+// EXTENSION: Also drains internal queue (for SubmitInternal) and microtasks.
 func (l *Loop) runAux() {
 	// Drain auxJobs (external Submit in fast path mode)
 	l.externalMu.Lock()
@@ -610,6 +610,11 @@ func (l *Loop) runAux() {
 	for i, job := range jobs {
 		l.safeExecute(job)
 		jobs[i] = Task{} // Clear for GC
+
+		// FIX 1: Respect StrictMicrotaskOrdering
+		if l.StrictMicrotaskOrdering {
+			l.drainMicrotasks()
+		}
 	}
 	l.auxJobsSpare = jobs[:0]
 
@@ -622,6 +627,20 @@ func (l *Loop) runAux() {
 			break
 		}
 		l.safeExecute(task)
+	}
+
+	// Drain microtasks (standard pass)
+	l.drainMicrotasks()
+
+	// FIX 2: Prevent Stalling on Budget Overflow
+	// If microtasks remain (budget exceeded), signal the loop to run again immediately.
+	// This prevents blocking in the runFastPath select statement.
+	if !l.microtasks.IsEmpty() {
+		select {
+		case l.fastWakeupCh <- struct{}{}:
+		default:
+			// Channel full means wake-up is already pending, which is fine.
+		}
 	}
 }
 
