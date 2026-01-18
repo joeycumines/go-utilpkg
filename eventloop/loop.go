@@ -916,6 +916,18 @@ func (l *Loop) poll() {
 		timeout = 0
 	}
 
+	// CRITICAL FIX: Check for termination AGAIN after calculating timeout
+	// but BEFORE blocking in poll. This prevents a race condition where:
+	// 1. poll() checks StateTerminating (false)
+	// 2. poll() calculates timeout
+	// 3. Shutdown sets StateTerminating and calls doWakeup()
+	// 4. poll() blocks in PollIO() for the full timeout duration
+	// This causes Shutdown() to hang waiting for loopDone.
+	if l.state.Load() == StateTerminating {
+		l.state.TryTransition(StateSleeping, StateRunning)
+		return
+	}
+
 	// FAST MODE: No user I/O FDs registered - use channel-based wakeup
 	// This matches Baseline's ~500ns latency for task-only workloads.
 	//
@@ -964,6 +976,14 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	default:
 	}
 
+	// CRITICAL FIX: Check for termination BEFORE blocking in pollFastMode
+	// This prevents a race where shutdown happens after the channel drain
+	// but before we block, causing us to sleep indefinitely.
+	if l.state.Load() == StateTerminating {
+		l.state.TryTransition(StateSleeping, StateRunning)
+		return
+	}
+
 	// Non-blocking case
 	if timeoutMs == 0 {
 		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
@@ -979,6 +999,12 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	// 2. Shutdown/context cancellation also sends to fastWakeupCh
 	// Timer expiry is less critical - we can check on next tick.
 	if timeoutMs >= 1000 {
+		// CRITICAL FIX: Check termination before indefinite block
+		// Even long timeout should check termination immediately
+		if l.state.Load() == StateTerminating {
+			l.state.TryTransition(StateSleeping, StateRunning)
+			return
+		}
 		// Block indefinitely on channel - no timer allocation
 		<-l.fastWakeupCh
 		l.wakeUpSignalPending.Store(0)
@@ -990,6 +1016,11 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	}
 
 	// Short timeout - use timer
+	// CRITICAL FIX: Check termination before timer-protected block
+	if l.state.Load() == StateTerminating {
+		l.state.TryTransition(StateSleeping, StateRunning)
+		return
+	}
 	timer := time.NewTimer(time.Duration(timeoutMs) * time.Millisecond)
 	select {
 	case <-l.fastWakeupCh:

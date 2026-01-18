@@ -22,13 +22,10 @@ const (
 	// and it exceeds half the slice length, a copy/compaction occurs.
 	ringOverflowCompactThreshold = 512
 
-	// cacheLineSize is the size of a CPU cache line, used for padding to prevent false sharing.
-	cacheLineSize = 64
-
 	// ringHeadPadSize is the padding size required after the 'head' field in MicrotaskRing
 	// to ensure 'tail' starts on a new cache line.
-	// Calculation: cacheLineSize (64) - sizeOf(atomic.Uint64) (8) = 56.
-	ringHeadPadSize = 56
+	// Calculation: sizeOfCacheLine (64) - sizeOf(atomic.Uint64) (8) = 56.
+	ringHeadPadSize = sizeOfCacheLine - sizeOfAtomicUint64
 )
 
 // Task represents a unit of work submitted to the event loop.
@@ -221,7 +218,7 @@ func (q *ChunkedIngress) lengthLocked() int64 {
 // - Overflow: When ring is full, tasks spill to a mutex-protected slice.
 // - FIFO: If overflow has items, Push appends to overflow to maintain ordering.
 type MicrotaskRing struct { // betteralign:ignore
-	_       [cacheLineSize]byte           // Cache line padding
+	_       [sizeOfCacheLine]byte         // Cache line padding
 	buffer  [ringBufferSize]func()        // Ring buffer for tasks
 	seq     [ringBufferSize]atomic.Uint64 // Sequence numbers per slot
 	head    atomic.Uint64                 // Consumer index
