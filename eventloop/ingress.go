@@ -7,31 +7,54 @@ import (
 	"weak"
 )
 
+const (
+	// chunkSize is the number of tasks per node in the ChunkedIngress linked list.
+	// 128 tasks * 24 bytes/task = ~3KB per chunk.
+	chunkSize = 128
+
+	// ringBufferSize is the fixed size of the MicrotaskRing buffer.
+	// It must be a power of 2 to allow for efficient bitwise wrapping.
+	ringBufferSize = 4096
+
+	ringOverflowInitCap = 1024
+
+	// ringOverflowCompactThreshold is the threshold for compacting the overflow slice.
+	// When more than this many items have been read from the head of the overflow,
+	// and it exceeds half the slice length, a copy/compaction occurs.
+	ringOverflowCompactThreshold = 512
+
+	// cacheLineSize is the size of a CPU cache line, used for padding to prevent false sharing.
+	cacheLineSize = 64
+
+	// ringHeadPadSize is the padding size required after the 'head' field in MicrotaskRing
+	// to ensure 'tail' starts on a new cache line.
+	// Calculation: cacheLineSize (64) - sizeOf(atomic.Uint64) (8) = 56.
+	ringHeadPadSize = 56
+)
+
 // Task represents a unit of work submitted to the event loop.
 type Task struct {
 	Runnable func()
 }
 
-// ============================================================================
-// CHUNKED INGRESS QUEUE (Unlocked - caller must hold mutex)
-// ============================================================================
-// This implementation uses a chunked linked-list for task submission.
-// Unlike mutex-protected queues, this struct has NO internal mutex - the caller
-// (Loop) is responsible for synchronization via an external mutex.
+// ChunkedIngress is a chunked linked-list queue for task submission.
 //
-// This design matches AlternateThree's architecture which was proven faster
-// in benchmarks because it allows the Loop to check state and push atomically
-// under a single mutex, eliminating the need for inflight counters.
+// Thread Safety: This struct provides both internal locking and unlocked methods.
+// For highest performance, the Event Loop uses the *Locked methods while holding
+// an external mutex. This allows the Loop to check shutdown state and push
+// atomically under a single mutex, eliminating the need for inflight counters.
 //
 // Performance rationale:
-// - External mutex: Loop can check shutdown state while holding the same mutex
-//   used for queue operations, making state+push atomic without extra atomics.
-// - Chunking: 128-task arrays provide cache locality and amortize allocations.
-// - sync.Pool: Chunk recycling prevents GC thrashing under high throughput.
-// ============================================================================
+// - Fixed-size arrays (chunkSize) provide cache locality and amortize allocations.
+// - sync.Pool chunk recycling prevents GC thrashing under high throughput.
+type ChunkedIngress struct { // betteralign:ignore
+	mu     sync.Mutex
+	head   *chunk
+	tail   *chunk
+	length int64
+}
 
 // chunkPool prevents GC thrashing under high load.
-// Chunks are ~3KB each (128 Tasks * 24 bytes per Task).
 var chunkPool = sync.Pool{
 	New: func() any {
 		return &chunk{}
@@ -39,10 +62,9 @@ var chunkPool = sync.Pool{
 }
 
 // chunk is a fixed-size node in the chunked linked-list.
-// This optimizes cache locality compared to standard linked lists.
-// Uses readPos/writePos cursors for O(1) push/pop without shifting.
+// It uses readPos/writePos cursors for O(1) push/pop without shifting.
 type chunk struct {
-	tasks   [128]Task
+	tasks   [chunkSize]Task
 	next    *chunk
 	readPos int // First unread slot (index into tasks)
 	pos     int // First unused slot / writePos (index into tasks)
@@ -51,7 +73,7 @@ type chunk struct {
 // newChunk creates and returns a new chunk from the pool.
 func newChunk() *chunk {
 	c := chunkPool.Get().(*chunk)
-	// Reset fields for reuse (chunk may have been returned with stale data)
+	// Reset fields for reuse as the chunk may have been returned with stale data
 	c.pos = 0
 	c.readPos = 0
 	c.next = nil
@@ -59,9 +81,8 @@ func newChunk() *chunk {
 }
 
 // returnChunk returns an exhausted chunk to the pool.
-// Clears all task references before returning to prevent memory leaks.
+// It clears all task references before returning to prevent memory leaks.
 func returnChunk(c *chunk) {
-	// Zero out all task slots to ensure no leaking references remain
 	for i := 0; i < len(c.tasks); i++ {
 		c.tasks[i] = Task{}
 	}
@@ -69,21 +90,6 @@ func returnChunk(c *chunk) {
 	c.readPos = 0
 	c.next = nil
 	chunkPool.Put(c)
-}
-
-// ChunkedIngress is a chunked linked-list queue for task submission.
-//
-// Thread Safety: This struct has an OPTIONAL internal mutex. For highest
-// performance, use the *Locked methods with an external mutex held by the caller.
-// For convenience (e.g., in tests), use the non-Locked methods which acquire
-// the internal mutex.
-//
-// The Loop uses the Locked methods for optimal performance, while tests can
-// use the convenience methods directly.
-type ChunkedIngress struct { // betteralign:ignore
-	mu         sync.Mutex // Internal mutex for convenience methods
-	head, tail *chunk
-	length     int64
 }
 
 // NewChunkedIngress creates a new chunked ingress queue.
@@ -137,7 +143,6 @@ func (q *ChunkedIngress) pushLocked(task Task) {
 	}
 
 	if q.tail.pos == len(q.tail.tasks) {
-		// Alloc new chunk
 		newTail := newChunk()
 		q.tail.next = newTail
 		q.tail = newTail
@@ -159,15 +164,13 @@ func (q *ChunkedIngress) popLocked() (Task, bool) {
 	if q.head.readPos >= q.head.pos {
 		// If this is the only chunk, queue is empty - reset cursors for reuse
 		if q.head == q.tail {
-			// Reset cursors instead of keeping stale chunk.
 			q.head.pos = 0
 			q.head.readPos = 0
 			return Task{}, false
 		}
-		// Move to next chunk
+		// Move to next chunk and return exhausted one to pool
 		oldHead := q.head
 		q.head = q.head.next
-		// Return exhausted chunk to pool
 		returnChunk(oldHead)
 	}
 
@@ -186,12 +189,10 @@ func (q *ChunkedIngress) popLocked() (Task, bool) {
 	// If chunk is now exhausted, free it or reset cursors
 	if q.head.readPos >= q.head.pos {
 		if q.head == q.tail {
-			// Reset cursors instead of allocating new chunk.
 			q.head.pos = 0
 			q.head.readPos = 0
 			return task, true
 		}
-		// Multiple chunks: Move to next chunk and return old to pool
 		oldHead := q.head
 		q.head = q.head.next
 		returnChunk(oldHead)
@@ -205,46 +206,40 @@ func (q *ChunkedIngress) lengthLocked() int64 {
 	return q.length
 }
 
-// ============================================================================
-// LOCK-FREE RING WITH OVERFLOW BUFFER
-// ============================================================================
-
 // MicrotaskRing is a lock-free ring buffer with overflow protection.
 //
 // Memory Ordering & Correctness:
-// This implementation adheres to strict Release/Acquire semantics to prevent "Time Travel" bugs
+// This implementation adheres to strict Release/Acquire semantics to prevent bugs
 // where a consumer sees a valid sequence but reads uninitialized data.
 //
 // Concurrency Model: MPSC (Multiple Producers, Single Consumer)
 // - Push: Called from any goroutine (producers)
 // - Pop: Called ONLY from the event loop goroutine (single consumer)
-// This allows Pop() to use non-CAS head advancement safely.
 //
 // Algorithm:
 // - Push: Write Data -> Store Seq (Release)
 // - Pop:  Load Seq (Acquire) -> Read Data
-// - Overflow: When ring is full (4096 items), tasks spill to a mutex-protected slice.
+// - Overflow: When ring is full, tasks spill to a mutex-protected slice.
 // - FIFO: If overflow has items, Push appends to overflow to maintain ordering.
 type MicrotaskRing struct { // betteralign:ignore
-	_       [64]byte            // Cache line padding
-	buffer  [4096]func()        // Ring buffer for tasks
-	seq     [4096]atomic.Uint64 // Sequence numbers per slot
-	head    atomic.Uint64       // Consumer index
-	_       [56]byte            // Pad to cache line
-	tail    atomic.Uint64       // Producer index
-	tailSeq atomic.Uint64       // Global sequence counter
+	_       [cacheLineSize]byte           // Cache line padding
+	buffer  [ringBufferSize]func()        // Ring buffer for tasks
+	seq     [ringBufferSize]atomic.Uint64 // Sequence numbers per slot
+	head    atomic.Uint64                 // Consumer index
+	_       [ringHeadPadSize]byte         // Pad to cache line
+	tail    atomic.Uint64                 // Producer index
+	tailSeq atomic.Uint64                 // Global sequence counter
 
-	// Overflow protected by mutex (simple, no race complexity)
 	overflowMu      sync.Mutex
 	overflow        []func()
-	overflowHead    int         // FIFO: Index of first valid item in overflow (avoids O(n) copy)
+	overflowHead    int         // FIFO: Index of first valid item in overflow
 	overflowPending atomic.Bool // FIFO: Flag indicating overflow has items
 }
 
 // NewMicrotaskRing creates a new lock-free ring with sequence tracking.
 func NewMicrotaskRing() *MicrotaskRing {
 	r := &MicrotaskRing{}
-	for i := 0; i < 4096; i++ {
+	for i := 0; i < ringBufferSize; i++ {
 		r.seq[i].Store(0)
 	}
 	return r
@@ -252,11 +247,10 @@ func NewMicrotaskRing() *MicrotaskRing {
 
 // Push adds a microtask to the ring buffer. Always returns true.
 func (r *MicrotaskRing) Push(fn func()) bool {
-	// DEFECT #4 FIX: If overflow has items, append to overflow to maintain FIFO.
+	// If overflow has items, append to overflow to maintain FIFO.
 	// This fast-path check uses atomic bool to avoid mutex in common case.
 	if r.overflowPending.Load() {
 		r.overflowMu.Lock()
-		// Double-check under lock
 		if len(r.overflow)-r.overflowHead > 0 {
 			r.overflow = append(r.overflow, fn)
 			r.overflowMu.Unlock()
@@ -270,27 +264,27 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 		tail := r.tail.Load()
 		head := r.head.Load()
 
-		if tail-head >= 4096 {
+		if tail-head >= ringBufferSize {
 			break // Ring full, must use overflow
 		}
 
 		if r.tail.CompareAndSwap(tail, tail+1) {
 			seq := r.tailSeq.Add(1)
 
-			// DEFECT #10 FIX: Handle sequence wrap-around.
+			// Handle sequence wrap-around.
 			// 0 is the sentinel value for "empty slot", so if we wrap to 0,
 			// we must skip it to avoid confusion with uninitialized slots.
 			if seq == 0 {
 				seq = r.tailSeq.Add(1)
 			}
 
-			// CRITICAL ORDERING:
-			// 1. Write Task (Data) FIRST.
-			// 2. Write Sequence (Guard) SECOND.
+			// Critical Ordering:
+			// - Write Task (Data) FIRST
+			// - Write Sequence (Guard) SECOND
 			// atomic.Store acts as a Release barrier, ensuring the buffer write
 			// is visible to any reader who acquires this seq value.
-			r.buffer[tail%4096] = fn
-			r.seq[tail%4096].Store(seq)
+			r.buffer[tail%ringBufferSize] = fn
+			r.seq[tail%ringBufferSize].Store(seq)
 
 			return true
 		}
@@ -299,7 +293,7 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 	// Slow path: ring full, use mutex-protected overflow
 	r.overflowMu.Lock()
 	if r.overflow == nil {
-		r.overflow = make([]func(), 0, 1024)
+		r.overflow = make([]func(), 0, ringOverflowInitCap)
 	}
 	r.overflow = append(r.overflow, fn)
 	r.overflowPending.Store(true)
@@ -314,11 +308,11 @@ func (r *MicrotaskRing) Pop() func() {
 	tail := r.tail.Load()
 
 	for head < tail {
-		// CRITICAL ORDERING:
+		// Critical Ordering:
 		// Read Sequence (Guard) via atomic Load (Acquire).
 		// If we see the expected sequence, we are guaranteed to see the
 		// corresponding data write from Push due to the Release-Acquire pair.
-		idx := head % 4096
+		idx := head % ringBufferSize
 		seq := r.seq[idx].Load()
 
 		if seq == 0 {
@@ -332,15 +326,15 @@ func (r *MicrotaskRing) Pop() func() {
 
 		fn := r.buffer[idx]
 
-		// DEFECT #6 FIX: Handle nil tasks to avoid infinite loop.
+		// Handle nil tasks to avoid infinite loop.
 		// If fn is nil but seq != 0, the slot was claimed but contains nil.
 		// We must still consume the slot and continue to the next one.
 		if fn == nil {
-			// DEFECT #3 FIX: Clear buffer FIRST, then seq (release barrier),
-			// then advance head. This ordering ensures:
-			// 1. buffer=nil happens before seq.Store (seq.Store is release barrier)
-			// 2. seq=0 happens before head.Add
-			// 3. When producer reads new head value, it sees buffer=nil and seq=0
+			// Clear buffer FIRST, then seq (release barrier), then advance head.
+			// This ordering ensures:
+			// - buffer=nil happens before seq.Store
+			// - seq=0 happens before head.Add
+			// - When producer reads new head value, it sees buffer=nil and seq=0
 			r.buffer[idx] = nil
 			r.seq[idx].Store(0)
 			r.head.Add(1)
@@ -349,13 +343,11 @@ func (r *MicrotaskRing) Pop() func() {
 			continue
 		}
 
-		// DEFECT #3 FIX: Clear buffer and seq BEFORE advancing head.
-		// CRITICAL ORDERING for memory visibility:
-		// 1. Clear buffer (non-atomic) - must happen first
-		// 2. Clear seq (atomic release) - provides memory barrier, ensures buffer write visible
-		// 3. Advance head (atomic) - signals slot is free to producers
-		// The seq.Store's release semantics ensure that when a producer sees the
-		// new head value (via head.Load's acquire semantics), it also sees buffer=nil.
+		// Clear buffer and seq BEFORE advancing head.
+		// Critical ordering for memory visibility:
+		// - Clear buffer (non-atomic) - must happen first
+		// - Clear seq (atomic release) - provides memory barrier, ensures buffer write visible
+		// - Advance head (atomic) - signals slot is free to producers
 		r.buffer[idx] = nil
 		r.seq[idx].Store(0)
 		r.head.Add(1)
@@ -364,7 +356,7 @@ func (r *MicrotaskRing) Pop() func() {
 
 	// Ring empty, check overflow buffer
 	if !r.overflowPending.Load() {
-		return nil // Fast path: no overflow items
+		return nil
 	}
 
 	r.overflowMu.Lock()
@@ -382,14 +374,13 @@ func (r *MicrotaskRing) Pop() func() {
 	r.overflowHead++
 
 	// Compact overflow slice if more than half is consumed
-	if r.overflowHead > len(r.overflow)/2 && r.overflowHead > 512 {
+	if r.overflowHead > len(r.overflow)/2 && r.overflowHead > ringOverflowCompactThreshold {
 		remaining := len(r.overflow) - r.overflowHead
 		copy(r.overflow, r.overflow[r.overflowHead:])
 		r.overflow = r.overflow[:remaining]
 		r.overflowHead = 0
 	}
 
-	// Clear pending flag if overflow is now empty
 	if r.overflowHead >= len(r.overflow) {
 		r.overflowPending.Store(false)
 	}
@@ -416,11 +407,6 @@ func (r *MicrotaskRing) Length() int {
 
 // IsEmpty returns true if the ring buffer and overflow are empty.
 // Note: May have false negatives under concurrent modification.
-//
-// IMPORTANT: This uses len(r.overflow) - r.overflowHead to properly account for
-// the FIFO head pointer, consistent with Length() method. The overflow slice is
-// not immediately compacted after pops; instead, overflowHead advances, and
-// compaction occurs lazily (see Pop()).
 func (r *MicrotaskRing) IsEmpty() bool {
 	head := r.head.Load()
 	tail := r.tail.Load()
@@ -430,18 +416,13 @@ func (r *MicrotaskRing) IsEmpty() bool {
 	}
 
 	r.overflowMu.Lock()
-	// BUG FIX (2026-01-17): Previously checked len(r.overflow) == 0, which was
-	// incorrect when overflow had been partially drained (overflowHead > 0).
-	// Must check effective count: len(overflow) - overflowHead == 0.
+	// Must check effective count to properly account for the FIFO head pointer.
+	// len(r.overflow) might not be 0 even if drained, until compaction.
 	empty := len(r.overflow)-r.overflowHead == 0
 	r.overflowMu.Unlock()
 
 	return empty
 }
-
-// ============================================================================
-// WEAK POINTER UTILITIES
-// ============================================================================
 
 // Force import of weak package
 var _ weak.Pointer[int]
