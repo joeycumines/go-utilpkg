@@ -37,7 +37,7 @@ type loopTestHooks struct {
 	PrePollSleep           func() // Called before CAS to StateSleeping
 	PrePollAwake           func() // Called before CAS back to StateRunning
 	OnFastPathEntry        func() // Called when entering fast path (runFastPath or direct exec)
-	AfterOptimisticCheck   func() // Called after STEP 1 optimistic check, before STEP 2 Swap
+	AfterOptimisticCheck   func() // Called after optimistic check, before Swap
 	BeforeFastPathRollback func() // Called before attempting to rollback fast path mode
 }
 
@@ -57,123 +57,84 @@ const (
 	FastPathDisabled
 )
 
-// Loop is the "Maximum Performance" event loop implementation.
+// Loop is a high-performance event loop implementation.
 //
-// PERFORMANCE: Prioritizes throughput and low latency:
-//   - Mutex+chunked ingress queue (ChunkedIngress) - outperforms lock-free under contention
-//   - Direct FD indexing (no map lookups)
+// It prioritizes throughput and low latency using:
+//   - Mutex+chunked ingress queue (ChunkedIngress) which outperforms lock-free under contention
+//   - Direct FD indexing
 //   - Inline callback execution
-//   - Cache-line padding for hot fields
 //
-// This implementation includes all features from the original Main:
-//   - Timer heap (ScheduleTimer)
-//   - Promise registry (Promisify support)
-//   - StrictMicrotaskOrdering option
-//   - OnOverload callback
-//   - testHooks for deterministic testing
-//
-// Note on ingress design: We switched from lock-free CAS to mutex+chunking because
-// benchmarks showed mutex outperforms lock-free under high contention. Lock-free CAS
-// causes O(N) retry storms when N producers compete, while mutex serializes cleanly.
-// Chunking (128 tasks per chunk) provides cache locality and amortizes allocation.
-type Loop struct { // betteralign:ignore
-	// Prevent copying
-	_ [0]func()
-
-	// Phase 2: Registry
-	registry *registry
-
-	// HOOKS: Test hooks for deterministic race testing
-	testHooks *loopTestHooks
-
-	// D17: Overload callback
-	OnOverload func(error)
-
-	// State machine (cache-line padded internally)
-	state *FastState
-
-	// Ingress queues
-	external   *ChunkedIngress // External tasks (mutex+chunked for performance)
-	internal   *ChunkedIngress // Internal priority tasks
-	microtasks *MicrotaskRing  // Microtask ring buffer
-
-	// Phase 3: Timers
-	timers timerHeap
-
-	// I/O poller (zero-lock FastPoller)
-	poller FastPoller
-
-	// Synchronization
-	stopOnce  sync.Once
-	closeOnce sync.Once // DEFECT #7 FIX: Ensures closeFDs is called exactly once
-
-	// promisifyWg tracks in-flight Promisify goroutines.
-	promisifyWg sync.WaitGroup
-
-	// Wake-up mechanism (pipe-based, triggers I/O event)
-	wakePipe      int
-	wakePipeWrite int
-	wakeBuf       [8]byte
-
-	// Fast wakeup channel for task-only mode (no user I/O FDs)
-	// When userIOFDCount is 0, we use channel-based wakeup (~50ns)
-	// instead of pipe-based wakeup (~10µs) for maximum performance.
-	fastWakeupCh  chan struct{}
-	userIOFDCount atomic.Int32 // Number of user-registered I/O FDs (excludes wake pipe)
-
-	// Timing
-	tickAnchorMu    sync.RWMutex // Protects tickAnchor from concurrent access
-	tickAnchor      time.Time    // Reference time for monotonicity (initialized once, never changes)
-	tickElapsedTime atomic.Int64 // Nanoseconds offset from anchor (monotonic, atomic for thread safety)
-
-	// Goroutine tracking
-	loopGoroutineID atomic.Uint64
-	tickCount       uint64
-
-	// Loop ID
-	id uint64
-
-	// Loop termination signaling
-	loopDone chan struct{}
-
-	// External queue mutex - used for atomic state-check-and-push pattern
-	// This eliminates the need for inflight counters in Submit()
-	externalMu sync.Mutex
-
-	// Internal queue mutex - used for atomic state-check-and-push pattern
-	internalQueueMu sync.Mutex
+// Design note: Mutex+chunking is used for ingress because benchmarks showed it outperforms
+// lock-free CAS under high contention due to O(N) retry storms.
+type Loop struct {
+	_ [0]func() // Prevent copying
 
 	// Task batch buffer (avoid allocation)
 	batchBuf [256]func()
 
-	// GOJA-STYLE QUEUE: Simple slice-based queue (bypasses ChunkedIngress in fast mode)
-	// This is the EXACT pattern from goja_nodejs eventloop:
-	//   auxJobs      []func()  - the active queue (producers append here)
-	//   auxJobsSpare []func()  - empty buffer for swap (consumers drain here)
-	//
-	// Submit: mutex.Lock() → append(auxJobs, task) → mutex.Unlock() → wakeup
-	// Drain:  mutex.Lock() → swap(auxJobs, auxJobsSpare) → mutex.Unlock() → execute all
-	//
-	// This achieves ~500ns latency by:
-	//   1. Single append per submit (no chunk management)
-	//   2. Single lock per batch drain (not per task)
-	//   3. Zero allocations in steady state (buffer reuse)
+	tickAnchor time.Time // Reference time for monotonicity
+
+	registry   *registry
+	testHooks  *loopTestHooks
+	OnOverload func(error)
+
+	// State machine (internally padded)
+	state *FastState
+
+	external   *ChunkedIngress // External tasks (mutex+chunked)
+	internal   *ChunkedIngress // Internal priority tasks
+	microtasks *MicrotaskRing  // Microtask ring buffer
+
+	// Fast wakeup channel for task-only mode (no user I/O FDs).
+	// Used instead of pipe-based wakeup for lower latency (~50ns vs ~10µs).
+	fastWakeupCh chan struct{}
+	loopDone     chan struct{}
+
+	timers timerHeap
+
+	// Simple slice-based queue (bypasses ChunkedIngress in fast mode).
+	// auxJobs is the active queue (producers append here).
+	// auxJobsSpare is the empty buffer for swap (consumers drain here).
 	auxJobs      []func()
 	auxJobsSpare []func()
 
+	poller FastPoller
+
+	promisifyWg sync.WaitGroup
+
+	// Wake-up mechanism (pipe-based, triggers I/O event)
+	wakePipe        int
+	wakePipeWrite   int
+	tickElapsedTime atomic.Int64 // Nanoseconds offset from anchor
+
+	loopGoroutineID atomic.Uint64
+	tickCount       uint64
+	id              uint64
+
+	fastPathEntries atomic.Int64
+	fastPathSubmits atomic.Int64
+
+	tickAnchorMu sync.RWMutex // Protects tickAnchor
+
+	stopOnce  sync.Once
+	closeOnce sync.Once // Ensures closeFDs is called exactly once
+
+	// External queue mutex - used for atomic state-check-and-push pattern.
+	externalMu sync.Mutex
+
+	// Internal queue mutex - used for atomic state-check-and-push pattern.
+	internalQueueMu sync.Mutex
+
+	userIOFDCount atomic.Int32 // Number of user-registered I/O FDs (excludes wake pipe)
+
 	wakeUpSignalPending atomic.Uint32 // Wake-up deduplication
 
-	// DEBUG: Counter for tracking fast path entries (for testing)
-	fastPathEntries atomic.Int64
-	// DEBUG: Counter for tracking fast path submits
-	fastPathSubmits atomic.Int64
+	fastPathMode atomic.Int32
+	wakeBuf      [8]byte
 
 	forceNonBlockingPoll bool
 
-	// StrictMicrotaskOrdering controls the timing of the microtask barrier.
 	StrictMicrotaskOrdering bool
-	// Fast path mode selection (see FastPathMode constants)
-	fastPathMode atomic.Int32
 }
 
 // timer represents a scheduled task
@@ -204,7 +165,7 @@ func (h *timerHeap) Pop() any {
 
 var loopIDCounter atomic.Uint64
 
-// New creates a new performance-first event loop with full feature set.
+// New creates a new event loop.
 func New() (*Loop, error) {
 	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
 	if err != nil {
@@ -212,27 +173,20 @@ func New() (*Loop, error) {
 	}
 
 	loop := &Loop{
-		id:         loopIDCounter.Add(1),
-		state:      NewFastState(),
-		external:   NewChunkedIngress(),
-		internal:   NewChunkedIngress(),
-		microtasks: NewMicrotaskRing(),
-		registry:   newRegistry(),
-		timers:     make(timerHeap, 0),
-
-		// Pipe-based wakeup for thread-safe signaling (used when I/O FDs registered)
+		id:            loopIDCounter.Add(1),
+		state:         NewFastState(),
+		external:      NewChunkedIngress(),
+		internal:      NewChunkedIngress(),
+		microtasks:    NewMicrotaskRing(),
+		registry:      newRegistry(),
+		timers:        make(timerHeap, 0),
 		wakePipe:      wakeFd,
 		wakePipeWrite: wakeWriteFd,
-
-		// Fast channel-based wakeup (used when no user I/O FDs)
 		// Buffer size 1 prevents blocking on send when channel is full
 		fastWakeupCh: make(chan struct{}, 1),
-
-		// Initialize loopDone here to avoid data race with shutdownImpl
-		loopDone: make(chan struct{}),
+		loopDone:     make(chan struct{}),
 	}
 
-	// Initialize poller
 	if err := loop.poller.Init(); err != nil {
 		_ = unix.Close(wakeFd)
 		if wakeWriteFd != wakeFd {
@@ -241,7 +195,6 @@ func New() (*Loop, error) {
 		return nil, err
 	}
 
-	// Register wake pipe
 	if err := loop.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
 		loop.drainWakeUpPipe()
 	}); err != nil {
@@ -263,74 +216,38 @@ func New() (*Loop, error) {
 //   - FastPathForced: Always uses fast path (returns error if I/O FDs present).
 //   - FastPathDisabled: Always uses poll path (for debugging/testing).
 //
-// SetFastPathMode sets the fast path mode for this loop.
-//
-// Modes:
-//   - FastPathAuto (default): Automatically use fast path when no I/O FDs.
-//   - FastPathForced: Always use fast path. Incompatible with registered I/O FDs.
-//   - FastPathDisabled: Always use poll path (for debugging/testing).
-//
 // Invariant: When mode is FastPathForced, userIOFDCount must be 0.
-//   - SetFastPathMode(FastPathForced) with FDs registered → ErrFastPathIncompatible
-//   - RegisterFD when mode is FastPathForced → ErrFastPathIncompatible
 //
-// Thread Safety: Safe to call concurrently with RegisterFD using Store-Load barrier.
-// Concurrent operations use optimistic stores with CAS-based rollback on conflict.
-// The rollback uses CompareAndSwap to prevent overwriting concurrent mode changes.
+// Thread Safety: Safe to call concurrently with RegisterFD.
+// Uses optimistic stores with CAS-based rollback on conflict.
 //
-// ABA Race Mitigation - ACCEPTED TRADE-OFF:
-// When SetFastPathMode is called concurrently with RegisterFD (misuse pattern),
-// the CAS-based rollback provides a safe final state but may have de-synchronization
-// from the caller's perspective:
-//
-//  1. At least one operation returns ErrFastPathIncompatible (guaranteed)
-//  2. Final mode is NEVER FastPathForced when count > 0 (safety guaranteed)
-//  3. However, final mode may be either FastPathAuto OR FastPathDisabled (both safe)
-//  4. The specific operation that failed may not correspond to final state ordering
-//
-// This trade-off only occurs when SetFastPathMode and RegisterFD race across
-// goroutines (misuse). Proper usage synchronizes mode changes with FD registration.
-// The alternative (full write serialization) would harm performance for proper usage.
-//
-// Returns ErrFastPathIncompatible if trying to force fast path with I/O FDs registered.
+// ABA Race Mitigation:
+// When SetFastPathMode is called concurrently with RegisterFD, the CAS-based rollback
+// ensures a safe final state, though it may result in a transient state where
+// one operation returns an error but the final state is safe (not Force + FDs).
 func (l *Loop) SetFastPathMode(mode FastPathMode) error {
-	// STEP 1: Optimistic Check (Optimization only)
-	// Fast rejection if mode is impossible at current count
+	// Optimistic Check
 	if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
 		return ErrFastPathIncompatible
 	}
 
-	// HOOK: Injection point to simulate race with RegisterFD
-	// This allows deterministic testing of the rollback path by
-	// incrementing count between the optimistic check and the Swap.
+	// Hook to simulate race with RegisterFD
 	if l.testHooks != nil && l.testHooks.AfterOptimisticCheck != nil {
 		l.testHooks.AfterOptimisticCheck()
 	}
 
-	// STEP 2: Store Mode FIRST (CRITICAL: Establishes Store-Load barrier)
-	// This is the "Act" phase. Atomically swap in the new mode and capture
-	// the previous mode so we can restore it on rollback if needed.
+	// Store Mode FIRST (Establishes Store-Load barrier)
 	prev := FastPathMode(l.fastPathMode.Swap(int32(mode)))
 
-	// STEP 3: Verification/Validation (After Store)
-	// Now that mode is stored, re-check count. If RegisterFD raced between
-	// STEP 1 and STEP 2, it would have incremented count after our check
-	// but it MUST see our stored mode in its validation. However, there's
-	// still a theoretical window where RegisterFD saw old mode but hasn't
-	// validated yet. By checking again here, we detect if we created
-	// an inconsistent state.
+	// Verification/Validation (After Store)
 	countAfterSwap := l.userIOFDCount.Load()
 	if mode == FastPathForced && countAfterSwap > 0 {
-		// Call test hook if present (for deterministic race testing)
 		if l.testHooks != nil && l.testHooks.BeforeFastPathRollback != nil {
 			l.testHooks.BeforeFastPathRollback()
 		}
 
-		// Invariant violated: We stored Forced but count > 0
-		// Restore the previous mode and return error
-		// FIX: Use CompareAndSwap to prevent lost update bug.
-		// If current state is no longer 'mode', it means another
-		// SetFastPathMode already intervened and we must not overwrite it.
+		// Invariant violated: We stored Forced but count > 0.
+		// Use CompareAndSwap to restore previous mode if it hasn't changed since.
 		if !l.fastPathMode.CompareAndSwap(int32(mode), int32(prev)) {
 			// CAS failed: another goroutine changed mode after us.
 			// Their write wins, so we just return error without rollback.
@@ -339,9 +256,7 @@ func (l *Loop) SetFastPathMode(mode FastPathMode) error {
 		return ErrFastPathIncompatible
 	}
 
-	// STEP 4: Liveness - Wake the loop
-	// If loop is sleeping in poll() or channel receive, wake it
-	// so it immediately re-evaluates the mode and applies the change.
+	// Wake the loop so it immediately re-evaluates the mode.
 	l.doWakeup()
 
 	return nil
@@ -363,7 +278,6 @@ func (l *Loop) canUseFastPath() bool {
 
 // Run runs the event loop and blocks until fully stopped.
 //
-// Run blocks until the loop terminates (via Shutdown(), Close(), or ctx cancellation).
 // To run in a separate goroutine, use: `go loop.Run(ctx)`.
 func (l *Loop) Run(ctx context.Context) error {
 	if l.isLoopThread() {
@@ -381,20 +295,17 @@ func (l *Loop) Run(ctx context.Context) error {
 	// Close loopDone when run exits to signal completion to Shutdown waiters
 	defer close(l.loopDone)
 
-	// Initialize timing anchor - this is our reference point for monotonic time
 	l.tickAnchorMu.Lock()
 	l.tickAnchor = time.Now()
 	l.tickAnchorMu.Unlock()
 	l.tickElapsedTime.Store(0)
 
-	// Run the loop directly (blocking)
-	return l.run(ctx)
+	return l.run(ctx) // blocking
 }
 
 // Shutdown gracefully shuts down the event loop.
 //
-// Shutdown initiates graceful shutdown that waits for all queued tasks to complete.
-// It blocks until termination completes or ctx expires.
+// It waits for all queued tasks to complete.
 func (l *Loop) Shutdown(ctx context.Context) error {
 	var result error
 	l.stopOnce.Do(func() {
@@ -421,14 +332,14 @@ func (l *Loop) shutdownImpl(ctx context.Context) error {
 				return nil
 			}
 
-			// ALWAYS wake up the loop - in fast path mode, the loop may be
+			// Wake up the loop - in fast path mode, the loop may be
 			// blocking on fastWakeupCh without transitioning to StateSleeping
 			l.doWakeup()
 			break
 		}
 	}
 
-	// Wait for termination via channel, NOT polling
+	// Wait for termination
 	select {
 	case <-l.loopDone:
 		return nil
@@ -439,11 +350,9 @@ func (l *Loop) shutdownImpl(ctx context.Context) error {
 
 // run is the main loop goroutine.
 func (l *Loop) run(ctx context.Context) error {
-	// NOTE: We do NOT call runtime.LockOSThread() here anymore!
 	// Thread locking is only needed when using the I/O poller (kqueue/epoll).
 	// In fast path mode (no I/O FDs), we use pure Go channels which don't
-	// require thread affinity. This avoids the ~10µs overhead of cross-thread
-	// signaling when the goroutine is pinned to an OS thread.
+	// require thread affinity.
 	//
 	// Thread locking is deferred to tick() when it actually polls for I/O.
 	var osThreadLocked bool
@@ -462,7 +371,6 @@ func (l *Loop) run(ctx context.Context) error {
 	}()
 	defer close(ctxDone)
 
-	// Deferred unlock if we locked the thread
 	defer func() {
 		if osThreadLocked {
 			runtime.UnlockOSThread()
@@ -470,7 +378,6 @@ func (l *Loop) run(ctx context.Context) error {
 	}()
 
 	for {
-		// Check context for external cancellation
 		select {
 		case <-ctx.Done():
 			// Context cancelled, initiate shutdown via CAS
@@ -491,17 +398,13 @@ func (l *Loop) run(ctx context.Context) error {
 		default:
 		}
 
-		// Check termination
 		if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
 			l.shutdown()
 			return nil
 		}
 
-		// LATENCY OPTIMIZATION: Use fast-path loop when appropriate.
-		// This bypasses the full tick machinery for task-only workloads,
-		// achieving Baseline-level latency (~500ns vs ~10,000ns with full tick).
+		// Use fast-path loop for task-only workloads (~500ns execution vs ~10µs with full tick).
 		if l.canUseFastPath() && !l.hasTimersPending() && !l.hasInternalTasks() {
-			// Fast-path: tight loop for external tasks only
 			if l.runFastPath(ctx) {
 				// Fast path completed or needs mode switch - continue to check termination
 				continue
@@ -509,9 +412,7 @@ func (l *Loop) run(ctx context.Context) error {
 			// Fall through to regular tick for feature transition
 		}
 
-		// THREAD LOCK: Lock to OS thread before using I/O poller.
-		// kqueue/epoll require thread affinity for correctness.
-		// We defer this until needed to avoid the ~10µs overhead in fast path.
+		// Lock to OS thread before using I/O poller if needed.
 		if !osThreadLocked {
 			runtime.LockOSThread()
 			osThreadLocked = true
@@ -521,19 +422,12 @@ func (l *Loop) run(ctx context.Context) error {
 	}
 }
 
-// runFastPath is a GOJA-STYLE tight loop for task-only workloads.
+// runFastPath is a tight loop for task-only workloads associated with "fast path" mode.
 // Returns true if the loop should continue (check termination), false if should use tick.
 //
-// DESIGN: Mimics goja's eventloop.run() for maximum performance:
-// - Simple blocking select (no CAS state transitions in hot path)
-// - Atomic batch swap: grab all pending tasks under single lock, then execute
-// - Only exit fast path when features requiring tick() become active
-//
-// This achieves near-parity with Baseline's ~500ns latency by:
-// - Using batch swap (like goja) for task draining
-// - Maintaining state transitions for correct shutdown semantics
+// It uses a simple blocking select (no CAS transitions in hot path) and atomic batch swap,
+// achieving very low latency for pure task workloads.
 func (l *Loop) runFastPath(ctx context.Context) bool {
-	// DEBUG: Track fast path entry
 	l.fastPathEntries.Add(1)
 	if l.testHooks != nil && l.testHooks.OnFastPathEntry != nil {
 		l.testHooks.OnFastPathEntry()
@@ -542,26 +436,17 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 	// Initial drain before entering the main select loop
 	l.runAux()
 
-	// CRITICAL: Check termination after initial drain (Issue #4 fix)
+	// Check termination after initial drain
 	if l.state.Load() >= StateTerminating {
 		return true
 	}
 
-	// GOJA-STYLE LOOP: Simple blocking select with batch drain
-	// This is the EXACT pattern from goja_nodejs eventloop.run():
-	//   for {
-	//       select {
-	//       case <-wakeupChan:
-	//           runAux()  // batch swap + execute
-	//       }
-	//   }
 	for {
 		select {
 		case <-ctx.Done():
 			return true
 
 		case <-l.fastWakeupCh:
-			// GOJA-STYLE BATCH DRAIN
 			l.runAux()
 
 			// Check for shutdown
@@ -570,7 +455,6 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 			}
 
 			// Check if we need to switch to poll path (e.g., I/O FDs registered)
-			// This ensures proper mode transition when canUseFastPath() becomes false.
 			if !l.canUseFastPath() {
 				return false // exit to main loop to switch to poll path
 			}
@@ -578,28 +462,13 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 	}
 }
 
-// runAux is the EXACT goja pattern for batch draining.
-// From goja_nodejs/eventloop/eventloop.go:
+// runAux drains the auxJobs queue (fast path submits), internal queue, and microtasks.
 //
-//	func (loop *EventLoop) runAux() {
-//	    loop.auxJobsLock.Lock()
-//	    jobs := loop.auxJobs
-//	    loop.auxJobs = loop.auxJobsSpare
-//	    loop.auxJobsLock.Unlock()
-//	    for i, job := range jobs {
-//	        job()
-//	        jobs[i] = nil
-//	    }
-//	    loop.auxJobsSpare = jobs[:0]
-//	}
-//
-// This achieves ~500ns latency by:
+// It achieves low latency by:
 //   - Single lock per batch (not per task)
-//   - Simple slice swap (no chunk management)
-//   - Execute without holding lock
-//   - Buffer reuse (zero allocations in steady state)
-//
-// EXTENSION: Also drains internal queue (for SubmitInternal) and microtasks.
+//   - Simple slice swap
+//   - Execution without holding lock
+//   - Buffer reuse
 func (l *Loop) runAux() {
 	// Drain auxJobs (external Submit in fast path mode)
 	l.externalMu.Lock()
@@ -611,7 +480,6 @@ func (l *Loop) runAux() {
 		l.safeExecute(job)
 		jobs[i] = nil // Clear for GC
 
-		// FIX 1: Respect StrictMicrotaskOrdering
 		if l.StrictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
@@ -632,14 +500,13 @@ func (l *Loop) runAux() {
 	// Drain microtasks (standard pass)
 	l.drainMicrotasks()
 
-	// FIX 2: Prevent Stalling on Budget Overflow
 	// If microtasks remain (budget exceeded), signal the loop to run again immediately.
 	// This prevents blocking in the runFastPath select statement.
 	if !l.microtasks.IsEmpty() {
 		select {
 		case l.fastWakeupCh <- struct{}{}:
 		default:
-			// Channel full means wake-up is already pending, which is fine.
+			// Channel full means wake-up is already pending
 		}
 	}
 }
@@ -660,7 +527,7 @@ func (l *Loop) hasInternalTasks() bool {
 
 // shutdown performs the shutdown sequence.
 func (l *Loop) shutdown() {
-	// C4 FIX: Wait briefly for in-flight Promisify goroutines FIRST
+	// Wait briefly for in-flight Promisify goroutines FIRST
 	// This ensures their SubmitInternal calls complete before we drain queues
 	promisifyDone := make(chan struct{})
 	go func() {
@@ -672,20 +539,18 @@ func (l *Loop) shutdown() {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	// CRITICAL: Set state to Terminated FIRST to prevent new tasks from being accepted.
+	// Set state to Terminated FIRST to prevent new tasks from being accepted.
 	// Any Submit that checked state before this will push a task, and we'll catch it
 	// in the drain below. Any Submit that checks state after will be rejected.
 	l.state.Store(StateTerminated)
 
 	// Drain loop: continue until all queues are empty for multiple consecutive checks.
-	// With mutex-based synchronization, we don't need inflight counters - once we
-	// hold the mutex and see the queue is empty, no new tasks can appear.
 	emptyChecks := 0
 	const requiredEmptyChecks = 3 // Need multiple consecutive empty checks
 	for emptyChecks < requiredEmptyChecks {
 		drained := false
 
-		// Drain internal queue (with mutex)
+		// Drain internal queue
 		for {
 			l.internalQueueMu.Lock()
 			task, ok := l.internal.Pop()
@@ -697,7 +562,7 @@ func (l *Loop) shutdown() {
 			drained = true
 		}
 
-		// Drain external queue (with mutex)
+		// Drain external queue
 		for {
 			l.externalMu.Lock()
 			task, ok := l.external.Pop()
@@ -709,7 +574,7 @@ func (l *Loop) shutdown() {
 			drained = true
 		}
 
-		// Drain fast path queue (auxJobs) - used in fast path mode
+		// Drain fast path queue (auxJobs)
 		l.externalMu.Lock()
 		jobs := l.auxJobs
 		l.auxJobs = l.auxJobsSpare
@@ -732,10 +597,10 @@ func (l *Loop) shutdown() {
 		}
 
 		if drained {
-			emptyChecks = 0 // Reset if we drained any tasks
+			emptyChecks = 0
 		} else {
 			emptyChecks++
-			runtime.Gosched() // Yield to let any racing submits complete
+			runtime.Gosched()
 		}
 	}
 
@@ -749,39 +614,27 @@ func (l *Loop) shutdown() {
 func (l *Loop) tick() {
 	l.tickCount++
 
-	// D6 FIX: Update elapsed monotonic time offset from anchor
-	// time.Since(tickAnchor) uses the monotonic clock when available,
-	// ensuring accuracy even if wall-clock is adjusted (e.g., NTP)
-	//
-	// BUG FIX (2026-01-17): Must read tickAnchor under RLock to prevent
-	// data race with SetTickAnchor() which writes under Lock.
-	// See: CurrentTickTime() and TickAnchor() for consistent locking pattern.
+	// Update elapsed monotonic time offset from anchor
 	l.tickAnchorMu.RLock()
 	anchor := l.tickAnchor
 	l.tickAnchorMu.RUnlock()
 	elapsed := time.Since(anchor)
 	l.tickElapsedTime.Store(int64(elapsed))
 
-	// Execute expired timers
 	l.runTimers()
 
-	// Process internal tasks (priority)
 	l.processInternalQueue()
 
-	// Process external tasks with budget
 	l.processExternal()
 
-	// Process microtasks
 	l.drainMicrotasks()
 
-	// Poll for I/O
 	l.poll()
 
-	// Final microtask pass
 	l.drainMicrotasks()
 
 	// Scavenge registry - limit per tick to avoid stalling
-	const registryScavengeLimit = 20 // Max completed promises to clean up per tick
+	const registryScavengeLimit = 20
 	l.registry.Scavenge(registryScavengeLimit)
 }
 
@@ -830,14 +683,12 @@ func (l *Loop) processExternal() {
 		l.safeExecute(l.batchBuf[i])
 		l.batchBuf[i] = nil // Clear for GC
 
-		// Strict microtask ordering
 		if l.StrictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}
 
-	// D17: Emit overload signal if more tasks remain after budget
-	// Use defer/recover to protect against panicking callbacks (Issue #7 fix)
+	// Emit overload signal if more tasks remain after budget
 	if remainingTasks > 0 && l.OnOverload != nil {
 		func() {
 			defer func() {
@@ -865,12 +716,9 @@ func (l *Loop) drainMicrotasks() {
 
 // poll performs blocking I/O poll with fast task wakeup optimization.
 //
-// The poll() function uses two wakeup strategies:
+// It uses two wakeup strategies:
 // 1. FAST MODE (no user I/O FDs): Blocks on fastWakeupCh channel (~50ns latency)
 // 2. I/O MODE (user I/O FDs registered): Blocks on kqueue/epoll (~10µs latency)
-//
-// This hybrid approach matches Baseline's performance for task-only workloads
-// while still supporting I/O event notification when needed.
 func (l *Loop) poll() {
 	currentState := l.state.Load()
 	if currentState != StateRunning {
@@ -881,12 +729,11 @@ func (l *Loop) poll() {
 	forced := l.forceNonBlockingPoll
 	l.forceNonBlockingPoll = false
 
-	// HOOKS: Call test hook before state transition
 	if l.testHooks != nil && l.testHooks.PrePollSleep != nil {
 		l.testHooks.PrePollSleep()
 	}
 
-	// PERFORMANCE: Optimistic state transition
+	// Optimistic state transition
 	if !l.state.TryTransition(StateRunning, StateSleeping) {
 		return
 	}
@@ -905,7 +752,6 @@ func (l *Loop) poll() {
 		return
 	}
 
-	// Check for termination before blocking poll
 	if l.state.Load() == StateTerminating {
 		return
 	}
@@ -916,43 +762,26 @@ func (l *Loop) poll() {
 		timeout = 0
 	}
 
-	// CRITICAL FIX: Check for termination AGAIN after calculating timeout
-	// but BEFORE blocking in poll. This prevents a race condition where:
-	// 1. poll() checks StateTerminating (false)
-	// 2. poll() calculates timeout
-	// 3. Shutdown sets StateTerminating and calls doWakeup()
-	// 4. poll() blocks in PollIO() for the full timeout duration
-	// This causes Shutdown() to hang waiting for loopDone.
+	// Check for termination AGAIN after calculating timeout
+	// but BEFORE blocking in poll. This prevents racing with Shutdown.
 	if l.state.Load() == StateTerminating {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// FAST MODE: No user I/O FDs registered - use channel-based wakeup
-	// This matches Baseline's ~500ns latency for task-only workloads.
-	//
-	// NOTE: When userIOFDCount == 0, we use channel-based wakeup regardless
-	// of FastPathMode setting (including FastPathDisabled). This is a
-	// performance optimization separate from the mode selection. FastPathDisabled
-	// only affects canUseFastPath() logic in the main loop, forcing the loop
-	// to call poll() instead of runFastPath() even when count=0.
 	if l.userIOFDCount.Load() == 0 {
 		l.pollFastMode(timeout)
 		return
 	}
 
-	// I/O MODE: User FDs registered - must use kqueue for I/O events
-	// Block on I/O poll - this is woken by:
-	// 1. Wake pipe write from Submit()/SubmitInternal()
-	// 2. Registered FD events
-	// 3. Timeout expiry
+	// I/O MODE: User FDs registered - must use kqueue/epoll
 	_, err := l.poller.PollIO(timeout)
 	if err != nil {
 		l.handlePollError(err)
 		return
 	}
 
-	// HOOKS: Call test hook after poll
 	if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
 		l.testHooks.PrePollAwake()
 	}
@@ -976,7 +805,7 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	default:
 	}
 
-	// CRITICAL FIX: Check for termination BEFORE blocking in pollFastMode
+	// Check for termination BEFORE blocking in pollFastMode
 	// This prevents a race where shutdown happens after the channel drain
 	// but before we block, causing us to sleep indefinitely.
 	if l.state.Load() == StateTerminating {
@@ -993,14 +822,10 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 		return
 	}
 
-	// OPTIMIZATION: For long timeouts (>=1 second), just block indefinitely.
-	// This avoids timer allocation overhead. The loop will be woken by:
-	// 1. Task wakeup via fastWakeupCh
-	// 2. Shutdown/context cancellation also sends to fastWakeupCh
-	// Timer expiry is less critical - we can check on next tick.
+	// For long timeouts (>=1 second), just block indefinitely.
+	// This avoids timer allocation overhead.
 	if timeoutMs >= 1000 {
-		// CRITICAL FIX: Check termination before indefinite block
-		// Even long timeout should check termination immediately
+		// Check termination before indefinite block
 		if l.state.Load() == StateTerminating {
 			l.state.TryTransition(StateSleeping, StateRunning)
 			return
@@ -1016,7 +841,7 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	}
 
 	// Short timeout - use timer
-	// CRITICAL FIX: Check termination before timer-protected block
+	// Check termination before timer-protected block
 	if l.state.Load() == StateTerminating {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
@@ -1029,7 +854,6 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	case <-timer.C:
 	}
 
-	// HOOKS: Call test hook after poll
 	if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
 		l.testHooks.PrePollAwake()
 	}
@@ -1068,7 +892,7 @@ func (l *Loop) drainWakeUpPipe() {
 // Safe to call concurrently during shutdown - pipe write errors during shutdown are
 // gracefully handled by callers.
 func (l *Loop) submitWakeup() error {
-	// D10 FIX: Check state and reject ONLY if fully terminated
+	// Check state and reject ONLY if fully terminated
 	// We MUST allow wake-up during StateTerminating so the loop can
 	// drain queued tasks and complete shutdown
 	state := l.state.Load()
@@ -1077,7 +901,7 @@ func (l *Loop) submitWakeup() error {
 		return ErrLoopTerminated
 	}
 
-	// PERFORMANCE: Native endianness, no binary.LittleEndian overhead
+	// Internal optimization: Native endianness, no binary.LittleEndian overhead
 	var one uint64 = 1
 	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
 
@@ -1095,10 +919,8 @@ func (l *Loop) submitWakeup() error {
 //   - StateSleeping/StateRunning: normal operation
 //
 // Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
-// This eliminates the need for inflight counters and provides better
-// performance than lock-free CAS under high contention (proven in benchmarks).
 func (l *Loop) Submit(task func()) error {
-	// FAST PATH: Check fast mode conditions BEFORE taking lock
+	// Check fast mode conditions BEFORE taking lock
 	// This avoids atomic loads inside the critical section.
 	fastMode := l.canUseFastPath()
 
@@ -1112,7 +934,7 @@ func (l *Loop) Submit(task func()) error {
 		return ErrLoopTerminated
 	}
 
-	// GOJA-STYLE FAST PATH: Simple append to auxJobs slice
+	// Fast path: Simple append to auxJobs slice
 	if fastMode {
 		l.fastPathSubmits.Add(1)
 		l.auxJobs = append(l.auxJobs, task)
@@ -1126,11 +948,11 @@ func (l *Loop) Submit(task func()) error {
 		return nil
 	}
 
-	// NON-FAST PATH: Use ChunkedIngress for I/O mode
+	// Normal path: Use ChunkedIngress for I/O mode
 	l.external.Push(task)
 	l.externalMu.Unlock()
 
-	// I/O MODE: Need more careful wakeup with deduplication
+	// I/O Mode: Need more careful wakeup with deduplication
 	if l.state.Load() == StateSleeping {
 		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
 			l.doWakeup()
@@ -1169,10 +991,9 @@ func (l *Loop) doWakeup() {
 //
 // Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
 func (l *Loop) SubmitInternal(task func()) error {
-	// CRITICAL FIX #1: Fast-path with thread affinity check
-	// The fast path optimization executes tasks immediately instead of queueing them.
+	// Internal fast-path with thread affinity check:
 	// If fast path is enabled, loop is running, AND we're ON the loop thread,
-	// execute immediately. This achieves baseline's low latency (~1-2μs).
+	// execute immediately.
 	state := l.state.Load()
 	if l.canUseFastPath() && state == StateRunning && l.isLoopThread() {
 		// Check external queue length (need to lock for this)
@@ -1180,12 +1001,11 @@ func (l *Loop) SubmitInternal(task func()) error {
 		extLen := l.external.Length()
 		l.externalMu.Unlock()
 		if extLen == 0 {
-			// CRITICAL: Re-check state before execution (Issue #2 fix)
+			// Re-check state before execution.
 			// State could have changed to Terminating/Terminated between checks.
 			if l.state.Load() == StateTerminated {
 				return ErrLoopTerminated
 			}
-			// DEBUG: Track fast path entry
 			l.fastPathEntries.Add(1)
 			if l.testHooks != nil && l.testHooks.OnFastPathEntry != nil {
 				l.testHooks.OnFastPathEntry()
@@ -1210,9 +1030,8 @@ func (l *Loop) SubmitInternal(task func()) error {
 	l.internal.Push(task)
 	l.internalQueueMu.Unlock()
 
-	// FAST PATH FIX: In fast mode, runFastPath blocks on fastWakeupCh while
-	// state remains StateRunning (no transition to StateSleeping). So we
-	// must send to the channel to wake it, not check StateSleeping.
+	// In fast mode, runFastPath blocks on fastWakeupCh while state remains StateRunning
+	// (no transition to StateSleeping). So we must send to the channel to wake it.
 	if l.userIOFDCount.Load() == 0 {
 		select {
 		case l.fastWakeupCh <- struct{}{}:
@@ -1221,7 +1040,7 @@ func (l *Loop) SubmitInternal(task func()) error {
 		return nil
 	}
 
-	// I/O MODE: Wake up the loop if it's sleeping (with deduplication)
+	// I/O Mode: Wake up the loop if it's sleeping (with deduplication)
 	if l.state.Load() == StateSleeping {
 		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
 			l.doWakeup()
@@ -1257,8 +1076,7 @@ func (l *Loop) Wake() error {
 
 // ScheduleMicrotask schedules a microtask.
 //
-// D2 FIX: MicrotaskRing now implements dynamic growth, so Push never fails.
-// Removed error check for full buffer.
+// MicrotaskRing now implements dynamic growth, so Push never fails.
 func (l *Loop) ScheduleMicrotask(fn func()) error {
 	state := l.state.Load()
 	if state == StateTerminated {
@@ -1271,18 +1089,13 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 
 // scheduleMicrotask adds a task to the microtask queue (internal use).
 //
-// D2 FIX: MicrotaskRing now implements dynamic growth, so Push never fails.
-// Removed fallback to SubmitInternal - always push to microtask ring.
+// MicrotaskRing now implements dynamic growth, so Push never fails.
 func (l *Loop) scheduleMicrotask(task func()) {
 	if task != nil {
 		l.microtasks.Push(task)
 	}
 }
 
-// RegisterFD registers a file descriptor for I/O monitoring.
-//
-// When a user FD is registered, the loop switches to pipe-based wakeup mode
-// which has higher latency (~10µs) but supports I/O event notification.
 // RegisterFD registers a file descriptor for I/O event monitoring.
 //
 // Invariant: RegisterFD is incompatible with FastPathForced mode.
@@ -1293,62 +1106,35 @@ func (l *Loop) scheduleMicrotask(task func()) {
 // When a user FD is registered, the loop switches to poll-based mode
 // which has higher latency (~10µs) but supports I/O event notification.
 //
-// CRITICAL: If the loop is sleeping in fast mode (channel-based), we must
-// wake it up so it can switch to I/O mode and start monitoring the new FD.
-// We send to BOTH mechanisms because the loop may be blocked on either one
-// during the mode transition.
-//
 // Thread Safety: Safe to call concurrently with SetFastPathMode.
 // Uses optimistic increment with validation/rollback on conflict.
-//
-// Returns ErrFastPathIncompatible if mode is FastPathForced.
 func (l *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents)) error {
-	// STEP 1: Fast rejection before expensive syscall
-	// Optimization: If mode is already Forced, reject immediately
-	// without making expensive poller syscall.
+	// Fast rejection before expensive syscall.
 	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
 		return ErrFastPathIncompatible
 	}
 
-	// STEP 2: Perform registration with OS/poller (syscall: epoll_ctl/kevent)
-	// This is the actual I/O registration. Failure here means no state change.
+	// Perform registration with OS/poller (syscall: epoll_ctl/kevent)
 	err := l.poller.RegisterFD(fd, events, callback)
 	if err != nil {
 		return err
 	}
 
-	// STEP 3: Increment Count (Store our side of the invariant)
-	// We successfully registered the FD. Now increment count to reflect
-	// that we have an active FD that requires poll()-based wakeup.
+	// Increment count (Store our side of the invariant)
 	l.userIOFDCount.Add(1)
 
-	// NOTE: Between the increment above and the subsequent mode check,
-	// there is a tiny observable window where a concurrent SetFastPathMode
-	// may have stored FastPathForced. A concurrent call to canUseFastPath()
-	// could therefore briefly observe mode==Forced and count==1. This is a
-	// transient, nanoscale window and will be corrected by the rollback
-	// behavior below (which removes the FD and decrements the count).
-
-	// STEP 4: Verify Mode (Load to check secondary state)
-	// After incrementing count, re-check mode. If SetFastPathMode(Forced)
-	// completed and stored the new mode after our initial check but before
-	// our increment, we need to detect it here and rollback.
+	// Verify Mode (Load to check secondary state)
 	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
-		// ROLLBACK: Mode incompatibility detected
-		// CRITICAL FIX #2: Conditional decrement to prevent underflow.
+		// ROLLBACK: Mode incompatibility detected.
 		// Only decrement if UnregisterFD succeeds (we removed the FD).
-		// If UnregisterFD returns ErrFDNotRegistered, another concurrent
-		// UnregisterFD already removed the FD and decremented the count.
 		if err := l.poller.UnregisterFD(fd); err != ErrFDNotRegistered {
 			l.userIOFDCount.Add(-1)
 		}
 		return ErrFastPathIncompatible
 	}
 
-	// STEP 5: Wake loop to apply I/O mode
 	// Successfully registered FD in non-Forced mode. Wake the loop
 	// to transition from fast-path to poll-path if needed.
-	// CRITICAL: Wake the loop so it exits fast path and enters I/O mode.
 	// In fast path, loop blocks on fastWakeupCh while in StateRunning,
 	// so we must always send to the channel when in fast mode.
 	// In I/O mode, loop blocks on kqueue while in StateSleeping.
@@ -1461,7 +1247,7 @@ func (l *Loop) runTimers() {
 
 // ScheduleTimer schedules a task to be executed after the specified delay.
 func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
-	// D6 FIX: Use monotonic time by computing when relative to current tick time
+	// Use monotonic time by computing when relative to current tick time
 	now := l.CurrentTickTime()
 	when := now.Add(delay)
 	t := timer{
@@ -1505,8 +1291,8 @@ func (l *Loop) safeExecuteFn(fn func()) {
 }
 
 // closeFDs closes file descriptors.
-// DEFECT #7 FIX: Uses sync.Once to ensure FDs are only closed once,
-// even if closeFDs is called from multiple paths (shutdown + poll error).
+// Uses sync.Once to ensure FDs are only closed once,
+// even if called from multiple paths (shutdown + poll error).
 func (l *Loop) closeFDs() {
 	l.closeOnce.Do(func() {
 		_ = l.poller.Close()

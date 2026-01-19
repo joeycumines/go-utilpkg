@@ -55,9 +55,9 @@ func (s LoopState) String() string {
 // PERFORMANCE: Uses pure atomic CAS operations with no mutex.
 // Cache-line padding prevents false sharing between cores.
 type FastState struct { // betteralign:ignore
-	_ [64]byte      // Cache line padding (before value) //nolint:unused
-	v atomic.Uint64 // State value
-	_ [56]byte      // Pad to complete cache line (64 - 8 = 56) //nolint:unused
+	_ [sizeOfCacheLine]byte                      // Cache line padding (before value) //nolint:unused
+	v atomic.Uint64                              // State value
+	_ [sizeOfCacheLine - sizeOfAtomicUint64]byte // Pad to complete cache line //nolint:unused
 }
 
 func NewFastState() *FastState {
