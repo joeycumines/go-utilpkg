@@ -498,29 +498,29 @@ func (j *JSRuntimeAdaptor) checkUnhandledRejections() {
 
 | Feature | Gap | Effort | Impact |
 |---------|-----|--------|--------|
-| Promise `.then()` | No callback registration | 80-120 hours | BLOCKER |
+| Promise `.then()` | No callback registration | required sequential subtasks | BLOCKER |
 | Promise `.catch()` | No rejection callbacks | Included in `.then()` | BLOCKER |
 | Promise chaining | `.then()` must return Promise | Included in design | BLOCKER |
-| Promise `.finally()` | Cleanup callbacks | 20-40 hours | HIGH |
-| async/await mapping | Go channels vs JS async | 40-60 hours | HIGH |
+| Promise `.finally()` | Cleanup callbacks | required sequential subtasks | HIGH |
+| async/await mapping | Go channels vs JS async | required sequential subtasks | HIGH |
 
 ### 4.2 Medium Priority (Recommended)
 
 | Feature | Gap | Effort | Impact |
 |---------|-----|--------|--------|
-| `queueMicrotask()` global function | Use `ScheduleMicrotask()` | 20-40 hours | HIGH |
-| `Promise.all()` | Combinator | 40-80 hours | MEDIUM |
-| `Promise.allSettled()` | Combinator | 20-40 hours | MEDIUM |
-| `Promise.race()` | Combinator | 20-40 hours | MEDIUM |
-| `Promise.any()` | Combinator | 20-40 hours | MEDIUM |
+| `queueMicrotask()` global function | Use `ScheduleMicrotask()` | required sequential subtasks | HIGH |
+| `Promise.all()` | Combinator | required sequential subtasks | MEDIUM |
+| `Promise.allSettled()` | Combinator | required sequential subtasks | MEDIUM |
+| `Promise.race()` | Combinator | required sequential subtasks | MEDIUM |
+| `Promise.any()` | Combinator | required sequential subtasks | MEDIUM |
 
 ### 4.3 Low Priority (Nice-to-Have)
 
 | Feature | Gap | Effort | Impact |
 |---------|-----|--------|--------|
-| `unhandledrejection` event | Rejection tracking | 40-60 hours | LOW (debugging) |
-| `rejectionhandled` event | Late catch detection | 20-40 hours | LOW (debugging) |
-| Promise subclassing | Constructor inheritance | 80-120 hours | LOW (rarely used) |
+| `unhandledrejection` event | Rejection tracking | required sequential subtasks | LOW (debugging) |
+| `rejectionhandled` event | Late catch detection | required sequential subtasks | LOW (debugging) |
+| Promise subclassing | Constructor inheritance | required sequential subtasks | LOW (rarely used) |
 
 ---
 
@@ -557,27 +557,24 @@ func (j *JSRuntimeAdaptor) checkUnhandledRejections() {
 ### 5.3 Estimated Effort
 
 **Phase 1 - Core (Mandatory):**
-- `.then()` / `.catch()` implementation: 80 hours
-- Execution order fix: 4 hours
-- Testing: 40 hours
-**Total:** ~124 hours (~16 days, 1 developer)
+- `.then()` / `.catch()` implementation: required sequential subtasks
+- Execution order fix: required sequential subtasks
+- Testing: required sequential subtasks
+**Total:** required sequential subtasks
 
 **Phase 2 - Combinators (High Value):**
-- `Promise.all()` / `Promise.allSettled()`: 60 hours
-- `Promise.race()` / `Promise.any()`: 60 hours
-- Testing: 20 hours
-**Total:** ~140 hours (~18 days, 1 developer)
+- `Promise.all()` / `Promise.allSettled()`: required sequential subtasks
+- `Promise.race()` / `Promise.any()`: required sequential subtasks
+- Testing: required sequential subtasks
+**Total:** required sequential subtasks
 
 **Phase 3 - Full Spec Compliance (Optional):**
-- `queueMicrotask()` global: 40 hours
-- Unhandled rejection tracker: 60 hours
-- Subclassing: 120 hours (low ROI)
-**Total:** ~220 hours (~28 days, 1 developer)
+- `queueMicrotask()` global: required sequential subtasks
+- Unhandled rejection tracker: required sequential subtasks
+- Subclassing: required sequential subtasks (low ROI)
+**Total:** required sequential subtasks
 
-**Timeline:**
-- **MVP (Phase 1):** 16 days (JavaScript Promise support)
-- **Production (Phase 1+2):** 34 days (Full Promise API)
-- **Spec Compliant (All phases):** 62 days (100% Promise spec)
+**Execution Model:** All phases and required subtasks will be executed sequentially in a single session.
 
 ---
 
@@ -596,7 +593,7 @@ func (j *JSRuntimeAdaptor) checkUnhandledRejections() {
 - ❌ **No unhandled rejection tracking** - only Go warning log
 
 ### Verdict
-**⚠️ SUITABLE WITH ADAPTER LAYER (124 hours effort)**
+**⚠️ SUITABLE WITH ADAPTER LAYER (effort: required sequential subtasks)**
 
 The eventloop microtask queue and Go-style Promise implementation provide a **solid foundation** for JavaScript runtime integration. The underlying architecture is correct and performant. However, building a browser-compatible Promise API requires a **significant adapter layer** (`.then()` chaining, Promise combinators, unhandled rejection tracking).
 

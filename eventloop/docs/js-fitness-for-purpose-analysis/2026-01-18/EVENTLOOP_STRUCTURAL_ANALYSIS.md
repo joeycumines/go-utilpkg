@@ -1325,14 +1325,14 @@ func (tm *TimerManager) ClearTimeout(id int64) {
 
 | Component | Complexity | Effort | Notes |
 |-----------|------------|----------|--------|
-| **Basic Task Queue** | Low | 2-4 hours | Simple `Submit()` mapping |
-| **Timer Scheduling** | Medium | 8-12 hours | Need cancellation wrapper |
-| **Microtask Barrier** | Already Complete ✓ | 0 hours | Direct mapping |
-| **Promise Chaining** | High | 16-24 hours | Requires adapter impl |
-| **I/O Integration** | High | 24-40 hours | FD extraction from net.Conn |
-| **Complete Adapter** | Very High | 40-60 hours | All features combined |
+| **Basic Task Queue** | Low | required sequential subtasks | Simple `Submit()` mapping |
+| **Timer Scheduling** | Medium | required sequential subtasks | Need cancellation wrapper |
+| **Microtask Barrier** | Already Complete ✓ | complete | Direct mapping |
+| **Promise Chaining** | High | required sequential subtasks | Requires adapter impl |
+| **I/O Integration** | High | required sequential subtasks | FD extraction from net.Conn |
+| **Complete Adapter** | Very High | required sequential subtasks | All features combined |
 
-**Total Effort Estimate**: 90-140 hours (2.5-3.5 weeks) for full goja integration
+**Total Effort**: required sequential subtasks for full goja integration
 
 ---
 
@@ -1418,7 +1418,7 @@ func (tm *TimerManager) ClearTimeout(id int64) {
 | **Performance** | ✅ Excellent | Beats baseline by 18-77% |
 | **Thread Safety** | ✅ Robust | No race conditions |
 | **Documentation** | ⚠️ Internal only | Needs public API docs |
-| **goja Integration** | ⚠️ Requires work | 90-140 hours adapter |
+| **goja Integration** | ⚠️ Requires work | required sequential subtasks |
 
 **Overall Verdict**: ⚠️ **SUITABLE WITH ADAPTER LAYER**
 
@@ -1429,17 +1429,17 @@ The eventloop package provides a **solid, production-ready foundation** for Java
 #### Gap 1: Promise Chaining (HIGH Priority)
 **Problem**: Promise API uses `ToChannel()` instead of `Then()` callback chains
 **Solution**: Implement Promise wrapper matching JavaScript semantics
-**Effort**: 16-24 hours
+**Effort**: required sequential subtasks
 
 #### Gap 2: Timer Cancellation (HIGH Priority)
 **Problem**: timerHeap lacks `Remove()` operation, no `clearTimeout/clearInterval` support
 **Solution**: Implement timer tracking wrapper or hierarchical timer wheel
-**Effort**: 12-20 hours
+**Effort**: required sequential subtasks
 
 #### Gap 3: Documentation (MEDIUM Priority)
 **Problem**: API lacks usage examples, public godocs incomplete
 **Solution**: Add examples for Submit(), ScheduleTimer(), Promisify(), RegisterFD()
-**Effort**: 8-12 hours
+**Effort**: required sequential subtasks
 
 ### 8.3 Integration Roadmap
 
@@ -1474,7 +1474,7 @@ The eventloop package provides a **solid, production-ready foundation** for Java
 **For goja Integration**:
 1. ✅ **PROCEED** with eventloop as foundation
 2. ⚠️ **PLAN** for 5-8 week implementation of adapter layer
-3. 📚 **BUDGET** additional 90-140 hours of engineering effort
+3. 📚 **BUDGET** additional required sequential subtasks of engineering effort
 4. 🧪 **TEST** with real workloads early (network I/O, timers, promises)
 
 **Technical Decisions**:

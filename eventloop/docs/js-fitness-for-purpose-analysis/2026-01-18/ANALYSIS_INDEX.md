@@ -7,7 +7,7 @@
 ## Quick Reference
 
 ### Executive Summary
-The eventloop package is a **production-ready, high-performance foundation** for running JavaScript runtimes like goja. It achieves sub-microsecond latency (407-504ns P99) and implements core event loop semantics. However, achieving **full browser compatibility** requires building an **adapter layer** (estimated 136-344 hours).
+The eventloop package is a **production-ready, high-performance foundation** for running JavaScript runtimes like goja. It achieves sub-microsecond latency (407-504ns P99) and implements core event loop semantics. However, achieving **full browser compatibility** requires building an **adapter layer** (effort: required sequential subtasks).
 
 ### High-Level Answers
 
@@ -276,7 +276,7 @@ These documents provide deep insight into design decisions and tournament evalua
 1. ✅ Review **COMPREHENSIVE_FINDINGS_REPORT.md** with stakeholders
 2. ⬜ Approve integration roadmap (MVP vs production)
 3. ⬜ Allocate 1 developer full-time
-4. ⬜ Begin Phase 1: Timer ID system (16 hours)
+4. ⬜ Begin Phase 1: Timer ID system (T1) — required sequential subtask
 
 ### Short-term (Next 2 Months)
 5. ⬜ Implement Timer ID system

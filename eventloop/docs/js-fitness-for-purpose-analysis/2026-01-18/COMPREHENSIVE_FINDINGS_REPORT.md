@@ -27,7 +27,7 @@ The eventloop package is **PRODUCTION-READY** for serving as the underlying even
 
 **✅ SUITABLE FOR JAVASCRIPT RUNTIME INTEGRATION - WITH ADAPTER LAYER**
 
-The eventloop package provides a **battle-tested, high-performance foundation** that can successfully power a JavaScript runtime. However, achieving **full browser compatibility** requires building an **adapter layer** (estimated 124-344 hours depending on feature completeness) to bridge the gap between Go patterns (channels) and JavaScript patterns (callbacks).
+The eventloop package provides a **battle-tested, high-performance foundation** that can successfully power a JavaScript runtime. However, achieving **full browser compatibility** requires building an **adapter layer** (effort: required sequential subtasks) to bridge the gap between Go patterns (channels) and JavaScript patterns (callbacks).
 
 ---
 
@@ -130,10 +130,10 @@ func (j *JSRuntimeAdaptor) Then(promiseID uint64, onFulfilled, onRejected ...) {
 ```
 
 **Estimated Effort:**
-- `.then()`/`.catch()`: 80 hours
-- `.finally()`: 20 hours
-- Combinators (all, race, etc.): 140 hours
-- **Total: ~240 hours (30 days, 1 developer)**
+- `.then()`/`.catch()`: required sequential subtasks
+- `.finally()`: required sequential subtasks
+- Combinators (all, race, etc.): required sequential subtasks
+- **Total: required sequential subtasks**
 
 ⚠️ **Timer Cancellation - Critical Gap**
 
@@ -183,7 +183,7 @@ func (l *Loop) CancelTimer(id TimerID) error {
 }
 ```
 
-**Estimated Effort:** 16 hours
+**Estimated Effort:** required sequential subtasks
 
 ⚠️ **HTML5 Spec Compliance - Configuration Required**
 
@@ -220,7 +220,7 @@ drainMicrotasks()  // Drain after EVERY task
 loop.SetStrictMicrotaskOrdering(true)
 ```
 
-**Estimated Effort:** 4 hours (configuration)
+**Estimated Effort:** required sequential subtasks (configuration)
 
 ### 1.3 Assessment Scenarios
 
@@ -240,11 +240,11 @@ loop.SetStrictMicrotaskOrdering(true)
 ### 1.4 Sufficiency Verdict
 
 **For MVP JavaScript Integration (setTimeout, basic Promise):**
-- ✅ **YES** with **120 hours** of adapter layer work
+- ✅ **YES** with **effort: required sequential subtasks** of adapter layer work
 - Key gaps: Timer IDs, `.then()`/`.catch()`, StrictMode config
 
 **For Full Browser Compatibility (all JavaScript features):**
-- ⚠️ **YES** with **~344 hours** of adapter layer work
+- ⚠️ **YES** with **effort: required sequential subtasks** of adapter layer work
 - Additional gaps: Promise combinators, unhandled rejection tracking, async/await
 
 **For Non-Browser JavaScript (embedded scripting):**
@@ -769,9 +769,9 @@ func (j *JSRuntimeAdaptor) checkUnhandledRejections() {
 
 ### Detailed Answer
 
-### 4.1 Phase 1: Core Integration (MUST HAVE - 136 hours)
+### 4.1 Phase 1: Core Integration (MUST HAVE) — Required sequential subtasks
 
-#### A. Timer ID System (16 hours)
+#### A. Timer ID System (T1) — required sequential subtask
 
 **Deliverables:**
 1. `TimerID` type
@@ -865,7 +865,7 @@ func (l *Loop) runTimers() {
 }
 ```
 
-#### B. Strict Microtask Ordering (4 hours)
+#### B. Strict Microtask Ordering (T2) — required sequential subtask
 
 **Deliverables:**
 1. `StrictMicrotaskOrdering` configuration option
@@ -885,7 +885,7 @@ func (l *Loop) Run(ctx context.Context) error {
 }
 ```
 
-#### C. JSRuntimeAdaptor Basic (80 hours)
+#### C. JSRuntimeAdaptor Basic (T3) — required sequential subtask
 
 **Deliverables:**
 1. `JSRuntimeAdaptor` struct
@@ -897,7 +897,7 @@ func (l *Loop) Run(ctx context.Context) error {
 
 **Code Template:** See Section 2.2.A
 
-#### D. setTimeout/setInterval/clearTimeout (16 hours)
+#### D. setTimeout/setInterval/clearTimeout — required sequential subtask
 
 **Deliverables:**
 1. `SetTimeout(callback, delayMs) (timerID, error)`
@@ -907,7 +907,7 @@ func (l *Loop) Run(ctx context.Context) error {
 
 **Code Template:** See Section 2.2.A
 
-#### E. Testing (20 hours)
+#### E. Testing — required sequential subtask
 
 **Deliverables:**
 1. JavaScript Promise chain tests
@@ -915,16 +915,16 @@ func (l *Loop) Run(ctx context.Context) error {
 3. Microtask ordering tests under strict mode
 4. Integration tests with goja
 
-### 4.2 Phase 2: Promise API Complete (HIGH VALUE - 140 hours)
+### 4.2 Phase 2: Promise API Complete (HIGH VALUE) — Required sequential subtasks
 
-#### A. Promise Combinators (100 hours)
+#### A. Promise Combinators — required sequential subtask
 
 | Combinator | Behavior | Effort |
 |-------------|-----------|---------|
-| `Promise.all(iterable)` | Wait for all to resolve, reject on first rejection | 40h |
-| `Promise.race(iterable)` | Resolve/reject with first settled | 20h |
-| `Promise.allSettled(iterable)` | Wait for all, return {status, value/reason} | 20h |
-| `Promise.any(iterable)` | Resolve with first, reject if all reject | 20h |
+| `Promise.all(iterable)` | Wait for all to resolve, reject on first rejection | required sequential subtasks |
+| `Promise.race(iterable)` | Resolve/reject with first settled | required sequential subtasks |
+| `Promise.allSettled(iterable)` | Wait for all, return {status, value/reason} | required sequential subtasks |
+| `Promise.any(iterable)` | Resolve with first, reject if all reject | required sequential subtasks |
 
 **Code Template (Promise.all):**
 ```go
@@ -958,7 +958,7 @@ func (j *JSRuntimeAdaptor) PromiseAll(promises []goja.Promise) *goja.Promise {
 }
 ```
 
-#### B. async/await Support (60 hours)
+#### B. async/await Support — required sequential subtask
 
 **Deliverables:**
 1. Async function parsing
@@ -970,9 +970,9 @@ func (j *JSRuntimeAdaptor) PromiseAll(promises []goja.Promise) *goja.Promise {
 
 **Alternative:** Provide promise chaining library as stopgap.
 
-### 4.3 Phase 3: JavaScript Environment (NICE TO HAVE - 180 hours)
+### 4.3 Phase 3: JavaScript Environment (NICE TO HAVE) — Required sequential subtasks
 
-#### A. queueMicrotask() Global (20 hours)
+#### A. queueMicrotask() Global — required sequential subtask
 
 ```go
 func (j *JSRuntimeAdaptor) RegisterGlobals() {
@@ -984,7 +984,7 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 }
 ```
 
-#### B. Unhandled Rejection Tracking (60 hours)
+#### B. Unhandled Rejection Tracking — required sequential subtask
 
 **Deliverables:**
 1. Registration of `.catch()` handlers
@@ -994,14 +994,14 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 
 **Code Template:** See Section 2.6
 
-#### C. Performance Monitoring (40 hours)
+#### C. Performance Monitoring — required sequential subtask
 
 **Deliverables:**
 1. Metrics collection (latency, queue depth)
 2. Performance profiling hooks
 3. Memory usage tracking
 
-#### D. Compatibility Tests (60 hours)
+#### D. Compatibility Tests — required sequential subtask
 
 **Deliverables:**
 1. Test262 Promise tests porting
@@ -1023,7 +1023,7 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 | **10** | Performance Monitoring | Metrics, profiling |
 | **11-12** | Conformance Tests | Test262 porting |
 
-**Timeline: 12 weeks for full production integration (80 hours/week)**
+**Execution Model:** All phases and required subtasks will be executed sequentially in a single session.
 
 ---
 
@@ -1043,14 +1043,14 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 - ✅ **Zero-alloc hot paths** (minimal GC pressure)
 
 **Gaps (All Manageable):**
-- ⚠️ **Timer ID system** needed for clearTimeout (16 hours)
-- ⚠️ **Promise adapter layer** needed for `.then()` (80 hours)
-- ⚠️ **StrictMode configuration** for HTML5 compliance (4 hours)
+- ⚠️ **Timer ID system** needed for clearTimeout — required sequential subtask (T1)
+- ⚠️ **Promise adapter layer** needed for `.then()` — required sequential subtask (T3)
+- ⚠️ **StrictMode configuration** for HTML5 compliance — required sequential subtask (T2)
 - ❌ **Windows support** missing (IOCP not implemented)
 
 ### 5.2 Strategic Recommendations
 
-#### Priority 1: MVP Integration (136 hours)
+#### Priority 1: MVP Integration — required sequential subtasks
 
 **Deliverables:**
 1. Timer ID system (16h)
@@ -1065,9 +1065,9 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 - ✅ HTML5-compliant microtask ordering
 - ✅ Browser-like event loop semantics
 
-**Timeline:** 17 days (1 developer, 80 hours/week)
+**Execution Model:** All phases and required subtasks will be executed sequentially in a single session.
 
-#### Priority 2: Production Readiness (276 hours)
+#### Priority 2: Production Readiness — required sequential subtasks
 
 **Additional Deliverables:**
 6. Promise combinators (`all`, `allSettled`, `race`, `any`) (100h)
@@ -1081,9 +1081,9 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 - ✅ Performance observability
 - ✅ Standard conformance validated
 
-**Timeline:** 35 days (1 developer, 80 hours/week)
+**Execution Model:** All phases and required subtasks will be executed sequentially in a single session.
 
-#### Priority 3: Windows Support (320 hours)
+#### Priority 3: Windows Support — required sequential subtasks
 
 **Deliverables:**
 - IOCP poller implementation
@@ -1160,7 +1160,7 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 
 **Rationale:**
 1. **Core architecture is excellent** (87.9/100 performance score)
-2. **All gaps are manageable** (136-276 hours estimated work)
+2. **All gaps are manageable** (effort: required sequential subtasks)
 3. **Proven in production** (99.9% test pass rate, extensive regression suite)
 4. **Cross-platform ready** (macOS/Linux production-ready)
 5. **Well-documented** (13 analysis documents, 2900+ lines of requirements)
@@ -1172,12 +1172,12 @@ func (j *JSRuntimeAdaptor) RegisterGlobals() {
 4. Implement setTimeout/setInterval/clearTimeout APIs (16h)
 5. Write integration tests (20h)
 
-**Expected Timeline to MVP:** 17 days (1 developer, 80 hours/week)
+**Execution Model:** All phases and required subtasks will be executed sequentially in a single session.
 
 **Long-term Outlook:**
-- Full Promise API: +140 hours (18 days)
-- Production monitoring: +100 hours (13 days)
-- Windows support: +320 hours (8 weeks, lower priority)
+- Full Promise API: required sequential subtasks
+- Production monitoring: required sequential subtasks
+- Windows support: required sequential subtasks (lower priority)
 
 ---
 
