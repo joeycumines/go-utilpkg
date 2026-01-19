@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -57,7 +58,11 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create loop: %v", err)
 			}
-			defer loop.Close()
+			defer func() {
+				if err := loop.Close(); !errors.Is(err, ErrLoopTerminated) {
+					t.Errorf("Failed to close loop: %v", err)
+				}
+			}()
 
 			// Set mode
 			if err := loop.SetFastPathMode(tt.mode); err != nil {
@@ -156,6 +161,8 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 			}
 
 			select {
+			case <-time.After(5 * time.Second):
+				t.Errorf("Event loop did not exit in time after shutdown")
 			case <-t.Context().Done():
 				t.Errorf("Event loop did not exit in time")
 			case err := <-runCh:
@@ -171,11 +178,27 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 // in fast path mode. This test was written to prove a critical deficiency
 // in the original implementation where runAux() completely ignored microtasks.
 func TestFastPath_HandlesMicrotasks(t *testing.T) {
+	runCh := make(chan error, 1)
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
-	defer loop.Close()
+	defer func() {
+		if err := loop.Close(); !errors.Is(err, ErrLoopTerminated) {
+			t.Errorf("Failed to close loop: %v", err)
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Errorf("Event loop did not exit in time after shutdown")
+		case <-t.Context().Done():
+			t.Errorf("Event loop did not exit in time")
+		case err := <-runCh:
+			if err != nil {
+				t.Errorf("Event loop exited with error: %v", err)
+			}
+		}
+	}()
 
 	// Force fast path mode
 	if err := loop.SetFastPathMode(FastPathForced); err != nil {
@@ -192,7 +215,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 
 	// Start loop in background
 	go func() {
-		_ = loop.Run(ctx)
+		runCh <- loop.Run(ctx)
 	}()
 
 	// Wait for loop to be running
@@ -202,7 +225,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 
 	// Submit a task that schedules a microtask
 	// Expected execution: task -> microtask
-	loop.Submit(Task{Runnable: func() {
+	if err := loop.Submit(Task{Runnable: func() {
 		order.Add(1)
 		close(taskExecuted)
 
@@ -214,7 +237,9 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to schedule microtask: %v", err)
 		}
-	}})
+	}}); err != nil {
+		t.Fatalf("Failed to submit task: %v", err)
+	}
 
 	// Wait for task to execute
 	select {
@@ -247,7 +272,9 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 	}
 
 	// Terminate the loop
-	loop.Shutdown(context.Background())
+	if err := loop.Shutdown(t.Context()); err != nil {
+		t.Errorf("Failed to shutdown loop: %v", err)
+	}
 }
 
 // TestFastPath_MicrotaskOrdering verifies that microtasks are executed
@@ -257,7 +284,11 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
-	defer loop.Close()
+	defer func() {
+		if err := loop.Close(); !errors.Is(err, ErrLoopTerminated) {
+			t.Errorf("Failed to close loop: %v", err)
+		}
+	}()
 
 	// Force fast path mode
 	if err := loop.SetFastPathMode(FastPathForced); err != nil {
@@ -271,8 +302,9 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 	defer cancel()
 
 	// Start loop in background
+	runCh := make(chan error, 1)
 	go func() {
-		_ = loop.Run(ctx)
+		runCh <- loop.Run(ctx)
 	}()
 
 	// Wait for loop to be running
@@ -283,7 +315,7 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 	// Submit tasks that schedule microtasks
 	for i := 0; i < 10; i++ {
 		taskId := i
-		loop.Submit(Task{Runnable: func() {
+		if err := loop.Submit(Task{Runnable: func() {
 			mu.Lock()
 			executions = append(executions, taskId*2) // Task gets even number
 			mu.Unlock()
@@ -294,7 +326,9 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 				executions = append(executions, taskId*2+1) // Microtask gets odd number
 				mu.Unlock()
 			})
-		}})
+		}}); err != nil {
+			t.Fatalf("Failed to submit task: %v", err)
+		}
 	}
 
 	// Wait for everything to execute
@@ -314,7 +348,9 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 		}
 	}
 
-	loop.Shutdown(context.Background())
+	if err := loop.Shutdown(t.Context()); err != nil {
+		t.Errorf("Failed to shutdown loop: %v", err)
+	}
 }
 
 // TestFastPath_MultipleMicrotasksVerifiesThatMicrotasksScheduledFrom
@@ -324,7 +360,11 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
-	defer loop.Close()
+	defer func() {
+		if err := loop.Close(); !errors.Is(err, ErrLoopTerminated) {
+			t.Errorf("Failed to close loop: %v", err)
+		}
+	}()
 
 	// Force fast path mode
 	if err := loop.SetFastPathMode(FastPathForced); err != nil {
@@ -337,8 +377,9 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	defer cancel()
 
 	// Start loop in background
+	runCh := make(chan error, 1)
 	go func() {
-		_ = loop.Run(ctx)
+		runCh <- loop.Run(ctx)
 	}()
 
 	// Wait for loop to be running
@@ -351,13 +392,15 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	const numMicrotasksPerTask = 3
 
 	for i := 0; i < numTasks; i++ {
-		loop.Submit(Task{Runnable: func() {
+		if err := loop.Submit(Task{Runnable: func() {
 			for j := 0; j < numMicrotasksPerTask; j++ {
 				_ = loop.ScheduleMicrotask(func() {
 					count.Add(1)
 				})
 			}
-		}})
+		}}); err != nil {
+			t.Fatalf("Failed to submit task: %v", err)
+		}
 	}
 
 	// Wait for executions
@@ -373,19 +416,49 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 		}
 	}
 
-	loop.Shutdown(context.Background())
+	if err := loop.Shutdown(t.Context()); err != nil {
+		t.Errorf("Failed to shutdown loop: %v", err)
+	}
+
+	select {
+	case <-time.After(5 * time.Second):
+		t.Errorf("Event loop did not exit in time after shutdown")
+	case <-t.Context().Done():
+		t.Errorf("Event loop did not exit in time")
+	case err := <-runCh:
+		if err != nil {
+			t.Errorf("Event loop exited with error: %v", err)
+		}
+	}
 }
 
 // TestFastPath_MicrotaskBudgetOverflow ensures the loop does not stall
 // when microtasks exceed the drainage budget (1024).
 func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
+	runCh := make(chan error, 1)
 	loop, _ := New()
-	defer loop.Close()
+	defer func() {
+		if err := loop.Close(); err != nil {
+			t.Errorf("Failed to close loop: %v", err)
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Errorf("Event loop did not exit in time during close")
+		case err := <-runCh:
+			if err != context.Canceled {
+				t.Errorf("Event loop exited with unexpected error: %v", err)
+			}
+		}
+	}()
 	_ = loop.SetFastPathMode(FastPathForced)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	go loop.Run(ctx)
+
+	go func() {
+		runCh <- loop.Run(ctx)
+	}()
 
 	// Wait for start
 	for loop.State() != StateRunning {
@@ -398,7 +471,7 @@ func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
 	const count = 2500
 	var executed atomic.Int64
 
-	loop.Submit(Task{Runnable: func() {
+	if err := loop.Submit(Task{Runnable: func() {
 		// Recursive scheduling to fill the ring
 		var schedule func(n int)
 		schedule = func(n int) {
@@ -412,7 +485,9 @@ func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
 			})
 		}
 		schedule(count)
-	}})
+	}}); err != nil {
+		t.Fatalf("Failed to submit task: %v", err)
+	}
 
 	select {
 	case <-done:
