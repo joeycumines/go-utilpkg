@@ -8,6 +8,7 @@ use (
 	./eventloop/internal/tournament
 	./fangrpcstream
 	./floater
+	./goja-eventloop
 	./grpc-proxy
 	./jsonenc
 	./logiface
