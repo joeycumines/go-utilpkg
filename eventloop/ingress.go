@@ -25,7 +25,6 @@ const (
 
 	// ringHeadPadSize is the padding size required after the 'head' field in MicrotaskRing
 	// to ensure 'tail' starts on a new cache line.
-	// Calculation: sizeOfCacheLine (64) - sizeOf(atomic.Uint64) (8) = 56.
 	ringHeadPadSize = sizeOfCacheLine - sizeOfAtomicUint64
 )
 
