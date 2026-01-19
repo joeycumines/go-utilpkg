@@ -21,20 +21,15 @@ import (
 //   - Use Store() for irreversible states (Terminated)
 //   - Using Store(Running) or Store(Sleeping) is a BUG (breaks CAS logic)
 //
-// NOTE: State values (0, 1, 2, 4, 5) are deliberately non-sequential to preserve
+// Note: State values (0, 1, 2, 4, 5) are deliberately non-sequential to preserve
 // stable serialization. Do not renumber.
 type LoopState uint64
 
 const (
-	// StateAwake indicates the loop has been created but not started.
-	StateAwake LoopState = 0
-	// StateTerminated indicates the loop has been stopped and is fully shut down.
-	StateTerminated LoopState = 1
-	// StateSleeping indicates the loop is blocked in poll waiting for events.
-	StateSleeping LoopState = 2
-	// StateRunning indicates the loop is actively processing tasks.
-	StateRunning LoopState = 4
-	// StateTerminating indicates shutdown has been requested but not completed.
+	StateAwake       LoopState = 0
+	StateTerminated  LoopState = 1
+	StateSleeping    LoopState = 2
+	StateRunning     LoopState = 4
 	StateTerminating LoopState = 5
 )
 
@@ -57,7 +52,6 @@ func (s LoopState) String() string {
 }
 
 // FastState is a lock-free state machine with cache-line padding.
-//
 // PERFORMANCE: Uses pure atomic CAS operations with no mutex.
 // Cache-line padding prevents false sharing between cores.
 type FastState struct { // betteralign:ignore
@@ -66,7 +60,6 @@ type FastState struct { // betteralign:ignore
 	_ [56]byte      // Pad to complete cache line (64 - 8 = 56) //nolint:unused
 }
 
-// NewFastState creates a new state machine in the Awake state.
 func NewFastState() *FastState {
 	s := &FastState{}
 	s.v.Store(uint64(StateAwake))
@@ -104,7 +97,7 @@ func (s *FastState) TransitionAny(validFrom []LoopState, to LoopState) bool {
 	return false
 }
 
-// IsTerminal returns true if the current state is terminal (Terminated).
+// IsTerminal returns true if the current state is terminal.
 func (s *FastState) IsTerminal() bool {
 	return s.Load() == StateTerminated
 }

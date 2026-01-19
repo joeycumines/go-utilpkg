@@ -35,8 +35,6 @@ type Promise interface {
 }
 
 // promise is the concrete implementation.
-// It is unexported because users should only interact via the Promise interface.
-// The Registry will hold weak pointers to *promise.
 type promise struct {
 	result      Result
 	subscribers []chan Result // List of channels waiting for resolution
@@ -44,7 +42,6 @@ type promise struct {
 	mu          sync.Mutex
 }
 
-// Ensure promise implements Promise
 var _ Promise = (*promise)(nil)
 
 func (p *promise) State() PromiseState {
@@ -64,7 +61,6 @@ func (p *promise) ToChannel() <-chan Result {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Phase 4.4: Late Binding
 	// If already settled, return a pre-filled, closed channel.
 	if p.state != Pending {
 		ch := make(chan Result, 1)
@@ -73,14 +69,12 @@ func (p *promise) ToChannel() <-chan Result {
 		return ch
 	}
 
-	// Phase 4.2: Append to subscribers
 	ch := make(chan Result, 1)
 	p.subscribers = append(p.subscribers, ch)
 	return ch
 }
 
 // Resolve sets the promise state to Resolved and notifies all subscribers.
-// It implements Task 4.3 (Resolution Fan-Out).
 func (p *promise) Resolve(val Result) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -110,14 +104,11 @@ func (p *promise) Reject(err error) {
 
 // fanOut notifies all subscribers of the result and closes their channels.
 // Must be called with p.mu held.
-// D19: Logs warning when channel is full and result is dropped.
 func (p *promise) fanOut() {
 	for _, ch := range p.subscribers {
-		// Non-blocking send (select with default)
 		select {
 		case ch <- p.result:
 		default:
-			// D19: Log warning when dropping result due to full channel
 			log.Printf("WARNING: eventloop: dropped promise result, channel full")
 		}
 		close(ch)

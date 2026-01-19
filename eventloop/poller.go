@@ -1,6 +1,6 @@
 // Package eventloop provides I/O event registration.
 //
-// # I/O Registration (T10)
+// # I/O Registration
 //
 // The event loop supports registering file descriptors for I/O events using
 // platform-native mechanisms:

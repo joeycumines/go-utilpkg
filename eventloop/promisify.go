@@ -27,39 +27,29 @@ func (e PanicError) Error() string {
 // representing its result.
 //
 // This is the context-aware version that accepts a context and passes it to the
-// function. The function can use ctx.Done() to detect cancellation (D12).
+// function. The function can use ctx.Done() to detect cancellation.
 //
-// It implements:
-//   - Task 9.2 (Goexit Handler): ensures that even if runtime.Goexit() is called,
-//     the promise is rejected rather than hanging indefinitely.
-//   - D12 (Context Propagation): the context is passed to the user function.
-//   - D05 (Single-Owner): resolution goes through SubmitInternal to ensure
-//     promise resolution happens on the loop thread.
-//   - PROMISIFY FIX: Fallback to direct resolution if SubmitInternal fails
-//     (e.g., during shutdown). This ensures promises always settle.
-//   - C4 FIX: Uses promisifyWg to track in-flight goroutines so shutdown
-//     can wait for them to complete before calling RejectAll.
+// It ensures:
+//   - Goexit Handler: Even if runtime.Goexit() is called, the promise is rejected rather than hanging indefinitely.
+//   - Context Propagation: The context is passed to the user function.
+//   - Single-Owner: Resolution goes through SubmitInternal to ensure promise resolution happens on the loop thread.
+//   - Fallback: Direct resolution if SubmitInternal fails (e.g., during shutdown) to ensure promises always settle.
+//   - Shutdown tracking: Uses promisifyWg to track in-flight goroutines so shutdown can wait for them.
 func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Result, error)) Promise {
-	// Task 2.2/2.4 integration: use registry
 	_, p := l.registry.NewPromise()
 
-	// C4 FIX: Track this goroutine so shutdown can wait for it
 	l.promisifyWg.Add(1)
 
 	go func() {
-		// C4 FIX: Signal completion when done (even on panic)
 		defer l.promisifyWg.Done()
 
 		// Completion flag to distinguish normal return from Goexit
 		completed := false
 
-		// D12: Respect context cancellation
+		// Respect context cancellation
 		select {
 		case <-ctx.Done():
-			// Defect 9 Fix: Set completed to prevent defer from triggering double-rejection
 			completed = true
-			// Context already cancelled - reject immediately via internal lane
-			// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
 			if err := l.SubmitInternal(func() {
 				p.Reject(ctx.Err())
 			}); err != nil {
@@ -72,34 +62,26 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 		defer func() {
 			r := recover()
 			if r != nil {
-				// Panic detected - D05: resolve via SubmitInternal
-				// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
+				// Panic detected
 				panicErr := PanicError{Value: r}
 				if err := l.SubmitInternal(func() {
 					p.Reject(panicErr)
 				}); err != nil {
 					p.Reject(panicErr) // Fallback: direct resolution
 				}
-			} else {
-				// recover() is nil
-				if !completed {
-					// Function ended but not via normal return -> Goexit (or panic(nil))
-					// D05: resolve via SubmitInternal
-					// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
-					if err := l.SubmitInternal(func() {
-						p.Reject(ErrGoexit)
-					}); err != nil {
-						p.Reject(ErrGoexit) // Fallback: direct resolution
-					}
+			} else if !completed {
+				// Function ended but not via normal return -> Goexit (or panic(nil))
+				if err := l.SubmitInternal(func() {
+					p.Reject(ErrGoexit)
+				}); err != nil {
+					p.Reject(ErrGoexit) // Fallback: direct resolution
 				}
 			}
 		}()
 
-		// D12: Pass context to user function
 		res, err := fn(ctx)
 
-		// D05: Resolution goes through SubmitInternal to ensure single-owner
-		// PROMISIFY FIX: Fallback to direct resolution if SubmitInternal fails
+		// Resolution goes through SubmitInternal to ensure single-owner
 		if err != nil {
 			if submitErr := l.SubmitInternal(func() {
 				p.Reject(err)
@@ -111,9 +93,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 				p.Resolve(res)
 			}); submitErr != nil {
 				// Loop terminated but operation succeeded
-				// PROMISIFY FIX: Resolve directly - loop is gone so single-owner is moot
-				// This ensures successful operations are not incorrectly reported as failures
-				p.Resolve(res) // Fallback: direct resolution with result
+				p.Resolve(res) // Fallback: direct resolution
 			}
 		}
 		completed = true

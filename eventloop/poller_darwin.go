@@ -14,23 +14,19 @@ import (
 const maxFDs = 65536
 
 // MaxFDLimit is the maximum FD value we support for dynamic growth.
-const MaxFDLimit = 100000000 // 100M, enough for production with ulimit -n > 1M
+// 100M is enough for production with ulimit -n > 1M.
+const MaxFDLimit = 100000000
 
 // IOEvents represents the type of I/O events to monitor.
 type IOEvents uint32
 
 const (
-	// EventRead indicates the file descriptor is ready for reading.
 	EventRead IOEvents = 1 << iota
-	// EventWrite indicates the file descriptor is ready for writing.
 	EventWrite
-	// EventError indicates an error condition on the file descriptor.
 	EventError
-	// EventHangup indicates the peer closed its end of the connection.
 	EventHangup
 )
 
-// Standard errors.
 var (
 	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 100000000)")
 	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
@@ -52,16 +48,15 @@ type fdInfo struct {
 //
 // PERFORMANCE: Uses RWMutex for fdInfo access. The mutex is only held briefly
 // during registration/callback dispatch. The polling syscall itself is lock-free.
-// - Dynamic slice instead of fixed array for flexible FD support
-// - No version check - rely on fdMu for concurrent modification safety
+// It uses a dynamic slice instead of a fixed array for flexible FD support.
 type FastPoller struct { // betteralign:ignore
 	_        [64]byte           // Cache line padding //nolint:unused
 	kq       int32              // kqueue file descriptor
 	_        [60]byte           // Pad to cache line //nolint:unused
-	eventBuf [256]unix.Kevent_t // Larger buffer, preallocated
+	eventBuf [256]unix.Kevent_t // Preallocated event buffer
 	fds      []fdInfo           // Dynamic slice, grows on demand
 	fdMu     sync.RWMutex       // Protects fds array access
-	closed   atomic.Bool        // Closed flag
+	closed   atomic.Bool
 }
 
 // Init initializes the kqueue instance.
@@ -77,7 +72,6 @@ func (p *FastPoller) Init() error {
 	unix.CloseOnExec(kq)
 	p.kq = int32(kq)
 
-	// Initialize dynamic FD slice with initial capacity
 	p.fds = make([]fdInfo, maxFDs)
 
 	return nil
@@ -97,15 +91,11 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
-	if fd < 0 {
-		return ErrFDOutOfRange
-	}
-	if fd >= MaxFDLimit {
+	if fd < 0 || fd >= MaxFDLimit {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
-	// Grow slice if necessary
 	if fd >= len(p.fds) {
 		newSize := fd*2 + 1
 		if newSize > MaxFDLimit {
@@ -139,12 +129,10 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 
 // UnregisterFD removes a file descriptor from monitoring.
 //
-// IMPORTANT: CALLBACK LIFETIME SAFETY
-// ====================================
-//
+// CALLBACK LIFETIME SAFETY:
 // UnregisterFD does NOT guarantee immediate cessation of in-flight callbacks.
-// The dispatch logic copies callback pointers under RLock, releases lock,
-// then executes callbacks OUTSIDE of lock. This design choice avoids:
+// The dispatch logic copies callback pointers under RLock, releases the lock,
+// then executes callbacks OUTSIDE of the lock. This design choice avoids:
 //  1. Holding locks during callback execution (prevents deadlocks)
 //  2. Performance degradation from lock convoy effects
 //
@@ -155,13 +143,10 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 //   - Result: Callback runs after UnregisterFD returns
 //
 // REQUIRED USER COORDINATION:
-//  1. Close FD ONLY after all callbacks have completed
-//  2. Use synchronization (e.g., sync.WaitGroup) if exact timing matters
-//  3. Callbacks must guard against accessing closed FDs
+//  1. Close FD ONLY after all callbacks have completed (e.g., using sync.WaitGroup)
+//  2. Callbacks must guard against accessing closed FDs
 //
-// This is correct implementation for high-performance I/O multiplexing.
-// Alternative approaches (e.g., marking callbacks for deferred deletion)
-// introduce overhead and are unnecessary for typical use cases.
+// This is the correct implementation for high-performance I/O multiplexing.
 func (p *FastPoller) UnregisterFD(fd int) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
@@ -200,7 +185,6 @@ func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
 	p.fds[fd].events = events
 	p.fdMu.Unlock()
 
-	// Delete old events
 	if oldEvents&^events != 0 {
 		delKevents := eventsToKevents(fd, oldEvents&^events, unix.EV_DELETE)
 		if len(delKevents) > 0 {
@@ -208,7 +192,6 @@ func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
 		}
 	}
 
-	// Add new events
 	if events&^oldEvents != 0 {
 		addKevents := eventsToKevents(fd, events&^oldEvents, unix.EV_ADD|unix.EV_ENABLE)
 		if len(addKevents) > 0 {
@@ -242,7 +225,6 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 		return 0, err
 	}
 
-	// Dispatch events inline
 	p.dispatchEvents(n)
 
 	return n, nil
@@ -258,7 +240,6 @@ func (p *FastPoller) dispatchEvents(n int) {
 			continue
 		}
 
-		// Copy fdInfo under read lock
 		p.fdMu.RLock()
 		var info fdInfo
 		if fd < len(p.fds) {

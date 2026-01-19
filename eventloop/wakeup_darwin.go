@@ -17,16 +17,14 @@ const (
 // Returns the read end and the write end of the pipe.
 // Note: initval and flags parameters are ignored on Darwin (API compatibility with Linux eventfd).
 func createWakeFd(initval uint, flags int) (int, int, error) {
-	_ = initval // unused on Darwin (eventfd compatibility)
-	_ = flags   // unused on Darwin (pipe is always non-blocking and close-on-exec)
+	_ = initval
+	_ = flags
 
-	// Create a pipe for wake-up
 	var fds [2]int
 	if err := syscall.Pipe(fds[:]); err != nil {
 		return 0, 0, err
 	}
 
-	// Set close-on-exec and non-blocking flags with proper error handling
 	// On failure, close both pipe ends to avoid resource leak
 	cleanup := func() {
 		syscall.Close(fds[0])
@@ -45,6 +43,5 @@ func createWakeFd(initval uint, flags int) (int, int, error) {
 		return 0, 0, err
 	}
 
-	// Return read end (0) and write end (1)
 	return fds[0], fds[1], nil
 }

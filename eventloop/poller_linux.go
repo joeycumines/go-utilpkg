@@ -15,23 +15,19 @@ const maxFDs = 65536
 
 // MaxFDLimit is the maximum FD value we support for dynamic growth.
 // Note: This must be < math.MaxInt32 (2147483647) because EpollEvent.Fd is int32.
-const MaxFDLimit = 100000000 // 100M, enough for production with ulimit -n > 1M
+// 100M is enough for production with ulimit -n > 1M.
+const MaxFDLimit = 100000000
 
 // IOEvents represents the type of I/O events to monitor.
 type IOEvents uint32
 
 const (
-	// EventRead indicates the file descriptor is ready for reading.
 	EventRead IOEvents = 1 << iota
-	// EventWrite indicates the file descriptor is ready for writing.
 	EventWrite
-	// EventError indicates an error condition on the file descriptor.
 	EventError
-	// EventHangup indicates the peer closed its end of the connection.
 	EventHangup
 )
 
-// Standard errors.
 var (
 	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 100000000)")
 	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
@@ -43,7 +39,6 @@ var (
 type IOCallback func(IOEvents)
 
 // fdInfo stores per-FD callback information.
-// PERFORMANCE: Small struct, no pointers except callback.
 type fdInfo struct {
 	callback IOCallback
 	events   IOEvents
@@ -53,18 +48,15 @@ type fdInfo struct {
 // FastPoller manages I/O event registration using epoll (Linux).
 //
 // PERFORMANCE: RWMutex design with dynamic FD indexing.
-// - Dynamic slice instead of fixed array for flexible FD support
-// - RWMutex for thread-safe access to fds array
-// - Inline callback execution
-// - No version check - rely on fdMu for concurrent modification safety
+// It uses a dynamic slice instead of a fixed array for flexible FD support.
 type FastPoller struct { // betteralign:ignore
 	_        [64]byte             // Cache line padding //nolint:unused
 	epfd     int32                // epoll file descriptor
 	_        [60]byte             // Pad to cache line //nolint:unused
-	eventBuf [256]unix.EpollEvent // Larger buffer, preallocated
+	eventBuf [256]unix.EpollEvent // Preallocated event buffer
 	fds      []fdInfo             // Dynamic slice, grows on demand
 	fdMu     sync.RWMutex         // Protects fds array access
-	closed   atomic.Bool          // Closed flag
+	closed   atomic.Bool
 }
 
 // Init initializes the epoll instance.
@@ -79,7 +71,6 @@ func (p *FastPoller) Init() error {
 	}
 	p.epfd = int32(epfd)
 
-	// Initialize dynamic FD slice with initial capacity
 	p.fds = make([]fdInfo, maxFDs)
 
 	return nil
@@ -95,22 +86,16 @@ func (p *FastPoller) Close() error {
 }
 
 // RegisterFD registers a file descriptor for I/O event monitoring.
-// THREAD SAFE: Uses fdMu for array access.
 func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
-	if fd < 0 {
-		return ErrFDOutOfRange
-	}
-	if fd >= MaxFDLimit {
+	if fd < 0 || fd >= MaxFDLimit {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
-	// Grow slice if necessary
 	if fd >= len(p.fds) {
-		// Grow in chunks to minimize allocations
 		newSize := fd*2 + 1
 		if newSize > MaxFDLimit {
 			newSize = MaxFDLimit + 1
@@ -142,13 +127,12 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	return nil
 }
 
-// UnregisterFD removes a file descriptor from monitoring.//
-// IMPORTANT: CALLBACK LIFETIME SAFETY
-// ====================================
+// UnregisterFD removes a file descriptor from monitoring.
 //
+// CALLBACK LIFETIME SAFETY:
 // UnregisterFD does NOT guarantee immediate cessation of in-flight callbacks.
 // The dispatch logic copies callback pointers under RLock, releases the lock,
-// then executes callbacks OUTSIDE the lock. This design choice avoids:
+// then executes callbacks OUTSIDE of the lock. This design choice avoids:
 //  1. Holding locks during callback execution (prevents deadlocks)
 //  2. Performance degradation from lock convoy effects
 //
@@ -159,13 +143,10 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 //   - Result: Callback runs after UnregisterFD returns
 //
 // REQUIRED USER COORDINATION:
-//  1. Close FD ONLY after all callbacks have completed
-//  2. Use synchronization (e.g., sync.WaitGroup) if exact timing matters
-//  3. Callbacks must guard against accessing closed FDs
+//  1. Close FD ONLY after all callbacks have completed (e.g., using sync.WaitGroup)
+//  2. Callbacks must guard against accessing closed FDs
 //
-// This is correct implementation for high-performance I/O multiplexing.
-// Alternative approaches (e.g., marking callbacks for deferred deletion)
-// introduce overhead and are unnecessary for typical use cases.
+// This is the correct implementation for high-performance I/O multiplexing.
 func (p *FastPoller) UnregisterFD(fd int) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
@@ -177,7 +158,7 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 		return ErrFDNotRegistered
 	}
 
-	p.fds[fd] = fdInfo{} // Clear
+	p.fds[fd] = fdInfo{}
 	p.fdMu.Unlock()
 
 	return unix.EpollCtl(int(p.epfd), unix.EPOLL_CTL_DEL, fd, nil)
@@ -206,8 +187,6 @@ func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
 }
 
 // PollIO polls for I/O events.
-// PERFORMANCE: No lock during poll. No version check relies on fdMu for safety.
-// Returns the number of events processed.
 func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 	if p.closed.Load() {
 		return 0, ErrPollerClosed
@@ -221,7 +200,6 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 		return 0, err
 	}
 
-	// Dispatch events inline
 	p.dispatchEvents(n)
 
 	return n, nil
@@ -237,7 +215,6 @@ func (p *FastPoller) dispatchEvents(n int) {
 			continue
 		}
 
-		// Copy fdInfo under read lock
 		p.fdMu.RLock()
 		var info fdInfo
 		if fd < len(p.fds) {
