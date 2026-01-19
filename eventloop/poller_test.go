@@ -408,7 +408,7 @@ func TestIOPoller_Integration_Deterministic(t *testing.T) {
 	registerDone := make(chan struct{})
 
 	// Register FD ON THE LOOP THREAD to avoid race
-	err = loop.SubmitInternal(Task{Runnable: func() {
+	err = loop.SubmitInternal(func() {
 		fdErr := loop.RegisterFD(fds[0], EventRead, func(events IOEvents) {
 			select {
 			case callbackTriggered <- struct{}{}:
@@ -419,7 +419,7 @@ func TestIOPoller_Integration_Deterministic(t *testing.T) {
 			t.Errorf("RegisterFD failed: %v", fdErr)
 		}
 		close(registerDone)
-	}})
+	})
 	if err != nil {
 		t.Fatalf("SubmitInternal failed: %v", err)
 	}

@@ -41,9 +41,9 @@ func TestPingPongFastPathCounter(t *testing.T) {
 	for i := 0; i < numTasks; i++ {
 		var wg sync.WaitGroup
 		wg.Add(1)
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			wg.Done()
-		}})
+		})
 		if err != nil {
 			t.Fatalf("Failed to submit task %d: %v", i, err)
 		}

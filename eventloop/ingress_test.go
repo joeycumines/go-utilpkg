@@ -17,7 +17,7 @@ func TestChunkedIngress_ChunkTransition(t *testing.T) {
 
 	// Push total tasks
 	for i := 0; i < total; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 
 	if q.Length() != total {
@@ -30,7 +30,7 @@ func TestChunkedIngress_ChunkTransition(t *testing.T) {
 		if !ok {
 			t.Fatalf("Premature exhaustion at index %d", i)
 		}
-		if task.Runnable == nil {
+		if task == nil {
 			t.Fatalf("Zero-value task at index %d", i)
 		}
 	}
@@ -60,9 +60,9 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
 				mu.Lock()
-				q.Push(Task{Runnable: func() {
+				q.Push(func() {
 					counter.Add(1)
-				}})
+				})
 				mu.Unlock()
 			}
 		}(i)
@@ -83,7 +83,7 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 		if !ok {
 			t.Fatalf("Premature exhaustion at received=%d", received)
 		}
-		task.Runnable()
+		task()
 		received++
 	}
 
@@ -107,7 +107,7 @@ func TestChunkedIngress_PushPopIntegrity(t *testing.T) {
 
 	// Push tasks
 	for i := 0; i < count; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 
 	if q.Length() != count {
@@ -157,9 +157,9 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
 				mu.Lock()
-				q.Push(Task{Runnable: func() {
+				q.Push(func() {
 					counter.Add(1)
-				}})
+				})
 				mu.Unlock()
 			}
 		}(i)
@@ -180,7 +180,7 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 		if !ok {
 			t.Fatalf("Premature exhaustion at received=%d", received)
 		}
-		task.Runnable()
+		task()
 		received++
 	}
 
@@ -209,7 +209,7 @@ func TestChunkedIngress_IsEmpty(t *testing.T) {
 		t.Fatal("New queue should be empty")
 	}
 
-	q.Push(Task{Runnable: func() {}})
+	q.Push(func() {})
 
 	if q.Length() == 0 {
 		t.Fatal("Queue with one item should not be empty")

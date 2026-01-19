@@ -39,11 +39,11 @@ func (a *MainLoopAdapter) Close() error {
 }
 
 func (a *MainLoopAdapter) Submit(fn func()) error {
-	return a.loop.Submit(eventloop.Task{Runnable: fn})
+	return a.loop.Submit(fn)
 }
 
 func (a *MainLoopAdapter) SubmitInternal(fn func()) error {
-	return a.loop.SubmitInternal(eventloop.Task{Runnable: fn})
+	return a.loop.SubmitInternal(fn)
 }
 
 // AlternateOneAdapter adapts the alternateone.Loop to the EventLoop interface.

@@ -16,14 +16,12 @@ func TestLoop_TimeFreshness(t *testing.T) {
 
 	driftDetected := make(chan time.Duration, 1)
 
-	task := Task{
-		Runnable: func() {
-			loopTime := l.CurrentTickTime()
-			realTime := time.Now()
+	task := func() {
+		loopTime := l.CurrentTickTime()
+		realTime := time.Now()
 
-			diff := realTime.Sub(loopTime)
-			driftDetected <- diff
-		},
+		diff := realTime.Sub(loopTime)
+		driftDetected <- diff
 	}
 
 	go l.Run(context.Background())

@@ -29,7 +29,7 @@ func TestTickTimeDataRace(t *testing.T) {
 	// Submit tasks to force high-frequency tick updates
 	go func() {
 		for i := 0; i < 1000; i++ {
-			l.Submit(Task{Runnable: func() {}})
+			l.Submit(func() {})
 			time.Sleep(10 * time.Microsecond)
 		}
 		cancel()

@@ -115,10 +115,10 @@ func TestShutdown_IngressResolvesInternal(t *testing.T) {
 
 	_, p := l.registry.NewPromise()
 
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		time.Sleep(10 * time.Millisecond)
 		p.Resolve("manual_success")
-	}})
+	})
 
 	// Wait for task to be submitted and possibly started
 	time.Sleep(20 * time.Millisecond)

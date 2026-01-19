@@ -27,8 +27,6 @@ func TestSizeOf(t *testing.T) {
 		actual   uintptr
 	}{
 		{"sizeOfAtomicUint64", sizeOfAtomicUint64, unsafe.Sizeof(atomic.Uint64{})},
-		// just for documentation validation
-		{"Task size", 8, unsafe.Sizeof(Task{})},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.actual != tc.expected {

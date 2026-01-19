@@ -114,7 +114,7 @@ func (q *LockFreeIngress) Push(fn func()) {
 // Main's mutex-based approach (eventloop/ingress.go)
 func (q *ChunkedIngress) Push(fn func()) {
     q.mu.Lock()           // ← BLOCKING CALL, problematic under GC pressure
-    q.pushLocked(Task{Runnable: fn})
+    q.pushLocked(fn)
     q.mu.Unlock()
 }
 ```
@@ -1005,7 +1005,7 @@ func (l *Loop) Submit(fn func()) error {
         if l.external.Length() > 4096 {
             // High contention, fallback to chunked queue
             l.externalMu.Lock()
-            l.external.pushLocked(Task{Runnable: fn})
+            l.external.pushLocked(fn)
             l.externalMu.Unlock()
             return nil
         }

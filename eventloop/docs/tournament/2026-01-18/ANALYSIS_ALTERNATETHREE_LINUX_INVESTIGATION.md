@@ -98,10 +98,8 @@ func (l *Loop) Submit(task Task) error {
 #### AlternateThree: No Fast Path, Always Poll
 ```go
 func (l *Loop) Submit(fn func()) error {
-    task := Task{Runnable: fn}
     l.ingressMu.Lock()
-
-    l.ingress.Push(task)
+    l.ingress.Push(fn)
     l.ingressMu.Unlock()
 
     // ALWAYS uses pipe/eventfd - no fast path
@@ -388,7 +386,7 @@ func (l *Loop) Submit(fn func()) error {
     if l.userIOFDCount.Load() == 0 {
         // FAST PATH: Channel-based wakeup
         l.ingressMu.Lock()
-        l.ingress.Push(Task{Runnable: fn})
+        l.ingress.Push(fn)
         l.ingressMu.Unlock()
 
         // Channel wakeup (~50ns)

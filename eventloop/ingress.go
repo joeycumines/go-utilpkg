@@ -29,11 +29,6 @@ const (
 	ringHeadPadSize = sizeOfCacheLine - sizeOfAtomicUint64
 )
 
-// Task represents a unit of work submitted to the event loop.
-type Task struct {
-	Runnable func()
-}
-
 // ChunkedIngress is a chunked linked-list queue for task submission.
 //
 // Thread Safety: This struct is NOT thread-safe.
@@ -58,7 +53,7 @@ var chunkPool = sync.Pool{
 // chunk is a fixed-size node in the chunked linked-list.
 // It uses readPos/writePos cursors for O(1) push/pop without shifting.
 type chunk struct {
-	tasks   [chunkSize]Task
+	tasks   [chunkSize]func()
 	next    *chunk
 	readPos int // First unread slot (index into tasks)
 	pos     int // First unused slot / writePos (index into tasks)
@@ -91,7 +86,7 @@ func NewChunkedIngress() *ChunkedIngress {
 // Push adds a task to the queue.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Push(task Task) {
+func (q *ChunkedIngress) Push(task func()) {
 	if q.tail == nil {
 		q.tail = newChunk()
 		q.head = q.tail
@@ -113,9 +108,9 @@ func (q *ChunkedIngress) Push(task Task) {
 // Returns false if the queue is empty.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Pop() (Task, bool) {
+func (q *ChunkedIngress) Pop() (func(), bool) {
 	if q.head == nil {
-		return Task{}, false
+		return nil, false
 	}
 
 	// Check if current chunk is exhausted (readPos == pos means all written tasks read)
@@ -124,7 +119,7 @@ func (q *ChunkedIngress) Pop() (Task, bool) {
 		if q.head == q.tail {
 			q.head.pos = 0
 			q.head.readPos = 0
-			return Task{}, false
+			return nil, false
 		}
 		// Move to next chunk and return exhausted one to pool
 		oldHead := q.head
@@ -134,13 +129,13 @@ func (q *ChunkedIngress) Pop() (Task, bool) {
 
 	// Double-check after potential chunk advancement
 	if q.head.readPos >= q.head.pos {
-		return Task{}, false
+		return nil, false
 	}
 
 	// O(1) read at readPos, then increment
 	task := q.head.tasks[q.head.readPos]
 	// Zero out popped slot for GC safety
-	q.head.tasks[q.head.readPos] = Task{}
+	q.head.tasks[q.head.readPos] = nil
 	q.head.readPos++
 	q.length--
 

@@ -161,10 +161,10 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 
 	// Capture the loop's goroutine ID via a task
 	wg.Add(1)
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		loopGoroutineID = getGoroutineID()
 		wg.Done()
-	}})
+	})
 
 	wg.Wait()
 
@@ -179,10 +179,10 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		// This submission is from a different goroutine
-		err := l.SubmitInternal(Task{Runnable: func() {
+		err := l.SubmitInternal(func() {
 			taskGoroutineID = getGoroutineID()
 			wg.Done()
-		}})
+		})
 
 		if err != nil {
 			t.Errorf("SubmitInternal failed: %v", err)
@@ -240,10 +240,10 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 
 	// Capture loop goroutine ID
 	wg.Add(1)
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		loopGoroutineID = getGoroutineID()
 		wg.Done()
-	}})
+	})
 
 	wg.Wait()
 
@@ -254,10 +254,10 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	// Submit from external goroutine - should go through queue
 	wg.Add(1)
 	go func() {
-		err := l.SubmitInternal(Task{Runnable: func() {
+		err := l.SubmitInternal(func() {
 			taskGoroutineID = getGoroutineID()
 			wg.Done()
-		}})
+		})
 
 		if err != nil {
 			t.Errorf("SubmitInternal failed: %v", err)
@@ -338,10 +338,10 @@ func TestLoop_TickAnchor_DataRace(t *testing.T) {
 	// Also submit tasks to trigger tick() calls
 	const tasksToSubmit = 200
 	for i := 0; i < tasksToSubmit; i++ {
-		_ = l.Submit(Task{Runnable: func() {
+		_ = l.Submit(func() {
 			// Trigger some tick processing
 			_ = l.CurrentTickTime()
-		}})
+		})
 		time.Sleep(time.Microsecond * 50)
 	}
 

@@ -29,14 +29,14 @@ func BenchmarkMicroPingPong(b *testing.B) {
 
 	// Warm up
 	done := make(chan struct{})
-	loop.Submit(Task{Runnable: func() { close(done) }})
+	loop.Submit(func() { close(done) })
 	<-done
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
-		loop.Submit(Task{Runnable: func() { close(done) }})
+		loop.Submit(func() { close(done) })
 		<-done
 	}
 
@@ -325,7 +325,7 @@ func BenchmarkLoopDirect(b *testing.B) {
 	// Warm up
 	done := make(chan struct{})
 	loop.externalMu.Lock()
-	loop.auxJobs = append(loop.auxJobs, Task{Runnable: func() { close(done) }})
+	loop.auxJobs = append(loop.auxJobs, func() { close(done) })
 	loop.externalMu.Unlock()
 	select {
 	case loop.fastWakeupCh <- struct{}{}:
@@ -338,7 +338,7 @@ func BenchmarkLoopDirect(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
 		loop.externalMu.Lock()
-		loop.auxJobs = append(loop.auxJobs, Task{Runnable: func() { close(done) }})
+		loop.auxJobs = append(loop.auxJobs, func() { close(done) })
 		loop.externalMu.Unlock()
 		select {
 		case loop.fastWakeupCh <- struct{}{}:
@@ -389,14 +389,14 @@ func BenchmarkLoopDirectWithSubmit(b *testing.B) {
 
 	// Warm up
 	done := make(chan struct{})
-	loop.Submit(Task{Runnable: func() { close(done) }})
+	loop.Submit(func() { close(done) })
 	<-done
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
-		loop.Submit(Task{Runnable: func() { close(done) }})
+		loop.Submit(func() { close(done) })
 		<-done
 	}
 
@@ -426,7 +426,7 @@ func BenchmarkMicroPingPongWithCount(b *testing.B) {
 
 	// Warm up
 	done := make(chan struct{})
-	loop.Submit(Task{Runnable: func() { close(done) }})
+	loop.Submit(func() { close(done) })
 	<-done
 
 	startEntries := loop.fastPathEntries.Load()
@@ -435,7 +435,7 @@ func BenchmarkMicroPingPongWithCount(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
-		loop.Submit(Task{Runnable: func() { close(done) }})
+		loop.Submit(func() { close(done) })
 		<-done
 	}
 

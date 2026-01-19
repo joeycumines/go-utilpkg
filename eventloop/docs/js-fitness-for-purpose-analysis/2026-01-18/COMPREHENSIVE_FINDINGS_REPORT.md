@@ -812,7 +812,7 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
     t := timer{
         id:       id,
         when:     when,
-        task:     Task{Runnable: fn},
+        task:     fn,
         canceled: atomic.Bool{},
     }
 
@@ -821,10 +821,9 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
     l.timerMapMtx.Unlock()
 
     // Submit to loop thread
-    return id, l.SubmitInternal(Task{Runnable: func() {
+    return id, l.SubmitInternal(func() {
         heap.Push(&l.timers, t)
-    }})
-}
+    })
 
 func (l *Loop) CancelTimer(id TimerID) error {
     l.timerMapMtx.RLock()

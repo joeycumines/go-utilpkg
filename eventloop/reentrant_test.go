@@ -31,11 +31,11 @@ func TestReentrancy_RunFromCallback(t *testing.T) {
 	var reentrantErr atomic.Value
 	done := make(chan struct{})
 
-	loop.Submit(Task{Runnable: func() {
+	loop.Submit(func() {
 		err := loop.Run(ctx)
 		reentrantErr.Store(err)
 		close(done)
-	}})
+	})
 
 	select {
 	case <-done:

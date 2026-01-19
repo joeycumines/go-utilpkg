@@ -76,12 +76,12 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
     when := now.Add(delay)
     t := timer{
         when: when,
-        task: Task{Runnable: fn},
+        task: fn,
     }
 
-    return l.SubmitInternal(Task{Runnable: func() {
+    return l.SubmitInternal(func() {
         heap.Push(&l.timers, t)
-    }})
+    })
 }
 ```
 
@@ -641,10 +641,10 @@ type timerHeap []timer
 func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
     now := l.CurrentTickTime()
     when := now.Add(delay)
-    t := timer{when: when, task: Task{Runnable: fn}}
-    return l.SubmitInternal(Task{Runnable: func() {
+    t := timer{when: when, task: fn}
+    return l.SubmitInternal(func() {
         heap.Push(&l.timers, t)
-    }})
+    })
 }
 ```
 

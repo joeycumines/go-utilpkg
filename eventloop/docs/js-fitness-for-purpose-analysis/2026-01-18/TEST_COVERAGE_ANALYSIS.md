@@ -237,9 +237,9 @@ var executed atomic.Int64
 for p := 0; p < producers; p++ {
     go func() {
         for i := 0; i < tasksPerProducer; i++ {
-            loop.Submit(Task{Runnable: func() {
+            loop.Submit(func() {
                 executed.Add(1)
-            }})
+            })
         }
     }()
 }

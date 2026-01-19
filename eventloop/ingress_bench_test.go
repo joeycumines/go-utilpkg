@@ -11,7 +11,7 @@ func BenchmarkChunkedIngress_PushPop(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 		q.Pop()
 	}
 }
@@ -22,7 +22,7 @@ func BenchmarkChunkedIngress_Push(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 }
 
@@ -32,7 +32,7 @@ func BenchmarkChunkedIngress_Pop(b *testing.B) {
 
 	// Pre-fill queue
 	for i := 0; i < b.N; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 
 	b.ResetTimer()
@@ -50,7 +50,7 @@ func BenchmarkChunkedIngress_ParallelWithSync(b *testing.B) {
 		for pb.Next() {
 			// In real code, this mutex would be Loop's externalMu
 			mu.Lock()
-			q.Push(Task{Runnable: func() {}})
+			q.Push(func() {})
 			mu.Unlock()
 		}
 	})

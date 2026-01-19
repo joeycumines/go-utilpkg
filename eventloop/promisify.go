@@ -60,9 +60,9 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 			completed = true
 			// Context already cancelled - reject immediately via internal lane
 			// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
-			if err := l.SubmitInternal(Task{Runnable: func() {
+			if err := l.SubmitInternal(func() {
 				p.Reject(ctx.Err())
-			}}); err != nil {
+			}); err != nil {
 				p.Reject(ctx.Err()) // Fallback: direct resolution
 			}
 			return
@@ -75,9 +75,9 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 				// Panic detected - D05: resolve via SubmitInternal
 				// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
 				panicErr := PanicError{Value: r}
-				if err := l.SubmitInternal(Task{Runnable: func() {
+				if err := l.SubmitInternal(func() {
 					p.Reject(panicErr)
-				}}); err != nil {
+				}); err != nil {
 					p.Reject(panicErr) // Fallback: direct resolution
 				}
 			} else {
@@ -86,9 +86,9 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 					// Function ended but not via normal return -> Goexit (or panic(nil))
 					// D05: resolve via SubmitInternal
 					// PROMISIFY FIX: Fallback to direct reject if SubmitInternal fails
-					if err := l.SubmitInternal(Task{Runnable: func() {
+					if err := l.SubmitInternal(func() {
 						p.Reject(ErrGoexit)
-					}}); err != nil {
+					}); err != nil {
 						p.Reject(ErrGoexit) // Fallback: direct resolution
 					}
 				}
@@ -101,15 +101,15 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 		// D05: Resolution goes through SubmitInternal to ensure single-owner
 		// PROMISIFY FIX: Fallback to direct resolution if SubmitInternal fails
 		if err != nil {
-			if submitErr := l.SubmitInternal(Task{Runnable: func() {
+			if submitErr := l.SubmitInternal(func() {
 				p.Reject(err)
-			}}); submitErr != nil {
+			}); submitErr != nil {
 				p.Reject(err) // Fallback: direct resolution
 			}
 		} else {
-			if submitErr := l.SubmitInternal(Task{Runnable: func() {
+			if submitErr := l.SubmitInternal(func() {
 				p.Resolve(res)
-			}}); submitErr != nil {
+			}); submitErr != nil {
 				// Loop terminated but operation succeeded
 				// PROMISIFY FIX: Resolve directly - loop is gone so single-owner is moot
 				// This ensures successful operations are not incorrectly reported as failures

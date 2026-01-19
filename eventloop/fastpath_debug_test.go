@@ -50,9 +50,9 @@ func TestFastPath_EntryDebug(t *testing.T) {
 
 	// Submit a task and wait for completion
 	done := make(chan struct{})
-	err = loop.Submit(Task{Runnable: func() {
+	err = loop.Submit(func() {
 		close(done)
-	}})
+	})
 	if err != nil {
 		t.Fatalf("Submit failed: %v", err)
 	}
@@ -137,13 +137,13 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	done := make(chan struct{})
 	innerDone := make(chan struct{})
 
-	err = loop.Submit(Task{Runnable: func() {
+	err = loop.Submit(func() {
 		// Now we're on the loop thread - submit internal task
-		loop.SubmitInternal(Task{Runnable: func() {
+		loop.SubmitInternal(func() {
 			close(innerDone)
-		}})
+		})
 		close(done)
-	}})
+	})
 	if err != nil {
 		t.Fatalf("Submit failed: %v", err)
 	}

@@ -23,7 +23,7 @@ import (
 
 func BenchmarkLatencyChunkedIngressPush(b *testing.B) {
 	q := NewChunkedIngress()
-	task := Task{Runnable: func() {}}
+	task := func() {}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -35,7 +35,7 @@ func BenchmarkLatencyChunkedIngressPush_WithContention(b *testing.B) {
 	// ChunkedIngress requires external synchronization for concurrent access.
 	// This benchmark now includes proper synchronization to show contention cost.
 	q := NewChunkedIngress()
-	task := Task{Runnable: func() {}}
+	task := func() {}
 	var mu sync.Mutex // Required: External synchronization
 
 	var wg sync.WaitGroup
@@ -66,7 +66,7 @@ func BenchmarkLatencyChunkedIngressPop(b *testing.B) {
 
 	// Pre-fill the queue
 	for i := 0; i < b.N; i++ {
-		q.Push(Task{Runnable: func() {}})
+		q.Push(func() {})
 	}
 
 	b.ResetTimer()
@@ -78,7 +78,7 @@ func BenchmarkLatencyChunkedIngressPop(b *testing.B) {
 func BenchmarkLatencyChunkedIngressPushPop(b *testing.B) {
 	// Measure complete push+pop round-trip
 	q := NewChunkedIngress()
-	task := Task{Runnable: func() {}}
+	task := func() {}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -242,7 +242,7 @@ func BenchmarkLatencySimulatedSubmit(b *testing.B) {
 	state.Store(StateRunning)
 	q := NewChunkedIngress()
 	var mu sync.Mutex
-	task := Task{Runnable: func() {}}
+	task := func() {}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -266,7 +266,7 @@ func BenchmarkLatencySimulatedPoll(b *testing.B) {
 
 	// Pre-fill
 	for i := 0; i < b.N; i++ {
-		q.Push(Task{Runnable: fn})
+		q.Push(fn)
 	}
 
 	b.ResetTimer()
@@ -274,8 +274,8 @@ func BenchmarkLatencySimulatedPoll(b *testing.B) {
 		mu.Lock()
 		task, ok := q.Pop()
 		mu.Unlock()
-		if ok && task.Runnable != nil {
-			safeExecute(task.Runnable)
+		if ok && task != nil {
+			safeExecute(task)
 		}
 	}
 }

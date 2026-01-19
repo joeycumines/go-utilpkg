@@ -78,8 +78,8 @@ func TestBarrierOrderingModes(t *testing.T) {
 		}
 
 		// Submit both tasks
-		l.Submit(Task{Runnable: taskA})
-		l.Submit(Task{Runnable: taskB})
+		l.Submit(taskA)
+		l.Submit(taskB)
 
 		// Wait for completion
 		done := make(chan struct{})
@@ -191,8 +191,8 @@ func TestBarrierOrderingModes(t *testing.T) {
 		}
 
 		// Submit both tasks
-		l.Submit(Task{Runnable: taskA})
-		l.Submit(Task{Runnable: taskB})
+		l.Submit(taskA)
+		l.Submit(taskB)
 
 		// Wait for completion
 		done := make(chan struct{})
@@ -280,7 +280,7 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 		}
 	}
 
-	l.Submit(Task{Runnable: task})
+	l.Submit(task)
 
 	select {
 	case <-done:

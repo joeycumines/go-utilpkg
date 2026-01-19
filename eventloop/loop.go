@@ -144,7 +144,7 @@ type Loop struct { // betteralign:ignore
 	internalQueueMu sync.Mutex
 
 	// Task batch buffer (avoid allocation)
-	batchBuf [256]Task
+	batchBuf [256]func()
 
 	// GOJA-STYLE QUEUE: Simple slice-based queue (bypasses ChunkedIngress in fast mode)
 	// This is the EXACT pattern from goja_nodejs eventloop:
@@ -158,8 +158,8 @@ type Loop struct { // betteralign:ignore
 	//   1. Single append per submit (no chunk management)
 	//   2. Single lock per batch drain (not per task)
 	//   3. Zero allocations in steady state (buffer reuse)
-	auxJobs      []Task
-	auxJobsSpare []Task
+	auxJobs      []func()
+	auxJobsSpare []func()
 
 	wakeUpSignalPending atomic.Uint32 // Wake-up deduplication
 
@@ -179,7 +179,7 @@ type Loop struct { // betteralign:ignore
 // timer represents a scheduled task
 type timer struct {
 	when time.Time
-	task Task
+	task func()
 }
 
 // timerHeap is a min-heap of timers
@@ -609,7 +609,7 @@ func (l *Loop) runAux() {
 
 	for i, job := range jobs {
 		l.safeExecute(job)
-		jobs[i] = Task{} // Clear for GC
+		jobs[i] = nil // Clear for GC
 
 		// FIX 1: Respect StrictMicrotaskOrdering
 		if l.StrictMicrotaskOrdering {
@@ -716,7 +716,7 @@ func (l *Loop) shutdown() {
 		l.externalMu.Unlock()
 		for i, job := range jobs {
 			l.safeExecute(job)
-			jobs[i] = Task{}
+			jobs[i] = nil
 			drained = true
 		}
 		l.auxJobsSpare = jobs[:0]
@@ -828,7 +828,7 @@ func (l *Loop) processExternal() {
 	// Execute tasks (without holding mutex)
 	for i := 0; i < n; i++ {
 		l.safeExecute(l.batchBuf[i])
-		l.batchBuf[i] = Task{} // Clear for GC
+		l.batchBuf[i] = nil // Clear for GC
 
 		// Strict microtask ordering
 		if l.StrictMicrotaskOrdering {
@@ -1097,7 +1097,7 @@ func (l *Loop) submitWakeup() error {
 // Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
 // This eliminates the need for inflight counters and provides better
 // performance than lock-free CAS under high contention (proven in benchmarks).
-func (l *Loop) Submit(task Task) error {
+func (l *Loop) Submit(task func()) error {
 	// FAST PATH: Check fast mode conditions BEFORE taking lock
 	// This avoids atomic loads inside the critical section.
 	fastMode := l.canUseFastPath()
@@ -1168,7 +1168,7 @@ func (l *Loop) doWakeup() {
 //   - StateSleeping/StateRunning: normal operation
 //
 // Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
-func (l *Loop) SubmitInternal(task Task) error {
+func (l *Loop) SubmitInternal(task func()) error {
 	// CRITICAL FIX #1: Fast-path with thread affinity check
 	// The fast path optimization executes tasks immediately instead of queueing them.
 	// If fast path is enabled, loop is running, AND we're ON the loop thread,
@@ -1273,9 +1273,9 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 //
 // D2 FIX: MicrotaskRing now implements dynamic growth, so Push never fails.
 // Removed fallback to SubmitInternal - always push to microtask ring.
-func (l *Loop) scheduleMicrotask(task Task) {
-	if task.Runnable != nil {
-		l.microtasks.Push(task.Runnable)
+func (l *Loop) scheduleMicrotask(task func()) {
+	if task != nil {
+		l.microtasks.Push(task)
 	}
 }
 
@@ -1466,17 +1466,17 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
 	when := now.Add(delay)
 	t := timer{
 		when: when,
-		task: Task{Runnable: fn},
+		task: fn,
 	}
 
-	return l.SubmitInternal(Task{Runnable: func() {
+	return l.SubmitInternal(func() {
 		heap.Push(&l.timers, t)
-	}})
+	})
 }
 
 // safeExecute executes a task with panic recovery.
-func (l *Loop) safeExecute(t Task) {
-	if t.Runnable == nil {
+func (l *Loop) safeExecute(t func()) {
+	if t == nil {
 		return
 	}
 
@@ -1486,7 +1486,7 @@ func (l *Loop) safeExecute(t Task) {
 		}
 	}()
 
-	t.Runnable()
+	t()
 }
 
 // safeExecuteFn executes a function with panic recovery.

@@ -76,9 +76,9 @@ func TestTask1_2_CheckThenSleepBarrier(t *testing.T) {
 
 			for j := 0; j < tasksPerProducer; j++ {
 				// Submit task via loop.Submit()
-				err := loop.Submit(eventloop.Task{Runnable: func() {
+				err := loop.Submit(func() {
 					// Task executed - just count
-				}})
+				})
 				if err != nil && err != eventloop.ErrLoopTerminated {
 					// Context may have expired, ignore ErrLoopTerminated
 					return
@@ -144,7 +144,7 @@ func BenchmarkTask1_2_ConcurrentSubmissions(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			// Submit real task
-			_ = loop.Submit(eventloop.Task{Runnable: func() {}})
+			_ = loop.Submit(func() {})
 		}
 	})
 }

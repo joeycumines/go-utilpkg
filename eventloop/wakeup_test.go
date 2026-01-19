@@ -50,9 +50,9 @@ func TestWakeup_HighContention(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < tasksPerProducer; i++ {
-				loop.Submit(Task{Runnable: func() {
+				loop.Submit(func() {
 					executed.Add(1)
-				}})
+				})
 				if i%100 == 0 {
 					time.Sleep(time.Microsecond)
 				}

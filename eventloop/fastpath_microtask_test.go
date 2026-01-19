@@ -122,7 +122,7 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 			// Submit tasks with microtasks
 			const iterations = 20
 			for i := 0; i < iterations; i++ {
-				if err := loop.Submit(Task{Runnable: func() {
+				if err := loop.Submit(func() {
 					count.Add(1) // Count task execution
 					_ = loop.ScheduleMicrotask(func() {
 						count.Add(1) // Count microtask execution
@@ -131,7 +131,7 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 							done.Store(true)
 						}
 					})
-				}}); err != nil {
+				}); err != nil {
 					t.Fatalf("Failed to submit task: %v", err)
 				}
 			}
@@ -225,7 +225,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 
 	// Submit a task that schedules a microtask
 	// Expected execution: task -> microtask
-	if err := loop.Submit(Task{Runnable: func() {
+	if err := loop.Submit(func() {
 		order.Add(1)
 		close(taskExecuted)
 
@@ -237,7 +237,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to schedule microtask: %v", err)
 		}
-	}}); err != nil {
+	}); err != nil {
 		t.Fatalf("Failed to submit task: %v", err)
 	}
 
@@ -315,7 +315,7 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 	// Submit tasks that schedule microtasks
 	for i := 0; i < 10; i++ {
 		taskId := i
-		if err := loop.Submit(Task{Runnable: func() {
+		if err := loop.Submit(func() {
 			mu.Lock()
 			executions = append(executions, taskId*2) // Task gets even number
 			mu.Unlock()
@@ -326,7 +326,7 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 				executions = append(executions, taskId*2+1) // Microtask gets odd number
 				mu.Unlock()
 			})
-		}}); err != nil {
+		}); err != nil {
 			t.Fatalf("Failed to submit task: %v", err)
 		}
 	}
@@ -392,13 +392,13 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	const numMicrotasksPerTask = 3
 
 	for i := 0; i < numTasks; i++ {
-		if err := loop.Submit(Task{Runnable: func() {
+		if err := loop.Submit(func() {
 			for j := 0; j < numMicrotasksPerTask; j++ {
 				_ = loop.ScheduleMicrotask(func() {
 					count.Add(1)
 				})
 			}
-		}}); err != nil {
+		}); err != nil {
 			t.Fatalf("Failed to submit task: %v", err)
 		}
 	}
@@ -471,8 +471,8 @@ func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
 	const count = 2500
 	var executed atomic.Int64
 
-	if err := loop.Submit(Task{Runnable: func() {
-		// Recursive scheduling to fill the ring
+	if err := loop.Submit(func() {
+		// Recursive scheduling to fill's ring
 		var schedule func(n int)
 		schedule = func(n int) {
 			if n <= 0 {
@@ -485,7 +485,7 @@ func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
 			})
 		}
 		schedule(count)
-	}}); err != nil {
+	}); err != nil {
 		t.Fatalf("Failed to submit task: %v", err)
 	}
 

@@ -409,10 +409,10 @@ func TestSubmit_Concurrent* (t *testing.T) {
     for i := 0; i < numProducers; i++ {
         go func(id int) {
             for j := 0; j < testsPerProducer; j++ {
-                loop.Submit(Task{Runnable: func() {
+                loop.Submit(func() {
                     // Must execute ONCE
                     counter.Add(1)
-                }})
+                })
             }
         }(i)
     }

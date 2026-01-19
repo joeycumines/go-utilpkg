@@ -199,15 +199,15 @@ func TestRegression_ShutdownOrdering(t *testing.T) {
 	// Wait for loop to be running before submitting tasks
 	time.Sleep(10 * time.Millisecond)
 
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		log("Ingress")
-		l.SubmitInternal(Task{Runnable: func() {
+		l.SubmitInternal(func() {
 			log("Internal")
-			l.scheduleMicrotask(Task{Runnable: func() {
+			l.scheduleMicrotask(func() {
 				log("Microtask")
-			}})
-		}})
-	}})
+			})
+		})
+	})
 
 	// Wait a moment for tasks to be queued
 	time.Sleep(10 * time.Millisecond)
@@ -245,9 +245,9 @@ func TestRegression_ShutdownNoDataLoss(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for {
-				err := l.Submit(Task{Runnable: func() {
+				err := l.Submit(func() {
 					executed.Add(1)
-				}})
+				})
 				if err == nil {
 					submitted.Add(1)
 				} else if err == ErrLoopTerminated {
@@ -286,11 +286,11 @@ func TestRegression_ShutdownOrderLostMicrotask(t *testing.T) {
 
 	microtaskRan := make(chan struct{})
 
-	l.SubmitInternal(Task{Runnable: func() {
-		l.scheduleMicrotask(Task{Runnable: func() {
+	l.SubmitInternal(func() {
+		l.scheduleMicrotask(func() {
 			close(microtaskRan)
-		}})
-	}})
+		})
+	})
 
 	// Wait a moment for the task to be queued
 	time.Sleep(10 * time.Millisecond)
@@ -361,7 +361,7 @@ func TestRegression_ChunkPooling(t *testing.T) {
 
 	// Push enough tasks to create multiple chunks
 	for i := 0; i < 256; i++ {
-		queue.Push(Task{Runnable: func() {}})
+		queue.Push(func() {})
 	}
 
 	// Pop all tasks - should return chunks to pool
@@ -377,7 +377,7 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	allocs := testing.AllocsPerRun(10, func() {
 		// Push 128 tasks (fills one chunk)
 		for i := 0; i < 128; i++ {
-			queue.Push(Task{Runnable: func() {}})
+			queue.Push(func() {})
 		}
 		// Pop all
 		for i := 0; i < 128; i++ {
@@ -461,7 +461,7 @@ func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	for cycle := 0; cycle < 10; cycle++ {
 		// Push enough tasks to exercise the queue
 		for i := 0; i < 130; i++ {
-			q.Push(Task{Runnable: func() {}})
+			q.Push(func() {})
 		}
 
 		// Pop all tasks
@@ -596,7 +596,7 @@ func TestCheckThenSleep_BarrierProof(t *testing.T) {
 
 	// THE ATTACK: Submit a task NOW
 	executed := make(chan struct{})
-	loop.Submit(Task{Runnable: func() { close(executed) }})
+	loop.Submit(func() { close(executed) })
 
 	resumePoll <- struct{}{}
 
@@ -647,9 +647,9 @@ func TestShutdown_ConservationOfTasks(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < tasksPerProducer; j++ {
-				err := l.Submit(Task{Runnable: func() {
+				err := l.Submit(func() {
 					executed.Add(1)
-				}})
+				})
 
 				if err == nil {
 					accepted.Add(1)
@@ -712,9 +712,9 @@ func TestIngress_NoClosureLeaks(t *testing.T) {
 			close(closureReclaimed)
 		})
 
-		loop.Submit(Task{Runnable: func() {
+		loop.Submit(func() {
 			_ = heavy.data[0]
-		}})
+		})
 	}()
 
 	time.Sleep(10 * time.Millisecond)
@@ -806,9 +806,9 @@ func TestRegression_PollIOErrorHandling(t *testing.T) {
 	// PROOF 2: Submit tasks rapidly - should not cause polling failures
 	executed := atomic.Int64{}
 	for i := 0; i < 1000; i++ {
-		l.Submit(Task{Runnable: func() {
+		l.Submit(func() {
 			executed.Add(1)
-		}})
+		})
 	}
 
 	// Wait for tasks to process
@@ -861,9 +861,9 @@ func TestRegression_EndiannessPortability(t *testing.T) {
 	// Verify loop is still healthy and processing tasks
 	executed := atomic.Int64{}
 	for i := 0; i < 100; i++ {
-		l.Submit(Task{Runnable: func() {
+		l.Submit(func() {
 			executed.Add(1)
-		}})
+		})
 	}
 
 	time.Sleep(100 * time.Millisecond)

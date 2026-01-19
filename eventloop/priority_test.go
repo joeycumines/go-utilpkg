@@ -31,17 +31,17 @@ func TestPriorityLane_InternalBypassesBudget(t *testing.T) {
 	// Submit 2000 external tasks first
 	for i := 0; i < 2000; i++ {
 		idx := i
-		loop.Submit(Task{Runnable: func() {
+		loop.Submit(func() {
 			record(fmt.Sprintf("external-%d", idx))
-		}})
+		})
 	}
 
 	// Submit internal priority task
 	// NOTE: SubmitInternal is expected to exist as part of priority lane implementation.
-	// If this doesn't compile, the priority lane feature is not implemented.
-	loop.SubmitInternal(Task{Runnable: func() {
+	// If this doesn't compile, priority lane feature is not implemented.
+	loop.SubmitInternal(func() {
 		record("internal-priority")
-	}})
+	})
 
 	// Run in goroutine since Run() is blocking
 	runDone := make(chan struct{})

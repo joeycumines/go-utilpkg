@@ -41,7 +41,7 @@ type Task struct {
 }
 ```
 **Purpose**: Unit of work submitted to event loop
-**Usage**: `loop.Submit(Task{Runnable: myFunc})`
+**Usage**: `loop.Submit(myFunc)`
 
 #### Promise Interface
 ```go
@@ -687,10 +687,10 @@ func (gp *GojaPromise) Then(onResolve, onReject func(JSValue)) JSValue {
         } else {
             if onResolve != nil {
                 // Execute onResolve on loop thread
-                gp.loop.SubmitInternal(Task{Runnable: func() {
+                gp.loop.SubmitInternal(func() {
                     resolvedValue := onResolve(result.(JSValue))
                     resultPromise.Resolve(resolvedValue)
-                }})
+                })
             } else {
                 resultPromise.Resolve(result)
             }
@@ -1259,7 +1259,7 @@ func (gp *GojaPromise) Then(onResolve, onReject func(goja.Value)) *GojaPromise {
         ch := gp.promise.ToChannel()
         result := <-ch
 
-        gp.loop.SubmitInternal(eventloop.Task{Runnable: func() {
+        gp.loop.SubmitInternal(func() {
             if gp.promise.State() == eventloop.Rejected {
                 if onReject != nil {
                     onReject(result)

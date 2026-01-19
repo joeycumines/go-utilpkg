@@ -34,18 +34,18 @@ func TestPanicIsolation_IngressTaskPanic(t *testing.T) {
 
 	done := make(chan struct{})
 
-	loop.Submit(Task{Runnable: func() {
+	loop.Submit(func() {
 		task1Executed.Store(true)
-	}})
+	})
 
-	loop.Submit(Task{Runnable: func() {
+	loop.Submit(func() {
 		panic("intentional test panic")
-	}})
+	})
 
-	loop.Submit(Task{Runnable: func() {
+	loop.Submit(func() {
 		task3Executed.Store(true)
 		close(done)
-	}})
+	})
 
 	select {
 	case <-done:
@@ -91,7 +91,7 @@ func TestLoopSurvivesPanic_ContinuesProcessing(t *testing.T) {
 
 	for i := 0; i < total; i++ {
 		idx := i
-		loop.Submit(Task{Runnable: func() {
+		loop.Submit(func() {
 			if idx%10 == 5 {
 				panic("periodic panic")
 			}
@@ -99,7 +99,7 @@ func TestLoopSurvivesPanic_ContinuesProcessing(t *testing.T) {
 			if executed.Load() == total-10 {
 				close(done)
 			}
-		}})
+		})
 	}
 
 	select {
@@ -134,16 +134,16 @@ func TestLoop_SurvivesPanic(t *testing.T) {
 	// Give loop time to start
 	time.Sleep(10 * time.Millisecond)
 
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		panic("This should not crash the loop")
-	}})
+	})
 
 	time.Sleep(10 * time.Millisecond)
 
 	done := make(chan struct{})
-	l.Submit(Task{Runnable: func() {
+	l.Submit(func() {
 		close(done)
-	}})
+	})
 
 	select {
 	case <-done:

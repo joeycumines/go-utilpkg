@@ -76,13 +76,13 @@ func TestLatencyAnalysis_EndToEnd(t *testing.T) {
 		// Capture t0 just before Submit
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			// Tiny work to measure execution overhead
 			runtime.Gosched() // Minimal syscall-like operation
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -147,12 +147,12 @@ func TestLatencyAnalysis_FastPath(t *testing.T) {
 		// Capture t0 just before Submit
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			runtime.Gosched()
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -219,13 +219,13 @@ func TestLatencyAnalysis_NoWakeup(t *testing.T) {
 
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			runtime.Gosched()
 			rec.t2TaskEnd = time.Now()
 			taskIdx.Add(1)
 			wg.Done()
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -302,13 +302,13 @@ func TestLatencyAnalysis_PollInstrumented(t *testing.T) {
 		stateAtSubmit[idx] = loop.State()
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			stateAtExec[idx] = loop.State()
 			rec.t1TaskStart = time.Now()
 			runtime.Gosched()
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -429,11 +429,11 @@ func TestLatencyAnalysis_FullTick(t *testing.T) {
 
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -506,11 +506,11 @@ func TestLatencyAnalysis_Wakeup(t *testing.T) {
 
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed at iteration %d: %v", i, err)
@@ -641,11 +641,11 @@ func TestLatencyAnalysis_IOFDImpact(t *testing.T) {
 
 			rec.t0Submit = time.Now()
 
-			err := loop.Submit(Task{Runnable: func() {
+			err := loop.Submit(func() {
 				rec.t1TaskStart = time.Now()
 				rec.t2TaskEnd = time.Now()
 				close(taskDone)
-			}})
+			})
 
 			if err != nil {
 				t.Fatalf("Submit failed: %v", err)
@@ -807,9 +807,9 @@ func BenchmarkLatencyAnalysis_EndToEnd(b *testing.B) {
 		taskDone := make(chan struct{})
 		start := time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			b.Fatalf("Submit failed: %v", err)
@@ -854,9 +854,9 @@ func BenchmarkLatencyAnalysis_PingPong(b *testing.B) {
 	// Start pong responder
 	go func() {
 		for range ping {
-			_ = loop.Submit(Task{Runnable: func() {
+			_ = loop.Submit(func() {
 				pong <- struct{}{}
-			}})
+			})
 		}
 	}()
 
@@ -895,7 +895,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 
 	// 2. Measure ChunkedIngress push
 	q := NewChunkedIngress()
-	task := Task{Runnable: func() {}}
+	task := func() {}
 	start = time.Now()
 	for i := 0; i < ops; i++ {
 		q.Push(task)
@@ -1015,11 +1015,11 @@ func TestLatencyAnalysis_FastWakeupChannel(t *testing.T) {
 
 		rec.t0Submit = time.Now()
 
-		err := loop.Submit(Task{Runnable: func() {
+		err := loop.Submit(func() {
 			rec.t1TaskStart = time.Now()
 			rec.t2TaskEnd = time.Now()
 			close(taskDone)
-		}})
+		})
 
 		if err != nil {
 			t.Fatalf("Submit failed: %v", err)
@@ -1139,9 +1139,9 @@ func BenchmarkLatencyAnalysis_SubmitWhileRunning(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_ = loop.Submit(Task{Runnable: func() {
+		_ = loop.Submit(func() {
 			taskDone <- struct{}{}
-		}})
+		})
 		<-taskDone
 	}
 

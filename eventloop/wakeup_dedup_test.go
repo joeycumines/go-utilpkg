@@ -79,7 +79,7 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 			<-start
 
 			// Submit a task
-			task := eventloop.Task{}
+			var task func() = nil
 			if err := loop.Submit(task); err != nil {
 				t.Errorf("Producer %d: Submit() failed: %v", producerID, err)
 			}
@@ -176,7 +176,7 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 
 	for cycle := 0; cycle < numCycles; cycle++ {
 		// Submit a task - this should trigger a wake-up if loop is sleeping
-		task := eventloop.Task{}
+		var task func() = nil
 		if err := loop.Submit(task); err != nil {
 			t.Fatalf("Cycle %d: Submit() failed: %v", cycle, err)
 		}
@@ -235,7 +235,7 @@ func TestWriteThenCheckIntegration(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	// Submit a task while loop might be sleeping
-	task := eventloop.Task{}
+	var task func() = nil
 	if err := loop.Submit(task); err != nil {
 		t.Fatalf("Submit() failed: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 
 			// Submit multiple tasks
 			for j := 0; j < tasksPerProducer; j++ {
-				task := eventloop.Task{}
+				var task func() = nil
 				if err := loop.Submit(task); err != nil {
 					t.Errorf("Producer %d, task %d: Submit() failed: %v", producerID, j, err)
 				}
@@ -380,7 +380,7 @@ func TestWakeUpSignalFlagResetIntegration(t *testing.T) {
 	}()
 
 	// Submit a task to trigger wake-up
-	task := eventloop.Task{}
+	var task func() = nil
 	if err := loop.Submit(task); err != nil {
 		t.Fatalf("Submit() failed: %v", err)
 	}
@@ -499,7 +499,7 @@ func TestWakeUpDuringPollingIntegration(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Submit a task - should wake up the loop
-	task := eventloop.Task{}
+	var task func() = nil
 	start := time.Now()
 	if err := loop.Submit(task); err != nil {
 		t.Fatalf("Submit() failed: %v", err)
@@ -557,7 +557,7 @@ func BenchmarkWakeUpDeduplicationIntegration(b *testing.B) {
 
 	// Benchmark concurrent submissions
 	b.RunParallel(func(pb *testing.PB) {
-		task := eventloop.Task{}
+		var task func() = nil
 		for pb.Next() {
 			if err := loop.Submit(task); err != nil {
 				b.Errorf("Submit() failed: %v", err)

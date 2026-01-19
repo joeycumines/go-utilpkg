@@ -47,7 +47,7 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 			case <-done:
 				return
 			default:
-				l.Submit(Task{Runnable: func() {}})
+				l.Submit(func() {})
 				runtime.Gosched()
 			}
 		}
