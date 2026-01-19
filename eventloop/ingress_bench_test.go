@@ -1,6 +1,7 @@
 package eventloop
 
 import (
+	"sync"
 	"testing"
 )
 
@@ -10,7 +11,7 @@ func BenchmarkChunkedIngress_PushPop(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.Push(func() {})
+		q.Push(Task{Runnable: func() {}})
 		q.Pop()
 	}
 }
@@ -21,7 +22,7 @@ func BenchmarkChunkedIngress_Push(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.Push(func() {})
+		q.Push(Task{Runnable: func() {}})
 	}
 }
 
@@ -31,7 +32,7 @@ func BenchmarkChunkedIngress_Pop(b *testing.B) {
 
 	// Pre-fill queue
 	for i := 0; i < b.N; i++ {
-		q.Push(func() {})
+		q.Push(Task{Runnable: func() {}})
 	}
 
 	b.ResetTimer()
@@ -40,13 +41,17 @@ func BenchmarkChunkedIngress_Pop(b *testing.B) {
 	}
 }
 
-// BenchmarkChunkedIngress_Parallel benchmarks parallel push/pop.
-func BenchmarkChunkedIngress_Parallel(b *testing.B) {
+// BenchmarkChunkedIngress_ParallelWithSync benchmarks parallel push WITH proper synchronization.
+func BenchmarkChunkedIngress_ParallelWithSync(b *testing.B) {
 	q := NewChunkedIngress()
+	var mu sync.Mutex
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			q.Push(func() {})
+			// In real code, this mutex would be Loop's externalMu
+			mu.Lock()
+			q.Push(Task{Runnable: func() {}})
+			mu.Unlock()
 		}
 	})
 }

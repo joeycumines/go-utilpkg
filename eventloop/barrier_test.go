@@ -14,22 +14,23 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 
 		var order []string
 
-		// Fill ingress queue directly using lock-free Push
+		// Fill ingress queue directly (CALLER MUST HOLD MUTEX)
+		// Note: This test runs single-threaded, so no race.
 		// Task A: Queues M1
-		l.external.Push(func() {
+		l.external.Push(Task{Runnable: func() {
 			order = append(order, "A")
 			l.microtasks.Push(func() {
 				order = append(order, "M1")
 			})
-		})
+		}})
 
 		// Task B: Queues M2
-		l.external.Push(func() {
+		l.external.Push(Task{Runnable: func() {
 			order = append(order, "B")
 			l.microtasks.Push(func() {
 				order = append(order, "M2")
 			})
-		})
+		}})
 
 		// Simulate Tick
 		// tick() calls processExternal() then drainMicrotasks()
@@ -58,20 +59,20 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 		var order []string
 
 		// Task A
-		l.external.Push(func() {
+		l.external.Push(Task{Runnable: func() {
 			order = append(order, "A")
 			l.microtasks.Push(func() {
 				order = append(order, "M1")
 			})
-		})
+		}})
 
 		// Task B
-		l.external.Push(func() {
+		l.external.Push(Task{Runnable: func() {
 			order = append(order, "B")
 			l.microtasks.Push(func() {
 				order = append(order, "M2")
 			})
-		})
+		}})
 
 		// Simulate Tick
 		l.processExternal()

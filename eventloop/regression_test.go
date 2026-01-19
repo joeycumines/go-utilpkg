@@ -361,7 +361,7 @@ func TestRegression_ChunkPooling(t *testing.T) {
 
 	// Push enough tasks to create multiple chunks
 	for i := 0; i < 256; i++ {
-		queue.Push(func() {})
+		queue.Push(Task{Runnable: func() {}})
 	}
 
 	// Pop all tasks - should return chunks to pool
@@ -377,7 +377,7 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	allocs := testing.AllocsPerRun(10, func() {
 		// Push 128 tasks (fills one chunk)
 		for i := 0; i < 128; i++ {
-			queue.Push(func() {})
+			queue.Push(Task{Runnable: func() {}})
 		}
 		// Pop all
 		for i := 0; i < 128; i++ {
@@ -461,7 +461,7 @@ func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	for cycle := 0; cycle < 10; cycle++ {
 		// Push enough tasks to exercise the queue
 		for i := 0; i < 130; i++ {
-			q.Push(func() {})
+			q.Push(Task{Runnable: func() {}})
 		}
 
 		// Pop all tasks

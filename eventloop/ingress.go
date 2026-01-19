@@ -45,7 +45,7 @@ type Task struct {
 type ChunkedIngress struct { // betteralign:ignore
 	head   *chunk
 	tail   *chunk
-	length int64
+	length int
 }
 
 // chunkPool prevents GC thrashing under high load.
@@ -162,7 +162,7 @@ func (q *ChunkedIngress) Pop() (Task, bool) {
 // Length returns the queue length.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Length() int64 {
+func (q *ChunkedIngress) Length() int {
 	return q.length
 }
 

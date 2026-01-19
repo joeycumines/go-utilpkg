@@ -621,7 +621,7 @@ func (l *Loop) runAux() {
 	// Drain internal queue (SubmitInternal tasks)
 	for {
 		l.internalQueueMu.Lock()
-		task, ok := l.internal.popLocked()
+		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
 		if !ok {
 			break
@@ -653,7 +653,7 @@ func (l *Loop) hasTimersPending() bool {
 // hasInternalTasks returns true if there are internal tasks pending.
 func (l *Loop) hasInternalTasks() bool {
 	l.internalQueueMu.Lock()
-	hasInternal := l.internal.lengthLocked() > 0
+	hasInternal := l.internal.Length() > 0
 	l.internalQueueMu.Unlock()
 	return hasInternal
 }
@@ -688,7 +688,7 @@ func (l *Loop) shutdown() {
 		// Drain internal queue (with mutex)
 		for {
 			l.internalQueueMu.Lock()
-			task, ok := l.internal.popLocked()
+			task, ok := l.internal.Pop()
 			l.internalQueueMu.Unlock()
 			if !ok {
 				break
@@ -700,7 +700,7 @@ func (l *Loop) shutdown() {
 		// Drain external queue (with mutex)
 		for {
 			l.externalMu.Lock()
-			task, ok := l.external.popLocked()
+			task, ok := l.external.Pop()
 			l.externalMu.Unlock()
 			if !ok {
 				break
@@ -791,7 +791,7 @@ func (l *Loop) processInternalQueue() bool {
 	processed := false
 	for {
 		l.internalQueueMu.Lock()
-		task, ok := l.internal.popLocked()
+		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
 		if !ok {
 			break
@@ -814,7 +814,7 @@ func (l *Loop) processExternal() {
 	l.externalMu.Lock()
 	n := 0
 	for n < budget && n < len(l.batchBuf) {
-		task, ok := l.external.popLocked()
+		task, ok := l.external.Pop()
 		if !ok {
 			break
 		}
@@ -822,7 +822,7 @@ func (l *Loop) processExternal() {
 		n++
 	}
 	// Check remaining tasks while still holding lock
-	remainingTasks := l.external.lengthLocked()
+	remainingTasks := l.external.Length()
 	l.externalMu.Unlock()
 
 	// Execute tasks (without holding mutex)
@@ -893,11 +893,11 @@ func (l *Loop) poll() {
 
 	// Quick length check (need to hold mutexes for accurate count)
 	l.externalMu.Lock()
-	extLen := l.external.lengthLocked()
+	extLen := l.external.Length()
 	l.externalMu.Unlock()
 
 	l.internalQueueMu.Lock()
-	intLen := l.internal.lengthLocked()
+	intLen := l.internal.Length()
 	l.internalQueueMu.Unlock()
 
 	if extLen > 0 || intLen > 0 || !l.microtasks.IsEmpty() {
@@ -1127,7 +1127,7 @@ func (l *Loop) Submit(task Task) error {
 	}
 
 	// NON-FAST PATH: Use ChunkedIngress for I/O mode
-	l.external.pushLocked(task)
+	l.external.Push(task)
 	l.externalMu.Unlock()
 
 	// I/O MODE: Need more careful wakeup with deduplication
@@ -1177,7 +1177,7 @@ func (l *Loop) SubmitInternal(task Task) error {
 	if l.canUseFastPath() && state == StateRunning && l.isLoopThread() {
 		// Check external queue length (need to lock for this)
 		l.externalMu.Lock()
-		extLen := l.external.lengthLocked()
+		extLen := l.external.Length()
 		l.externalMu.Unlock()
 		if extLen == 0 {
 			// CRITICAL: Re-check state before execution (Issue #2 fix)
@@ -1207,7 +1207,7 @@ func (l *Loop) SubmitInternal(task Task) error {
 	}
 
 	// Push the task
-	l.internal.pushLocked(task)
+	l.internal.Push(task)
 	l.internalQueueMu.Unlock()
 
 	// FAST PATH FIX: In fast mode, runFastPath blocks on fastWakeupCh while

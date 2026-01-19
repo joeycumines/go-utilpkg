@@ -898,7 +898,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	task := Task{Runnable: func() {}}
 	start = time.Now()
 	for i := 0; i < ops; i++ {
-		q.PushTask(task)
+		q.Push(task)
 	}
 	pushTime := time.Since(start)
 	t.Logf("ChunkedIngress push: %v/op", pushTime/ops)

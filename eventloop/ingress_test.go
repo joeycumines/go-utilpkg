@@ -17,10 +17,10 @@ func TestChunkedIngress_ChunkTransition(t *testing.T) {
 
 	// Push total tasks
 	for i := 0; i < total; i++ {
-		q.Push(func() {})
+		q.Push(Task{Runnable: func() {}})
 	}
 
-	if q.Length() != int64(total) {
+	if q.Length() != total {
 		t.Fatalf("Queue length mismatch. Expected %d, got %d", total, q.Length())
 	}
 
@@ -51,6 +51,7 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 
 	var counter atomic.Int64
 	var wg sync.WaitGroup
+	var mu sync.Mutex // Required: External synchronization for concurrent Push calls
 
 	// Producer goroutines - concurrent pushes
 	for i := 0; i < producers; i++ {
@@ -58,9 +59,11 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
-				q.Push(func() {
+				mu.Lock()
+				q.Push(Task{Runnable: func() {
 					counter.Add(1)
-				})
+				}})
+				mu.Unlock()
 			}
 		}(i)
 	}
@@ -69,7 +72,7 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 	wg.Wait()
 
 	// Verify length
-	if q.Length() != int64(tasks) {
+	if q.Length() != tasks {
 		t.Fatalf("Queue length mismatch. Expected %d, got %d", tasks, q.Length())
 	}
 
@@ -104,10 +107,10 @@ func TestChunkedIngress_PushPopIntegrity(t *testing.T) {
 
 	// Push tasks
 	for i := 0; i < count; i++ {
-		q.Push(func() {})
+		q.Push(Task{Runnable: func() {}})
 	}
 
-	if q.Length() != int64(count) {
+	if q.Length() != count {
 		t.Fatalf("Length mismatch: expected %d, got %d", count, q.Length())
 	}
 
@@ -145,6 +148,7 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 
 	var counter atomic.Int64
 	var wg sync.WaitGroup
+	var mu sync.Mutex // Required: External synchronization for concurrent Push calls
 
 	// Producer goroutines - extreme contention
 	for i := 0; i < producers; i++ {
@@ -152,9 +156,11 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < tasks/producers; j++ {
-				q.Push(func() {
+				mu.Lock()
+				q.Push(Task{Runnable: func() {
 					counter.Add(1)
-				})
+				}})
+				mu.Unlock()
 			}
 		}(i)
 	}
@@ -163,7 +169,7 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 	wg.Wait()
 
 	// Verify length
-	if q.Length() != int64(tasks) {
+	if q.Length() != tasks {
 		t.Fatalf("Queue length mismatch after push. Expected %d, got %d", tasks, q.Length())
 	}
 
@@ -181,7 +187,7 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 	// CRITICAL: Verify ZERO task loss
 	if counter.Load() != int64(tasks) {
 		t.Fatalf("TASK LOSS DETECTED! Expected %d tasks, executed %d. Loss: %d tasks",
-			tasks, counter.Load(), int64(tasks)-counter.Load())
+			tasks, counter.Load(), tasks-int(counter.Load()))
 	}
 
 	// Verify queue is truly empty
@@ -195,23 +201,23 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 		tasks, producers)
 }
 
-// TestChunkedIngress_IsEmpty verifies IsEmpty() behavior.
+// TestChunkedIngress_IsEmpty verifies Length() == 0 behavior.
 func TestChunkedIngress_IsEmpty(t *testing.T) {
 	q := NewChunkedIngress()
 
-	if !q.IsEmpty() {
+	if q.Length() != 0 {
 		t.Fatal("New queue should be empty")
 	}
 
-	q.Push(func() {})
+	q.Push(Task{Runnable: func() {}})
 
-	if q.IsEmpty() {
+	if q.Length() == 0 {
 		t.Fatal("Queue with one item should not be empty")
 	}
 
 	q.Pop()
 
-	if !q.IsEmpty() {
+	if q.Length() != 0 {
 		t.Fatal("Queue after pop should be empty")
 	}
 }
