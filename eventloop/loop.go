@@ -404,7 +404,7 @@ func (l *Loop) run(ctx context.Context) error {
 		}
 
 		// Use fast-path loop for task-only workloads (~500ns execution vs ~10µs with full tick).
-		if l.canUseFastPath() && !l.hasTimersPending() && !l.hasInternalTasks() {
+		if l.canUseFastPath() && !l.hasTimersPending() && !l.hasInternalTasks() && !l.hasExternalTasks() {
 			if l.runFastPath(ctx) {
 				// Fast path completed or needs mode switch - continue to check termination
 				continue
@@ -457,6 +457,18 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 			// Check if we need to switch to poll path (e.g., I/O FDs registered)
 			if !l.canUseFastPath() {
 				return false // exit to main loop to switch to poll path
+			}
+
+			// Exit fast path if timers or internal tasks need processing.
+			// These require tick() which handles runTimers() and processInternalQueue().
+			if l.hasTimersPending() || l.hasInternalTasks() {
+				return false
+			}
+
+			// Exit if external queue has tasks (edge case: Submit() decided on
+			// l.external before mode changed back to fast-path-compatible).
+			if l.hasExternalTasks() {
+				return false
 			}
 		}
 	}
@@ -523,6 +535,16 @@ func (l *Loop) hasInternalTasks() bool {
 	hasInternal := l.internal.Length() > 0
 	l.internalQueueMu.Unlock()
 	return hasInternal
+}
+
+// hasExternalTasks returns true if there are external tasks pending.
+// This is checked before entering fast path to prevent starvation of tasks
+// that were queued in l.external while the loop was in poll mode.
+func (l *Loop) hasExternalTasks() bool {
+	l.externalMu.Lock()
+	hasExt := l.external.Length() > 0
+	l.externalMu.Unlock()
+	return hasExt
 }
 
 // shutdown performs the shutdown sequence.
@@ -627,6 +649,11 @@ func (l *Loop) tick() {
 
 	l.processExternal()
 
+	// Drain auxJobs (leftover from fast path mode transitions).
+	// This handles the race where Submit() checks canUseFastPath() before lock,
+	// mode changes, and task ends up in auxJobs while loop is in poll path.
+	l.drainAuxJobs()
+
 	l.drainMicrotasks()
 
 	l.poll()
@@ -712,6 +739,28 @@ func (l *Loop) drainMicrotasks() {
 		}
 		l.safeExecuteFn(fn)
 	}
+}
+
+// drainAuxJobs drains leftover tasks from the fast path auxJobs queue.
+// This handles the race condition where Submit() checks canUseFastPath() before
+// acquiring the lock, mode changes (e.g., FD registered), and the task ends up
+// in auxJobs while the loop is now in poll path. Without this, such tasks would
+// be starved until shutdown or mode reversion.
+func (l *Loop) drainAuxJobs() {
+	l.externalMu.Lock()
+	jobs := l.auxJobs
+	l.auxJobs = l.auxJobsSpare
+	l.externalMu.Unlock()
+
+	for i, job := range jobs {
+		l.safeExecute(job)
+		jobs[i] = nil // Clear for GC
+
+		if l.StrictMicrotaskOrdering {
+			l.drainMicrotasks()
+		}
+	}
+	l.auxJobsSpare = jobs[:0]
 }
 
 // poll performs blocking I/O poll with fast task wakeup optimization.
@@ -1012,6 +1061,17 @@ func (l *Loop) SubmitInternal(task func()) error {
 			}
 			// Direct execution - bypasses queue entirely
 			l.safeExecute(task)
+
+			// Wake the fast path loop to check for timers/internal tasks.
+			// The task we just executed may have added timers or internal tasks
+			// (e.g., ScheduleTimer -> heap.Push). Without this wakeup, the
+			// runFastPath select would block indefinitely.
+			if l.hasTimersPending() || l.hasInternalTasks() {
+				select {
+				case l.fastWakeupCh <- struct{}{}:
+				default:
+				}
+			}
 			return nil
 		}
 	}
