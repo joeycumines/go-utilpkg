@@ -10,6 +10,163 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// TestFastPathVsNormalPath_Microtasks compares microtask execution
+// between fast path and normal (tick) path to ensure consistency.
+func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
+	tests := []struct {
+		name       string
+		fastPath   bool
+		mode       FastPathMode
+		registerFD bool // Whether to register an FD to force normal path
+	}{
+		{
+			name:       "FastPathAuto (no FDs)",
+			fastPath:   true,
+			mode:       FastPathAuto,
+			registerFD: false,
+		},
+		{
+			name:       "FastPathAuto (with FD - poll mode)",
+			fastPath:   false,
+			mode:       FastPathAuto,
+			registerFD: true,
+		},
+		{
+			name:       "FastPathDisabled (no FDs)",
+			fastPath:   true,
+			mode:       FastPathDisabled,
+			registerFD: false,
+		},
+		{
+			name:       "FastPathDisabled (with FD - poll mode)",
+			fastPath:   false,
+			mode:       FastPathDisabled,
+			registerFD: true,
+		},
+		{
+			name:       "FastPathForced (no FDs)",
+			fastPath:   true,
+			mode:       FastPathForced,
+			registerFD: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loop, err := New()
+			if err != nil {
+				t.Fatalf("Failed to create loop: %v", err)
+			}
+			defer loop.Close()
+
+			// Set mode
+			if err := loop.SetFastPathMode(tt.mode); err != nil {
+				t.Fatalf("Failed to set fast path mode: %v", err)
+			}
+
+			// If we want normal path, register a dummy fd
+			// We'll use a pipe for this - just need it to exist
+			var fds [2]int
+			if tt.registerFD {
+				err := unix.Pipe(fds[:])
+				if err != nil {
+					t.Fatalf("Failed to create pipe: %v", err)
+				}
+				// Set non-blocking
+				_ = unix.SetNonblock(fds[0], true)
+				_ = unix.SetNonblock(fds[1], true)
+
+				// Register the read fd
+				err = loop.RegisterFD(fds[0], EventRead, func(events IOEvents) {})
+				if err != nil {
+					t.Fatalf("Failed to register FD: %v", err)
+				}
+				defer unix.Close(fds[0])
+				defer unix.Close(fds[1])
+			}
+
+			var count atomic.Int64
+			var done atomic.Bool
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			// Start loop in background
+			runCh := make(chan error, 1)
+			go func() {
+				runCh <- loop.Run(ctx)
+			}()
+
+			// Wait for loop to be running
+			{
+				waitDeadline := time.Now().Add(5 * time.Second)
+				for i := 0; ; i++ {
+					if state := loop.State(); ((tt.registerFD || tt.mode == FastPathDisabled) && state == StateSleeping) ||
+						((!tt.registerFD && tt.mode != FastPathDisabled) && state == StateRunning) {
+						break
+					} else if i%1000 == 0 {
+						t.Logf("Waiting for loop to reach running state, current state: %s", state)
+					}
+					if time.Now().After(waitDeadline) {
+						t.Fatalf("Event loop did not reach running state in time")
+					}
+					time.Sleep(1 * time.Millisecond)
+				}
+			}
+
+			// Submit tasks with microtasks
+			const iterations = 20
+			for i := 0; i < iterations; i++ {
+				if err := loop.Submit(Task{Runnable: func() {
+					count.Add(1) // Count task execution
+					_ = loop.ScheduleMicrotask(func() {
+						count.Add(1) // Count microtask execution
+						// Mark done when last microtask completes
+						if count.Load() == int64(iterations*2) {
+							done.Store(true)
+						}
+					})
+				}}); err != nil {
+					t.Fatalf("Failed to submit task: %v", err)
+				}
+			}
+
+			// Wait for all executions with a timeout
+			deadline := time.Now().Add(3 * time.Second)
+			for !done.Load() && time.Now().Before(deadline) {
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			actualCount := count.Load()
+			expectedCount := int64(iterations * 2) // Each task + its microtask
+
+			if actualCount != expectedCount {
+				t.Errorf("%s: Expected %d executions (%d tasks + %d microtasks), got %d",
+					tt.name, expectedCount, iterations, iterations, actualCount)
+
+				if tt.fastPath && actualCount == int64(iterations) {
+					t.Errorf("%s: BUG CONFIRMED - Only tasks executed, microtasks ignored in fast path!", tt.name)
+				}
+			} else {
+				t.Logf("%s: All %d tasks and microtasks executed correctly", tt.name, iterations)
+			}
+
+			if err := loop.Shutdown(t.Context()); err != nil {
+				t.Errorf("Failed to shutdown loop: %v", err)
+			}
+
+			select {
+			case <-t.Context().Done():
+				t.Errorf("Event loop did not exit in time")
+			case err := <-runCh:
+				if err != nil {
+					t.Errorf("Event loop exited with error: %v", err)
+				}
+			}
+		})
+	}
+}
+
 // TestFastPath_HandlesMicrotasks verifies that microtasks are executed
 // in fast path mode. This test was written to prove a critical deficiency
 // in the original implementation where runAux() completely ignored microtasks.
@@ -217,119 +374,6 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	}
 
 	loop.Shutdown(context.Background())
-}
-
-// TestFastPathVsNormalPath_Microtasks compares microtask execution
-// between fast path and normal (tick) path to ensure consistency.
-func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
-	tests := []struct {
-		name       string
-		fastPath   bool
-		mode       FastPathMode
-		registerFD bool // Whether to register an FD to force normal path
-	}{
-		{
-			name:       "FastPathMode (no FDs)",
-			fastPath:   true,
-			mode:       FastPathAuto,
-			registerFD: false,
-		},
-		{
-			name:       "NormalPath (with FD - poll mode)",
-			fastPath:   false,
-			mode:       FastPathAuto,
-			registerFD: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			loop, err := New()
-			if err != nil {
-				t.Fatalf("Failed to create loop: %v", err)
-			}
-			defer loop.Close()
-
-			// Set mode
-			if err := loop.SetFastPathMode(tt.mode); err != nil {
-				t.Fatalf("Failed to set fast path mode: %v", err)
-			}
-
-			// If we want normal path, register a dummy fd
-			// We'll use a pipe for this - just need it to exist
-			var fds [2]int
-			if tt.registerFD {
-				err := unix.Pipe(fds[:])
-				if err != nil {
-					t.Fatalf("Failed to create pipe: %v", err)
-				}
-				// Set non-blocking
-				_ = unix.SetNonblock(fds[0], true)
-				_ = unix.SetNonblock(fds[1], true)
-
-				// Register the read fd
-				err = loop.RegisterFD(fds[0], EventRead, func(events IOEvents) {})
-				if err != nil {
-					t.Fatalf("Failed to register FD: %v", err)
-				}
-				defer unix.Close(fds[0])
-				defer unix.Close(fds[1])
-			}
-
-			var count atomic.Int64
-			var done atomic.Bool
-
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			// Start loop in background
-			go func() {
-				_ = loop.Run(ctx)
-			}()
-
-			// Wait for loop to be running
-			for loop.State() != StateRunning {
-				time.Sleep(1 * time.Millisecond)
-			}
-
-			// Submit tasks with microtasks
-			const iterations = 20
-			for i := 0; i < iterations; i++ {
-				loop.Submit(Task{Runnable: func() {
-					count.Add(1) // Count task execution
-					_ = loop.ScheduleMicrotask(func() {
-						count.Add(1) // Count microtask execution
-						// Mark done when last microtask completes
-						if count.Load() == int64(iterations*2) {
-							done.Store(true)
-						}
-					})
-				}})
-			}
-
-			// Wait for all executions with a timeout
-			deadline := time.Now().Add(3 * time.Second)
-			for !done.Load() && time.Now().Before(deadline) {
-				time.Sleep(10 * time.Millisecond)
-			}
-
-			actualCount := count.Load()
-			expectedCount := int64(iterations * 2) // Each task + its microtask
-
-			if actualCount != expectedCount {
-				t.Errorf("%s: Expected %d executions (%d tasks + %d microtasks), got %d",
-					tt.name, expectedCount, iterations, iterations, actualCount)
-
-				if tt.fastPath && actualCount == int64(iterations) {
-					t.Errorf("%s: BUG CONFIRMED - Only tasks executed, microtasks ignored in fast path!", tt.name)
-				}
-			} else {
-				t.Logf("%s: All %d tasks and microtasks executed correctly", tt.name, iterations)
-			}
-
-			loop.Shutdown(context.Background())
-		})
-	}
 }
 
 // TestFastPath_MicrotaskBudgetOverflow ensures the loop does not stall
