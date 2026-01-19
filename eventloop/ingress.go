@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -35,16 +36,13 @@ type Task struct {
 
 // ChunkedIngress is a chunked linked-list queue for task submission.
 //
-// Thread Safety: This struct provides both internal locking and unlocked methods.
-// For highest performance, the Event Loop uses the *Locked methods while holding
-// an external mutex. This allows the Loop to check shutdown state and push
-// atomically under a single mutex, eliminating the need for inflight counters.
+// Thread Safety: This struct is NOT thread-safe.
+// The caller must provide external synchronization (e.g., the Event Loop's mutex).
 //
 // Performance rationale:
 // - Fixed-size arrays (chunkSize) provide cache locality and amortize allocations.
 // - sync.Pool chunk recycling prevents GC thrashing under high throughput.
 type ChunkedIngress struct { // betteralign:ignore
-	mu     sync.Mutex
 	head   *chunk
 	tail   *chunk
 	length int64
@@ -77,11 +75,8 @@ func newChunk() *chunk {
 }
 
 // returnChunk returns an exhausted chunk to the pool.
-// It clears all task references before returning to prevent memory leaks.
+// It assumes all tasks have been cleared by Pop before returning.
 func returnChunk(c *chunk) {
-	for i := 0; i < len(c.tasks); i++ {
-		c.tasks[i] = Task{}
-	}
 	c.pos = 0
 	c.readPos = 0
 	c.next = nil
@@ -93,46 +88,10 @@ func NewChunkedIngress() *ChunkedIngress {
 	return &ChunkedIngress{}
 }
 
-// Push adds a function to the queue. Thread-safe via internal mutex.
-// For higher performance, use pushLocked with an external mutex.
-func (q *ChunkedIngress) Push(fn func()) {
-	q.mu.Lock()
-	q.pushLocked(Task{Runnable: fn})
-	q.mu.Unlock()
-}
-
-// PushTask adds a task to the queue. Thread-safe via internal mutex.
-// For higher performance, use pushLocked with an external mutex.
-func (q *ChunkedIngress) PushTask(task Task) {
-	q.mu.Lock()
-	q.pushLocked(task)
-	q.mu.Unlock()
-}
-
-// Pop removes and returns a task. Thread-safe via internal mutex.
-// For higher performance, use popLocked with an external mutex.
-func (q *ChunkedIngress) Pop() (Task, bool) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.popLocked()
-}
-
-// Length returns the queue length. Thread-safe via internal mutex.
-func (q *ChunkedIngress) Length() int64 {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.length
-}
-
-// IsEmpty returns true if the queue is empty. Thread-safe via internal mutex.
-func (q *ChunkedIngress) IsEmpty() bool {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.length == 0
-}
-
-// pushLocked adds a task to the queue. CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) pushLocked(task Task) {
+// Push adds a task to the queue.
+//
+// CALLER MUST HOLD EXTERNAL MUTEX.
+func (q *ChunkedIngress) Push(task Task) {
 	if q.tail == nil {
 		q.tail = newChunk()
 		q.head = q.tail
@@ -149,9 +108,12 @@ func (q *ChunkedIngress) pushLocked(task Task) {
 	q.length++
 }
 
-// popLocked removes and returns a task. CALLER MUST HOLD EXTERNAL MUTEX.
+// Pop removes and returns a task.
+//
 // Returns false if the queue is empty.
-func (q *ChunkedIngress) popLocked() (Task, bool) {
+//
+// CALLER MUST HOLD EXTERNAL MUTEX.
+func (q *ChunkedIngress) Pop() (Task, bool) {
 	if q.head == nil {
 		return Task{}, false
 	}
@@ -197,8 +159,10 @@ func (q *ChunkedIngress) popLocked() (Task, bool) {
 	return task, true
 }
 
-// lengthLocked returns the queue length. CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) lengthLocked() int64 {
+// Length returns the queue length.
+//
+// CALLER MUST HOLD EXTERNAL MUTEX.
+func (q *ChunkedIngress) Length() int64 {
 	return q.length
 }
 
@@ -371,9 +335,8 @@ func (r *MicrotaskRing) Pop() func() {
 
 	// Compact overflow slice if more than half is consumed
 	if r.overflowHead > len(r.overflow)/2 && r.overflowHead > ringOverflowCompactThreshold {
-		remaining := len(r.overflow) - r.overflowHead
 		copy(r.overflow, r.overflow[r.overflowHead:])
-		r.overflow = r.overflow[:remaining]
+		r.overflow = slices.Delete(r.overflow, len(r.overflow)-r.overflowHead, len(r.overflow))
 		r.overflowHead = 0
 	}
 
