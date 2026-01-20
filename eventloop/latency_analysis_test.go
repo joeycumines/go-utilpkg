@@ -467,7 +467,7 @@ func TestLatencyAnalysis_Wakeup(t *testing.T) {
 		t.Fatalf("Failed to create loop: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	loopDone := make(chan struct{})

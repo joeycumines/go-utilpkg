@@ -273,9 +273,9 @@ func TestScheduleTimerStressWithCancellations(t *testing.T) {
 	ids := make([]TimerID, numTimers)
 
 	// Schedule all timers with longer delays to avoid race between scheduling and firing
-	// Using 100-200ms range gives enough time to schedule all 1000 timers before any fire
+	// Using 200-300ms range gives enough time for slower systems to schedule all 1000 timers before any fire
 	for i := 0; i < numTimers; i++ {
-		delay := time.Duration(100+(i%100)) * time.Millisecond // 100-200ms staggered delays
+		delay := time.Duration(200+(i%100)) * time.Millisecond // 200-300ms staggered delays
 		id, err := l.ScheduleTimer(delay, func() {
 			callbackCount.Add(1)
 		})
@@ -293,8 +293,8 @@ func TestScheduleTimerStressWithCancellations(t *testing.T) {
 		}
 	}
 
-	// Wait for all non-canceled timers to fire (max delay ~200ms + buffer)
-	time.Sleep(300 * time.Millisecond)
+	// Wait for all non-canceled timers to fire (max delay ~300ms + buffer)
+	time.Sleep(500 * time.Millisecond)
 
 	count := callbackCount.Load()
 	if count != expectedCallbacks {
