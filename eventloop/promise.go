@@ -298,6 +298,7 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 	p.mu.Lock()
 	p.value = value
 	handlers := p.handlers
+	p.handlers = nil // Clear handlers slice after copying to prevent memory leak
 	p.mu.Unlock()
 
 	// Schedule handlers as microtasks
@@ -322,12 +323,11 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	p.mu.Lock()
 	p.reason = reason
 	handlers := p.handlers
+	p.handlers = nil // Clear handlers slice after copying to prevent memory leak
 	p.mu.Unlock()
 
-	// Track unhandled rejection
-	js.trackRejection(p.id, reason)
-
-	// Schedule handlers as microtasks
+	// Schedule handler microtasks FIRST
+	// This ensures handlers are attached before unhandled rejection check runs
 	for _, h := range handlers {
 		if h.onRejected != nil {
 			fn := h.onRejected
@@ -337,6 +337,10 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 			})
 		}
 	}
+
+	// THEN schedule rejection check microtask (will run AFTER all handlers)
+	// This fixes a timing race where check ran before handlers were scheduled
+	js.trackRejection(p.id, reason)
 }
 
 // Then adds handlers to be called when the promise settles.
@@ -404,12 +408,12 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 		p.mu.Unlock()
 	} else {
 		// Already settled: schedule handler as microtask
-		if currentState == int32(Fulfilled) && onFulfilled != nil {
+		if currentState == int32(Fulfilled) {
 			v := p.Value()
 			js.QueueMicrotask(func() {
 				tryCall(onFulfilled, v, resolve, reject)
 			})
-		} else if currentState == int32(Rejected) && onRejected != nil {
+		} else if currentState == int32(Rejected) {
 			r := p.Reason()
 			js.QueueMicrotask(func() {
 				tryCall(onRejected, r, resolve, reject)
@@ -421,6 +425,16 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 }
 
 // thenStandalone creates a child promise without JS adapter for basic operations.
+//
+// NOTE: This code path is NOT Promise/A+ compliant - handlers execute synchronously
+// when called on already-settled promises. This is intentional for testing/fallback
+// scenarios where a JS adapter is not available. Normal usage always goes through
+// js.NewChainedPromise() which provides proper async semantics via microtasks.
+//
+// In production code, p.js should never be nil because promises are created
+// via js.NewChainedPromise() which always sets the js field. This path is
+// provided only for testing or future extensions where a standalone promise might be
+// useful without an event loop.
 func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
 	result := &ChainedPromise{
 		handlers: make([]handler, 0, 2),
@@ -538,6 +552,12 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 		onFinally = func() {}
 	}
 
+	// Mark that this promise now has a handler attached
+	// Finally counts as handling rejection (it runs whether fulfilled or rejected)
+	if js != nil {
+		js.promiseHandlers.Store(p.id, true)
+	}
+
 	// Create handler that runs onFinally then forwards result
 	handlerFunc := func(value Result, isRejection bool, res ResolveFunc, rej RejectFunc) {
 		onFinally()
@@ -592,6 +612,13 @@ func tryCall(fn func(Result) Result, v Result, resolve ResolveFunc, reject Rejec
 			reject(r)
 		}
 	}()
+
+	// CRITICAL: Check for nil handler before calling
+	if fn == nil {
+		// No handler means pass-through
+		resolve(v)
+		return
+	}
 
 	result := fn(v)
 	resolve(result)

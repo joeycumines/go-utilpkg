@@ -1376,18 +1376,22 @@ func (l *Loop) runTimers() {
 			newDepth := t.nestingLevel + 1
 			l.timerNestingDepth.Store(newDepth)
 
+			// Restore nesting depth even if timer callback panics
+			defer l.timerNestingDepth.Store(oldDepth)
+
 			l.safeExecute(t.task)
 			delete(l.timerMap, t.id)
 
-			// Restore nesting level after callback completes
-			l.timerNestingDepth.Store(oldDepth)
-
 			// Zero-alloc: Return timer to pool
-			t.task = nil // Avoid keeping reference
+			t.heapIndex = -1   // Clear stale heap data
+			t.nestingLevel = 0 // Clear stale nesting level
+			t.task = nil       // Avoid keeping reference
 			timerPool.Put(t)
 		} else {
 			delete(l.timerMap, t.id)
 			// Zero-alloc: Return timer to pool even if canceled
+			t.heapIndex = -1   // Clear stale heap data
+			t.nestingLevel = 0 // Clear stale nesting level
 			timerPool.Put(t)
 		}
 
@@ -1458,7 +1462,7 @@ func (l *Loop) CancelTimer(id TimerID) error {
 		// Remove from timerMap
 		delete(l.timerMap, id)
 		// Remove from heap using heapIndex
-		if t.heapIndex < len(l.timers) {
+		if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
 			heap.Remove(&l.timers, t.heapIndex)
 		}
 		result <- nil

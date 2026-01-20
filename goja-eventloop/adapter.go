@@ -2,73 +2,26 @@
 //
 // goja-eventloop: Goja adapter for the event loop library
 //
-// This package provides bindings between the eventloop package and the Goja
-// JavaScript runtime (github.com/dop251/goja). It enables JavaScript code
-// running in Goja to use standard async APIs like setTimeout, setInterval,
-// queueMicrotask, and Promise.
-//
-// Basic usage:
-//
-//	loop := eventloop.New()
-//	runtime := goja.New()
-//	adapter, err := gojaeventloop.New(loop, runtime)
-//	if err != nil {
-//	    return err
-//	}
-//	if err := adapter.Bind(); err != nil {
-//	    return err
-//	}
-//
-//	// Now JavaScript code can use async APIs:
-//	runtime.RunString(`
-//	    setTimeout(() => console.log("Hello"), 100);
-//	    new Promise((resolve) => resolve(42)).then(console.log);
-//	`)
-//
-// Thread Safety:
-//
-// The adapter coordinates between Goja (which is not thread-safe) and the
-// event loop. JavaScript callbacks are always executed on the event loop
-// thread. The Goja runtime should only be accessed from the event loop
-// thread after binding.
+// This binds eventloop.JS functionality to Goja JavaScript runtime.
 
 package gojaeventloop
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
 )
 
-// Adapter bridges the Goja JavaScript runtime to [goeventloop.JS].
-//
-// The adapter provides JavaScript-compatible bindings for:
-//   - setTimeout / clearTimeout
-//   - setInterval / clearInterval
-//   - queueMicrotask
-//   - Promise (with then/catch/finally)
-//
-// These bindings follow standard JavaScript semantics and integrate with
-// the event loop's timer and microtask queues.
+// Adapter bridges Goja runtime to goeventloop.JS.
+// This allows setTimeout/setInterval/queueMicrotask/Promise to work with Goja.
 type Adapter struct {
 	js      *goeventloop.JS
 	runtime *goja.Runtime
 	loop    *goeventloop.Loop
-	mu      sync.Mutex
 }
 
-// New creates a new Goja adapter for the given event loop and runtime.
-//
-// Parameters:
-//   - loop: The event loop that will process timer and microtask callbacks
-//   - runtime: The Goja runtime where JavaScript code will execute
-//
-// Returns an error if loop or runtime is nil.
-//
-// After creating the adapter, call [Adapter.Bind] to install the JavaScript
-// global functions (setTimeout, Promise, etc.).
+// New creates a new Goja adapter for given event loop and runtime.
 func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	if loop == nil {
 		return nil, fmt.Errorf("loop cannot be nil")
@@ -89,27 +42,7 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	}, nil
 }
 
-// ensureLoopThread ensures thread-safe access to eventloop adapter.
-// For now, this establishes a memory barrier via mutex lock.
-func (a *Adapter) ensureLoopThread() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-}
-
-// Bind installs JavaScript global functions into the Goja runtime.
-//
-// This adds the following globals:
-//   - setTimeout(fn, delay) → number
-//   - clearTimeout(id)
-//   - setInterval(fn, delay) → number
-//   - clearInterval(id)
-//   - queueMicrotask(fn)
-//   - Promise(executor) with then/catch/finally
-//
-// Returns an error if any binding fails.
-//
-// After Bind() returns, JavaScript code in the runtime can use these APIs.
-// All callbacks will be executed on the event loop thread.
+// Bind creates setTimeout/setInterval/queueMicrotask bindings in Goja global scope.
 func (a *Adapter) Bind() error {
 	// Set setTimeout
 	if err := a.runtime.Set("setTimeout", a.setTimeout); err != nil {
@@ -136,21 +69,14 @@ func (a *Adapter) Bind() error {
 		return fmt.Errorf("failed to bind queueMicrotask: %w", err)
 	}
 
-	// Bind Promise constructor using native constructor signature
-	// Use func(ConstructorCall) *Object to make it work with 'new' operator
-	promiseConstructor := a.runtime.ToValue(func(call goja.ConstructorCall) *goja.Object {
-		return a.promiseConstructorWrapper(call)
-	})
-	if err := a.runtime.Set("Promise", promiseConstructor); err != nil {
-		return fmt.Errorf("failed to bind Promise: %w", err)
-	}
+	// Bind Promise constructor - must be constructable with 'new'
+	a.runtime.Set("Promise", a.promiseConstructor)
 
 	return nil
 }
 
 // setTimeout binding for Goja
 func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
-	a.ensureLoopThread()
 	fn := call.Argument(0)
 	if fn.Export() == nil {
 		panic(a.runtime.NewTypeError("setTimeout requires a function as first argument"))
@@ -178,7 +104,6 @@ func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
 
 // clearTimeout binding for Goja
 func (a *Adapter) clearTimeout(call goja.FunctionCall) goja.Value {
-	a.ensureLoopThread()
 	id := uint64(call.Argument(0).ToInteger())
 	_ = a.js.ClearTimeout(id) // Silently ignore if timer not found (matches browser behavior)
 	return goja.Undefined()
@@ -186,7 +111,6 @@ func (a *Adapter) clearTimeout(call goja.FunctionCall) goja.Value {
 
 // setInterval binding for Goja
 func (a *Adapter) setInterval(call goja.FunctionCall) goja.Value {
-	a.ensureLoopThread()
 	fn := call.Argument(0)
 	if fn.Export() == nil {
 		panic(a.runtime.NewTypeError("setInterval requires a function as first argument"))
@@ -214,7 +138,6 @@ func (a *Adapter) setInterval(call goja.FunctionCall) goja.Value {
 
 // clearInterval binding for Goja
 func (a *Adapter) clearInterval(call goja.FunctionCall) goja.Value {
-	a.ensureLoopThread()
 	id := uint64(call.Argument(0).ToInteger())
 	_ = a.js.ClearInterval(id) // Silently ignore if timer not found (matches browser behavior)
 	return goja.Undefined()
@@ -222,7 +145,6 @@ func (a *Adapter) clearInterval(call goja.FunctionCall) goja.Value {
 
 // queueMicrotask binding for Goja
 func (a *Adapter) queueMicrotask(call goja.FunctionCall) goja.Value {
-	a.ensureLoopThread()
 	fn := call.Argument(0)
 	if fn.Export() == nil {
 		panic(a.runtime.NewTypeError("queueMicrotask requires a function as first argument"))
@@ -243,189 +165,101 @@ func (a *Adapter) queueMicrotask(call goja.FunctionCall) goja.Value {
 	return goja.Undefined()
 }
 
-// promiseConstructorWrapper handles the Goja ConstructorCall for 'new Promise()'
-func (a *Adapter) promiseConstructorWrapper(call goja.ConstructorCall) *goja.Object {
-	a.ensureLoopThread()
+// promiseConstructor binding for Goja
+func (a *Adapter) promiseConstructor(call goja.FunctionCall) goja.Value {
+	// Promise constructor called directly (without 'new' in this adapter context)
 	executor := call.Argument(0)
 	if executor.Export() == nil {
-		panic(a.runtime.NewTypeError("Promise requires a function as first argument"))
+		panic(a.runtime.NewTypeError("Promise executor must be a function"))
 	}
 
 	executorCallable, ok := goja.AssertFunction(executor)
 	if !ok {
-		panic(a.runtime.NewTypeError("Promise requires a function as first argument"))
+		panic(a.runtime.NewTypeError("Promise executor must be a function"))
 	}
 
 	promise, resolve, reject := a.js.NewChainedPromise()
 
-	// call.This is the newly created object when called with 'new'
-	promiseObj := call.This
-
-	// Store the internal promise
-	_ = promiseObj.Set("_internalPromise", promise)
-
-	// Define then method
-	thenMethod := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		thisObj := call.This.ToObject(a.runtime)
-		internal := thisObj.Get("_internalPromise")
-		if internal.Export() == nil || internal == goja.Undefined() {
-			panic(a.runtime.NewTypeError("Promise internal state lost"))
-		}
-
-		internalPromise := internal.Export().(*goeventloop.ChainedPromise)
-		if internalPromise == nil {
-			panic(a.runtime.NewTypeError("Invalid internal promise"))
-		}
-
-		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
-		onRejected := a.gojaFuncToHandler(call.Argument(1))
-		chained := internalPromise.Then(onFulfilled, onRejected)
-		if chained == nil {
-			panic(a.runtime.NewTypeError("Promise.Then returned nil"))
-		}
-		return a.gojaWrapPromise(chained)
-	})
-	_ = promiseObj.Set("then", thenMethod)
-
-	// Define catch method
-	catchMethod := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		thisObj := call.This.ToObject(a.runtime)
-		internal := thisObj.Get("_internalPromise")
-		if internal.Export() == nil {
-			panic(a.runtime.NewTypeError("Promise internal state lost"))
-		}
-
-		internalPromise := internal.Export().(*goeventloop.ChainedPromise)
-		onRejected := a.gojaFuncToHandler(call.Argument(0))
-		chained := internalPromise.Catch(onRejected)
-		return a.gojaWrapPromise(chained)
-	})
-	_ = promiseObj.Set("catch", catchMethod)
-
-	// Define finally method
-	finallyMethod := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		thisObj := call.This.ToObject(a.runtime)
-		internal := thisObj.Get("_internalPromise")
-		if internal.Export() == nil {
-			panic(a.runtime.NewTypeError("Promise internal state lost"))
-		}
-
-		internalPromise := internal.Export().(*goeventloop.ChainedPromise)
-		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
-		chained := internalPromise.Finally(onFinally)
-		return a.gojaWrapPromise(chained)
-	})
-	_ = promiseObj.Set("finally", finallyMethod)
-
-	// Call executor with resolve/reject callbacks
+	// Call executor with resolve/reject callbacks wrapped
 	_, err := executorCallable(goja.Undefined(),
 		a.runtime.ToValue(func(result goja.Value) {
-			var val any
-			if result != goja.Undefined() && result.Export() != nil {
-				val = result.Export()
-			}
-			resolve(val)
+			resolve(result.Export())
 		}),
 		a.runtime.ToValue(func(reason goja.Value) {
-			var val any
-			if reason != goja.Undefined() && reason.Export() != nil {
-				val = reason.Export()
-			}
-			reject(val)
+			reject(reason.Export())
 		}),
 	)
 	if err != nil {
 		// If executor throws, reject the promise
 		reject(err)
+		return goja.Undefined()
 	}
 
-	return promiseObj
+	return a.gojaWrapPromise(promise)
 }
 
 // gojaWrapPromise wraps a ChainedPromise with then/catch/finally prototype methods
 func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
-	wrapped := a.runtime.ToValue(promise)
-	wrappedObj := wrapped.ToObject(a.runtime)
-
-	// Store internal promise reference for method access
-	_ = wrappedObj.Set("_internalPromise", promise)
+	promiseVal := a.runtime.ToValue(promise)
+	promiseObj := promiseVal.ToObject(a.runtime)
+	
+	// Store internal promise for method chaining
+	promiseObj.Set("_internalPromise", a.runtime.ToValue(promise))
 
 	thenFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Get internal promise from the object `.then()` was called on
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == goja.Undefined() || internalVal.Export() == nil {
-			panic(a.runtime.NewTypeError("Promise not properly initialized"))
-		}
-		internal := internalVal.Export().(*goeventloop.ChainedPromise)
-
+		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
+		
 		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
 		onRejected := a.gojaFuncToHandler(call.Argument(1))
-		chained := internal.Then(onFulfilled, onRejected)
+		chained := internalPromise.Then(onFulfilled, onRejected)
 		return a.gojaWrapPromise(chained)
 	})
 
 	catchFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Get internal promise from the object `.catch()` was called on
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == goja.Undefined() || internalVal.Export() == nil {
-			panic(a.runtime.NewTypeError("Promise not properly initialized"))
-		}
-		internal := internalVal.Export().(*goeventloop.ChainedPromise)
-
+		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
+		
 		onRejected := a.gojaFuncToHandler(call.Argument(0))
-		chained := internal.Catch(onRejected)
+		chained := internalPromise.Catch(onRejected)
 		return a.gojaWrapPromise(chained)
 	})
 
 	finallyFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Get internal promise from the object `.finally()` was called on
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == goja.Undefined() || internalVal.Export() == nil {
-			panic(a.runtime.NewTypeError("Promise not properly initialized"))
-		}
-		internal := internalVal.Export().(*goeventloop.ChainedPromise)
-
+		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
+		
 		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
-		chained := internal.Finally(onFinally)
+		chained := internalPromise.Finally(onFinally)
 		return a.gojaWrapPromise(chained)
 	})
 
-	wrappedObj.Set("then", thenFn)
-	wrappedObj.Set("catch", catchFn)
-	wrappedObj.Set("finally", finallyFn)
+	promiseObj.Set("then", thenFn)
+	promiseObj.Set("catch", catchFn)
+	promiseObj.Set("finally", finallyFn)
 
-	// Return object with methods, not raw value
-	return wrappedObj
+	return promiseVal
 }
 
-// JS returns the underlying [goeventloop.JS] adapter.
-// Use this to access timer and promise functionality from Go code.
+// JS returns the underlying goeventloop.JS adapter
 func (a *Adapter) JS() *goeventloop.JS {
 	return a.js
 }
 
-// Runtime returns the Goja runtime this adapter is bound to.
-// The runtime should only be accessed from the event loop thread.
+// Runtime returns the underlying Goja runtime
 func (a *Adapter) Runtime() *goja.Runtime {
 	return a.runtime
 }
 
-// Loop returns the underlying event loop.
+// Loop returns the underlying event loop
 func (a *Adapter) Loop() *goeventloop.Loop {
 	return a.loop
 }
 
-// NewChainedPromise creates a new promise with Goja-compatible resolve/reject.
-//
-// This is a convenience function for creating promises from Go code that
-// will be used in JavaScript. The returned resolve and reject functions
-// accept goja.Value arguments.
-//
-// Deprecated: Prefer using [Adapter.JS().NewChainedPromise()] and converting
-// values manually for more control.
+// NewChainedPromise creates a new promise with Goja-compatible resolve/reject
 func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
 	js, err := goeventloop.NewJS(loop)
 	if err != nil {
@@ -459,20 +293,9 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 	}
 
 	return func(result goeventloop.Result) goeventloop.Result {
-		// Only convert to Goja value if result is not nil
-		var arg goja.Value
-		if result != nil {
-			arg = a.runtime.ToValue(result)
-		} else {
-			arg = goja.Undefined()
-		}
-		ret, err := fnCallable(goja.Undefined(), arg)
+		ret, err := fnCallable(goja.Undefined(), a.runtime.ToValue(result))
 		if err != nil {
 			panic(err)
-		}
-		// Safe export that handles nil
-		if ret == goja.Undefined() || ret.Export() == nil {
-			return nil
 		}
 		return ret.Export()
 	}
@@ -494,32 +317,4 @@ func (a *Adapter) gojaVoidFuncToHandler(fn goja.Value) func() {
 	return func() {
 		_, _ = fnCallable(goja.Undefined())
 	}
-}
-
-// ============================================================================
-// Promise Combinators (Phase 3)
-// ============================================================================
-
-// All returns a promise that resolves when all input promises resolve.
-// See [goeventloop.JS.All] for detailed semantics.
-func (a *Adapter) All(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
-	return a.js.All(promises)
-}
-
-// Race returns a promise that settles as soon as any input promise settles.
-// See [goeventloop.JS.Race] for detailed semantics.
-func (a *Adapter) Race(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
-	return a.js.Race(promises)
-}
-
-// AllSettled returns a promise that resolves when all input promises have settled.
-// See [goeventloop.JS.AllSettled] for detailed semantics.
-func (a *Adapter) AllSettled(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
-	return a.js.AllSettled(promises)
-}
-
-// Any returns a promise that resolves when any input promise resolves.
-// See [goeventloop.JS.Any] for detailed semantics.
-func (a *Adapter) Any(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
-	return a.js.Any(promises)
 }

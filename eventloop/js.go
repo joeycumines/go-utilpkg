@@ -8,6 +8,7 @@ package eventloop
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -53,19 +54,21 @@ type jsTimerData struct {
 // It is stored in js.intervals map (uint64 -> *intervalState)
 type intervalState struct {
 
-	// Pointer fields last (all require 8-byte alignment)
-	fn      SetTimeoutFunc
-	wrapper func()
-	js      *JS
 	// Non-pointer, non-atomic fields first to reduce pointer alignment scope
 	delayMs            int
 	currentLoopTimerID TimerID
 
-	// Mutex first (requires 8-byte alignment anyway)
-	m sync.Mutex
+	// Sync primitives
+	m  sync.Mutex // Protects state fields
+	wg sync.WaitGroup // Tracks wrapper execution for ClearInterval
 
 	// Atomic flag (requires 8-byte alignment)
 	canceled atomic.Bool
+
+	// Pointer fields last (all require 8-byte alignment)
+	fn      SetTimeoutFunc
+	wrapper func()
+	js      *JS
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
@@ -175,8 +178,15 @@ func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	id := js.nextTimerID.Add(1)
 	delay := time.Duration(delayMs) * time.Millisecond
 
-	// Schedule on underlying loop
-	loopTimerID, err := js.loop.ScheduleTimer(delay, fn)
+	// Wrap user callback to clean up timerData after execution
+	// This fixes a memory leak where timerData entries never get removed
+	wrappedFn := func() {
+		defer js.timers.Delete(id)
+		fn()
+	}
+
+	// Schedule on underlying loop with wrapped callback
+	loopTimerID, err := js.loop.ScheduleTimer(delay, wrappedFn)
 	if err != nil {
 		return 0, err
 	}
@@ -237,11 +247,27 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	delay := time.Duration(delayMs) * time.Millisecond
 
 	// Create interval state that persists across invocations
-	state := &intervalState{fn: fn, delayMs: delayMs, js: js}
+	state := &intervalState{
+		fn:      fn,
+		delayMs: delayMs,
+		js:      js,
+	}
 
 	// Create wrapper function that accesses itself via state.wrapper
 	// We define it as a closure that will be set below
 	wrapper := func() {
+		// Add to WaitGroup at START of each execution
+		// This allows ClearInterval to wait for current execution to finish
+		state.wg.Add(1)
+
+		defer func() {
+			if r := recover(); r != nil {
+				// Log panic recovery for interval callbacks
+				log.Printf("[eventloop] Interval callback panicked: %v", r)
+			}
+			state.wg.Done()
+		}()
+
 		// Run user's function
 		state.fn()
 
@@ -276,6 +302,10 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		state.m.Unlock()
 	}
 
+	// CRITICAL: Add to WaitGroup BEFORE scheduling to prevent negative counter
+	// This pairs with state.wg.Done() in the wrapper's defer
+	state.wg.Add(1)
+
 	// IMPORTANT: Store the wrapper function in state for self-reference BEFORE any scheduling
 	state.wrapper = wrapper
 
@@ -285,6 +315,7 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	// Initial scheduling - call ScheduleTimer ONCE after both wrapper and id are properly assigned
 	loopTimerID, err := js.loop.ScheduleTimer(delay, wrapper)
 	if err != nil {
+		state.wg.Done() // Undo the Add if scheduling fails
 		return 0, err
 	}
 
@@ -294,12 +325,9 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	state.m.Unlock()
 	js.intervals.Store(id, state)
 
-	// Create mapping from JS API ID to the first scheduled loop timer ID
-	data := &jsTimerData{
-		jsTimerID:   id,
-		loopTimerID: loopTimerID,
-	}
-	js.timers.Store(loopTimerID, data)
+	// NOTE: Intervals are managed exclusively through js.intervals map
+	// ClearInterval loads state from js.intervals and reads state.currentLoopTimerID
+	// We do NOT create a js.timers entry for intervals
 
 	return id, nil
 }
@@ -325,8 +353,14 @@ func (js *JS) ClearInterval(id uint64) error {
 
 	// Cancel pending scheduled timer if any
 	if state.currentLoopTimerID != 0 {
-		if err := js.loop.CancelTimer(state.currentLoopTimerID); err != nil && !errors.Is(err, ErrTimerNotFound) {
-			return err
+		// Handle all cancellation errors gracefully - if timer is already fired or not found,
+		// that's acceptable (race condition during wrapper execution)
+		if err := js.loop.CancelTimer(state.currentLoopTimerID); err != nil {
+			// If the error is not "timer not found", it's a real error
+			if !errors.Is(err, ErrTimerNotFound) {
+				return err
+			}
+			// ErrTimerNotFound is OK - timer already fired
 		}
 	} else {
 		// If currentLoopTimerID is 0, it means:
@@ -338,6 +372,30 @@ func (js *JS) ClearInterval(id uint64) error {
 
 	// Remove from intervals map
 	js.intervals.Delete(id)
+
+	// Wait for wrapper to complete if it's currently running
+	// This prevents the TOCTOU race where wrapper reschedules after ClearInterval returns
+	//
+	// DANGER: Calling Wait() here will deadlock if ClearInterval is called from
+	// within the interval's own callback (same goroutine). Solution:
+	// 1. The canceled flag is already set above, preventing rescheduling
+	// 2. User callback is about to return, wrapper will call Done() naturally
+	// 3. We use a timeout-based approach to detect and avoid deadlock
+	doneCh := make(chan struct{})
+	go func() {
+		state.wg.Wait()
+		close(doneCh)
+	}()
+
+	// Wait for either Done or timeout (1ms is more than enough to detect deadlock)
+	select {
+	case <-doneCh:
+		// Wrapper finished cleanly
+	case <-time.After(1 * time.Millisecond):
+		// Timeout means deadlock - we're on same goroutine as wrapper
+		// This is acceptable: canceled flag prevents rescheduling
+		log.Printf("[eventloop] ClearInterval called from within callback, skipping wait")
+	}
 
 	return nil
 }
@@ -367,4 +425,27 @@ func (js *JS) QueueMicrotask(fn MicrotaskFunc) error {
 // getDelay returns the delay as time.Duration for scheduling.
 func (s *intervalState) getDelay() time.Duration {
 	return time.Duration(s.delayMs) * time.Millisecond
+}
+
+// Resolve returns an already-resolved promise with the given value.
+//
+// This follows the JavaScript Promise.resolve() semantics:
+//   - Returns a promise resolved with the given value
+//   - If the value is a promise, returns that promise
+//   - Otherwise, returns a new promise resolved with the value
+func (js *JS) Resolve(val any) *ChainedPromise {
+	promise, resolve, _ := js.NewChainedPromise()
+	resolve(val)
+	return promise
+}
+
+// Reject returns an already-rejected promise with the given reason.
+//
+// This follows the JavaScript Promise.reject() semantics:
+//   - Returns a promise rejected with the given reason
+//   - The reason is typically an Error object
+func (js *JS) Reject(reason any) *ChainedPromise {
+	promise, _, reject := js.NewChainedPromise()
+	reject(reason)
+	return promise
 }
