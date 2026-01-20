@@ -47,6 +47,11 @@ type jsTimerData struct {
 // intervalState tracks the state of an interval timer.
 // It is stored in js.intervals map (uint64 -> *intervalState)
 type intervalState struct {
+
+	// Pointer fields last (all require 8-byte alignment)
+	fn      SetTimeoutFunc
+	wrapper func()
+	js      *JS
 	// Non-pointer, non-atomic fields first to reduce pointer alignment scope
 	delayMs            int
 	currentLoopTimerID TimerID
@@ -56,19 +61,15 @@ type intervalState struct {
 
 	// Atomic flag (requires 8-byte alignment)
 	canceled atomic.Bool
-
-	// Pointer fields last (all require 8-byte alignment)
-	fn      SetTimeoutFunc
-	wrapper func()
-	js      *JS
 }
 
 // JS provides JavaScript-like timer and microtask operations on top of event loop.
 // This is a runtime-agnostic adapter that can be bridged to JavaScript runtimes.
 type JS struct {
 	unhandledCallback RejectionHandler
-	nextTimerID       atomic.Uint64
-	mu                sync.Mutex
+
+	// Last pointer field
+	loop *Loop
 
 	// Group pointer/sync.Map fields together
 	timers              sync.Map
@@ -76,8 +77,8 @@ type JS struct {
 	unhandledRejections sync.Map
 	promiseHandlers     sync.Map
 
-	// Last pointer field
-	loop *Loop
+	nextTimerID atomic.Uint64
+	mu          sync.Mutex
 }
 
 // SetTimeoutFunc is a callback function for setTimeout/setInterval.

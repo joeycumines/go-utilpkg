@@ -128,9 +128,12 @@ func (p *promise) fanOut() {
 // ChainedPromise implements the Promise/A+ specification with Then/Catch/Finally.
 // This is the JS-compatible promise implementation with proper async semantics.
 type ChainedPromise struct {
-	// Atomic state (requires 8-byte alignment, grouped)
-	state atomic.Int32
-	_     [4]byte // Padding to 8-byte
+	value  Result
+	reason Result
+
+	// Pointer fields (all require 8-byte alignment, grouped last)
+	js       *JS
+	handlers []handler
 
 	// Non-pointer, non-atomic fields (no pointer alignment needed)
 	id uint64
@@ -138,11 +141,10 @@ type ChainedPromise struct {
 	// Non-pointer synchronization primitives
 	mu sync.RWMutex
 
-	// Pointer fields (all require 8-byte alignment, grouped last)
-	js       *JS
-	value    Result
-	reason   Result
-	handlers []handler
+	// Atomic state (requires 8-byte alignment, grouped)
+	state atomic.Int32
+	_     [4]byte // Padding to 8-byte
+
 }
 
 // handler represents a reaction to promise settlement.

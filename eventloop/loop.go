@@ -78,16 +78,30 @@ const (
 type Loop struct {
 	_ [0]func() // Prevent copying
 
+	// Large pointer-heavy types (all require 8-byte alignment)
+	batchBuf     [256]func()
+	tickAnchor   time.Time
+	registry     *registry
+	state        *FastState
+	testHooks    *loopTestHooks
+	external     *ChunkedIngress
+	internal     *ChunkedIngress
+	microtasks   *MicrotaskRing
+	OnOverload   func(error)
+	fastWakeupCh chan struct{}
+	loopDone     chan struct{}
+	timerMap     map[TimerID]*timer
+	timers       timerHeap
+	auxJobs      []func()
+	auxJobsSpare []func()
+	poller       FastPoller
+	promisifyWg  sync.WaitGroup
+
 	// Simple primitive types BEFORE anything that requires pointer alignment
-	tickCount               uint64
-	id                      uint64
-	forceNonBlockingPoll    bool
-	StrictMicrotaskOrdering bool
-	_                       [2]byte      // Align to 8-byte
-	timerNestingDepth       atomic.Int32 // HTML5 spec: nesting depth for timeout clamping
-	_                       [2]byte      // Align to 8-byte
-	wakePipe                int
-	wakePipeWrite           int
+	tickCount     uint64
+	id            uint64
+	wakePipe      int
+	wakePipeWrite int
 
 	// Atomic fields (all require 8-byte alignment)
 	nextTimerID         atomic.Uint64
@@ -95,34 +109,21 @@ type Loop struct {
 	loopGoroutineID     atomic.Uint64
 	fastPathEntries     atomic.Int64
 	fastPathSubmits     atomic.Int64
+	tickAnchorMu        sync.RWMutex
+	stopOnce            sync.Once
+	closeOnce           sync.Once
+	externalMu          sync.Mutex
+	internalQueueMu     sync.Mutex
+	timerNestingDepth   atomic.Int32 // HTML5 spec: nesting depth for timeout clamping
 	userIOFDCount       atomic.Int32
 	wakeUpSignalPending atomic.Uint32
 	fastPathMode        atomic.Int32
 
-	// Large pointer-heavy types (all require 8-byte alignment)
-	batchBuf        [256]func()
-	wakeBuf         [8]byte
-	poller          FastPoller
-	registry        *registry
-	state           *FastState
-	testHooks       *loopTestHooks
-	external        *ChunkedIngress
-	internal        *ChunkedIngress
-	microtasks      *MicrotaskRing
-	OnOverload      func(error)
-	fastWakeupCh    chan struct{}
-	loopDone        chan struct{}
-	timers          timerHeap
-	timerMap        map[TimerID]*timer
-	auxJobs         []func()
-	auxJobsSpare    []func()
-	promisifyWg     sync.WaitGroup
-	externalMu      sync.Mutex
-	internalQueueMu sync.Mutex
-	tickAnchorMu    sync.RWMutex
-	stopOnce        sync.Once
-	closeOnce       sync.Once
-	tickAnchor      time.Time
+	wakeBuf                 [8]byte
+	_                       [2]byte // Align to 8-byte
+	_                       [2]byte // Align to 8-byte
+	forceNonBlockingPoll    bool
+	StrictMicrotaskOrdering bool
 }
 
 // TimerID uniquely identifies a scheduled timer and can be used to cancel it.
@@ -131,11 +132,11 @@ type TimerID uint64
 // timer represents a scheduled task
 type timer struct {
 	when         time.Time
-	id           TimerID
 	task         func()
+	id           TimerID
+	heapIndex    int
 	canceled     atomic.Bool
 	nestingLevel int32 // Nesting level at scheduling time for HTML5 clamping
-	heapIndex    int
 }
 
 // timerHeap is a min-heap of timers
