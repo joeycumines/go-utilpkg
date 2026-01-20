@@ -14,6 +14,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Sync pools for zero-allocation hot paths
+var (
+	taskPool  = sync.Pool{New: func() any { return new(func()) }}
+	timerPool = sync.Pool{New: func() any { return new(timer) }}
+)
+
 // Standard errors.
 var (
 	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
@@ -77,7 +83,9 @@ type Loop struct {
 	id                      uint64
 	forceNonBlockingPoll    bool
 	StrictMicrotaskOrdering bool
-	_                       [6]byte // Align to 8-byte
+	_                       [2]byte      // Align to 8-byte
+	timerNestingDepth       atomic.Int32 // HTML5 spec: nesting depth for timeout clamping
+	_                       [2]byte      // Align to 8-byte
 	wakePipe                int
 	wakePipeWrite           int
 
@@ -122,11 +130,12 @@ type TimerID uint64
 
 // timer represents a scheduled task
 type timer struct {
-	when      time.Time
-	task      func()
-	id        TimerID
-	canceled  atomic.Bool
-	heapIndex int
+	when         time.Time
+	id           TimerID
+	task         func()
+	canceled     atomic.Bool
+	nestingLevel int32 // Nesting level at scheduling time for HTML5 clamping
+	heapIndex    int
 }
 
 // timerHeap is a min-heap of timers
@@ -1335,11 +1344,25 @@ func (l *Loop) runTimers() {
 
 		// Handle canceled timer before deletion from timerMap
 		if !t.canceled.Load() {
+			// HTML5 spec: Set nesting level to timer's scheduled depth + 1 during execution
+			// This tracks call stack depth for nested setTimeout calls
+			oldDepth := l.timerNestingDepth.Load()
+			newDepth := t.nestingLevel + 1
+			l.timerNestingDepth.Store(newDepth)
+
 			l.safeExecute(t.task)
 			delete(l.timerMap, t.id)
+
+			// Restore nesting level after callback completes
+			l.timerNestingDepth.Store(oldDepth)
+
+			// Zero-alloc: Return timer to pool
+			t.task = nil // Avoid keeping reference
+			timerPool.Put(t)
 		} else {
 			delete(l.timerMap, t.id)
-			continue
+			// Zero-alloc: Return timer to pool even if canceled
+			timerPool.Put(t)
 		}
 
 		if l.StrictMicrotaskOrdering {
@@ -1349,23 +1372,47 @@ func (l *Loop) runTimers() {
 }
 
 // ScheduleTimer schedules a task to be executed after the specified delay.
+//
 // Returns a TimerID that can be used to cancel the timer before it fires.
+//
+// HTML5 Spec Compliance:
+// If this timer is nested deeper than 5 levels, its delay will be clamped to 4ms.
+// This matches browser behavior for nested setTimeout/setInterval.
 func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
-	// Use monotonic time by computing when relative to current tick time
-	now := l.CurrentTickTime()
-	when := now.Add(delay)
-	id := TimerID(l.nextTimerID.Add(1))
-
-	t := &timer{
-		id:   id,
-		when: when,
-		task: fn,
+	// HTML5 spec: Clamp delay to 4ms if nesting depth > 5 and delay < 4ms
+	// See: https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers
+	// "If nesting level is greater than 5, and timeout is less than 4, then increase timeout to 4."
+	currentDepth := l.timerNestingDepth.Load()
+	if currentDepth > 5 {
+		minDelay := 4 * time.Millisecond
+		if delay >= 0 && delay < minDelay {
+			delay = minDelay
+		}
 	}
 
-	return id, l.SubmitInternal(func() {
+	// Get timer from pool for zero-alloc in hot path
+	t := timerPool.Get().(*timer)
+	t.id = TimerID(l.nextTimerID.Add(1))
+	t.when = l.CurrentTickTime().Add(delay)
+	t.task = fn
+	t.nestingLevel = currentDepth
+	t.canceled.Store(false)
+	t.heapIndex = -1
+
+	// Return timer to pool on error
+	id := t.id
+	err := l.SubmitInternal(func() {
 		l.timerMap[id] = t
 		heap.Push(&l.timers, t)
 	})
+	if err != nil {
+		// Put back to pool on error
+		t.task = nil // Avoid keeping reference
+		timerPool.Put(t)
+		return 0, err
+	}
+
+	return id, nil
 }
 
 // CancelTimer cancels a scheduled timer before it fires.
