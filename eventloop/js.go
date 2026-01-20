@@ -90,14 +90,7 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 		return nil, err
 	}
 
-	js := &JS{
-		loop:                loop,
-		nextTimerID:         atomic.Uint64{},
-		timers:              sync.Map{},
-		intervals:           sync.Map{},
-		unhandledRejections: sync.Map{},
-		promiseHandlers:     sync.Map{},
-	}
+	js := &JS{loop: loop}
 
 	// Store onUnhandled callback
 	if options.onUnhandled != nil {
