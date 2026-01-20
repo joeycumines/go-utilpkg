@@ -1334,10 +1334,6 @@ func BenchmarkPerf_Latency_P99(b *testing.B) {
     // Measure P99 latency
 }
 
-func BenchmarkPerf_CacheLine(b *testing.B) {
-    // Verify cache optimizations
-}
-
 // Run with:
 // go test -bench=. -run BenchmarkPerf -benchtime=10s
 ```
