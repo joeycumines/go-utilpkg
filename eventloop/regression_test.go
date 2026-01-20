@@ -56,7 +56,7 @@ func TestRegression_TimerExecution(t *testing.T) {
 
 	fired := make(chan struct{})
 
-	if err := l.ScheduleTimer(10*time.Millisecond, func() {
+	if _, err := l.ScheduleTimer(10*time.Millisecond, func() {
 		close(fired)
 	}); err != nil {
 		t.Errorf("ScheduleTimer failed: %v", err)

@@ -319,7 +319,7 @@ func TestFastPath_TimerCreation_ExitsFastPath(t *testing.T) {
 
 	// Schedule a timer from fast path
 	fired := make(chan struct{})
-	if err := loop.ScheduleTimer(10*time.Millisecond, func() {
+	if _, err := loop.ScheduleTimer(10*time.Millisecond, func() {
 		close(fired)
 	}); err != nil {
 		t.Fatalf("ScheduleTimer failed: %v", err)

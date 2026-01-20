@@ -30,6 +30,9 @@ var (
 
 	// ErrFastPathIncompatible is returned when fast path mode is forced but I/O FDs are registered.
 	ErrFastPathIncompatible = errors.New("eventloop: fast path incompatible with registered I/O FDs")
+
+	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
+	ErrTimerNotFound = errors.New("eventloop: timer not found")
 )
 
 // loopTestHooks provides injection points for deterministic race testing.
@@ -69,104 +72,101 @@ const (
 type Loop struct {
 	_ [0]func() // Prevent copying
 
-	// Task batch buffer (avoid allocation)
-	batchBuf [256]func()
-
-	tickAnchor time.Time // Reference time for monotonicity
-
-	registry   *registry
-	testHooks  *loopTestHooks
-	OnOverload func(error)
-
-	// State machine (internally padded)
-	state *FastState
-
-	external   *ChunkedIngress // External tasks (mutex+chunked)
-	internal   *ChunkedIngress // Internal priority tasks
-	microtasks *MicrotaskRing  // Microtask ring buffer
-
-	// Fast wakeup channel for task-only mode (no user I/O FDs).
-	// Used instead of pipe-based wakeup for lower latency (~50ns vs ~10µs).
-	fastWakeupCh chan struct{}
-	loopDone     chan struct{}
-
-	timers timerHeap
-
-	// Simple slice-based queue (bypasses ChunkedIngress in fast mode).
-	// auxJobs is the active queue (producers append here).
-	// auxJobsSpare is the empty buffer for swap (consumers drain here).
-	auxJobs      []func()
-	auxJobsSpare []func()
-
-	poller FastPoller
-
-	promisifyWg sync.WaitGroup
-
-	// Wake-up mechanism (pipe-based, triggers I/O event)
-	wakePipe        int
-	wakePipeWrite   int
-	tickElapsedTime atomic.Int64 // Nanoseconds offset from anchor
-
-	loopGoroutineID atomic.Uint64
-	tickCount       uint64
-	id              uint64
-
-	fastPathEntries atomic.Int64
-	fastPathSubmits atomic.Int64
-
-	tickAnchorMu sync.RWMutex // Protects tickAnchor
-
-	stopOnce  sync.Once
-	closeOnce sync.Once // Ensures closeFDs is called exactly once
-
-	// External queue mutex - used for atomic state-check-and-push pattern.
-	externalMu sync.Mutex
-
-	// Internal queue mutex - used for atomic state-check-and-push pattern.
-	internalQueueMu sync.Mutex
-
-	userIOFDCount atomic.Int32 // Number of user-registered I/O FDs (excludes wake pipe)
-
-	wakeUpSignalPending atomic.Uint32 // Wake-up deduplication
-
-	fastPathMode atomic.Int32
-	wakeBuf      [8]byte
-
-	forceNonBlockingPoll bool
-
+	// Simple primitive types BEFORE anything that requires pointer alignment
+	tickCount               uint64
+	id                      uint64
+	forceNonBlockingPoll    bool
 	StrictMicrotaskOrdering bool
+	_                       [6]byte // Align to 8-byte
+	wakePipe                int
+	wakePipeWrite           int
+
+	// Atomic fields (all require 8-byte alignment)
+	nextTimerID         atomic.Uint64
+	tickElapsedTime     atomic.Int64
+	loopGoroutineID     atomic.Uint64
+	fastPathEntries     atomic.Int64
+	fastPathSubmits     atomic.Int64
+	userIOFDCount       atomic.Int32
+	wakeUpSignalPending atomic.Uint32
+	fastPathMode        atomic.Int32
+
+	// Large pointer-heavy types (all require 8-byte alignment)
+	batchBuf        [256]func()
+	wakeBuf         [8]byte
+	poller          FastPoller
+	registry        *registry
+	state           *FastState
+	testHooks       *loopTestHooks
+	external        *ChunkedIngress
+	internal        *ChunkedIngress
+	microtasks      *MicrotaskRing
+	OnOverload      func(error)
+	fastWakeupCh    chan struct{}
+	loopDone        chan struct{}
+	timers          timerHeap
+	timerMap        map[TimerID]*timer
+	auxJobs         []func()
+	auxJobsSpare    []func()
+	promisifyWg     sync.WaitGroup
+	externalMu      sync.Mutex
+	internalQueueMu sync.Mutex
+	tickAnchorMu    sync.RWMutex
+	stopOnce        sync.Once
+	closeOnce       sync.Once
+	tickAnchor      time.Time
 }
+
+// TimerID uniquely identifies a scheduled timer and can be used to cancel it.
+type TimerID uint64
 
 // timer represents a scheduled task
 type timer struct {
-	when time.Time
-	task func()
+	when      time.Time
+	task      func()
+	id        TimerID
+	canceled  atomic.Bool
+	heapIndex int
 }
 
 // timerHeap is a min-heap of timers
-type timerHeap []timer
+type timerHeap []*timer
 
 // Implement heap.Interface for timerHeap
 func (h timerHeap) Len() int           { return len(h) }
 func (h timerHeap) Less(i, j int) bool { return h[i].when.Before(h[j].when) }
-func (h timerHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h timerHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].heapIndex = i
+	h[j].heapIndex = j
+}
 
 func (h *timerHeap) Push(x any) {
-	*h = append(*h, x.(timer))
+	n := len(*h)
+	t := x.(*timer)
+	t.heapIndex = n
+	*h = append(*h, t)
 }
 
 func (h *timerHeap) Pop() any {
 	old := *h
 	n := len(old)
-	x := old[n-1]
+	t := old[n-1]
+	old[n-1] = nil // Avoid memory leak
 	*h = old[:n-1]
-	return x
+	return t
 }
 
 var loopIDCounter atomic.Uint64
 
-// New creates a new event loop.
-func New() (*Loop, error) {
+// New creates a new event loop with optional configuration.
+func New(opts ...LoopOption) (*Loop, error) {
+	// Apply options
+	options, err := resolveLoopOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
 	if err != nil {
 		return nil, err
@@ -180,12 +180,17 @@ func New() (*Loop, error) {
 		microtasks:    NewMicrotaskRing(),
 		registry:      newRegistry(),
 		timers:        make(timerHeap, 0),
+		timerMap:      make(map[TimerID]*timer),
 		wakePipe:      wakeFd,
 		wakePipeWrite: wakeWriteFd,
 		// Buffer size 1 prevents blocking on send when channel is full
 		fastWakeupCh: make(chan struct{}, 1),
 		loopDone:     make(chan struct{}),
 	}
+
+	// Apply options to Loop struct
+	loop.StrictMicrotaskOrdering = options.strictMicrotaskOrdering
+	loop.fastPathMode.Store(int32(options.fastPathMode))
 
 	if err := loop.poller.Init(); err != nil {
 		_ = unix.Close(wakeFd)
@@ -1143,7 +1148,37 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 		return ErrLoopTerminated
 	}
 
+	// Check fast mode conditions BEFORE taking lock
+	fastMode := l.canUseFastPath()
+
+	// Lock external mutex for atomic push
+	l.externalMu.Lock()
+
+	// Check state again while holding mutex - this is atomic with push
+	state = l.state.Load()
+	if state == StateTerminated {
+		l.externalMu.Unlock()
+		return ErrLoopTerminated
+	}
+
+	// Add to microtask queue
 	l.microtasks.Push(fn)
+	l.externalMu.Unlock()
+
+	// Wake up the loop to process the microtask
+	if fastMode {
+		// Fast path: Simple channel wakeup with automatic deduplication
+		select {
+		case l.fastWakeupCh <- struct{}{}:
+		default:
+		}
+	} else if state == StateSleeping {
+		// I/O mode: Need proper wakeup with deduplication
+		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
+			l.doWakeup()
+		}
+	}
+
 	return nil
 }
 
@@ -1296,8 +1331,16 @@ func (l *Loop) runTimers() {
 		if l.timers[0].when.After(now) {
 			break
 		}
-		t := heap.Pop(&l.timers).(timer)
-		l.safeExecute(t.task)
+		t := heap.Pop(&l.timers).(*timer)
+
+		// Handle canceled timer before deletion from timerMap
+		if !t.canceled.Load() {
+			l.safeExecute(t.task)
+			delete(l.timerMap, t.id)
+		} else {
+			delete(l.timerMap, t.id)
+			continue
+		}
 
 		if l.StrictMicrotaskOrdering {
 			l.drainMicrotasks()
@@ -1306,18 +1349,51 @@ func (l *Loop) runTimers() {
 }
 
 // ScheduleTimer schedules a task to be executed after the specified delay.
-func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) error {
+// Returns a TimerID that can be used to cancel the timer before it fires.
+func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 	// Use monotonic time by computing when relative to current tick time
 	now := l.CurrentTickTime()
 	when := now.Add(delay)
-	t := timer{
+	id := TimerID(l.nextTimerID.Add(1))
+
+	t := &timer{
+		id:   id,
 		when: when,
 		task: fn,
 	}
 
-	return l.SubmitInternal(func() {
+	return id, l.SubmitInternal(func() {
+		l.timerMap[id] = t
 		heap.Push(&l.timers, t)
 	})
+}
+
+// CancelTimer cancels a scheduled timer before it fires.
+// Returns ErrTimerNotFound if the timer does not exist.
+func (l *Loop) CancelTimer(id TimerID) error {
+	result := make(chan error, 1)
+
+	// Submit to loop thread to ensure thread-safe access to timerMap and timer heap
+	if err := l.SubmitInternal(func() {
+		t, exists := l.timerMap[id]
+		if !exists {
+			result <- ErrTimerNotFound
+			return
+		}
+		// Mark as canceled
+		t.canceled.Store(true)
+		// Remove from timerMap
+		delete(l.timerMap, id)
+		// Remove from heap using heapIndex
+		if t.heapIndex < len(l.timers) {
+			heap.Remove(&l.timers, t.heapIndex)
+		}
+		result <- nil
+	}); err != nil {
+		return err
+	}
+
+	return <-result
 }
 
 // safeExecute executes a task with panic recovery.

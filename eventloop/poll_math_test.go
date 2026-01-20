@@ -21,7 +21,7 @@ func TestPollTimeoutMath(t *testing.T) {
 	// Add timer for 0.5ms from now
 	// We construct it carefully to ensure delta is > 0 and < 1ms
 	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, timer{when: time.Now().Add(500 * time.Microsecond)})
+	l.timers = append(l.timers, &timer{when: time.Now().Add(500 * time.Microsecond)})
 
 	timeout = l.calculateTimeout()
 	if timeout != 1 {
@@ -30,7 +30,7 @@ func TestPollTimeoutMath(t *testing.T) {
 
 	// Case 3: Tiny delta (0.5ms) - must be enough to not expire between setup and calculation
 	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, timer{when: time.Now().Add(500 * time.Microsecond)})
+	l.timers = append(l.timers, &timer{when: time.Now().Add(500 * time.Microsecond)})
 	timeout = l.calculateTimeout()
 	// Either rounds up to 1ms (correct) or expired to 0 (acceptable for fast machines)
 	if timeout != 1 && timeout != 0 {
@@ -39,7 +39,7 @@ func TestPollTimeoutMath(t *testing.T) {
 
 	// Case 4: Zero or Negative (Expired)
 	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, timer{when: time.Now().Add(-1 * time.Second)})
+	l.timers = append(l.timers, &timer{when: time.Now().Add(-1 * time.Second)})
 	timeout = l.calculateTimeout()
 	if timeout != 0 {
 		t.Errorf("Expected 0ms for expired timer, got %d", timeout)
@@ -52,7 +52,7 @@ func TestOversleepPrevention(t *testing.T) {
 
 	targetDelay := 50 * time.Millisecond
 	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, timer{when: time.Now().Add(targetDelay)})
+	l.timers = append(l.timers, &timer{when: time.Now().Add(targetDelay)})
 
 	timeout := l.calculateTimeout()
 
