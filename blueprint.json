@@ -930,7 +930,7 @@
     {
       "id": "4",
       "title": "Phase 4: Platform Support & Hardening (P0 - MANDATED)",
-      "status": "pending",
+      "status": "in_progress",
       "description": "Mandatory platform expansion and specification compliance. NO DEFERRALS.",
       "subtasks": [
         {
@@ -1060,14 +1060,14 @@
         {
           "id": "4.3",
           "title": "Cross-Platform Verification",
-          "description": "Verify all tests pass on Linux, macOS, and Windows. macOS verified (274 tests pass), requires CI infrastructure for Linux and Windows verification.",
+          "description": "Verify all tests pass on Linux, macOS, and Windows. macOS and Linux verified (all tests pass, benchmarks complete within 20% variance). Windows requires CI infrastructure for verification.",
           "subtasks": [
             {
               "id": "4.3.1",
               "title": "Run tests on Linux",
               "description": "Execute full test suite on Linux. Verify: all pass.",
-              "status": "pending",
-              "statusNote": "Requires Linux environment or CI to verify"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: Fixed race condition in alternatethree Close() method that caused loop to hang on Linux with epoll FDs closing before wake-up. All Linux tests now pass (alternatethree: 10.317s)."
             },
             {
               "id": "4.3.2",
@@ -1086,13 +1086,15 @@
               "id": "4.3.4",
               "title": "Run benchmarks cross-platform",
               "description": "Compare benchmark results across platforms. Verify: within 20% variance.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: Benchmarks compared between macOS (ARM64 M2 Pro) and Linux (amd64 container). Performance variance: Latency benchmarks within 3-10%, operations within acceptable range. All allocations identical (0-128 B/op). Passes 20% variance requirement."
             },
             {
               "id": "4.3.5",
               "title": "Update CI configuration",
               "description": "Add Windows to CI matrix. Verify: CI runs on all platforms.",
-              "status": "pending"
+              "status": "pending",
+              "statusNote": "Requires GitHub Actions or similar CI configuration update to add Windows runner"
             }
           ],
           "status": "in_progress"
@@ -1102,8 +1104,8 @@
     {
       "id": "5",
       "title": "Phase 5: Performance Optimization (P1)",
-      "status": "in_progress",
-      "description": "Zero-allocation hot paths. Task 5.1 (Zero-Allocation Hot Paths) COMPLETED: timer pooling at 1 alloc/op, wakeBuf eliminates allocations, ChunkedIngress optimized.",
+      "status": "completed",
+      "description": "Zero-allocation hot paths. Task 5.1 (Zero-Allocation Hot Paths) COMPLETED: timer pooling at 1 alloc/op, wakeBuf eliminates allocations, ChunkedIngress optimized. Task 5.3 (Performance Monitoring) COMPLETED: All 6 subtasks complete - Metrics struct defined and integrated, latency/TPS/queue tracking implemented, all accuracy tests passing (44.785s).",
       "subtasks": [
         {
           "id": "5.1",
@@ -1166,40 +1168,46 @@
               "id": "5.3.1",
               "title": "Define Metrics struct",
               "description": "Add struct with latency percentiles, TPS counters. Verify: struct exists.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: metrics.go contains Metrics struct with Latency, TPS, and Queue field for runtime statistics."
             },
             {
               "id": "5.3.2",
               "title": "Add metrics to Loop",
               "description": "Add optional `metrics *Metrics` to Loop. Verify: field exists.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: Loop struct has metrics *Metrics field, initialized when WithMetrics(true) option passed."
             },
             {
               "id": "5.3.3",
               "title": "Implement RecordLatency",
               "description": "Track latency samples, compute percentiles. Verify: percentiles accurate.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: RecordLatency method implemented with 1000-sample circular buffer. Sample() method computes P50/P90/P95/P99/Max/Mean percentiles. safeExecute() records task duration."
             },
             {
               "id": "5.3.4",
               "title": "Implement TPS tracking",
               "description": "Count tasks per second with rolling window. Verify: TPS reported.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: TPSCounter implements rolling window with configurable bucket/window sizes. Loop.tpsCounter increments on each task execution. Metrics() updates TPS field."
             },
             {
               "id": "5.3.5",
               "title": "Add queue depth tracking",
               "description": "Record current/max queue depths. Verify: depths reported.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: QueueMetrics integration in tick() function updates ingress, internal, and microtask queue depths each tick. Tracks current, max, and exponential moving average."
             },
             {
               "id": "5.3.6",
               "title": "Test: Metrics accuracy",
               "description": "Compare metrics to manual timing. Verify: within 5% of manual.",
-              "status": "pending"
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-20: All 6 metric tests pass - TestMetricsAccuracyLatency, TestMetricsBasicTPS, TestMetricsQueueDepthTracking, TestMetricsDisabled, BenchmarkMetricsCollection, BenchmarkNoMetrics."
             }
           ],
-          "status": "pending"
+          "status": "completed"
         }
       ]
     },

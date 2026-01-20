@@ -519,7 +519,13 @@ func (l *Loop) Close() error {
 		}
 
 		if l.state.CompareAndSwap(int32(currentState), int32(StateTerminating)) {
-			// If sleeping, wake up to process termination
+			// CRITICAL: Wake up the loop BEFORE closing FDs
+			// On Linux with epoll, if we close the eventfd without waking up,
+			// EpollWait will block forever with no way to recover.
+			// submitWakeup is safe even if not sleeping - it just writes to the pipe
+			_ = l.submitWakeup()
+
+			// If sleeping, also wake up to process termination
 			if currentState == StateSleeping {
 				_ = l.submitWakeup()
 			}
@@ -528,6 +534,7 @@ func (l *Loop) Close() error {
 	}
 
 	// Close FDs immediately - don't wait for loop to drain
+	// But the loop has been woken up and will see StateTerminating
 	l.closeFDs()
 
 	return nil

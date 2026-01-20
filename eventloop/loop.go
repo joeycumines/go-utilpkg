@@ -84,6 +84,8 @@ type Loop struct {
 	external     *ChunkedIngress
 	internal     *ChunkedIngress
 	microtasks   *MicrotaskRing
+	metrics      *Metrics    // Phase 5.3: Optional runtime metrics
+	tpsCounter   *TPSCounter // Phase 5.3: TPS tracking
 	OnOverload   func(error)
 	fastWakeupCh chan struct{}
 	loopDone     chan struct{}
@@ -198,6 +200,15 @@ func New(opts ...LoopOption) (*Loop, error) {
 	// Apply options to Loop struct
 	loop.StrictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
+
+	// Phase 5.3: Initialize metrics if enabled
+	if options.metricsEnabled {
+		loop.metrics = &Metrics{}
+		loop.tpsCounter = NewTPSCounter(10*time.Second, 100*time.Millisecond)
+		loop.metrics.Queue.IngressAvg = 0
+		loop.metrics.Queue.InternalAvg = 0
+		loop.metrics.Queue.MicrotaskAvg = 0
+	}
 
 	if err := loop.poller.Init(); err != nil {
 		_ = unix.Close(wakeFd)
@@ -647,6 +658,23 @@ func (l *Loop) shutdown() {
 // tick is a single iteration of the event loop.
 func (l *Loop) tick() {
 	l.tickCount++
+
+	// Phase 5.3.5: Track queue depths before processing
+	if l.metrics != nil {
+		// Update queue depth metrics for all three queues
+		l.externalMu.Lock()
+		extLen := l.external.Length()
+		l.externalMu.Unlock()
+		l.metrics.Queue.UpdateIngress(extLen)
+
+		l.internalQueueMu.Lock()
+		intLen := l.internal.Length()
+		l.internalQueueMu.Unlock()
+		l.metrics.Queue.UpdateInternal(intLen)
+
+		microLen := l.microtasks.Length()
+		l.metrics.Queue.UpdateMicrotask(microLen)
+	}
 
 	// Update elapsed monotonic time offset from anchor
 	l.tickAnchorMu.RLock()
@@ -1447,13 +1475,29 @@ func (l *Loop) safeExecute(t func()) {
 		return
 	}
 
+	// Phase 5.3: Record task execution time if metrics enabled
+	var start time.Time
+	if l.metrics != nil {
+		start = time.Now()
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("ERROR: eventloop: task panicked: %v", r)
 		}
+		// Phase 5.3: Record latency if metrics enabled (even on panic)
+		if l.metrics != nil && !start.IsZero() {
+			duration := time.Since(start)
+			l.metrics.Latency.Record(duration)
+		}
 	}()
 
 	t()
+
+	// Phase 5.3: Record successful execution for TPS
+	if l.tpsCounter != nil && !start.IsZero() {
+		l.tpsCounter.Increment()
+	}
 }
 
 // safeExecuteFn executes a function with panic recovery.
@@ -1469,6 +1513,22 @@ func (l *Loop) safeExecuteFn(fn func()) {
 	}()
 
 	fn()
+}
+
+func (l *Loop) Metrics() *Metrics {
+	if l.metrics == nil {
+		return nil
+	}
+
+	// Update TPS from rolling window counter
+	if l.tpsCounter != nil {
+		l.metrics.TPS = l.tpsCounter.TPS()
+	}
+
+	// Sample latency percentiles
+	_ = l.metrics.Latency.Sample()
+
+	return l.metrics
 }
 
 // closeFDs closes file descriptors.

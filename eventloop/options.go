@@ -10,6 +10,7 @@ package eventloop
 type loopOptions struct {
 	strictMicrotaskOrdering bool
 	fastPathMode            FastPathMode
+	metricsEnabled          bool
 }
 
 // --- Loop Options ---
@@ -44,6 +45,17 @@ func WithStrictMicrotaskOrdering(enabled bool) LoopOption {
 func WithFastPathMode(mode FastPathMode) LoopOption {
 	return &loopOptionImpl{func(opts *loopOptions) error {
 		opts.fastPathMode = mode
+		return nil
+	}}
+}
+
+// WithMetrics enables runtime metrics collection on the Loop.
+// When enabled, metrics can be accessed via Loop.Metrics().
+// This adds minimal overhead (e.g., record latency after each task, update queue depths).
+// For zero-allocation hot paths, disable metrics in production.
+func WithMetrics(enabled bool) LoopOption {
+	return &loopOptionImpl{func(opts *loopOptions) error {
+		opts.metricsEnabled = enabled
 		return nil
 	}}
 }
