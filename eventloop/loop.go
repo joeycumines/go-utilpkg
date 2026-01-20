@@ -14,12 +14,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Sync pools for zero-allocation hot paths
-var (
-	taskPool  = sync.Pool{New: func() any { return new(func()) }}
-	timerPool = sync.Pool{New: func() any { return new(timer) }}
-)
-
 // Standard errors.
 var (
 	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
@@ -40,6 +34,9 @@ var (
 	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
 	ErrTimerNotFound = errors.New("eventloop: timer not found")
 )
+
+// timerPool for amortized timer allocations.
+var timerPool = sync.Pool{New: func() any { return new(timer) }}
 
 // loopTestHooks provides injection points for deterministic race testing.
 type loopTestHooks struct {
