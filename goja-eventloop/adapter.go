@@ -2,7 +2,35 @@
 //
 // goja-eventloop: Goja adapter for the event loop library
 //
-// This binds eventloop.JS functionality to Goja JavaScript runtime.
+// This package provides bindings between the eventloop package and the Goja
+// JavaScript runtime (github.com/dop251/goja). It enables JavaScript code
+// running in Goja to use standard async APIs like setTimeout, setInterval,
+// queueMicrotask, and Promise.
+//
+// Basic usage:
+//
+//	loop := eventloop.New()
+//	runtime := goja.New()
+//	adapter, err := gojaeventloop.New(loop, runtime)
+//	if err != nil {
+//	    return err
+//	}
+//	if err := adapter.Bind(); err != nil {
+//	    return err
+//	}
+//
+//	// Now JavaScript code can use async APIs:
+//	runtime.RunString(`
+//	    setTimeout(() => console.log("Hello"), 100);
+//	    new Promise((resolve) => resolve(42)).then(console.log);
+//	`)
+//
+// Thread Safety:
+//
+// The adapter coordinates between Goja (which is not thread-safe) and the
+// event loop. JavaScript callbacks are always executed on the event loop
+// thread. The Goja runtime should only be accessed from the event loop
+// thread after binding.
 
 package gojaeventloop
 
@@ -14,8 +42,16 @@ import (
 	goeventloop "github.com/joeycumines/go-eventloop"
 )
 
-// Adapter bridges Goja runtime to goeventloop.JS.
-// This allows setTimeout/setInterval/queueMicrotask/Promise to work with Goja.
+// Adapter bridges the Goja JavaScript runtime to [goeventloop.JS].
+//
+// The adapter provides JavaScript-compatible bindings for:
+//   - setTimeout / clearTimeout
+//   - setInterval / clearInterval
+//   - queueMicrotask
+//   - Promise (with then/catch/finally)
+//
+// These bindings follow standard JavaScript semantics and integrate with
+// the event loop's timer and microtask queues.
 type Adapter struct {
 	js      *goeventloop.JS
 	runtime *goja.Runtime
@@ -23,7 +59,16 @@ type Adapter struct {
 	mu      sync.Mutex
 }
 
-// New creates a new Goja adapter for given event loop and runtime.
+// New creates a new Goja adapter for the given event loop and runtime.
+//
+// Parameters:
+//   - loop: The event loop that will process timer and microtask callbacks
+//   - runtime: The Goja runtime where JavaScript code will execute
+//
+// Returns an error if loop or runtime is nil.
+//
+// After creating the adapter, call [Adapter.Bind] to install the JavaScript
+// global functions (setTimeout, Promise, etc.).
 func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	if loop == nil {
 		return nil, fmt.Errorf("loop cannot be nil")
@@ -51,7 +96,20 @@ func (a *Adapter) ensureLoopThread() {
 	defer a.mu.Unlock()
 }
 
-// Bind creates setTimeout/setInterval/queueMicrotask bindings in Goja global scope.
+// Bind installs JavaScript global functions into the Goja runtime.
+//
+// This adds the following globals:
+//   - setTimeout(fn, delay) → number
+//   - clearTimeout(id)
+//   - setInterval(fn, delay) → number
+//   - clearInterval(id)
+//   - queueMicrotask(fn)
+//   - Promise(executor) with then/catch/finally
+//
+// Returns an error if any binding fails.
+//
+// After Bind() returns, JavaScript code in the runtime can use these APIs.
+// All callbacks will be executed on the event loop thread.
 func (a *Adapter) Bind() error {
 	// Set setTimeout
 	if err := a.runtime.Set("setTimeout", a.setTimeout); err != nil {
@@ -343,22 +401,31 @@ func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Valu
 	return wrappedObj
 }
 
-// JS returns the underlying goeventloop.JS adapter
+// JS returns the underlying [goeventloop.JS] adapter.
+// Use this to access timer and promise functionality from Go code.
 func (a *Adapter) JS() *goeventloop.JS {
 	return a.js
 }
 
-// Runtime returns the underlying Goja runtime
+// Runtime returns the Goja runtime this adapter is bound to.
+// The runtime should only be accessed from the event loop thread.
 func (a *Adapter) Runtime() *goja.Runtime {
 	return a.runtime
 }
 
-// Loop returns the underlying event loop
+// Loop returns the underlying event loop.
 func (a *Adapter) Loop() *goeventloop.Loop {
 	return a.loop
 }
 
-// NewChainedPromise creates a new promise with Goja-compatible resolve/reject
+// NewChainedPromise creates a new promise with Goja-compatible resolve/reject.
+//
+// This is a convenience function for creating promises from Go code that
+// will be used in JavaScript. The returned resolve and reject functions
+// accept goja.Value arguments.
+//
+// Deprecated: Prefer using [Adapter.JS().NewChainedPromise()] and converting
+// values manually for more control.
 func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
 	js, err := goeventloop.NewJS(loop)
 	if err != nil {
@@ -434,21 +501,25 @@ func (a *Adapter) gojaVoidFuncToHandler(fn goja.Value) func() {
 // ============================================================================
 
 // All returns a promise that resolves when all input promises resolve.
+// See [goeventloop.JS.All] for detailed semantics.
 func (a *Adapter) All(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
 	return a.js.All(promises)
 }
 
-// Race returns a promise that resolves or rejects as soon as any promise settles.
+// Race returns a promise that settles as soon as any input promise settles.
+// See [goeventloop.JS.Race] for detailed semantics.
 func (a *Adapter) Race(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
 	return a.js.Race(promises)
 }
 
 // AllSettled returns a promise that resolves when all input promises have settled.
+// See [goeventloop.JS.AllSettled] for detailed semantics.
 func (a *Adapter) AllSettled(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
 	return a.js.AllSettled(promises)
 }
 
 // Any returns a promise that resolves when any input promise resolves.
+// See [goeventloop.JS.Any] for detailed semantics.
 func (a *Adapter) Any(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
 	return a.js.Any(promises)
 }

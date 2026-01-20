@@ -13,10 +13,13 @@ import (
 	"time"
 )
 
-// RejectionHandler is called when an unhandled promise rejection is detected.
+// RejectionHandler is a callback function invoked when an unhandled promise rejection
+// is detected. The reason parameter contains the rejection reason/value.
+// This follows the JavaScript unhandledrejection event pattern.
 type RejectionHandler func(reason Result)
 
-// JSOption configures a JS adapter.
+// JSOption configures a [JS] adapter instance.
+// Options are applied in order during [NewJS] construction.
 type JSOption func(*jsOptions)
 
 type jsOptions struct {
@@ -31,7 +34,9 @@ func resolveJSOptions(opts []JSOption) (*jsOptions, error) {
 	return o, nil
 }
 
-// WithUnhandledRejection sets a callback that is invoked when a rejected promise has no handler.
+// WithUnhandledRejection configures a handler that is invoked when a rejected
+// promise has no catch handler attached after the microtask queue is drained.
+// This follows the JavaScript unhandledrejection event semantics.
 func WithUnhandledRejection(handler RejectionHandler) JSOption {
 	return func(o *jsOptions) {
 		o.onUnhandled = handler
@@ -63,8 +68,29 @@ type intervalState struct {
 	canceled atomic.Bool
 }
 
-// JS provides JavaScript-like timer and microtask operations on top of event loop.
-// This is a runtime-agnostic adapter that can be bridged to JavaScript runtimes.
+// JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
+//
+// JS is a runtime-agnostic adapter that implements the semantics of JavaScript's
+// setTimeout, setInterval, clearTimeout, clearInterval, and queueMicrotask APIs.
+// It can be bridged to JavaScript runtimes like Goja for full interoperability.
+//
+// Timer Semantics:
+//   - [JS.SetTimeout] schedules a one-time callback after a delay
+//   - [JS.SetInterval] schedules a repeating callback with a fixed delay
+//   - [JS.ClearTimeout] and [JS.ClearInterval] cancel scheduled timers
+//
+// Microtask Semantics:
+//   - [JS.QueueMicrotask] schedules a high-priority callback that runs before any timer
+//   - Microtasks are processed in FIFO order within each tick
+//
+// Promise Support:
+//   - [JS.NewChainedPromise] creates Promise/A+ compatible promises
+//   - Promises integrate with the microtask queue for proper async semantics
+//   - Promise combinators: [JS.All], [JS.Race], [JS.AllSettled], [JS.Any]
+//
+// Thread Safety:
+//   - JS is safe for concurrent use from multiple goroutines
+//   - Callbacks are always executed on the event loop thread
 type JS struct {
 	unhandledCallback RejectionHandler
 
@@ -81,10 +107,31 @@ type JS struct {
 	mu          sync.Mutex
 }
 
-// SetTimeoutFunc is a callback function for setTimeout/setInterval.
+// SetTimeoutFunc is a callback function for [JS.SetTimeout] and [JS.SetInterval].
+// The callback is always invoked on the event loop thread.
 type SetTimeoutFunc func()
 
-// NewJS creates a new JS adapter for the given event loop.
+// NewJS creates a new [JS] adapter for the given event loop.
+//
+// The adapter provides JavaScript-compatible timer and promise APIs that
+// execute callbacks on the provided loop's thread.
+//
+// Example:
+//
+//	loop := eventloop.New()
+//	js, err := eventloop.NewJS(loop,
+//	    eventloop.WithUnhandledRejection(func(reason eventloop.Result) {
+//	        log.Printf("Unhandled rejection: %v", reason)
+//	    }),
+//	)
+//	if err != nil {
+//	    return err
+//	}
+//
+//	// Schedule a timeout
+//	js.SetTimeout(func() {
+//	    fmt.Println("Hello after 100ms")
+//	}, 100)
 func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 	options, err := resolveJSOptions(opts)
 	if err != nil {
@@ -101,13 +148,25 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 	return js, nil
 }
 
-// Loop returns the underlying event loop.
+// Loop returns the underlying [Loop] that this JS adapter is bound to.
+// All callbacks scheduled through this JS adapter will execute on this loop's thread.
 func (js *JS) Loop() *Loop {
 	return js.loop
 }
 
-// SetTimeout schedules a function to run after a delay.
-// Returns a timer ID that can be used with ClearTimeout.
+// SetTimeout schedules a function to run after a delay, following JavaScript setTimeout semantics.
+//
+// Parameters:
+//   - fn: The callback to execute. If nil, returns 0 without scheduling.
+//   - delayMs: Delay in milliseconds. Values < 0 are treated as 0.
+//
+// Returns:
+//   - Timer ID that can be passed to [JS.ClearTimeout] to cancel
+//   - Error if the loop is shutting down or has been closed
+//
+// The callback will execute on the event loop thread. If the delay is 0,
+// the callback is still scheduled (not executed synchronously) but will
+// run after all pending microtasks are processed.
 func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	if fn == nil {
 		return 0, nil
@@ -132,7 +191,10 @@ func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	return id, nil
 }
 
-// ClearTimeout cancels a scheduled timeout timer.
+// ClearTimeout cancels a scheduled timeout timer by its ID.
+//
+// Returns [ErrTimerNotFound] if the timer ID is invalid or has already fired.
+// This is safe to call multiple times for the same ID.
 func (js *JS) ClearTimeout(id uint64) error {
 	dataAny, ok := js.timers.Load(id)
 	if !ok {
@@ -155,7 +217,18 @@ func (js *JS) ClearTimeout(id uint64) error {
 }
 
 // SetInterval schedules a function to run repeatedly with a fixed delay.
-// Returns a timer ID that can be used with ClearInterval.
+//
+// Parameters:
+//   - fn: The callback to execute. If nil, returns 0 without scheduling.
+//   - delayMs: Interval in milliseconds between executions.
+//
+// Returns:
+//   - Timer ID that can be passed to [JS.ClearInterval] to cancel
+//   - Error if the loop is shutting down or has been closed
+//
+// The callback will continue to fire at the specified interval until
+// [JS.ClearInterval] is called with the returned ID. Each execution
+// is scheduled after the previous one completes.
 func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	if fn == nil {
 		return 0, nil
@@ -231,7 +304,11 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	return id, nil
 }
 
-// ClearInterval cancels a scheduled interval timer.
+// ClearInterval cancels a scheduled interval timer by its ID.
+//
+// Returns [ErrTimerNotFound] if the timer ID is invalid.
+// This is safe to call from any goroutine, including from within
+// the interval's own callback.
 func (js *JS) ClearInterval(id uint64) error {
 	dataAny, ok := js.intervals.Load(id)
 	if !ok {
@@ -265,10 +342,18 @@ func (js *JS) ClearInterval(id uint64) error {
 	return nil
 }
 
-// MicrotaskFunc is a callback function for queueMicrotask.
+// MicrotaskFunc is a callback function for [JS.QueueMicrotask].
+// The callback is always invoked on the event loop thread.
 type MicrotaskFunc func()
 
-// QueueMicrotask schedules a microtask to run before the next timer.
+// QueueMicrotask schedules a microtask to run before any pending timer callbacks.
+//
+// Microtasks are processed in FIFO order and have higher priority than timers.
+// A microtask scheduled from within another microtask will be processed in the
+// same tick, before any timer callbacks.
+//
+// This follows the JavaScript queueMicrotask semantics and is used internally
+// by the Promise implementation for then/catch/finally handlers.
 func (js *JS) QueueMicrotask(fn MicrotaskFunc) error {
 	if fn == nil {
 		return nil

@@ -9,33 +9,52 @@ import (
 )
 
 // Result represents the value of a resolved or rejected promise.
-// It can be any type.
+// It can be any type, similar to JavaScript's dynamic typing.
+// For fulfilled promises, this holds the success value.
+// For rejected promises, this typically holds an error or rejection reason.
 type Result any
 
-// PromiseState represents the lifecycle state of a Promise.
+// PromiseState represents the lifecycle state of a [Promise].
+// A promise starts in [Pending] state and transitions to either
+// [Resolved] (also known as [Fulfilled]) or [Rejected].
+// State transitions are irreversible.
 type PromiseState int
 
 const (
-	// Pending indicates the promise operation is still initializing or ongoing.
+	// Pending indicates the promise operation is still in progress.
+	// The promise has not yet been resolved or rejected.
 	Pending PromiseState = iota
-	// Resolved indicates the promise operation completed successfully.
-	// Fulfilled is an alias for compatibility with JavaScript spec.
+
+	// Resolved indicates the promise completed successfully with a value.
+	// Fulfilled is an alias for Resolved, matching JavaScript terminology.
 	Resolved
+
+	// Fulfilled is an alias for [Resolved], matching the Promise/A+ specification.
 	Fulfilled = Resolved
-	// Rejected indicates the promise operation failed with an error.
+
+	// Rejected indicates the promise failed with a reason (typically an error).
 	Rejected
 )
 
 // Promise is a read-only view of a future result.
+// It represents an asynchronous operation that will eventually complete
+// with either a success value or a failure reason.
+//
+// For the full Promise/A+ implementation with Then/Catch/Finally chaining,
+// see [ChainedPromise].
 type Promise interface {
-	// State returns the current state of the promise.
+	// State returns the current [PromiseState] (Pending, Resolved, or Rejected).
 	State() PromiseState
 
 	// Result returns the result of the promise if settled, or nil if pending.
-	// Note: A resolved promise can also have a nil result.
+	// For resolved promises, returns the fulfillment value.
+	// For rejected promises, returns the rejection reason.
+	// Note: A resolved promise can legitimately have a nil result value.
 	Result() Result
 
-	// ToChannel returns a channel that will receive the result when settled.
+	// ToChannel returns a channel that will receive the result when the promise settles.
+	// The channel is buffered (capacity 1) and will be closed after sending.
+	// If the promise is already settled, returns a pre-filled channel.
 	ToChannel() <-chan Result
 }
 
@@ -125,8 +144,41 @@ func (p *promise) fanOut() {
 // ChainedPromise Implementation (Task 1.6)
 // ============================================================================
 
-// ChainedPromise implements the Promise/A+ specification with Then/Catch/Finally.
-// This is the JS-compatible promise implementation with proper async semantics.
+// ChainedPromise implements the Promise/A+ specification with [Then], [Catch], and [Finally].
+//
+// This is the JavaScript-compatible promise implementation with proper async semantics.
+// All handler callbacks are scheduled as microtasks and executed on the event loop thread.
+//
+// Creating Promises:
+//
+//	promise, resolve, reject := js.NewChainedPromise()
+//	go func() {
+//	    result, err := doAsyncWork()
+//	    if err != nil {
+//	        reject(err)
+//	    } else {
+//	        resolve(result)
+//	    }
+//	}()
+//
+// Chaining:
+//
+//	promise.
+//	    Then(func(v Result) Result {
+//	        return transform(v)
+//	    }, nil).
+//	    Catch(func(r Result) Result {
+//	        log.Printf("Error: %v", r)
+//	        return nil // recover from error
+//	    }).
+//	    Finally(func() {
+//	        cleanup()
+//	    })
+//
+// Thread Safety:
+//
+// ChainedPromise is safe for concurrent use. The resolve/reject functions can be
+// called from any goroutine, but handlers always execute on the event loop thread.
 type ChainedPromise struct {
 	value  Result
 	reason Result
@@ -155,13 +207,37 @@ type handler struct {
 	reject      func(Result)
 }
 
-// ResolveFunc resolves a promise with a value.
+// ResolveFunc is the function used to fulfill a promise with a value.
+// Calling resolve on an already-settled promise has no effect.
+// Can be called from any goroutine.
 type ResolveFunc func(Result)
 
-// RejectFunc rejects a promise with a reason.
+// RejectFunc is the function used to reject a promise with a reason.
+// Calling reject on an already-settled promise has no effect.
+// Can be called from any goroutine.
 type RejectFunc func(Result)
 
 // NewChainedPromise creates a new pending promise along with resolve and reject functions.
+//
+// Returns:
+//   - promise: The new [ChainedPromise] in Pending state
+//   - resolve: Function to fulfill the promise with a value
+//   - reject: Function to reject the promise with a reason
+//
+// Example:
+//
+//	promise, resolve, reject := js.NewChainedPromise()
+//	go func() {
+//	    result, err := doWork()
+//	    if err != nil {
+//	        reject(err)
+//	    } else {
+//	        resolve(result)
+//	    }
+//	}()
+//
+// The resolve and reject functions can be called from any goroutine.
+// Only the first call has an effect; subsequent calls are ignored.
 func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	p := &ChainedPromise{
 		// Start in Pending state (0)
@@ -182,13 +258,15 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	return p, resolve, reject
 }
 
-// State returns the current state of the promise.
+// State returns the current [PromiseState] of this promise.
+// Thread-safe and can be called from any goroutine.
 func (p *ChainedPromise) State() PromiseState {
 	return PromiseState(p.state.Load())
 }
 
 // Value returns the fulfillment value if the promise is fulfilled.
 // Returns nil if the promise is pending or rejected.
+// Thread-safe and can be called from any goroutine.
 func (p *ChainedPromise) Value() Result {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -200,6 +278,7 @@ func (p *ChainedPromise) Value() Result {
 
 // Reason returns the rejection reason if the promise is rejected.
 // Returns nil if the promise is pending or fulfilled.
+// Thread-safe and can be called from any goroutine.
 func (p *ChainedPromise) Reason() Result {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -260,8 +339,19 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	}
 }
 
-// Then adds handlers to be called when the promise resolves or rejects.
-// Returns a new promise that resolves with the result of the handler.
+// Then adds handlers to be called when the promise settles.
+// Returns a new [ChainedPromise] that resolves with the result of the handler.
+//
+// Parameters:
+//   - onFulfilled: Handler called with the fulfillment value. Can be nil.
+//   - onRejected: Handler called with the rejection reason. Can be nil.
+//
+// Handler Return Values:
+//   - If a handler returns a value, the returned promise resolves with that value
+//   - If a handler panics, the returned promise rejects with the panic value
+//   - If a handler is nil, the result passes through to the returned promise
+//
+// Handlers are always executed as microtasks on the event loop thread.
 func (p *ChainedPromise) Then(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
 	js := p.js
 	if js == nil {
@@ -385,13 +475,34 @@ func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Res
 }
 
 // Catch adds a rejection handler to the promise.
-// Returns a new promise that resolves with the result of the handler.
+// Returns a new [ChainedPromise] that resolves with the result of the handler.
+//
+// This is equivalent to calling Then(nil, onRejected).
+//
+// Use Catch to recover from errors or transform rejection reasons:
+//
+//	promise.Catch(func(r Result) Result {
+//	    log.Printf("Error: %v", r)
+//	    return defaultValue // recover
+//	})
 func (p *ChainedPromise) Catch(onRejected func(Result) Result) *ChainedPromise {
 	return p.Then(nil, onRejected)
 }
 
-// Finally adds a handler that runs regardless of settlement.
-// Returns a new promise that preserves the original settlement.
+// Finally adds a handler that runs regardless of how the promise settles.
+// Returns a new [ChainedPromise] that preserves the original settlement.
+//
+// Unlike Then/Catch, the onFinally callback receives no arguments and its
+// return value is ignored. The promise returned by Finally will settle with
+// the same value/reason as the original promise.
+//
+// Use Finally for cleanup operations:
+//
+//	promise.
+//	    Then(processResult, nil).
+//	    Finally(func() {
+//	        closeResources()
+//	    })
 func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	js := p.js
 	var result *ChainedPromise
@@ -541,8 +652,22 @@ type rejectionInfo struct {
 // ============================================================================
 
 // All returns a promise that resolves when all input promises resolve.
-// Returns a promise that fulfills with an array of values when all promises fulfill,
-// or rejects with the reason of the first promise that rejects.
+//
+// Behavior:
+//   - If promises is empty, resolves immediately with an empty slice
+//   - Resolves with a slice of values in the same order as the input promises
+//   - Rejects immediately when any promise rejects, with that promise's reason
+//
+// Example:
+//
+//	p1, resolve1, _ := js.NewChainedPromise()
+//	p2, resolve2, _ := js.NewChainedPromise()
+//	go func() {
+//	    resolve1("a")
+//	    resolve2("b")
+//	}()
+//	// result will be []Result{"a", "b"}
+//	result := js.All([]*ChainedPromise{p1, p2})
 func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -593,8 +718,21 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 	return result
 }
 
-// Race returns a promise that resolves or rejects as soon as any of the promises settle.
-// The returned promise settles with the value or reason of the first promise that settles.
+// Race returns a promise that settles as soon as any of the input promises settles.
+//
+// Behavior:
+//   - If promises is empty, the returned promise never settles (remains pending)
+//   - Settles with the value/reason of the first promise to settle
+//   - Ignores subsequent settlements from other promises
+//
+// Use Race for timeout patterns:
+//
+//	timeout, _, rejectTimeout := js.NewChainedPromise()
+//	go func() {
+//	    time.Sleep(5 * time.Second)
+//	    rejectTimeout(errors.New("timeout"))
+//	}()
+//	result := js.Race([]*ChainedPromise{actualWork, timeout})
 func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -627,8 +765,20 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 }
 
 // AllSettled returns a promise that resolves when all input promises have settled.
-// The promise always fulfills with an array of objects describing each promise's outcome.
-// Each object has properties: "status" ("fulfilled" | "rejected") and "value"/"reason".
+//
+// Unlike [JS.All], this never rejects - it waits for all promises to complete.
+// The promise fulfills with a slice of outcome objects:
+//
+//	// For fulfilled promises:
+//	map[string]interface{}{"status": "fulfilled", "value": <value>}
+//
+//	// For rejected promises:
+//	map[string]interface{}{"status": "rejected", "reason": <reason>}
+//
+// Behavior:
+//   - If promises is empty, resolves immediately with an empty slice
+//   - Always resolves (never rejects)
+//   - Results are in the same order as the input promises
 func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 	result, resolve, _ := js.NewChainedPromise()
 
@@ -682,7 +832,16 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 }
 
 // Any returns a promise that resolves when any input promise resolves.
-// If all promises reject, it rejects with an AggregateError containing all rejection reasons.
+//
+// Behavior:
+//   - If promises is empty, rejects immediately with [AggregateError]
+//   - Resolves with the value of the first promise to resolve
+//   - Rejects with [AggregateError] only if ALL promises reject
+//
+// Use Any when you need at least one success:
+//
+//	// Try multiple data sources, use first successful response
+//	result := js.Any([]*ChainedPromise{source1, source2, source3})
 func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -737,26 +896,32 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 }
 
 // AggregateError represents an error that aggregates multiple errors.
+// This is returned by [JS.Any] when all promises reject.
 type AggregateError struct {
+	// Errors contains all the rejection reasons from the failed promises.
 	Errors []error
 }
 
+// Error implements the error interface.
 func (e *AggregateError) Error() string {
 	return "All promises were rejected"
 }
 
-// ErrNoPromiseResolved is returned when Any is called with empty array.
+// ErrNoPromiseResolved indicates that [JS.Any] was called with an empty array.
 type ErrNoPromiseResolved struct{}
 
+// Error implements the error interface.
 func (e *ErrNoPromiseResolved) Error() string {
 	return "No promises were provided"
 }
 
-// ErrorWrapper wraps a non-error value as an error.
+// ErrorWrapper wraps a non-error value as an error for [AggregateError] compatibility.
 type ErrorWrapper struct {
+	// Value is the original non-error rejection reason.
 	Value Result
 }
 
+// Error implements the error interface.
 func (e *ErrorWrapper) Error() string {
 	return fmt.Sprintf("%v", e.Value)
 }
