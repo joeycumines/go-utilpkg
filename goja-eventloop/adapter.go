@@ -428,3 +428,27 @@ func (a *Adapter) gojaVoidFuncToHandler(fn goja.Value) func() {
 		_, _ = fnCallable(goja.Undefined())
 	}
 }
+
+// ============================================================================
+// Promise Combinators (Phase 3)
+// ============================================================================
+
+// All returns a promise that resolves when all input promises resolve.
+func (a *Adapter) All(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
+	return a.js.All(promises)
+}
+
+// Race returns a promise that resolves or rejects as soon as any promise settles.
+func (a *Adapter) Race(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
+	return a.js.Race(promises)
+}
+
+// AllSettled returns a promise that resolves when all input promises have settled.
+func (a *Adapter) AllSettled(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
+	return a.js.AllSettled(promises)
+}
+
+// Any returns a promise that resolves when any input promise resolves.
+func (a *Adapter) Any(promises []*goeventloop.ChainedPromise) *goeventloop.ChainedPromise {
+	return a.js.Any(promises)
+}

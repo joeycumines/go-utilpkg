@@ -1,6 +1,7 @@
 package eventloop
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -531,4 +532,229 @@ type rejectionInfo struct {
 	reason    Result // Largest field, put first
 	promiseID uint64
 	timestamp int64
+}
+
+// ============================================================================
+// Promise Combinators (Task 3.x)
+// ============================================================================
+
+// All returns a promise that resolves when all input promises resolve.
+// Returns a promise that fulfills with an array of values when all promises fulfill,
+// or rejects with the reason of the first promise that rejects.
+func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
+	result, resolve, reject := js.NewChainedPromise()
+
+	// Handle empty array - resolve immediately with empty array
+	if len(promises) == 0 {
+		resolve(make([]Result, 0))
+		return result
+	}
+
+	// Track completion
+	var mu sync.Mutex
+	var completed atomic.Int32
+	values := make([]Result, len(promises))
+	hasRejected := atomic.Bool{}
+
+	// Attach handlers to each promise
+	for i, p := range promises {
+		idx := i // Capture index
+		p.ThenWithJS(js,
+			func(v Result) Result {
+				// Store value in correct position
+				mu.Lock()
+				values[idx] = v
+				mu.Unlock()
+
+				// Check if all promises resolved
+				count := completed.Add(1)
+				if count == int32(len(promises)) && !hasRejected.Load() {
+					resolve(values)
+				}
+				return nil
+			},
+			nil,
+		)
+
+		// Reject on first rejection
+		p.ThenWithJS(js,
+			nil,
+			func(r Result) Result {
+				if hasRejected.CompareAndSwap(false, true) {
+					reject(r)
+				}
+				return nil
+			},
+		)
+	}
+
+	return result
+}
+
+// Race returns a promise that resolves or rejects as soon as any of the promises settle.
+// The returned promise settles with the value or reason of the first promise that settles.
+func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
+	result, resolve, reject := js.NewChainedPromise()
+
+	// Handle empty array - never settles
+	if len(promises) == 0 {
+		return result
+	}
+
+	var settled atomic.Bool
+
+	// Attach handlers to each promise (first to settle wins)
+	for _, p := range promises {
+		p.ThenWithJS(js,
+			func(v Result) Result {
+				if settled.CompareAndSwap(false, true) {
+					resolve(v)
+				}
+				return nil
+			},
+			func(r Result) Result {
+				if settled.CompareAndSwap(false, true) {
+					reject(r)
+				}
+				return nil
+			},
+		)
+	}
+
+	return result
+}
+
+// AllSettled returns a promise that resolves when all input promises have settled.
+// The promise always fulfills with an array of objects describing each promise's outcome.
+// Each object has properties: "status" ("fulfilled" | "rejected") and "value"/"reason".
+func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
+	result, resolve, _ := js.NewChainedPromise()
+
+	// Handle empty array - resolve immediately with empty array
+	if len(promises) == 0 {
+		resolve(make([]Result, 0))
+		return result
+	}
+
+	// Track completion
+	var mu sync.Mutex
+	var completed atomic.Int32
+	results := make([]Result, len(promises))
+
+	// Attach handlers to each promise
+	for i, p := range promises {
+		idx := i // Capture index
+		p.ThenWithJS(js,
+			func(v Result) Result {
+				mu.Lock()
+				results[idx] = map[string]interface{}{
+					"status": "fulfilled",
+					"value":  v,
+				}
+				mu.Unlock()
+
+				count := completed.Add(1)
+				if count == int32(len(promises)) {
+					resolve(results)
+				}
+				return nil
+			},
+			func(r Result) Result {
+				mu.Lock()
+				results[idx] = map[string]interface{}{
+					"status": "rejected",
+					"reason": r,
+				}
+				mu.Unlock()
+
+				count := completed.Add(1)
+				if count == int32(len(promises)) {
+					resolve(results)
+				}
+				return nil
+			},
+		)
+	}
+
+	return result
+}
+
+// Any returns a promise that resolves when any input promise resolves.
+// If all promises reject, it rejects with an AggregateError containing all rejection reasons.
+func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
+	result, resolve, reject := js.NewChainedPromise()
+
+	// Handle empty array - reject immediately
+	if len(promises) == 0 {
+		reject(&AggregateError{
+			Errors: []error{&ErrNoPromiseResolved{}},
+		})
+		return result
+	}
+
+	var mu sync.Mutex
+	var rejected atomic.Int32
+	rejections := make([]Result, len(promises))
+	var resolved atomic.Bool
+
+	// Attach handlers to each promise
+	for i, p := range promises {
+		idx := i // Capture index
+		p.ThenWithJS(js,
+			func(v Result) Result {
+				if resolved.CompareAndSwap(false, true) {
+					resolve(v)
+				}
+				return nil
+			},
+			func(r Result) Result {
+				mu.Lock()
+				rejections[idx] = r
+				mu.Unlock()
+
+				count := rejected.Add(1)
+				// If all rejected and none resolved, aggregate errors
+				if count == int32(len(promises)) && !resolved.Load() {
+					// Convert rejections to error interface
+					errors := make([]error, len(rejections))
+					for i, r := range rejections {
+						if err, ok := r.(error); ok {
+							errors[i] = err
+						} else {
+							errors[i] = &ErrorWrapper{Value: r}
+						}
+					}
+					reject(&AggregateError{Errors: errors})
+				}
+				return nil
+			},
+		)
+	}
+
+	return result
+}
+
+// AggregateError represents an error that aggregates multiple errors.
+type AggregateError struct {
+	Errors []error
+}
+
+func (e *AggregateError) Error() string {
+	return "All promises were rejected"
+}
+
+// ErrNoPromiseResolved is returned when Any is called with empty array.
+type ErrNoPromiseResolved struct{}
+
+func (e *ErrNoPromiseResolved) Error() string {
+	return "No promises were provided"
+}
+
+// ErrorWrapper wraps a non-error value as an error.
+type ErrorWrapper struct {
+	Value Result
+}
+
+func (e *ErrorWrapper) Error() string {
+	return fmt.Sprintf("%v", e.Value)
 }

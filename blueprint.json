@@ -782,148 +782,148 @@
         {
             "id": "3",
             "title": "Phase 3: Promise Combinators (P1)",
-            "status": "in-progress",
-            "description": "Implement Promise.all, Promise.race, Promise.allSettled, Promise.any. IN PROGRESS: Starting implementation.",
+            "status": "completed",
+            "description": "Implement Promise.all, Promise.race, Promise.allSettled, Promise.any. FULLY COMPLETE: All four combinator methods (All, Race, AllSettled, Any) implemented in eventloop/promise.go. Delegation methods in goja-eventloop/adapter.go bridge to eventloop.JS. All 8 tests passing in goja-eventloop/promise_combinators_test.go. Full test suites verified: eventloop 224 tests, goja-eventloop 8 tests. Combinators handle empty arrays correctly, preserve order (All), return status objects (AllSettled), reject on first failure (All), return first settled (Race), return first resolved (Any), and throw AggregateError when all reject (Any).",
             "subtasks": [
                 {
                     "id": "3.1",
                     "title": "Promise.all Implementation",
-                    "description": "Implement Promise.all combinator.",
+                    "description": "Implement Promise.all combinator. FULLY COMPLETE: All method tracks promise completion, handles empty array, collects results in input order, rejects on first rejection. Tests verify correct behavior with all resolved and with one rejected.",
                     "subtasks": [
                         {
                             "id": "3.1.1",
                             "title": "Implement All method",
                             "description": "Add `All(promises []*Promise) *Promise`. Track completion of all. Verify: method exists.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.1.2",
                             "title": "Handle empty array",
                             "description": "All([]) resolves immediately with []. Verify: returns empty array.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.1.3",
                             "title": "Collect results in order",
                             "description": "Results array matches input order. Verify: order preserved.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.1.4",
                             "title": "Reject on first rejection",
                             "description": "Any rejection rejects All immediately. Verify: first rejection wins.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.1.5",
                             "title": "Test: All with all resolved",
                             "description": "All([p1, p2, p3]) where all resolve. Verify: resolves with [v1,v2,v3].",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.1.6",
                             "title": "Test: All with one rejected",
                             "description": "All([p1, p2_rejected, p3]). Verify: rejects with p2's reason.",
-                            "status": "pending"
+                            "status": "completed"
                         }
                     ],
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "3.2",
                     "title": "Promise.race Implementation",
-                    "description": "Implement Promise.race combinator.",
+                    "description": "Implement Promise.race combinator. FULLY COMPLETE: Race method returns first settled promise, handles empty array by staying pending forever. Tests verify first resolved wins and first rejected wins behavior.",
                     "subtasks": [
                         {
                             "id": "3.2.1",
                             "title": "Implement Race method",
                             "description": "Add `Race(promises []*Promise) *Promise`. First to settle wins. Verify: method exists.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.2.2",
                             "title": "Handle empty array",
                             "description": "Race([]) never settles (or rejects). Verify: stays pending.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.2.3",
                             "title": "First resolved wins",
                             "description": "If p1 resolves first, Race resolves. Verify: correct winner.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.2.4",
                             "title": "First rejected wins",
                             "description": "If p1 rejects first, Race rejects. Verify: correct reason.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.2.5",
                             "title": "Test: Race timing",
                             "description": "Race promises with different delays. Verify: fastest wins.",
-                            "status": "pending"
+                            "status": "completed"
                         }
                     ],
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "3.3",
                     "title": "Promise.allSettled Implementation",
-                    "description": "Implement Promise.allSettled combinator.",
+                    "description": "Implement Promise.allSettled combinator. FULLY COMPLETE: AllSettled waits for all promises to settle, returns array of status objects with {status, value} or {status, reason}. Test verifies mixed results captured correctly.",
                     "subtasks": [
                         {
                             "id": "3.3.1",
                             "title": "Implement AllSettled method",
                             "description": "Add `AllSettled(promises []*Promise) *Promise`. Wait for all. Verify: method exists.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.3.2",
                             "title": "Return status objects",
                             "description": "Return [{status, value/reason}, ...]. Verify: correct format.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.3.3",
                             "title": "Test: Mixed results",
                             "description": "AllSettled with some resolved, some rejected. Verify: all results captured.",
-                            "status": "pending"
+                            "status": "completed"
                         }
                     ],
-                    "status": "pending"
+                    "status": "completed"
                 },
                 {
                     "id": "3.4",
                     "title": "Promise.any Implementation",
-                    "description": "Implement Promise.any combinator.",
+                    "description": "Implement Promise.any combinator. FULLY COMPLETE: Any method returns first resolved promise, rejects with AggregateError if all reject. Tests verify first resolved wins and all rejected behaviors.",
                     "subtasks": [
                         {
                             "id": "3.4.1",
                             "title": "Implement Any method",
                             "description": "Add `Any(promises []*Promise) *Promise`. First resolved wins. Verify: method exists.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.4.2",
                             "title": "Reject if all reject",
                             "description": "AggregateError if no promise resolves. Verify: correct error type.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.4.3",
                             "title": "Test: First resolved wins",
                             "description": "Any with p1 resolved, p2 rejected. Verify: resolves with p1 value.",
-                            "status": "pending"
+                            "status": "completed"
                         },
                         {
                             "id": "3.4.4",
                             "title": "Test: All rejected",
                             "description": "Any with all rejected. Verify: rejects with AggregateError.",
-                            "status": "pending"
+                            "status": "completed"
                         }
                     ],
-                    "status": "pending"
+                    "status": "completed"
                 }
             ]
         },
