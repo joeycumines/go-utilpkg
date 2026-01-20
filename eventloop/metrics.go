@@ -34,7 +34,6 @@ type Metrics struct {
 
 // LatencyMetrics tracks latency distribution with percentiles.
 type LatencyMetrics struct {
-	mu      sync.RWMutex
 	samples []time.Duration
 
 	// Computed percentiles (cached after Sample() call)
@@ -47,6 +46,7 @@ type LatencyMetrics struct {
 	// Statistics
 	Mean time.Duration
 	Sum  time.Duration
+	mu   sync.RWMutex
 }
 
 // sampleSize is the maximum number of latency samples to retain.
@@ -176,12 +176,12 @@ func (q *QueueMetrics) UpdateMicrotask(depth int) {
 
 // TPSCounter tracks transactions per second with a rolling window.
 type TPSCounter struct {
-	mu           sync.Mutex
+	lastRotation time.Time
 	buckets      []int64
 	bucketSize   time.Duration
 	windowSize   time.Duration
-	lastRotation time.Time
 	totalCount   atomic.Int64
+	mu           sync.Mutex
 }
 
 // NewTPSCounter creates a new TPS counter.

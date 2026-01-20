@@ -8,8 +8,8 @@ package eventloop
 
 // loopOptions holds configuration options for Loop creation.
 type loopOptions struct {
-	strictMicrotaskOrdering bool
 	fastPathMode            FastPathMode
+	strictMicrotaskOrdering bool
 	metricsEnabled          bool
 }
 
