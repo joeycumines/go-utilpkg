@@ -367,6 +367,13 @@ func TestPromiseChain(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
+	// Add console.log for debugging
+	_ = runtime.Set("console", map[string]interface{}{
+		"log": func(args ...interface{}) {
+			t.Log(args...)
+		},
+	})
+
 	// Run loop in background to process microtasks
 	done := make(chan error, 1)
 	go func() {
@@ -375,45 +382,47 @@ func TestPromiseChain(t *testing.T) {
 
 	// Test multi-step promise chain
 	_, err = runtime.RunString(`
-		let steps = [];
 		let p = new Promise((resolve) => resolve(1));
 		console.log("Promise keys:", Object.keys(p));
 		console.log("Has 'then'?:", typeof p.then);
-		steps.push("created");
-		try {
-			p.then(x => {
-				console.log("First then, x=", x);
-				return x + 1;
-			}).then(x => {
-				console.log("Second then, x=", x);
-				return x * 2;
-			}).then(x => {
-				console.log("Third then, x=", x);
-				return x - 1;
-			}).then(x => {
-				console.log("Fourth then, x=", x);
-				result = x;
-			});
-		} catch(e) {
-			console.log("Chain error:", e);
-			throw e;
-		}
-		console.log("Steps:", steps);
+
+		// Test first .then() return value
+		let chained = p.then(x => {
+			console.log("First then, x=", x);
+			return x + 1;
+		});
+		console.log("Chained keys:", Object.keys(chained));
+		console.log("Chained has then?:", typeof chained.then);
+		
+		// Try second .then()
+		let chained2 = chained.then(x => {
+			console.log("Second then, x=", x);
+			return x * 2;
+		});
+		console.log("Second chained has then?:", typeof chained2.then);
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
 
+	// Check if script completed successfully before waiting
+	t.Logf("JavaScript execution completed successfully")
+
 	// Wait for microtasks to process
 	time.Sleep(100 * time.Millisecond)
+	t.Logf("Wait completed, checking result...")
 
 	result := runtime.Get("result")
-	t.Logf("Test result: %v (Type: %T, IsUndefined: %v)", result.Export(), result.Export(), result == goja.Undefined())
+	if result != nil {
+		t.Logf("Test result: %v (Type: %T, IsUndefined: %v)", result.Export(), result.Export(), result == goja.Undefined())
+	} else {
+		t.Logf("result is nil from runtime.Get")
+	}
 
 	// Check if result is undefined (error case)
-	if result == goja.Undefined() {
-		t.Logf("Result is undefined - test may be failing")
-		t.Fail()
+	if result == nil || result == goja.Undefined() {
+		t.Logf("Result is undefined or nil - test may be failing")
+		t.FailNow() // Use FailNow to prevent nil pointer access
 	} else if !result.ToBoolean() || result.ToInteger() != 3 {
 		t.Errorf("Expected promise chain to compute 3, got: %v", result.Export())
 	}
