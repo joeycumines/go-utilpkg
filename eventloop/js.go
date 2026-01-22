@@ -54,21 +54,21 @@ type jsTimerData struct {
 // It is stored in js.intervals map (uint64 -> *intervalState)
 type intervalState struct {
 
+	// Pointer fields last (all require 8-byte alignment)
+	fn      SetTimeoutFunc
+	wrapper func()
+	js      *JS
+	wg      sync.WaitGroup // Tracks wrapper execution for ClearInterval
+
 	// Non-pointer, non-atomic fields first to reduce pointer alignment scope
 	delayMs            int
 	currentLoopTimerID TimerID
 
 	// Sync primitives
-	m  sync.Mutex     // Protects state fields
-	wg sync.WaitGroup // Tracks wrapper execution for ClearInterval
+	m sync.Mutex // Protects state fields
 
 	// Atomic flag (requires 8-byte alignment)
 	canceled atomic.Bool
-
-	// Pointer fields last (all require 8-byte alignment)
-	fn      SetTimeoutFunc
-	wrapper func()
-	js      *JS
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
