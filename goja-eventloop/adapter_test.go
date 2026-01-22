@@ -399,7 +399,6 @@ func TestPromiseChain(t *testing.T) {
 			throw e;
 		}
 		console.log("Steps:", steps);
-		result;
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)

@@ -1,7 +1,35 @@
 # Work In Progress
 
 ## Current Goal
-**URGENT: Fix THREE CRITICAL ISSUES discovered during Goja verification:**
+**ACTIVE: Phase 7 Group C - Review Goja Integration & Promise Combinators**
+
+**COMPLETED 7.C.1**: Initial comprehensive review of Goja adapter bindings and Promise combinator delegation
+- Review document created: ./eventloop/docs/reviews/05-GOJA_INTEGRATION_COMBINATORS.md
+- **CRITICAL ISSUE #1**: Promise combinators (All, Race, AllSettled, Any) NOT bound to Goja - completely inaccessible from JavaScript
+- **CRITICAL ISSUE #2**: Undefined result from .then() chain - TestPromiseChain reveals undefined results due to incorrect wrapping
+- **CRITICAL ISSUE #3**: Handler error handling is WRONG - gojaFuncToHandler panics on errors instead of returning rejections
+- **CRITICAL ISSUE #4**: Missing JavaScript-level tests for combinators - Only Go-level tests exist
+- **HIGH ISSUE #5**: Constructor doesn't pre-validate executor type - Creates promise before validating
+- **HIGH ISSUE #6**: then/catch don't create proper Promise - wrapPromiseFromInternal doesn't set prototype
+- **HIGH ISSUE #7**: Microtask timing test is flaky - Uses hardcoded timeout instead of event-based sync
+
+**CRITICAL DISCOVERY**: TestConcurrentJSOperations crashes under stress (70 concurrent ops)
+- Panic: "invalid memory address or nil pointer dereference [recovered, repanicked]"
+- Panic: "slice bounds out of range [:-1]"
+- Stack trace shows crash in Goja runtime during JavaScript execution
+- This is a NEW CRITICAL issue beyond review findings
+- Must investigate root cause before proceeding
+
+**NEXT STEP 7.C.2**: Fix all issues identified in review
+- Must bind Promise.all/race/allSettled/any to JavaScript global scope
+- Must fix undefined result bug in .then() chains
+- Must fix handler error handling to not panic
+- Must add JavaScript-level tests for all combinators
+- NEW: Must fix stress test crash (nil pointer + slice bounds)
+
+**VERIFYING**: All edge cases, race conditions, thread safety, and memory leaks
+
+**PREVIOUS CRITICAL ISSUES (To verify after fix):**
 
 1. **Promise Chaining Broken** (CRITICAL)
    - First .then() works, second .then() fails with 'Object has no member 'then''

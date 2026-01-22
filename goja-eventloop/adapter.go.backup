@@ -70,27 +70,17 @@ func (a *Adapter) Bind() error {
 		return fmt.Errorf("failed to bind queueMicrotask: %w", err)
 	}
 
-	// Bind console.log for test compatibility
-	consoleObj := a.runtime.NewObject()
-	if err := consoleObj.Set("log", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Silently ignore console.log - just for test compatibility
-		return goja.Undefined()
-	})); err != nil {
-		return fmt.Errorf("failed to bind console.log: %w", err)
-	}
-	if err := a.runtime.Set("console", consoleObj); err != nil {
-		return fmt.Errorf("failed to bind console: %w", err)
-	}
-
 	// Bind Promise constructor - must be set as a callable, not a property
 	promiseConstructor := a.runtime.ToValue(a.promiseConstructor)
 	if err := a.runtime.GlobalObject().Set("Promise", promiseConstructor); err != nil {
 		return fmt.Errorf("failed to bind Promise: %w", err)
 	}
-	// CRITICAL #1 & #3: Set up Promise prototype and combinators
+
+	// CRITICAL #1: Set up Promise prototype and combinators
 	if err := a.bindPromise(); err != nil {
 		return fmt.Errorf("failed to bind Promise: %w", err)
 	}
+
 	return nil
 }
 
@@ -184,142 +174,6 @@ func (a *Adapter) queueMicrotask(call goja.FunctionCall) goja.Value {
 	return goja.Undefined()
 }
 
-// promiseConstructor binding for Goja - uses ConstructorCall to support 'new'
-func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
-	// CRITICAL #4: Validate executor is a function BEFORE creating promise
-	executor := call.Argument(0)
-	if executor.Export() == nil {
-		panic(a.runtime.NewTypeError("Promise executor must be a function"))
-	}
-
-	executorCallable, ok := goja.AssertFunction(executor)
-	if !ok {
-		panic(a.runtime.NewTypeError("Promise executor must be a function"))
-	}
-
-	// CRITICAL #4: Only create promise after validation to prevent resource leaks
-	promise, resolve, reject := a.js.NewChainedPromise()
-
-	// Call executor with resolve/reject callbacks wrapped
-	_, err := executorCallable(goja.Undefined(),
-		a.runtime.ToValue(func(result goja.Value) {
-			resolve(result.Export())
-		}),
-		a.runtime.ToValue(func(reason goja.Value) {
-			reject(reason.Export())
-		}),
-	)
-	if err != nil {
-		// If executor throws, reject the promise
-		reject(err)
-		// Still return valid object for Goja
-	}
-
-	// Get the object that Goja created for 'new Promise()'
-	thisObj := call.This
-
-	// Set prototype (for instanceof support)
-	if a.promisePrototype != nil {
-		thisObj.SetPrototype(a.promisePrototype)
-	}
-
-	// Store internal promise
-	thisObj.Set("_internalPromise", promise)
-
-	// Set methods on instance (template pattern for reliability)
-	thisObj.Set("then", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
-		onRejected := a.gojaFuncToHandler(call.Argument(1))
-		chained := promise.Then(onFulfilled, onRejected)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	thisObj.Set("catch", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onRejected := a.gojaFuncToHandler(call.Argument(0))
-		chained := promise.Catch(onRejected)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	thisObj.Set("finally", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
-		chained := promise.Finally(onFinally)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	// Return thisObj for Goja
-	return thisObj
-}
-
-// gojaWrapPromise wraps a ChainedPromise with then/catch/finally prototype methods
-func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
-	promiseVal := a.runtime.ToValue(promise)
-	promiseObj := promiseVal.ToObject(a.runtime)
-
-	// CRITICAL #3: Set Promise prototype for instanceof support
-	if a.promisePrototype != nil {
-		promiseObj.SetPrototype(a.promisePrototype)
-	}
-
-	// Store internal promise
-	promiseObj.Set("_internalPromise", promise)
-
-	// Set methods on instance (template pattern for reliability)
-	promiseObj.Set("then", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
-		onRejected := a.gojaFuncToHandler(call.Argument(1))
-		chained := promise.Then(onFulfilled, onRejected)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	promiseObj.Set("catch", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onRejected := a.gojaFuncToHandler(call.Argument(0))
-		chained := promise.Catch(onRejected)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	promiseObj.Set("finally", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
-		chained := promise.Finally(onFinally)
-		return a.gojaWrapPromise(chained)
-	}))
-
-	return promiseVal
-}
-
-// JS returns the underlying goeventloop.JS adapter
-func (a *Adapter) JS() *goeventloop.JS {
-	return a.js
-}
-
-// Runtime returns the underlying Goja runtime
-func (a *Adapter) Runtime() *goja.Runtime {
-	return a.runtime
-}
-
-// Loop returns the underlying event loop
-func (a *Adapter) Loop() *goeventloop.Loop {
-	return a.loop
-}
-
-// NewChainedPromise creates a new promise with Goja-compatible resolve/reject
-func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
-	js, err := goeventloop.NewJS(loop)
-	if err != nil {
-		panic(err)
-	}
-
-	promise, resolve, reject := js.NewChainedPromise()
-
-	resolveVal := runtime.ToValue(func(result goja.Value) {
-		resolve(result.Export())
-	})
-
-	rejectVal := runtime.ToValue(func(reason goja.Value) {
-		reject(reason.Export())
-	})
-
-	return promise, resolveVal, rejectVal
-}
 // bindPromise sets up Promise constructor with combinators and stores prototype
 func (a *Adapter) bindPromise() error {
 	// CRITICAL #3: Create Promise prototype object
@@ -417,7 +271,7 @@ func (a *Adapter) bindPromise() error {
 	// Store the promise prototype for later use
 	a.promisePrototype = promisePrototype
 
-	// Get the Promise constructor (already bound)
+	// Get the Promise constructor (already bound in Bind())
 	promiseConstructorVal := a.runtime.Get("Promise")
 	if promiseConstructorVal == nil || goja.IsUndefined(promiseConstructorVal) {
 		return fmt.Errorf("Promise constructor not found")
@@ -584,6 +438,147 @@ func (a *Adapter) bindPromise() error {
 
 	return nil
 }
+
+// promiseConstructor binding for Goja - uses ConstructorCall to support 'new'
+func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
+	// CRITICAL #4: Validate executor is a function BEFORE creating promise
+	executor := call.Argument(0)
+	if executor.Export() == nil {
+		panic(a.runtime.NewTypeError("Promise executor must be a function"))
+	}
+
+	executorCallable, ok := goja.AssertFunction(executor)
+	if !ok {
+		panic(a.runtime.NewTypeError("Promise executor must be a function"))
+	}
+
+	// CRITICAL #4: Only create promise after validation to prevent resource leaks
+	promise, resolve, reject := a.js.NewChainedPromise()
+
+	// Call executor with resolve/reject callbacks wrapped
+	_, err := executorCallable(goja.Undefined(),
+		a.runtime.ToValue(func(result goja.Value) {
+			resolve(result.Export())
+		}),
+		a.runtime.ToValue(func(reason goja.Value) {
+			reject(reason.Export())
+		}),
+	)
+	if err != nil {
+		// If executor throws, reject the promise
+		reject(err)
+		// Still return valid object for Goja
+	}
+
+	// Get the object that Goja created for 'new Promise()'
+	thisObj := call.This
+
+	// Set methods directly on thisObj
+	thisObj.Set("then", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
+		onRejected := a.gojaFuncToHandler(call.Argument(1))
+		chained := promise.Then(onFulfilled, onRejected)
+		return a.gojaWrapPromise(chained)
+	}))
+
+	thisObj.Set("catch", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onRejected := a.gojaFuncToHandler(call.Argument(0))
+		chained := promise.Catch(onRejected)
+		return a.gojaWrapPromise(chained)
+	}))
+
+	thisObj.Set("finally", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
+		chained := promise.Finally(onFinally)
+		return a.gojaWrapPromise(chained)
+	}))
+
+	// Set prototype
+	if a.promisePrototype != nil {
+		thisObj.SetPrototype(a.promisePrototype)
+	}
+
+	// Store internal promise
+	thisObj.Set("_internalPromise", promise)
+
+	// Return the thisObj for Goja
+	return thisObj
+}
+
+// gojaWrapPromise wraps a ChainedPromise with then/catch/finally prototype methods
+func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
+	promiseVal := a.runtime.ToValue(promise)
+	promiseObj := promiseVal.ToObject(a.runtime)
+
+	// CRITICAL #3: Set Promise prototype for instanceof support
+	if a.promisePrototype != nil {
+		promiseObj.SetPrototype(a.promisePrototype)
+	}
+
+	// Store internal promise
+	promiseObj.Set("_internalPromise", promise)
+
+	thenFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
+		onRejected := a.gojaFuncToHandler(call.Argument(1))
+		chained := promise.Then(onFulfilled, onRejected)
+		return a.gojaWrapPromise(chained)
+	})
+
+	catchFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onRejected := a.gojaFuncToHandler(call.Argument(0))
+		chained := promise.Catch(onRejected)
+		return a.gojaWrapPromise(chained)
+	})
+
+	finallyFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
+		chained := promise.Finally(onFinally)
+		return a.gojaWrapPromise(chained)
+	})
+
+	promiseObj.Set("then", thenFn)
+	promiseObj.Set("catch", catchFn)
+	promiseObj.Set("finally", finallyFn)
+
+	return promiseVal
+}
+
+// JS returns the underlying goeventloop.JS adapter
+func (a *Adapter) JS() *goeventloop.JS {
+	return a.js
+}
+
+// Runtime returns the underlying Goja runtime
+func (a *Adapter) Runtime() *goja.Runtime {
+	return a.runtime
+}
+
+// Loop returns the underlying event loop
+func (a *Adapter) Loop() *goeventloop.Loop {
+	return a.loop
+}
+
+// NewChainedPromise creates a new promise with Goja-compatible resolve/reject
+func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
+	js, err := goeventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+
+	promise, resolve, reject := js.NewChainedPromise()
+
+	resolveVal := runtime.ToValue(func(result goja.Value) {
+		resolve(result.Export())
+	})
+
+	rejectVal := runtime.ToValue(func(reason goja.Value) {
+		reject(reason.Export())
+	})
+
+	return promise, resolveVal, rejectVal
+}
+
 // gojaFuncToHandler converts a Goja function value to a promise handler
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
 	if fn.Export() == nil {

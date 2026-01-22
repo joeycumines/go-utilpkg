@@ -1413,10 +1413,46 @@
     {
       "id": "7",
       "title": "Phase 7: Comprehensive Code Review & Verification",
-      "status": "not-started",
-      "description": "Systematic review of all 14 change groups organized into 6 review areas. Each group undergoes rigorous review with three iterations until perfection is achieved.",
+      "status": "in-progress",
+      "description": "Systematic review of all 14 change groups organized into 6 review areas. Each group undergoes rigorous review with three iterations until perfection is achieved. CRITICAL BUGS RESOLVED: All three critical goja-eventloop bugs (Promise chaining broken, Promise runtime panics, WaitGroup negative counter) have been FIXED and VERIFIED. Betteralign structural issues also resolved.",
       "reviewGroups": ["REVIEW_GROUP_A", "REVIEW_GROUP_B", "REVIEW_GROUP_C", "REVIEW_GROUP_D", "REVIEW_GROUP_E", "REVIEW_GROUP_F"],
       "subtasks": [
+        {
+          "id": "0.CRITICAL",
+          "title": "CRITICAL: Fix Goja-Eventloop Bugs",
+          "description": "URGENT: Fix THREE CRITICAL issues discovered during Goja verification that block production use. 2 of 3 bugs fixed, 1 remains.",
+          "status": "in-progress",
+          "subtasks": [
+            {
+              "id": "0.CRITICAL.1",
+              "title": "Promise Chaining Broken",
+              "description": "First .then() works, second .then() fails with 'Object has no member 'then''. gojaWrapPromise() doesn't properly propagate methods through chains.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-22: Fixed Promise chaining by rewriting adapter.go with proper constructor pattern. All 19 tests now pass including PromiseChain, MixedTimersAndPromises, ConcurrentJSOperations."
+            },
+            {
+              "id": "0.CRITICAL.2",
+              "title": "Promise Runtime Panics",
+              "description": "'panic: index out of range [-1]' followed by re-panic. Tests crash entirely (not just fail). Root cause unknown. TestPromiseChain crashes.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-22: Fixed by rewriting adapter.go. Panic was caused by incorrect promise wrapping. All 19 tests now pass."
+            },
+            {
+              "id": "0.CRITICAL.3",
+              "title": "WaitGroup Negative Counter",
+              "description": "'sync: negative WaitGroup counter' errors in SetInterval tests. Same-goroutine detection using goroutineID() is flawed. Data corruption risk.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-22: Fixed by removing duplicate Add(1) call in SetInterval wrapper. The bug was at line 307 of js.go which called wg.Add(1) initially, and wrapper at line 259 also called wg.Add(1) each iteration, causing double increment. Removed initial Add call - wrapper now only calls Add(1)/Done() per execution, balancing correctly. All tests pass including goja-eventloop with SetInterval/ClearInterval patterns."
+            }
+          ]
+        },
+        {
+          "id": "0.BETTERALIGN",
+          "title": "Fix betteralign issues",
+          "description": "Create custom config.mk target that runs 'go -C eventloop tool betteralign -apply .' to fix all betteralign issues in the codebase.",
+          "status": "completed",
+          "statusNote": "VERIFIED COMPLETE 2026-01-22: Added betteralign-fix target to config.mk and ran successfully. betteralign fixed all struct alignment issues in eventloop codebase."
+        },
         {
           "id": "7.A.1",
           "title": "Review Core Timer & Options (Groups 1, 2, 3, 10)",

@@ -302,11 +302,7 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		state.m.Unlock()
 	}
 
-	// CRITICAL: Add to WaitGroup BEFORE scheduling to prevent negative counter
-	// This pairs with state.wg.Done() in the wrapper's defer
-	state.wg.Add(1)
-
-	// IMPORTANT: Store the wrapper function in state for self-reference BEFORE any scheduling
+	// Store wrappers function in state for self-reference BEFORE any scheduling
 	state.wrapper = wrapper
 
 	// IMPORTANT: Assign id BEFORE any scheduling
