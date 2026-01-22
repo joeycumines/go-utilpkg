@@ -202,7 +202,7 @@ func (a *Adapter) promiseConstructor(call goja.FunctionCall) goja.Value {
 func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
 	promiseVal := a.runtime.ToValue(promise)
 	promiseObj := promiseVal.ToObject(a.runtime)
-	
+
 	// Store internal promise for method chaining
 	promiseObj.Set("_internalPromise", a.runtime.ToValue(promise))
 
@@ -210,7 +210,7 @@ func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Valu
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
 		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
-		
+
 		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
 		onRejected := a.gojaFuncToHandler(call.Argument(1))
 		chained := internalPromise.Then(onFulfilled, onRejected)
@@ -221,7 +221,7 @@ func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Valu
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
 		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
-		
+
 		onRejected := a.gojaFuncToHandler(call.Argument(0))
 		chained := internalPromise.Catch(onRejected)
 		return a.gojaWrapPromise(chained)
@@ -231,7 +231,7 @@ func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Valu
 		thisObj := call.This.ToObject(a.runtime)
 		internalVal := thisObj.Get("_internalPromise")
 		internalPromise := internalVal.Export().(*goeventloop.ChainedPromise)
-		
+
 		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
 		chained := internalPromise.Finally(onFinally)
 		return a.gojaWrapPromise(chained)

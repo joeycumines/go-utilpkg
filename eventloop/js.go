@@ -59,7 +59,7 @@ type intervalState struct {
 	currentLoopTimerID TimerID
 
 	// Sync primitives
-	m  sync.Mutex // Protects state fields
+	m  sync.Mutex     // Protects state fields
 	wg sync.WaitGroup // Tracks wrapper execution for ClearInterval
 
 	// Atomic flag (requires 8-byte alignment)

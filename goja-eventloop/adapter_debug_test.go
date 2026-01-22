@@ -7,7 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
-	"github.com/joeycumines/goja-eventloop"
+	gojaeventloop "github.com/joeycumines/goja-eventloop"
 )
 
 // TestPromiseChainSimple simplifies the test to isolate the issue
