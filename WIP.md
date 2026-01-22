@@ -66,8 +66,19 @@
    4. Final verdict (FAILED - blocking issues must be fixed)
 
 **NEXT STEPS:**
-- Awaiting user decision on whether to fix discovered issues or halt verification
-- All findings documented in VERIFICATION_SUMMARY.md
+- Fix Promise chaining issue - identified root cause: gojaWrapPromise() creates new Goja objects each time
+- Hypothesis: ToObject() on same value may not return same object instance, breaking prototype chain
+- Next: Run debug test with console.log to trace execution flow and verify hypothesis
+- Determine fix approach: use Goja prototypes or cache wrapped promises
+- After Promise fix: Fix WaitGroup negative counter bug
+- Finally: Fix runtime panics (index out of range [-1])
+
+**CURRENT DEBUGGING (Promise Chaining):**
+- Modified adapter_debug_test.go to add console.log statements throughout the chain
+- Hypothesis: In Goja, `runtime.ToValue(promise).ToObject()` may create NEW object each time
+- When `.then()` returns `a.gojaWrapPromise(chained)` with promiseObj.Set("then", ...), the next `.then()` calls `call.This.ToObject()` which may not return the same Goja object instance
+- This breaks method access because the object received by second `.then()` doesn't have methods set
+- Need to verify if ToObject() returns same object or creates new wrapper each time
 
 ## Previous Status
 GROUP B CRITICAL BUGS FIXED & VERIFIED - All previous Phase 7 work complete
