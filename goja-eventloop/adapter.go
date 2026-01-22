@@ -322,102 +322,13 @@ func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventl
 }
 // bindPromise sets up Promise constructor with combinators and stores prototype
 func (a *Adapter) bindPromise() error {
-	// CRITICAL #3: Create Promise prototype object
+	// CRITICAL #3: Create Promise prototype object (for instanceof support only)
 	promisePrototype := a.runtime.NewObject()
-
-	// Set instance methods on Promise.prototype
-	promisePrototype.Set("then", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// 'this' is the Promise instance
-		thisVal := call.This
-
-		// Convert to Object to access properties
-		thisObj := thisVal.ToObject(a.runtime)
-
-		// Get the internal promise
-		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == nil || goja.IsUndefined(internalVal) {
-			panic(a.runtime.NewTypeError("Promise.prototype.then called on non-Promise object"))
-		}
-
-		// Cast to ChainedPromise
-		promise, ok := internalVal.Export().(*goeventloop.ChainedPromise)
-		if !ok {
-			panic(a.runtime.NewTypeError("Promise.prototype.then: internal promise is not a ChainedPromise"))
-		}
-
-		// Create handlers from Goja functions
-		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
-		onRejected := a.gojaFuncToHandler(call.Argument(1))
-
-		// Chain the promise
-		chained := promise.Then(onFulfilled, onRejected)
-
-		// Wrap and return the chained promise
-		return a.gojaWrapPromise(chained)
-	}))
-
-	promisePrototype.Set("catch", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// 'this' is the Promise instance
-		thisVal := call.This
-
-		// Convert to Object to access properties
-		thisObj := thisVal.ToObject(a.runtime)
-
-		// Get the internal promise
-		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == nil || goja.IsUndefined(internalVal) {
-			panic(a.runtime.NewTypeError("Promise.prototype.catch called on non-Promise object"))
-		}
-
-		// Cast to ChainedPromise
-		promise, ok := internalVal.Export().(*goeventloop.ChainedPromise)
-		if !ok {
-			panic(a.runtime.NewTypeError("Promise.prototype.catch: internal promise is not a ChainedPromise"))
-		}
-
-		// Create handler from Goja function
-		onRejected := a.gojaFuncToHandler(call.Argument(0))
-
-		// Chain the promise
-		chained := promise.Catch(onRejected)
-
-		// Wrap and return the chained promise
-		return a.gojaWrapPromise(chained)
-	}))
-
-	promisePrototype.Set("finally", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// 'this' is the Promise instance
-		thisVal := call.This
-
-		// Convert to Object to access properties
-		thisObj := thisVal.ToObject(a.runtime)
-
-		// Get the internal promise
-		internalVal := thisObj.Get("_internalPromise")
-		if internalVal == nil || goja.IsUndefined(internalVal) {
-			panic(a.runtime.NewTypeError("Promise.prototype.finally called on non-Promise object"))
-		}
-
-		// Cast to ChainedPromise
-		promise, ok := internalVal.Export().(*goeventloop.ChainedPromise)
-		if !ok {
-			panic(a.runtime.NewTypeError("Promise.prototype.finally: internal promise is not a ChainedPromise"))
-		}
-
-		// Create handler from Goja function
-		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
-
-		// Chain the promise
-		chained := promise.Finally(onFinally)
-
-		// Wrap and return the chained promise
-		return a.gojaWrapPromise(chained)
-	}))
 
 	// Store the promise prototype for later use
 	a.promisePrototype = promisePrototype
 
-	// Get the Promise constructor (already bound)
+	// Get Promise constructor (already bound)
 	promiseConstructorVal := a.runtime.Get("Promise")
 	if promiseConstructorVal == nil || goja.IsUndefined(promiseConstructorVal) {
 		return fmt.Errorf("Promise constructor not found")
@@ -584,6 +495,7 @@ func (a *Adapter) bindPromise() error {
 
 	return nil
 }
+
 // gojaFuncToHandler converts a Goja function value to a promise handler
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
 	if fn.Export() == nil {
