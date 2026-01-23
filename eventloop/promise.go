@@ -401,6 +401,11 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 	// Check current state
 	currentState := p.state.Load()
 
+	// DEBUG: Log state check when attaching handlers
+	if onFulfilled != nil && onRejected != nil {
+		fmt.Printf("[DEBUG:then] Promise %d: Attaching THEN and CATCH handlers, state=%d (Pending=0, Fulfilled=1, Rejected=2)\n", p.id, currentState)
+	}
+
 	if currentState == int32(Pending) {
 		// Pending: store handler
 		p.mu.Lock()
@@ -820,7 +825,6 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 	var completed atomic.Int32
 	results := make([]Result, len(promises))
 
-	// Attach handlers to each promise
 	for i, p := range promises {
 		idx := i // Capture index
 		p.ThenWithJS(js,
