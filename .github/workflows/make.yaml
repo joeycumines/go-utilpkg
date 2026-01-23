@@ -11,32 +11,32 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Configure `number_of_cpus` (Linux)
+      - name: Configure number_of_cpus (Linux)
         if: runner.os == 'Linux'
         run: |
           v="$(nproc)" &&
           [ ! -z "$v" ] &&
           printf 'number_of_cpus=%d\n' "$v" >>"$GITHUB_ENV"
-      - name: Configure `number_of_cpus` (macOS)
+      - name: Configure number_of_cpus (macOS)
         if: runner.os == 'macOS'
         run: |
           v="$(sysctl -n hw.ncpu)" &&
           [ ! -z "$v" ] &&
           printf 'number_of_cpus=%d\n' "$v" >>"$GITHUB_ENV"
-      - name: Configure `number_of_cpus` (Windows)
+      - name: Configure number_of_cpus (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $v = (Get-CimInstance -ClassName Win32_Processor).NumberOfLogicalProcessors
           echo "number_of_cpus=$v" >> $env:GITHUB_ENV
-      - name: Configure `make_command` (Linux/macOS)
+      - name: Configure make_command (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
           printf \
             'make_command=make -j %d\n' \
             "$number_of_cpus" \
           >>"$GITHUB_ENV"
-      - name: Configure `make_command` (Windows)
+      - name: Configure make_command (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -51,10 +51,29 @@ jobs:
         shell: pwsh
         run: |
           choco install make -y
-      - name: Run the build (Linux/macOS)
+      - name: Run build (Linux/macOS)
         if: runner.os != 'Windows'
         run: ${{ env.make_command }}
-      - name: Run the build (Windows)
+      - name: Run build (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: ${{ env.make_command }}
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ matrix.os }}
+          path: build.log
+          retention-days: 7
+
+      - name: Upload test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: |
+            **/coverage.out
+            **/coverage.html
+          retention-days: 7
+          if-no-files-found: ignore

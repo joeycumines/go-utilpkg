@@ -86,6 +86,21 @@ func (p *FastPoller) Close() error {
 	return nil
 }
 
+// Wakeup is a stub on Darwin/Linux platforms.
+// On these platforms, wake-up is handled by writing to the wake pipe
+// rather than calling Wakeup() on the poller. This method exists primarily
+// for API compatibility with Windows, which uses PostQueuedCompletionStatus.
+// It returns nil because the wake pipe mechanism is used instead.
+//
+// NOTE: This method should never be called on Darwin/Linux under normal
+// operation. The loop.go submitWakeup() function checks wakePipe < 0 and
+// writes to the wake pipe for Unix platforms instead of calling Wakeup().
+func (p *FastPoller) Wakeup() error {
+	// Darwin: Write to wake pipe in submitWakeup()
+	// This stub exists for API compatibility with Windows
+	return nil
+}
+
 // RegisterFD registers a file descriptor for I/O event monitoring.
 func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	if p.closed.Load() {

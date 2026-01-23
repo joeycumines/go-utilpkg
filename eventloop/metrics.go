@@ -10,11 +10,14 @@ import (
 // Metrics are designed to be low-overhead and thread-safe.
 // All metrics are optional and can be attached to a Loop via options (e.g., WithMetrics).
 //
-// # Thread Safety
+// Thread Safety:
+//   - All Metrics methods are thread-safe and can be called from any goroutine.
+//   - LatencyMetrics uses sync.RWMutex (single-writer, multi-reader).
+//   - QueueMetrics uses sync.RWMutex (single-writer, multi-reader).
+//   - TPSCounter uses atomic operations and mutex for rotation.
+//   - Metrics() returns a copy, safe for concurrent reads.
 //
-// All Metrics methods are thread-safe and can be called from any goroutine.
-//
-// # Example
+// Example:
 //
 //	loop, _ := New(WithMetrics(true))
 //	_ = loop.Run(ctx)
@@ -22,6 +25,8 @@ import (
 //	fmt.Printf("TPS: %.2f, P99 Latency: %v\n",
 //		stats.TPS, stats.Latency.P99)
 type Metrics struct {
+	mu sync.Mutex
+
 	// Latency metrics
 	Latency LatencyMetrics
 
@@ -34,7 +39,9 @@ type Metrics struct {
 
 // LatencyMetrics tracks latency distribution with percentiles.
 type LatencyMetrics struct {
-	samples []time.Duration
+	sampleIdx   int
+	sampleCount int
+	samples     [sampleSize]time.Duration
 
 	// Computed percentiles (cached after Sample() call)
 	P50 time.Duration
@@ -59,34 +66,44 @@ func (l *LatencyMetrics) Record(duration time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if len(l.samples) < sampleSize {
-		l.samples = append(l.samples, duration)
-	} else {
-		// Rolling window: replace oldest sample (circular buffer simulation)
-		// For simplicity, we just replace at a rotating index
-		l.samples[0] = duration
-		l.samples = l.samples[1:]
+	// If buffer is full, subtract the old sample that we're replacing
+	if l.sampleCount >= sampleSize {
+		old := l.samples[l.sampleIdx]
+		l.Sum -= old
 	}
+
+	l.samples[l.sampleIdx] = duration
 	l.Sum += duration
+	l.sampleIdx++
+	if l.sampleIdx >= sampleSize {
+		l.sampleIdx = 0
+	}
+	if l.sampleCount < sampleSize {
+		l.sampleCount++
+	}
 }
 
 // Sample computes percentiles from collected samples.
 // This should be called periodically to update the cached percentile values.
 // Returns the number of samples used for computation.
+//
+// Performance note: Sorting has O(n log n) complexity. With sampleSize=1000,
+// this takes ~100-200 microseconds. For monitoring, call this no more than
+// once per second to avoid impacting event loop performance.
 func (l *LatencyMetrics) Sample() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	count := len(l.samples)
+	count := l.sampleCount
 	if count == 0 {
 		return 0
 	}
 
 	// Clone and sort samples for percentile computation
 	sorted := make([]time.Duration, count)
-	copy(sorted, l.samples)
+	copy(sorted, l.samples[:count])
 
-	// Simple in-place sort (insertion sort for small N, or quicksort for larger)
+	// Simple in-place sort (selection sort variant)
 	for i := 0; i < count; i++ {
 		for j := i + 1; j < count; j++ {
 			if sorted[j] < sorted[i] {
@@ -131,10 +148,15 @@ type QueueMetrics struct {
 	InternalMax  int
 	MicrotaskMax int
 
-	// Average depths (rolling average)
+	// Average depths (exponential moving average with alpha=0.1)
+	// Warmstart: EMA initializes to first observed value for accuracy
 	IngressAvg   float64
 	InternalAvg  float64
 	MicrotaskAvg float64
+
+	ingressEMAInitialized   bool
+	internalEMAInitialized  bool
+	microtaskEMAInitialized bool
 }
 
 // UpdateIngress updates the ingress queue depth metrics.
@@ -147,7 +169,13 @@ func (q *QueueMetrics) UpdateIngress(depth int) {
 		q.IngressMax = depth
 	}
 	// Exponential moving average with alpha=0.1
-	q.IngressAvg = 0.9*q.IngressAvg + 0.1*float64(depth)
+	// Warmstart: initialize to first observed value for accuracy
+	if !q.ingressEMAInitialized {
+		q.IngressAvg = float64(depth)
+		q.ingressEMAInitialized = true
+	} else {
+		q.IngressAvg = 0.9*q.IngressAvg + 0.1*float64(depth)
+	}
 }
 
 // UpdateInternal updates the internal queue depth metrics.
@@ -159,7 +187,13 @@ func (q *QueueMetrics) UpdateInternal(depth int) {
 	if depth > q.InternalMax {
 		q.InternalMax = depth
 	}
-	q.InternalAvg = 0.9*q.InternalAvg + 0.1*float64(depth)
+	// Exponential moving average with alpha=0.1
+	if !q.internalEMAInitialized {
+		q.InternalAvg = float64(depth)
+		q.internalEMAInitialized = true
+	} else {
+		q.InternalAvg = 0.9*q.InternalAvg + 0.1*float64(depth)
+	}
 }
 
 // UpdateMicrotask updates the microtask queue depth metrics.
@@ -171,12 +205,31 @@ func (q *QueueMetrics) UpdateMicrotask(depth int) {
 	if depth > q.MicrotaskMax {
 		q.MicrotaskMax = depth
 	}
-	q.MicrotaskAvg = 0.9*q.MicrotaskAvg + 0.1*float64(depth)
+	// Exponential moving average with alpha=0.1
+	if !q.microtaskEMAInitialized {
+		q.MicrotaskAvg = float64(depth)
+		q.microtaskEMAInitialized = true
+	} else {
+		q.MicrotaskAvg = 0.9*q.MicrotaskAvg + 0.1*float64(depth)
+	}
 }
 
 // TPSCounter tracks transactions per second with a rolling window.
+//
+// Implementation Details:
+//   - Rolling window length: configurable (default: 10 seconds)
+//   - Bucket granularity: configurable (default: 100 milliseconds)
+//   - Example configuration: 10-second window with 100ms buckets = 100 buckets
+//
+// Behavior:
+//
+//	At startup, TPS is 0 until the rolling window fills (default: first 10 seconds).
+//	After warmup, TPS reflects average transaction rate over the entire window.
+//	Precision: With 100ms buckets, TPS is granular to 0.1 TPS (1 transaction/10 seconds).
+//
+// Thread Safety: All methods (Increment, TPS) are thread-safe.
 type TPSCounter struct {
-	lastRotation time.Time
+	lastRotation atomic.Value // Stores time.Time
 	buckets      []int64
 	bucketSize   time.Duration
 	windowSize   time.Duration
@@ -192,12 +245,13 @@ func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
 	if bucketCount < 1 {
 		bucketCount = 1
 	}
-	return &TPSCounter{
-		buckets:      make([]int64, bucketCount),
-		bucketSize:   bucketSize,
-		windowSize:   windowSize,
-		lastRotation: time.Now(),
+	counter := &TPSCounter{
+		buckets:    make([]int64, bucketCount),
+		bucketSize: bucketSize,
+		windowSize: windowSize,
 	}
+	counter.lastRotation.Store(time.Now())
+	return counter
 }
 
 // Increment records a task execution.
@@ -211,10 +265,10 @@ func (t *TPSCounter) Increment() {
 }
 
 // rotate advances the bucket counter if time has passed.
-// Must hold mu.Lock() before calling.
 func (t *TPSCounter) rotate() {
 	now := time.Now()
-	elapsed := now.Sub(t.lastRotation)
+	lastRotation := t.lastRotation.Load().(time.Time)
+	elapsed := now.Sub(lastRotation)
 	bucketsToAdvance := int(elapsed / t.bucketSize)
 
 	if bucketsToAdvance >= len(t.buckets) {
@@ -224,7 +278,7 @@ func (t *TPSCounter) rotate() {
 			t.buckets[i] = 0
 		}
 		t.mu.Unlock()
-		t.lastRotation = now
+		t.lastRotation.Store(now)
 		return
 	}
 
@@ -238,7 +292,7 @@ func (t *TPSCounter) rotate() {
 			t.buckets[i] = 0
 		}
 		t.mu.Unlock()
-		t.lastRotation = t.lastRotation.Add(time.Duration(bucketsToAdvance) * t.bucketSize)
+		t.lastRotation.Store(lastRotation.Add(time.Duration(bucketsToAdvance) * t.bucketSize))
 	}
 }
 

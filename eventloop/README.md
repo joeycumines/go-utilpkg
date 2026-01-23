@@ -105,8 +105,10 @@ js.QueueMicrotask(func() {
 
 ### Promises
 
+#### Creating Promises
+
 ```go
-// Create a promise
+// Create a pending promise with resolver and rejector functions
 promise, resolve, reject := js.NewChainedPromise()
 
 // Resolve asynchronously
@@ -134,6 +136,18 @@ promise.
     })
 ```
 
+#### Promise Static Methods
+
+```go
+// Promise.resolve - create already-settled promise
+resolvedPromise := js.Resolve(42)
+
+// Promise.reject - create already-rejected promise
+rejectedPromise := js.Reject(errors.New("failed"))
+
+// These create promises that are already settled without waiting
+```
+
 ### Promise Combinators
 
 ```go
@@ -147,7 +161,29 @@ racePromise := js.Race([]*eventloop.ChainedPromise{p1, p2, p3})
 settledPromise := js.AllSettled([]*eventloop.ChainedPromise{p1, p2, p3})
 
 // Promise.any - first to resolve wins
+// Throws AggregateError if all promises reject
 anyPromise := js.Any([]*eventloop.ChainedPromise{p1, p2, p3})
+```
+
+#### AggregateError
+
+`Promise.any` throws `AggregateError` when ALL input promises reject. The error contains all rejection reasons:
+
+```go
+// Handling AggregateError from Go
+promise := js.Any([]*eventloop.ChainedPromise{
+    js.Reject(errors.New("error 1")),
+    js.Reject(errors.New("error 2")),
+})
+promise.Catch(func(r eventloop.Result) eventloop.Result {
+    if agg, ok := r.(*eventloop.AggregateError); ok {
+        log.Printf("All promises failed. Reasons:")
+        for i, err := range agg.Errors {
+            log.Printf("  [%d] %v", i, err)
+        }
+    }
+    return nil
+})
 ```
 
 ### Unhandled Rejection Tracking
@@ -185,9 +221,15 @@ The event loop consists of several key components:
 
 ## Thread Safety
 
-- `Loop`, `JS`, and `ChainedPromise` are safe for concurrent use
-- Timer and microtask callbacks always execute on the event loop thread
-- Promise resolve/reject functions can be called from any goroutine
+- **Loop**: Safe for concurrent use; use `Submit()` to schedule from any goroutine
+- **JS**: Thread-safe; `SetTimeout/SetInterval/QueueMicrotask` from any goroutine
+- **ChainedPromise**: Thread-safe. Promise methods (`Then/Catch/Finally`) and resolve/reject functions can be called from any goroutine
+
+### Thread Safety Guarantees
+
+- `Loop`: Safe for concurrent use from multiple goroutines
+- `JS`: Thread-safe; timer/microtask scheduling from any goroutine. Callbacks always execute on event loop thread
+- `ChainedPromise`: Thread-safe. Then/Catch/Finally can be chained concurrently. Resolve/Reject functions: Can be called from any goroutine without synchronization
 
 ## Performance
 
@@ -197,4 +239,4 @@ The event loop consists of several key components:
 
 ## License
 
-ISC License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](LICENSE) for details.

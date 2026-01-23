@@ -1,9 +1,0 @@
-{
-    "policy": "test JSON validity",
-    "tasks": [
-        {
-            "id": "test",
-            "title": "Testing JSON"
-        }
-    ]
-}

@@ -3,7 +3,74 @@
 // goja-eventloop: Goja adapter for the event loop library
 //
 // This binds eventloop.JS functionality to Goja JavaScript runtime.
-
+//
+// Package gojaeventloop provides bindings between the [github.com/joeycumines/go-eventloop]
+// JS adapter and the Goja JavaScript runtime.
+//
+// This package enables JavaScript setTimeout, setInterval, queueMicrotask, and Promise
+// APIs to work seamlessly with Go's event loop concurrency model.
+//
+// # Binding the Adapter
+//
+//	// Create event loop and Goja runtime
+//	loop := eventloop.New()
+//	runtime := goja.New()
+//
+//	// Create and bind adapter
+//	adapter, err := gojaeventloop.New(loop, runtime)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := adapter.Bind(); err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// JavaScript code now has access to async APIs
+//	runtime.RunString(`
+//	    setTimeout(() => console.log("Hello!"), 100);
+//	    Promise.resolve(42).then(v => console.log(v));
+//	`)
+//
+//	// Run event loop to process callbacks
+//	loop.Run(context.Background())
+//
+// # Thread Safety
+//
+// The adapter coordinates thread safety between three components:
+//
+//   - Goja Runtime: Not thread-safe; should only be accessed from one goroutine
+//   - Event Loop: Processes callbacks on its own thread
+//   - Go Code: Can schedule timers/promises from any goroutine
+//
+// After calling [Adapter.Bind], JavaScript callbacks execute on the event loop thread.
+// The Goja runtime should be accessed from the same thread (typically via
+// [eventloop.Loop.Submit] or from within callbacks).
+//
+// # Available JavaScript Globals
+//
+// After binding, the following globals are available in JavaScript:
+//
+//   - setTimeout(callback, delay?) → timer ID : Schedule one-time callback
+//   - clearTimeout(id) → undefined : Cancel scheduled timeout
+//   - setInterval(callback, delay?) → timer ID : Schedule repeating callback
+//   - clearInterval(id) → undefined : Cancel scheduled interval
+//   - queueMicrotask(callback) → undefined : Schedule high-priority callback
+//   - Promise : Promise constructor: Create async promise with then/catch/finally
+//   - Promise.resolve(value) → promise : Create already-settled promise
+//   - Promise.reject(reason) → promise : Create already-rejected promise
+//   - Promise.all(iterable) → promise : Wait for all promises to resolve
+//   - Promise.race(iterable) → promise : First to settle wins
+//   - Promise.allSettled(iterable) → promise : Wait for all to settle
+//   - Promise.any(iterable) → promise : First to resolve wins
+//
+// # Combinator Access from Go
+//
+// The adapter also provides Go-level access to Promise combinators:
+//
+//	adapter.JS().All([]*eventloop.ChainedPromise{p1, p2})
+//	adapter.JS().Race([]*eventloop.ChainedPromise{p1, p2})
+//	adapter.JS().AllSettled([]*eventloop.ChainedPromise{p1, p2})
+//	adapter.JS().Any([]*eventloop.ChainedPromise{p1, p2})
 package gojaeventloop
 
 import (
@@ -59,48 +126,51 @@ func (a *Adapter) JS() *goeventloop.JS {
 	return a.js
 }
 
-// Bind creates setTimeout/setInterval/queueMicrotask bindings in Goja global scope.
+// Bind creates setTimeout/setInterval/queueMicrotask/Promise bindings in Goja global scope.
+//
+// This must be called before executing JavaScript code that uses timer or Promise APIs.
+//
+// After calling Bind(), the following globals become available in JavaScript:
+//   - setTimeout(callback, delay?) → timer ID
+//   - clearTimeout(id) → undefined
+//   - setInterval(callback, delay?) → timer ID
+//   - clearInterval(id) → undefined
+//   - queueMicrotask(callback) → undefined
+//   - Promise : Promise constructor
+//   - Promise.resolve(value) → promise
+//   - Promise.reject(reason) → promise
+//   - Promise.all(iterable) → promise
+//   - Promise.race(iterable) → promise
+//   - Promise.allSettled(iterable) → promise
+//   - Promise.any(iterable) → promise
+//
+// Example:
+//
+//	err := adapter.Bind()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	_, err = runtime.RunString(`
+//	    setTimeout(() => console.log("Hello!"), 100)
+//	`)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 func (a *Adapter) Bind() error {
-	// Set setTimeout
-	if err := a.runtime.Set("setTimeout", a.setTimeout); err != nil {
-		return fmt.Errorf("failed to bind setTimeout: %w", err)
-	}
+	// Bind all JavaScript globals to the Goja runtime
+	// Timer functions
+	a.runtime.Set("setTimeout", a.setTimeout)
+	a.runtime.Set("clearTimeout", a.clearTimeout)
+	a.runtime.Set("setInterval", a.setInterval)
+	a.runtime.Set("clearInterval", a.clearInterval)
+	a.runtime.Set("queueMicrotask", a.queueMicrotask)
 
-	// Set clearTimeout
-	if err := a.runtime.Set("clearTimeout", a.clearTimeout); err != nil {
-		return fmt.Errorf("failed to bind clearTimeout: %w", err)
-	}
+	// Promise constructor
+	a.runtime.Set("Promise", a.promiseConstructor)
 
-	// Set setInterval
-	if err := a.runtime.Set("setInterval", a.setInterval); err != nil {
-		return fmt.Errorf("failed to bind setInterval: %w", err)
-	}
-
-	// Set clearInterval
-	if err := a.runtime.Set("clearInterval", a.clearInterval); err != nil {
-		return fmt.Errorf("failed to bind clearInterval: %w", err)
-	}
-
-	// Set queueMicrotask
-	if err := a.runtime.Set("queueMicrotask", a.queueMicrotask); err != nil {
-		return fmt.Errorf("failed to bind queueMicrotask: %w", err)
-	}
-
-	// Bind Promise constructor - must be set as a callable, not a property
-	promiseConstructor := a.runtime.ToValue(a.promiseConstructor)
-	if err := a.runtime.GlobalObject().Set("Promise", promiseConstructor); err != nil {
-		return fmt.Errorf("failed to bind Promise: %w", err)
-	}
-
-	// CRITICAL #1: Bind Promise constructor with combinators, CRITICAL #3: Set up prototype
-	if err := a.bindPromise(); err != nil {
-		return fmt.Errorf("failed to bind Promise: %w", err)
-	}
-
-	return nil
+	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
+	return a.bindPromise()
 }
-
-// setTimeout binding for Goja
 func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
 	fn := call.Argument(0)
 	if fn.Export() == nil {
@@ -207,11 +277,21 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 	promise, resolve, reject := a.js.NewChainedPromise()
 
 	_, err := executorCallable(goja.Undefined(),
-		a.runtime.ToValue(func(result goja.Value) {
-			resolve(result.Export())
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			var val any
+			if len(call.Arguments) > 0 {
+				val = call.Argument(0).Export()
+			}
+			resolve(val)
+			return goja.Undefined()
 		}),
-		a.runtime.ToValue(func(reason goja.Value) {
-			reject(reason.Export())
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			var val any
+			if len(call.Arguments) > 0 {
+				val = call.Argument(0).Export()
+			}
+			reject(val)
+			return goja.Undefined()
 		}),
 	)
 	if err != nil {
@@ -222,13 +302,12 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 	// Get the object that Goja created for 'new Promise()'
 	thisObj := call.This
 
-	// Set prototype (for instanceof support)
-	if a.promisePrototype != nil {
-		thisObj.SetPrototype(a.promisePrototype)
-	}
+	// Use the prototype created by bindPromise()
+	thisObj.SetPrototype(a.promisePrototype)
 
-	// Store internal promise and set methods directly on instance
-	a.setPromiseMethods(thisObj, promise)
+	// Store internal promise for method access
+	// Note: Prototype methods handle then/catch/finally via _internalPromise
+	thisObj.Set("_internalPromise", promise)
 
 	return thisObj
 }
@@ -247,9 +326,11 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 	}
 
 	return func(result goeventloop.Result) goeventloop.Result {
-		ret, err := fnCallable(goja.Undefined(), a.runtime.ToValue(result))
+		// CRITICAL #3, #7, #9, #10: Convert Go-native Result to JavaScript-compatible value
+		jsValue := a.convertToGojaValue(result)
+		ret, err := fnCallable(goja.Undefined(), jsValue)
 		if err != nil {
-			// CRITICAL #2: Return rejection result instead of panicking
+			// Return rejection result instead of panicking
 			return err
 		}
 		return ret.Export()
@@ -274,16 +355,84 @@ func (a *Adapter) gojaVoidFuncToHandler(fn goja.Value) func() {
 	}
 }
 
-// setPromiseMethods sets then/catch/finally methods directly on a promise object (shared helper)
-func (a *Adapter) setPromiseMethods(obj *goja.Object, promise *goeventloop.ChainedPromise) {
-	// Store internal promise for method access
-	obj.Set("_internalPromise", promise)
+// gojaWrapPromise wraps a ChainedPromise with then/catch/finally instance methods
+func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
+	// Create a wrapper object
+	wrapper := a.runtime.NewObject()
 
-	// DEBUG: Mark that we're setting methods
-	obj.Set("__DEBUG_SET_PROMISE_METHODS_CALLED", true)
+	// Store promise for prototype method access
+	wrapper.Set("_internalPromise", promise)
 
+	// Set prototype (prototype has then/catch/finally methods from bindPromise())
+	if a.promisePrototype != nil {
+		wrapper.SetPrototype(a.promisePrototype)
+	}
+
+	// Return the wrapper object as a Goja value
+	return wrapper
+}
+
+// convertToGojaValue converts Go-native types to JavaScript-compatible types
+// This is CRITICAL #3, #7, #9, #10 fix for type conversion
+func (a *Adapter) convertToGojaValue(v any) goja.Value {
+	// Handle slices of Result (from combinators like All, Race, AllSettled, Any)
+	if arr, ok := v.([]goeventloop.Result); ok {
+		jsArr := a.runtime.NewArray(len(arr))
+		for i, val := range arr {
+			_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
+		}
+		return jsArr
+	}
+
+	// Handle maps (from allSettled status objects)
+	if m, ok := v.(map[string]interface{}); ok {
+		jsObj := a.runtime.NewObject()
+		for key, val := range m {
+			_ = jsObj.Set(key, a.convertToGojaValue(val))
+		}
+		return jsObj
+	}
+
+	// Handle primitive types
+	return a.runtime.ToValue(v)
+}
+
+func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
+	js, err := goeventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+
+	promise, resolve, reject := js.NewChainedPromise()
+	resolveVal := runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var val any
+		if len(call.Arguments) > 0 {
+			val = call.Argument(0).Export()
+		}
+		resolve(val)
+		return goja.Undefined()
+	})
+
+	rejectVal := runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var val any
+		if len(call.Arguments) > 0 {
+			val = call.Argument(0).Export()
+		}
+		reject(val)
+		return goja.Undefined()
+	})
+
+	return promise, resolveVal, rejectVal
+}
+
+// bindPromise sets up the Promise constructor and all static combinators
+func (a *Adapter) bindPromise() error {
+	// Create Promise prototype with then/catch/finally methods
+	promisePrototype := a.runtime.NewObject()
+	a.promisePrototype = promisePrototype
+
+	// Set then() method on prototype
 	thenFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Extract promise from _internalPromise property
 		thisVal := call.This
 		thisObj, ok := thisVal.(*goja.Object)
 		if !ok || thisObj == nil {
@@ -298,20 +447,11 @@ func (a *Adapter) setPromiseMethods(obj *goja.Object, promise *goeventloop.Chain
 		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
 		onRejected := a.gojaFuncToHandler(call.Argument(1))
 		chained := p.Then(onFulfilled, onRejected)
-		result := a.gojaWrapPromise(chained)
-
-		// DEBUG: Check what we're returning
-		resultObj := result.ToObject(a.runtime)
-		resultObj.Set("__DEBUG_CAME_FROM_THEN", true)
-
-		// DEBUG: Set a property to verify this function was actually called
-		resultObj.Set("__DEBUG_THEN_WAS_CALLED", true)
-
-		return result
+		return a.gojaWrapPromise(chained)
 	})
 
+	// Set catch() method on prototype
 	catchFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Extract promise from _internalPromise property
 		thisVal := call.This
 		thisObj, ok := thisVal.(*goja.Object)
 		if !ok || thisObj == nil {
@@ -328,8 +468,8 @@ func (a *Adapter) setPromiseMethods(obj *goja.Object, promise *goeventloop.Chain
 		return a.gojaWrapPromise(chained)
 	})
 
+	// Set finally() method on prototype
 	finallyFn := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// Extract promise from _internalPromise property
 		thisVal := call.This
 		thisObj, ok := thisVal.(*goja.Object)
 		if !ok || thisObj == nil {
@@ -346,55 +486,9 @@ func (a *Adapter) setPromiseMethods(obj *goja.Object, promise *goeventloop.Chain
 		return a.gojaWrapPromise(chained)
 	})
 
-	obj.Set("then", thenFn)
-	obj.Set("catch", catchFn)
-	obj.Set("finally", finallyFn)
-}
-
-// gojaWrapPromise wraps a ChainedPromise with then/catch/finally instance methods
-func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
-	// Create a NEW wrapper object instead of modifying Goja's cached wrapper
-	wrapper := a.runtime.NewObject()
-
-	// Store promise as internal data
-	wrapper.Set("_internalPromise", promise)
-
-	// Set prototype
-	if a.promisePrototype != nil {
-		wrapper.SetPrototype(a.promisePrototype)
-	}
-
-	// Set methods directly on instance using shared helper
-	a.setPromiseMethods(wrapper, promise)
-
-	// Return the wrapper object as a Goja value
-	return wrapper
-}
-
-func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
-	js, err := goeventloop.NewJS(loop)
-	if err != nil {
-		panic(err)
-	}
-
-	promise, resolve, reject := js.NewChainedPromise()
-
-	resolveVal := runtime.ToValue(func(result goja.Value) {
-		resolve(result.Export())
-	})
-
-	rejectVal := runtime.ToValue(func(reason goja.Value) {
-		reject(reason.Export())
-	})
-
-	return promise, resolveVal, rejectVal
-}
-
-// bindPromise sets up the Promise constructor and all static combinators
-func (a *Adapter) bindPromise() error {
-	// Create Promise prototype
-	promisePrototype := a.runtime.NewObject()
-	a.promisePrototype = promisePrototype
+	promisePrototype.Set("then", thenFn)
+	promisePrototype.Set("catch", catchFn)
+	promisePrototype.Set("finally", finallyFn)
 
 	// Get the Promise constructor and ensure it has the prototype
 	promiseConstructorVal := a.runtime.Get("Promise")
@@ -403,9 +497,21 @@ func (a *Adapter) bindPromise() error {
 	// Set the prototype on the constructor (for `Promise.prototype` property)
 	promiseConstructorObj.Set("prototype", promisePrototype)
 
-	// Promise.resolve(value)
+	// CRITICAL #8: Promise.resolve() with identity semantics - return input if already thenable
 	promiseConstructorObj.Set("resolve", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		value := call.Argument(0)
+
+		// Check if already our wrapped promise (has _internalPromise) - return unchanged
+		if obj := value.ToObject(a.runtime); obj != nil {
+			if internalVal := obj.Get("_internalPromise"); internalVal != nil {
+				if _, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok {
+					// Already a wrapped promise from our system - return it unchanged
+					return value
+				}
+			}
+		}
+
+		// Otherwise create new resolved promise
 		promise := a.js.Resolve(value.Export())
 		return a.gojaWrapPromise(promise)
 	}))
@@ -430,11 +536,11 @@ func (a *Adapter) bindPromise() error {
 			// Try to convert to array-like object
 			obj := iterable.ToObject(a.runtime)
 			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.all requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.all requires an array or iterable object"))
 			}
 			lengthVal := obj.Get("length")
 			if lengthVal == nil {
-				panic(a.runtime.NewTypeError("Promise.all requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.all requires an array or iterable object"))
 			}
 			length := int(lengthVal.ToInteger())
 			arr = make([]goja.Value, length)
@@ -443,24 +549,7 @@ func (a *Adapter) bindPromise() error {
 			}
 		}
 
-		// BONUS: Validate all elements are thenable (have .then method)
-		for i, val := range arr {
-			if goja.IsNull(val) || goja.IsUndefined(val) {
-				continue // Primitive values are auto-resolved
-			}
-			obj := val.ToObject(a.runtime)
-			if obj != nil {
-				thenVal := obj.Get("then")
-				if !goja.IsUndefined(thenVal) && !goja.IsNull(thenVal) {
-					_, isFunc := goja.AssertFunction(thenVal)
-					if !isFunc {
-						panic(a.runtime.NewTypeError(fmt.Sprintf("Promise.all element %d is not thenable", i)))
-					}
-				}
-			}
-		}
-
-		// Convert to ChainedPromise array
+		// Convert to ChainedPromise array - js.Resolve() handles primitives and promises
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			promises[i] = a.js.Resolve(val.Export())
@@ -485,11 +574,11 @@ func (a *Adapter) bindPromise() error {
 			// Try to convert to array-like object
 			obj := iterable.ToObject(a.runtime)
 			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.race requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.race requires an array or iterable object"))
 			}
 			lengthVal := obj.Get("length")
 			if lengthVal == nil {
-				panic(a.runtime.NewTypeError("Promise.race requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.race requires an array or iterable object"))
 			}
 			length := int(lengthVal.ToInteger())
 			arr = make([]goja.Value, length)
@@ -498,24 +587,7 @@ func (a *Adapter) bindPromise() error {
 			}
 		}
 
-		// BONUS: Validate all elements are thenable
-		for i, val := range arr {
-			if goja.IsNull(val) || goja.IsUndefined(val) {
-				continue // Primitive values are auto-resolved
-			}
-			obj := val.ToObject(a.runtime)
-			if obj != nil {
-				thenVal := obj.Get("then")
-				if !goja.IsUndefined(thenVal) && !goja.IsNull(thenVal) {
-					_, isFunc := goja.AssertFunction(thenVal)
-					if !isFunc {
-						panic(a.runtime.NewTypeError(fmt.Sprintf("Promise.race element %d is not thenable", i)))
-					}
-				}
-			}
-		}
-
-		// Convert to ChainedPromise array
+		// Convert to ChainedPromise array - js.Resolve() handles primitives and promises
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			promises[i] = a.js.Resolve(val.Export())
@@ -538,11 +610,11 @@ func (a *Adapter) bindPromise() error {
 			// Try to convert to array-like object
 			obj := iterable.ToObject(a.runtime)
 			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.allSettled requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.allSettled requires an array or iterable object"))
 			}
 			lengthVal := obj.Get("length")
 			if lengthVal == nil {
-				panic(a.runtime.NewTypeError("Promise.allSettled requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.allSettled requires an array or iterable object"))
 			}
 			length := int(lengthVal.ToInteger())
 			arr = make([]goja.Value, length)
@@ -551,24 +623,7 @@ func (a *Adapter) bindPromise() error {
 			}
 		}
 
-		// BONUS: Validate all elements are thenable
-		for i, val := range arr {
-			if goja.IsNull(val) || goja.IsUndefined(val) {
-				continue // Primitive values are auto-resolved
-			}
-			obj := val.ToObject(a.runtime)
-			if obj != nil {
-				thenVal := obj.Get("then")
-				if !goja.IsUndefined(thenVal) && !goja.IsNull(thenVal) {
-					_, isFunc := goja.AssertFunction(thenVal)
-					if !isFunc {
-						panic(a.runtime.NewTypeError(fmt.Sprintf("Promise.allSettled element %d is not thenable", i)))
-					}
-				}
-			}
-		}
-
-		// Convert to ChainedPromise array
+		// Convert to ChainedPromise array - js.Resolve() handles primitives and promises
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			promises[i] = a.js.Resolve(val.Export())
@@ -582,7 +637,7 @@ func (a *Adapter) bindPromise() error {
 	promiseConstructorObj.Set("any", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
 		if goja.IsNull(iterable) || goja.IsUndefined(iterable) {
-			panic(a.runtime.NewTypeError("Promise.any requires an iterable"))
+			panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
 		}
 
 		arr, ok := iterable.Export().([]goja.Value)
@@ -590,11 +645,11 @@ func (a *Adapter) bindPromise() error {
 			// Try to convert to array-like object
 			obj := iterable.ToObject(a.runtime)
 			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.any requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
 			}
 			lengthVal := obj.Get("length")
 			if lengthVal == nil {
-				panic(a.runtime.NewTypeError("Promise.any requires an iterable"))
+				panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
 			}
 			length := int(lengthVal.ToInteger())
 			arr = make([]goja.Value, length)
@@ -607,24 +662,7 @@ func (a *Adapter) bindPromise() error {
 			panic(a.runtime.NewTypeError("Promise.any requires at least one element"))
 		}
 
-		// BONUS: Validate all elements are thenable
-		for i, val := range arr {
-			if goja.IsNull(val) || goja.IsUndefined(val) {
-				continue // Primitive values are auto-resolved
-			}
-			obj := val.ToObject(a.runtime)
-			if obj != nil {
-				thenVal := obj.Get("then")
-				if !goja.IsUndefined(thenVal) && !goja.IsNull(thenVal) {
-					_, isFunc := goja.AssertFunction(thenVal)
-					if !isFunc {
-						panic(a.runtime.NewTypeError(fmt.Sprintf("Promise.any element %d is not thenable", i)))
-					}
-				}
-			}
-		}
-
-		// Convert to ChainedPromise array
+		// Convert to ChainedPromise array - js.Resolve() handles primitives and promises
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			promises[i] = a.js.Resolve(val.Export())
@@ -636,4 +674,3 @@ func (a *Adapter) bindPromise() error {
 
 	return nil
 }
-

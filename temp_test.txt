@@ -1,4 +1,0 @@
-package eventloop
-
-// Promise combinator tests are located in goja-eventloop package
-// to avoid import cycles. See goja-eventloop/promise_combinators_test.go

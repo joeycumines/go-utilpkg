@@ -103,6 +103,8 @@ setTimeout(() => {
 
 ### Promises from JavaScript
 
+#### Creating Promises
+
 ```javascript
 // Create a promise
 const promise = new Promise((resolve, reject) => {
@@ -128,6 +130,18 @@ promise
     });
 ```
 
+#### Promise Static Methods
+
+```javascript
+// Resolve with a value
+Promise.resolve(42).then(value => console.log(value));
+
+// Reject with a reason
+Promise.reject(new Error("failed")).catch(err => console.log(err.message));
+
+// These create promises that are already settled without waiting
+```
+
 ### Promise Combinators from Go
 
 ```go
@@ -146,6 +160,36 @@ all := adapter.All([]*eventloop.ChainedPromise{p1, p2})
 race := adapter.Race([]*eventloop.ChainedPromise{p1, p2})
 settled := adapter.AllSettled([]*eventloop.ChainedPromise{p1, p2})
 any := adapter.Any([]*eventloop.ChainedPromise{p1, p2})
+```
+
+### Promise Combinators from JavaScript
+
+```javascript
+// Promise.all - wait for all to resolve
+Promise.all([p1, p2, p3]).then(values => console.log(values));
+
+// Promise.race - first to settle wins
+Promise.race([p1, p2]).then(first => console.log(first));
+
+// Promise.allSettled - wait for all to settle
+Promise.allSettled([p1, p2]).then(results => console.log(results));
+
+// Promise.any - first to resolve wins
+Promise.any([p1, p2, p3]).then(value => console.log(value));
+```
+
+#### AggregateError
+
+`Promise.any` throws `AggregateError` when ALL input promises reject. The error contains all rejection reasons:
+
+```javascript
+Promise.any([
+  Promise.reject(new Error("error 1")),
+  Promise.reject(new Error("error 2"))
+]).catch(err => {
+  console.error("All failed:", err.message);  // "All promises were rejected"
+  console.error("Reasons:", err.errors);   // [Error: error 1, Error: error 2]
+});
 ```
 
 ### Accessing Components
@@ -172,8 +216,20 @@ The adapter coordinates thread safety between:
 1. **Goja Runtime**: Not thread-safe; should only be accessed from one goroutine
 2. **Event Loop**: Processes callbacks on its own thread
 3. **Go Code**: Can schedule timers/promises from any goroutine
+4. **Promise APIs**: Fully thread-safe; `then`, `catch`, `finally`, `resolve`, `reject` can be called from any goroutine
 
 After calling `Bind()`, JavaScript callbacks execute on the event loop thread. The Goja runtime should be accessed from the same thread (typically via `loop.Submit()` or from within callbacks).
+
+### ClearInterval Safety
+
+`clearInterval` is safe to call from any goroutine, including from within the interval's own callback. The current execution will complete, and no further executions will occur:
+
+```javascript
+const id = setInterval(() => {
+    console.log("Tick");
+    clearInterval(id); // Safe: current tick completes, no more ticks
+}, 1000);
+```
 
 ## Binding Reference
 
@@ -186,8 +242,12 @@ After calling `adapter.Bind()`, the following globals are available in JavaScrip
 | `setInterval` | `(fn, delay?) → number` | Schedule repeating callback |
 | `clearInterval` | `(id)` | Cancel scheduled interval |
 | `queueMicrotask` | `(fn)` | Schedule high-priority callback |
-| `Promise` | `new Promise((resolve, reject) => ...)` | Create async promise |
-
+| `Promise` | `new Promise((resolve, reject) => ...)` | Create async promise || `Promise.resolve` | `(value) → promise` | Create already-fulfilled promise |
+| `Promise.reject` | `(reason) → promise` | Create already-rejected promise |
+| `Promise.all` | `(iterable) → promise` | Wait for all to resolve |
+| `Promise.race` | `(iterable) → promise` | First to settle wins |
+| `Promise.allSettled` | `(iterable) → promise` | Wait for all to settle |
+| `Promise.any` | `(iterable) → promise` | First to resolve wins |
 ## Requirements
 
 - Go 1.21+
@@ -196,4 +256,4 @@ After calling `adapter.Bind()`, the following globals are available in JavaScrip
 
 ## License
 
-ISC License - see [LICENSE](../LICENSE) for details.
+MIT License - see [LICENSE](../LICENSE) for details.

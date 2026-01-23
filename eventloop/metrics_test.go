@@ -193,7 +193,10 @@ func TestMetricsQueueDepthTracking(t *testing.T) {
 		})
 	}
 
-	// Wait for processing
+	// Wait for processing and give buffer time to settle
+	for completed.Load() < 100 {
+		time.Sleep(time.Millisecond)
+	}
 	time.Sleep(100 * time.Millisecond)
 
 	// Get final metrics

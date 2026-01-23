@@ -205,28 +205,32 @@ func New(opts ...LoopOption) (*Loop, error) {
 	if options.metricsEnabled {
 		loop.metrics = &Metrics{}
 		loop.tpsCounter = NewTPSCounter(10*time.Second, 100*time.Millisecond)
-		loop.metrics.Queue.IngressAvg = 0
-		loop.metrics.Queue.InternalAvg = 0
-		loop.metrics.Queue.MicrotaskAvg = 0
 	}
 
 	if err := loop.poller.Init(); err != nil {
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
+		// Clean up wake FDs on error (if they exist)
+		if wakeFd >= 0 {
+			_ = unix.Close(wakeFd)
+			if wakeWriteFd != wakeFd {
+				_ = unix.Close(wakeWriteFd)
+			}
 		}
 		return nil, err
 	}
 
-	if err := loop.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
-		loop.drainWakeUpPipe()
-	}); err != nil {
-		_ = loop.poller.Close()
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
+	// Register wake FD for events (Unix/Linux/Darwin only)
+	// On Windows, wakeFd is -1, so skip registration
+	if wakeFd >= 0 {
+		if err := loop.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
+			loop.drainWakeUpPipe()
+		}); err != nil {
+			_ = loop.poller.Close()
+			_ = unix.Close(wakeFd)
+			if wakeWriteFd != wakeFd {
+				_ = unix.Close(wakeWriteFd)
+			}
+			return nil, err
 		}
-		return nil, err
 	}
 
 	return loop, nil
@@ -961,6 +965,11 @@ func (l *Loop) handlePollError(err error) {
 // drainWakeUpPipe drains the wake-up pipe and resets the wakeup pending flag.
 // This is called when the pipe read fd is signaled by kqueue/epoll.
 func (l *Loop) drainWakeUpPipe() {
+	if l.wakePipe < 0 {
+		// Windows: No wake pipe, nothing to drain
+		l.wakeUpSignalPending.Store(0)
+		return
+	}
 	for {
 		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
 		if err != nil {
@@ -971,7 +980,7 @@ func (l *Loop) drainWakeUpPipe() {
 	l.wakeUpSignalPending.Store(0)
 }
 
-// submitWakeup writes to the wake-up pipe.
+// submitWakeup writes to the wake-up pipe or calls poller.Wakeup().
 //
 // Wake-up Policy:
 //   - REJECTS: StateTerminated (fully stopped, no tasks to process)
@@ -980,6 +989,10 @@ func (l *Loop) drainWakeUpPipe() {
 //
 // Safe to call concurrently during shutdown - pipe write errors during shutdown are
 // gracefully handled by callers.
+//
+// IMPLEMENTATION NOTES:
+// - Unix/Linux/Darwin: Writes to wake pipe (eventfd or pipe)
+// - Windows/IOCP: Calls poller.Wakeup() which uses PostQueuedCompletionStatus
 func (l *Loop) submitWakeup() error {
 	// Check state and reject ONLY if fully terminated
 	// We MUST allow wake-up during StateTerminating so the loop can
@@ -990,6 +1003,13 @@ func (l *Loop) submitWakeup() error {
 		return ErrLoopTerminated
 	}
 
+	// Platform-specific wake mechanism
+	if l.wakePipe < 0 {
+		// Windows/IOCP: Use poller.Wakeup() method
+		return l.poller.Wakeup()
+	}
+
+	// Unix/Linux/Darwin: Write to wake pipe
 	// Internal optimization: Native endianness, no binary.LittleEndian overhead
 	var one uint64 = 1
 	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
@@ -1490,7 +1510,7 @@ func (l *Loop) safeExecute(t func()) {
 			log.Printf("ERROR: eventloop: task panicked: %v", r)
 		}
 		// Phase 5.3: Record latency if metrics enabled (even on panic)
-		if l.metrics != nil && !start.IsZero() {
+		if l.metrics != nil {
 			duration := time.Since(start)
 			l.metrics.Latency.Record(duration)
 		}
@@ -1499,7 +1519,7 @@ func (l *Loop) safeExecute(t func()) {
 	t()
 
 	// Phase 5.3: Record successful execution for TPS
-	if l.tpsCounter != nil && !start.IsZero() {
+	if l.tpsCounter != nil {
 		l.tpsCounter.Increment()
 	}
 }
@@ -1519,20 +1539,38 @@ func (l *Loop) safeExecuteFn(fn func()) {
 	fn()
 }
 
+// Metrics returns current metrics of the event loop.
+//
+// This method samples latency percentiles (P50, P90, P95, P99) which
+// involves sorting all collected samples (O(n log n) complexity). For typical
+// configuration with 1000 samples, this takes ~100-200 microseconds.
+//
+// Recommendation: Call Metrics() no more than once per second for monitoring.
+// Calling Metrics() more frequently may impact event loop performance.
+//
+// Thread Safety: This method returns a consistent snapshot of metrics at call time.
+// The returned Metrics struct is a copy and safe to read without synchronization.
+// User can freely access fields without race condition with event loop updates.
 func (l *Loop) Metrics() *Metrics {
 	if l.metrics == nil {
 		return nil
 	}
+
+	// Lock entire Metrics struct for consistent snapshot
+	l.metrics.mu.Lock()
+	defer l.metrics.mu.Unlock()
 
 	// Update TPS from rolling window counter
 	if l.tpsCounter != nil {
 		l.metrics.TPS = l.tpsCounter.TPS()
 	}
 
-	// Sample latency percentiles
+	// Sample latency percentiles (held under LatencyMetrics.mu)
 	_ = l.metrics.Latency.Sample()
 
-	return l.metrics
+	// Return a copy for thread safety
+	snapshot := *l.metrics
+	return &snapshot
 }
 
 // closeFDs closes file descriptors.
@@ -1541,10 +1579,15 @@ func (l *Loop) Metrics() *Metrics {
 func (l *Loop) closeFDs() {
 	l.closeOnce.Do(func() {
 		_ = l.poller.Close()
-		_ = unix.Close(l.wakePipe)
-		if l.wakePipeWrite != l.wakePipe {
-			_ = unix.Close(l.wakePipeWrite)
+		// Close wake pipe (Unix/Linux/Darwin only)
+		if l.wakePipe >= 0 {
+			_ = unix.Close(l.wakePipe)
+			if l.wakePipeWrite != l.wakePipe {
+				_ = unix.Close(l.wakePipeWrite)
+			}
 		}
+		// On Windows/IOCP, wakePipe is -1, so unix.Close is not called
+		// poller.Close() handles IOCP handle closure
 	})
 }
 

@@ -64,12 +64,6 @@ func TestSetTimeout(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	_, err = runtime.RunString(`
 		let called = false;
 		setTimeout(() => {
@@ -80,6 +74,12 @@ func TestSetTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Wait for timeout to fire
 	time.Sleep(50 * time.Millisecond)
@@ -115,7 +115,7 @@ func TestClearTimeout(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
+	// Run loop in background BEFORE RunString - needed for clearTimeout to work
 	done := make(chan error, 1)
 	go func() {
 		done <- loop.Run(ctx)
@@ -167,12 +167,6 @@ func TestSetInterval(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	_, err = runtime.RunString(`
 		let count = 0;
 		const id = setInterval(() => {
@@ -184,6 +178,12 @@ func TestSetInterval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Wait for interval to fire at least 3 times
 	time.Sleep(200 * time.Millisecond)
@@ -219,12 +219,6 @@ func TestClearInterval(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	_, err = runtime.RunString(`
 		let called = false;
 		const id = setInterval(() => {
@@ -235,6 +229,12 @@ func TestClearInterval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Wait for interval to fire at least once
 	time.Sleep(50 * time.Millisecond)
@@ -270,12 +270,6 @@ func TestQueueMicrotask(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	_, err = runtime.RunString(`
 		let executed = false;
 		queueMicrotask(() => {
@@ -286,6 +280,12 @@ func TestQueueMicrotask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Wait for microtask to execute
 	time.Sleep(50 * time.Millisecond)
@@ -321,12 +321,6 @@ func TestPromiseThen(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background to process microtasks
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	// Test that .then() method exists and is callable
 	_, err = runtime.RunString(`
 		const p = new Promise((resolve) => resolve(42));
@@ -338,6 +332,12 @@ func TestPromiseThen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	t.Log("Promise.then method exists and is callable")
 
@@ -367,18 +367,18 @@ func TestPromiseChain(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
+	// Add completion tracking
+	completion := make(chan struct{})
+	_ = runtime.Set("notifyDone", func() {
+		close(completion)
+	})
+
 	// Add console.log for debugging
 	_ = runtime.Set("console", map[string]interface{}{
 		"log": func(args ...interface{}) {
 			t.Log(args...)
 		},
 	})
-
-	// Run loop in background to process microtasks
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
 
 	// Test multi-step promise chain
 	_, err = runtime.RunString(`
@@ -400,18 +400,39 @@ func TestPromiseChain(t *testing.T) {
 			return x * 2;
 		});
 		console.log("Second chained has then?:", typeof chained2.then);
+
+		// Assign result for verification and notify
+		chained2.then(x => {
+			result = x;
+			notifyDone();
+		});
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
 
+	// Run loop in background AFTER RunString to avoid race
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
+
 	// Check if script completed successfully before waiting
 	t.Logf("JavaScript execution completed successfully")
 
-	// Wait for microtasks to process
-	time.Sleep(100 * time.Millisecond)
-	t.Logf("Wait completed, checking result...")
+	// Wait for completion
+	select {
+	case <-completion:
+		t.Logf("Promise chain completed")
+	case <-ctx.Done():
+		t.Fatalf("Test timed outwaiting for promise chain")
+	}
 
+	// Stop loop
+	cancel()
+	<-done
+
+	// Verify result
 	result := runtime.Get("result")
 	if result != nil {
 		t.Logf("Test result: %v (Type: %T, IsUndefined: %v)", result.Export(), result.Export(), result == goja.Undefined())
@@ -423,12 +444,9 @@ func TestPromiseChain(t *testing.T) {
 	if result == nil || result == goja.Undefined() {
 		t.Logf("Result is undefined or nil - test may be failing")
 		t.FailNow() // Use FailNow to prevent nil pointer access
-	} else if !result.ToBoolean() || result.ToInteger() != 3 {
-		t.Errorf("Expected promise chain to compute 3, got: %v", result.Export())
+	} else if !result.ToBoolean() || result.ToInteger() != 4 {
+		t.Errorf("Expected promise chain to compute 4, got: %v", result.Export())
 	}
-
-	cancel()
-	<-done
 }
 
 // TestMixedTimersAndPromises tests mixed timers and promises
@@ -453,21 +471,30 @@ func TestMixedTimersAndPromises(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background to process microtasks
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
+	// Test microtasks execute before timer callbacks - use event-based completion
+	completion := make(chan struct{})
+	_ = runtime.Set("notifyDone", func() {
+		select {
+		case completion <- struct{}{}:
+		default:
+			// Already notified
+		}
+	})
 
-	// Test microtasks execute before timer callbacks
 	_, err = runtime.RunString(`
 		let order = [];
 
 		// Schedule timer
-		setTimeout(() => order.push('timer'), 10);
+		setTimeout(() => {
+			order.push('timer');
+			notifyDone();
+		}, 10);
 
 		// Schedule microtask
-		Promise.resolve().then(() => order.push('microtask'));
+		Promise.resolve().then(() => {
+			order.push('microtask');
+			notifyDone();
+		});
 
 		order;
 	`)
@@ -475,8 +502,22 @@ func TestMixedTimersAndPromises(t *testing.T) {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
 
-	// Wait for timer and microtask to execute
-	time.Sleep(100 * time.Millisecond)
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
+
+	// HIGH #7 FIX: Wait for both operations to complete via events (not hardcoded sleep)
+	operationsCompleted := 0
+	for operationsCompleted < 2 {
+		select {
+		case <-completion:
+			operationsCompleted++
+		case <-ctx.Done():
+			t.Fatalf("Test timed out waiting for operations (%d/%d complete)", operationsCompleted, 2)
+		}
+	}
 
 	order := runtime.Get("order")
 	if order == goja.Undefined() {
@@ -509,6 +550,8 @@ func TestMixedTimersAndPromises(t *testing.T) {
 
 	cancel()
 	<-done
+
+	t.Log("✓ Microtasks execute before timers (event-based synchronization)")
 }
 
 // TestContextCancellation tests context cancellation behavior
@@ -531,12 +574,6 @@ func TestContextCancellation(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	_, err = runtime.RunString(`
 		setTimeout(() => {});
 		setTimeout(() => {});
@@ -545,6 +582,12 @@ func TestContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background AFTER RunString
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Cancel immediately
 	cancel()
@@ -585,12 +628,6 @@ func TestConcurrentJSOperations(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background to process microtasks
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
 	// Schedule 50 timers via setTimeout
 	script := ""
 	for i := 0; i < 50; i++ {
@@ -611,6 +648,12 @@ func TestConcurrentJSOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	// Run loop in background to process microtasks
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	// Wait for all operations to complete
 	time.Sleep(200 * time.Millisecond)

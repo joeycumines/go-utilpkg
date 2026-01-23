@@ -922,14 +922,36 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 	return result
 }
 
-// AggregateError represents an error that aggregates multiple errors.
-// This is returned by [JS.Any] when all promises reject.
+// AggregateError represents an error thrown when [JS.Any] fails because
+// all input promises were rejected.
+//
+// The Errors field contains the rejection reasons from all failed promises,
+// preserving the order of the input promises array.
+//
+// Example:
+//
+//	promise := js.Any([]*ChainedPromise{
+//	    js.Reject(errors.New("error 1")),
+//	    js.Reject(errors.New("error 2")),
+//	})
+//	promise.Catch(func(r Result) Result {
+//	    if agg, ok := r.(*AggregateError); ok {
+//	        fmt.Printf("All failed. Errors:\n")
+//	        for i, err := range agg.Errors {
+//	            fmt.Printf("  [%d] %v\n", i, err)
+//	        }
+//	    }
+//	    return nil
+//	})
 type AggregateError struct {
-	// Errors contains all the rejection reasons from the failed promises.
+	// Errors contains all rejection reasons from failed promises.
+	// The order matches the input promises array to [JS.Any].
 	Errors []error
 }
 
 // Error implements the error interface.
+// Returns "All promises were rejected" as a generic message.
+// Individual rejection reasons can be accessed via the [Errors] field.
 func (e *AggregateError) Error() string {
 	return "All promises were rejected"
 }
