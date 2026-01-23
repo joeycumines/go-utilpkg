@@ -313,6 +313,7 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 }
 
 // gojaFuncToHandler converts a Goja function value to a promise handler
+// CRITICAL #1 FIX: Type conversion at Go-native level BEFORE passing to JavaScript
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
 	if fn.Export() == nil {
 		// No handler provided - pass through the result
@@ -326,8 +327,55 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 	}
 
 	return func(result goeventloop.Result) goeventloop.Result {
-		// Call JavaScript handler with the result value
-		ret, err := fnCallable(goja.Undefined(), a.convertToGojaValue(result))
+		// CRITICAL FIX: Check type at Go-native level, not after Goja conversion
+		var jsValue goja.Value
+
+		// Extract Go-native type from Result
+		goNativeValue := result
+
+		switch v := goNativeValue.(type) {
+		case *goeventloop.ChainedPromise:
+			// This is a promise - we need to extract its value BEFORE passing to JavaScript
+			// If the promise is fulfilled, we resolve it completely to get the primitive value
+			// If rejected, we extract the rejection reason
+			// If pending, pass undefined (nothing available yet)
+			switch p := v; p.State() {
+			case goeventloop.Rejected:
+				// Get rejection reason and convert it
+				reason := p.Reason()
+				jsValue = a.convertToGojaValue(reason)
+			case goeventloop.Pending:
+				// No value available yet
+				jsValue = goja.Undefined()
+			default: // Fulfilled
+				// Get resolved value - this recursively extracts the final value
+				value := p.Value()
+				jsValue = a.convertToGojaValue(value)
+			}
+
+		case []goeventloop.Result:
+			// Convert Go-native slice to JavaScript array
+			jsArr := a.runtime.NewArray(len(v))
+			for i, val := range v {
+				_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
+			}
+			jsValue = jsArr
+
+		case map[string]interface{}:
+			// Convert Go-native map to JavaScript object
+			jsObj := a.runtime.NewObject()
+			for key, val := range v {
+				_ = jsObj.Set(key, a.convertToGojaValue(col))
+			}
+			jsValue = jsObj
+
+		default:
+			// Primitive or other type - use standard conversion
+			jsValue = a.convertToGojaValue(goNativeValue)
+		}
+
+		// Call JavaScript handler with the properly converted value
+		ret, err := fnCallable(goja.Undefined(), jsValue)
 		if err != nil {
 			// Return rejection result instead of panicking
 			return err
