@@ -42,10 +42,12 @@ func TestAdapterAllWithAllResolved(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var values any
 	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
 		t.Logf("All() resolved with: %v (type: %T)", v, v)
 		values = v
+		close(done)
 		return nil
 	}, nil)
 
@@ -55,7 +57,11 @@ func TestAdapterAllWithAllResolved(t *testing.T) {
 	r3(true)
 
 	// Wait for microtasks to process
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if values == nil {
 		t.Error("Expected promise to resolve with values, got nil")
@@ -83,15 +89,21 @@ func TestAdapterAllWithEmptyArray(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var resolved bool
 	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
 		t.Logf("All(empty) resolved with: %v (type: %T)", v, v)
 		resolved = true
+		close(done)
 		return nil
 	}, nil)
 
 	// Wait for microtasks to process
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if !resolved {
 		t.Error("Expected promise to resolve with empty array")
@@ -123,12 +135,14 @@ func TestAdapterAllWithOneRejected(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var reason any
 	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
 		if r != "error from p2" {
 			t.Errorf("Expected rejection reason 'error from p2', got: %v", r)
 		}
 		reason = r
+		close(done)
 		return r
 	})
 
@@ -137,7 +151,11 @@ func TestAdapterAllWithOneRejected(t *testing.T) {
 	r3(99)
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if reason != "error from p2" {
 		t.Errorf("Expected promise to reject, got: %v", reason)
@@ -172,9 +190,11 @@ func TestAdapterRaceTiming(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var winner any
 	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
 		winner = v
+		close(done)
 		return nil
 	}, nil)
 
@@ -182,7 +202,11 @@ func TestAdapterRaceTiming(t *testing.T) {
 	r1("winner")
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if winner != "winner" {
 		t.Errorf("Expected 'winner', got: %v", winner)
@@ -213,9 +237,11 @@ func TestAdapterRaceFirstRejectedWins(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var reason any
 	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
 		reason = r
+		close(done)
 		return r
 	})
 
@@ -224,7 +250,11 @@ func TestAdapterRaceFirstRejectedWins(t *testing.T) {
 	r2("resolved")
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if reason != "rejected" {
 		t.Errorf("Expected rejection, got: %v", reason)
@@ -260,10 +290,12 @@ func TestAdapterAllSettledMixedResults(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var results any
 	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
 		t.Logf("AllSettled resolved with: %v (type: %T)", v, v)
 		results = v
+		close(done)
 		return nil
 	}, nil)
 
@@ -273,7 +305,11 @@ func TestAdapterAllSettledMixedResults(t *testing.T) {
 	r3("resolved")
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
 
 	if results == nil {
 		t.Fatal("Expected AllSettled to resolve")
@@ -311,9 +347,9 @@ func TestAdapterAnyFirstResolvedWins(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
-	var value any
+	valCh := make(chan any, 1)
 	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
-		value = v
+		valCh <- v
 		return nil
 	}, nil)
 
@@ -323,10 +359,13 @@ func TestAdapterAnyFirstResolvedWins(t *testing.T) {
 	rej3("err3")
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
-
-	if value != "winner" {
-		t.Errorf("Expected 'winner', got: %v", value)
+	select {
+	case val := <-valCh:
+		if val != "winner" {
+			t.Errorf("Expected 'winner', got: %v", val)
+		}
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
 	}
 }
 
@@ -355,11 +394,13 @@ func TestAdapterAnyAllRejected(t *testing.T) {
 
 	go func() { _ = loop.Run(ctx) }()
 
+	done := make(chan struct{})
 	var rejected bool
 	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
 		// Expect AggregateError when all promises reject
 		rejected = true
 		t.Logf("Rejected with: %v (type: %T)", r, r)
+		close(done)
 		return r
 	})
 
@@ -369,7 +410,11 @@ func TestAdapterAnyAllRejected(t *testing.T) {
 	rej3("error 3")
 
 	// Wait for microtasks
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out waiting for rejection")
+	}
 
 	if !rejected {
 		t.Error("Expected rejection when all promises reject")

@@ -84,13 +84,13 @@ func TestSetTimeout(t *testing.T) {
 	// Wait for timeout to fire
 	time.Sleep(50 * time.Millisecond)
 
+	cancel()
+	<-done
+
 	called := runtime.Get("called")
 	if !called.ToBoolean() {
 		t.Error("setTimeout callback should have been called")
 	}
-
-	cancel()
-	<-done
 }
 
 // TestClearTimeout tests clearTimeout binding from JavaScript
@@ -136,13 +136,13 @@ func TestClearTimeout(t *testing.T) {
 	// Wait for timer to fire if not cleared
 	time.Sleep(200 * time.Millisecond)
 
+	cancel()
+	<-done
+
 	called := runtime.Get("called")
 	if called.ToBoolean() {
 		t.Error("setTimeout callback should not have been called after clearTimeout")
 	}
-
-	cancel()
-	<-done
 }
 
 // TestSetInterval tests setInterval binding from JavaScript
@@ -188,13 +188,13 @@ func TestSetInterval(t *testing.T) {
 	// Wait for interval to fire at least 3 times
 	time.Sleep(200 * time.Millisecond)
 
+	cancel()
+	<-done
+
 	countVal := runtime.Get("count")
 	if count := int(countVal.ToInteger()); count < 3 {
 		t.Errorf("setInterval should have fired at least 3 times, got %d", count)
 	}
-
-	cancel()
-	<-done
 }
 
 // TestClearInterval tests clearInterval binding from JavaScript
@@ -239,13 +239,13 @@ func TestClearInterval(t *testing.T) {
 	// Wait for interval to fire at least once
 	time.Sleep(50 * time.Millisecond)
 
+	cancel()
+	<-done
+
 	called := runtime.Get("called")
 	if !called.ToBoolean() {
 		t.Error("setInterval should have fired at least once before clearInterval")
 	}
-
-	cancel()
-	<-done
 }
 
 // TestQueueMicrotask tests queueMicrotask binding from JavaScript
@@ -290,13 +290,13 @@ func TestQueueMicrotask(t *testing.T) {
 	// Wait for microtask to execute
 	time.Sleep(50 * time.Millisecond)
 
+	cancel()
+	<-done
+
 	executedVal := runtime.Get("executed")
 	if !executedVal.ToBoolean() {
 		t.Error("queueMicrotask callback should have been executed")
 	}
-
-	cancel()
-	<-done
 }
 
 // TestPromiseThen tests Promise.then binding from JavaScript
@@ -333,6 +333,7 @@ func TestPromiseThen(t *testing.T) {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
 
+	// Run loop in background AFTER RunString
 	// Run loop in background AFTER RunString
 	done := make(chan error, 1)
 	go func() {
@@ -519,6 +520,9 @@ func TestMixedTimersAndPromises(t *testing.T) {
 		}
 	}
 
+	cancel()
+	<-done
+
 	order := runtime.Get("order")
 	if order == goja.Undefined() {
 		t.Fatal("Expected order array to be populated")
@@ -547,9 +551,6 @@ func TestMixedTimersAndPromises(t *testing.T) {
 	if len(orderStrs) != 2 || orderStrs[0] != "microtask" || orderStrs[1] != "timer" {
 		t.Errorf("Expected [microtask, timer], got: %v", orderStrs)
 	}
-
-	cancel()
-	<-done
 
 	t.Log("✓ Microtasks execute before timers (event-based synchronization)")
 }
@@ -664,5 +665,128 @@ func TestConcurrentJSOperations(t *testing.T) {
 		t.Errorf("Loop should exit cleanly with context canceled, got: %v", err)
 	} else {
 		t.Log("Concurrent JS operations completed successfully")
+	}
+}
+
+// TestSetImmediate tests setImmediate binding from JavaScript
+func TestSetImmediate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatalf("Failed to create loop: %v", err)
+	}
+	defer loop.Shutdown(context.Background())
+
+	runtime := goja.New()
+	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatalf("Failed to create adapter: %v", err)
+	}
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("Failed to bind adapter: %v", err)
+	}
+
+	done := make(chan struct{})
+	_ = runtime.Set("notifyDone", func() {
+		close(done)
+	})
+
+	_, err = runtime.RunString(`
+		var called = false;
+		setImmediate(function() {
+			called = true;
+			notifyDone();
+		});
+	`)
+	if err != nil {
+		t.Fatalf("Failed to run JavaScript: %v", err)
+	}
+
+	// Run loop in background AFTER RunString
+	loopDone := make(chan error, 1)
+	go func() {
+		loopDone <- loop.Run(ctx)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out waiting for setImmediate")
+	}
+
+	// Stop loop
+	cancel()
+	<-loopDone
+
+	called := runtime.Get("called")
+	if !called.ToBoolean() {
+		t.Error("setImmediate callback should have been called")
+	}
+}
+
+// TestClearImmediate tests clearImmediate binding from JavaScript
+func TestClearImmediate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatalf("Failed to create loop: %v", err)
+	}
+	defer loop.Shutdown(context.Background())
+
+	runtime := goja.New()
+	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatalf("Failed to create adapter: %v", err)
+	}
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("Failed to bind adapter: %v", err)
+	}
+
+	done := make(chan struct{})
+	_ = runtime.Set("notifyDone", func() {
+		close(done)
+	})
+
+	// Use setTimeout to wait and verify immediate didn't fire
+	_, err = runtime.RunString(`
+		var called = false;
+		var id = setImmediate(function() {
+			called = true;
+		});
+		clearImmediate(id);
+
+		setTimeout(function() {
+			notifyDone();
+		}, 50);
+	`)
+	if err != nil {
+		t.Fatalf("Failed to run JavaScript: %v", err)
+	}
+
+	// Run loop in background AFTER RunString
+	loopDone := make(chan error, 1)
+	go func() {
+		loopDone <- loop.Run(ctx)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Test timed out")
+	}
+
+	// Stop loop
+	cancel()
+	<-loopDone
+
+	called := runtime.Get("called")
+	if called.ToBoolean() {
+		t.Error("setImmediate callback should not have been called after clearImmediate")
 	}
 }

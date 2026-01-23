@@ -311,7 +311,6 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	// Initial scheduling - call ScheduleTimer ONCE after both wrapper and id are properly assigned
 	loopTimerID, err := js.loop.ScheduleTimer(delay, wrapper)
 	if err != nil {
-		state.wg.Done() // Undo the Add if scheduling fails
 		return 0, err
 	}
 

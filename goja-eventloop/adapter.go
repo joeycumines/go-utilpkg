@@ -1,76 +1,3 @@
-// Copyright 2025 Joseph Cumines
-//
-// goja-eventloop: Goja adapter for the event loop library
-//
-// This binds eventloop.JS functionality to Goja JavaScript runtime.
-//
-// Package gojaeventloop provides bindings between the [github.com/joeycumines/go-eventloop]
-// JS adapter and the Goja JavaScript runtime.
-//
-// This package enables JavaScript setTimeout, setInterval, queueMicrotask, and Promise
-// APIs to work seamlessly with Go's event loop concurrency model.
-//
-// # Binding the Adapter
-//
-//	// Create event loop and Goja runtime
-//	loop := eventloop.New()
-//	runtime := goja.New()
-//
-//	// Create and bind adapter
-//	adapter, err := gojaeventloop.New(loop, runtime)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	if err := adapter.Bind(); err != nil {
-//	    log.Fatal(err)
-//	}
-//
-//	// JavaScript code now has access to async APIs
-//	runtime.RunString(`
-//	    setTimeout(() => console.log("Hello!"), 100);
-//	    Promise.resolve(42).then(v => console.log(v));
-//	`)
-//
-//	// Run event loop to process callbacks
-//	loop.Run(context.Background())
-//
-// # Thread Safety
-//
-// The adapter coordinates thread safety between three components:
-//
-//   - Goja Runtime: Not thread-safe; should only be accessed from one goroutine
-//   - Event Loop: Processes callbacks on its own thread
-//   - Go Code: Can schedule timers/promises from any goroutine
-//
-// After calling [Adapter.Bind], JavaScript callbacks execute on the event loop thread.
-// The Goja runtime should be accessed from the same thread (typically via
-// [eventloop.Loop.Submit] or from within callbacks).
-//
-// # Available JavaScript Globals
-//
-// After binding, the following globals are available in JavaScript:
-//
-//   - setTimeout(callback, delay?) → timer ID : Schedule one-time callback
-//   - clearTimeout(id) → undefined : Cancel scheduled timeout
-//   - setInterval(callback, delay?) → timer ID : Schedule repeating callback
-//   - clearInterval(id) → undefined : Cancel scheduled interval
-//   - queueMicrotask(callback) → undefined : Schedule high-priority callback
-//   - Promise : Promise constructor: Create async promise with then/catch/finally
-//   - Promise.resolve(value) → promise : Create already-settled promise
-//   - Promise.reject(reason) → promise : Create already-rejected promise
-//   - Promise.all(iterable) → promise : Wait for all promises to resolve
-//   - Promise.race(iterable) → promise : First to settle wins
-//   - Promise.allSettled(iterable) → promise : Wait for all to settle
-//   - Promise.any(iterable) → promise : First to resolve wins
-//
-// # Combinator Access from Go
-//
-// The adapter also provides Go-level access to Promise combinators:
-//
-//	adapter.JS().All([]*eventloop.ChainedPromise{p1, p2})
-//	adapter.JS().Race([]*eventloop.ChainedPromise{p1, p2})
-//	adapter.JS().AllSettled([]*eventloop.ChainedPromise{p1, p2})
-//	adapter.JS().Any([]*eventloop.ChainedPromise{p1, p2})
 package gojaeventloop
 
 import (
@@ -127,35 +54,6 @@ func (a *Adapter) JS() *goeventloop.JS {
 }
 
 // Bind creates setTimeout/setInterval/queueMicrotask/Promise bindings in Goja global scope.
-//
-// This must be called before executing JavaScript code that uses timer or Promise APIs.
-//
-// After calling Bind(), the following globals become available in JavaScript:
-//   - setTimeout(callback, delay?) → timer ID
-//   - clearTimeout(id) → undefined
-//   - setInterval(callback, delay?) → timer ID
-//   - clearInterval(id) → undefined
-//   - queueMicrotask(callback) → undefined
-//   - Promise : Promise constructor
-//   - Promise.resolve(value) → promise
-//   - Promise.reject(reason) → promise
-//   - Promise.all(iterable) → promise
-//   - Promise.race(iterable) → promise
-//   - Promise.allSettled(iterable) → promise
-//   - Promise.any(iterable) → promise
-//
-// Example:
-//
-//	err := adapter.Bind()
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	_, err = runtime.RunString(`
-//	    setTimeout(() => console.log("Hello!"), 100)
-//	`)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
 func (a *Adapter) Bind() error {
 	// Bind all JavaScript globals to the Goja runtime
 	// Timer functions
@@ -164,6 +62,9 @@ func (a *Adapter) Bind() error {
 	a.runtime.Set("setInterval", a.setInterval)
 	a.runtime.Set("clearInterval", a.clearInterval)
 	a.runtime.Set("queueMicrotask", a.queueMicrotask)
+	// Chunk 2 Feature: setImmediate
+	a.runtime.Set("setImmediate", a.setImmediate)
+	a.runtime.Set("clearImmediate", a.clearImmediate)
 
 	// Promise constructor
 	a.runtime.Set("Promise", a.promiseConstructor)
@@ -258,6 +159,34 @@ func (a *Adapter) queueMicrotask(call goja.FunctionCall) goja.Value {
 	}
 
 	return goja.Undefined()
+}
+
+// setImmediate binding for Goja (implemented as setTimeout(fn, 0))
+func (a *Adapter) setImmediate(call goja.FunctionCall) goja.Value {
+	fn := call.Argument(0)
+	if fn.Export() == nil {
+		panic(a.runtime.NewTypeError("setImmediate requires a function as first argument"))
+	}
+
+	fnCallable, ok := goja.AssertFunction(fn)
+	if !ok {
+		panic(a.runtime.NewTypeError("setImmediate requires a function as first argument"))
+	}
+
+	// Use SetTimeout with 0 delay
+	id, err := a.js.SetTimeout(func() {
+		_, _ = fnCallable(goja.Undefined())
+	}, 0)
+	if err != nil {
+		panic(a.runtime.NewGoError(err))
+	}
+
+	return a.runtime.ToValue(id)
+}
+
+// clearImmediate binding for Goja (alias to ClearTimeout)
+func (a *Adapter) clearImmediate(call goja.FunctionCall) goja.Value {
+	return a.clearTimeout(call)
 }
 
 // promiseConstructor binding for Goja
@@ -377,9 +306,22 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		// Call JavaScript handler with the properly converted value
 		ret, err := fnCallable(goja.Undefined(), jsValue)
 		if err != nil {
-			// Return rejection result instead of panicking
-			return err
+			// CRITICAL FIX: Panic so tryCall catches it and rejects the promise
+			// Returning the error would cause it to be treated as a fulfilled value!
+			panic(err)
 		}
+
+		// CRITICAL FIX: Check if return value is a Wrapped Promise and unwrap it
+		// This enables proper chaining: p.then(() => p2)
+		if obj, ok := ret.(*goja.Object); ok {
+			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
+				if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
+					// Return the ChainedPromise itself so strict resolution sees it
+					return p
+				}
+			}
+		}
+
 		return ret.Export()
 	}
 }
@@ -469,6 +411,26 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 			_ = jsObj.Set(key, a.convertToGojaValue(val))
 		}
 		return jsObj
+	}
+
+	// CRITICAL #10 FIX: Handle *AggregateError specifically to enable checking err.message/err.errors in JS
+	if agg, ok := v.(*goeventloop.AggregateError); ok {
+		jsObj := a.runtime.NewObject()
+		_ = jsObj.Set("message", agg.Error())
+		_ = jsObj.Set("errors", a.convertToGojaValue(agg.Errors))
+		_ = jsObj.Set("name", "AggregateError")
+		return jsObj
+	}
+
+	// Handle Goja exceptions (unwrap to original JS value)
+	if ex, ok := v.(*goja.Exception); ok {
+		return ex.Value()
+	}
+
+	// Handle generic errors (wrap as JS Error)
+	if err, ok := v.(error); ok {
+		// NewGoError wraps the error properly exposing .message
+		return a.runtime.NewGoError(err)
 	}
 
 	// Handle primitive types
@@ -596,7 +558,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		// Otherwise create new resolved promise
-		promise := a.js.Resolve(value.Export())
+		promise := a.js.Resolve(value)
 		return a.gojaWrapPromise(promise)
 	}))
 
@@ -604,11 +566,9 @@ func (a *Adapter) bindPromise() error {
 	promiseConstructorObj.Set("reject", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		reason := call.Argument(0)
 
-		// Export the reason and reject with it
-		// For Goja Error objects, Export() creates map[string]interface{}
-		// This is acceptable - the tests compare message property which will be preserved
-		exportedReason := reason.Export()
-		promise := a.js.Reject(exportedReason)
+		// Pass the reason directly to preserve object properties (like Error.message)
+		// Export() on Error objects produces empty items because properties are non-enumerable
+		promise := a.js.Reject(reason)
 		return a.gojaWrapPromise(promise)
 	}))
 

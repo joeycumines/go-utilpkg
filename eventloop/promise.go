@@ -29,11 +29,13 @@ const (
 	// Fulfilled is an alias for Resolved, matching JavaScript terminology.
 	Resolved
 
-	// Fulfilled is an alias for [Resolved], matching the Promise/A+ specification.
-	Fulfilled = Resolved
-
 	// Rejected indicates the promise failed with a reason (typically an error).
 	Rejected
+)
+
+const (
+	// Fulfilled is an alias for [Resolved], matching the Promise/A+ specification.
+	Fulfilled = Resolved
 )
 
 // Promise is a read-only view of a future result.
@@ -288,8 +290,31 @@ func (p *ChainedPromise) Reason() Result {
 	return p.reason
 }
 
-// resolve transitions the promise to fulfilled state if it's still pending.
 func (p *ChainedPromise) resolve(value Result, js *JS) {
+	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
+	// (We can't easily check identity if value is wrapped, but basic check is good)
+	if pr, ok := value.(*ChainedPromise); ok && pr == p {
+		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.id), js)
+		return
+	}
+
+	// Spec 2.3.2: If x is a promise, adopt its state.
+	if pr, ok := value.(*ChainedPromise); ok {
+		// Wait for pr to settle, then resolve/reject p with the result
+		// We use ThenWithJS to attach standard handlers
+		pr.ThenWithJS(js,
+			func(v Result) Result {
+				p.resolve(v, js) // Recursive resolution (2.3.2.1)
+				return nil
+			},
+			func(r Result) Result {
+				p.reject(r, js) // (2.3.2.3)
+				return nil
+			},
+		)
+		return
+	}
+
 	if !p.state.CompareAndSwap(int32(Pending), int32(Fulfilled)) {
 		// Already settled
 		return
@@ -303,12 +328,16 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 
 	// Schedule handlers as microtasks
 	for _, h := range handlers {
+		// Promise/A+ 2.2.7.3: If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1.
 		if h.onFulfilled != nil {
 			fn := h.onFulfilled
 			result := h
 			js.QueueMicrotask(func() {
 				tryCall(fn, value, result.resolve, result.reject)
 			})
+		} else {
+			// Propagate fulfillment
+			h.resolve(value)
 		}
 	}
 }
@@ -329,12 +358,16 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	// Schedule handler microtasks FIRST
 	// This ensures handlers are attached before unhandled rejection check runs
 	for _, h := range handlers {
+		// Promise/A+ 2.2.7.4: If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1.
 		if h.onRejected != nil {
 			fn := h.onRejected
 			result := h
 			js.QueueMicrotask(func() {
 				tryCall(fn, reason, result.resolve, result.reject)
 			})
+		} else {
+			// Propagate rejection
+			h.reject(reason)
 		}
 	}
 
@@ -916,7 +949,10 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 							errors[i] = &ErrorWrapper{Value: r}
 						}
 					}
-					reject(&AggregateError{Errors: errors})
+					reject(&AggregateError{
+						Errors:  errors,
+						Message: "All promises were rejected",
+					})
 				}
 				return nil
 			},
@@ -948,6 +984,8 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 //	    return nil
 //	})
 type AggregateError struct {
+	// Message matches standard JS AggregateError property
+	Message string
 	// Errors contains all rejection reasons from failed promises.
 	// The order matches the input promises array to [JS.Any].
 	Errors []error
@@ -957,6 +995,9 @@ type AggregateError struct {
 // Returns "All promises were rejected" as a generic message.
 // Individual rejection reasons can be accessed via the [Errors] field.
 func (e *AggregateError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
 	return "All promises were rejected"
 }
 

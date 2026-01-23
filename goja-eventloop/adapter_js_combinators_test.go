@@ -486,13 +486,10 @@ func TestPromiseThenChainFromJavaScript(t *testing.T) {
 		let result;
 
 		p.then(x => {
-			console.log("First then, x=", x);
 			return x + 1;
 		}).then(x => {
-			console.log("Second then, x=", x);
 			return x * 2;
 		}).then(x => {
-			console.log("Third then, x=", x);
 			result = x;
 			notifyDone();
 		});

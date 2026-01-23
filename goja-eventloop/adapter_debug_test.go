@@ -29,9 +29,6 @@ func TestPromiseChainDebug(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
 
 	// Add console object for debugging
 	console := runtime.NewObject()
@@ -89,6 +86,10 @@ func TestPromiseChainDebug(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
+
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	time.Sleep(500 * time.Millisecond)
 
