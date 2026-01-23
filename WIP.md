@@ -11,8 +11,8 @@ Execute systematic review of TWO LOGICAL CHUNKS based on ACTUAL test status
 ## Detailed Plan by Chunk
 
 ### CHUNK 2: Eventloop Core Module (HIGHEST PRIORITY)
-**Status**: NEEDS FIXES before review
-**Test Status**: 2 FAILURES (TestTimerPoolFieldClearing, TestTimerReuseSafety)
+**Status**: READY for review
+**Test Status**: ALL PASS (including timer pool stress tests)
 **Priority**: highest
 **Complexity**: HIGH
 
@@ -31,7 +31,7 @@ Execute systematic review of TWO LOGICAL CHUNKS based on ACTUAL test status
 1. CHUNK_2.1: Review Eventloop Core Module - First Iteration (Sequence 16)
    - Run subagent review prompt
    - Document findings in ./eventloop/docs/reviews/16-CHUNK2-EVENTLOOP-CORE.md
-   - Status: not-started
+   - Status: ready-to-start
 
 2. CHUNK_2.2: Fix all issues identified in Eventloop Core Module review
    - Use subagent to address ALL issues from review
@@ -43,7 +43,7 @@ Execute systematic review of TWO LOGICAL CHUNKS based on ACTUAL test status
    - Status: not-started
 
 **Success Criteria**:
-- All tests pass (0/2 failures)
+- All tests pass (0 failures)
 - Review finds zero issues
 - blueprint.json marks CHUNK_2 tasks as completed
 

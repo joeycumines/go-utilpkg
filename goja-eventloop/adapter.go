@@ -419,7 +419,7 @@ func (a *Adapter) consumeIterable(iterable goja.Value) ([]goja.Value, error) {
 
 	iteratorMethodCallable, ok := goja.AssertFunction(iteratorMethodVal)
 	if !ok {
-		return nil, fmt.Errorf("Symbol.iterator is not a function")
+		return nil, fmt.Errorf("symbol.iterator is not a function")
 	}
 
 	// Call [Symbol.iterator]() to get the iterator object
