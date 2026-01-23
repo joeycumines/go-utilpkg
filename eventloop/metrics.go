@@ -1,6 +1,7 @@
 package eventloop
 
 import (
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -103,14 +104,10 @@ func (l *LatencyMetrics) Sample() int {
 	sorted := make([]time.Duration, count)
 	copy(sorted, l.samples[:count])
 
-	// Simple in-place sort (selection sort variant)
-	for i := 0; i < count; i++ {
-		for j := i + 1; j < count; j++ {
-			if sorted[j] < sorted[i] {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	// Use standard library sort (O(n log n)) instead of bubble sort (O(n^2))
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i] < sorted[j]
+	})
 
 	// Compute percentiles
 	if count > 0 {
@@ -266,34 +263,39 @@ func (t *TPSCounter) Increment() {
 
 // rotate advances the bucket counter if time has passed.
 func (t *TPSCounter) rotate() {
+	t.mu.Lock() // critical fix: lock first to prevent race
+	defer t.mu.Unlock()
+
 	now := time.Now()
 	lastRotation := t.lastRotation.Load().(time.Time)
 	elapsed := now.Sub(lastRotation)
 	bucketsToAdvance := int(elapsed / t.bucketSize)
 
+	if bucketsToAdvance <= 0 {
+		return
+	}
+
 	if bucketsToAdvance >= len(t.buckets) {
 		// Full window reset
-		t.mu.Lock()
 		for i := range t.buckets {
 			t.buckets[i] = 0
 		}
-		t.mu.Unlock()
+		// Reset to now for full reset
 		t.lastRotation.Store(now)
 		return
 	}
 
-	if bucketsToAdvance > 0 {
-		t.mu.Lock()
-		// Shift buckets left, filling with zeros
-		for i := 0; i < len(t.buckets)-bucketsToAdvance; i++ {
-			t.buckets[i] = t.buckets[i+bucketsToAdvance]
-		}
-		for i := len(t.buckets) - bucketsToAdvance; i < len(t.buckets); i++ {
-			t.buckets[i] = 0
-		}
-		t.mu.Unlock()
-		t.lastRotation.Store(lastRotation.Add(time.Duration(bucketsToAdvance) * t.bucketSize))
+	// Shift buckets left
+	// Use copy for efficiency: bucket[0] gets bucket[advance], etc.
+	copy(t.buckets, t.buckets[bucketsToAdvance:])
+
+	// Zero out the new buckets at the end
+	for i := len(t.buckets) - bucketsToAdvance; i < len(t.buckets); i++ {
+		t.buckets[i] = 0
 	}
+
+	// Update last rotation aligned to bucket size
+	t.lastRotation.Store(lastRotation.Add(time.Duration(bucketsToAdvance) * t.bucketSize))
 }
 
 // TPS returns the current transactions per second.

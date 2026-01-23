@@ -245,14 +245,14 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 // CRITICAL #1 FIX: Type conversion at Go-native level BEFORE passing to JavaScript
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
 	if fn.Export() == nil {
-		// No handler provided - pass through the result
-		return func(result goeventloop.Result) goeventloop.Result { return result }
+		// No handler provided - return nil to let ChainedPromise handle propagation
+		return nil
 	}
 
 	fnCallable, ok := goja.AssertFunction(fn)
 	if !ok {
-		// Not a function - pass through the result
-		return func(result goeventloop.Result) goeventloop.Result { return result }
+		// Not a function - return nil to let ChainedPromise handle propagation
+		return nil
 	}
 
 	return func(result goeventloop.Result) goeventloop.Result {

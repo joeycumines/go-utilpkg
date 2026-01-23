@@ -368,29 +368,12 @@ func (js *JS) ClearInterval(id uint64) error {
 	// Remove from intervals map
 	js.intervals.Delete(id)
 
-	// Wait for wrapper to complete if it's currently running
-	// This prevents the TOCTOU race where wrapper reschedules after ClearInterval returns
-	//
-	// DANGER: Calling Wait() here will deadlock if ClearInterval is called from
-	// within the interval's own callback (same goroutine). Solution:
-	// 1. The canceled flag is already set above, preventing rescheduling
-	// 2. User callback is about to return, wrapper will call Done() naturally
-	// 3. We use a timeout-based approach to detect and avoid deadlock
-	doneCh := make(chan struct{})
-	go func() {
-		state.wg.Wait()
-		close(doneCh)
-	}()
-
-	// Wait for either Done or timeout (1ms is more than enough to detect deadlock)
-	select {
-	case <-doneCh:
-		// Wrapper finished cleanly
-	case <-time.After(1 * time.Millisecond):
-		// Timeout means deadlock - we're on same goroutine as wrapper
-		// This is acceptable: canceled flag prevents rescheduling
-		log.Printf("[eventloop] ClearInterval called from within callback, skipping wait")
-	}
+	// Note: We do NOT wait for the wrapper to complete (wg.Wait()).
+	// 1. Preventing Rescheduling: The state.canceled atomic flag (set above) guarantees
+	//    the wrapper will not reschedule, preventing the TOCTOU race.
+	// 2. Deadlock Avoidance: Waiting here would deadlock if ClearInterval is called
+	//    from within the interval callback (same goroutine).
+	// 3. JS Semantics: clearInterval is non-blocking.
 
 	return nil
 }

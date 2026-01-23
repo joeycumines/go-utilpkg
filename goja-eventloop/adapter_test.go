@@ -115,29 +115,45 @@ func TestClearTimeout(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Run loop in background BEFORE RunString - needed for clearTimeout to work
-	done := make(chan error, 1)
+	// Start the loop in the background
+	loopDone := make(chan error, 1)
 	go func() {
-		done <- loop.Run(ctx)
+		loopDone <- loop.Run(ctx)
 	}()
 
-	_, err = runtime.RunString(`
-		let called = false;
-		const id = setTimeout(() => {
-			called = true;
-		}, 100);
-		clearTimeout(id);
-		called;
-	`)
+	// Execute RunString ON THE LOOP to ensure thread safety and prevent CancelTimer deadlock
+	// (CancelTimer blocks waiting for the loop to process the cancellation, so the loop must be running)
+	runErrCh := make(chan error, 1)
+	err = loop.SubmitInternal(func() {
+		_, runErr := runtime.RunString(`
+			let called = false;
+			const id = setTimeout(() => {
+				called = true;
+			}, 100);
+			clearTimeout(id);
+			called;
+		`)
+		runErrCh <- runErr
+	})
 	if err != nil {
-		t.Fatalf("Failed to run JavaScript: %v", err)
+		t.Fatalf("Failed to submit task: %v", err)
 	}
 
-	// Wait for timer to fire if not cleared
+	// Wait for RunString to complete
+	select {
+	case err := <-runErrCh:
+		if err != nil {
+			t.Fatalf("Failed to run JavaScript: %v", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("RunString timed out")
+	}
+
+	// Wait for timer to fire if not cleared (it shouldn't fire)
 	time.Sleep(200 * time.Millisecond)
 
 	cancel()
-	<-done
+	<-loopDone
 
 	called := runtime.Get("called")
 	if called.ToBoolean() {
@@ -753,32 +769,48 @@ func TestClearImmediate(t *testing.T) {
 		close(done)
 	})
 
-	// Use setTimeout to wait and verify immediate didn't fire
-	_, err = runtime.RunString(`
-		var called = false;
-		var id = setImmediate(function() {
-			called = true;
-		});
-		clearImmediate(id);
-
-		setTimeout(function() {
-			notifyDone();
-		}, 50);
-	`)
-	if err != nil {
-		t.Fatalf("Failed to run JavaScript: %v", err)
-	}
-
-	// Run loop in background AFTER RunString
+	// Run loop in background FIRST
 	loopDone := make(chan error, 1)
 	go func() {
 		loopDone <- loop.Run(ctx)
 	}()
 
+	// Execute RunString ON THE LOOP to ensure thread safety
+	// (CancelTimer requires the loop to be running/processing to handle the cancellation safely)
+	runErrCh := make(chan error, 1)
+	err = loop.SubmitInternal(func() {
+		_, runErr := runtime.RunString(`
+			var called = false;
+			var id = setImmediate(function() {
+				called = true;
+			});
+			clearImmediate(id);
+
+			setTimeout(function() {
+				notifyDone();
+			}, 50);
+		`)
+		runErrCh <- runErr
+	})
+	if err != nil {
+		t.Fatalf("Failed to submit task: %v", err)
+	}
+
+	// Wait for RunString to complete
+	select {
+	case err := <-runErrCh:
+		if err != nil {
+			t.Fatalf("Failed to run JavaScript: %v", err)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("RunString timed out")
+	}
+
+	// Wait for the timeout to trigger notifyDone
 	select {
 	case <-done:
 	case <-ctx.Done():
-		t.Fatal("Test timed out")
+		t.Fatal("Test timed out waiting for timeout completion")
 	}
 
 	// Stop loop

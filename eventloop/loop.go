@@ -33,6 +33,9 @@ var (
 
 	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
 	ErrTimerNotFound = errors.New("eventloop: timer not found")
+
+	// ErrLoopNotRunning is returned when an operation requires a running loop.
+	ErrLoopNotRunning = errors.New("eventloop: loop is not running")
 )
 
 // timerPool for amortized timer allocations.
@@ -1468,6 +1471,14 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 // CancelTimer cancels a scheduled timer before it fires.
 // Returns ErrTimerNotFound if the timer does not exist.
 func (l *Loop) CancelTimer(id TimerID) error {
+	// CRITICAL: Prevent deadlock if loop hasn't started yet.
+	// SubmitInternal will accept the task in StateAwake, but it will never
+	// be processed until Run() is called, causing the result channel to block indefinitely.
+	state := l.state.Load()
+	if state == StateAwake {
+		return ErrLoopNotRunning
+	}
+
 	result := make(chan error, 1)
 
 	// Submit to loop thread to ensure thread-safe access to timerMap and timer heap
@@ -1568,38 +1579,41 @@ func (l *Loop) Metrics() *Metrics {
 	// Sample latency percentiles (held under LatencyMetrics.mu)
 	_ = l.metrics.Latency.Sample()
 
-	// Return a deep copy for thread safety (avoid copying sync.Mutex)
 	snapshot := &Metrics{
-		Latency: LatencyMetrics{
-			mu:          sync.RWMutex{},
-			sampleIdx:   l.metrics.Latency.sampleIdx,
-			sampleCount: l.metrics.Latency.sampleCount,
-			samples:     l.metrics.Latency.samples,
-			P50:         l.metrics.Latency.P50,
-			P90:         l.metrics.Latency.P90,
-			P95:         l.metrics.Latency.P95,
-			P99:         l.metrics.Latency.P99,
-			Max:         l.metrics.Latency.Max,
-			Mean:        l.metrics.Latency.Mean,
-			Sum:         l.metrics.Latency.Sum,
-		},
-		Queue: QueueMetrics{
-			mu:                      sync.RWMutex{},
-			IngressCurrent:          l.metrics.Queue.IngressCurrent,
-			InternalCurrent:         l.metrics.Queue.InternalCurrent,
-			MicrotaskCurrent:        l.metrics.Queue.MicrotaskCurrent,
-			IngressMax:              l.metrics.Queue.IngressMax,
-			InternalMax:             l.metrics.Queue.InternalMax,
-			MicrotaskMax:            l.metrics.Queue.MicrotaskMax,
-			IngressAvg:              l.metrics.Queue.IngressAvg,
-			InternalAvg:             l.metrics.Queue.InternalAvg,
-			MicrotaskAvg:            l.metrics.Queue.MicrotaskAvg,
-			ingressEMAInitialized:   l.metrics.Queue.ingressEMAInitialized,
-			internalEMAInitialized:  l.metrics.Queue.internalEMAInitialized,
-			microtaskEMAInitialized: l.metrics.Queue.microtaskEMAInitialized,
-		},
 		TPS: l.metrics.TPS,
 	}
+
+	// Capture Queue metrics with read lock
+	// Copy fields individually to avoid "copylocks" warning from vet
+	l.metrics.Queue.mu.RLock()
+	snapshot.Queue.IngressCurrent = l.metrics.Queue.IngressCurrent
+	snapshot.Queue.InternalCurrent = l.metrics.Queue.InternalCurrent
+	snapshot.Queue.MicrotaskCurrent = l.metrics.Queue.MicrotaskCurrent
+	snapshot.Queue.IngressMax = l.metrics.Queue.IngressMax
+	snapshot.Queue.InternalMax = l.metrics.Queue.InternalMax
+	snapshot.Queue.MicrotaskMax = l.metrics.Queue.MicrotaskMax
+	snapshot.Queue.IngressAvg = l.metrics.Queue.IngressAvg
+	snapshot.Queue.InternalAvg = l.metrics.Queue.InternalAvg
+	snapshot.Queue.MicrotaskAvg = l.metrics.Queue.MicrotaskAvg
+	snapshot.Queue.ingressEMAInitialized = l.metrics.Queue.ingressEMAInitialized
+	snapshot.Queue.internalEMAInitialized = l.metrics.Queue.internalEMAInitialized
+	snapshot.Queue.microtaskEMAInitialized = l.metrics.Queue.microtaskEMAInitialized
+	l.metrics.Queue.mu.RUnlock()
+
+	// Capture Latency metrics with read lock
+	l.metrics.Latency.mu.RLock()
+	snapshot.Latency.sampleIdx = l.metrics.Latency.sampleIdx
+	snapshot.Latency.sampleCount = l.metrics.Latency.sampleCount
+	snapshot.Latency.samples = l.metrics.Latency.samples // Array copy
+	snapshot.Latency.P50 = l.metrics.Latency.P50
+	snapshot.Latency.P90 = l.metrics.Latency.P90
+	snapshot.Latency.P95 = l.metrics.Latency.P95
+	snapshot.Latency.P99 = l.metrics.Latency.P99
+	snapshot.Latency.Max = l.metrics.Latency.Max
+	snapshot.Latency.Mean = l.metrics.Latency.Mean
+	snapshot.Latency.Sum = l.metrics.Latency.Sum
+	l.metrics.Latency.mu.RUnlock()
+
 	return snapshot
 }
 
@@ -1622,6 +1636,11 @@ func (l *Loop) closeFDs() {
 }
 
 // isLoopThread checks if we're on the loop goroutine.
+//
+// Performance Note: This implementation uses runtime.Stack to retrieve the goroutine ID,
+// which involves a stack-trace capture and string parsing. While the buffer is small (64 bytes),
+// it is still significantly more expensive than a simple pointer comparison.
+// Use sparingly in extremely hot paths.
 func (l *Loop) isLoopThread() bool {
 	loopID := l.loopGoroutineID.Load()
 	if loopID == 0 {

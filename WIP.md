@@ -6,8 +6,8 @@ Resume Group C.2.4: Verify all 11 combinator tests pass (after syntax errors fix
 
 ## High Level Action Plan
 1. ✅ FIXED: All syntax errors in adapter.go fixed (safeWrapValue removed, switch/else fixed)
-2. Verify tests: go test ./goja-eventloop/... -v (target 11/11 tests pass)
-3. If tests pass: Group C.2 complete, proceed to 7.C.3 re-review
+2. ✅ VERIFIED: All tests passed (including fix for TestClearImmediate race).
+3. Group C.2 complete, proceeding to 7.C.3 re-review.
 
 ## Detailed Plan per Chunk
 

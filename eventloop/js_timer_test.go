@@ -486,25 +486,33 @@ func TestJSMicrotaskBeforeTimer(t *testing.T) {
 	}
 
 	var order []string
-	tick := 0
+	var mu sync.Mutex
+	var tick atomic.Int32
 
 	// Schedule timer with 0 delay
 	js.SetTimeout(func() {
+		mu.Lock()
 		order = append(order, "timer")
+		mu.Unlock()
 	}, 0)
 
 	// Queue microtask
 	js.QueueMicrotask(func() {
+		mu.Lock()
 		order = append(order, "microtask")
-		tick = 1
+		mu.Unlock()
+		tick.Store(1)
 	})
 
 	// Wait for both to run
 	time.Sleep(50 * time.Millisecond)
 
-	if tick != 1 {
+	if tick.Load() != 1 {
 		t.Error("Microtask did not run")
 	}
+
+	mu.Lock()
+	defer mu.Unlock()
 
 	// Microtask should run before timer
 	if len(order) < 2 {
