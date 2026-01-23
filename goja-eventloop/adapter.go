@@ -14,7 +14,8 @@ type Adapter struct {
 	js               *goeventloop.JS
 	runtime          *goja.Runtime
 	loop             *goeventloop.Loop
-	promisePrototype *goja.Object // CRITICAL #3: Promise.prototype for instanceof support
+	promisePrototype *goja.Object  // CRITICAL #3: Promise.prototype for instanceof support
+	getIterator      goja.Callable // Helper function to get [Symbol.iterator]
 }
 
 // New creates a new Goja adapter for given event loop and runtime.
@@ -68,6 +69,20 @@ func (a *Adapter) Bind() error {
 
 	// Promise constructor
 	a.runtime.Set("Promise", a.promiseConstructor)
+
+	// Helper to access Symbol.iterator (Goja API for symbols is complex, JS is easy)
+	// We create a function (obj) => obj[Symbol.iterator]
+	// This handles the lookup safely within the runtime
+	iterScript := `(obj) => obj[Symbol.iterator]`
+	iterVal, err := a.runtime.RunString(iterScript)
+	if err != nil {
+		return fmt.Errorf("failed to compile iterator helper: %w", err)
+	}
+	iterAssert, ok := goja.AssertFunction(iterVal)
+	if !ok {
+		return fmt.Errorf("iterator helper is not a function")
+	}
+	a.getIterator = iterAssert
 
 	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
 	return a.bindPromise()
@@ -361,6 +376,153 @@ func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Valu
 	return wrapper
 }
 
+// consumeIterable converts an iterable Goja value to a slice of values.
+// Supports Arrays, Strings, Sets, Maps, and any object implementing [Symbol.iterator].
+// Returns an error if the value is not iterable.
+func (a *Adapter) consumeIterable(iterable goja.Value) ([]goja.Value, error) {
+	// 1. Handle null/undefined early
+	if iterable == nil || goja.IsNull(iterable) || goja.IsUndefined(iterable) {
+		return nil, fmt.Errorf("cannot consume null or undefined as iterable")
+	}
+
+	// 2. Optimisation: Check for standard Array first (fast path)
+	if _, ok := iterable.Export().([]interface{}); ok {
+		// Use native export/cast for arrays which is much faster than iterator protocol
+		// However, Export() returns []interface{}, not []goja.Value
+		// We can simpler use ToObject and get elements by index if it's an array
+		obj := iterable.ToObject(a.runtime)
+		// Standard array check: verify length property exists and is a number
+		if lenVal := obj.Get("length"); lenVal != nil && !goja.IsUndefined(lenVal) {
+			// This covers Arrays and array-like objects
+			length := int(lenVal.ToInteger())
+			result := make([]goja.Value, length)
+			for i := 0; i < length; i++ {
+				result[i] = obj.Get(strconv.Itoa(i))
+			}
+			return result, nil
+		}
+	}
+
+	// 3. Fallback: Use Iterator Protocol (Symbol.iterator)
+	// This handles Set, Map, String, Generators, custom iterables
+
+	// Use our JS helper to get the iterator method (handles Symbol lookup)
+	iteratorMethodVal, err := a.getIterator(goja.Undefined(), iterable)
+	if err != nil {
+		return nil, err // Helper failed
+	}
+
+	if iteratorMethodVal == nil || goja.IsUndefined(iteratorMethodVal) {
+		// Not an iterable (no Symbol.iterator method)
+		return nil, fmt.Errorf("object is not iterable (cannot get Symbol.iterator)")
+	}
+
+	iteratorMethodCallable, ok := goja.AssertFunction(iteratorMethodVal)
+	if !ok {
+		return nil, fmt.Errorf("Symbol.iterator is not a function")
+	}
+
+	// Call [Symbol.iterator]() to get the iterator object
+	iteratorVal, err := iteratorMethodCallable(iterable)
+	if err != nil {
+		return nil, err
+	}
+	iteratorObj := iteratorVal.ToObject(a.runtime)
+
+	// Get the next() method from the iterator
+	nextMethod := iteratorObj.Get("next")
+	nextMethodCallable, ok := goja.AssertFunction(nextMethod)
+	if !ok {
+		return nil, fmt.Errorf("iterator.next is not a function")
+	}
+
+	var values []goja.Value
+	for {
+		// Call iterator.next()
+		nextResult, err := nextMethodCallable(iteratorObj)
+		if err != nil {
+			return nil, err
+		}
+		nextResultObj := nextResult.ToObject(a.runtime)
+
+		// Check done property
+		done := nextResultObj.Get("done")
+		if done != nil && done.ToBoolean() {
+			break
+		}
+
+		// Get value property
+		value := nextResultObj.Get("value")
+		values = append(values, value)
+	}
+
+	return values, nil
+}
+
+// resolveThenable handles "thenables" - objects with a "then" method.
+// Returns a new *ChainedPromise that adopts the state of the thenable,
+// or nil if the value is not a thenable.
+func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise {
+	if value == nil || goja.IsNull(value) || goja.IsUndefined(value) {
+		return nil
+	}
+
+	// Must be an object or function to be a thenable
+	obj := value.ToObject(a.runtime)
+	if obj == nil {
+		return nil
+	}
+
+	// Check for .then property
+	thenProp := obj.Get("then")
+	if thenProp == nil || goja.IsUndefined(thenProp) {
+		return nil
+	}
+
+	// Must be a function
+	thenFn, ok := goja.AssertFunction(thenProp)
+	if !ok {
+		return nil
+	}
+
+	// It IS a thenable. Adopt its state.
+	// We create a new promise and pass its resolve/reject to the then function.
+	promise, resolve, reject := a.js.NewChainedPromise()
+
+	// Safely call then(resolve, reject)
+	// We need to wrap resolve/reject as Goja functions
+	resolveVal := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var val any
+		if len(call.Arguments) > 0 {
+			val = call.Argument(0).Export()
+		}
+		resolve(val)
+		return goja.Undefined()
+	})
+
+	rejectVal := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var val any
+		if len(call.Arguments) > 0 {
+			val = call.Argument(0).Export()
+		}
+		reject(val)
+		return goja.Undefined()
+	})
+
+	// Execute then handler
+	// Promise/A+ 2.3.3.3: If then is a function, call it with x as this...
+	_, err := thenFn(obj, resolveVal, rejectVal)
+	if err != nil {
+		// If calling then throws, reject the promise
+		// Promise/A+ 2.3.3.3.4
+		// Note: We should technically only reject if neither resolve/reject has been called,
+		// but NewChainedPromise's resolve/reject are idempotent/thread-safe so this is fine.
+		reject(err)
+	}
+
+	return promise
+}
+
 // convertToGojaValue converts Go-native types to JavaScript-compatible types
 // This is CRITICAL #3, #7, #9, #10 fix for type conversion
 func (a *Adapter) convertToGojaValue(v any) goja.Value {
@@ -548,6 +710,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		// Check if value is already our wrapped promise - return unchanged (identity semantics)
+		// Promise.resolve(promise) === promise
 		if obj, ok := value.(*goja.Object); ok {
 			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
 				if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
@@ -557,8 +720,14 @@ func (a *Adapter) bindPromise() error {
 			}
 		}
 
+		// CRITICAL COMPLIANCE FIX: Check for thenables
+		if p := a.resolveThenable(value); p != nil {
+			// It was a thenable, return the adopted promise
+			return a.gojaWrapPromise(p)
+		}
+
 		// Otherwise create new resolved promise
-		promise := a.js.Resolve(value)
+		promise := a.js.Resolve(value.Export())
 		return a.gojaWrapPromise(promise)
 	}))
 
@@ -572,30 +741,17 @@ func (a *Adapter) bindPromise() error {
 		return a.gojaWrapPromise(promise)
 	}))
 
-	// Promise.all(iterable) - with BONUS input validation
+	// Promise.all(iterable) - with COMPLIANCE FIX for iterables
 	promiseConstructorObj.Set("all", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
-		if goja.IsNull(iterable) || goja.IsUndefined(iterable) {
-			promise := a.js.Resolve([]goeventloop.Result{})
-			return a.gojaWrapPromise(promise)
-		}
 
-		arr, ok := iterable.Export().([]goja.Value)
-		if !ok {
-			// Try to convert to array-like object
-			obj := iterable.ToObject(a.runtime)
-			if obj == nil || goja.IsNull(obj) {
-				panic(a.runtime.NewTypeError("Promise.all requires an array or iterable object"))
-			}
-			lengthVal := obj.Get("length")
-			if lengthVal == nil || goja.IsUndefined(lengthVal) {
-				panic(a.runtime.NewTypeError("Promise.all requires an array with length property"))
-			}
-			length := int(lengthVal.ToInteger())
-			arr = make([]goja.Value, length)
-			for i := 0; i < length; i++ {
-				arr[i] = obj.Get(strconv.Itoa(i))
-			}
+		// Consume iterable using standard protocol
+		arr, err := a.consumeIterable(iterable)
+		if err != nil {
+			// Promise.all rejects if iterable cannot be consumed (or throws strict error)
+			// Spec says: "If the completion is an abrupt completion, return a promise rejected with the abrupt completion's value."
+			// Goja panic will propagate as an exception, which fits nicely.
+			panic(err)
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to All()
@@ -612,6 +768,13 @@ func (a *Adapter) bindPromise() error {
 					}
 				}
 			}
+
+			// COMPLIANCE: Check for thenables in array elements too!
+			if p := a.resolveThenable(val); p != nil {
+				promises[i] = p
+				continue
+			}
+
 			// Otherwise resolve as new promise
 			promises[i] = a.js.Resolve(val.Export())
 		}
@@ -620,32 +783,14 @@ func (a *Adapter) bindPromise() error {
 		return a.gojaWrapPromise(promise)
 	}))
 
-	// Promise.race(iterable) - with BONUS input validation
+	// Promise.race(iterable) - with COMPLIANCE FIX for iterables
 	promiseConstructorObj.Set("race", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
-		if goja.IsNull(iterable) || goja.IsUndefined(iterable) {
-			// Empty iterable returns pending promise
-			promise, resolve, _ := a.js.NewChainedPromise()
-			_ = resolve // Will never resolve
-			return a.gojaWrapPromise(promise)
-		}
 
-		arr, ok := iterable.Export().([]goja.Value)
-		if !ok {
-			// Try to convert to array-like object
-			obj := iterable.ToObject(a.runtime)
-			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.race requires an array or iterable object"))
-			}
-			lengthVal := obj.Get("length")
-			if lengthVal == nil || goja.IsUndefined(lengthVal) {
-				panic(a.runtime.NewTypeError("Promise.race requires an array or iterable object"))
-			}
-			length := int(lengthVal.ToInteger())
-			arr = make([]goja.Value, length)
-			for i := 0; i < length; i++ {
-				arr[i] = obj.Get(strconv.Itoa(i))
-			}
+		// Consume iterable using standard protocol
+		arr, err := a.consumeIterable(iterable)
+		if err != nil {
+			panic(err)
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to Race()
@@ -661,6 +806,13 @@ func (a *Adapter) bindPromise() error {
 					}
 				}
 			}
+
+			// COMPLIANCE: Check for thenables
+			if p := a.resolveThenable(val); p != nil {
+				promises[i] = p
+				continue
+			}
+
 			// Otherwise resolve as new promise
 			promises[i] = a.js.Resolve(val.Export())
 		}
@@ -669,30 +821,14 @@ func (a *Adapter) bindPromise() error {
 		return a.gojaWrapPromise(promise)
 	}))
 
-	// Promise.allSettled(iterable) - with BONUS input validation
+	// Promise.allSettled(iterable) - with COMPLIANCE FIX for iterables
 	promiseConstructorObj.Set("allSettled", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
-		if goja.IsNull(iterable) || goja.IsUndefined(iterable) {
-			promise := a.js.Resolve([]goeventloop.Result{})
-			return a.gojaWrapPromise(promise)
-		}
 
-		arr, ok := iterable.Export().([]goja.Value)
-		if !ok {
-			// Try to convert to array-like object
-			obj := iterable.ToObject(a.runtime)
-			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.allSettled requires an array or iterable object"))
-			}
-			lengthVal := obj.Get("length")
-			if lengthVal == nil || goja.IsUndefined(lengthVal) {
-				panic(a.runtime.NewTypeError("Promise.allSettled requires an array or iterable object"))
-			}
-			length := int(lengthVal.ToInteger())
-			arr = make([]goja.Value, length)
-			for i := 0; i < length; i++ {
-				arr[i] = obj.Get(strconv.Itoa(i))
-			}
+		// Consume iterable using standard protocol
+		arr, err := a.consumeIterable(iterable)
+		if err != nil {
+			panic(err)
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to AllSettled()
@@ -708,6 +844,13 @@ func (a *Adapter) bindPromise() error {
 					}
 				}
 			}
+
+			// COMPLIANCE: Check for thenables
+			if p := a.resolveThenable(val); p != nil {
+				promises[i] = p
+				continue
+			}
+
 			// Otherwise create new promise from value
 			// CRITICAL: Use NewChainedPromise directly to preserve state,
 			// NOT Resolve() which would convert rejected promises to fulfilled!
@@ -719,33 +862,20 @@ func (a *Adapter) bindPromise() error {
 		return a.gojaWrapPromise(promise)
 	}))
 
-	// Promise.any(iterable) - with BONUS input validation
+	// Promise.any(iterable) - with COMPLIANCE FIX for iterables
 	promiseConstructorObj.Set("any", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
-		if goja.IsNull(iterable) || goja.IsUndefined(iterable) {
-			panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
-		}
 
-		arr, ok := iterable.Export().([]goja.Value)
-		if !ok {
-			// Try to convert to array-like object
-			obj := iterable.ToObject(a.runtime)
-			if obj == nil {
-				panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
-			}
-			lengthVal := obj.Get("length")
-			if lengthVal == nil || goja.IsUndefined(lengthVal) {
-				panic(a.runtime.NewTypeError("Promise.any requires an array or iterable object"))
-			}
-			length := int(lengthVal.ToInteger())
-			arr = make([]goja.Value, length)
-			for i := 0; i < length; i++ {
-				arr[i] = obj.Get(strconv.Itoa(i))
-			}
+		// Consume iterable using standard protocol
+		arr, err := a.consumeIterable(iterable)
+		if err != nil {
+			panic(err)
 		}
 
 		if len(arr) == 0 {
-			panic(a.runtime.NewTypeError("Promise.any requires at least one element"))
+			// ES2021: Promise.any([]) rejects with AggregateError
+			// Our eventloop implementation of Any handles empty/all-rejected correctly
+			// But we need to pass empty array to it.
 		}
 
 		// Convert to ChainedPromise array - js.Resolve() handles primitives and promises
@@ -761,6 +891,13 @@ func (a *Adapter) bindPromise() error {
 					}
 				}
 			}
+
+			// COMPLIANCE: Check for thenables
+			if p := a.resolveThenable(val); p != nil {
+				promises[i] = p
+				continue
+			}
+
 			// Otherwise resolve as new promise
 			promises[i] = a.js.Resolve(val.Export())
 		}

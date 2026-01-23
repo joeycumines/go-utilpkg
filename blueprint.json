@@ -1,5 +1,89 @@
 {
   "policy": "ALL tasks and subtasks contained within this blueprint MUST be completed in their entirety. Deferring, skipping, or omitting any part of the plan is strictly prohibited. Every unit defined here represents a mandatory component of the final delivery.",
+  "chunks": [
+    {
+      "id": "CHUNK_1",
+      "name": "Goja Integration Module",
+      "files": [
+        "goja-eventloop/*"
+      ],
+      "testStatus": "18/18 PASS (100%)",
+      "scope": [
+        "adapter.go",
+        "Promise combinators (all, race, allSettled, any)",
+        "setImmediate/clearImmediate",
+        "Promise chaining"
+      ],
+      "complexity": "MEDIUM",
+      "status": "READY for review",
+      "priority": "medium"
+    },
+    {
+      "id": "CHUNK_2",
+      "name": "Eventloop Core Module",
+      "files": [
+        "eventloop/*"
+      ],
+      "testStatus": "2 FAILURES (TestTimerPoolFieldClearing, TestTimerReuseSafety)",
+      "scope": [
+        "loop.go",
+        "js.go",
+        "promise.go",
+        "timer pool",
+        "metrics",
+        "performance optimizations"
+      ],
+      "complexity": "HIGH",
+      "status": "NEEDS FIXES before review",
+      "priority": "highest"
+    }
+  ],
+  "chunkTasks": [
+    {
+      "id": "CHUNK_2.1",
+      "title": "Review Eventloop Core Module - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically loop.go, js.go, promise.go, timer pool, metrics, and performance optimizations. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/16-CHUNK2-EVENTLOOP-CORE.md.'",
+      "status": "in-progress",
+      "chunkId": "CHUNK_2",
+      "reviewSequence": "16"
+    },
+    {
+      "id": "CHUNK_2.2",
+      "title": "Fix all issues identified in Eventloop Core Module review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_2.1 shows the review is complete and issues are documented.",
+      "status": "not-started",
+      "chunkId": "CHUNK_2"
+    },
+    {
+      "id": "CHUNK_2.3",
+      "title": "Re-review Eventloop Core Module - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Eventloop Core Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_2.1, CHUNK_2.2, and CHUNK_2.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_2"
+    },
+    {
+      "id": "CHUNK_1.1",
+      "title": "Review Goja Integration Module - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically adapter.go, Promise combinators (all, race, allSettled, any), setImmediate/clearImmediate, and Promise chaining. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/15-CHUNK1-GOJA-INTEGRATION.md.'",
+      "status": "not-started",
+      "chunkId": "CHUNK_1",
+      "reviewSequence": "15"
+    },
+    {
+      "id": "CHUNK_1.2",
+      "title": "Fix all issues identified in Goja Integration Module review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_1.1 shows the review is complete and issues are documented.",
+      "status": "not-started",
+      "chunkId": "CHUNK_1"
+    },
+    {
+      "id": "CHUNK_1.3",
+      "title": "Re-review Goja Integration Module - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Goja Integration Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_1.1, CHUNK_1.2, and CHUNK_1.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_1"
+    }
+  ],
   "userRequestedVerification": {
     "title": "USER REQUESTED: Verify 5 Critical Safety Violation Fixes in goja-eventloop",
     "status": "completed",

@@ -1470,12 +1470,17 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 
 // CancelTimer cancels a scheduled timer before it fires.
 // Returns ErrTimerNotFound if the timer does not exist.
+// Returns ErrLoopNotRunning if the loop is not in a valid state (not running or terminated).
 func (l *Loop) CancelTimer(id TimerID) error {
-	// CRITICAL: Prevent deadlock if loop hasn't started yet.
-	// SubmitInternal will accept the task in StateAwake, but it will never
-	// be processed until Run() is called, causing the result channel to block indefinitely.
+	// Check if loop is in a valid state for cancellation.
+	// Timer cancellation requires synchronous confirmation via channel,
+	// so we can only proceed if loop is Running or Terminated.
+	//
+	// We CANNOT queue cancellation tasks when loop is in StateAwake or StateStopping,
+	// because SubmitInternal would accept them but there would be no loop goroutine
+	// to process the response, causing CancelTimer to block forever on the result channel.
 	state := l.state.Load()
-	if state == StateAwake {
+	if !l.state.IsRunning() && state != StateTerminated {
 		return ErrLoopNotRunning
 	}
 

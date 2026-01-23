@@ -126,6 +126,14 @@ func TestTimerPoolFieldClearing(t *testing.T) {
 		loop.Run(ctx)
 	}()
 
+	// Wait for loop to initialize
+	for i := 0; i < 100; i++ {
+		if loop.state.IsRunning() {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+
 	// Exercise the timer pool by creating many timers
 	// If fields aren't cleared properly, timers from the pool
 	// will have stale data that could cause crashes or bugs
@@ -300,6 +308,14 @@ func TestTimerReuseSafety(t *testing.T) {
 		defer wg.Done()
 		loop.Run(ctx)
 	}()
+
+	// Wait for loop to initialize
+	for i := 0; i < 100; i++ {
+		if loop.state.IsRunning() {
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
 
 	// Create many timers sequentially, checking that each behaves correctly
 	for iteration := 0; iteration < 50; iteration++ {
