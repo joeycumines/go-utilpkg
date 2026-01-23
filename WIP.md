@@ -2,11 +2,12 @@
 # Last Updated: 2026-01-23
 
 ## Current Goal
-Phase 7: Comprehensive Code Review & Verification must be completed to PERFECTION.
+Resume Group C.2.4: Verify all 11 combinator tests pass (after syntax errors fixed)
 
 ## High Level Action Plan
-1. Chunk 1: Most Incomplete/Fix Required - Group C (Goja Integration & Combinators) RESTARTED due to 8/11 test failures (73% failure rate)
-2. Chunk 2: Re-review Needed - Group E (Performance & Metrics) fixes done, needs verification via 7.E.3
+1. ✅ FIXED: All syntax errors in adapter.go fixed (safeWrapValue removed, switch/else fixed)
+2. Verify tests: go test ./goja-eventloop/... -v (target 11/11 tests pass)
+3. If tests pass: Group C.2 complete, proceed to 7.C.3 re-review
 
 ## Detailed Plan per Chunk
 
@@ -60,7 +61,12 @@ Phase 7: Comprehensive Code Review & Verification must be completed to PERFECTIO
 - Group F: Documentation & Final (PERFECT - verified twice)
 
 ## Success Criteria
-Phase 7 is COMPLETE ONLY WHEN:
+SYNTAX ERROR FIX COMPLETE ONLY WHEN:
+- go build ./goja-eventloop/... compiles with 0 errors
+- All 7 syntax errors listed by user are fixed
+- File follows proper Go syntax (no invalid switch/else patterns)
+- safeWrapValue references removed
+PHASE 7 SUCCESS WHEN:
 - Group C is PERFECT (all 11 tests pass, zero review issues)
 - Group E is PERFECT (all tests pass, zero review issues)
 - blueprint.json reflects 100% completion

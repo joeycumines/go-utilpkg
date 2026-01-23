@@ -1582,8 +1582,8 @@
               "id": "7.C.2.4",
               "title": "Verify all 11 combinator tests pass",
               "description": "Run go test ./goja-eventloop/... -v and verify 100% pass rate (0/11 failures). Report before/after test results.",
-              "status": "in-progress",
-              "statusNote": "TESTING 2026-01-23: All 3 CRITICAL fixes applied. Running tests to verify resolution."
+              "status": "not-started",
+              "statusNote": "FIXED 2026-01-23: All syntax errors in adapter.go fixed. Removed safeWrapValue() call (undefined function). Rewrote allSettled to use simple pattern matching (goja.IsNull() instead of gojaVal.IsNull(), remove broken switch/else pattern). Compilation verified: SUCCESS (0 errors). Ready to run 7.C.2.4 test verification."
             }
           ]
         },

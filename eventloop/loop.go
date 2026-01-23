@@ -1568,9 +1568,39 @@ func (l *Loop) Metrics() *Metrics {
 	// Sample latency percentiles (held under LatencyMetrics.mu)
 	_ = l.metrics.Latency.Sample()
 
-	// Return a copy for thread safety
-	snapshot := *l.metrics
-	return &snapshot
+	// Return a deep copy for thread safety (avoid copying sync.Mutex)
+	snapshot := &Metrics{
+		Latency: LatencyMetrics{
+			mu:          sync.RWMutex{},
+			sampleIdx:   l.metrics.Latency.sampleIdx,
+			sampleCount: l.metrics.Latency.sampleCount,
+			samples:     l.metrics.Latency.samples,
+			P50:         l.metrics.Latency.P50,
+			P90:         l.metrics.Latency.P90,
+			P95:         l.metrics.Latency.P95,
+			P99:         l.metrics.Latency.P99,
+			Max:         l.metrics.Latency.Max,
+			Mean:        l.metrics.Latency.Mean,
+			Sum:         l.metrics.Latency.Sum,
+		},
+		Queue: QueueMetrics{
+			mu:                      sync.RWMutex{},
+			IngressCurrent:          l.metrics.Queue.IngressCurrent,
+			InternalCurrent:         l.metrics.Queue.InternalCurrent,
+			MicrotaskCurrent:        l.metrics.Queue.MicrotaskCurrent,
+			IngressMax:              l.metrics.Queue.IngressMax,
+			InternalMax:             l.metrics.Queue.InternalMax,
+			MicrotaskMax:            l.metrics.Queue.MicrotaskMax,
+			IngressAvg:              l.metrics.Queue.IngressAvg,
+			InternalAvg:             l.metrics.Queue.InternalAvg,
+			MicrotaskAvg:            l.metrics.Queue.MicrotaskAvg,
+			ingressEMAInitialized:   l.metrics.Queue.ingressEMAInitialized,
+			internalEMAInitialized:  l.metrics.Queue.internalEMAInitialized,
+			microtaskEMAInitialized: l.metrics.Queue.microtaskEMAInitialized,
+		},
+		TPS: l.metrics.TPS,
+	}
+	return snapshot
 }
 
 // closeFDs closes file descriptors.

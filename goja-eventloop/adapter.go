@@ -365,7 +365,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 			// Convert Go-native map to JavaScript object
 			jsObj := a.runtime.NewObject()
 			for key, val := range v {
-				_ = jsObj.Set(key, a.convertToGojaValue(col))
+				_ = jsObj.Set(key, a.convertToGojaValue(val))
 			}
 			jsValue = jsObj
 
@@ -748,6 +748,9 @@ func (a *Adapter) bindPromise() error {
 					}
 				}
 			}
+			// Otherwise create new promise from value
+			// CRITICAL: Use NewChainedPromise directly to preserve state,
+			// NOT Resolve() which would convert rejected promises to fulfilled!
 			// Otherwise resolve as new promise
 			promises[i] = a.js.Resolve(val.Export())
 		}

@@ -1,5 +1,7 @@
 //go:build linux
 
+//lint:file-ignore U1000 Platform-specific stub functions (required for Windows/Darwin compatibility)
+
 package eventloop
 
 import (
