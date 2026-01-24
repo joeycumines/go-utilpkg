@@ -1,4 +1,4 @@
-// Copyright 2025 Joseph Cumines
+// Copyright 2026 Joseph Cumines
 //
 // Permission to use, copy, modify, and distribute this software for any
 // purpose with or without fee is hereby granted, provided that this copyright
@@ -97,14 +97,27 @@ type JS struct {
 	// Last pointer field
 	loop *Loop
 
-	// Group pointer/sync.Map fields together
-	// Group pointer/sync.Map fields together
-	intervals           sync.Map
-	unhandledRejections sync.Map
-	promiseHandlers     sync.Map
+	// Map fields. WARNING: Do not use sync.Map here! (read its docs for why)
+	intervals           map[uint64]*intervalState
+	intervalsMu         sync.RWMutex
+	unhandledRejections map[uint64]*rejectionInfo
+	rejectionsMu        sync.RWMutex
+	promiseHandlers     map[uint64]bool
+	promiseHandlersMu   sync.RWMutex
+	setImmediateMap     map[uint64]*setImmediateState
+	setImmediateMu      sync.RWMutex
+	nextImmediateID     atomic.Uint64
 
 	nextTimerID atomic.Uint64
 	mu          sync.Mutex
+}
+
+// setImmediateState tracks a single setImmediate callback
+type setImmediateState struct {
+	fn      SetTimeoutFunc
+	cleared atomic.Bool // CAS flag for "was cleared"
+	js      *JS
+	id      uint64
 }
 
 // SetTimeoutFunc is a callback function for [JS.SetTimeout] and [JS.SetInterval].
@@ -138,7 +151,13 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 		return nil, err
 	}
 
-	js := &JS{loop: loop}
+	js := &JS{
+		loop:                loop,
+		intervals:           make(map[uint64]*intervalState),
+		unhandledRejections: make(map[uint64]*rejectionInfo),
+		promiseHandlers:     make(map[uint64]bool),
+		setImmediateMap:     make(map[uint64]*setImmediateState),
+	}
 
 	// Store onUnhandled callback
 	if options.onUnhandled != nil {
@@ -298,10 +317,10 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	}
 
 	// Store interval state with initial mapping
-	state.m.Lock()
+	js.intervalsMu.Lock()
 	state.currentLoopTimerID = loopTimerID
-	state.m.Unlock()
-	js.intervals.Store(id, state)
+	js.intervals[id] = state
+	js.intervalsMu.Unlock()
 
 	// NOTE: Intervals are managed exclusively through js.intervals map
 	// ClearInterval loads state from js.intervals and reads state.currentLoopTimerID
@@ -316,11 +335,13 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 // This is safe to call from any goroutine, including from within
 // the interval's own callback.
 func (js *JS) ClearInterval(id uint64) error {
-	dataAny, ok := js.intervals.Load(id)
+	js.intervalsMu.RLock()
+	state, ok := js.intervals[id]
+	js.intervalsMu.RUnlock()
+
 	if !ok {
 		return ErrTimerNotFound
 	}
-	state := dataAny.(*intervalState)
 
 	// Mark as canceled BEFORE acquiring lock to prevent deadlock
 	// This allows wrapper function to exit without blocking
@@ -349,7 +370,9 @@ func (js *JS) ClearInterval(id uint64) error {
 	}
 
 	// Remove from intervals map
-	js.intervals.Delete(id)
+	js.intervalsMu.Lock()
+	delete(js.intervals, id)
+	js.intervalsMu.Unlock()
 
 	// Note: We do NOT wait for the wrapper to complete (wg.Wait()).
 	// 1. Preventing Rescheduling: The state.canceled atomic flag (set above) guarantees
@@ -386,6 +409,96 @@ func (js *JS) QueueMicrotask(fn MicrotaskFunc) error {
 // getDelay returns the delay as time.Duration for scheduling.
 func (s *intervalState) getDelay() time.Duration {
 	return time.Duration(s.delayMs) * time.Millisecond
+}
+
+// SetImmediate schedules a function to run in the next iteration of the event loop.
+//
+// This is more efficient than [JS.SetTimeout] with 0ms delay as it bypasses
+// the timer heap and uses the efficient [Loop.Submit] mechanism directly.
+//
+// The callback is guaranteed to run asynchronously (after the current task/tick completes).
+//
+// Returns:
+//   - ID that can be passed to [JS.ClearImmediate] to cancel
+//   - Error if the loop is shutting down
+func (js *JS) SetImmediate(fn SetTimeoutFunc) (uint64, error) {
+	if fn == nil {
+		return 0, nil
+	}
+
+	id := js.nextImmediateID.Add(1)
+	if id > maxSafeInteger {
+		panic("eventloop: immediate ID exceeded MAX_SAFE_INTEGER")
+	}
+
+	state := &setImmediateState{
+		fn: fn,
+		js: js,
+		id: id,
+	}
+
+	js.setImmediateMu.Lock()
+	js.setImmediateMap[id] = state
+	js.setImmediateMu.Unlock()
+
+	// Submit directly - no timer heap!
+	if err := js.loop.Submit(state.run); err != nil {
+		js.setImmediateMu.Lock()
+		delete(js.setImmediateMap, id)
+		js.setImmediateMu.Unlock()
+		return 0, err
+	}
+
+	return id, nil
+}
+
+// ClearImmediate cancels a pending setImmediate task.
+//
+// Returns [ErrTimerNotFound] if the ID is invalid or has already executed.
+//
+// Note: Due to the asynchronous nature, it's possible for the callback to
+// execute concurrently with cancellation if run from a different goroutine.
+// However, once ClearImmediate returns successfully, the callback is guaranteed
+// not to run (or has arguably "already run").
+func (js *JS) ClearImmediate(id uint64) error {
+	js.setImmediateMu.RLock()
+	state, ok := js.setImmediateMap[id]
+	js.setImmediateMu.RUnlock()
+
+	if !ok {
+		return ErrTimerNotFound
+	}
+
+	// Mark as cleared; if run() hasn't executed yet, it will see this
+	state.cleared.Store(true)
+
+	js.setImmediateMu.Lock()
+	delete(js.setImmediateMap, id)
+	js.setImmediateMu.Unlock()
+
+	return nil
+}
+
+// run executes the setImmediate callback if not cleared.
+func (s *setImmediateState) run() {
+	// CAS ensures only one of run() or ClearImmediate() wins
+	// Or more accurately: if ClearImmediate happened, we don't run.
+	if s.cleared.Load() {
+		return
+	}
+	// We don't need CAS here because ClearImmediate just sets the flag.
+	// We just check it. If it races, it races.
+	// But to be safer against double-execution if somehow submitted twice (shouldn't happen):
+	if !s.cleared.CompareAndSwap(false, true) {
+		return
+	}
+
+	s.fn()
+
+	// Cleanup self from map
+	s.js.setImmediateMu.Lock()
+	delete(s.js.setImmediateMap, s.id)
+	s.js.setImmediateMu.Unlock()
 }
 
 // Resolve returns an already-resolved promise with the given value.

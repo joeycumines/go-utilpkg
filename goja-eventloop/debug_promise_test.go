@@ -1,4 +1,4 @@
-// Copyright 2025 Joseph Cumines
+// Copyright 2026 Joseph Cumines
 //
 // Debug test to understand Promise.all issues
 

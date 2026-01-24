@@ -188,10 +188,10 @@ func (a *Adapter) setImmediate(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewTypeError("setImmediate requires a function as first argument"))
 	}
 
-	// Use SetTimeout with 0 delay
-	id, err := a.js.SetTimeout(func() {
+	// Use optimized SetImmediate instead of SetTimeout
+	id, err := a.js.SetImmediate(func() {
 		_, _ = fnCallable(goja.Undefined())
-	}, 0)
+	})
 	if err != nil {
 		panic(a.runtime.NewGoError(err))
 	}
@@ -199,9 +199,11 @@ func (a *Adapter) setImmediate(call goja.FunctionCall) goja.Value {
 	return a.runtime.ToValue(float64(id))
 }
 
-// clearImmediate binding for Goja (alias to ClearTimeout)
+// clearImmediate binding for Goja
 func (a *Adapter) clearImmediate(call goja.FunctionCall) goja.Value {
-	return a.clearTimeout(call)
+	id := uint64(call.Argument(0).ToInteger())
+	_ = a.js.ClearImmediate(id) // Use specialized ClearImmediate
+	return goja.Undefined()
 }
 
 // promiseConstructor binding for Goja

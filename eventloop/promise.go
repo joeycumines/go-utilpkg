@@ -428,7 +428,9 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 
 	// Mark that this promise now has a handler attached
 	if onRejected != nil {
-		js.promiseHandlers.Store(p.id, true)
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[p.id] = true
+		js.promiseHandlersMu.Unlock()
 	}
 
 	// Check current state
@@ -593,7 +595,9 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	// Mark that this promise now has a handler attached
 	// Finally counts as handling rejection (it runs whether fulfilled or rejected)
 	if js != nil {
-		js.promiseHandlers.Store(p.id, true)
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[p.id] = true
+		js.promiseHandlersMu.Unlock()
 	}
 
 	// Create handler that runs onFinally then forwards result
@@ -671,7 +675,9 @@ func (js *JS) trackRejection(promiseID uint64, reason Result) {
 		reason:    reason,
 		timestamp: time.Now().UnixNano(),
 	}
-	js.unhandledRejections.Store(promiseID, info)
+	js.rejectionsMu.Lock()
+	js.unhandledRejections[promiseID] = info
+	js.rejectionsMu.Unlock()
 
 	// Schedule a microtask to check if this rejection was handled
 	js.loop.ScheduleMicrotask(func() {
@@ -686,23 +692,44 @@ func (js *JS) checkUnhandledRejections() {
 	callback := js.unhandledCallback
 	js.mu.Unlock()
 
-	js.unhandledRejections.Range(func(key, value interface{}) bool {
-		promiseID := key.(uint64)
-		handledAny, exists := js.promiseHandlers.Load(promiseID)
+	// Collect snapshot of rejections to iterate safely
+	js.rejectionsMu.RLock()
+	// Early exit
+	if len(js.unhandledRejections) == 0 {
+		js.rejectionsMu.RUnlock()
+		return
+	}
 
-		// If we can't find a handler, or it's explicitly marked as unhandled, report it
-		if !exists || !handledAny.(bool) {
+	snapshot := make([]*rejectionInfo, 0, len(js.unhandledRejections))
+	for _, info := range js.unhandledRejections {
+		snapshot = append(snapshot, info)
+	}
+	js.rejectionsMu.RUnlock()
+
+	// Process snapshot
+	for _, info := range snapshot {
+		promiseID := info.promiseID
+
+		js.promiseHandlersMu.RLock()
+		handled, exists := js.promiseHandlers[promiseID]
+		js.promiseHandlersMu.RUnlock()
+
+		// If we can't find a handler, or it's explicitly marked as unhandled (though map is bool true), report it
+		if !exists || !handled {
 			if callback != nil {
-				info := value.(*rejectionInfo)
 				callback(info.reason)
 			}
 		}
 
 		// Clean up tracking
-		js.unhandledRejections.Delete(promiseID)
-		js.promiseHandlers.Delete(promiseID)
-		return true
-	})
+		js.rejectionsMu.Lock()
+		delete(js.unhandledRejections, promiseID)
+		js.rejectionsMu.Unlock()
+
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, promiseID)
+		js.promiseHandlersMu.Unlock()
+	}
 }
 
 // rejectionInfo holds information about a rejected promise.

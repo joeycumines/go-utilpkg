@@ -8,12 +8,12 @@ import (
 )
 
 // ============================================================================
-// BEFORE Benchmarks - baseline performance measurements
-// Run: go test -bench=. -benchmem -count=5 -run=^$ | tee bench_before.txt
+// AFTER Benchmarks - performance measurements with map+RWMutex and optimized setImmediate
+// Run: go test -bench=. -benchmem -count=5 -run=^$ | tee bench_after.txt
 // ============================================================================
 
-// BenchmarkSetInterval_Current benchmarks current SetInterval implementation.
-func BenchmarkSetInterval_Current(b *testing.B) {
+// BenchmarkSetInterval_Optimized benchmarks the new map+RWMutex SetInterval implementation.
+func BenchmarkSetInterval_Optimized(b *testing.B) {
 	loop, err := New()
 	if err != nil {
 		b.Fatalf("Failed to create loop: %v", err)
@@ -28,8 +28,6 @@ func BenchmarkSetInterval_Current(b *testing.B) {
 	defer cancel()
 
 	go loop.Run(ctx)
-
-	// Give the loop time to start
 	time.Sleep(10 * time.Millisecond)
 
 	b.ResetTimer()
@@ -45,8 +43,9 @@ func BenchmarkSetInterval_Current(b *testing.B) {
 	cancel()
 }
 
-// BenchmarkSetTimeout_Current benchmarks current SetTimeout implementation.
-func BenchmarkSetTimeout_Current(b *testing.B) {
+// BenchmarkSetTimeout_Optimized benchmarks the new map+RWMutex SetTimeout implementation.
+// Note: SetTimeout (with delay) still uses the timer heap.
+func BenchmarkSetTimeout_Optimized(b *testing.B) {
 	loop, err := New()
 	if err != nil {
 		b.Fatalf("Failed to create loop: %v", err)
@@ -61,12 +60,11 @@ func BenchmarkSetTimeout_Current(b *testing.B) {
 	defer cancel()
 
 	go loop.Run(ctx)
-
 	time.Sleep(10 * time.Millisecond)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		id, err := js.SetTimeout(func() {}, 0)
+		id, err := js.SetTimeout(func() {}, 0) // still uses timer heap despite 0 delay
 		if err != nil {
 			b.Fatalf("SetTimeout failed: %v", err)
 		}
@@ -77,8 +75,9 @@ func BenchmarkSetTimeout_Current(b *testing.B) {
 	cancel()
 }
 
-// BenchmarkSetInterval_Parallel benchmarks SetInterval under contention.
-func BenchmarkSetInterval_Parallel(b *testing.B) {
+// BenchmarkSetImmediate_Optimized benchmarks the new direct SetImmediate implementation.
+// This bypasses the timer heap and should be significantly faster/leaner than SetTimeout(0).
+func BenchmarkSetImmediate_Optimized(b *testing.B) {
 	loop, err := New()
 	if err != nil {
 		b.Fatalf("Failed to create loop: %v", err)
@@ -93,7 +92,37 @@ func BenchmarkSetInterval_Parallel(b *testing.B) {
 	defer cancel()
 
 	go loop.Run(ctx)
+	time.Sleep(10 * time.Millisecond)
 
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id, err := js.SetImmediate(func() {})
+		if err != nil {
+			b.Fatalf("SetImmediate failed: %v", err)
+		}
+		_ = js.ClearImmediate(id)
+	}
+	b.StopTimer()
+
+	cancel()
+}
+
+// BenchmarkSetInterval_Parallel_Optimized benchmarks SetInterval (map+RWMutex) under contention.
+func BenchmarkSetInterval_Parallel_Optimized(b *testing.B) {
+	loop, err := New()
+	if err != nil {
+		b.Fatalf("Failed to create loop: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatalf("Failed to create JS: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
 
 	b.ResetTimer()
@@ -111,8 +140,8 @@ func BenchmarkSetInterval_Parallel(b *testing.B) {
 	cancel()
 }
 
-// BenchmarkPromiseHandlerTracking benchmarks the promise handler tracking pattern.
-func BenchmarkPromiseHandlerTracking(b *testing.B) {
+// BenchmarkPromiseHandlerTracking_Optimized benchmarks promise handler tracking with map+RWMutex.
+func BenchmarkPromiseHandlerTracking_Optimized(b *testing.B) {
 	loop, err := New()
 	if err != nil {
 		b.Fatalf("Failed to create loop: %v", err)
@@ -127,23 +156,31 @@ func BenchmarkPromiseHandlerTracking(b *testing.B) {
 	defer cancel()
 
 	go loop.Run(ctx)
-
 	time.Sleep(10 * time.Millisecond)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Simulate promise handler store/load/delete cycle
-		js.promiseHandlers.Store(uint64(i), true)
-		_, _ = js.promiseHandlers.Load(uint64(i))
-		js.promiseHandlers.Delete(uint64(i))
+		id := uint64(i)
+
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[id] = true
+		js.promiseHandlersMu.Unlock()
+
+		js.promiseHandlersMu.RLock()
+		_ = js.promiseHandlers[id]
+		js.promiseHandlersMu.RUnlock()
+
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, id)
+		js.promiseHandlersMu.Unlock()
 	}
 	b.StopTimer()
 
 	cancel()
 }
 
-// BenchmarkPromiseHandlerTracking_Parallel benchmarks promise handler tracking under contention.
-func BenchmarkPromiseHandlerTracking_Parallel(b *testing.B) {
+// BenchmarkPromiseHandlerTracking_Parallel_Optimized benchmarks map+RWMutex under contention.
+func BenchmarkPromiseHandlerTracking_Parallel_Optimized(b *testing.B) {
 	loop, err := New()
 	if err != nil {
 		b.Fatalf("Failed to create loop: %v", err)
@@ -158,7 +195,6 @@ func BenchmarkPromiseHandlerTracking_Parallel(b *testing.B) {
 	defer cancel()
 
 	go loop.Run(ctx)
-
 	time.Sleep(10 * time.Millisecond)
 
 	var counter uint64
@@ -172,66 +208,20 @@ func BenchmarkPromiseHandlerTracking_Parallel(b *testing.B) {
 			counter++
 			mu.Unlock()
 
-			js.promiseHandlers.Store(id, true)
-			_, _ = js.promiseHandlers.Load(id)
-			js.promiseHandlers.Delete(id)
+			js.promiseHandlersMu.Lock()
+			js.promiseHandlers[id] = true
+			js.promiseHandlersMu.Unlock()
+
+			js.promiseHandlersMu.RLock()
+			_ = js.promiseHandlers[id]
+			js.promiseHandlersMu.RUnlock()
+
+			js.promiseHandlersMu.Lock()
+			delete(js.promiseHandlers, id)
+			js.promiseHandlersMu.Unlock()
 		}
 	})
 	b.StopTimer()
 
 	cancel()
-}
-
-// BenchmarkRWMutexMap_Baseline provides a baseline for map+RWMutex performance.
-// This simulates what our replacement will look like.
-func BenchmarkRWMutexMap_Baseline(b *testing.B) {
-	m := make(map[uint64]bool)
-	var mu sync.RWMutex
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		id := uint64(i)
-
-		mu.Lock()
-		m[id] = true
-		mu.Unlock()
-
-		mu.RLock()
-		_ = m[id]
-		mu.RUnlock()
-
-		mu.Lock()
-		delete(m, id)
-		mu.Unlock()
-	}
-}
-
-// BenchmarkRWMutexMap_Parallel provides parallel baseline for map+RWMutex.
-func BenchmarkRWMutexMap_Parallel(b *testing.B) {
-	m := make(map[uint64]bool)
-	var mu sync.RWMutex
-	var counter uint64
-	var counterMu sync.Mutex
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			counterMu.Lock()
-			id := counter
-			counter++
-			counterMu.Unlock()
-
-			mu.Lock()
-			m[id] = true
-			mu.Unlock()
-
-			mu.RLock()
-			_ = m[id]
-			mu.RUnlock()
-
-			mu.Lock()
-			delete(m, id)
-			mu.Unlock()
-		}
-	})
 }
