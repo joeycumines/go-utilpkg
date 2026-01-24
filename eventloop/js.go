@@ -93,9 +93,7 @@ type intervalState struct {
 //   - Callbacks are always executed on the event loop thread
 type JS struct {
 	unhandledCallback RejectionHandler
-
-	// Last pointer field
-	loop *Loop
+	loop              *Loop
 
 	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
