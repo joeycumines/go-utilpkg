@@ -62,61 +62,55 @@
         "eventloop/promise.go",
         "goja-eventloop/adapter.go"
       ],
-      "testStatus": "pending",
+      "testStatus": "PASSED (all tests + benchmarks verified)",
       "scope": [
         "Replace sync.Map with map+RWMutex for intervals/rejections/promiseHandlers",
         "Implement optimized setImmediate via Loop.Submit (bypass timer heap)",
         "Benchmark before/after comparison"
       ],
       "complexity": "HIGH",
-      "status": "in-progress",
+      "status": "completed",
       "priority": "P0",
       "investigation": {
-        "allegation1_syncMap": {
-          "status": "CONFIRMED",
-          "finding": "sync.Map in js.go used for intervals/unhandledRejections/promiseHandlers with CRUD pattern, not matching sync.Map's optimal patterns (write-once/read-many or disjoint keys)"
-        },
-        "allegation2_setImmediate": {
-          "status": "CONFIRMED",
-          "finding": "setImmediate wraps setTimeout(0), routing through timer heap unnecessarily when direct Loop.Submit would suffice"
-        }
+        "status": "completed",
+        "findings": "Confirmed sync.Map misuse (CRUD pattern) and setImmediate suboptimality. Fixes implemented."
       },
       "subtasks": [
         {
           "id": "CHUNK_4.1",
           "title": "Create BEFORE benchmarks",
           "description": "Add js_bench_test.go with benchmarks for SetInterval, SetImmediate, promise handlers",
-          "status": "not-started"
+          "status": "completed"
         },
         {
           "id": "CHUNK_4.2",
           "title": "Replace sync.Map with map+RWMutex",
           "description": "Refactor intervals, unhandledRejections, promiseHandlers from sync.Map to map+sync.RWMutex",
-          "status": "not-started"
+          "status": "completed"
         },
         {
           "id": "CHUNK_4.3",
           "title": "Implement optimized setImmediate",
           "description": "Add JS.SetImmediate/ClearImmediate using Loop.Submit + internal map + atomic.Bool CAS",
-          "status": "not-started"
+          "status": "completed"
         },
         {
           "id": "CHUNK_4.4",
           "title": "Update goja-eventloop adapter",
           "description": "Wire setImmediate/clearImmediate bindings to new JS.SetImmediate/ClearImmediate",
-          "status": "not-started"
+          "status": "completed"
         },
         {
           "id": "CHUNK_4.5",
           "title": "Create AFTER benchmarks and comparison",
           "description": "Run benchmarks, use benchstat for direct comparison, document results",
-          "status": "not-started"
+          "status": "completed"
         },
         {
           "id": "CHUNK_4.6",
           "title": "Full verification",
           "description": "Run make all, race tests, verify all tests pass",
-          "status": "not-started"
+          "status": "completed"
         }
       ]
     }
