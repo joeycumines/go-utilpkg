@@ -24,3 +24,7 @@ GRIT_DST ?= \
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true
+
+.PHONY: betteralign-apply
+betteralign-apply:
+	$(MAKE) betteralign BETTERALIGN_FLAGS=-apply

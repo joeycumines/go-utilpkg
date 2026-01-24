@@ -97,27 +97,27 @@ type JS struct {
 	// Last pointer field
 	loop *Loop
 
-	// Map fields. WARNING: Do not use sync.Map here! (read its docs for why)
-	intervals           map[uint64]*intervalState
-	intervalsMu         sync.RWMutex
-	unhandledRejections map[uint64]*rejectionInfo
-	rejectionsMu        sync.RWMutex
-	promiseHandlers     map[uint64]bool
-	promiseHandlersMu   sync.RWMutex
-	setImmediateMap     map[uint64]*setImmediateState
-	setImmediateMu      sync.RWMutex
-	nextImmediateID     atomic.Uint64
+	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
-	nextTimerID atomic.Uint64
-	mu          sync.Mutex
+	intervals           map[uint64]*intervalState
+	unhandledRejections map[uint64]*rejectionInfo
+	promiseHandlers     map[uint64]bool
+	setImmediateMap     map[uint64]*setImmediateState
+	nextImmediateID     atomic.Uint64
+	nextTimerID         atomic.Uint64
+	intervalsMu         sync.RWMutex
+	rejectionsMu        sync.RWMutex
+	promiseHandlersMu   sync.RWMutex
+	setImmediateMu      sync.RWMutex
+	mu                  sync.Mutex
 }
 
 // setImmediateState tracks a single setImmediate callback
 type setImmediateState struct {
 	fn      SetTimeoutFunc
-	cleared atomic.Bool // CAS flag for "was cleared"
 	js      *JS
 	id      uint64
+	cleared atomic.Bool // CAS flag for "was cleared"
 }
 
 // SetTimeoutFunc is a callback function for [JS.SetTimeout] and [JS.SetInterval].
