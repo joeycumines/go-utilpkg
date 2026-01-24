@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2023 Joseph Cumines
+Copyright (c) 2026 Joseph Cumines
 Copyright (c) 2017 Olivier Poitrey
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
