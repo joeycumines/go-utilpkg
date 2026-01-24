@@ -14,6 +14,9 @@ import (
 	"time"
 )
 
+// maxSafeInteger is `2^53 - 1`, the maximum safe integer in JavaScript
+const maxSafeInteger = 9007199254740991
+
 // RejectionHandler is a callback function invoked when an unhandled promise rejection
 // is detected. The reason parameter contains the rejection reason/value.
 // This follows the JavaScript unhandledrejection event pattern.
@@ -42,12 +45,6 @@ func WithUnhandledRejection(handler RejectionHandler) JSOption {
 	return func(o *jsOptions) {
 		o.onUnhandled = handler
 	}
-}
-
-// jsTimerData tracks timer information for timeout and interval management.
-type jsTimerData struct {
-	jsTimerID   uint64  // The JS API timer ID (from SetTimeout/SetInterval)
-	loopTimerID TimerID // The actual Loop timer ID
 }
 
 // intervalState tracks the state of an interval timer.
@@ -101,7 +98,7 @@ type JS struct {
 	loop *Loop
 
 	// Group pointer/sync.Map fields together
-	timers              sync.Map
+	// Group pointer/sync.Map fields together
 	intervals           sync.Map
 	unhandledRejections sync.Map
 	promiseHandlers     sync.Map
@@ -175,30 +172,23 @@ func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		return 0, nil
 	}
 
-	id := js.nextTimerID.Add(1)
 	delay := time.Duration(delayMs) * time.Millisecond
 
-	// Wrap user callback to clean up timerData after execution
-	// This fixes a memory leak where timerData entries never get removed
-	wrappedFn := func() {
-		defer js.timers.Delete(id)
-		fn()
-	}
-
-	// Schedule on underlying loop with wrapped callback
-	loopTimerID, err := js.loop.ScheduleTimer(delay, wrappedFn)
+	// Schedule on underlying loop
+	loopTimerID, err := js.loop.ScheduleTimer(delay, fn)
 	if err != nil {
 		return 0, err
 	}
 
-	// Store data mapping JS API timer ID -> {jsTimerID, loopTimerID}
-	data := &jsTimerData{
-		jsTimerID:   id,
-		loopTimerID: loopTimerID,
+	// Safety check for JS integer limits
+	// This ensures we never return an ID that could lose precision in JS
+	if uint64(loopTimerID) > maxSafeInteger {
+		// Cancel the timer we just scheduled so it doesn't leak
+		_ = js.loop.CancelTimer(loopTimerID)
+		panic("eventloop: timer ID exceeded MAX_SAFE_INTEGER")
 	}
-	js.timers.Store(id, data)
 
-	return id, nil
+	return uint64(loopTimerID), nil
 }
 
 // ClearTimeout cancels a scheduled timeout timer by its ID.
@@ -206,24 +196,12 @@ func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 // Returns [ErrTimerNotFound] if the timer ID is invalid or has already fired.
 // This is safe to call multiple times for the same ID.
 func (js *JS) ClearTimeout(id uint64) error {
-	dataAny, ok := js.timers.Load(id)
-	if !ok {
-		return ErrTimerNotFound
-	}
-	data := dataAny.(*jsTimerData)
-
-	if data.loopTimerID == 0 {
-		// Timer was already canceled
-		return ErrTimerNotFound
-	}
-
-	if err := js.loop.CancelTimer(data.loopTimerID); err != nil {
-		return err
-	}
-
-	// Remove mapping
-	js.timers.Delete(id)
-	return nil
+	// Direct cancellation on the loop
+	// We cast the uint64 back to TimerID
+	// This works because we panic if the ID exceeds MAX_SAFE_INTEGER,
+	// so any valid ID returned from SetTimeout is safe to cast back unless
+	// the user passes junk, in which case CancelTimer handles it safely (returns ErrTimerNotFound).
+	return js.loop.CancelTimer(TimerID(id))
 }
 
 // SetInterval schedules a function to run repeatedly with a fixed delay.
@@ -307,6 +285,11 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 
 	// IMPORTANT: Assign id BEFORE any scheduling
 	id := js.nextTimerID.Add(1)
+
+	// Safety check for JS integer limits
+	if id > maxSafeInteger {
+		panic("eventloop: interval ID exceeded MAX_SAFE_INTEGER")
+	}
 
 	// Initial scheduling - call ScheduleTimer ONCE after both wrapper and id are properly assigned
 	loopTimerID, err := js.loop.ScheduleTimer(delay, wrapper)

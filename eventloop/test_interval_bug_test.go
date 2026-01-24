@@ -72,7 +72,7 @@ func TestSetIntervalDoneChannelBug(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("Test timed out")
 	case err := <-errChan:
-		if err != nil {
+		if err != context.Canceled {
 			t.Fatalf("Loop error: %v", err)
 		}
 	}

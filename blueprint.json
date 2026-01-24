@@ -36,6 +36,89 @@
       "complexity": "HIGH",
       "status": "READY for review",
       "priority": "highest"
+    },
+    {
+      "id": "CHUNK_3",
+      "name": "Timer ID Refactor",
+      "files": [
+        "eventloop/*",
+        "goja-eventloop/*"
+      ],
+      "testStatus": "PASSED (all tests)",
+      "scope": [
+        "TimerID mapping removal",
+        "JS float64 encoding",
+        "MAX_SAFE_INTEGER handling"
+      ],
+      "complexity": "MEDIUM",
+      "status": "READY for review",
+      "priority": "highest"
+    },
+    {
+      "id": "CHUNK_4",
+      "name": "Performance Optimization: sync.Map & setImmediate",
+      "files": [
+        "eventloop/js.go",
+        "eventloop/promise.go",
+        "goja-eventloop/adapter.go"
+      ],
+      "testStatus": "pending",
+      "scope": [
+        "Replace sync.Map with map+RWMutex for intervals/rejections/promiseHandlers",
+        "Implement optimized setImmediate via Loop.Submit (bypass timer heap)",
+        "Benchmark before/after comparison"
+      ],
+      "complexity": "HIGH",
+      "status": "in-progress",
+      "priority": "P0",
+      "investigation": {
+        "allegation1_syncMap": {
+          "status": "CONFIRMED",
+          "finding": "sync.Map in js.go used for intervals/unhandledRejections/promiseHandlers with CRUD pattern, not matching sync.Map's optimal patterns (write-once/read-many or disjoint keys)"
+        },
+        "allegation2_setImmediate": {
+          "status": "CONFIRMED",
+          "finding": "setImmediate wraps setTimeout(0), routing through timer heap unnecessarily when direct Loop.Submit would suffice"
+        }
+      },
+      "subtasks": [
+        {
+          "id": "CHUNK_4.1",
+          "title": "Create BEFORE benchmarks",
+          "description": "Add js_bench_test.go with benchmarks for SetInterval, SetImmediate, promise handlers",
+          "status": "not-started"
+        },
+        {
+          "id": "CHUNK_4.2",
+          "title": "Replace sync.Map with map+RWMutex",
+          "description": "Refactor intervals, unhandledRejections, promiseHandlers from sync.Map to map+sync.RWMutex",
+          "status": "not-started"
+        },
+        {
+          "id": "CHUNK_4.3",
+          "title": "Implement optimized setImmediate",
+          "description": "Add JS.SetImmediate/ClearImmediate using Loop.Submit + internal map + atomic.Bool CAS",
+          "status": "not-started"
+        },
+        {
+          "id": "CHUNK_4.4",
+          "title": "Update goja-eventloop adapter",
+          "description": "Wire setImmediate/clearImmediate bindings to new JS.SetImmediate/ClearImmediate",
+          "status": "not-started"
+        },
+        {
+          "id": "CHUNK_4.5",
+          "title": "Create AFTER benchmarks and comparison",
+          "description": "Run benchmarks, use benchstat for direct comparison, document results",
+          "status": "not-started"
+        },
+        {
+          "id": "CHUNK_4.6",
+          "title": "Full verification",
+          "description": "Run make all, race tests, verify all tests pass",
+          "status": "not-started"
+        }
+      ]
     }
   ],
   "chunkTasks": [
@@ -43,7 +126,7 @@
       "id": "CHUNK_2.1",
       "title": "Review Eventloop Core Module - First Iteration",
       "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically loop.go, js.go, promise.go, timer pool, metrics, and performance optimizations. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/16-CHUNK2-EVENTLOOP-CORE.md.'",
-      "status": "in-progress",
+      "status": "completed",
       "chunkId": "CHUNK_2",
       "reviewSequence": "16"
     },
@@ -1986,6 +2069,62 @@
           "id": "9.3",
           "title": "Subagent Re-review: Core",
           "description": "Run #runSubagent with prompt (same as 9.1 but different output file './eventloop/docs/reviews/16-GROUP2-CORE-VERIFY.md') to verify perfection. Note: If this fails, mark 9.1, 9.2, 9.3 as pending and RESTART.",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "CLP_COMPLETE",
+      "title": "Complete: Cache Line Padding Analysis",
+      "status": "completed",
+      "description": "Comprehensive analysis and verification of cache line padding across all FastPoller structs and performance-critical components. BetterAlign verified with zero conflicts.",
+      "subtasks": [
+        {
+          "id": "CLP_COMPLETE.1",
+          "title": "Analyze FastPoller Windows struct layout",
+          "description": "Verified FastPoller Windows has correct cache line padding with closed bool isolated on dedicated 64-byte cache line. Padding preserves manual optimization intent.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.2",
+          "title": "Analyze FastPoller Darwin/Linux struct layout",
+          "description": "Verified FastPoller Darwin/Linux has correct cache line padding with fd int32 and closed bool both properly isolated on 64-byte boundaries.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.3",
+          "title": "Verify FastState struct alignment",
+          "description": "Confirmed FastState atomic Uint64 is isolated on dedicated cache line with proper padding.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.4",
+          "title": "Verify MicrotaskRing struct alignment",
+          "description": "Confirmed MicrotaskRing head counter is isolated on cache line boundary for preventing false sharing.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.5",
+          "title": "Check for betteralign conflicts",
+          "description": "Ran 'go tool betteralign ./eventloop' - ZERO CONFLICTS. BetterAlign respects all // betteralign:ignore directives. Manual padding preserved intact.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.6",
+          "title": "Create/enhance platform-specific alignment tests",
+          "description": "Created align_windows_test.go for Windows FastPoller alignment verification. Enhanced align_linux_test.go for Unix FastPoller alignment verification. Tests verify fieldSize%cacheLine==0, fieldSize%64==0, fieldOffset%64==0.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.7",
+          "title": "Verify all alignment tests pass",
+          "description": "All alignment tests passing: TestWindowsFastPollerAlign, TestUnixFastPollerAlign, TestFastStateAlign, TestLoopAlign, TestMicrotaskRingAlign, TestJSAlign, Test_sizeOfCacheLine, TestSizeOf.",
+          "status": "completed"
+        },
+        {
+          "id": "CLP_COMPLETE.8",
+          "title": "Document findings comprehensively",
+          "description": "Documented comprehensive analysis in WIP.md including struct layouts, alignment findings, BetterAlign results, test coverage, and performance optimization verification.",
           "status": "completed"
         }
       ]

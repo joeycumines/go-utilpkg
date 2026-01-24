@@ -61,14 +61,20 @@ type fdInfo struct {
 // to windows.Handle for socket handles. This is correct for standard Go net.Conn
 // sockets on Windows. For other handle types (pipes, files), use proper Windows
 // handle extraction API and convert to int for registration.
+//
+// CACHE LINE PADDING: The iocp field is put on its own cache line to reduce
+// false sharing with closed/initialized atomics. The closed and initialized fields
+// are also put on their own cache lines.
 type FastPoller struct { // betteralign:ignore
-	_           [64]byte       // Cache line padding //nolint:unused
-	iocp        windows.Handle // IOCP handle
-	_           [56]byte       // Pad to cache line //nolint:unused
-	fds         []fdInfo       // Dynamic slice, grows on demand
-	fdMu        sync.RWMutex   // Protects fds array access
-	closed      atomic.Bool
-	initialized atomic.Bool // Prevents double-init and double-close
+	_           [sizeOfCacheLine]byte     // Cache line padding before iocp (field to avoid false sharing on poller access) //nolint:unused
+	iocp        windows.Handle            // IOCP handle - isolated on own cache line
+	_           [sizeOfCacheLine - 8]byte // Pad to next cache line (8 bytes for windows.Handle) //nolint:unused
+	fds         []fdInfo                  // Dynamic slice, grows on demand
+	fdMu        sync.RWMutex              // Protects fds array access
+	_           [sizeOfCacheLine]byte     // Cache line padding before closed (field to avoid false sharing on state checks) //nolint:unused
+	closed      atomic.Bool               // Closed flag - isolated on own cache line to reduce false sharing
+	_           [sizeOfCacheLine - 1]byte // Pad to next cache line (1 byte for bool) //nolint:unused
+	initialized atomic.Bool               // Initialization flag - isolated on own cache line to reduce false sharing
 }
 
 // Init initializes the IOCP instance.

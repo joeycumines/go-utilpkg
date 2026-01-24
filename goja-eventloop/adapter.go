@@ -110,7 +110,7 @@ func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewGoError(err))
 	}
 
-	return a.runtime.ToValue(id)
+	return a.runtime.ToValue(float64(id))
 }
 
 // clearTimeout binding for Goja
@@ -144,7 +144,7 @@ func (a *Adapter) setInterval(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewGoError(err))
 	}
 
-	return a.runtime.ToValue(id)
+	return a.runtime.ToValue(float64(id))
 }
 
 // clearInterval binding for Goja
@@ -196,7 +196,7 @@ func (a *Adapter) setImmediate(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewGoError(err))
 	}
 
-	return a.runtime.ToValue(id)
+	return a.runtime.ToValue(float64(id))
 }
 
 // clearImmediate binding for Goja (alias to ClearTimeout)

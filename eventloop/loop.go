@@ -105,7 +105,13 @@ type Loop struct {
 	wakePipe      int
 	wakePipeWrite int
 
-	// Atomic fields (all require 8-byte alignment)
+	// Atomic fields (all require 8-byte alignment).
+	// NOTE: These fields do NOT have cache line padding. They share cache lines
+	// with each other and with synchronization primitives (sync.Mutex, sync.RWMutex, sync.Once).
+	// This can cause false sharing in multi-core scenarios. The fields are grouped here
+	// to minimize worst-case sharing, but loopGoroutineID, userIOFDCount, wakeUpSignalPending,
+	// and fastPathMode are cross-goroutine accessed and would benefit from cache line isolation.
+	// See align_test.go for verification of cache line positions.
 	nextTimerID         atomic.Uint64
 	tickElapsedTime     atomic.Int64
 	loopGoroutineID     atomic.Uint64
