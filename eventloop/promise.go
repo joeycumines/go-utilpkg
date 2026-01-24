@@ -12,7 +12,7 @@ import (
 // It can be any type, similar to JavaScript's dynamic typing.
 // For fulfilled promises, this holds the success value.
 // For rejected promises, this typically holds an error or rejection reason.
-type Result any
+type Result = any
 
 // PromiseState represents the lifecycle state of a [Promise].
 // A promise starts in [Pending] state and transitions to either
