@@ -51,7 +51,7 @@ func TestIntervalStateAlign(t *testing.T) {
 	fmt.Printf("wrapper: offset=%d, size=%d\n", unsafe.Offsetof(s.wrapper), unsafe.Sizeof(s.wrapper))
 	fmt.Printf("js: offset=%d, size=%d\n", unsafe.Offsetof(s.js), unsafe.Sizeof(s.js))
 	fmt.Printf("m: offset=%d, size=%d\n", unsafe.Offsetof(s.m), unsafe.Sizeof(s.m))
-	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(s))
+	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }
 
@@ -166,7 +166,7 @@ func TestTPSCounterAlign(t *testing.T) {
 		t.Logf("✗ totalCount shares cache line (offset %d, line %d-%d)", totalCountOffset, totalCountLineStart, totalCountLineEnd-1)
 	}
 
-	fmt.Printf("TPSCounter total size: %d bytes\n", unsafe.Sizeof(s))
+	fmt.Printf("TPSCounter total size: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }
 
@@ -183,7 +183,7 @@ func TestChainedPromiseAlign(t *testing.T) {
 	fmt.Printf("value: offset=%d, size=%d\n", unsafe.Offsetof(s.value), unsafe.Sizeof(s.value))
 	fmt.Printf("reason: offset=%d, size=%d\n", unsafe.Offsetof(s.reason), unsafe.Sizeof(s.reason))
 	fmt.Printf("handlers: offset=%d, size=%d\n", unsafe.Offsetof(s.handlers), unsafe.Sizeof(s.handlers))
-	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(s))
+	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }
 
@@ -264,6 +264,6 @@ func TestMicrotaskRingAlign(t *testing.T) {
 		fmt.Printf("✓ tail on cache line %d-%d\n", tailLineStart, tailLineEnd-1)
 	}
 
-	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(s))
+	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }

@@ -75,7 +75,7 @@ func TestFastPollerAlign_Windows(t *testing.T) {
 		sizeOfCacheLine + uintptr(closedSize) + sizeOfCacheLine + // padding before and after closed
 		sizeOfCacheLine + uintptr(initSize) + (sizeOfCacheLine - uintptr(initSize)) // padding before and after initialized
 
-	actualSize := unsafe.Sizeof(s)
+	actualSize := unsafe.Sizeof(*s)
 	fmt.Printf("\nExpected minimum size: %d bytes\n", expectedMinSize)
 	fmt.Printf("Actual size: %d bytes\n", actualSize)
 

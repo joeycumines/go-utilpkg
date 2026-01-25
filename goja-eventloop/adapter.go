@@ -280,25 +280,6 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		goNativeValue := result
 
 		switch v := goNativeValue.(type) {
-		case *goeventloop.ChainedPromise:
-			// This is a promise - we need to extract its value BEFORE passing to JavaScript
-			// If the promise is fulfilled, we resolve it completely to get the primitive value
-			// If rejected, we extract the rejection reason
-			// If pending, pass undefined (nothing available yet)
-			switch p := v; p.State() {
-			case goeventloop.Rejected:
-				// Get rejection reason and convert it
-				reason := p.Reason()
-				jsValue = a.convertToGojaValue(reason)
-			case goeventloop.Pending:
-				// No value available yet
-				jsValue = goja.Undefined()
-			default: // Fulfilled
-				// Get resolved value - this recursively extracts the final value
-				value := p.Value()
-				jsValue = a.convertToGojaValue(value)
-			}
-
 		case []goeventloop.Result:
 			// Convert Go-native slice to JavaScript array
 			jsArr := a.runtime.NewArray(len(v))
@@ -324,7 +305,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		ret, err := fnCallable(goja.Undefined(), jsValue)
 		if err != nil {
 			// CRITICAL FIX: Panic so tryCall catches it and rejects the promise
-			// Returning the error would cause it to be treated as a fulfilled value!
+			// Returning error would cause it to be treated as a fulfilled value!
 			panic(err)
 		}
 
@@ -359,6 +340,26 @@ func (a *Adapter) gojaVoidFuncToHandler(fn goja.Value) func() {
 	return func() {
 		_, _ = fnCallable(goja.Undefined())
 	}
+}
+
+// exportGojaValue extracts a Goja Value from Goja.Value for export without losing type info.
+// For Goja.Error objects, we want to preserve the original Value instead of using Export().
+// Returns (value, true) if value should be preserved as Goja Value, (nil, false) otherwise.
+func exportGojaValue(gojaVal goja.Value) (any, bool) {
+	if gojaVal == nil || goja.IsNull(gojaVal) || goja.IsUndefined(gojaVal) {
+		return nil, false
+	}
+
+	// Goja.Error objects: preserve as Goja.Value to maintain .message property
+	if obj, ok := gojaVal.(*goja.Object); ok {
+		if nameVal := obj.Get("name"); nameVal != nil && !goja.IsUndefined(nameVal) {
+			if nameStr, ok := nameVal.Export().(string); ok && (nameStr == "Error" || nameStr == "TypeError" || nameStr == "RangeError" || nameStr == "ReferenceError") {
+				// This is an Error object - preserve original Goja.Value
+				return gojaVal, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // gojaWrapPromise wraps a ChainedPromise with then/catch/finally instance methods
@@ -496,7 +497,15 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 	resolveVal := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		var val any
 		if len(call.Arguments) > 0 {
-			val = call.Argument(0).Export()
+			arg := call.Argument(0)
+			// CRITICAL FIX: Preserve Goja.Error objects directly without Export()
+			// Export() converts Goja.Error to opaque wrapper that loses .message property
+			// By passing Goja.Value directly, convertToGojaValue() can unwrap it properly
+			if exportedVal, ok := exportGojaValue(arg); ok {
+				val = exportedVal
+			} else {
+				val = arg.Export()
+			}
 		}
 		resolve(val)
 		return goja.Undefined()
@@ -505,7 +514,15 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 	rejectVal := a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		var val any
 		if len(call.Arguments) > 0 {
-			val = call.Argument(0).Export()
+			arg := call.Argument(0)
+			// CRITICAL FIX: Preserve Goja.Error objects directly without Export()
+			// Export() converts Goja.Error to opaque wrapper that loses .message property
+			// By passing Goja.Value directly, convertToGojaValue() can unwrap it properly
+			if exportedVal, ok := exportGojaValue(arg); ok {
+				val = exportedVal
+			} else {
+				val = arg.Export()
+			}
 		}
 		reject(val)
 		return goja.Undefined()
@@ -544,19 +561,13 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 		return val
 	}
 
-	// CRITICAL #1 FIX: Handle ChainedPromise objects - extract Value() or Reason()
-	// When Promise.resolve(1) is called, the result is a *ChainedPromise, not the value 1
+	// CRITICAL FIX: Handle ChainedPromise objects by wrapping them
+	// This preserves referential identity for Promise.reject(p) compliance
+	// When a ChainedPromise is passed through (e.g., as rejection reason),
+	// we must preserve it as-is, not unwrap its value/reason
 	if p, ok := v.(*goeventloop.ChainedPromise); ok {
-		switch p.State() {
-		case goeventloop.Pending:
-			// For pending promises, return undefined
-			return goja.Undefined()
-		case goeventloop.Rejected:
-			return a.convertToGojaValue(p.Reason())
-		default:
-			// Fulfilled or Resolved - return the value
-			return a.convertToGojaValue(p.Value())
-		}
+		// Wrap the ChainedPromise to preserve identity
+		return a.gojaWrapPromise(p)
 	}
 
 	// Handle slices of Result (from combinators like All, Race, AllSettled, Any)
@@ -737,9 +748,42 @@ func (a *Adapter) bindPromise() error {
 	promiseConstructorObj.Set("reject", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		reason := call.Argument(0)
 
-		// Pass the reason directly to preserve object properties (like Error.message)
-		// Export() on Error objects produces empty items because properties are non-enumerable
-		promise := a.js.Reject(reason)
+		// CRITICAL FIX: Preserve Goja Error objects without Export() to maintain .message property
+		// When Export() converts Error objects, they become opaque wrappers losing .message
+		if obj, ok := reason.(*goja.Object); ok && !goja.IsNull(reason) && !goja.IsUndefined(reason) {
+			if nameVal := obj.Get("name"); nameVal != nil && !goja.IsUndefined(nameVal) {
+				if nameStr, ok := nameVal.Export().(string); ok && (nameStr == "Error" || nameStr == "TypeError" || nameStr == "RangeError" || nameStr == "ReferenceError") {
+					// This is an Error object - preserve original Goja.Value
+					promise, _, reject := a.js.NewChainedPromise()
+					reject(reason) // Reject with Goja.Error (preserves .message property)
+					return a.gojaWrapPromise(promise)
+				}
+			}
+		}
+
+		// SPECIFICATION COMPLIANCE (Promise.reject promise object):
+		// When reason is a wrapped promise object (with _internalPromise field),
+		// we must preserve the wrapper object as the rejection reason per JS spec.
+		// Export() on the wrapper returns a map, which would unwrap and lose identity.
+		// CRITICAL: We must NOT call a.js.Reject(obj) as it triggers gojaWrapPromise again,
+		// causing infinite recursion. Instead, create a new rejected promise directly.
+
+		if obj, ok := reason.(*goja.Object); ok {
+			// Check if reason is a wrapped promise with _internalPromise field
+			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
+				// Already a wrapped promise - create NEW rejected promise with wrapper as reason
+				// This breaks infinite recursion by avoiding the extract → reject → wrap cycle
+				promise, _, reject := a.js.NewChainedPromise()
+				reject(obj) // Reject with the Goja Object (wrapper), not extracted promise
+
+				wrapped := a.gojaWrapPromise(promise)
+				return wrapped
+			}
+		}
+
+		// For all other types (primitives, plain objects), use Export()
+		// This preserves properties like Error.message and custom fields
+		promise := a.js.Reject(reason.Export())
 		return a.gojaWrapPromise(promise)
 	}))
 

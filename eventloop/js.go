@@ -55,7 +55,6 @@ type intervalState struct {
 	fn      SetTimeoutFunc
 	wrapper func()
 	js      *JS
-	wg      sync.WaitGroup // Tracks wrapper execution for ClearInterval
 
 	// Non-pointer, non-atomic fields first to reduce pointer alignment scope
 	delayMs            int
@@ -157,6 +156,11 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 		setImmediateMap:     make(map[uint64]*setImmediateState),
 	}
 
+	// ID Separation: SetImmediates start at high IDs to prevent collision
+	// with timeout IDs that start at 1. This ensures namespace separation
+	// across both timer systems even as they grow.
+	js.nextImmediateID.Store(1 << 48)
+
 	// Store onUnhandled callback
 	if options.onUnhandled != nil {
 		js.unhandledCallback = options.onUnhandled
@@ -251,16 +255,11 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	// Create wrapper function that accesses itself via state.wrapper
 	// We define it as a closure that will be set below
 	wrapper := func() {
-		// Add to WaitGroup at START of each execution
-		// This allows ClearInterval to wait for current execution to finish
-		state.wg.Add(1)
-
 		defer func() {
 			if r := recover(); r != nil {
 				// Log panic recovery for interval callbacks
 				log.Printf("[eventloop] Interval callback panicked: %v", r)
 			}
-			state.wg.Done()
 		}()
 
 		// Run user's function
@@ -491,12 +490,15 @@ func (s *setImmediateState) run() {
 		return
 	}
 
-	s.fn()
+	// DEFER cleanup to ensure map entry is removed even if fn() panics
+	// This fixes Memory Leak #2 from review.md Section 2.A
+	defer func() {
+		s.js.setImmediateMu.Lock()
+		delete(s.js.setImmediateMap, s.id)
+		s.js.setImmediateMu.Unlock()
+	}()
 
-	// Cleanup self from map
-	s.js.setImmediateMu.Lock()
-	delete(s.js.setImmediateMap, s.id)
-	s.js.setImmediateMu.Unlock()
+	s.fn()
 }
 
 // Resolve returns an already-resolved promise with the given value.

@@ -1,4 +1,4 @@
-//go:build linux
+//go:build darwin
 
 package eventloop
 
@@ -8,34 +8,34 @@ import (
 	"unsafe"
 )
 
-// TestFastPollerAlign_Linux validates Linux FastPoller struct alignment
-func TestFastPollerAlign_Linux(t *testing.T) {
+// TestFastPollerAlign_Darwin validates Darwin FastPoller struct alignment
+func TestFastPollerAlign_Darwin(t *testing.T) {
 	s := &FastPoller{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== FastPoller (Linux) ===\n")
+	fmt.Printf("=== FastPoller (Darwin) ===\n")
 
-	// Check epfd offset (Linux-specific field)
-	epfdOffset := unsafe.Offsetof(s.epfd)
-	epfdSize := unsafe.Sizeof(s.epfd)
-	fmt.Printf("epfd: offset=%d, size=%d\n", epfdOffset, epfdSize)
+	// Check kq offset (Darwin-specific field)
+	kqOffset := unsafe.Offsetof(s.kq)
+	kqSize := unsafe.Sizeof(s.kq)
+	fmt.Printf("kq: offset=%d, size=%d\n", kqOffset, kqSize)
 
-	// Verify epfd is on cache line boundary (should be exactly at sizeOfCacheLine)
-	if epfdOffset == sizeOfCacheLine {
-		fmt.Printf("✓ epfd starts on cache line boundary (%d)\n", epfdOffset)
+	// Verify kq is on cache line boundary (should be exactly at sizeOfCacheLine)
+	if kqOffset == sizeOfCacheLine {
+		fmt.Printf("✓ kq starts on cache line boundary (%d)\n", kqOffset)
 	} else {
-		t.Errorf("FAIL: epfd not on cache line boundary (got offset %d, expected %d)", epfdOffset, sizeOfCacheLine)
+		t.Errorf("FAIL: kq not on cache line boundary (got offset %d, expected %d)", kqOffset, sizeOfCacheLine)
 	}
 
-	// Verify epfd is alone on its cache line
-	epfdEnd := epfdOffset + epfdSize
-	lineStart := (epfdOffset / sizeOfCacheLine) * sizeOfCacheLine
+	// Verify kq is alone on its cache line
+	kqEnd := kqOffset + kqSize
+	lineStart := (kqOffset / sizeOfCacheLine) * sizeOfCacheLine
 	lineEnd := lineStart + sizeOfCacheLine
 
-	if epfdEnd <= lineEnd {
-		fmt.Printf("✓ epfd is isolated on its own cache line (%d-%d)\n", lineStart, lineEnd-1)
+	if kqEnd <= lineEnd {
+		fmt.Printf("✓ kq is isolated on its own cache line (%d-%d)\n", lineStart, lineEnd-1)
 	} else {
-		t.Errorf("FAIL: epfd shares cache line (ends at %d, line ends at %d)", epfdEnd, lineEnd)
+		t.Errorf("FAIL: kq shares cache line (ends at %d, line ends at %d)", kqEnd, lineEnd)
 	}
 
 	// Check closed offset
@@ -55,7 +55,7 @@ func TestFastPollerAlign_Linux(t *testing.T) {
 	}
 
 	// Verify total structure size
-	expectedMinSize := sizeOfCacheLine + epfdSize + (sizeOfCacheLine - epfdSize) + // padding before and after epfd
+	expectedMinSize := sizeOfCacheLine + kqSize + (sizeOfCacheLine - kqSize) + // padding before and after kq
 		sizeOfCacheLine + uintptr(closedSize) + (sizeOfCacheLine - uintptr(closedSize)) // padding before and after closed
 
 	actualSize := unsafe.Sizeof(*s)

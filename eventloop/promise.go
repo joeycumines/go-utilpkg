@@ -326,6 +326,14 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 	p.handlers = nil // Clear handlers slice after copying to prevent memory leak
 	p.mu.Unlock()
 
+	// CLEANUP: Prevent leak on success - remove from promiseHandlers map
+	// This fixes Memory Leak #1 from review.md Section 2.A
+	if js != nil {
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, p.id)
+		js.promiseHandlersMu.Unlock()
+	}
+
 	// Schedule handlers as microtasks
 	for _, h := range handlers {
 		// Promise/A+ 2.2.7.3: If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1.
@@ -436,29 +444,44 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 	// Check current state
 	currentState := p.state.Load()
 
-	// DEBUG: Log state check when attaching handlers
-	if onFulfilled != nil && onRejected != nil {
-		fmt.Printf("[DEBUG:then] Promise %d: Attaching THEN and CATCH handlers, state=%d (Pending=0, Fulfilled=1, Rejected=2)\n", p.id, currentState)
-	}
-
 	if currentState == int32(Pending) {
 		// Pending: store handler
 		p.mu.Lock()
 		p.handlers = append(p.handlers, h)
 		p.mu.Unlock()
 	} else {
-		// Already settled: schedule handler as microtask
-		if currentState == int32(Fulfilled) {
-			v := p.Value()
-			js.QueueMicrotask(func() {
-				tryCall(onFulfilled, v, resolve, reject)
-			})
-		} else if currentState == int32(Rejected) {
+		// Already settled: retroactive cleanup for settled promises - This fixes Memory Leak #3 from review.md Section 2.A
+		if onRejected != nil && currentState == int32(Fulfilled) {
+			// Fulfilled promises don't need rejection tracking (can never be rejected)
+			js.promiseHandlersMu.Lock()
+			delete(js.promiseHandlers, p.id)
+			js.promiseHandlersMu.Unlock()
+		} else if onRejected != nil && currentState == int32(Rejected) {
+			// Rejected promises: only track if currently unhandled
+			js.rejectionsMu.RLock()
+			_, isUnhandled := js.unhandledRejections[p.id]
+			js.rejectionsMu.RUnlock()
+
+			if !isUnhandled {
+				// Already handled, remove tracking
+				js.promiseHandlersMu.Lock()
+				delete(js.promiseHandlers, p.id)
+				js.promiseHandlersMu.Unlock()
+			}
+
+			// Schedule handler as microtask for already-rejected promise
 			r := p.Reason()
 			js.QueueMicrotask(func() {
 				tryCall(onRejected, r, resolve, reject)
 			})
+			return result
 		}
+
+		// Schedule handler as microtask for already-fulfilled promise
+		v := p.Value()
+		js.QueueMicrotask(func() {
+			tryCall(onFulfilled, v, resolve, reject)
+		})
 	}
 
 	return result
