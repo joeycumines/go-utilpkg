@@ -34,6 +34,10 @@ var (
 	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
 	ErrTimerNotFound = errors.New("eventloop: timer not found")
 
+	// ErrTimerIDExhausted is returned when the timer ID would exceed JavaScript's MAX_SAFE_INTEGER.
+	// This prevents precision loss when casting timer IDs to float64 for JavaScript interop.
+	ErrTimerIDExhausted = errors.New("eventloop: timer ID exceeded MAX_SAFE_INTEGER")
+
 	// ErrLoopNotRunning is returned when an operation requires a running loop.
 	ErrLoopNotRunning = errors.New("eventloop: loop is not running")
 )
@@ -888,6 +892,13 @@ func (l *Loop) poll() {
 		l.testHooks.PrePollAwake()
 	}
 
+	// Drain auxJobs after returning from poll.
+	// This handles the race where tasks raced into auxJobs during mode transition
+	// (e.g., Submit() checked canUseFastPath() before lock, mode changed between
+	// check and lock acquisition, task went into auxJobs while loop was in poll).
+	// Without this, such tasks would starve until next mode change or shutdown.
+	l.drainAuxJobs()
+
 	l.state.TryTransition(StateSleeping, StateRunning)
 }
 
@@ -902,6 +913,9 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
 			l.testHooks.PrePollAwake()
 		}
+		// Drain auxJobs after returning from fast mode wakeup
+		// Handles race where tasks raced into auxJobs during mode transition
+		l.drainAuxJobs()
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	default:
@@ -920,6 +934,8 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
 			l.testHooks.PrePollAwake()
 		}
+		// Drain auxJobs after returning from poll
+		l.drainAuxJobs()
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
@@ -938,6 +954,8 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
 			l.testHooks.PrePollAwake()
 		}
+		// Drain auxJobs after returning from poll
+		l.drainAuxJobs()
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
@@ -960,6 +978,8 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 		l.testHooks.PrePollAwake()
 	}
 
+	// Drain auxJobs after returning from poll
+	l.drainAuxJobs()
 	l.state.TryTransition(StateSleeping, StateRunning)
 }
 
@@ -1460,6 +1480,17 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 
 	// Return timer to pool on error
 	id := t.id
+
+	// Validate ID does not exceed JavaScript's MAX_SAFE_INTEGER
+	// This must happen BEFORE SubmitInternal to prevent resource leak
+	const maxSafeInteger = 9007199254740991 // 2^53 - 1
+	if uint64(id) > maxSafeInteger {
+		// Put back to pool - timer was never scheduled
+		t.task = nil // Avoid keeping reference
+		timerPool.Put(t)
+		return 0, ErrTimerIDExhausted
+	}
+
 	err := l.SubmitInternal(func() {
 		l.timerMap[id] = t
 		heap.Push(&l.timers, t)

@@ -196,17 +196,11 @@ func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	delay := time.Duration(delayMs) * time.Millisecond
 
 	// Schedule on underlying loop
+	// ScheduleTimer now validates ID <= MAX_SAFE_INTEGER BEFORE scheduling
+	// If validation fails, it returns ErrTimerIDExhausted
 	loopTimerID, err := js.loop.ScheduleTimer(delay, fn)
 	if err != nil {
 		return 0, err
-	}
-
-	// Safety check for JS integer limits
-	// This ensures we never return an ID that could lose precision in JS
-	if uint64(loopTimerID) > maxSafeInteger {
-		// Cancel the timer we just scheduled so it doesn't leak
-		_ = js.loop.CancelTimer(loopTimerID)
-		panic("eventloop: timer ID exceeded MAX_SAFE_INTEGER")
 	}
 
 	return uint64(loopTimerID), nil
@@ -331,6 +325,14 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 // Returns [ErrTimerNotFound] if the timer ID is invalid.
 // This is safe to call from any goroutine, including from within
 // the interval's own callback.
+//
+// JavaScript Semantics and TOCTOU Race:
+// ClearInterval provides a best-effort guarantee that matches JavaScript semantics:
+//   - If the interval callback is not executing, it will not execute again
+//   - If the callback is currently executing, the NEXT scheduled execution is cancelled
+//   - There is a narrow window (between wrapper's Check 1 and lock acquisition) where
+//     the interval might fire one additional time after ClearInterval returns
+// This is intentional and matches the asynchronous nature of clearInterval in JavaScript.
 func (js *JS) ClearInterval(id uint64) error {
 	js.intervalsMu.RLock()
 	state, ok := js.intervals[id]

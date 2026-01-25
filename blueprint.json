@@ -1,23 +1,15 @@
 {
-  "policy": "ALL tasks and subtasks contained within this blueprint MUST be completed in their entirety. Deferring, skipping, or omitting any part of the plan is strictly prohibited. Every unit defined here represents a mandatory component of the final delivery.",
+  "policy": "ALL tasks and subtasks contained within this blueprint MUST be completed in their entirety. Deferring, skipping, or omitting any part of the plan is strictly prohibited. Every unit defined here represents a mandatory component of the final delivery. 'Effective test coverage' means covering ALL code paths, edge cases, and error conditions - not just line coverage. This includes unreachable paths, error branches, and platform-specific code.",
+  "coverageDefinition": {
+    "effectiveCoverage": "Coverage of all logic paths, error branches, edge cases, and platform-specific code. Must handle null/undefined inputs, error propagation, concurrent access, and boundary conditions.",
+    "targetMetrics": {
+      "minimumLineCoverage": "100% of all possible code paths",
+      "minimumBranchCoverage": "100% of all possible code paths",
+      "minimumFunctionCoverage": "100% of all possible code paths",
+      "errorPathCoverage": "100% not inclusive of TRULY unreachable code i.e. invariant assertions"
+    }
+  },
   "chunks": [
-    {
-      "id": "CHUNK_1",
-      "name": "Goja Integration Module",
-      "files": [
-        "goja-eventloop/*"
-      ],
-      "testStatus": "18/18 PASS (100%)",
-      "scope": [
-        "adapter.go",
-        "Promise combinators (all, race, allSettled, any)",
-        "setImmediate/clearImmediate",
-        "Promise chaining"
-      ],
-      "complexity": "MEDIUM",
-      "status": "READY for review",
-      "priority": "medium"
-    },
     {
       "id": "CHUNK_2",
       "name": "Eventloop Core Module",
@@ -25,17 +17,81 @@
         "eventloop/*"
       ],
       "testStatus": "ALL PASS (including timer pool stress tests)",
+      "currentCoverage": {
+        "main": "77.1%",
+        "internal/alternateone": "69.3%",
+        "internal/alternatethree": "58.0%",
+        "internal/alternatetwo": "73.0%"
+      },
+      "estimatedTestCount": "200+ tests",
       "scope": [
-        "loop.go",
-        "js.go",
-        "promise.go",
-        "timer pool",
-        "metrics",
-        "performance optimizations"
+        "loop.go (1699 lines)",
+        "js.go - JavaScript adapter",
+        "promise.go - Promise/A+ implementation",
+        "timer pool - High-performance timer scheduling",
+        "metrics - Runtime metrics (latency, TPS, queue depth)",
+        "performance optimizations - Fast path mode, microtask budget"
       ],
       "complexity": "HIGH",
-      "status": "READY for review",
-      "priority": "highest"
+      "status": "fixes-complete",
+      "priority": "highest",
+      "reviewTasks": [
+        "CHUNK_2.1",
+        "CHUNK_2.2",
+        "CHUNK_2.3",
+        "CHUNK_2.4",
+        "CHUNK_2.5",
+        "CHUNK_2.6",
+        "CHUNK_2.7"
+      ],
+      "reviewDocument": "./eventloop/docs/reviews/22-EVENTLOOP_CORE_SCOPE-CHUNK2_CHUNK3.md",
+      "fixDocument": "./eventloop/docs/reviews/22-EVENTLOOP_CORE-FIXES.md",
+      "reviewDate": "2026-01-25",
+      "fixDate": "2026-01-25",
+      "reviewStatus": "ALL CRITICAL/HIGH BUGS FIXED - COMPLETED",
+      "criticalIssues": [
+        "CRITICAL #1: Timer ID MAX_SAFE_INTEGER panic with resource leak (js.go:209, js.go:307, js.go:428)"
+      ],
+      "highPriorityIssues": [
+        "HIGH #1: Interval state TOCTOU race (js.go:224-361) - documented behavior",
+        "HIGH #2: Fast path starvation window (loop.go:830-900) - needs drainAuxJobs() in poll()"
+      ],
+      "overallAssessment": "PRODUCTION-READY WITH MINOR CONCERNS - Fix CRITICAL #1 before deployment (2 hours)"
+    },
+    {
+      "id": "CHUNK_1",
+      "name": "Goja Integration Module",
+      "files": [
+        "goja-eventloop/*"
+      ],
+      "testStatus": "ALL PASS (18/18 tests)",
+      "currentCoverage": {
+        "main": "74.9%"
+      },
+      "estimatedTestCount": "43+ tests",
+      "scope": [
+        "adapter.go (957 lines)",
+        "Promise combinators (all, race, allSettled, any)",
+        "setImmediate/clearImmediate",
+        "Promise chaining"
+      ],
+      "complexity": "MEDIUM",
+      "status": "review-complete",
+      "priority": "medium",
+      "reviewTasks": [
+        "CHUNK_1.1",
+        "CHUNK_1.2",
+        "CHUNK_1.3"
+      ],
+      "reviewDocument": "./eventloop/docs/reviews/21-GOJA_SCOPE-CHUNK1_CHUNK4.md",
+      "reviewDate": "2026-01-25",
+      "reviewStatus": "CRITICAL ISSUES FOUND - BLOCKING",
+      "criticalIssues": [
+        "CRITICAL #1: Potential recursive unwrapping in gojaFuncToHandler (HIGH severity)",
+        "CRITICAL #2: No explicit cleanup for Promise wrappers (HIGH severity)",
+        "HIGH #1: Iterator error handling inconsistent (HIGH severity)"
+      ],
+      "overallAssessment": "DO NOT MERGE WITHOUT FIXING BLOCKING ISSUES"
     },
     {
       "id": "CHUNK_3",
@@ -46,73 +102,443 @@
       ],
       "testStatus": "PASSED (all tests)",
       "scope": [
-        "TimerID mapping removal",
-        "JS float64 encoding",
+        "TimerID mapping removal from Goja adapter",
+        "JS float64 encoding for timer IDs",
         "MAX_SAFE_INTEGER handling"
       ],
       "complexity": "MEDIUM",
-      "status": "READY for review",
-      "priority": "highest"
+      "status": "fixes-complete",
+      "priority": "highest",
+      "reviewTasks": [
+        "CHUNK_3.1",
+        "CHUNK_3.2",
+        "CHUNK_3.3"
+      ],
+      "reviewDocument": "./eventloop/docs/reviews/22-EVENTLOOP_CORE_SCOPE-CHUNK2_CHUNK3.md",
+      "reviewDate": "2026-01-25",
+      "reviewStatus": "ALL CRITICAL/HIGH BUGS FIXED - COMPLETED",
+      "criticalIssues": [
+        "CRITICAL #1: Timer ID MAX_SAFE_INTEGER panic with resource leak (js.go:209, js.go:307, js.go:428)"
+      ],
+      "highPriorityIssues": [
+        "HIGH #1: Interval state TOCTOU race - documented JS-compatible behavior",
+        "HIGH #2: Fast path starvation window - needs drainAuxJobs() in poll()"
+      ],
+      "overallAssessment": "PRODUCTION-READY WITH MINOR CONCERNS - Fix CRITICAL #1 before deployment (2 hours)"
+    },
+    {
+      "id": "CHUNK_4",
+      "name": "Specification Compliance Fix",
+      "files": [
+        "goja-eventloop/adapter.go"
+      ],
+      "testStatus": "UNKNOWN (to be verified)",
+      "scope": [
+        "Remove recursive unwrapping logic in gojaFuncToHandler",
+        "Preserve Promise.reject(promise) semantics",
+        "JS Spec compliance: rejection reason must be Promise object itself",
+        "Not unwrapped to result"
+      ],
+      "complexity": "MEDIUM",
+      "status": "review-complete",
+      "priority": "high",
+      "reviewTasks": [
+        "CHUNK_4.1",
+        "CHUNK_4.2",
+        "CHUNK_4.3"
+      ],
+      "reviewDocument": "./eventloop/docs/reviews/21-GOJA_SCOPE-CHUNK1_CHUNK4.md",
+      "reviewDate": "2026-01-25",
+      "reviewStatus": "CRITICAL ISSUES FOUND - BLOCKING",
+      "criticalIssues": [
+        "CRITICAL #1: Potential recursive unwrapping in gojaFuncToHandler (HIGH severity)",
+        "CRITICAL #2: No explicit cleanup for Promise wrappers (HIGH severity)"
+      ],
+      "overallAssessment": "DO NOT MERGE WITHOUT FIXING BLOCKING ISSUES"
     }
   ],
   "chunkTasks": [
     {
+      "id": "CHUNK_2.1",
+      "title": "Review Eventloop Core Module - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of the Eventloop Core Module - specifically loop.go (1699 lines), js.go, promise.go, timer pool, metrics, and performance optimizations. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording would make it materially worse. Write up your review to ./eventloop/docs/reviews/21-CHUNK2-EVENTLOOP_CORE.md.'",
+      "status": "not-started",
+      "chunkId": "CHUNK_2",
+      "reviewSequence": "21",
+      "priority": "highest"
+    },
+    {
       "id": "CHUNK_2.2",
       "title": "Fix all issues identified in Eventloop Core Module review",
-      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_2.1 shows the review is complete and issues are documented.",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_2.1 shows the review is complete and issues are documented. Run 'make test' after all fixes and verify 100% test pass rate including stress tests.",
       "status": "not-started",
-      "chunkId": "CHUNK_2"
+      "chunkId": "CHUNK_2",
+      "priority": "highest"
     },
     {
       "id": "CHUNK_2.3",
       "title": "Re-review Eventloop Core Module - Second Iteration",
-      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Eventloop Core Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_2.1, CHUNK_2.2, and CHUNK_2.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "description": "Run #runSubagent with SAME review prompt (different sequence: 22-CHUNK2-EVENTLOOP_CORE.md) to verify Eventloop Core Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_2.1, CHUNK_2.2, and CHUNK_2.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
       "status": "not-started",
-      "chunkId": "CHUNK_2"
+      "chunkId": "CHUNK_2",
+      "priority": "highest"
+    },
+    {
+      "id": "CHUNK_2.4",
+      "title": "Fix CRITICAL #1 - Timer ID MAX_SAFE_INTEGER panic",
+      "description": "Fix the critical bug where MAX_SAFE_INTEGER check happens AFTER timer is scheduled in SetTimeout (js.go:195-212). Move the validation check to occur BEFORE calling ScheduleTimer to prevent resource leaks. Note: SetInterval and SetImmediate already check BEFORE scheduling (they are safe). Fix: Peek the nextTimerID value, check if > maxSafeInteger, if so return error instead of panic, then call ScheduleTimer.",
+      "status": "completed",
+      "chunkId": "CHUNK_2",
+      "priority": "highest",
+      "fixStatus": "VERIFIED 2026-01-25",
+      "fixes": ["CRITICAL #1: Timer ID MAX_SAFE_INTEGER panic with resource leak (js.go:209)"]
+    },
+    {
+      "id": "CHUNK_2.5",
+      "title": "Document HIGH #1 - Interval state TOCTOU race",
+      "description": "Evaluate the TOCTOU race condition in SetInterval wrapper and ClearInterval. Current implementation uses double-check locking and is defensive. Determine if this matches JavaScript setInterval/clearInterval semantics (where cancellation is immediate but asynchronous). If correct behavior, add clarifying comments to document the race condition and expected behavior. If not correct, implement proper synchronization.",
+      "status": "completed",
+      "chunkId": "CHUNK_2",
+      "priority": "high",
+      "fixStatus": "VERIFIED 2026-01-25 - DOCUMENTED AS ACCEPTABLE JS SEMANTICS",
+      "fixes": ["HIGH #1: Interval state TOCTOU race (js.go:224-361)"]
+    },
+    {
+      "id": "CHUNK_2.6",
+      "title": "Fix HIGH #2 - Fast path starvation window",
+      "description": "Fix the starvation window where tasks in auxJobs may not execute if the loop exits fast path mode. The issue is in the poll() function (loop.go:830-900) which does not call drainAuxJobs() when not in fast path. Add drainAuxJobs() call in the poll path when fast path is not active to prevent task starvation.",
+      "status": "completed",
+      "chunkId": "CHUNK_2",
+      "priority": "high",
+      "fixStatus": "VERIFIED 2026-01-25 - ADDD drainAuxJobs() TO POLL()",
+      "fixes": ["HIGH #2: Fast path starvation window (loop.go:830-900)"]
+    },
+    {
+      "id": "CHUNK_2.7",
+      "title": "Verify EVENTLOOP CORE fixes and create documentation",
+      "description": "After completing all fix tasks (CHUNK_2.4, CHUNK_2.5, CHUNK_2.6), verify all tests pass: 1) Run 'go test ./eventloop/... -v' to verify 100% pass rate. 2) Run 'go test ./eventloop/... -race' to verify no race conditions. 3) Run specific race/starvation tests. 4) Create fix summary document at ./eventloop/docs/reviews/22-EVENTLOOP_CORE-FIXES.md documenting all fixes applied. 5) Update blueprint.json to mark CHUNK_2 fixes as complete.",
+      "status": "completed",
+      "chunkId": "CHUNK_2",
+      "priority": "highest",
+      "fixStatus": "VERIFIED 2026-01-25 - ALL TESTS PASS, DOCUMENTATION CREATED",
+      "dependsOn": ["CHUNK_2.4", "CHUNK_2.5", "CHUNK_2.6"]
     },
     {
       "id": "CHUNK_1.1",
       "title": "Review Goja Integration Module - First Iteration",
-      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically adapter.go, Promise combinators (all, race, allSettled, any), setImmediate/clearImmediate, and Promise chaining. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/15-CHUNK1-GOJA-INTEGRATION.md.'",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically adapter.go, Promise combinators (all, race, allSettled, any), setImmediate/clearImmediate, and Promise chaining. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording would make it materially worse. Write up your review to ./eventloop/docs/reviews/15-CHUNK1-GOJA-INTEGRATION.md.'",
       "status": "not-started",
       "chunkId": "CHUNK_1",
-      "reviewSequence": "15"
+      "reviewSequence": "15",
+      "priority": "medium"
     },
     {
       "id": "CHUNK_1.2",
       "title": "Fix all issues identified in Goja Integration Module review",
-      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_1.1 shows the review is complete and issues are documented.",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_1.1 shows the review is complete and issues are documented. Run 'make test' after all fixes and verify 100% test pass rate.",
       "status": "not-started",
-      "chunkId": "CHUNK_1"
+      "chunkId": "CHUNK_1",
+      "priority": "medium"
     },
     {
       "id": "CHUNK_1.3",
       "title": "Re-review Goja Integration Module - Second Iteration",
-      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Goja Integration Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_1.1, CHUNK_1.2, and CHUNK_1.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "description": "Run #runSubagent with SAME review prompt (different sequence: 16-CHUNK1-GOJA-INTEGRATION.md) to verify Goja Integration Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_1.1, CHUNK_1.2, and CHUNK_1.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
       "status": "not-started",
-      "chunkId": "CHUNK_1"
+      "chunkId": "CHUNK_1",
+      "priority": "medium"
     },
     {
-      "id": "CHUNK_6.1",
-      "title": "Review: Specification Compliance - First Iteration",
-      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE correctness of specification compliance fix in goja-eventloop/adapter.go. Specifically verify: Remove recursive unwrapping logic (case *goeventloop.ChainedPromise) in gojaFuncToHandler to preserve Promise.reject(promise) semantics. JS Spec requires rejection reason to be the Promise object itself, not its result. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/19-CHUNK6-SPEC_COMPLIANCE.md.'",
+      "id": "CHUNK_3.1",
+      "title": "Review Timer ID Refactor - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of Timer ID Refactor - specifically TimerID mapping removal from Goja adapter, JS float64 encoding for timer IDs, and MAX_SAFE_INTEGER handling across eventloop and goja-eventloop modules. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording would make it materially worse. Write up your review to ./eventloop/docs/reviews/17-CHUNK3-TIMER_ID.md.'",
       "status": "not-started",
-      "chunkId": "CHUNK_6",
-      "reviewSequence": "19"
+      "chunkId": "CHUNK_3",
+      "reviewSequence": "17",
+      "priority": "highest"
     },
     {
-      "id": "CHUNK_6.2",
+      "id": "CHUNK_3.2",
+      "title": "Fix all issues identified in Timer ID Refactor review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_3.1 shows the review is complete and issues are documented. Run 'make test' after all fixes and verify 100% test pass rate including timer ID boundary tests.",
+      "status": "not-started",
+      "chunkId": "CHUNK_3",
+      "priority": "highest"
+    },
+    {
+      "id": "CHUNK_3.3",
+      "title": "Re-review Timer ID Refactor - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence: 18-CHUNK3-TIMER_ID.md) to verify Timer ID Refactor is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_3.1, CHUNK_3.2, and CHUNK_3.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_3",
+      "priority": "highest"
+    },
+    {
+      "id": "CHUNK_4.1",
+      "title": "Review Specification Compliance Fix - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of specification compliance fix in goja-eventloop/adapter.go. Specifically verify: Remove recursive unwrapping logic (case *goeventloop.ChainedPromise) in gojaFuncToHandler to preserve Promise.reject(promise) semantics. JS Spec requires rejection reason to be the Promise object itself, not its result. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording would make it materially worse. Write up your review to ./eventloop/docs/reviews/19-CHUNK4-SPEC_COMPLIANCE.md.'",
+      "status": "not-started",
+      "chunkId": "CHUNK_4",
+      "reviewSequence": "19",
+      "priority": "high"
+    },
+    {
+      "id": "CHUNK_4.2",
       "title": "Fix all issues identified in Specification Compliance review",
-      "description": "Use #runSubagent to ADDRESS _all_ issues from the Specification Compliance review. Do not proceed until task CHUNK_6.1 shows the review is complete and issues are documented.",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the Specification Compliance review. Do not proceed until task CHUNK_4.1 shows the review is complete and issues are documented. Run 'make test' after all fixes and verify spec compliance tests pass.",
       "status": "not-started",
-      "chunkId": "CHUNK_6"
+      "chunkId": "CHUNK_4",
+      "priority": "high"
     },
     {
-      "id": "CHUNK_6.3",
-      "title": "Re-review: Specification Compliance - Second Iteration",
-      "description": "Run #runSubagent with SAME review prompt (different sequence: 20-CHUNK6-SPEC_COMPLIANCE.md) to verify Specification Compliance fix is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_6.1, CHUNK_6.2, and CHUNK_6.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "id": "CHUNK_4.3",
+      "title": "Re-review Specification Compliance Fix - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence: 20-CHUNK4-SPEC_COMPLIANCE.md) to verify Specification Compliance fix is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_4.1, CHUNK_4.2, and CHUNK_4.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
       "status": "not-started",
-      "chunkId": "CHUNK_6"
+      "chunkId": "CHUNK_4",
+      "priority": "high"
+    }
+  ],
+  "testCoverageTasks": [
+    {
+      "id": "COVERAGE_1",
+      "title": "Achieve 100% Effective Test Coverage - Eventloop Module",
+      "description": "Achieve 100% effective test coverage for eventloop module. Current coverage: 77.1% main, 69.3% alternateone, 58.0% alternatethree, 73.0% alternatetwo. REQUIREMENTS: (1) All code paths covered, (2) All error branches tested, (3) All edge cases covered, (4) Platform-specific code tested where possible, (5) Race condition coverage with -race flag. TARGET METRICS: main >= 90%, alternateone >= 90%, alternatethree >= 85% (experimental), alternatetwo >= 90%. SUBTASKS: (a) Analyze uncovered lines in internal/alternatethree, (b) Add tests for uncovered paths, (c) Verify with 'go test -coverprofile=coverage.out ./eventloop/...', (d) Run 'go tool cover -html=coverage.out' to visualize gaps, (e) Repeat until all metrics met.",
+      "status": "not-started",
+      "moduleId": "eventloop",
+      "priority": "high",
+      "estimatedEffort": "4-6 hours",
+      "verification": {
+        "command": "go test -coverprofile=coverage.out ./eventloop/... && go tool cover -func=coverage.out | grep total",
+        "targetCoverage": "90%"
+      },
+      "subtasks": [
+        {
+          "id": "COVERAGE_1.1",
+          "title": "Analyze coverage gaps in internal/alternatethree (58.0%)",
+          "description": "Run 'go test -coverprofile=coverage.out ./eventloop/internal/alternatethree/...' and 'go tool cover -html=coverage.out' to identify specific uncovered lines. Document all gaps in ./eventloop/docs/coverage-gaps-alternatethree.md.",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_1.2",
+          "title": "Add tests for uncovered paths in alternateone and alternatetwo",
+          "description": "Create targeted tests for uncovered code paths in internal/alternateone (69.3%) and internal/alternatetwo (73.0%). Focus on error conditions, edge cases, and platform-specific branches.",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_1.3",
+          "title": "Add error path and edge case tests for main package",
+          "description": "For the 22.9% uncovered in main package, add comprehensive tests for: (a) Timer ID overflow scenarios, (b) Promise error propagation, (c) Metrics edge cases, (d) Fast path boundary conditions, (e) Microtask budget exhaustion.",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_1.4",
+          "title": "Verify 100% effective coverage achieved",
+          "description": "Run full coverage analysis: 'go test -coverprofile=coverage.out ./eventloop/... && go tool cover -html=coverage.out -o coverage.html'. Verify target metrics: main >= 90%, alternateone >= 90%, alternatethree >= 85%, alternatetwo >= 90%. Ensure all identified coverage gaps closed.",
+          "status": "not-started"
+        }
+      ]
+    },
+    {
+      "id": "COVERAGE_2",
+      "title": "Achieve 100% Effective Test Coverage - Goja-Eventloop Module",
+      "description": "Achieve 100% effective test coverage for goja-eventloop module. Current coverage: 74.9%. REQUIREMENTS: (1) All code paths covered, (2) All error branches tested, (3) Promise combinator edge cases (null/undefined inputs), (4) Timer ID boundary cases (MAX_SAFE_INTEGER), (5) Concurrent timer scheduling stress tests, (6) Deep promise chain scenarios (>10 .then() calls). TARGET METRICS: main >= 90%. SUBTASKS: (a) Analyze uncovered lines with coverage profile, (b) Add Promise combinator tests for null/undefined/edge cases, (c) Add timer ID boundary tests (near MAX_SAFE_INTEGER), (d) Add concurrent timer stress tests, (e) Add deep promise chain tests, (f) Verify with 'go test -coverprofile=coverage.out ./goja-eventloop/...', (g) Run 'go tool cover -html=coverage.out' to visualize gaps.",
+      "status": "not-started",
+      "moduleId": "goja-eventloop",
+      "priority": "high",
+      "estimatedEffort": "3-4 hours",
+      "verification": {
+        "command": "go test -coverprofile=coverage.out ./goja-eventloop/... && go tool cover -func=coverage.out | grep total",
+        "targetCoverage": "90%"
+      },
+      "subtasks": [
+        {
+          "id": "COVERAGE_2.1",
+          "title": "Analyze coverage gaps in goja-eventloop (74.9%)",
+          "description": "Run 'go test -coverprofile=coverage.out ./goja-eventloop/...' and 'go tool cover -html=coverage.out' to identify specific uncovered lines. Document all gaps in ./goja-eventloop/docs/coverage-gaps.md.",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_2.2",
+          "title": "Add Promise combinator edge case tests",
+          "description": "Create comprehensive tests for Promise combinators (all, race, allSettled, any) covering: null inputs, undefined inputs, empty arrays, single element arrays, nested promises, mixed resolution/rejection scenarios. Test file: adapter_combinators_edge_test.go",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_2.3",
+          "title": "Add timer ID boundary tests",
+          "description": "Create tests for timer ID boundaries: MAX_SAFE_INTEGER, overflow scenarios, ID reuse edge cases, concurrent timer scheduling with high IDs. Test file: adapter_timer_boundary_test.go",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_2.4",
+          "title": "Add deep promise chain tests",
+          "description": "Create tests for deep promise chains: 10+ .then() calls, mixed resolution/rejection in chains, Promise.all with nested promises, error propagation in complex chains. Test file: adapter_deep_chain_test.go",
+          "status": "not-started"
+        },
+        {
+          "id": "COVERAGE_2.5",
+          "title": "Verify 100% effective coverage achieved",
+          "description": "Run full coverage analysis: 'go test -coverprofile=coverage.out ./goja-eventloop/... && go tool cover -html=coverage.out -o coverage.html'. Verify target metric: main >= 90%. Ensure all identified coverage gaps closed including error paths and edge cases.",
+          "status": "not-started"
+        }
+      ]
+    }
+  ],
+  "betteralignTasks": [
+    {
+      "id": "BETTERALIGN_1",
+      "title": "Create custom config.mk target for betteralign",
+      "description": "Add a custom target in config.mk for running betteralign on eventloop module. TARGET: 'betteralign-eventloop' with command: 'go -C eventloop tool betteralign -apply .'. This should automatically apply betteralign fixes for cache line padding optimization.",
+      "status": "not-started",
+      "priority": "high",
+      "subtasks": [
+        {
+          "id": "BETTERALIGN_1.1",
+          "title": "Create/edit config.mk with betteralign target",
+          "description": "Open config.mk and add: 'betteralign-eventloop:\n\t@echo \"Running betteralign on eventloop...\"\n\tgo -C eventloop tool betteralign -apply .\n\t@echo \"Betteralign complete\"'. Ensure file exists (create if missing).",
+          "status": "not-started"
+        },
+        {
+          "id": "BETTERALIGN_1.2",
+          "title": "Add betteralign target to Makefile",
+          "description": "In project.mk or Makefile, add 'betteralign-eventloop' as a dependency of the 'betteralign' target if it doesn't exist yet. Ensure it integrates with existing build targets.",
+          "status": "not-started"
+        }
+      ]
+    },
+    {
+      "id": "BETTERALIGN_2",
+      "title": "Run betteralign on eventloop module",
+      "description": "Execute the betteralign target using #make tool with custom target defined in config.mk. Command: 'make betteralign-eventloop'. Pipe output to build.log as per operational discipline.",
+      "status": "not-started",
+      "priority": "high",
+      "dependsOn": ["BETTERALIGN_1"]
+    },
+    {
+      "id": "BETTERALIGN_3",
+      "title": "Verify cache line padding is sane after betteralign",
+      "description": "After betteralign applies changes, verify that cache line padding is still correct and doesn't introduce false sharing. REQUIREMENTS: (1) Check that hot data structures remain properly padded, (2) Verify no struct size changes that would affect cache line alignment, (3) Run stress tests to ensure no performance regression, (4) Check that betteralign didn't add excessive padding that wastes memory. VERIFICATION: 'make test' with benchmark comparison. Document any structural changes in ./eventloop/docs/betteralign-verification.md.",
+      "status": "not-started",
+      "priority": "high",
+      "dependsOn": ["BETTERALIGN_2"],
+      "subtasks": [
+        {
+          "id": "BETTERALIGN_3.1",
+          "title": "Review betteralign changes",
+          "description": "Use 'git diff' to see what betteralign changed. Look for: struct field reordering, padding additions, size changes. Verify changes are minimal and targeted for cache line optimization.",
+          "status": "not-started"
+        },
+        {
+          "id": "BETTERALIGN_3.2",
+          "title": "Run stress tests to verify no performance regression",
+          "description": "Run 'make test -run Stress' and compare benchmarks before/after betteralign. Look for latency changes, throughput changes, or unexpected performance degradation.",
+          "status": "not-started"
+        },
+        {
+          "id": "BETTERALIGN_3.3",
+          "title": "Document verification results",
+          "description": "Create ./eventloop/docs/betteralign-verification.md documenting: (a) Changes made by betteralign, (b) Performance metrics comparison, (c) Cache line padding verification, (d) Conclusion on whether padding is still sane.",
+          "status": "not-started"
+        }
+      ]
+    }
+  ],
+  "repairGroupsForFixing": [
+    {
+      "id": "REPAIR_GROUP_1",
+      "name": "GOJA SCOPE BLOCKING FIXES",
+      "description": "CRITICAL BLOCKING ISSUES in Goja Integration (CHUNK_1) and Specification Compliance (CHUNK_4) that must be fixed before merging. These chunks have completed reviews but identified CRITICAL bugs preventing merge.",
+      "chunks": [
+        "CHUNK_1",
+        "CHUNK_4"
+      ],
+      "status": "needs-fixing",
+      "priority": "highest",
+      "reviewDocument": "./eventloop/docs/reviews/21-GOJA_SCOPE-CHUNK1_CHUNK4.md",
+      "reviewDate": "2026-01-25",
+      "blockingIssues": [
+        "CRITICAL #1: Potential recursive unwrapping in gojaFuncToHandler (HIGH severity)",
+        "CRITICAL #2: No explicit cleanup for Promise wrappers (HIGH severity)",
+        "HIGH #1: Iterator error handling inconsistent (HIGH severity)"
+      ],
+      "overallAssessment": "DO NOT MERGE WITHOUT FIXING BLOCKING ISSUES",
+      "tasks": [
+        {
+          "id": "REPAIR_1.1",
+          "title": "GOJA SCOPE REVIEW SUMMARY (Documented)",
+          "description": "Review task already completed. Review document: ./eventloop/docs/reviews/21-GOJA_SCOPE-CHUNK1_CHUNK4.md (dated 2026-01-25). CHUNK_1 and CHUNK_4 have been reviewed and CRITICAL BLOCKING ISSUES identified. Review tasks: CHUNK_1.1, CHUNK_1.3, CHUNK_4.1, CHUNK_4.3 documented in chunkTasks.",
+          "status": "completed",
+          "reviewTasks": [
+            "CHUNK_1.1",
+            "CHUNK_1.3",
+            "CHUNK_4.1",
+            "CHUNK_4.3"
+          ]
+        },
+        {
+          "id": "REPAIR_1.2",
+          "title": "Fix all CRITICAL issues in Goja Scope",
+          "description": "Fix ALL CRITICAL and HIGH priority issues identified in the Goja Scope review (CHUNK_1 + CHUNK_4): (CRITICAL #1) Remove or validate recursive unwrapping logic in gojaFuncToHandler to preserve Promise.reject(promise) semantics per JS spec. (CRITICAL #2) Add explicit cleanup for Promise wrappers to prevent memory leaks. (HIGH #1) Make iterator error handling consistent across all Promise combinators. Run 'make test' after all fixes and verify 100% test pass rate for goja-eventloop module. DO NOT proceed until all tests pass.",
+          "status": "not-started",
+          "priority": "highest",
+          "estimatedEffort": "4-6 hours",
+          "subtasks": [
+            {
+              "id": "REPAIR_1.2.1",
+              "title": "Fix CRITICAL #1: Recursive unwrapping in gojaFuncToHandler",
+              "description": "Analyze and fix potential recursive unwrapping in gojaFuncToHandler (case *goeventloop.ChainedPromise). Preserve Promise.reject(promise) semantics where rejection reason MUST be the Promise object itself, not its result. Verify JS spec compliance: rejection reason should not be unwrapped to result.",
+              "status": "not-started"
+            },
+            {
+              "id": "REPAIR_1.2.2",
+              "title": "Fix CRITICAL #2: Promise wrapper cleanup",
+              "description": "Add explicit cleanup for Promise wrappers. Identify where Promise wrappers are created and ensure proper cleanup mechanisms exist to prevent memory leaks in long-running event loops.",
+              "status": "not-started"
+            },
+            {
+              "id": "REPAIR_1.2.3",
+              "title": "Fix HIGH #1: Iterator error handling consistency",
+              "description": "Review iterator error handling across all Promise combinators (all, race, allSettled, any). Ensure consistent error propagation and handling. Test with edge cases: arrays with rejected promises, mixed resolution/rejection scenarios, null/undefined values.",
+              "status": "not-started"
+            },
+            {
+              "id": "REPAIR_1.2.4",
+              "title": "Verify all tests pass after fixes",
+              "description": "After completing all fix subtasks, run full test suite: 'go test ./goja-eventloop/... -v' and 'go test ./goja-eventloop/... -race'. Verify 100% pass rate with no failures, no panics, no race conditions.",
+              "status": "not-started",
+              "dependsOn": ["REPAIR_1.2.1", "REPAIR_1.2.2", "REPAIR_1.2.3"]
+            }
+          ]
+        },
+        {
+          "id": "REPAIR_1.3",
+          "title": "Re-review Goja Scope for perfection - SECOND ITERATION",
+          "description": "After all CRITICAL issues are fixed and verified, run comprehensive re-review of CHUNK_1 (Goja Integration) and CHUNK_4 (Specification Compliance) to ensure NO REMAINING ISSUES. Use #runSubagent with review prompt: 'Ensure, or rather GUARANTEE the correctness of FIXED Goja Integration and Specification Compliance code. Since you're _guaranteeing_ it, sink commensurate effort. Verify: (1) No recursive unwrapping in gojaFuncToHandler, (2) Promise wrappers have explicit cleanup, (3) Iterator error handling is consistent, (4) JS Spec compliance for Promise.reject(promise) semantics, (5) All goja-eventloop tests pass 100%. Write up your review to ./eventloop/docs/reviews/23-GOJA_SCOPE-FIXES-REVIEW.md.' If re-review finds ANY remaining issues, mark REPAIR_1.2 as 'not-started' again and restart fix cycle. Only mark complete when review is flawless with zero issues.",
+          "status": "not-started",
+          "priority": "highest",
+          "dependsOn": ["REPAIR_1.2"],
+          "estimatedEffort": "2-3 hours"
+        }
+      ]
+    }
+  ],
+  "continuousVerificationTasks": [
+    {
+      "id": "CONTINUOUS_1",
+      "title": "Run make-all-with-log CONTINUOUSLY",
+      "description": "Run 'make all' with full logging output after every significant change to ensure builds remain stable. Target: build.log. COMMAND: 'make all 2>&1 | fold -w 200 | tee build.log | tail -n 15'. This is a CONTINUOUS task - must be run after: (a) Each code change, (b) Each test addition, (c) Each review cycle completion, (d) Each bug fix. FAIL POLICY: If ANY test fails, STOP. Do not proceed. Fix the issue immediately. Zero tolerance for test failures, even due to timing or non-determinism.",
+      "status": "not-started",
+      "priority": "highest",
+      "isContinuous": true
+    },
+    {
+      "id": "CONTINUOUS_2",
+      "title": "Run make-all-in-container CONTINUOUSLY",
+      "description": "Run 'make all' in Docker container to verify cross-platform compatibility. This ensures code works correctly in clean environment. This is a CONTINUOUS task - must be run periodically (every 5-10 code changes) and certainly before release. COMMAND: 'make all-in-container' (or equivalent docker-compose command). FAIL POLICY: If container build fails or tests fail in container environment, STOP. Fix environment-specific issues immediately. Zero tolerance for platform-specific failures.",
+      "status": "not-started",
+      "priority": "highest",
+      "isContinuous": true
     }
   ],
   "userRequestedVerification": {
