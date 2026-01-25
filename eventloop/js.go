@@ -332,6 +332,7 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 //   - If the callback is currently executing, the NEXT scheduled execution is cancelled
 //   - There is a narrow window (between wrapper's Check 1 and lock acquisition) where
 //     the interval might fire one additional time after ClearInterval returns
+//
 // This is intentional and matches the asynchronous nature of clearInterval in JavaScript.
 func (js *JS) ClearInterval(id uint64) error {
 	js.intervalsMu.RLock()
