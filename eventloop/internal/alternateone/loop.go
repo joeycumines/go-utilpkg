@@ -151,6 +151,7 @@ func NewWithObserver(observer StateObserver) (*Loop, error) {
 
 	// Initialize shutdown manager
 	loop.shutdownMgr = NewShutdownManager(loop)
+	//d
 
 	return loop, nil
 }

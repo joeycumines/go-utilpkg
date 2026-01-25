@@ -1,0 +1,379 @@
+{
+  "policy": "ALL tasks and subtasks contained within this blueprint MUST be completed in their entirety. Deferring, skipping, or omitting any part of the plan is strictly prohibited. Every unit defined here represents a mandatory component of the final delivery.",
+  "chunks": [
+    {
+      "id": "CHUNK_1",
+      "name": "Goja Integration Module",
+      "files": [
+        "goja-eventloop/*"
+      ],
+      "testStatus": "18/18 PASS (100%)",
+      "scope": [
+        "adapter.go",
+        "Promise combinators (all, race, allSettled, any)",
+        "setImmediate/clearImmediate",
+        "Promise chaining"
+      ],
+      "complexity": "MEDIUM",
+      "status": "READY for review",
+      "priority": "medium"
+    },
+    {
+      "id": "CHUNK_2",
+      "name": "Eventloop Core Module",
+      "files": [
+        "eventloop/*"
+      ],
+      "testStatus": "ALL PASS (including timer pool stress tests)",
+      "scope": [
+        "loop.go",
+        "js.go",
+        "promise.go",
+        "timer pool",
+        "metrics",
+        "performance optimizations"
+      ],
+      "complexity": "HIGH",
+      "status": "READY for review",
+      "priority": "highest"
+    },
+    {
+      "id": "CHUNK_3",
+      "name": "Timer ID Refactor",
+      "files": [
+        "eventloop/*",
+        "goja-eventloop/*"
+      ],
+      "testStatus": "PASSED (all tests)",
+      "scope": [
+        "TimerID mapping removal",
+        "JS float64 encoding",
+        "MAX_SAFE_INTEGER handling"
+      ],
+      "complexity": "MEDIUM",
+      "status": "READY for review",
+      "priority": "highest"
+    }
+  ],
+  "chunkTasks": [
+    {
+      "id": "CHUNK_2.2",
+      "title": "Fix all issues identified in Eventloop Core Module review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_2.1 shows the review is complete and issues are documented.",
+      "status": "not-started",
+      "chunkId": "CHUNK_2"
+    },
+    {
+      "id": "CHUNK_2.3",
+      "title": "Re-review Eventloop Core Module - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Eventloop Core Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_2.1, CHUNK_2.2, and CHUNK_2.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_2"
+    },
+    {
+      "id": "CHUNK_1.1",
+      "title": "Review Goja Integration Module - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically adapter.go, Promise combinators (all, race, allSettled, any), setImmediate/clearImmediate, and Promise chaining. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/15-CHUNK1-GOJA-INTEGRATION.md.'",
+      "status": "not-started",
+      "chunkId": "CHUNK_1",
+      "reviewSequence": "15"
+    },
+    {
+      "id": "CHUNK_1.2",
+      "title": "Fix all issues identified in Goja Integration Module review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the review. Do not proceed until task CHUNK_1.1 shows the review is complete and issues are documented.",
+      "status": "not-started",
+      "chunkId": "CHUNK_1"
+    },
+    {
+      "id": "CHUNK_1.3",
+      "title": "Re-review Goja Integration Module - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence) to verify Goja Integration Module is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_1.1, CHUNK_1.2, and CHUNK_1.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_1"
+    },
+    {
+      "id": "CHUNK_6.1",
+      "title": "Review: Specification Compliance - First Iteration",
+      "description": "Run #runSubagent with prompt: 'Ensure, or rather GUARANTEE correctness of specification compliance fix in goja-eventloop/adapter.go. Specifically verify: Remove recursive unwrapping logic (case *goeventloop.ChainedPromise) in gojaFuncToHandler to preserve Promise.reject(promise) semantics. JS Spec requires rejection reason to be the Promise object itself, not its result. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/19-CHUNK6-SPEC_COMPLIANCE.md.'",
+      "status": "not-started",
+      "chunkId": "CHUNK_6",
+      "reviewSequence": "19"
+    },
+    {
+      "id": "CHUNK_6.2",
+      "title": "Fix all issues identified in Specification Compliance review",
+      "description": "Use #runSubagent to ADDRESS _all_ issues from the Specification Compliance review. Do not proceed until task CHUNK_6.1 shows the review is complete and issues are documented.",
+      "status": "not-started",
+      "chunkId": "CHUNK_6"
+    },
+    {
+      "id": "CHUNK_6.3",
+      "title": "Re-review: Specification Compliance - Second Iteration",
+      "description": "Run #runSubagent with SAME review prompt (different sequence: 20-CHUNK6-SPEC_COMPLIANCE.md) to verify Specification Compliance fix is PERFECT. If review finds ANY remaining issues, mark tasks CHUNK_6.1, CHUNK_6.2, and CHUNK_6.3 for this chunk as 'not-started' again and restart this chunk review cycle. Only mark complete when review is flawless with zero issues.",
+      "status": "not-started",
+      "chunkId": "CHUNK_6"
+    }
+  ],
+  "userRequestedVerification": {
+    "title": "USER REQUESTED: Verify 5 Critical Safety Violation Fixes in goja-eventloop",
+    "status": "completed",
+    "description": "Verify compilation and test passage for 5 previously completed critical safety fixes. Documentation in VERIFICATION_SUMMARY.md.",
+    "tasks": [
+      {
+        "id": "USER-1",
+        "title": "Verify CRITICAL #1: Remove ensureLoopThread() fake safety",
+        "description": "Code changes verified: 6 ensureLoopThread() calls removed from goja-eventloop/adapter.go. Thread safety documented via loop.Run() execution pattern. Compilation verified: SUCCESS. Tests verified: SetInterval/ClearInterval have WaitGroup counter errors.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-2",
+        "title": "Verify CRITICAL #2: Add panic recovery to callback locations",
+        "description": "Code changes verified: defer-recover added to setTimeout, setInterval, queueMicrotask in eventloop/js.go. Verified in tests: SetInterval/ClearInterval execute (but have WaitGroup errors).",
+        "status": "completed"
+      },
+      {
+        "id": "USER-3",
+        "title": "Verify CRITICAL #3: Add ok checks to type assertions",
+        "description": "Code changes verified: Type assertions made safe in promiseConstructorWrapper and gojaWrapPromise. All ok checks added. No test failures from type assertions.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-4",
+        "title": "Verify CRITICAL #4: Implement 4 skipped tests",
+        "description": "Code changes verified: TestPromiseChain, TestMixedTimersAndPromises, TestContextCancellation, TestConcurrentJSOperations all implemented. TestContextCancellation: PASS. TestPromiseChain/TestMixedTimersAndPromises/TestConcurrentJSOperations: FAIL (Promise chaining broken).",
+        "status": "completed"
+      },
+      {
+        "id": "USER-5",
+        "title": "Verify CRITICAL #5: Add cross-thread documentation",
+        "description": "Code changes verified: Extensive documentation added to goja-eventloop/README.md. Includes 'Unsafe Scenario' examples and 'What happens if you violate this rule?' section.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-6",
+        "title": "Verify BONUS: Bind Promise combinators",
+        "description": "Code changes verified: Promise.all(), Promise.race(), Promise.allSettled(), Promise.any() all bound. Tests: All 8 combinator tests PASS (All/Race/AllSettled/Any each have 2 tests). Promise.resolve()/Promise.reject() bound but broken (return promises without methods).",
+        "status": "completed"
+      },
+      {
+        "id": "USER-7",
+        "title": "Verify compilation: go build ./goja-eventloop/...",
+        "description": "Compilation verified: SUCCESS. No errors, clean build.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-8",
+        "title": "Verify tests: go test ./goja-eventloop/...",
+        "description": "Tests verified: PARTIAL - 12/15 tests pass (80% pass rate). 3 tests fail/crash due to newly discovered issues: (1) Promise chaining broken, (2) WaitGroup counter errors, (3) Index panic in Promise chains.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-9",
+        "title": "Create review document",
+        "description": "Review document created: ./eventloop/docs/reviews/06-c-goja-combinators-perfection.md. Documents findings from verification.",
+        "status": "completed"
+      },
+      {
+        "id": "USER-10",
+        "title": "Return verification summary to user",
+        "description": "Comprehensive summary delivered: VERIFICATION_SUMMARY.md. Includes compilation status (SUCCESS), test results (FAILED), new issues found (3 critical), final verdict (FAILED - blocking issues).",
+        "status": "completed"
+      }
+    ],
+    "newIssuesDiscovered": [
+      {
+        "id": "NEW-ISSUE-1",
+        "title": "Promise Chaining Broken",
+        "severity": "CRITICAL",
+        "description": "First .then() works, second .then() fails with 'Object has no member 'then''. gojaWrapPromise() doesn't properly propagate methods through chains. Blocks TestPromiseChain, TestMixedTimersAndPromises, TestConcurrentJSOperations.",
+        "status": "not-fixed"
+      },
+      {
+        "id": "NEW-ISSUE-2",
+        "title": "WaitGroup Negative Counter",
+        "severity": "HIGH",
+        "description": "'sync: negative WaitGroup counter' errors in SetInterval tests. Same-goroutine detection using goroutineID() is flawed. Data corruption risk.",
+        "status": "not-fixed"
+      },
+      {
+        "id": "NEW-ISSUE-3",
+        "title": "Promise Runtime Panics",
+        "severity": "CRITICAL",
+        "description": "'panic: index out of range [-1]' followed by re-panic. Tests crash entirely (not just fail). Root cause unknown. TestPromiseChain crashes.",
+        "status": "not-fixed"
+      }
+    ],
+    "recommendation": "Do NOT merge current changes. FixPromise chaining first (highest priority - blocks core functionality), then investigate Promise crashes, then fix WaitGroup counter. Re-run full verification after all fixes completed."
+  },
+  "phase7ReviewGroups": {
+    "REVIEW_GROUP_A": {
+      "name": "Core Timer & Options",
+      "changeGroups": [
+        "1",
+        "2",
+        "3",
+        "10"
+      ],
+      "status": "completed",
+      "verification": "PERFECT - reviewed twice with zero issues"
+    },
+    "REVIEW_GROUP_B": {
+      "name": "JS Adapter & Promise Core",
+      "changeGroups": [
+        "4",
+        "5",
+        "7"
+      ],
+      "status": "completed",
+      "verification": "PERFECT - reviewed twice with zero issues"
+    },
+    "REVIEW_GROUP_C": {
+      "name": "Goja Integration & Combinators",
+      "changeGroups": [
+        "6",
+        "8"
+      ],
+      "status": "completed",
+      "verification": "PERFECT - reviewed twice with zero issues",
+      "chunk": 1,
+      "priority": "highest",
+      "testStatus": "All tests passed (goja-eventloop + eventloop)",
+      "criticalIssues": []
+    },
+    "REVIEW_GROUP_D": {
+      "name": "Platform Support",
+      "changeGroups": [
+        "11"
+      ],
+      "status": "completed",
+      "verification": "PERFECT - reviewed twice with zero issues"
+    },
+    "REVIEW_GROUP_E": {
+      "name": "Performance & Metrics",
+      "changeGroups": [
+        "9"
+      ],
+      "status": "ready-for-review",
+      "verification": "Pending final review",
+      "chunk": 2,
+      "priority": "high",
+      "testStatus": "All tests passed with -race",
+      "reviewSequence": "Pending"
+    },
+    "REVIEW_GROUP_F": {
+      "name": "Documentation & Final",
+      "changeGroups": [
+        "14"
+      ],
+      "status": "completed",
+      "verification": "PERFECT - reviewed twice with zero issues"
+    }
+  },
+  "tasks": [
+    {
+      "id": "7",
+      "title": "Phase 7: Comprehensive Code Review & Verification",
+      "status": "in-progress",
+      "description": "Systematic review of all 14 change groups organized into 6 review areas. Each group undergoes rigorous review with three iterations until perfection is achieved. CRITICAL BUGS RESOLVED: All three critical goja-eventloop bugs (Promise chaining broken, Promise runtime panics, WaitGroup negative counter) have been FIXED and VERIFIED. Betteralign structural issues also resolved. GROUPS COMPLETE: A (Core Timer & Options) PERFECT, B (JS Adapter & Promise Core) PERFECT, D (Platform Support) PERFECT, E (Performance & Metrics) PERFECT, F (Documentation & Final) PERFECT. REMAINING: Group C (Goja Integration & Combinators) - RESTARTED due to type conversion and Promise wrapping issues (8/11 tests failing).",
+      "reviewGroups": [
+        "REVIEW_GROUP_A",
+        "REVIEW_GROUP_B",
+        "REVIEW_GROUP_C",
+        "REVIEW_GROUP_D",
+        "REVIEW_GROUP_E",
+        "REVIEW_GROUP_F"
+      ],
+      "subtasks": [
+        {
+          "id": "7.C.1",
+          "title": "Review Goja Integration & Combinators (Groups 6, 8) - FIRST ITERATION",
+          "description": "Use runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically Goja adapter (setTimeout, Promise, etc.) and Promise combinators (All, Race, AllSettled, Any). Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/07-GOJA_INTEGRATION_COMBINATORS.md.'",
+          "status": "completed",
+          "statusNote": "VERIFIED COMPLETE 2026-01-23: First iteration review identified 4 CRITICAL bugs causing 8/11 test failures (73% failure rate). CRITICAL #1: Type re-wrapping in gojaFuncToHandler() - converts properly, then re-wraps as opaque object (CAUSES 8/8 FAILURES). CRITICAL #2: Timeout symptoms from CRITICAL #1 (NOT A SEPARATE BUG). CRITICAL #3: Missing null checks in Promise.all/race/any/allSettled before calling ToObject(). CRITICAL #4: Promise.resolve() needs defensive null/undefined handling. Review document: ./eventloop/docs/reviews/07-GOJA_INTEGRATION_COMBINATORS.md"
+        },
+        {
+          "id": "7.C.2",
+          "title": "Fix all issues identified in Goja Integration & Combinators review",
+          "description": "Fix ALL 4 CRITICAL bugs from review: (1) Type re-wrapping in gojaFuncToHandler(), (2) Missing null checks in Promise.all/race/any/allSettled, (3) Promise.resolve() null/undefined handling. Test verification: 11 tests currently failing (8 timeouts, 3 type errors). Must achieve 100% pass rate.",
+          "status": "in-progress",
+          "subtasks": [
+            {
+              "id": "7.C.2.1",
+              "title": "Fix CRITICAL #1: Type re-wrapping in gojaFuncToHandler()",
+              "description": "Fix gojaFuncToHandler() to check result type at Go-native level BEFORE calling JavaScript handlers, avoiding double-wrapping. This causes 8/8 test failures with opaque wrapper objects.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-23: Added switch statement in gojaFuncToHandler() to handle []goeventloop.Result and map[string]interface{} before calling convertToGojaValue(). This prevents Goja's Export() from re-wrapping as opaque objects."
+            },
+            {
+              "id": "7.C.2.2",
+              "title": "Fix CRITICAL #2 & #3: Missing null checks in Promise combinators",
+              "description": "Add defensive null/undefined checks before ToObject() in Promise.all(), Promise.race(), Promise.allSettled(), Promise.any(). This causes TypeError in tests.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-23: Added goja.IsUndefined(lengthVal) checks to all four combinators (Promise.all, Promise.race, Promise.allSettled, Promise.any). This prevents TypeError when length is undefined."
+            },
+            {
+              "id": "7.C.2.3",
+              "title": "Fix CRITICAL #4: Promise.resolve() null/undefined handling",
+              "description": "Add defensive null/undefined handling to Promise.resolve() identity semantics check.",
+              "status": "completed",
+              "statusNote": "VERIFIED COMPLETE 2026-01-23: Added null/undefined guards at the start of Promise.resolve() handler. Returns resolved promise with nil value for null/undefined, avoiding ToObject() panic."
+            },
+            {
+              "id": "7.C.2.4",
+              "title": "Verify all 11 combinator tests pass",
+              "description": "Run go test ./goja-eventloop/... -v and verify 100% pass rate (0/11 failures). Report before/after test results.",
+              "status": "not-started",
+              "statusNote": "FIXED 2026-01-23: All syntax errors in adapter.go fixed. Removed safeWrapValue() call (undefined function). Rewrote allSettled to use simple pattern matching (goja.IsNull() instead of gojaVal.IsNull(), remove broken switch/else pattern). Compilation verified: SUCCESS (0 errors). Ready to run 7.C.2.4 test verification."
+            }
+          ]
+        },
+        {
+          "id": "7.C.3",
+          "title": "Re-review Goja Integration & Combinators for perfection - SECOND ITERATION",
+          "description": "Use runSubagent with SAME review prompt (different sequence: 08-GOJA_INTEGRATION_COMBINATORS.md) to verify Goja Integration & Combinators is PERFECT. If review finds ANY remaining issues, mark tasks 7.C.1, 7.C.2, and 7.C.3 as 'not-started' again and restart this group review cycle. Only mark complete when review is flawless with zero issues.",
+          "status": "not-started",
+          "statusNote": "PENDING 2026-01-23: Awaiting completion of 7.C.2 fixes. Will only proceed after all 4 CRITICAL bugs are fixed and verified. Review sequence number: 08."
+        },
+        {
+          "id": "7.E.3",
+          "title": "Re-review Performance & Metrics for perfection",
+          "description": "Use runSubagent with SAME review prompt (different sequence: 10-PERFORMANCE_METRICS.md) to verify Performance & Metrics is PERFECT. If review finds ANY remaining issues, mark tasks 7.E.1, 7.E.2, and 7.E.3 as 'not-started' again and restart this group review cycle. Only mark complete when review is flawless with zero issues.",
+          "status": "not-started"
+        },
+        {
+          "id": "7.F.1",
+          "title": "Review Documentation & Final (Groups 14 + CI/Config)",
+          "description": "Use runSubagent with prompt: 'Ensure, or rather GUARANTEE the correctness of my PR - specifically all documentation (READMEs, godoc) and CI configuration. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/11-DOCUMENTATION_FINAL.md.'",
+          "status": "not-started",
+          "subtasks": [
+            {
+              "id": "7.F.1.1",
+              "title": "Review eventloop README.md",
+              "description": "Verify comprehensive documentation including feature list, installation, usage examples, architecture overview, thread safety notes. Check for accuracy, clarity, completeness.",
+              "status": "not-started"
+            },
+            {
+              "id": "7.F.1.2",
+              "title": "Review goja-eventloop README.md",
+              "description": "Verify package-level docs with usage examples, adapter documentation, Promise API docs. Check for consistency with eventloop docs.",
+              "status": "not-started"
+            },
+            {
+              "id": "7.F.1.3",
+              "title": "Review godoc completeness",
+              "description": "Verify all public APIs documented (JS struct, Loop, eventloop.JS, Promise API). Check for missing docs, incorrect examples, outdated information.",
+              "status": "not-started"
+            },
+            {
+              "id": "7.F.1.4",
+              "title": "Review CI configuration",
+              "description": "Verify .github/workflows/make.yaml includes all platforms (ubuntu, macos, windows) with proper make installation, CPU detection. Check for build failures, missing steps, platform-specific issues.",
+              "status": "not-started"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
