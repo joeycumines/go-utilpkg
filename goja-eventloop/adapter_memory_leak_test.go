@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/goja-eventloop"
+	gojaeventloop "github.com/joeycumines/goja-eventloop"
 )
 
 // TestMemoryLeaks_MicrotaskLoop verifies that high-frequency promise creation
