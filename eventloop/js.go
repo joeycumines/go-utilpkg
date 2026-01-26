@@ -64,8 +64,7 @@ type intervalState struct {
 	m sync.Mutex // Protects state fields
 
 	// Atomic flags (require 8-byte alignment)
-	canceled  atomic.Bool
-	executing atomic.Bool // Tracks if wrapper is currently executing (for ClearInterval safety)
+	canceled atomic.Bool
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
