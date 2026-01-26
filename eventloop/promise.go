@@ -327,7 +327,8 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 	p.mu.Unlock()
 
 	// CLEANUP: Prevent leak on success - remove from promiseHandlers map
-	// This fixes Memory Leak #1 from review.md Section 2.A
+	// This fixes CRITICAL #2 from review.md Section 2.A
+	// When a promise settles, its handler tracking is no longer needed
 	if js != nil {
 		js.promiseHandlersMu.Lock()
 		delete(js.promiseHandlers, p.id)
@@ -362,6 +363,15 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	handlers := p.handlers
 	p.handlers = nil // Clear handlers slice after copying to prevent memory leak
 	p.mu.Unlock()
+
+	// CLEANUP: Prevent leak on rejection - remove from promiseHandlers map when promise settles
+	// This fixes CRITICAL #2 from review.md Section 2.A
+	// When a promise settles (either resolve or reject), its handler tracking is no longer needed
+	if js != nil {
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, p.id)
+		js.promiseHandlersMu.Unlock()
+	}
 
 	// Schedule handler microtasks FIRST
 	// This ensures handlers are attached before unhandled rejection check runs

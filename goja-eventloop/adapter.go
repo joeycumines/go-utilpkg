@@ -273,32 +273,63 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 	}
 
 	return func(result goeventloop.Result) goeventloop.Result {
-		// CRITICAL FIX: Check type at Go-native level, not after Goja conversion
+		// CRITICAL FIX #1: Check type at Go-native level, not after Goja conversion
+		// CRITICAL FIX #2: Check for already-wrapped promises to preserve identity
 		var jsValue goja.Value
 
 		// Extract Go-native type from Result
 		goNativeValue := result
 
-		switch v := goNativeValue.(type) {
-		case []goeventloop.Result:
-			// Convert Go-native slice to JavaScript array
-			jsArr := a.runtime.NewArray(len(v))
-			for i, val := range v {
-				_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
+		// CRITICAL #1 FIX: Check if result is already a wrapped Goja Object before conversion
+		// This prevents double-wrapping which breaks Promise identity:
+		//   Promise.all([p]).then(r => r[0] === p) should be true
+		if obj, ok := goNativeValue.(*goja.Object); ok {
+			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
+				// Already a wrapped promise - use directly to preserve identity
+				jsValue = obj
+			} else {
+				// Not a promise wrapper, proceed with standard conversion
+				jsValue = a.convertToGojaValue(goNativeValue)
 			}
-			jsValue = jsArr
+		} else {
+			// Not a Goja Object, proceed with standard conversion
+			switch v := goNativeValue.(type) {
+			case []goeventloop.Result:
+				// Convert Go-native slice to JavaScript array
+				jsArr := a.runtime.NewArray(len(v))
+				for i, val := range v {
+					// CRITICAL #1 FIX: Check each element for already-wrapped promises
+					if obj, ok := val.(*goja.Object); ok {
+						if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
+							// Already a wrapped promise - use directly
+							_ = jsArr.Set(strconv.Itoa(i), obj)
+							continue
+						}
+					}
+					_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
+				}
+				jsValue = jsArr
 
-		case map[string]interface{}:
-			// Convert Go-native map to JavaScript object
-			jsObj := a.runtime.NewObject()
-			for key, val := range v {
-				_ = jsObj.Set(key, a.convertToGojaValue(val))
+			case map[string]interface{}:
+				// Convert Go-native map to JavaScript object
+				jsObj := a.runtime.NewObject()
+				for key, val := range v {
+					// CRITICAL #1 FIX: Check each value for already-wrapped promises
+					if obj, ok := val.(*goja.Object); ok {
+						if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
+							// Already a wrapped promise - use directly
+							_ = jsObj.Set(key, obj)
+							continue
+						}
+					}
+					_ = jsObj.Set(key, a.convertToGojaValue(val))
+				}
+				jsValue = jsObj
+
+			default:
+				// Primitive or other type - use standard conversion
+				jsValue = a.convertToGojaValue(goNativeValue)
 			}
-			jsValue = jsObj
-
-		default:
-			// Primitive or other type - use standard conversion
-			jsValue = a.convertToGojaValue(goNativeValue)
 		}
 
 		// Call JavaScript handler with the properly converted value
