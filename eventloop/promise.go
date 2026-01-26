@@ -364,15 +364,6 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	p.handlers = nil // Clear handlers slice after copying to prevent memory leak
 	p.mu.Unlock()
 
-	// CLEANUP: Prevent leak on rejection - remove from promiseHandlers map when promise settles
-	// This fixes CRITICAL #2 from review.md Section 2.A
-	// When a promise settles (either resolve or reject), its handler tracking is no longer needed
-	if js != nil {
-		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, p.id)
-		js.promiseHandlersMu.Unlock()
-	}
-
 	// Schedule handler microtasks FIRST
 	// This ensures handlers are attached before unhandled rejection check runs
 	for _, h := range handlers {
@@ -743,25 +734,31 @@ func (js *JS) checkUnhandledRejections() {
 	for _, info := range snapshot {
 		promiseID := info.promiseID
 
-		js.promiseHandlersMu.RLock()
+		js.promiseHandlersMu.Lock()
 		handled, exists := js.promiseHandlers[promiseID]
-		js.promiseHandlersMu.RUnlock()
 
-		// If we can't find a handler, or it's explicitly marked as unhandled (though map is bool true), report it
-		if !exists || !handled {
-			if callback != nil {
-				callback(info.reason)
-			}
+		// If a handler exists, clean up tracking now (handled rejection)
+		if exists && handled {
+			delete(js.promiseHandlers, promiseID)
+			js.promiseHandlersMu.Unlock()
+
+			// Remove from unhandled rejections but DON'T report it
+			js.rejectionsMu.Lock()
+			delete(js.unhandledRejections, promiseID)
+			js.rejectionsMu.Unlock()
+			continue
+		}
+		js.promiseHandlersMu.Unlock()
+
+		// No handler found - report unhandled rejection
+		if callback != nil {
+			callback(info.reason)
 		}
 
-		// Clean up tracking
+		// Clean up tracking for unhandled rejection
 		js.rejectionsMu.Lock()
 		delete(js.unhandledRejections, promiseID)
 		js.rejectionsMu.Unlock()
-
-		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, promiseID)
-		js.promiseHandlersMu.Unlock()
 	}
 }
 

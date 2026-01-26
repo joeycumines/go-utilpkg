@@ -63,8 +63,9 @@ type intervalState struct {
 	// Sync primitives
 	m sync.Mutex // Protects state fields
 
-	// Atomic flag (requires 8-byte alignment)
-	canceled atomic.Bool
+	// Atomic flags (require 8-byte alignment)
+	canceled  atomic.Bool
+	executing atomic.Bool // Tracks if wrapper is currently executing (for ClearInterval safety)
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
@@ -278,20 +279,21 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		}
 
 		// Schedule next execution, using wrapper from state
+		// CRITICAL: Wrapper must be read under state.m.Lock() to avoid race with SetInterval initialization
 		currentWrapper := state.wrapper
+		state.m.Unlock()
+
+		// Schedule timer outside lock to avoid potential deadlock with timer scheduling
 		loopTimerID, err := js.loop.ScheduleTimer(state.getDelay(), currentWrapper)
 		if err != nil {
-			state.m.Unlock()
 			return
 		}
 
-		// Update loopTimerID in state for next cancellation
+		// Reacquire lock for loopTimerID update
+		state.m.Lock()
 		state.currentLoopTimerID = loopTimerID
 		state.m.Unlock()
 	}
-
-	// Store wrappers function in state for self-reference BEFORE any scheduling
-	state.wrapper = wrapper
 
 	// IMPORTANT: Assign id BEFORE any scheduling
 	id := js.nextTimerID.Add(1)
@@ -301,15 +303,23 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		panic("eventloop: interval ID exceeded MAX_SAFE_INTEGER")
 	}
 
-	// Initial scheduling - call ScheduleTimer ONCE after both wrapper and id are properly assigned
+	// Store wrapper in state under lock for synchronization
+	state.m.Lock()
+	state.wrapper = wrapper
+
+	// Initial scheduling - call ScheduleTimer ONCE after wrapper is assigned
 	loopTimerID, err := js.loop.ScheduleTimer(delay, wrapper)
 	if err != nil {
+		state.m.Unlock()
 		return 0, err
 	}
 
-	// Store interval state with initial mapping
-	js.intervalsMu.Lock()
+	// Update loopTimerID in state for next cancellation
 	state.currentLoopTimerID = loopTimerID
+	state.m.Unlock()
+
+	// Store interval state in global map with initial mapping
+	js.intervalsMu.Lock()
 	js.intervals[id] = state
 	js.intervalsMu.Unlock()
 

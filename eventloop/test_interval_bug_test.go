@@ -42,26 +42,30 @@ func TestSetIntervalDoneChannelBug(t *testing.T) {
 	}
 
 	var counter atomic.Int32
-
-	// Store interval ID in outer scope
-	var intervalID uint64
+	var intervalID atomic.Uint64
 
 	setIntervalClosure := func(n int32) {
 		fmt.Printf("Interval fired: %d\n", n)
 
 		// Clear on 5th fire
 		if n >= 5 {
-			if clearErr := js.ClearInterval(intervalID); clearErr != nil {
+			if clearErr := js.ClearInterval(intervalID.Load()); clearErr != nil {
 				t.Errorf("ClearInterval failed: %v", clearErr)
 			}
 			cancel()
 		}
 	}
 
-	intervalID, err = js.SetInterval(func() {
+	id, err := js.SetInterval(func() {
 		n := counter.Add(1)
 		setIntervalClosure(n)
 	}, 10)
+
+	if err != nil {
+		t.Fatalf("SetInterval failed: %v", err)
+	}
+
+	intervalID.Store(id)
 
 	if err != nil {
 		t.Fatalf("SetInterval failed: %v", err)
