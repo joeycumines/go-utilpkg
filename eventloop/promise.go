@@ -902,13 +902,19 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 //   - Always resolves (never rejects)
 //   - Results are in the same order as the input promises
 func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
-	result, resolve, _ := js.NewChainedPromise()
-
-	// Handle empty array - resolve immediately with empty array
+	// Handle empty array - create resolved promise directly
 	if len(promises) == 0 {
-		resolve(make([]Result, 0))
-		return result
+		// Create a ChainedPromise in resolved state
+		p := &ChainedPromise{
+			handlers: make([]handler, 0),
+			js:       js,
+		}
+		p.state.Store(int32(Fulfilled))
+		p.value = make([]Result, 0)
+		return p
 	}
+
+	result, resolve, _ := js.NewChainedPromise()
 
 	// Track completion
 	var mu sync.Mutex

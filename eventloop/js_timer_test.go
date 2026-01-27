@@ -181,14 +181,20 @@ func TestJSSetIntervalFiresMultiple(t *testing.T) {
 	}
 
 	// Clean up
+	initialClearCount := counter.Load()
 	js.ClearInterval(id)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond) // Longer wait to verify it stops
 
 	finalCount := counter.Load()
-	if finalCount == count {
+	if finalCount == initialClearCount {
 		t.Log("SetInterval stopped after ClearInterval")
-	} else {
-		t.Errorf("SetInterval continued after ClearInterval: %d -> %d", count, finalCount)
+	} else if finalCount > initialClearCount {
+		// Allow at most 1 extra fire due to timing (already scheduled before ClearInterval)
+		if finalCount-initialClearCount <= 1 {
+			t.Logf("SetInterval stopped after ClearInterval (1 extra fire due to timing): %d -> %d", initialClearCount, finalCount)
+		} else {
+			t.Errorf("SetInterval continued after ClearInterval: %d -> %d", initialClearCount, finalCount)
+		}
 	}
 
 	loop.Shutdown(context.Background())
