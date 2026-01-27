@@ -2,13 +2,6 @@
 
 A monorepo to consolidate peripheral or related modules, which I don't wish to manage separately.
 
-## Modules
+Modules are copied to their published repositories using the [grailbio/grit](https://github.com/grailbio/grit) tool.
 
-### logiface
-
-https://pkg.go.dev/github.com/joeycumines/logiface
-
-Answering the question: Is it at all feasible to generalize structured loggers without sacrificing on performance,
-functionality, or developer experience?
-
-(Actual answer TBD - looks plausible, with a lot of work)
+This repository is notable for being where I first developed my [Multi-Module Uber-Makefile for Go](./Makefile). 

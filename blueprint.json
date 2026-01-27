@@ -45,406 +45,548 @@
       "confidence": "HIGH - Re-verified with CHANGE_GROUP_B, no regressions, only coverage gaps remain"
     }
   },
-  "logicalChunks": [
+  "tasks": [
     {
-      "id": "LOGICAL_CHUNK_2",
-      "title": "Eventloop Core & Promise System",
-      "description": "The primary eventloop implementation including loop.go, promise.go, js.go, poller implementations, metrics, state management, timer pool, and all alternate implementations. This is the core feature implementation containing the most recent changes.",
-      "files": [
-        "eventloop/loop.go",
-        "eventloop/promise.go",
-        "eventloop/js.go",
-        "eventloop/registry.go",
-        "eventloop/metrics.go",
-        "eventloop/poller.go",
-        "eventloop/state.go",
-        "eventloop/poller_*.go",
-        "eventloop/internal/alternateone/*",
-        "eventloop/internal/alternatetwo/*",
-        "eventloop/internal/alternatethree/*",
-        "eventloop/internal/tournament/*",
-        "eventloop/test_*.go"
+      "id": "T1",
+      "title": "Create promisealtfour variant to represent Main promise implementation",
+      "description": "Create a new ./internal/promisealtfour/ directory and implement the current Main ChainedPromise logic as a variant. This ensures tournament fidelity preservation by having the Main implementation represented both directly (for evolution) and as a tournament variant (for performance comparison tracking). The Main implementation will remain the primary eventloop promise, but promisealtfour will serve as a frozen snapshot for tournament comparison.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "2-3 hours",
+      "deliverables": [
+        "Create ./internal/promisealtfour/ directory structure with promise.go, ingress.go, loop.go",
+        "Port current Main ChainedPromise implementation to promisealtfour with variant-specific packaging",
+        "Create promisealtfour variant registry entry in tournament system",
+        "Add promisealtfour to all tournament competition scenarios",
+        "Document the implementation with clear differentiation from Main"
       ],
-      "associatedChangeGroups": ["GROUP_1", "GROUP_3", "GROUP_4", "GROUP_6", "GROUP_7"],
-      "completeness": "COMPLETE_IMPLEMENTATION",
-      "risk": "LOW - Extensively reviewed, 200+ tests passing",
-      "reviewCycleTasks": [
-        {
-          "id": "REVIEW_LOGICAL2_1",
-          "title": "LOGICAL_CHUNK_2 Initial Review",
-          "description": "Ensure, or rather GUARANTEE the correctness of the Eventloop Core & Promise System vs main branch. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./eventloop/docs/reviews/<SEQUENCE>-<IDENTIFIER>.md.",
-          "status": "complete",
-          "priority": "HIGHEST",
-          "subtasks": [
-            {"id": "CRITICAL_1_FOUND", "title": "Critical Issue Found", "description": "Timer pool memory leak on cancellation path at loop.go:1429", "status": "complete"}
-          ],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-          "changesToReview": "Eventloop Core & Promise System vs main",
-          "outputFile": "./eventloop/docs/reviews/37-LOGICAL2_FINAL_REVIEW.md"
-        },
-        {
-          "id": "REVIEW_LOGICAL2_2",
-          "title": "LOGICAL_CHUNK_2 Fix All Issues",
-          "description": "Address ALL issues found in REVIEW_LOGICAL2_1. This includes fixing any bugs, addressing any race conditions, optimizing any performance issues, and handling any edge cases. Every single issue must be resolved before proceeding. Use runSubagent to execute fixes comprehensively.",
-          "status": "complete",
-          "priority": "HIGHEST",
-          "dependsOn": ["REVIEW_LOGICAL2_1"],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-          "subtasks": [
-            {"id": "FIX_CRITICAL_1", "title": "Fix Timer Pool Memory Leak", "description": "Add t.task = nil before timerPool.Put() at loop.go:1429", "status": "complete"},
-            {"id": "FIX_STATICCHECK_U1000", "title": "Fix Unused Field in Promise", "description": "Remove unused id field from internal/promisealtone/promise.go", "status": "complete"},
-            {"id": "FIX_BETTERALIGN_WARNING", "title": "Betteralign Ignore for Promise", "description": "Add //betteralign:ignore to Promise struct (intentional layout)", "status": "complete"}
-          ]
-        },
-        {
-          "id": "REVIEW_LOGICAL2_3",
-          "title": "LOGICAL_CHUNK_2 Re-Review to Perfection",
-          "description": "Re-review LOGICAL_CHUNK_2 after fixes using the SAME prompt as REVIEW_LOGICAL2_1 (different sequence). Ensure UTTER PERFECTION is achieved. If ANY issues remain, mark ALL THREE tasks as pending AGAIN and restart the cycle. Continue until the verdict is PERFECT.",
-          "status": "complete",
-          "priority": "HIGHEST",
-          "dependsOn": ["REVIEW_LOGICAL2_2"],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-          "changesToReview": "Eventloop Core & Promise System vs main (post-fix)",
-          "outputFile": "./eventloop/docs/reviews/38-LOGICAL2_PERFECTION_REVIEW.md",
-          "verdict": "PERFECT"
-        }
+      "acceptanceCriteria": [
+        "promisealtfour code builds without errors or warnings",
+        "All promisealtfour tests pass with -race detector",
+        "promisealtfour successfully participates in tournament events",
+        "promisealtfour produces consistent performance metrics in tournament runs",
+        "Main implementation continues to work independently without interference",
+        "Tournament results show promisealtfour competing alongside existing variants"
       ]
     },
     {
-      "id": "LOGICAL_CHUNK_1",
-      "title": "Goja-Eventloop Integration & Adapter",
-      "description": "The GojaEventLoop adapter providing JavaScript timer APIs and Promise combinators. This module is more mature and has been verified before, but requires re-verification against the current main branch to ensure no regressions from eventloop core changes.",
-      "files": [
-        "goja-eventloop/adapter.go",
-        "goja-eventloop/*_test.go",
-        "goja-eventloop/docs/*"
+      "id": "T2",
+      "title": "Verify ALL tournament checks pass and compete successfully",
+      "description": "Run comprehensive tournament validation to ensure ALL promise variants (main, alternateone, alternatetwo, alternatethree, promisealtfour) participate fairly in all tournament events. This includes functional correctness tests, performance benchmarks, stress tests, and race condition detection across all variants. Verify tournament integrity, fairness, and consistency of results across multiple runs.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "2-4 hours",
+      "dependsOn": [
+        "T1"
       ],
-      "associatedChangeGroups": ["GROUP_2", "GROUP_5"],
-      "completeness": "PRODUCTION_READY_PERFECT",
-      "risk": "ZERO - Perfection re-review completed with MAXIMUM PARANOIA, ZERO issues found",
-      "reviewCycleTasks": [
-        {
-          "id": "REVIEW_LOGICAL1_1",
-          "title": "LOGICAL_CHUNK_1 Re-Verification Review",
-          "description": "Ensure, or rather GUARANTEE the correctness of the Goja-Eventloop Integration vs main branch. Since you're _guaranteeing_ it, sink commensurate effort; you care deeply about keeping your word, after all. Even then, I expect you to think very VERY hard, significantly harder than you might expect. Assume, from start to finish, that there's _always_ another problem, and you just haven't caught it yet. Question all information provided - _only_ if it is simply impossible to verify are you allowed to trust, and if you trust you MUST specify that (as briefly as possible). Provide a succinct summary then more detailed analysis. Your succinct summary must be such that removing any single part, or applying any transformation or adjustment of wording, would make it materially worse. Write up your review to ./goja-eventloop/docs/reviews/<SEQUENCE>-<IDENTIFIER>.md.",
-          "status": "not-started",
-          "priority": "HIGH",
-          "subtasks": [],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_1",
-          "changesToReview": "Goja-Eventloop Integration vs main",
-          "outputFile": "./goja-eventloop/docs/reviews/38-LOGICAL1_REVERIFICATION.md"
-        },
-        {
-          "id": "REVIEW_LOGICAL1_2",
-          "title": "LOGICAL_CHUNK_1 Fix All Issues",
-          "description": "Address ALL issues found in REVIEW_LOGICAL1_1. This includes fixing any bugs, addressing any race conditions, optimizing any performance issues, and handling any edge cases. Every single issue must be resolved before proceeding. Use runSubagent to execute fixes comprehensively.",
-          "status": "complete",
-          "priority": "HIGH",
-          "dependsOn": ["REVIEW_LOGICAL1_1"],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_1"
-        },
-        {
-          "id": "REVIEW_LOGICAL1_3",
-          "title": "LOGICAL_CHUNK_1 Re-Verify to Perfection",
-          "description": "Re-review LOGICAL_CHUNK_1 after fixes using the SAME prompt as REVIEW_LOGICAL1_1 (different sequence). Ensure UTTER PERFECTION is achieved. If ANY issues remain, mark ALL THREE tasks as pending AGAIN and restart the cycle. Continue until the verdict is PERFECT.",
-          "status": "complete",
-          "priority": "HIGH",
-          "dependsOn": ["REVIEW_LOGICAL1_2"],
-          "associatedLogicalChunk": "LOGICAL_CHUNK_1",
-          "changesToReview": "Goja-Eventloop Integration vs main (post-fix)",
-          "outputFile": "./goja-eventloop/docs/reviews/40-LOGICAL1_PERFECTION.md",
-          "verdict": "PERFECT"
-        }
+      "deliverables": [
+        "Execute all tournament tests across all 5 variants (main, alt1, alt2, alt3, alt4)",
+        "Verify each variant successfully competes in all tournament scenarios",
+        "Validate tournament fairness and consistency across 10+ runs",
+        "Document any issues discovered during validation with detailed analysis",
+        "Create tournament competition matrix showing all variant performance",
+        "Verify no variant fails catastrophically or degrades unfairly"
+      ],
+      "acceptanceCriteria": [
+        "All tournament tests pass for ALL 5 variants",
+        "No variant fails to compete in any scenario",
+        "Tournament results are consistent across multiple runs (low variance)",
+        "No unfair advantages or disadvantages detected in any variant",
+        "Performance rankings are stable and reproducible",
+        "All edge cases (null inputs, deep chains, concurrent access) pass"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Analyze promisealtone performance characteristics for Main migration",
+      "description": "Perform deep performance analysis of the promisealtone variant to identify the key optimizations and patterns that make it the most performant implementation. Document all critical optimizations including memory allocation patterns, synchronization strategies, cache layout, and algorithmic choices. Create a detailed migration plan outlining which optimizations to apply to the Main promise implementation.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "1-2 hours",
+      "dependsOn": [
+        "T2"
+      ],
+      "deliverables": [
+        "Detailed benchmark comparison of promisealtone vs all other variants (main, alt2, alt3, alt4)",
+        "Comprehensive analysis document identifying specific optimization patterns in promisealtone",
+        "Identification of performance-critical optimizations (e.g., reduced allocations, lock-free paths)",
+        "Migration plan document with risk assessment and incremental rollout strategy",
+        "Performance baseline measurements for before/after comparison"
+      ],
+      "acceptanceCriteria": [
+        "Benchmark results are reproducible across 10+ runs (low variance)",
+        "Optimization patterns are clearly documented with code examples and rationale",
+        "Migration plan is actionable and technically sound with fallback strategies",
+        "No regressions detected in other variants during analysis",
+        "Performance differential between promisealtone and other variants is quantified"
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Refactor Main promise implementation using promisealtone optimizations",
+      "description": "Apply the identified optimizations from promisealtone to the Main ChainedPromise implementation in eventloop/promise.go while maintaining 100% API compatibility. This may involve: (1) Memory allocation pattern changes, (2) Synchronization strategy improvements, (3) Cache line layout optimizations, (4) Algorithmic improvements, (5) Data structure changes. Maintain backward compatibility at the source code level.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "4-6 hours",
+      "dependsOn": [
+        "T3"
+      ],
+      "deliverables": [
+        "Refactored Main promise with promisealtone optimizations applied",
+        "Updated promisealtfour variant to track changes in Main (maintain baseline)",
+        "Full API compatibility maintained (no breaking changes to public API)",
+        "Updated documentation reflecting all optimization changes",
+        "Migration commit with clear changelog and justification"
+      ],
+      "acceptanceCriteria": [
+        "All existing tests pass with no regressions",
+        "-race detector shows zero data races in refactored code",
+        "Benchmark performance shows improvement over baseline (target: +5%+)",
+        "API compatibility tests confirm no breaking changes (type signatures unchanged)",
+        "Code review confirms optimizations match promisealtone patterns",
+        "promisealtfour variant remains unchanged (preserves tournament baseline)"
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Performance regression testing after Main promise migration",
+      "description": "Comprehensive performance testing to ensure the refactored Main promise meets or exceeds previous performance benchmarks, maintains fairness in tournament competition, and that all variants continue to compete fairly. Run extended benchmarks (10+ iterations) across multiple scenarios including: microbenchmarks, realistic workloads, stress tests, and tournament scenarios.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T4"
+      ],
+      "deliverables": [
+        "Comprehensive before/after benchmark comparison report",
+        "Tournament competition results with refactored Main",
+        "Performance metrics analysis with statistical significance testing",
+        "Any necessary performance tuning adjustments",
+        "Stability assessment (no performance anomalies in edge cases)"
+      ],
+      "acceptanceCriteria": [
+        "No performance regressions in Main promise (within measurement noise)",
+        "Main promise performance approaches or exceeds promisealtone (target: <5% variance)",
+        "All 5 variants (main, alt1, alt2, alt3, alt4) compete fairly in tournament",
+        "Response times are stable (low variance across runs)",
+        "Throughput is improved or maintained across realistic workloads",
+        "No memory leaks or allocation increases detected"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Add comprehensive tests for JS integration error paths",
+      "description": "Create comprehensive tests covering all uncovered error paths in js.go and ingress.go identified in coverage analysis. Focus on: (1) Ingress error conditions and double-check paths, (2) JS promise integration error handling, (3) Concurrent error scenarios, (4) Invalid input handling, (5) Error propagation through the event loop. These are the final critical coverage gaps needed to reach 90% coverage target.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "3-4 hours",
+      "deliverables": [
+        "Test file: eventloop/js_integration_error_paths_test.go (20+ tests)",
+        "Test file: eventloop/ingress_error_paths_test.go (15+ tests)",
+        "Comprehensive coverage of all previously uncovered error paths",
+        "Zero data races detected with -race flag",
+        "All new tests integrated into test suite with proper documentation"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Coverage analysis shows significant reduction in uncovered lines (target: <10% uncovered)",
+        "No data races detected (-race clean)",
+        "Estimated coverage gain: +3-5% towards 90% target",
+        "Main eventloop coverage increases from 84.6% to target 90%+",
+        "Error paths in js.go and ingress.go are fully exercised"
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Complete eventloop module to 90%+ coverage",
+      "description": "Run final comprehensive coverage analysis for the entire eventloop module and add any necessary additional tests to reach the target metrics: main >= 90%, alternateone >= 90%, alternatethree >= 85%, alternatetwo >= 90%. Verify that all code paths, error branches, edge cases, and platform-specific code are covered. Add tests for any remaining gaps identified.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T6"
+      ],
+      "deliverables": [
+        "Final coverage profile: go test -coverprofile=coverage.out ./eventloop/... && go tool cover -html=coverage.out -o coverage.html",
+        "Coverage analysis document with metrics per package and variant",
+        "Any additional test files for remaining coverage gaps (if any)",
+        "Verification that all target metrics are achieved",
+        "Coverage report uploaded and made available for review"
+      ],
+      "acceptanceCriteria": [
+        "main coverage >= 90%",
+        "alternateone coverage >= 90%",
+        "alternatethree coverage >= 85% (experimental)",
+        "alternatetwo coverage >= 90%",
+        "All tests pass with -race flag",
+        "No unreachable critical code paths remain uncovered",
+        "Coverage report clearly shows all covered and uncovered lines"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Add critical path tests for goja-eventloop adapter",
+      "description": "Create comprehensive tests for the goja-eventloop adapter core functions (exportGojaValue, gojaFuncToHandler, resolveThenable, convertToGojaValue) covering all critical error paths, edge cases, and null/undefined handling identified in coverage analysis. This is Phase 1 of goja-eventloop coverage improvement targeting the highest-impact gaps.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "4-6 hours",
+      "deliverables": [
+        "Test file: goja-eventloop/adapter_critical_paths_test.go (~21 tests)",
+        "Comprehensive coverage of exportGojaValue (critical: 42.9% -> 100%)",
+        "Comprehensive coverage of gojaFuncToHandler (critical: 68.4% -> 100%)",
+        "Comprehensive coverage of resolveThenable (critical: 61.8% -> 100%)",
+        "Comprehensive coverage of convertToGojaValue (critical: 72.4% -> 100%)",
+        "Zero data races detected"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Coverage analysis shows significant improvement in all 4 target functions",
+        "Estimated coverage gain: +9.5% (critical paths complete)",
+        "No data races detected with -race flag",
+        "goja-eventloop coverage increases from 74.0% toward 90% target"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Add combinator edge case tests for goja-eventloop",
+      "description": "Create comprehensive edge case tests for Promise combinators (Promise.all, Promise.race, Promise.allSettled, Promise.any) focusing on: null/undefined inputs, array edge cases, empty arrays, mixed resolution/rejection scenarios, and deeply nested promises. This is Phase 2 of goja-eventloop coverage improvement.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "3-4 hours",
+      "dependsOn": [
+        "T8"
+      ],
+      "deliverables": [
+        "Test file: goja-eventloop/adapter_combinators_edge_cases_test.go (~12 tests)",
+        "Coverage of all combinator edge cases and error conditions",
+        "Zero data races detected",
+        "Clear documentation of test scenarios and expected behaviors"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Coverage analysis shows improvement in combinator functions",
+        "Estimated coverage gain: +5.0%",
+        "No regressions in existing tests",
+        "All edge cases tested: null, undefined, empty, large arrays, mixed states"
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Add timer edge case tests for goja-eventloop",
+      "description": "Create comprehensive timer ID boundary tests for goja-eventloop focusing on: MAX_SAFE_INTEGER limits, overflow scenarios, ID reuse edge cases, concurrent timer scheduling with high IDs, and timer cleanup scenarios. This is Phase 3 of goja-eventloop coverage improvement.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T9"
+      ],
+      "deliverables": [
+        "Test file: goja-eventloop/adapter_timer_edge_cases_test.go (~16 tests)",
+        "Coverage of all timer ID boundary conditions and concurrent scenarios",
+        "Zero data races detected",
+        "Documentation of timer ID allocation strategy and limits"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Coverage analysis shows improvement in timer-related functions",
+        "Estimated coverage gain: +5.5%",
+        "No regressions in existing tests",
+        "Edge cases tested: overflow, reuse, concurrency, cleanup, boundary values"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Complete goja-eventloop module to 90%+ coverage",
+      "description": "Run final comprehensive coverage analysis for the goja-eventloop module and add any necessary additional tests to reach the target metric: main >= 90%. Verify that all code paths, error branches, edge cases, and timer logic are covered. Ensure coverage targets are met and all functionality is tested.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "1-2 hours",
+      "dependsOn": [
+        "T10"
+      ],
+      "deliverables": [
+        "Final coverage profile: go test -coverprofile=coverage.out ./goja-eventloop/... && go tool cover -html=coverage.out -o coverage.html",
+        "Coverage analysis document identifying any remaining gaps",
+        "Any additional test files for remaining coverage gaps (if any)",
+        "Verification that 90% target metric is achieved",
+        "Final coverage report with per-function breakdown"
+      ],
+      "acceptanceCriteria": [
+        "goja-eventloop main coverage >= 90%",
+        "All tests pass with -race flag",
+        "No unreachable critical code paths remain uncovered",
+        "Coverage analysis report documents all paths covered",
+        "Coverage is evenly distributed across all functions (no zero-coverage functions remain)"
+      ]
+    },
+    {
+      "id": "T12",
+      "title": "Re-verify Goja-Eventloop Integration against main branch",
+      "description": "Comprehensive re-verification review of the Goja-Eventloop Integration (LOGICAL_CHUNK_1) against the current main branch to ensure no regressions from eventloop core changes and Main promise refactoring in T1-T5. This is a MAXIMUM PARANOIA review following the established pattern from previous review cycles.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "3-4 hours",
+      "dependsOn": [
+        "T5",
+        "T11"
+      ],
+      "deliverables": [
+        "Comprehensive review document: ./goja-eventloop/docs/reviews/41-LOGICAL1_REVERIFICATION.md",
+        "Detailed analysis of all changes vs main branch",
+        "Succinct summary (must be optimal, removing any part would degrade)",
+        "Detailed findings with specific line references and issue identification",
+        "Actionable fix recommendations for any issues found"
+      ],
+      "acceptanceCriteria": [
+        "Review is thorough and questions ALL information (MAXIMUM PARANOIA)",
+        "Only trusts information that is impossible to verify",
+        "Review follows strict format requirements (succinct summary + detailed analysis)",
+        "Findings are actionable and well-documented with specific code references",
+        "No critical issues remain unidentified",
+        "Assessment of risk and confidence is clearly stated"
+      ]
+    },
+    {
+      "id": "T13",
+      "title": "Fix all issues found in Goja-Eventloop re-verification",
+      "description": "Address ALL issues found in T12 re-verification review comprehensively. This includes: fixing any bugs, addressing any race conditions, optimizing any performance issues, handling any edge cases, and resolving any API inconsistencies. Use runSubagent or direct implementation as appropriate. Every single issue must be resolved before proceeding.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "2-6 hours",
+      "dependsOn": [
+        "T12"
+      ],
+      "deliverables": [
+        "All identified issues fixed comprehensively with root cause resolution",
+        "All affected tests updated or added (regression tests)",
+        "All fixes verify with -race detector (zero data races)",
+        "Documentation updated as necessary (comments, docs, changelogs)",
+        "Verification that no new issues are introduced by fixes"
+      ],
+      "acceptanceCriteria": [
+        "All tests pass including new regression tests for each fix",
+        "Zero data races detected across entire goja-eventloop module",
+        "No new issues introduced by the fixes (no regressions)",
+        "All original issues identified in T12 are resolved",
+        "Fixes are minimal and targeted (avoid over-engineering)",
+        "Code review confirms fixes address root causes not symptoms"
+      ]
+    },
+    {
+      "id": "T14",
+      "title": "Verify Goja-Eventloop to perfection",
+      "description": "Re-review the Goja-Eventloop Integration after T13 fixes ensuring UTTER PERFECTION is achieved. If ANY issues remain, restart the T12, T13, T14 cycle (review, fix, re-verify) until the verdict is PERFECT with zero remaining issues. This cycle continues until the module is verified to be production-ready with absolutely no outstanding concerns.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T13"
+      ],
+      "deliverables": [
+        "Perfection review document: ./goja-eventloop/docs/reviews/42-LOGICAL1_PERFECTION.md",
+        "Final verdict: PERFECT or continuation of review-fix-reverify cycle",
+        "Documentation of all review cycle iterations if multiple passes needed",
+        "Final assessment of production readiness"
+      ],
+      "acceptanceCriteria": [
+        "Verdict is PERFECT with no remaining issues",
+        "MAXIMUM PARANOIA review shows zero concerns",
+        "No regressions introduced in any iteration",
+        "Review document satisfies all format requirements",
+        "Confidence assessment: PRODUCTION READY",
+        "All review cycles from previous work remain valid (no new issues introduced)"
+      ]
+    },
+    {
+      "id": "T15",
+      "title": "Final comprehensive cross-module integration testing",
+      "description": "Run comprehensive integration tests across both eventloop and goja-eventloop modules to ensure all optimizations, refactoring, and coverage improvements work together correctly. This includes: cross-module scenario tests, full-stack integration tests, tournament competition across all variants, and stress testing of the complete system. This is the final validation before production readiness.",
+      "status": "not-started",
+      "priority": "HIGH",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T7",
+        "T11",
+        "T14"
+      ],
+      "deliverables": [
+        "Cross-module integration test results (all tests pass)",
+        "Performance analysis across both modules showing no regressions",
+        "Tournament results with all optimizations applied (all 5 variants compete)",
+        "Final production readiness assessment with risk analysis",
+        "Integration test coverage report"
+      ],
+      "acceptanceCriteria": [
+        "All cross-module integration tests pass",
+        "No regressions in either module (eventloop or goja-eventloop)",
+        "Performance improvements verified across both modules",
+        "Zero data races detected in comprehensive testing (-race clean)",
+        "Both modules meet 90%+ coverage targets",
+        "Tournament competition shows fair results across all variants",
+        "Stress tests show no failures or unexpected behavior"
+      ]
+    },
+    {
+      "id": "T16",
+      "title": "Final benchmark validation and documentation",
+      "description": "Run a final comprehensive benchmark suite to quantify all performance improvements, document all optimizations made, and create final production-ready documentation for both modules. This includes before/after comparisons, optimization rationales, performance characteristics of all variants, user-facing documentation updates, and clear documentation of any trade-offs made.",
+      "status": "not-started",
+      "priority": "MEDIUM",
+      "estimatedEffort": "2-3 hours",
+      "dependsOn": [
+        "T15"
+      ],
+      "deliverables": [
+        "Comprehensive benchmark report comparing before/after for all variants",
+        "Optimization documentation for Main promise migration (T4)",
+        "Performance characteristics document for all tournament variants",
+        "Production readiness summary with clear recommendations",
+        "User-facing documentation updates (README, migration guides, API docs)",
+        "Architecture decision records (ADRs) for major changes"
+      ],
+      "acceptanceCriteria": [
+        "Benchmark results are reproducible across 10+ runs",
+        "Documentation is clear, actionable, and technically accurate",
+        "All performance improvements are quantified with statistical significance",
+        "Production readiness is clearly justified with evidence",
+        "User documentation reflects all API changes and improvements",
+        "Trade-offs and design decisions are well-documented"
+      ]
+    },
+    {
+      "id": "T17",
+      "title": "Final comprehensive verification and production sign-off",
+      "description": "Run the final comprehensive verification suite on both macOS and linux-container platforms to ensure everything builds, passes tests, passes vet, staticcheck, betteralign, and that all 200+ tests pass with zero failures across both eventloop and goja-eventloop modules. This is the final gate before declaring the feature branch production-ready for merge.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "30-60 minutes",
+      "dependsOn": [
+        "T16"
+      ],
+      "deliverables": [
+        "Complete build logs for macOS and linux: make all 2>&1 | fold -w 200 | tee build.log | tail -n 15",
+        "Test results across all modules and variants (200+ tests, 100% pass rate)",
+        "Platform-specific validation results (both platforms pass)",
+        "Final production readiness sign-off document",
+        "Merge readiness checklist verification"
+      ],
+      "acceptanceCriteria": [
+        "All packages build successfully on both platforms (no errors, no warnings)",
+        "All tests pass: 200+ tests with 100% pass rate (zero failures)",
+        "Zero data races detected across all tests (-race clean)",
+        "No staticcheck warnings or errors",
+        "No betteralign issues or alignment warnings",
+        "Zero test failures or flaky tests across all platforms",
+        "Both eventloop and goja-eventloop meet 90%+ coverage targets",
+        "All 5 tournament variants compete successfully",
+        "Production readiness sign-off checklist is complete with no blockers"
+      ]
+    },
+    {
+      "id": "T18",
+      "title": "Identify next trajectory targets",
+      "description": "The conclusion of the current task list is not a termination signal but a prompt for continuation. Upon the successful verification of the current scope, this task requires the immediate identification of the next set of work items that align with the established technical trajectory. The objective is to define the next iteration (Phase N+1) that builds upon the now-verified foundation, ensuring continuous value delivery and architectural evolution. Do not stop; pivot to the next objectives.",
+      "status": "not-started",
+      "priority": "CRITICAL",
+      "estimatedEffort": "1 hour",
+      "dependsOn": [
+        "T17"
+      ],
+      "deliverables": [
+        "Generated Blueprint for the subsequent phase",
+        "List of identified improvements or features for the next iteration",
+        "Formal commitment to the next cycle of work"
+      ],
+      "acceptanceCriteria": [
+        "Next phase tasks are defined and prioritized",
+        "No cessation of development activity occurs",
+        "Trajectory of improvement is maintained"
       ]
     }
   ],
-  "testCoverageTasks": [
-  "testCoverageTasks": [
-    {
-      "id": "COVERAGE_1",
-      "title": "Achieve 100% Effective Test Coverage - Eventloop Module (LOGICAL_CHUNK_2)",
-      "description": "Achieve 100% effective test coverage for eventloop module. Current coverage: 77.1% main, 69.3% alternateone, 58.0% alternatethree, 73.0% alternatetwo. REQUIREMENTS: (1) All code paths covered, (2) All error branches tested, (3) All edge cases covered, (4) Platform-specific code tested where possible, (5) Race condition coverage with -race flag. TARGET METRICS: main >= 90%, alternateone >= 90%, alternatethree >= 85% (experimental), alternatetwo >= 90%.",
-      "status": "not-started",
-      "moduleId": "eventloop",
-      "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-      "priority": "HIGH",
-      "verification": {
-        "command": "go test -coverprofile=coverage.out ./eventloop/... && go tool cover -func=coverage.out | grep total",
-        "targetCoverage": "90%"
-      },
-      "subtasks": [
-        {
-          "id": "COVERAGE_1.2",
-          "title": "Add tests for main package Promise Combinators and JS Integration",
-          "description": "Create comprehensive tests for Promise combinators (All, Race, AllSettled, Any) - currently 0% coverage. Also test JS Promise Integration (ThenWithJS, thenStandalone) - currently 0% coverage. These are CRITICAL gaps identified in COVERAGE_1.1 analysis. Estimated gain: +8-13% coverage. Test files: promise_combinators_test.go, promise_js_integration_test.go.",
-          "status": "complete",
-          "priority": "CRITICAL",
-          "priorityAreas": [
-            "Promise.all, Promise.race, Promise.allSettled, Promise.any",
-            "Promise.then() with JavaScript callbacks",
-            "Error propagation through combinators",
-            "Empty array and non-array inputs",
-            "Mixed resolution/rejection scenarios"
-          ],
-          "completionDate": "2026-01-28",
-          "results": {
-            "filesCreated": [
-              "eventloop/promise_combinators_test.go (already existed, verified)",
-              "eventloop/promise_js_integration_test.go (new, 1489 lines)"
-            ],
-            "testsAdded": 60,
-            "actualCoverageGain": "+6.6% (77.5% -> 84.1%)",
-            "coverageAnalysis": {
-              "before": "77.5% of statements",
-              "after": "84.1% of statements",
-              "gain": "6.6 percentage points",
-              "metrics": "All new tests pass with -race detector (zero data races)"
-            },
-            "testCoverageByCategory": {
-              "PromiseCombinators": {
-                "all": "6 tests",
-                "race": "6 tests",
-                "allSettled": "5 tests",
-                "any": "5 tests",
-                "edgeCases": "10 tests",
-                "stressTests": "3 tests"
-              },
-              "JSIntegration": {
-                "thenWithJS": "6 tests",
-                "thenStandalone": "3 tests (skipped - non-compliant)",
-                "callbacks": "8 tests",
-                "errorPropagation": "4 tests",
-                "combinatorIntegration": "2 tests",
-                "concurrentAccess": "2 tests",
-                "finally": "6 tests",
-                "chaining": "2 tests"
-              }
-            },
-            "verification": {
-              "raceDetector": "PASS (zero data races)",
-              "allTestsPass": "YES (100% pass rate)",
-              "coverageAnalysis": "go test -coverprofile=coverage.out ./eventloop && go tool cover -func=coverage.out | grep total"
-            },
-            "nextSteps": [
-              "COVERAGE_1.3: Add tests for alternatethree Promise Core and error paths (estimated +15-20%)",
-              "Target remaining gap: 5.9% to reach 90% coverage",
-              "Focus areas: Registry Scavenge, Poll error handling, State machine queries"
-            ]
-          }
-        },
-        {
-          "id": "COVERAGE_1.3",
-          "title": "Add tests for alternatethree Promise Core and error paths",
-          "description": "Based on COVERAGE_1.1 analysis, add tests for: (1) alternatethree Promise Core (Resolve, Reject, fanOut, NewPromise) - currently 0%, gain +15-20% coverage, (2) Registry Scavenge/Compaction - currently 13.8%/0%, gain +5% coverage, (3) Error paths (handlePollError) - currently 0%, gain +2% coverage, (4) State machine queries (IsTerminal, CanAcceptWork, TransitionAny) - currently 0%, gain +3-4% coverage. Test files: promise_alternatethree_test.go, registry_scavenge_test.go, poll_error_test.go, state_machine_test.go.",
-          "status": "not-started",
-          "priority": "CRITICAL",
-          "priorityAreas": [
-            "alternatethree Resolve/Reject/fanOut/NewPromise",
-            "Registry Scavenge with weak pointer GC",
-            "Poll error handling path",
-            "State machine IsTerminal/CanAcceptWork/TransitionAny",
-            "FD Registration/Unregistration/Modification"
-          ]
-        },
-        {
-          "id": "COVERAGE_1.4",
-          "title": "Verify 90%+ effective coverage achieved",
-          "description": "Run full coverage analysis: 'go test -coverprofile=coverage.out ./eventloop/... && go tool cover -html=coverage.out -o coverage.html'. Verify target metrics: main >= 90%, alternateone >= 90%, alternatethree >= 85%, alternatetwo >= 90%. Ensure all identified coverage gaps closed.",
-          "status": "not-started"
-        }
-      ]
-    },
-    {
-      "id": "COVERAGE_2",
-      "title": "Achieve 100% Effective Test Coverage - Goja-Eventloop Module (LOGICAL_CHUNK_1)",
-      "description": "Achieve 100% effective test coverage for goja-eventloop module. Current coverage: 74.9%. REQUIREMENTS: (1) All code paths covered, (2) All error branches tested, (3) Promise combinator edge cases (null/undefined inputs), (4) Timer ID boundary cases (MAX_SAFE_INTEGER), (5) Concurrent timer scheduling stress tests, (6) Deep promise chain scenarios (>10 .then() calls). TARGET METRICS: main >= 90%.",
-      "status": "not-started",
-      "moduleId": "goja-eventloop",
-      "associatedLogicalChunk": "LOGICAL_CHUNK_1",
-      "priority": "HIGH",
-      "verification": {
-        "command": "go test -coverprofile=coverage.out ./goja-eventloop/... && go tool cover -func=coverage.out | grep total",
-        "targetCoverage": "90%"
-      },
-      "subtasks": [
-        {
-          "id": "COVERAGE_2.1",
-          "title": "Analyze coverage gaps in goja-eventloop (74.9%)",
-          "description": "Run 'go test -coverprofile=coverage.out ./goja-eventloop/...' and 'go tool cover -html=coverage.out' to identify specific uncovered lines. Document all gaps in ./goja-eventloop/docs/coverage-gaps.md.",
-          "status": "not-started"
-        },
-        {
-          "id": "COVERAGE_2.2",
-          "title": "Add Promise combinator edge case tests",
-          "description": "Create comprehensive tests for Promise combinators (all, race, allSettled, any) covering: null inputs, undefined inputs, empty arrays, single element arrays, nested promises, mixed resolution/rejection scenarios. Test file: adapter_combinators_edge_test.go",
-          "status": "not-started"
-        },
-        {
-          "id": "COVERAGE_2.3",
-          "title": "Add timer ID boundary tests",
-          "description": "Create tests for timer ID boundaries: MAX_SAFE_INTEGER, overflow scenarios, ID reuse edge cases, concurrent timer scheduling with high IDs. Test file: adapter_timer_boundary_test.go",
-          "status": "not-started"
-        },
-        {
-          "id": "COVERAGE_2.4",
-          "title": "Add deep promise chain tests",
-          "description": "Create tests for deep promise chains: 10+ .then() calls, mixed resolution/rejection in chains, Promise.all with nested promises, error propagation in complex chains. Test file: adapter_deep_chain_test.go",
-          "status": "not-started"
-        },
-        {
-          "id": "COVERAGE_2.5",
-          "title": "Verify 90%+ effective coverage achieved",
-          "description": "Run full coverage analysis: 'go test -coverprofile=coverage.out ./goja-eventloop/... && go tool cover -html=coverage.out -o coverage.html'. Verify target metric: main >= 90%. Ensure all identified coverage gaps closed including error paths and edge cases.",
-          "status": "not-started"
-        }
-      ]
+  "continuousVerification": {
+    "task": "Run 'make all' with full logging after EVERY significant change",
+    "description": "Execute 'make all 2>&1 | fold -w 200 | tee build.log | tail -n 15' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix, (e) Each review cycle. This is a CONTINUOUS task that must be executed throughout the entire plan without exception.",
+    "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions. Do not skip, defer, or ignore any test failure.",
+    "baseline": {
+      "date": "2026-01-28",
+      "platforms": [
+        "macOS",
+        "linux-container"
+      ],
+      "result": "ALL_PASS (200+ tests)",
+      "duration": "83.747s (macOS), 137.480s (linux)",
+      "status": "baseline-verified-healthy"
     }
-  ],
-  "betteralignTasks": [
-    {
-      "id": "BETTERALIGN_1",
-      "title": "Create custom config.mk target for betteralign",
-      "description": "Add a custom target in config.mk for running betteralign on eventloop module. TARGET: 'betteralign-eventloop' with command: 'go -C eventloop tool betteralign -apply .'. This should automatically apply betteralign fixes for cache line padding optimization.",
-      "status": "complete",
-      "priority": "HIGH",
-      "associatedLogicalChunk": "LOGICAL_CHUNK_2",
+  },
+  "archivedData": {
+    "betteralign": {
+      "status": "COMPLETE",
       "completionDate": "2026-01-28",
-      "notes": "Target already existed in config.mk. Enhanced with proper logging to build.log per operational discipline."
-      "subtasks": [
-        {
-          "id": "BETTERALIGN_1.1",
-          "title": "Create/edit config.mk with betteralign target",
-          "description": "Open config.mk and add: 'betteralign-eventloop:\n\t@echo \"Running betteralign on eventloop...\"\n\tgo -C eventloop tool betteralign -apply .\n\t@echo \"Betteralign complete\"'. Ensure file exists (create if missing).",
-          "status": "not-started"
-        },
-        {
-          "id": "BETTERALIGN_1.2",
-          "title": "Add betteralign target to Makefile integration",
-          "description": "Verify that betteralign-eventloop target is accessible via Makefile. Ensure it integrates with existing build targets.",
-          "status": "not-started"
-        }
+      "summary": "Betteralign verification completed with OPTIMAL verdict. All cache line padding verified correct. No changes required. Existing manual alignment and //betteralign:ignore directives are sufficient.",
+      "documents": [
+        "./eventloop/docs/betteralign-execution-report.md",
+        "./eventloop/docs/betteralign-sanity-verification.md"
+      ],
+      "keyFindings": [
+        "All hot data structures manually aligned for cache line optimization",
+        "Atomic fields grouped to 8-byte boundaries",
+        "Mutex fields separated from hot fields",
+        "Platform-specific poller structures properly aligned",
+        "Critical structs have appropriate //betteralign:ignore directives",
+        "Comprehensive alignment tests verify correctness"
       ]
     },
-    {
-      "id": "BETTERALIGN_2",
-      "title": "Run betteralign on eventloop module",
-      "description": "Execute the betteralign target using #make tool with custom target defined in config.mk. Command: 'make betteralign-eventloop'. Pipe output to build.log as per operational discipline.",
-      "status": "complete",
-      "priority": "HIGH",
-      "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-      "dependsOn": ["BETTERALIGN_1"],
+    "eventloopCoreReview": {
+      "status": "COMPLETE",
+      "verdict": "PERFECT",
       "completionDate": "2026-01-28",
-      "verificationDocument": "./eventloop/docs/betteralign-execution-report.md",
-      "findings": {
-        "exitCode": 0,
-        "changesApplied": "0 files modified",
-        "warnings": "None",
-        "errors": "None",
-        "summary": "Betteralign completed successfully with NO CHANGES REQUIRED. All cache line padding optimizations verified correct.",
-        "reason": "Existing manual cache line padding and betteralign:ignore directives prevent any necessary automatic changes.",
-        "details": [
-          "All hot data structures manually aligned for cache line optimization",
-          "Atomic fields grouped to 8-byte boundaries",
-          "Mutex fields separated from hot fields",
-          "Platform-specific poller structures properly aligned",
-          "Critical structs have //betteralign:ignore directive",
-          "Comprehensive alignment tests verify correctness"
+      "criticalIssuesFixed": [
+        "Timer pool memory leak on cancellation path (loop.go:1429) - Added t.task = nil before timerPool.Put()",
+        "Unused field in internal/promisealtone/promise.go - Removed id field",
+        "Betteralign warning for Promise struct - Added //betteralign:ignore directive"
+      ],
+      "reviewCycle": "3-review-cycle-to-perfection (Review -> Fix -> Re-review -> PERFECT)",
+      "documents": [
+        "./eventloop/docs/reviews/37-LOGICAL2_FINAL_REVIEW.md",
+        "./eventloop/docs/reviews/38-LOGICAL2_PERFECTION_REVIEW.md"
+      ],
+      "confidence": "PRODUCTION_READY_AWAITING_COVERAGE"
+    },
+    "gojaHistoricalIssues": {
+      "status": "COMPLETE",
+      "criticalIssuesFixedHistorically": 3,
+      "completionDate": "2026-01-28",
+      "summary": "Historical critical issues all fixed in previous review cycles",
+      "issues": [
+        "CRITICAL #1: Double-wrapping issue in Promise combinators - RESOLVED",
+        "CRITICAL #2: Memory leak in timer cleanup - RESOLVED",
+        "CRITICAL #3: Promise.reject semantics error - RESOLVED"
+      ],
+      "verdict": "PRODUCTION_READY_AWAITING_COVERAGE"
+    },
+    "coverageProgress": {
+      "eventloop": {
+        "main": "84.6% (target: 90%, gap: 5.4%)",
+        "alternateone": "69.3% (target: 90%, gap: 20.7%)",
+        "alternatethree": "73.0% (target: 85%, gap: 12.0%)",
+        "alternatetwo": "72.7% (target: 90%, gap: 17.3%)"
+      },
+      "goja-eventloop": {
+        "main": "74.0% (target: 90%, gap: 16.0%)"
+      },
+      "completedWork": {
+        "eventloop": [
+          "Promise combinators tests (60 tests, +6.6% coverage)",
+          "Alternatethree Promise Core tests (25 tests, +0.5% coverage)",
+          "Promise JS integration tests (extensive coverage)"
+        ],
+        "goja-eventloop": [
+          "Coverage gap analysis completed (documented in coverage-gaps.md)",
+          "Function-level coverage analysis for 15 functions",
+          "Test plan for 4 phases of coverage improvement"
         ]
       }
-    },
-    {
-      "id": "BETTERALIGN_3",
-      "title": "Verify cache line padding is sane after betteralign",
-      "description": "After betteralign applies changes, verify that cache line padding is still correct and doesn't introduce false sharing. REQUIREMENTS: (1) Check that hot data structures remain properly padded, (2) Verify no struct size changes that would affect cache line alignment, (3) Run stress tests to ensure no performance regression, (4) Check that betteralign didn't add excessive padding that wastes memory. VERIFICATION: 'make test' with benchmark comparison. Document any structural changes in ./eventloop/docs/betteralign-verification.md.",
-      "status": "complete",
-      "priority": "HIGH",
-      "associatedLogicalChunk": "LOGICAL_CHUNK_2",
-      "dependsOn": ["BETTERALIGN_2"],
-      "completionDate": "2026-01-28",
-      "verificationDocument": "./eventloop/docs/betteralign-sanity-verification.md",
-      "verdict": "OPTIMAL",
-      "subtasks": [
-        {
-          "id": "BETTERALIGN_3.1",
-          "title": "Review betteralign changes",
-          "description": "Use 'git diff' to see what betteralign changed. Look for: struct field reordering, padding additions, size changes. Verify changes are minimal and targeted for cache line optimization.",
-          "status": "complete",
-          "results": "No changes made by betteralign (expected - BETTERALIGN_2 already confirmed no changes required)"
-        },
-        {
-          "id": "BETTERALIGN_3.2",
-          "title": "Run stress tests to verify no performance regression",
-          "description": "Run 'make test -run Stress' and compare benchmarks before/after betteralign. Look for latency changes, throughput changes, or unexpected performance degradation.",
-          "status": "complete",
-          "results": "All benchmarks stable (137s testing). No false sharing detected. 2,617,370 concurrent operations with zero losses."
-        },
-        {
-          "id": "BETTERALIGN_3.3",
-          "title": "Document verification results",
-          "description": "Create ./eventloop/docs/betteralign-verification.md documenting: (a) Changes made by betteralign, (b) Performance metrics comparison, (c) Cache line padding verification, (d) Conclusion on whether padding is still sane.",
-          "status": "complete",
-          "outputFile": "./eventloop/docs/betteralign-sanity-verification.md",
-          "summary": "Comprehensive verification report covering alignment tests, benchmarks, false sharing analysis, and platform-specific verification."
-        }
-      ]
-    }
-  ],
-  "nextImmediateActions": [
-    "REVIEW_LOGICAL2_1: Initial comprehensive review of LOGICAL_CHUNK_2 (Eventloop Core & Promise System)",
-    "REVIEW_LOGICAL2_2: Fix all issues found in REVIEW_LOGICAL2_1",
-    "REVIEW_LOGICAL2_3: Re-review LOGICAL_CHUNK_2 to perfection",
-    "REVIEW_LOGICAL1_1: Re-verification review of LOGICAL_CHUNK_1 (Goja-Eventloop Integration)",
-    "REVIEW_LOGICAL1_2: Fix all issues found in REVIEW_LOGICAL1_1",
-    "REVIEW_LOGICAL1_3: Re-review LOGICAL_CHUNK_1 to perfection",
-    "COVERAGE_1: Achieve 90%+ test coverage for eventloop module",
-    "COVERAGE_2: Achieve 90%+ test coverage for goja-eventloop module",
-    "BETTERALIGN_1: Create config.mk target for betteralign",
-    "BETTERALIGN_2: Run betteralign on eventloop module",
-    "BETTERALIGN_3: Verify cache line padding sanity after betteralign",
-    "CONTINUOUS_1: Run make-all-with-log after EVERY single milestone"
-  ],
-  "continuousVerificationTasks": [
-    {
-      "id": "CONTINUOUS_1",
-      "title": "Run make-all-with-log CONTINUOUSLY",
-      "description": "Run 'make all' with full logging output after every significant change to ensure builds remain stable. Target: build.log. COMMAND: 'make all 2>&1 | fold -w 200 | tee build.log | tail -n 15'. This is a CONTINUOUS task - must be run after: (a) Each code change, (b) Each test addition, (c) Each review cycle completion, (d) Each bug fix. FAIL POLICY: If ANY test fails, STOP. Do not proceed. Fix the issue immediately. Zero tolerance for test failures, even due to timing or non-determinism.",
-      "status": "baseline-verified",
-      "priority": "HIGHEST",
-      "isContinuous": true,
-      "verificationHistory": [
-        {
-          "timestamp": "2026-01-28",
-          "platforms": ["macOS", "linux-container"],
-          "exitCode": 0,
-          "duration": "83.747s (macOS), 137.480s (linux)",
-          "result": "ALL_PASS",
-          "totalTests": "200+ (all passed)"
-        },
-        {
-          "timestamp": "2026-01-28 (baseline)",
-          "platforms": ["macOS"],
-          "exitCode": 0,
-          "duration": "36.460s",
-          "result": "ALL_PASS",
-          "totalTests": "200+ (all passed, cached)",
-          "notes": "Baseline verification before review cycles. All packages built, vetted, staticchecked, betteraligned, and tested successfully."
-        }
-      ]
-    }
-  ],
-  "archivedHistoricalData": {
-    "phase7ReviewGroups": {
-      "description": "Historical Phase 7 review groups - completed and replaced by logical chunk structure"
-    },
-    "originalChunkStructure": {
-      "description": "Original 4-chunk structure (CHUNK_1, CHUNK_2, CHUNK_3, CHUNK_4) - merged into 2 logical chunks"
-    },
-    "completedLogicalChunk1": {
-      "title": "COMPLETED: Goja Integration & Specification Compliance (LOGICAL_CHUNK_1)",
-      "status": "production-ready",
-      "description": "Review cycle completed with PERFECT verdict. Files: goja-eventloop/* (adapter.go, Promise combinators, etc.). Test status: ALL PASS (18/18 tests). Coverage: 74.9% main. Critical issues: All 3 FIXED (CRITICAL #1: Double-wrapping, CRITICAL #2: Memory leak, CRITICAL #3: Promise.reject semantics). Review documents: 24-LOGICAL1_GOJA_SCOPE.md, 24-LOGICAL1_GOJA_SCOPE-FIXES.md, 25-LOGICAL1_GOJA_SCOPE-REVIEW.md. Status: PRODUCTION-READY - Ready for merge after LOGICAL_CHUNK_2 completion.",
-      "completedTasks": ["LOGICAL_1.1", "LOGICAL_1.2", "LOGICAL_1.3"],
-      "coverageTargets": "GOJA-EVENTLOOP: main currently 74.9%, needs 90%+ (COVERAGE_2 task pending)"
     }
   }
 }

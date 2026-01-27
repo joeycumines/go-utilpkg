@@ -1,5 +1,3 @@
-//go:build !race
-
 package alternatethree
 
 // NewRegistryForTesting creates a new registry for testing purposes.

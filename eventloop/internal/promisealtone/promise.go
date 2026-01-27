@@ -34,10 +34,6 @@ type Promise struct { // betteralign:ignore
 	// This covers the 99% case of linear chaining (A.Then(B).Then(C)).
 	h0 handler
 
-	// Additional handlers for branching logic (A.Then(B); A.Then(C)).
-	// Only allocated if more than one handler is attached.
-	handlers []handler
-
 	// Pointer fields (8-byte aligned)
 	js *eventloop.JS
 
@@ -49,7 +45,7 @@ type Promise struct { // betteralign:ignore
 
 	// Flags
 	h0Used bool
-	_      [3]byte // Padding
+	_      [3]byte // Padding to 64 bytes
 }
 
 // handler represents a reaction to promise settlement.
@@ -166,11 +162,16 @@ func (p *Promise) addHandler(h handler) {
 		p.h0 = h
 		p.h0Used = true
 	} else {
-		// Lazy init slice
-		if p.handlers == nil {
-			p.handlers = make([]handler, 0, 2)
+		// Optimization: Store additional handlers in p.result type-punned as []handler
+		// This saves 24 bytes in the Promise struct, fitting it into 64 bytes (1 cache line).
+		var handlers []handler
+		if p.result == nil {
+			handlers = make([]handler, 0, 2)
+		} else {
+			handlers = p.result.([]handler)
 		}
-		p.handlers = append(p.handlers, h)
+		handlers = append(handlers, h)
+		p.result = handlers
 	}
 	p.mu.Unlock()
 }
@@ -254,17 +255,21 @@ func (p *Promise) resolve(value Result) {
 		return
 	}
 
-	p.result = value
-	p.state.Store(int32(Fulfilled))
-
 	// Capture and clear handlers under lock
 	h0 := p.h0
 	useH0 := p.h0Used
-	handlers := p.handlers
+
+	// Extract extra handlers from result if present
+	var handlers []handler
+	if useH0 && p.result != nil {
+		handlers = p.result.([]handler)
+	}
+
+	p.result = value
+	p.state.Store(int32(Fulfilled))
 
 	// Release memory
 	p.h0 = handler{}
-	p.handlers = nil
 	p.mu.Unlock()
 
 	// Execute handlers outside lock
@@ -287,15 +292,20 @@ func (p *Promise) reject(reason Result) {
 		return
 	}
 
+	// Capture handlers
+	h0 := p.h0
+	useH0 := p.h0Used
+
+	// Extract extra handlers from result if present
+	var handlers []handler
+	if useH0 && p.result != nil {
+		handlers = p.result.([]handler)
+	}
+
 	p.result = reason
 	p.state.Store(int32(Rejected))
 
-	h0 := p.h0
-	useH0 := p.h0Used
-	handlers := p.handlers
-
 	p.h0 = handler{}
-	p.handlers = nil
 	p.mu.Unlock()
 
 	if useH0 {
@@ -318,6 +328,17 @@ func (p *Promise) scheduleHandler(h handler, state int32, result Result) {
 	})
 }
 
+// Observe adds handlers without creating a child promise.
+// This is useful for fire-and-forget scenarios or combinators like All.
+func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
+	h := handler{
+		onFulfilled: onFulfilled,
+		onRejected:  onRejected,
+		target:      nil, // No target promise
+	}
+	p.addHandler(h)
+}
+
 func (p *Promise) executeHandler(h handler, state int32, result Result) {
 	var fn func(Result) Result
 
@@ -330,6 +351,9 @@ func (p *Promise) executeHandler(h handler, state int32, result Result) {
 
 	// 1. If no handler, propagate state to target
 	if fn == nil {
+		if h.target == nil {
+			return
+		}
 		if state == int32(Fulfilled) {
 			h.target.resolve(result)
 		} else {
@@ -341,15 +365,18 @@ func (p *Promise) executeHandler(h handler, state int32, result Result) {
 	// 2. Run handler with panic protection
 	defer func() {
 		if r := recover(); r != nil {
-			h.target.reject(r)
+			if h.target != nil {
+				h.target.reject(r)
+			}
 		}
 	}()
 
 	res := fn(result)
 
 	// 3. Resolve target with result
-	// Note: If the handler returns a Promise, resolve() handles the unwrapping
-	h.target.resolve(res)
+	if h.target != nil {
+		h.target.resolve(res)
+	}
 }
 
 // ToChannel returns a channel that receives the result.
@@ -369,33 +396,33 @@ func (p *Promise) ToChannel() <-chan Result {
 
 // All waits for all promises.
 func All(js *eventloop.JS, promises []*Promise) *Promise {
-	result, resolve, reject := New(js)
+	result := newPromise(js)
 
 	if len(promises) == 0 {
-		resolve([]Result{})
+		result.resolve([]Result{})
 		return result
 	}
 
 	results := make([]Result, len(promises))
 	pending := int32(len(promises))
 
-	// Optimization: Pre-allocate handlers?
-	// The current logic is fine; New() creates accessors which have overhead,
-	// but All() is inherently heavy due to slice management.
+	// Optimization: onRejected is nil, so rejections are forwarded directly to result.
+	// onFulfilled must be defined to aggregate results.
 
 	for i, p := range promises {
-		i := i // Capture
-		p.Then(func(v Result) Result {
-			results[i] = v
-			if atomic.AddInt32(&pending, -1) == 0 {
-				resolve(results)
-			}
-			return nil
-		}, func(r Result) Result {
-			// First rejection wins
-			reject(r)
-			return nil
-		})
+		i := i
+		h := handler{
+			onFulfilled: func(v Result) Result {
+				results[i] = v
+				if atomic.AddInt32(&pending, -1) == 0 {
+					result.resolve(results)
+				}
+				return nil
+			},
+			onRejected: nil, // Forward rejection immediately
+			target:     result,
+		}
+		p.addHandler(h)
 	}
 
 	return result
@@ -410,3 +437,166 @@ var _ interface {
 	Catch(func(Result) Result) *Promise
 	Finally(func()) *Promise
 } = (*Promise)(nil)
+
+// Race returns a promise that settles as soon as any of the input promises settles.
+func Race(js *eventloop.JS, promises []*Promise) *Promise {
+	result := newPromise(js)
+
+	if len(promises) == 0 {
+		return result
+	}
+
+	// Optimization: Forward both fulfillment and rejection directly to result.
+	// No closures allocated!
+	h := handler{target: result}
+
+	for _, p := range promises {
+		p.addHandler(h)
+	}
+
+	return result
+}
+
+// AllSettled returns a promise that resolves when all input promises have settled.
+func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
+	result := newPromise(js)
+
+	if len(promises) == 0 {
+		result.resolve([]Result{})
+		return result
+	}
+
+	results := make([]Result, len(promises))
+	pending := int32(len(promises))
+
+	// AllSettled needs to handle both paths to aggregate.
+	// We can't forward directly.
+
+	for i, p := range promises {
+		i := i
+		checkDone := func() {
+			if atomic.AddInt32(&pending, -1) == 0 {
+				result.resolve(results)
+			}
+		}
+
+		h := handler{
+			onFulfilled: func(v Result) Result {
+				results[i] = map[string]interface{}{"status": "fulfilled", "value": v}
+				checkDone()
+				return nil
+			},
+			onRejected: func(r Result) Result {
+				results[i] = map[string]interface{}{"status": "rejected", "reason": r}
+				checkDone()
+				return nil
+			},
+			target: nil, // No direct forwarding
+		}
+		p.addHandler(h)
+	}
+
+	return result
+}
+
+// Any returns a promise that fulfills as soon as any of the input promises fulfills.
+// If all input promises reject, it rejects with an AggregateError.
+func Any(js *eventloop.JS, promises []*Promise) *Promise {
+	result := newPromise(js)
+
+	if len(promises) == 0 {
+		result.reject(fmt.Errorf("AggregateError: All promises were rejected"))
+		return result
+	}
+
+	errors := make([]Result, len(promises))
+	pending := int32(len(promises))
+
+	// Optimization: onFulfilled is nil, so fulfillment is forwarded directly.
+	// onRejected is handled to aggregate errors.
+
+	for i, p := range promises {
+		i := i
+		h := handler{
+			onFulfilled: nil, // Forward fulfillment immediately
+			onRejected: func(r Result) Result {
+				errors[i] = r
+				if atomic.AddInt32(&pending, -1) == 0 {
+					result.reject(errors)
+				}
+				return nil
+			},
+			target: result,
+		}
+		p.addHandler(h)
+	}
+
+	return result
+}
+
+// String returns a string representation of the promise independent of its result value.
+func (p *Promise) String() string {
+	state := p.State()
+	switch state {
+	case Pending:
+		return "Promise<Pending>"
+	case Fulfilled:
+		return fmt.Sprintf("Promise<Fulfilled: %v>", p.result) // Reading result is safe if Fulfilled
+	case Rejected:
+		return fmt.Sprintf("Promise<Rejected: %v>", p.result) // Reading result is safe if Rejected
+	default:
+		return "Promise<Unknown>"
+	}
+}
+
+// Await blocks until the promise settles and returns the result or error.
+// It uses a context for cancellation (abandonment).
+//
+// Note: This method blocks the calling goroutine. DO NOT call this from the event loop thread
+// unless you are sure what you are doing, as it will deadlock if the promise relies on the loop.
+func (p *Promise) Await(ctx interface {
+	Done() <-chan struct{}
+	Err() error
+}) (Result, error) {
+	// Fast path
+	state := p.State()
+	if state == Fulfilled {
+		return p.result, nil
+	}
+	if state == Rejected {
+		// Return reason as error? OR reason as value?
+		// Standard simple Await implies retrieving value or error.
+		// If reason is error, we return it. If not, we wrap it?
+		// Result is alias for any.
+		// We return (Result, error).
+		// If Fulfilled: (val, nil).
+		// If Rejected: (nil, reason if error else fmt.Errorf("%v", reason))
+		if err, ok := p.result.(error); ok {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%v", p.result)
+	}
+
+	ch := make(chan Result, 1)
+	errCh := make(chan Result, 1)
+
+	p.Observe(func(v Result) Result {
+		ch <- v
+		return nil
+	}, func(r Result) Result {
+		errCh <- r
+		return nil
+	})
+
+	select {
+	case v := <-ch:
+		return v, nil
+	case r := <-errCh:
+		if err, ok := r.(error); ok {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%v", r)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
