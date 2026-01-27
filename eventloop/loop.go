@@ -1441,6 +1441,7 @@ func (l *Loop) runTimers() {
 			// Zero-alloc: Return timer to pool even if canceled
 			t.heapIndex = -1   // Clear stale heap data
 			t.nestingLevel = 0 // Clear stale nesting level
+			t.task = nil       // FIX: Clear closure reference to prevent memory leak on canceled timer path
 			timerPool.Put(t)
 		}
 
