@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/go-eventloop/internal/promisealtfour"
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
 )
 
@@ -105,16 +106,27 @@ func BenchmarkPromises(b *testing.B) {
 						_ = promisealtone.Race(js, promises)
 					}
 				} else if impl.Name == "ChainedPromise" {
-					// Benchmark ChainedPromise Race?
-					// eventloop/js.go has Race?
-					// It has JS.Race? No.
-					// It has JS.All.
-					// Does it have Race?
-					// Checked js.go: NewChainedPromise, Resolve, Reject, All.
-					// NO RACE in JS.go?
-					// So ChainedPromise might not support Race natively in that package?
-					// Or I missed it.
-					// If missing, I can't benchmark it.
+					b.ResetTimer()
+					b.ReportAllocs()
+					for i := 0; i < b.N; i++ {
+						promises := make([]*eventloop.ChainedPromise, 100)
+						for k := 0; k < 100; k++ {
+							p, _, _ := js.NewChainedPromise()
+							promises[k] = p
+						}
+						_ = js.Race(promises)
+					}
+				} else if impl.Name == "PromiseAltFour" {
+					b.ResetTimer()
+					b.ReportAllocs()
+					for i := 0; i < b.N; i++ {
+						promises := make([]*promisealtfour.Promise, 100)
+						for k := 0; k < 100; k++ {
+							p, _, _ := promisealtfour.New(js)
+							promises[k] = p
+						}
+						_ = promisealtfour.Race(js, promises)
+					}
 				}
 			})
 

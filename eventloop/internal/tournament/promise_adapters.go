@@ -2,6 +2,7 @@ package tournament
 
 import (
 	"github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/go-eventloop/internal/promisealtfour"
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
 	"github.com/joeycumines/go-eventloop/internal/promisealtthree"
 	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
@@ -66,6 +67,19 @@ func (a *PromiseAltThreeAdapter) Result() eventloop.Result {
 	return a.p.Result()
 }
 
+// PromiseAltFourAdapter adapts promisealtfour.Promise
+type PromiseAltFourAdapter struct {
+	p *promisealtfour.Promise
+}
+
+func (a *PromiseAltFourAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+	return &PromiseAltFourAdapter{p: a.p.Then(onFulfilled, onRejected)}
+}
+
+func (a *PromiseAltFourAdapter) Result() eventloop.Result {
+	return a.p.Result()
+}
+
 // PromiseImplementations returns the list of promise implementations.
 func PromiseImplementations() []PromiseImplementation {
 	return []PromiseImplementation{
@@ -95,6 +109,13 @@ func PromiseImplementations() []PromiseImplementation {
 			Factory: func(js *eventloop.JS) (Promise, eventloop.ResolveFunc, eventloop.RejectFunc) {
 				p, r1, r2 := promisealtthree.New(js)
 				return &PromiseAltThreeAdapter{p: p}, eventloop.ResolveFunc(r1), eventloop.RejectFunc(r2)
+			},
+		},
+		{
+			Name: "PromiseAltFour",
+			Factory: func(js *eventloop.JS) (Promise, eventloop.ResolveFunc, eventloop.RejectFunc) {
+				p, r1, r2 := promisealtfour.New(js)
+				return &PromiseAltFourAdapter{p: p}, eventloop.ResolveFunc(r1), eventloop.RejectFunc(r2)
 			},
 		},
 	}

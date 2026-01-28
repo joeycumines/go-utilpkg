@@ -180,9 +180,8 @@ func TestChainedPromiseAlign(t *testing.T) {
 	fmt.Printf("js: offset=%d, size=%d\n", unsafe.Offsetof(s.js), unsafe.Sizeof(s.js))
 	fmt.Printf("state: offset=%d, size=%d\n", unsafe.Offsetof(s.state), unsafe.Sizeof(s.state))
 	fmt.Printf("mu: offset=%d, size=%d\n", unsafe.Offsetof(s.mu), unsafe.Sizeof(s.mu))
-	fmt.Printf("value: offset=%d, size=%d\n", unsafe.Offsetof(s.value), unsafe.Sizeof(s.value))
-	fmt.Printf("reason: offset=%d, size=%d\n", unsafe.Offsetof(s.reason), unsafe.Sizeof(s.reason))
-	fmt.Printf("handlers: offset=%d, size=%d\n", unsafe.Offsetof(s.handlers), unsafe.Sizeof(s.handlers))
+	fmt.Printf("result: offset=%d, size=%d\n", unsafe.Offsetof(s.result), unsafe.Sizeof(s.result))
+	fmt.Printf("h0: offset=%d, size=%d\n", unsafe.Offsetof(s.h0), unsafe.Sizeof(s.h0))
 	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }

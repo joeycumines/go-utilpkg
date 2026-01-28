@@ -292,12 +292,11 @@ func TestJSIntegration_thenStandalone_Basic(t *testing.T) {
 
 	// Create a promise with nil js field (simulating standalone scenario)
 	p := &ChainedPromise{
-		handlers: make([]handler, 0, 2),
-		id:       1,
-		js:       nil,
+		id: 1,
+		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))
-	p.value = "original"
+	p.result = "original"
 
 	// This should use thenStandalone path
 	result := p.Then(
@@ -321,9 +320,8 @@ func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS")
 
 	p := &ChainedPromise{
-		handlers: make([]handler, 0, 2),
-		id:       1,
-		js:       nil,
+		id: 1,
+		js: nil,
 	}
 	p.state.Store(int32(Pending))
 
@@ -344,21 +342,32 @@ func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
 	// Manually resolve (simulating what resolve() would do)
 	if p.state.CompareAndSwap(int32(Pending), int32(Fulfilled)) {
 		p.mu.Lock()
-		p.value = "value"
-		handlers := p.handlers
-		p.handlers = nil
+		h0 := p.h0
+		var handlers []handler
+		if p.result != nil {
+			handlers = p.result.([]handler)
+		}
+		p.h0 = handler{}
+		p.result = "value"
 		p.mu.Unlock()
 
 		// Manually execute handlers (this is what resolve() does)
-		for _, h := range handlers {
+		process := func(h handler) {
 			if h.onFulfilled != nil {
-				resultValue := h.onFulfilled(p.value)
+				resultValue := h.onFulfilled(p.result)
 				if result.state.CompareAndSwap(int32(Pending), int32(Fulfilled)) {
 					result.mu.Lock()
-					result.value = resultValue
+					result.result = resultValue
 					result.mu.Unlock()
 				}
 			}
+		}
+
+		if h0.target != nil {
+			process(h0)
+		}
+		for _, h := range handlers {
+			process(h)
 		}
 	}
 
@@ -375,12 +384,11 @@ func TestJSIntegration_thenStandalone_Rejection(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS")
 
 	p := &ChainedPromise{
-		handlers: make([]handler, 0, 2),
-		id:       1,
-		js:       nil,
+		id: 1,
+		js: nil,
 	}
 	p.state.Store(int32(Rejected))
-	p.reason = "error reason"
+	p.result = "error reason"
 
 	result := p.Then(
 		nil,
@@ -408,12 +416,11 @@ func TestJSIntegration_thenStandalone_NilHandlers(t *testing.T) {
 	t.Skip("thenStandalone limitation: nil handlers don't trigger settlement")
 
 	p := &ChainedPromise{
-		handlers: make([]handler, 0, 2),
-		id:       1,
-		js:       nil,
+		id: 1,
+		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))
-	p.value = "original"
+	p.result = "original"
 
 	// Both handlers nil - would NOT pass-through in thenStandalone path
 	// (this is only for ThenWithJS normal path)
@@ -435,12 +442,11 @@ func TestJSIntegration_thenStandalone_Chaining(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS for chaining")
 
 	p := &ChainedPromise{
-		handlers: make([]handler, 0, 2),
-		id:       1,
-		js:       nil,
+		id: 1,
+		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))
-	p.value = 1
+	p.result = 1
 
 	p2 := p.Then(
 		func(v Result) Result {

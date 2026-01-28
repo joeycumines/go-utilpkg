@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/go-eventloop/internal/promisealtfour"
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
 	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
 )
@@ -54,6 +55,14 @@ func BenchmarkTournament(b *testing.B) {
 			return &p2Wrapper{p, res}, func(v interface{}) { res(v) }
 		})
 	})
+
+	// Challenger 3: PromiseAltFour (Baseline)
+	b.Run("PromiseAltFour", func(b *testing.B) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+			p, res, _ := promisealtfour.New(js)
+			return &p4Wrapper{p, res}, func(v interface{}) { res(v) }
+		})
+	})
 }
 
 // Wrappers to normalize the interface for the test harness
@@ -87,6 +96,16 @@ func (w *p2Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPr
 	return &p2Wrapper{p: w.p.Then(s, f)}
 }
 func (w *p2Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+
+type p4Wrapper struct {
+	p       *promisealtfour.Promise
+	resolve promisealtfour.ResolveFunc
+}
+
+func (w *p4Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+	return &p4Wrapper{p: w.p.Then(s, f)}
+}
+func (w *p4Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
 
 func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(interface{}))) {
 	b.ReportAllocs()
@@ -180,5 +199,10 @@ func BenchmarkChainDepth(b *testing.B) {
 	run("PromiseAltTwo", func(js *eventloop.JS) (genericPromise, func(interface{})) {
 		p, res, _ := promisealttwo.New(js)
 		return &p2Wrapper{p, res}, func(v interface{}) { res(v) }
+	})
+
+	run("PromiseAltFour", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		p, res, _ := promisealtfour.New(js)
+		return &p4Wrapper{p, res}, func(v interface{}) { res(v) }
 	})
 }

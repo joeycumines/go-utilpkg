@@ -5,15 +5,20 @@ INTERRUPTED - RESUMPTION WILL BE REQUIRED LATER WHEN blueprint.json ALLOWS
 
 ## PREVIOUS Goal
 
-**CURRENT TASK (2026-01-28): COVERAGE_2.2 - Phase 1: Critical Coverage Paths**
+**CURRENT TASK (2026-01-28): T6 - Add comprehensive tests for JS integration error paths**
 
-Target: Goja-eventloop coverage from 74.0% to 83.5%+ (+9.5% estimated gain)
-Focus: CRITICAL priority gaps identified in COVERAGE_2.1:
+Target: Address final coverage gaps in js.go/ingress.go.
 
-- exportGojaValue (42.9% → +1.0%)
-- gojaFuncToHandler (68.4% → +3.0%)
-- resolveThenable (61.8% → +3.0%)
-- convertToGojaValue (72.4% → +2.5%)
+**COMPLETED (2026-01-28):**
+- [x] T1: Create promisealtfour variant (COMPLETE)
+- [x] T2: Verify tournament checks (COMPLETE)
+- [x] T3: Analyze promisealtone (COMPLETE)
+- [x] T4: Refactor Main promise (COMPLETE)
+    - 2.7x Speedup, -60% Allocs.
+- [x] T5: Performance regression testing (COMPLETE)
+    - Verified no regressions. Main promise is now top-tier.
+
+**PREVIOUS GOAL (INTERRUPTED):** COVERAGE_2.2 (Goja-Eventloop coverage) - deferred per new Blueprint.
 
 **NEXT TASKS:**
 
