@@ -905,7 +905,6 @@ Property: Approximately `p%` of samples ≤ S[idx]
 - alternatethree Promise Core (+15-20% coverage) - Functionality correct, needs more tests
 - Error paths (+2% coverage) - Edge cases, no functional issues
 
-**Estimated Effort**: 13-20 hours
 **Target**: 90%+ coverage
 **Risk**: LOW - All functionality verified correct, only test gaps remain
 

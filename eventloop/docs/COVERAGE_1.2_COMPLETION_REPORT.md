@@ -230,8 +230,6 @@ Target: Reach 90%+ coverage
 3. Poll error handling paths
 4. State machine queries (IsTerminal, CanAcceptWork, TransitionAny)
 
-**Estimated Impact:** +15-20% coverage on alternatethree, +5% on registry, +2% on errors, +3-4% on state machine
-
 ---
 
 ## Requirements Compliance

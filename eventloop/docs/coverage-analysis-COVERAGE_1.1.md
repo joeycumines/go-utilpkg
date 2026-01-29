@@ -293,38 +293,20 @@
 
 ---
 
-## Estimation: Coverage Gains From Tests
-
-| Priority Area | Estimated Coverage Gain | Effort |
-|---------------|------------------------|--------|
-| Promise Combinators | +5-8% | 2-3 hours |
-| JS Promise Integration | +3-5% | 1-2 hours |
-| Error Path (handlePollError) | +2% | 1 hour |
-| State Machine Queries | +3-4% | 1-2 hours |
-| FD Registration | +3-5% | 2-3 hours |
-| alternatethree Promise Core | +15-20% | 4-6 hours |
-| Registry Scavenge | +5% | 2-3 hours |
-| **Total Estimated Gain** | **+36-42%** | **13-20 hours** |
-
-**Target Achievement**: Current 77.5% + 36% = **113.5%** ✅
-**Realistic Achievement**: Main package can reach **90%+**, internal packages need focused effort
-
----
-
 ## Recommendations
 
-### Immediate Actions (CRITICAL)
+### Immediate Actions
 1. ✅ **Promise Combinators Tests** - Create `promise_combinators_test.go`
 2. ✅ **JS Promise Integration Tests** - Create `promise_js_integration_test.go`
 3. ✅ **alternatethree Promise Core Tests** - Create `promise_alternatethree_test.go`
 
-### High Priority (SHOULD)
+### High Priority
 4. ✅ **Error Path Tests** - Create `poll_error_test.go` for handlePollError
 5. ✅ **State Machine Tests** - Create `state_machine_test.go` for state queries
 6. ✅ **FD Registration Tests** - Create `fd_registration_test.go`
 7. ✅ **Registry Scavenge Tests** - Create `registry_scavenge_test.go`
 
-### Medium Priority (OPTIONAL)
+### Medium Priority
 8. Platform-specific fallback paths
 9. Shutdown promise rejection
 10. Metrics update paths

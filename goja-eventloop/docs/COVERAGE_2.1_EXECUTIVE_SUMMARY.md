@@ -50,25 +50,25 @@ go tool cover -func=coverage.out | grep -E "total|adapter.go"
 
 These functions have uncovered error paths and edge cases:
 
-| Function | Coverage | Lines | Priority | Estimated Gain |
+| Function | Coverage | Lines | Priority |
 |----------|----------|-------|----------|----------------|
-| gojaFuncToHandler | 68.4% | 96 lines | CRITICAL | +3.0% |
-| resolveThenable | 61.8% | 78 lines | CRITICAL | +3.0% |
-| convertToGojaValue | 72.4% | 67 lines | CRITICAL | +2.5% |
-| New | 62.5% | 20 lines | MEDIUM | +1.0% |
-| setTimeout | 71.4% | 26 lines | MEDIUM | +1.0% |
-| setInterval | 71.4% | 26 lines | MEDIUM | +1.0% |
-| queueMicrotask | 72.7% | 20 lines | MEDIUM | +0.7% |
-| setImmediate | 72.7% | 22 lines | MEDIUM | +0.8% |
-| gojaVoidFuncToHandler | 71.4% | 19 lines | MEDIUM | +0.7% |
+| gojaFuncToHandler | 68.4% | 96 lines | CRITICAL |
+| resolveThenable | 61.8% | 78 lines | CRITICAL |
+| convertToGojaValue | 72.4% | 67 lines | CRITICAL |
+| New | 62.5% | 20 lines | MEDIUM |
+| setTimeout | 71.4% | 26 lines | MEDIUM |
+| setInterval | 71.4% | 26 lines | MEDIUM |
+| queueMicrotask | 72.7% | 20 lines | MEDIUM |
+| setImmediate | 72.7% | 22 lines | MEDIUM |
+| gojaVoidFuncToHandler | 71.4% | 19 lines | MEDIUM |
 
 ### 4. Four Functions at High Coverage (81-88%)
 
 Minor uncovered edge cases in:
-- `consumeIterable` (81.6%, +2.0% estimated)
-- `bindPromise` (81.1%, +2.5% estimated)
-- `promiseConstructor` (87.5%, +0.5% estimated)
-- `Bind` (88.2%, +0.3% estimated)
+- `consumeIterable` (81.6%)
+- `bindPromise` (81.1%)
+- `promiseConstructor` (87.5%)
+- `Bind` (88.2%)
 
 ---
 
@@ -76,10 +76,8 @@ Minor uncovered edge cases in:
 
 ### 🚨 CRITICAL Priority (Must Fix)
 
-**Total Estimated Gain:** +9.5 percentage points
 **Functions:** 4
 **Tests Needed:** ~21 tests
-**Estimated Time:** 4-6 hours
 
 **Impact:**
 - Promise chaining identity preservation (CRITICAL for correctness)
@@ -106,10 +104,8 @@ Minor uncovered edge cases in:
 
 ### 🔴 HIGH Priority (Should Fix)
 
-**Total Estimated Gain:** +5.0 percentage points
 **Functions:** 3
 **Tests Needed:** ~12 tests
-**Estimated Time:** 3-4 hours
 
 **Impact:**
 - Iterator protocol error handling
@@ -123,10 +119,8 @@ Minor uncovered edge cases in:
 
 ### 🟡 MEDIUM Priority (Nice to Fix)
 
-**Total Estimated Gain:** +5.5 percentage points
 **Functions:** 6
 **Tests Needed:** ~16 tests
-**Estimated Time:** 2-3 hours
 
 **Impact:**
 - Constructor error paths
@@ -143,7 +137,6 @@ Minor uncovered edge cases in:
 
 ### 🟢 LOW Priority (Optional)
 
-**Total Estimated Gain:** +0.3 percentage points
 **Functions:** 1
 **Investigation:** Required
 
@@ -161,25 +154,21 @@ Minor uncovered edge cases in:
 **Target:** 74.0% → 83.5% (+9.5%)
 **Test File:** `adapter_critical_paths_test.go`
 **Tests:** ~21 tests
-**Estimated Time:** 4-6 hours
 
 ### Phase 2: High Priority Coverage (Day 2-3)
 **Target:** 83.5% → 88.5% (+5.0%)
 **Test File:** `adapter_combinators_edge_cases_test.go`
 **Tests:** ~12 tests
-**Estimated Time:** 3-4 hours
 
 ### Phase 3: Medium Priority Coverage (Day 3-4)
 **Target:** 88.5% → 94.0% (+5.5%)
 **Test File:** `adapter_timer_edge_cases_test.go`
 **Tests:** ~16 tests
-**Estimated Time:** 2-3 hours
 
 ### Phase 4: Investigation (Day 4)
 **Investigation:** NewChainedPromise usage
 **Decision:** Remove or document
 **Tests:** (if kept) ~5 tests
-**Estimated Time:** 1-2 hours
 
 ---
 
@@ -188,7 +177,7 @@ Minor uncovered edge cases in:
 ✅ **Primary Document:** `./goja-eventloop/docs/coverage-gaps.md`
 - Comprehensive analysis of all 15 functions with incomplete coverage
 - Detailed breakdown of uncovered lines and paths
-- Prioritized recommendations with estimated gains
+- Prioritized recommendations
 - Complete test strategy for each phase
 - Risk assessment and success criteria
 
@@ -196,13 +185,13 @@ Minor uncovered edge cases in:
 
 ## Summary Table
 
-| Priority | Count | Current % | Target % | Estimated Gain | Tests | Time |
+| Priority | Count | Current % | Target % | Tests |
 |----------|-------|-----------|----------|----------------|-------|------|
-| 🚨 CRITICAL | 4 | 42.9-72.4% | 95-100% | +9.5% | ~21 | 4-6h |
-| 🔴 HIGH | 3 | 81.1-87.5% | 95-100% | +5.0% | ~12 | 3-4h |
-| 🟡 MEDIUM | 6 | 62.5-72.7% | 100% | +5.5% | ~16 | 2-3h |
-| 🟢 LOW | 1 | 0.0% | TBD | +0.3% | TBD | 1-2h |
-| **TOTAL** | **15** | **74.0%** | **90%+** | **+15.3%** | **~50** | **10-15h** |
+| 🚨 CRITICAL | 4 | 42.9-72.4% | 95-100% | ~21 |
+| 🔴 HIGH | 3 | 81.1-87.5% | 95-100% | ~12 |
+| 🟡 MEDIUM | 6 | 62.5-72.7% | 100% | ~16 |
+| 🟢 LOW | 1 | 0.0% | TBD | TBD |
+| **TOTAL** | **15** | **74.0%** | **90%+** | **~50** |
 
 ---
 

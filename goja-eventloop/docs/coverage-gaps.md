@@ -485,9 +485,6 @@ func TestConvertToGojaValue_ErrorPreservation(t *testing.T) { /* ... */ }
 func TestConvertToGojaValue_ChainedPromise(t *testing.T) { /* ... */ }
 ```
 
-**Estimated Time:** 4-6 hours
-**Estimated Coverage Gain:** +9.5%
-
 ---
 
 ### Phase 2: High Priority Coverage (Target: +5.0% → 88.5% total)
@@ -516,9 +513,6 @@ func TestPromiseAny_IterableError(t *testing.T) { /* ... */ }
 // Test Promise constructor with throwing executor
 func TestPromiseConstructor_ExecutorThrows(t *testing.T) { /* ... */ }
 ```
-
-**Estimated Time:** 3-4 hours
-**Estimated Coverage Gain:** +5.0%
 
 ---
 
@@ -549,9 +543,6 @@ func TestSetImmediate_NonFunction(t *testing.T) { /* ... */ }
 func TestPromiseFinally_NonFunction(t *testing.T) { /* ... */ }
 ```
 
-**Estimated Time:** 2-3 hours
-**Estimated Coverage Gain:** +5.5%
-
 ---
 
 ### Phase 4: Low Priority/Investigation (Optional)
@@ -562,9 +553,6 @@ func TestPromiseFinally_NonFunction(t *testing.T) { /* ... */ }
 1. Is this function intended as a public API for external users?
 2. If yes, document it and add comprehensive tests
 3. If no, consider removing it to reduce API surface area
-
-**Estimated Time:** 1-2 hours
-**Estimated Coverage Gain:** +0.3% (if kept and tested)
 
 ---
 

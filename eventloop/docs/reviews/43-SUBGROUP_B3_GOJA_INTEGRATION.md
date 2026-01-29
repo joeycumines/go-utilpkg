@@ -989,7 +989,6 @@ PASS (all tests with no data races)
 ```
 RATIONALE: Even though actual exhaustion is infeasible, testing
             ID = MAX_SAFE_INTEGER ensures float64 encoding is correct.
-EFFORT: ~30 minutes to write test
 PRIORITY: LOW
 ```
 
@@ -1007,7 +1006,6 @@ func TestMAX_SAFE_INTEGERBoundary(t *testing.T) {
 **Enhancement #2**: Add iterable protocol edge case tests
 ```
 RATIONALE: Current tests cover Arrays, but not Strings, Sets, Maps.
-EFFORT: ~1 hour to write tests for Set, Map, String, custom iterables.
 PRIORITY: LOW
 ```
 
@@ -1029,7 +1027,6 @@ Promise.all("abc")  // Should treat as iterable of characters
 ```
 RATIONALE: Current inline comments reference "CRITICAL #1", "CRITICAL #2"
             but don't document what the fix was.
-EFFORT: ~30 minutes to add detailed comments
 PRIORITY: LOW
 ```
 

@@ -315,8 +315,6 @@ MicroWakeupSyscall tests micro-optimization (code path overhead under contention
 3. Implement runFastPath() tight loop mode
 4. Handle mode transitions correctly (fast-path → poller → fast-path)
 
-**Effort:** ~520 lines, ~2-3 weeks, high complexity
-
 **Benefit:** Theoretical universal superiority across ALL benchmarks
 
 **But ONLY pursue if:**

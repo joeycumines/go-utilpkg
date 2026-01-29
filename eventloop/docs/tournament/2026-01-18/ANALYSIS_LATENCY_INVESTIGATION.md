@@ -348,9 +348,6 @@ Alternates on Linux:
 3. **Add batch drain optimization**: Process multiple tasks per iteration when fast path active
 4. **Conditional Tick()**: Only run full Tick() when timers, microtasks, or I/O FDs are present
 
-**Estimated improvement:**
-- Apply fast path to alternates: 22-24x latency reduction (9,600ns → ~400ns)
-
 **Status:** Not implemented. Main implementation remains the only optimized choice.
 
 ---

@@ -931,17 +931,14 @@ Best For:
 1. **TaskArena is the primary driver** of AlternateTwo's GC pressure resilience
    - Pre-allocated 64KB buffer eliminates chunk allocation overhead
    - Single atomic increment per allocation (vs potential chunk allocation)
-   - Estimated: ~400-500 ns/op saved
 
 2. **Lock-free design provides secondary resilience**
    - No blocking during GC pauses
    - Atomic CAS operations are GC-pause resistant
-   - Estimated: ~300-400 ns/op saved
 
 3. **Memory bandwidth efficiency underpins the advantage**
    - 15x less memory traffic during benchmark
    - Less contention with GC for memory bandwidth
-   - Estimated: ~150-200 ns/op saved
 
 4. **Platform-specific effects magnify differences**
    - Linux's GC/scheduler penalizes mutex-based designs more

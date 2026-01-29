@@ -699,7 +699,6 @@ Risk assessment:
   - Lock-free ingress adds code complexity (CAS retry loops, ABA problem handling)
   - TaskArena increases memory footprint at startup (64KB+ pre-alloc)
   - Benefits ONLY visible in GC-bound workloads (not all applications)
-  - Development effort: required sequential subtasks
 
 Recommendation:
   - Implement ONLY if production profiling shows GC bottleneck
