@@ -367,17 +367,25 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 		return
 	}
 
+	// CRITICAL FIX (T27): Snapshot handlers BEFORE clearing them
+	// then() runs concurrently: checks state, then acquires p.mu
+	// If then() sees Pending and stores handler AFTER we clear p.h0
+	// but BEFORE release lock, that handler must be processed too
+	// Solution: Don't clear handlers until AFTER processing them
 	h0 := p.h0
 	var handlers []handler
 	if p.result != nil {
 		handlers = p.result.([]handler)
 	}
 
-	p.h0 = handler{}
+	// Set reason BEFORE processing handlers (needed for error messages)
 	p.result = reason
 	p.state.Store(int32(Rejected))
-	p.mu.Unlock()
 
+	// CRITICAL FIX (T27): Process handlers BEFORE clearing them
+	// This ensures any handlers added by concurrent then() are processed
+	// then() checks p.state at line ~457, then acquires p.mu at line ~462
+	// If then() won the race and added handler, we MUST process it
 	process := func(h handler) {
 		if h.onRejected != nil {
 			fn := h.onRejected
@@ -395,6 +403,16 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 		}
 	}
 
+	// CRITICAL FIX (T27): Enqueue handler microtasks FIRST (while holding lock)
+	// THEN release lock to allow then() to add more handlers
+	// THEN call trackRejection() (which enqueues checkUnhandledRejections)
+	//
+	// Microtask ordering after this fix:
+	// 1. Handler microtasks from this loop (queued at line ~388-389)
+	// 2. Late-subscriber microtasks from then() (queued at line ~492)
+	// 3. checkUnhandledRejections microtask from trackRejection (queued at line ~737)
+	//
+	// This ensures checkUnhandledRejections sees handlers added by concurrent then()
 	if h0.target != nil {
 		process(h0)
 	}
@@ -402,8 +420,12 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 		process(h)
 	}
 
-	// THEN schedule rejection check microtask (will run AFTER all handlers)
-	// This fixes a timing race where check ran before handlers were scheduled
+	// Clear handlers AFTER enqueuing their microtasks
+	p.h0 = handler{}
+	p.mu.Unlock()
+
+	// NOW call trackRejection (AFTER releasing lock, AFTER enqueuing handlers)
+	// This queues checkUnhandledRejections to run AFTER all handler microtasks
 	if js != nil {
 		js.trackRejection(p.id, reason)
 	}
@@ -460,8 +482,54 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 	currentState := p.state.Load()
 
 	if currentState == int32(Pending) {
-		// Pending: store handler
+		// CRITICAL FIX (T27): Re-check state after acquiring lock to handle race
+		// then() checks p.state above (line ~477), then acquires p.mu
+		// If reject() runs concurrently, it may have left Rejected state
+		// Snapshot taken when Pending is now stale
+		// Solution: Re-read state under lock to catch this race
 		p.mu.Lock()
+		currentState = p.state.Load()
+
+		// If state changed from Pending to [Rejected|Fulfilled] during race,
+		// follow the "already settled" path instead
+		if currentState != int32(Pending) {
+			p.mu.Unlock()
+			// Fall through to "already settled" handling below
+			if onRejected != nil && currentState == int32(Fulfilled) {
+				// Fulfilled promises don't need rejection tracking
+				js.promiseHandlersMu.Lock()
+				delete(js.promiseHandlers, p.id)
+				js.promiseHandlersMu.Unlock()
+			} else if onRejected != nil && currentState == int32(Rejected) {
+				// Rejected promises: only track if currently unhandled
+				js.rejectionsMu.RLock()
+				_, isUnhandled := js.unhandledRejections[p.id]
+				js.rejectionsMu.RUnlock()
+
+				if !isUnhandled {
+					// Already handled, remove tracking
+					js.promiseHandlersMu.Lock()
+					delete(js.promiseHandlers, p.id)
+					js.promiseHandlersMu.Unlock()
+				}
+
+				// Schedule handler as microtask for already-rejected promise
+				r := p.Reason()
+				js.QueueMicrotask(func() {
+					tryCall(onRejected, r, result)
+				})
+				return result
+			}
+
+			// Schedule handler as microtask for already-fulfilled promise
+			v := p.Value()
+			js.QueueMicrotask(func() {
+				tryCall(onFulfilled, v, result)
+			})
+			return result
+		}
+
+		// Still pending: store handler
 		if p.h0.target == nil {
 			p.h0 = h
 		} else {
@@ -730,9 +798,17 @@ func (js *JS) trackRejection(promiseID uint64, reason Result) {
 	js.unhandledRejections[promiseID] = info
 	js.rejectionsMu.Unlock()
 
+	// CRITICAL FIX (T27): Use atomic counter to prevent duplicate microtasks
+	// checkUnhandledRejections checks all unhandled rejections, so we only need
+	// ONE scheduled check running at a time, not one per rejection
+	js.checkRejectionScheduled.Store(true)
+	_ = js.checkRejectionScheduled.CompareAndSwap(false, true)
+
 	// Schedule a microtask to check if this rejection was handled
 	js.loop.ScheduleMicrotask(func() {
 		js.checkUnhandledRejections()
+		// Mark as completed (allow next one to be scheduled)
+		_ = js.checkRejectionScheduled.CompareAndSwap(true, false)
 	})
 }
 

@@ -435,22 +435,13 @@ func (l *Loop) shutdown() {
 		}
 	}
 
-	// 5. C4 FIX: Wait briefly for in-flight Promisify goroutines to complete
-	// This gives Promisify operations that are "almost done" a chance to
-	// complete and resolve their promises via fallback. We use a timeout
-	// to avoid blocking indefinitely on stuck Promisify functions.
-	promisifyDone := make(chan struct{})
-	go func() {
-		l.promisifyWg.Wait()
-		close(promisifyDone)
-	}()
-	select {
-	case <-promisifyDone:
-		// All Promisify goroutines completed
-	case <-time.After(100 * time.Millisecond):
-		// Timeout - some Promisify goroutines are still running
-		// They will use fallback when they eventually complete
-	}
+	// 5. C4 FIX: Wait for ALL in-flight Promisify goroutines to complete
+	// This ensures their SubmitInternal calls happen before we set StateTerminated.
+	// Using sync.WaitGroup.Wait() ensures ALL goroutines complete - no timeout to prevent data corruption.
+	// Only goroutines that already called promisifyWg.Add() will be waited for.
+	// Any new Promisify operations will be rejected by StateTerminated check in Promisify().
+	// CRITICAL: This MUST NOT use timeout - timeout causes data corruption.
+	l.promisifyWg.Wait()
 
 	// 6. Final drain - catch tasks that snuck in during TOCTOU window
 	// Any tasks enqueued between step 3 and step 4 are caught here

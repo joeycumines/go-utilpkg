@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/joeycumines/logiface"
 	"golang.org/x/sys/unix"
 )
 
@@ -91,8 +92,9 @@ type Loop struct {
 	external     *ChunkedIngress
 	internal     *ChunkedIngress
 	microtasks   *MicrotaskRing
-	metrics      *Metrics    // Phase 5.3: Optional runtime metrics
-	tpsCounter   *TPSCounter // Phase 5.3: TPS tracking
+	metrics      *Metrics                       // Phase 5.3: Optional runtime metrics
+	tpsCounter   *TPSCounter                    // Phase 5.3: TPS tracking
+	logger       *logiface.Logger[logiface.Event] // T25: Optional structured logger
 	OnOverload   func(error)
 	fastWakeupCh chan struct{}
 	loopDone     chan struct{}
@@ -136,6 +138,7 @@ type Loop struct {
 	_                       [2]byte // Align to 8-byte
 	forceNonBlockingPoll    bool
 	StrictMicrotaskOrdering bool
+	promisifyMu          sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
 // TimerID uniquely identifies a scheduled timer and can be used to cancel it.
@@ -213,6 +216,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	// Apply options to Loop struct
 	loop.StrictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
+	loop.logger = options.logger
 
 	// Phase 5.3: Initialize metrics if enabled
 	if options.metricsEnabled {
@@ -367,6 +371,7 @@ func (l *Loop) shutdownImpl(ctx context.Context) error {
 
 		if l.state.TryTransition(currentState, StateTerminating) {
 			if currentState == StateAwake {
+				// Loop hasn't started running yet - just set state and return (T28 bug remains)
 				l.state.Store(StateTerminated)
 				l.closeFDs()
 				return nil
@@ -382,8 +387,14 @@ func (l *Loop) shutdownImpl(ctx context.Context) error {
 	// Wait for termination
 	select {
 	case <-l.loopDone:
+		// Loop goroutine exited cleanly - wait for promisify goroutines
+		// This is safe because we're waiting from Shutdown() caller's thread,
+		// not from the loop goroutine itself
+		l.shutdown()
 		return nil
 	case <-ctx.Done():
+		// Shutdown timed out after waking loop
+		// This indicates deadlock - loop should have exited by now
 		return ctx.Err()
 	}
 }
@@ -420,7 +431,9 @@ func (l *Loop) run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			// Context cancelled, initiate shutdown via CAS
+			// Context cancelled, initiate shutdown sequence and return
+			// DO NOT wait for promisifyWg in loop goroutine itself - that causes deadlock
+			// if a Promisify goroutine is blocking on something
 			for {
 				current := l.state.Load()
 				if current == StateTerminating || current == StateTerminated {
@@ -433,13 +446,17 @@ func (l *Loop) run(ctx context.Context) error {
 					break
 				}
 			}
-			l.shutdown()
+			// Transition state to Terminated so new Promisify operations are rejected
+			// Drain queues and clean up - promisifyWg.Wait() is handled by Shutdown() caller
+			l.transitionToTerminated()
+			l.closeFDs()
 			return ctx.Err()
 		default:
 		}
 
 		if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
-			l.shutdown()
+			// State already set by Shutdown caller - just do cleanup and return
+			l.closeFDs()
 			return nil
 		}
 
@@ -477,7 +494,10 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 	l.runAux()
 
 	// Check termination after initial drain
-	if l.state.Load() >= StateTerminating {
+	// Fast path must handle: StateTerminated (=1) AND StateTerminating (=5)
+	// This is different from main loop which can use >= comparison
+	currentState := l.state.Load()
+	if currentState == StateTerminated || currentState == StateTerminating {
 		return true
 	}
 
@@ -490,7 +510,9 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 			l.runAux()
 
 			// Check for shutdown
-			if l.state.Load() >= StateTerminating {
+			// Fast path must handle both terminated states
+			currentState := l.state.Load()
+			if currentState == StateTerminated || currentState == StateTerminating {
 				return true
 			}
 
@@ -587,24 +609,85 @@ func (l *Loop) hasExternalTasks() bool {
 	return hasExt
 }
 
-// shutdown performs the shutdown sequence.
-func (l *Loop) shutdown() {
-	// Wait briefly for in-flight Promisify goroutines FIRST
-	// This ensures their SubmitInternal calls complete before we drain queues
-	promisifyDone := make(chan struct{})
-	go func() {
-		l.promisifyWg.Wait()
-		close(promisifyDone)
-	}()
-	select {
-	case <-promisifyDone:
-	case <-time.After(100 * time.Millisecond):
+// transitionToTerminated performs the quick state transition and queue draining
+// that can be safely called from the loop goroutine itself.
+// This does NOT wait for promisifyWg to prevent deadlock.
+func (l *Loop) transitionToTerminated() {
+	// Lock promisifyMu to prevent new Promisify operations while we shut down
+	l.promisifyMu.Lock()
+	l.state.Store(StateTerminated)
+	l.promisifyMu.Unlock()
+
+	// Drain loop queues quickly (single pass, not exhaustive)
+	// This tasks that are already queued will get executed
+	// Tasks submitted after this point will be rejected
+
+	// Drain internal queue
+	for {
+		l.internalQueueMu.Lock()
+		task, ok := l.internal.Pop()
+		l.internalQueueMu.Unlock()
+		if !ok {
+			break
+		}
+		l.safeExecute(task)
 	}
 
-	// Set state to Terminated FIRST to prevent new tasks from being accepted.
-	// Any Submit that checked state before this will push a task, and we'll catch it
-	// in the drain below. Any Submit that checks state after will be rejected.
+	// Drain external queue
+	for {
+		l.externalMu.Lock()
+		task, ok := l.external.Pop()
+		l.externalMu.Unlock()
+		if !ok {
+			break
+		}
+		l.safeExecute(task)
+	}
+
+	// Drain fast path queue (auxJobs)
+	l.externalMu.Lock()
+	jobs := l.auxJobs
+	l.auxJobs = l.auxJobsSpare
+	l.externalMu.Unlock()
+	for i, job := range jobs {
+		l.safeExecute(job)
+		jobs[i] = nil
+	}
+	l.auxJobsSpare = jobs[:0]
+
+	// Drain microtasks
+	for {
+		fn := l.microtasks.Pop()
+		if fn == nil {
+			break
+		}
+		l.safeExecuteFn(fn)
+	}
+
+	// Reject all remaining pending promises
+	l.registry.RejectAll(ErrLoopTerminated)
+}
+
+// shutdown performs the shutdown sequence.
+// IMPORTANT: Do NOT call this from the loop goroutine itself - it will cause deadlock
+// if waiting for promisifyWg goroutines that may be blocked.
+// This function should only be called from Shutdown() in user's thread.
+func (l *Loop) shutdown() {
+	// Lock promisifyMu to prevent new Promisify operations while we shut down
+	// This ensures atomic transition between StateTerminated and promisifyWg.Wait()
+	// NOTE: Loop goroutine may have already set StateTerminated via transitionToTerminated()
+	// If so, just wait for promisifyWg
+	l.promisifyMu.Lock()
 	l.state.Store(StateTerminated)
+	l.promisifyMu.Unlock()
+
+	// Wait in-flight Promisify goroutines
+	// This ensures their SubmitInternal calls complete before we drain queues
+	// Using sync.WaitGroup.Wait() ensures ALL goroutines complete - no timeout to prevent data corruption
+	// Only goroutines that already called promisifyWg.Add() will be waited for
+	// Any new Promisify operations will see StateTerminated and be rejected before adding to promisifyWg
+	// CRITICAL: This MUST NOT be called from the loop goroutine itself
+	l.promisifyWg.Wait()
 
 	// Drain loop: continue until all queues are empty for multiple consecutive checks.
 	emptyChecks := 0
@@ -1708,6 +1791,10 @@ func getGoroutineID() uint64 {
 }
 
 // Close immediately terminates the event loop without waiting for graceful shutdown.
+//
+// NOTE: Close() waits for the loop goroutine to exit before returning.
+// This prevents data races where the caller frees resources that the loop
+// goroutine might still be accessing.
 func (l *Loop) Close() error {
 	for {
 		currentState := l.state.Load()
@@ -1717,13 +1804,21 @@ func (l *Loop) Close() error {
 
 		if l.state.TryTransition(currentState, StateTerminating) {
 			if currentState == StateAwake {
+				// Loop is in Start() but hasn't entered run() yet
 				l.state.Store(StateTerminated)
 				l.closeFDs()
 				return nil
 			}
-			// Always wake the loop - could be in poll path (StateSleeping) or
-			// fast path (StateRunning but blocked on fastWakeupCh)
+
+			// Loop is running (StateRunning or StateSleeping)
+			// Set StateTerminated to trigger immediate exit (bypass draining queues)
+			// IMPORTANT: Must do this BEFORE closing FDs, otherwise loop goroutine can't wake up
+			l.state.Store(StateTerminated)
+			// Wake up the loop so it sees the Terminated state and exits
 			l.doWakeup()
+			// Wait for the loop goroutine to exit
+			// The goroutine will call shutdown() which handles drain and closeFDs()
+			<-l.loopDone
 			return nil
 		}
 	}

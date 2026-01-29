@@ -11,6 +11,45 @@
   },
   "tasks": [
     {
+      "id": "T25",
+      "title": "CRITICAL: Remove global logger and use logiface.L instead",
+      "description": "COMPLETELY REPLACING the egregious logging.go implementation violation. The current logging.go implementation is WRONG on multiple levels: (1) Uses global logger variable (BANNED), (2) Implements custom logger in eventloop module when github.com/joeycumines/logiface EXISTS IN THE WORKSPACE, (3) Violates proper dependency injection patterns. The eventloop module should NOT implement logging - it should DEPEND on logiface.L for logging services via proper configuration/option passing. Remove eventloop/logging.go entirely and replace with proper logiface.L usage throughout eventloop codebase. Logger should be passed via LoopOptions or similar configuration mechanism, NOT as global state.",
+      "status": "not-started",
+      "priority": "P0",
+      "critical": true,
+      "dependsOn": [],
+      "deliverables": [
+        "Complete removal of eventloop/logging.go (the entire file - all 684 lines)",
+        "Complete removal of eventloop/logging_test.go (all 454 lines)",
+        "Identification of all code in eventloop/ that uses the logging.go functions",
+        "Design document for proper logiface.L integration via dependency injection",
+        "Updated LoopOptions (or equivalent) to accept logiface.L logger instance",
+        "Search and replace: all SDebug/SInfo/SWarn/SErr calls replaced with logiface.L-based logger calls",
+        "Verification: NO global logger variables remain in eventloop/",
+        "Verification: ALL logging goes through logiface.L only",
+        "Documentation updates explaining the proper logging pattern"
+      ],
+      "acceptanceCriteria": [
+        "eventloop/logging.go is COMPLETELY DELETED",
+        "eventloop/logging_test.go is COMPLETELY DELETED",
+        "NO global logger variables exist in eventloop/",
+        "The *logiface.Logger value is passed in and used directly - a nil value (pointer, default) is a no-op logger. It may be necessary to add fast-path checks based on the logiface.Logger.Enabled()",
+        "ALL logging in eventloop/ uses logiface.L (import github.com/joeycumines/logiface)",
+        "Logger instances are passed via configuration/dependencies, NOT globals",
+        "All existing tests still pass (100% pass rate)",
+        "-race detector shows zero data races",
+        "Code follows proper dependency injection patterns",
+        "Documentation clearly explains the correct logging approach",
+        "T19 (logging implementation) is marked as OVERTURNED/REJECTED in blueprint history"
+      ],
+      "overrides": {
+        "overtasks": [
+          "T19"
+        ],
+        "reason": "T19 implemented a global logger and custom logging implementation in violation of project standards. The correct approach is to use the existing logiface.L in the workspace via dependency injection, not to reimplement logging."
+      }
+    },
+    {
       "id": "T22",
       "title": "REACHING TRUE 100% COVERAGE",
       "description": "Achieve 100% effective test coverage for both eventloop and goja-eventloop packages, covering all code paths, error branches, edge cases, and platform-specific code. This includes comprehensive testing of all logic paths, concurrent scenarios, boundary conditions, and error propagation. Target: 100% line coverage, 100% branch coverage, and 100% function coverage across all variants and modules.",
@@ -67,132 +106,6 @@
         "All optimizations documented with rationale",
         "Performance characteristics stable across runs",
         "Integration performance validated across both packages"
-      ]
-    },
-    {
-      "id": "T1",
-      "title": "Create promisealtfour variant to represent Main promise implementation",
-      "description": "Create a new ./internal/promisealtfour/ directory and implement the current Main ChainedPromise logic as a variant. This ensures tournament fidelity preservation by having the Main implementation represented both directly (for evolution) and as a tournament variant (for performance comparison tracking). The Main implementation will remain the primary eventloop promise, but promisealtfour will serve as a frozen snapshot for tournament comparison.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "Create ./internal/promisealtfour/ directory structure with promise.go, ingress.go, loop.go",
-      "Port current Main ChainedPromise implementation to promisealtfour with variant-specific packaging",
-      "Create promisealtfour variant registry entry in tournament system",
-      "Add promisealtfour to all tournament competition scenarios",
-      "Document the implementation with clear differentiation from Main"
-    ],
-      "acceptanceCriteria": [
-        "promisealtfour code builds without errors or warnings",
-        "All promisealtfour tests pass with -race detector",
-        "promisealtfour successfully participates in tournament events",
-        "promisealtfour produces consistent performance metrics in tournament runs",
-        "Main implementation continues to work independently without interference",
-        "Tournament results show promisealtfour competing alongside existing variants"
-      ]
-    },
-    {
-      "id": "T2",
-      "title": "Verify ALL tournament checks pass and compete successfully",
-      "description": "Run comprehensive tournament validation to ensure ALL promise variants (main, alternateone, alternatetwo, alternatethree, promisealtfour) participate fairly in all tournament events. This includes functional correctness tests, performance benchmarks, stress tests, and race condition detection across all variants. Verify tournament integrity, fairness, and consistency of results across multiple runs.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "dependsOn": [
-        "T1"
-      ],
-      "deliverables": [
-        "Execute all tournament tests across all 5 variants (main, alt1, alt2, alt3, alt4)",
-        "Verify each variant successfully competes in all tournament scenarios",
-        "Validate tournament fairness and consistency across 10+ runs",
-        "Document any issues discovered during validation with detailed analysis",
-        "Create tournament competition matrix showing all variant performance",
-        "Verify no variant fails catastrophically or degrades unfairly"
-      ],
-      "acceptanceCriteria": [
-        "All tournament tests pass for ALL 5 variants",
-        "No variant fails to compete in any scenario",
-        "Tournament results are consistent across multiple runs (low variance)",
-        "No unfair advantages or disadvantages detected in any variant",
-        "Performance rankings are stable and reproducible",
-        "All edge cases (null inputs, deep chains, concurrent access) pass"
-      ]
-    },
-    {
-      "id": "T3",
-      "title": "Analyze promisealtone performance characteristics for Main migration",
-      "description": "Perform deep performance analysis of the promisealtone variant to identify the key optimizations and patterns that make it the most performant implementation. Document all critical optimizations including memory allocation patterns, synchronization strategies, cache layout, and algorithmic choices. Create a detailed migration plan outlining which optimizations to apply to the Main promise implementation.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "dependsOn": [
-        "T2"
-      ],
-      "deliverables": [
-        "Detailed benchmark comparison of promisealtone vs all other variants (main, alt2, alt3, alt4)",
-        "Comprehensive analysis document identifying specific optimization patterns in promisealtone",
-        "Identification of performance-critical optimizations (e.g., reduced allocations, lock-free paths)",
-        "Migration plan document with risk assessment and incremental rollout strategy",
-        "Performance baseline measurements for before/after comparison"
-      ],
-      "acceptanceCriteria": [
-        "Benchmark results are reproducible across 10+ runs (low variance)",
-        "Optimization patterns are clearly documented with code examples and rationale",
-        "Migration plan is actionable and technically sound with fallback strategies",
-        "No regressions detected in other variants during analysis",
-        "Performance differential between promisealtone and other variants is quantified"
-      ]
-    },
-    {
-      "id": "T4",
-      "title": "Refactor Main promise implementation using promisealtone optimizations",
-      "description": "Apply the identified optimizations from promisealtone to the Main ChainedPromise implementation in eventloop/promise.go while maintaining 100% API compatibility. This may involve: (1) Memory allocation pattern changes, (2) Synchronization strategy improvements, (3) Cache line layout optimizations, (4) Algorithmic improvements, (5) Data structure changes. Maintain backward compatibility at the source code level.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "dependsOn": [
-        "T3"
-      ],
-      "deliverables": [
-        "Refactored Main promise with promisealtone optimizations applied",
-        "Updated promisealtfour variant to track changes in Main (maintain baseline)",
-        "Full API compatibility maintained (no breaking changes to public API)",
-        "Updated documentation reflecting all optimization changes",
-        "Migration commit with clear changelog and justification"
-      ],
-      "acceptanceCriteria": [
-        "All existing tests pass with no regressions",
-        "-race detector shows zero data races in refactored code",
-        "Benchmark performance shows improvement over baseline (target: +5%+)",
-        "API compatibility tests confirm no breaking changes (type signatures unchanged)",
-        "Code review confirms optimizations match promisealtone patterns",
-        "promisealtfour variant remains unchanged (preserves tournament baseline)"
-      ]
-    },
-    {
-      "id": "T5",
-      "title": "Performance regression testing after Main promise migration",
-      "description": "Comprehensive performance testing to ensure the refactored Main promise meets or exceeds previous performance benchmarks, maintains fairness in tournament competition, and that all variants continue to compete fairly. Run extended benchmarks (10+ iterations) across multiple scenarios including: microbenchmarks, realistic workloads, stress tests, and tournament scenarios.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "dependsOn": [
-        "T4"
-      ],
-      "deliverables": [
-        "Comprehensive before/after benchmark comparison report",
-        "Tournament competition results with refactored Main",
-        "Performance metrics analysis with statistical significance testing",
-        "Any necessary performance tuning adjustments",
-        "Stability assessment (no performance anomalies in edge cases)"
-      ],
-      "acceptanceCriteria": [
-        "No performance regressions in Main promise (within measurement noise)",
-        "Main promise performance approaches or exceeds promisealtone (target: <5% variance)",
-        "All 5 variants (main, alt1, alt2, alt3, alt4) compete fairly in tournament",
-        "Response times are stable (low variance across runs)",
-        "Throughput is improved or maintained across realistic workloads",
-        "No memory leaks or allocation increases detected"
       ]
     },
     {
@@ -501,62 +414,31 @@
       ]
     },
     {
-      "id": "T18",
-      "title": "Identify next trajectory targets",
-      "description": "COMPLETED (2026-01-29) - Cycle 2 review completed with 57 high-value improvement opportunities identified. CRITICAL and HIGH priority improvements defined as T19-T24 (Structured Logging, Integration Test Expansion, Metrics Export, Goja Timeout Guards, Batch Execution Timeout). Production readiness confirmed with 96-97% confidence across 4 MAXIMUM PARANOIA reviews. Trajectory of improvement is maintained with clear Phase 1 and Phase 2 targets.",
-      "status": "complete",
-      "priority": "P1",
-      "critical": true,
-      "dependsOn": [
-        "T17"
-      ],
-      "deliverables": [
-        "Completed Blueprint for Phase 1 (CRITICAL quick wins) and Phase 2 (HIGH priority improvements)",
-        "57 improvement opportunities identified and categorized (3 CRITICAL, 4 HIGH, 50+ MEDIUM/LOW)",
-        "Formal commitment to continuous improvement cycle sustained"
-      ],
-      "acceptanceCriteria": [
-        "Phase 1 tasks (T19-T21) defined and prioritized - CRITICAL quick wins",
-        "Phase 2 tasks (T22-T24) defined and prioritized - HIGH priority production enhancements",
-        "Continuous improvement trajectory maintained with clear T25 final sign-off goal",
-        "No cessation of development activity - work continues through T25"
-      ]
-    },
-    {
       "id": "T19",
-      "title": "Structured Logging Implementation",
-      "description": "Create a comprehensive structured logging system for the eventloop module that provides a Logger interface with multiple implementations (DefaultLogger, WriterLogger, NoOpLogger, FileLogger), log level filtering (DEBUG, INFO, WARN, ERROR) with lazy evaluation, package-level logging functions (SDebug, SInfo, SWarn, SError), functional options (WithLoopID, WithTaskID, WithTimerID, WithField, WithFields), and domain-specific helpers for timer, promise, task, microtask, and poll logging. Enable log aggregation and production monitoring with proper error handling and JSON escaping.",
-      "status": "complete",
-      "priority": "P1",
+      "title": "[OVERTURNED/REJECTED] Structured Logging Implementation",
+      "description": "OVERTURNED BY T25. This task implemented a global logger and custom logging implementation in violation of project standards. The correct approach is to use the existing github.com/joeycumines/logiface package in the workspace via dependency injection, not to reimplement logging. The deliverables created in this task violate the core design principle: NO GLOBAL VARIABLES. See T25 for the correct implementation.",
+      "status": "rejected",
+      "priority": "P0",
       "critical": true,
       "dependsOn": [],
+      "rejectedBy": "T25",
+      "rejectionReason": "This task violated three critical design principles: (1) GLOBAL LOGGER IS BANNED - cannot use package-level logger variables, (2) REINVENTING THE WHEEL - eventloop implemented custom logging when github.com/joeycumines/logiface EXISTS IN THE WORKSPACE, (3) VIOLATION OF DEPENDENCY INJECTION - logger should be passed via configuration, not accessed globally. The entire T19 deliverable set (logging.go and logging_test.go) must be DELETED.",
+      "overturnedInFavorOf": "T25",
       "completionTime": "2026-01-29T00:00:00Z",
-      "implementationDetails": "684-line logging.go with 454-line test suite, 21 tests passing, full Logger interface, level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread-safe",
-      "testResults": "21 tests PASSED in 0.570s, verified: Logger interface (DefaultLogger, WriterLogger, NoOpLogger, FileLogger), level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread safety, JSON escaping, context integration",
+      "implementationDetails": "684-line logging.go with 454-line test suite, 21 tests passing, full Logger interface, level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread-safe - ALL VIOLATE DESIGN PRINCIPLES",
+      "testResults": "21 tests PASSED in 0.570s, verified: Logger interface (DefaultLogger, WriterLogger, NoOpLogger, FileLogger), level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread safety, JSON escaping, context integration - ALL MUST BE REMOVED",
       "deliverables": [
-        "Create eventloop/logging.go (684 lines) - comprehensive structured logging interface",
-        "Create eventloop/logging_test.go (454 lines) - 21 comprehensive tests",
-        "Logger interface with 4 implementations: DefaultLogger, WriterLogger, NoOpLogger, FileLogger",
-        "Log level filtering system (DEBUG, INFO, WARN, ERROR) with lazy evaluation",
-        "Package-level logging functions: SDebug, SInfo, SWarn, SError",
-        "Functional options: WithLoopID, WithTaskID, WithTimerID, WithField, WithFields",
-        "Domain-specific helpers: timer, promise, task, microtask, poll logging",
-        "Thread-safe concurrent logging with proper synchronization",
-        "Production-ready error handling and JSON escaping"
+        "[DELETE] eventloop/logging.go (684 lines) - violated global logger ban",
+        "[DELETE] eventloop/logging_test.go (454 lines) - violated global logger ban",
+        "[REPLACE WITH] logiface.L integration via dependency injection",
+        "[REPLACE WITH] Updated LoopOptions to accept logiface.L logger instance",
+        "[REPLACE WITH] All logging converted to use logiface.L methods"
       ],
       "acceptanceCriteria": [
-        "All 21 tests pass (verified: 0.570s execution time)",
-        "Logger interface fully implemented with 4 working implementations",
-        "Log level filtering works correctly (DEBUG < INFO < WARN < ERROR)",
-        "Lazy evaluation prevents unnecessary string formatting",
-        "Package-level functions (SDebug, SInfo, SWarn, SError) work correctly",
-        "Functional options allow flexible field and ID composition",
-        "Domain-specific helpers provide contextual logging for all eventloop components",
-        "Thread safety verified by concurrent logging test (1000 goroutines)",
-        "Error handling catches and reports file I/O errors",
-        "JSON escaping prevents log injection vulnerabilities",
-        "Zero data races detected with -race flag",
-        "Code is production-ready with comprehensive error handling"
+        "T19 acceptance criteria are REJECTED - this task was fundamentally flawed",
+        "eventloop/logging.go MUST be DELETED",
+        "eventloop/logging_test.go MUST be DELETED",
+        "See T25 acceptance criteria for the correct implementation"
       ]
     },
     {
@@ -583,8 +465,1089 @@
         "Zero data races detected with -race flag",
         "Tests are deterministic and repeatable",
         "Code is production-ready with proper error handling"
+      ]
     },
-
+    {
+      "id": "T28",
+      "title": "Fix Close() immediate return deadlock",
+      "description": "Close() must block until loop goroutine exits via loopDone channel to prevent race conditions and ensure clean shutdown.",
+      "status": "not-started",
+      "priority": "P0",
+      "critical": true,
+      "dependsOn": [],
+      "deliverables": [
+        "Fix Close() implementation to block on loopDone channel",
+        "Add tests verifying proper shutdown sequence",
+        "Verify no race conditions with -race flag"
+      ],
+      "acceptanceCriteria": [
+        "Close() blocks until loop goroutine exits",
+        "No data races detected",
+        "All tests pass"
+      ]
+    },
+    {
+      "id": "T61",
+      "title": "Quick Wins - Cross-Module Integration Test Expansion 🧪",
+      "description": "Expand from 27 tests to 50+ tests covering all boundary interactions between eventloop and goja-eventloop modules. Production bugs frequently emerge at module boundaries where single-module tests cannot detect them. Current tests are module-scoped only.",
+      "status": "not-started",
+      "priority": "P0",
+      "critical": false,
+      "dependsOn": [
+        "T25"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #2 Cross-Module Integration Test Expansion",
+      "expectedImpact": "Prevention of integration regressions, full-stack validation",
+      "deliverables": [
+        "23+ new integration tests (expanding from 27 to 50+)",
+        "Cross-module integration tests for eventloop + goja-eventloop",
+        "Tests covering Promise chains spanning Goja→Native→Goja boundaries with incorrect GC behavior",
+        "Tests for Timer cancellation behavior conflicts between eventloop and goja-eventloop adapters",
+        "Tests for Memory leaks arising from interaction between weak reference registry and Goja value caching",
+        "Tests for State desynchronization bugs only visible in end-to-end scenarios",
+        "Tests for Deeply nested promises (>10 levels) with mixed module sources",
+        "Zero data races detected with -race flag",
+        "Documentation of integration test scenarios"
+      ],
+      "acceptanceCriteria": [
+        "50+ total integration tests (27 existing + 23+ new)",
+        "All integration tests pass with zero failures",
+        "Cross-module interaction patterns fully tested",
+        "Zero data races detected with -race flag",
+        "Tests are deterministic and repeatable",
+        "Code is production-ready with proper error handling"
+      ]
+    },
+    {
+      "id": "T62",
+      "title": "Enhancement - Eventloop Metrics Export Integration 📊",
+      "description": "Add hooks for automated metrics export from eventloop/metrics.go including Prometheus metrics export (/metrics endpoint), OpenTelemetry integration (spans, metrics), and Custom metrics callbacks (user-defined aggregators). Current metrics are accessible via loop.Metrics() but must be manually sampled which is insufficient for production monitoring.",
+      "status": "not-started",
+      "priority": "P1",
+      "critical": false,
+      "dependsOn": [
+        "T25"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #4 Eventloop Metrics Export Integration",
+      "expectedImpact": "Production monitoring enablement, performance anomaly detection",
+      "deliverables": [
+        "Design and implement MetricsExporter interface",
+        "Implement WithMetricsExporter LoopOption",
+        "Prometheus exporter implementation",
+        "OpenTelemetry integration",
+        "Custom metrics callback implementation",
+        "Tests for all exporters",
+        "Documentation and examples"
+      ],
+      "acceptanceCriteria": [
+        "MetricsExporter interface is clean and extensible",
+        "Prometheus exporter outputs correct metrics format",
+        "OpenTelemetry integration works correctly",
+        "Custom callbacks work as expected",
+        "Performance overhead is minimal",
+        "All exporters are properly tested"
+      ]
+    },
+    {
+      "id": "T63",
+      "title": "Enhancement - Goja-Eventloop Adapter Timeout Protection 🛡",
+      "description": "Add per-operation timeout configuration to goja-eventloop/adapter.go to prevent JavaScript infinite loops blocking runtime, malicious scripts causing resource exhaustion, and Promise chains that never settle (circular dependencies). Current implementation has no timeout guard at adapter level. setTimeout, setInterval have no per-operation deadline enforcement.",
+      "status": "not-started",
+      "priority": "P1",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #5 Goja-Eventloop Adapter Timeout Protection",
+      "expectedImpact": "Production resilience against malicious/degenerate user code",
+      "deliverables": [
+        "Design TimeoutConfig struct (DefaultTimeout, MaxExecutionTime, OnTimeout)",
+        "Implement WithAdapterTimeout AdapterOption",
+        "Add timeout enforcement for setTimeout",
+        "Add timeout enforcement for setInterval",
+        "Add timeout enforcement for async operations",
+        "Tests for timeout behavior",
+        "Tests for malicious code protection",
+        "Documentation of timeout behavior"
+      ],
+      "acceptanceCriteria": [
+        "TimeoutConfig correctly enforces per-operation deadlines",
+        "Infinite loops are terminated within MaxExecutionTime",
+        "OnTimeout callback is triggered correctly",
+        "No performance overhead for well-behaved code",
+        "All timeout tests pass",
+        "Malicious scripts are safely terminated"
+      ]
+    },
+    {
+      "id": "T64",
+      "title": "Enhancement - Batch Execution Timeout Policies ⏱️",
+      "description": "Add timeout for batch executions in eventloop/loop.go to prevent runaway batch processing. Individual task timeouts (via ScheduleTimer) do NOT prevent batch starvation. If 100K tasks are queued and each takes 1ms, batch runs for 100 seconds blocking all timer operations. Currently there is no timeout for batch executions.",
+      "status": "not-started",
+      "priority": "P1",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #6 Batch Execution Timeout Policies",
+      "expectedImpact": "Production resilience against runaway batch processing",
+      "deliverables": [
+        "Design BatchConfig struct (MaxExecutionTime, MaxTasksPerBatch, OnExceeded)",
+        "Implement WithBatchTimeout LoopOption",
+        "Add batch execution timeout enforcement",
+        "Add batch task count limit enforcement",
+        "Add OnExceeded callback handling",
+        "Tests for batch timeout behavior",
+        "Tests for batch task limit behavior",
+        "Performance tests showing no overhead for normal batches"
+      ],
+      "acceptanceCriteria": [
+        "Batch timeouts prevent runaway batches",
+        "MaxTasksPerBatch prevents task starvation",
+        "OnExceeded callback is triggered appropriately",
+        "Normal batches have no performance overhead",
+        "All batch timeout tests pass",
+        "Cascading failures are prevented"
+      ]
+    },
+    {
+      "id": "T65",
+      "title": "Enhancement - Promise Combinator Error Aggregation Test Coverage 🧪",
+      "description": "Add comprehensive test coverage for Promise combinators (lines 793-1076 in eventloop/promise.go) focusing on extreme scenarios. Current tests focus on happy paths with coverage gaps for extreme scenarios. Expected to close coverage gap by +2-3% and increase production confidence in edge cases.",
+      "status": "not-started",
+      "priority": "P1",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #7 Promise Combinator Error Aggregation Test Coverage",
+      "expectedImpact": "Coverage gap closure (+2-3%), production confidence in edge cases",
+      "deliverables": [
+        "Test file: eventloop/promise_combinator_edge_cases_test.go",
+        "Tests for deeply nested combinators (10+ levels)",
+        "Tests for mixed resolution/rejection scenarios in large arrays (>1000 promises)",
+        "Tests for error type preservation across combinator chains",
+        "Tests for AggregateError structure validation for all rejection patterns",
+        "Performance tests for large promise arrays",
+        "Documentation of edge case behaviors"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Coverage increases by 2-3%",
+        "Deep nesting scenarios correctly handled",
+        "Large arrays (+1000 promises) work correctly",
+        "Error type preservation verified",
+        "AggregateError structures validated",
+        "No performance regressions for normal use"
+      ]
+    },
+    {
+      "id": "T66",
+      "title": "Enhancement - Microtask Overflow Buffer Compaction Test 📥",
+      "description": "Add performance-validated tests for microtask overflow buffer compaction behavior in eventloop/ring.go and eventloop/ingress.go. Current overflow behavior under extreme load is tested but not performance-validated. Needed to understand performance envelope and validate optimization.",
+      "status": "not-started",
+      "priority": "P1",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #8 Microtask Overflow Buffer Compaction Test",
+      "expectedImpact": "Understanding of performance envelope, optimization validation",
+      "deliverables": [
+        "Test file: eventloop/microtask_overflow_performance_test.go",
+        "Tests for microtask flood scenarios (>10000 microtasks queued)",
+        "Performance measurements for compaction overhead",
+        "Analysis of copy vs allocation trade-off",
+        "Tests for overflow-to-compacted state transition validation",
+        "Benchmark suite for buffer sizing scenarios",
+        "Documentation of performance characteristics"
+      ],
+      "acceptanceCriteria": [
+        "All new tests pass",
+        "Microtask flood scenarios correctly handled",
+        "Compaction overhead is measured and documented",
+        "Optimal buffer sizing parameters identified",
+        "State transitions work correctly",
+        "Performance benchmarks provide actionable data",
+        "No memory leaks or unbounded growth"
+      ]
+    },
+    {
+      "id": "T67",
+      "title": "Improvement - Error Context Structured Unwrapping 🔍",
+      "description": "Create structured error types with error codes, context maps, unwrapping, and hints for retry logic in eventloop/loop.go (lines 8-27). This improves production error handling clarity by 5-10x.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #9 Error Context Structured Unwrapping",
+      "expectedImpact": "Production error handling clarity 5-10x improvement",
+      "deliverables": [
+        "Design structured error type hierarchy",
+        "Implement error codes and context maps",
+        "Implement error unwrapping utilities",
+        "Add retry logic hints",
+        "Update error handling throughout codebase",
+        "Tests for error behavior",
+        "Documentation of error types and handling"
+      ],
+      "acceptanceCriteria": [
+        "Structured errors are easy to inspect",
+        "Error codes are meaningful and well-organized",
+        "Context maps provide debugging information",
+        "Unwrapping works correctly",
+        "Retry hints are useful for callers",
+        "Error handling is consistent",
+        "Production debugging is significantly improved"
+      ]
+    },
+    {
+      "id": "T68",
+      "title": "Improvement - Eventloop Fast Path Mode Transition Logging 🔍",
+      "description": "Add debug logging for fast path entry/exit events, mode transition triggers, and performance metrics comparison in eventloop/loop.go. This provides production debugging insight into performance regressions.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [
+        "T25"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #10 Eventloop Fast Path Mode Transition Logging",
+      "expectedImpact": "Production debugging insight into performance regressions",
+      "deliverables": [
+        "Add fast path entry logging (when entering fast path mode)",
+        "Add fast path exit logging (when exiting fast path mode)",
+        "Add mode transition trigger logging (why mode changed)",
+        "Add performance metrics comparison (fast path vs normal path)",
+        "Integrate with logiface.L",
+        "Add configurable log levels",
+        "Tests for logging behavior",
+        "Documentation of fast path logging"
+      ],
+      "acceptanceCriteria": [
+        "Fast path transitions are logged correctly",
+        "Mode triggers are identifiable",
+        "Performance metrics provide actionable insights",
+        "No significant performance overhead from logging",
+        "Logs are useful for production debugging",
+        "All logging tests pass",
+        "Performance regressions are detectable in logs"
+      ]
+    },
+    {
+      "id": "T69",
+      "title": "Improvement - SQL Export Primary Key Ordering Validation ✅",
+      "description": "Implement validation for result set primary key ordering in sql/export/export.go:401. Currently there is a TODO comment: 'sanity checking of result set primary key ordering'. This ensures data integrity and early detection of schema design errors.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #11 SQL Export Primary Key Ordering Validation",
+      "expectedImpact": "Data integrity guarantee, early detection of schema design errors",
+      "deliverables": [
+        "Analyze current result set ordering behavior",
+        "Design validation logic for primary key ordering",
+        "Implement primary key ordering validation",
+        "Add error messages for ordering violations",
+        "Tests for correct ordering validation",
+        "Tests for ordering violation detection",
+        "Documentation of validation behavior",
+        "Remove TODO comment"
+      ],
+      "acceptanceCriteria": [
+        "Primary key ordering is validated correctly",
+        "Ordering violations are detected with clear error messages",
+        "Valid ordering passes validation without errors",
+        "Performance overhead is minimal",
+        "All validation tests pass",
+        "Schema design errors are caught early",
+        "TODO comment is removed"
+      ]
+    },
+    {
+      "id": "T70",
+      "title": "Improvement - File Descriptor Registration Timeout ⏱️",
+      "description": "Add timeout to FD registration operations in eventloop/poller.go and RegisterFD (loop.go:1290) to prevent indefinite blocking. Currently there is no timeout for FD registration operations which can cause production hangs on I/O path issues.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #12 File Descriptor Registration Timeout",
+      "expectedImpact": "Production resilience against I/O path hangs",
+      "deliverables": [
+        "Analyze current FD registration flow",
+        "Add timeout parameter to RegisterFD",
+        "Implement timeout enforcement for FD registration",
+        "Add callback or error handling for timeout",
+        "Tests for timeout behavior",
+        "Tests for normal registration behavior",
+        "Documentation of timeout behavior"
+      ],
+      "acceptanceCriteria": [
+        "FD registration enforces timeout correctly",
+        "Timeout triggers appropriate error handling",
+        "Normal registration works without issues",
+        "No performance overhead for successful registrations",
+        "All timeout tests pass",
+        "I/O path hangs are prevented",
+        "Error handling provides diagnostic information"
+      ]
+    },
+    {
+      "id": "T71",
+      "title": "Improvement - Promise Memory Leak Detection Test 🧪",
+      "description": "Add regression test validating that promises are GC'd after settlement and registry doesn't hold strong references in eventloop/registry.go. This increases production confidence in memory management and improves coverage by +1-2%.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #13 Promise Memory Leak Detection Test",
+      "expectedImpact": "Production confidence in memory management, +1-2% coverage",
+      "deliverables": [
+        "Test file: eventloop/registry_memory_leak_test.go",
+        "Test for promise GC after settlement",
+        "Test for registry not holding strong references",
+        "Test for long-running applications with many promises",
+        "Test for weak.Pointer behavior",
+        "Memory profiling validation",
+        "Documentation of memory management guarantees"
+      ],
+      "acceptanceCriteria": [
+        "Settled promises are GC'd correctly",
+        "Registry doesn't hold strong references",
+        "Weak pointers work as expected",
+        "Long-running applications don't leak memory",
+        "All memory leak tests pass",
+        "Coverage increases by 1-2%",
+        "Memory management guarantees are documented"
+      ]
+    },
+    {
+      "id": "DOC01",
+      "title": "Documentation - Advanced Metrics Usage Guide 📚",
+      "description": "Create comprehensive documentation for advanced metrics usage including best practices for metrics interpretation. File: eventloop/docs/routing/ADVANCED_METRICS_USAGE.md",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [
+        "T62"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #14-17 Documentation Gaps",
+      "expectedImpact": "Improved developer experience, better production monitoring",
+      "deliverables": [
+        "Create eventloop/docs/routing/ADVANCED_METRICS_USAGE.md",
+        "Document all available metrics",
+        "Provide interpretation guidelines",
+        "Include real-world examples",
+        "Best practices for monitoring",
+        "Common patterns and anti-patterns",
+        "Performance tuning guidance"
+      ],
+      "acceptanceCriteria": [
+        "Documentation is comprehensive and clear",
+        "All metrics are documented with examples",
+        "Interpretation guidelines are practical",
+        "Real-world examples are relevant",
+        "Best practices are actionable",
+        "Anti-patterns help avoid common mistakes"
+      ]
+    },
+    {
+      "id": "DOC02",
+      "title": "Documentation - Promise Anti-Patterns Guide 📚",
+      "description": "Create comprehensive guide for anti-patterns to avoid with promises. File: eventloop/docs/routing/ANTIPATTERNS.md",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #14-17 Documentation Gaps",
+      "expectedImpact": "Improved developer experience, fewer production issues",
+      "deliverables": [
+        "Create eventloop/docs/routing/ANTIPATTERNS.md",
+        "Document common promise anti-patterns",
+        "Explain why each pattern is problematic",
+        "Provide correct alternatives",
+        "Include code examples of wrong vs right approaches",
+        "Performance implications of anti-patterns",
+        "Debugging anti-patterns in production"
+      ],
+      "acceptanceCriteria": [
+        "Common anti-patterns are identified",
+        "Explanations are clear and convincing",
+        "Alternatives are practical and improve code",
+        "Code examples are illustrative",
+        "Performance implications are documented",
+        "Debugging guidance is actionable"
+      ]
+    },
+    {
+      "id": "DOC03",
+      "title": "Documentation - Platform-Specific Notes 📚",
+      "description": "Create comprehensive documentation of epoll/kqueue/IOCP behavioral differences. File: eventloop/docs/routing/PLATFORM_NOTES.md",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #14-17 Documentation Gaps",
+      "expectedImpact": "Improved cross-platform development, fewer platform-specific bugs",
+      "deliverables": [
+        "Create eventloop/docs/routing/PLATFORM_NOTES.md",
+        "Document Linux epoll behavior",
+        "Document Darwin/kqueue behavior",
+        "Document Windows/IOCP behavior",
+        "Explain key differences",
+        "Platform-specific edge cases",
+        "Best practices for cross-platform code",
+        "Troubleshooting platform-specific issues"
+      ],
+      "acceptanceCriteria": [
+        "Each platform's behavior is clearly documented",
+        "Differences are highlighted",
+        "Edge cases are explained with examples",
+        "Best practices are actionable",
+        "Troubleshooting guidance helps real issues",
+        "Cross-platform developers can write correct code"
+      ]
+    },
+    {
+      "id": "DOC04",
+      "title": "Documentation - Goja Performance Tuning Guide 📚",
+      "description": "Create comprehensive performance tuning guide for balancing Goja overhead vs eventloop performance. File: goja-eventloop/docs/PERFORMANCE_TUNING.md",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #14-17 Documentation Gaps",
+      "expectedImpact": "Improved developer experience, better performance optimization",
+      "deliverables": [
+        "Create goja-eventloop/docs/PERFORMANCE_TUNING.md",
+        "Document Goja overhead sources",
+        "Document eventloop performance characteristics",
+        "Explain trade-offs in integration",
+        "Provide tuning guidelines",
+        "Include benchmarks and examples",
+        "Profile-driven optimization techniques",
+        "Common performance pitfalls"
+      ],
+      "acceptanceCriteria": [
+        "Goja overhead sources are clearly explained",
+        "Trade-offs are well-articulated",
+        "Tuning guidelines are practical",
+        "Examples illustrate key concepts",
+        "Benchmarks provide actionable data",
+        "Optimization techniques are effective",
+        "Developers can make informed decisions"
+      ]
+    },
+    {
+      "id": "T72",
+      "title": "Test Coverage - Concurrent Promise Creation 🧪",
+      "description": "Add comprehensive tests for concurrent promise creation covering all edge cases and race conditions.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of obscure bugs, improved production confidence",
+      "deliverables": [
+        "Test file: eventloop/promise_concurrent_creation_test.go",
+        "Tests for concurrent promise creation",
+        "Tests for concurrent promise resolution",
+        "Tests for concurrent promise rejection",
+        "Tests under high contention",
+        "Race condition tests",
+        "Stress tests"
+      ],
+      "acceptanceCriteria": [
+        "All concurrent tests pass",
+        "No data races detected with -race flag",
+        "Production confidence increased",
+        "Edge cases covered",
+        "High contention scenarios tested"
+      ]
+    },
+    {
+      "id": "T73",
+      "title": "Test Coverage - Timer Cancellation Races 🧪",
+      "description": "Add comprehensive tests for timer cancellation race conditions covering all edge cases.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of obscure bugs, improved production confidence",
+      "deliverables": [
+        "Test file: eventloop/timer_cancellation_races_test.go",
+        "Tests for timer cancellation during execution",
+        "Tests for timer cancellation during scheduling",
+        "Tests for timer cancellation after completion",
+        "Tests for concurrent timer cancellation",
+        "Race condition tests",
+        "Edge case tests"
+      ],
+      "acceptanceCriteria": [
+        "All timer cancellation tests pass",
+        "No data races detected with -race flag",
+        "Production confidence increased",
+        "Edge cases covered",
+        "Race scenarios tested"
+      ]
+    },
+    {
+      "id": "T74",
+      "title": "Test Coverage - Registry Scavenge Performance 🧪",
+      "description": "Add performance tests for registry scavenging to ensure efficient cleanup and detect any performance regressions.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of performance issues, optimization validation",
+      "deliverables": [
+        "Test file: eventloop/registry_scavenge_performance_test.go",
+        "Benchmark tests for registry scavenge",
+        "Tests for large registry cleanup",
+        "Tests for frequent scavenging",
+        "Memory allocation analysis",
+        "Performance regression tests"
+      ],
+      "acceptanceCriteria": [
+        "All performance tests pass",
+        "Scavenge performance is acceptable",
+        "No performance regressions detected",
+        "Memory allocations are efficient",
+        "Large registry cleanup works correctly"
+      ]
+    },
+    {
+      "id": "T75",
+      "title": "Test Coverage - Platform-Specific Poll Edge Cases 🧪",
+      "description": "Add tests for platform-specific poller edge cases covering epoll, kqueue, and IOCP differences.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of platform-specific bugs, improved platform confidence",
+      "deliverables": [
+        "Test file: eventloop/poller_platform_edge_cases_test.go",
+        "Linux epoll edge case tests",
+        "Darwin kqueue edge case tests",
+        "Windows IOCP edge case tests",
+        "Cross-platform comparison tests",
+        "Platform-specific behavior validation"
+      ],
+      "acceptanceCriteria": [
+        "All platform-specific tests pass",
+        "Edge cases covered for all platforms",
+        "Platform differences documented",
+        "No platform-specific bugs found",
+        "Cross-platform tests are consistent"
+      ]
+    },
+    {
+      "id": "T76",
+      "title": "Test Coverage - Goja Iterator Protocol Stress 🧪",
+      "description": "Add comprehensive stress tests for Goja iterator protocol handling to ensure robust custom iterator support.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of iterator bugs, production confidence",
+      "deliverables": [
+        "Test file: goja-eventloop/iterator_stress_test.go",
+        "Stress tests for custom iterators",
+        "Tests for malformed iterators",
+        "Tests for infinite iterators",
+        "Tests for concurrent iterator access",
+        "Edge case tests"
+      ],
+      "acceptanceCriteria": [
+        "All iterator stress tests pass",
+        "Malformed iterators handled correctly",
+        "Infinite iterators don't cause hangs",
+        "Concurrent access is safe",
+        "Production confidence increased"
+      ]
+    },
+    {
+      "id": "T77",
+      "title": "Test Coverage - Chunked Ingress Batch Pop Performance 🧪",
+      "description": "Add performance tests for chunked ingress batch pop operations to validate efficiency.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #18-23 Test Coverage Gaps",
+      "expectedImpact": "Detection of performance issues, optimization validation",
+      "deliverables": [
+        "Test file: eventloop/chunked_ingress_perf_test.go",
+        "Benchmark tests for batch pop",
+        "Tests for large batch sizes",
+        "Tests for concurrent batch pop",
+        "Memory allocation analysis",
+        "Performance regression tests"
+      ],
+      "acceptanceCriteria": [
+        "All performance tests pass",
+        "Batch pop performance is optimal",
+        "No performance regressions",
+        "Memory allocations are efficient",
+        "Large batch operations work correctly"
+      ]
+    },
+    {
+      "id": "T78",
+      "title": "Performance - Metrics Sampling Overhead Reduction 📊",
+      "description": "Reduce metrics sampling overhead by 50-70% (from current 100-200 μs per sample to 30-60 μs) in eventloop/metrics.go using histogram-based approximation (O(1) sampling) instead of O(n log n) sort.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #25 Metrics Sampling Overhead Reduction",
+      "expectedImpact": "50-70% reduction in metrics overhead (~100-200 μs → ~30-60 μs per sample)",
+      "deliverables": [
+        "Analyze current O(n log n) implementation",
+        "Design O(1) histogram-based algorithm",
+        "Implement histogram-based sampling",
+        "Benchmark new vs old implementation",
+        "Validate statistical accuracy",
+        "Regression tests",
+        "Documentation of performance improvement"
+      ],
+      "acceptanceCriteria": [
+        "Sampling overhead reduced by 50-70%",
+        "Statistical accuracy maintained",
+        "No regressions in metrics quality",
+        "All benchmarks show improvement",
+        "Regression tests pass",
+        "Implementation is maintainable"
+      ]
+    },
+    {
+      "id": "T79",
+      "title": "Performance - Microtask Ring Buffer Adaptive Sizing 📥",
+      "description": "Implement adaptive sizing for microtask ring buffer in eventloop/ring.go (line 17: ringBufferSize = 4096). Start at 1024, double until overflow detected. This reduces memory usage by 50% for small workloads.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #26 Microtask Ring Buffer Adaptive Sizing",
+      "expectedImpact": "50% memory reduction for small workloads",
+      "deliverables": [
+        "Design adaptive sizing algorithm",
+        "Implement starting size 1024",
+        "Implement doubling on overflow",
+        "Implement maximum size limit",
+        "Benchmark memory usage",
+        "Performance tests",
+        "Documentation of adaptive behavior"
+      ],
+      "acceptanceCriteria": [
+        "Memory reduced by 50% for small workloads",
+        "Adaptive sizing works correctly",
+        "Overflow triggers doubling appropriately",
+        "No performance regressions",
+        "All tests pass",
+        "Behavior is documented"
+      ]
+    },
+    {
+      "id": "T80",
+      "title": "Performance - Goja Value Caching for Frequent Access 🗄️",
+      "description": "Implement LRU cache for exported Go types in goja-eventloop/adapter.go to reduce Goja value conversion overhead by 20-40%. Use map[any]goja.Value for LRU cache and weak references for GC.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #27 Goja Value Caching for Frequent Access",
+      "expectedImpact": "20-40% reduction in Goja value conversion overhead",
+      "deliverables": [
+        "Design LRU cache structure",
+        "Implement cache for exported Go types",
+        "Implement cache size limits",
+        "Implement weak references for GC",
+        "Benchmark cache hit rates",
+        "Performance tests",
+        "Cache invalidation logic",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "Conversion overhead reduced by 20-40%",
+        "Cache improves performance for repeated conversions",
+        "Weak references prevent memory leaks",
+        "Cache size limits prevent unbounded growth",
+        "All benchmarks show improvement",
+        "No regressions in functionality"
+      ]
+    },
+    {
+      "id": "T81",
+      "title": "Performance - Promise Handler Batching Microtask Reduction 📥",
+      "description": "Batch handler execution for promises in eventloop/promise.go to reduce microtask scheduling overhead by 10-30%. Collect all pending handlers for same promise, execute as single microtask. Must maintain Promise/A+ spec compliance.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #28 Promise Handler Batching Microtask Reduction",
+      "expectedImpact": "10-30% reduction in microtask scheduling overhead",
+      "deliverables": [
+        "Design batching algorithm",
+        "Collect handlers for same promise",
+        "Execute as single microtask",
+        "Ensure Promise/A+ compliance",
+        "Test batching behavior",
+        "Benchmark performance improvement",
+        "Regression tests",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "Microtask overhead reduced by 10-30%",
+        "Promise/A+ compliance maintained",
+        "Handler execution order preserved",
+        "All tests pass",
+        "Benchmarks show improvement",
+        "No regressions in behavior"
+      ]
+    },
+    {
+      "id": "T82",
+      "title": "Security - Event Loop Sandbox Mode 🛡",
+      "description": "Add sandbox mode for production defense against untrusted code and DoS prevention. Implement WithSandbox(SandboxConfig) option with max execution time per task, max concurrent tasks, max promise depth, max loop depth.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #36 Event Loop Sandbox Mode",
+      "expectedImpact": "Production defense against untrusted code, DoS prevention",
+      "deliverables": [
+        "Design SandboxConfig structure",
+        "Implement max execution time per task",
+        "Implement max concurrent tasks limit",
+        "Implement max promise depth limit",
+        "Implement max loop depth limit",
+        "Implement WithSandbox LoopOption",
+        "Tests for sandbox enforcement",
+        "Tests for sandbox bypass attempts",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "Sandbox limits are enforced correctly",
+        "Malicious code is contained",
+        "DoS attempts are prevented",
+        "Performance overhead for trusted code is minimal",
+        "All sandbox tests pass",
+        "Bypass attempts are detected",
+        "Documentation is clear"
+      ]
+    },
+    {
+      "id": "T83",
+      "title": "Security - Promise Sensitive Data Redaction 🔒",
+      "description": "Add sensitive data redaction for production security and PCI-DSS/GDPR compliance. Implement WithSensitiveDataPattern(pattern, replacement) option to redact matching patterns in promise results before logging.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [
+        "T25"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #37 Promise Sensitive Data Redaction",
+      "expectedImpact": "Production security, PCI-DSS/GDPR compliance",
+      "deliverables": [
+        "Design pattern matching system",
+        "Implement WithSensitiveDataPattern option",
+        "Redact logs and error messages",
+        "Support multiple patterns",
+        "Test redaction behavior",
+        "Test pattern matching accuracy",
+        "Performance tests",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "Sensitive data is redacted correctly",
+        "Multiple patterns supported",
+        "Patterns are applied consistently",
+        "Performance overhead is minimal",
+        "All tests pass",
+        "Compliance requirements met"
+      ]
+    },
+    {
+      "id": "T84",
+      "title": "Observability - Structured Error Correlation IDs 🔗",
+      "description": "Generate unique error ID at creation (UUID v7), propagate through error wrapping chain. This improves production debugging efficiency by 5-10x.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #38 Structured Error Correlation IDs",
+      "expectedImpact": "Production debugging efficiency 5-10x improvement",
+      "deliverables": [
+        "Implement UUID v7 generation",
+        "Add correlation ID to errors",
+        "Propagate through wrapping chain",
+        "Implement error lookup by ID",
+        "Tests for correlation ID behavior",
+        "Tests for propagation",
+        "Documentation",
+        "Integration with logging"
+      ],
+      "acceptanceCriteria": [
+        "Each error has unique correlation ID",
+        "Correlation IDs propagate correctly",
+        "Errors can be traced across async operations",
+        "UUID v7 format is correct",
+        "All tests pass",
+        "Production debugging improved"
+      ]
+    },
+    {
+      "id": "T85",
+      "title": "Observability - Audit Log for Timer Operations 📋",
+      "description": "Add audit logging capability for timer operations for forensic investigation and audit compliance. Implement WithAuditLogger(logger AuditLogger) option to log all timer operations with timestamps.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [
+        "T25"
+      ],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #39 Audit Log for Timer Operations",
+      "expectedImpact": "Forensic investigation capability, audit compliance",
+      "deliverables": [
+        "Design AuditLogger interface",
+        "Implement WithAuditLogger option",
+        "Log timer create operations",
+        "Log timer cancel operations",
+        "Log timer fire operations",
+        "Include timestamps and metadata",
+        "Tests for audit logging",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "All timer operations are logged",
+        "Logs include timestamps and metadata",
+        "Audit logger is configurable",
+        "Performance overhead is minimal",
+        "All tests pass",
+        "Audit compliance requirements met"
+      ]
+    },
+    {
+      "id": "T86",
+      "title": "Observability - CPU Time Tracking per Task ⚙️",
+      "description": "Track CPU time consumed by each task to provide production performance insight (compute-bound vs IO-bound tasks). Use runtime.SetFinalizer to measure CPU consumed and report vs wall-clock latency.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #40 CPU Time Tracking per Task",
+      "expectedImpact": "Production performance insight (compute-bound vs IO-bound tasks)",
+      "deliverables": [
+        "Design CPU tracking mechanism",
+        "Implement runtime.SetFinalizer integration",
+        "Track CPU per task",
+        "Report CPU vs wall-clock latency",
+        "Metrics integration",
+        "Tests for CPU tracking accuracy",
+        "Performance impact tests",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "CPU time is tracked accurately",
+        "Compute-bound vs IO-bound tasks identifiable",
+        "Metrics provide useful insights",
+        "Overhead is minimal",
+        "All tests pass",
+        "Production performance improved"
+      ]
+    },
+    {
+      "id": "T87",
+      "title": "Production Stability - Rate Limiting Integration 🚦",
+      "description": "Add rate limiting integration for admission control in eventloop/ingress.go to ensure production stability under load spikes and graceful degradation. Implement WithAdmissionControl(AdmissionControl) option with max tasks-per-second rate limit and max queue depth limit.",
+      "status": "not-started",
+      "priority": "P2",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #41 Rate Limiting Integration",
+      "expectedImpact": "Production stability under load spikes, graceful degradation",
+      "deliverables": [
+        "Design AdmissionControl interface",
+        "Implement token bucket rate limiter",
+        "Implement max tasks-per-second limit",
+        "Implement max queue depth limit",
+        "Implement WithAdmissionControl option",
+        "Tests for rate limiting",
+        "Tests for graceful degradation",
+        "Documentation"
+      ],
+      "acceptanceCriteria": [
+        "Rate limits are enforced correctly",
+        "Queue depth limits prevent overflow",
+        "Graceful degradation works",
+        "System remains stable under load",
+        "All tests pass",
+        "Production stability improved"
+      ]
+    },
+    {
+      "id": "API01",
+      "title": "API - Loop Context Propagation Hook 🔗",
+      "description": "Add context propagation hook for automatic context inheritance. Implement WithTaskContextHook(func(taskContext) context.Context) option.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #29 Loop Context Propagation Hook",
+      "expectedImpact": "Improved developer experience, better context handling",
+      "deliverables": [
+        "Design TaskContextHook interface",
+        "Implement WithTaskContextHook option",
+        "Apply hook to all tasks",
+        "Tests for context propagation",
+        "Tests for context cancellation",
+        "Documentation",
+        "Examples"
+      ],
+      "acceptanceCriteria": [
+        "Context propagates correctly",
+        "Hook allows customization",
+        "Cancellation works as expected",
+        "All tests pass",
+        "API is intuitive"
+      ]
+    },
+    {
+      "id": "API02",
+      "title": "API - Promise Error Type Assertion Helper 🎯",
+      "description": "Add utility function for cleaner error handling. Implement promise.ResultAsError() error, ok helper.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #30 Promise Error Type Assertion Helper",
+      "expectedImpact": "Improved developer experience, cleaner error handling",
+      "deliverables": [
+        "Implement ResultAsError() method",
+        "Return error, ok for type assertion",
+        "Tests for error extraction",
+        "Tests for non-error values",
+        "Documentation",
+        "Examples"
+      ],
+      "acceptanceCriteria": [
+        "Error extraction works correctly",
+        "Type assertions are safe",
+        "API is intuitive to use",
+        "All tests pass",
+        "Code is cleaner than alternatives"
+      ]
+    },
+    {
+      "id": "DOC05",
+      "title": "Documentation - Timer ID Reuse Policy 📋",
+      "description": "Document timer ID reuse policy behavior after MAX_SAFE_INTEGER exceeded and recommended reset strategy in README.md.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #31 Timer ID Reuse Policy Documentation",
+      "expectedImpact": "Improved developer understanding, fewer bugs in production",
+      "deliverables": [
+        "Document timer ID allocation strategy",
+        "Document MAX_SAFE_INTEGER behavior",
+        "Document behavior after overflow",
+        "Document recommended reset strategy",
+        "Add examples",
+        "Update README.md"
+      ],
+      "acceptanceCriteria": [
+        "ID behavior is clearly explained",
+        "Overflow behavior is documented",
+        "Reset strategy is practical",
+        "Examples are helpful",
+        "README update is comprehensive"
+      ]
+    },
+    {
+      "id": "API03",
+      "title": "API - Metrics Sampling Control API 🎚️",
+      "description": "Add dynamic control for metrics sampling. Implement loop.SetMetricsEnabled(enabled bool, samplingInterval) API.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #32 Metrics Sampling Control API",
+      "expectedImpact": "Improved runtime control, better observability management",
+      "deliverables": [
+        "Implement SetMetricsEnabled method",
+        "Enable/disable metrics dynamically",
+        "Control sampling interval",
+        "Thread-safe implementation",
+        "Tests for API behavior",
+        "Tests for dynamic control",
+        "Documentation",
+        "Examples"
+      ],
+      "acceptanceCriteria": [
+        "Metrics can be enabled/disabled dynamically",
+        "Sampling interval is controllable",
+        "API is thread-safe",
+        "All tests pass",
+        "API is intuitive"
+      ]
+    },
+    {
+      "id": "API04",
+      "title": "API - Promise Handler Execution Stack Trace Capture 🔍",
+      "description": "Add stack trace capture for production debugging. Implement WithHandlerStackTrace(enabled bool, depth int) option.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #34 Promise Handler Execution Stack Trace Capture",
+      "expectedImpact": "Improved production debugging, better error context",
+      "deliverables": [
+        "Implement WithHandlerStackTrace option",
+        "Capture execution stacks",
+        "Control trace depth",
+        "Include stack in errors",
+        "Tests for stack capture",
+        "Performance impact tests",
+        "Documentation",
+        "Examples"
+      ],
+      "acceptanceCriteria": [
+        "Stack traces are captured correctly",
+        "Depth control works",
+        "Stacks provide useful context",
+        "Performance overhead is acceptable",
+        "All tests pass",
+        "Production debugging improved"
+      ]
+    },
+    {
+      "id": "API05",
+      "title": "API - Goja Runtime Lifecycle Hook 🗄️",
+      "description": "Add lifecycle hooks for Goja runtime. Implement WithRuntimeHook(RuntimeLifecycle) option with OnRuntimeCreated/Shutdown/CycleStart/End events.",
+      "status": "not-started",
+      "priority": "P3",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #35 Goja Runtime Lifecycle Hook",
+      "expectedImpact": "Improved observability, better integration control",
+      "deliverables": [
+        "Design RuntimeLifecycle interface",
+        "Implement OnRuntimeCreated callback",
+        "Implement OnRuntimeShutdown callback",
+        "Implement OnCycleStart callback",
+        "Implement OnCycleEnd callback",
+        "Implement WithRuntimeHook option",
+        "Tests for lifecycle events",
+        "Tests for hook behavior",
+        "Documentation",
+        "Examples"
+      ],
+      "acceptanceCriteria": [
+        "All lifecycle events fire correctly",
+        "Hooks are called in order",
+        "API is flexible and extensible",
+        "All tests pass",
+        "Observability improved"
+      ]
+    }
   ],
   "continuousVerification": {
     "task": "Run 'make all' with full logging after EVERY significant change",
@@ -599,6 +1562,119 @@
       "result": "ALL_PASS (200+ tests)",
       "duration": "83.747s (macOS), 137.480s (linux)",
       "status": "baseline-verified-healthy"
+    }
+  },
+  "documentation": {
+    "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md (DELETED - synced 2026-01-30)",
+    "lastSynced": "2026-01-30T00:00:00Z",
+    "syncStatus": "COMPLETE",
+    "warnings": "Source document marked for deletion by user. ALL 57 improvements now in blueprint.json.",
+    "roadmapStatus": {
+      "productionReady": true,
+      "confidenceLevel": "96-97%",
+      "reviewsCompleted": 4,
+      "totalImprovementsIdentified": 57,
+      "summary": "The eventloop module and its integration with goja-eventloop have undergone comprehensive review through 4 independent verification passes. The verdict is unanimous across all reviews: the codebase is production-ready with 96-97% confidence. However, 57 specific improvement opportunities have been identified that would elevate the system from 'production-ready' to 'best-in-class'."
+    },
+    "whatsExcellent": {
+      "T42": {
+        "title": "Cache Line Alignment Optimization ⚡",
+        "status": "PERFECT",
+        "description": "All hot structures manually aligned. betteralign verified no changes required. Impact: Zero false sharing, optimal performance under contention."
+      },
+      "T43": {
+        "title": "Timer Pool Implementation 🗄️",
+        "status": "EXCELLENT",
+        "description": "Zero-allocation hot path. sync.Pool usage, proper reset before return. Impact: 200-500 ns/op timer scheduling."
+      },
+      "T44": {
+        "title": "Weak Pointer-Based Promise Registry 🗄️",
+        "status": "EXCELLENT",
+        "description": "GC-friendly design prevents memory leaks. weak.Pointer usage allows settled promises to be collected. Impact: No unbounded memory growth, correct behavior for long-running applications."
+      },
+      "T45": {
+        "title": "Promise/A+ Specification Compliance ✅",
+        "status": "COMPREHENSIVE",
+        "description": "All required features implemented correctly. Full Then/Catch/Finally support, combinators (All, Race, AllSettled, Any). Impact: JavaScript compatibility, correct async semantics."
+      },
+      "T46": {
+        "title": "Platform-Specific Poller Implementations 💻",
+        "status": "ROBUST",
+        "description": "Native I/O for each platform. epoll (Linux), kqueue (Darwin/BSD), IOCP (Windows). Impact: Maximum I/O performance, correct platform-specific behaviors."
+      },
+      "T47": {
+        "title": "Comprehensive Test Suite 🧪",
+        "status": "EXCEPTIONAL",
+        "description": "200+ tests covering all critical paths. Race-condition tests, stress tests, regression tests. Impact: High confidence in correctness, production readiness."
+      },
+      "T48": {
+        "title": "Fast Path Optimization ⚡",
+        "status": "EFFECTIVE",
+        "description": "Zero I/O FD path optimized. Automatic mode selection, channel-based wakeups. Impact: 50-80% latency reduction for pure-async workloads."
+      },
+      "T49": {
+        "title": "Atomic Operations Correctness 🔐",
+        "status": "VERIFIED",
+        "description": "No incorrect Store() calls, proper CAS usage. State machine transitions validated. Impact: Race-free implementation, deterministic behavior."
+      },
+      "T50": {
+        "title": "Documentation Quality 📚",
+        "status": "STRONG",
+        "description": "Clear README with examples. Comprehensive usage examples for all major features. Impact: Developer onboarding efficiency."
+      }
+    },
+    "implementationPhases": {
+      "phase1": {
+        "title": "Phase 1: Quick Wins",
+        "tasks": ["T25", "T61", "T28"],
+        "description": "Initial high-impact improvements with minimal implementation investment.",
+        "status": "not-started"
+      },
+      "phase2": {
+        "title": "Phase 2: Priorities",
+        "tasks": ["T62", "T63", "T64", "T65", "T66", "T67", "T68"],
+        "description": "High-priority enhancements and improvements.",
+        "status": "not-started"
+      },
+      "phase3": {
+        "title": "Phase 3: SECURITY & OBSERVABILITY",
+        "tasks": ["T82", "T83", "T84", "T85", "T86", "T87"],
+        "description": "Security hardening and observability enhancements.",
+        "status": "not-started"
+      },
+      "phase4": {
+        "title": "Phase 4: API/UX IMPROVEMENTS",
+        "tasks": ["API01", "API02", "DOC05", "API03", "T64", "API04", "API05", "T68"],
+        "description": "User experience improvements and API enhancements.",
+        "status": "not-started"
+      },
+      "phase5": {
+        "title": "Phase 5: DOCUMENTATION",
+        "tasks": ["DOC01", "DOC02", "DOC03", "DOC04", "DOC05"],
+        "description": "Comprehensive documentation expansion.",
+        "status": "not-started"
+      },
+      "phase6": {
+        "title": "Phase 6: PERFORMANCE OPTIMIZATIONS",
+        "tasks": ["T78", "T79", "T80", "T81"],
+        "description": "Performance optimizations after testing and coverage improvements.",
+        "status": "not-started"
+      }
+    },
+    "confidenceAssessment": {
+      "overallProductionReadiness": "96-97%",
+      "justification": [
+        "Correctness: Zero critical bugs found in 4 exhaustive reviews; atomic operations, state machine, weak pointer usage all verified correct",
+        "Performance: Cache alignment and timer pooling demonstrate deep optimization; benchmark results show best-in-class latencies",
+        "Testing: 200+ tests with -race detector clean; edge cases covered; stress tests pass",
+        "Architecture: Modular design with clean separation of concerns",
+        "Platform Support: Native I/O for all three major platforms (epoll, kqueue, IOCP)"
+      ],
+      "areasRequiringDeeperInvestigation": [
+        "Lock contention under extreme producer load (disputed - tournament shows Main is superior)",
+        "Metrics sampling interval quantification (no benchmark data for 100-200μs claim)",
+        "Goja integration edge cases (custom iterators and malicious inputs tested but not fully validated)"
+      ]
     }
   }
 }

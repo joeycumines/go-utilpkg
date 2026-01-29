@@ -35,10 +35,23 @@ func (e PanicError) Error() string {
 //   - Single-Owner: Resolution goes through SubmitInternal to ensure promise resolution happens on the loop thread.
 //   - Fallback: Direct resolution if SubmitInternal fails (e.g., during shutdown) to ensure promises always settle.
 //   - Shutdown tracking: Uses promisifyWg to track in-flight goroutines so shutdown can wait for them.
+//   - Atomic check: Checks state before adding to promisifyWg to prevent race with shutdown.
 func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Result, error)) Promise {
+	// Lock promisifyMu to atomically check state and add to promisifyWg
+	// This prevents race with shutdown which also holds promisifyMu
+	l.promisifyMu.Lock()
+	currentState := l.state.Load()
+	if currentState == StateTerminating || currentState == StateTerminated {
+		l.promisifyMu.Unlock()
+		_, p := l.registry.NewPromise()
+		p.Reject(ErrLoopTerminated)
+		return p
+	}
+
 	_, p := l.registry.NewPromise()
 
 	l.promisifyWg.Add(1)
+	l.promisifyMu.Unlock()
 
 	go func() {
 		defer l.promisifyWg.Done()

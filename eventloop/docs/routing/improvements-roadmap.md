@@ -35,53 +35,72 @@ These improvements should be prioritized for immediate production impact with mi
 
   **Target**: Expand from 27 tests to 50+ tests covering all boundary interactions.
 
-### 3. Structured Logging Integration 📝
-- **Module**: `eventloop/loop.go`, `eventloop/promises.go`, `eventloop/js.go`
-- **Expected Impact**: Production debugging efficiency increase by 3-5x, observability improvements
-- **Current State**: `log.Printf` used 9 times (loop.go:1584, promise.go:138, js.go:134)
-- **Description**:
-  Replace `log.Printf` with structured logging interface supporting:
-  - Correlation IDs (trace execution across async operations)
-  - Structured fields (loop ID, task ID, timer ID)
-  - Configurable log levels (Debug, Info, Warn, Error)
-  - Lazy evaluation (avoid string formatting when level disabled)
+### 3. Structured Logging Integration 📝 ~~[OVERTURNED]~~
+**STATUS: OVERTURNED - See T25 in blueprint.json**
 
-  **Proposed API**:
-  ```go
-  type LogLevel int
-  const (
-      LevelDebug LogLevel = iota
-      LevelInfo
-      LevelWarn
-      LevelError
-  )
+**CRITICAL DESIGN ERROR CORRECTED**: The original design in this section proposed implementing custom logging, which violated core project principles:
+1. **GLOBAL LOGGER IS BANNED** - Cannot use package-level logger variables
+2. **REINVENTING THE WHEEL** - eventloop has `github.com/joeycumines/logiface` available in this workspace
+3. **VIOLATION OF DEPENDENCY INJECTION** - Logger MUST be passed via configuration, not accessed globally
 
-  type LogEntry struct {
-      Level    LogLevel
-      Category  string  // "timer", "promise", "microtask", "poll"
-      LoopID    int64
-      TaskID    int64
-      TimerID   int64
-      Context    map[string]interface{}
-      Message   string
-      Timestamp time.Time
-  }
+**CORRECT DESIGN (implemented in T25):**
+- Use `github.com/joeycumines/logiface.L` for ALL logging
+- Delete eventloop/logging.go entirely
+- Delete eventloop/logging_test.go entirely
+- Pass logger instances via LoopOptions/configuration
+- NO global logger variables
+- Proper dependency injection pattern
 
-  type Logger interface {
-      Log(entry LogEntry)
-      IsEnabled(level LogLevel) bool
-  }
+**Original (INCORRECT) design preserved below for historical reference:**
 
-  var WithLogger(logger Logger) LoopOption
-  ```
+~~- **Module**: `eventloop/loop.go`, `eventloop/promises.go`, `eventloop/js.go`~~
+~~- **Expected Impact**: Production debugging efficiency increase by 3-5x, observability improvements~~
+~~- **Current State**: `log.Printf` used 9 times (loop.go:1584, promise.go:138, js.go:134)~~
+~~- **Description**:~~
+~~  Replace `log.Printf` with structured logging interface supporting:~~
+~~  - Correlation IDs (trace execution across async operations)~~
+~~  - Structured fields (loop ID, task ID, timer ID)~~
+~~  - Configurable log levels (Debug, Info, Warn, Error)~~
+~~  - Lazy evaluation (avoid string formatting when level disabled)~~
 
-  **Usage Example**:
-  ```go
-  loop := eventloop.New(
-      eventloop.WithLogger(&StructuredLogger{Level: LevelInfo}),
-  )
-  // All error conditions now include correlation IDs and context
-  ```
+~~  **Proposed API** (INCORRECT - DO NOT USE):~~
+~~~go
+~~type LogLevel int~~
+~~const (~~
+~~    LevelDebug LogLevel = iota~~
+~~    LevelInfo~~
+~~    LevelWarn~~
+~~    LevelError~~
+~~})~~
+
+~~type LogEntry struct {~~
+~~    Level    LogLevel~~
+~~    Category  string  // "timer", "promise", "microtask", "poll"~~
+~~    LoopID    int64~~
+~~    TaskID    int64~~
+~~    TimerID   int64~~
+~~    Context    map[string]interface{}~~
+~~    Message   string~~
+~~    Timestamp time.Time~~
+~~})~~
+
+~~type Logger interface {~~
+~~    Log(entry LogEntry)~~
+~~    IsEnabled(level LogLevel) bool~~
+~~})~~
+
+~~var WithLogger(logger Logger) LoopOption~~
+~~```
+
+~~  **Usage Example**:~~
+~~~go
+~~loop := eventloop.New(~~
+~~    eventloop.WithLogger(&StructuredLogger{Level: LevelInfo}),~~
+~~})~~
+~~// All error conditions now include correlation IDs and context~~
+~~```
+
+~~**NOTE**: This entire section was replaced by T25 - DO NOT IMPLEMENT~~
 
 ---
 
@@ -387,7 +406,8 @@ These improvements should be prioritized for immediate production impact with mi
 ## Implementation Roadmap
 
 ### Phase 1: Quick Wins
-- [ ] T19: Structured logging implementation
+- [x] ~~T19: Structured logging implementation~~ **[OVERTURNED/REJECTED]**
+- [ ] **T25: CRITICAL - Remove global logger and use logiface.L instead** (P0 - replaces T19)
 - [ ] T21: Integration test expansion 50+ tests
 
 ### Phase 2: Priorities

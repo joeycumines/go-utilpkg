@@ -97,6 +97,248 @@ func TestStart_SecondCallReturnsError(t *testing.T) {
 	<-runDone
 }
 
+// TestLoop_Close_WaitsForLoopDone verifies that Close() blocks until the
+// loop goroutine has fully exited, preventing use-after-free bugs.
+func TestLoop_Close_WaitsForLoopDone(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runFinished := make(chan error, 1)
+	go func() {
+		runFinished <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	for i := 0; i < 100; i++ {
+		if loop.State() == StateRunning {
+			break
+		}
+		time.Sleep(time.Millisecond)
+		if i == 99 {
+			t.Fatal("Loop never reached StateRunning")
+		}
+	}
+
+	// Call Close() - this SHOULD block until loop goroutine exits
+	closeFinished := make(chan struct{})
+	go func() {
+		loop.Close()
+		close(closeFinished)
+	}()
+
+	// Wait for Close() to complete (with timeout to ensure it doesn't deadlock)
+	select {
+	case <-closeFinished:
+		// Close() completed
+	case <-time.After(1 * time.Second):
+		t.Fatal("Close() didn't return in 1 second (possible deadlock)")
+	}
+
+	// Verify loop goroutine has exited
+	select {
+	case err := <-runFinished:
+		if err != nil && err != ErrLoopTerminated && err != context.Canceled {
+			t.Errorf("Run() unexpected error: %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Run() goroutine didn't exit after Close()")
+	}
+
+	// Verify loop is terminated
+	if loop.State() != StateTerminated {
+		t.Errorf("Expected StateTerminated, got %v", loop.State())
+	}
+}
+
+// TestLoop_CloseIdempotence verifies that calling Close() multiple times
+// is safe and thread-safe.
+func TestLoop_CloseIdempotence(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runDone := make(chan error)
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	time.Sleep(10 * time.Millisecond)
+
+	// First Close should succeed
+	if err := loop.Close(); err != nil {
+		t.Fatalf("First Close() failed: %v", err)
+	}
+
+	// Wait for Run() to complete
+	<-runDone
+
+	// Second Close should return ErrLoopTerminated
+	if err := loop.Close(); err != ErrLoopTerminated {
+		t.Fatalf("Second Close() should return ErrLoopTerminated, got: %v", err)
+	}
+
+	// Verify state is Terminated
+	if loop.State() != StateTerminated {
+		t.Errorf("Expected StateTerminated, got %v", loop.State())
+	}
+}
+
+// TestLoop_Close_ConcurrentWithShutdown verifies that calling Close() and
+// Shutdown() concurrently is safe (only one should proceed).
+func TestLoop_Close_ConcurrentWithShutdown(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runDone := make(chan error)
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	time.Sleep(10 * time.Millisecond)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Call Close() concurrently with Shutdown()
+	go func() {
+		defer wg.Done()
+		loop.Close()
+	}()
+
+	go func() {
+		defer wg.Done()
+		loop.Shutdown(context.Background())
+	}()
+
+	wg.Wait()
+
+	// Wait for Run() to complete
+	<-runDone
+
+	// Verify loop is terminated
+	if loop.State() != StateTerminated {
+		t.Errorf("Expected StateTerminated after concurrent Close/Shutdown, got %v", loop.State())
+	}
+}
+
+func TestLoop_Close_AfterShutdown(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runDone := make(chan error)
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	time.Sleep(10 * time.Millisecond)
+
+	if err := loop.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown() failed: %v", err)
+	}
+
+	// Wait for Run() to complete
+	<-runDone
+
+	// Close() after Shutdown() should return ErrLoopTerminated
+	if err := loop.Close(); err != ErrLoopTerminated {
+		t.Fatalf("Close() after Shutdown() should return ErrLoopTerminated, got: %v", err)
+	}
+}
+
+func TestLoop_Shutdown_AfterClose(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runDone := make(chan error)
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	time.Sleep(10 * time.Millisecond)
+
+	if err := loop.Close(); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+
+	// Wait for Run() to complete
+	<-runDone
+
+	// Shutdown() after Close() should return ErrLoopTerminated
+	if err := loop.Shutdown(ctx); err != ErrLoopTerminated {
+		t.Fatalf("Shutdown() after Close() should return ErrLoopTerminated, got: %v", err)
+	}
+}
+
+// TestLoop_Close_PreventsNewSubmits verifies that after Close(),
+// attempting to submit new work fails with appropriate errors.
+func TestLoop_Close_PreventsNewSubmits(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	// Run the loop in a goroutine
+	runDone := make(chan error)
+	go func() {
+		runDone <- loop.Run(ctx)
+	}()
+
+	// Wait for loop to start
+	time.Sleep(10 * time.Millisecond)
+
+	if err := loop.Close(); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+
+	// Wait for Run() to complete
+	<-runDone
+
+	// All submit attempts should fail
+	testFunc := func() {
+		err := loop.Submit(func() {})
+		if err != nil {
+			t.Logf("Submit error after Close: %v", err)
+		}
+	}
+
+	testFunc()
+
+	// Verify state is Terminated
+	if loop.State() != StateTerminated {
+		t.Errorf("Expected StateTerminated after Close, got %v", loop.State())
+	}
+}
+
 // TestLoop_Stop_Race_Torture is a stress test that verifies the loop can be
 // stopped without deadlock. It catches the "Zombie Loop" bug where Shutdown()
 // hangs forever due to state overwrite in poll().

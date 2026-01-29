@@ -65,6 +65,7 @@ type intervalState struct {
 
 	// Atomic flags (require 8-byte alignment)
 	canceled atomic.Bool
+	running  atomic.Bool // Tracks when wrapper is actively executing to fix ClearInterval race
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
@@ -96,17 +97,18 @@ type JS struct {
 
 	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
-	intervals           map[uint64]*intervalState
-	unhandledRejections map[uint64]*rejectionInfo
-	promiseHandlers     map[uint64]bool
-	setImmediateMap     map[uint64]*setImmediateState
-	nextImmediateID     atomic.Uint64
-	nextTimerID         atomic.Uint64
-	intervalsMu         sync.RWMutex
-	rejectionsMu        sync.RWMutex
-	promiseHandlersMu   sync.RWMutex
-	setImmediateMu      sync.RWMutex
-	mu                  sync.Mutex
+	intervals               map[uint64]*intervalState
+	unhandledRejections     map[uint64]*rejectionInfo
+	promiseHandlers         map[uint64]bool
+	setImmediateMap         map[uint64]*setImmediateState
+	nextImmediateID         atomic.Uint64
+	nextTimerID             atomic.Uint64
+	intervalsMu             sync.RWMutex
+	rejectionsMu            sync.RWMutex
+	promiseHandlersMu       sync.RWMutex
+	setImmediateMu          sync.RWMutex
+	mu                      sync.Mutex
+	checkRejectionScheduled atomic.Bool // Prevents duplicate checkUnhandledRejections microtasks
 }
 
 // setImmediateState tracks a single setImmediate callback
@@ -249,6 +251,10 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 	// Create wrapper function that accesses itself via state.wrapper
 	// We define it as a closure that will be set below
 	wrapper := func() {
+		// Mark wrapper as running to fix ClearInterval race condition
+		state.running.Store(true)
+		defer state.running.Store(false)
+
 		defer func() {
 			if r := recover(); r != nil {
 				// Log panic recovery for interval callbacks
@@ -370,12 +376,17 @@ func (js *JS) ClearInterval(id uint64) error {
 			}
 			// ErrTimerNotFound is OK - timer already fired
 		}
-	} else {
-		// If currentLoopTimerID is 0, it means:
-		// 1. Timer hasn't been scheduled yet (race during SetInterval startup)
-		// 2. Wrapper is in the process of rescheduling (temporarily 0 between cancel/schedule)
-		// 3. Timer has fired and wrapper has exited
-		// In all cases, we skip cancellation - the canceled flag will prevent future scheduling
+	}
+	// If currentLoopTimerID is 0, check running flag:
+	// 1. If running=true: Interval successfully created and wrapper executing
+	//    ClearInterval called before first timer scheduled (or between executions)
+	//    Success - cancel flag prevents rescheduling
+	// 2. If running=false: Timer hasn't been scheduled yet (race during SetInterval startup)
+	//    OR wrapper exited (timer fired and done)
+	//    In both cases, skip cancellation - cancel flag prevents future scheduling
+	if state.currentLoopTimerID == 0 && !state.running.Load() {
+		// Timer never scheduled or already completed - skip cancellation
+		// The canceled flag will prevent future rescheduling
 	}
 
 	// Remove from intervals map

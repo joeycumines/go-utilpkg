@@ -6,8 +6,11 @@
 
 package eventloop
 
+import "github.com/joeycumines/logiface"
+
 // loopOptions holds configuration options for Loop creation.
 type loopOptions struct {
+	logger                  *logiface.Logger[logiface.Event]
 	fastPathMode            FastPathMode
 	strictMicrotaskOrdering bool
 	metricsEnabled          bool
@@ -56,6 +59,15 @@ func WithFastPathMode(mode FastPathMode) LoopOption {
 func WithMetrics(enabled bool) LoopOption {
 	return &loopOptionImpl{func(opts *loopOptions) error {
 		opts.metricsEnabled = enabled
+		return nil
+	}}
+}
+
+// WithLogger sets the structured logger for the Loop.
+// The logger is optional; if nil, logging is disabled.
+func WithLogger(logger *logiface.Logger[logiface.Event]) LoopOption {
+	return &loopOptionImpl{func(opts *loopOptions) error {
+		opts.logger = logger
 		return nil
 	}}
 }

@@ -8,6 +8,7 @@ package eventloop
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"sync"
 	"testing"
@@ -311,6 +312,121 @@ func TestMemoryLeakProof_SetImmediate_PanicLeak(t *testing.T) {
 			"Delta: %d entries leaked from panicking immediates",
 			finalImmediateCount, initialImmediateCount, finalImmediateCount-initialImmediateCount)
 	}
+}
+
+// TestPromiseRace_ConcurrentThenReject_HandlersCalled verifies fix for CRITICAL-3
+// from review_vs_main_MAX_PARANOIA_2026-01-30.txt.
+//
+// BUG DESCRIPTION (BEFORE FIX):
+// When reject() and then() execute concurrently:
+// 1. reject() stores rejection in unhandledRejections
+// 2. reject() calls trackRejection() which schedules checkUnhandledRejections microtask
+// 3. then() adds handler to promiseHandlers map
+// 4. checkUnhandledRejections executes and deletes from unhandledRejections
+// 5. PROBLEM: checkUnhandledRejections sees OLD snapshot where handler wasn't registered yet
+// 6. Then handler micro task executes, rejection is handled
+// 7. checkUnhandledRejections runs AGAIN (from next checkUnhandledRejections call)
+// 8. Sees stale rejection in unhandledRejections and reports it (FALSE POSITIVE)
+//
+// FIX DESCRIPTION:
+// trackRejection() is called AFTER handler microtasks are scheduled.
+// This ensures checkUnhandledRejections microtask is enqueued AFTER handler microtasks,
+// preventing the race where checkUnhandledRejections reports handler-based rejections as unhandled.
+//
+// Test flow:
+// 1. Create promise
+// 2. Concurrently: call reject() and then().Catch()
+// 3. Run microtasks to process everything
+// 4. Verify handler was called (promise handled)
+// 5. Verify no unhandled rejection callback was invoked
+func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer loop.Shutdown(context.TODO())
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Track unhandled rejection calls
+	var unhandledRejects []Result
+	var unhandledMu sync.Mutex
+	callbackCalled := false
+
+	oldCallback := js.unhandledCallback
+	js.mu.Lock()
+	js.unhandledCallback = func(reason Result) {
+		unhandledMu.Lock()
+		unhandledRejects = append(unhandledRejects, reason)
+		callbackCalled = true
+		unhandledMu.Unlock()
+	}
+	js.mu.Unlock()
+
+	defer func() {
+		js.mu.Lock()
+		js.unhandledCallback = oldCallback
+		js.mu.Unlock()
+	}()
+
+	const numPromises = 100
+
+	for i := 0; i < numPromises; i++ {
+		i := i
+		p, _, reject := js.NewChainedPromise()
+
+		handlerCalled := false
+		var handlerMu sync.Mutex
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Thread 1: Reject
+		go func() {
+			defer wg.Done()
+			reject(fmt.Sprintf("error-%d", i))
+		}()
+
+		// Thread 2: Attach Catch handler
+		go func() {
+			defer wg.Done()
+			time.Sleep(1 * time.Microsecond) // Tiny delay to hit race window
+			p.Catch(func(r Result) Result {
+				handlerMu.Lock()
+				handlerCalled = true
+				handlerMu.Unlock()
+				return "caught"
+			})
+		}()
+
+		wg.Wait()
+
+		// Run microtasks to process everything
+		for j := 0; j < 20; j++ {
+			loop.tick()
+		}
+
+		handlerMu.Lock()
+		if !handlerCalled {
+			t.Errorf("Promise %d: Handler was NOT called - promise state: %v, handlers stored: %v",
+				i, p.State(), p.result)
+			// Don't fail immediately - collect all failures
+		}
+		handlerMu.Unlock()
+	}
+
+	// Verify no unhandled rejection callbacks were called
+	unhandledMu.Lock()
+	if callbackCalled {
+		t.Errorf("Unhandled rejection callback was called %d times", len(unhandledRejects))
+		t.Errorf("Rejects reported as unhandled: %v", unhandledRejects)
+		t.Error("These rejections should have been marked as HANDLED because Catch() was attached")
+	}
+	unhandledMu.Unlock()
+
+	t.Logf("All %d promises: Handlers called correctly, no false unhandled rejections", numPromises)
 }
 
 // TestMemoryLeakProof_MultipleImmediates verifies that multiple setImmediate tasks

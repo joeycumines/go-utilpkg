@@ -28,19 +28,30 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 	// Wait for loop to be running
 	time.Sleep(10 * time.Millisecond)
 
-	blocker := make(chan struct{})
+	// Create Promisify goroutine that blocks until we signal it
+	// FIX: Don't use channel blocking - use context cancellation instead
 	promise := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
-		<-blocker
+		// Block until context is canceled (shutdown signal)
+		<-ctx.Done()
+
+		// When unblocked by shutdown, try to submit after termination
+		// This should fail with ErrLoopTerminated
+		time.Sleep(10 * time.Millisecond)
 		return nil, nil
 	})
 
 	ch := promise.ToChannel()
 
-	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	loop.Shutdown(stopCtx)
+	// Give promise time to start blocking
+	time.Sleep(20 * time.Millisecond)
+
+	// Shutdown the loop (this should cancel the Promisify context)
+	loop.Shutdown(context.Background())
+
+	// Wait for loop to terminate
 	<-runDone
 
+	// Check that promise was rejected with ErrLoopTerminated
 	select {
 	case result := <-ch:
 		err, ok := result.(error)
@@ -53,8 +64,6 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("ZOMBIE PROMISE: Never rejected after shutdown")
 	}
-
-	close(blocker)
 }
 
 // TestShutdown_PromisifyResolution_Race verifies that Promisify operations that
