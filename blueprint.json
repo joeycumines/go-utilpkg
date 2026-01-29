@@ -213,7 +213,6 @@
         "All new tests pass",
         "Coverage analysis shows significant reduction in uncovered lines (target: <10% uncovered)",
         "No data races detected (-race clean)",
-        "Estimated coverage gain: +3-5% towards 90% target",
         "Main eventloop coverage increases from 84.6% to target 90%+",
         "Error paths in js.go and ingress.go are fully exercised"
       ]
@@ -263,7 +262,6 @@
       "acceptanceCriteria": [
         "All new tests pass",
         "Coverage analysis shows significant improvement in all 4 target functions",
-        "Estimated coverage gain: +9.5% (critical paths complete)",
         "No data races detected with -race flag",
         "goja-eventloop coverage increases from 74.0% toward 90% target"
       ]
@@ -287,7 +285,6 @@
       "acceptanceCriteria": [
         "All new tests pass",
         "Coverage analysis shows improvement in combinator functions",
-        "Estimated coverage gain: +5.0%",
         "No regressions in existing tests",
         "All edge cases tested: null, undefined, empty, large arrays, mixed states"
       ]
@@ -311,7 +308,6 @@
       "acceptanceCriteria": [
         "All new tests pass",
         "Coverage analysis shows improvement in timer-related functions",
-        "Estimated coverage gain: +5.5%",
         "No regressions in existing tests",
         "Edge cases tested: overflow, reuse, concurrency, cleanup, boundary values"
       ]
