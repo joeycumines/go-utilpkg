@@ -120,11 +120,11 @@ func TestLogEntryFormatting(t *testing.T) {
 	logger := NewWriterLogger(LevelInfo, &buf)
 
 	entry := LogEntry{
-		Level:    LevelInfo,
-		Category: "timer",
-		LoopID:   123,
-		TimerID:  456,
-		Message:  "Timer fired",
+		Level:     LevelInfo,
+		Category:  "timer",
+		LoopID:    123,
+		TimerID:   456,
+		Message:   "Timer fired",
 		Timestamp: time.Date(2026, 1, 29, 12, 34, 56, 123000000, time.UTC),
 	}
 
@@ -401,10 +401,15 @@ func TestAppendJSONString(t *testing.T) {
 	}{
 		{`simple`, []string{`"simple"`}},
 		{`with "quotes"`, []string{`\"`}},
-		{`with\\slash`, []string{`\\`}}, // Using double backslash
-		{`with control\x07char`, []string{`\u0007`}},
+		{`with\\slash`, []string{`\\`}},              // Using double backslash
+		{"with control\bchar", []string{`\b`}},       // Backspace (ASCII 8) - actual control character
+		{"with control\x07char", []string{`\u0007`}}, // Bell (ASCII 7) - actual control character
 		{`with\nnewline`, []string{`\n`}},
 		{`unicode`, []string{`"unicode"`}},
+		// Test various control characters
+		{"\x01", []string{`\u0001`}}, // Start of heading
+		{"\x08", []string{`\b`}},     // Backspace (has special escape)
+		{"\x1F", []string{`\u001F`}}, // Unit separator
 	}
 
 	for _, tc := range tests {
@@ -591,9 +596,9 @@ func TestLoggingWithTimestamp(t *testing.T) {
 
 	now := time.Now()
 	logger.Log(LogEntry{
-		Level:    LevelInfo,
-		Category: "test",
-		Message:  "Timestamp test",
+		Level:     LevelInfo,
+		Category:  "test",
+		Message:   "Timestamp test",
 		Timestamp: now,
 	})
 
@@ -616,7 +621,7 @@ func TestLoggingWithNilContext(t *testing.T) {
 		Level:    LevelInfo,
 		Category: "test",
 		Message:  "Nil context test",
-		Context: nil,
+		Context:  nil,
 	})
 
 	output := buf.String()

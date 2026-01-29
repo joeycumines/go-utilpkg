@@ -87,15 +87,15 @@ func (l LogLevel) String() string {
 
 // LogEntry represents a structured log entry
 type LogEntry struct {
-	Level      LogLevel
-	Category    string // "timer", "promise", "microtask", "poll", "shutdown"
-	LoopID     int64
-	TaskID     int64
-	TimerID    int64
-	Context     map[string]interface{}
-	Message     string
-	Err         error
-	Timestamp   time.Time
+	Level     LogLevel
+	Category  string // "timer", "promise", "microtask", "poll", "shutdown"
+	LoopID    int64
+	TaskID    int64
+	TimerID   int64
+	Context   map[string]interface{}
+	Message   string
+	Err       error
+	Timestamp time.Time
 	// Stack info for debugging
 	// File        string
 	// Line        int
@@ -118,7 +118,7 @@ type DefaultLogger struct {
 // NewDefaultLogger creates a logger with specified minimum level
 func NewDefaultLogger(level LogLevel) *DefaultLogger {
 	l := &DefaultLogger{
-		Out:   os.Stdout,
+		Out: os.Stdout,
 	}
 	l.level.Store(int32(level))
 	return l
@@ -131,7 +131,7 @@ func NewFileLogger(level LogLevel, filename string) (*DefaultLogger, error) {
 		return nil, err
 	}
 	l := &DefaultLogger{
-		Out:   file,
+		Out: file,
 	}
 	l.level.Store(int32(level))
 	return l, nil
@@ -186,10 +186,10 @@ func (l *DefaultLogger) logPretty(entry LogEntry) {
 	colorReset := "\033[0m"
 	colorFatal := "\033[31m" // Red
 	colorError := "\033[31m"
-	colorWarn := "\033[33m" // Yellow
-	colorInfo := "\033[36m" // Cyan
+	colorWarn := "\033[33m"  // Yellow
+	colorInfo := "\033[36m"  // Cyan
 	colorDebug := "\033[90m" // Dark gray
-	colorDim := "\033[2m"  // Dim
+	colorDim := "\033[2m"    // Dim
 
 	var color string
 	switch entry.Level {
@@ -313,7 +313,7 @@ type LogEntryBuilder struct {
 func NewLogEntry(level LogLevel, category string, message string) LogEntryBuilder {
 	return LogEntryBuilder{
 		entry: LogEntry{
-			Level:    level,
+			Level:     level,
 			Category:  category,
 			Message:   message,
 			Context:   make(map[string]interface{}),
@@ -373,10 +373,10 @@ func ContextFields(ctx context.Context) map[string]interface{} {
 
 	// Extract any other log fields from context
 	if ctx != nil {
-		if requestID, ok := ctx.Value("requestID"). (string); ok {
+		if requestID, ok := ctx.Value("requestID").(string); ok {
 			fields["requestID"] = requestID
 		}
-		if userID, ok := ctx.Value("userID"). (string); ok {
+		if userID, ok := ctx.Value("userID").(string); ok {
 			fields["userID"] = userID
 		}
 	}
@@ -389,12 +389,12 @@ func getCorrelationID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
-	if reqID, ok := ctx.Value("correlationID"). (string); ok {
+	if reqID, ok := ctx.Value("correlationID").(string); ok {
 		return reqID
 	}
 	// Generate correlation ID from span context if using tracing
 	// This is a placeholder for OpenTelemetry/Jaeger integration
-	if spanID, ok := ctx.Value("spanID"). (string); ok {
+	if spanID, ok := ctx.Value("spanID").(string); ok {
 		return spanID
 	}
 	// Generate a random correlation ID for distributed tracing
@@ -407,7 +407,7 @@ func getTraceID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
-	if traceID, ok := ctx.Value("traceID"). (string); ok {
+	if traceID, ok := ctx.Value("traceID").(string); ok {
 		return traceID
 	}
 	return ""
@@ -442,13 +442,13 @@ func (l *NoOpLogger) IsEnabled(level LogLevel) bool {
 type WriterLogger struct {
 	level atomic.Int32
 	mu    sync.Mutex
-	out    io.Writer
+	out   io.Writer
 }
 
 // NewWriterLogger creates a logger writing to any io.Writer
 func NewWriterLogger(level LogLevel, out io.Writer) *WriterLogger {
 	l := &WriterLogger{
-		out:   out,
+		out: out,
 	}
 	l.level.Store(int32(level))
 	return l
@@ -525,7 +525,7 @@ func LogDebug(l Logger, category, message string, fields map[string]interface{})
 		return // Lazy evaluation
 	}
 	entry := LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  category,
 		Message:   message,
 		Context:   fields,
@@ -540,7 +540,7 @@ func LogInfo(l Logger, category, message string, fields map[string]interface{}) 
 		return // Lazy evaluation
 	}
 	entry := LogEntry{
-		Level:    LevelInfo,
+		Level:     LevelInfo,
 		Category:  category,
 		Message:   message,
 		Context:   fields,
@@ -555,7 +555,7 @@ func LogWarn(l Logger, category, message string, fields map[string]interface{}) 
 		return // Lazy evaluation
 	}
 	entry := LogEntry{
-		Level:    LevelWarn,
+		Level:     LevelWarn,
 		Category:  category,
 		Message:   message,
 		Context:   fields,
@@ -570,7 +570,7 @@ func LogError(l Logger, category, message string, err error, fields map[string]i
 		return // Lazy evaluation
 	}
 	entry := LogEntry{
-		Level:    LevelError,
+		Level:     LevelError,
 		Category:  category,
 		Message:   message,
 		Err:       err,
@@ -704,15 +704,15 @@ func LogTimerScheduled(loopID, timerID int64, duration time.Duration, descriptio
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "timer",
 		LoopID:    loopID,
 		TimerID:   timerID,
 		Message:   "Timer scheduled",
 		Timestamp: time.Now(),
 		Context: map[string]interface{}{
-			"duration_ms":  duration.Milliseconds(),
-			"description":  description,
+			"duration_ms": duration.Milliseconds(),
+			"description": description,
 		},
 	})
 }
@@ -724,7 +724,7 @@ func LogTimerFired(loopID, timerID int64, duration time.Duration) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "timer",
 		LoopID:    loopID,
 		TimerID:   timerID,
@@ -743,7 +743,7 @@ func LogTimerCanceled(loopID, timerID int64, elapsed time.Duration) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "timer",
 		LoopID:    loopID,
 		TimerID:   timerID,
@@ -762,7 +762,7 @@ func LogPromiseResolved(loopID, taskID int64, result interface{}) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "promise",
 		LoopID:    loopID,
 		TaskID:    taskID,
@@ -781,7 +781,7 @@ func LogPromiseRejected(loopID, taskID int64, reason interface{}) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "promise",
 		LoopID:    loopID,
 		TaskID:    taskID,
@@ -800,7 +800,7 @@ func LogTaskPanicked(loopID, taskID int64, panicMsg interface{}, stack []byte) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelError,
+		Level:     LevelError,
 		Category:  "task",
 		LoopID:    loopID,
 		TaskID:    taskID,
@@ -820,7 +820,7 @@ func LogMicrotaskScheduled(loopID int64, count int) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "microtask",
 		LoopID:    loopID,
 		Message:   "Microtask scheduled",
@@ -838,7 +838,7 @@ func LogMicrotaskExecuted(loopID int64, remaining int, last bool) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    LevelDebug,
+		Level:     LevelDebug,
 		Category:  "microtask",
 		LoopID:    loopID,
 		Message:   "Microtask executed",
@@ -861,7 +861,7 @@ func LogPollIOError(loopID int64, err error, critical bool) {
 		return
 	}
 	logger.Log(LogEntry{
-		Level:    level,
+		Level:     level,
 		Category:  "poll",
 		LoopID:    loopID,
 		Message:   "Poll error",
@@ -871,6 +871,14 @@ func LogPollIOError(loopID int64, err error, critical bool) {
 			"critical": critical,
 		},
 	})
+}
+
+// hexByte converts a nibble (0-15) to its hex character ('0'-'9' or 'A'-'F')
+func hexByte(b byte) byte {
+	if b < 10 {
+		return '0' + b
+	}
+	return 'A' + b - 10
 }
 
 // appendJSONString appends a JSON-escaped string to a byte slice
@@ -894,7 +902,10 @@ func appendJSONString(buf []byte, s string) []byte {
 		default:
 			if c < ' ' {
 				// JSON escape for control characters: \u00XX
-				buf = append(buf, '\\', 'u', '0', '0', byte(c>>4)+'0', byte(c&0xF)+'0')
+				buf = append(buf, '\\', 'u', '0', '0')
+				high := c >> 4
+				low := c & 0xF
+				buf = append(buf, hexByte(high), hexByte(low))
 			} else {
 				buf = append(buf, c)
 			}
