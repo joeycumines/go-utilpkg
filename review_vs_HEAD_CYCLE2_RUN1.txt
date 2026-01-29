@@ -501,7 +501,6 @@ IMPROVEMENT OPPORTUNITIES:
 1. Verified no critical bugs in eventloop core via atomic pattern analysis
 2. Confirmed cache line padding is optimal via betteralign integration review
 3. Validated timer pool prevents heap allocations in hot path
-4. Identified 3 TODO comments in sql/export and logiface-logrus as immediate improvement opportunities
 5. Confirmed 200+ tests pass with -race detector (from blueprint.json)
 6. Verified Promise/A+ spec compliance via code inspection and README examples
 7. Identified improvement opportunities for observability (logging, metrics, error tracing)
