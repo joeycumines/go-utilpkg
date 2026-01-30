@@ -2,3 +2,8 @@
 coverage.out
 /coverage-all.out
 *.log
+
+# Session tracking files (temporary 4-hour punishment session artifacts)
+.four_hour_tracking.txt
+four_hours_start.txt
+validate_blueprint.sh
