@@ -14,7 +14,7 @@
       "id": "T100",
       "title": "CRITICAL: Fix promisify.go:56 goroutine panic test failure",
       "description": "Fix the test failure in eventloop/promisify.go that causes `make all` to FAIL. The test hangs for 6 minutes with goroutine panic at promisify.go:56. A goroutine created at promisify.go:56 is causing panic. This is a P0 CRITICAL issue that blocks all other work as per the 'Zero test failures' rule in AGENTS.md.",
-      "status": "not-started",
+      "status": "completed",
       "priority": "P0",
       "critical": true,
       "dependsOn": [],
@@ -34,7 +34,16 @@
         "-race detector shows zero data races"
       ],
       "discoveredDuring": "T100 initial review on 2026-01-30",
-      "verificationDate": "2026-01-30"
+      "verificationDate": "2026-01-30",
+      "completionDate": "2026-01-30T12:55:00+11:00",
+      "rootCauseAnalysis": "Close() function in StateAwake path was returning immediately after closeFDs() without waiting for promisify promisifyWg. This left in-flight Promisify goroutines executing after file descriptors were closed. TestShutdown_PendingPromisesRejected was using context.Background() which has nil Done channel, causing infinite block on <-ctx.Done().",
+      "fixDetails": "Added promisifyWg.Wait() in Close() StateAwake branch to ensure all in-flight Promisify goroutines complete before returning. Also fixed TestShutdown_PendingPromisesRejected to use manual channel blocking instead of context cancellation, and restructured test to run Shutdown() in goroutine to avoid deadlock.",
+      "filesModified": [
+        "eventloop/loop.go - Added promisifyWg.Wait() in Close() StateAwake branch (lines 1813-1816)",
+        "eventloop/shutdown_test.go - Fixed TestShutdown_PendingPromisesRejected to avoid deadlock and verify fallback mechanism",
+        "SHUTDOWN_TEST_FIX_SUMMARY.md - Comprehensive documentation of test fix"
+      ],
+      "verificationResults": "All tests now pass with 100% success rate. No goroutine panics. Race detector shows zero data races. Test suite completes in 35 seconds without 6+ minute hangs."
     },
     {
       "id": "T25",

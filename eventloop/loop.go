@@ -1807,6 +1807,14 @@ func (l *Loop) Close() error {
 				// Loop is in Start() but hasn't entered run() yet
 				l.state.Store(StateTerminated)
 				l.closeFDs()
+
+				// CRITICAL FIX: Wait for in-flight Promisify goroutines before returning
+				// Same safety as shutdown() - promisifyMu guards promisifyWg usage
+				// Any goroutines that already called promisifyWg.Add() must complete
+				l.promisifyMu.Lock()
+				l.promisifyWg.Wait()
+				l.promisifyMu.Unlock()
+
 				return nil
 			}
 
