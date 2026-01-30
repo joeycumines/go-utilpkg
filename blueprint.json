@@ -11,10 +11,38 @@
   },
   "tasks": [
     {
+      "id": "T100",
+      "title": "CRITICAL: Fix promisify.go:56 goroutine panic test failure",
+      "description": "Fix the test failure in eventloop/promisify.go that causes `make all` to FAIL. The test hangs for 6 minutes with goroutine panic at promisify.go:56. A goroutine created at promisify.go:56 is causing panic. This is a P0 CRITICAL issue that blocks all other work as per the 'Zero test failures' rule in AGENTS.md.",
+      "status": "not-started",
+      "priority": "P0",
+      "critical": true,
+      "dependsOn": [],
+      "deliverables": [
+        "Root cause analysis of promisify.go:56 panic",
+        "Fix implementation for goroutine panic",
+        "Tests verifying fix resolves issue",
+        "Verification: `make all` passes with 100% success rate",
+        "Verification: no goroutine leaks or panics in tests"
+      ],
+      "acceptanceCriteria": [
+        "make all passes with 100% success rate",
+        "Zero goroutine panics in all tests",
+        "All tests complete within timeout (no 6+ minute hangs)",
+        "Root cause identified and documented",
+        "Fix is minimal and targeted",
+        "-race detector shows zero data races"
+      ],
+      "discoveredDuring": "T100 initial review on 2026-01-30",
+      "verificationDate": "2026-01-30"
+    },
+    {
       "id": "T25",
       "title": "CRITICAL: Remove global logger and use logiface.L instead",
       "description": "COMPLETELY REPLACING the egregious logging.go implementation violation. The current logging.go implementation is WRONG on multiple levels: (1) Uses global logger variable (BANNED), (2) Implements custom logger in eventloop module when github.com/joeycumines/logiface EXISTS IN THE WORKSPACE, (3) Violates proper dependency injection patterns. The eventloop module should NOT implement logging - it should DEPEND on logiface.L for logging services via proper configuration/option passing. Remove eventloop/logging.go entirely and replace with proper logiface.L usage throughout eventloop codebase. Logger should be passed via LoopOptions or similar configuration mechanism, NOT as global state.",
-      "status": "not-started",
+      "status": "rejected",
+      "validationStatus": "INVALID - VERIFIED: NO logging.go file exists, NO SDebug/SInfo/SWarn/SErr calls found in codebase. Task describes work on non-existent problem.",
+      "rejectionReason": "Verified on 2026-01-30: eventloop/logging.go file does not exist. No global logger usage found. No SDebug/SInfo/SWarn/SErr function calls found in any eventloop/*.go files. Task describes refactoring of code that doesn't exist.",
       "priority": "P0",
       "critical": true,
       "dependsOn": [],
@@ -253,12 +281,11 @@
     {
       "id": "T12",
       "title": "Re-verify Goja-Eventloop Integration against main branch",
-      "description": "Comprehensive re-verification review of the Goja-Eventloop Integration (LOGICAL_CHUNK_1) against the current main branch to ensure no regressions from eventloop core changes and Main promise refactoring in T1-T5. This is a MAXIMUM PARANOIA review following the established pattern from previous review cycles.",
+      "description": "Comprehensive re-verification review of the Goja-Eventloop Integration (LOGICAL_CHUNK_1) against the current main branch to ensure no regressions from eventloop core changes. This is a MAXIMUM PARANOIA review following the established pattern from previous review cycles.",
       "status": "not-started",
       "priority": "P1",
       "critical": true,
       "dependsOn": [
-        "T5",
         "T11"
       ],
       "deliverables": [
@@ -369,7 +396,7 @@
       ],
       "deliverables": [
         "Comprehensive benchmark report comparing before/after for all variants",
-        "Optimization documentation for Main promise migration (T4)",
+        "Optimization documentation for Main promise migration",
         "Performance characteristics document for all tournament variants",
         "Production readiness summary with clear recommendations",
         "User-facing documentation updates (README, migration guides, API docs)",
@@ -448,9 +475,8 @@
       "status": "not-started",
       "priority": "P1",
       "critical": true,
-      "dependsOn": [
-        "T19"
-      ],
+      "dependsOn": [],
+      "dependencyFixed": "Removed T19 dependency on 2026-01-30 after verifying T19 is rejected and not required.",
       "deliverables": [
         "23+ new integration tests (expanding from 27 to 50+)",
         "Cross-module integration tests for eventloop + goja-eventloop",
@@ -471,7 +497,9 @@
       "id": "T28",
       "title": "Fix Close() immediate return deadlock",
       "description": "Close() must block until loop goroutine exits via loopDone channel to prevent race conditions and ensure clean shutdown.",
-      "status": "not-started",
+      "status": "rejected",
+      "validationStatus": "INVALID - VERIFIED: Close() already blocks on <-l.loopDone at loop.go:1822. TestLoop_Close_WaitsForLoopDone validates this behavior. Problem DOES NOT EXIST.",
+      "rejectionReason": "Verified on 2026-01-30: eventloop/loop.go:1822 shows Close() already blocks on <-l.loopDone channel. TestLoop_Close_WaitsForLoopDone in lifecycle_test.go:102 validates this behavior. The blocking behavior is already correctly implemented. Task describes fixing a problem that doesn't exist.",
       "priority": "P0",
       "critical": true,
       "dependsOn": [],
@@ -493,10 +521,8 @@
       "status": "not-started",
       "priority": "P0",
       "critical": false,
-      "dependsOn": [
-        "T25"
-      ],
-      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #2 Cross-Module Integration Test Expansion",
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #2 Cross-Module Integration Test Expansion (DELETED after sync)",
       "expectedImpact": "Prevention of integration regressions, full-stack validation",
       "deliverables": [
         "23+ new integration tests (expanding from 27 to 50+)",
@@ -525,10 +551,8 @@
       "status": "not-started",
       "priority": "P1",
       "critical": false,
-      "dependsOn": [
-        "T25"
-      ],
-      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #4 Eventloop Metrics Export Integration",
+      "dependsOn": [],
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #4 Eventloop Metrics Export Integration (DELETED after sync)",
       "expectedImpact": "Production monitoring enablement, performance anomaly detection",
       "deliverables": [
         "Design and implement MetricsExporter interface",
@@ -700,10 +724,9 @@
       "status": "not-started",
       "priority": "P2",
       "critical": false,
-      "dependsOn": [
-        "T25"
-      ],
-      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #10 Eventloop Fast Path Mode Transition Logging",
+      "dependsOn": [],
+      "dependencyFixed": "Removed T25 dependency on 2026-01-30 after verifying T25 is rejected and not required.",
+      "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #10 Eventloop Fast Path Mode Transition Logging (DELETED after sync)",
       "expectedImpact": "Production debugging insight into performance regressions",
       "deliverables": [
         "Add fast path entry logging (when entering fast path mode)",
@@ -1240,9 +1263,8 @@
       "status": "not-started",
       "priority": "P2",
       "critical": false,
-      "dependsOn": [
-        "T25"
-      ],
+      "dependsOn": [],
+      "dependencyFixed": "Removed T25 dependency on 2026-01-30 after verifying T25 is rejected (logging.go does not exist). Logging patterns should integrate directly with logiface.L integration when needed.",
       "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #37 Promise Sensitive Data Redaction",
       "expectedImpact": "Production security, PCI-DSS/GDPR compliance",
       "deliverables": [
@@ -1300,9 +1322,8 @@
       "status": "not-started",
       "priority": "P2",
       "critical": false,
-      "dependsOn": [
-        "T25"
-      ],
+      "dependsOn": [],
+      "dependencyFixed": "Removed T25 dependency on 2026-01-30 after verifying T25 is rejected (logging.go does not exist). Audit logging should implement stand-alone AuditLogger interface.",
       "sourceDocument": "eventloop/docs/routing/improvements-roadmap.md #39 Audit Log for Timer Operations",
       "expectedImpact": "Forensic investigation capability, audit compliance",
       "deliverables": [
@@ -1554,12 +1575,14 @@
     "description": "Execute 'make all 2>&1 | fold -w 200 | tee build.log | tail -n 15' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix, (e) Each review cycle. This is a CONTINUOUS task that must be executed throughout the entire plan without exception.",
     "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions. Do not skip, defer, or ignore any test failure.",
     "baseline": {
-      "date": "2026-01-28",
+      "date": "2026-01-30",
       "platforms": [
         "macOS",
         "linux-container"
       ],
-      "result": "ALL_PASS (200+ tests)",
+      "result": "HAS_FAILURE (promisify.go:56 panic)",
+      "issue": "Test failure in eventloop/promisify.go:56 - goroutine panic causing 6+ minute timeout",
+      "blockedBy": "T100",
       "duration": "83.747s (macOS), 137.480s (linux)",
       "status": "baseline-verified-healthy"
     }
@@ -1626,8 +1649,8 @@
     "implementationPhases": {
       "phase1": {
         "title": "Phase 1: Quick Wins",
-        "tasks": ["T25", "T61", "T28"],
-        "description": "Initial high-impact improvements with minimal implementation investment.",
+        "tasks": ["T61"],
+        "description": "Initial high-impact improvements with minimal implementation investment based on validated tasks.",
         "status": "not-started"
       },
       "phase2": {
@@ -1644,8 +1667,8 @@
       },
       "phase4": {
         "title": "Phase 4: API/UX IMPROVEMENTS",
-        "tasks": ["API01", "API02", "DOC05", "API03", "T64", "API04", "API05", "T68"],
-        "description": "User experience improvements and API enhancements.",
+        "tasks": ["API01", "API02", "API03", "API04", "API05"],
+        "description": "Pure API and UX improvements without dependencies on other phase work.",
         "status": "not-started"
       },
       "phase5": {
