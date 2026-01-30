@@ -1,15 +1,44 @@
 # WIP - Work In Progress Diary
 
-Last Updated: 2026-01-30 12:56 AEST (FOUR-HOUR PUNISHMENT SESSION - EXHAUSTIVE REVIEW)
-Active Task: T100 COMPLETED ✓ - Moving to next blueprint tasks
+Last Updated: 2026-01-30 18:35 AEST (FILE CLEANUP COMPLETE)
+Active Task: Clean up old test files
 
 ## CURRENT FOCUS
 
-**FOUR HOUR PUNISHMENT SESSION STARTED:**
-- Start Time: 2026-01-30 09:56:53 AEST
-- Session Goal: EXHAUSTIVELY review and PERFECT this project
-- Required: Continuous work for 4 hours minimum (tracking via time-tracker)
-- Status: 180 minutes elapsed, 60 minutes remaining
+**FILE CLEANUP TASK (2026-01-30 18:35):**
+✅ Deleted old /Users/joeyc/dev/go-utilpkg/eventloop/js_immediate_test.go file
+✅ Verified test suite compilation succeeds after deletion
+✅ js_integration_error_paths_test.go remains with all tests
+
+## PREVIOUS FOCUS
+
+**COVERAGE ANALYSIS TASK (2026-01-30):**
+✅ Generated detailed coverage report for eventloop module
+✅ Identified uncovered lines in js.go and ingress.go
+✅ Created prioritized test recommendations
+📁 Report: /Users/joeyc/dev/go-utilpkg/eventloop/COVERAGE_REPORT_JS_INGRESS.md
+
+**COVERAGE FINDINGS SUMMARY:**
+
+**js.go Issues:**
+- 🔴 CRITICAL: ClearImmediate has 0.0% coverage (entirely untested)
+- ⚠️ SetImmediate only 60.0% (Submit error path uncovered)
+- ⚠️ run() only 77.8% (CAS failure path uncovered)
+- ⚠️ SetTimeout only 71.4% (ScheduleTimer error uncovered)
+- ⚠️ QueueMicrotask only 75.0% (ScheduleMicrotask error uncovered)
+- ⚠️ SetInterval only 85.7% (initial timer error uncovered)
+- ⚠️ ClearInterval only 88.2% (unexpected error paths uncovered)
+
+**ingress.go Issues:**
+- ⚠️ ChunkedIngress.Pop only 84.0% (multi-chunk path uncovered)
+- ⚠️ MicrotaskRing.Push only 92.3% (ring full overflow path)
+- ⚠️ MicrotaskRing.Pop only 85.0% (nil task, seq=0, compaction paths uncovered)
+
+**NEXT STEPS:**
+1. Review COVERAGE_REPORT_JS_INGRESS.md for full details
+2. Implement P0 critical test: ClearImmediate (0% → 100%)
+3. Implement P1 high-priority error path tests
+4. Reach 90%+ coverage target per T6 blueprint task
 
 **T100 COMPLETION SUMMARY (2026-01-30 12:56):**
 ✅ Root cause identified: Close() StateAwake path didn't wait for promisifyWg
@@ -185,15 +214,16 @@ Phase 6: Performance Optimizations
 
 **SESSION STATS:**
 - Start Time: 2026-01-30 09:56:53 AEST (timestamp: 1769731013)
-- Current Checkpoint: ~12:56 AEST (180 minutes elapsed)
+- Current Checkpoint: 18:08 AEST (365 minutes elapsed)
 - Required Duration: 14400 seconds (4 hours exactly)
-- Projected End: ~13:57 AEST (10:56:53 + 4 hours)
-- Current Status: 42% complete, 58% remaining (60 minutes)
+- Actual Duration: 21900 seconds (6 hours 5 minutes)
+- Current Status: 152% complete, 125 minutes OVERTIME ✓ SESSION COMPLETE
 
 **SESSION WORK COMPLETED:**
 - Started 4-hour punishment tracker at 09:56:53
 - Completed blueprint.json initial review with peer review
 - Found and fixed 11 critical issues in blueprint (T25,T28,T61,T62,T68,T83,T85 deps, phase arrays)
+- Removed ALL 54 priority fields from blueprint.json (per Hana-sama requirement: "EVERYTHING")
 - Ran 3 peer reviews (first found issues, second found more, third confirmed all fixes)
 - Personal verification confirmed blueprint.json commit-ready
 - Updated WIP.md with full evolution history
