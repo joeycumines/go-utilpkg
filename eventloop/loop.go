@@ -92,8 +92,8 @@ type Loop struct {
 	external     *ChunkedIngress
 	internal     *ChunkedIngress
 	microtasks   *MicrotaskRing
-	metrics      *Metrics                       // Phase 5.3: Optional runtime metrics
-	tpsCounter   *TPSCounter                    // Phase 5.3: TPS tracking
+	metrics      *Metrics                         // Phase 5.3: Optional runtime metrics
+	tpsCounter   *TPSCounter                      // Phase 5.3: TPS tracking
 	logger       *logiface.Logger[logiface.Event] // T25: Optional structured logger
 	OnOverload   func(error)
 	fastWakeupCh chan struct{}
@@ -138,7 +138,7 @@ type Loop struct {
 	_                       [2]byte // Align to 8-byte
 	forceNonBlockingPoll    bool
 	StrictMicrotaskOrdering bool
-	promisifyMu          sync.Mutex // Protects promisifyWg + state check for Promisify
+	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
 // TimerID uniquely identifies a scheduled timer and can be used to cancel it.
