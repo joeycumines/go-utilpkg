@@ -158,8 +158,8 @@ git-check-status: ## Check current git status
 	echo "=== Current Git Status ==="; \
 	git status --short; \
 	echo ""; \
-	echo "=== Last Commit ==="; \
-	git log -1 --oneline; \
+	echo "=== Last 2 Commits ==="; \
+	git log -2 --oneline; \
 	echo ""; \
 	echo "=== Files in Last Commit ==="; \
 	git log -1 --name-status --pretty=format:"%H%n%s%n%b"
@@ -170,7 +170,13 @@ git-show-last-commit: ## Show full details of the last commit
 	git log -1 --stat; \
 	echo ""; \
 	echo "=== Commit Message ==="; \
-	git log -1 --pretty=format:"%B"
+	git log -1 --pretty=format:"%B"; \
+	echo ""; \
+	echo "=== Previous Commit ==="; \
+	git log -1 --stat HEAD~1; \
+	echo ""; \
+	echo "=== Previous Commit Message ==="; \
+	git log -1 --pretty=format:"%B" HEAD~1
 
 .PHONY: git-force-commit-session
 git-force-commit-session: ## Force commit review session (including config.mk despite .gitignore)
