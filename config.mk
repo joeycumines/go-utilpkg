@@ -155,14 +155,11 @@ extract_improvements_content: ## Extract improvements-roadmap content from commi
 
 .PHONY: git-check-commit-history
 git-check-commit-history: ## Check full commit history for current session
-	@echo "=== Last 3 Commits ==="; \
-	git log -3 --oneline; \
+	@echo "=== Last 5 Commits ==="; \
+	git log -5 --oneline; \
 	echo ""; \
-	echo "=== Full History of commits from 2026-01-31 ==="; \
-	git log --since="2026-01-31" --oneline; \
-	echo ""; \
-	echo "=== Files in All Recent Commits ==="; \
-	git log --since="2026-01-31" --name-status --pretty=format:"%H %s"
+	echo "=== Commit Details ==="; \
+	git log -5 --pretty=format:"%h - %s (%ar)" --name-only | head -50
 
 .PHONY: git-show-last-commit
 git-show-last-commit: ## Show full details of the last commit
