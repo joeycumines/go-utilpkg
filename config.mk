@@ -153,16 +153,16 @@ extract_improvements_content: ## Extract improvements-roadmap content from commi
 	wc -l /tmp/improvements_roadmap_be1e60e.md && \
 	grep -i "task\|improvement" /tmp/improvements_roadmap_be1e60e.md | head -20 || echo "Extraction failed"
 
-.PHONY: git-check-status
-git-check-status: ## Check current git status
-	echo "=== Current Git Status ==="; \
-	git status --short; \
+.PHONY: git-check-commit-history
+git-check-commit-history: ## Check full commit history for current session
+	@echo "=== Last 3 Commits ==="; \
+	git log -3 --oneline; \
 	echo ""; \
-	echo "=== Last 2 Commits ==="; \
-	git log -2 --oneline; \
+	echo "=== Full History of commits from 2026-01-31 ==="; \
+	git log --since="2026-01-31" --oneline; \
 	echo ""; \
-	echo "=== Files in Last Commit ==="; \
-	git log -1 --name-status --pretty=format:"%H%n%s%n%b"
+	echo "=== Files in All Recent Commits ==="; \
+	git log --since="2026-01-31" --name-status --pretty=format:"%H %s"
 
 .PHONY: git-show-last-commit
 git-show-last-commit: ## Show full details of the last commit
