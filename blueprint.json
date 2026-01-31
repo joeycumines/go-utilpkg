@@ -128,6 +128,7 @@
       "title": "CRITICAL: Remove global logger and use logiface.L instead",
       "description": "COMPLETELY REPLACING the egregious logging.go implementation violation. The current logging.go implementation is WRONG on multiple levels: (1) Uses global logger variable (BANNED), (2) Implements custom logger in eventloop module when github.com/joeycumines/logiface EXISTS IN THE WORKSPACE, (3) Violates proper dependency injection patterns. The eventloop module should NOT implement logging - it should DEPEND on logiface.L for logging services via proper configuration/option passing. Remove eventloop/logging.go entirely and replace with proper logiface.L usage throughout eventloop codebase. Logger should be passed via LoopOptions or similar configuration mechanism, NOT as global state.",
       "status": "rejected",
+      "validationDate": "2026-01-30",
       "validationStatus": "INVALID - VERIFIED: NO logging.go file exists, NO SDebug/SInfo/SWarn/SErr calls found in codebase. Task describes work on non-existent problem.",
       "rejectionReason": "Verified on 2026-01-30: eventloop/logging.go file does not exist. No global logger usage found. No SDebug/SInfo/SWarn/SErr function calls found in any eventloop/*.go files. Task describes refactoring of code that doesn't exist.",
       "critical": true,
@@ -226,6 +227,7 @@
       "description": "Create comprehensive tests covering all uncovered error paths in js.go and ingress.go identified in coverage analysis. Focus on: (1) Ingress error conditions and double-check paths, (2) JS promise integration error handling, (3) Concurrent error scenarios, (4) Invalid input handling, (5) Error propagation through the event loop. These are the final critical coverage gaps needed to reach 90% coverage target.",
       "status": "in-progress",
       "critical": true,
+      "completionDate": "",
       "progress": {
         "part1": {
           "description": "T6 Part 1: ClearImmediate and SetImmediate error path tests",
@@ -244,7 +246,7 @@
             "Identified 7 P1 priority gaps needing tests",
             "Implementation guidance for each test with challenge analysis",
             "Estimated effort: 13-21 hours for 6-9 tests",
-            "Coverage impact: +3-4% overall (84.7% → 87-88%)",
+            "Coverage impact: +3-4% overall (84.7% → 87-88%)"
           ],
           "nextPhase": "T6 Part 3: Implement recommended tests in phases"
         },
@@ -586,10 +588,12 @@
       "status": "rejected",
       "critical": true,
       "dependsOn": [],
+      "validationDate": "2026-01-30",
+      "validationStatus": "INVALID - OVERTURNED BY T25. Global logger implementation violates core design principles (NO GLOBAL VARIABLES). Correct approach is logiface.L integration via dependency injection.",
       "rejectedBy": "T25",
       "rejectionReason": "This task violated three critical design principles: (1) GLOBAL LOGGER IS BANNED - cannot use package-level logger variables, (2) REINVENTING THE WHEEL - eventloop implemented custom logging when github.com/joeycumines/logiface EXISTS IN THE WORKSPACE, (3) VIOLATION OF DEPENDENCY INJECTION - logger should be passed via configuration, not accessed globally. The entire T19 deliverable set (logging.go and logging_test.go) must be DELETED.",
       "overturnedInFavorOf": "T25",
-      "completionTime": "2026-01-29T00:00:00Z",
+      "completionDate": "2026-01-29T00:00:00Z",
       "implementationDetails": "684-line logging.go with 454-line test suite, 21 tests passing, full Logger interface, level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread-safe - ALL VIOLATE DESIGN PRINCIPLES",
       "testResults": "21 tests PASSED in 0.570s, verified: Logger interface (DefaultLogger, WriterLogger, NoOpLogger, FileLogger), level filtering, lazy evaluation, package-level functions, functional options, domain-specific helpers, thread safety, JSON escaping, context integration - ALL MUST BE REMOVED",
       "deliverables": [
@@ -635,6 +639,7 @@
       "title": "Fix Close() immediate return deadlock",
       "description": "Close() must block until loop goroutine exits via loopDone channel to prevent race conditions and ensure clean shutdown.",
       "status": "rejected",
+      "validationDate": "2026-01-30",
       "validationStatus": "INVALID - VERIFIED: Close() already blocks on <-l.loopDone at loop.go:1822. TestLoop_Close_WaitsForLoopDone validates this behavior. Problem DOES NOT EXIST.",
       "rejectionReason": "Verified on 2026-01-30: eventloop/loop.go:1822 shows Close() already blocks on <-l.loopDone channel. TestLoop_Close_WaitsForLoopDone in lifecycle_test.go:102 validates this behavior. The blocking behavior is already correctly implemented. Task describes fixing a problem that doesn't exist.",
       "critical": true,
@@ -647,6 +652,60 @@
       "acceptanceCriteria": [
         "Close() blocks until loop goroutine exits",
         "No data races detected",
+        "All tests pass"
+      ]
+    },
+    {
+      "id": "SQL01",
+      "title": "CRITICAL: SQL Export Buffer Pool Implementation ⚡",
+      "description": "Implement sync.Pool for row buffers in sql/export/export.go:184,186 to reduce allocations for large data exports. Current implementation allocates new buffers for each row export, causing 30-50% more allocations than necessary. Implementing a buffer pool will drastically reduce GC pressure and improve export performance.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "improvements-roadmap.md #1",
+      "expectedImpact": "30-50% reduction in allocations for large data exports",
+      "deliverables": [
+        "Implement sync.Pool for row buffers in sql/export/export.go",
+        "Add buffer pool initialization",
+        "Implement buffer reset before release back to pool",
+        "Tests for buffer pool correctness",
+        "Benchmarks before/after showing allocation reduction",
+        "Documentation of buffer pool usage"
+      ],
+      "acceptanceCriteria": [
+        "Buffer pool reduces allocations by 30-50% in benchmarks",
+        "Buffers are properly reset before reuse",
+        "No buffer leaks or pool exhaustion",
+        "Memory usage reduces for large exports",
+        "All tests pass",
+        "No data races in pool operations"
+      ]
+    },
+    {
+      "id": "LOG01",
+      "title": "CRITICAL: Eventloop Structured Logging Integration 📝",
+      "description": "Replace 9 log.Printf calls with structured logging in eventloop/loop.go, promises.go, and js.go to improve production debugging efficiency by 3-5x. Current logging uses unstructured log.Printf which lacks correlation IDs, context fields, and log levels. This is NOT a global logger - this is replacing existing printf-style logging with structured logging using correlation IDs, context fields, and proper log levels.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "improvements-roadmap.md #3",
+      "expectedImpact": "Production debugging efficiency 3-5x improvement",
+      "deliverables": [
+        "Design structured log message format",
+        "Implement correlation ID generation (UUID)",
+        "Add context fields (loop ID, task ID, timer ID)",
+        "Replace log.Printf calls with structured logging",
+        "Add log levels (debug, info, warn, error)",
+        "Tests for structured logging behavior",
+        "Documentation of log format and usage"
+      ],
+      "acceptanceCriteria": [
+        "All log.Printf calls replaced with structured logging",
+        "Correlation IDs track async operations across goroutines",
+        "Context fields provide debugging context",
+        "Log levels filter appropriately",
+        "Production debugging is 3-5x more efficient",
+        "No performance regression from structured logging",
         "All tests pass"
       ]
     },
@@ -1667,6 +1726,413 @@
         "All tests pass",
         "Observability improved"
       ]
+    },
+    {
+      "id": "R100",
+      "title": "CRITICAL: Unbounded Iterator Consumption (DoS Vulnerability)",
+      "description": "The consumeIterable function in goja-eventloop/adapter.go:260-329 consumes iterators without any limit on the number of items. When consuming an iterator from untrusted JavaScript code (e.g., a malicious infinite generator or an extremely large iterable), the Go code will loop forever, consuming memory and CPU resources. This is a classic DoS vector.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "goja-eventloop/adapter.go:260-329",
+      "impact": "CRITICAL security and production stability issue - prevents resource exhaustion attacks from untrusted JavaScript code",
+      "priority": "P1",
+      "estimatedEffort": "4-6 hours",
+      "deliverables": [
+        "Add configurable maximum iterator consumption limit (e.g., 1,000,000 items)",
+        "Add configurable timeout (e.g., 30 seconds) for iterator consumption",
+        "When limit is exceeded, reject the consuming promise with a quota exceeded error",
+        "When timeout is exceeded, reject the consuming promise with a timeout error",
+        "Tests for iterator quota enforcement",
+        "Tests for iterator timeout enforcement",
+        "Tests for infinite iterators",
+        "Documentation of iterator quota and timeout behavior"
+      ],
+      "acceptanceCriteria": [
+        "Iterator consumption stops at configured limit",
+        "Iterator consumption stops at configured timeout",
+        "Promise is rejected with appropriate error message",
+        "No infinite loops or unbounded memory consumption",
+        "All tests pass",
+        "Documentation is complete"
+      ]
+    },
+    {
+      "id": "R101",
+      "title": "HIGH: Microtask Ring Buffer Sequence Zero Edge Case",
+      "description": "The microtask ring buffer in eventloop/ring.go:291-302 uses seq == 0 as a sentinel value for 'empty slot' to distinguish between 'producer claimed slot but hasn't stored seq yet' and 'slot is actually empty'. Under extreme concurrent producer load or specific timing, it's possible for the seq value to legitimately be zero (wraps around from MAX_UINT64 = 2^64-1) while the slot contains valid data. The current implementation treats seq == 0 as always requiring a spin/retry, which could cause infinite spin if producer wraps sequence numbers repeatedly while data is valid.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "eventloop/ring.go:291-302",
+      "impact": "Medium - improves robustness of microtask processing under extreme load. The current implementation works correctly in practice, but this edge case could theoretically occur.",
+      "priority": "P1",
+      "estimatedEffort": "4-6 hours",
+      "deliverables": [
+        "Add explicit validity flag array to track valid slots",
+        "Use atomic.Bool for validity tracking",
+        "Update Push to mark valid explicitly after storing data",
+        "Update Pop to check validity before processing",
+        "Handle sequence wrap-around without ambiguity",
+        "Tests for sequence wrap-around scenarios",
+        "Tests for extreme concurrent producer load",
+        "Stress tests for sequence number wrapping"
+      ],
+      "acceptanceCriteria": [
+        "Validity flags correctly track slot state",
+        "No ambiguity between 'empty' and 'not yet written'",
+        "Sequence wrap-around handled correctly",
+        "No infinite spin loops under wrap-around",
+        "All tests pass",
+        "No performance regression from validity checks"
+      ]
+    },
+    {
+      "id": "R102",
+      "title": "HIGH: Missing Timer ID Bounds Validation in Multiple Timer Systems",
+      "description": "While JS.SetTimeout validates the generated timer ID (returned from loop.ScheduleTimer) against maxSafeInteger, this check happens AFTER the ID is already generated. The underlying loop.ScheduleTimer (eventloop/loop.go:1440-1459) performs a separate check. However, JS.SetInterval, JS.SetImmediate, and JS.queueMicrotask (which also generate sequential IDs via nextTimerID.Add(1)) do NOT have this validation. They will happily generate IDs beyond MAX_SAFE_INTEGER and store them in maps, causing undefined behavior when those IDs are cast back/used.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": [
+        "eventloop/js.go:226-232 (SetTimeout)",
+        "eventloop/js.go:276-281 (SetInterval)",
+        "eventloop/js.go:332-337 (SetImmediate)",
+        "eventloop/js.go:396-403 (queueMicrotask)"
+      ],
+      "impact": "Medium - prevents panic/data corruption when timer IDs exceed MAX_SAFE_INTEGER. Improves consistency across all timer systems.",
+      "priority": "P1",
+      "estimatedEffort": "2-3 hours",
+      "deliverables": [
+        "Add centralized validateTimerID function to JS struct",
+        "Call validateTimerID in SetTimeout before storing ID",
+        "Call validateTimerID in SetInterval before storing ID",
+        "Call validateTimerID in SetImmediate before storing ID",
+        "Call validateTimerID in queueMicrotask before storing ID",
+        "Change panic to return error for consistency",
+        "Tests for timer ID overflow",
+        "Tests for timer ID validation consistency"
+      ],
+      "acceptanceCriteria": [
+        "All timer systems validate IDs before storing",
+        "IDs beyond MAX_SAFE_INTEGER return ErrTimerIDExceeded",
+        "No panics or data corruption from overflow",
+        "Consistent error handling across all timer systems",
+        "All tests pass",
+        "Documentation updated"
+      ]
+    },
+    {
+      "id": "R103",
+      "title": "HIGH: Limited Test Coverage for Iterator Protocol Errors",
+      "description": "The iterator protocol in consumeIterable can throw errors (e.g., next() method not callable, returns non-object, throws during iteration). While these errors are handled by returning an error, there are NO tests verifying that: (1) The consuming promise properly rejects with the iterator error, (2) The error message is meaningful and helpful, (3) Multiple types of iterator errors are tested, (4) Malformed iterators (missing next(), next() returning non-object with done: true) are handled.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "goja-eventloop/test suite",
+      "impact": "Medium - improves confidence in iterator protocol error handling and prevents edge case bugs in production.",
+      "priority": "P1",
+      "estimatedEffort": "6-10 hours",
+      "deliverables": [
+        "Test file: goja-eventloop/adapter_iterator_error_test.go",
+        "Test for next method not callable (TypeError)",
+        "Test for next() throws during iteration",
+        "Test for malformed iterator (next returns non-object with done: true)",
+        "Test for infinite iterator respect consumption limits",
+        "Test for mixed valid/invalid iterables in combinators",
+        "Verify error messages are meaningful",
+        "Verify promise rejection behavior"
+      ],
+      "acceptanceCriteria": [
+        "All iterator error scenarios are tested",
+        "Promises properly reject with iterator errors",
+        "Error messages are meaningful and helpful",
+        "Malformed iterators handled gracefully",
+        "Combinators handle mixed iterator errors correctly",
+        "All new tests pass",
+        "Coverage increases"
+      ]
+    },
+    {
+      "id": "R104",
+      "title": "HIGH: Potential Integer Overflow in TPS Counter Bucket Advance",
+      "description": "The bucketsToAdvance calculation in eventloop/metrics.go:165-195 uses integer arithmetic that could theoretically overflow in extreme edge cases. If elapsed is extremely large (e.g., due to system clock changes or monotonicity issues), int(elapsed / t.bucketSize) could overflow. While unlikely in practice, in distributed systems or systems with clock skew, this could cause incorrect window rotation.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "eventloop/metrics.go:165-195",
+      "impact": "Low - prevents theoretical integer overflow in edge case scenarios. Extremely unlikely in production but inexpensive to fix.",
+      "priority": "P1",
+      "estimatedEffort": "1 hour",
+      "deliverables": [
+        "Add overflow protection with clamping",
+        "Clamp to max advance: full window size",
+        "Add safety check for negative values",
+        "Tests for overflow scenarios",
+        "Tests for large elapsed values",
+        "Tests for negative values"
+      ],
+      "acceptanceCriteria": [
+        "bucketsToAdvance clamped to reasonable maximum",
+        "Negative values handled correctly",
+        "No integer overflow in any scenario",
+        "Rotation logic remains correct",
+        "All tests pass",
+        "No performance regression"
+      ]
+    },
+    {
+      "id": "R105",
+      "title": "MEDIUM: Redundant Cache Line Padding in Poller Structures",
+      "description": "All three poller implementations (Darwin, Linux, Windows) use identical cache line padding patterns with comments that contradict the actual field layout. Comments say 'Pad to next cache line (4 bytes for int32)' but the kq/epfd/iocp field is int32 (4 bytes on all platforms). There's NO gap after it to need padding to the next cache line. The eventBuf field (256 bytes) would cause padding, not the 4-byte int32 field.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": [
+        "eventloop/poller_darwin.go:56-62",
+        "eventloop/poller_linux.go:56-62",
+        "eventloop/poller_windows.go:56-62"
+      ],
+      "impact": "Low - documentation/maintainability improvement only. No runtime impact.",
+      "priority": "P2",
+      "estimatedEffort": "30 minutes",
+      "deliverables": [
+        "Remove redundant padding comments in poller_darwin.go",
+        "Remove redundant padding comments in poller_linux.go",
+        "Remove redundant padding comments in poller_windows.go",
+        "Or: Update comments to accurately reflect layout",
+        "Verify betteralign:ignore tag handles actual alignment"
+      ],
+      "acceptanceCriteria": [
+        "Comments accurately reflect field layout",
+        "No misleading or contradictory comments remain",
+        "betteralign results unchanged",
+        "No runtime impact",
+        "Code is easier to understand"
+      ]
+    },
+    {
+      "id": "R106",
+      "title": "MEDIUM: Unnecessary Atomic Load in Hot Path",
+      "description": "When popping tasks in ChunkedIngress.Pop() (eventloop/ingress.go:133-156), the code loads chunkSize constant and then performs bounds checks. The comment suggests loading from global for optimization, but the value is a compile-time constant, not a variable. Using len(q.tail.tasks) would be cleaner and more idiomatic, but loading the constant is a micro-optimization.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "eventloop/ingress.go:133-156",
+      "impact": "Low - code clarity improvement only.",
+      "priority": "P2",
+      "estimatedEffort": "30 minutes",
+      "deliverables": [
+        "Update comment to clarify using compile-time constant",
+        "Or: Use len(q.tail.tasks) for clarity",
+        "Keep or remove atomic load based on decision",
+        "Verify no performance regression"
+      ],
+      "acceptanceCriteria": [
+        "Comment accurately describes the code",
+        "Code is clear and idiomatic",
+        "Performance characteristics unchanged",
+        "Readability improved"
+      ]
+    },
+    {
+      "id": "R107",
+      "title": "MEDIUM: Inconsistent Error Handling for Promise Identity Check",
+      "description": "When checking for promise identity cycles (resolving a promise with itself) in eventloop/promise.go:341-348, the code stores the detected cycle error but doesn't actually RETURN it to reject the promise. The error is stored in p.result and p.state, making the promise appear 'fulfilled' with an error as the fulfillment value, which violates Promise/A+ semantics. After calling p.reject(error), the code continues to p.result = value and sets state to Fulfilled.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "eventloop/promise.go:341-348",
+      "impact": "Low - This is a spec compliance issue but the affected error case (self-resolution) is rare in practice. The code still 'works' because most callers won't try to resolve a promise with itself. However, for correctness and spec compliance, this should be fixed.",
+      "priority": "P2",
+      "estimatedEffort": "1 hour",
+      "deliverables": [
+        "Add early return after p.reject() call",
+        "Ensure promise is rejected, not fulfilled",
+        "Tests for promise self-resolution",
+        "Tests for promise identity cycle detection",
+        "Verify Promise/A+ compliance"
+      ],
+      "acceptanceCriteria": [
+        "Self-resolution rejects with TypeError",
+        "Promise is rejected, not fulfilled",
+        "Early return prevents continuing to fulfillment",
+        "Promise/A+ spec compliance verified",
+        "All tests pass",
+        "Self-resolution tests pass"
+      ]
+    },
+    {
+      "id": "R108",
+      "title": "MEDIUM: Documentation Gaps in Rate Limiting Module",
+      "description": "catrate/limiter.go:32-39 NewLimiter contains a todo comment indicating requirements for rates map are not documented. The parseRates function validation is documented with comments, but what a 'valid' rate map means is not specified. Example usage or invariants are not provided.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "catrate/limiter.go:32-39",
+      "impact": "Low - documentation improvement only. Makes the module easier to understand and use correctly.",
+      "priority": "P2",
+      "estimatedEffort": "2-4 hours",
+      "deliverables": [
+        "Comprehensive documentation for NewLimiter",
+        "Document rate requirements (keys, values, monotonicity)",
+        "Document rate meaning (events per duration)",
+        "Document behavior (Allow API, sliding window)",
+        "Add example usage showing valid inputs",
+        "Remove TODO comment",
+        "Document validation behavior"
+      ],
+      "acceptanceCriteria": [
+        "Rate map requirements clearly documented",
+        "Example usage provided",
+        "Validation logic explained",
+        "TODO comment removed",
+        "Documentation is clear and actionable",
+        "Users can understand how to use the API"
+      ]
+    },
+    {
+      "id": "R109",
+      "title": "LOW: Inefficient Array Indexing in consumeIterable",
+      "description": "When consuming arrays (the fast path optimization) in goja-eventloop/adapter.go:243-262, the code manually checks for length property and indexes by string keys, which is slower than Go's native slice operations. The code uses strconv.Itoa(i) in a loop, which is inefficient.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "goja-eventloop/adapter.go:243-262",
+      "impact": "Low - micro-optimization only. Arrays are the common case for iterables, so this affects performance.",
+      "priority": "P3",
+      "estimatedEffort": "4-6 hours",
+      "deliverables": [
+        "Investigate if goja.Value.ToArray() exists",
+        "Or cache string conversion to avoid repeated strconv.Itoa",
+        "Benchmark current vs optimized implementation",
+        "Verify no behavior changes",
+        "Tests for array fast path",
+        "Performance measurements"
+      ],
+      "acceptanceCriteria": [
+        "Array conversion is faster",
+        "No behavior changes",
+        "All tests pass",
+        "Benchmarks show improvement",
+        "Code is still clear and maintainable"
+      ]
+    },
+    {
+      "id": "R110",
+      "title": "LOW: Duplicate Code in gojaFuncToHandler Type Checking",
+      "description": "The type checking for *goja.Object is repeated twice in goja-eventloop/adapter.go:410-447 - once near the top of the function and once in the loop. This violates DRY and makes the code harder to maintain.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "goja-eventloop/adapter.go:410-447",
+      "impact": "Low - code maintainability improvement only. Reduces duplication and makes future changes easier.",
+      "priority": "P3",
+      "estimatedEffort": "1 hour",
+      "deliverables": [
+        "Extract promise check into helper function",
+        "Reuse helper in both locations",
+        "Update top-level check to use helper",
+        "Update loop element check to use helper",
+        "Tests for promise detection",
+        "Verify no behavior changes"
+      ],
+      "acceptanceCriteria": [
+        "No duplicate type checking code",
+        "Helper function is well-named and clear",
+        "All code paths work correctly",
+        "No behavior changes",
+        "All tests pass",
+        "Code is more maintainable"
+      ]
+    },
+    {
+      "id": "R111",
+      "title": "LOW: Magic Number in TPS Counter Default Configuration",
+      "description": "The NewTPSCounter function in eventloop/metrics.go:267-278 accepts windowSize and bucketSize parameters but uses a magic number 100 in the example comment without explaining why this value was chosen or documenting the trade-offs. The function signature shows these are required parameters with no defaults. The magic number 100 is only in a block comment describing bucket behavior.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": "eventloop/metrics.go:267-278",
+      "impact": "Low - documentation improvement only. Makes configuration clearer.",
+      "priority": "P3",
+      "estimatedEffort": "1 hour",
+      "deliverables": [
+        "Add comprehensive documentation for NewTPSCounter",
+        "Document parameters (windowSize, bucketSize)",
+        "Document behavior (rolling window, ring buffer)",
+        "Document trade-offs (window size vs granularity)",
+        "Document recommended defaults with rationale",
+        "Add input validation",
+        "Add configuration example with trade-offs explained"
+      ],
+      "acceptanceCriteria": [
+        "Parameters thoroughly documented",
+        "Trade-offs clearly explained",
+        "Recommended defaults provided with rationale",
+        "Configuration example is helpful",
+        "Input validation added",
+        "Users can make informed configuration decisions"
+      ]
+    },
+    {
+      "id": "R112",
+      "title": "CRITICAL SUMMARY: Address All 13 Issues from Code Review",
+      "description": "Summary task for tracking completion of all 13 issues identified in EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md. This task is complete when all individual R100-R112 tasks are completed.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [
+        "R100",
+        "R101",
+        "R102",
+        "R103",
+        "R104",
+        "R105",
+        "R106",
+        "R107",
+        "R108",
+        "R109",
+        "R110",
+        "R111"
+      ],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "priority": "P1",
+      "deliverables": [
+        "All P1 issues (R100-R104) resolved",
+        "All P2 issues (R105-R108) resolved",
+        "All P3 issues (R109-R111) resolved",
+        "All tests pass",
+        "No regressions introduced",
+        "Documentation updated"
+      ],
+      "acceptanceCriteria": [
+        "R100: Iterator quota limits implemented",
+        "R101: Microtask ring sequence zero fixed",
+        "R102: Timer ID validation added",
+        "R103: Iterator error tests added",
+        "R104: TPS overflow protection added",
+        "R105: Poller comments corrected",
+        "R106: ChunkedIngress comment clarified",
+        "R107: Promise identity check fixed",
+        "R108: Catrate documentation complete",
+        "R109: Array indexing optimized",
+        "R110: Duplicate code extracted",
+        "R111: TPS documentation complete",
+        "All make all tests pass",
+        "No regressions"
+      ]
     }
   ],
   "continuousVerification": {
@@ -1698,20 +2164,23 @@
       "confidenceLevel": "96-97%",
       "reviewsCompleted": 4,
       "totalImprovementsIdentified": 57,
-      "summary": "The eventloop module and its integration with goja-eventloop have undergone comprehensive review through 4 independent verification passes. The verdict is unanimous across all reviews: the codebase is production-ready with 96-97% confidence. However, 57 specific improvement opportunities have been identified that would elevate the system from 'production-ready' to 'best-in-class'."
+      "activeImprovementsCount": 55,
+      "rejectedImprovementsCount": 3,
+      "totalImprovementsIdentified": 57,
+      "summary": "The eventloop module and its integration with goja-eventloop have undergone comprehensive review through 4 independent verification passes. The verdict is unanimous across all reviews: the codebase is production-ready with 96-97% confidence. However, 57 specific improvement opportunities have been identified that would elevate the system from 'production-ready' to 'best-in-class'. Note: 3 improvements (T25, T28, T19) have been rejected as they address non-existent problems. Active improvements count: 55 tasks."
     },
     "whatsExcellent": {
-      "T42": {
+      "cacheLineAlignment": {
         "title": "Cache Line Alignment Optimization ⚡",
         "status": "PERFECT",
         "description": "All hot structures manually aligned. betteralign verified no changes required. Impact: Zero false sharing, optimal performance under contention."
       },
-      "T43": {
+      "timerPool": {
         "title": "Timer Pool Implementation 🗄️",
         "status": "EXCELLENT",
         "description": "Zero-allocation hot path. sync.Pool usage, proper reset before return. Impact: 200-500 ns/op timer scheduling."
       },
-      "T44": {
+      "weakPointerRegistry": {
         "title": "Weak Pointer-Based Promise Registry 🗄️",
         "status": "EXCELLENT",
         "description": "GC-friendly design prevents memory leaks. weak.Pointer usage allows settled promises to be collected. Impact: No unbounded memory growth, correct behavior for long-running applications."
@@ -1750,7 +2219,7 @@
     "implementationPhases": {
       "phase1": {
         "title": "Phase 1: Quick Wins",
-        "tasks": ["T61"],
+        "tasks": ["SQL01", "LOG01", "T61"],
         "description": "Initial high-impact improvements with minimal implementation investment based on validated tasks.",
         "status": "not-started"
       },
