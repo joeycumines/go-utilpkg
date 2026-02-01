@@ -11,6 +11,53 @@
   },
   "tasks": [
     {
+      "id": "RV02",
+      "title": "CRITICAL: Fix TPS Counter Mathematics Error",
+      "description": "Fix TPS counter calculation in eventloop/metrics.go TPS() method that systematically under-reports throughput when windowSize is not an exact multiple of bucketSize. The current implementation divides the sum of N buckets by the requested windowSize, but the actual monitored coverage is N * bucketSize. For example: windowSize=10s, bucketSize=3s creates 3 buckets covering 9 seconds. The code sums events over 9 seconds but divides by 10 seconds, resulting in 10% lower reported TPS.",
+      "status": "not-started",
+      "critical": true,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/review.md",
+      "location": "eventloop/metrics.go line ~358 (TPS() method)",
+      "testEvidence": "Test failures: TestTPSCounterBasicFunctionality, TestTPSCounterRotation, TestTPSCounterWindowSizing all fail with under-reported TPS values",
+      "deliverables": [
+        "Divisor in TPS() method changed from windowSize to (float64(len(counter.buckets)) * counter.bucketSize.Seconds())",
+        "Alternative: Enforce windowSize to be divisible by bucketSize in constructor with panic or error",
+        "Test updates to account for actual monitored window duration if needed",
+        "Documentation update explaining TPS calculation behavior"
+      ],
+      "acceptanceCriteria": [
+        "All TPS counter tests pass (TestTPSCounterBasicFunctionality, TestTPSCounterRotation, TestTPSCounterWindowSizing)",
+        "TPS calculation correctly divides by actual monitored duration, not requested windowSize",
+        "Edge case where windowSize is not divisible by bucketSize works correctly",
+        "No regressions in other metrics functionality",
+        "make test eventloop passes 100%",
+        "Documentation accurately describes TPS calculation behavior"
+      ]
+    },
+    {
+      "id": "RV01",
+      "title": "VALIDATE REVIEW.md CLAIMS ARE FALSE",
+      "description": "Verify that review.md claims about compilation failure and timer ID collisions are false. ErrTimerIDExhausted IS defined in loop.go:40. Timer ID namespaces are separate: SetTimeout uses loop.nextTimerID, SetInterval uses js.nextTimerID. These claims in review.md are incorrect and do not require fixes.",
+      "status": "completed",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/review.md",
+      "deliverables": [
+        "Documentation verified: ErrTimerIDExhausted defined at loop.go:40",
+        "Code verified: SetTimeout and SetInterval use separate ID counters",
+        "No timer ID collision possible",
+        "review.md claims marked as incorrect"
+      ],
+      "acceptanceCriteria": [
+        "ErrTimerIDExhausted location confirmed in loop.go",
+        "Timer ID namespace separation verified",
+        "No compilation issues found",
+        "False claims documented",
+        "Only real issue (RV02) needs fixing"
+      ]
+    },
+    {
       "id": "T91",
       "title": "Address TODO/FIXME Markers Across All Modules",
       "description": "Resolve all 23 TODO/FIXME markers identified in the comprehensive TODO search across eventloop/, goja-eventloop/, and related modules. Markers span multiple categories: test failures/timing issues, architectural improvements, feature enhancements, and documentation/refactoring. Each marker must be either resolved (fixed/implemented) or formally deferred with rationale.",
