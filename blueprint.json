@@ -11,41 +11,6 @@
   },
   "tasks": [
     {
-      "id": "T90",
-      "title": "Four-Hour Exhaustive Review Session - 2026-01-31",
-      "description": "Comprehensive review session completing multiple independent verification passes: (1) Diff analysis vs HEAD branch, (2) Diff analysis vs main branch, (3) Goja-eventloop comprehensive analysis, (4) TODO/FIXME marker search across all modules. This four-hour session verified all changes, identified remaining issues, and documented 23 TODO/FIXME markers for future remediation.",
-      "status": "completed",
-      "critical": false,
-      "dependsOn": [],
-      "completionDate": "2026-01-31",
-      "sessionDetails": {
-        "duration": "4 hours",
-        "reviewsCompleted": 4,
-        "platformsTested": ["macOS"],
-        "diffsAnalyzed": [
-          "HEAD branch diff - current working tree review",
-          "main branch diff - production readiness assessment"
-        ],
-        "modulesAnalyzed": [
-          "eventloop/ - comprehensive coverage analysis",
-          "goja-eventloop/ - adapter behavior review"
-        ]
-      },
-      "deliverables": [
-        "Verification: T100 fix promisify.go:56 goroutine panic resolved",
-        "Analysis: test_interval_bug_test.go potential interval bug investigation",
-        "Search: 23 TODO/FIXME markers identified across all modules",
-        "Review: Goja-eventloop comprehensive analysis completed",
-        "Documentation: All review findings recorded in IMPROVEMENTS_FOUND_IN_REVIEW.md"
-      ],
-      "acceptanceCriteria": [
-        "All review passes completed successfully",
-        "TODO/FIXME markers documented with severity levels",
-        "Test_interval_bug_test.go analysis completed",
-        "No critical issues identified in production readiness assessment"
-      ]
-    },
-    {
       "id": "T91",
       "title": "Address TODO/FIXME Markers Across All Modules",
       "description": "Resolve all 23 TODO/FIXME markers identified in the comprehensive TODO search across eventloop/, goja-eventloop/, and related modules. Markers span multiple categories: test failures/timing issues, architectural improvements, feature enhancements, and documentation/refactoring. Each marker must be either resolved (fixed/implemented) or formally deferred with rationale.",
@@ -80,40 +45,6 @@
         "All marker resolutions reviewed and approved",
         "Documentation reflects final state"
       ]
-    },
-    {
-      "id": "T100",
-      "title": "CRITICAL: Fix promisify.go:56 goroutine panic test failure",
-      "description": "Fix the test failure in eventloop/promisify.go that causes `make all` to FAIL. The test hangs for 6 minutes with goroutine panic at promisify.go:56. A goroutine created at promisify.go:56 is causing panic. This is a critical issue that blocks all other work as per the 'Zero test failures' rule in AGENTS.md.",
-      "status": "completed",
-      "critical": true,
-      "dependsOn": [],
-      "deliverables": [
-        "Root cause analysis of promisify.go:56 panic",
-        "Fix implementation for goroutine panic",
-        "Tests verifying fix resolves issue",
-        "Verification: `make all` passes with 100% success rate",
-        "Verification: no goroutine leaks or panics in tests"
-      ],
-      "acceptanceCriteria": [
-        "make all passes with 100% success rate",
-        "Zero goroutine panics in all tests",
-        "All tests complete within timeout (no 6+ minute hangs)",
-        "Root cause identified and documented",
-        "Fix is minimal and targeted",
-        "-race detector shows zero data races"
-      ],
-      "discoveredDuring": "T100 initial review on 2026-01-30",
-      "verificationDate": "2026-01-30",
-      "completionDate": "2026-01-30T12:55:00+11:00",
-      "rootCauseAnalysis": "Close() function in StateAwake path was returning immediately after closeFDs() without waiting for promisify promisifyWg. This left in-flight Promisify goroutines executing after file descriptors were closed. TestShutdown_PendingPromisesRejected was using context.Background() which has nil Done channel, causing infinite block on <-ctx.Done().",
-      "fixDetails": "Added promisifyWg.Wait() in Close() StateAwake branch to ensure all in-flight Promisify goroutines complete before returning. Also fixed TestShutdown_PendingPromisesRejected to use manual channel blocking instead of context cancellation, and restructured test to run Shutdown() in goroutine to avoid deadlock.",
-      "filesModified": [
-        "eventloop/loop.go - Added promisifyWg.Wait() in Close() StateAwake branch (lines 1813-1816)",
-        "eventloop/shutdown_test.go - Fixed TestShutdown_PendingPromisesRejected to avoid deadlock and verify fallback mechanism",
-        "SHUTDOWN_TEST_FIX_SUMMARY.md - Comprehensive documentation of test fix"
-      ],
-      "verificationResults": "All tests now pass with 100% success rate. No goroutine panics. Race detector shows zero data races. Test suite completes in 35 seconds without 6+ minute hangs."
     },
     {
       "id": "T25",
@@ -1717,43 +1648,6 @@
       ]
     },
     {
-      "id": "R100",
-      "title": "CRITICAL: Unbounded Iterator Consumption (DoS Vulnerability)",
-      "description": "The consumeIterable function in goja-eventloop/adapter.go:260-329 consumes iterators without any limit on the number of items. When consuming an iterator from untrusted JavaScript code (e.g., a malicious infinite generator or an extremely large iterable), the Go code will loop forever, consuming memory and CPU resources. This is a classic DoS vector.",
-      "status": "completed",
-      "critical": true,
-      "dependsOn": [],
-      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
-      "location": "goja-eventloop/adapter.go:260-329",
-      "impact": "CRITICAL security and production stability issue - prevents resource exhaustion attacks from untrusted JavaScript code",
-      "completionDate": "2026-02-01",
-      "verificationDetails": {
-        "verificationDate": "2026-02-01",
-        "verificationMethod": "Comprehensive code review and static analysis of adapter.go and iterator_quota_test.go",
-        "codeImplementationStatus": "100% COMPLETE",
-        "testCoverageStatus": "100% COMPLETE",
-        "testExecutionNote": "Tests cannot execute on current platform due to js build tag requirement, but test code is correct and comprehensive"
-      },
-      "deliverables": [
-        "Add configurable maximum iterator consumption limit (e.g., 1,000,000 items)",
-        "Add configurable timeout (e.g., 30 seconds) for iterator consumption",
-        "When limit is exceeded, reject the consuming promise with a quota exceeded error",
-        "When timeout is exceeded, reject the consuming promise with a timeout error",
-        "Tests for iterator quota enforcement",
-        "Tests for iterator timeout enforcement",
-        "Tests for infinite iterators",
-        "Documentation of iterator quota and timeout behavior"
-      ],
-      "acceptanceCriteria": [
-        "✅ Iterator consumption stops at configured limit",
-        "✅ Iterator consumption stops at configured timeout",
-        "✅ Promise is rejected with appropriate error message",
-        "✅ No infinite loops or unbounded memory consumption",
-        "✅ All tests pass",
-        "✅ Documentation is complete"
-      ]
-    },
-    {
       "id": "R101",
       "title": "HIGH: Microtask Ring Buffer Sequence Zero Edge Case",
       "description": "The microtask ring buffer in eventloop/ring.go:291-302 uses seq == 0 as a sentinel value for 'empty slot' to distinguish between 'producer claimed slot but hasn't stored seq yet' and 'slot is actually empty'. Under extreme concurrent producer load or specific timing, it's possible for the seq value to legitimately be zero (wraps around from MAX_UINT64 = 2^64-1) while the slot contains valid data. The current implementation treats seq == 0 as always requiring a spin/retry, which could cause infinite spin if producer wraps sequence numbers repeatedly while data is valid.",
@@ -1782,46 +1676,34 @@
         "No performance regression from validity checks"
       ]
     },
+
     {
-      "id": "R102",
-      "title": "HIGH: Missing Timer ID Bounds Validation in Multiple Timer Systems",
-      "description": "While JS.SetTimeout validates the generated timer ID (returned from loop.ScheduleTimer) against maxSafeInteger, this check happens AFTER the ID is already generated. The underlying loop.ScheduleTimer (eventloop/loop.go:1440-1459) performs a separate check. However, JS.SetInterval, JS.SetImmediate, and JS.queueMicrotask (which also generate sequential IDs via nextTimerID.Add(1)) do NOT have this validation. They will happily generate IDs beyond MAX_SAFE_INTEGER and store them in maps, causing undefined behavior when those IDs are cast back/used.",
-      "status": "completed",
+      "id": "R101",
+      "title": "HIGH: Microtask Ring Buffer Sequence Zero Edge Case",
+      "description": "The microtask ring buffer in eventloop/ring.go:291-302 uses seq == 0 as a sentinel value for 'empty slot' to distinguish between 'producer claimed slot but hasn't stored seq yet' and 'slot is actually empty'. Under extreme concurrent producer load or specific timing, it's possible for the seq value to legitimately be zero (wraps around from MAX_UINT64 = 2^64-1) while the slot contains valid data. The current implementation treats seq == 0 as always requiring a spin/retry, which could cause infinite spin if producer wraps sequence numbers repeatedly while data is valid.",
+      "status": "not-started",
       "critical": true,
-      "completionDate": "2026-02-01",
-      "verificationDetails": {
-        "verificationDate": "2026-02-01",
-        "implementationAdded": "ErrImmediateIDExhausted, ErrIntervalIDExhausted error declarations",
-        "functionsModified": "SetImmediate, SetInterval now return error when IDs exceed MAX_SAFE_INTEGER",
-        "testsAdded": "3 timer ID exhaustion tests (TestSetImmediate_IDExhaustion, TestSetInterval_IDExhaustion, TestSetTimeout_IDExhaustion)",
-        "testResults": "3/3 tests passing (100%)"
-      },
       "dependsOn": [],
       "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
-      "location": [
-        "eventloop/js.go:226-232 (SetTimeout)",
-        "eventloop/js.go:276-281 (SetInterval)",
-        "eventloop/js.go:332-337 (SetImmediate)",
-        "eventloop/js.go:396-403 (queueMicrotask)"
-      ],
-      "impact": "Medium - prevents panic/data corruption when timer IDs exceed MAX_SAFE_INTEGER. Improves consistency across all timer systems.",
+      "location": "eventloop/ring.go:291-302",
+      "impact": "Medium - improves robustness of microtask processing under extreme load. The current implementation works correctly in practice, but this edge case could theoretically occur.",
       "deliverables": [
-        "Add centralized validateTimerID function to JS struct",
-        "Call validateTimerID in SetTimeout before storing ID",
-        "Call validateTimerID in SetInterval before storing ID",
-        "Call validateTimerID in SetImmediate before storing ID",
-        "Call validateTimerID in queueMicrotask before storing ID",
-        "Change panic to return error for consistency",
-        "Tests for timer ID overflow",
-        "Tests for timer ID validation consistency"
+        "Add explicit validity flag array to track valid slots",
+        "Use atomic.Bool for validity tracking",
+        "Update Push to mark valid explicitly after storing data",
+        "Update Pop to check validity before processing",
+        "Handle sequence wrap-around without ambiguity",
+        "Tests for sequence wrap-around scenarios",
+        "Tests for extreme concurrent producer load",
+        "Stress tests for sequence number wrapping"
       ],
       "acceptanceCriteria": [
-        "All timer systems validate IDs before storing",
-        "IDs beyond MAX_SAFE_INTEGER return ErrTimerIDExceeded",
-        "No panics or data corruption from overflow",
-        "Consistent error handling across all timer systems",
+        "Validity flags correctly track slot state",
+        "No ambiguity between 'empty' and 'not yet written'",
+        "Sequence wrap-around handled correctly",
+        "No infinite spin loops under wrap-around",
         "All tests pass",
-        "Documentation updated"
+        "No performance regression from validity checks"
       ]
     },
     {
@@ -1854,40 +1736,67 @@
         "Coverage increases"
       ]
     },
+
     {
-      "id": "R104",
-      "title": "HIGH: Potential Integer Overflow in TPS Counter Bucket Advance",
-      "description": "The bucketsToAdvance calculation in eventloop/metrics.go:165-195 uses integer arithmetic that could theoretically overflow in extreme edge cases. If elapsed is extremely large (e.g., due to system clock changes or monotonicity issues), int(elapsed / t.bucketSize) could overflow. While unlikely in practice, in distributed systems or systems with clock skew, this could cause incorrect window rotation.",
-      "status": "completed",
+      "id": "R103",
+      "title": "HIGH: Limited Test Coverage for Iterator Protocol Errors",
+      "description": "The iterator protocol in consumeIterable can throw errors (e.g., next() method not callable, returns non-object, throws during iteration). While these errors are handled by returning an error, there are NO tests verifying that: (1) The consuming promise properly rejects with the iterator error, (2) The error message is meaningful and helpful, (3) Multiple types of iterator errors are tested, (4) Malformed iterators (missing next(), next() returning non-object with done: true) are handled.",
+      "status": "not-started",
       "critical": true,
-      "completionDate": "2026-02-01",
-      "verificationDetails": {
-        "verificationDate": "2026-02-01",
-        "implementationAdded": "Overflow protection in rotate() function (negative elapsed detection, bucketsToAdvance clamping to len(t.buckets))",
-        "testResults": "4/4 overflow protection tests passing (100%)",
-        "testsAdded": "TestTPSCounter_NegativeElapsed, TestTPSCounter_LargeElapsed, TestTPSCounter_ExtremeElapsed, TestTPSCounter_ClockJumps"
-      },
       "dependsOn": [],
       "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
-      "location": "eventloop/metrics.go:165-195",
-      "impact": "Low - prevents theoretical integer overflow in edge case scenarios. Extremely unlikely in production but inexpensive to fix.",
+      "location": "goja-eventloop/test suite",
+      "impact": "Medium - improves confidence in iterator protocol error handling and prevents edge case bugs in production.",
       "deliverables": [
-        "Add overflow protection with clamping",
-        "Clamp to max advance: full window size",
-        "Add safety check for negative values",
-        "Tests for overflow scenarios",
-        "Tests for large elapsed values",
-        "Tests for negative values"
+        "Test file: goja-eventloop/adapter_iterator_error_test.go",
+        "Test for next method not callable (TypeError)",
+        "Test for next() throws during iteration",
+        "Test for malformed iterator (next returns non-object with done: true)",
+        "Test for infinite iterator respect consumption limits",
+        "Test for mixed valid/invalid iterables in combinators",
+        "Verify error messages are meaningful",
+        "Verify promise rejection behavior"
       ],
       "acceptanceCriteria": [
-        "bucketsToAdvance clamped to reasonable maximum",
-        "Negative values handled correctly",
-        "No integer overflow in any scenario",
-        "Rotation logic remains correct",
-        "All tests pass",
-        "No performance regression"
+        "All iterator error scenarios are tested",
+        "Promises properly reject with iterator errors",
+        "Error messages are meaningful and helpful",
+        "Malformed iterators handled gracefully",
+        "Combinators handle mixed iterator errors correctly",
+        "All new tests pass",
+        "Coverage increases"
       ]
     },
+    {
+      "id": "R105",
+      "title": "MEDIUM: Redundant Cache Line Padding in Poller Structures",
+      "description": "All three poller implementations (Darwin, Linux, Windows) use identical cache line padding patterns with comments that contradict the actual field layout. Comments say 'Pad to next cache line (4 bytes for int32)' but the kq/epfd/iocp field is int32 (4 bytes on all platforms). There's NO gap after it to need padding to the next cache line. The eventBuf field (256 bytes) would cause padding, not the 4-byte int32 field.",
+      "status": "not-started",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
+      "location": [
+        "eventloop/poller_darwin.go:56-62",
+        "eventloop/poller_linux.go:56-62",
+        "eventloop/poller_windows.go:56-62"
+      ],
+      "impact": "Low - documentation/maintainability improvement only. No runtime impact.",
+      "deliverables": [
+        "Remove redundant padding comments in poller_darwin.go",
+        "Remove redundant padding comments in poller_linux.go",
+        "Remove redundant padding comments in poller_windows.go",
+        "Or: Update comments to accurately reflect layout",
+        "Verify betteralign:ignore tag handles actual alignment"
+      ],
+      "acceptanceCriteria": [
+        "Comments accurately reflect field layout",
+        "No misleading or contradictory comments remain",
+        "betteralign results unchanged",
+        "No runtime impact",
+        "Code is easier to understand"
+      ]
+    },
+
     {
       "id": "R105",
       "title": "MEDIUM: Redundant Cache Line Padding in Poller Structures",
@@ -2048,61 +1957,20 @@
       ]
     },
     {
-      "id": "R111",
-      "title": "LOW: Magic Number in TPS Counter Default Configuration",
-      "description": "The NewTPSCounter function in eventloop/metrics.go:267-278 accepts windowSize and bucketSize parameters but uses a magic number 100 in the example comment without explaining why this value was chosen or documenting the trade-offs. The function signature shows these are required parameters with no defaults. The magic number 100 is only in a block comment describing bucket behavior.",
-      "status": "completed",
-      "critical": false,
-      "completionDate": "2026-02-01",
-      "verificationDetails": {
-        "verificationDate": "2026-02-01",
-        "documentationLines": "110+ lines",
-        "tradeoffsDocumented": "Window size (10-30s production) and bucket size (100ms recommended)",
-        "configurationExamples": "Production, high-frequency, long-term analysis",
-        "validationTests": "13/13 TestNewTPSCounter tests passing (100%)",
-        "inputValidation": "5 checks with helpful error messages"
-      },
-      "dependsOn": [],
-      "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
-      "location": "eventloop/metrics.go:267-278",
-      "impact": "Low - documentation improvement only. Makes configuration clearer.",
-      "deliverables": [
-        "Add comprehensive documentation for NewTPSCounter",
-        "Document parameters (windowSize, bucketSize)",
-        "Document behavior (rolling window, ring buffer)",
-        "Document trade-offs (window size vs granularity)",
-        "Document recommended defaults with rationale",
-        "Add input validation",
-        "Add configuration example with trade-offs explained"
-      ],
-      "acceptanceCriteria": [
-        "Parameters thoroughly documented",
-        "Trade-offs clearly explained",
-        "Recommended defaults provided with rationale",
-        "Configuration example is helpful",
-        "Input validation added",
-        "Users can make informed configuration decisions"
-      ]
-    },
-    {
       "id": "R112",
       "title": "CRITICAL SUMMARY: Address All 13 Issues from Code Review",
       "description": "Summary task for tracking completion of all 13 issues identified in EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md. This task is complete when all individual R100-R112 tasks are completed.",
       "status": "not-started",
       "critical": true,
       "dependsOn": [
-        "R100",
         "R101",
-        "R102",
         "R103",
-        "R104",
         "R105",
         "R106",
         "R107",
         "R108",
         "R109",
-        "R110",
-        "R111"
+        "R110"
       ],
       "sourceDocument": "EXHAUSTIVE_CODEBASE_REVIEW_2026-01-31.md",
       "deliverables": [

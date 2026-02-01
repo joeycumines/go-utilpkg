@@ -214,17 +214,30 @@ func (q *QueueMetrics) UpdateMicrotask(depth int) {
 // TPSCounter tracks transactions per second with a rolling window.
 //
 // Implementation Details:
-//   - Rolling window length: configurable (default: 10 seconds)
-//   - Bucket granularity: configurable (default: 100 milliseconds)
-//   - Example configuration: 10-second window with 100ms buckets = 100 buckets
+//   - Rolling window length: configurable via windowSize parameter
+//   - Bucket granularity: configurable via bucketSize parameter
+//   - Rolling window algorithm: ring buffer with time-based rotation
+//
+// Configuration Trade-offs:
+//
+//	Window Size (windowSize):
+//	  - Larger windows (e.g., 30 seconds): Smoother TPS, slower to detect changes
+//	  - Smaller windows (e.g., 5 seconds): Faster response, more volatile
+//	  - Recommended: 10-30 seconds for production monitoring
+//
+//	Bucket Size (bucketSize):
+//	  - Smaller buckets (e.g., 50ms): Higher precision (0.02 TPS), more CPU overhead
+//	  - Larger buckets (e.g., 500ms): Lower precision (0.5 TPS), less CPU overhead
+//	  - Recommended: 100ms for good balance (0.1 TPS precision) in production
 //
 // Behavior:
 //
-//	At startup, TPS is 0 until the rolling window fills (default: first 10 seconds).
+//	At startup, TPS is 0 until the rolling window fills (depends on windowSize).
 //	After warmup, TPS reflects average transaction rate over the entire window.
-//	Precision: With 100ms buckets, TPS is granular to 0.1 TPS (1 transaction/10 seconds).
+//	Precision granularity: (1 / bucketSize in seconds), e.g., 100ms = 0.1 TPS precision.
 //
 // Thread Safety: All methods (Increment, TPS) are thread-safe.
+// Concurrent calls are safe from multiple goroutines.
 type TPSCounter struct {
 	lastRotation atomic.Value // Stores time.Time
 	buckets      []int64
@@ -234,10 +247,47 @@ type TPSCounter struct {
 	mu           sync.Mutex
 }
 
-// NewTPSCounter creates a new TPS counter.
-// windowSize is the time window for TPS calculation (e.g., 10*time.Second).
-// bucketSize is the granularity of the rolling window (e.g., 100*time.Millisecond).
+// NewTPSCounter creates a new TPS counter with configurable rolling window.
+//
+// Parameters:
+//
+//	windowSize - Time window for TPS calculation. Larger windows provide smoother
+//	            TPS but slower change detection. Recommended: 10-30 seconds for
+//	            production monitoring. Must be > 0.
+//	bucketSize - Granularity of rolling window. Smaller buckets provide higher
+//	            precision but more CPU overhead. Recommended: 100ms for 0.1 TPS
+//	            precision in production. Must be > 0 and <= windowSize.
+//
+// Configuration Examples:
+//
+//	// Production: Balanced precision and smoothness
+//	NewTPSCounter(10*time.Second, 100*time.Millisecond) // 100 buckets, 0.1 TPS precision
+//
+//	// High-frequency trading: Fast response, more volatile
+//	NewTPSCounter(5*time.Second, 50*time.Millisecond) // 100 buckets, 0.2 TPS precision
+//
+//	// Long-term analysis: Very smooth, slow response
+//	NewTPSCounter(60*time.Second, 500*time.Millisecond) // 120 buckets, 0.5 TPS precision
+//
+// Returns:
+//
+//	Ready-to-use TPS counter. TPS is 0 until window fills.
+//
+// Note: At startup, TPS is 0 until the first 'windowSize' period elapses,
+//
+//	providing time for the rolling window to fill with actual metrics.
 func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
+	// Input validation: Prevent zero or negative durations
+	if windowSize <= 0 {
+		panic("eventloop: windowSize must be positive (use > 0 duration)")
+	}
+	if bucketSize <= 0 {
+		panic("eventloop: bucketSize must be positive (use > 0 duration)")
+	}
+	if bucketSize > windowSize {
+		panic("eventloop: bucketSize cannot exceed windowSize (use <= windowSize)")
+	}
+
 	bucketCount := int(windowSize / bucketSize)
 	if bucketCount < 1 {
 		bucketCount = 1
@@ -270,6 +320,17 @@ func (t *TPSCounter) rotate() {
 	lastRotation := t.lastRotation.Load().(time.Time)
 	elapsed := now.Sub(lastRotation)
 	bucketsToAdvance := int(elapsed / t.bucketSize)
+
+	// Overflow protection: clamp to window size to prevent integer overflow
+	// This handles edge cases like system clock changes or extreme delays
+	if bucketsToAdvance < 0 {
+		// Clock jumped backwards - trigger full reset to recover
+		bucketsToAdvance = len(t.buckets)
+	}
+	if bucketsToAdvance > len(t.buckets) {
+		// Elapsed time exceeded window - clamp to full window reset
+		bucketsToAdvance = len(t.buckets)
+	}
 
 	if bucketsToAdvance <= 0 {
 		return

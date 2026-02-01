@@ -17,6 +17,14 @@ import (
 // maxSafeInteger is `2^53 - 1`, the maximum safe integer in JavaScript
 const maxSafeInteger = 9007199254740991
 
+// ErrImmediateIDExhausted is returned when all immediate IDs have been exhausted.
+// This occurs when nextImmediateID would exceed JavaScript's MAX_SAFE_INTEGER (2^53 - 1).
+var ErrImmediateIDExhausted = errors.New("eventloop: immediate ID exceeded MAX_SAFE_INTEGER")
+
+// ErrIntervalIDExhausted is returned when all interval IDs have been exhausted.
+// This occurs when nextTimerID would exceed JavaScript's MAX_SAFE_INTEGER (2^53 - 1).
+var ErrIntervalIDExhausted = errors.New("eventloop: interval ID exceeded MAX_SAFE_INTEGER")
+
 // RejectionHandler is a callback function invoked when an unhandled promise rejection
 // is detected. The reason parameter contains the rejection reason/value.
 // This follows the JavaScript unhandledrejection event pattern.
@@ -305,7 +313,7 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 
 	// Safety check for JS integer limits
 	if id > maxSafeInteger {
-		panic("eventloop: interval ID exceeded MAX_SAFE_INTEGER")
+		return 0, ErrIntervalIDExhausted
 	}
 
 	// Store wrapper in state under lock for synchronization
@@ -440,7 +448,7 @@ func (s *intervalState) getDelay() time.Duration {
 //
 // Returns:
 //   - ID that can be passed to [JS.ClearImmediate] to cancel
-//   - Error if the loop is shutting down
+//   - Error if the loop is shutting down or all immediate IDs have been exhausted
 func (js *JS) SetImmediate(fn SetTimeoutFunc) (uint64, error) {
 	if fn == nil {
 		return 0, nil
@@ -448,7 +456,7 @@ func (js *JS) SetImmediate(fn SetTimeoutFunc) (uint64, error) {
 
 	id := js.nextImmediateID.Add(1)
 	if id > maxSafeInteger {
-		panic("eventloop: immediate ID exceeded MAX_SAFE_INTEGER")
+		return 0, ErrImmediateIDExhausted
 	}
 
 	state := &setImmediateState{
