@@ -7,6 +7,7 @@
 package eventloop
 
 import (
+	"context"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func TestSetImmediate_IDExhaustion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.Shutdown(nil)
+	defer loop.Shutdown(context.TODO())
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -61,7 +62,7 @@ func TestSetInterval_IDExhaustion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.Shutdown(nil)
+	defer loop.Shutdown(context.TODO())
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -105,7 +106,7 @@ func TestSetTimeout_IDExhaustion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.Shutdown(nil)
+	defer loop.Shutdown(context.TODO())
 
 	js, err := NewJS(loop)
 	if err != nil {

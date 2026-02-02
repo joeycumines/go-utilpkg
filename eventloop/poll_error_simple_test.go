@@ -197,8 +197,7 @@ func Test_PollError_Concurrency(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = loop.Submit(func() {})
-				_ = err // Ignore errors after shutdown
+				_ = loop.Submit(func() {}) // Ignore errors after shutdown
 			}()
 		}
 
