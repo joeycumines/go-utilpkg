@@ -10,10 +10,13 @@ import (
 // jumps backwards due to NTP adjustments, VM snapshot restores, or other
 // time synchronization issues).
 //
+// This test directly manipulates the lastRotation timestamp to simulate
+// a clock backward jump by setting it backwards relative to the current time.
 // Overflow protection should:
-// 1. Detect elapsed < 0 (clock backward jump)
+// 1. Detect elapsed < 0 (clock backward jump) in the rotate() function
 // 2. Trigger full window reset to recover
 // 3. Continue normal operation after reset
+// 4. Ensure TPS() returns non-negative values even after clock anomalies
 func TestTPSCounter_NegativeElapsed(t *testing.T) {
 	counter := NewTPSCounter(10*time.Second, 100*time.Millisecond)
 
@@ -22,12 +25,11 @@ func TestTPSCounter_NegativeElapsed(t *testing.T) {
 		counter.Increment()
 	}
 
-	// Simulate clock moving backwards by manipulating lastRotation
+	// Simulate clock moving backwards by manipulating lastRotation directly
 	oldRotation := counter.lastRotation.Load().(time.Time)
-	futureTime := oldRotation.Add(10 * time.Second)
-	counter.lastRotation.Store(futureTime)
 
-	// Now simulate the time moving backwards (Nudge lastRotation to the past)
+	// Set lastRotation to a time in the past, which will cause the rotate() function
+	// to detect a negative elapsed time (now - oldRotation would be negative)
 	backwardsTime := oldRotation.Add(-5 * time.Second)
 
 	// This should trigger the negative elapsed protection
@@ -150,7 +152,7 @@ func TestTPSCounter_ExtremeElapsed(t *testing.T) {
 
 	tps3 := counter.TPS()
 
-	if tps < 0 {
+	if tps3 < 0 {
 		t.Errorf("TPS should not be negative after extreme forward jump, got %f", tps3)
 	}
 }

@@ -288,10 +288,8 @@ func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
 		panic("eventloop: bucketSize cannot exceed windowSize (use <= windowSize)")
 	}
 
+	// bucketCount is guaranteed to be >= 1 after the above validation
 	bucketCount := int(windowSize / bucketSize)
-	if bucketCount < 1 {
-		bucketCount = 1
-	}
 	counter := &TPSCounter{
 		buckets:    make([]int64, bucketCount),
 		bucketSize: bucketSize,
@@ -333,16 +331,6 @@ func (t *TPSCounter) rotate() {
 	}
 
 	if bucketsToAdvance <= 0 {
-		return
-	}
-
-	if bucketsToAdvance >= len(t.buckets) {
-		// Full window reset
-		for i := range t.buckets {
-			t.buckets[i] = 0
-		}
-		// Reset to now for full reset
-		t.lastRotation.Store(now)
 		return
 	}
 

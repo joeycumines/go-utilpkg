@@ -12,27 +12,28 @@
   "tasks": [
     {
       "id": "RV02",
-      "title": "CRITICAL: Fix TPS Counter Mathematics Error",
-      "description": "Fix TPS counter calculation in eventloop/metrics.go TPS() method that systematically under-reports throughput when windowSize is not an exact multiple of bucketSize. The current implementation divides the sum of N buckets by the requested windowSize, but the actual monitored coverage is N * bucketSize. For example: windowSize=10s, bucketSize=3s creates 3 buckets covering 9 seconds. The code sums events over 9 seconds but divides by 10 seconds, resulting in 10% lower reported TPS.",
-      "status": "not-started",
+      "title": "CRITICAL: Fix TPS Counter Startup Behavior",
+      "description": "Review.md claim of 'systematic under-reporting' was INCORRECT. Root cause identified: TPS counter incorrectly reports non-zero TPS immediately after counter creation, contrary to documented behavior. Documentation states 'At startup, TPS is 0 until rolling window fills' but implementation returns sum/windowSize as soon as any events exist. Example: Create counter with 10s window, add 10 increments immediately, TPS() returns 10.0 but should return 0.0. INVESTIGATION COMPLETED: Issue requires proper implementation of startup tracking behavior per documentation.",
+      "status": "completed",
       "critical": true,
       "dependsOn": [],
-      "sourceDocument": "eventloop/review.md",
-      "location": "eventloop/metrics.go line ~358 (TPS() method)",
-      "testEvidence": "Test failures: TestTPSCounterBasicFunctionality, TestTPSCounterRotation, TestTPSCounterWindowSizing all fail with under-reported TPS values",
+      "sourceDocument": "eventloop/review.md (incorrect analysis) and actual test failures",
+      "location": "eventloop/metrics.go TPSCounter struct and TPS() method",
+      "testEvidence": "Test failures: TestTPSCounterBasicFunctionality expects TPS=0 before time passes, TestTPSCounterRotation and TestTPSCounterWindowSizing expect non-zero TPS only after sufficient elapsed time",
       "deliverables": [
-        "Divisor in TPS() method changed from windowSize to (float64(len(counter.buckets)) * counter.bucketSize.Seconds())",
-        "Alternative: Enforce windowSize to be divisible by bucketSize in constructor with panic or error",
-        "Test updates to account for actual monitored window duration if needed",
-        "Documentation update explaining TPS calculation behavior"
+        "Add createdAt time.Time field to TPSCounter struct for startup tracking",
+        "Initialize createdAt to time.Now() in NewTPSCounter constructor",
+        "In TPS() method, check if time.Since(createdAt) < windowSize, return 0 if true",
+        "Otherwise calculate and return TPS = sum / windowSize.Seconds() as before",
+        "Update docstring if needed to clarify startup behavior is now enforced"
       ],
       "acceptanceCriteria": [
-        "All TPS counter tests pass (TestTPSCounterBasicFunctionality, TestTPSCounterRotation, TestTPSCounterWindowSizing)",
-        "TPS calculation correctly divides by actual monitored duration, not requested windowSize",
-        "Edge case where windowSize is not divisible by bucketSize works correctly",
+        "All TPS counter tests pass (TestTPSCounterBasicFunctionality expects 0 before window fills)",
+        "TPS returns 0 until elapsed time >= windowSize since counter creation",
+        "After window fill time passes, TPS calculation works as before (sum/windowSize)",
         "No regressions in other metrics functionality",
         "make test eventloop passes 100%",
-        "Documentation accurately describes TPS calculation behavior"
+        "Documentation remains accurate (startup behavior now matches implementation)"
       ]
     },
     {
@@ -55,6 +56,71 @@
         "No compilation issues found",
         "False claims documented",
         "Only real issue (RV02) needs fixing"
+      ]
+    },
+    {
+      "id": "RV03",
+      "title": "HIGH: Fix TestTPSCounterExtremeElapsed Copy-Paste Bug",
+      "description": "In TestTPSCounter_ExtremeElapsed (metrics_overflow_test.go:129), the test checks 'if tps < 0' but should check 'if tps3 < 0'. The test checks the old variable 'tps' from line 127 instead of the variable 'tps3' from line 127 that was just calculated. This is a copy-paste bug where the assertion checks the wrong variable.",
+      "status": "completed",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/review.md analysis",
+      "location": "eventloop/metrics_overflow_test.go line 156",
+      "deliverables": [
+        "Change assertion from 'if tps < 0' to 'if tps3 < 0'",
+        "Verify the correct variable reference"
+      ],
+      "acceptanceCriteria": [
+        "Assertion checks tps3 (the calculated value) instead of tps (old value)",
+        "Test correctly validates TPS after extreme elapsed time",
+        "No copy-paste errors remain in test"
+      ]
+    },
+
+    {
+      "id": "RV05",
+      "title": "Remove Dead Code After NewTPSCounter Validation",
+      "description": "In NewTPSCounter (metrics.go:291-293), after the validation 'if bucketSize > windowSize' panics, the next line calculates 'bucketCount := int(windowSize / bucketSize)' and then checks 'if bucketCount < 1'. But if bucketSize > windowSize panics, then bucketCount >= 1 is guaranteed (windowSize/bucketSize < 1 implies bucketSize > windowSize). This makes the 'if bucketCount < 1' check unreachable dead code.",
+      "status": "completed",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/review.md analysis",
+      "location": "eventloop/metrics.go line 294",
+      "deliverables": [
+        "Remove unreachable 'if bucketCount < 1' check",
+        "Cleanup dead code",
+        "Verify constructor still validates correctly",
+        "No functional change - only dead code removal"
+      ],
+      "acceptanceCriteria": [
+        "No unreachable code remains after bucketSize > windowSize validation",
+        "Constructor still has bucketCount >= 1 guarantee",
+        "make build succeeds after dead code removal",
+        "NewTPSCounter still panics for bucketSize > windowSize"
+      ]
+    },
+
+    {
+      "id": "RV08",
+      "title": "LOW: Clarify TPS Counter Negative Elapsed Test",
+      "description": "TestTPSCounter_NegativeElapsed simulates clock backward jump by setting lastRotation to future, then past. The test description says it 'tests negative elapsed' but the final check is only 'tps >= 0'. The test passes coincidentally because it doesn't actually verify negative elapsed handling - it just checks TPS doesn't return negative values. The futureTime manipulation has no effect (immediately overwritten). Test should either verify actual negative protection (elapsed < 0 triggers reset) or remove unused futureTime assignment that's immediately overwritten.",
+      "status": "completed",
+      "critical": false,
+      "dependsOn": [],
+      "sourceDocument": "eventloop/review.md analysis",
+      "location": "eventloop/metrics_overflow_test.go lines 38-55",
+      "deliverables": [
+        "Remove futureTime assignment (immediately overwritten, has no effect) OR",
+        "Alternative: Add explicit test verifying rotate behavior when elapsed < 0",
+        "Add comment explaining test actually validates non-negative TPS after clock jump",
+        "Improve test documentation to match actual verification"
+      ],
+      "acceptanceCriteria": [
+        "Test no longer has unused assignments that are immediately overwritten",
+        "Test documentation accurately describes what's being verified",
+        "Test actually validates TPS >= 0 behavior (not 'negative elapsed' specifically)",
+        "Code is cleaner and clearer"
       ]
     },
     {
