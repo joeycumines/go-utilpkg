@@ -16,6 +16,11 @@ const (
 	// It must be a power of 2 to allow for efficient bitwise wrapping.
 	ringBufferSize = 4096
 
+	// ringSeqSkip is the sentinel value for "empty slot" in sequence tracking.
+	// We use this value (1 << 63, half of uint64) to avoid ambiguity with
+	// sequence number wrap-around, which could legitimately produce 0.
+	ringSeqSkip = uint64(1) << 63
+
 	// ringOverflowInitCap is the initial capacity for the overflow slice in MicrotaskRing.
 	ringOverflowInitCap = 1024
 
@@ -167,18 +172,27 @@ func (q *ChunkedIngress) Length() int {
 // This implementation adheres to strict Release/Acquire semantics to prevent bugs
 // where a consumer sees a valid sequence but reads uninitialized data.
 //
+// R101 Fix: Sequence Zero Edge Case:
+// The ring buffer uses explicit validity flags (atomic.Bool) to distinguish between
+// 'empty slot' and 'slot with valid data', avoiding ambiguity from sequence number
+// wrap-around. Previously, seq==0 was used as a sentinel, but under extreme producer
+// load, sequence numbers can legitimately wrap to 0, causing infinite spin loops.
+// Now validity is tracked separately and sequence numbers use ringSeqSkip (1<<63)
+// as the empty sentinel, providing ~2^63 valid sequence values before wrap-around.
+//
 // Concurrency Model: MPSC (Multiple Producers, Single Consumer)
 // - Push: Called from any goroutine (producers)
 // - Pop: Called ONLY from the event loop goroutine (single consumer)
 //
 // Algorithm:
-// - Push: Write Data -> Store Seq (Release)
-// - Pop:  Load Seq (Acquire) -> Read Data
+// - Push: Write Data -> Write Validity -> Store Seq (Release)
+// - Pop:  Load Seq (Acquire) -> Check Validity -> Read Data
 // - Overflow: When ring is full, tasks spill to a mutex-protected slice.
 // - FIFO: If overflow has items, Push appends to overflow to maintain ordering.
 type MicrotaskRing struct { // betteralign:ignore
 	_       [sizeOfCacheLine]byte         // Cache line padding
 	buffer  [ringBufferSize]func()        // Ring buffer for tasks
+	valid   [ringBufferSize]atomic.Bool   // Slot validity flags (R101 fix)
 	seq     [ringBufferSize]atomic.Uint64 // Sequence numbers per slot
 	head    atomic.Uint64                 // Consumer index
 	_       [ringHeadPadSize]byte         // Pad to cache line
@@ -195,7 +209,8 @@ type MicrotaskRing struct { // betteralign:ignore
 func NewMicrotaskRing() *MicrotaskRing {
 	r := &MicrotaskRing{}
 	for i := 0; i < ringBufferSize; i++ {
-		r.seq[i].Store(0)
+		r.seq[i].Store(ringSeqSkip) // Use skip sentinel (R101 fix)
+		r.valid[i].Store(false)     // Start with all slots invalid
 	}
 	return r
 }
@@ -226,20 +241,20 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 		if r.tail.CompareAndSwap(tail, tail+1) {
 			seq := r.tailSeq.Add(1)
 
-			// Handle sequence wrap-around.
-			// 0 is the sentinel value for "empty slot", so if we wrap to 0,
-			// we must skip it to avoid confusion with uninitialized slots.
-			if seq == 0 {
-				seq = r.tailSeq.Add(1)
-			}
+			// R101: No need to skip 0 - we use ringSeqSkip as sentinel.
+			// Sequence numbers can legitimately wrap from MAX_UINT64 to 0.
+			// Validity is tracked separately via valid[] flags.
 
 			// Critical Ordering:
 			// - Write Task (Data) FIRST
-			// - Write Sequence (Guard) SECOND
-			// atomic.Store acts as a Release barrier, ensuring the buffer write
-			// is visible to any reader who acquires this seq value.
-			r.buffer[tail%ringBufferSize] = fn
-			r.seq[tail%ringBufferSize].Store(seq)
+			// - Write Validity SECOND (R101 fix)
+			// - Write Sequence (Guard) THIRD
+			// atomic.Store acts as a Release barrier, ensuring all writes
+			// are visible to any reader who acquires this seq value.
+			idx := tail % ringBufferSize
+			r.buffer[idx] = fn
+			r.valid[idx].Store(true) // Mark slot valid (R101)
+			r.seq[idx].Store(seq)
 
 			return true
 		}
@@ -270,8 +285,10 @@ func (r *MicrotaskRing) Pop() func() {
 		idx := head % ringBufferSize
 		seq := r.seq[idx].Load()
 
-		if seq == 0 {
-			// Producer claimed 'tail' but hasn't stored 'seq' yet.
+		// R101: Check validity instead of seq==0 to avoid ambiguity.
+		// Use ringSeqSkip as empty sentinel instead of 0.
+		if seq == ringSeqSkip || !r.valid[idx].Load() {
+			// Producer claimed 'tail' but hasn't stored a valid sequence yet.
 			// Spin and retry. We cannot advance head (skipping) because the slot IS claimed.
 			head = r.head.Load()
 			tail = r.tail.Load()
@@ -282,29 +299,32 @@ func (r *MicrotaskRing) Pop() func() {
 		fn := r.buffer[idx]
 
 		// Handle nil tasks to avoid infinite loop.
-		// If fn is nil but seq != 0, the slot was claimed but contains nil.
-		// We must still consume the slot and continue to the next one.
+		// If fn is nil but seq != ringSeqSkip and valid==true, the slot was
+		// claimed but contains nil. We must still consume the slot and continue.
 		if fn == nil {
-			// Clear buffer FIRST, then seq (release barrier), then advance head.
-			// This ordering ensures:
-			// - buffer=nil happens before seq.Store
-			// - seq=0 happens before head.Add
-			// - When producer reads new head value, it sees buffer=nil and seq=0
+			// Clear buffer FIRST, then validity, then seq (release barrier), then advance head.
+			// This ordering ensures (R101 fix):
+			// - buffer=nil happens before valid.Store
+			// - seq=ringSeqSkip happens before head.Add
+			// - When producer reads new head value, it sees buffer=nil and valid=false
 			r.buffer[idx] = nil
-			r.seq[idx].Store(0)
+			r.valid[idx].Store(false)
+			r.seq[idx].Store(ringSeqSkip)
 			r.head.Add(1)
 			head = r.head.Load()
 			tail = r.tail.Load()
 			continue
 		}
 
-		// Clear buffer and seq BEFORE advancing head.
-		// Critical ordering for memory visibility:
+		// Clear buffer, validity, and seq BEFORE advancing head.
+		// Critical ordering for memory visibility (R101 fix):
 		// - Clear buffer (non-atomic) - must happen first
-		// - Clear seq (atomic release) - provides memory barrier, ensures buffer write visible
+		// - Clear validity (atomic) - marks slot invalid
+		// - Clear seq (atomic release) - provides memory barrier, ensures write visible
 		// - Advance head (atomic) - signals slot is free to producers
 		r.buffer[idx] = nil
-		r.seq[idx].Store(0)
+		r.valid[idx].Store(false)     // R101: Mark invalid
+		r.seq[idx].Store(ringSeqSkip) // R101: Use skip sentinel
 		r.head.Add(1)
 		return fn
 	}

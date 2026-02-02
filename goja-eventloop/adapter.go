@@ -70,6 +70,9 @@ func (a *Adapter) Bind() error {
 	// Promise constructor
 	a.runtime.Set("Promise", a.promiseConstructor)
 
+	// Helper function for consuming iterables (used in promise combinators)
+	a.runtime.Set("consumeIterable", a.consumeIterable)
+
 	// Helper to access Symbol.iterator (Goja API for symbols is complex, JS is easy)
 	// We create a function (obj) => obj[Symbol.iterator]
 	// This handles the lookup safely within the runtime
@@ -258,6 +261,57 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 	return thisObj
 }
 
+// R130.6 Helper: isWrappedPromise checks if a value is a Goja-wrapped
+// promise object (has _internalPromise field with valid ChainedPromise).
+//
+// This helper eliminates code duplication across adapter.go, where the promise
+// wrapper detection pattern appeared 10+ times.
+//
+// Returns true if value is a wrapped promise object, false otherwise.
+func isWrappedPromise(value goja.Value) bool {
+	// Check if value is a Goja Object
+	obj, ok := value.(*goja.Object)
+	if !ok || obj == nil {
+		return false
+	}
+
+	// Check for _internalPromise field (indicates wrapped promise)
+	internalVal := obj.Get("_internalPromise")
+	if internalVal == nil || goja.IsUndefined(internalVal) {
+		return false
+	}
+
+	// Verify internal value is a valid ChainedPromise
+	promise, ok := internalVal.Export().(*goeventloop.ChainedPromise)
+	return ok && promise != nil
+}
+
+// R130.6 Helper: tryExtractWrappedPromise extracts the internal ChainedPromise
+// from a wrapped promise object.
+//
+// Returns (promise, true) if value is a wrapped promise, (nil, false) otherwise.
+func tryExtractWrappedPromise(value goja.Value) (*goeventloop.ChainedPromise, bool) {
+	// Check if value is a Goja Object
+	obj, ok := value.(*goja.Object)
+	if !ok || obj == nil {
+		return nil, false
+	}
+
+	// Check for _internalPromise field (indicates wrapped promise)
+	internalVal := obj.Get("_internalPromise")
+	if internalVal == nil || goja.IsUndefined(internalVal) {
+		return nil, false
+	}
+
+	// Verify internal value is a valid ChainedPromise
+	promise, ok := internalVal.Export().(*goeventloop.ChainedPromise)
+	if !ok || promise == nil {
+		return nil, false
+	}
+
+	return promise, true
+}
+
 // gojaFuncToHandler converts a Goja function value to a promise handler
 // CRITICAL #1 FIX: Type conversion at Go-native level BEFORE passing to JavaScript
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
@@ -283,14 +337,10 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		// CRITICAL #1 FIX: Check if result is already a wrapped Goja Object before conversion
 		// This prevents double-wrapping which breaks Promise identity:
 		//   Promise.all([p]).then(r => r[0] === p) should be true
-		if obj, ok := goNativeValue.(*goja.Object); ok {
-			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-				// Already a wrapped promise - use directly to preserve identity
-				jsValue = obj
-			} else {
-				// Not a promise wrapper, proceed with standard conversion
-				jsValue = a.convertToGojaValue(goNativeValue)
-			}
+		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		if obj, ok := goNativeValue.(goja.Value); ok && isWrappedPromise(obj) {
+			// Already a wrapped promise - use goja object directly to preserve identity
+			jsValue = obj
 		} else {
 			// Not a Goja Object, proceed with standard conversion
 			switch v := goNativeValue.(type) {
@@ -299,12 +349,11 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 				jsArr := a.runtime.NewArray(len(v))
 				for i, val := range v {
 					// CRITICAL #1 FIX: Check each element for already-wrapped promises
-					if obj, ok := val.(*goja.Object); ok {
-						if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-							// Already a wrapped promise - use directly
-							_ = jsArr.Set(strconv.Itoa(i), obj)
-							continue
-						}
+					// R130.6: Use helper to eliminate duplicated promise wrapper detection
+					if obj, ok := val.(goja.Value); ok && isWrappedPromise(obj) {
+						// Already a wrapped promise - use directly
+						_ = jsArr.Set(strconv.Itoa(i), obj)
+						continue
 					}
 					_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
 				}
@@ -315,12 +364,11 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 				jsObj := a.runtime.NewObject()
 				for key, val := range v {
 					// CRITICAL #1 FIX: Check each value for already-wrapped promises
-					if obj, ok := val.(*goja.Object); ok {
-						if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-							// Already a wrapped promise - use directly
-							_ = jsObj.Set(key, obj)
-							continue
-						}
+					// R130.6: Use helper to eliminate duplicated promise wrapper detection
+					if obj, ok := val.(goja.Value); ok && isWrappedPromise(obj) {
+						// Already a wrapped promise - use directly
+						_ = jsObj.Set(key, obj)
+						continue
 					}
 					_ = jsObj.Set(key, a.convertToGojaValue(val))
 				}
@@ -344,14 +392,16 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		// When we return *goeventloop.ChainedPromise, the framework's resolve()
 		// method automatically handles state adoption via ThenWithJS() (see eventloop/promise.go)
 		// This ensures proper chaining: p.then(() => p2) works correctly
-		if obj, ok := ret.(*goja.Object); ok {
-			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-				if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-					return p
-				}
+		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		if obj, ok := ret.(goja.Value); ok && isWrappedPromise(obj) {
+			// Extract the internal ChainedPromise from the wrapped object
+			internalVal := obj.ToObject(a.runtime).Get("_internalPromise")
+			if promise, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && promise != nil {
+				return promise
 			}
 		}
 
+		// Default: convert and return normally
 		return ret.Export()
 	}
 }
@@ -787,19 +837,15 @@ func (a *Adapter) bindPromise() error {
 
 		// Skip null/undefined - just return resolved promise
 		if goja.IsNull(value) || goja.IsUndefined(value) {
-			promise := a.js.Resolve(nil)
-			return a.gojaWrapPromise(promise)
+			_ = a.js.Resolve(nil)
+			return a.gojaWrapPromise(a.js.Resolve(nil))
 		}
 
 		// Check if value is already our wrapped promise - return unchanged (identity semantics)
 		// Promise.resolve(promise) === promise
-		if obj, ok := value.(*goja.Object); ok {
-			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-				if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-					// Already a wrapped promise - return unchanged
-					return value
-				}
-			}
+		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		if isWrappedPromise(value) {
+			return value
 		}
 
 		// CRITICAL COMPLIANCE FIX: Check for thenables
@@ -837,17 +883,14 @@ func (a *Adapter) bindPromise() error {
 		// CRITICAL: We must NOT call a.js.Reject(obj) as it triggers gojaWrapPromise again,
 		// causing infinite recursion. Instead, create a new rejected promise directly.
 
-		if obj, ok := reason.(*goja.Object); ok {
-			// Check if reason is a wrapped promise with _internalPromise field
-			if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-				// Already a wrapped promise - create NEW rejected promise with wrapper as reason
-				// This breaks infinite recursion by avoiding the extract → reject → wrap cycle
-				promise, _, reject := a.js.NewChainedPromise()
-				reject(obj) // Reject with the Goja Object (wrapper), not extracted promise
+		if obj, ok := reason.(goja.Value); ok && isWrappedPromise(obj) {
+			// Already a wrapped promise - create NEW rejected promise with wrapper as reason
+			// This breaks infinite recursion by avoiding the extract → reject → wrap cycle
+			promise, _, reject := a.js.NewChainedPromise()
+			reject(obj) // Reject with the Goja Object (wrapper), not extracted promise
 
-				wrapped := a.gojaWrapPromise(promise)
-				return wrapped
-			}
+			wrapped := a.gojaWrapPromise(promise)
+			return wrapped
 		}
 
 		// For all other types (primitives, plain objects), use Export()
@@ -874,13 +917,11 @@ func (a *Adapter) bindPromise() error {
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
-			if obj, ok := val.(*goja.Object); ok {
-				if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-					if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-						// Already our wrapped promise - use directly
-						promises[i] = p
-						continue
-					}
+			if isWrappedPromise(val) {
+				if p, extracted := tryExtractWrappedPromise(val); extracted && p != nil {
+					// Already our wrapped promise - use directly
+					promises[i] = p
+					continue
 				}
 			}
 
@@ -915,13 +956,11 @@ func (a *Adapter) bindPromise() error {
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
-			if obj, ok := val.(*goja.Object); ok {
-				if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-					if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-						// Already our wrapped promise - use directly
-						promises[i] = p
-						continue
-					}
+			if isWrappedPromise(val) {
+				if p, extracted := tryExtractWrappedPromise(val); extracted && p != nil {
+					// Already our wrapped promise - use directly
+					promises[i] = p
+					continue
 				}
 			}
 
@@ -956,13 +995,11 @@ func (a *Adapter) bindPromise() error {
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
-			if obj, ok := val.(*goja.Object); ok {
-				if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-					if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-						// Already our wrapped promise - use directly
-						promises[i] = p
-						continue
-					}
+			if isWrappedPromise(val) {
+				if p, extracted := tryExtractWrappedPromise(val); extracted && p != nil {
+					// Already our wrapped promise - use directly
+					promises[i] = p
+					continue
 				}
 			}
 
@@ -1006,13 +1043,11 @@ func (a *Adapter) bindPromise() error {
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
-			if obj, ok := val.(*goja.Object); ok {
-				if internalVal := obj.Get("_internalPromise"); internalVal != nil && !goja.IsUndefined(internalVal) {
-					if p, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && p != nil {
-						// Already our wrapped promise - use directly
-						promises[i] = p
-						continue
-					}
+			if isWrappedPromise(val) {
+				if p, extracted := tryExtractWrappedPromise(val); extracted && p != nil {
+					// Already our wrapped promise - use directly
+					promises[i] = p
+					continue
 				}
 			}
 
