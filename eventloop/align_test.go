@@ -152,20 +152,6 @@ func TestTPSCounterAlign(t *testing.T) {
 		t.Logf("✗ lastRotation shares cache line (offset %d, ends at %d, line ends at %d)", lastRotationOffset, lastRotationEnd, lineEnd)
 	}
 
-	// Check totalCount (atomic.Int64)
-	totalCountOffset := unsafe.Offsetof(s.totalCount)
-	totalCountSize := unsafe.Sizeof(s.totalCount)
-	fmt.Printf("totalCount: offset=%d, size=%d\n", totalCountOffset, totalCountSize)
-
-	totalCountLineStart := (totalCountOffset / sizeOfCacheLine) * sizeOfCacheLine
-	totalCountLineEnd := totalCountLineStart + sizeOfCacheLine
-
-	if totalCountOffset < totalCountLineEnd && (totalCountOffset+totalCountSize) <= totalCountLineEnd {
-		fmt.Printf("✓ totalCount is on cache line %d-%d\n", totalCountLineStart, totalCountLineEnd-1)
-	} else {
-		t.Logf("✗ totalCount shares cache line (offset %d, line %d-%d)", totalCountOffset, totalCountLineStart, totalCountLineEnd-1)
-	}
-
 	fmt.Printf("TPSCounter total size: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }

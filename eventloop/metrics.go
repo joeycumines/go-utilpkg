@@ -243,7 +243,6 @@ type TPSCounter struct {
 	buckets      []int64
 	bucketSize   time.Duration
 	windowSize   time.Duration
-	totalCount   atomic.Int64
 	mu           sync.Mutex
 }
 
@@ -302,7 +301,6 @@ func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
 // Increment records a task execution.
 // Thread-safe and O(1).
 func (t *TPSCounter) Increment() {
-	t.totalCount.Add(1)
 	t.rotate()
 	t.mu.Lock()
 	t.buckets[len(t.buckets)-1]++
@@ -377,7 +375,8 @@ func (t *TPSCounter) TPS() float64 {
 		return 0
 	}
 
-	// TPS = total count / window size in seconds
-	seconds := t.windowSize.Seconds()
-	return float64(sum) / seconds
+	// TPS = total count / monitored duration (len(buckets) * bucketSize)
+	// This uses the actual monitored duration, not the configured windowSize.
+	monitoredDuration := float64(len(t.buckets)) * t.bucketSize.Seconds()
+	return float64(sum) / monitoredDuration
 }

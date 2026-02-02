@@ -451,8 +451,25 @@ func (a *Adapter) consumeIterable(iterable goja.Value) ([]goja.Value, error) {
 			// This covers Arrays and array-like objects
 			length := int(lenVal.ToInteger())
 			result := make([]goja.Value, length)
+
+			// Optimization: Pre-cache string indices for array access
+			// This avoids allocating a new string on each iteration
+			// Cache up to 1000 indices; beyond this, fall back to dynamic conversion
+			cacheSize := length
+			if cacheSize > 1000 {
+				cacheSize = 1000
+			}
+			indexCache := make([]string, cacheSize)
+			for i := 0; i < cacheSize; i++ {
+				indexCache[i] = strconv.Itoa(i)
+			}
+
 			for i := 0; i < length; i++ {
-				result[i] = obj.Get(strconv.Itoa(i))
+				if i < cacheSize {
+					result[i] = obj.Get(indexCache[i])
+				} else {
+					result[i] = obj.Get(strconv.Itoa(i))
+				}
 			}
 			return result, nil
 		}
