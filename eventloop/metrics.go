@@ -317,17 +317,31 @@ func (t *TPSCounter) rotate() {
 	now := time.Now()
 	lastRotation := t.lastRotation.Load().(time.Time)
 	elapsed := now.Sub(lastRotation)
-	bucketsToAdvance := int(elapsed / t.bucketSize)
 
-	// Overflow protection: clamp to window size to prevent integer overflow
-	// This handles edge cases like system clock changes or extreme delays
-	if bucketsToAdvance < 0 {
+	// Overflow protection: calculate as int64, clamp to safe range, then cast to int
+	// This prevents 32-bit overflow on extreme time jumps (system suspend, NTP changes)
+	bucketsToAdvanceInt64 := int64(elapsed) / int64(t.bucketSize)
+
+	// Clamp to window size to handle extreme negative/positive elapsed values
+	if bucketsToAdvanceInt64 < 0 {
 		// Clock jumped backwards - trigger full reset to recover
-		bucketsToAdvance = len(t.buckets)
-	}
-	if bucketsToAdvance > len(t.buckets) {
+		bucketsToAdvanceInt64 = int64(len(t.buckets))
+	} else if bucketsToAdvanceInt64 > int64(len(t.buckets)) {
 		// Elapsed time exceeded window - clamp to full window reset
-		bucketsToAdvance = len(t.buckets)
+		bucketsToAdvanceInt64 = int64(len(t.buckets))
+	}
+
+	// NOW safe to cast to int (value guaranteed to be within [0, len(buckets)])
+	bucketsToAdvance := int(bucketsToAdvanceInt64)
+
+	// Full window reset: if we've exceeded window duration, reset all buckets
+	// and sync lastRotation to current time to prevent permanent lag
+	if bucketsToAdvance >= len(t.buckets) {
+		for i := range t.buckets {
+			t.buckets[i] = 0
+		}
+		t.lastRotation.Store(now)
+		return
 	}
 
 	if bucketsToAdvance <= 0 {

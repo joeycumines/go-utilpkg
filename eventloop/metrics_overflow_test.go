@@ -198,3 +198,113 @@ func TestTPSCounter_ClockJumps(t *testing.T) {
 		t.Errorf("TPS should remain Valid after multiple clock jumps, got %f", finalTPS)
 	}
 }
+
+// TestTPSCounter_TimeSynchronizationAfterLongPause verifies that after
+// a long pause exceeding the rolling window duration, the internal
+// time tracking (lastRotation) is synchronized to the current actual time
+// rather than permanently lagging behind.
+//
+// This tests RV09 fix: Before the fix, if bucketsToAdvance > len(buckets),
+// the code would only advance lastRotation by len(buckets)*bucketSize (one
+// window), even if the actual elapsed time was much longer. This caused
+// lastRotation to permanently lag behind real time, leading to incorrect TPS
+// calculations and data loss.
+//
+// After the fix: If bucketsToAdvance >= len(buckets), we reset all
+// buckets to 0 AND set lastRotation = time.Now(), ensuring the counter
+// is fully synchronized with wall clock time.
+func TestTPSCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
+	// Create a 10-second window with 100ms buckets (100 buckets)
+	windowSize := 10 * time.Second
+	bucketSize := 100 * time.Millisecond
+	counter := NewTPSCounter(windowSize, bucketSize)
+
+	// Add some initial events to prove counter is working
+	for i := 0; i < 50; i++ {
+		counter.Increment()
+	}
+
+	// Verify initial TPS is non-zero
+	initialTPS := counter.TPS()
+	if initialTPS <= 0 {
+		t.Errorf("Expected non-zero TPS after initial events, got %f", initialTPS)
+	}
+
+	// Simulate a very long pause: 5 minutes (30x the window size)
+	// This is the critical scenario for RV09 time synchronization defect
+	t.Logf("Simulating long pause of 5 minutes...")
+	longPause := 5 * time.Minute
+
+	// Manually set lastRotation far in the past to simulate pause
+	oldTime := time.Now().Add(-longPause)
+	counter.mu.Lock()
+	counter.lastRotation.Store(oldTime)
+	// Also corrupt buckets to prove they get reset
+	for i := range counter.buckets {
+		counter.buckets[i] = 999 + int64(i)
+	}
+	counter.mu.Unlock()
+
+	// Calling TPS() will trigger rotate() which should detect
+	// that bucketsToAdvance >= len(buckets) and perform full reset
+	tpsAfterPause := counter.TPS()
+
+	// Capture time after sync
+	timeAfterSync := time.Now()
+
+	// Verify that after a very long pause exceeding window size:
+	// 1. TPS is not negative
+	if tpsAfterPause < 0 {
+		t.Errorf("TPS should not be negative after long pause, got %f", tpsAfterPause)
+	}
+
+	// 2. All buckets were reset to 0 (not the corrupted values from before)
+	// We need to lock to inspect bucket state
+	counter.mu.Lock()
+	bucketSum := int64(0)
+	allZero := true
+	for i, val := range counter.buckets {
+		bucketSum += val
+		if val != 0 {
+			allZero = false
+			t.Logf("Bucket %d has value %d (should be 0 after reset)", i, val)
+		}
+	}
+	counter.mu.Unlock()
+
+	if !allZero {
+		t.Errorf("Expected all buckets to be reset to 0 after long pause, sum=%d", bucketSum)
+	}
+
+	// 3. Last rotation time is synchronized to current time (not lagging)
+	// The key RV09 fix: lastRotation should be set to time.Now()
+	// during the reset, not advanced by only one window
+	lastRotationTime := counter.lastRotation.Load().(time.Time)
+	timeSinceSync := timeAfterSync.Sub(lastRotationTime)
+
+	// lastRotation should be close to timeAfterSync (within 1 second tolerance)
+	// If the old bug existed, lastRotation would still be ~5 minutes in the past
+	if timeSinceSync < 0 || timeSinceSync > time.Second {
+		t.Errorf("lastRotation time not synchronized to current time after long pause: "+
+			"lastRotation=%v, timeAfterSync=%v, timeSinceSync=%v (should be <1s)",
+			lastRotationTime, timeAfterSync, timeSinceSync)
+	}
+
+	// 4. Counter continues to work correctly after sync
+	// Add events after the long pause
+	for i := 0; i < 20; i++ {
+		counter.Increment()
+	}
+
+	tpsAfterResume := counter.TPS()
+
+	// TPS should be reasonable now (not zero, not negative)
+	if tpsAfterResume < 0 {
+		t.Errorf("TPS should be valid after resume, got %f", tpsAfterResume)
+	}
+
+	t.Logf("Before sync: lastRotation would have lagged by ~5 minutes (bug)")
+	t.Logf("After sync: lastRotation synchronized to Now(), timeSinceSync=%v", timeSinceSync)
+	t.Logf("TPS initial=%f, after pause=%f, after resume=%f",
+		initialTPS, tpsAfterPause, tpsAfterResume)
+}
