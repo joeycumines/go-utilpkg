@@ -325,7 +325,7 @@ func (t *TPSCounter) rotate() {
 		// Clock jumped backwards - trigger full reset to recover
 		bucketsToAdvanceInt64 = int64(len(t.buckets))
 	} else if bucketsToAdvanceInt64 > int64(len(t.buckets)) {
-		// Elapsed time exceeded window - clamp to full window reset
+			// Elapsed time exceeded window - clamp to full window reset
 		bucketsToAdvanceInt64 = int64(len(t.buckets))
 	}
 

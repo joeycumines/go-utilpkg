@@ -50,17 +50,18 @@ type fdInfo struct {
 // PERFORMANCE: RWMutex design with dynamic FD indexing.
 // It uses a dynamic slice instead of a fixed array for flexible FD support.
 //
-// CACHE LINE PADDING: The epfd field is put on its own cache line to reduce
-// false sharing. The closed field is also put on its own cache line.
+// CACHE LINE PADDING: Padding fields (marked with //nolint:unused) isolate
+// frequently-accessed fields (epfd, closed) to reduce false sharing across cache lines.
+// The betteralign tool ensures correct cache line alignment during struct layout optimization.
 type FastPoller struct { // betteralign:ignore
-	_        [sizeOfCacheLine]byte     // Cache line padding before epfd (field to avoid false sharing on poller access) //nolint:unused
-	epfd     int32                     // epoll file descriptor - isolated on own cache line
-	_        [sizeOfCacheLine - 4]byte // Pad to next cache line (4 bytes for int32) //nolint:unused
-	eventBuf [256]unix.EpollEvent      // Preallocated event buffer
+	_        [sizeOfCacheLine]byte     // Cache line padding before epfd (isolates from previous fields) //nolint:unused
+	epfd     int32                     // epoll file descriptor
+	_        [sizeOfCacheLine - 4]byte // Padding to isolate eventBuf from isolated field //nolint:unused
+	eventBuf [256]unix.EpollEvent      // Preallocated event buffer (256 epoll events)
 	fds      []fdInfo                  // Dynamic slice, grows on demand
 	fdMu     sync.RWMutex              // Protects fds array access
-	_        [sizeOfCacheLine]byte     // Cache line padding before closed (field to avoid false sharing on state checks) //nolint:unused
-	closed   atomic.Bool               // Closed flag - isolated on own cache line to reduce false sharing
+	_        [sizeOfCacheLine]byte     // Cache line padding before closed (isolates from previous fields) //nolint:unused
+	closed   atomic.Bool               // Closed flag
 }
 
 // Init initializes the epoll instance.

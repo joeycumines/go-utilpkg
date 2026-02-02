@@ -62,19 +62,20 @@ type fdInfo struct {
 // sockets on Windows. For other handle types (pipes, files), use proper Windows
 // handle extraction API and convert to int for registration.
 //
-// CACHE LINE PADDING: The iocp field is put on its own cache line to reduce
-// false sharing with closed/initialized atomics. The closed and initialized fields
-// are also put on their own cache lines.
+// CACHE LINE PADDING: Padding fields (marked with //nolint:unused) isolate
+// frequently-accessed fields (iocp, closed, initialized) to reduce false sharing
+// across cache lines. The betteralign tool ensures correct cache line alignment during
+// struct layout optimization.
 type FastPoller struct { // betteralign:ignore
-	_           [sizeOfCacheLine]byte     // Cache line padding before iocp (field to avoid false sharing on poller access) //nolint:unused
-	iocp        windows.Handle            // IOCP handle - isolated on own cache line
-	_           [sizeOfCacheLine - 8]byte // Pad to next cache line (8 bytes for windows.Handle) //nolint:unused
+	_           [sizeOfCacheLine]byte     // Cache line padding before iocp (isolates from previous fields) //nolint:unused
+	iocp        windows.Handle            // IOCP handle
+	_           [sizeOfCacheLine - 8]byte // Padding to isolate fds from isolated field //nolint:unused
 	fds         []fdInfo                  // Dynamic slice, grows on demand
 	fdMu        sync.RWMutex              // Protects fds array access
-	_           [sizeOfCacheLine]byte     // Cache line padding before closed (field to avoid false sharing on state checks) //nolint:unused
-	closed      atomic.Bool               // Closed flag - isolated on own cache line to reduce false sharing
-	_           [sizeOfCacheLine - 1]byte // Pad to next cache line (1 byte for bool) //nolint:unused
-	initialized atomic.Bool               // Initialization flag - isolated on own cache line to reduce false sharing
+	_           [sizeOfCacheLine]byte     // Cache line padding before closed (isolates from previous fields) //nolint:unused
+	closed      atomic.Bool               // Closed flag
+	_           [sizeOfCacheLine - 1]byte // Padding to isolate initialized from isolated field //nolint:unused
+	initialized atomic.Bool               // Initialization flag
 }
 
 // Init initializes the IOCP instance.

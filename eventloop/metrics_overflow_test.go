@@ -25,31 +25,44 @@ func TestTPSCounter_NegativeElapsed(t *testing.T) {
 		counter.Increment()
 	}
 
-	// Simulate clock moving backwards by manipulating lastRotation directly
-	oldRotation := counter.lastRotation.Load().(time.Time)
+	// Simulate a clock rollback by setting lastRotation to a time in the FUTURE
+	// relative to now. This makes now.Sub(lastRotation) negative and simulates
+	// a clock jump backwards (NTP, VM restore, etc).
+	futureTime := time.Now().Add(5 * time.Second)
 
-	// Set lastRotation to a time in the past, which will cause the rotate() function
-	// to detect a negative elapsed time (now - oldRotation would be negative)
-	backwardsTime := oldRotation.Add(-5 * time.Second)
-
-	// This should trigger the negative elapsed protection
-	// Internally, the rotate() function will detect elapsed < 0
-	// and reset bucketsToAdvance to len(t.buckets) for recovery
 	counter.mu.Lock()
-	counter.lastRotation.Store(backwardsTime)
+	counter.lastRotation.Store(futureTime)
 	counter.mu.Unlock()
 
-	// Verify that TPS() doesn't panic and returns a valid value
+	// Calling TPS() should trigger rotate() which detects negative elapsed and performs
+	// a full window reset (all buckets zeroed and lastRotation synchronized to now).
 	tps := counter.TPS()
-	if tps < 0 {
-		t.Errorf("TPS should not be negative after clock backward jump, got %f", tps)
+	if tps != 0 {
+		t.Errorf("Expected TPS to be 0 after negative elapsed full reset, got %f", tps)
+	}
+
+	// Ensure buckets were reset to zero
+	counter.mu.Lock()
+	sum := int64(0)
+	for _, v := range counter.buckets {
+		sum += v
+	}
+	counter.mu.Unlock()
+	if sum != 0 {
+		t.Fatalf("Expected buckets sum to be 0 after full reset, got %d", sum)
+	}
+
+	// Ensure lastRotation synchronized to now (within 1 second tolerance)
+	lastRotation := counter.lastRotation.Load().(time.Time)
+	if delta := time.Since(lastRotation); delta < 0 || delta > time.Second {
+		t.Fatalf("lastRotation not synchronized after reset: lastRotation=%v, now=%v, delta=%v", lastRotation, time.Now(), delta)
 	}
 
 	// System should recover - subsequent increments should work
 	counter.Increment()
 	tps2 := counter.TPS()
-	if tps2 < 0 {
-		t.Errorf("TPS should remain valid after recovery, got %f", tps2)
+	if tps2 <= 0 {
+		t.Errorf("TPS should be positive after recovery increment, got %f", tps2)
 	}
 }
 
