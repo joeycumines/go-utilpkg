@@ -40,17 +40,17 @@
     {
       "sequence": 3,
       "id": "HANDLEPOLLERROR_COVERAGE",
-      "title": "ACHIEVE: 90% Coverage - Cover handlePollError and Wake",
-      "description": "Current coverage is 89.2%, 0.8% below 90% target. The remaining gap is primarily handlePollError (0.0% coverage) and some platform-specific wakeup functions. Difficulty: High (hard-to-trigger error paths). Need platform-specific test injection to trigger handlePollError code path.",
+      "title": "ACHIEVE: 100% Coverage - Cover handlePollError and Wake",
+      "description": "Current coverage is 89.2%, 10.8% below 100% target. The remaining gap is primarily handlePollError (0.0% coverage) and some platform-specific wakeup functions. Difficulty: High (hard-to-trigger error paths). Need platform-specific test injection to trigger handlePollError code path.",
       "status": "pending",
       "location": "eventloop/",
       "deliverables": [
         "handlePollError function is exercised by tests",
-        "Coverage reaches 90% or higher",
+        "Coverage reaches 100%",
         "All platform-specific wakeup paths covered"
       ],
       "acceptanceCriteria": [
-        "eventloop main package coverage >= 90%",
+        "eventloop main package coverage == 100%",
         "handlePollError coverage > 0%",
         "All Wake code paths tested"
       ]
@@ -113,10 +113,10 @@
       "deliverables": [
         "Coverage analysis showing final gaps",
         "Test suite expansion to cover all remaining paths",
-        "Coverage report showing >=90% main package coverage"
+        "Coverage report showing ==100% main package coverage"
       ],
       "acceptanceCriteria": [
-        "eventloop main coverage >= 90%",
+        "eventloop main coverage == 100%",
         "All tests pass with -race flag (zero data races)",
         "Tests for all error paths, edge cases, and concurrent scenarios"
       ]
