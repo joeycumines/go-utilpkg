@@ -393,9 +393,9 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		// method automatically handles state adoption via ThenWithJS() (see eventloop/promise.go)
 		// This ensures proper chaining: p.then(() => p2) works correctly
 		// R130.6: Use helper to eliminate duplicated promise wrapper detection
-		if obj, ok := ret.(goja.Value); ok && isWrappedPromise(obj) {
+		if isWrappedPromise(ret) {
 			// Extract the internal ChainedPromise from the wrapped object
-			internalVal := obj.ToObject(a.runtime).Get("_internalPromise")
+			internalVal := ret.ToObject(a.runtime).Get("_internalPromise")
 			if promise, ok := internalVal.Export().(*goeventloop.ChainedPromise); ok && promise != nil {
 				return promise
 			}
@@ -731,34 +731,6 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	return a.runtime.ToValue(v)
 }
 
-func NewChainedPromise(loop *goeventloop.Loop, runtime *goja.Runtime) (*goeventloop.ChainedPromise, goja.Value, goja.Value) {
-	js, err := goeventloop.NewJS(loop)
-	if err != nil {
-		panic(err)
-	}
-
-	promise, resolve, reject := js.NewChainedPromise()
-	resolveVal := runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		var val any
-		if len(call.Arguments) > 0 {
-			val = call.Argument(0).Export()
-		}
-		resolve(val)
-		return goja.Undefined()
-	})
-
-	rejectVal := runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		var val any
-		if len(call.Arguments) > 0 {
-			val = call.Argument(0).Export()
-		}
-		reject(val)
-		return goja.Undefined()
-	})
-
-	return promise, resolveVal, rejectVal
-}
-
 // bindPromise sets up the Promise constructor and all static combinators
 func (a *Adapter) bindPromise() error {
 	// Create Promise prototype with then/catch/finally methods
@@ -883,11 +855,11 @@ func (a *Adapter) bindPromise() error {
 		// CRITICAL: We must NOT call a.js.Reject(obj) as it triggers gojaWrapPromise again,
 		// causing infinite recursion. Instead, create a new rejected promise directly.
 
-		if obj, ok := reason.(goja.Value); ok && isWrappedPromise(obj) {
+		if isWrappedPromise(reason) {
 			// Already a wrapped promise - create NEW rejected promise with wrapper as reason
 			// This breaks infinite recursion by avoiding the extract → reject → wrap cycle
 			promise, _, reject := a.js.NewChainedPromise()
-			reject(obj) // Reject with the Goja Object (wrapper), not extracted promise
+			reject(reason) // Reject with the Goja Object (wrapper), not extracted promise
 
 			wrapped := a.gojaWrapPromise(promise)
 			return wrapped

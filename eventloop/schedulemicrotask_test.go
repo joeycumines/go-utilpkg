@@ -14,10 +14,6 @@ import (
 	"time"
 )
 
-func getMutex() *sync.Mutex {
-	return &sync.Mutex{}
-}
-
 // TestScheduleMicrotask_Basic tests microtask scheduling.
 // Priority: CRITICAL - scheduleMicrotask currently at 0.0% coverage.
 //
