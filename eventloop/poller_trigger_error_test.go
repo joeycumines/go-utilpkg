@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // Copyright 2026 Joseph Cumines
 //
 // Permission to use, copy, modify, and distribute this software for any
@@ -8,7 +10,6 @@ package eventloop
 
 import (
 	"context"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -20,10 +21,6 @@ import (
 // gracefully without causing a CPU death spiral.
 // Priority: HIGH - Cover handlePollError function (currently 0.0%).
 func TestPollIO_ErrorRecovery(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping on Windows - different poller implementation")
-	}
-
 	loop, err := New()
 	if err != nil {
 		t.Fatal("New failed:", err)
@@ -85,10 +82,6 @@ func TestPollIO_ErrorRecovery(t *testing.T) {
 // TestPollIO_ConcurrentMultipleFD errors tests error handling with multiple FDs.
 // Priority: MEDIUM - Ensure robustness under concurrent FD operations.
 func TestPollIO_ConcurrentMultipleFDErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping on Windows - different poller implementation")
-	}
-
 	if testing.Short() {
 		t.Skip("Skipping in short mode")
 	}

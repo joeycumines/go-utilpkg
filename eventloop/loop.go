@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package eventloop
 
 import (
@@ -12,7 +14,6 @@ import (
 	"unsafe"
 
 	"github.com/joeycumines/logiface"
-	"golang.org/x/sys/unix"
 )
 
 // Standard errors.
@@ -228,9 +229,9 @@ func New(opts ...LoopOption) (*Loop, error) {
 	if err := loop.poller.Init(); err != nil {
 		// Clean up wake FDs on error (if they exist)
 		if wakeFd >= 0 {
-			_ = unix.Close(wakeFd)
+			_ = closeFD(wakeFd)
 			if wakeWriteFd != wakeFd {
-				_ = unix.Close(wakeWriteFd)
+				_ = closeFD(wakeWriteFd)
 			}
 		}
 		return nil, err
@@ -243,9 +244,9 @@ func New(opts ...LoopOption) (*Loop, error) {
 			loop.drainWakeUpPipe()
 		}); err != nil {
 			_ = loop.poller.Close()
-			_ = unix.Close(wakeFd)
+			_ = closeFD(wakeFd)
 			if wakeWriteFd != wakeFd {
-				_ = unix.Close(wakeWriteFd)
+				_ = closeFD(wakeWriteFd)
 			}
 			return nil, err
 		}
@@ -1087,7 +1088,7 @@ func (l *Loop) drainWakeUpPipe() {
 		return
 	}
 	for {
-		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
+		_, err := readFD(l.wakePipe, l.wakeBuf[:])
 		if err != nil {
 			break
 		}
@@ -1130,7 +1131,7 @@ func (l *Loop) submitWakeup() error {
 	var one uint64 = 1
 	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
 
-	_, err := unix.Write(l.wakePipeWrite, buf)
+	_, err := writeFD(l.wakePipeWrite, buf)
 	// Note: Pipe write errors (e.g., "broken pipe") are expected during shutdown
 	// when the pipe is being closed. Callers must handle these gracefully.
 	return err
@@ -1755,12 +1756,12 @@ func (l *Loop) closeFDs() {
 		_ = l.poller.Close()
 		// Close wake pipe (Unix/Linux/Darwin only)
 		if l.wakePipe >= 0 {
-			_ = unix.Close(l.wakePipe)
+			_ = closeFD(l.wakePipe)
 			if l.wakePipeWrite != l.wakePipe {
-				_ = unix.Close(l.wakePipeWrite)
+				_ = closeFD(l.wakePipeWrite)
 			}
 		}
-		// On Windows/IOCP, wakePipe is -1, so unix.Close is not called
+		// On Windows/IOCP, wakePipe is -1, so closeFD is not called
 		// poller.Close() handles IOCP handle closure
 	})
 }

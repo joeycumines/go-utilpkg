@@ -271,10 +271,9 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 		return 0, ErrPollerClosed
 	}
 
-	var timeout *uint32
+	var timeout uint32
 	if timeoutMs >= 0 {
-		t := uint32(timeoutMs)
-		timeout = &t
+		timeout = uint32(timeoutMs)
 	}
 
 	var bytes uint32

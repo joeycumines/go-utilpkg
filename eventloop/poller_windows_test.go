@@ -137,7 +137,7 @@ func TestIOCPRegisterFD(t *testing.T) {
 }
 
 // Helper function to get WSASocket with overlapped I/O
-func getOverlappedSocket() (windows.Socket, error) {
+func getOverlappedSocket() (windows.Handle, error) {
 	return windows.Socket(windows.AF_INET, windows.SOCK_STREAM, windows.IPPROTO_TCP)
 }
 
@@ -172,7 +172,7 @@ func TestIOCPConcurrentAccess(t *testing.T) {
 	defer p.Close()
 
 	// Create multiple sockets
-	sockets := make([]windows.Socket, 10)
+	sockets := make([]windows.Handle, 10)
 	for i := range sockets {
 		sock, err := getOverlappedSocket()
 		if err != nil {
@@ -185,7 +185,7 @@ func TestIOCPConcurrentAccess(t *testing.T) {
 	// Concurrently register all sockets
 	done := make(chan error, len(sockets))
 	for _, sock := range sockets {
-		go func(s windows.Socket) {
+		go func(s windows.Handle) {
 			err := p.RegisterFD(int(s), EventRead, func(IOEvents) {})
 			done <- err
 		}(sock)
