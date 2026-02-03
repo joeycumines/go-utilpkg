@@ -30,4 +30,5 @@ docker run --rm -v $(PROJECT_ROOT):/work -w /work "golang:$${go_version}" bash -
 exit $${PIPESTATUS[0]}
 
 # IF YOU NEED A CUSTOM TARGET, DEFINE IT ABOVE THIS LINE, AFTER THE `##@ Custom Targets`
+
 endif

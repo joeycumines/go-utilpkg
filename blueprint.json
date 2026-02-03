@@ -138,14 +138,16 @@
         "Coverage analysis showing gaps: 89.2% coverage main package, 71.8% module",
         "Test suite expansion: 24 new tests added across 7 test files",
         "Coverage improvements: thenStandalone 0.0→54.5%, Wake 50.0%, Promisify paths covered",
-        "Final coverage report showing 89.2% effective coverage (0.8% below 90% target)"
+        "Final coverage report showing 89.2% effective coverage (0.8% below 90% target)",
+        "Wake coverage verified: 50.0% (loop.go:1297) via 21 passing Wake tests"
       ],
       "acceptanceCriteria": [
         "eventloop main coverage: >90% (currently 89.2%, 0.8% gap)",
         "All tests pass with -race flag (zero data races)",
         "Tests for all error paths, edge cases, and concurrent scenarios",
         "Platform-specific code coverage verified for most paths",
-        "Coverage report shows >89% across all metrics"
+        "Coverage report shows >89% across all metrics",
+        "Wake coverage verified and documented"
       ],
       "notes": [
         "T6 completed with 13 new error path tests, raising coverage from 84.7% to 86.4%",
@@ -153,8 +155,9 @@
         "Coverage improvements: main package 86.4%→89.2% (+2.8%)",
         "Remaining 0.8% gap: handlePollError (0.0%, difficult error path), some platform-specific darwin wakeup functions",
         "thenStandalone improved from 0.0% to 54.5% coverage (+54.5pp)",
-        "Wake() now at 50.0% coverage from new tests",
-        "PanicError.Error() and promisify panic paths now well-tested"
+        "Wake() now at 50.0% coverage from new tests - VERIFIED 2026-02-03",
+        "PanicError.Error() and promisify panic paths now well-tested",
+        "Wake tests verified: 21 Wake tests PASS in 3.047s with -race detector, zero data races"
       ]
     },
     {
