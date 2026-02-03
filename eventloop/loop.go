@@ -48,11 +48,12 @@ var timerPool = sync.Pool{New: func() any { return new(timer) }}
 
 // loopTestHooks provides injection points for deterministic race testing.
 type loopTestHooks struct {
-	PrePollSleep           func() // Called before CAS to StateSleeping
-	PrePollAwake           func() // Called before CAS back to StateRunning
-	OnFastPathEntry        func() // Called when entering fast path (runFastPath or direct exec)
-	AfterOptimisticCheck   func() // Called after optimistic check, before Swap
-	BeforeFastPathRollback func() // Called before attempting to rollback fast path mode
+	PrePollSleep           func()       // Called before CAS to StateSleeping
+	PrePollAwake           func()       // Called before CAS back to StateRunning
+	OnFastPathEntry        func()       // Called when entering fast path (runFastPath or direct exec)
+	AfterOptimisticCheck   func()       // Called after optimistic check, before Swap
+	BeforeFastPathRollback func()       // Called before attempting to rollback fast path mode
+	PollError              func() error // Injects poll error for testing handlePollError
 }
 
 // FastPathMode controls how fast path mode selection works.
@@ -966,6 +967,9 @@ func (l *Loop) poll() {
 
 	// I/O MODE: User FDs registered - must use kqueue/epoll
 	_, err := l.poller.PollIO(timeout)
+	if l.testHooks != nil && l.testHooks.PollError != nil {
+		err = l.testHooks.PollError()
+	}
 	if err != nil {
 		l.handlePollError(err)
 		return
