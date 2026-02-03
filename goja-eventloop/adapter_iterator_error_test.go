@@ -293,9 +293,7 @@ func TestAdapter_IteratorError_MissingIteratorMethod(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adapter.Bind())
 
-	caughtError := rt.Get("caughtError")
-
-	code := `
+	const code = `
 		let caughtError = null;
 		try {
 			const iterable = { [Symbol.iterator]: () => { throw "cannot get iterator"; } };
@@ -309,7 +307,7 @@ func TestAdapter_IteratorError_MissingIteratorMethod(t *testing.T) {
 	require.NoError(t, err, "JavaScript should execute without error")
 
 	// Check that caughtError was set
-	caughtError = rt.Get("caughtError")
+	caughtError := rt.Get("caughtError")
 	require.False(t, goja.IsUndefined(caughtError), "caughtError should be defined")
 	require.False(t, goja.IsNull(caughtError), "caughtError should not be null")
 	assert.Contains(t, caughtError.String(), "cannot get iterator")
