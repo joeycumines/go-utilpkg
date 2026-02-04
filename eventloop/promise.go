@@ -182,24 +182,23 @@ func (p *promise) fanOut() {
 // ChainedPromise is safe for concurrent use. The resolve/reject functions can be
 // called from any goroutine, but handlers always execute on the event loop thread.
 type ChainedPromise struct {
+	// Pointer fields (all require 8-byte alignment, grouped first for better cache locality)
 	result Result
-
-	// Pointer fields (all require 8-byte alignment, grouped last)
-	js *JS
+	js     *JS
 	// h0 is the first handler (embedded to avoid slice allocation).
 	// Most promises have only 1 handler.
 	h0 handler
+	// channels stores channels from ToChannel() calls
+	// Set during pending state, cleared after settlement
+	channels []chan Result
 
-	// Non-pointer, non-atomic fields (no pointer alignment needed)
+	// Atomic state (requires 8-byte alignment)
+	state atomic.Int32
+	// Non-pointer, non-atomic fields
 	id uint64
 
 	// Non-pointer synchronization primitives
 	mu sync.Mutex
-
-	// Atomic state (requires 8-byte alignment, grouped)
-	state atomic.Int32
-	// Optimization: Store additional handlers in p.result type-punned as []handler
-	_ [4]byte // Padding to 8-byte
 }
 
 // handler represents a reaction to promise settlement.
@@ -318,14 +317,35 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 
 	h0 := p.h0
 	var handlers []handler
+
+	// Extract handlers before they get overwritten with the actual result
 	if p.result != nil {
-		handlers = p.result.([]handler)
+		if hrs, ok := p.result.([]handler); ok {
+			handlers = hrs
+		}
 	}
+
+	// Extract channels for notification
+	channels := p.channels
+	p.channels = nil // Clear channels to prevent double-notification
 
 	p.h0 = handler{}
 	p.result = value
 	p.state.Store(int32(Fulfilled))
 	p.mu.Unlock()
+
+	// Notify all channels registered via ToChannel()
+	for _, ch := range channels {
+		select {
+		case ch <- value:
+		default:
+			// Channel might be full or closed, skip
+		}
+	}
+	// Close all channels
+	for _, ch := range channels {
+		close(ch)
+	}
 
 	// CLEANUP: Prevent leak on success
 	if js != nil {
@@ -374,9 +394,17 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	// Solution: Don't clear handlers until AFTER processing them
 	h0 := p.h0
 	var handlers []handler
+
+	// Extract handlers before they get overwritten with the actual reason
 	if p.result != nil {
-		handlers = p.result.([]handler)
+		if hrs, ok := p.result.([]handler); ok {
+			handlers = hrs
+		}
 	}
+
+	// Extract channels for notification
+	channels := p.channels
+	p.channels = nil // Clear channels to prevent double-notification
 
 	// Set reason BEFORE processing handlers (needed for error messages)
 	p.result = reason
@@ -422,6 +450,20 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 
 	// Clear handlers AFTER enqueuing their microtasks
 	p.h0 = handler{}
+
+	// Notify all channels registered via ToChannel()
+	for _, ch := range channels {
+		select {
+		case ch <- reason:
+		default:
+			// Channel might be full or closed, skip
+		}
+	}
+	// Close all channels
+	for _, ch := range channels {
+		close(ch)
+	}
+
 	p.mu.Unlock()
 
 	// NOW call trackRejection (AFTER releasing lock, AFTER enqueuing handlers)
@@ -471,19 +513,16 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 		target:      result,
 	}
 
-	// Mark that this promise now has a handler attached
-	if onRejected != nil {
-		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[p.id] = true
-		js.promiseHandlersMu.Unlock()
-	}
+	// NOTE: We DO NOT set js.promiseHandlers[p.id] = true here anymore.
+	// Instead, we set it AFTER the handler is stored, inside the critical section.
+	// This ensures trackRejection sees the handler BEFORE checking unhandled rejections.
 
 	// Check current state
 	currentState := p.state.Load()
 
 	if currentState == int32(Pending) {
 		// CRITICAL FIX (T27): Re-check state after acquiring lock to handle race
-		// then() checks p.state above (line ~477), then acquires p.mu
+		// then() checks p.state above, then acquires p.mu
 		// If reject() runs concurrently, it may have left Rejected state
 		// Snapshot taken when Pending is now stale
 		// Solution: Re-read state under lock to catch this race
@@ -514,6 +553,26 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 				}
 
 				// Schedule handler as microtask for already-rejected promise
+				// ALSO signal handler ready for trackRejection synchronization
+				if onRejected != nil {
+					js.promiseHandlersMu.Lock()
+					js.promiseHandlers[p.id] = true
+					js.promiseHandlersMu.Unlock()
+					// Signal that handler is registered (for trackRejection synchronization)
+					js.handlerReadyMu.Lock()
+					if ch, exists := js.handlerReadyChans[p.id]; exists {
+						// Close channel to signal handler registration
+						// Use select with default to avoid blocking if no one is waiting
+						select {
+						case <-ch:
+							// Already closed
+						default:
+							close(ch)
+						}
+					}
+					js.handlerReadyMu.Unlock()
+				}
+
 				r := p.Reason()
 				js.QueueMicrotask(func() {
 					tryCall(onRejected, r, result)
@@ -529,7 +588,7 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 			return result
 		}
 
-		// Still pending: store handler
+		// Still pending: store handler FIRST, then mark as tracked
 		if p.h0.target == nil {
 			p.h0 = h
 		} else {
@@ -543,6 +602,28 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 			p.result = handlers
 		}
 		p.mu.Unlock()
+
+		// NOW mark as tracked AFTER storing the handler
+		// This ensures trackRejection sees the handler before checking
+		if onRejected != nil {
+			js.promiseHandlersMu.Lock()
+			js.promiseHandlers[p.id] = true
+			js.promiseHandlersMu.Unlock()
+
+			// Signal that handler is registered (for trackRejection synchronization)
+			js.handlerReadyMu.Lock()
+			if ch, exists := js.handlerReadyChans[p.id]; exists {
+				// Close channel to signal handler registration
+				// Use select with default to avoid blocking if no one is waiting
+				select {
+				case <-ch:
+					// Already closed
+				default:
+					close(ch)
+				}
+			}
+			js.handlerReadyMu.Unlock()
+		}
 	} else {
 		// Already settled: retroactive cleanup for settled promises - This fixes Memory Leak #3 from review.md Section 2.A
 		if onRejected != nil && currentState == int32(Fulfilled) {
@@ -564,6 +645,26 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 			}
 
 			// Schedule handler as microtask for already-rejected promise
+			// ONLY track if currently unhandled (for trackRejection synchronization)
+			if isUnhandled {
+				js.promiseHandlersMu.Lock()
+				js.promiseHandlers[p.id] = true
+				js.promiseHandlersMu.Unlock()
+				// Signal that handler is registered (for trackRejection synchronization)
+				js.handlerReadyMu.Lock()
+				if ch, exists := js.handlerReadyChans[p.id]; exists {
+					// Close channel to signal handler registration
+					// Use select with default to avoid blocking if no one is waiting
+					select {
+					case <-ch:
+						// Already closed
+					default:
+						close(ch)
+					}
+				}
+				js.handlerReadyMu.Unlock()
+			}
+
 			r := p.Reason()
 			js.QueueMicrotask(func() {
 				tryCall(onRejected, r, result)
@@ -626,12 +727,22 @@ func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Res
 		p.mu.Unlock()
 	} else {
 		// Already settled: call handler synchronously (not spec-compliant)
-		if currentState == int32(Fulfilled) && onFulfilled != nil {
+		if currentState == int32(Fulfilled) {
 			v := p.Value()
-			tryCall(onFulfilled, v, result)
-		} else if currentState == int32(Rejected) && onRejected != nil {
+			if onFulfilled != nil {
+				tryCall(onFulfilled, v, result)
+			} else {
+				// Nil handler means pass-through
+				result.resolve(v, result.js)
+			}
+		} else if currentState == int32(Rejected) {
 			r := p.Reason()
-			tryCall(onRejected, r, result)
+			if onRejected != nil {
+				tryCall(onRejected, r, result)
+			} else {
+				// Nil handler means pass-through rejection
+				result.reject(r, result.js)
+			}
 		}
 	}
 
@@ -684,13 +795,9 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 		onFinally = func() {}
 	}
 
-	// Mark that this promise now has a handler attached
-	// Finally counts as handling rejection (it runs whether fulfilled or rejected)
-	if js != nil {
-		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[p.id] = true
-		js.promiseHandlersMu.Unlock()
-	}
+	// NOTE: We DO NOT set js.promiseHandlers[p.id] = true here anymore.
+	// Instead, we set it AFTER the handlers are stored, inside the critical section.
+	// This ensures trackRejection sees the handler BEFORE checking unhandled rejections.
 
 	// Create handler that runs onFinally then forwards result
 	handlerFunc := func(value Result, isRejection bool, target *ChainedPromise) {
@@ -754,6 +861,26 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 			p.result = handlers
 		}
 		p.mu.Unlock()
+
+		// NOW mark as tracked AFTER storing the handlers
+		// This ensures trackRejection sees the handler before checking
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[p.id] = true
+		js.promiseHandlersMu.Unlock()
+
+		// Signal that handler is registered (for trackRejection synchronization)
+		js.handlerReadyMu.Lock()
+		if ch, exists := js.handlerReadyChans[p.id]; exists {
+			// Close channel to signal handler registration
+			// Use select with default to avoid blocking if no one is waiting
+			select {
+			case <-ch:
+				// Already closed
+			default:
+				close(ch)
+			}
+		}
+		js.handlerReadyMu.Unlock()
 	} else {
 		// Already settled: run onFinally and forward result
 		if currentState == int32(Fulfilled) {
@@ -766,11 +893,45 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	return result
 }
 
+// ToChannel returns a channel that will receive the result when the promise settles.
+// The channel is buffered (capacity 1) and will be closed after sending.
+// If the promise is already settled, returns a pre-filled channel.
+// Thread-safe and can be called from any goroutine.
+func (p *ChainedPromise) ToChannel() <-chan Result {
+	ch := make(chan Result, 1)
+
+	currentState := p.state.Load()
+	if currentState != int32(Pending) {
+		// Already settled, send result immediately
+		ch <- p.result
+		close(ch)
+		return ch
+	}
+
+	// Pending: set up callback to send result when settled
+	p.mu.Lock()
+	// Double-check state after acquiring lock
+	if p.state.Load() != int32(Pending) {
+		p.mu.Unlock()
+		ch <- p.result
+		close(ch)
+		return ch
+	}
+
+	// Store the channel
+	p.channels = append(p.channels, ch)
+	p.mu.Unlock()
+
+	return ch
+}
+
 // tryCall calls a function with the given value, resolving or rejecting the target.
 func tryCall(fn func(Result) Result, v Result, target *ChainedPromise) {
 	defer func() {
 		if r := recover(); r != nil {
-			target.reject(r, target.js)
+			// Wrap panic value in PanicError to provide consistent error interface
+			panicErr := PanicError{Value: r}
+			target.reject(panicErr, target.js)
 		}
 	}()
 
@@ -787,6 +948,11 @@ func tryCall(fn func(Result) Result, v Result, target *ChainedPromise) {
 
 // trackRejection tracks a rejected promise for unhandled rejection detection.
 // This is called from the reject() method.
+//
+// This implementation ensures that checkUnhandledRejections runs AFTER all concurrent
+// handler registrations from then() by using proper channel synchronization.
+// Each rejection waits for a handler to be registered (or determines none will be)
+// before checking for unhandled rejections.
 func (js *JS) trackRejection(promiseID uint64, reason Result) {
 	// Store rejection info
 	info := &rejectionInfo{
@@ -798,17 +964,75 @@ func (js *JS) trackRejection(promiseID uint64, reason Result) {
 	js.unhandledRejections[promiseID] = info
 	js.rejectionsMu.Unlock()
 
-	// CRITICAL FIX (T27): Use atomic counter to prevent duplicate microtasks
+	// CRITICAL FIX: Use atomic counter to prevent duplicate microtasks
 	// checkUnhandledRejections checks all unhandled rejections, so we only need
 	// ONE scheduled check running at a time, not one per rejection
-	js.checkRejectionScheduled.Store(true)
-	_ = js.checkRejectionScheduled.CompareAndSwap(false, true)
+	if !js.checkRejectionScheduled.CompareAndSwap(false, true) {
+		// Another check is already scheduled, this rejection will be caught by it
+		return
+	}
 
-	// Schedule a microtask to check if this rejection was handled
+	// Create a channel for this rejection to signal handler registration
+	// Multiple rejections to the same promise share this channel
+	handlerReady := make(chan struct{})
+
+	// Try to store the channel so then() can signal when handler is registered
+	// Use atomic compare-and-swap to avoid races with concurrent rejections
+	handlerKey := promiseID
+
+	js.handlerReadyMu.Lock()
+	// Check if another rejection already stored a channel
+	if _, exists := js.handlerReadyChans[handlerKey]; !exists {
+		// No channel yet, store ours
+		js.handlerReadyChans[handlerKey] = handlerReady
+	}
+	js.handlerReadyMu.Unlock()
+
+	// Schedule the check to wait for handler registration
+	// This is queued via ScheduleMicrotask which is called BEFORE QueueMicrotask
+	// in the overall sequence, ensuring proper ordering
+	//
+	// CRITICAL: We wait for handler registration (via channel) to prevent
+	// false positives where checkUnhandledRejections runs before the handler
+	// is registered in promiseHandlers. However, we also check promiseHandlers
+	// after the wait to handle the case where no handler is ever attached.
 	js.loop.ScheduleMicrotask(func() {
-		js.checkUnhandledRejections()
+		// Check if we should wait for a handler
+		js.handlerReadyMu.Lock()
+		ch, exists := js.handlerReadyChans[handlerKey]
+		if exists {
+			// Remove from map so then() knows we're done waiting
+			delete(js.handlerReadyChans, handlerKey)
+		}
+		js.handlerReadyMu.Unlock()
+
+		if exists && ch == handlerReady {
+			// Wait for handler registration signal with timeout
+			// Use a timeout to avoid deadlocks when no handler is attached
+			select {
+			case <-handlerReady:
+				// Handler was registered
+			case <-time.After(10 * time.Millisecond):
+				// Timeout - no handler registered yet
+			}
+		}
+
+		// Check if handler exists in promiseHandlers
+		// If it does, skip the check (it will be handled properly)
+		// If it doesn't, run the check (to catch truly unhandled rejections)
+		js.promiseHandlersMu.RLock()
+		_, handlerExists := js.promiseHandlers[promiseID]
+		js.promiseHandlersMu.RUnlock()
+
+		if !handlerExists {
+			// No handler registered, run check to catch unhandled rejection
+			js.checkUnhandledRejections()
+		}
+		// If handler exists, skip the check - the handler will be processed
+		// and a subsequent check will clean up
+
 		// Mark as completed (allow next one to be scheduled)
-		_ = js.checkRejectionScheduled.CompareAndSwap(true, false)
+		js.checkRejectionScheduled.Store(false)
 	})
 }
 

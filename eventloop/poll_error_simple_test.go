@@ -17,7 +17,10 @@ func Test_PollError_Path(t *testing.T) {
 	}
 
 	t.Run("Loop handles shutdown gracefully", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -25,10 +28,13 @@ func Test_PollError_Path(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		// Start the loop
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		// Submit some tasks
@@ -43,9 +49,14 @@ func Test_PollError_Path(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 
 		// Shutdown the loop (tests shutdown path)
-		_ = loop.Shutdown(context.Background())
-		cancel()
-		time.Sleep(100 * time.Millisecond)
+		loop.Shutdown(context.Background())
+
+		// Wait for loop to finish
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+			// Loop might already be done
+		}
 
 		// Verify termination
 		if loop.State() != StateTerminated {
@@ -54,7 +65,10 @@ func Test_PollError_Path(t *testing.T) {
 	})
 
 	t.Run("Loop accepts work in Running state", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -62,9 +76,12 @@ func Test_PollError_Path(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		// Wait for loop to be ready
@@ -88,12 +105,19 @@ func Test_PollError_Path(t *testing.T) {
 			t.Fatalf("Expected 10 tasks executed, got %d", taskCount.Load())
 		}
 
-		_ = loop.Shutdown(context.Background())
-		cancel()
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 
 	t.Run("Loop rejects work after termination", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -101,9 +125,12 @@ func Test_PollError_Path(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		// Submit initial task
@@ -115,9 +142,12 @@ func Test_PollError_Path(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 
 		// Shutdown
-		_ = loop.Shutdown(context.Background())
-		cancel()
-		time.Sleep(50 * time.Millisecond)
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 
 		// Try to submit after termination
 		err = loop.Submit(func() {})
@@ -139,7 +169,10 @@ func Test_PollError_Concurrency(t *testing.T) {
 	}
 
 	t.Run("Concurrent task submission", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -147,9 +180,12 @@ func Test_PollError_Concurrency(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		var wg sync.WaitGroup
@@ -172,12 +208,19 @@ func Test_PollError_Concurrency(t *testing.T) {
 
 		t.Logf("Executed %d tasks", taskCount.Load())
 
-		_ = loop.Shutdown(context.Background())
-		cancel()
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 
 	t.Run("Concurrent submission and shutdown", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -185,9 +228,12 @@ func Test_PollError_Concurrency(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		var wg sync.WaitGroup
@@ -203,10 +249,14 @@ func Test_PollError_Concurrency(t *testing.T) {
 
 		// Shutdown while submissions are happening
 		time.Sleep(10 * time.Millisecond)
-		_ = loop.Shutdown(context.Background())
+		loop.Shutdown(context.Background())
 
 		wg.Wait()
-		cancel()
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 }
 
@@ -219,7 +269,10 @@ func Test_PollError_Microtasks(t *testing.T) {
 	}
 
 	t.Run("Microtasks execute", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -227,9 +280,12 @@ func Test_PollError_Microtasks(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		count := atomic.Int32{}
@@ -254,8 +310,12 @@ func Test_PollError_Microtasks(t *testing.T) {
 			t.Fatal("Expected some microtasks to execute")
 		}
 
-		_ = loop.Shutdown(context.Background())
-		cancel()
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 }
 
@@ -268,7 +328,10 @@ func Test_PollError_Timers(t *testing.T) {
 	}
 
 	t.Run("Timers fire before shutdown", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New()
 		if err != nil {
@@ -276,9 +339,12 @@ func Test_PollError_Timers(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		count := atomic.Int32{}
@@ -300,8 +366,12 @@ func Test_PollError_Timers(t *testing.T) {
 			t.Fatal("Expected some timers to fire")
 		}
 
-		_ = loop.Shutdown(context.Background())
-		cancel()
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 }
 
@@ -314,7 +384,10 @@ func Test_PollError_Metrics(t *testing.T) {
 	}
 
 	t.Run("Metrics are recorded", func(t *testing.T) {
-		t.Parallel()
+		// Don't run in parallel - starts a goroutine
+		if t.Skipped() {
+			return
+		}
 
 		loop, err := New(WithMetrics(true))
 		if err != nil {
@@ -322,9 +395,12 @@ func Test_PollError_Metrics(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
+		done := make(chan struct{})
 		go func() {
-			_ = loop.Run(ctx)
+			loop.Run(ctx)
+			close(done)
 		}()
 
 		// Submit tasks
@@ -343,7 +419,11 @@ func Test_PollError_Metrics(t *testing.T) {
 			t.Fatal("Expected non-nil metrics")
 		}
 
-		_ = loop.Shutdown(context.Background())
-		cancel()
+		loop.Shutdown(context.Background())
+
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 }

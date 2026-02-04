@@ -201,33 +201,43 @@ func TestTPSCounterWindowSizing(t *testing.T) {
 		windowSize time.Duration
 		bucketSize time.Duration
 	}{
-		{"medium window", 5 * time.Second, 100 * time.Millisecond},
-		{"large window", 30 * time.Second, 500 * time.Millisecond},
+		{"small window", 500 * time.Millisecond, 50 * time.Millisecond},
+		{"medium window", 2 * time.Second, 100 * time.Millisecond},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			counter := NewTPSCounter(tc.windowSize, tc.bucketSize)
 
-			expectedTPS := 100.0 // 100 events per second
+			// For a rolling window TPS counter, we need to account for events aging out
+			// as time advances. We'll record events and verify they are tracked
+			// within the same bucket (no aging).
 
-			// Record events rapidly (no sleep) to verify immediate tracking
-			eventCount := int(expectedTPS * float64(tc.windowSize/time.Second))
+			// First, verify initial state
+			tps := counter.TPS()
+			if tps != 0 {
+				t.Errorf("Initial TPS should be 0, got %.2f", tps)
+			}
+
+			// Record events and check immediately (no time advancement)
+			expectedTPS := 100.0
+			// Use float64 division to correctly convert duration to seconds
+			// tc.windowSize is in nanoseconds, so we divide by float64(time.Second)
+			eventCount := int(expectedTPS * (float64(tc.windowSize) / float64(time.Second)))
 			for i := 0; i < eventCount; i++ {
 				counter.Increment()
 			}
 
-			// Verify events are tracked immediately after recording
-			tps := counter.TPS()
-			// For small windows, allow lower tolerance due to bucket granularity
-			minTPS := expectedTPS * 0.5
-			if tps < minTPS {
-				t.Errorf("TPS %.2f is below expected minimum [%.2f], %d events not tracked correctly",
-					tps, minTPS, eventCount)
+			// Events should be tracked immediately (in the current bucket)
+			tps = counter.TPS()
+			// Allow some tolerance for timing
+			if tps < expectedTPS*0.8 {
+				t.Errorf("TPS %.2f is below expected [%.2f], events not tracked correctly",
+					tps, expectedTPS)
 			}
 
-			// Wait for events to age out of window
-			time.Sleep(tc.windowSize)
+			// Now wait for events to age out
+			time.Sleep(tc.windowSize + tc.bucketSize)
 
 			// TPS should return to 0 after all events age out
 			tps = counter.TPS()

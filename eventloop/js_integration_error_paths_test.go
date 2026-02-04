@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -722,12 +723,13 @@ func TestClearInterval_RaceCondition_WrapperRunning(t *testing.T) {
 		t.Fatal("NewJS failed:", err)
 	}
 
-	executed := false
+	executed := atomic.Bool{}
+	executed.Store(false)
 	id, err := js.SetInterval(func() {
 		// This executes in interval callback
 		// Give ClearInterval a chance to run mid-execution
 		t.Log("Interval executing")
-		executed = true
+		executed.Store(true)
 	}, 10)
 	if err != nil {
 		t.Fatal("SetInterval failed:", err)
@@ -739,7 +741,7 @@ func TestClearInterval_RaceCondition_WrapperRunning(t *testing.T) {
 
 	// Wait for first execution
 	time.Sleep(25 * time.Millisecond)
-	if !executed {
+	if !executed.Load() {
 		t.Fatal("Interval did not execute")
 	}
 
@@ -828,9 +830,10 @@ func TestQueueMicrotask_PanicRecovery(t *testing.T) {
 	})
 
 	// Queue a second microtask that should still execute
-	afterPanicExecuted := false
+	afterPanicExecuted := atomic.Bool{}
+	afterPanicExecuted.Store(false)
 	_ = js.QueueMicrotask(func() {
-		afterPanicExecuted = true
+		afterPanicExecuted.Store(true)
 	})
 
 	// Run loop
@@ -841,7 +844,7 @@ func TestQueueMicrotask_PanicRecovery(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// If second microtask executes, panic was handled
-	if !afterPanicExecuted {
+	if !afterPanicExecuted.Load() {
 		t.Log("After-panic microtask may not have executed (expected behavior if panic stops processing)")
 	}
 

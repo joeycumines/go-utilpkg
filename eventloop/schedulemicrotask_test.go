@@ -65,6 +65,8 @@ func TestScheduleMicrotask_Ordering(t *testing.T) {
 
 	var results []int
 	var resultsMu sync.Mutex
+	var done atomic.Bool
+	done.Store(false)
 
 	// Schedule multiple microtasks
 	for i := 0; i < 5; i++ {
@@ -76,10 +78,21 @@ func TestScheduleMicrotask_Ordering(t *testing.T) {
 		})
 	}
 
+	// Schedule a final microtask to signal completion
+	loop.ScheduleMicrotask(func() {
+		done.Store(true)
+	})
+
 	go loop.Run(ctx)
 
-	// Wait for all microtasks
-	time.Sleep(100 * time.Millisecond)
+	// Wait for completion signal
+	for !done.Load() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Now safe to read results - all microtasks have completed
+	resultsMu.Lock()
+	defer resultsMu.Unlock()
 
 	if len(results) != 5 {
 		t.Errorf("Expected 5 results, got: %d", len(results))

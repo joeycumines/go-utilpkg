@@ -28,3 +28,8 @@ DEADCODE_ERROR_ON_UNIGNORED = true
 .PHONY: betteralign-apply
 betteralign-apply:
 	$(MAKE) betteralign BETTERALIGN_FLAGS=-apply
+
+# Run specific promise regression test 5 times
+.PHONY: test-promise-race-concurrent
+test-promise-race-concurrent:
+	cd $(PROJECT_ROOT)/eventloop && go test -v -run TestPromiseRace_ConcurrentThenReject_HandlersCalled -count=5 2>&1 | tail -100

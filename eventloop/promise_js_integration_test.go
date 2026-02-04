@@ -602,8 +602,13 @@ func TestJSIntegration_PanicInCallback(t *testing.T) {
 	if reason == nil {
 		t.Error("Rejection reason should not be nil")
 	}
-	if reason != "callback panic" {
-		t.Errorf("Expected panic value 'callback panic', got: %v", reason)
+	// Extract PanicError and get the raw panic value
+	panicErr, ok := reason.(PanicError)
+	if !ok {
+		t.Fatalf("Expected PanicError, got: %T", reason)
+	}
+	if panicErr.Value != "callback panic" {
+		t.Errorf("Expected panic value 'callback panic', got: %v", panicErr.Value)
 	}
 }
 
@@ -634,8 +639,13 @@ func TestJSIntegration_PanicInCatch(t *testing.T) {
 	}
 
 	reason := result.Reason()
-	if reason != "catch panic" {
-		t.Errorf("Expected panic value 'catch panic', got: %v", reason)
+	// Extract PanicError and get the raw panic value
+	panicErr, ok := reason.(PanicError)
+	if !ok {
+		t.Fatalf("Expected PanicError, got: %T", reason)
+	}
+	if panicErr.Value != "catch panic" {
+		t.Errorf("Expected panic value 'catch panic', got: %v", panicErr.Value)
 	}
 }
 
@@ -1149,7 +1159,12 @@ func TestJSIntegration_ErrorPropagationThroughChain(t *testing.T) {
 	)
 
 	p4 := p3.Catch(func(r Result) Result {
-		return "caught: " + r.(string)
+		// Panic is wrapped in PanicError
+		panicErr, ok := r.(PanicError)
+		if !ok {
+			return "error: expected PanicError"
+		}
+		return "caught: " + panicErr.Value.(string)
 	})
 
 	resolve1("start")

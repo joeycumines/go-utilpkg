@@ -65,15 +65,15 @@ type intervalState struct {
 	js      *JS
 
 	// Non-pointer, non-atomic fields first to reduce pointer alignment scope
-	delayMs            int
-	currentLoopTimerID TimerID
+	delayMs int
 
 	// Sync primitives
 	m sync.Mutex // Protects state fields
 
-	// Atomic flags (require 8-byte alignment)
-	canceled atomic.Bool
-	running  atomic.Bool // Tracks when wrapper is actively executing to fix ClearInterval race
+	// Atomic fields (must be 8-byte aligned, placed after non-atomic fields)
+	currentLoopTimerID atomic.Uint64
+	canceled           atomic.Bool
+	running            atomic.Bool // Tracks when wrapper is actively executing to fix ClearInterval race
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
@@ -100,22 +100,28 @@ type intervalState struct {
 //   - JS is safe for concurrent use from multiple goroutines
 //   - Callbacks are always executed on the event loop thread
 type JS struct {
-	unhandledCallback RejectionHandler
-	loop              *Loop
+	// Pointer/map fields first for better cache alignment
+	unhandledCallback   RejectionHandler
+	loop                *Loop
+	intervals           map[uint64]*intervalState
+	unhandledRejections map[uint64]*rejectionInfo
+	promiseHandlers     map[uint64]bool
+	setImmediateMap     map[uint64]*setImmediateState
+	handlerReadyChans   map[uint64]chan struct{}
 
 	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
-	intervals               map[uint64]*intervalState
-	unhandledRejections     map[uint64]*rejectionInfo
-	promiseHandlers         map[uint64]bool
-	setImmediateMap         map[uint64]*setImmediateState
+	// Sync primitives
+	intervalsMu       sync.RWMutex
+	rejectionsMu      sync.RWMutex
+	promiseHandlersMu sync.RWMutex
+	setImmediateMu    sync.RWMutex
+	mu                sync.Mutex
+	handlerReadyMu    sync.Mutex
+
+	// Atomic counters and flags
 	nextImmediateID         atomic.Uint64
 	nextTimerID             atomic.Uint64
-	intervalsMu             sync.RWMutex
-	rejectionsMu            sync.RWMutex
-	promiseHandlersMu       sync.RWMutex
-	setImmediateMu          sync.RWMutex
-	mu                      sync.Mutex
 	checkRejectionScheduled atomic.Bool // Prevents duplicate checkUnhandledRejections microtasks
 }
 
@@ -164,6 +170,7 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 		unhandledRejections: make(map[uint64]*rejectionInfo),
 		promiseHandlers:     make(map[uint64]bool),
 		setImmediateMap:     make(map[uint64]*setImmediateState),
+		handlerReadyChans:   make(map[uint64]chan struct{}),
 	}
 
 	// ID Separation: SetImmediates start at high IDs to prevent collision
@@ -256,9 +263,10 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		js:      js,
 	}
 
-	// Create wrapper function that accesses itself via state.wrapper
-	// We define it as a closure that will be set below
-	wrapper := func() {
+	// Create wrapper function that captures itself via closure variable
+	// This avoids race condition where wrapper reads state.wrapper without lock
+	var wrapper func()
+	wrapper = func() {
 		// Mark wrapper as running to fix ClearInterval race condition
 		state.running.Store(true)
 		defer state.running.Store(false)
@@ -270,42 +278,58 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 			}
 		}()
 
-		// Run user's function
-		state.fn()
-
-		// Check if interval was canceled BEFORE trying to acquire lock
+		// Check if interval was canceled BEFORE running user's function
 		// This prevents deadlock when wrapper runs on event loop thread
 		// while ClearInterval holds the lock on another thread
+		// CRITICAL: Must check before acquiring any locks or running user code
 		if state.canceled.Load() {
 			return
 		}
 
-		// Cancel previous timer
-		state.m.Lock()
-		if state.currentLoopTimerID != 0 {
-			js.loop.CancelTimer(state.currentLoopTimerID)
-		}
-		// Check canceled flag again after acquiring lock (for double-check)
+		// Run user's function - might acquire locks, so check canceled first
+		state.fn()
+
+		// Check if interval was canceled AFTER running user's function
+		// This catches the case where ClearInterval was called during fn execution
 		if state.canceled.Load() {
-			state.m.Unlock()
 			return
 		}
 
-		// Schedule next execution, using wrapper from state
-		// CRITICAL: Wrapper must be read under state.m.Lock() to avoid race with SetInterval initialization
-		currentWrapper := state.wrapper
-		state.m.Unlock()
+		// Cancel previous timer using atomic operations to avoid deadlock
+		// Use CompareAndSwap to atomically read-and-clear the timer ID
+		oldTimerID := state.currentLoopTimerID.Load()
+		if oldTimerID != 0 {
+			// Try to atomically set to 0 - only succeeds if still the old value
+			// This prevents races where ClearInterval might be canceling
+			if state.currentLoopTimerID.CompareAndSwap(oldTimerID, 0) {
+				// We successfully claimed ownership of canceling this timer
+				js.loop.CancelTimer(TimerID(oldTimerID))
+			}
+		}
 
-		// Schedule timer outside lock to avoid potential deadlock with timer scheduling
-		loopTimerID, err := js.loop.ScheduleTimer(state.getDelay(), currentWrapper)
+		// Check canceled flag one more time after timer operations
+		// This catches the case where ClearInterval was called during timer cancellation
+		if state.canceled.Load() {
+			return
+		}
+
+		// Schedule next execution using captured wrapper reference
+		// This avoids the race condition of reading state.wrapper without lock
+		loopTimerID, err := js.loop.ScheduleTimer(state.getDelay(), wrapper)
 		if err != nil {
+			// Scheduling failed - try to restore timer ID if not canceled
+			if !state.canceled.Load() {
+				// Atomically try to restore the timer ID
+				state.currentLoopTimerID.CompareAndSwap(0, uint64(loopTimerID))
+			}
 			return
 		}
 
-		// Reacquire lock for loopTimerID update
-		state.m.Lock()
-		state.currentLoopTimerID = loopTimerID
-		state.m.Unlock()
+		// Atomically update the timer ID - this is safe because:
+		// 1. We already checked canceled.Load() after timer cancellation
+		// 2. ClearInterval uses CompareAndSwap, so it won't overwrite our new value
+		// 3. If ClearInterval races with us, the CAS will fail harmlessly
+		state.currentLoopTimerID.CompareAndSwap(0, uint64(loopTimerID))
 	}
 
 	// IMPORTANT: Assign id BEFORE any scheduling
@@ -327,8 +351,8 @@ func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
 		return 0, err
 	}
 
-	// Update loopTimerID in state for next cancellation
-	state.currentLoopTimerID = loopTimerID
+	// Atomically update loopTimerID in state for next cancellation
+	state.currentLoopTimerID.Store(uint64(loopTimerID))
 	state.m.Unlock()
 
 	// Store interval state in global map with initial mapping
@@ -366,25 +390,31 @@ func (js *JS) ClearInterval(id uint64) error {
 		return ErrTimerNotFound
 	}
 
-	// Mark as canceled BEFORE acquiring lock to prevent deadlock
-	// This allows wrapper function to exit without blocking
+	// Mark as canceled BEFORE trying to cancel timer
+	// This prevents the wrapper from rescheduling after we cancel
 	state.canceled.Store(true)
 
-	state.m.Lock()
-	defer state.m.Unlock()
-
-	// Cancel pending scheduled timer if any
-	if state.currentLoopTimerID != 0 {
-		// Handle all cancellation errors gracefully - if timer is already fired or not found,
-		// that's acceptable (race condition during wrapper execution)
-		if err := js.loop.CancelTimer(state.currentLoopTimerID); err != nil {
-			// If the error is not "timer not found", it's a real error
-			if !errors.Is(err, ErrTimerNotFound) {
-				return err
+	// Use atomic operations to avoid deadlock with wrapper
+	// Try to atomically claim ownership of the timer ID for cancellation
+	oldTimerID := state.currentLoopTimerID.Load()
+	if oldTimerID != 0 {
+		// Try to atomically set to 0 - only succeeds if still the old value
+		// This prevents races where the wrapper might be rescheduling
+		if state.currentLoopTimerID.CompareAndSwap(oldTimerID, 0) {
+			// We successfully claimed ownership - cancel the timer
+			// Handle all cancellation errors gracefully - if timer is already fired or not found,
+			// that's acceptable (race condition during wrapper execution)
+			if err := js.loop.CancelTimer(TimerID(oldTimerID)); err != nil {
+				// If the error is not "timer not found", it's a real error
+				if !errors.Is(err, ErrTimerNotFound) {
+					return err
+				}
+				// ErrTimerNotFound is OK - timer already fired
 			}
-			// ErrTimerNotFound is OK - timer already fired
 		}
+		// If CAS failed, the wrapper has claimed ownership - it will handle cleanup
 	}
+
 	// If currentLoopTimerID is 0, check running flag:
 	// 1. If running=true: Interval successfully created and wrapper executing
 	//    ClearInterval called before first timer scheduled (or between executions)
@@ -392,10 +422,7 @@ func (js *JS) ClearInterval(id uint64) error {
 	// 2. If running=false: Timer hasn't been scheduled yet (race during SetInterval startup)
 	//    OR wrapper exited (timer fired and done)
 	//    In both cases, skip cancellation - cancel flag prevents future scheduling
-	if state.currentLoopTimerID == 0 && !state.running.Load() {
-		// Timer never scheduled or already completed - skip cancellation
-		// The canceled flag will prevent future rescheduling
-	}
+	// Note: We don't need to check this separately since CAS would handle it
 
 	// Remove from intervals map
 	js.intervalsMu.Lock()

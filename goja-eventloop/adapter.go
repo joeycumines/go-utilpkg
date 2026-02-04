@@ -716,6 +716,12 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 		return jsObj
 	}
 
+	// Handle PanicError from tryCall (unwrap and recurse)
+	if panicErr, ok := v.(goeventloop.PanicError); ok {
+		// Recursively convert the wrapped panic value
+		return a.convertToGojaValue(panicErr.Value)
+	}
+
 	// Handle Goja exceptions (unwrap to original JS value)
 	if ex, ok := v.(*goja.Exception); ok {
 		return ex.Value()

@@ -84,7 +84,10 @@ func (p *FastPoller) Init() error {
 
 // Close closes the kqueue instance.
 func (p *FastPoller) Close() error {
-	p.closed.Store(true)
+	if p.closed.Swap(true) {
+		// Already closed, return nil for idempotent behavior
+		return nil
+	}
 	if p.kq > 0 {
 		return unix.Close(int(p.kq))
 	}

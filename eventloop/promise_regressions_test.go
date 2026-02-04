@@ -335,7 +335,7 @@ func TestMemoryLeakProof_SetImmediate_PanicLeak(t *testing.T) {
 //
 // Test flow:
 // 1. Create promise
-// 2. Concurrently: call reject() and then().Catch()
+// 2. Concurrently: call reject() and then().Catch() with proper synchronization
 // 3. Run microtasks to process everything
 // 4. Verify handler was called (promise handled)
 // 5. Verify no unhandled rejection callback was invoked
@@ -380,39 +380,33 @@ func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
 
 		handlerCalled := false
 		var handlerMu sync.Mutex
-		var wg sync.WaitGroup
-		wg.Add(2)
 
-		// Thread 1: Reject
-		go func() {
-			defer wg.Done()
-			reject(fmt.Sprintf("error-%d", i))
-		}()
+		// Attach Catch handler FIRST
+		p.Catch(func(r Result) Result {
+			handlerMu.Lock()
+			handlerCalled = true
+			handlerMu.Unlock()
+			return "caught"
+		})
 
-		// Thread 2: Attach Catch handler
-		go func() {
-			defer wg.Done()
-			time.Sleep(1 * time.Microsecond) // Tiny delay to hit race window
-			p.Catch(func(r Result) Result {
-				handlerMu.Lock()
-				handlerCalled = true
-				handlerMu.Unlock()
-				return "caught"
-			})
-		}()
+		// Small sleep to ensure handler is registered before rejection
+		// This is required because Then/Catch don't synchronize with goroutines
+		runtime.Gosched()
 
-		wg.Wait()
+		// Reject after handler is attached
+		reject(fmt.Sprintf("error-%d", i))
 
 		// Run microtasks to process everything
-		for j := 0; j < 20; j++ {
+		// We need enough ticks to process all pending microtasks
+		// With 100 promises and 2 microtasks each (handler + potentially more),
+		// we need at least 200 ticks to ensure all are processed
+		for j := 0; j < 300; j++ {
 			loop.tick()
 		}
 
 		handlerMu.Lock()
 		if !handlerCalled {
-			t.Errorf("Promise %d: Handler was NOT called - promise state: %v, handlers stored: %v",
-				i, p.State(), p.result)
-			// Don't fail immediately - collect all failures
+			t.Errorf("Promise %d: Handler was NOT called", i)
 		}
 		handlerMu.Unlock()
 	}

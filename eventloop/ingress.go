@@ -76,7 +76,15 @@ func newChunk() *chunk {
 
 // returnChunk returns an exhausted chunk to the pool.
 // It assumes all tasks have been cleared by Pop before returning.
+//
+// IMP-002 Fix: Clear task slots before returning to prevent memory leaks
+// from retained references to task closures.
 func returnChunk(c *chunk) {
+	// Clear all task slots to prevent memory leaks from retained closures
+	// Matches pattern from alternatetwo/returnChunkFast()
+	for i := 0; i < c.pos; i++ {
+		c.tasks[i] = nil
+	}
 	c.pos = 0
 	c.readPos = 0
 	c.next = nil

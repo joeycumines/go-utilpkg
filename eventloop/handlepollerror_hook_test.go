@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -156,10 +157,10 @@ func TestHandlePollError_LogMessage(t *testing.T) {
 // executes and the state machine handles it correctly.
 func TestHandlePollError_StateTransitionFromSleeping(t *testing.T) {
 	testHooks := &loopTestHooks{}
-	sleepCount := 0
+	var sleepCount int32
 	testHooks.PrePollSleep = func() {
-		sleepCount++
-		if sleepCount == 3 {
+		atomic.AddInt32(&sleepCount, 1)
+		if atomic.LoadInt32(&sleepCount) == 3 {
 			// Inject error when loop is settled in Sleeping state
 			testHooks.PollError = func() error {
 				return errors.New("test poll error")
@@ -197,8 +198,8 @@ func TestHandlePollError_StateTransitionFromSleeping(t *testing.T) {
 
 	// Verify handlePollError executed (CRITICAL log should appear)
 	// Regardless of whether transition succeeded, handlePollError code path executed
-	if sleepCount >= 3 {
-		t.Logf("PrePollSleep called %d times, PollError injected", sleepCount)
+	if atomic.LoadInt32(&sleepCount) >= 3 {
+		t.Logf("PrePollSleep called %d times, PollError injected", atomic.LoadInt32(&sleepCount))
 	}
 
 	// Key verification: handlePollError executed (see CRITICAL log in output)
