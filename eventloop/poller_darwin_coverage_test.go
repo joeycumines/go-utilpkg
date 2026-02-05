@@ -4,6 +4,8 @@
 // purpose with or without fee is hereby granted, provided that this copyright
 // notice appears in all copies.
 
+//go:build darwin
+
 package eventloop
 
 import (

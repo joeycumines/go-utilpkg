@@ -80,3 +80,7 @@ coverage-analysis:
 # Wakeup coverage tests - specific test execution
 test-wakeup-coverage:
 	cd /Users/joeyc/dev/go-utilpkg/eventloop && go test -v -timeout=30s -run "TestDrainWakeUpPipe_NegativeWakePipe|TestWakeUpPipe_Integration" ./... 2>&1
+
+# TestWakeup_HighContention specific test
+test-wakeup-high-contention:
+	cd /Users/joeyc/dev/go-utilpkg/eventloop && go test -v -timeout=30s -run "TestWakeup_HighContention" 2>&1

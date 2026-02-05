@@ -9,6 +9,7 @@
 package eventloop
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"testing"
@@ -92,7 +93,7 @@ func TestDrainWakeUpPipe_ReadErrorPath(t *testing.T) {
 	if err != nil {
 		t.Fatal("New failed:", err)
 	}
-	defer loop.Shutdown(nil)
+	defer loop.Shutdown(context.TODO())
 
 	// Create a pipe and register it to force the loop into I/O mode
 	pipeR, pipeW, err := os.Pipe()
@@ -134,7 +135,7 @@ func TestDrainWakeUpPipe_NegativeWakePipe(t *testing.T) {
 	if err != nil {
 		t.Fatal("New failed:", err)
 	}
-	defer loop.Shutdown(nil)
+	defer loop.Shutdown(context.TODO())
 
 	// Note: Setting wakePipe to -1 after initialization might cause issues
 	// because the loop expects wakePipe to be valid for normal operation
