@@ -82,6 +82,25 @@ const (
 //
 // Design note: Mutex+chunking is used for ingress because benchmarks showed it outperforms
 // lock-free CAS under high contention due to O(N) retry storms.
+//
+// Thread Safety:
+//
+// Loop is designed for concurrent use from multiple goroutines. The following
+// methods are safe to call concurrently:
+//   - [Loop.Submit], [Loop.SubmitInternal], [Loop.ScheduleMicrotask] - task submission
+//   - [Loop.ScheduleTimer], [Loop.CancelTimer] - timer management
+//   - [Loop.RegisterFD], [Loop.UnregisterFD], [Loop.ModifyFD] - I/O registration
+//   - [Loop.SetFastPathMode] - runtime mode configuration
+//   - [Loop.Metrics] - metrics retrieval (returns consistent snapshot)
+//   - [Loop.State], [Loop.CurrentTickTime] - state inspection
+//   - [Loop.Wake] - manual wakeup
+//   - [Loop.Shutdown], [Loop.Close] - lifecycle management
+//
+// The following should only be called once:
+//   - [Loop.Run] - blocks until completion; returns error if called again
+//
+// Callbacks registered via Submit, ScheduleTimer, etc. are always executed
+// on the loop goroutine (the goroutine calling Run), never concurrently.
 type Loop struct {
 	_ [0]func() // Prevent copying
 
@@ -1683,16 +1702,19 @@ func (l *Loop) safeExecuteFn(fn func()) {
 
 // Metrics returns current metrics of the event loop.
 //
-// This method samples latency percentiles (P50, P90, P95, P99) which
-// involves sorting all collected samples (O(n log n) complexity). For typical
-// configuration with 1000 samples, this takes ~100-200 microseconds.
+// This method samples latency percentiles (P50, P90, P95, P99) using the P-Square
+// algorithm for O(1) retrieval. For counts >= 5, percentiles are approximate
+// (typically <5% relative error); for smaller counts, exact sorting is used.
 //
 // Recommendation: Call Metrics() no more than once per second for monitoring.
-// Calling Metrics() more frequently may impact event loop performance.
+// More frequent calls are safe but provide diminishing value.
 //
-// Thread Safety: This method returns a consistent snapshot of metrics at call time.
-// The returned Metrics struct is a copy and safe to read without synchronization.
-// User can freely access fields without race condition with event loop updates.
+// Thread Safety:
+//
+// This method is safe to call concurrently from any goroutine. It returns a
+// consistent snapshot of metrics at call time. The returned *Metrics struct
+// is a deep copy that can be retained and read without synchronization.
+// The caller owns the returned struct and can safely access all fields.
 func (l *Loop) Metrics() *Metrics {
 	if l.metrics == nil {
 		return nil

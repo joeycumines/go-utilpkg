@@ -1,8 +1,14 @@
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
@@ -14,8 +20,13 @@ type Adapter struct {
 	js               *goeventloop.JS
 	runtime          *goja.Runtime
 	loop             *goeventloop.Loop
-	promisePrototype *goja.Object  // CRITICAL #3: Promise.prototype for instanceof support
-	getIterator      goja.Callable // Helper function to get [Symbol.iterator]
+	promisePrototype *goja.Object         // CRITICAL #3: Promise.prototype for instanceof support
+	consoleTimers    map[string]time.Time // FEATURE-004: label -> start time
+
+	getIterator   goja.Callable // Helper function to get [Symbol.iterator]
+	consoleOutput io.Writer     // output writer for console (defaults to os.Stderr)
+
+	consoleTimersMu sync.RWMutex // protects consoleTimers (FEATURE-004)
 }
 
 // New creates a new Goja adapter for given event loop and runtime.
@@ -33,9 +44,11 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	}
 
 	return &Adapter{
-		js:      js,
-		runtime: runtime,
-		loop:    loop,
+		js:            js,
+		runtime:       runtime,
+		loop:          loop,
+		consoleTimers: make(map[string]time.Time),
+		consoleOutput: os.Stderr, // Default to stderr like browsers/Node.js
 	}, nil
 }
 
@@ -86,6 +99,20 @@ func (a *Adapter) Bind() error {
 		return fmt.Errorf("iterator helper is not a function")
 	}
 	a.getIterator = iterAssert
+
+	// FEATURE-001: AbortController and AbortSignal bindings
+	a.runtime.Set("AbortController", a.abortControllerConstructor)
+	a.runtime.Set("AbortSignal", a.abortSignalConstructor)
+
+	// FEATURE-002/003: performance API bindings
+	if err := a.bindPerformance(); err != nil {
+		return fmt.Errorf("failed to bind performance: %w", err)
+	}
+
+	// FEATURE-004: console.time/timeEnd/timeLog bindings
+	if err := a.bindConsole(); err != nil {
+		return fmt.Errorf("failed to bind console: %w", err)
+	}
 
 	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
 	return a.bindPromise()
@@ -346,7 +373,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 			switch v := goNativeValue.(type) {
 			case []goeventloop.Result:
 				// Convert Go-native slice to JavaScript array
-				jsArr := a.runtime.NewArray(len(v))
+				jsArr := a.runtime.NewArray()
 				for i, val := range v {
 					// CRITICAL #1 FIX: Check each element for already-wrapped promises
 					// R130.6: Use helper to eliminate duplicated promise wrapper detection
@@ -691,7 +718,7 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 
 	// Handle slices of Result (from combinators like All, Race, AllSettled, Any)
 	if arr, ok := v.([]goeventloop.Result); ok {
-		jsArr := a.runtime.NewArray(len(arr))
+		jsArr := a.runtime.NewArray()
 		for i, val := range arr {
 			_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
 		}
@@ -1043,5 +1070,513 @@ func (a *Adapter) bindPromise() error {
 		return a.gojaWrapPromise(promise)
 	}))
 
+	// FEATURE-005: Promise.withResolvers() ES2024 API
+	// Returns an object with { promise, resolve, reject } properties
+	promiseConstructorObj.Set("withResolvers", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		// Use the Go implementation
+		resolvers := a.js.WithResolvers()
+
+		// Create JS object with { promise, resolve, reject }
+		obj := a.runtime.NewObject()
+
+		// Wrap the promise
+		obj.Set("promise", a.gojaWrapPromise(resolvers.Promise))
+
+		// Create resolve function
+		obj.Set("resolve", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			var val any
+			if len(call.Arguments) > 0 {
+				val = call.Argument(0).Export()
+			}
+			resolvers.Resolve(val)
+			return goja.Undefined()
+		}))
+
+		// Create reject function
+		obj.Set("reject", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			var val any
+			if len(call.Arguments) > 0 {
+				val = call.Argument(0).Export()
+			}
+			resolvers.Reject(val)
+			return goja.Undefined()
+		}))
+
+		return obj
+	}))
+
 	return nil
+}
+
+// ===============================================
+// FEATURE-001: AbortController/AbortSignal Bindings
+// ===============================================
+
+// abortControllerConstructor creates the AbortController constructor for JavaScript.
+func (a *Adapter) abortControllerConstructor(call goja.ConstructorCall) *goja.Object {
+	controller := goeventloop.NewAbortController()
+
+	thisObj := call.This
+
+	// Store the native controller
+	thisObj.Set("_controller", controller)
+
+	// Define abort method
+	thisObj.Set("abort", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var reason any
+		if len(call.Arguments) > 0 {
+			reason = call.Argument(0).Export()
+		}
+		controller.Abort(reason)
+		return goja.Undefined()
+	}))
+
+	// Define signal property (getter)
+	signal := controller.Signal()
+	signalObj := a.wrapAbortSignal(signal)
+	thisObj.Set("signal", signalObj)
+
+	return thisObj
+}
+
+// abortSignalConstructor creates the AbortSignal constructor for JavaScript.
+// Note: AbortSignal is not typically constructed directly, but we provide it for completeness.
+func (a *Adapter) abortSignalConstructor(call goja.ConstructorCall) *goja.Object {
+	// AbortSignal should not be constructed directly - throw error
+	panic(a.runtime.NewTypeError("AbortSignal cannot be constructed directly"))
+}
+
+// wrapAbortSignal wraps a Go AbortSignal in a Goja object.
+func (a *Adapter) wrapAbortSignal(signal *goeventloop.AbortSignal) goja.Value {
+	obj := a.runtime.NewObject()
+
+	// Store native signal
+	obj.Set("_signal", signal)
+
+	// aborted property (getter)
+	obj.DefineAccessorProperty("aborted", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.runtime.ToValue(signal.Aborted())
+	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// reason property (getter)
+	obj.DefineAccessorProperty("reason", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reason := signal.Reason()
+		if reason == nil {
+			return goja.Undefined()
+		}
+		return a.convertToGojaValue(reason)
+	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// onabort property
+	var onabortHandler goja.Value
+	obj.DefineAccessorProperty("onabort",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return onabortHandler
+		}),
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			onabortHandler = call.Argument(0)
+			if onabortHandler.Export() == nil {
+				return goja.Undefined()
+			}
+			fn, ok := goja.AssertFunction(onabortHandler)
+			if ok {
+				signal.OnAbort(func(reason any) {
+					_, _ = fn(goja.Undefined(), a.convertToGojaValue(reason))
+				})
+			}
+			return goja.Undefined()
+		}),
+		goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// addEventListener method
+	obj.Set("addEventListener", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		eventType := call.Argument(0).String()
+		if eventType != "abort" {
+			return goja.Undefined() // Only abort events supported
+		}
+		handler := call.Argument(1)
+		if handler.Export() == nil {
+			return goja.Undefined()
+		}
+		fn, ok := goja.AssertFunction(handler)
+		if ok {
+			signal.OnAbort(func(reason any) {
+				event := a.runtime.NewObject()
+				event.Set("type", "abort")
+				event.Set("target", obj)
+				_, _ = fn(goja.Undefined(), event)
+			})
+		}
+		return goja.Undefined()
+	}))
+
+	// throwIfAborted method
+	obj.Set("throwIfAborted", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if err := signal.ThrowIfAborted(); err != nil {
+			panic(a.runtime.NewGoError(err))
+		}
+		return goja.Undefined()
+	}))
+
+	return obj
+}
+
+// ===============================================
+// FEATURE-002/003: Performance API Bindings
+// ===============================================
+
+// bindPerformance creates the performance API bindings for JavaScript.
+func (a *Adapter) bindPerformance() error {
+	perf := goeventloop.NewLoopPerformance(a.loop)
+
+	perfObj := a.runtime.NewObject()
+
+	// performance.now()
+	perfObj.Set("now", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.runtime.ToValue(perf.Now())
+	}))
+
+	// performance.timeOrigin
+	perfObj.DefineAccessorProperty("timeOrigin", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.runtime.ToValue(perf.TimeOrigin())
+	}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// performance.mark(name, options?)
+	perfObj.Set("mark", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+
+		var detail any
+		if len(call.Arguments) > 1 {
+			opts := call.Argument(1).ToObject(a.runtime)
+			if opts != nil {
+				if detailVal := opts.Get("detail"); detailVal != nil {
+					detail = detailVal.Export()
+				}
+			}
+		}
+
+		if detail != nil {
+			perf.MarkWithDetail(name, detail)
+		} else {
+			perf.Mark(name)
+		}
+
+		// Return the created entry
+		entries := perf.GetEntriesByName(name, "mark")
+		if len(entries) > 0 {
+			return a.wrapPerformanceEntry(entries[len(entries)-1])
+		}
+		return goja.Undefined()
+	}))
+
+	// performance.measure(name, startMark?, endMark?)
+	perfObj.Set("measure", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+
+		var startMark, endMark string
+		var detail any
+
+		// Handle different argument patterns
+		if len(call.Arguments) >= 2 {
+			// Check if second arg is options object or string
+			arg1 := call.Argument(1)
+			// Check for undefined/null first, then check type
+			isStringArg := false
+			if goja.IsUndefined(arg1) || goja.IsNull(arg1) {
+				isStringArg = true // Treat undefined/null as non-options
+			} else if exportType := arg1.ExportType(); exportType != nil {
+				isStringArg = exportType.Kind().String() == "string"
+			}
+
+			if isStringArg {
+				// performance.measure(name, startMark, endMark)
+				if !goja.IsUndefined(arg1) && !goja.IsNull(arg1) {
+					startMark = arg1.String()
+				}
+				if len(call.Arguments) >= 3 {
+					arg2 := call.Argument(2)
+					if !goja.IsUndefined(arg2) && !goja.IsNull(arg2) {
+						endMark = arg2.String()
+					}
+				}
+			} else {
+				// performance.measure(name, options)
+				opts := arg1.ToObject(a.runtime)
+				if opts != nil {
+					if v := opts.Get("start"); v != nil && !goja.IsUndefined(v) {
+						startMark = v.String()
+					}
+					if v := opts.Get("end"); v != nil && !goja.IsUndefined(v) {
+						endMark = v.String()
+					}
+					if v := opts.Get("detail"); v != nil && !goja.IsUndefined(v) {
+						detail = v.Export()
+					}
+				}
+			}
+		}
+
+		var err error
+		if detail != nil {
+			err = perf.MeasureWithDetail(name, startMark, endMark, detail)
+		} else {
+			err = perf.Measure(name, startMark, endMark)
+		}
+
+		if err != nil {
+			panic(a.runtime.NewGoError(err))
+		}
+
+		// Return the created entry
+		entries := perf.GetEntriesByName(name, "measure")
+		if len(entries) > 0 {
+			return a.wrapPerformanceEntry(entries[len(entries)-1])
+		}
+		return goja.Undefined()
+	}))
+
+	// performance.getEntries()
+	perfObj.Set("getEntries", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		entries := perf.GetEntries()
+		return a.wrapPerformanceEntries(entries)
+	}))
+
+	// performance.getEntriesByType(type)
+	perfObj.Set("getEntriesByType", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		entryType := call.Argument(0).String()
+		entries := perf.GetEntriesByType(entryType)
+		return a.wrapPerformanceEntries(entries)
+	}))
+
+	// performance.getEntriesByName(name, type?)
+	perfObj.Set("getEntriesByName", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		var entries []goeventloop.PerformanceEntry
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
+			entryType := call.Argument(1).String()
+			entries = perf.GetEntriesByName(name, entryType)
+		} else {
+			entries = perf.GetEntriesByName(name)
+		}
+		return a.wrapPerformanceEntries(entries)
+	}))
+
+	// performance.clearMarks(name?)
+	perfObj.Set("clearMarks", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var name string
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			name = call.Argument(0).String()
+		}
+		perf.ClearMarks(name)
+		return goja.Undefined()
+	}))
+
+	// performance.clearMeasures(name?)
+	perfObj.Set("clearMeasures", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		var name string
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			name = call.Argument(0).String()
+		}
+		perf.ClearMeasures(name)
+		return goja.Undefined()
+	}))
+
+	// performance.clearResourceTimings()
+	perfObj.Set("clearResourceTimings", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		perf.ClearResourceTimings()
+		return goja.Undefined()
+	}))
+
+	// performance.toJSON()
+	perfObj.Set("toJSON", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		json := perf.ToJSON()
+		jsObj := a.runtime.NewObject()
+		for k, v := range json {
+			jsObj.Set(k, a.runtime.ToValue(v))
+		}
+		return jsObj
+	}))
+
+	a.runtime.Set("performance", perfObj)
+	return nil
+}
+
+// wrapPerformanceEntry wraps a Go PerformanceEntry in a Goja object.
+func (a *Adapter) wrapPerformanceEntry(entry goeventloop.PerformanceEntry) goja.Value {
+	obj := a.runtime.NewObject()
+	obj.Set("name", entry.Name)
+	obj.Set("entryType", entry.EntryType)
+	obj.Set("startTime", entry.StartTime)
+	obj.Set("duration", entry.Duration)
+	if entry.Detail != nil {
+		obj.Set("detail", a.runtime.ToValue(entry.Detail))
+	}
+
+	// toJSON method
+	obj.Set("toJSON", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return obj
+	}))
+
+	return obj
+}
+
+// wrapPerformanceEntries wraps a slice of PerformanceEntry in a Goja array.
+func (a *Adapter) wrapPerformanceEntries(entries []goeventloop.PerformanceEntry) goja.Value {
+	// Create array with wrapped entries
+	arr := a.runtime.NewArray()
+	for i, entry := range entries {
+		arr.Set(strconv.Itoa(i), a.wrapPerformanceEntry(entry))
+	}
+	return arr
+}
+
+// ===============================================
+// FEATURE-004: console.time/timeEnd/timeLog API
+// ===============================================
+
+// SetConsoleOutput sets the writer for console.time/timeEnd/timeLog output.
+// This is useful for testing or redirecting output. Defaults to os.Stderr.
+// Setting to nil will disable output (timers still track but no output).
+func (a *Adapter) SetConsoleOutput(w io.Writer) {
+	a.consoleTimersMu.Lock()
+	defer a.consoleTimersMu.Unlock()
+	a.consoleOutput = w
+}
+
+// bindConsole creates console.time/timeEnd/timeLog bindings in Goja global scope.
+// This creates or extends the console object with timer methods.
+func (a *Adapter) bindConsole() error {
+	// Get or create console object
+	consoleVal := a.runtime.Get("console")
+	var consoleObj *goja.Object
+	if consoleVal == nil || goja.IsUndefined(consoleVal) {
+		// No console object exists, create one
+		consoleObj = a.runtime.NewObject()
+		a.runtime.Set("console", consoleObj)
+	} else {
+		// Console object exists, extend it
+		consoleObj = consoleVal.ToObject(a.runtime)
+	}
+
+	// console.time(label) - starts a timer with given label
+	// If label is omitted, "default" is used.
+	// If a timer with the same label already exists, a warning is logged.
+	consoleObj.Set("time", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		label := "default"
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			label = call.Argument(0).String()
+		}
+
+		a.consoleTimersMu.Lock()
+		defer a.consoleTimersMu.Unlock()
+
+		if _, exists := a.consoleTimers[label]; exists {
+			// Timer already exists - log warning (matches Node.js behavior)
+			if a.consoleOutput != nil {
+				fmt.Fprintf(a.consoleOutput, "Warning: Timer '%s' already exists\n", label)
+			}
+			return goja.Undefined()
+		}
+
+		a.consoleTimers[label] = time.Now()
+		return goja.Undefined()
+	}))
+
+	// console.timeEnd(label) - stops timer and logs duration
+	// If label is omitted, "default" is used.
+	// If no timer with the label exists, a warning is logged.
+	// Output format matches Node.js: "label: X.XXXms"
+	consoleObj.Set("timeEnd", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		label := "default"
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			label = call.Argument(0).String()
+		}
+
+		a.consoleTimersMu.Lock()
+		defer a.consoleTimersMu.Unlock()
+
+		startTime, exists := a.consoleTimers[label]
+		if !exists {
+			// Timer doesn't exist - log warning (matches Node.js behavior)
+			if a.consoleOutput != nil {
+				fmt.Fprintf(a.consoleOutput, "Warning: Timer '%s' does not exist\n", label)
+			}
+			return goja.Undefined()
+		}
+
+		elapsed := time.Since(startTime)
+		delete(a.consoleTimers, label)
+
+		// Output format matches Node.js: "label: X.XXXms"
+		if a.consoleOutput != nil {
+			fmt.Fprintf(a.consoleOutput, "%s: %.3fms\n", label, float64(elapsed.Nanoseconds())/1e6)
+		}
+
+		return goja.Undefined()
+	}))
+
+	// console.timeLog(label, ...data) - logs elapsed time without stopping timer
+	// If label is omitted, "default" is used.
+	// If no timer with the label exists, a warning is logged.
+	// Additional arguments are logged after the time.
+	consoleObj.Set("timeLog", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		label := "default"
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			label = call.Argument(0).String()
+		}
+
+		a.consoleTimersMu.RLock()
+		startTime, exists := a.consoleTimers[label]
+		a.consoleTimersMu.RUnlock()
+
+		if !exists {
+			// Timer doesn't exist - log warning (matches Node.js behavior)
+			a.consoleTimersMu.RLock()
+			output := a.consoleOutput
+			a.consoleTimersMu.RUnlock()
+			if output != nil {
+				fmt.Fprintf(output, "Warning: Timer '%s' does not exist\n", label)
+			}
+			return goja.Undefined()
+		}
+
+		elapsed := time.Since(startTime)
+
+		// Build output with optional additional data
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output != nil {
+			// Output format matches Node.js: "label: X.XXXms [data...]"
+			if len(call.Arguments) > 1 {
+				// Additional arguments to log
+				dataStrs := make([]string, 0, len(call.Arguments)-1)
+				for i := 1; i < len(call.Arguments); i++ {
+					dataStrs = append(dataStrs, fmt.Sprintf("%v", call.Argument(i).Export()))
+				}
+				fmt.Fprintf(output, "%s: %.3fms %s\n", label, float64(elapsed.Nanoseconds())/1e6,
+					joinStrings(dataStrs, " "))
+			} else {
+				fmt.Fprintf(output, "%s: %.3fms\n", label, float64(elapsed.Nanoseconds())/1e6)
+			}
+		}
+
+		return goja.Undefined()
+	}))
+
+	return nil
+}
+
+// joinStrings joins a slice of strings with a separator.
+// This is a simple helper to avoid importing strings package.
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
 }

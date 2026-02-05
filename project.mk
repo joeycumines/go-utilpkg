@@ -33,3 +33,18 @@ betteralign-apply:
 .PHONY: test-promise-race-concurrent
 test-promise-race-concurrent:
 	cd $(PROJECT_ROOT)/eventloop && go test -v -run TestPromiseRace_ConcurrentThenReject_HandlersCalled -count=5 2>&1 | tail -100
+
+# Race detector for eventloop
+.PHONY: race-eventloop
+race-eventloop:
+	cd $(PROJECT_ROOT) && go test -race -timeout=5m ./eventloop/... 2>&1 | tail -50
+
+# Race detector for eventloop - detailed failures
+.PHONY: race-eventloop-failures
+race-eventloop-failures:
+	cd $(PROJECT_ROOT) && go test -race -timeout=5m ./eventloop/... 2>&1 | tee /tmp/race_test.log | grep -E "(^=== RUN|---.*FAIL|race detected|DATA RACE|^FAIL|^panic|panic:|Warning)" | head -100; echo "Exit: $$?"
+
+# Race test with full output
+.PHONY: race-eventloop-full
+race-eventloop-full:
+	cd $(PROJECT_ROOT) && go test -race -timeout=6m ./eventloop/... 2>&1 | tee /tmp/race_test.log; echo "Test exit: $$?"

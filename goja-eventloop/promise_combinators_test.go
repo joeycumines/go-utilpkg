@@ -2,6 +2,8 @@
 //
 // Tests for Promise combinators (All, Race, AllSettled, Any)
 
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (

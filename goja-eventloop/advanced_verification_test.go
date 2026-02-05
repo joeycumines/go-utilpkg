@@ -3,6 +3,8 @@
 // Advanced verification tests for goja-eventloop adapter
 // Tests from review.md Section 4.C
 
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (

@@ -9,7 +9,7 @@
 package eventloop
 
 import (
-	"os"
+	"syscall"
 	"testing"
 )
 
@@ -69,8 +69,16 @@ func TestDarwinWakeup_CreateWakeFd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
-	defer os.NewFile(uintptr(r), "pipe-read").Close()
-	defer os.NewFile(uintptr(w), "pipe-write").Close()
+
+	// CRITICAL: Use syscall.Close directly instead of os.NewFile().Close()
+	// os.NewFile creates a *os.File that registers a finalizer with the GC.
+	// If multiple os.File wrappers are created for the same FD (as was done before),
+	// the GC finalizer can close an FD that has been reused by a subsequent syscall,
+	// causing "bad file descriptor" errors in unrelated tests.
+	defer func() {
+		_ = syscall.Close(r)
+		_ = syscall.Close(w)
+	}()
 
 	// Verify pipe ends are valid fds (>= 0 on Unix systems)
 	if r < 0 {
@@ -83,14 +91,16 @@ func TestDarwinWakeup_CreateWakeFd(t *testing.T) {
 	t.Log("createWakeFd verified - creates pipe fds successfully")
 
 	// Test that we can write to and read from the pipe
+	// CRITICAL: Use syscall.Write/Read instead of os.NewFile().Write/Read
+	// to avoid creating additional *os.File wrappers with GC finalizers.
 	data := []byte("test data")
-	_, err = os.NewFile(uintptr(w), "pipe-write").Write(data)
+	_, err = syscall.Write(w, data)
 	if err != nil {
 		t.Errorf("Write to wake pipe failed: %v", err)
 	}
 
 	buf := make([]byte, 100)
-	n, err := os.NewFile(uintptr(r), "pipe-read").Read(buf)
+	n, err := syscall.Read(r, buf)
 	if err != nil {
 		t.Errorf("Read from wake pipe failed: %v", err)
 	}

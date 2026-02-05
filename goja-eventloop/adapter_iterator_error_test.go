@@ -1,4 +1,4 @@
-//go:build !js
+//go:build (linux || darwin) && !js
 
 package gojaeventloop
 

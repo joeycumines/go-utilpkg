@@ -67,10 +67,6 @@ func TestSetIntervalDoneChannelBug(t *testing.T) {
 
 	intervalID.Store(id)
 
-	if err != nil {
-		t.Fatalf("SetInterval failed: %v", err)
-	}
-
 	// Wait for completion or timeout
 	select {
 	case <-time.After(500 * time.Millisecond):

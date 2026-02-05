@@ -813,8 +813,24 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	currentState := p.state.Load()
 
 	if currentState == int32(Pending) {
-		// Pending: store custom handlers
+		// CRITICAL FIX: Re-check state after acquiring lock to handle race
+		// Similar to then() fix - handle concurrent resolution
 		p.mu.Lock()
+		currentState = p.state.Load()
+
+		// If state changed from Pending during race, follow "already settled" path
+		if currentState != int32(Pending) {
+			p.mu.Unlock()
+			// Fall through to "already settled" handling below
+			if currentState == int32(Fulfilled) {
+				handlerFunc(p.Value(), false, result)
+			} else {
+				handlerFunc(p.Reason(), true, result)
+			}
+			return result
+		}
+
+		// Still pending: store custom handlers
 		// We need to duplicate handler logic for both success and failure paths
 		// because finally needs to run in both cases
 		h1 := handler{
@@ -1407,4 +1423,104 @@ type ErrorWrapper struct {
 // Error implements the error interface.
 func (e *ErrorWrapper) Error() string {
 	return fmt.Sprintf("%v", e.Value)
+}
+
+// ============================================================================
+// Promise.withResolvers (ES2024 API)
+// ============================================================================
+
+// PromiseWithResolvers represents the result of Promise.withResolvers().
+// It provides a convenient way to create a promise along with its
+// resolve and reject functions, without requiring an executor callback.
+//
+// This mirrors the ES2024 Promise.withResolvers() API, which returns
+// an object with { promise, resolve, reject } properties.
+//
+// Example:
+//
+//	resolvers := js.WithResolvers()
+//	go func() {
+//	    result, err := doAsyncWork()
+//	    if err != nil {
+//	        resolvers.Reject(err)
+//	    } else {
+//	        resolvers.Resolve(result)
+//	    }
+//	}()
+//	resolvers.Promise.Then(handleResult, handleError)
+//
+// Thread Safety:
+//
+// All fields are safe for concurrent use. The Promise, Resolve, and Reject
+// fields can be accessed from any goroutine.
+type PromiseWithResolvers struct {
+	// Promise is the pending promise associated with this resolvers object.
+	// It will be resolved or rejected when Resolve or Reject is called.
+	Promise *ChainedPromise
+
+	// Resolve is the function that fulfills the Promise with a value.
+	// Calling Resolve on an already-settled promise has no effect.
+	// Can be called from any goroutine.
+	Resolve ResolveFunc
+
+	// Reject is the function that rejects the Promise with a reason.
+	// Calling Reject on an already-settled promise has no effect.
+	// Can be called from any goroutine.
+	Reject RejectFunc
+}
+
+// WithResolvers creates a new pending promise along with its resolve and reject functions.
+// This is the Go equivalent of ES2024's Promise.withResolvers().
+//
+// Unlike the constructor pattern (new Promise(executor)), withResolvers returns
+// the promise and its resolve/reject functions directly, making it easier to
+// use in scenarios where the executor pattern is awkward:
+//
+//   - When you need to resolve/reject from outside the executor scope
+//   - When integrating with callback-based APIs
+//   - When building custom promise-based abstractions
+//
+// Returns:
+//   - PromiseWithResolvers containing the Promise, Resolve, and Reject fields
+//
+// Example - Timer with cancellation:
+//
+//	func delayWithCancel(js *JS, ms int) (*PromiseWithResolvers) {
+//	    r := js.WithResolvers()
+//	    go func() {
+//	        time.Sleep(time.Duration(ms) * time.Millisecond)
+//	        r.Resolve(nil)
+//	    }()
+//	    return r
+//	}
+//
+//	// Usage:
+//	timer := delayWithCancel(js, 1000)
+//	// Cancel early:
+//	timer.Reject(errors.New("cancelled"))
+//
+// Example - Request/Response correlation:
+//
+//	pending := make(map[string]*PromiseWithResolvers)
+//
+//	func sendRequest(js *JS, id string, data any) *ChainedPromise {
+//	    r := js.WithResolvers()
+//	    pending[id] = r
+//	    conn.Send(id, data)
+//	    return r.Promise
+//	}
+//
+//	func onResponse(id string, result any) {
+//	    if r, ok := pending[id]; ok {
+//	        r.Resolve(result)
+//	        delete(pending, id)
+//	    }
+//	}
+func (js *JS) WithResolvers() *PromiseWithResolvers {
+	promise, resolve, reject := js.NewChainedPromise()
+	return &PromiseWithResolvers{
+		Promise: promise,
+		Resolve: resolve,
+		Reject:  reject,
+	}
 }

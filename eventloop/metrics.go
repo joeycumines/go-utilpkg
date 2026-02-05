@@ -26,20 +26,30 @@ import (
 //	fmt.Printf("TPS: %.2f, P99 Latency: %v\n",
 //		stats.TPS, stats.Latency.P99)
 type Metrics struct {
-	mu sync.Mutex
-
-	// Latency metrics
+	// Latency metrics (has pointer field - put first for alignment)
 	Latency LatencyMetrics
-
-	// Throughput metrics
-	TPS float64
 
 	// Queue depth metrics
 	Queue QueueMetrics
+
+	mu sync.Mutex
+
+	// Throughput metrics
+	TPS float64
 }
 
 // LatencyMetrics tracks latency distribution with percentiles.
+// Uses the P-Square algorithm for O(1) streaming percentile estimation,
+// which is more efficient than the previous O(n log n) sorting approach.
 type LatencyMetrics struct {
+	// Pointer fields first for optimal alignment (betteralign)
+	psquare *pSquareMultiQuantile
+
+	// Lock for thread-safe access
+	mu sync.RWMutex
+
+	// Legacy sample buffer (kept for backward compatibility with tests
+	// that check exact percentile values with small sample counts)
 	sampleIdx   int
 	sampleCount int
 	samples     [sampleSize]time.Duration
@@ -54,7 +64,6 @@ type LatencyMetrics struct {
 	// Statistics
 	Mean time.Duration
 	Sum  time.Duration
-	mu   sync.RWMutex
 }
 
 // sampleSize is the maximum number of latency samples to retain.
@@ -63,11 +72,22 @@ const sampleSize = 1000
 
 // Record records a latency sample.
 // This is called internally by the loop after each task execution.
+// Uses O(1) P-Square algorithm for streaming percentile updates.
 func (l *LatencyMetrics) Record(duration time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// If buffer is full, subtract the old sample that we're replacing
+	// Initialize P-Square estimator on first use (lazy initialization)
+	if l.psquare == nil {
+		// Track P50 (0.5), P90 (0.9), P95 (0.95), P99 (0.99)
+		l.psquare = newPSquareMultiQuantile(0.50, 0.90, 0.95, 0.99)
+	}
+
+	// Update P-Square estimator with the new sample (O(1))
+	l.psquare.Update(float64(duration))
+
+	// Also update legacy sample buffer for backward compatibility
+	// (used when sample count < sampleSize for exact percentiles)
 	if l.sampleCount >= sampleSize {
 		old := l.samples[l.sampleIdx]
 		l.Sum -= old
@@ -88,9 +108,9 @@ func (l *LatencyMetrics) Record(duration time.Duration) {
 // This should be called periodically to update the cached percentile values.
 // Returns the number of samples used for computation.
 //
-// Performance note: Sorting has O(n log n) complexity. With sampleSize=1000,
-// this takes ~100-200 microseconds. For monitoring, call this no more than
-// once per second to avoid impacting event loop performance.
+// Performance note: For sample counts >= 5, this uses the P-Square algorithm
+// which is O(1). For smaller counts, falls back to O(n log n) sorting for
+// exact percentile values. The previous implementation was always O(n log n).
 func (l *LatencyMetrics) Sample() int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -100,24 +120,40 @@ func (l *LatencyMetrics) Sample() int {
 		return 0
 	}
 
-	// Clone and sort samples for percentile computation
-	sorted := make([]time.Duration, count)
-	copy(sorted, l.samples[:count])
+	// For small sample counts (< 5), use exact sorting method
+	// This ensures backward compatibility with tests that expect exact values
+	if count < 5 || l.psquare == nil {
+		// Clone and sort samples for percentile computation
+		sorted := make([]time.Duration, count)
+		copy(sorted, l.samples[:count])
 
-	// Use standard library sort (O(n log n)) instead of bubble sort (O(n^2))
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i] < sorted[j]
-	})
+		// Use standard library sort (O(n log n))
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i] < sorted[j]
+		})
 
-	// Compute percentiles
-	if count > 0 {
+		// Compute percentiles
 		l.P50 = sorted[percentileIndex(count, 50)]
 		l.P90 = sorted[percentileIndex(count, 90)]
 		l.P95 = sorted[percentileIndex(count, 95)]
 		l.P99 = sorted[percentileIndex(count, 99)]
 		l.Max = sorted[count-1]
 		l.Mean = l.Sum / time.Duration(count)
+
+		return count
 	}
+
+	// Use P-Square algorithm for O(1) percentile retrieval
+	// Index 0 = P50, Index 1 = P90, Index 2 = P95, Index 3 = P99
+	l.P50 = time.Duration(l.psquare.Quantile(0))
+	l.P90 = time.Duration(l.psquare.Quantile(1))
+	l.P95 = time.Duration(l.psquare.Quantile(2))
+	l.P99 = time.Duration(l.psquare.Quantile(3))
+	l.Max = time.Duration(l.psquare.Max())
+
+	// Use the ring buffer's Sum for Mean calculation to maintain semantic
+	// compatibility with the circular buffer (tracks last sampleSize samples)
+	l.Mean = l.Sum / time.Duration(count)
 
 	return count
 }

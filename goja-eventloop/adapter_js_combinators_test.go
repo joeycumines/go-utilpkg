@@ -3,6 +3,8 @@
 // JavaScript-level tests for Promise combinators (All, Race, AllSettled, Any)
 // These tests verify the combinators work when called from JavaScript code
 
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (

@@ -3,6 +3,8 @@
 // Functional correctness tests for goja-eventloop adapter
 // Tests from review.md Section 4.A
 
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (

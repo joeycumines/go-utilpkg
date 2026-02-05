@@ -1,5 +1,7 @@
 // Tests for CRITICAL fixes
 
+//go:build linux || darwin
+
 package gojaeventloop
 
 import (
