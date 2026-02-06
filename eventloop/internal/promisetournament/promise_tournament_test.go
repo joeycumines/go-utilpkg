@@ -1,4 +1,4 @@
-package internal_test
+package promisetournament_test
 
 import (
 	"fmt"
@@ -11,11 +11,6 @@ import (
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
 	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
 )
-
-// PromiseInterface defines the common shape for the tournament.
-type PromiseInterface interface {
-	Result() eventloop.Result
-}
 
 // Stats tracks tournament results
 type Stats struct {
