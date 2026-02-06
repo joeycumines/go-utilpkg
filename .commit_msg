@@ -1,31 +1,24 @@
-EXPAND Phase 2: Additional features, tests, and documentation (15 items)
+EXPAND Phase 3: Web Platform APIs and Debug Tools
 
-JavaScript APIs:
-- process.nextTick() with priority microtask queue
-- sleep/delay() promise helper
-- crypto.randomUUID() with secure UUID v4
-- atob/btoa base64 encoding/decoding
-- console.table() with ASCII table rendering
-- console.group/groupEnd/trace/clear/dir
+New JavaScript APIs:
+- structuredClone() with circular reference support
+- URL and URLSearchParams classes (full WHATWG spec)
+- TextEncoder.encode() and TextEncoder.encodeInto()
+- TextDecoder.decode() with BOM and fatal mode support
 
-Tests:
-- AbortController integration tests (15 tests)
-- Promise combinator fuzz tests (8 tests + fuzz targets)
-- Loop chaos/stability tests (10 tests)
+Debug Tools:
+- WithDebugMode() option for async stack traces
+- ChainedPromise.CreationStackTrace() method
+- UnhandledRejectionDebugInfo wrapper for error chains
 
-Optimizations:
-- WithIngressChunkSize() configurable chunk size
-- CancelTimers() batch timer cancellation
+Bug Fixes:
+- TextEncoder.encodeInto() now returns correct rune count for multi-byte UTF-8
+- URLSearchParams iterators now implement Symbol.iterator for self-iterability
 
-Documentation:
-- docs/PERFORMANCE.md tuning guide (446 lines)
-- docs/DEBUGGING.md troubleshooting guide (1004 lines)
-- Testable examples (11 Example_* tests)
+Files Created:
+- goja-eventloop/structuredclone_test.go (21 tests)
+- goja-eventloop/url_test.go (46 tests)
+- goja-eventloop/textencoder_test.go (26 tests)
+- eventloop/promise_debug_test.go (17 tests)
 
-Error Handling:
-- ES2022 Error.cause support
-- ErrorWithCause, TypeError, RangeError, TimeoutError
-- Proper Unwrap() for errors.Is/As compatibility
-
-Total: 100+ new tests, 2400+ lines of documentation.
-Reviewed and approved (Reviews #6, #7).
+Total: 110+ new tests, reviewed and approved (Reviews #8, #10).

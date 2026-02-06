@@ -9,12 +9,15 @@ package eventloop
 import "github.com/joeycumines/logiface"
 
 // loopOptions holds configuration options for Loop creation.
+// Fields are ordered for optimal struct alignment (larger types first).
 type loopOptions struct {
-	logger                  *logiface.Logger[logiface.Event]
-	fastPathMode            FastPathMode
-	strictMicrotaskOrdering bool
-	metricsEnabled          bool
-	ingressChunkSize        int // EXPAND-033: Configurable chunk size for ChunkedIngress
+	logger                  *logiface.Logger[logiface.Event] // 8 bytes
+	ingressChunkSize        int                              // 8 bytes - EXPAND-033: Configurable chunk size for ChunkedIngress
+	fastPathMode            FastPathMode                     // 4 bytes
+	strictMicrotaskOrdering bool                             // 1 byte
+	metricsEnabled          bool                             // 1 byte
+	debugMode               bool                             // 1 byte - EXPAND-039: Enable debug features like stack trace capture
+	// 1 byte padding
 }
 
 // Default chunk size for ingress queue (EXPAND-033).
@@ -106,6 +109,32 @@ func WithIngressChunkSize(size int) LoopOption {
 		size = roundDownToPowerOf2(size)
 
 		opts.ingressChunkSize = size
+		return nil
+	}}
+}
+
+// WithDebugMode enables debug mode for the Loop.
+//
+// EXPAND-039: When debug mode is enabled, the following features are activated:
+//   - Promise creation stack traces are captured (see [ChainedPromise.CreationStackTrace])
+//   - Unhandled rejection logs include where the promise was created
+//
+// Debug mode adds overhead (runtime.Callers for each promise), so it should
+// only be enabled during development or debugging sessions.
+//
+// Example:
+//
+//	loop, err := eventloop.New(eventloop.WithDebugMode(true))
+//	if err != nil {
+//	    return err
+//	}
+//	js, _ := eventloop.NewJS(loop)
+//	// Promises now capture creation stack traces
+//	p, _, _ := js.NewChainedPromise()
+//	fmt.Println(p.CreationStackTrace()) // Prints where the promise was created
+func WithDebugMode(enabled bool) LoopOption {
+	return &loopOptionImpl{func(opts *loopOptions) error {
+		opts.debugMode = enabled
 		return nil
 	}}
 }

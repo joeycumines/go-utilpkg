@@ -719,6 +719,22 @@
   ],
   "completedTasks": [
     {
+      "id": "PEERFIX-009-A",
+      "title": "FIXED: TextEncoder.encodeInto() returns wrong `read` value",
+      "description": "encodeInto used byte index 'i' from range loop instead of rune count. When iterating over a string with 'for i, r := range source', 'i' is the byte offset, not character count. Fixed by tracking rune count separately with runeCount++ after each character.",
+      "completedAt": "2026-02-08T20:30:00Z",
+      "location": "goja-eventloop/adapter.go",
+      "fixApproach": "Added runeCount variable, increment after each rune, use runeCount for result.read"
+    },
+    {
+      "id": "PEERFIX-009-B",
+      "title": "FIXED: URLSearchParams iterators missing Symbol.iterator",
+      "description": "createIterator and createValueIterator only set next() method but per JS iterator protocol, iterators should also be iterable. Fixed by adding Symbol.iterator that returns the iterator itself.",
+      "completedAt": "2026-02-08T20:30:00Z",
+      "location": "goja-eventloop/adapter.go",
+      "fixApproach": "Used JavaScript runtime to set Symbol.iterator property: __tempIterator[Symbol.iterator] = function() { return this; }"
+    },
+    {
       "id": "BUGFIX-001",
       "title": "FIXED: FD Double-Close Race in wakeup_darwin_test.go",
       "description": "TestDarwinWakeup_CreateWakeFd used os.NewFile() multiple times for same FD, causing GC finalizer races that closed FDs reused by subsequent tests. Fixed by using direct syscall.Close/Read/Write.",
@@ -1072,6 +1088,42 @@
       "testsAdded": ["TestBtoa_Basic", "TestBtoa_EmptyString", "TestBtoa_BinaryData", "TestBtoa_Latin1Only", "TestBtoa_NoArgument", "TestAtob_Basic", "TestAtob_EmptyString", "TestAtob_BinaryData", "TestAtob_InvalidBase64", "TestAtob_NoArgument", "TestBtoaAtob_RoundTrip", "TestBtoaAtob_RoundTrip_Binary", "TestAtob_WithWhitespace", "TestBtoa_TypeIsFunction", "TestAtob_TypeIsFunction"]
     },
     {
+      "sequence": 87,
+      "id": "EXPAND-024",
+      "title": "EXPAND: structuredClone() JS Global",
+      "description": "Add structuredClone(value) JS global to goja-eventloop/adapter.go. Deep-clone objects using Goja's export/import mechanism, handle circular references with visited map, support: primitives, objects, arrays, Date, RegExp, Map, Set, null/undefined. Throw TypeError for non-cloneable types like functions.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T18:00:00Z",
+      "verification": "Added structuredClone() implementation to adapter.go with ~400 lines. Features: deep clone with circular reference detection via visited map, supports primitives (pass-through), objects (deep clone), arrays (deep clone), Date (preserve as Date), RegExp (preserve as RegExp), Map (preserve as Map), Set (preserve as Set), null/undefined (pass-through). Throws TypeError for functions and Error objects. Objects with function properties skip functions. Created goja-eventloop/structuredclone_test.go with 21 tests covering all supported types and edge cases. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/structuredclone_test.go"],
+      "testsAdded": [
+        "TestStructuredClone_Undefined",
+        "TestStructuredClone_Null",
+        "TestStructuredClone_NoArgument",
+        "TestStructuredClone_Primitives",
+        "TestStructuredClone_PlainObject",
+        "TestStructuredClone_NestedObject",
+        "TestStructuredClone_Array",
+        "TestStructuredClone_NestedArray",
+        "TestStructuredClone_Date",
+        "TestStructuredClone_RegExp",
+        "TestStructuredClone_Map",
+        "TestStructuredClone_Set",
+        "TestStructuredClone_CircularReference",
+        "TestStructuredClone_DeepCircularReference",
+        "TestStructuredClone_Function_Throws",
+        "TestStructuredClone_ObjectWithFunction_SkipsFunction",
+        "TestStructuredClone_EmptyObject",
+        "TestStructuredClone_EmptyArray",
+        "TestStructuredClone_EmptyMap",
+        "TestStructuredClone_EmptySet",
+        "TestStructuredClone_ComplexNested",
+        "TestStructuredClone_ArrayWithCircularMap"
+      ]
+    },
+    {
       "sequence": 74,
       "id": "EXPAND-025",
       "title": "EXPAND: console.table() Implementation",
@@ -1312,6 +1364,124 @@
         "BenchmarkCancelTimers_Batch",
         "BenchmarkCancelTimers_Comparison"
       ]
+    },
+    {
+      "sequence": 83,
+      "id": "EXPAND-039",
+      "title": "EXPAND: Async Stack Trace Enhancement",
+      "description": "Add optional stack trace capture for promises when debug mode is enabled. WithDebugMode() sets debugMode bool in loopOptions. ChainedPromise captures creation stack when debugMode is enabled. ChainedPromise.CreationStackTrace() formats the stack. Unhandled rejection logging includes creation stack if available.",
+      "location": "eventloop/options.go, eventloop/loop.go, eventloop/promise.go, eventloop/promise_debug_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T00:15:00Z",
+      "verification": "Added WithDebugMode() option, debugMode field to Loop struct, creationStack field to ChainedPromise, stack capture in NewChainedPromise when debugMode enabled, CreationStackTrace() method, formatCreationStack() helper, UnhandledRejectionDebugInfo type with Error() and Unwrap() methods, modified checkUnhandledRejections to wrap reason when stack available. Also fixed goja-eventloop/eventtarget_test.go API compatibility and goja-eventloop/adapter.go event dispatch issue (CustomEvent.detail not passed to listeners). make all passes.",
+      "filesModified": ["eventloop/options.go", "eventloop/loop.go", "eventloop/promise.go", "goja-eventloop/adapter.go", "goja-eventloop/eventtarget_test.go"],
+      "filesCreated": ["eventloop/promise_debug_test.go"],
+      "testsAdded": [
+        "TestDebugMode_PromiseCreationStackCapture",
+        "TestDebugMode_NoStackWithoutDebugMode",
+        "TestDebugMode_WithDebugModeOption",
+        "TestDebugMode_UnhandledRejectionWithStack",
+        "TestDebugMode_UnhandledRejectionWithoutStack",
+        "TestUnhandledRejectionDebugInfo_Error",
+        "TestUnhandledRejectionDebugInfo_Unwrap",
+        "TestUnhandledRejectionDebugInfo_ErrorsIs",
+        "TestDebugMode_StackTraceFormat",
+        "TestDebugMode_MultiplePromises",
+        "TestDebugMode_PromiseResolve",
+        "TestDebugMode_PromiseReject",
+        "TestDebugMode_CombinedWithOtherOptions",
+        "TestDebugMode_StackDepth",
+        "TestFormatCreationStack_Empty",
+        "TestFormatCreationStack_ValidStack",
+        "TestCreationStackTrace_NoStack"
+      ]
+    },
+    {
+      "sequence": 84,
+      "id": "EXPAND-027",
+      "title": "EXPAND: EventTarget API Implementation",
+      "description": "Implement EventTarget interface following W3C DOM spec. Provides addEventListener(type, listener), removeEventListener(type, listener), dispatchEvent(event). Supports multiple listeners per event type, listener ordering, event propagation control.",
+      "location": "eventloop/eventtarget.go, goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T10:00:00Z",
+      "verification": "EventTarget implemented in eventloop/eventtarget.go with Go-level API. JS bindings added in goja-eventloop/adapter.go for EventTarget constructor, addEventListener, removeEventListener, dispatchEvent. Tests in eventloop/eventtarget_test.go and goja-eventloop/eventtarget_test.go. make all passes.",
+      "filesModified": ["eventloop/eventtarget.go", "goja-eventloop/adapter.go"],
+      "testsAdded": [
+        "TestEventTarget_AddEventListener",
+        "TestEventTarget_RemoveEventListener",
+        "TestEventTarget_DispatchEvent",
+        "TestEventTarget_MultipleListeners",
+        "TestEventTarget_ListenerOrder",
+        "TestEventTarget_JS_Basic",
+        "TestEventTarget_JS_CustomEvent"
+      ],
+      "note": "Pre-existing feature, documented for completeness"
+    },
+    {
+      "sequence": 85,
+      "id": "EXPAND-028",
+      "title": "EXPAND: CustomEvent API Implementation",
+      "description": "Implement CustomEvent constructor following W3C DOM spec. CustomEvent extends Event with detail property for passing custom data. Supports bubbles, cancelable, and composed options via CustomEventInit.",
+      "location": "eventloop/eventtarget.go, goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T10:00:00Z",
+      "verification": "CustomEvent implemented as part of eventtarget.go with Event base type, CustomEventInit options (bubbles, cancelable, detail). JS bindings in adapter.go for CustomEvent constructor with new CustomEvent(type, options). Tests cover detail property access, event dispatch, multiple listeners receiving same event. make all passes.",
+      "filesModified": ["eventloop/eventtarget.go", "goja-eventloop/adapter.go"],
+      "testsAdded": [
+        "TestCustomEvent_Detail",
+        "TestCustomEvent_Options",
+        "TestCustomEvent_DispatchWithDetail",
+        "TestCustomEvent_JS_Constructor",
+        "TestCustomEvent_JS_DetailProperty"
+      ],
+      "note": "Pre-existing feature, documented for completeness"
+    },
+    {
+      "sequence": 86,
+      "id": "EXPAND-036",
+      "title": "EXPAND: Comprehensive Debugging Guide",
+      "description": "Create comprehensive debugging guide covering common issues (deadlocks, memory leaks, handler not firing, promise never settles), test hooks, metrics interpretation, race detector usage, structured logging, and ToChannel for promise debugging.",
+      "location": "eventloop/docs/DEBUGGING.md",
+      "status": "DONE",
+      "completedAt": "2026-02-08T18:00:00Z",
+      "verification": "Created eventloop/docs/DEBUGGING.md with 1004 lines covering: Common Issues and Solutions (Deadlocks, Memory Leaks, Handler Not Firing, Promise Never Settles), Debugging with Test Hooks (loopTestHooks, PollError injection, race testing), Interpreting Metrics (TPS, Latency percentiles, Queue depths, P-Square), Race Detector Usage (-race flag, common patterns, fixes), Structured Logging Configuration (logiface setup, log levels, filtering), Using ToChannel for Promise Debugging (awaiting, timeouts, state inspection, tracing).",
+      "filesCreated": ["eventloop/docs/DEBUGGING.md"],
+      "sections": [
+        "Common Issues and Solutions",
+        "Debugging with Test Hooks",
+        "Interpreting Metrics",
+        "Race Detector Usage",
+        "Structured Logging Configuration",
+        "Using ToChannel for Promise Debugging",
+        "Quick Reference"
+      ],
+      "note": "Same content as DOCS-005 at sequence 78 - this entry provides the EXPAND-036 reference ID"
+    },
+    {
+      "sequence": 88,
+      "id": "EXPAND-041",
+      "title": "EXPAND: URL and URLSearchParams APIs",
+      "description": "Add JS bindings for URL class (href, origin, protocol, host, hostname, port, pathname, search, hash, searchParams properties) and URLSearchParams class (append, delete, get, getAll, has, set, toString, keys, values, entries, forEach methods). Use Go's net/url for parsing.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T20:00:00Z",
+      "verification": "Added URL class constructor with 10 properties (href, origin, protocol, host, hostname, port, pathname, search, hash, searchParams), URLSearchParams class with 11 methods (append, delete, get, getAll, has, set, toString, keys, values, entries, forEach). Uses Go's net/url package for parsing. Created goja-eventloop/url_test.go with 46 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/url_test.go"],
+      "testsAdded": ["TestURL_Basic", "TestURL_AllProperties", "TestURL_ParseRelative", "TestURL_Setters_*", "TestURLSearchParams_*", "TestURL_SearchParamsLinked"]
+    },
+    {
+      "sequence": 89,
+      "id": "EXPAND-042",
+      "title": "EXPAND: TextEncoder/TextDecoder APIs",
+      "description": "Add JS bindings for TextEncoder class with encode(string) returning Uint8Array, and TextDecoder class with decode(Uint8Array) returning string. Use UTF-8 encoding with Goja's native typed array support.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T20:00:00Z",
+      "verification": "Added TextEncoder class with encode(string) returning Uint8Array via Goja JS runtime, TextDecoder class with decode(ArrayBuffer/Uint8Array) returning string. Both use UTF-8 encoding. encode() creates Uint8Array by evaluating 'new Uint8Array([...])' to properly construct typed array. Created goja-eventloop/textencoder_test.go with 26 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/textencoder_test.go"],
+      "testsAdded": ["TestTextEncoder_EncodeASCII", "TestTextEncoder_EncodeUnicode", "TestTextEncoder_EncodeEmoji", "TestTextDecoder_DecodeUTF8", "TestTextEncoderDecoder_Roundtrip_*"]
     }
   ],
   "continuousVerification": {

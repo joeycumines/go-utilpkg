@@ -160,6 +160,7 @@ type Loop struct {
 	_                       [2]byte // Align to 8-byte
 	forceNonBlockingPoll    bool
 	StrictMicrotaskOrdering bool
+	debugMode               bool       // EXPAND-039: Enable debug features like stack trace capture
 	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
@@ -240,6 +241,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	loop.StrictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
 	loop.logger = options.logger
+	loop.debugMode = options.debugMode // EXPAND-039: Enable debug mode
 
 	// Phase 5.3: Initialize metrics if enabled
 	if options.metricsEnabled {

@@ -3,6 +3,7 @@ package eventloop
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -191,6 +192,10 @@ type ChainedPromise struct {
 	// channels stores channels from ToChannel() calls
 	// Set during pending state, cleared after settlement
 	channels []chan Result
+	// creationStack stores the stack trace when the promise was created.
+	// EXPAND-039: Only populated when debugMode is enabled on the loop.
+	// Use [ChainedPromise.CreationStackTrace] to format as a string.
+	creationStack []uintptr
 
 	// Atomic state (requires 8-byte alignment)
 	state atomic.Int32
@@ -247,6 +252,16 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	}
 	p.state.Store(int32(Pending))
 
+	// EXPAND-039: Capture creation stack trace when debug mode is enabled
+	if js.loop != nil && js.loop.debugMode {
+		// Capture up to 32 stack frames, skip 2 (this function and runtime.Callers)
+		pcs := make([]uintptr, 32)
+		n := runtime.Callers(2, pcs)
+		if n > 0 {
+			p.creationStack = pcs[:n]
+		}
+	}
+
 	resolve := func(value Result) {
 		p.resolve(value, js)
 	}
@@ -282,6 +297,51 @@ func (p *ChainedPromise) Reason() Result {
 		return p.result
 	}
 	return nil
+}
+
+// CreationStackTrace returns a formatted stack trace of where this promise was created.
+//
+// EXPAND-039: This method returns an empty string unless debug mode was enabled on the
+// event loop when the promise was created. Use [WithDebugMode] to enable stack trace capture.
+//
+// The returned string contains one line per stack frame, formatted as:
+//
+//	package.function (file:line)
+//
+// Example:
+//
+//	loop, _ := eventloop.New(eventloop.WithDebugMode(true))
+//	js, _ := eventloop.NewJS(loop)
+//	promise, _, _ := js.NewChainedPromise()
+//
+//	fmt.Println(promise.CreationStackTrace())
+//	// Output:
+//	// main.createPromise (main.go:42)
+//	// main.main (main.go:15)
+//	// runtime.main (proc.go:271)
+//
+// This is useful for debugging "where did this promise come from?" issues,
+// especially for unhandled rejections.
+func (p *ChainedPromise) CreationStackTrace() string {
+	if len(p.creationStack) == 0 {
+		return ""
+	}
+
+	frames := runtime.CallersFrames(p.creationStack)
+	var result string
+	for {
+		frame, more := frames.Next()
+		if frame.Function != "" {
+			if result != "" {
+				result += "\n"
+			}
+			result += fmt.Sprintf("%s (%s:%d)", frame.Function, frame.File, frame.Line)
+		}
+		if !more {
+			break
+		}
+	}
+	return result
 }
 
 func (p *ChainedPromise) resolve(value Result, js *JS) {
@@ -469,7 +529,7 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 	// NOW call trackRejection (AFTER releasing lock, AFTER enqueuing handlers)
 	// This queues checkUnhandledRejections to run AFTER all handler microtasks
 	if js != nil {
-		js.trackRejection(p.id, reason)
+		js.trackRejection(p.id, reason, p.creationStack) // EXPAND-039: Pass creation stack
 	}
 }
 
@@ -969,12 +1029,15 @@ func tryCall(fn func(Result) Result, v Result, target *ChainedPromise) {
 // handler registrations from then() by using proper channel synchronization.
 // Each rejection waits for a handler to be registered (or determines none will be)
 // before checking for unhandled rejections.
-func (js *JS) trackRejection(promiseID uint64, reason Result) {
+//
+// EXPAND-039: creationStack is passed to include in debug output for unhandled rejections.
+func (js *JS) trackRejection(promiseID uint64, reason Result, creationStack []uintptr) {
 	// Store rejection info
 	info := &rejectionInfo{
-		promiseID: promiseID,
-		reason:    reason,
-		timestamp: time.Now().UnixNano(),
+		promiseID:     promiseID,
+		reason:        reason,
+		timestamp:     time.Now().UnixNano(),
+		creationStack: creationStack, // EXPAND-039: Store for debug output
 	}
 	js.rejectionsMu.Lock()
 	js.unhandledRejections[promiseID] = info
@@ -1095,7 +1158,17 @@ func (js *JS) checkUnhandledRejections() {
 
 		// No handler found - report unhandled rejection
 		if callback != nil {
-			callback(info.reason)
+			// EXPAND-039: If debug mode captured a creation stack, wrap the reason
+			// with debug info so the callback can access where the promise was created
+			if len(info.creationStack) > 0 {
+				stackTrace := formatCreationStack(info.creationStack)
+				callback(&UnhandledRejectionDebugInfo{
+					Reason:             info.reason,
+					CreationStackTrace: stackTrace,
+				})
+			} else {
+				callback(info.reason)
+			}
 		}
 
 		// Clean up tracking for unhandled rejection
@@ -1107,9 +1180,83 @@ func (js *JS) checkUnhandledRejections() {
 
 // rejectionInfo holds information about a rejected promise.
 type rejectionInfo struct {
-	reason    Result // Largest field, put first
-	promiseID uint64
-	timestamp int64
+	reason        Result    // Largest field, put first
+	creationStack []uintptr // EXPAND-039: Stack trace of where the promise was created
+	promiseID     uint64
+	timestamp     int64
+}
+
+// UnhandledRejectionDebugInfo is passed to [RejectionHandler] when debug mode is enabled
+// and the promise has a creation stack trace.
+//
+// EXPAND-039: This type wraps the rejection reason and includes debug information
+// about where the promise was created. This helps answer "where did this promise
+// come from?" when debugging unhandled rejections.
+//
+// Users can type-assert the reason in their [RejectionHandler] callback to access
+// the debug information:
+//
+//	js, _ := eventloop.NewJS(loop, eventloop.WithUnhandledRejection(func(r eventloop.Result) {
+//	    if debug, ok := r.(*eventloop.UnhandledRejectionDebugInfo); ok {
+//	        log.Printf("Unhandled rejection: %v\\nCreated at:\\n%s",
+//	            debug.Reason, debug.CreationStackTrace)
+//	    } else {
+//	        log.Printf("Unhandled rejection: %v", r)
+//	    }
+//	}))
+//
+// If debug mode is not enabled or the promise has no creation stack,
+// the callback receives the raw rejection reason without wrapping.
+type UnhandledRejectionDebugInfo struct {
+	// Reason is the original rejection value from the failed promise.
+	Reason Result
+
+	// CreationStackTrace is a formatted stack trace showing where the promise
+	// was created. Each frame is on its own line in the format:
+	//   package.function (file:line)
+	CreationStackTrace string
+}
+
+// Error implements the error interface so UnhandledRejectionDebugInfo can be
+// used as an error value when the underlying Reason is also an error.
+func (u *UnhandledRejectionDebugInfo) Error() string {
+	if err, ok := u.Reason.(error); ok {
+		return err.Error()
+	}
+	return fmt.Sprintf("%v", u.Reason)
+}
+
+// Unwrap returns the underlying error if Reason is an error type.
+// This enables [errors.Is] and [errors.As] to work through the wrapper.
+func (u *UnhandledRejectionDebugInfo) Unwrap() error {
+	if err, ok := u.Reason.(error); ok {
+		return err
+	}
+	return nil
+}
+
+// formatCreationStack formats a slice of program counters as a stack trace string.
+// EXPAND-039: Used by checkUnhandledRejections to format creation stack for debug output.
+func formatCreationStack(pcs []uintptr) string {
+	if len(pcs) == 0 {
+		return ""
+	}
+
+	frames := runtime.CallersFrames(pcs)
+	var result string
+	for {
+		frame, more := frames.Next()
+		if frame.Function != "" {
+			if result != "" {
+				result += "\n"
+			}
+			result += fmt.Sprintf("%s (%s:%d)", frame.Function, frame.File, frame.Line)
+		}
+		if !more {
+			break
+		}
+	}
+	return result
 }
 
 // ============================================================================
