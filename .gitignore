@@ -7,3 +7,5 @@ coverage.out
 .four_hour_tracking.txt
 four_hours_start.txt
 validate_blueprint.sh
+
+/.claude/*.local.*

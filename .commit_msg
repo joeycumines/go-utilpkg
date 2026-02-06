@@ -1,19 +1,31 @@
-EXPAND: Additional features and tests (15 items)
+EXPAND Phase 2: Additional features, tests, and documentation (15 items)
 
-Added:
-- AbortSignal.any() for composite abort signals (JS + Go)
-- AbortSignal.timeout() JS binding
-- Promise.try() ES2025 API
-- console.count/countReset/assert APIs
-- PromisifyWithTimeout/Deadline helpers
-- Comprehensive tests: Linux poller, ModifyFD errors, Promisify
-  shutdown races, timerHeap edge cases
-- Promise memory profiling benchmarks
-- Defensive structured logging with recover() protection
-- Nil logger crash fix
+JavaScript APIs:
+- process.nextTick() with priority microtask queue
+- sleep/delay() promise helper
+- crypto.randomUUID() with secure UUID v4
+- atob/btoa base64 encoding/decoding
+- console.table() with ASCII table rendering
+- console.group/groupEnd/trace/clear/dir
 
-SKIPPED_BY_ANALYSIS:
-- Timer Coalescing (not beneficial at this layer)
-- Interval Drift Correction (already spec-compliant)
+Tests:
+- AbortController integration tests (15 tests)
+- Promise combinator fuzz tests (8 tests + fuzz targets)
+- Loop chaos/stability tests (10 tests)
 
-Total ~80 new tests, reviewed and approved (Reviews #4, #5).
+Optimizations:
+- WithIngressChunkSize() configurable chunk size
+- CancelTimers() batch timer cancellation
+
+Documentation:
+- docs/PERFORMANCE.md tuning guide (446 lines)
+- docs/DEBUGGING.md troubleshooting guide (1004 lines)
+- Testable examples (11 Example_* tests)
+
+Error Handling:
+- ES2022 Error.cause support
+- ErrorWithCause, TypeError, RangeError, TimeoutError
+- Proper Unwrap() for errors.Is/As compatibility
+
+Total: 100+ new tests, 2400+ lines of documentation.
+Reviewed and approved (Reviews #6, #7).

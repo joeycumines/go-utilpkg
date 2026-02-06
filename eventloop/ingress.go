@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	// chunkSize is the number of tasks per node in the ChunkedIngress linked list.
-	// 128 tasks * 8 bytes/task + overhead = ~1KB per chunk.
-	chunkSize = 128
+	// defaultChunkSize is the default number of tasks per node in the ChunkedIngress linked list.
+	// Can be overridden via WithIngressChunkSize option (EXPAND-033).
+	// 64 tasks * 8 bytes/task + overhead = ~512 bytes per chunk.
+	defaultChunkSize = 64
 
 	// ringBufferSize is the fixed size of the MicrotaskRing buffer.
 	// It must be a power of 2 to allow for efficient bitwise wrapping.
@@ -42,35 +43,40 @@ const (
 // Performance rationale:
 // - Fixed-size arrays (chunkSize) provide cache locality and amortize allocations.
 // - sync.Pool chunk recycling prevents GC thrashing under high throughput.
+//
+// EXPAND-033: Chunk size is configurable via WithIngressChunkSize option.
 type ChunkedIngress struct { // betteralign:ignore
-	head   *chunk
-	tail   *chunk
-	length int
+	head      *chunk
+	tail      *chunk
+	length    int
+	chunkSize int        // EXPAND-033: Configurable chunk size
+	chunkPool *sync.Pool // EXPAND-033: Per-instance pool for configurable sizes
 }
 
-// chunkPool prevents GC thrashing under high load.
-var chunkPool = sync.Pool{
-	New: func() any {
-		return &chunk{}
-	},
-}
-
-// chunk is a fixed-size node in the chunked linked-list.
+// chunk is a node in the chunked linked-list.
 // It uses readPos/writePos cursors for O(1) push/pop without shifting.
-type chunk struct {
-	tasks   [chunkSize]func()
+// EXPAND-033: tasks is now a slice instead of fixed-size array to support configurable sizes.
+type chunk struct { // betteralign:ignore
+	tasks   []func()
 	next    *chunk
 	readPos int // First unread slot (index into tasks)
 	pos     int // First unused slot / writePos (index into tasks)
 }
 
 // newChunk creates and returns a new chunk from the pool.
-func newChunk() *chunk {
-	c := chunkPool.Get().(*chunk)
+// EXPAND-033: Uses per-instance pool for configurable chunk sizes.
+func (q *ChunkedIngress) newChunk() *chunk {
+	c := q.chunkPool.Get().(*chunk)
 	// Reset fields for reuse as the chunk may have been returned with stale data
 	c.pos = 0
 	c.readPos = 0
 	c.next = nil
+	// Ensure slice has correct capacity (in case pool was reused across different sizes)
+	if cap(c.tasks) < q.chunkSize {
+		c.tasks = make([]func(), q.chunkSize)
+	} else {
+		c.tasks = c.tasks[:q.chunkSize]
+	}
 	return c
 }
 
@@ -79,7 +85,8 @@ func newChunk() *chunk {
 //
 // IMP-002 Fix: Clear task slots before returning to prevent memory leaks
 // from retained references to task closures.
-func returnChunk(c *chunk) {
+// EXPAND-033: Uses per-instance pool for configurable chunk sizes.
+func (q *ChunkedIngress) returnChunk(c *chunk) {
 	// Clear all task slots to prevent memory leaks from retained closures
 	// Matches pattern from alternatetwo/returnChunkFast()
 	for i := 0; i < c.pos; i++ {
@@ -88,12 +95,35 @@ func returnChunk(c *chunk) {
 	c.pos = 0
 	c.readPos = 0
 	c.next = nil
-	chunkPool.Put(c)
+	q.chunkPool.Put(c)
 }
 
-// NewChunkedIngress creates a new chunked ingress queue.
+// NewChunkedIngress creates a new chunked ingress queue with default chunk size.
 func NewChunkedIngress() *ChunkedIngress {
-	return &ChunkedIngress{}
+	return NewChunkedIngressWithSize(defaultChunkSize)
+}
+
+// NewChunkedIngressWithSize creates a new chunked ingress queue with the specified chunk size.
+//
+// EXPAND-033: The chunk size determines how many tasks are stored per chunk node.
+// Larger sizes improve throughput by reducing allocation frequency but use more memory.
+//
+// The size should be a power of 2 between 16 and 4096 for optimal performance.
+// Values outside this range are accepted but may not be optimal.
+func NewChunkedIngressWithSize(size int) *ChunkedIngress {
+	if size <= 0 {
+		size = defaultChunkSize
+	}
+	return &ChunkedIngress{
+		chunkSize: size,
+		chunkPool: &sync.Pool{
+			New: func() any {
+				return &chunk{
+					tasks: make([]func(), size),
+				}
+			},
+		},
+	}
 }
 
 // Push adds a task to the queue.
@@ -101,12 +131,12 @@ func NewChunkedIngress() *ChunkedIngress {
 // CALLER MUST HOLD EXTERNAL MUTEX.
 func (q *ChunkedIngress) Push(task func()) {
 	if q.tail == nil {
-		q.tail = newChunk()
+		q.tail = q.newChunk()
 		q.head = q.tail
 	}
 
-	if q.tail.pos == len(q.tail.tasks) {
-		newTail := newChunk()
+	if q.tail.pos == q.chunkSize {
+		newTail := q.newChunk()
 		q.tail.next = newTail
 		q.tail = newTail
 	}
@@ -137,7 +167,7 @@ func (q *ChunkedIngress) Pop() (func(), bool) {
 		// Move to next chunk and return exhausted one to pool
 		oldHead := q.head
 		q.head = q.head.next
-		returnChunk(oldHead)
+		q.returnChunk(oldHead)
 	}
 
 	// Double-check after potential chunk advancement
@@ -161,7 +191,7 @@ func (q *ChunkedIngress) Pop() (func(), bool) {
 		}
 		oldHead := q.head
 		q.head = q.head.next
-		returnChunk(oldHead)
+		q.returnChunk(oldHead)
 	}
 
 	return task, true

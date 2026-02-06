@@ -3,10 +3,13 @@
 package gojaeventloop
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,12 +26,13 @@ type Adapter struct {
 	promisePrototype *goja.Object         // CRITICAL #3: Promise.prototype for instanceof support
 	consoleTimers    map[string]time.Time // FEATURE-004: label -> start time
 	consoleCounters  map[string]int       // EXPAND-004: label -> count
-
-	getIterator   goja.Callable // Helper function to get [Symbol.iterator]
-	consoleOutput io.Writer     // output writer for console (defaults to os.Stderr)
+	getIterator      goja.Callable        // Helper function to get [Symbol.iterator]
+	consoleOutput    io.Writer            // output writer for console (defaults to os.Stderr)
 
 	consoleTimersMu   sync.RWMutex // protects consoleTimers (FEATURE-004)
 	consoleCountersMu sync.RWMutex // protects consoleCounters (EXPAND-004)
+	consoleIndentMu   sync.RWMutex // protects consoleIndent (EXPAND-026)
+	consoleIndent     int          // EXPAND-026: current group indentation level
 }
 
 // New creates a new Goja adapter for given event loop and runtime.
@@ -121,6 +125,23 @@ func (a *Adapter) Bind() error {
 	if err := a.bindConsole(); err != nil {
 		return fmt.Errorf("failed to bind console: %w", err)
 	}
+
+	// EXPAND-020: process.nextTick binding
+	if err := a.bindProcess(); err != nil {
+		return fmt.Errorf("failed to bind process: %w", err)
+	}
+
+	// EXPAND-021: delay() global function
+	a.runtime.Set("delay", a.delay)
+
+	// EXPAND-022: crypto.randomUUID binding
+	if err := a.bindCrypto(); err != nil {
+		return fmt.Errorf("failed to bind crypto: %w", err)
+	}
+
+	// EXPAND-023: atob/btoa base64 functions
+	a.runtime.Set("atob", a.atob)
+	a.runtime.Set("btoa", a.btoa)
 
 	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
 	return a.bindPromise()
@@ -1780,6 +1801,237 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
+	// ===============================================
+	// EXPAND-025: console.table() Implementation
+	// ===============================================
+
+	// console.table(data, columns?) - displays tabular data as an ASCII table
+	// If data is an array, each element is a row
+	// If data is an object, each property is a row
+	// If columns is specified, only those columns are displayed
+	consoleObj.Set("table", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output == nil {
+			return goja.Undefined()
+		}
+
+		if len(call.Arguments) == 0 {
+			return goja.Undefined()
+		}
+
+		data := call.Argument(0)
+		if goja.IsNull(data) || goja.IsUndefined(data) {
+			fmt.Fprintf(output, "(index)\n")
+			return goja.Undefined()
+		}
+
+		// Get columns filter (optional second argument)
+		var columnFilter []string
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) && !goja.IsNull(call.Argument(1)) {
+			colArg := call.Argument(1)
+			// Try to parse as array of column names
+			if arr, err := a.consumeIterable(colArg); err == nil {
+				for _, v := range arr {
+					columnFilter = append(columnFilter, v.String())
+				}
+			}
+		}
+
+		// Generate table
+		tableStr := a.generateConsoleTable(data, columnFilter)
+		a.consoleIndentMu.RLock()
+		indent := a.consoleIndent
+		a.consoleIndentMu.RUnlock()
+		indentStr := a.getIndentString(indent)
+
+		// Add indent to each line
+		lines := strings.Split(tableStr, "\n")
+		for _, line := range lines {
+			if line != "" {
+				fmt.Fprintf(output, "%s%s\n", indentStr, line)
+			}
+		}
+
+		return goja.Undefined()
+	}))
+
+	// ===============================================
+	// EXPAND-026: console.group/groupEnd/trace/clear/dir
+	// ===============================================
+
+	// console.group(label?) - starts a new indented group
+	consoleObj.Set("group", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		// Get current indent for the label
+		a.consoleIndentMu.RLock()
+		indent := a.consoleIndent
+		a.consoleIndentMu.RUnlock()
+
+		// Print label if provided
+		if output != nil {
+			indentStr := a.getIndentString(indent)
+			if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+				label := call.Argument(0).String()
+				fmt.Fprintf(output, "%s▼ %s\n", indentStr, label)
+			} else {
+				fmt.Fprintf(output, "%s▼ console.group\n", indentStr)
+			}
+		}
+
+		// Increase indent for subsequent calls
+		a.consoleIndentMu.Lock()
+		a.consoleIndent++
+		a.consoleIndentMu.Unlock()
+
+		return goja.Undefined()
+	}))
+
+	// console.groupCollapsed(label?) - same as group (no collapse in terminal)
+	consoleObj.Set("groupCollapsed", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		// Get current indent for the label
+		a.consoleIndentMu.RLock()
+		indent := a.consoleIndent
+		a.consoleIndentMu.RUnlock()
+
+		// Print label if provided (same as group, just different visual marker)
+		if output != nil {
+			indentStr := a.getIndentString(indent)
+			if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+				label := call.Argument(0).String()
+				fmt.Fprintf(output, "%s▶ %s\n", indentStr, label)
+			} else {
+				fmt.Fprintf(output, "%s▶ console.group\n", indentStr)
+			}
+		}
+
+		// Increase indent for subsequent calls
+		a.consoleIndentMu.Lock()
+		a.consoleIndent++
+		a.consoleIndentMu.Unlock()
+
+		return goja.Undefined()
+	}))
+
+	// console.groupEnd() - ends the current group and reduces indent
+	consoleObj.Set("groupEnd", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleIndentMu.Lock()
+		if a.consoleIndent > 0 {
+			a.consoleIndent--
+		}
+		a.consoleIndentMu.Unlock()
+
+		return goja.Undefined()
+	}))
+
+	// console.trace(msg?) - prints a stack trace
+	consoleObj.Set("trace", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output == nil {
+			return goja.Undefined()
+		}
+
+		a.consoleIndentMu.RLock()
+		indent := a.consoleIndent
+		a.consoleIndentMu.RUnlock()
+		indentStr := a.getIndentString(indent)
+
+		// Print message if provided
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			msg := call.Argument(0).String()
+			fmt.Fprintf(output, "%sTrace: %s\n", indentStr, msg)
+		} else {
+			fmt.Fprintf(output, "%sTrace\n", indentStr)
+		}
+
+		// Get stack trace from Goja
+		// We create an Error object to capture the stack
+		stack := a.runtime.CaptureCallStack(10, nil)
+		for _, frame := range stack {
+			funcName := frame.FuncName()
+			if funcName == "" {
+				funcName = "(anonymous)"
+			}
+			pos := frame.Position()
+			// file.Position has Filename and Line but not Col (column is part of String())
+			fmt.Fprintf(output, "%s    at %s (%s:%d)\n", indentStr, funcName, pos.Filename, pos.Line)
+		}
+
+		return goja.Undefined()
+	}))
+
+	// console.clear() - clears the console (prints newlines or ANSI clear)
+	consoleObj.Set("clear", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output == nil {
+			return goja.Undefined()
+		}
+
+		// Print a few newlines to simulate clearing
+		// In a terminal, we could use ANSI escape codes, but for portability we use newlines
+		fmt.Fprintf(output, "\n\n\n")
+
+		return goja.Undefined()
+	}))
+
+	// console.dir(obj, options?) - displays an interactive listing of the properties of a specified object
+	consoleObj.Set("dir", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output == nil {
+			return goja.Undefined()
+		}
+
+		a.consoleIndentMu.RLock()
+		indent := a.consoleIndent
+		a.consoleIndentMu.RUnlock()
+		indentStr := a.getIndentString(indent)
+
+		if len(call.Arguments) == 0 {
+			fmt.Fprintf(output, "%sundefined\n", indentStr)
+			return goja.Undefined()
+		}
+
+		obj := call.Argument(0)
+		if goja.IsUndefined(obj) {
+			fmt.Fprintf(output, "%sundefined\n", indentStr)
+			return goja.Undefined()
+		}
+		if goja.IsNull(obj) {
+			fmt.Fprintf(output, "%snull\n", indentStr)
+			return goja.Undefined()
+		}
+
+		// Try to serialize as JSON for object inspection
+		exported := obj.Export()
+		inspection := a.inspectValue(exported, 0, 2)
+		lines := strings.Split(inspection, "\n")
+		for _, line := range lines {
+			if line != "" {
+				fmt.Fprintf(output, "%s%s\n", indentStr, line)
+			}
+		}
+
+		return goja.Undefined()
+	}))
+
 	return nil
 }
 
@@ -1794,4 +2046,528 @@ func joinStrings(strs []string, sep string) string {
 		result += sep + strs[i]
 	}
 	return result
+}
+
+// ===============================================
+// EXPAND-025: console.table() Helpers
+// ===============================================
+
+// getIndentString returns a string of spaces for the current indentation level.
+// Each level is 2 spaces.
+func (a *Adapter) getIndentString(level int) string {
+	if level <= 0 {
+		return ""
+	}
+	result := ""
+	for i := 0; i < level; i++ {
+		result += "  "
+	}
+	return result
+}
+
+// generateConsoleTable generates an ASCII table from the given data.
+func (a *Adapter) generateConsoleTable(data goja.Value, columnFilter []string) string {
+	if data == nil || goja.IsNull(data) || goja.IsUndefined(data) {
+		return "(index)"
+	}
+
+	exported := data.Export()
+
+	// Check if it's an array-like structure
+	if arr, ok := exported.([]interface{}); ok {
+		return a.generateTableFromArray(arr, columnFilter)
+	}
+
+	// Check if it's a map (object)
+	if obj, ok := exported.(map[string]interface{}); ok {
+		return a.generateTableFromObject(obj, columnFilter)
+	}
+
+	// For primitives, just return the value as string
+	return fmt.Sprintf("%v", exported)
+}
+
+// generateTableFromArray creates a table from an array.
+func (a *Adapter) generateTableFromArray(arr []interface{}, columnFilter []string) string {
+	if len(arr) == 0 {
+		return "(index)"
+	}
+
+	// Collect all column names from the data
+	allColumns := make(map[string]bool)
+	rows := make([]map[string]string, len(arr))
+
+	for i, item := range arr {
+		rows[i] = make(map[string]string)
+		rows[i]["(index)"] = fmt.Sprintf("%d", i)
+
+		if obj, ok := item.(map[string]interface{}); ok {
+			for k, v := range obj {
+				allColumns[k] = true
+				rows[i][k] = a.formatCellValue(v)
+			}
+		} else {
+			// For non-object items, use "Values" as column name
+			allColumns["Values"] = true
+			rows[i]["Values"] = a.formatCellValue(item)
+		}
+	}
+
+	// Build ordered column list
+	columns := []string{"(index)"}
+	if columnFilter != nil {
+		// Use specified columns only if they exist
+		for _, c := range columnFilter {
+			if allColumns[c] {
+				columns = append(columns, c)
+			}
+		}
+	} else {
+		// Use all collected columns in sorted order
+		sortedCols := make([]string, 0, len(allColumns))
+		for k := range allColumns {
+			sortedCols = append(sortedCols, k)
+		}
+		// Simple sort for deterministic output
+		for i := 0; i < len(sortedCols); i++ {
+			for j := i + 1; j < len(sortedCols); j++ {
+				if sortedCols[i] > sortedCols[j] {
+					sortedCols[i], sortedCols[j] = sortedCols[j], sortedCols[i]
+				}
+			}
+		}
+		columns = append(columns, sortedCols...)
+	}
+
+	return a.renderTable(columns, rows)
+}
+
+// generateTableFromObject creates a table from an object.
+func (a *Adapter) generateTableFromObject(obj map[string]interface{}, columnFilter []string) string {
+	if len(obj) == 0 {
+		return "(index)"
+	}
+
+	// Collect all column names from nested objects
+	allColumns := make(map[string]bool)
+	rows := make([]map[string]string, 0, len(obj))
+
+	// Sort keys for deterministic output
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			if keys[i] > keys[j] {
+				keys[i], keys[j] = keys[j], keys[i]
+			}
+		}
+	}
+
+	for _, k := range keys {
+		v := obj[k]
+		row := make(map[string]string)
+		row["(index)"] = k
+
+		if nested, ok := v.(map[string]interface{}); ok {
+			for nk, nv := range nested {
+				allColumns[nk] = true
+				row[nk] = a.formatCellValue(nv)
+			}
+		} else {
+			// For non-object values, use "Values" as column name
+			allColumns["Values"] = true
+			row["Values"] = a.formatCellValue(v)
+		}
+		rows = append(rows, row)
+	}
+
+	// Build ordered column list
+	columns := []string{"(index)"}
+	if columnFilter != nil {
+		// Use specified columns only if they exist
+		for _, c := range columnFilter {
+			if allColumns[c] {
+				columns = append(columns, c)
+			}
+		}
+	} else {
+		// Use all collected columns in sorted order
+		sortedCols := make([]string, 0, len(allColumns))
+		for k := range allColumns {
+			sortedCols = append(sortedCols, k)
+		}
+		for i := 0; i < len(sortedCols); i++ {
+			for j := i + 1; j < len(sortedCols); j++ {
+				if sortedCols[i] > sortedCols[j] {
+					sortedCols[i], sortedCols[j] = sortedCols[j], sortedCols[i]
+				}
+			}
+		}
+		columns = append(columns, sortedCols...)
+	}
+
+	return a.renderTable(columns, rows)
+}
+
+// formatCellValue formats a value for display in a table cell.
+func (a *Adapter) formatCellValue(v interface{}) string {
+	if v == nil {
+		return "null"
+	}
+
+	switch val := v.(type) {
+	case []interface{}:
+		return "Array(" + fmt.Sprintf("%d", len(val)) + ")"
+	case map[string]interface{}:
+		return "Object"
+	case string:
+		return val
+	case bool:
+		return fmt.Sprintf("%v", val)
+	case float64:
+		// Format numbers nicely (no trailing zeros for integers)
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%d", int64(val))
+		}
+		return fmt.Sprintf("%g", val)
+	case int64:
+		return fmt.Sprintf("%d", val)
+	case int:
+		return fmt.Sprintf("%d", val)
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+// renderTable renders the table as ASCII.
+func (a *Adapter) renderTable(columns []string, rows []map[string]string) string {
+	if len(columns) == 0 {
+		return ""
+	}
+
+	// Calculate column widths
+	widths := make([]int, len(columns))
+	for i, col := range columns {
+		widths[i] = len(col)
+	}
+	for _, row := range rows {
+		for i, col := range columns {
+			cellLen := len(row[col])
+			if cellLen > widths[i] {
+				widths[i] = cellLen
+			}
+		}
+	}
+
+	var result strings.Builder
+
+	// Build separator line
+	separatorParts := make([]string, len(columns))
+	for i, w := range widths {
+		separatorParts[i] = strings.Repeat("─", w+2)
+	}
+	separator := "├" + strings.Join(separatorParts, "┼") + "┤"
+
+	// Build top border
+	topParts := make([]string, len(columns))
+	for i, w := range widths {
+		topParts[i] = strings.Repeat("─", w+2)
+	}
+	topBorder := "┌" + strings.Join(topParts, "┬") + "┐"
+
+	// Build bottom border
+	bottomParts := make([]string, len(columns))
+	for i, w := range widths {
+		bottomParts[i] = strings.Repeat("─", w+2)
+	}
+	bottomBorder := "└" + strings.Join(bottomParts, "┴") + "┘"
+
+	// Top border
+	result.WriteString(topBorder)
+	result.WriteString("\n")
+
+	// Header row
+	headerParts := make([]string, len(columns))
+	for i, col := range columns {
+		headerParts[i] = a.padRight(col, widths[i])
+	}
+	result.WriteString("│ ")
+	result.WriteString(strings.Join(headerParts, " │ "))
+	result.WriteString(" │\n")
+
+	// Separator
+	result.WriteString(separator)
+	result.WriteString("\n")
+
+	// Data rows
+	for _, row := range rows {
+		cellParts := make([]string, len(columns))
+		for i, col := range columns {
+			cellParts[i] = a.padRight(row[col], widths[i])
+		}
+		result.WriteString("│ ")
+		result.WriteString(strings.Join(cellParts, " │ "))
+		result.WriteString(" │\n")
+	}
+
+	// Bottom border
+	result.WriteString(bottomBorder)
+
+	return result.String()
+}
+
+// padRight pads a string to the right with spaces.
+func (a *Adapter) padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}
+
+// ===============================================
+// EXPAND-026: console.dir() Helper
+// ===============================================
+
+// inspectValue creates a human-readable representation of a value.
+// maxDepth controls how deep to inspect nested objects.
+func (a *Adapter) inspectValue(v interface{}, depth int, maxDepth int) string {
+	if v == nil {
+		return "null"
+	}
+
+	indent := strings.Repeat("  ", depth)
+	nextIndent := strings.Repeat("  ", depth+1)
+
+	switch val := v.(type) {
+	case []interface{}:
+		if depth >= maxDepth {
+			return fmt.Sprintf("Array(%d)", len(val))
+		}
+		if len(val) == 0 {
+			return "[]"
+		}
+		var parts []string
+		for i, item := range val {
+			parts = append(parts, fmt.Sprintf("%s%d: %s", nextIndent, i, a.inspectValue(item, depth+1, maxDepth)))
+		}
+		return "[\n" + strings.Join(parts, ",\n") + "\n" + indent + "]"
+
+	case map[string]interface{}:
+		if depth >= maxDepth {
+			return "Object"
+		}
+		if len(val) == 0 {
+			return "{}"
+		}
+		// Sort keys for deterministic output
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		for i := 0; i < len(keys); i++ {
+			for j := i + 1; j < len(keys); j++ {
+				if keys[i] > keys[j] {
+					keys[i], keys[j] = keys[j], keys[i]
+				}
+			}
+		}
+		var parts []string
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%s%s: %s", nextIndent, k, a.inspectValue(val[k], depth+1, maxDepth)))
+		}
+		return "{\n" + strings.Join(parts, ",\n") + "\n" + indent + "}"
+
+	case string:
+		return fmt.Sprintf("'%s'", val)
+
+	case bool:
+		return fmt.Sprintf("%v", val)
+
+	case float64:
+		// Format numbers nicely (no trailing zeros for integers)
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%d", int64(val))
+		}
+		return fmt.Sprintf("%g", val)
+
+	case int64:
+		return fmt.Sprintf("%d", val)
+
+	case int:
+		return fmt.Sprintf("%d", val)
+
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+// ===============================================
+// EXPAND-020: process.nextTick() Binding
+// ===============================================
+
+// bindProcess creates the process object with nextTick method.
+// This emulates Node.js process.nextTick() semantics.
+func (a *Adapter) bindProcess() error {
+	// Get or create process object
+	processVal := a.runtime.Get("process")
+	var processObj *goja.Object
+	if processVal == nil || goja.IsUndefined(processVal) {
+		// No process object exists, create one
+		processObj = a.runtime.NewObject()
+		a.runtime.Set("process", processObj)
+	} else {
+		// process object exists, extend it
+		processObj = processVal.ToObject(a.runtime)
+	}
+
+	// process.nextTick(fn) - schedules fn to run before microtasks
+	processObj.Set("nextTick", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		fn := call.Argument(0)
+		if fn.Export() == nil {
+			panic(a.runtime.NewTypeError("process.nextTick requires a function as first argument"))
+		}
+
+		fnCallable, ok := goja.AssertFunction(fn)
+		if !ok {
+			panic(a.runtime.NewTypeError("process.nextTick requires a function as first argument"))
+		}
+
+		// Use the Go NextTick implementation
+		err := a.js.NextTick(func() {
+			_, _ = fnCallable(goja.Undefined())
+		})
+		if err != nil {
+			panic(a.runtime.NewGoError(err))
+		}
+
+		return goja.Undefined()
+	}))
+
+	return nil
+}
+
+// ===============================================
+// EXPAND-021: delay() Promise Helper
+// ===============================================
+
+// delay returns a promise that resolves after the specified delay.
+// This is similar to setTimeout but returns a promise for async/await patterns.
+func (a *Adapter) delay(call goja.FunctionCall) goja.Value {
+	delayMs := int(call.Argument(0).ToInteger())
+	if delayMs < 0 {
+		delayMs = 0
+	}
+
+	// Use the Go Sleep implementation
+	promise := a.js.Sleep(time.Duration(delayMs) * time.Millisecond)
+	return a.gojaWrapPromise(promise)
+}
+
+// ===============================================
+// EXPAND-022: crypto.randomUUID() Binding
+// ===============================================
+
+// bindCrypto creates the crypto object with randomUUID method.
+func (a *Adapter) bindCrypto() error {
+	// Get or create crypto object
+	cryptoVal := a.runtime.Get("crypto")
+	var cryptoObj *goja.Object
+	if cryptoVal == nil || goja.IsUndefined(cryptoVal) {
+		// No crypto object exists, create one
+		cryptoObj = a.runtime.NewObject()
+		a.runtime.Set("crypto", cryptoObj)
+	} else {
+		// crypto object exists, extend it
+		cryptoObj = cryptoVal.ToObject(a.runtime)
+	}
+
+	// crypto.randomUUID() - returns a secure UUID v4 string
+	cryptoObj.Set("randomUUID", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		uuid, err := generateUUIDv4()
+		if err != nil {
+			panic(a.runtime.NewGoError(err))
+		}
+		return a.runtime.ToValue(uuid)
+	}))
+
+	return nil
+}
+
+// generateUUIDv4 generates a cryptographically secure UUID v4 string.
+// Format: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" where y is 8, 9, a, or b.
+func generateUUIDv4() (string, error) {
+	var uuid [16]byte
+	_, err := rand.Read(uuid[:])
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+
+	// Set version (4) and variant bits per RFC 4122
+	uuid[6] = (uuid[6] & 0x0f) | 0x40 // Version 4
+	uuid[8] = (uuid[8] & 0x3f) | 0x80 // Variant 1
+
+	// Format as standard UUID string
+	return fmt.Sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		uuid[0], uuid[1], uuid[2], uuid[3],
+		uuid[4], uuid[5],
+		uuid[6], uuid[7],
+		uuid[8], uuid[9],
+		uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]), nil
+}
+
+// ===============================================
+// EXPAND-023: atob/btoa Base64 Functions
+// ===============================================
+
+// btoa encodes a string to base64.
+// This follows the browser's btoa() semantics.
+// Each character's code point (0-255) becomes a single byte.
+func (a *Adapter) btoa(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) == 0 {
+		panic(a.runtime.NewTypeError("btoa requires a string argument"))
+	}
+
+	input := call.Argument(0).String()
+
+	// btoa in browsers only accepts Latin-1 characters (0x00-0xFF)
+	// Each character's code point becomes a single byte
+	runes := []rune(input)
+	bytes := make([]byte, len(runes))
+	for i, r := range runes {
+		if r > 0xFF {
+			panic(a.runtime.NewTypeError("btoa: The string to be encoded contains characters outside of the Latin1 range"))
+		}
+		bytes[i] = byte(r)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(bytes)
+	return a.runtime.ToValue(encoded)
+}
+
+// atob decodes a base64 string.
+// This follows the browser's atob() semantics.
+// Each byte in the decoded data becomes a character with that code point.
+func (a *Adapter) atob(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) == 0 {
+		panic(a.runtime.NewTypeError("atob requires a string argument"))
+	}
+
+	input := call.Argument(0).String()
+
+	decoded, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		// atob throws DOMException with name "InvalidCharacterError"
+		// We simulate this with a TypeError since Goja doesn't have DOMException
+		panic(a.runtime.NewTypeError("atob: The string to be decoded is not correctly encoded"))
+	}
+
+	// Each byte becomes a character with that code point (Latin-1 semantics)
+	runes := make([]rune, len(decoded))
+	for i, b := range decoded {
+		runes[i] = rune(b)
+	}
+
+	return a.runtime.ToValue(string(runes))
 }

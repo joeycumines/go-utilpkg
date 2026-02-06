@@ -632,3 +632,72 @@ func (js *JS) Try(fn func() any) *ChainedPromise {
 
 	return promise
 }
+
+// NextTick schedules a function to run before any microtasks in the current tick.
+//
+// EXPAND-020: This emulates Node.js process.nextTick() semantics. NextTick callbacks
+// have higher priority than regular microtasks (promises, queueMicrotask), meaning
+// they run before any promise handlers in the same tick.
+//
+// Unlike setTimeout(fn, 0) which schedules for the next tick, NextTick callbacks
+// execute immediately after the current synchronous code, before any pending
+// promise handlers.
+//
+// Parameters:
+//   - fn: The callback to execute. If nil, returns nil without scheduling.
+//
+// Returns:
+//   - Error if the loop is shut down.
+//
+// Example:
+//
+//	js.NextTick(func() {
+//	    fmt.Println("This runs before promises")
+//	})
+//
+//	promise.Then(func(r Result) Result {
+//	    fmt.Println("This runs after nextTick")
+//	    return nil
+//	}, nil)
+//
+// Thread Safety: Safe to call from any goroutine.
+func (js *JS) NextTick(fn func()) error {
+	return js.loop.ScheduleNextTick(fn)
+}
+
+// Sleep returns a promise that resolves after the specified delay.
+//
+// EXPAND-021: This is a convenience helper for promise-based delays,
+// similar to the delay() or sleep() patterns common in JavaScript.
+//
+// Parameters:
+//   - ms: The delay duration.
+//
+// Returns:
+//   - A ChainedPromise that resolves with nil after the delay.
+//
+// Example:
+//
+//	// Wait for 100ms, then do something
+//	js.Sleep(100 * time.Millisecond).Then(func(r Result) Result {
+//	    fmt.Println("100ms elapsed")
+//	    return nil
+//	}, nil)
+//
+// Thread Safety: Safe to call from any goroutine.
+// The returned promise is safe for concurrent access.
+func (js *JS) Sleep(ms time.Duration) *ChainedPromise {
+	promise, resolve, _ := js.NewChainedPromise()
+
+	// Schedule timer to resolve the promise
+	_, err := js.loop.ScheduleTimer(ms, func() {
+		resolve(nil)
+	})
+	if err != nil {
+		// If scheduling fails, resolve immediately
+		// This handles edge cases like loop termination
+		resolve(nil)
+	}
+
+	return promise
+}

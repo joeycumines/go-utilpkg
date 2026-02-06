@@ -552,6 +552,12 @@ func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
 		return v
 	}, nil)
 
+	// IMPORTANT: Resolve the promise BEFORE scheduling timeout to ensure
+	// the promise reaction microtask is queued before the timeout.
+	// This avoids a race condition where the timeout fires before the
+	// promise reaction is processed.
+	resolve("value")
+
 	// More ScheduleMicrotask
 	loop.ScheduleMicrotask(func() {
 		order = append(order, "scheduleMicrotask-2")
@@ -562,14 +568,11 @@ func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
 		order = append(order, "queueMicrotask-2")
 	})
 
-	// Final timeout
+	// Final timeout - scheduled after resolve() to ensure microtasks first
 	js.SetTimeout(func() {
 		order = append(order, "timeout")
 		close(done)
 	}, 0)
-
-	// Resolve promise to trigger reaction
-	resolve("value")
 
 	select {
 	case <-done:

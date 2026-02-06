@@ -20,8 +20,8 @@ import (
 func TestChunkedIngress_MultiChunkGrowth(t *testing.T) {
 	q := NewChunkedIngress()
 
-	// Push more than one chunk (chunkSize = 128)
-	itemCount := chunkSize * 3
+	// Push more than one chunk (defaultChunkSize = 64)
+	itemCount := defaultChunkSize * 3
 
 	for i := 0; i < itemCount; i++ {
 		q.Push(func() {})
@@ -53,7 +53,7 @@ func TestChunkedIngress_ChunkPoolRecycling(t *testing.T) {
 	q := NewChunkedIngress()
 
 	// Push exactly 2 chunks worth
-	itemCount := chunkSize * 2
+	itemCount := defaultChunkSize * 2
 
 	for i := 0; i < itemCount; i++ {
 		q.Push(func() {})
@@ -76,31 +76,34 @@ func TestChunkedIngress_ChunkPoolRecycling(t *testing.T) {
 
 // TestChunkedIngress_ReturnChunkClearsSlots tests IMP-002 fix for memory leak.
 func TestChunkedIngress_ReturnChunkClearsSlots(t *testing.T) {
-	// Create a chunk manually and populate it
-	c := newChunk()
+	// Create a queue to use its pool and newChunk/returnChunk methods
+	q := NewChunkedIngress()
+
+	// Create a chunk using the queue's method
+	c := q.newChunk()
 
 	// Fill with tasks
-	for i := 0; i < chunkSize; i++ {
+	for i := 0; i < q.chunkSize; i++ {
 		c.tasks[i] = func() {}
 	}
-	c.pos = chunkSize
-	c.readPos = chunkSize // Mark as fully read
+	c.pos = q.chunkSize
+	c.readPos = q.chunkSize // Mark as fully read
 
 	// Verify tasks are populated
-	for i := 0; i < chunkSize; i++ {
+	for i := 0; i < q.chunkSize; i++ {
 		if c.tasks[i] == nil {
 			t.Fatalf("Task at %d should not be nil before return", i)
 		}
 	}
 
 	// Return the chunk - should clear all slots
-	returnChunk(c)
+	q.returnChunk(c)
 
 	// Get a fresh chunk from pool (might be the same one)
-	c2 := newChunk()
+	c2 := q.newChunk()
 
 	// All slots should be nil
-	for i := 0; i < chunkSize; i++ {
+	for i := 0; i < q.chunkSize; i++ {
 		if c2.tasks[i] != nil {
 			t.Errorf("Task at %d should be nil after pool recycle", i)
 		}
@@ -118,7 +121,7 @@ func TestChunkedIngress_ReturnChunkClearsSlots(t *testing.T) {
 	}
 
 	// Return the chunk for cleanup
-	returnChunk(c2)
+	q.returnChunk(c2)
 }
 
 // TestChunkedIngress_ExhaustedChunkHandling tests handling of fully-read chunks.
@@ -126,14 +129,14 @@ func TestChunkedIngress_ExhaustedChunkHandling(t *testing.T) {
 	q := NewChunkedIngress()
 
 	// Push exactly one chunk worth plus a few more
-	itemCount := chunkSize + 10
+	itemCount := defaultChunkSize + 10
 
 	for i := 0; i < itemCount; i++ {
 		q.Push(func() {})
 	}
 
 	// Pop exactly the first chunk
-	for i := 0; i < chunkSize; i++ {
+	for i := 0; i < defaultChunkSize; i++ {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Pop failed at index %d", i)
@@ -261,7 +264,7 @@ func TestChunkedIngress_ChunkChainIntegrity(t *testing.T) {
 	q := NewChunkedIngress()
 
 	// Push enough for 4 chunks
-	itemCount := chunkSize * 4
+	itemCount := defaultChunkSize * 4
 
 	for i := 0; i < itemCount; i++ {
 		q.Push(func() {})
@@ -340,7 +343,9 @@ func TestChunkedIngress_ConcurrentPushSingleConsumer(t *testing.T) {
 
 // TestChunkedIngress_NewChunk tests newChunk pool allocation.
 func TestChunkedIngress_NewChunk(t *testing.T) {
-	c := newChunk()
+	// Use queue's method to create chunks
+	q := NewChunkedIngress()
+	c := q.newChunk()
 
 	if c == nil {
 		t.Fatal("newChunk returned nil")
@@ -358,7 +363,7 @@ func TestChunkedIngress_NewChunk(t *testing.T) {
 		t.Error("Expected next to be nil")
 	}
 
-	returnChunk(c)
+	q.returnChunk(c)
 }
 
 // TestChunkedIngress_TaskExecution tests that tasks execute correctly.
@@ -408,8 +413,8 @@ func TestChunkedIngress_GCSafety(t *testing.T) {
 
 // TestChunkedIngress_ChunkConstants verifies chunk constants.
 func TestChunkedIngress_ChunkConstants(t *testing.T) {
-	if chunkSize != 128 {
-		t.Errorf("Expected chunkSize 128, got %d", chunkSize)
+	if defaultChunkSize != 64 {
+		t.Errorf("Expected defaultChunkSize 64, got %d", defaultChunkSize)
 	}
 }
 
@@ -454,7 +459,7 @@ func TestChunkedIngress_BoundaryConditions(t *testing.T) {
 	q := NewChunkedIngress()
 
 	// Push exactly chunkSize items
-	for i := 0; i < chunkSize; i++ {
+	for i := 0; i < q.chunkSize; i++ {
 		q.Push(func() {})
 	}
 

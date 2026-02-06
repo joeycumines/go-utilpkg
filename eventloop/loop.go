@@ -105,26 +105,27 @@ type Loop struct {
 	_ [0]func() // Prevent copying
 
 	// Large pointer-heavy types (all require 8-byte alignment)
-	batchBuf     [256]func()
-	tickAnchor   time.Time
-	registry     *registry
-	state        *FastState
-	testHooks    *loopTestHooks
-	external     *ChunkedIngress
-	internal     *ChunkedIngress
-	microtasks   *MicrotaskRing
-	metrics      *Metrics                         // Phase 5.3: Optional runtime metrics
-	tpsCounter   *TPSCounter                      // Phase 5.3: TPS tracking
-	logger       *logiface.Logger[logiface.Event] // T25: Optional structured logger
-	OnOverload   func(error)
-	fastWakeupCh chan struct{}
-	loopDone     chan struct{}
-	timerMap     map[TimerID]*timer
-	timers       timerHeap
-	auxJobs      []func()
-	auxJobsSpare []func()
-	poller       FastPoller
-	promisifyWg  sync.WaitGroup
+	batchBuf      [256]func()
+	tickAnchor    time.Time
+	registry      *registry
+	state         *FastState
+	testHooks     *loopTestHooks
+	external      *ChunkedIngress
+	internal      *ChunkedIngress
+	microtasks    *MicrotaskRing
+	nextTickQueue *MicrotaskRing                   // EXPAND-020: process.nextTick queue (runs before microtasks)
+	metrics       *Metrics                         // Phase 5.3: Optional runtime metrics
+	tpsCounter    *TPSCounter                      // Phase 5.3: TPS tracking
+	logger        *logiface.Logger[logiface.Event] // T25: Optional structured logger
+	OnOverload    func(error)
+	fastWakeupCh  chan struct{}
+	loopDone      chan struct{}
+	timerMap      map[TimerID]*timer
+	timers        timerHeap
+	auxJobs       []func()
+	auxJobsSpare  []func()
+	poller        FastPoller
+	promisifyWg   sync.WaitGroup
 
 	// Simple primitive types BEFORE anything that requires pointer alignment
 	tickCount     uint64
@@ -221,9 +222,10 @@ func New(opts ...LoopOption) (*Loop, error) {
 	loop := &Loop{
 		id:            loopIDCounter.Add(1),
 		state:         NewFastState(),
-		external:      NewChunkedIngress(),
-		internal:      NewChunkedIngress(),
+		external:      NewChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
+		internal:      NewChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
 		microtasks:    NewMicrotaskRing(),
+		nextTickQueue: NewMicrotaskRing(), // EXPAND-020: nextTick runs before microtasks
 		registry:      newRegistry(),
 		timers:        make(timerHeap, 0),
 		timerMap:      make(map[TimerID]*timer),
@@ -890,10 +892,18 @@ func (l *Loop) processExternal() {
 }
 
 // drainMicrotasks drains the microtask queue.
+// EXPAND-020: nextTick callbacks run before regular microtasks (like Node.js).
 func (l *Loop) drainMicrotasks() {
 	const budget = 1024
 
 	for i := 0; i < budget; i++ {
+		// Priority 1: nextTick queue (process.nextTick runs before Promise microtasks)
+		if fn := l.nextTickQueue.Pop(); fn != nil {
+			l.safeExecuteFn(fn)
+			continue
+		}
+
+		// Priority 2: Regular microtasks (Promise reactions, queueMicrotask)
 		fn := l.microtasks.Pop()
 		if fn == nil {
 			break
@@ -1382,6 +1392,65 @@ func (l *Loop) scheduleMicrotask(task func()) {
 	}
 }
 
+// ScheduleNextTick schedules a function to run before any microtasks in the current tick.
+//
+// EXPAND-020: This emulates Node.js process.nextTick() semantics. NextTick callbacks
+// have higher priority than regular microtasks (promises, queueMicrotask), meaning
+// they run before any promise handlers in the same tick.
+//
+// Unlike setTimeout(fn, 0) which schedules for the next tick, NextTick callbacks
+// execute immediately after the current synchronous code, before any pending
+// promise handlers.
+//
+// Parameters:
+//   - fn: The function to execute. If nil, returns nil without scheduling.
+//
+// Returns:
+//   - ErrLoopTerminated if the loop has been shut down.
+//
+// Thread Safety: Safe to call from any goroutine.
+func (l *Loop) ScheduleNextTick(fn func()) error {
+	if fn == nil {
+		return nil
+	}
+
+	state := l.state.Load()
+	if state == StateTerminated {
+		return ErrLoopTerminated
+	}
+
+	// Check fast mode conditions BEFORE taking lock
+	fastMode := l.canUseFastPath()
+
+	// Lock external mutex for atomic push
+	l.externalMu.Lock()
+
+	// Check state again while holding mutex - this is atomic with push
+	state = l.state.Load()
+	if state == StateTerminated {
+		l.externalMu.Unlock()
+		return ErrLoopTerminated
+	}
+
+	// Add to nextTick queue (higher priority than microtasks)
+	l.nextTickQueue.Push(fn)
+	l.externalMu.Unlock()
+
+	// Wake up the loop to process the nextTick callback
+	if fastMode {
+		select {
+		case l.fastWakeupCh <- struct{}{}:
+		default:
+		}
+	} else if state == StateSleeping {
+		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
+			l.doWakeup()
+		}
+	}
+
+	return nil
+}
+
 // RegisterFD registers a file descriptor for I/O event monitoring.
 //
 // Invariant: RegisterFD is incompatible with FastPathForced mode.
@@ -1649,6 +1718,87 @@ func (l *Loop) CancelTimer(id TimerID) error {
 		result <- nil
 	}); err != nil {
 		return err
+	}
+
+	return <-result
+}
+
+// CancelTimers cancels multiple scheduled timers in a single batch operation.
+//
+// EXPAND-034: This is more efficient than calling CancelTimer multiple times because
+// it acquires the lock once, removes all matching timers, and returns pool entries once.
+//
+// Returns a slice of errors corresponding to each timer ID:
+//   - nil: Timer was successfully cancelled
+//   - ErrTimerNotFound: Timer ID was not found in the timerMap
+//
+// Returns ErrLoopNotRunning (for all IDs) if the loop is not in a valid state.
+// Returns ErrLoopTerminated (for all IDs) if SubmitInternal fails.
+//
+// Thread Safety: Safe to call from any goroutine.
+func (l *Loop) CancelTimers(ids []TimerID) []error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Check if loop is in a valid state for cancellation.
+	state := l.state.Load()
+	if !l.state.IsRunning() && state != StateTerminated {
+		// Return ErrLoopNotRunning for all IDs
+		errors := make([]error, len(ids))
+		for i := range errors {
+			errors[i] = ErrLoopNotRunning
+		}
+		return errors
+	}
+
+	result := make(chan []error, 1)
+
+	// Submit to loop thread to ensure thread-safe access to timerMap and timer heap
+	if err := l.SubmitInternal(func() {
+		errors := make([]error, len(ids))
+
+		// Collect timers to remove from heap (use slice to batch heap operations)
+		toRemove := make([]*timer, 0, len(ids))
+
+		for i, id := range ids {
+			t, exists := l.timerMap[id]
+			if !exists {
+				errors[i] = ErrTimerNotFound
+				continue
+			}
+			// Mark as canceled
+			t.canceled.Store(true)
+			// Remove from timerMap
+			delete(l.timerMap, id)
+			// Collect for batch heap removal
+			if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
+				toRemove = append(toRemove, t)
+			}
+			errors[i] = nil
+		}
+
+		// Note: heap.Remove dynamically updates heapIndex via Swap, so the order of removals
+		// doesn't actually matter for correctness - each timer's heapIndex is current at removal time.
+		for _, t := range toRemove {
+			if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
+				heap.Remove(&l.timers, t.heapIndex)
+			}
+			// Return timer to pool
+			t.heapIndex = -1
+			t.nestingLevel = 0
+			t.task = nil
+			timerPool.Put(t)
+		}
+
+		result <- errors
+	}); err != nil {
+		// SubmitInternal failed, return error for all IDs
+		errors := make([]error, len(ids))
+		for i := range errors {
+			errors[i] = err
+		}
+		return errors
 	}
 
 	return <-result

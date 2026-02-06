@@ -270,6 +270,18 @@ func (e *AbortError) Is(target error) bool {
 	return ok
 }
 
+// Unwrap returns the underlying error if Reason is an error type.
+// This enables use with [errors.Is] and [errors.As] for error matching
+// through the cause chain (ES2022 Error.cause compatibility).
+//
+// If Reason is not an error, returns nil.
+func (e *AbortError) Unwrap() error {
+	if err, ok := e.Reason.(error); ok {
+		return err
+	}
+	return nil
+}
+
 // AbortTimeout creates an AbortController that will automatically abort after
 // the specified duration.
 //
