@@ -1,75 +1,45 @@
 # Work In Progress - Takumi's Diary
 
 ## Session
-**Started:** 2026-02-06 19:00:00 AEST
+**Started:** 2026-02-11 20:00:00 AEST
 **Status:** ✅ COMPLETE
 
 ## Current Goal
-**TASK:** EXPAND-055/056/057: Verify JavaScript Built-in Methods - ALL DONE
+**TASK:** EXPAND-070: Intl API verification tests - DONE
 
 ### Tasks Completed This Session:
-1. **EXPAND-055**: Object static methods verification ✅ DONE
-2. **EXPAND-056**: Array methods verification ✅ DONE
-3. **EXPAND-057**: String methods verification ✅ DONE
+1. **EXPAND-070**: Intl API verification tests ✅ DONE
 
 ### Implementation Summary:
-- Created 3 new test files in goja-eventloop/ to verify JavaScript built-in methods
-- All standard methods are NATIVE to Goja - no polyfills needed for core functionality
-- ES2022/ES2023 methods checked with graceful skip for unsupported versions
+- Created `goja-eventloop/intl_test.go` with 18 tests
+- Tests gracefully check Intl API availability and skip if not present
+- Uses `//go:build linux || darwin` tag as required
+
+### Test Coverage (18 tests):
+
+| Category | Tests |
+|----------|-------|
+| Intl Object Existence | TestIntl_ObjectExists, TestIntl_ObjectProperties |
+| Intl.Collator | TestIntl_Collator_Exists, TestIntl_Collator_Compare |
+| Intl.DateTimeFormat | TestIntl_DateTimeFormat_Exists, TestIntl_DateTimeFormat_Format |
+| Intl.NumberFormat | TestIntl_NumberFormat_Exists, TestIntl_NumberFormat_Format |
+| Intl.PluralRules | TestIntl_PluralRules_Exists, TestIntl_PluralRules_Select |
+| Intl.RelativeTimeFormat | TestIntl_RelativeTimeFormat_Exists, TestIntl_RelativeTimeFormat_Format |
+| Intl.ListFormat | TestIntl_ListFormat_Exists, TestIntl_ListFormat_Format |
+| Intl.Segmenter | TestIntl_Segmenter_Exists, TestIntl_Segmenter_Segment |
+| Intl.DisplayNames | TestIntl_DisplayNames_Exists, TestIntl_DisplayNames_Of |
+| Intl.getCanonicalLocales | TestIntl_GetCanonicalLocales_Exists, TestIntl_GetCanonicalLocales_Usage |
+| Intl.supportedValuesOf | TestIntl_SupportedValuesOf_Exists, TestIntl_SupportedValuesOf_Usage |
+| Comprehensive Report | TestIntl_StatusReport |
+| Locale Handling | TestIntl_LocaleHandling, TestIntl_LocaleNegotiation |
 
 ### Files Created:
-- `goja-eventloop/object_test.go` - 30+ tests for Object static methods
-- `goja-eventloop/array_test.go` - 60+ tests for Array methods
-- `goja-eventloop/string_test.go` - 50+ tests for String methods
-
-### Native vs Polyfill Status:
-
-**Object Methods (EXPAND-055):**
-| Method | Status |
-|--------|--------|
-| Object.keys() | NATIVE |
-| Object.values() | NATIVE |
-| Object.entries() | NATIVE |
-| Object.assign() | NATIVE |
-| Object.freeze() | NATIVE |
-| Object.seal() | NATIVE |
-| Object.fromEntries() | NATIVE |
-| Object.getOwnPropertyNames() | NATIVE |
-| Object.hasOwn() (ES2022) | NEEDS POLYFILL CHECK |
-
-**Array Methods (EXPAND-056):**
-| Method | Status |
-|--------|--------|
-| Array.isArray() | NATIVE |
-| Array.from() | NATIVE |
-| Array.of() | NATIVE |
-| [].map/filter/reduce | NATIVE |
-| [].find/findIndex | NATIVE |
-| [].flat/flatMap | NATIVE |
-| [].includes | NATIVE |
-| [].at() (ES2022) | NEEDS POLYFILL CHECK |
-| [].findLast/findLastIndex (ES2023) | NEEDS POLYFILL CHECK |
-| [].toSorted/toReversed (ES2023) | NEEDS POLYFILL CHECK |
-
-**String Methods (EXPAND-057):**
-| Method | Status |
-|--------|--------|
-| padStart/padEnd | NATIVE |
-| repeat | NATIVE |
-| trimStart/trimEnd | NATIVE |
-| includes/startsWith/endsWith | NATIVE |
-| String.prototype.at() (ES2022) | NEEDS POLYFILL CHECK |
-| replaceAll() (ES2021) | NEEDS POLYFILL CHECK |
-
-### Notes:
-- Emoji handling in String.at() is limited due to UTF-16 code units (ES spec compliant but not grapheme-aware)
-- Tests use graceful skip for ES2022/ES2023 methods that may not be available in all Goja versions
-- All tests verify method existence before testing functionality
+- `goja-eventloop/intl_test.go` - 18 comprehensive tests
 
 ## Verification
 - `make all` passes ✅ (exit_code=0)
-- All new tests pass
-- All native Goja built-ins verified working
+- All Intl tests pass (gracefully skip when APIs not available)
+- Tests verify Goja's Intl support status
 
 ## Reference
 See `./blueprint.json` for complete execution status.

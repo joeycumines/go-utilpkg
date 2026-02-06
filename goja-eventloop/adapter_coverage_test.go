@@ -11,6 +11,7 @@ package gojaeventloop
 import (
 	"context"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -910,26 +911,30 @@ func TestAdapter_PromiseWrapper_NoLeak(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	loopCtx, loopCancel := context.WithCancel(ctx)
-	defer loopCancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		loop.Run(loopCtx)
-	}()
-
 	// Simple test: create a few promises and resolve them
 	var chainCount int
+	var chainMu sync.Mutex
 	_ = rt.Set("incrementChain", func() {
+		chainMu.Lock()
 		chainCount++
+		chainMu.Unlock()
 	})
 
-	// Create a few promise chains
+	done := make(chan struct{})
+	_ = rt.Set("notifyDone", func() {
+		close(done)
+	})
+
+	// Create promise chains BEFORE starting the loop to avoid race
 	_, err = rt.RunString(`
+		var completed = 0;
 		for (var i = 0; i < 5; i++) {
 			Promise.resolve(i).then(function(x) {
 				incrementChain();
+				completed++;
+				if (completed === 5) {
+					notifyDone();
+				}
 				return x;
 			});
 		}
@@ -938,17 +943,24 @@ func TestAdapter_PromiseWrapper_NoLeak(t *testing.T) {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}
 
-	// Give time for microtasks to process
-	time.Sleep(100 * time.Millisecond)
+	// Now start the loop to process the microtasks
+	go loop.Run(ctx)
 
-	// Stop the loop
-	loopCancel()
-	<-loopDone
+	// Wait for all promises to complete
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("Timeout waiting for promises")
+	}
 
-	// Should have processed at least some chains
-	t.Logf("Chain count: %d", chainCount)
-	if chainCount < 1 {
-		t.Error("Expected at least 1 chain to complete")
+	chainMu.Lock()
+	count := chainCount
+	chainMu.Unlock()
+
+	// Should have processed all 5 chains
+	t.Logf("Chain count: %d", count)
+	if count != 5 {
+		t.Errorf("Expected 5 chains to complete, got %d", count)
 	}
 }
 
