@@ -12,29 +12,29 @@ import (
 // TestErrorWithCause_Error tests the Error() method of ErrorWithCause.
 func TestErrorWithCause_Error(t *testing.T) {
 	tests := []struct {
-		name    string
-		err     *ErrorWithCause
-		want    string
+		name string
+		err  *ErrorWithCause
+		want string
 	}{
 		{
-			name:    "message only",
-			err:     &ErrorWithCause{Message: "something failed"},
-			want:    "something failed",
+			name: "message only",
+			err:  &ErrorWithCause{Message: "something failed"},
+			want: "something failed",
 		},
 		{
-			name:    "message with cause",
-			err:     &ErrorWithCause{Message: "top level error", Cause: io.EOF},
-			want:    "top level error",
+			name: "message with cause",
+			err:  &ErrorWithCause{Message: "top level error", Cause: io.EOF},
+			want: "top level error",
 		},
 		{
-			name:    "empty message with cause",
-			err:     &ErrorWithCause{Message: "", Cause: io.EOF},
-			want:    "EOF",
+			name: "empty message with cause",
+			err:  &ErrorWithCause{Message: "", Cause: io.EOF},
+			want: "EOF",
 		},
 		{
-			name:    "empty message no cause",
-			err:     &ErrorWithCause{Message: "", Cause: nil},
-			want:    "unknown error",
+			name: "empty message no cause",
+			err:  &ErrorWithCause{Message: "", Cause: nil},
+			want: "unknown error",
 		},
 	}
 
