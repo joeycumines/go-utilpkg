@@ -1,70 +1,74 @@
 # Work In Progress - Takumi's Diary
 
 ## Session
-**Started:** 2026-02-08 00:00:00 AEST
+**Started:** 2026-02-06 00:00:00 AEST
 **Status:** ✅ COMPLETED
 
 ## Current Goal
-**TASK:** Peer Review #9 Fixes - Two bugs fixed
-
-### Peer Review #9 Fixes Completed:
-1. **PEERFIX-009-A**: TextEncoder.encodeInto() returns wrong `read` value ✅
-   - Bug: Used byte index `i` from `for i, r := range source` instead of rune count
-   - Fix: Track rune count separately with `runeCount++` after each character
-
-2. **PEERFIX-009-B**: URLSearchParams iterators missing Symbol.iterator ✅
-   - Bug: createIterator only set `next()` method, missing Symbol.iterator
-   - Fix: Added `__tempIterator[Symbol.iterator] = function() { return this; }` via JS runtime
-
-- **Verification:** `make all` passes (exit_code: 0)
-
-## Previous Session Goal
-**TASK:** EXPAND-041 & EXPAND-042: URL/URLSearchParams and TextEncoder/TextDecoder APIs
+**TASK:** EXPAND-046/047/048: Headers, FormData, DOMException classes
 
 ### Tasks Completed This Session:
-- EXPAND-024: structuredClone() JS global
-- EXPAND-041: URL and URLSearchParams APIs ✅
-- EXPAND-042: TextEncoder/TextDecoder APIs ✅
+1. **EXPAND-046**: Headers class ✅ DONE
+2. **EXPAND-047**: FormData class ✅ DONE
+3. **EXPAND-048**: DOMException class ✅ DONE
 
-### Implementation Summary:
+## Implementation Summary:
 
-#### EXPAND-041: URL and URLSearchParams APIs ✅ DONE
+### EXPAND-046: Headers Class ✅ DONE
 - **Files Modified:**
-  - `goja-eventloop/adapter.go` - Added URL constructor binding in Bind(), added URLSearchParams constructor binding, implemented urlConstructor(), urlSearchParamsConstructor(), addURLSearchParamsMethods(), urlWrapper struct, urlSearchParamsWrapper struct (~500 lines)
+  - `goja-eventloop/adapter.go` - Added headersWrapper struct, headersConstructor(), initHeaders(), defineHeadersMethods(), createHeadersIterator() (~200 lines)
 
 - **Files Created:**
-  - `goja-eventloop/url_test.go` - 46 comprehensive tests
+  - `goja-eventloop/headers_test.go` - 26 comprehensive tests (580 lines)
 
 - **Key Features:**
-  1. URL class with 10 properties: href, origin, protocol, host, hostname, port, pathname, search, hash, searchParams
-  2. All properties are getter/setter (except origin which is read-only)
-  3. searchParams returns a live URLSearchParams object linked to the URL
-  4. URLSearchParams with 11 methods: append, delete, get, getAll, has, set, toString, keys, values, entries, forEach
-  5. Uses Go's net/url package for parsing and manipulation
+  1. Headers constructor: new Headers(), new Headers(init)
+  2. append/delete/get/getSetCookie/has/set methods
+  3. entries()/keys()/values() iterators with Symbol.iterator
+  4. forEach() callback iteration
+  5. Header names normalized to lowercase
 
-#### EXPAND-042: TextEncoder/TextDecoder APIs ✅ DONE
+### EXPAND-047: FormData Class ✅ DONE
 - **Files Modified:**
-  - `goja-eventloop/adapter.go` - Added TextEncoder/TextDecoder constructor bindings, implemented textEncoderConstructor(), textDecoderConstructor(), textEncoderWrapper struct, textDecoderWrapper struct
+  - `goja-eventloop/adapter.go` - Added formDataEntry struct, formDataWrapper struct, formDataConstructor(), defineFormDataMethods(), createFormDataIterator() (~180 lines)
 
 - **Files Created:**
-  - `goja-eventloop/textencoder_test.go` - 26 comprehensive tests
+  - `goja-eventloop/formdata_test.go` - 20 comprehensive tests (480 lines)
 
 - **Key Features:**
-  1. TextEncoder class with encode(string) returning Uint8Array
-  2. TextDecoder class with decode(ArrayBuffer/Uint8Array) returning string
-  3. Both use UTF-8 encoding
-  4. encode() creates Uint8Array via JS runtime evaluation `new Uint8Array([...])` to properly construct typed array (Goja requires this approach)
-  5. decode() handles both ArrayBuffer and Uint8Array inputs
+  1. FormData constructor: new FormData()
+  2. append/delete/get/getAll/has/set methods
+  3. entries()/keys()/values() iterators with Symbol.iterator
+  4. forEach() callback iteration
+  5. String-only values (no file support per spec)
 
-- **Verification:** `make all` passes (exit_code: 0)
+### EXPAND-048: DOMException Class ✅ DONE
+- **Files Modified:**
+  - `goja-eventloop/adapter.go` - Added 25 DOMException constants, domExceptionNameToCode map, domExceptionWrapper struct, domExceptionConstructor(), bindDOMExceptionConstants() (~200 lines)
+
+- **Files Created:**
+  - `goja-eventloop/domexception_test.go` - 20 comprehensive tests (470 lines)
+
+- **Key Features:**
+  1. DOMException constructor: new DOMException(message?, name?)
+  2. Properties: message, name, code
+  3. toString() method returns "name: message"
+  4. Static constants: INDEX_SIZE_ERR (1) through DATA_CLONE_ERR (25)
+  5. Known error names mapped to legacy codes
+  6. Unknown error names get code 0
+
+## Verification
+- `make all` passes ✅
+- All 3 new test files pass (66 tests total)
 
 ## Summary of Changes
 
 | File | Changes |
 |------|---------|
-| goja-eventloop/adapter.go | Added URL, URLSearchParams, TextEncoder, TextDecoder implementations (~600 lines total) |
-| goja-eventloop/url_test.go | Created with 46 comprehensive tests |
-| goja-eventloop/textencoder_test.go | Created with 26 comprehensive tests |
+| goja-eventloop/adapter.go | Added Headers (~200 lines), FormData (~180 lines), DOMException (~200 lines) |
+| goja-eventloop/headers_test.go | Created with 26 comprehensive tests (580 lines) |
+| goja-eventloop/formdata_test.go | Created with 20 comprehensive tests (480 lines) |
+| goja-eventloop/domexception_test.go | Created with 20 comprehensive tests (470 lines) |
 
 ## Reference
 See `./blueprint.json` for complete execution status.

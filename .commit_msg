@@ -1,24 +1,23 @@
-EXPAND Phase 3: Web Platform APIs and Debug Tools
+EXPAND Phase 4: Web Platform APIs for fetch-like patterns
 
 New JavaScript APIs:
-- structuredClone() with circular reference support
-- URL and URLSearchParams classes (full WHATWG spec)
-- TextEncoder.encode() and TextEncoder.encodeInto()
-- TextDecoder.decode() with BOM and fatal mode support
+- Blob class with size, type, text(), arrayBuffer(), slice()
+- localStorage/sessionStorage (in-memory, full Storage API)
+- Headers class with normalization to lowercase
+- FormData class with insertion order preservation
+- DOMException class with all 25 standard error codes
 
-Debug Tools:
-- WithDebugMode() option for async stack traces
-- ChainedPromise.CreationStackTrace() method
-- UnhandledRejectionDebugInfo wrapper for error chains
-
-Bug Fixes:
-- TextEncoder.encodeInto() now returns correct rune count for multi-byte UTF-8
-- URLSearchParams iterators now implement Symbol.iterator for self-iterability
+Verified:
+- JSON.parse with reviver function
+- JSON.stringify with replacer function and space parameter
 
 Files Created:
-- goja-eventloop/structuredclone_test.go (21 tests)
-- goja-eventloop/url_test.go (46 tests)
-- goja-eventloop/textencoder_test.go (26 tests)
-- eventloop/promise_debug_test.go (17 tests)
+- goja-eventloop/blob_test.go (18 tests)
+- goja-eventloop/storage_test.go (13 tests)
+- goja-eventloop/json_test.go (11 tests)
+- goja-eventloop/headers_test.go (26 tests)
+- goja-eventloop/formdata_test.go (20 tests)
+- goja-eventloop/domexception_test.go (20 tests)
 
-Total: 110+ new tests, reviewed and approved (Reviews #8, #10).
+Total: 108 new tests across 6 feature areas.
+Reviewed and approved (Reviews #11, #12).

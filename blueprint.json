@@ -735,6 +735,15 @@
       "fixApproach": "Used JavaScript runtime to set Symbol.iterator property: __tempIterator[Symbol.iterator] = function() { return this; }"
     },
     {
+      "id": "BUGFIX-004",
+      "title": "FIXED: URLSearchParams.sort() Order Not Preserved",
+      "description": "URLSearchParams.sort() correctly sorted pairs but stored them in url.Values (a Go map), which doesn't preserve insertion order. After sort() was called, forEach/keys/values/entries used random map iteration order instead of sorted order.",
+      "completedAt": "2026-02-09T10:00:00Z",
+      "location": "goja-eventloop/adapter.go",
+      "rootCause": "url.Values is map[string][]string which has no ordering guarantee in Go. After sort(), subsequent iterations used map order (random).",
+      "fixApproach": "Added urlSearchParamsPair struct and orderedPairs field to urlSearchParamsWrapper. sort() stores pairs in sorted order via setOrderedPairs(). forEach/keys/values/entries use getOrderedPairs() which returns orderedPairs when set. Mutating operations (append/delete/set) call clearOrderedPairs() to invalidate sorted order."
+    },
+    {
       "id": "BUGFIX-001",
       "title": "FIXED: FD Double-Close Race in wakeup_darwin_test.go",
       "description": "TestDarwinWakeup_CreateWakeFd used os.NewFile() multiple times for same FD, causing GC finalizer races that closed FDs reused by subsequent tests. Fixed by using direct syscall.Close/Read/Write.",
@@ -1482,6 +1491,83 @@
       "filesModified": ["goja-eventloop/adapter.go"],
       "filesCreated": ["goja-eventloop/textencoder_test.go"],
       "testsAdded": ["TestTextEncoder_EncodeASCII", "TestTextEncoder_EncodeUnicode", "TestTextEncoder_EncodeEmoji", "TestTextDecoder_DecodeUTF8", "TestTextEncoderDecoder_Roundtrip_*"]
+    },
+    {
+      "sequence": 90,
+      "id": "EXPAND-043",
+      "title": "EXPAND: Blob API",
+      "description": "Add Blob class with constructor new Blob([parts], {type}), size and type properties, text() method returning Promise<string>, arrayBuffer() method returning Promise<ArrayBuffer>, slice(start, end, contentType) method returning new Blob.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-09T10:00:00Z",
+      "verification": "Added blobWrapper struct, blobConstructor() building Blob from parts array, gojaWrapBlob() creating Goja object with size/type properties and text()/arrayBuffer()/slice() methods. Created goja-eventloop/blob_test.go with 18 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/blob_test.go"],
+      "testsAdded": ["TestBlob_Basic", "TestBlob_WithType", "TestBlob_Text", "TestBlob_ArrayBuffer", "TestBlob_Slice", "TestBlob_SliceWithType", "TestBlob_EmptySlice", "TestBlob_MultiParts"]
+    },
+    {
+      "sequence": 91,
+      "id": "EXPAND-044",
+      "title": "EXPAND: localStorage/sessionStorage (in-memory)",
+      "description": "Add localStorage and sessionStorage global objects with in-memory Storage implementation using sync.Map. Full Storage interface: getItem(key), setItem(key, value), removeItem(key), clear(), key(index), length property.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-09T10:00:00Z",
+      "verification": "Added bindStorage() creating localStorage and sessionStorage globals with separate sync.Map storage. createStorageObject() implements full Storage API. Created goja-eventloop/storage_test.go with 13 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/storage_test.go"],
+      "testsAdded": ["TestLocalStorage_SetGetItem", "TestLocalStorage_RemoveItem", "TestLocalStorage_Clear", "TestLocalStorage_Key", "TestLocalStorage_Length", "TestSessionStorage_Basic", "TestStorage_Isolation", "TestStorage_Persistence", "TestStorage_NullReturn"]
+    },
+    {
+      "sequence": 92,
+      "id": "EXPAND-045",
+      "title": "EXPAND: JSON Extensions Verification",
+      "description": "Verify JSON.parse() reviver and JSON.stringify() replacer work correctly through Goja's native implementation. Create comprehensive tests demonstrating compatibility.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-09T10:00:00Z",
+      "verification": "Verified JSON.parse with reviver and JSON.stringify with replacer work natively via Goja. Created goja-eventloop/json_test.go with 11 comprehensive tests covering: reviver transformations, replacer filtering, nested object handling, array replacers, space formatting. make all passes.",
+      "filesCreated": ["goja-eventloop/json_test.go"],
+      "testsAdded": ["TestJSON_ParseWithReviver", "TestJSON_StringifyWithReplacer", "TestJSON_ParseReviverNested", "TestJSON_StringifyReplacerArray", "TestJSON_StringifyWithSpace", "TestJSON_ParseReviverTyped", "TestJSON_StringifyReplacerFilter", "TestJSON_RoundTrip"]
+    },
+    {
+      "sequence": 93,
+      "id": "EXPAND-046",
+      "title": "EXPAND: Headers Class (fetch API)",
+      "description": "Add Headers class for fetch-like patterns with append/delete/get/getSetCookie/has/set methods, entries/keys/values iterators, forEach method. Header names normalized to lowercase per HTTP/2 spec.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-10T10:00:00Z",
+      "verification": "Added headersWrapper struct, headersConstructor(), initHeaders(), defineHeadersMethods(), createHeadersIterator(). Headers support initialization from other Headers, plain objects, or array of [name, value] pairs. Created goja-eventloop/headers_test.go with 26 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/headers_test.go"],
+      "testsAdded": ["TestHeaders_Constructor", "TestHeaders_Append", "TestHeaders_Delete", "TestHeaders_Get", "TestHeaders_GetSetCookie", "TestHeaders_Has", "TestHeaders_Set", "TestHeaders_Entries", "TestHeaders_Keys", "TestHeaders_Values", "TestHeaders_ForEach", "TestHeaders_CaseInsensitive"]
+    },
+    {
+      "sequence": 94,
+      "id": "EXPAND-047",
+      "title": "EXPAND: FormData Class",
+      "description": "Add FormData class with append/delete/get/getAll/has/set methods, entries/keys/values iterators, forEach method. String values only (no file support).",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-10T10:00:00Z",
+      "verification": "Added formDataEntry struct, formDataWrapper struct, formDataConstructor(), defineFormDataMethods(), createFormDataIterator(). Entries maintain insertion order. Created goja-eventloop/formdata_test.go with 20 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/formdata_test.go"],
+      "testsAdded": ["TestFormData_Constructor", "TestFormData_Append", "TestFormData_Delete", "TestFormData_Get", "TestFormData_GetAll", "TestFormData_Has", "TestFormData_Set", "TestFormData_Entries", "TestFormData_Keys", "TestFormData_Values", "TestFormData_ForEach"]
+    },
+    {
+      "sequence": 95,
+      "id": "EXPAND-048",
+      "title": "EXPAND: DOMException Class",
+      "description": "Add DOMException class with constructor(message?, name?), message/name/code properties, toString() method, and 25 static error code constants (INDEX_SIZE_ERR through DATA_CLONE_ERR).",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-10T10:00:00Z",
+      "verification": "Added 25 DOMException constants, domExceptionNameToCode map, domExceptionWrapper struct, domExceptionConstructor(), bindDOMExceptionConstants(). Known error names map to legacy codes, unknown names get code 0. Created goja-eventloop/domexception_test.go with 20 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/domexception_test.go"],
+      "testsAdded": ["TestDOMException_Constructor", "TestDOMException_DefaultValues", "TestDOMException_WithMessage", "TestDOMException_WithMessageAndName", "TestDOMException_ToString", "TestDOMException_KnownErrorCodes", "TestDOMException_NewErrorNamesCodeZero", "TestDOMException_UnknownNameCodeZero", "TestDOMException_StaticConstants", "TestDOMException_CanThrow"]
     }
   ],
   "continuousVerification": {

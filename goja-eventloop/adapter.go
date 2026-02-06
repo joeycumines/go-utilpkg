@@ -167,6 +167,26 @@ func (a *Adapter) Bind() error {
 	a.runtime.Set("TextEncoder", a.textEncoderConstructor)
 	a.runtime.Set("TextDecoder", a.textDecoderConstructor)
 
+	// EXPAND-043: Blob binding
+	a.runtime.Set("Blob", a.blobConstructor)
+
+	// EXPAND-044: localStorage and sessionStorage (in-memory)
+	if err := a.bindStorage(); err != nil {
+		return fmt.Errorf("failed to bind storage: %w", err)
+	}
+
+	// EXPAND-046: Headers class (for fetch-like patterns)
+	a.runtime.Set("Headers", a.headersConstructor)
+
+	// EXPAND-047: FormData class (for fetch-like patterns)
+	a.runtime.Set("FormData", a.formDataConstructor)
+
+	// EXPAND-048: DOMException class
+	a.runtime.Set("DOMException", a.domExceptionConstructor)
+	if err := a.bindDOMExceptionConstants(); err != nil {
+		return fmt.Errorf("failed to bind DOMException constants: %w", err)
+	}
+
 	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
 	return a.bindPromise()
 }
@@ -3779,23 +3799,38 @@ func (a *Adapter) urlSearchParamsConstructor(call goja.ConstructorCall) *goja.Ob
 	return thisObj
 }
 
-// urlSearchParamsWrapper holds mutable URL search params.
+// urlSearchParamsPair represents a key-value pair in URLSearchParams.
+type urlSearchParamsPair struct {
+	key   string
+	value string
+}
+
+// urlSearchParamsWrapper holds mutable URL search params with order tracking.
 type urlSearchParamsWrapper struct {
-	params url.Values
+	params       url.Values
+	orderedPairs []urlSearchParamsPair // nil means use map iteration, non-nil means use this order
 }
 
 // addURLSearchParamsMethods adds all URLSearchParams methods to an object.
 func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrapper) {
+	// Helper to get the wrapper
+	getWrapper := func() *urlSearchParamsWrapper {
+		wrapper := obj.Get("_params")
+		if wrapper != nil {
+			if w, ok := wrapper.Export().(*urlSearchParamsWrapper); ok {
+				return w
+			}
+		}
+		return nil
+	}
+
 	// Helper to get/update params
 	getParams := func() url.Values {
 		if linkedURL != nil {
 			return linkedURL.url.Query()
 		}
-		wrapper := obj.Get("_params")
-		if wrapper != nil {
-			if w, ok := wrapper.Export().(*urlSearchParamsWrapper); ok {
-				return w.params
-			}
+		if w := getWrapper(); w != nil {
+			return w.params
 		}
 		return make(url.Values)
 	}
@@ -3804,11 +3839,69 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 		if linkedURL != nil {
 			linkedURL.url.RawQuery = params.Encode()
 		} else {
-			wrapper := obj.Get("_params")
-			if wrapper != nil {
-				if w, ok := wrapper.Export().(*urlSearchParamsWrapper); ok {
-					w.params = params
+			if w := getWrapper(); w != nil {
+				w.params = params
+			}
+		}
+	}
+
+	// Helper to get ordered pairs for iteration.
+	// Returns pairs in order (sorted order if sort() was called, otherwise from orderedPairs or map).
+	getOrderedPairs := func() []urlSearchParamsPair {
+		if linkedURL != nil {
+			// For linked URLs, build pairs from query params
+			params := linkedURL.url.Query()
+			var pairs []urlSearchParamsPair
+			for key, values := range params {
+				for _, value := range values {
+					pairs = append(pairs, urlSearchParamsPair{key, value})
 				}
+			}
+			return pairs
+		}
+		if w := getWrapper(); w != nil {
+			if w.orderedPairs != nil {
+				return w.orderedPairs
+			}
+			// Build pairs from map (order not guaranteed)
+			var pairs []urlSearchParamsPair
+			for key, values := range w.params {
+				for _, value := range values {
+					pairs = append(pairs, urlSearchParamsPair{key, value})
+				}
+			}
+			return pairs
+		}
+		return nil
+	}
+
+	// Helper to set ordered pairs (called by sort)
+	setOrderedPairs := func(pairs []urlSearchParamsPair) {
+		if linkedURL != nil {
+			// For linked URLs, rebuild the query string in sorted order
+			newParams := make(url.Values)
+			for _, pair := range pairs {
+				newParams.Add(pair.key, pair.value)
+			}
+			linkedURL.url.RawQuery = newParams.Encode()
+		} else {
+			if w := getWrapper(); w != nil {
+				w.orderedPairs = pairs
+				// Also rebuild the params map
+				newParams := make(url.Values)
+				for _, pair := range pairs {
+					newParams.Add(pair.key, pair.value)
+				}
+				w.params = newParams
+			}
+		}
+	}
+
+	// Helper to clear ordered pairs (called by mutating operations)
+	clearOrderedPairs := func() {
+		if linkedURL == nil {
+			if w := getWrapper(); w != nil {
+				w.orderedPairs = nil
 			}
 		}
 	}
@@ -3823,6 +3916,7 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 		params := getParams()
 		params.Add(name, value)
 		setParams(params)
+		clearOrderedPairs()
 		return goja.Undefined()
 	}))
 
@@ -3853,6 +3947,7 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 			delete(params, name)
 		}
 		setParams(params)
+		clearOrderedPairs()
 		return goja.Undefined()
 	}))
 
@@ -3921,6 +4016,7 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 		params := getParams()
 		params.Set(name, value)
 		setParams(params)
+		clearOrderedPairs()
 		return goja.Undefined()
 	}))
 
@@ -3932,63 +4028,48 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 
 	// sort() - sorts all key-value pairs by name
 	obj.Set("sort", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		params := getParams()
-
 		// Get all key-value pairs
-		var pairs []struct{ key, value string }
-		for key, values := range params {
-			for _, value := range values {
-				pairs = append(pairs, struct{ key, value string }{key, value})
-			}
-		}
+		pairs := getOrderedPairs()
 
 		// Sort by key
 		sort.SliceStable(pairs, func(i, j int) bool {
 			return pairs[i].key < pairs[j].key
 		})
 
-		// Rebuild params
-		newParams := make(url.Values)
-		for _, pair := range pairs {
-			newParams.Add(pair.key, pair.value)
-		}
-		setParams(newParams)
+		// Store the sorted pairs
+		setOrderedPairs(pairs)
 		return goja.Undefined()
 	}))
 
 	// keys() - returns an iterator over keys
 	obj.Set("keys", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		params := getParams()
+		pairs := getOrderedPairs()
 		var keys []string
-		for key, values := range params {
-			for range values {
-				keys = append(keys, key)
-			}
+		for _, pair := range pairs {
+			keys = append(keys, pair.key)
 		}
 		return a.createIterator(keys)
 	}))
 
 	// values() - returns an iterator over values
 	obj.Set("values", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		params := getParams()
+		pairs := getOrderedPairs()
 		var values []string
-		for _, vals := range params {
-			values = append(values, vals...)
+		for _, pair := range pairs {
+			values = append(values, pair.value)
 		}
 		return a.createIterator(values)
 	}))
 
 	// entries() - returns an iterator over [key, value] pairs
 	obj.Set("entries", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		params := getParams()
+		pairs := getOrderedPairs()
 		var entries []goja.Value
-		for key, values := range params {
-			for _, value := range values {
-				pair := a.runtime.NewArray()
-				_ = pair.Set("0", key)
-				_ = pair.Set("1", value)
-				entries = append(entries, pair)
-			}
+		for _, pair := range pairs {
+			arr := a.runtime.NewArray()
+			_ = arr.Set("0", pair.key)
+			_ = arr.Set("1", pair.value)
+			entries = append(entries, arr)
 		}
 		return a.createValueIterator(entries)
 	}))
@@ -4009,14 +4090,12 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 			thisArg = call.Argument(1)
 		}
 
-		params := getParams()
-		for key, values := range params {
-			for _, value := range values {
-				_, _ = callbackFn(thisArg,
-					a.runtime.ToValue(value),
-					a.runtime.ToValue(key),
-					obj)
-			}
+		pairs := getOrderedPairs()
+		for _, pair := range pairs {
+			_, _ = callbackFn(thisArg,
+				a.runtime.ToValue(pair.value),
+				a.runtime.ToValue(pair.key),
+				obj)
 		}
 		return goja.Undefined()
 	}))
@@ -4371,4 +4450,1097 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("input must be a BufferSource")
+}
+
+// ===============================================
+// EXPAND-043: Blob API
+// ===============================================
+
+// blobWrapper holds internal Blob data.
+type blobWrapper struct {
+	mimeType string
+	data     []byte
+}
+
+// blobConstructor creates the Blob constructor for JavaScript.
+// Implements the WHATWG File API Blob interface.
+// new Blob(blobParts?, options?)
+// - blobParts: An optional array of data parts (strings, ArrayBuffer, Uint8Array, Blob)
+// - options: { type?: string, endings?: "transparent"|"native" }
+func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
+	thisObj := call.This
+
+	// Collect data from blobParts
+	var data []byte
+	mimeType := ""
+
+	// Parse blobParts (first argument)
+	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
+		parts, err := a.consumeIterable(call.Argument(0))
+		if err != nil {
+			panic(a.runtime.NewTypeError("Blob constructor requires an iterable for blobParts"))
+		}
+
+		for _, part := range parts {
+			// Handle different part types
+			partBytes, err := a.blobPartToBytes(part)
+			if err != nil {
+				panic(a.runtime.NewTypeError(err.Error()))
+			}
+			data = append(data, partBytes...)
+		}
+	}
+
+	// Parse options (second argument)
+	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) && !goja.IsNull(call.Argument(1)) {
+		opts := call.Argument(1).ToObject(a.runtime)
+		if opts != nil {
+			if typeVal := opts.Get("type"); typeVal != nil && !goja.IsUndefined(typeVal) {
+				mimeType = strings.ToLower(typeVal.String())
+			}
+			// endings option is typically "transparent" (default) or "native"
+			// We ignore it for now as it's mainly for line ending conversion
+		}
+	}
+
+	blob := &blobWrapper{
+		data:     data,
+		mimeType: mimeType,
+	}
+	thisObj.Set("_blob", blob)
+
+	// size property (readonly)
+	thisObj.DefineAccessorProperty("size",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return a.runtime.ToValue(len(blob.data))
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// type property (readonly)
+	thisObj.DefineAccessorProperty("type",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return a.runtime.ToValue(blob.mimeType)
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// text() - returns Promise<string>
+	thisObj.Set("text", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		// Return a resolved promise with the text content
+		text := string(blob.data)
+		promise := a.js.Resolve(text)
+		return a.gojaWrapPromise(promise)
+	}))
+
+	// arrayBuffer() - returns Promise<ArrayBuffer>
+	thisObj.Set("arrayBuffer", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		// Create an ArrayBuffer containing the blob data
+		// We need to return this via a promise
+		promise, resolve, _ := a.js.NewChainedPromise()
+
+		// Create ArrayBuffer via Goja
+		arrayBuffer := a.runtime.NewArrayBuffer(blob.data)
+
+		// Resolve the promise with the ArrayBuffer
+		// We need to wrap this specially to avoid Export() issues
+		resolve(arrayBuffer)
+
+		return a.gojaWrapPromise(promise)
+	}))
+
+	// slice(start?, end?, contentType?) - returns a new Blob
+	thisObj.Set("slice", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		dataLen := len(blob.data)
+		start := 0
+		end := dataLen
+		contentType := ""
+
+		// Parse start
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			start = int(call.Argument(0).ToInteger())
+			// Handle negative values
+			if start < 0 {
+				start = dataLen + start
+				if start < 0 {
+					start = 0
+				}
+			}
+			if start > dataLen {
+				start = dataLen
+			}
+		}
+
+		// Parse end
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
+			end = int(call.Argument(1).ToInteger())
+			// Handle negative values
+			if end < 0 {
+				end = dataLen + end
+				if end < 0 {
+					end = 0
+				}
+			}
+			if end > dataLen {
+				end = dataLen
+			}
+		}
+
+		// Ensure start <= end
+		if start > end {
+			start = end
+		}
+
+		// Parse contentType
+		if len(call.Arguments) > 2 && !goja.IsUndefined(call.Argument(2)) {
+			contentType = strings.ToLower(call.Argument(2).String())
+		}
+
+		// Create sliced data
+		var slicedData []byte
+		if start < end {
+			slicedData = make([]byte, end-start)
+			copy(slicedData, blob.data[start:end])
+		}
+
+		// Create new Blob object
+		newBlob := &blobWrapper{
+			data:     slicedData,
+			mimeType: contentType,
+		}
+
+		// Create new Blob JS object
+		blobObj := a.runtime.NewObject()
+		a.wrapBlobWithObject(newBlob, blobObj)
+		return blobObj
+	}))
+
+	// stream() - returns a ReadableStream (stub - returns undefined for now)
+	// Full ReadableStream implementation would require significant additional work
+	thisObj.Set("stream", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		// TODO: Implement ReadableStream when needed
+		return goja.Undefined()
+	}))
+
+	return thisObj
+}
+
+// wrapBlobWithObject wraps a blobWrapper in a Goja object (for slice()).
+func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
+	obj.Set("_blob", blob)
+
+	// size property (readonly)
+	obj.DefineAccessorProperty("size",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return a.runtime.ToValue(len(blob.data))
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// type property (readonly)
+	obj.DefineAccessorProperty("type",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			return a.runtime.ToValue(blob.mimeType)
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// text() - returns Promise<string>
+	obj.Set("text", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		text := string(blob.data)
+		promise := a.js.Resolve(text)
+		return a.gojaWrapPromise(promise)
+	}))
+
+	// arrayBuffer() - returns Promise<ArrayBuffer>
+	obj.Set("arrayBuffer", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		promise, resolve, _ := a.js.NewChainedPromise()
+		arrayBuffer := a.runtime.NewArrayBuffer(blob.data)
+		resolve(arrayBuffer)
+		return a.gojaWrapPromise(promise)
+	}))
+
+	// slice(start?, end?, contentType?) - returns a new Blob
+	obj.Set("slice", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		dataLen := len(blob.data)
+		start := 0
+		end := dataLen
+		contentType := ""
+
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			start = int(call.Argument(0).ToInteger())
+			if start < 0 {
+				start = dataLen + start
+				if start < 0 {
+					start = 0
+				}
+			}
+			if start > dataLen {
+				start = dataLen
+			}
+		}
+
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
+			end = int(call.Argument(1).ToInteger())
+			if end < 0 {
+				end = dataLen + end
+				if end < 0 {
+					end = 0
+				}
+			}
+			if end > dataLen {
+				end = dataLen
+			}
+		}
+
+		if start > end {
+			start = end
+		}
+
+		if len(call.Arguments) > 2 && !goja.IsUndefined(call.Argument(2)) {
+			contentType = strings.ToLower(call.Argument(2).String())
+		}
+
+		var slicedData []byte
+		if start < end {
+			slicedData = make([]byte, end-start)
+			copy(slicedData, blob.data[start:end])
+		}
+
+		newBlob := &blobWrapper{
+			data:     slicedData,
+			mimeType: contentType,
+		}
+
+		blobObj := a.runtime.NewObject()
+		a.wrapBlobWithObject(newBlob, blobObj)
+		return blobObj
+	}))
+
+	// stream() - stub
+	obj.Set("stream", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return goja.Undefined()
+	}))
+}
+
+// ===============================================
+// EXPAND-046: Headers class (for fetch-like patterns)
+// ===============================================
+
+// headersWrapper wraps HTTP headers storage.
+// Header names are normalized to lowercase per HTTP/2 and fetch spec.
+type headersWrapper struct {
+	headers map[string][]string // lowercase key -> values
+}
+
+// newHeadersWrapper creates a new headers wrapper.
+func newHeadersWrapper() *headersWrapper {
+	return &headersWrapper{
+		headers: make(map[string][]string),
+	}
+}
+
+// headersConstructor creates the Headers constructor for JavaScript.
+// Usage: new Headers(), new Headers(headersInit)
+// headersInit can be: Headers, object, or array of [name, value] pairs.
+func (a *Adapter) headersConstructor(call goja.ConstructorCall) *goja.Object {
+	wrapper := newHeadersWrapper()
+
+	// If init argument provided, process it
+	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
+		init := call.Argument(0)
+		a.initHeaders(wrapper, init)
+	}
+
+	thisObj := call.This
+	thisObj.Set("_headers", wrapper)
+
+	// Define all methods on the instance
+	a.defineHeadersMethods(thisObj, wrapper)
+
+	return thisObj
+}
+
+// initHeaders initializes headers from various init types.
+func (a *Adapter) initHeaders(wrapper *headersWrapper, init goja.Value) {
+	if init == nil || goja.IsNull(init) || goja.IsUndefined(init) {
+		return
+	}
+
+	obj := init.ToObject(a.runtime)
+	if obj == nil {
+		return
+	}
+
+	// Check if it's another Headers instance
+	if headersVal := obj.Get("_headers"); headersVal != nil && !goja.IsUndefined(headersVal) {
+		if otherWrapper, ok := headersVal.Export().(*headersWrapper); ok {
+			// Copy from other Headers
+			for name, values := range otherWrapper.headers {
+				wrapper.headers[name] = append(wrapper.headers[name], values...)
+			}
+			return
+		}
+	}
+
+	// Check if it's an array of [name, value] pairs
+	exported := init.Export()
+	if arr, ok := exported.([]interface{}); ok {
+		for _, item := range arr {
+			if pair, ok := item.([]interface{}); ok && len(pair) >= 2 {
+				name := strings.ToLower(fmt.Sprintf("%v", pair[0]))
+				value := fmt.Sprintf("%v", pair[1])
+				wrapper.headers[name] = append(wrapper.headers[name], value)
+			}
+		}
+		return
+	}
+
+	// Otherwise treat as plain object
+	for _, key := range obj.Keys() {
+		val := obj.Get(key)
+		if val != nil && !goja.IsUndefined(val) {
+			name := strings.ToLower(key)
+			wrapper.headers[name] = append(wrapper.headers[name], val.String())
+		}
+	}
+}
+
+// defineHeadersMethods adds all Headers methods to the object.
+func (a *Adapter) defineHeadersMethods(obj *goja.Object, wrapper *headersWrapper) {
+	// append(name, value) - adds a new value onto an existing header
+	obj.Set("append", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(a.runtime.NewTypeError("Headers.append requires 2 arguments"))
+		}
+		name := strings.ToLower(call.Argument(0).String())
+		value := call.Argument(1).String()
+		wrapper.headers[name] = append(wrapper.headers[name], value)
+		return goja.Undefined()
+	}))
+
+	// delete(name) - deletes a header
+	obj.Set("delete", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Undefined()
+		}
+		name := strings.ToLower(call.Argument(0).String())
+		delete(wrapper.headers, name)
+		return goja.Undefined()
+	}))
+
+	// get(name) - returns first value or null
+	obj.Set("get", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Null()
+		}
+		name := strings.ToLower(call.Argument(0).String())
+		if values, ok := wrapper.headers[name]; ok && len(values) > 0 {
+			// Returns all values joined by ", "
+			return a.runtime.ToValue(strings.Join(values, ", "))
+		}
+		return goja.Null()
+	}))
+
+	// getSetCookie() - returns all Set-Cookie header values as array
+	obj.Set("getSetCookie", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if values, ok := wrapper.headers["set-cookie"]; ok {
+			arr := a.runtime.NewArray()
+			for i, v := range values {
+				_ = arr.Set(strconv.Itoa(i), a.runtime.ToValue(v))
+			}
+			return arr
+		}
+		return a.runtime.NewArray()
+	}))
+
+	// has(name) - returns true if header exists
+	obj.Set("has", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return a.runtime.ToValue(false)
+		}
+		name := strings.ToLower(call.Argument(0).String())
+		_, ok := wrapper.headers[name]
+		return a.runtime.ToValue(ok)
+	}))
+
+	// set(name, value) - sets header to single value (replaces existing)
+	obj.Set("set", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(a.runtime.NewTypeError("Headers.set requires 2 arguments"))
+		}
+		name := strings.ToLower(call.Argument(0).String())
+		value := call.Argument(1).String()
+		wrapper.headers[name] = []string{value}
+		return goja.Undefined()
+	}))
+
+	// entries() - returns iterator of [name, value] pairs
+	obj.Set("entries", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		pairs := make([][2]string, 0)
+		for name, values := range wrapper.headers {
+			pairs = append(pairs, [2]string{name, strings.Join(values, ", ")})
+		}
+		// Sort for deterministic iteration order
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i][0] < pairs[j][0]
+		})
+		return a.createHeadersIterator(pairs, "entries")
+	}))
+
+	// keys() - returns iterator of names
+	obj.Set("keys", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		pairs := make([][2]string, 0)
+		for name, values := range wrapper.headers {
+			pairs = append(pairs, [2]string{name, strings.Join(values, ", ")})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i][0] < pairs[j][0]
+		})
+		return a.createHeadersIterator(pairs, "keys")
+	}))
+
+	// values() - returns iterator of values
+	obj.Set("values", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		pairs := make([][2]string, 0)
+		for name, values := range wrapper.headers {
+			pairs = append(pairs, [2]string{name, strings.Join(values, ", ")})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i][0] < pairs[j][0]
+		})
+		return a.createHeadersIterator(pairs, "values")
+	}))
+
+	// forEach(callback, thisArg?) - iterates over headers
+	obj.Set("forEach", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			panic(a.runtime.NewTypeError("Headers.forEach requires a callback"))
+		}
+		callback, ok := goja.AssertFunction(call.Argument(0))
+		if !ok {
+			panic(a.runtime.NewTypeError("Headers.forEach requires a callback function"))
+		}
+
+		thisArg := goja.Undefined()
+		if len(call.Arguments) > 1 {
+			thisArg = call.Argument(1)
+		}
+
+		// Get sorted keys for deterministic order
+		pairs := make([][2]string, 0)
+		for name, values := range wrapper.headers {
+			pairs = append(pairs, [2]string{name, strings.Join(values, ", ")})
+		}
+		sort.Slice(pairs, func(i, j int) bool {
+			return pairs[i][0] < pairs[j][0]
+		})
+
+		for _, pair := range pairs {
+			_, _ = callback(thisArg,
+				a.runtime.ToValue(pair[1]), // value
+				a.runtime.ToValue(pair[0]), // key
+				obj,                        // Headers object
+			)
+		}
+
+		return goja.Undefined()
+	}))
+}
+
+// createHeadersIterator creates an iterator for headers.
+func (a *Adapter) createHeadersIterator(pairs [][2]string, mode string) goja.Value {
+	index := 0
+
+	iter := a.runtime.NewObject()
+	iter.Set("next", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		result := a.runtime.NewObject()
+		if index >= len(pairs) {
+			result.Set("done", true)
+			result.Set("value", goja.Undefined())
+			return result
+		}
+
+		pair := pairs[index]
+		index++
+
+		result.Set("done", false)
+		switch mode {
+		case "keys":
+			result.Set("value", a.runtime.ToValue(pair[0]))
+		case "values":
+			result.Set("value", a.runtime.ToValue(pair[1]))
+		default: // "entries"
+			arr := a.runtime.NewArray()
+			_ = arr.Set("0", a.runtime.ToValue(pair[0]))
+			_ = arr.Set("1", a.runtime.ToValue(pair[1]))
+			result.Set("value", arr)
+		}
+
+		return result
+	}))
+
+	// Make iterator iterable
+	_, _ = a.runtime.RunString(`__tempIterator[Symbol.iterator] = function() { return this; }`)
+	a.runtime.Set("__tempIterator", iter)
+	_, _ = a.runtime.RunString(`__tempIterator[Symbol.iterator] = function() { return this; }`)
+	a.runtime.Set("__tempIterator", goja.Undefined())
+
+	return iter
+}
+
+// ===============================================
+// EXPAND-047: FormData class (for fetch-like patterns)
+// ===============================================
+
+// formDataEntry represents a form data entry (just strings, no file support).
+type formDataEntry struct {
+	name  string
+	value string
+}
+
+// formDataWrapper wraps form data storage.
+type formDataWrapper struct {
+	entries []formDataEntry
+}
+
+// newFormDataWrapper creates a new form data wrapper.
+func newFormDataWrapper() *formDataWrapper {
+	return &formDataWrapper{
+		entries: make([]formDataEntry, 0),
+	}
+}
+
+// formDataConstructor creates the FormData constructor for JavaScript.
+// Usage: new FormData(), new FormData(form) - form is ignored (no DOM)
+func (a *Adapter) formDataConstructor(call goja.ConstructorCall) *goja.Object {
+	wrapper := newFormDataWrapper()
+
+	thisObj := call.This
+	thisObj.Set("_formData", wrapper)
+
+	// Define all methods on the instance
+	a.defineFormDataMethods(thisObj, wrapper)
+
+	return thisObj
+}
+
+// defineFormDataMethods adds all FormData methods to the object.
+func (a *Adapter) defineFormDataMethods(obj *goja.Object, wrapper *formDataWrapper) {
+	// append(name, value) - adds a new entry
+	obj.Set("append", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(a.runtime.NewTypeError("FormData.append requires at least 2 arguments"))
+		}
+		name := call.Argument(0).String()
+		value := call.Argument(1).String()
+		wrapper.entries = append(wrapper.entries, formDataEntry{name: name, value: value})
+		return goja.Undefined()
+	}))
+
+	// delete(name) - deletes all entries with the name
+	obj.Set("delete", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Undefined()
+		}
+		name := call.Argument(0).String()
+		newEntries := make([]formDataEntry, 0)
+		for _, e := range wrapper.entries {
+			if e.name != name {
+				newEntries = append(newEntries, e)
+			}
+		}
+		wrapper.entries = newEntries
+		return goja.Undefined()
+	}))
+
+	// get(name) - returns first value or null
+	obj.Set("get", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Null()
+		}
+		name := call.Argument(0).String()
+		for _, e := range wrapper.entries {
+			if e.name == name {
+				return a.runtime.ToValue(e.value)
+			}
+		}
+		return goja.Null()
+	}))
+
+	// getAll(name) - returns all values as array
+	obj.Set("getAll", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return a.runtime.NewArray()
+		}
+		name := call.Argument(0).String()
+		arr := a.runtime.NewArray()
+		idx := 0
+		for _, e := range wrapper.entries {
+			if e.name == name {
+				_ = arr.Set(strconv.Itoa(idx), a.runtime.ToValue(e.value))
+				idx++
+			}
+		}
+		return arr
+	}))
+
+	// has(name) - returns true if name exists
+	obj.Set("has", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return a.runtime.ToValue(false)
+		}
+		name := call.Argument(0).String()
+		for _, e := range wrapper.entries {
+			if e.name == name {
+				return a.runtime.ToValue(true)
+			}
+		}
+		return a.runtime.ToValue(false)
+	}))
+
+	// set(name, value) - sets value for name (replaces existing or adds)
+	obj.Set("set", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(a.runtime.NewTypeError("FormData.set requires at least 2 arguments"))
+		}
+		name := call.Argument(0).String()
+		value := call.Argument(1).String()
+
+		// Remove all existing entries with this name after first occurrence
+		found := false
+		newEntries := make([]formDataEntry, 0)
+		for _, e := range wrapper.entries {
+			if e.name == name {
+				if !found {
+					// First occurrence: replace value
+					newEntries = append(newEntries, formDataEntry{name: name, value: value})
+					found = true
+				}
+				// Skip subsequent occurrences
+			} else {
+				newEntries = append(newEntries, e)
+			}
+		}
+		if !found {
+			// Name didn't exist, append
+			newEntries = append(newEntries, formDataEntry{name: name, value: value})
+		}
+		wrapper.entries = newEntries
+		return goja.Undefined()
+	}))
+
+	// entries() - returns iterator of [name, value] pairs
+	obj.Set("entries", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.createFormDataIterator(wrapper.entries, "entries")
+	}))
+
+	// keys() - returns iterator of names
+	obj.Set("keys", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.createFormDataIterator(wrapper.entries, "keys")
+	}))
+
+	// values() - returns iterator of values
+	obj.Set("values", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.createFormDataIterator(wrapper.entries, "values")
+	}))
+
+	// forEach(callback, thisArg?) - iterates over entries
+	obj.Set("forEach", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			panic(a.runtime.NewTypeError("FormData.forEach requires a callback"))
+		}
+		callback, ok := goja.AssertFunction(call.Argument(0))
+		if !ok {
+			panic(a.runtime.NewTypeError("FormData.forEach requires a callback function"))
+		}
+
+		thisArg := goja.Undefined()
+		if len(call.Arguments) > 1 {
+			thisArg = call.Argument(1)
+		}
+
+		for _, e := range wrapper.entries {
+			_, _ = callback(thisArg,
+				a.runtime.ToValue(e.value), // value
+				a.runtime.ToValue(e.name),  // key
+				obj,                        // FormData object
+			)
+		}
+
+		return goja.Undefined()
+	}))
+}
+
+// createFormDataIterator creates an iterator for form data entries.
+func (a *Adapter) createFormDataIterator(entries []formDataEntry, mode string) goja.Value {
+	index := 0
+	// Make a copy to avoid mutation during iteration
+	entriesCopy := make([]formDataEntry, len(entries))
+	copy(entriesCopy, entries)
+
+	iter := a.runtime.NewObject()
+	iter.Set("next", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		result := a.runtime.NewObject()
+		if index >= len(entriesCopy) {
+			result.Set("done", true)
+			result.Set("value", goja.Undefined())
+			return result
+		}
+
+		entry := entriesCopy[index]
+		index++
+
+		result.Set("done", false)
+		switch mode {
+		case "keys":
+			result.Set("value", a.runtime.ToValue(entry.name))
+		case "values":
+			result.Set("value", a.runtime.ToValue(entry.value))
+		default: // "entries"
+			arr := a.runtime.NewArray()
+			_ = arr.Set("0", a.runtime.ToValue(entry.name))
+			_ = arr.Set("1", a.runtime.ToValue(entry.value))
+			result.Set("value", arr)
+		}
+
+		return result
+	}))
+
+	// Make iterator iterable (using same pattern as Headers)
+	a.runtime.Set("__tempIterator", iter)
+	_, _ = a.runtime.RunString(`__tempIterator[Symbol.iterator] = function() { return this; }`)
+	a.runtime.Set("__tempIterator", goja.Undefined())
+
+	return iter
+}
+
+// ===============================================
+// EXPAND-048: DOMException class
+// ===============================================
+
+// DOMException error codes (from the DOM spec)
+const (
+	DOMExceptionIndexSizeErr             = 1
+	DOMExceptionDomstringSizeErr         = 2  // Deprecated, historical
+	DOMExceptionHierarchyRequestErr      = 3
+	DOMExceptionWrongDocumentErr         = 4
+	DOMExceptionInvalidCharacterErr      = 5
+	DOMExceptionNoDataAllowedErr         = 6  // Deprecated, historical
+	DOMExceptionNoModificationAllowedErr = 7
+	DOMExceptionNotFoundErr              = 8
+	DOMExceptionNotSupportedErr          = 9
+	DOMExceptionInuseAttributeErr        = 10
+	DOMExceptionInvalidStateErr          = 11
+	DOMExceptionSyntaxErr                = 12
+	DOMExceptionInvalidModificationErr   = 13
+	DOMExceptionNamespaceErr             = 14
+	DOMExceptionInvalidAccessErr         = 15
+	DOMExceptionValidationErr            = 16 // Deprecated, historical
+	DOMExceptionTypeMismatchErr          = 17
+	DOMExceptionSecurityErr              = 18
+	DOMExceptionNetworkErr               = 19
+	DOMExceptionAbortErr                 = 20
+	DOMExceptionURLMismatchErr           = 21
+	DOMExceptionQuotaExceededErr         = 22
+	DOMExceptionTimeoutErr               = 23
+	DOMExceptionInvalidNodeTypeErr       = 24
+	DOMExceptionDataCloneErr             = 25
+)
+
+// domExceptionNameToCode maps error names to legacy codes.
+var domExceptionNameToCode = map[string]int{
+	"IndexSizeError":             DOMExceptionIndexSizeErr,
+	"HierarchyRequestError":      DOMExceptionHierarchyRequestErr,
+	"WrongDocumentError":         DOMExceptionWrongDocumentErr,
+	"InvalidCharacterError":      DOMExceptionInvalidCharacterErr,
+	"NoModificationAllowedError": DOMExceptionNoModificationAllowedErr,
+	"NotFoundError":              DOMExceptionNotFoundErr,
+	"NotSupportedError":          DOMExceptionNotSupportedErr,
+	"InUseAttributeError":        DOMExceptionInuseAttributeErr,
+	"InvalidStateError":          DOMExceptionInvalidStateErr,
+	"SyntaxError":                DOMExceptionSyntaxErr,
+	"InvalidModificationError":   DOMExceptionInvalidModificationErr,
+	"NamespaceError":             DOMExceptionNamespaceErr,
+	"InvalidAccessError":         DOMExceptionInvalidAccessErr,
+	"TypeMismatchError":          DOMExceptionTypeMismatchErr,
+	"SecurityError":              DOMExceptionSecurityErr,
+	"NetworkError":               DOMExceptionNetworkErr,
+	"AbortError":                 DOMExceptionAbortErr,
+	"URLMismatchError":           DOMExceptionURLMismatchErr,
+	"QuotaExceededError":         DOMExceptionQuotaExceededErr,
+	"TimeoutError":               DOMExceptionTimeoutErr,
+	"InvalidNodeTypeError":       DOMExceptionInvalidNodeTypeErr,
+	"DataCloneError":             DOMExceptionDataCloneErr,
+	// New error names (code 0)
+	"EncodingError":      0,
+	"NotReadableError":   0,
+	"UnknownError":       0,
+	"ConstraintError":    0,
+	"DataError":          0,
+	"TransactionError":   0,  // Deprecated
+	"ReadOnlyError":      0,
+	"VersionError":       0,
+	"OperationError":     0,
+	"NotAllowedError":    0,
+	"OptOutError":        0,  // Deprecated
+}
+
+// domExceptionWrapper wraps DOMException data.
+type domExceptionWrapper struct {
+	message string
+	name    string
+	code    int
+}
+
+// domExceptionConstructor creates the DOMException constructor for JavaScript.
+// Usage: new DOMException(message?, name?)
+// message defaults to empty string, name defaults to "Error"
+func (a *Adapter) domExceptionConstructor(call goja.ConstructorCall) *goja.Object {
+	message := ""
+	name := "Error"
+
+	if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+		message = call.Argument(0).String()
+	}
+	if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
+		name = call.Argument(1).String()
+	}
+
+	// Look up legacy code for the name
+	code := 0
+	if c, ok := domExceptionNameToCode[name]; ok {
+		code = c
+	}
+
+	wrapper := &domExceptionWrapper{
+		message: message,
+		name:    name,
+		code:    code,
+	}
+
+	thisObj := call.This
+	thisObj.Set("_domException", wrapper)
+
+	// Set properties
+	thisObj.Set("message", message)
+	thisObj.Set("name", name)
+	thisObj.Set("code", code)
+
+	// toString() method
+	thisObj.Set("toString", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		return a.runtime.ToValue(fmt.Sprintf("%s: %s", wrapper.name, wrapper.message))
+	}))
+
+	return thisObj
+}
+
+// bindDOMExceptionConstants adds all constant properties to DOMException.
+func (a *Adapter) bindDOMExceptionConstants() error {
+	// Get the DOMException constructor
+	domExceptionVal := a.runtime.Get("DOMException")
+	if domExceptionVal == nil || goja.IsUndefined(domExceptionVal) {
+		return fmt.Errorf("DOMException not found")
+	}
+	domExceptionObj := domExceptionVal.ToObject(a.runtime)
+
+	// Add static constants
+	domExceptionObj.Set("INDEX_SIZE_ERR", DOMExceptionIndexSizeErr)
+	domExceptionObj.Set("DOMSTRING_SIZE_ERR", DOMExceptionDomstringSizeErr)
+	domExceptionObj.Set("HIERARCHY_REQUEST_ERR", DOMExceptionHierarchyRequestErr)
+	domExceptionObj.Set("WRONG_DOCUMENT_ERR", DOMExceptionWrongDocumentErr)
+	domExceptionObj.Set("INVALID_CHARACTER_ERR", DOMExceptionInvalidCharacterErr)
+	domExceptionObj.Set("NO_DATA_ALLOWED_ERR", DOMExceptionNoDataAllowedErr)
+	domExceptionObj.Set("NO_MODIFICATION_ALLOWED_ERR", DOMExceptionNoModificationAllowedErr)
+	domExceptionObj.Set("NOT_FOUND_ERR", DOMExceptionNotFoundErr)
+	domExceptionObj.Set("NOT_SUPPORTED_ERR", DOMExceptionNotSupportedErr)
+	domExceptionObj.Set("INUSE_ATTRIBUTE_ERR", DOMExceptionInuseAttributeErr)
+	domExceptionObj.Set("INVALID_STATE_ERR", DOMExceptionInvalidStateErr)
+	domExceptionObj.Set("SYNTAX_ERR", DOMExceptionSyntaxErr)
+	domExceptionObj.Set("INVALID_MODIFICATION_ERR", DOMExceptionInvalidModificationErr)
+	domExceptionObj.Set("NAMESPACE_ERR", DOMExceptionNamespaceErr)
+	domExceptionObj.Set("INVALID_ACCESS_ERR", DOMExceptionInvalidAccessErr)
+	domExceptionObj.Set("VALIDATION_ERR", DOMExceptionValidationErr)
+	domExceptionObj.Set("TYPE_MISMATCH_ERR", DOMExceptionTypeMismatchErr)
+	domExceptionObj.Set("SECURITY_ERR", DOMExceptionSecurityErr)
+	domExceptionObj.Set("NETWORK_ERR", DOMExceptionNetworkErr)
+	domExceptionObj.Set("ABORT_ERR", DOMExceptionAbortErr)
+	domExceptionObj.Set("URL_MISMATCH_ERR", DOMExceptionURLMismatchErr)
+	domExceptionObj.Set("QUOTA_EXCEEDED_ERR", DOMExceptionQuotaExceededErr)
+	domExceptionObj.Set("TIMEOUT_ERR", DOMExceptionTimeoutErr)
+	domExceptionObj.Set("INVALID_NODE_TYPE_ERR", DOMExceptionInvalidNodeTypeErr)
+	domExceptionObj.Set("DATA_CLONE_ERR", DOMExceptionDataCloneErr)
+
+	return nil
+}
+
+// blobPartToBytes converts a Blob part (string, ArrayBuffer, Uint8Array, Blob) to bytes.
+func (a *Adapter) blobPartToBytes(part goja.Value) ([]byte, error) {
+	if part == nil || goja.IsUndefined(part) || goja.IsNull(part) {
+		return nil, nil
+	}
+
+	// Check for string
+	if exportType := part.ExportType(); exportType != nil && exportType.Kind().String() == "string" {
+		return []byte(part.String()), nil
+	}
+
+	obj := part.ToObject(a.runtime)
+	if obj == nil {
+		// Try to convert to string
+		return []byte(part.String()), nil
+	}
+
+	// Check if it's a Blob (has _blob property)
+	if blobVal := obj.Get("_blob"); blobVal != nil && !goja.IsUndefined(blobVal) {
+		if blob, ok := blobVal.Export().(*blobWrapper); ok {
+			// Return a copy of the blob data
+			result := make([]byte, len(blob.data))
+			copy(result, blob.data)
+			return result, nil
+		}
+	}
+
+	// Check for typed array or ArrayBuffer using extractBytes
+	bytes, err := a.extractBytes(part)
+	if err == nil {
+		return bytes, nil
+	}
+
+	// Fallback: convert to string
+	return []byte(part.String()), nil
+}
+
+// ===============================================
+// EXPAND-044: localStorage and sessionStorage (in-memory)
+// ===============================================
+
+// storageWrapper implements an in-memory Storage interface.
+type storageWrapper struct {
+	items map[string]string
+	keys  []string // Maintain insertion order for key()
+	mu    sync.RWMutex
+}
+
+// newStorageWrapper creates a new storage wrapper.
+func newStorageWrapper() *storageWrapper {
+	return &storageWrapper{
+		items: make(map[string]string),
+		keys:  make([]string, 0),
+	}
+}
+
+// bindStorage creates localStorage and sessionStorage bindings.
+func (a *Adapter) bindStorage() error {
+	// Create localStorage (persists for the lifetime of the Adapter)
+	localStorage := newStorageWrapper()
+	localStorageObj := a.createStorageObject(localStorage)
+	a.runtime.Set("localStorage", localStorageObj)
+
+	// Create sessionStorage (same behavior for our in-memory implementation)
+	sessionStorage := newStorageWrapper()
+	sessionStorageObj := a.createStorageObject(sessionStorage)
+	a.runtime.Set("sessionStorage", sessionStorageObj)
+
+	return nil
+}
+
+// createStorageObject creates a Storage object with all Web Storage API methods.
+func (a *Adapter) createStorageObject(storage *storageWrapper) goja.Value {
+	obj := a.runtime.NewObject()
+
+	// Store internal reference
+	obj.Set("_storage", storage)
+
+	// length property (getter)
+	obj.DefineAccessorProperty("length",
+		a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			storage.mu.RLock()
+			defer storage.mu.RUnlock()
+			return a.runtime.ToValue(len(storage.items))
+		}), nil, goja.FLAG_FALSE, goja.FLAG_TRUE)
+
+	// getItem(key) - returns value or null
+	obj.Set("getItem", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Null()
+		}
+		key := call.Argument(0).String()
+
+		storage.mu.RLock()
+		defer storage.mu.RUnlock()
+
+		if value, exists := storage.items[key]; exists {
+			return a.runtime.ToValue(value)
+		}
+		return goja.Null()
+	}))
+
+	// setItem(key, value) - stores value
+	obj.Set("setItem", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(a.runtime.NewTypeError("Storage.setItem requires 2 arguments"))
+		}
+		key := call.Argument(0).String()
+		value := call.Argument(1).String()
+
+		storage.mu.Lock()
+		defer storage.mu.Unlock()
+
+		// Check if key is new
+		_, exists := storage.items[key]
+		storage.items[key] = value
+
+		// Track key order for key() method
+		if !exists {
+			storage.keys = append(storage.keys, key)
+		}
+
+		return goja.Undefined()
+	}))
+
+	// removeItem(key) - removes value
+	obj.Set("removeItem", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Undefined()
+		}
+		key := call.Argument(0).String()
+
+		storage.mu.Lock()
+		defer storage.mu.Unlock()
+
+		if _, exists := storage.items[key]; exists {
+			delete(storage.items, key)
+			// Remove from keys slice
+			for i, k := range storage.keys {
+				if k == key {
+					storage.keys = append(storage.keys[:i], storage.keys[i+1:]...)
+					break
+				}
+			}
+		}
+
+		return goja.Undefined()
+	}))
+
+	// clear() - removes all items
+	obj.Set("clear", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		storage.mu.Lock()
+		defer storage.mu.Unlock()
+
+		storage.items = make(map[string]string)
+		storage.keys = make([]string, 0)
+
+		return goja.Undefined()
+	}))
+
+	// key(index) - returns key at index or null
+	obj.Set("key", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return goja.Null()
+		}
+		index := int(call.Argument(0).ToInteger())
+
+		storage.mu.RLock()
+		defer storage.mu.RUnlock()
+
+		if index < 0 || index >= len(storage.keys) {
+			return goja.Null()
+		}
+		return a.runtime.ToValue(storage.keys[index])
+	}))
+
+	return obj
 }
