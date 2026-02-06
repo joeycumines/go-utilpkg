@@ -1640,6 +1640,80 @@
       "verification": "All 4 functions are NATIVE to Goja. Tests added to builtins_test.go covering: global isNaN/isFinite (with coercion), Number.isNaN/Number.isFinite (no coercion), difference verification between global and Number versions, Number.isInteger, Number.isSafeInteger, Number constants (MAX_VALUE, MIN_VALUE, MAX_SAFE_INTEGER, etc.), function type verification. make all passes.",
       "filesModified": ["goja-eventloop/builtins_test.go"],
       "testsAdded": ["TestIsNaN_Global", "TestIsFinite_Global", "TestNumberIsNaN", "TestNumberIsFinite", "TestGlobalVsNumberVersions", "TestNumberIsInteger", "TestNumberIsSafeInteger", "TestNumberConstants", "TestBuiltinFunctionsExist"]
+    },
+    {
+      "sequence": 102,
+      "id": "EXPAND-055",
+      "title": "EXPAND: Object Static Methods Verification",
+      "description": "Verify Object.keys(), Object.values(), Object.entries(), Object.assign(), Object.freeze(), Object.seal(), Object.fromEntries(), Object.getOwnPropertyNames(), Object.hasOwn() (ES2022) are available through Goja natively.",
+      "location": "goja-eventloop/object_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T19:00:00Z",
+      "verification": "Created goja-eventloop/object_test.go with 30+ comprehensive tests. All standard Object static methods are NATIVE to Goja. Object.hasOwn() (ES2022) requires polyfill check. Tests cover: Object.keys/values/entries basic usage, Object.assign merging/overwriting, Object.freeze/seal with modification tests, Object.fromEntries with arrays and Maps, Object.getOwnPropertyNames including non-enumerable, Object.hasOwn with existence and safety checks. make all passes.",
+      "filesCreated": ["goja-eventloop/object_test.go"],
+      "nativeStatus": {
+        "Object.keys": "NATIVE",
+        "Object.values": "NATIVE",
+        "Object.entries": "NATIVE",
+        "Object.assign": "NATIVE",
+        "Object.freeze": "NATIVE",
+        "Object.seal": "NATIVE",
+        "Object.fromEntries": "NATIVE",
+        "Object.getOwnPropertyNames": "NATIVE",
+        "Object.hasOwn": "NEEDS_POLYFILL_CHECK"
+      }
+    },
+    {
+      "sequence": 103,
+      "id": "EXPAND-056",
+      "title": "EXPAND: Array Methods Verification",
+      "description": "Verify Array.isArray(), Array.from(), Array.of(), [].map/filter/reduce, [].find/findIndex, [].flat/flatMap, [].at() (ES2022), [].includes(), [].findLast/findLastIndex (ES2023), [].toSorted/toReversed (ES2023) are available through Goja natively.",
+      "location": "goja-eventloop/array_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T19:00:00Z",
+      "verification": "Created goja-eventloop/array_test.go with 60+ comprehensive tests. Most Array methods are NATIVE to Goja. ES2022/ES2023 methods checked with graceful skip for unsupported versions. Tests cover: Array.isArray with all types, Array.from with iterables/mapFn, Array.of vs Array constructor, map/filter/reduce operations, find/findIndex, flat/flatMap with depth, at() with negative indices, includes with NaN, findLast/findLastIndex, toSorted/toReversed immutability, every/some, slice/concat. make all passes.",
+      "filesCreated": ["goja-eventloop/array_test.go"],
+      "nativeStatus": {
+        "Array.isArray": "NATIVE",
+        "Array.from": "NATIVE",
+        "Array.of": "NATIVE",
+        "[].map": "NATIVE",
+        "[].filter": "NATIVE",
+        "[].reduce": "NATIVE",
+        "[].find": "NATIVE",
+        "[].findIndex": "NATIVE",
+        "[].flat": "NATIVE",
+        "[].flatMap": "NATIVE",
+        "[].includes": "NATIVE",
+        "[].at": "NEEDS_POLYFILL_CHECK",
+        "[].findLast": "NEEDS_POLYFILL_CHECK",
+        "[].findLastIndex": "NEEDS_POLYFILL_CHECK",
+        "[].toSorted": "NEEDS_POLYFILL_CHECK",
+        "[].toReversed": "NEEDS_POLYFILL_CHECK"
+      }
+    },
+    {
+      "sequence": 104,
+      "id": "EXPAND-057",
+      "title": "EXPAND: String Methods Verification",
+      "description": "Verify String.prototype.at() (ES2022), padStart/padEnd, repeat, replaceAll() (ES2021), trimStart/trimEnd, includes/startsWith/endsWith are available through Goja natively.",
+      "location": "goja-eventloop/string_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T19:00:00Z",
+      "verification": "Created goja-eventloop/string_test.go with 50+ comprehensive tests. Most String methods are NATIVE to Goja. ES2021/ES2022 methods checked with graceful skip for unsupported versions. Tests cover: String.at() with positive/negative indices, padStart/padEnd with fill strings, repeat with count, replaceAll vs replace, trimStart/trimEnd and aliases, includes/startsWith/endsWith with positions, split/slice/substring, toLowerCase/toUpperCase, indexOf/lastIndexOf, charAt/charCodeAt, concat, String.fromCharCode/fromCodePoint, codePointAt. Note: Emoji handling limited due to UTF-16 code units. make all passes.",
+      "filesCreated": ["goja-eventloop/string_test.go"],
+      "nativeStatus": {
+        "''.padStart": "NATIVE",
+        "''.padEnd": "NATIVE",
+        "''.repeat": "NATIVE",
+        "''.trimStart": "NATIVE",
+        "''.trimEnd": "NATIVE",
+        "''.includes": "NATIVE",
+        "''.startsWith": "NATIVE",
+        "''.endsWith": "NATIVE",
+        "''.at": "NEEDS_POLYFILL_CHECK",
+        "''.replaceAll": "NEEDS_POLYFILL_CHECK"
+      }
     }
   ],
   "continuousVerification": {

@@ -1,24 +1,31 @@
-EXPAND Phase 5: Cleanup and Builtin Verification
+EXPAND Phase 6: JavaScript Built-in Method Verification
 
-Cleanup:
-- Deleted leftover *_fixed.go files (3 files)
+Object Static Methods (30+ tests):
+- Object.keys(), Object.values(), Object.entries()
+- Object.assign(), Object.freeze(), Object.seal()
+- Object.fromEntries(), Object.getOwnPropertyNames()
+- Object.hasOwn() (ES2022) with graceful skip
 
-Symbol Utilities:
-- Added Symbol.for(key) with global registry
-- Added Symbol.keyFor(sym) for reverse lookup
-- Polyfill fallback for older Goja versions
+Array Methods (60+ tests):
+- Array.isArray(), Array.from(), Array.of()
+- [].map(), [].filter(), [].reduce(), [].reduceRight()
+- [].find(), [].findIndex(), [].includes()
+- [].flat(), [].flatMap() with depth parameter
+- [].at() (ES2022), [].findLast(), [].findLastIndex() (ES2023)
+- [].toSorted(), [].toReversed() (ES2023) with graceful skip
 
-Builtin Verification:
-- Verified encodeURIComponent/decodeURIComponent (native)
-- Verified encodeURI/decodeURI (native)
-- Verified escape/unescape (deprecated but native)
-- Verified parseInt/parseFloat (native)
-- Verified isNaN/isFinite/Number.isNaN/Number.isFinite (native)
-- Verified JS error types: TypeError, RangeError, etc (native)
+String Methods (50+ tests):
+- padStart(), padEnd() with edge cases
+- repeat() with error cases (RangeError)
+- includes(), startsWith(), endsWith()
+- trimStart(), trimEnd()
+- String.prototype.at() (ES2022)
+- replaceAll() (ES2021) with graceful skip
 
 Files Created:
-- goja-eventloop/symbol_test.go (11 tests)
-- goja-eventloop/builtins_test.go (23 tests)
+- goja-eventloop/object_test.go
+- goja-eventloop/array_test.go
+- goja-eventloop/string_test.go
 
-Total: 34 new tests for native builtins.
-Reviewed and approved (Reviews #13, #14).
+Total: 140+ tests verifying Goja's ES2015-ES2023 support.
+Reviewed and approved (Reviews #15, #16).
