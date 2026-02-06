@@ -187,6 +187,11 @@ func (a *Adapter) Bind() error {
 		return fmt.Errorf("failed to bind DOMException constants: %w", err)
 	}
 
+	// EXPAND-050: Symbol.for and Symbol.keyFor utilities
+	if err := a.bindSymbol(); err != nil {
+		return fmt.Errorf("failed to bind Symbol: %w", err)
+	}
+
 	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
 	return a.bindPromise()
 }
@@ -5214,11 +5219,11 @@ func (a *Adapter) createFormDataIterator(entries []formDataEntry, mode string) g
 // DOMException error codes (from the DOM spec)
 const (
 	DOMExceptionIndexSizeErr             = 1
-	DOMExceptionDomstringSizeErr         = 2  // Deprecated, historical
+	DOMExceptionDomstringSizeErr         = 2 // Deprecated, historical
 	DOMExceptionHierarchyRequestErr      = 3
 	DOMExceptionWrongDocumentErr         = 4
 	DOMExceptionInvalidCharacterErr      = 5
-	DOMExceptionNoDataAllowedErr         = 6  // Deprecated, historical
+	DOMExceptionNoDataAllowedErr         = 6 // Deprecated, historical
 	DOMExceptionNoModificationAllowedErr = 7
 	DOMExceptionNotFoundErr              = 8
 	DOMExceptionNotSupportedErr          = 9
@@ -5265,17 +5270,17 @@ var domExceptionNameToCode = map[string]int{
 	"InvalidNodeTypeError":       DOMExceptionInvalidNodeTypeErr,
 	"DataCloneError":             DOMExceptionDataCloneErr,
 	// New error names (code 0)
-	"EncodingError":      0,
-	"NotReadableError":   0,
-	"UnknownError":       0,
-	"ConstraintError":    0,
-	"DataError":          0,
-	"TransactionError":   0,  // Deprecated
-	"ReadOnlyError":      0,
-	"VersionError":       0,
-	"OperationError":     0,
-	"NotAllowedError":    0,
-	"OptOutError":        0,  // Deprecated
+	"EncodingError":    0,
+	"NotReadableError": 0,
+	"UnknownError":     0,
+	"ConstraintError":  0,
+	"DataError":        0,
+	"TransactionError": 0, // Deprecated
+	"ReadOnlyError":    0,
+	"VersionError":     0,
+	"OperationError":   0,
+	"NotAllowedError":  0,
+	"OptOutError":      0, // Deprecated
 }
 
 // domExceptionWrapper wraps DOMException data.
@@ -5364,6 +5369,76 @@ func (a *Adapter) bindDOMExceptionConstants() error {
 	domExceptionObj.Set("DATA_CLONE_ERR", DOMExceptionDataCloneErr)
 
 	return nil
+}
+
+// ===============================================
+// EXPAND-050: Symbol.for and Symbol.keyFor utilities
+// ===============================================
+
+// bindSymbol adds Symbol.for and Symbol.keyFor utilities to the global Symbol object.
+// These implement the global symbol registry per ECMAScript specification.
+// Note: Goja already provides native Symbol.for and Symbol.keyFor implementations.
+// This function verifies they exist and are properly accessible. If Goja's native
+// implementation is incomplete, we provide a polyfill.
+func (a *Adapter) bindSymbol() error {
+	// Get the Symbol constructor
+	symbolVal := a.runtime.Get("Symbol")
+	if symbolVal == nil || goja.IsUndefined(symbolVal) {
+		// Symbol doesn't exist - this shouldn't happen in Goja, but return no error
+		return nil
+	}
+	symbolObj := symbolVal.ToObject(a.runtime)
+
+	// Check if Symbol.for already exists (Goja provides native implementation)
+	symbolFor := symbolObj.Get("for")
+	if symbolFor != nil && !goja.IsUndefined(symbolFor) {
+		// Goja already provides Symbol.for - verify it works and return
+		_, ok := goja.AssertFunction(symbolFor)
+		if ok {
+			// Also check Symbol.keyFor
+			symbolKeyFor := symbolObj.Get("keyFor")
+			if symbolKeyFor != nil && !goja.IsUndefined(symbolKeyFor) {
+				if _, ok := goja.AssertFunction(symbolKeyFor); ok {
+					// Both exist and are functions - Goja's native implementation is fine
+					return nil
+				}
+			}
+		}
+	}
+
+	// If we reach here, we need to provide a polyfill
+	// Create a JavaScript-based registry since Symbol values are difficult to
+	// work with directly in Go
+	polyfill := `
+		(function() {
+			var symbolRegistry = {};
+			var keyRegistry = new Map(); // Symbol -> key mapping
+			
+			Symbol.for = function(key) {
+				if (key === undefined) {
+					throw new TypeError("Symbol.for requires a key argument");
+				}
+				key = String(key);
+				if (symbolRegistry.hasOwnProperty(key)) {
+					return symbolRegistry[key];
+				}
+				var sym = Symbol(key);
+				symbolRegistry[key] = sym;
+				keyRegistry.set(sym, key);
+				return sym;
+			};
+			
+			Symbol.keyFor = function(sym) {
+				if (typeof sym !== 'symbol') {
+					throw new TypeError("Symbol.keyFor requires a Symbol argument");
+				}
+				return keyRegistry.get(sym);
+			};
+		})();
+	`
+
+	_, err := a.runtime.RunString(polyfill)
+	return err
 }
 
 // blobPartToBytes converts a Blob part (string, ArrayBuffer, Uint8Array, Blob) to bytes.

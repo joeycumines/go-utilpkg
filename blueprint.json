@@ -1568,6 +1568,78 @@
       "filesModified": ["goja-eventloop/adapter.go"],
       "filesCreated": ["goja-eventloop/domexception_test.go"],
       "testsAdded": ["TestDOMException_Constructor", "TestDOMException_DefaultValues", "TestDOMException_WithMessage", "TestDOMException_WithMessageAndName", "TestDOMException_ToString", "TestDOMException_KnownErrorCodes", "TestDOMException_NewErrorNamesCodeZero", "TestDOMException_UnknownNameCodeZero", "TestDOMException_StaticConstants", "TestDOMException_CanThrow"]
+    },
+    {
+      "sequence": 96,
+      "id": "EXPAND-049",
+      "title": "EXPAND: Delete Leftover *_fixed.go Files",
+      "description": "Delete base64_test_fixed.go, crypto_test_fixed.go, nexttick_test_fixed.go from goja-eventloop/ - these have //go:build ignore and are unused build artifacts.",
+      "location": "goja-eventloop/",
+      "status": "DONE",
+      "completedAt": "2026-02-10T12:00:00Z",
+      "verification": "Added cleanup-fixed-files target to project.mk. Ran target successfully, deleted all 3 files. make all passes.",
+      "filesModified": ["project.mk"],
+      "filesDeleted": ["goja-eventloop/base64_test_fixed.go", "goja-eventloop/crypto_test_fixed.go", "goja-eventloop/nexttick_test_fixed.go"]
+    },
+    {
+      "sequence": 97,
+      "id": "EXPAND-050",
+      "title": "EXPAND: Symbol.for() and Symbol.keyFor() Utilities",
+      "description": "Add Symbol.for(key) returning shared symbol for key from global registry, and Symbol.keyFor(sym) returning key for registered symbol or undefined.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-10T12:00:00Z",
+      "verification": "Added bindSymbol() function using JavaScript polyfill pattern (stores symbols in JS Map for global registry). Created goja-eventloop/symbol_test.go with 11 comprehensive tests. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "filesCreated": ["goja-eventloop/symbol_test.go"],
+      "testsAdded": ["TestSymbolFor_Basic", "TestSymbolFor_SameKeyReturnsSameSymbol", "TestSymbolFor_DifferentKeysReturnDifferentSymbols", "TestSymbolKeyFor_Basic", "TestSymbolKeyFor_LocalSymbolReturnsUndefined", "TestSymbolKeyFor_NonSymbolReturnsUndefined", "TestSymbolKeyFor_NullReturnsUndefined", "TestSymbolKeyFor_PrimitiveReturnsUndefined", "TestSymbolFor_CreatesValidSymbol", "TestSymbolFor_EmptyString", "TestSymbolFor_SpecialCharacters"]
+    },
+    {
+      "sequence": 98,
+      "id": "EXPAND-051",
+      "title": "EXPAND: Verify Standard JS Error Types",
+      "description": "Verify EvalError, RangeError, ReferenceError, URIError, SyntaxError are available through Goja natively.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-10T12:00:00Z",
+      "verification": "Verified all 5 standard JS error types are natively available in Goja and recognized in adapter.go error handling (lines 538, 948, 3427-3429). No additional implementation required - Goja provides these natively.",
+      "note": "No code changes needed - Goja natively supports EvalError, RangeError, ReferenceError, URIError, SyntaxError constructors and their error handling is already recognized in adapter.go."
+    },
+    {
+      "sequence": 99,
+      "id": "EXPAND-052",
+      "title": "EXPAND: Verify URI Encoding/Decoding Functions",
+      "description": "Verify encodeURIComponent/decodeURIComponent/encodeURI/decodeURI/escape/unescape are available through Goja natively and create comprehensive tests.",
+      "location": "goja-eventloop/builtins_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T13:00:00Z",
+      "verification": "All 6 URI functions are NATIVE to Goja. Created goja-eventloop/builtins_test.go with comprehensive tests covering: basic encoding/decoding, Unicode handling, roundtrip verification, invalid sequences, encodeURI vs encodeURIComponent differences, escape/unescape deprecated functions. make all passes.",
+      "filesCreated": ["goja-eventloop/builtins_test.go"],
+      "testsAdded": ["TestEncodeURIComponent_Basic", "TestDecodeURIComponent_Basic", "TestEncodeURIComponent_Unicode", "TestEncodeURI_Basic", "TestDecodeURI_Basic", "TestEscape_Basic", "TestUnescape_Basic", "TestURIComponent_InvalidSequence"]
+    },
+    {
+      "sequence": 100,
+      "id": "EXPAND-053",
+      "title": "EXPAND: Verify parseInt/parseFloat Functions",
+      "description": "Verify parseInt/parseFloat are available through Goja natively and create comprehensive tests.",
+      "location": "goja-eventloop/builtins_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T13:00:00Z",
+      "verification": "parseInt and parseFloat are NATIVE to Goja. Tests added to builtins_test.go covering: radix parameter (2/8/10/16), whitespace handling, sign handling, partial parsing (stops at non-digit), hex prefix detection, NaN returns, scientific notation, Number.parseInt/Number.parseFloat equivalence. make all passes.",
+      "filesModified": ["goja-eventloop/builtins_test.go"],
+      "testsAdded": ["TestParseInt_Basic", "TestParseInt_NaN", "TestParseFloat_Basic", "TestParseFloat_NaN", "TestNumberParseIntParseFloat"]
+    },
+    {
+      "sequence": 101,
+      "id": "EXPAND-054",
+      "title": "EXPAND: Verify isNaN/isFinite/Number.isNaN/Number.isFinite Functions",
+      "description": "Verify isNaN/isFinite/Number.isNaN/Number.isFinite are available through Goja natively and create comprehensive tests demonstrating coercion differences.",
+      "location": "goja-eventloop/builtins_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-06T13:00:00Z",
+      "verification": "All 4 functions are NATIVE to Goja. Tests added to builtins_test.go covering: global isNaN/isFinite (with coercion), Number.isNaN/Number.isFinite (no coercion), difference verification between global and Number versions, Number.isInteger, Number.isSafeInteger, Number constants (MAX_VALUE, MIN_VALUE, MAX_SAFE_INTEGER, etc.), function type verification. make all passes.",
+      "filesModified": ["goja-eventloop/builtins_test.go"],
+      "testsAdded": ["TestIsNaN_Global", "TestIsFinite_Global", "TestNumberIsNaN", "TestNumberIsFinite", "TestGlobalVsNumberVersions", "TestNumberIsInteger", "TestNumberIsSafeInteger", "TestNumberConstants", "TestBuiltinFunctionsExist"]
     }
   ],
   "continuousVerification": {

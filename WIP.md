@@ -2,73 +2,112 @@
 
 ## Session
 **Started:** 2026-02-06 00:00:00 AEST
-**Status:** ✅ COMPLETED
+**Status:** ✅ COMPLETE
 
 ## Current Goal
-**TASK:** EXPAND-046/047/048: Headers, FormData, DOMException classes
+**TASK:** EXPAND-052/053/054: Verify JavaScript Built-in Functions - ALL DONE
 
 ### Tasks Completed This Session:
+1. **EXPAND-052**: Verify encodeURIComponent/decodeURIComponent/encodeURI/decodeURI/escape/unescape ✅ DONE
+2. **EXPAND-053**: Verify parseInt/parseFloat exist in Goja ✅ DONE
+3. **EXPAND-054**: Verify isNaN/isFinite/Number.isNaN/Number.isFinite exist in Goja ✅ DONE
+
+### Implementation Summary:
+- All functions are NATIVE to Goja - no additional bindings needed
+- Created comprehensive test file goja-eventloop/builtins_test.go with 23 tests
+- Tests cover URI encoding/decoding, parsing, number validation, constants
+
+### Files Created:
+- `goja-eventloop/builtins_test.go` - 23 comprehensive tests
+
+### Tests Added:
+**URI Encoding/Decoding (EXPAND-052):**
+- TestEncodeURIComponent_Basic
+- TestDecodeURIComponent_Basic
+- TestEncodeURIComponent_Unicode
+- TestEncodeURI_Basic
+- TestDecodeURI_Basic
+- TestEscape_Basic
+- TestUnescape_Basic
+- TestURIComponent_InvalidSequence
+
+**parseInt/parseFloat (EXPAND-053):**
+- TestParseInt_Basic
+- TestParseInt_NaN
+- TestParseFloat_Basic
+- TestParseFloat_NaN
+- TestNumberParseIntParseFloat
+
+**isNaN/isFinite/Number methods (EXPAND-054):**
+- TestIsNaN_Global
+- TestIsFinite_Global
+- TestNumberIsNaN
+- TestNumberIsFinite
+- TestGlobalVsNumberVersions
+- TestNumberIsInteger
+- TestNumberIsSafeInteger
+- TestNumberConstants
+- TestBuiltinFunctionsExist
+
+## Verification
+- `make all` passes ✅ (exit_code=0)
+- All 23 new tests pass
+- All native Goja built-ins verified working
+
+## Reference
+See `./blueprint.json` for complete execution status.
+
+### Previous Session Completed:
 1. **EXPAND-046**: Headers class ✅ DONE
 2. **EXPAND-047**: FormData class ✅ DONE
 3. **EXPAND-048**: DOMException class ✅ DONE
 
 ## Implementation Summary:
 
-### EXPAND-046: Headers Class ✅ DONE
+### EXPAND-049: Delete Leftover *_fixed.go Files ✅ DONE
 - **Files Modified:**
-  - `goja-eventloop/adapter.go` - Added headersWrapper struct, headersConstructor(), initHeaders(), defineHeadersMethods(), createHeadersIterator() (~200 lines)
+  - `project.mk` - Added cleanup-fixed-files target
+
+- **Files Deleted:**
+  - `goja-eventloop/base64_test_fixed.go`
+  - `goja-eventloop/crypto_test_fixed.go`
+  - `goja-eventloop/nexttick_test_fixed.go`
+
+- **Verification:** All 3 files had `//go:build ignore` tags and were unused.
+
+### EXPAND-050: Symbol.for/Symbol.keyFor ✅ DONE
+- **Files Modified:**
+  - `goja-eventloop/adapter.go` - Added bindSymbol() function using JS polyfill pattern (~60 lines)
 
 - **Files Created:**
-  - `goja-eventloop/headers_test.go` - 26 comprehensive tests (580 lines)
+  - `goja-eventloop/symbol_test.go` - 11 comprehensive tests
 
 - **Key Features:**
-  1. Headers constructor: new Headers(), new Headers(init)
-  2. append/delete/get/getSetCookie/has/set methods
-  3. entries()/keys()/values() iterators with Symbol.iterator
-  4. forEach() callback iteration
-  5. Header names normalized to lowercase
+  1. Symbol.for(key) - returns shared symbol from global registry
+  2. Symbol.keyFor(sym) - returns key for registered symbol or undefined
+  3. Uses JavaScript Map for registry (polyfill pattern)
+  4. Local symbols (created via Symbol()) return undefined from keyFor
+  5. Handles edge cases: empty string keys, special characters, non-symbol inputs
 
-### EXPAND-047: FormData Class ✅ DONE
-- **Files Modified:**
-  - `goja-eventloop/adapter.go` - Added formDataEntry struct, formDataWrapper struct, formDataConstructor(), defineFormDataMethods(), createFormDataIterator() (~180 lines)
+### EXPAND-051: Standard JS Error Types ✅ DONE
+- **Status:** Already exists natively in Goja
 
-- **Files Created:**
-  - `goja-eventloop/formdata_test.go` - 20 comprehensive tests (480 lines)
+- **Verified Types:**
+  1. EvalError
+  2. RangeError  
+  3. ReferenceError
+  4. URIError
+  5. SyntaxError
 
-- **Key Features:**
-  1. FormData constructor: new FormData()
-  2. append/delete/get/getAll/has/set methods
-  3. entries()/keys()/values() iterators with Symbol.iterator
-  4. forEach() callback iteration
-  5. String-only values (no file support per spec)
-
-### EXPAND-048: DOMException Class ✅ DONE
-- **Files Modified:**
-  - `goja-eventloop/adapter.go` - Added 25 DOMException constants, domExceptionNameToCode map, domExceptionWrapper struct, domExceptionConstructor(), bindDOMExceptionConstants() (~200 lines)
-
-- **Files Created:**
-  - `goja-eventloop/domexception_test.go` - 20 comprehensive tests (470 lines)
-
-- **Key Features:**
-  1. DOMException constructor: new DOMException(message?, name?)
-  2. Properties: message, name, code
-  3. toString() method returns "name: message"
-  4. Static constants: INDEX_SIZE_ERR (1) through DATA_CLONE_ERR (25)
-  5. Known error names mapped to legacy codes
-  6. Unknown error names get code 0
+- **Locations in adapter.go:**
+  - Line 538: Error type recognition
+  - Line 948: Error type recognition
+  - Lines 3427-3429: Error type recognition
 
 ## Verification
-- `make all` passes ✅
-- All 3 new test files pass (66 tests total)
-
-## Summary of Changes
-
-| File | Changes |
-|------|---------|
-| goja-eventloop/adapter.go | Added Headers (~200 lines), FormData (~180 lines), DOMException (~200 lines) |
-| goja-eventloop/headers_test.go | Created with 26 comprehensive tests (580 lines) |
-| goja-eventloop/formdata_test.go | Created with 20 comprehensive tests (480 lines) |
-| goja-eventloop/domexception_test.go | Created with 20 comprehensive tests (470 lines) |
+- `make all` passes ✅ (exit_code=0)
+- All 11 Symbol tests pass
+- All 3 *_fixed.go files deleted
 
 ## Reference
 See `./blueprint.json` for complete execution status.

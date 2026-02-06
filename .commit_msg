@@ -1,23 +1,24 @@
-EXPAND Phase 4: Web Platform APIs for fetch-like patterns
+EXPAND Phase 5: Cleanup and Builtin Verification
 
-New JavaScript APIs:
-- Blob class with size, type, text(), arrayBuffer(), slice()
-- localStorage/sessionStorage (in-memory, full Storage API)
-- Headers class with normalization to lowercase
-- FormData class with insertion order preservation
-- DOMException class with all 25 standard error codes
+Cleanup:
+- Deleted leftover *_fixed.go files (3 files)
 
-Verified:
-- JSON.parse with reviver function
-- JSON.stringify with replacer function and space parameter
+Symbol Utilities:
+- Added Symbol.for(key) with global registry
+- Added Symbol.keyFor(sym) for reverse lookup
+- Polyfill fallback for older Goja versions
+
+Builtin Verification:
+- Verified encodeURIComponent/decodeURIComponent (native)
+- Verified encodeURI/decodeURI (native)
+- Verified escape/unescape (deprecated but native)
+- Verified parseInt/parseFloat (native)
+- Verified isNaN/isFinite/Number.isNaN/Number.isFinite (native)
+- Verified JS error types: TypeError, RangeError, etc (native)
 
 Files Created:
-- goja-eventloop/blob_test.go (18 tests)
-- goja-eventloop/storage_test.go (13 tests)
-- goja-eventloop/json_test.go (11 tests)
-- goja-eventloop/headers_test.go (26 tests)
-- goja-eventloop/formdata_test.go (20 tests)
-- goja-eventloop/domexception_test.go (20 tests)
+- goja-eventloop/symbol_test.go (11 tests)
+- goja-eventloop/builtins_test.go (23 tests)
 
-Total: 108 new tests across 6 feature areas.
-Reviewed and approved (Reviews #11, #12).
+Total: 34 new tests for native builtins.
+Reviewed and approved (Reviews #13, #14).

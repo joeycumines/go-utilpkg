@@ -48,3 +48,11 @@ race-eventloop-failures:
 .PHONY: race-eventloop-full
 race-eventloop-full:
 	cd $(PROJECT_ROOT) && go test -race -timeout=6m ./eventloop/... 2>&1 | tee /tmp/race_test.log; echo "Test exit: $$?"
+
+# EXPAND-049: Cleanup leftover *_fixed.go files
+.PHONY: cleanup-fixed-files
+cleanup-fixed-files:
+	rm -f $(PROJECT_ROOT)/goja-eventloop/base64_test_fixed.go
+	rm -f $(PROJECT_ROOT)/goja-eventloop/crypto_test_fixed.go
+	rm -f $(PROJECT_ROOT)/goja-eventloop/nexttick_test_fixed.go
+	@echo "Cleaned up *_fixed.go files"
