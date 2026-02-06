@@ -581,3 +581,54 @@ func (js *JS) Reject(reason any) *ChainedPromise {
 	reject(reason)
 	return promise
 }
+
+// Try wraps a synchronous function call in a promise, following the ES2025
+// Promise.try() proposal semantics.
+//
+// This method catches any panic that occurs during the function execution
+// and converts it into a rejected promise. If the function executes successfully,
+// the promise resolves with the returned value.
+//
+// Unlike Promise.resolve(fn()), Promise.try() catches synchronous exceptions
+// (panics in Go) and converts them to rejections. This provides a consistent
+// way to wrap any function in a promise, whether it might panic or not.
+//
+// Parameters:
+//   - fn: A function that may panic or return a value
+//
+// Returns:
+//   - A ChainedPromise that:
+//   - Resolves with fn's return value if fn executes successfully
+//   - Rejects with the panic value if fn panics
+//
+// Example:
+//
+//	// Safely wrap a function that might panic
+//	promise := js.Try(func() any {
+//	    return riskyOperation()
+//	})
+//
+//	// This is equivalent to:
+//	// new Promise(resolve => resolve(fn()))
+//	// but catches synchronous panics too
+//
+// Thread Safety:
+// The callback fn is executed synchronously on the calling goroutine.
+// The returned promise is safe for concurrent access.
+func (js *JS) Try(fn func() any) *ChainedPromise {
+	promise, resolve, reject := js.NewChainedPromise()
+
+	// Execute fn synchronously with panic recovery
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				reject(PanicError{Value: r})
+			}
+		}()
+
+		result := fn()
+		resolve(result)
+	}()
+
+	return promise
+}

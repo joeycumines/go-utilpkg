@@ -221,17 +221,13 @@ func TestMicrotaskOrdering_NestedMicrotasksInSameCheckpoint(t *testing.T) {
 
 // TestMicrotaskOrdering_PromiseReactionsAreMicrotasks verifies that
 // Promise then/catch/finally handlers are scheduled as microtasks.
+// This test uses Submit to avoid race conditions that occur when
+// calling resolve/reject from outside the loop goroutine.
 func TestMicrotaskOrdering_PromiseReactionsAreMicrotasks(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-
-	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -239,60 +235,80 @@ func TestMicrotaskOrdering_PromiseReactionsAreMicrotasks(t *testing.T) {
 	}
 
 	var order []string
+	var mu sync.Mutex
 	done := make(chan struct{})
 
-	// Create and immediately resolve a promise
-	p, resolve, _ := js.NewChainedPromise()
-
-	// Attach then handler (promise reaction = microtask)
-	p.Then(func(v Result) Result {
-		order = append(order, "promise-then")
-		return v
-	}, nil)
-
-	// Attach catch handler (must use separate chain since first is not rejected)
-	p2, _, reject2 := js.NewChainedPromise()
-	p2.Catch(func(r Result) Result {
-		order = append(order, "promise-catch")
-		return r
-	})
-
-	// Attach finally handler
-	p3, resolve3, _ := js.NewChainedPromise()
-	p3.Finally(func() {
-		order = append(order, "promise-finally")
-	})
-
-	// Schedule macro-task BEFORE resolving promises
-	_, err = js.SetTimeout(func() {
-		order = append(order, "setTimeout")
-		close(done)
-	}, 0)
-	if err != nil {
-		t.Fatalf("SetTimeout failed: %v", err)
+	appendOrder := func(s string) {
+		mu.Lock()
+		order = append(order, s)
+		mu.Unlock()
 	}
 
-	// Queue explicit microtask for reference ordering
-	err = js.QueueMicrotask(func() {
-		order = append(order, "queueMicrotask")
+	// Submit all setup work to run synchronously within the loop
+	loop.Submit(func() {
+		// Create and immediately resolve a promise
+		p, resolve, _ := js.NewChainedPromise()
+
+		// Attach then handler (promise reaction = microtask)
+		p.Then(func(v Result) Result {
+			appendOrder("promise-then")
+			return v
+		}, nil)
+
+		// Attach catch handler (must use separate chain since first is not rejected)
+		p2, _, reject2 := js.NewChainedPromise()
+		p2.Catch(func(r Result) Result {
+			appendOrder("promise-catch")
+			return r
+		})
+
+		// Attach finally handler
+		p3, resolve3, _ := js.NewChainedPromise()
+		p3.Finally(func() {
+			appendOrder("promise-finally")
+		})
+
+		// Schedule macro-task BEFORE resolving promises
+		js.SetTimeout(func() {
+			appendOrder("setTimeout")
+			close(done)
+		}, 0)
+
+		// Queue explicit microtask for reference ordering
+		js.QueueMicrotask(func() {
+			appendOrder("queueMicrotask")
+		})
+
+		// Resolve all promises (handlers should queue as microtasks)
+		// These microtasks are queued AFTER the queueMicrotask above
+		// but all microtasks run before setTimeout
+		resolve("success")
+		reject2("error")
+		resolve3("done")
 	})
-	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
-	}
 
-	// Resolve all promises (handlers should queue as microtasks)
-	resolve("success")
-	reject2("error")
-	resolve3("done")
+	// Create context that cancels when done
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-done
+		cancel()
+	}()
+	defer cancel()
 
-	// Wait for completion
+	// Run the loop until cancelled
+	go func() { loop.Run(ctx) }()
+
+	// Wait for done signal
 	select {
 	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatalf("Timeout. Got order: %v", order)
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Timeout waiting for test completion")
 	}
 
 	loop.Shutdown(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
 
 	// Verify: all promise reactions before setTimeout
 	// The exact order among microtasks depends on when they were queued

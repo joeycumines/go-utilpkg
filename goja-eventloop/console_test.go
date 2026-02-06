@@ -588,3 +588,446 @@ func TestConsoleTimeEnd_RemovesTimer(t *testing.T) {
 
 	loop.Shutdown(context.Background())
 }
+
+// ===============================================
+// EXPAND-004: console.count() / console.countReset() Tests
+// ===============================================
+
+// TestConsoleCount_Basic tests basic console.count() usage.
+func TestConsoleCount_Basic(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.count('test');
+		console.count('test');
+		console.count('test');
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// Should show incremented counts
+	if !strings.Contains(output, "test: 1") ||
+		!strings.Contains(output, "test: 2") ||
+		!strings.Contains(output, "test: 3") {
+		t.Errorf("expected output with counts 1, 2, 3, got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCount_DefaultLabel tests default label for console.count().
+func TestConsoleCount_DefaultLabel(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.count();
+		console.count();
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// Should use "default" label
+	if !strings.Contains(output, "default: 1") || !strings.Contains(output, "default: 2") {
+		t.Errorf("expected output with 'default: 1' and 'default: 2', got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCount_MultipleLabels tests multiple counters.
+func TestConsoleCount_MultipleLabels(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.count('a');
+		console.count('b');
+		console.count('a');
+		console.count('b');
+		console.count('a');
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// Count "a: 3" and "b: 2" occurrences
+	if strings.Count(output, "a: ") != 3 || strings.Count(output, "b: ") != 2 {
+		t.Errorf("expected 3 'a:' and 2 'b:' entries, got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCountReset_Basic tests basic console.countReset() usage.
+func TestConsoleCountReset_Basic(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.count('test');
+		console.count('test');
+		console.countReset('test');
+		console.count('test');
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// Should have 1, 2, then reset, then 1 again
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 3 {
+		t.Errorf("expected 3 lines, got %d: %s", len(lines), output)
+	}
+	if lines[0] != "test: 1" || lines[1] != "test: 2" || lines[2] != "test: 1" {
+		t.Errorf("expected 'test: 1', 'test: 2', 'test: 1', got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCountReset_DefaultLabel tests default label for countReset.
+func TestConsoleCountReset_DefaultLabel(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.count();
+		console.countReset();
+		console.count();
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 2 {
+		t.Errorf("expected 2 lines, got %d: %s", len(lines), output)
+	}
+	if lines[0] != "default: 1" || lines[1] != "default: 1" {
+		t.Errorf("expected 'default: 1' twice, got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCountReset_NotExists tests warning when counter doesn't exist.
+func TestConsoleCountReset_NotExists(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.countReset('nonexistent');
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Warning: Count for 'nonexistent' does not exist") {
+		t.Errorf("expected warning about nonexistent counter, got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleCount_NilOutput tests nil output handling.
+func TestConsoleCount_NilOutput(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	adapter.SetConsoleOutput(nil)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	// Should not panic with nil output
+	_, err = rt.RunString(`
+		console.count('test');
+		console.countReset('test');
+		console.countReset('nonexistent');
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// ===============================================
+// EXPAND-005: console.assert() Tests
+// ===============================================
+
+// TestConsoleAssert_Truthy tests that truthy conditions don't log.
+func TestConsoleAssert_Truthy(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.assert(true);
+		console.assert(1);
+		console.assert("hello");
+		console.assert([]);
+		console.assert({});
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// No output for truthy conditions
+	if len(output) != 0 {
+		t.Errorf("expected no output for truthy assertions, got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleAssert_Falsy tests that falsy conditions log.
+func TestConsoleAssert_Falsy(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.assert(false);
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Assertion failed") {
+		t.Errorf("expected 'Assertion failed', got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleAssert_AllFalsyTypes tests all JavaScript falsy values.
+func TestConsoleAssert_AllFalsyTypes(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.assert(false);
+		console.assert(0);
+		console.assert("");
+		console.assert(null);
+		console.assert(undefined);
+		console.assert(NaN);
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// Should have 6 assertion failures
+	count := strings.Count(output, "Assertion failed")
+	if count != 6 {
+		t.Errorf("expected 6 assertion failures, got %d: %s", count, output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleAssert_WithMessage tests assertion with message data.
+func TestConsoleAssert_WithMessage(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.assert(false, "Expected", "value", 42);
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Assertion failed: Expected value 42") {
+		t.Errorf("expected 'Assertion failed: Expected value 42', got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleAssert_NoCondition tests assertion with no arguments.
+func TestConsoleAssert_NoCondition(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	var buf bytes.Buffer
+	adapter.SetConsoleOutput(&buf)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	_, err = rt.RunString(`
+		console.assert();
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	output := buf.String()
+	// No condition = falsy, should log
+	if !strings.Contains(output, "Assertion failed") {
+		t.Errorf("expected 'Assertion failed', got: %s", output)
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestConsoleAssert_NilOutput tests nil output handling.
+func TestConsoleAssert_NilOutput(t *testing.T) {
+	loop, _ := goeventloop.New()
+	rt := goja.New()
+	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	adapter.SetConsoleOutput(nil)
+
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("failed to bind: %v", err)
+	}
+
+	// Should not panic with nil output
+	_, err = rt.RunString(`
+		console.assert(false, "test message");
+		console.assert(true, "should not log");
+	`)
+	if err != nil {
+		t.Fatalf("failed to run script: %v", err)
+	}
+
+	loop.Shutdown(context.Background())
+}

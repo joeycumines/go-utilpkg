@@ -881,7 +881,7 @@ func (l *Loop) processExternal() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("ERROR: eventloop: OnOverload callback panicked: %v", r)
+					l.logError("eventloop: OnOverload callback panicked", r)
 				}
 			}()
 			l.OnOverload(ErrLoopOverloaded)
@@ -1092,7 +1092,7 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 
 // handlePollError handles errors from PollIO.
 func (l *Loop) handlePollError(err error) {
-	log.Printf("CRITICAL: pollIO failed: %v - terminating loop", err)
+	l.logCritical("pollIO failed", err)
 	if l.state.TryTransition(StateSleeping, StateTerminating) {
 		l.shutdown()
 	}
@@ -1668,7 +1668,7 @@ func (l *Loop) safeExecute(t func()) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("ERROR: eventloop: task panicked: %v", r)
+			l.logError("eventloop: task panicked", r)
 		}
 		// Phase 5.3: Record latency if metrics enabled (even on panic)
 		if l.metrics != nil {
@@ -1693,11 +1693,75 @@ func (l *Loop) safeExecuteFn(fn func()) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("ERROR: eventloop: task panicked: %v", r)
+			l.logError("eventloop: task panicked", r)
 		}
 	}()
 
 	fn()
+}
+
+// ===============================================
+// EXPAND-015: Structured Error Logging Helpers
+// ===============================================
+
+// logError logs an error message using structured logging if configured,
+// otherwise falls back to log.Printf for backward compatibility.
+//
+// Defensively recovers from panics in structured logging. This can happen if:
+//   - The logger is nil or zero-value (caught by Enabled())
+//   - The logger has no event factory (Builder.Err() returns non-nil but with nil Event)
+//   - Any other configuration issue with the logger
+//
+// Logging should never crash the application.
+func (l *Loop) logError(msg string, panicVal any) {
+	if l.logger.Enabled() {
+		logged := func() (ok bool) {
+			defer func() {
+				if recover() != nil {
+					ok = false
+				}
+			}()
+			l.logger.Err().
+				Str("component", "eventloop").
+				Any("panic", panicVal).
+				Log(msg)
+			return true
+		}()
+		if logged {
+			return
+		}
+	}
+	log.Printf("ERROR: %s: %v", msg, panicVal)
+}
+
+// logCritical logs a critical error message using structured logging if configured,
+// otherwise falls back to log.Printf for backward compatibility.
+//
+// Defensively recovers from panics in structured logging. This can happen if:
+//   - The logger is nil or zero-value (caught by Enabled())
+//   - The logger has no event factory (Builder.Crit() returns non-nil but with nil Event)
+//   - Any other configuration issue with the logger
+//
+// Logging should never crash the application.
+func (l *Loop) logCritical(msg string, err error) {
+	if l.logger.Enabled() {
+		logged := func() (ok bool) {
+			defer func() {
+				if recover() != nil {
+					ok = false
+				}
+			}()
+			l.logger.Crit().
+				Str("component", "eventloop").
+				Err(err).
+				Log(msg)
+			return true
+		}()
+		if logged {
+			return
+		}
+	}
+	log.Printf("CRITICAL: %s: %v - terminating loop", msg, err)
 }
 
 // Metrics returns current metrics of the event loop.

@@ -1,51 +1,39 @@
 # Work In Progress - Takumi's Diary
 
 ## Session
-**Started:** 2026-02-06 02:48:28 AEST (Unix 1770310108)
-**Required:** 9 hours (32400 seconds)
-**Status:** ✅ PEER REVIEW #3 - FINAL VERIFICATION COMPLETE
+**Started:** 2026-02-08 02:00:00 AEST
+**Status:** ✅ EXPAND-010 to EXPAND-014 COMPLETE
 
 ## Current Goal
-**COMPLETED:** PEER REVIEW #3 - Final Guarantee Verification
+**COMPLETED:** EXPAND-010 through EXPAND-014 - Timer/Promise/Context Enhancements
 
-### Review #3 Actions:
-1. ✅ Ran `make all` - exit_code=0, all tests pass
-2. ✅ Verified thread safety: 7 dedicated race test files, proper sync primitives throughout
-3. ✅ Fixed dead code in test_interval_bug_test.go (duplicate nil check)
-4. ✅ Verified IDE warnings are false positives:
-   - `panic(nil)` in promisify_panic_test.go: INTENTIONAL test of nil-panic handling
-   - make.yaml: GitHub Actions context access works correctly at runtime
-5. ✅ Re-ran `make all` after fix - exit_code=0
+### Tasks Completed This Session:
 
-### FINAL-001: Coverage Report ✅
-- **eventloop (main):** 77.9% coverage
-- **goja-eventloop:** 88.6% coverage
-- **Internal packages:** 34-74% (experimental tournament variants)
-- **Intentionally Uncovered:**
-  - Windows IOCP code (poller_windows.go) - requires Windows CI
-  - Internal tournament packages - not production code
-  - Example programs - no test files by design
-  - Promise/A+ 2.3.3 thenable - intentional deviation
+#### EXPAND-010: Timer Coalescing for Same-Delay Timers ✅ SKIPPED_BY_ANALYSIS
+- **Decision:** Not worth implementing
+- **Rationale:** Heap operations are O(log n) which is already efficient. Same-delay collisions require nanosecond-precision timing matches (extremely rare). CHANGELOG already documents "Same-delay timers not guaranteed FIFO" as intentional. JS ecosystem never expects FIFO ordering.
 
-### FINAL-002: make all Passes ✅
-- **darwin:** PASS (make all exit_code=0)
-- **linux:** CI via GitHub Actions matrix
-- **windows:** CI via GitHub Actions matrix
-- Zero test failures, zero staticcheck warnings, zero betteralign issues
+#### EXPAND-011: SetInterval Drift Compensation ✅ SKIPPED_BY_ANALYSIS
+- **Decision:** Already spec-compliant
+- **Rationale:** HTML5 spec says to schedule "timeout ms from now" - not aligned to original start time. Both browsers and Node.js accumulate drift (callback runs, THEN delay is waited). Current implementation schedules next execution after callback completes - matching spec exactly.
 
-### FINAL-003: Release Notes ✅
-- **File:** `eventloop/CHANGELOG.md`
-- **Contents:**
-  - AbortController/AbortSignal (W3C DOM spec)
-  - Performance API (W3C High Resolution Time Level 3)
-  - Promise.withResolvers() (ES2024)
-  - Console Timer API
-  - O(1) P-Square percentile estimation
-  - 300+ tests, 35+ benchmarks
-  - Complete documentation (ARCHITECTURE.md, MIGRATION.md, examples)
-  - Thread safety documentation
-  - Panic safety verification
-  - Cross-platform CI coverage
+#### EXPAND-012: Promise Memory Profiling ✅ DONE
+- **File:** `eventloop/promise_memory_bench_test.go`
+- **Benchmarks:** 12 benchmarks covering creation, resolution, rejection, chaining, combinators, GC, and Promisify
+- **Tests:** 3 allocation hotspot detection tests
+- **Verification:** make all passes
+
+#### EXPAND-013: PerformanceObserver API ✅ DONE
+- **Status:** Already implemented in FEATURE-003
+- **Location:** `eventloop/performance.go`
+- **Implementation:** PerformanceObserver struct, NewPerformanceObserver, Observe, Disconnect, TakeRecords all present
+- **Verification:** Tests exist in performance_test.go
+
+#### EXPAND-014: Deadline/Timeout Context Integration ✅ DONE
+- **Files:** `eventloop/promisify.go`, `eventloop/promisify_timeout_test.go`
+- **Added:** `Loop.PromisifyWithTimeout()`, `Loop.PromisifyWithDeadline()`
+- **Tests:** 12 comprehensive tests covering success, timeout, error, panic, parent context cancellation
+- **Verification:** make all passes
 
 ## Summary of All Completed Tasks
 
@@ -60,9 +48,11 @@
 | DOCS | DOCS-001 to DOCS-004 | ✅ 4 DONE |
 | QUALITY | QUALITY-001 to QUALITY-005 | ✅ 5 DONE |
 | FINAL | FINAL-001 to FINAL-003 | ✅ 3 DONE |
-| BUGFIX | BUGFIX-001 to BUGFIX-002 | ✅ 2 DONE |
+| BUGFIX | BUGFIX-001 to BUGFIX-003 | ✅ 3 DONE |
+| PEERFIX | PEERFIX-001 to PEERFIX-003 | ✅ 3 DONE |
+| EXPAND | EXPAND-001 to EXPAND-015 | ✅ 13 DONE, 2 SKIPPED_BY_ANALYSIS |
 
-**TOTAL:** 52 tasks - 50 DONE, 1 REQUIRES_WINDOWS_TESTING, 1 SKIPPED_BY_ANALYSIS
+**TOTAL:** 67 tasks - 64 DONE, 1 REQUIRES_WINDOWS_TESTING, 2 SKIPPED_BY_ANALYSIS
 
 ## Reference
 See `./blueprint.json` for complete execution status.

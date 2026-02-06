@@ -595,3 +595,207 @@ func TestAbortError_Unwrap(t *testing.T) {
 		t.Error("errors.Is should work with AbortError")
 	}
 }
+
+// ===============================================
+// EXPAND-001: AbortAny Tests
+// ===============================================
+
+// TestAbortAny_Empty tests AbortAny with empty slice.
+func TestAbortAny_Empty(t *testing.T) {
+	composite := AbortAny([]*AbortSignal{})
+
+	if composite == nil {
+		t.Fatal("AbortAny should return a signal even for empty input")
+	}
+
+	if composite.Aborted() {
+		t.Error("Empty AbortAny should not be aborted")
+	}
+}
+
+// TestAbortAny_SingleSignal tests AbortAny with single signal.
+func TestAbortAny_SingleSignal(t *testing.T) {
+	controller := NewAbortController()
+	composite := AbortAny([]*AbortSignal{controller.Signal()})
+
+	if composite.Aborted() {
+		t.Error("Composite should not be aborted initially")
+	}
+
+	controller.Abort("test reason")
+
+	if !composite.Aborted() {
+		t.Error("Composite should be aborted when input signal aborts")
+	}
+
+	if composite.Reason() != "test reason" {
+		t.Errorf("Expected reason 'test reason', got %v", composite.Reason())
+	}
+}
+
+// TestAbortAny_MultipleSignals tests AbortAny with multiple signals.
+func TestAbortAny_MultipleSignals(t *testing.T) {
+	c1 := NewAbortController()
+	c2 := NewAbortController()
+	c3 := NewAbortController()
+
+	composite := AbortAny([]*AbortSignal{
+		c1.Signal(),
+		c2.Signal(),
+		c3.Signal(),
+	})
+
+	if composite.Aborted() {
+		t.Error("Composite should not be aborted initially")
+	}
+
+	// Abort the second controller
+	c2.Abort("second reason")
+
+	if !composite.Aborted() {
+		t.Error("Composite should be aborted when any input signal aborts")
+	}
+
+	if composite.Reason() != "second reason" {
+		t.Errorf("Expected reason 'second reason', got %v", composite.Reason())
+	}
+}
+
+// TestAbortAny_AlreadyAborted tests AbortAny with already-aborted signal.
+func TestAbortAny_AlreadyAborted(t *testing.T) {
+	c1 := NewAbortController()
+	c2 := NewAbortController()
+
+	// Abort c1 before creating composite
+	c1.Abort("pre-aborted")
+
+	composite := AbortAny([]*AbortSignal{
+		c1.Signal(),
+		c2.Signal(),
+	})
+
+	// Should be immediately aborted with c1's reason
+	if !composite.Aborted() {
+		t.Error("Composite should be immediately aborted if input is already aborted")
+	}
+
+	if composite.Reason() != "pre-aborted" {
+		t.Errorf("Expected reason 'pre-aborted', got %v", composite.Reason())
+	}
+}
+
+// TestAbortAny_NilSignals tests AbortAny with nil signals in slice.
+func TestAbortAny_NilSignals(t *testing.T) {
+	c1 := NewAbortController()
+
+	composite := AbortAny([]*AbortSignal{
+		nil,
+		c1.Signal(),
+		nil,
+	})
+
+	if composite.Aborted() {
+		t.Error("Composite should not be aborted initially")
+	}
+
+	c1.Abort("test")
+
+	if !composite.Aborted() {
+		t.Error("Composite should be aborted when non-nil signal aborts")
+	}
+}
+
+// TestAbortAny_OnlyFirstAbortsComposite tests that only first abort takes effect.
+func TestAbortAny_OnlyFirstAbortsComposite(t *testing.T) {
+	c1 := NewAbortController()
+	c2 := NewAbortController()
+
+	composite := AbortAny([]*AbortSignal{
+		c1.Signal(),
+		c2.Signal(),
+	})
+
+	// Both abort
+	c1.Abort("first")
+	c2.Abort("second")
+
+	// Should have first reason
+	if composite.Reason() != "first" {
+		t.Errorf("Expected reason 'first', got %v", composite.Reason())
+	}
+}
+
+// TestAbortAny_ConcurrentAbort tests concurrent abort handling.
+func TestAbortAny_ConcurrentAbort(t *testing.T) {
+	const numControllers = 10
+	controllers := make([]*AbortController, numControllers)
+	signals := make([]*AbortSignal, numControllers)
+
+	for i := 0; i < numControllers; i++ {
+		controllers[i] = NewAbortController()
+		signals[i] = controllers[i].Signal()
+	}
+
+	composite := AbortAny(signals)
+
+	// Abort all concurrently
+	var wg sync.WaitGroup
+	for i := 0; i < numControllers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			controllers[idx].Abort(idx)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Should be aborted with one of the reasons
+	if !composite.Aborted() {
+		t.Error("Composite should be aborted")
+	}
+
+	reason, ok := composite.Reason().(int)
+	if !ok {
+		t.Errorf("Expected int reason, got %T: %v", composite.Reason(), composite.Reason())
+	}
+	if reason < 0 || reason >= numControllers {
+		t.Errorf("Unexpected reason %d", reason)
+	}
+}
+
+// TestAbortAny_OnAbortHandler tests that composite signal fires OnAbort handlers.
+func TestAbortAny_OnAbortHandler(t *testing.T) {
+	c1 := NewAbortController()
+
+	composite := AbortAny([]*AbortSignal{c1.Signal()})
+
+	var called atomic.Bool
+	var receivedReason any
+	composite.OnAbort(func(reason any) {
+		called.Store(true)
+		receivedReason = reason
+	})
+
+	c1.Abort("handler test")
+
+	// Small delay to allow handler to fire
+	time.Sleep(10 * time.Millisecond)
+
+	if !called.Load() {
+		t.Error("OnAbort handler should have been called")
+	}
+
+	if receivedReason != "handler test" {
+		t.Errorf("Expected reason 'handler test', got %v", receivedReason)
+	}
+}
+
+// TestAbortAny_AllNil tests AbortAny with all nil signals.
+func TestAbortAny_AllNil(t *testing.T) {
+	composite := AbortAny([]*AbortSignal{nil, nil, nil})
+
+	if composite.Aborted() {
+		t.Error("Composite with all nil signals should not be aborted")
+	}
+}

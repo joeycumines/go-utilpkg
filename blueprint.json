@@ -779,6 +779,247 @@
       "completedAt": "2026-02-07T18:30:00Z",
       "location": "eventloop/test_interval_bug_test.go",
       "fixApproach": "Removed duplicate error check."
+    },
+    {
+      "id": "BUGFIX-003",
+      "title": "FIXED: Nil Pointer Dereference in logError/logCritical",
+      "description": "logError and logCritical methods crashed when using a misconfigured logiface.Logger (e.g., has writer but no event factory). The original `l.logger != nil` check was insufficient because: (1) zero-value logger passes nil check but fails Enabled(), (2) logger with writer but no factory passes Enabled() but Err()/Crit() return builder with nil Event. Added defensive recover() wrapper to ensure logging never crashes the application.",
+      "completedAt": "2026-02-07T22:00:00Z",
+      "location": "eventloop/loop.go",
+      "rootCause": "logiface.Logger[logiface.Event] requires event factory when using interface type; without it, builder.Event is nil, causing panic on first method call",
+      "fixApproach": "Added recover() wrapper around structured logging calls. On any panic (nil event, misconfigured logger, etc.), falls back to log.Printf. Logging should never crash the application."
+    }
+  ],
+  "expansionTasks": [
+    {
+      "sequence": 53,
+      "id": "EXPAND-001",
+      "title": "EXPAND: AbortSignal.any() Static Method",
+      "description": "Add AbortAny(signals []*AbortSignal) *AbortSignal to eventloop/abort.go. Creates composite signal that aborts when any input signal aborts. Expose as AbortSignal.any() in goja-eventloop/adapter.go.",
+      "location": "eventloop/abort.go, goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T20:30:00Z",
+      "verification": "Created AbortAny() function in abort.go that creates composite signal. Added AbortSignal.any() JS binding in adapter.go. Created tests in abort_test.go (Go-level) and abort_test.go (goja-level). make all passes.",
+      "filesModified": ["eventloop/abort.go", "goja-eventloop/adapter.go"],
+      "testsAdded": ["eventloop/abort_test.go: TestAbortAny_*", "goja-eventloop/abort_test.go: TestAbortSignal_Any_*"]
+    },
+    {
+      "sequence": 54,
+      "id": "EXPAND-002",
+      "title": "EXPAND: AbortSignal.timeout() JS Binding",
+      "description": "Go function AbortTimeout() exists but not exposed as AbortSignal.timeout(). Add AbortSignal.timeout(ms) static method to adapter.go.",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T20:30:00Z",
+      "verification": "Added AbortSignal.timeout(ms) JS binding in adapter.go that calls goeventloop.AbortTimeout(). Tests added to goja-eventloop/abort_test.go. make all passes.",
+      "filesModified": ["goja-eventloop/adapter.go"],
+      "testsAdded": ["goja-eventloop/abort_test.go: TestAbortSignal_Timeout_*"]
+    },
+    {
+      "sequence": 55,
+      "id": "EXPAND-003",
+      "title": "EXPAND: Promise.try() ES2025 API",
+      "description": "Add Try(fn func() any) *ChainedPromise to eventloop/js.go. Catches sync exceptions and rejects, else resolves with result. Expose as Promise.try(fn) in adapter.go.",
+      "location": "eventloop/js.go, goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T20:30:00Z",
+      "verification": "Created JS.Try() method in js.go that calls fn synchronously, catches panics (wraps in PanicError), and resolves/rejects accordingly. Added Promise.try() JS binding in adapter.go with proper promise unwrapping for returned promises. Created eventloop/promise_try_test.go with 9 Go-level tests. Created goja-eventloop/promise_try_test.go with 6 JS-level tests. make all passes.",
+      "filesModified": ["eventloop/js.go", "goja-eventloop/adapter.go"],
+      "filesCreated": ["eventloop/promise_try_test.go", "goja-eventloop/promise_try_test.go"],
+      "testsAdded": ["eventloop/promise_try_test.go: TestTry_*", "goja-eventloop/promise_try_test.go: TestPromiseTry_*"]
+    },
+    {
+      "sequence": 56,
+      "id": "EXPAND-004",
+      "title": "EXPAND: console.count() / console.countReset() API",
+      "description": "Add console.count(label) - logs count for label. Add console.countReset(label) - resets counter. Add to goja-eventloop/adapter.go bindConsole().",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T21:00:00Z",
+      "verification": "Added console.count(label), console.countReset(label) to bindConsole(). Added consoleCounters map with consoleCountersMu mutex to Adapter struct. Added 6 tests in console_test.go: TestConsoleCount_Basic, TestConsoleCount_DefaultLabel, TestConsoleCount_MultipleLabels, TestConsoleCountReset_Basic, TestConsoleCountReset_DefaultLabel, TestConsoleCountReset_NotExists, TestConsoleCount_NilOutput.",
+      "filesModified": ["goja-eventloop/adapter.go", "goja-eventloop/console_test.go"]
+    },
+    {
+      "sequence": 57,
+      "id": "EXPAND-005",
+      "title": "EXPAND: console.assert() API",
+      "description": "Add console.assert(condition, ...data) - logs only when falsy. Add to goja-eventloop/adapter.go bindConsole().",
+      "location": "goja-eventloop/adapter.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T21:00:00Z",
+      "verification": "Added console.assert(condition, ...data) to bindConsole(). Logs 'Assertion failed: ...' when condition is falsy, does nothing when truthy. Added 6 tests in console_test.go: TestConsoleAssert_Truthy, TestConsoleAssert_Falsy, TestConsoleAssert_AllFalsyTypes, TestConsoleAssert_WithMessage, TestConsoleAssert_NoCondition, TestConsoleAssert_NilOutput.",
+      "filesModified": ["goja-eventloop/adapter.go", "goja-eventloop/console_test.go"]
+    },
+    {
+      "sequence": 58,
+      "id": "EXPAND-006",
+      "title": "EXPAND: poller_linux.go Full Coverage Tests",
+      "description": "Create comprehensive tests for poller_linux.go covering all code paths including Init, Close, RegisterFD dynamic growth, UnregisterFD, ModifyFD, PollIO with events/timeout/EINTR, dispatchEvents edge cases. Mirrors approach from poller_darwin_full_coverage_test.go.",
+      "location": "eventloop/poller_linux_full_coverage_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T01:10:00Z",
+      "verification": "Created poller_linux_full_coverage_test.go with //go:build linux, marked CREATED_FOR_LINUX_CI. Tests mirror darwin version with epoll-specific adaptations. make all passes on darwin.",
+      "filesCreated": ["eventloop/poller_linux_full_coverage_test.go"],
+      "testsAdded": ["TestFastPoller_Linux_*"]
+    },
+    {
+      "sequence": 59,
+      "id": "EXPAND-007",
+      "title": "EXPAND: ModifyFD Error Paths Coverage",
+      "description": "Create tests covering kevent/epoll_ctl failure paths in ModifyFD. Tests validate error returns when operations fail due to invalid FD, unregistered FD, and system call failures.",
+      "location": "eventloop/modifyfd_error_coverage_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T01:10:00Z",
+      "verification": "Created modifyfd_error_coverage_test.go with //go:build linux || darwin. Tests ModifyFD error returns: negative FD, out of range FD, unregistered FD, integration with Loop's RegisterFD. make all passes.",
+      "filesCreated": ["eventloop/modifyfd_error_coverage_test.go"],
+      "testsAdded": ["TestModifyFD_NegativeFD", "TestModifyFD_OutOfRangeFD", "TestModifyFD_UnregisteredFD", "TestModifyFD_Integration_WithLoop"]
+    },
+    {
+      "sequence": 60,
+      "id": "EXPAND-008",
+      "title": "EXPAND: Promisify Shutdown Race Coverage",
+      "description": "Create tests for Promisify called during shutdown, shutdown waiting for in-flight Promisify goroutines, and promisifyMu lock coordination. Validates WaitGroup counter integrity under concurrent Promisify+Shutdown.",
+      "location": "eventloop/promisify_shutdown_race_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T01:10:00Z",
+      "verification": "Created promisify_shutdown_race_test.go with //go:build linux || darwin. Tests: DuringShutdown, ShutdownWaitsForInflight, ConcurrentWithShutdown_Race, MuLockCoordination, AfterTerminated, InTerminatingState, SubmitInternalFallback, ContextCancelDuringShutdown, MultipleShutdownCalls, PanicDuringShutdown, WgCounterIntegrity. make all passes.",
+      "filesCreated": ["eventloop/promisify_shutdown_race_test.go"],
+      "testsAdded": ["TestPromisify_DuringShutdown", "TestPromisify_ShutdownWaitsForInflight", "TestPromisify_ConcurrentWithShutdown_Race", "TestPromisify_MuLockCoordination", "TestPromisify_AfterTerminated", "TestPromisify_InTerminatingState", "TestPromisify_SubmitInternalFallback", "TestPromisify_ContextCancelDuringShutdown", "TestPromisify_MultipleShutdownCalls", "TestPromisify_PanicDuringShutdown", "TestPromisify_WgCounterIntegrity"]
+    },
+    {
+      "sequence": 61,
+      "id": "EXPAND-009",
+      "title": "EXPAND: timerHeap Edge Case Coverage",
+      "description": "Create tests for timerHeap edge cases including empty heap operations, single element heap, reverse-ordered inserts, heap with 1000+ timers, and cancel operations on large heap.",
+      "location": "eventloop/timerheap_edge_case_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T01:10:00Z",
+      "verification": "Created timerheap_edge_case_test.go with //go:build linux || darwin. Tests: EmptyHeap_Operations, SingleElement, TwoElements, ReverseOrderedInserts, ThousandTimers, ThousandTimers_ReverseOrder (pessimal case), HeapRemove, ThousandTimers_Concurrent, SubMillisecondOrdering, HeapRemove_BoundaryConditions, HeapPopNilsSlot, Integration_WithLoop, FiveHundredTimers (midsize stress). make all passes.",
+      "filesCreated": ["eventloop/timerheap_edge_case_test.go"],
+      "testsAdded": ["TestTimerHeap_EmptyHeap_Operations", "TestTimerHeap_SingleElement", "TestTimerHeap_TwoElements", "TestTimerHeap_ReverseOrderedInserts", "TestTimerHeap_ThousandTimers", "TestTimerHeap_ThousandTimers_ReverseOrder", "TestTimerHeap_HeapRemove", "TestTimerHeap_ThousandTimers_Concurrent", "TestTimerHeap_SubMillisecondOrdering", "TestTimerHeap_HeapRemove_BoundaryConditions", "TestTimerHeap_HeapPopNilsSlot", "TestTimerHeap_Integration_WithLoop", "TestTimerHeap_FiveHundredTimers"]
+    },
+    {
+      "sequence": 62,
+      "id": "EXPAND-010",
+      "title": "EXPAND: Timer Coalescing for Same-Delay Timers",
+      "description": "Analyze if timer coalescing (batching timers with identical deadlines) is worth implementing.",
+      "location": "eventloop/loop.go",
+      "status": "SKIPPED_BY_ANALYSIS",
+      "analysisDate": "2026-02-08T02:00:00Z",
+      "decision": "Timer coalescing would batch timers scheduled at the exact same nanosecond-precision deadline. This is not worth implementing because: (1) timers rarely have identical nanosecond deadlines, (2) heap operations are O(log n) which is already fast, (3) CHANGELOG already documents 'Same-delay timers not guaranteed FIFO' as intentional.",
+      "reasoning": [
+        "Heap provides O(log n) insert and O(log n) pop - already efficient",
+        "Same-delay collisions require nanosecond-precision timing matches",
+        "JS ecosystem never expects same-delay timers to be FIFO (browser-specific)",
+        "Implementation would add complexity for minimal benefit",
+        "timerPool already eliminates allocation overhead"
+      ],
+      "verification": "Analyzed codebase and spec requirements. Timer coalescing not justified."
+    },
+    {
+      "sequence": 63,
+      "id": "EXPAND-011",
+      "title": "EXPAND: SetInterval Drift Compensation",
+      "description": "Analyze if SetInterval requires drift compensation to align with spec.",
+      "location": "eventloop/js.go",
+      "status": "SKIPPED_BY_ANALYSIS",
+      "analysisDate": "2026-02-08T02:00:00Z",
+      "decision": "Current SetInterval implementation is spec-compliant. HTML5 spec says to schedule 'timeout milliseconds from now' - not aligned to original start time. Both browsers and Node.js accumulate drift (callback runs, THEN delay is waited). This is correct behavior.",
+      "reasoning": [
+        "HTML5 spec: schedule next invocation 'timeout ms from now'",
+        "Browsers: callback completes, then wait delay milliseconds",
+        "Node.js: same behavior - no drift compensation",
+        "Current implementation: schedules next execution after callback completes",
+        "Result: cumulative drift, matching spec and all major runtimes"
+      ],
+      "specReference": "https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers",
+      "verification": "Analyzed spec and compared with current implementation. Already spec-compliant."
+    },
+    {
+      "sequence": 64,
+      "id": "EXPAND-012",
+      "title": "EXPAND: Promise Memory Profiling",
+      "description": "Create eventloop/promise_memory_bench_test.go with benchmarks for promise creation/resolution memory and allocation hotspot identification.",
+      "location": "eventloop/promise_memory_bench_test.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T02:00:00Z",
+      "verification": "Created promise_memory_bench_test.go with 12 benchmarks: BenchmarkPromiseCreation, BenchmarkPromiseResolution, BenchmarkPromiseRejection, BenchmarkPromiseThenChain, BenchmarkPromiseResolve_Memory, BenchmarkPromiseReject, BenchmarkPromiseAll_Memory, BenchmarkPromiseRace, BenchmarkPromiseWithResolvers, BenchmarkPromiseTry, BenchmarkPromiseGC, BenchmarkPromisifyAllocation. Also includes 3 allocation hotspot tests. make all passes.",
+      "filesCreated": ["eventloop/promise_memory_bench_test.go"],
+      "benchmarksAdded": [
+        "BenchmarkPromiseCreation",
+        "BenchmarkPromiseResolution",
+        "BenchmarkPromiseRejection",
+        "BenchmarkPromiseThenChain",
+        "BenchmarkPromiseResolve_Memory",
+        "BenchmarkPromiseReject",
+        "BenchmarkPromiseAll_Memory",
+        "BenchmarkPromiseRace",
+        "BenchmarkPromiseWithResolvers",
+        "BenchmarkPromiseTry",
+        "BenchmarkPromiseGC",
+        "BenchmarkPromisifyAllocation"
+      ],
+      "allocationHotspotTests": [
+        "TestPromiseAllocationHotspots",
+        "TestPromiseChainAllocationHotspots",
+        "TestPromiseCombinatorAllocationHotspots"
+      ]
+    },
+    {
+      "sequence": 65,
+      "id": "EXPAND-013",
+      "title": "EXPAND: PerformanceObserver API",
+      "description": "Check if PerformanceObserver was already implemented in FEATURE-003. If not, implement basic PerformanceObserver.",
+      "location": "eventloop/performance.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T18:30:00Z",
+      "verification": "PerformanceObserver already implemented in FEATURE-003 (performance.go). Includes: PerformanceObserver struct, PerformanceObserverCallback, PerformanceObserverOptions, NewPerformanceObserver(), Observe(), Disconnect(), TakeRecords(). Comprehensive tests exist in performance_test.go.",
+      "note": "Already completed as part of FEATURE-003. No additional work required."
+    },
+    {
+      "sequence": 66,
+      "id": "EXPAND-014",
+      "title": "EXPAND: Deadline/Timeout Context Integration",
+      "description": "Add PromisifyWithTimeout and PromisifyWithDeadline helpers to promisify.go that combine context.WithTimeout/WithDeadline with Promisify.",
+      "location": "eventloop/promisify.go",
+      "status": "DONE",
+      "completedAt": "2026-02-08T02:00:00Z",
+      "verification": "Added Loop.PromisifyWithTimeout() and Loop.PromisifyWithDeadline() to promisify.go. Each creates a derived context with timeout/deadline and passes it to Promisify, with proper cancel() cleanup via deferred wrapper. Created promisify_timeout_test.go with 12 tests covering: success before timeout, timeout rejection, function error, parent context cancelled, panic, zero timeout, past deadline, function error with deadline, long-running success, context deadline respected. make all passes.",
+      "filesModified": ["eventloop/promisify.go"],
+      "filesCreated": ["eventloop/promisify_timeout_test.go"],
+      "testsAdded": [
+        "TestPromisifyWithTimeout_Success",
+        "TestPromisifyWithTimeout_Timeout",
+        "TestPromisifyWithTimeout_FunctionError",
+        "TestPromisifyWithTimeout_ParentContextCancelled",
+        "TestPromisifyWithTimeout_Panic",
+        "TestPromisifyWithTimeout_ZeroTimeout",
+        "TestPromisifyWithTimeout_LongRunningSuccess",
+        "TestPromisifyWithDeadline_Success",
+        "TestPromisifyWithDeadline_DeadlineExceeded",
+        "TestPromisifyWithDeadline_PastDeadline",
+        "TestPromisifyWithDeadline_FunctionError",
+        "TestPromisifyWithDeadline_Panic",
+        "TestPromisifyWithDeadline_ContextRespected"
+      ]
+    },
+    {
+      "sequence": 67,
+      "id": "EXPAND-015",
+      "title": "EXPAND: Structured Error Logging",
+      "description": "Replace log.Printf calls in eventloop/ with conditional structured logging through l.logger when configured. Use logiface patterns. Ensure backward compatibility (log.Printf when no logger set).",
+      "location": "eventloop/loop.go",
+      "status": "DONE",
+      "completedAt": "2026-02-07T21:00:00Z",
+      "verification": "Added logError(msg, panicVal) and logCritical(msg, err) helper methods to Loop. Replaced 4 log.Printf calls: OnOverload panic, handlePollError, safeExecute panic, safeExecuteFn panic. When logger is configured, uses l.logger.Err()/Crit() with structured fields (component, panic, err). When no logger, falls back to log.Printf. Added 7 tests in structured_logging_test.go: TaskPanic, OnOverloadPanic, NoLogger, NilLogger, MicrotaskPanic, LogError, LogCritical.",
+      "filesModified": ["eventloop/loop.go"],
+      "filesCreated": ["eventloop/structured_logging_test.go"],
+      "logPrintfLocationsReplaced": [
+        "loop.go:884 - OnOverload callback panic",
+        "loop.go:1095 - handlePollError CRITICAL message",
+        "loop.go:1671 - safeExecute panic",
+        "loop.go:1696 - safeExecuteFn panic"
+      ]
     }
   ],
   "continuousVerification": {

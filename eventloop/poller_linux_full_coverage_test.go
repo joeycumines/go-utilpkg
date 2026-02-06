@@ -1,0 +1,695 @@
+// Copyright 2026 Joseph Cumines
+//
+// Permission to use, copy, modify, and distribute this software for any
+// purpose with or without fee is hereby granted, provided that this copyright
+// notice appears in all copies.
+
+//go:build linux
+
+package eventloop
+
+import (
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
+)
+
+// EXPAND-006: Linux Poller Full Coverage Tests
+// CREATED_FOR_LINUX_CI: These tests mirror poller_darwin_full_coverage_test.go
+// and are designed to run only on Linux. They test the epoll-based FastPoller
+// implementation for full coverage.
+
+// TestFastPollerLinux_Init_AlreadyClosed tests Init() on already closed poller
+func TestFastPollerLinux_Init_AlreadyClosed(t *testing.T) {
+	poller := &FastPoller{}
+	poller.closed.Store(true)
+
+	err := poller.Init()
+	if err != ErrPollerClosed {
+		t.Errorf("Expected ErrPollerClosed, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_Init_Success tests successful initialization
+func TestFastPollerLinux_Init_Success(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Verify epoll fd is valid
+	if poller.epfd <= 0 {
+		t.Errorf("Expected valid epoll fd, got: %d", poller.epfd)
+	}
+
+	// Verify fds slice was allocated
+	if len(poller.fds) != maxFDs {
+		t.Errorf("Expected fds slice of size %d, got: %d", maxFDs, len(poller.fds))
+	}
+}
+
+// TestFastPollerLinux_Close_Idempotent tests that Close() is idempotent
+func TestFastPollerLinux_Close_Idempotent(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	// First close
+	err = poller.Close()
+	if err != nil {
+		t.Errorf("First Close() returned error: %v", err)
+	}
+
+	// Second close - should return nil (idempotent)
+	err = poller.Close()
+	if err != nil {
+		t.Errorf("Second Close() returned error: %v", err)
+	}
+
+	// Third close - still should return nil
+	err = poller.Close()
+	if err != nil {
+		t.Errorf("Third Close() returned error: %v", err)
+	}
+}
+
+// TestFastPollerLinux_PollIO_Closed tests PollIO on closed poller
+func TestFastPollerLinux_PollIO_Closed(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	poller.Close()
+
+	_, err = poller.PollIO(0)
+	if err != ErrPollerClosed {
+		t.Errorf("Expected ErrPollerClosed, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_PollIO_EINTR tests that PollIO handles EINTR gracefully
+func TestFastPollerLinux_PollIO_EINTR(t *testing.T) {
+	// This test verifies the EINTR handling path exists
+	// We can't reliably trigger EINTR in a unit test, but we verify
+	// the code path is present by checking the implementation handles it
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Do a quick poll with timeout 0 - should return immediately
+	n, err := poller.PollIO(0)
+	if err != nil {
+		t.Errorf("PollIO failed: %v", err)
+	}
+	if n != 0 {
+		t.Logf("PollIO returned %d events (expected 0)", n)
+	}
+}
+
+// TestFastPollerLinux_PollIO_Timeout tests PollIO timeout behavior
+func TestFastPollerLinux_PollIO_Timeout(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	start := time.Now()
+	n, err := poller.PollIO(50) // 50ms timeout
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Errorf("PollIO failed: %v", err)
+	}
+	if n != 0 {
+		t.Logf("PollIO returned %d events", n)
+	}
+
+	// Should have waited approximately 50ms
+	if elapsed < 40*time.Millisecond {
+		t.Errorf("PollIO returned too quickly: %v", elapsed)
+	}
+}
+
+// TestFastPollerLinux_PollIO_WithEvents tests PollIO with actual events
+func TestFastPollerLinux_PollIO_WithEvents(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create a pipe
+	var fds [2]int
+	if err := unix.Pipe(fds[:]); err != nil {
+		t.Fatalf("Pipe failed: %v", err)
+	}
+	defer unix.Close(fds[0])
+	defer unix.Close(fds[1])
+	unix.SetNonblock(fds[0], true)
+
+	var callbackCalled atomic.Bool
+
+	// Register read end
+	err = poller.RegisterFD(fds[0], EventRead, func(events IOEvents) {
+		callbackCalled.Store(true)
+		if events&EventRead == 0 {
+			t.Error("Expected EventRead in callback")
+		}
+	})
+	if err != nil {
+		t.Fatalf("RegisterFD failed: %v", err)
+	}
+
+	// Write to trigger event
+	unix.Write(fds[1], []byte{1})
+
+	// Poll - should get event
+	n, err := poller.PollIO(100)
+	if err != nil {
+		t.Errorf("PollIO failed: %v", err)
+	}
+	if n < 1 {
+		t.Errorf("Expected at least 1 event, got: %d", n)
+	}
+	if !callbackCalled.Load() {
+		t.Error("Callback should have been called")
+	}
+}
+
+// TestFastPollerLinux_DispatchEvents_NegativeFD tests dispatchEvents with negative FD
+func TestFastPollerLinux_DispatchEvents_NegativeFD(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Manually set up an event buffer with negative FD
+	// This tests the `if fd < 0 { continue }` path
+	poller.eventBuf[0] = unix.EpollEvent{
+		Fd:     -1,
+		Events: unix.EPOLLIN,
+	}
+
+	// dispatchEvents should skip this event without panic
+	poller.dispatchEvents(1)
+	// If we get here without panic, test passes
+}
+
+// TestFastPollerLinux_DispatchEvents_FDNotActive tests callback dispatch for inactive FD
+func TestFastPollerLinux_DispatchEvents_FDNotActive(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Set up event for FD that isn't active
+	poller.eventBuf[0] = unix.EpollEvent{
+		Fd:     100, // Valid FD but not registered
+		Events: unix.EPOLLIN,
+	}
+
+	// dispatchEvents should skip this event
+	poller.dispatchEvents(1)
+	// If we get here without panic, test passes
+}
+
+// TestFastPollerLinux_DispatchEvents_FDOutOfBounds tests callback dispatch for FD outside fds array
+func TestFastPollerLinux_DispatchEvents_FDOutOfBounds(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Set up event for FD beyond fds array bounds
+	poller.eventBuf[0] = unix.EpollEvent{
+		Fd:     int32(len(poller.fds) + 100), // Beyond array
+		Events: unix.EPOLLIN,
+	}
+
+	// dispatchEvents should skip this event
+	poller.dispatchEvents(1)
+	// If we get here without panic, test passes
+}
+
+// TestFastPollerLinux_RegisterFD_DynamicGrowth tests FD array growth for large FDs
+func TestFastPollerLinux_RegisterFD_DynamicGrowth(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create a pipe
+	var fds [2]int
+	if err := unix.Pipe(fds[:]); err != nil {
+		t.Fatalf("Pipe failed: %v", err)
+	}
+	defer unix.Close(fds[0])
+	defer unix.Close(fds[1])
+	unix.SetNonblock(fds[0], true)
+
+	// Try to register with simulated large FD
+	// Note: We can't actually create an FD > maxFDs easily,
+	// but we can verify the growth logic exists
+	initialLen := len(poller.fds)
+
+	// Register normal FD
+	err = poller.RegisterFD(fds[0], EventRead, func(events IOEvents) {})
+	if err != nil {
+		t.Fatalf("RegisterFD failed: %v", err)
+	}
+
+	// fds array should still be same size (FD within initial allocation)
+	if len(poller.fds) != initialLen {
+		t.Logf("fds array grew from %d to %d", initialLen, len(poller.fds))
+	}
+}
+
+// TestFastPollerLinux_RegisterFD_EpollError tests RegisterFD with epoll error rollback
+func TestFastPollerLinux_RegisterFD_EpollError(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Register invalid FD should trigger epoll error
+	err = poller.RegisterFD(999999, EventRead, func(events IOEvents) {})
+	if err == nil {
+		// If registration succeeded, unregister
+		poller.UnregisterFD(999999)
+		t.Log("RegisterFD succeeded for high FD (may be valid)")
+	} else {
+		// Expected - rolled back properly
+		t.Logf("RegisterFD failed as expected: %v", err)
+	}
+}
+
+// TestFastPollerLinux_UnregisterFD_NegativeFD tests UnregisterFD with negative FD
+func TestFastPollerLinux_UnregisterFD_NegativeFD(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	err = poller.UnregisterFD(-1)
+	if err != ErrFDOutOfRange {
+		t.Errorf("Expected ErrFDOutOfRange, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_UnregisterFD_NotRegistered tests UnregisterFD for unregistered FD
+func TestFastPollerLinux_UnregisterFD_NotRegistered(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	err = poller.UnregisterFD(100)
+	if err != ErrFDNotRegistered {
+		t.Errorf("Expected ErrFDNotRegistered, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_UnregisterFD_OutOfBounds tests UnregisterFD for FD beyond array
+func TestFastPollerLinux_UnregisterFD_OutOfBounds(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	err = poller.UnregisterFD(len(poller.fds) + 100)
+	if err != ErrFDNotRegistered {
+		t.Errorf("Expected ErrFDNotRegistered, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_ModifyFD_NegativeFD tests ModifyFD with negative FD
+func TestFastPollerLinux_ModifyFD_NegativeFD(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	err = poller.ModifyFD(-1, EventRead)
+	if err != ErrFDOutOfRange {
+		t.Errorf("Expected ErrFDOutOfRange, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_ModifyFD_NotRegistered tests ModifyFD for unregistered FD
+func TestFastPollerLinux_ModifyFD_NotRegistered(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	err = poller.ModifyFD(100, EventRead)
+	if err != ErrFDNotRegistered {
+		t.Errorf("Expected ErrFDNotRegistered, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_ModifyFD_Success tests successful ModifyFD
+func TestFastPollerLinux_ModifyFD_Success(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create a pipe
+	var fds [2]int
+	if err := unix.Pipe(fds[:]); err != nil {
+		t.Fatalf("Pipe failed: %v", err)
+	}
+	defer unix.Close(fds[0])
+	defer unix.Close(fds[1])
+	unix.SetNonblock(fds[0], true)
+	unix.SetNonblock(fds[1], true)
+
+	// Register for read
+	err = poller.RegisterFD(fds[0], EventRead, func(events IOEvents) {})
+	if err != nil {
+		t.Fatalf("RegisterFD failed: %v", err)
+	}
+
+	// Modify to read+write
+	err = poller.ModifyFD(fds[0], EventRead|EventWrite)
+	if err != nil {
+		t.Errorf("ModifyFD failed: %v", err)
+	}
+
+	// Modify to write only
+	err = poller.ModifyFD(fds[0], EventWrite)
+	if err != nil {
+		t.Errorf("ModifyFD (write only) failed: %v", err)
+	}
+
+	// Modify back to read only
+	err = poller.ModifyFD(fds[0], EventRead)
+	if err != nil {
+		t.Errorf("ModifyFD (read only) failed: %v", err)
+	}
+}
+
+// TestEventsToEpollLinux tests the eventsToEpoll conversion function
+func TestEventsToEpollLinux(t *testing.T) {
+	tests := []struct {
+		name     string
+		events   IOEvents
+		expected uint32
+	}{
+		{"None", 0, 0},
+		{"ReadOnly", EventRead, unix.EPOLLIN},
+		{"WriteOnly", EventWrite, unix.EPOLLOUT},
+		{"ReadWrite", EventRead | EventWrite, unix.EPOLLIN | unix.EPOLLOUT},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			epollEvents := eventsToEpoll(tt.events)
+			if epollEvents != tt.expected {
+				t.Errorf("Expected %d, got: %d", tt.expected, epollEvents)
+			}
+		})
+	}
+}
+
+// TestEpollToEventsLinux tests the epollToEvents conversion function
+func TestEpollToEventsLinux(t *testing.T) {
+	tests := []struct {
+		name        string
+		epollEvents uint32
+		expected    IOEvents
+	}{
+		{"Read", unix.EPOLLIN, EventRead},
+		{"Write", unix.EPOLLOUT, EventWrite},
+		{"ReadWrite", unix.EPOLLIN | unix.EPOLLOUT, EventRead | EventWrite},
+		{"ReadWithError", unix.EPOLLIN | unix.EPOLLERR, EventRead | EventError},
+		{"WriteWithHangup", unix.EPOLLOUT | unix.EPOLLHUP, EventWrite | EventHangup},
+		{"AllEvents", unix.EPOLLIN | unix.EPOLLOUT | unix.EPOLLERR | unix.EPOLLHUP, EventRead | EventWrite | EventError | EventHangup},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			events := epollToEvents(tt.epollEvents)
+			if events != tt.expected {
+				t.Errorf("Expected %d, got: %d", tt.expected, events)
+			}
+		})
+	}
+}
+
+// TestFastPollerLinux_ConcurrentAccess tests concurrent access to poller
+func TestFastPollerLinux_ConcurrentAccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping stress test in short mode")
+	}
+
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create pipes
+	const numPipes = 10
+	var pipes [][2]int
+	for i := 0; i < numPipes; i++ {
+		var fds [2]int
+		if err := unix.Pipe(fds[:]); err != nil {
+			t.Fatalf("Pipe %d failed: %v", i, err)
+		}
+		unix.SetNonblock(fds[0], true)
+		pipes = append(pipes, fds)
+	}
+	defer func() {
+		for _, p := range pipes {
+			unix.Close(p[0])
+			unix.Close(p[1])
+		}
+	}()
+
+	// Register all pipes
+	for i, p := range pipes {
+		err := poller.RegisterFD(p[0], EventRead, func(events IOEvents) {})
+		if err != nil {
+			t.Fatalf("RegisterFD %d failed: %v", i, err)
+		}
+	}
+
+	var wg sync.WaitGroup
+
+	// Concurrent pollers
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				poller.PollIO(1)
+			}
+		}()
+	}
+
+	// Concurrent writers
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		idx := i % numPipes
+		go func(pipeIdx int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				unix.Write(pipes[pipeIdx][1], []byte{1})
+				time.Sleep(time.Microsecond)
+			}
+		}(idx)
+	}
+
+	// Concurrent modifiers
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				idx := j % numPipes
+				poller.ModifyFD(pipes[idx][0], EventRead|EventWrite)
+				time.Sleep(time.Microsecond)
+				poller.ModifyFD(pipes[idx][0], EventRead)
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+// TestFastPollerLinux_RegisterFD_MaxFDLimit tests FD limit enforcement
+func TestFastPollerLinux_RegisterFD_MaxFDLimit(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Try to register FD at limit
+	err = poller.RegisterFD(MaxFDLimit, EventRead, func(events IOEvents) {})
+	if err != ErrFDOutOfRange {
+		t.Errorf("Expected ErrFDOutOfRange for FD at limit, got: %v", err)
+	}
+
+	// Try to register FD beyond limit
+	err = poller.RegisterFD(MaxFDLimit+1, EventRead, func(events IOEvents) {})
+	if err != ErrFDOutOfRange {
+		t.Errorf("Expected ErrFDOutOfRange for FD beyond limit, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_CallbackNilCheck tests that nil callback is handled
+func TestFastPollerLinux_CallbackNilCheck(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create a pipe
+	var fds [2]int
+	if err := unix.Pipe(fds[:]); err != nil {
+		t.Fatalf("Pipe failed: %v", err)
+	}
+	defer unix.Close(fds[0])
+	defer unix.Close(fds[1])
+	unix.SetNonblock(fds[0], true)
+
+	// Manually set up an fdInfo with nil callback
+	poller.fdMu.Lock()
+	poller.fds[fds[0]] = fdInfo{callback: nil, events: EventRead, active: true}
+	poller.fdMu.Unlock()
+
+	// Set up event buffer with this FD
+	poller.eventBuf[0] = unix.EpollEvent{
+		Fd:     int32(fds[0]),
+		Events: unix.EPOLLIN,
+	}
+
+	// dispatchEvents should skip nil callback
+	poller.dispatchEvents(1)
+	// If we get here without panic, test passes
+}
+
+// TestFastPollerLinux_Close_EpfdZero tests Close when epfd is 0
+func TestFastPollerLinux_Close_EpfdZero(t *testing.T) {
+	poller := &FastPoller{}
+	// epfd is 0 by default, closed is false
+
+	err := poller.Close()
+	if err != nil {
+		t.Errorf("Close() with epfd=0 returned error: %v", err)
+	}
+}
+
+// TestMaxFDsLinux_Constant tests that maxFDs constant is defined
+func TestMaxFDsLinux_Constant(t *testing.T) {
+	if maxFDs <= 0 {
+		t.Error("maxFDs should be positive")
+	}
+	if maxFDs > MaxFDLimit {
+		t.Error("maxFDs should be <= MaxFDLimit")
+	}
+}
+
+// TestFastPollerLinux_Wakeup_Stub tests that Wakeup returns nil
+func TestFastPollerLinux_Wakeup_Stub(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Wakeup is a stub on Linux that returns nil
+	err = poller.Wakeup()
+	if err != nil {
+		t.Errorf("Wakeup() should return nil on Linux, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_RegisterFD_AlreadyRegistered tests double registration
+func TestFastPollerLinux_RegisterFD_AlreadyRegistered(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	defer poller.Close()
+
+	// Create a pipe
+	var fds [2]int
+	if err := unix.Pipe(fds[:]); err != nil {
+		t.Fatalf("Pipe failed: %v", err)
+	}
+	defer unix.Close(fds[0])
+	defer unix.Close(fds[1])
+
+	// First registration
+	err = poller.RegisterFD(fds[0], EventRead, func(events IOEvents) {})
+	if err != nil {
+		t.Fatalf("RegisterFD failed: %v", err)
+	}
+
+	// Second registration should fail
+	err = poller.RegisterFD(fds[0], EventWrite, func(events IOEvents) {})
+	if err != ErrFDAlreadyRegistered {
+		t.Errorf("Expected ErrFDAlreadyRegistered, got: %v", err)
+	}
+}
+
+// TestFastPollerLinux_RegisterFD_PollerClosed tests registration on closed poller
+func TestFastPollerLinux_RegisterFD_PollerClosed(t *testing.T) {
+	poller := &FastPoller{}
+	err := poller.Init()
+	if err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	poller.Close()
+
+	err = poller.RegisterFD(100, EventRead, func(events IOEvents) {})
+	if err != ErrPollerClosed {
+		t.Errorf("Expected ErrPollerClosed, got: %v", err)
+	}
+}

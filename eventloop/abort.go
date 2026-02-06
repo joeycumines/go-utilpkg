@@ -303,3 +303,78 @@ func AbortTimeout(loop *Loop, delayMs int) (*AbortController, error) {
 
 	return controller, nil
 }
+
+// AbortAny creates a composite AbortSignal that aborts when ANY of the input
+// signals abort.
+//
+// This implements the AbortSignal.any() static method from the DOM specification.
+// The returned signal's reason will be the reason from the first signal to abort.
+//
+// If any input signal is already aborted, the returned signal will be immediately
+// aborted with that signal's reason.
+//
+// Parameters:
+//   - signals: A slice of AbortSignal pointers to monitor
+//
+// Returns:
+//   - A new AbortSignal that aborts when any input signal aborts
+//   - Returns an already-aborted signal if any input is already aborted
+//   - Returns a never-aborted signal if the input slice is empty
+//
+// Thread Safety:
+// AbortAny is safe to call from any goroutine. The returned signal is safe
+// for concurrent access.
+//
+// Example:
+//
+//	controller1 := eventloop.NewAbortController()
+//	controller2 := eventloop.NewAbortController()
+//
+//	combined := eventloop.AbortAny([]*eventloop.AbortSignal{
+//	    controller1.Signal(),
+//	    controller2.Signal(),
+//	})
+//
+//	// combined.Aborted() becomes true when EITHER controller aborts
+//	controller1.Abort("reason 1") // combined now aborted with "reason 1"
+func AbortAny(signals []*AbortSignal) *AbortSignal {
+	// Create a new signal for the composite
+	composite := newAbortSignal()
+
+	// Handle empty input - return a signal that will never abort
+	if len(signals) == 0 {
+		return composite
+	}
+
+	// Create a controller so we can abort the composite signal
+	var abortOnce sync.Once
+
+	// Check if any input signal is already aborted (fast path)
+	for _, sig := range signals {
+		if sig == nil {
+			continue
+		}
+		if sig.Aborted() {
+			// Already aborted - abort composite immediately with same reason
+			composite.abort(sig.Reason())
+			return composite
+		}
+	}
+
+	// Register handlers on all signals to propagate abort
+	for _, sig := range signals {
+		if sig == nil {
+			continue
+		}
+
+		// Capture sig in closure
+		s := sig
+		s.OnAbort(func(reason any) {
+			abortOnce.Do(func() {
+				composite.abort(reason)
+			})
+		})
+	}
+
+	return composite
+}

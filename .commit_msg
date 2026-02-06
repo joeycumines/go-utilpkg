@@ -1,26 +1,19 @@
-eventloop: comprehensive suite enhancement
+EXPAND: Additional features and tests (15 items)
 
-New Features:
-- Add AbortController/AbortSignal (W3C DOM spec)
-- Add Performance API (W3C High Resolution Time Level 3)
-- Add Promise.withResolvers() (ES2024 spec)
-- Add console.time/timeEnd/timeLog Timer API
-- Add P-Square algorithm for O(1) percentile estimation
+Added:
+- AbortSignal.any() for composite abort signals (JS + Go)
+- AbortSignal.timeout() JS binding
+- Promise.try() ES2025 API
+- console.count/countReset/assert APIs
+- PromisifyWithTimeout/Deadline helpers
+- Comprehensive tests: Linux poller, ModifyFD errors, Promisify
+  shutdown races, timerHeap edge cases
+- Promise memory profiling benchmarks
+- Defensive structured logging with recover() protection
+- Nil logger crash fix
 
-Testing:
-- Add 300+ tests covering all code paths
-- Add 35+ benchmarks for performance validation
+SKIPPED_BY_ANALYSIS:
+- Timer Coalescing (not beneficial at this layer)
+- Interval Drift Correction (already spec-compliant)
 
-Documentation:
-- Add ARCHITECTURE.md with component diagrams
-- Add MIGRATION.md for Goja users
-- Add examples/ directory with usage patterns
-
-Bug Fixes:
-- Fix FD double-close race in wakeup_darwin_test.go
-- Fix Promise.Finally race condition
-- Fix interval test race conditions
-- Fix RemoveEventListener (documented as no-op)
-- Add build constraints for Windows compatibility
-
-Peer Review: APPROVED x2 (contiguous)
+Total ~80 new tests, reviewed and approved (Reviews #4, #5).

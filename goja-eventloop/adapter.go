@@ -22,11 +22,13 @@ type Adapter struct {
 	loop             *goeventloop.Loop
 	promisePrototype *goja.Object         // CRITICAL #3: Promise.prototype for instanceof support
 	consoleTimers    map[string]time.Time // FEATURE-004: label -> start time
+	consoleCounters  map[string]int       // EXPAND-004: label -> count
 
 	getIterator   goja.Callable // Helper function to get [Symbol.iterator]
 	consoleOutput io.Writer     // output writer for console (defaults to os.Stderr)
 
-	consoleTimersMu sync.RWMutex // protects consoleTimers (FEATURE-004)
+	consoleTimersMu   sync.RWMutex // protects consoleTimers (FEATURE-004)
+	consoleCountersMu sync.RWMutex // protects consoleCounters (EXPAND-004)
 }
 
 // New creates a new Goja adapter for given event loop and runtime.
@@ -44,11 +46,12 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	}
 
 	return &Adapter{
-		js:            js,
-		runtime:       runtime,
-		loop:          loop,
-		consoleTimers: make(map[string]time.Time),
-		consoleOutput: os.Stderr, // Default to stderr like browsers/Node.js
+		js:              js,
+		runtime:         runtime,
+		loop:            loop,
+		consoleTimers:   make(map[string]time.Time),
+		consoleCounters: make(map[string]int),
+		consoleOutput:   os.Stderr, // Default to stderr like browsers/Node.js
 	}, nil
 }
 
@@ -103,6 +106,11 @@ func (a *Adapter) Bind() error {
 	// FEATURE-001: AbortController and AbortSignal bindings
 	a.runtime.Set("AbortController", a.abortControllerConstructor)
 	a.runtime.Set("AbortSignal", a.abortSignalConstructor)
+
+	// EXPAND-001 & EXPAND-002: Add static methods to AbortSignal
+	if err := a.bindAbortSignalStatics(); err != nil {
+		return fmt.Errorf("failed to bind AbortSignal statics: %w", err)
+	}
 
 	// FEATURE-002/003: performance API bindings
 	if err := a.bindPerformance(); err != nil {
@@ -1105,6 +1113,45 @@ func (a *Adapter) bindPromise() error {
 		return obj
 	}))
 
+	// EXPAND-003: Promise.try() ES2025 API
+	// Wraps a function call in a promise, catching synchronous exceptions
+	promiseConstructorObj.Set("try", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		fn := call.Argument(0)
+		if fn.Export() == nil {
+			panic(a.runtime.NewTypeError("Promise.try requires a function"))
+		}
+
+		fnCallable, ok := goja.AssertFunction(fn)
+		if !ok {
+			panic(a.runtime.NewTypeError("Promise.try requires a function"))
+		}
+
+		// Use the Go implementation, passing a wrapper that calls the JS function
+		promise := a.js.Try(func() any {
+			// Call the JS function with no arguments
+			result, err := fnCallable(goja.Undefined())
+			if err != nil {
+				// JS exception - will be caught by Try and rejected
+				panic(err)
+			}
+			// Check if the result is a promise (has _internalPromise)
+			// If so, extract the underlying *ChainedPromise so resolution works correctly
+			if result != nil && result != goja.Undefined() && result != goja.Null() {
+				if obj, ok := result.(*goja.Object); ok {
+					if internal := obj.Get("_internalPromise"); internal != nil && internal != goja.Undefined() {
+						if internalPromise, ok := internal.Export().(*goeventloop.ChainedPromise); ok {
+							return internalPromise
+						}
+					}
+				}
+			}
+			// Export the result for non-promise values
+			return result.Export()
+		})
+
+		return a.gojaWrapPromise(promise)
+	}))
+
 	return nil
 }
 
@@ -1219,6 +1266,84 @@ func (a *Adapter) wrapAbortSignal(signal *goeventloop.AbortSignal) goja.Value {
 	}))
 
 	return obj
+}
+
+// ===============================================
+// EXPAND-001 & EXPAND-002: AbortSignal Static Methods
+// ===============================================
+
+// bindAbortSignalStatics adds static methods (any, timeout) to AbortSignal.
+func (a *Adapter) bindAbortSignalStatics() error {
+	// Get the AbortSignal constructor
+	abortSignalVal := a.runtime.Get("AbortSignal")
+	if abortSignalVal == nil || goja.IsUndefined(abortSignalVal) {
+		return fmt.Errorf("AbortSignal not found")
+	}
+	abortSignalObj := abortSignalVal.ToObject(a.runtime)
+
+	// EXPAND-001: AbortSignal.any(signals)
+	// Creates a composite signal that aborts when any input signal aborts
+	abortSignalObj.Set("any", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		iterable := call.Argument(0)
+
+		// Consume iterable to get signals
+		arr, err := a.consumeIterable(iterable)
+		if err != nil {
+			panic(a.runtime.NewTypeError("AbortSignal.any requires an iterable"))
+		}
+
+		// Extract AbortSignal instances from the array
+		signals := make([]*goeventloop.AbortSignal, 0, len(arr))
+		for _, val := range arr {
+			// Check if it's our wrapped AbortSignal
+			if val == nil || goja.IsNull(val) || goja.IsUndefined(val) {
+				continue
+			}
+
+			obj := val.ToObject(a.runtime)
+			if obj == nil {
+				continue
+			}
+
+			// Get the internal signal
+			signalVal := obj.Get("_signal")
+			if signalVal == nil || goja.IsUndefined(signalVal) {
+				// Not a wrapped AbortSignal - throw TypeError
+				panic(a.runtime.NewTypeError("AbortSignal.any requires AbortSignal instances"))
+			}
+
+			sig, ok := signalVal.Export().(*goeventloop.AbortSignal)
+			if !ok || sig == nil {
+				panic(a.runtime.NewTypeError("AbortSignal.any requires AbortSignal instances"))
+			}
+
+			signals = append(signals, sig)
+		}
+
+		// Call Go implementation
+		composite := goeventloop.AbortAny(signals)
+		return a.wrapAbortSignal(composite)
+	}))
+
+	// EXPAND-002: AbortSignal.timeout(ms)
+	// Creates a signal that aborts after the specified timeout
+	abortSignalObj.Set("timeout", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		delayMs := int(call.Argument(0).ToInteger())
+		if delayMs < 0 {
+			delayMs = 0
+		}
+
+		// Use the Go AbortTimeout function
+		controller, err := goeventloop.AbortTimeout(a.loop, delayMs)
+		if err != nil {
+			panic(a.runtime.NewGoError(err))
+		}
+
+		// Return the signal (not the controller)
+		return a.wrapAbortSignal(controller.Signal())
+	}))
+
+	return nil
 }
 
 // ===============================================
@@ -1559,6 +1684,96 @@ func (a *Adapter) bindConsole() error {
 					joinStrings(dataStrs, " "))
 			} else {
 				fmt.Fprintf(output, "%s: %.3fms\n", label, float64(elapsed.Nanoseconds())/1e6)
+			}
+		}
+
+		return goja.Undefined()
+	}))
+
+	// EXPAND-004: console.count(label) - logs count for label
+	// If label is omitted, "default" is used.
+	// Increments count and logs "label: count"
+	consoleObj.Set("count", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		label := "default"
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
+			label = call.Argument(0).String()
+		}
+
+		a.consoleCountersMu.Lock()
+		a.consoleCounters[label]++
+		count := a.consoleCounters[label]
+		a.consoleCountersMu.Unlock()
+
+		// Output format matches Node.js: "label: count"
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output != nil {
+			fmt.Fprintf(output, "%s: %d\n", label, count)
+		}
+
+		return goja.Undefined()
+	}))
+
+	// EXPAND-004: console.countReset(label) - resets counter for label
+	// If label is omitted, "default" is used.
+	// If no counter with the label exists, a warning is logged.
+	consoleObj.Set("countReset", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		label := "default"
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
+			label = call.Argument(0).String()
+		}
+
+		a.consoleCountersMu.Lock()
+		_, exists := a.consoleCounters[label]
+		if !exists {
+			a.consoleCountersMu.Unlock()
+			// Counter doesn't exist - log warning (matches Node.js behavior)
+			a.consoleTimersMu.RLock()
+			output := a.consoleOutput
+			a.consoleTimersMu.RUnlock()
+			if output != nil {
+				fmt.Fprintf(output, "Warning: Count for '%s' does not exist\n", label)
+			}
+			return goja.Undefined()
+		}
+		delete(a.consoleCounters, label)
+		a.consoleCountersMu.Unlock()
+
+		return goja.Undefined()
+	}))
+
+	// EXPAND-005: console.assert(condition, ...data) - logs only when falsy
+	// If the condition is falsy, logs "Assertion failed: data..."
+	// If condition is truthy, does nothing.
+	consoleObj.Set("assert", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		// Get condition - defaults to undefined (falsy)
+		condition := false
+		if len(call.Arguments) > 0 {
+			condition = call.Argument(0).ToBoolean()
+		}
+
+		// If condition is truthy, do nothing
+		if condition {
+			return goja.Undefined()
+		}
+
+		// Condition is falsy - log assertion failure
+		a.consoleTimersMu.RLock()
+		output := a.consoleOutput
+		a.consoleTimersMu.RUnlock()
+
+		if output != nil {
+			if len(call.Arguments) > 1 {
+				// Additional data to log
+				dataStrs := make([]string, 0, len(call.Arguments)-1)
+				for i := 1; i < len(call.Arguments); i++ {
+					dataStrs = append(dataStrs, fmt.Sprintf("%v", call.Argument(i).Export()))
+				}
+				fmt.Fprintf(output, "Assertion failed: %s\n", joinStrings(dataStrs, " "))
+			} else {
+				fmt.Fprintf(output, "Assertion failed\n")
 			}
 		}
 
