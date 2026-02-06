@@ -4,8 +4,6 @@
 // purpose with or without fee is hereby granted, provided that this copyright
 // notice appears in all copies.
 
-//go:build linux || darwin
-
 package gojaeventloop
 
 import (

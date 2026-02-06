@@ -2,8 +2,6 @@
 //
 // Debug test to understand Promise.all issues
 
-//go:build linux || darwin
-
 package gojaeventloop
 
 import (

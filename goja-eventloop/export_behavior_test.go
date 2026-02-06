@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 package gojaeventloop
 
 // Test to verify wrapped promise export behavior

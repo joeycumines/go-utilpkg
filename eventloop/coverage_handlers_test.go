@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // Copyright 2026 Joseph Cumines
 //
 // Permission to use, copy, modify, and distribute this software for any

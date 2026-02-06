@@ -12,8 +12,6 @@
 // Re-enablement Priority: LOW - functionality is covered by other tests.
 // See QUALITY-001 in blueprint.json for tracking.
 
-//go:build linux || darwin
-
 package gojaeventloop_test
 
 // _This test file is commented out below due to outdated API

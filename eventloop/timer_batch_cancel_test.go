@@ -1,4 +1,3 @@
-//go:build linux || darwin
 
 // Copyright 2026 Joseph Cumines
 //

@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 // Package eventloop provides ES2022-compatible error types with cause chain support.
 package eventloop
 

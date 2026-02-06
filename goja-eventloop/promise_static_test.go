@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 // Package gojaeventloop provides tests for Promise static methods.
 //
 // EXPAND-060: Promise static method tests

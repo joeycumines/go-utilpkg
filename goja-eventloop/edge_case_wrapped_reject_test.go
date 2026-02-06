@@ -1,7 +1,5 @@
 // Edge case test for wrapped promise as rejection reason
 
-//go:build linux || darwin
-
 package gojaeventloop
 
 import (

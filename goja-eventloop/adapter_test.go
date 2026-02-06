@@ -2,8 +2,6 @@
 //
 // Tests for goja-eventloop: Goja adapter to event loop
 
-//go:build linux || darwin
-
 package gojaeventloop
 
 import (

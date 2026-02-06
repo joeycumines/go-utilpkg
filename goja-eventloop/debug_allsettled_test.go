@@ -2,8 +2,6 @@
 //
 // Debug test for allSettled and any issues
 
-//go:build linux || darwin
-
 package gojaeventloop
 
 import (
