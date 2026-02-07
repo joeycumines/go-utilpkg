@@ -22,33 +22,35 @@ This is a Go monorepo (`go-utilpkg`) that consolidates multiple related modules.
 
 This project uses a sophisticated multi-module Makefile system. The Makefile automatically discovers all Go modules (via `go.mod` files) and provides targets for each.
 
+**Note:** This project requires GNU Make 4+. Use `gmake` instead of `make` on macOS.
+
 ### Core Commands
 
 ```bash
 # Build and test everything (all modules)
-make all
+gmake all
 
 # Build all modules
-make build
+gmake build
 
 # Run all tests
-make test
+gmake test
 
 # Run tests with race detector
-make test.race
+gmake test.race
 
 # Linting and static analysis
-make fmt
-make vet
-make staticcheck
-make betteralign
-make deadcode
+gmake fmt
+gmake vet
+gmake staticcheck
+gmake betteralign
+gmake deadcode
 
 # Coverage
-make cover
+gmake cover
 
 # Clean artifacts
-make clean
+gmake clean
 ```
 
 ### Module-Specific Commands
@@ -57,25 +59,25 @@ Use period-separated slugs based on directory paths:
 
 ```bash
 # Build specific module
-make build.eventloop
-make test.microbatch
-make vet.logiface
+gmake build.eventloop
+gmake test.microbatch
+gmake vet.logiface
 
 # All checks for specific module
-make all.goja-eventloop
+gmake all.goja-eventloop
 
 # Run specific test in eventloop (from project.mk)
-make test-promise-race-concurrent
+gmake test-promise-race-concurrent
 ```
 
 ### Grit Publishing
 
 ```bash
 # Publish specific module to its separate repo
-make grit.eventloop
+gmake grit.eventloop
 
 # Publish all modules
-make grit
+gmake grit
 ```
 
 See `project.mk` for the grit destination mappings.
@@ -89,18 +91,9 @@ The eventloop module has its own `Makefile` with additional targets for coverage
 
 ## Development Workflow
 
-1. **Always verify all tests pass** across all three OS platforms (Darwin, Linux, Windows). The `make all` target must pass 100% before considering work complete.
+1. **Always verify all tests pass** across all three OS platforms (Darwin, Linux, Windows). The `gmake all` target must pass 100% before considering work complete.
 2. **Never commit with failing tests** - timing-dependent failures are treated as bugs to be fixed, not as flakiness to be ignored.
 3. **Use subdirectory Makefiles** for complex commands rather than long shell invocations.
-4. **Pipe command output** when running long commands: `cmd 2>&1 | fold -w 200 | tee build.log | tail -n 15`
-
-## Memory Protocol
-
-When working on multi-step tasks:
-
-1. **Start**: Update `./blueprint.json` with all sub-tasks and `./WIP.md` with your action plan
-2. **During**: Update these files to track progress; use subagents to verify progress (don't assume)
-3. **End**: Ensure both files are coherent and reflect reality; `./blueprint.json` must be 100% complete
 
 ## Architecture Notes
 
