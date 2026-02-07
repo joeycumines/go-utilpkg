@@ -1,306 +1,42 @@
 {
-  "policy": "ALL tasks and subtasks contained within this blueprint MUST be completed in their entirety. Deferring, skipping, or omitting any part of the plan is strictly prohibited. Every unit defined here represents a mandatory component of final delivery. 'Effective test coverage' means covering ALL code paths, edge cases, and error conditions - not just line coverage. This includes unreachable paths, error branches, and platform-specific code.",
-  "sequentialTasks": [
+  "meta": {
+    "fileName": "blueprint.json",
+    "baselineBlueprintSource": "https://gist.github.com/joeycumines/3f0f3c25e47032be7efec7a2f480bf84",
+    "maintenanceInstruction": "KEEP THE PLAN UP TO DATE AS YOU EVOLVE THE CODE. DEVIATIONS TO THE PLAN MUST BE LOGGED WITHIN THE PLAN. THE PLAN MUST BE REASSESSED HOLISTICALLY AFTER ANY CHANGE OF ANY SIZE.",
+    "answeringTheQuestionAreYouDone": "**!! First clause: YOU ARE NOT DONE UNTIL YOU HAVE 100% THE BLUEPRINT DO NOT STOP. Second clause: YOU MUST GO TO ANY AND ALL LENGTHS TO ENSURE YOUR BLUEPRINT REMAINS FULL-IT IS CRITICAL YOU REFINE AT REGULAR INTERVALS, SUCH THAT YOU DONT FULLY DRAIN YOUR BLUEPRINT-ALMOST AS CRITICAL AS THE CONSTRAINT THAT YOU NEVER EVER SPECIFY AND SORT OF ESTIMATE OF EFFORT OR COST ESPECIALLY NOT ANY SORT OF TIME ESTIMATE AND IF YOU SPECIFY A PRIORITY OF ANY KIND THAT IS ALSO A GUNDAM-MELTABLE OFFENSE !!**"
+  },
+  "globalAlerts": [
     {
-      "sequence": 1,
-      "id": "SHUTDOWN_DEADLOCK",
-      "title": "FIX: Shutdown Deadlock in TestPromisify_Shutdown_DuringExecution",
-      "description": "The test TestPromisify_Shutdown_DuringExecution hangs indefinitely (6+ goroutines blocked). Root cause: Channel receive in shutdown path never completes. This is a critical production issue that indicates a potential deadlock in shutdown logic.",
-      "status": "in-progress",
-      "location": "eventloop/",
-      "deliverables": [
-        "Identify the exact channel receive that blocks",
-        "Fix the shutdown path to complete properly",
-        "Test passes without hanging"
-      ],
-      "acceptanceCriteria": [
-        "TestPromisify_Shutdown_DuringExecution completes without hanging",
-        "No goroutines blocked after shutdown",
-        "Event loop can shutdown cleanly"
-      ]
+      "priority": "CRITICAL",
+      "warning": "ON TOOLS: Use `config.mk` to create custom targets to run with Make. ALWAYS use custom targets that *limit* the amount of output you receive. For example, piping through tail, with FEW lines output. Prior to tail, pipe to tee. The file ./build.log in the root of the project is gitignored, so use that. That way you can *search* the output. To be clear, timing dependent tests are BANNED. As are those that take too long to run. Testing retries, for example, MUST be done in a way that supports avoiding running afoul of those CRITICAL rules. Abide. OBEY."
     },
     {
-      "sequence": 2,
-      "id": "DATARACES",
-      "title": "RESOLVE: All 3 Data Races Identified",
-      "description": "Race detector found 3 data races that must be fixed: (1) TestHandlePollError_StateTransitionFromSleeping - error injection timing race, (2) TestClearInterval_RaceCondition_WrapperRunning - TOCTOU race in timer operations, (3) TestQueueMicrotask_PanicRecovery - test synchronization race. All must be resolved.",
-      "status": "pending",
-      "location": "eventloop/",
-      "deliverables": [
-        "Fix TestHandlePollError_StateTransitionFromSleeping race",
-        "Fix TestClearInterval_RaceCondition_WrapperRunning race",
-        "Fix TestQueueMicrotask_PanicRecovery race"
-      ],
-      "acceptanceCriteria": [
-        "Race detector reports 0 data races",
-        "All affected tests pass with -race flag",
-        "No timing-dependent failures"
-      ]
-    },
-    {
-      "sequence": 3,
-      "id": "HANDLEPOLLERROR_COVERAGE",
-      "title": "ACHIEVE: 90% Coverage - Cover handlePollError and Wake",
-      "description": "Current coverage is 89.2%, 0.8% below 90% target. The remaining gap is primarily handlePollError (0.0% coverage) and some platform-specific wakeup functions. Difficulty: High (hard-to-trigger error paths). Need platform-specific test injection to trigger handlePollError code path.",
-      "status": "pending",
-      "location": "eventloop/",
-      "deliverables": [
-        "handlePollError function is exercised by tests",
-        "Coverage reaches 90% or higher",
-        "All platform-specific wakeup paths covered"
-      ],
-      "acceptanceCriteria": [
-        "eventloop main package coverage >= 90%",
-        "handlePollError coverage > 0%",
-        "All Wake code paths tested"
-      ]
-    },
-    {
-      "sequence": 4,
-      "id": "IMP-002",
-      "title": "COMPLETE: Chunk Return Efficiency - Clear Task Slots",
-      "description": "returnChunk() in eventloop/ingress.go:70-76 does NOT zero out task slots before returning chunk to sync.Pool. This can cause memory leaks from retained references to task closures. AlternateTwo's returnChunkFast() properly clears used slots. Need to implement the same pattern.",
-      "status": "pending",
-      "location": "eventloop/ingress.go",
-      "deliverables": [
-        "Add explicit clearing of used task slots in returnChunk()",
-        "Clear only slots 0 to pos (used slots), not all 128",
-        "Match AlternateTwo's pattern for consistency"
-      ],
-      "acceptanceCriteria": [
-        "Task slots cleared before returning chunk to pool",
-        "No retained references to task closures",
-        "Consistent pattern across all ChunkedIngress implementations"
-      ]
-    },
-    {
-      "sequence": 5,
-      "id": "R131",
-      "title": "RESOLVE: All 23 TODO/FIXME/HACK Markers",
-      "description": "Resolve all code markers (TODO: 15, FIXME: 3, HACK: 2) across eventloop/, goja-eventloop/, and catrate/ modules. Each marker must be either resolved (fixed/implemented) or formally deferred with documented rationale.",
-      "status": "pending",
-      "markerSummary": {
-        "byModule": {
-          "eventloop/": 15,
-          "goja-eventloop/": 5
-        },
-        "byType": {
-          "TODO": 15,
-          "FIXME": 3,
-          "HACK": 2
-        }
-      },
-      "location": "eventloop/, goja-eventloop/",
-      "deliverables": [
-        "All test failure and timing issue markers resolved",
-        "All architectural improvement markers addressed or formally deferred",
-        "Resolution plan for feature enhancement markers",
-        "Documentation updates for resolved markers"
-      ],
-      "acceptanceCriteria": [
-        "Zero TODO/FIXME/HACK markers remain",
-        "All resolutions documented with rationale",
-        "No new markers introduced"
-      ]
-    },
-    {
-      "sequence": 6,
-      "id": "T22",
-      "title": "CONTINUE: Achieve True 100% Effective Test Coverage",
-      "description": "Achieve 100% effective test coverage for both eventloop and goja-eventloop packages, covering all code paths, error branches, edge cases, and platform-specific code. Current: 89.2% coverage achieved. Continue efforts to reach 100%.",
-      "status": "pending",
-      "location": "eventloop/, goja-eventloop/",
-      "deliverables": [
-        "Coverage analysis showing final gaps",
-        "Test suite expansion to cover all remaining paths",
-        "Coverage report showing >=90% main package coverage"
-      ],
-      "acceptanceCriteria": [
-        "eventloop main coverage >= 90%",
-        "All tests pass with -race flag (zero data races)",
-        "Tests for all error paths, edge cases, and concurrent scenarios"
-      ]
-    },
-    {
-      "sequence": 7,
-      "id": "T23",
-      "title": "VALIDATE: Performance, Iterate Performance",
-      "description": "Comprehensive performance validation and iterative optimization for both eventloop and goja-eventloop packages. This includes benchmark suites, performance profiling, memory analysis, throughput testing, and latency measurements. Identify and implement performance optimizations, validate improvements through statistical analysis, and ensure no regressions.",
-      "status": "pending",
-      "dependsOn": [
-        "T22"
-      ],
-      "location": "eventloop/, goja-eventloop/",
-      "deliverables": [
-        "Comprehensive benchmark suite for both packages",
-        "Performance profiling and optimization analysis",
-        "Memory usage and allocation analysis",
-        "Throughput and latency measurements",
-        "Statistical validation of performance improvements"
-      ],
-      "acceptanceCriteria": [
-        "Benchmark results are reproducible and statistically significant",
-        "Performance improvements quantified with before/after metrics",
-        "No performance regressions detected"
-      ]
-    },
-    {
-      "sequence": 8,
-      "id": "R132",
-      "title": "COMPLETE: All Enhancements (Consolidated)",
-      "description": "Complete all enhancement and improvement tasks (T62, T63, T64, T66, T67, T68, T69, T70, T71) representing feature requests, performance optimizations, and architectural improvements. These tasks enhance the library's capabilities, usability, and maintainability.",
-      "status": "pending",
-      "consolidatedFrom": [
-        "T62",
-        "T63",
-        "T64",
-        "T66",
-        "T67",
-        "T68",
-        "T69",
-        "T70",
-        "T71"
-      ],
-      "location": "eventloop/, goja-eventloop/, catrate/",
-      "deliverables": [
-        "Enhanced API with better ergonomics",
-        "Comprehensive test additions",
-        "Performance optimizations implemented",
-        "Improved documentation",
-        "Refactored and cleaner code"
-      ],
-      "acceptanceCriteria": [
-        "All 9 source tasks addressed appropriately",
-        "API is more user-friendly",
-        "Test coverage improved",
-        "Performance better or maintained",
-        "Documentation comprehensive"
-      ]
-    },
-    {
-      "sequence": 9,
-      "id": "IMP-001",
-      "title": "IMPLEMENT: Optimize TPS Metrics Percentile Computation",
-      "description": "Sample() method in eventloop/metrics.go:108-125 sorts 1000 samples using sort.Slice (O(n log n)) every time Metrics() is called. Currently mitigated by documentation warning 'call no more than once per second'. Replace with O(1) P-Square algorithm for high-frequency monitoring.",
-      "status": "pending",
-      "location": "eventloop/metrics.go",
-      "deliverables": [
-        "Research incremental percentile algorithms (P-Square, t-digest)",
-        "Implement O(log n) or O(1) percentile computation",
-        "Benchmark before/after to verify no regression",
-        "Document new algorithm characteristics"
-      ],
-      "acceptanceCriteria": [
-        "Percentile computation is O(log n) or better",
-        "Frequent Metrics() calls no longer performance bottleneck",
-        "Sample size can be increased optionally for better accuracy"
-      ]
-    },
-    {
-      "sequence": 10,
-      "id": "TIMER_WHEEL",
-      "title": "IMPLEMENT: Timer Wheel for O(1) Timer Operations",
-      "description": "Replace O(log n) timer heap with O(1) wheel timer for improved timer throughput. Current timer heap operations are slower than optimal for high-frequency timer scenarios. Wheel timer provides constant-time operations.",
-      "status": "pending",
-      "location": "eventloop/",
-      "deliverables": [
-        "Timer wheel implementation",
-        "O(1) timer insertion and firing",
-        "Benchmark comparison with current heap"
-      ],
-      "acceptanceCriteria": [
-        "Timer operations are O(1)",
-        "Performance improved for timer-heavy workloads",
-        "All timer tests pass"
-      ]
+      "priority": "CRITICAL_REPEATED",
+      "warning": "ON TOOLS: Use `config.mk` to create custom targets to run with Make. ALWAYS use custom targets that *limit* the amount of output you receive. For example, piping through tail, with FEW lines output. Prior to tail, pipe to tee. The file ./build.log in the root of the project is gitignored, so use that. That way you can *search* the output. To be clear, timing dependent tests are BANNED. As are those that take too long to run. Testing retries, for example, MUST be done in a way that supports avoiding running afoul of those CRITICAL rules. Abide. OBEY."
     }
   ],
-  "completedTasks": {
-    "summary": "Tasks that have been completed and verified",
-    "items": [
-      {
-        "id": "WINFIX01",
-        "title": "Fix Windows CI Build Failures",
-        "completionDate": "2026-02-03",
-        "description": "Fixed 50+ Windows CI compilation errors by adding build tags, creating fd_unix.go/fd_windows.go abstractions, fixing timeout parameter types"
-      },
-      {
-        "id": "RV02",
-        "title": "REJECTED: TPS Counter Startup Behavior",
-        "completionDate": "2026-02-02",
-        "description": "Rejected - Current TPS counter behavior is correct, no warmup suppression needed"
-      },
-      {
-        "id": "RV08",
-        "title": "Fix Invalid Negative Elapsed Test",
-        "completionDate": "2026-02-02",
-        "description": "Fixed TestTPSCounter_NegativeElapsed to properly simulate negative elapsed by setting lastRotation to future"
-      },
-      {
-        "id": "RV09",
-        "title": "Fix rotate() Time Synchronization Defect",
-        "completionDate": "2026-02-02",
-        "description": "Restored full window reset check in rotate() for handling long pauses"
-      },
-      {
-        "id": "RV10",
-        "title": "Fix Integer Overflow in rotate()",
-        "completionDate": "2026-02-02",
-        "description": "Fixed overflow by clamping int64/Duration before converting to int"
-      },
-      {
-        "id": "RV11",
-        "title": "Remove Unused totalCount Atomic",
-        "completionDate": "2026-02-02",
-        "description": "Removed unused totalCount field and its increment"
-      },
-      {
-        "id": "RV12",
-        "title": "Fix TPS Calculation Sizing Mismatch",
-        "completionDate": "2026-02-02",
-        "description": "Fixed divisor to use actual monitored duration (len(buckets) * bucketSize)"
-      },
-      {
-        "id": "T6",
-        "title": "Add comprehensive tests for JS integration error paths",
-        "completionDate": "2026-02-03",
-        "description": "Added 13 new error path tests covering timeout/interval nil callbacks, ID exhaustion, shutdown errors, panic recovery"
-      },
-      {
-        "id": "R101",
-        "title": "HIGH: Microtask Ring Buffer Sequence Zero Edge Case",
-        "completionDate": "2026-02-03",
-        "description": "Added validity flags to MicrotaskRing, replaced seq==0 sentinel with ringSeqSkip=1<<63"
-      },
-      {
-        "id": "R103",
-        "title": "HIGH: Iterator Protocol Error Tests",
-        "completionDate": "2026-02-03",
-        "description": "Created adapter_iterator_error_test.go with 12 comprehensive error tests"
-      },
-      {
-        "id": "R130",
-        "title": "Code Quality Fixes (Consolidated)",
-        "completionDate": "2026-02-03",
-        "description": "Fixed poller padding comments, ChunkedIngress comment, verified promise self-resolution, documented catrate limiter, optimized array indexing, refactored type checking"
-      },
-      {
-        "id": "LOG01",
-        "title": "Eventloop Structured Logging Integration (ANALYZED)",
-        "completionDate": "2026-02-02",
-        "description": "Analyzed 6 log.Printf usage locations, documented design considerations for future implementation"
-      },
-      {
-        "id": "T20260203",
-        "title": "TOURNAMENT EVALUATION 2026-02-03",
-        "completionDate": "2026-02-03",
-        "description": "Comprehensive re-evaluation with 5 independent subagents - Overall Grade: A- (APPROVED WITH CONDITIONS)"
-      }
-    ]
+  "mandatoryDirectives": {
+    "subagentPolicy": "!! MANDATORY OPERATIONAL DIRECTIVE !!",
+    "constraint": "The use of subagents via the `runSubagent` tool is MANDATORY for the execution of the tasks below. Tasks are grouped specifically to be run in distinct subagent contexts to prevent context window exhaustion. Do not attempt to solve all groups in a single turn."
   },
+  "statusSection": {
+    "currentState": ""
+  },
+  "sequentialTasks": [],
   "continuousVerification": {
     "task": "Run 'make all' with full logging after EVERY significant change",
-    "description": "Execute 'make all 2>&1 | fold -w 200 | tee build.log | tail -n 15' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix, (e) Each review cycle. This is a CONTINUOUS task that must be executed throughout the entire plan without exception.",
-    "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions. Do not skip, defer, or ignore any test failure."
-  }
+    "description": "Execute 'make make-all-with-log' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix.",
+    "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions.",
+    "testCoverage": "You will ALWAYS aim for 100% effective test coverage, and VERIFY test coverage by means of the tooling available to you. You will NOT proceed to the next task until you have achieved 100% effective test coverage for the current task, and have verified that coverage with the tools available to you."
+  },
+  "finalEnforcementProtocol": [
+    {
+      "type": "POST_EXECUTION_WARNING",
+      "alert": "ON TOOLS: Use `config.mk` to create custom targets to run with Make. ALWAYS use custom targets that *limit* the amount of output you receive. For example, piping through tail, with FEW lines output. Prior to tail, pipe to tee. The file ./build.log in the root of the project is gitignored, so use that. That way you can *search* the output. To be clear, timing dependent tests are BANNED. As are those that take too long to run. Testing retries, for example, MUST be done in a way that supports avoiding running afoul of those CRITICAL rules. Abide. OBEY."
+    },
+    {
+      "type": "POST_EXECUTION_WARNING_REPEATED",
+      "alert": "ON TOOLS: Use `config.mk` to create custom targets to run with Make. ALWAYS use custom targets that *limit* the amount of output you receive. For example, piping through tail, with FEW lines output. Prior to tail, pipe to tee. The file ./build.log in the root of the project is gitignored, so use that. That way you can *search* the output. To be clear, timing dependent tests are BANNED. As are those that take too long to run. Testing retries, for example, MUST be done in a way that supports avoiding running afoul of those CRITICAL rules. Abide. OBEY."
+    }
+  ]
 }
