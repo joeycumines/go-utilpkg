@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-eventloop
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/joeycumines/logiface v0.5.0
@@ -8,6 +8,6 @@ require (
 )
 
 require (
-	github.com/joeycumines/go-catrate v0.0.0-20230801223135-1f34224e5a77 // indirect
-	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20251223235052-5947b7adba56 // indirect
+	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
 )

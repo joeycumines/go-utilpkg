@@ -10,4 +10,5 @@ if ! {
   exit 1
 fi
 
-exec find . -name go.mod -exec /bin/sh -c 'go mod edit -go="$1" -toolchain= "$2"' - "$1" {} \;
+exec find . -name go.mod -exec /bin/sh -c 'go mod edit -go="$1" -toolchain= "$2"' - "$1" {} \; &&
+  go work use

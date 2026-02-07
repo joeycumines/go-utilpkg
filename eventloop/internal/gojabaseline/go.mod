@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-eventloop/internal/gojabaseline
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3

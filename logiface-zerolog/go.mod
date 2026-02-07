@@ -1,6 +1,6 @@
 module github.com/joeycumines/izerolog
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/joeycumines/logiface v0.5.0
