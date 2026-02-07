@@ -80,14 +80,14 @@ func TestEventTarget_AddEventListener_Basic(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		let called = false;
-		
+
 		target.addEventListener('click', function(e) {
 			called = true;
 		});
-		
+
 		const event = new Event('click');
 		target.dispatchEvent(event);
-		
+
 		called;
 	`)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestEventTarget_AddEventListener_MultipleListeners(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		const order = [];
-		
+
 		target.addEventListener('test', function(e) {
 			order.push(1);
 		});
@@ -125,9 +125,9 @@ func TestEventTarget_AddEventListener_MultipleListeners(t *testing.T) {
 		target.addEventListener('test', function(e) {
 			order.push(3);
 		});
-		
+
 		target.dispatchEvent(new Event('test'));
-		
+
 		order.join(',');
 	`)
 	if err != nil {
@@ -155,15 +155,15 @@ func TestEventTarget_AddEventListener_Once(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		let callCount = 0;
-		
+
 		target.addEventListener('click', function(e) {
 			callCount++;
 		}, { once: true });
-		
+
 		target.dispatchEvent(new Event('click'));
 		target.dispatchEvent(new Event('click'));
 		target.dispatchEvent(new Event('click'));
-		
+
 		callCount;
 	`)
 	if err != nil {
@@ -191,16 +191,16 @@ func TestEventTarget_RemoveEventListener(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		let called = false;
-		
+
 		const handler = function(e) {
 			called = true;
 		};
-		
+
 		target.addEventListener('click', handler);
 		target.removeEventListener('click', handler);
-		
+
 		target.dispatchEvent(new Event('click'));
-		
+
 		called;
 	`)
 	if err != nil {
@@ -228,16 +228,16 @@ func TestEventTarget_RemoveEventListener_DifferentFunction(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		let called = false;
-		
+
 		target.addEventListener('click', function(e) {
 			called = true;
 		});
-		
+
 		// Try to remove with different function - should not work
 		target.removeEventListener('click', function(e) {});
-		
+
 		target.dispatchEvent(new Event('click'));
-		
+
 		called;
 	`)
 	if err != nil {
@@ -380,7 +380,7 @@ func TestEvent_StopImmediatePropagation(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		const order = [];
-		
+
 		target.addEventListener('test', function(e) {
 			order.push(1);
 			e.stopImmediatePropagation();
@@ -388,9 +388,9 @@ func TestEvent_StopImmediatePropagation(t *testing.T) {
 		target.addEventListener('test', function(e) {
 			order.push(2);
 		});
-		
+
 		target.dispatchEvent(new Event('test'));
-		
+
 		order.length;
 	`)
 	if err != nil {
@@ -417,14 +417,14 @@ func TestEvent_DispatchEvent_ReturnValue(t *testing.T) {
 
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
-		
+
 		target.addEventListener('submit', function(e) {
 			e.preventDefault();
 		});
-		
+
 		const event = new Event('submit', { cancelable: true });
 		const result = target.dispatchEvent(event);
-		
+
 		result;
 	`)
 	if err != nil {
@@ -518,7 +518,7 @@ func TestCustomEvent_WithDetail(t *testing.T) {
 		const event = new CustomEvent('userLogin', {
 			detail: { username: 'alice', timestamp: 12345 }
 		});
-		
+
 		if (event.type !== 'userLogin') {
 			throw new Error('type mismatch');
 		}
@@ -553,7 +553,7 @@ func TestCustomEvent_WithOptions(t *testing.T) {
 			cancelable: true,
 			detail: 42
 		});
-		
+
 		if (event.bubbles !== true) {
 			throw new Error('bubbles should be true');
 		}
@@ -585,16 +585,16 @@ func TestCustomEvent_DispatchWithDetail(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		let receivedDetail = null;
-		
+
 		target.addEventListener('data', function(e) {
 			receivedDetail = e.detail;
 		});
-		
+
 		const event = new CustomEvent('data', {
 			detail: { key: 'value', count: 100 }
 		});
 		target.dispatchEvent(event);
-		
+
 		JSON.stringify(receivedDetail);
 	`)
 	if err != nil {
@@ -649,7 +649,7 @@ func TestCustomEvent_ArrayDetail(t *testing.T) {
 		const event = new CustomEvent('list', {
 			detail: [1, 2, 3, 'four']
 		});
-		
+
 		const d = event.detail;
 		d.length + ',' + d[3];
 	`)
@@ -721,8 +721,13 @@ func TestCustomEvent_NoTypeArgument(t *testing.T) {
 // ============================================================================
 
 func TestEventTarget_WithPromise(t *testing.T) {
-	loop, cleanup := testEventLoopSetup(t)
-	defer cleanup()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -740,17 +745,17 @@ func TestEventTarget_WithPromise(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const target = new EventTarget();
-		
+
 		// Create a promise that resolves when event is received
 		const promise = new Promise(resolve => {
 			target.addEventListener('complete', function(e) {
 				resolve(e.detail);
 			});
 		});
-		
+
 		// Dispatch event
 		target.dispatchEvent(new CustomEvent('complete', { detail: 'success!' }));
-		
+
 		// Handle promise
 		promise.then(value => {
 			done(value);
@@ -760,8 +765,12 @@ func TestEventTarget_WithPromise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Give loop time to process
-	time.Sleep(50 * time.Millisecond)
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
 
 	select {
 	case result := <-done:
@@ -771,6 +780,10 @@ func TestEventTarget_WithPromise(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Error("Timed out waiting for event and promise")
 	}
+
+	cancel()
+	loop.Shutdown(context.Background())
+	<-loopDone
 }
 
 func TestEventTarget_MultipleTypes(t *testing.T) {
@@ -789,16 +802,16 @@ func TestEventTarget_MultipleTypes(t *testing.T) {
 	result, err := runtime.RunString(`
 		const target = new EventTarget();
 		const events = [];
-		
+
 		target.addEventListener('a', function() { events.push('a'); });
 		target.addEventListener('b', function() { events.push('b'); });
 		target.addEventListener('c', function() { events.push('c'); });
-		
+
 		target.dispatchEvent(new Event('b'));
 		target.dispatchEvent(new Event('a'));
 		target.dispatchEvent(new Event('c'));
 		target.dispatchEvent(new Event('b'));
-		
+
 		events.join(',');
 	`)
 	if err != nil {
@@ -833,7 +846,7 @@ func TestCustomEvent_NestedObjects(t *testing.T) {
 				meta: { version: 1 }
 			}
 		});
-		
+
 		event.detail.user.name + ',' + event.detail.user.roles.length + ',' + event.detail.meta.version;
 	`)
 	if err != nil {
@@ -864,11 +877,11 @@ func TestEventTarget_ConsoleIntegration(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const target = new EventTarget();
-		
+
 		target.addEventListener('log', function(e) {
 			console.log(e.detail);
 		});
-		
+
 		target.dispatchEvent(new CustomEvent('log', { detail: 'Hello from EventTarget!' }));
 	`)
 	if err != nil {
@@ -1094,7 +1107,7 @@ func TestCustomEvent_InheritsEventMethods(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const event = new CustomEvent('test', { cancelable: true });
-		
+
 		// Check inherited methods exist
 		if (typeof event.preventDefault !== 'function') {
 			throw new Error('preventDefault should be a function');
@@ -1105,7 +1118,7 @@ func TestCustomEvent_InheritsEventMethods(t *testing.T) {
 		if (typeof event.stopImmediatePropagation !== 'function') {
 			throw new Error('stopImmediatePropagation should be a function');
 		}
-		
+
 		// Check inherited properties
 		if (typeof event.type !== 'string') {
 			throw new Error('type should be a string');
@@ -1146,12 +1159,12 @@ func TestEventTarget_ConsoleLog(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const target = new EventTarget();
-		
+
 		target.addEventListener('message', function(e) {
 			console.time('handler');
 			console.timeEnd('handler');
 		});
-		
+
 		target.dispatchEvent(new Event('message'));
 	`)
 	if err != nil {

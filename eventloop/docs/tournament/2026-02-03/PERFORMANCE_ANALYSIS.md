@@ -198,7 +198,7 @@ This report presents a comprehensive performance analysis comparing the February
    - +2% MultiProducer improvement
    - -31% PingPong regression (significant)
    - -6% Latency stability
-   
+
 2. **AlternateThree**: Generally stable with some improvements
    - +13% PingPong improvement
    - -0.4% MultiProducerContention stability

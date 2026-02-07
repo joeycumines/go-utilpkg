@@ -410,7 +410,7 @@ func TestPromiseChain(t *testing.T) {
 		});
 		console.log("Chained keys:", Object.keys(chained));
 		console.log("Chained has then?:", typeof chained.then);
-		
+
 		// Try second .then()
 		let chained2 = chained.then(x => {
 			console.log("Second then, x=", x);

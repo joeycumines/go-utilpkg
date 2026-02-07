@@ -829,7 +829,7 @@ func TestWorkload_BatchProcessor(t *testing.T) {
 
 	var batchesProcessed atomic.Int32
 	var itemsProcessed atomic.Int32
-	var flushTimerID uint64
+	var flushTimerID atomic.Uint64
 
 	// Process a batch
 	processBatch := func(items []int) *ChainedPromise {
@@ -864,10 +864,11 @@ func TestWorkload_BatchProcessor(t *testing.T) {
 	var scheduleFlush func()
 	scheduleFlush = func() {
 		var err error
-		flushTimerID, err = js.SetTimeout(func() {
+		resultID, err := js.SetTimeout(func() {
 			flush()
 			scheduleFlush() // Reschedule
 		}, flushIntervalMs)
+		flushTimerID.Store(resultID)
 		if err != nil && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Failed to schedule flush: %v", err)
 		}
@@ -900,8 +901,8 @@ func TestWorkload_BatchProcessor(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Cancel flush timer
-	if flushTimerID != 0 {
-		_ = js.ClearTimeout(flushTimerID)
+	if id := flushTimerID.Load(); id != 0 {
+		_ = js.ClearTimeout(id)
 	}
 
 	t.Logf("Batch processor: %d items in %d batches processed",

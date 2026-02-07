@@ -57,7 +57,7 @@ func TestPromiseChainDebug(t *testing.T) {
 		if (typeof p1.__debugKeysBeforeReturn !== "undefined") {
 			console.log("p1.__debugKeysBeforeReturn:", p1.__debugKeysBeforeReturn);
 		}
-		
+
 		let p2 = p1.then(x => x + 1);
 		console.log("p2 type:", typeof p2);
 		console.log("p2 === p2:", p2 === p2);
@@ -70,7 +70,7 @@ func TestPromiseChainDebug(t *testing.T) {
 		if (typeof p2.__debugKeysBeforeReturn !== "undefined") {
 			console.log("p2.__debugKeysBeforeReturn:", p2.__debugKeysBeforeReturn);
 		}
-		
+
 		let p3 = p2.then(x => x * 2);
 		console.log("p3 type:", typeof p3);
 		console.log("p3.then type:", typeof p3.then);

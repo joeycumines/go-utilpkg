@@ -1200,6 +1200,15 @@ func (l *Loop) Submit(task func()) error {
 		case l.fastWakeupCh <- struct{}{}:
 		default:
 		}
+
+		// Defense in depth: if user I/O FDs are registered, the loop may be
+		// in PollIO (not listening on fastWakeupCh) due to transient
+		// mode/count disagreement from concurrent SetFastPathMode/RegisterFD.
+		// Send pipe/eventfd wakeup to ensure PollIO also returns.
+		if l.userIOFDCount.Load() > 0 {
+			_ = l.submitWakeup()
+		}
+
 		return nil
 	}
 
@@ -1221,20 +1230,22 @@ func (l *Loop) Submit(task func()) error {
 // In fast mode (no user I/O FDs): sends to channel (~50ns)
 // In I/O mode (user I/O FDs registered): writes to pipe (~10µs)
 //
-// IMPORTANT: We must wake BOTH channels when transitioning from fast to I/O mode.
-// The loop might be blocked in runFastPath on fastWakeupCh when I/O FDs are registered.
+// IMPORTANT: We send BOTH signals unconditionally. This handles the race
+// where canUseFastPath() disagrees with the loop's actual poll path
+// (e.g., mode=Forced + count>0 due to concurrent RegisterFD/SetFastPathMode).
+// Both mechanisms are idempotent, so redundant signals are harmless.
 func (l *Loop) doWakeup() {
-	// Always try channel wakeup first (covers fast path mode)
+	// Always try channel wakeup (covers fast path mode)
 	select {
 	case l.fastWakeupCh <- struct{}{}:
 	default:
 		// Channel already has pending wakeup
 	}
 
-	// Also do pipe wakeup if I/O FDs are registered
-	if l.userIOFDCount.Load() > 0 {
-		_ = l.submitWakeup()
-	}
+	// Always try pipe/eventfd wakeup (covers I/O poll mode)
+	// This is unconditional to prevent lost wakeups when mode and count
+	// are transiently inconsistent due to concurrent SetFastPathMode/RegisterFD.
+	_ = l.submitWakeup()
 }
 
 // SubmitInternal submits a task to the internal priority queue.

@@ -530,8 +530,8 @@ func TestPromiseAny_EmptyArray(t *testing.T) {
 		var reason = null;
 		Promise.any([]).then(
 			function() { resolved = true; },
-			function(r) { 
-				rejected = true; 
+			function(r) {
+				rejected = true;
 				reason = r;
 			}
 		);

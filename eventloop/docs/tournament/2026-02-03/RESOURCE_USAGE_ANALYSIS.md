@@ -1,7 +1,7 @@
 # Resource Usage Analysis - Eventloop Tournament Evaluation
 
-**Date:** 2026-02-03  
-**Module:** github.com/joeycumines/go-eventloop  
+**Date:** 2026-02-03
+**Module:** github.com/joeycumines/go-eventloop
 **Analysis Scope:** Memory and System Resource Usage
 
 ---
@@ -11,7 +11,7 @@
 The eventloop implementation demonstrates **excellent memory efficiency** with well-designed allocation patterns, minimal GC pressure, and robust memory leak prevention. Key findings:
 
 - **✅ Zero Memory Leaks** - Weak pointer registry + proper cleanup ensures no leaks
-- **✅ Efficient Chunk Recycling** - sync.Pool prevents allocation storms  
+- **✅ Efficient Chunk Recycling** - sync.Pool prevents allocation storms
 - **✅ Low GC Pressure** - Lock-free structures with pre-allocated buffers
 - **✅ ~46M+ ops/sec** - Microtask ring maintains high throughput with minimal allocations
 
@@ -207,8 +207,8 @@ var timerPool = sync.Pool{
 q.Push(func() { /* user code */ })
 ```
 
-**Impact:** ~48 bytes per task  
-**Mitigation:**  
+**Impact:** ~48 bytes per task
+**Mitigation:**
 - Batch small operations when possible
 - Use object pooling for repeated operations
 
@@ -219,8 +219,8 @@ q.Push(func() { /* user code */ })
 id, p := r.NewPromise()
 ```
 
-**Impact:** ~72 bytes per promise  
-**Mitigation:**  
+**Impact:** ~72 bytes per promise
+**Mitigation:**
 - Promises are naturally short-lived
 - Registry scavenging ensures cleanup
 
@@ -231,8 +231,8 @@ id, p := r.NewPromise()
 t := timerPool.Get().(*timer)
 ```
 
-**Impact:** ~48 bytes per timer  
-**Mitigation:**  
+**Impact:** ~48 bytes per timer
+**Mitigation:**
 - Pool reuse reduces allocations by ~95%
 - SetImmediate bypasses timer heap entirely
 
@@ -309,7 +309,7 @@ t := timerPool.Get().(*timer)
 The eventloop implementation demonstrates **production-ready memory efficiency**:
 
 1. **✅ Zero memory leaks** - Weak pointer registry + proper cleanup
-2. **✅ Low allocation rate** - sync.Pool + pre-allocation strategies  
+2. **✅ Low allocation rate** - sync.Pool + pre-allocation strategies
 3. **✅ Minimal GC impact** - Lock-free structures, pooled resources
 4. **✅ High throughput** - 46M+ microtask ops/sec with low allocations
 5. **✅ Robust design** - R101 fix demonstrates proactive edge case handling

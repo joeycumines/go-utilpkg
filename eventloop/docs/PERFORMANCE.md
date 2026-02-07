@@ -587,7 +587,7 @@ loop, err := New(
     // Performance options
     WithFastPathMode(FastPathAuto),  // or Forced/Disabled
     WithMetrics(true),               // Enable if monitoring needed
-    
+
     // Reliability options
     WithOnOverload(func(err error) {
         // Handle backpressure
@@ -603,7 +603,7 @@ metrics := loop.Metrics()
 // Critical metrics to watch:
 fmt.Printf("TPS: %.2f\n", metrics.TPS)
 fmt.Printf("P99 Latency: %.2fms\n", metrics.Latency.P99)
-fmt.Printf("Queue Depth: %d (max: %d)\n", 
+fmt.Printf("Queue Depth: %d (max: %d)\n",
     metrics.QueueCurrent.Ingress,
     metrics.QueueMax.Ingress)
 ```
@@ -614,16 +614,16 @@ fmt.Printf("Queue Depth: %d (max: %d)\n",
 func BenchmarkMyWorkload(b *testing.B) {
     loop, _ := New()
     js, _ := NewJS(loop)
-    
+
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    
+
     go loop.Run(ctx)
     defer loop.Shutdown(context.Background())
-    
+
     b.ResetTimer()
     b.ReportAllocs()
-    
+
     for i := 0; i < b.N; i++ {
         // Your workload here
     }

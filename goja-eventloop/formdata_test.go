@@ -77,7 +77,7 @@ func TestFormData_Append(t *testing.T) {
 			var fd = new FormData();
 			fd.append('name', 'John');
 			fd.append('name', 'Jane'); // Multiple values for same name
-			
+
 			var all = fd.getAll('name');
 			return all.length === 2 && all[0] === 'John' && all[1] === 'Jane';
 		})()
@@ -102,12 +102,12 @@ func TestFormData_Delete(t *testing.T) {
 			fd.append('name', 'John');
 			fd.append('name', 'Jane');
 			fd.append('email', 'test@example.com');
-			
+
 			fd.delete('name');
-			
+
 			var nameDeleted = fd.get('name') === null;
 			var emailKept = fd.get('email') === 'test@example.com';
-			
+
 			return nameDeleted && emailKept;
 		})()
 	`)
@@ -130,11 +130,11 @@ func TestFormData_Get(t *testing.T) {
 			var fd = new FormData();
 			fd.append('name', 'first');
 			fd.append('name', 'second');
-			
+
 			// Get returns first value
 			var first = fd.get('name') === 'first';
 			var notFound = fd.get('nonexistent') === null;
-			
+
 			return first && notFound;
 		})()
 	`)
@@ -158,17 +158,17 @@ func TestFormData_GetAll(t *testing.T) {
 			fd.append('items', 'a');
 			fd.append('items', 'b');
 			fd.append('items', 'c');
-			
+
 			var all = fd.getAll('items');
-			var correct = Array.isArray(all) && 
-				all.length === 3 && 
-				all[0] === 'a' && 
-				all[1] === 'b' && 
+			var correct = Array.isArray(all) &&
+				all.length === 3 &&
+				all[0] === 'a' &&
+				all[1] === 'b' &&
 				all[2] === 'c';
-			
+
 			var empty = fd.getAll('nonexistent');
 			var emptyCorrect = Array.isArray(empty) && empty.length === 0;
-			
+
 			return correct && emptyCorrect;
 		})()
 	`)
@@ -190,10 +190,10 @@ func TestFormData_Has(t *testing.T) {
 		(function() {
 			var fd = new FormData();
 			fd.append('name', 'value');
-			
+
 			var hasName = fd.has('name') === true;
 			var hasOther = fd.has('other') === false;
-			
+
 			return hasName && hasOther;
 		})()
 	`)
@@ -217,10 +217,10 @@ func TestFormData_Set(t *testing.T) {
 			fd.append('name', 'first');
 			fd.append('name', 'second');
 			fd.append('name', 'third');
-			
+
 			// Set should replace all values with single value
 			fd.set('name', 'only');
-			
+
 			var all = fd.getAll('name');
 			return all.length === 1 && all[0] === 'only';
 		})()
@@ -243,7 +243,7 @@ func TestFormData_SetNewEntry(t *testing.T) {
 		(function() {
 			var fd = new FormData();
 			fd.set('newfield', 'newvalue');
-			
+
 			return fd.get('newfield') === 'newvalue';
 		})()
 	`)
@@ -266,14 +266,14 @@ func TestFormData_Entries(t *testing.T) {
 			var fd = new FormData();
 			fd.append('name', 'John');
 			fd.append('email', 'john@example.com');
-			
+
 			var entries = [];
 			for (var pair of fd.entries()) {
 				entries.push(pair[0] + ':' + pair[1]);
 			}
-			
-			return entries.length === 2 && 
-				entries[0] === 'name:John' && 
+
+			return entries.length === 2 &&
+				entries[0] === 'name:John' &&
 				entries[1] === 'email:john@example.com';
 		})()
 	`)
@@ -297,16 +297,16 @@ func TestFormData_Keys(t *testing.T) {
 			fd.append('first', 'a');
 			fd.append('second', 'b');
 			fd.append('first', 'c'); // Duplicate key
-			
+
 			var keys = [];
 			for (var key of fd.keys()) {
 				keys.push(key);
 			}
-			
+
 			// Should include duplicate keys
-			return keys.length === 3 && 
-				keys[0] === 'first' && 
-				keys[1] === 'second' && 
+			return keys.length === 3 &&
+				keys[0] === 'first' &&
+				keys[1] === 'second' &&
 				keys[2] === 'first';
 		})()
 	`)
@@ -329,14 +329,14 @@ func TestFormData_Values(t *testing.T) {
 			var fd = new FormData();
 			fd.append('name', 'Alice');
 			fd.append('name', 'Bob');
-			
+
 			var values = [];
 			for (var value of fd.values()) {
 				values.push(value);
 			}
-			
-			return values.length === 2 && 
-				values[0] === 'Alice' && 
+
+			return values.length === 2 &&
+				values[0] === 'Alice' &&
 				values[1] === 'Bob';
 		})()
 	`)
@@ -359,14 +359,14 @@ func TestFormData_ForEach(t *testing.T) {
 			var fd = new FormData();
 			fd.append('a', '1');
 			fd.append('b', '2');
-			
+
 			var entries = [];
 			fd.forEach(function(value, key, formData) {
 				entries.push(key + '=' + value);
 			});
-			
-			return entries.length === 2 && 
-				entries[0] === 'a=1' && 
+
+			return entries.length === 2 &&
+				entries[0] === 'a=1' &&
 				entries[1] === 'b=2';
 		})()
 	`)
@@ -388,12 +388,12 @@ func TestFormData_ForEachWithThisArg(t *testing.T) {
 		(function() {
 			var fd = new FormData();
 			fd.append('key', 'value');
-			
+
 			var context = { results: [] };
 			fd.forEach(function(value) {
 				this.results.push(value);
 			}, context);
-			
+
 			return context.results.length === 1 && context.results[0] === 'value';
 		})()
 	`)
@@ -465,12 +465,12 @@ func TestFormData_Empty(t *testing.T) {
 	result, err := adapter.runtime.RunString(`
 		(function() {
 			var fd = new FormData();
-			
+
 			var getNull = fd.get('any') === null;
 			var hasFalse = fd.has('any') === false;
 			var getAllEmpty = fd.getAll('any').length === 0;
 			var entriesEmpty = Array.from(fd.entries()).length === 0;
-			
+
 			return getNull && hasFalse && getAllEmpty && entriesEmpty;
 		})()
 	`)
@@ -494,12 +494,12 @@ func TestFormData_OrderPreserved(t *testing.T) {
 			fd.append('z', '1');
 			fd.append('a', '2');
 			fd.append('m', '3');
-			
+
 			var keys = [];
 			for (var key of fd.keys()) {
 				keys.push(key);
 			}
-			
+
 			// Order should be insertion order, not alphabetical
 			return keys[0] === 'z' && keys[1] === 'a' && keys[2] === 'm';
 		})()
@@ -525,18 +525,18 @@ func TestFormData_SetPreservesFirstPosition(t *testing.T) {
 			fd.append('middle', 'b');
 			fd.append('first', 'c');
 			fd.append('last', 'd');
-			
+
 			fd.set('first', 'replaced');
-			
+
 			var keys = [];
 			var values = [];
 			for (var pair of fd.entries()) {
 				keys.push(pair[0]);
 				values.push(pair[1]);
 			}
-			
+
 			// 'first' should remain in first position, second 'first' should be removed
-			return keys.length === 3 && 
+			return keys.length === 3 &&
 				keys[0] === 'first' && values[0] === 'replaced' &&
 				keys[1] === 'middle' && values[1] === 'b' &&
 				keys[2] === 'last' && values[2] === 'd';
@@ -561,19 +561,19 @@ func TestFormData_IteratorCopiesEntries(t *testing.T) {
 			var fd = new FormData();
 			fd.append('a', '1');
 			fd.append('b', '2');
-			
+
 			var iter = fd.entries();
 			var first = iter.next();
-			
+
 			// Modify FormData during iteration
 			fd.append('c', '3');
-			
+
 			// Iterator should still have original snapshot
 			var second = iter.next();
 			var third = iter.next();
-			
-			return first.value[0] === 'a' && 
-				second.value[0] === 'b' && 
+
+			return first.value[0] === 'a' &&
+				second.value[0] === 'b' &&
 				third.done === true;
 		})()
 	`)

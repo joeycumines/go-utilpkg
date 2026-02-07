@@ -36,12 +36,6 @@ func TestIntegration_PromiseChainingAcrossBoundary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
@@ -97,6 +91,13 @@ func TestIntegration_PromiseChainingAcrossBoundary(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	// Resolve the Go promise from Go code
 	goResolve(21)
 
@@ -139,12 +140,6 @@ func TestIntegration_ErrorPropagation_GoToJS(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -193,6 +188,13 @@ func TestIntegration_ErrorPropagation_GoToJS(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	// Reject the Go promise with an error - but use goPromise2's reject
 	goReject2(errors.New("Go-side error occurred"))
 	_ = goReject // Keep reference to avoid unused warning
@@ -224,12 +226,6 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -278,6 +274,13 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 		return nil
 	})
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case result := <-done:
 		if result == nil {
@@ -318,12 +321,6 @@ func TestIntegration_TypeConversions(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 
-			loopDone := make(chan struct{})
-			go func() {
-				defer close(loopDone)
-				_ = loop.Run(ctx)
-			}()
-
 			gojaRT := goja.New()
 			adapter, err := New(loop, gojaRT)
 			if err != nil {
@@ -354,6 +351,13 @@ func TestIntegration_TypeConversions(t *testing.T) {
 				t.Fatalf("Failed to run JS: %v", err)
 			}
 
+			// Start the event loop AFTER all runtime access is complete
+			loopDone := make(chan struct{})
+			go func() {
+				defer close(loopDone)
+				_ = loop.Run(ctx)
+			}()
+
 			resolve(tc.goValue)
 
 			select {
@@ -381,12 +385,6 @@ func TestIntegration_ThenableUnwrapping(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -424,6 +422,13 @@ func TestIntegration_ThenableUnwrapping(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case result := <-done:
 		if result != "thenable resolved value" {
@@ -446,12 +451,6 @@ func TestIntegration_PromiseAllWithGoPromises(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -489,6 +488,13 @@ func TestIntegration_PromiseAllWithGoPromises(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	// Resolve in different order
 	resolve2("second")
 	resolve3("third")
@@ -525,12 +531,6 @@ func TestIntegration_PromiseRaceWithGoPromises(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
@@ -565,6 +565,13 @@ func TestIntegration_PromiseRaceWithGoPromises(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
+
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
 
 	// Resolve second promise first - it should win the race
 	resolve2("winner")
@@ -671,12 +678,6 @@ func TestIntegration_IteratorConsumption(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
@@ -712,6 +713,13 @@ func TestIntegration_IteratorConsumption(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case result := <-done:
 		if result != 6 {
@@ -734,12 +742,6 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -764,10 +766,11 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 		return goja.Undefined()
 	})
 
-	// Create promises that will be resolved from different goroutines
-	var wg sync.WaitGroup
+	// Create all promises and set up JS handlers BEFORE starting the loop
+	resolvers := make([]eventloop.ResolveFunc, numPromises)
 	for i := 0; i < numPromises; i++ {
 		p, resolve, _ := js.NewChainedPromise()
+		resolvers[i] = resolve
 		gojaRT.Set(fmt.Sprintf("p%d", i), adapter.gojaWrapPromise(p))
 
 		_, err := gojaRT.RunString(fmt.Sprintf(`
@@ -778,14 +781,25 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to run JS: %v", err)
 		}
+	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
+	// Now resolve from goroutines
+	var wg sync.WaitGroup
+	for i := 0; i < numPromises; i++ {
 		wg.Add(1)
 		go func(r eventloop.ResolveFunc, idx int) {
 			defer wg.Done()
 			// Small fixed delay to ensure handler is attached
 			time.Sleep(5 * time.Millisecond)
 			r(idx)
-		}(resolve, i)
+		}(resolvers[i], i)
 	}
 
 	wg.Wait()
@@ -811,12 +825,6 @@ func TestIntegration_ErrorRecoveryAndRethrow(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -871,6 +879,13 @@ func TestIntegration_ErrorRecoveryAndRethrow(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	// Reject from Go side
 	goReject(errors.New("go-side-error"))
 
@@ -903,12 +918,6 @@ func TestIntegration_PromiseFinally(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -956,6 +965,13 @@ func TestIntegration_PromiseFinally(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case result := <-done:
 		expected := []string{"finally1", "then:value", "finally2"}
@@ -986,12 +1002,6 @@ func TestIntegration_WithResolvers(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
@@ -1020,6 +1030,13 @@ func TestIntegration_WithResolvers(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case result := <-done:
 		if result != 42 {
@@ -1042,12 +1059,6 @@ func TestIntegration_AbortController(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -1082,6 +1093,13 @@ func TestIntegration_AbortController(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case aborted := <-done:
 		if !aborted {
@@ -1105,12 +1123,6 @@ func TestIntegration_PerformanceAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
@@ -1129,19 +1141,19 @@ func TestIntegration_PerformanceAPI(t *testing.T) {
 
 	_, err = gojaRT.RunString(`
 		var start = performance.now();
-		
+
 		// Perform some work
 		performance.mark("start");
-		
+
 		// Simulate delay with sync work
 		var x = 0;
 		for (var i = 0; i < 100000; i++) {
 			x += i;
 		}
-		
+
 		performance.mark("end");
 		performance.measure("test", "start", "end");
-		
+
 		var entries = performance.getEntriesByName("test", "measure");
 		if (entries.length > 0) {
 			captureDuration(entries[0].duration);
@@ -1152,6 +1164,13 @@ func TestIntegration_PerformanceAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
+
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
 
 	select {
 	case duration := <-done:
@@ -1179,12 +1198,6 @@ func TestIntegration_Timers(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -1216,6 +1229,13 @@ func TestIntegration_Timers(t *testing.T) {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
+
 	select {
 	case count := <-done:
 		if count != 3 {
@@ -1238,12 +1258,6 @@ func TestIntegration_QueueMicrotask(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
@@ -1279,20 +1293,27 @@ func TestIntegration_QueueMicrotask(t *testing.T) {
 			addToOrder("timeout");
 			signalDone();
 		}, 0);
-		
+
 		queueMicrotask(function() {
 			addToOrder("microtask1");
 		});
-		
+
 		queueMicrotask(function() {
 			addToOrder("microtask2");
 		});
-		
+
 		addToOrder("sync");
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
+
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
 
 	select {
 	case result := <-done:
@@ -1328,12 +1349,6 @@ func TestIntegration_LargePromiseChain(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	loopDone := make(chan struct{})
-	go func() {
-		defer close(loopDone)
-		_ = loop.Run(ctx)
-	}()
-
 	gojaRuntime := goja.New()
 	adapter, err := New(loop, gojaRuntime)
 	if err != nil {
@@ -1363,6 +1378,13 @@ func TestIntegration_LargePromiseChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
+
+	// Start the event loop AFTER all runtime access is complete
+	loopDone := make(chan struct{})
+	go func() {
+		defer close(loopDone)
+		_ = loop.Run(ctx)
+	}()
 
 	select {
 	case result := <-done:

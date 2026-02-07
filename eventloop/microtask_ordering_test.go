@@ -129,16 +129,10 @@ func TestMicrotaskOrdering_BeforeMacroTask(t *testing.T) {
 // microtasks queued during microtask processing are executed in the same checkpoint.
 // Per WHATWG: "perform a microtask checkpoint" drains ALL microtasks including nested.
 func TestMicrotaskOrdering_NestedMicrotasksInSameCheckpoint(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-
-	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -148,44 +142,45 @@ func TestMicrotaskOrdering_NestedMicrotasksInSameCheckpoint(t *testing.T) {
 	var order []string
 	macroTaskRan := make(chan struct{})
 
-	// Schedule a macro-task first
-	_, err = js.SetTimeout(func() {
-		order = append(order, "macro-task")
-		close(macroTaskRan)
-	}, 0)
-	if err != nil {
-		t.Fatalf("SetTimeout failed: %v", err)
-	}
+	// Submit all setup work to run synchronously within the loop goroutine.
+	// This ensures the timer and microtasks are registered in the same tick,
+	// so microtasks run before the 0ms timer (correct WHATWG ordering).
+	loop.Submit(func() {
+		// Schedule a macro-task first
+		js.SetTimeout(func() {
+			order = append(order, "macro-task")
+			close(macroTaskRan)
+		}, 0)
 
-	// Queue outer microtask that queues nested microtasks
-	err = js.QueueMicrotask(func() {
-		order = append(order, "outer-1")
-
-		// Queue nested microtask - should run BEFORE the macro-task
+		// Queue outer microtask that queues nested microtasks
 		js.QueueMicrotask(func() {
-			order = append(order, "nested-1a")
+			order = append(order, "outer-1")
 
-			// Even deeper nesting
+			// Queue nested microtask - should run BEFORE the macro-task
 			js.QueueMicrotask(func() {
-				order = append(order, "deep-nested")
+				order = append(order, "nested-1a")
+
+				// Even deeper nesting
+				js.QueueMicrotask(func() {
+					order = append(order, "deep-nested")
+				})
+			})
+
+			js.QueueMicrotask(func() {
+				order = append(order, "nested-1b")
 			})
 		})
 
+		// Queue another outer microtask
 		js.QueueMicrotask(func() {
-			order = append(order, "nested-1b")
+			order = append(order, "outer-2")
 		})
 	})
-	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
-	}
 
-	// Queue another outer microtask
-	err = js.QueueMicrotask(func() {
-		order = append(order, "outer-2")
-	})
-	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() { loop.Run(ctx) }()
 
 	// Wait for macro-task to complete
 	select {

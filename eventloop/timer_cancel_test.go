@@ -143,9 +143,17 @@ func TestScheduleTimerRapidCancellations(t *testing.T) {
 	var ids [numTimers]TimerID
 	var cancelErrors atomic.Int32
 
+	// Use a long delay to ensure no timers expire during the cancellation loop.
+	// Each CancelTimer call is synchronous (blocks on a channel round-trip),
+	// so 100 sequential calls can take significant wall-clock time under
+	// -race and -coverprofile instrumentation. A short delay (e.g. 100ms)
+	// would cause timers to fire in runTimers() before processInternalQueue()
+	// processes the corresponding CancelTimer task within the same tick.
+	const timerDelay = 5 * time.Second
+
 	// Schedule all timers
 	for i := 0; i < numTimers; i++ {
-		id, err := l.ScheduleTimer(100*time.Millisecond, func() {
+		id, err := l.ScheduleTimer(timerDelay, func() {
 			callbackCount.Add(1)
 		})
 		if err != nil {
@@ -166,8 +174,8 @@ func TestScheduleTimerRapidCancellations(t *testing.T) {
 		}
 	}
 
-	// Wait until all timers would have fired
-	time.Sleep(2 * 100 * time.Millisecond)
+	// Brief sleep to let any leaked callbacks execute (there should be none).
+	time.Sleep(100 * time.Millisecond)
 
 	if count := callbackCount.Load(); count != 0 {
 		t.Errorf("Expected 0 callbacks after cancellation, got %d", count)

@@ -30,13 +30,13 @@ func TestReproThenable(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	done := make(chan struct{})
-	_ = runtime.Set("notifyDone", func() {
-		close(done)
+	resultCh := make(chan interface{}, 1)
+	_ = runtime.Set("notifyResult", func(call goja.FunctionCall) goja.Value {
+		resultCh <- call.Argument(0).Export()
+		return goja.Undefined()
 	})
 
 	_, err = runtime.RunString(`
-		let result;
 		const thenable = {
 			then: (resolve, reject) => {
 				setTimeout(() => resolve("resolved from thenable"), 10);
@@ -44,32 +44,23 @@ func TestReproThenable(t *testing.T) {
 		};
 
 		Promise.resolve(thenable).then(val => {
-			result = val;
-			notifyDone();
+			notifyResult(val);
 		});
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
 	go func() { _ = loop.Run(ctx) }()
 
 	select {
-	case <-done:
+	case export := <-resultCh:
+		if export != "resolved from thenable" {
+			t.Errorf("Expected 'resolved from thenable', got: %v (type %T)", export, export)
+		}
 	case <-ctx.Done():
 		t.Fatal("Timeout waiting for thenable resolution")
-	}
-
-	result := runtime.Get("result")
-	export := result.Export()
-	if export != "resolved from thenable" {
-		t.Errorf("Expected 'resolved from thenable', got: %v (type %T)", export, export)
-		// Check if it returned the object itself
-		if obj, ok := export.(map[string]interface{}); ok {
-			if _, hasThen := obj["then"]; hasThen {
-				t.Log("Failure confirmed: Promise.resolve returned the thenable object instead of waiting for it")
-			}
-		}
 	}
 }
 
@@ -93,48 +84,49 @@ func TestReproIterable(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	done := make(chan struct{})
-	_ = runtime.Set("notifyDone", func() {
-		close(done)
+	resultCh := make(chan interface{}, 1)
+	_ = runtime.Set("notifyResult", func(call goja.FunctionCall) goja.Value {
+		resultCh <- call.Argument(0).Export()
+		return goja.Undefined()
+	})
+	errCh := make(chan string, 1)
+	_ = runtime.Set("notifyError", func(call goja.FunctionCall) goja.Value {
+		errCh <- call.Argument(0).String()
+		return goja.Undefined()
 	})
 
 	_, err = runtime.RunString(`
-		let result;
 		const s = new Set();
 		s.add(Promise.resolve(1));
 		s.add(2);
 
 		// Note: Promise.all takes an iterable. Set is iterable.
 		Promise.all(s).then(val => {
-			result = val;
-			notifyDone();
+			notifyResult(val);
 		}).catch(err => {
-			result = "ERROR: " + err.message;
-			notifyDone();
+			notifyError("ERROR: " + err.message);
 		});
 	`)
 	if err != nil {
 		t.Fatalf("Failed to run JS: %v", err)
 	}
 
+	// Start the event loop AFTER all runtime access is complete
 	go func() { _ = loop.Run(ctx) }()
 
 	select {
-	case <-done:
+	case export := <-resultCh:
+		// Expect array [1, 2]
+		if arr, ok := export.([]interface{}); ok {
+			if len(arr) != 2 {
+				t.Errorf("Expected length 2, got %d", len(arr))
+			}
+		} else {
+			t.Errorf("Expected array, got: %v (type %T)", export, export)
+		}
+	case errMsg := <-errCh:
+		t.Errorf("Got error: %s", errMsg)
 	case <-ctx.Done():
 		t.Fatal("Timeout waiting for Promise.all(Set)")
-	}
-
-	result := runtime.Get("result")
-	export := result.Export()
-
-	// Expect array [1, 2]
-	if arr, ok := export.([]interface{}); ok {
-		if len(arr) != 2 {
-			t.Errorf("Expected length 2, got %d", len(arr))
-		}
-	} else {
-		t.Errorf("Expected array, got: %v (type %T)", export, export)
-		t.Log("Failure confirmed: Likely TypeError or empty array if iterable not supported")
 	}
 }

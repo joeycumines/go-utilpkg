@@ -485,16 +485,17 @@ func TestLeak_IntervalTimers(t *testing.T) {
 			data[j] = byte(i)
 		}
 
-		callCount := 0
-		var id uint64
+		callCount := new(atomic.Int32)
+		var id atomic.Uint64
 
-		id, err = js.SetInterval(func() {
+		resultID, err := js.SetInterval(func() {
 			_ = data[0] // Use data
-			callCount++
-			if callCount >= 3 {
-				_ = js.ClearInterval(id)
+			callCount.Add(1)
+			if callCount.Load() >= 3 {
+				_ = js.ClearInterval(id.Load())
 			}
 		}, 5)
+		id.Store(resultID)
 
 		if err != nil && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Failed to set interval: %v", err)

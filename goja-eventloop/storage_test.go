@@ -188,11 +188,11 @@ func TestLocalStorage_Key(t *testing.T) {
 	_, err = runtime.RunString(`
 		localStorage.setItem("first", "1");
 		localStorage.setItem("second", "2");
-		
+
 		const key0 = localStorage.key(0);
 		const key1 = localStorage.key(1);
 		const key2 = localStorage.key(2);
-		
+
 		if (key0 !== "first") {
 			throw new Error("Expected key(0) = 'first', got '" + key0 + "'");
 		}
@@ -293,7 +293,7 @@ func TestStorage_Isolation(t *testing.T) {
 	_, err = runtime.RunString(`
 		localStorage.setItem("shared_key", "local_value");
 		sessionStorage.setItem("shared_key", "session_value");
-		
+
 		if (localStorage.getItem("shared_key") !== "local_value") {
 			throw new Error("localStorage value corrupted");
 		}

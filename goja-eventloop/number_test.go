@@ -525,14 +525,14 @@ func TestNumber_EdgeCases(t *testing.T) {
 		Object.is(+0, +0) &&
 		-0 === +0 && // equal with ===
 		!Object.is(-0, +0) && // but distinguishable with Object.is
-		
+
 		// Very small numbers
 		Number.MIN_VALUE > 0 &&
 		Number.MIN_VALUE / 2 === 0 && // underflow to zero
-		
+
 		// Very large numbers
 		Number.MAX_VALUE + Number.MAX_VALUE === Infinity && // overflow
-		
+
 		// Safe integer edge
 		Number.MAX_SAFE_INTEGER + 1 === Number.MAX_SAFE_INTEGER + 2; // precision loss
 	`
@@ -558,7 +558,7 @@ func TestNumber_SpecialValues(t *testing.T) {
 		Number.isNaN(Infinity - Infinity) &&
 		Infinity * 0 !== Infinity * 0 && // NaN
 		Number.isNaN(Infinity * 0) &&
-		
+
 		// NaN propagation
 		Number.isNaN(NaN + 1) &&
 		Number.isNaN(NaN * 0) &&

@@ -216,13 +216,13 @@ func TestBlob_Slice(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const blob = new Blob(["Hello, World!"]);
-		
+
 		// Basic slice
 		const slice1 = blob.slice(0, 5);
 		if (slice1.size !== 5) {
 			throw new Error("Expected slice1 size 5, got " + slice1.size);
 		}
-		
+
 		// Slice with contentType
 		const slice2 = blob.slice(7, 12, "text/plain");
 		if (slice2.size !== 5) {
@@ -231,7 +231,7 @@ func TestBlob_Slice(t *testing.T) {
 		if (slice2.type !== "text/plain") {
 			throw new Error("Expected slice2 type 'text/plain', got '" + slice2.type + "'");
 		}
-		
+
 		// Negative slice
 		const slice3 = blob.slice(-6);
 		if (slice3.size !== 6) {
@@ -262,7 +262,7 @@ func TestBlob_SliceNegativeEnd(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const blob = new Blob(["0123456789"]);
-		
+
 		// Slice with negative end
 		const slice = blob.slice(2, -2);
 		if (slice.size !== 6) {

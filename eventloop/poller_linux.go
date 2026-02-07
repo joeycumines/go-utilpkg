@@ -83,7 +83,10 @@ func (p *FastPoller) Init() error {
 
 // Close closes the epoll instance.
 func (p *FastPoller) Close() error {
-	p.closed.Store(true)
+	if p.closed.Swap(true) {
+		// Already closed, return nil for idempotent behavior
+		return nil
+	}
 	if p.epfd > 0 {
 		return unix.Close(int(p.epfd))
 	}
@@ -131,19 +134,22 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	}
 
 	p.fds[fd] = fdInfo{callback: cb, events: events, active: true}
-	p.fdMu.Unlock()
 
+	// Hold lock across EpollCtl to prevent race with concurrent UnregisterFD.
+	// Without this, UnregisterFD could clear fds[fd] and call EpollCtl(DEL)
+	// between our unlock and our EpollCtl(ADD), causing DEL to get ENOENT
+	// (fd not yet added) and the count to leak.
 	ev := &unix.EpollEvent{
 		Events: eventsToEpoll(events),
 		Fd:     int32(fd),
 	}
 	err := unix.EpollCtl(int(p.epfd), unix.EPOLL_CTL_ADD, fd, ev)
 	if err != nil {
-		p.fdMu.Lock()
 		p.fds[fd] = fdInfo{} // Rollback
 		p.fdMu.Unlock()
 		return err
 	}
+	p.fdMu.Unlock()
 	return nil
 }
 
@@ -178,10 +184,18 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 		return ErrFDNotRegistered
 	}
 
+	// Remove from epoll while holding lock to prevent race with RegisterFD.
+	// Order: DEL from epoll first, then clear fds entry. This ensures
+	// the fd is fully removed from both epoll and fds atomically.
+	err := unix.EpollCtl(int(p.epfd), unix.EPOLL_CTL_DEL, fd, nil)
+	if err != nil {
+		p.fdMu.Unlock()
+		return err
+	}
+
 	p.fds[fd] = fdInfo{}
 	p.fdMu.Unlock()
-
-	return unix.EpollCtl(int(p.epfd), unix.EPOLL_CTL_DEL, fd, nil)
+	return nil
 }
 
 // ModifyFD updates the events being monitored for a file descriptor.

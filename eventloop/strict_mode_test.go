@@ -77,7 +77,8 @@ func TestBarrierOrderingModes(t *testing.T) {
 			wg.Done()
 		}
 
-		// Submit both tasks
+		// Submit both tasks while loop is sleeping to ensure they're in the same batch
+		waitLoopState(t, l, StateSleeping, time.Second)
 		l.Submit(taskA)
 		l.Submit(taskB)
 
@@ -190,7 +191,8 @@ func TestBarrierOrderingModes(t *testing.T) {
 			wg.Done()
 		}
 
-		// Submit both tasks
+		// Submit both tasks while loop is sleeping to ensure they're in the same batch
+		waitLoopState(t, l, StateSleeping, time.Second)
 		l.Submit(taskA)
 		l.Submit(taskB)
 

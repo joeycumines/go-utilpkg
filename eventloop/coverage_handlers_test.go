@@ -10,9 +10,10 @@ package eventloop
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"os"
-	"sync"
+	"runtime"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -94,7 +95,7 @@ func TestDrainWakeUpPipe_Idempotent(t *testing.T) {
 	}
 }
 
-// TestCreateWakeFd_ValidPipe tests that createWakeFd creates a valid pipe.
+// TestCreateWakeFd_ValidPipe tests that createWakeFd creates a valid pipe/eventfd.
 // Coverage target: createWakeFd success path
 func TestCreateWakeFd_ValidPipe(t *testing.T) {
 	r, w, err := createWakeFd(0, 0)
@@ -102,27 +103,62 @@ func TestCreateWakeFd_ValidPipe(t *testing.T) {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
 	defer syscall.Close(r)
-	defer syscall.Close(w)
+	if w != r {
+		defer syscall.Close(w)
+	}
 
 	// Verify FDs are valid
-	if r <= 0 || w <= 0 {
-		t.Errorf("Invalid FDs: r=%d, w=%d", r, w)
+	if r <= 0 {
+		t.Errorf("Invalid read FD: r=%d", r)
+	}
+	if w <= 0 {
+		t.Errorf("Invalid write FD: w=%d", w)
 	}
 
-	// Test writing and reading
-	buf := []byte{0xAB}
-	_, err = syscall.Write(w, buf)
-	if err != nil {
-		t.Errorf("Write failed: %v", err)
-	}
+	if runtime.GOOS == "linux" {
+		// On Linux, createWakeFd returns an eventfd (r == w).
+		// eventfd requires 8-byte (uint64) reads and writes.
+		if r != w {
+			t.Errorf("Linux: expected r == w for eventfd, got r=%d, w=%d", r, w)
+		}
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, 1)
+		_, err = syscall.Write(w, buf)
+		if err != nil {
+			t.Errorf("Write failed: %v", err)
+		}
 
-	readBuf := make([]byte, 1)
-	n, err := syscall.Read(r, readBuf)
-	if err != nil {
-		t.Errorf("Read failed: %v", err)
-	}
-	if n != 1 || readBuf[0] != 0xAB {
-		t.Errorf("Read unexpected value: got %v", readBuf)
+		readBuf := make([]byte, 8)
+		n, err := syscall.Read(r, readBuf)
+		if err != nil {
+			t.Errorf("Read failed: %v", err)
+		}
+		if n != 8 {
+			t.Errorf("Read unexpected length: got %d, want 8", n)
+		}
+		val := binary.LittleEndian.Uint64(readBuf)
+		if val != 1 {
+			t.Errorf("Read unexpected value: got %d, want 1", val)
+		}
+	} else {
+		// On Darwin, createWakeFd returns a pipe pair (r != w).
+		if r == w {
+			t.Errorf("Darwin: expected r != w for pipe, got r=%d, w=%d", r, w)
+		}
+		buf := []byte{0xAB}
+		_, err = syscall.Write(w, buf)
+		if err != nil {
+			t.Errorf("Write failed: %v", err)
+		}
+
+		readBuf := make([]byte, 1)
+		n, err := syscall.Read(r, readBuf)
+		if err != nil {
+			t.Errorf("Read failed: %v", err)
+		}
+		if n != 1 || readBuf[0] != 0xAB {
+			t.Errorf("Read unexpected value: got %v", readBuf)
+		}
 	}
 }
 
@@ -146,7 +182,9 @@ func TestCreateWakeFd_VariousParams(t *testing.T) {
 			continue
 		}
 		syscall.Close(r)
-		syscall.Close(w)
+		if w != r {
+			syscall.Close(w)
+		}
 	}
 }
 
@@ -199,14 +237,10 @@ func TestHandlePollError_MultipleCycles(t *testing.T) {
 // Coverage target: handlePollError concurrent execution paths
 func TestHandlePollError_ConcurrentWithOtherOps(t *testing.T) {
 	testHooks := &loopTestHooks{}
-	var mu sync.Mutex
-	var errorCount int32
+	var errorCount atomic.Int32
 
 	testHooks.PollError = func() error {
-		mu.Lock()
-		count := errorCount
-		errorCount++
-		mu.Unlock()
+		count := errorCount.Add(1) - 1
 		if count < 3 {
 			return errors.New("concurrent test error")
 		}
@@ -233,10 +267,10 @@ func TestHandlePollError_ConcurrentWithOtherOps(t *testing.T) {
 	}
 
 	// Submit tasks while error is being handled
-	var submitCount int32
+	var submitCount atomic.Int32
 	for i := 0; i < 10; i++ {
 		loop.Submit(func() {
-			atomic.AddInt32(&submitCount, 1)
+			submitCount.Add(1)
 		})
 	}
 
@@ -249,5 +283,5 @@ func TestHandlePollError_ConcurrentWithOtherOps(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	t.Logf("Submitted %d tasks, handled %d errors",
-		atomic.LoadInt32(&submitCount), atomic.LoadInt32(&errorCount))
+		submitCount.Load(), errorCount.Load())
 }

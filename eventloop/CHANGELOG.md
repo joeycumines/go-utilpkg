@@ -8,6 +8,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### 🎉 Major New Features
 
+#### Windows Platform Support
+Removed `//go:build linux || darwin` constraints from all core source files and the
+goja-eventloop adapter. The event loop now compiles and runs on all three major
+platforms:
+
+| Platform | I/O Poller | Wakeup Mechanism |
+|----------|-----------|------------------|
+| Linux | epoll | eventfd |
+| macOS | kqueue | pipe |
+| Windows | IOCP | event handle |
+
+- Removed build tags from: `loop.go`, `errors.go`, `abort.go`, `eventtarget.go`,
+  `performance.go`, `goja-eventloop/adapter.go`, and 53+ goja-eventloop test files
+- Added `EFD_CLOEXEC` / `EFD_NONBLOCK` stubs in `wakeup_windows.go`
+- Cross-compilation verified for all 6 target combinations (GOOS × package)
+
+#### crypto.getRandomValues() (Web Crypto API)
+Added `crypto.getRandomValues(typedArray)` to the goja-eventloop adapter:
+
+- Fills any integer TypedArray with cryptographically random values via Go's `crypto/rand`
+- Supports: `Uint8Array`, `Uint16Array`, `Uint32Array`, `Int8Array`, `Int16Array`,
+  `Int32Array`, `Uint8ClampedArray`
+- Throws `TypeError` for non-TypedArray input or `Float32Array`/`Float64Array`
+- Throws `QuotaExceededError` `DOMException` when `byteLength > 65536`
+- Returns the same TypedArray passed in (per spec)
+- 22 tests in `crypto_getrandomvalues_test.go`
+
 #### AbortController/AbortSignal Support
 Full W3C DOM-compliant implementation of the AbortController API for cancellation patterns:
 
@@ -105,8 +132,8 @@ Allocation profiling confirms:
 ### 🔧 Coverage Improvements
 
 #### eventloop Package
-- **Main Package:** 77.9% statement coverage
-- **goja-eventloop:** 88.6% statement coverage
+- **Main Package:** 93.3% statement coverage
+- **goja-eventloop:** 88.6%+ statement coverage
 
 Major coverage additions:
 - 33 tests for Darwin/Linux poller (poller_darwin_full_coverage_test.go)
@@ -157,6 +184,11 @@ Major coverage additions:
 #### Race Conditions Fixed
 1. `TestHTML5_ClearIntervalFromCallback` - fixed with atomic.Uint64
 2. `TestMicrotaskOrdering_IntervalInteraction` - fixed with atomic.Uint64 + sync.Mutex
+3. `leak_test.go` - fixed callCount (atomic.Int32) and id (atomic.Uint64) races
+4. `workload_test.go` - fixed flushTimerID race with atomic.Uint64
+5. `promise_combinator_fuzz_test.go` - fixed 4 shared `math/rand.Rand` sites with pre-computed delays
+6. `goja-eventloop` - restructured 28+ tests to prevent concurrent `goja.Runtime` access
+   (runtime is NOT thread-safe; all access must occur on a single goroutine)
 
 #### Benchmark Suite
 35+ benchmarks covering:
@@ -211,16 +243,29 @@ All 10 callback execution sites verified to have panic recovery:
 
 ### 🖥️ Platform Support
 
+#### Cross-Platform Architecture
+The event loop runs natively on all three major platforms with platform-optimized I/O polling:
+
+| Platform | Architecture | I/O Poller | Wakeup Mechanism | Status |
+|----------|-------------|-----------|------------------|--------|
+| Linux | amd64, arm64 | epoll | eventfd | ✅ Full support |
+| macOS | amd64, arm64 | kqueue | pipe | ✅ Full support |
+| Windows | amd64 | IOCP | event handle | ✅ Full support |
+
+Platform-specific source files:
+- `poller_linux.go` / `poller_darwin.go` / `poller_windows.go` — I/O polling
+- `wakeup_linux.go` / `wakeup_darwin.go` / `wakeup_windows.go` — Cross-goroutine wake
+- `fd_unix.go` / `fd_windows.go` — File descriptor abstractions
+
 #### Cross-Platform CI
 Verified via GitHub Actions matrix on:
 - `ubuntu-latest` (Linux/epoll)
 - `macos-latest` (Darwin/kqueue)
 - `windows-latest` (Windows/IOCP)
 
-#### Platform-Specific Pollers
-- **Darwin:** kqueue-based FastPoller
-- **Linux:** epoll-based FastPoller
-- **Windows:** IOCP-based FastPoller
+#### Race Detector Verification
+- All tests pass with `-race` flag on macOS and Linux
+- Zero data races in both `eventloop` and `goja-eventloop` packages
 
 ---
 
@@ -228,8 +273,8 @@ Verified via GitHub Actions matrix on:
 
 | Package | Coverage | Notes |
 |---------|----------|-------|
-| eventloop (main) | 77.9% | Production code |
-| goja-eventloop | 88.6% | JS adapter layer |
+| eventloop (main) | 93.3% | Production code |
+| goja-eventloop | 88.6%+ | JS adapter layer |
 | internal/alternateone | 69.5% | Experimental |
 | internal/alternatethree | 72.9% | Experimental |
 | internal/alternatetwo | 72.7% | Experimental |
@@ -246,6 +291,8 @@ Verified via GitHub Actions matrix on:
 2. **Timer Ordering:** Same-delay timers not guaranteed FIFO (heap-based scheduling)
 3. **Windows Testing:** Windows poller tests require Windows platform
 4. **ArrayBuffer:** Promise results cannot be ArrayBuffer (Goja limitation)
+5. **Blob.stream():** Returns `undefined` — ReadableStream (WHATWG Streams API) is intentionally not implemented due to complexity; use `blob.text()` or `blob.arrayBuffer()` instead
+6. **Intl:** Only basic number/date formatting via Goja; full ICU support not available
 
 ---
 

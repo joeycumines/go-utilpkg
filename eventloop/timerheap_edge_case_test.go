@@ -4,7 +4,6 @@
 // purpose with or without fee is hereby granted, provided that this copyright
 // notice appears in all copies.
 
-
 package eventloop
 
 import (
@@ -252,10 +251,10 @@ func TestTimerHeap_CancelOnLargeHeap(t *testing.T) {
 
 	const numTimers = 500
 
-	// Schedule many timers
+	// Schedule many timers with long delays so they don't fire during cancellation
 	timerIDs := make([]TimerID, numTimers)
 	for i := 0; i < numTimers; i++ {
-		id, err := loop.ScheduleTimer(time.Duration(100+i)*time.Millisecond, func() {})
+		id, err := loop.ScheduleTimer(time.Duration(10+i)*time.Second, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer %d failed: %v", i, err)
 		}

@@ -348,7 +348,7 @@ The eventloop implementation demonstrates **moderate robustness** with several a
 - Shutdown path has deadlock potential
 - 23 outstanding TODO/FIXME/HACK markers
 
-**Overall Assessment**: 
+**Overall Assessment**:
 The eventloop is **suitable for production** but with caveats. The identified issues are primarily in edge cases and testing infrastructure. The core loop behavior is sound and has been validated through extensive testing.
 
 **Recommended Next Steps**:

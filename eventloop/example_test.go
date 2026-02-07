@@ -1,4 +1,3 @@
-
 package eventloop_test
 
 import (

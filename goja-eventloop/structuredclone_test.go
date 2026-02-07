@@ -160,19 +160,19 @@ func TestStructuredClone_PlainObject(t *testing.T) {
 		(function() {
 			var original = { name: "Alice", age: 30, active: true };
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new object
 			var isDifferent = original !== cloned;
-			
+
 			// Check values are same
 			var nameMatch = cloned.name === "Alice";
 			var ageMatch = cloned.age === 30;
 			var activeMatch = cloned.active === true;
-			
+
 			// Modify cloned and check original is unchanged
 			cloned.name = "Bob";
 			var originalUnchanged = original.name === "Alice";
-			
+
 			return isDifferent && nameMatch && ageMatch && activeMatch && originalUnchanged;
 		})()
 	`)
@@ -193,24 +193,24 @@ func TestStructuredClone_NestedObject(t *testing.T) {
 
 	result, err := adapter.runtime.RunString(`
 		(function() {
-			var original = { 
-				outer: { 
-					inner: { 
-						value: 42 
-					} 
-				} 
+			var original = {
+				outer: {
+					inner: {
+						value: 42
+					}
+				}
 			};
 			var cloned = structuredClone(original);
-			
+
 			// Check deep clone
 			var outerDifferent = original.outer !== cloned.outer;
 			var innerDifferent = original.outer.inner !== cloned.outer.inner;
 			var valueMatch = cloned.outer.inner.value === 42;
-			
+
 			// Modify nested and check original unchanged
 			cloned.outer.inner.value = 99;
 			var originalUnchanged = original.outer.inner.value === 42;
-			
+
 			return outerDifferent && innerDifferent && valueMatch && originalUnchanged;
 		})()
 	`)
@@ -233,27 +233,27 @@ func TestStructuredClone_Array(t *testing.T) {
 		(function() {
 			var original = [1, 2, 3, "four", true];
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new array
 			var isDifferent = original !== cloned;
-			
+
 			// Check Array.isArray
 			var isArray = Array.isArray(cloned);
-			
+
 			// Check length
 			var lengthMatch = cloned.length === 5;
-			
+
 			// Check values
-			var valuesMatch = cloned[0] === 1 && 
-				cloned[1] === 2 && 
-				cloned[2] === 3 && 
-				cloned[3] === "four" && 
+			var valuesMatch = cloned[0] === 1 &&
+				cloned[1] === 2 &&
+				cloned[2] === 3 &&
+				cloned[3] === "four" &&
 				cloned[4] === true;
-			
+
 			// Modify cloned and check original unchanged
 			cloned[0] = 999;
 			var originalUnchanged = original[0] === 1;
-			
+
 			return isDifferent && isArray && lengthMatch && valuesMatch && originalUnchanged;
 		})()
 	`)
@@ -276,16 +276,16 @@ func TestStructuredClone_NestedArray(t *testing.T) {
 		(function() {
 			var original = [{ id: 1 }, { id: 2 }, [3, 4, 5]];
 			var cloned = structuredClone(original);
-			
+
 			// Deep clone verification
 			var objDifferent = original[0] !== cloned[0];
 			var nestedArrDifferent = original[2] !== cloned[2];
 			var valuesMatch = cloned[0].id === 1 && cloned[1].id === 2 && cloned[2][1] === 4;
-			
+
 			// Modify and verify isolation
 			cloned[0].id = 999;
 			var originalUnchanged = original[0].id === 1;
-			
+
 			return objDifferent && nestedArrDifferent && valuesMatch && originalUnchanged;
 		})()
 	`)
@@ -308,20 +308,20 @@ func TestStructuredClone_Date(t *testing.T) {
 		(function() {
 			var original = new Date(1609459200000); // 2021-01-01 00:00:00 UTC
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new Date
 			var isDifferent = original !== cloned;
-			
+
 			// Check it's still a Date
 			var isDate = cloned instanceof Date;
-			
+
 			// Check same time value
 			var timeMatch = cloned.getTime() === 1609459200000;
-			
+
 			// Modify cloned and check original unchanged
 			cloned.setTime(0);
 			var originalUnchanged = original.getTime() === 1609459200000;
-			
+
 			return isDifferent && isDate && timeMatch && originalUnchanged;
 		})()
 	`)
@@ -344,20 +344,20 @@ func TestStructuredClone_RegExp(t *testing.T) {
 		(function() {
 			var original = /hello/gi;
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new RegExp
 			var isDifferent = original !== cloned;
-			
+
 			// Check it's still a RegExp
 			var isRegExp = cloned instanceof RegExp;
-			
+
 			// Check source and flags preserved
 			var sourceMatch = cloned.source === "hello";
 			var flagsMatch = cloned.flags === "gi";
-			
+
 			// Verify it works
 			var works = cloned.test("HELLO");
-			
+
 			return isDifferent && isRegExp && sourceMatch && flagsMatch && works;
 		})()
 	`)
@@ -383,27 +383,27 @@ func TestStructuredClone_Map(t *testing.T) {
 				["key2", { nested: true }]
 			]);
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new Map
 			var isDifferent = original !== cloned;
-			
+
 			// Check it's still a Map
 			var isMap = cloned instanceof Map;
-			
+
 			// Check size preserved
 			var sizeMatch = cloned.size === 2;
-			
+
 			// Check values
 			var key1Match = cloned.get("key1") === "value1";
 			var key2Match = cloned.get("key2") && cloned.get("key2").nested === true;
-			
+
 			// Check nested object is cloned (different reference)
 			var nestedDifferent = cloned.get("key2") !== original.get("key2");
-			
+
 			// Modify cloned and check original unchanged
 			cloned.set("key1", "modified");
 			var originalUnchanged = original.get("key1") === "value1";
-			
+
 			return isDifferent && isMap && sizeMatch && key1Match && key2Match && nestedDifferent && originalUnchanged;
 		})()
 	`)
@@ -427,28 +427,28 @@ func TestStructuredClone_Set(t *testing.T) {
 			var obj = { id: 1 };
 			var original = new Set([1, 2, "three", obj]);
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new Set
 			var isDifferent = original !== cloned;
-			
+
 			// Check it's still a Set
 			var isSet = cloned instanceof Set;
-			
+
 			// Check size preserved
 			var sizeMatch = cloned.size === 4;
-			
+
 			// Check primitives preserved
 			var has1 = cloned.has(1);
 			var has2 = cloned.has(2);
 			var has_three = cloned.has("three");
-			
+
 			// Note: the object is cloned, so it won't be strictly equal
 			// We just verify size includes it
-			
+
 			// Modify cloned and check original unchanged
 			cloned.add(999);
 			var originalUnchanged = original.size === 4;
-			
+
 			return isDifferent && isSet && sizeMatch && has1 && has2 && has_three && originalUnchanged;
 		})()
 	`)
@@ -471,21 +471,21 @@ func TestStructuredClone_CircularReference(t *testing.T) {
 		(function() {
 			var original = { name: "circular" };
 			original.self = original; // Create circular reference
-			
+
 			var cloned = structuredClone(original);
-			
+
 			// Check that it's a new object
 			var isDifferent = original !== cloned;
-			
+
 			// Check circular reference is preserved
 			var hasCircular = cloned.self === cloned;
-			
+
 			// Check original circular reference is still intact
 			var originalIntact = original.self === original;
-			
+
 			// Name is cloned correctly
 			var nameMatch = cloned.name === "circular";
-			
+
 			return isDifferent && hasCircular && originalIntact && nameMatch;
 		})()
 	`)
@@ -509,20 +509,20 @@ func TestStructuredClone_DeepCircularReference(t *testing.T) {
 			var a = { name: "a" };
 			var b = { name: "b", ref: a };
 			a.ref = b; // a -> b -> a (circular)
-			
+
 			var cloned = structuredClone(a);
-			
+
 			// Check structure is correct
 			var aNameMatch = cloned.name === "a";
 			var bNameMatch = cloned.ref.name === "b";
-			
+
 			// Check circular reference is preserved
 			var circular = cloned.ref.ref === cloned;
-			
+
 			// Check different from original
 			var aDifferent = cloned !== a;
 			var bDifferent = cloned.ref !== b;
-			
+
 			return aNameMatch && bNameMatch && circular && aDifferent && bDifferent;
 		})()
 	`)
@@ -563,18 +563,18 @@ func TestStructuredClone_ObjectWithFunction_SkipsFunction(t *testing.T) {
 
 	result, err := adapter.runtime.RunString(`
 		(function() {
-			var original = { 
+			var original = {
 				name: "test",
 				getValue: function() { return 42; }
 			};
 			var cloned = structuredClone(original);
-			
+
 			// Name should be cloned
 			var nameMatch = cloned.name === "test";
-			
+
 			// Function should be skipped (undefined in cloned)
 			var funcSkipped = cloned.getValue === undefined;
-			
+
 			return nameMatch && funcSkipped;
 		})()
 	`)
@@ -597,10 +597,10 @@ func TestStructuredClone_EmptyObject(t *testing.T) {
 		(function() {
 			var original = {};
 			var cloned = structuredClone(original);
-			
+
 			var isDifferent = original !== cloned;
 			var isEmpty = Object.keys(cloned).length === 0;
-			
+
 			return isDifferent && isEmpty;
 		})()
 	`)
@@ -623,11 +623,11 @@ func TestStructuredClone_EmptyArray(t *testing.T) {
 		(function() {
 			var original = [];
 			var cloned = structuredClone(original);
-			
+
 			var isDifferent = original !== cloned;
 			var isArray = Array.isArray(cloned);
 			var isEmpty = cloned.length === 0;
-			
+
 			return isDifferent && isArray && isEmpty;
 		})()
 	`)
@@ -650,11 +650,11 @@ func TestStructuredClone_EmptyMap(t *testing.T) {
 		(function() {
 			var original = new Map();
 			var cloned = structuredClone(original);
-			
+
 			var isDifferent = original !== cloned;
 			var isMap = cloned instanceof Map;
 			var isEmpty = cloned.size === 0;
-			
+
 			return isDifferent && isMap && isEmpty;
 		})()
 	`)
@@ -677,11 +677,11 @@ func TestStructuredClone_EmptySet(t *testing.T) {
 		(function() {
 			var original = new Set();
 			var cloned = structuredClone(original);
-			
+
 			var isDifferent = original !== cloned;
 			var isSet = cloned instanceof Set;
 			var isEmpty = cloned.size === 0;
-			
+
 			return isDifferent && isSet && isEmpty;
 		})()
 	`)
@@ -709,23 +709,23 @@ func TestStructuredClone_ComplexNested(t *testing.T) {
 				date: new Date(1000000000000),
 				regex: /test/i
 			};
-			
+
 			var cloned = structuredClone(original);
-			
+
 			// All should be different references
 			var arrayDiff = cloned.array !== original.array;
 			var mapDiff = cloned.map !== original.map;
 			var setDiff = cloned.set !== original.set;
 			var dateDiff = cloned.date !== original.date;
 			var regexDiff = cloned.regex !== original.regex;
-			
+
 			// Values should be preserved
 			var arrayOk = cloned.array[2].nested === "value";
 			var mapOk = cloned.map.get("key").data === 42;
 			var setOk = cloned.set.has(2);
 			var dateOk = cloned.date.getTime() === 1000000000000;
 			var regexOk = cloned.regex.test("TEST");
-			
+
 			return arrayDiff && mapDiff && setDiff && dateDiff && regexDiff &&
 				   arrayOk && mapOk && setOk && dateOk && regexOk;
 		})()
@@ -751,16 +751,16 @@ func TestStructuredClone_ArrayWithCircularMap(t *testing.T) {
 			var map = new Map();
 			map.set("array", arr);
 			arr.push(map); // arr[3] = map, which has arr
-			
+
 			var cloned = structuredClone(arr);
-			
+
 			// Verify structure
 			var isArray = Array.isArray(cloned);
 			var hasMap = cloned[3] instanceof Map;
-			
+
 			// Verify circular: cloned[3].get("array") should be cloned itself
 			var circular = cloned[3].get("array") === cloned;
-			
+
 			return isArray && hasMap && circular;
 		})()
 	`)

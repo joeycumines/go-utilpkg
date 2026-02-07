@@ -3,7 +3,6 @@ package gojaeventloop
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
@@ -249,9 +248,9 @@ func TestSymbolKeyFor_AfterMultipleFor(t *testing.T) {
 		let sym1 = Symbol.for('key1');
 		let sym2 = Symbol.for('key2');
 		let sym3 = Symbol.for('key3');
-		
-		Symbol.keyFor(sym1) === 'key1' && 
-		Symbol.keyFor(sym2) === 'key2' && 
+
+		Symbol.keyFor(sym1) === 'key1' &&
+		Symbol.keyFor(sym2) === 'key2' &&
 		Symbol.keyFor(sym3) === 'key3';
 	`)
 	if err != nil {
@@ -283,12 +282,8 @@ func TestJSErrorTypes_ExistViaGoja(t *testing.T) {
 		t.Fatalf("Bind failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	go func() { _ = loop.Run(ctx) }()
-
 	// Test that all standard JS error types exist
+	// These are synchronous checks — no loop needed
 	errorTypes := []string{
 		"Error",
 		"TypeError",
@@ -329,12 +324,8 @@ func TestJSErrorTypes_CanThrow(t *testing.T) {
 		t.Fatalf("Bind failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	go func() { _ = loop.Run(ctx) }()
-
 	// Test that each error type can be thrown and caught
+	// These are synchronous checks — no loop needed
 	testCases := []struct {
 		errType     string
 		expectedMsg string
@@ -387,12 +378,8 @@ func TestJSErrorTypes_Instanceof(t *testing.T) {
 		t.Fatalf("Bind failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	go func() { _ = loop.Run(ctx) }()
-
 	// Test that each error type is instanceof Error
+	// These are synchronous checks — no loop needed
 	errorTypes := []string{
 		"TypeError",
 		"RangeError",

@@ -33,21 +33,21 @@ import (
     "context"
     "fmt"
     "time"
-    
+
     "github.com/joeycumines/go-eventloop"
 )
 
 func main() {
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    
+
     loop := eventloop.New()
-    
+
     // Schedule a timer
     loop.ScheduleTimer(100*time.Millisecond, func() {
         fmt.Println("Timer fired!")
     })
-    
+
     // Run the loop
     loop.Run(ctx)
 }

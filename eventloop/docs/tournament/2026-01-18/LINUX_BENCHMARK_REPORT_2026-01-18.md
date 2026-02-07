@@ -53,7 +53,7 @@ All tests pass on Linux (epoll-based) and the Main implementation outperforms th
 Main:           73.51 ns/op (14.6M ops)
 Baseline:       144.2 ns/op (7.3M ops)
 AlternateOne:   86.07 ns/op
-AlternateTwo:   112.3 ns/op  
+AlternateTwo:   112.3 ns/op
 AlternateThree: 394.0 ns/op
 ```
 

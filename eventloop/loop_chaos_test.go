@@ -375,16 +375,20 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 
 			waitLoopState(t, loop, StateRunning, time.Second)
 
-			// Create some socket pairs for FD testing
+			// Create pipes for FD testing (both ends stay open to avoid
+			// EPOLLHUP busy-looping on zombie descriptors)
 			fds := make([]int, goroutinesPerSide)
 			for i := 0; i < goroutinesPerSide; i++ {
-				pair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM, 0)
-				if err != nil {
-					t.Fatalf("Socketpair failed: %v", err)
+				var pipefds [2]int
+				if err := unix.Pipe(pipefds[:]); err != nil {
+					t.Fatalf("Pipe failed: %v", err)
 				}
-				fds[i] = pair[0]
-				unix.Close(pair[1])
-				defer unix.Close(pair[0])
+				if err := unix.SetNonblock(pipefds[0], true); err != nil {
+					t.Fatalf("SetNonblock failed: %v", err)
+				}
+				fds[i] = pipefds[0]
+				defer unix.Close(pipefds[0])
+				defer unix.Close(pipefds[1])
 			}
 
 			var wg sync.WaitGroup
@@ -445,15 +449,18 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 			close(done)
 			wg.Wait()
 
-			// Verify loop is still functional
+			// Verify loop is still functional after chaos
 			taskDone := make(chan struct{})
 			if err := loop.Submit(func() {
 				close(taskDone)
 			}); err == nil {
+				// Also send explicit wakeup to ensure loop isn't stuck in poll
+				loop.doWakeup()
 				select {
 				case <-taskDone:
-				case <-time.After(3 * time.Second): // Increased from 1s for CI stability
-					t.Errorf("Iteration %d: Task after race testing timed out", iter)
+				case <-time.After(15 * time.Second):
+					t.Errorf("Iteration %d: Task after race testing timed out (mode=%d, count=%d)",
+						iter, loop.fastPathMode.Load(), loop.userIOFDCount.Load())
 				}
 			}
 

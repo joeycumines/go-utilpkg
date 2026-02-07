@@ -6,11 +6,11 @@ See the [API docs](https://pkg.go.dev/github.com/joeycumines/goja-eventloop).
 
 ## Features
 
-- **Full JavaScript Timer APIs**: `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`
-- **Microtask Support**: `queueMicrotask` with correct priority semantics
-- **Promise Integration**: Native `Promise` constructor with `then`/`catch`/`finally`
-- **Promise Combinators**: Access to `All`, `Race`, `AllSettled`, `Any` from Go
-- **Thread-Safe Coordination**: Proper synchronization between Goja and event loop threads
+- **56+ JavaScript APIs** bound as globals — timers, promises, abort, performance, console, crypto, URL, encoding, and more
+- **Promise/A+** implementation integrated with the Go event loop's microtask queue
+- **ES2024/ES2025** features: `Promise.withResolvers()`, `Promise.try()`
+- **Cross-platform** — runs on Linux (epoll), macOS (kqueue), and Windows (IOCP)
+- **Thread-safe** coordination between Goja and the event loop
 
 ## Installation
 
@@ -18,18 +18,15 @@ See the [API docs](https://pkg.go.dev/github.com/joeycumines/goja-eventloop).
 go get github.com/joeycumines/goja-eventloop
 ```
 
-## Usage
-
-### Basic Setup
+## Quick Start
 
 ```go
 package main
 
 import (
     "context"
-    "fmt"
     "time"
-    
+
     "github.com/dop251/goja"
     eventloop "github.com/joeycumines/go-eventloop"
     gojaeventloop "github.com/joeycumines/goja-eventloop"
@@ -38,222 +35,234 @@ import (
 func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    
-    // Create event loop and Goja runtime
-    loop := eventloop.New()
+
+    loop, _ := eventloop.New()
+    defer loop.Shutdown(context.Background())
     runtime := goja.New()
-    
-    // Create adapter and bind JavaScript globals
-    adapter, err := gojaeventloop.New(loop, runtime)
-    if err != nil {
-        panic(err)
-    }
-    if err := adapter.Bind(); err != nil {
-        panic(err)
-    }
-    
-    // JavaScript code now has access to async APIs
-    _, err = runtime.RunString(`
-        console.log("Starting...");
-        
-        setTimeout(() => {
-            console.log("Hello after 100ms!");
-        }, 100);
-        
-        queueMicrotask(() => {
-            console.log("Microtask runs before timer");
-        });
-        
-        new Promise((resolve) => {
-            resolve(42);
-        }).then((value) => {
-            console.log("Promise resolved with:", value);
-        });
+
+    adapter, _ := gojaeventloop.New(loop, runtime)
+    adapter.Bind()
+
+    runtime.RunString(`
+        setTimeout(() => console.log("Hello after 100ms!"), 100);
+        queueMicrotask(() => console.log("Microtask runs first"));
+        new Promise(resolve => resolve(42))
+            .then(v => console.log("Promise:", v));
     `)
-    if err != nil {
-        panic(err)
-    }
-    
-    // Run the event loop to process callbacks
+
     loop.Run(ctx)
 }
 ```
 
-### Using Timers from JavaScript
+## Complete API Reference
 
-```javascript
-// setTimeout returns a timer ID
-const id = setTimeout(() => {
-    console.log("Timer fired!");
-}, 1000);
+After calling `adapter.Bind()`, the following globals are available in JavaScript.
 
-// clearTimeout cancels the timer
-clearTimeout(id);
+### Timers
 
-// setInterval fires repeatedly
-const intervalId = setInterval(() => {
-    console.log("Tick!");
-}, 100);
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `setTimeout` | `(fn, delay?) → number` | Schedule one-time callback after `delay` ms |
+| `clearTimeout` | `(id)` | Cancel a scheduled timeout |
+| `setInterval` | `(fn, delay?) → number` | Schedule repeating callback every `delay` ms |
+| `clearInterval` | `(id)` | Cancel a scheduled interval |
+| `setImmediate` | `(fn) → number` | Schedule callback after I/O events (Node.js-style) |
+| `clearImmediate` | `(id)` | Cancel a scheduled immediate |
+| `delay` | `(ms) → Promise` | Returns a Promise that resolves after `ms` milliseconds |
 
-// clearInterval stops the interval
-setTimeout(() => {
-    clearInterval(intervalId);
-}, 550); // Stop after ~5 ticks
-```
+### Microtasks
 
-### Promises from JavaScript
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `queueMicrotask` | `(fn)` | Queue a microtask (runs before next macrotask) |
+| `process.nextTick` | `(fn)` | Node.js-style microtask scheduling |
 
-#### Creating Promises
+### Promises
 
-```javascript
-// Create a promise
-const promise = new Promise((resolve, reject) => {
-    setTimeout(() => {
-        resolve("Success!");
-    }, 100);
-});
+The adapter **overrides** Goja's native `Promise` with an event-loop-integrated implementation.
 
-// Chain handlers
-promise
-    .then((value) => {
-        console.log("Got:", value);
-        return value.toUpperCase();
-    })
-    .then((upper) => {
-        console.log("Upper:", upper);
-    })
-    .catch((error) => {
-        console.log("Error:", error);
-    })
-    .finally(() => {
-        console.log("Cleanup");
-    });
-```
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new Promise` | `(executor) → Promise` | Create a promise with `resolve`/`reject` callbacks |
+| `.then` | `(onFulfilled?, onRejected?) → Promise` | Attach fulfillment/rejection handlers |
+| `.catch` | `(onRejected?) → Promise` | Attach a rejection handler |
+| `.finally` | `(onFinally?) → Promise` | Attach a handler invoked on settlement |
+| `Promise.resolve` | `(value) → Promise` | Create an already-fulfilled promise |
+| `Promise.reject` | `(reason) → Promise` | Create an already-rejected promise |
+| `Promise.all` | `(iterable) → Promise` | Resolve when all resolve; reject on first rejection |
+| `Promise.race` | `(iterable) → Promise` | Settle with the first to settle |
+| `Promise.allSettled` | `(iterable) → Promise` | Resolve when all settle with `{status, value/reason}` |
+| `Promise.any` | `(iterable) → Promise` | First to resolve wins; `AggregateError` if all reject |
+| `Promise.withResolvers` | `() → {promise, resolve, reject}` | ES2024 — deferred promise pattern |
+| `Promise.try` | `(fn) → Promise` | ES2025 — wraps sync/async call in a Promise |
 
-#### Promise Static Methods
+### AbortController / AbortSignal
 
-```javascript
-// Resolve with a value
-Promise.resolve(42).then(value => console.log(value));
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new AbortController` | `()` | Create a controller with `.signal` and `.abort(reason?)` |
+| `AbortSignal.any` | `(signals) → AbortSignal` | Composite signal — aborts when any input aborts |
+| `AbortSignal.timeout` | `(ms) → AbortSignal` | Signal that auto-aborts after `ms` milliseconds |
+| `signal.aborted` | getter | Whether the signal has been aborted |
+| `signal.reason` | getter | The abort reason |
+| `signal.onabort` | setter/getter | Handler for `"abort"` events |
+| `signal.addEventListener` | `(type, fn)` | Listen for `"abort"` events |
+| `signal.throwIfAborted` | `()` | Throws if already aborted |
 
-// Reject with a reason
-Promise.reject(new Error("failed")).catch(err => console.log(err.message));
+### Performance API
 
-// These create promises that are already settled without waiting
-```
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `performance.now` | `() → number` | High-resolution elapsed time (ms) from loop origin |
+| `performance.timeOrigin` | getter | UNIX timestamp (ms) when the loop was created |
+| `performance.mark` | `(name, options?) → PerformanceMark` | Create a named performance mark |
+| `performance.measure` | `(name, start?, end?) → PerformanceMeasure` | Measure duration between marks |
+| `performance.getEntries` | `() → PerformanceEntry[]` | Get all recorded entries |
+| `performance.getEntriesByType` | `(type) → PerformanceEntry[]` | Filter by `"mark"` or `"measure"` |
+| `performance.getEntriesByName` | `(name, type?) → PerformanceEntry[]` | Filter by name |
+| `performance.clearMarks` | `(name?)` | Clear marks (all or by name) |
+| `performance.clearMeasures` | `(name?)` | Clear measures (all or by name) |
+| `performance.toJSON` | `() → object` | Serialize performance data |
 
-### Promise Combinators from Go
+### Console
 
-```go
-// Create promises
-p1, resolve1, _ := adapter.JS().NewChainedPromise()
-p2, resolve2, _ := adapter.JS().NewChainedPromise()
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `console.time` | `(label?)` | Start a named timer |
+| `console.timeEnd` | `(label?)` | Stop timer and log elapsed time |
+| `console.timeLog` | `(label?, ...data)` | Log elapsed time without stopping |
+| `console.count` | `(label?)` | Increment and log a call counter |
+| `console.countReset` | `(label?)` | Reset the counter |
+| `console.assert` | `(condition, ...data)` | Log `"Assertion failed"` if falsy |
+| `console.table` | `(data, columns?)` | Render data as an ASCII table |
+| `console.group` | `(label?)` | Start an indented log group |
+| `console.groupCollapsed` | `(label?)` | Start a collapsed log group |
+| `console.groupEnd` | `()` | End current group |
+| `console.trace` | `(msg?)` | Print a stack trace |
+| `console.clear` | `()` | Simulate clearing the console |
+| `console.dir` | `(obj, options?)` | Formatted object inspection |
 
-// Resolve asynchronously
-go func() {
-    resolve1("first")
-    resolve2("second")
-}()
+> **Note:** `console.log`, `console.warn`, `console.error`, `console.info`, and `console.debug` are **not** provided by the adapter. Supply them yourself or use Goja's built-in if available.
 
-// Use combinators
-all := adapter.All([]*eventloop.ChainedPromise{p1, p2})
-race := adapter.Race([]*eventloop.ChainedPromise{p1, p2})
-settled := adapter.AllSettled([]*eventloop.ChainedPromise{p1, p2})
-any := adapter.Any([]*eventloop.ChainedPromise{p1, p2})
-```
+### Crypto
 
-### Promise Combinators from JavaScript
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `crypto.randomUUID` | `() → string` | Cryptographically random UUID v4 |
+| `crypto.getRandomValues` | `(typedArray) → typedArray` | Fill integer TypedArray with random bytes (max 65536 bytes) |
 
-```javascript
-// Promise.all - wait for all to resolve
-Promise.all([p1, p2, p3]).then(values => console.log(values));
+### Base64
 
-// Promise.race - first to settle wins
-Promise.race([p1, p2]).then(first => console.log(first));
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `atob` | `(encoded) → string` | Decode base64 to Latin-1 string |
+| `btoa` | `(string) → string` | Encode Latin-1 string to base64 |
 
-// Promise.allSettled - wait for all to settle
-Promise.allSettled([p1, p2]).then(results => console.log(results));
+### Events
 
-// Promise.any - first to resolve wins
-Promise.any([p1, p2, p3]).then(value => console.log(value));
-```
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new EventTarget` | `()` | Create event target with `addEventListener`/`removeEventListener`/`dispatchEvent` |
+| `new Event` | `(type, options?)` | Create event with `bubbles`, `cancelable` |
+| `new CustomEvent` | `(type, options?)` | Create event with `detail` property |
 
-#### AggregateError
+### URL
 
-`Promise.any` throws `AggregateError` when ALL input promises reject. The error contains all rejection reasons:
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new URL` | `(url, base?)` | WHATWG URL parser (all standard properties + `searchParams`) |
+| `new URLSearchParams` | `(init?)` | Query string builder with `append`/`delete`/`get`/`getAll`/`has`/`set`/`sort`/`forEach`/`size` |
 
-```javascript
-Promise.any([
-  Promise.reject(new Error("error 1")),
-  Promise.reject(new Error("error 2"))
-]).catch(err => {
-  console.error("All failed:", err.message);  // "All promises were rejected"
-  console.error("Reasons:", err.errors);   // [Error: error 1, Error: error 2]
-});
-```
+### Encoding
 
-### Accessing Components
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new TextEncoder` | `()` | UTF-8 encoder: `encode(string)` → `Uint8Array`, `encodeInto(src, dest)` |
+| `new TextDecoder` | `(encoding?, options?)` | UTF-8 decoder: `decode(input?)` with `fatal`/`ignoreBOM` options |
 
-```go
-// Get the underlying JS adapter for Go-level timer/promise access
-js := adapter.JS()
-js.SetTimeout(func() {
-    fmt.Println("Go callback!")
-}, 100)
+### Blob
 
-// Get the Goja runtime for script execution
-runtime := adapter.Runtime()
-runtime.RunString(`console.log("Hello from JS!")`)
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new Blob` | `(parts?, options?)` | Binary data container: `size`, `type`, `text()`, `arrayBuffer()`, `slice()` |
 
-// Get the event loop for advanced control
-loop := adapter.Loop()
-```
+> **Note:** `blob.stream()` returns `undefined` — ReadableStream is intentionally not implemented. Use `text()` or `arrayBuffer()` instead.
+
+### Web Storage
+
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `localStorage` | object | In-memory storage: `getItem`/`setItem`/`removeItem`/`clear`/`key`/`length` |
+| `sessionStorage` | object | Separate in-memory storage instance (same API) |
+
+### HTTP Primitives
+
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new Headers` | `(init?)` | HTTP headers: `append`/`delete`/`get`/`getSetCookie`/`has`/`set`/`entries`/`keys`/`values`/`forEach` |
+| `new FormData` | `()` | Form data (string-only): `append`/`delete`/`get`/`getAll`/`has`/`set`/`entries`/`keys`/`values`/`forEach` |
+
+### DOMException
+
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `new DOMException` | `(message?, name?)` | DOM exception with `message`, `name`, `code`, `toString()` |
+
+Static constants: `INDEX_SIZE_ERR` (1), `HIERARCHY_REQUEST_ERR` (3), `INVALID_CHARACTER_ERR` (5), `NOT_SUPPORTED_ERR` (9), `INVALID_STATE_ERR` (11), `SYNTAX_ERR` (12), `TYPE_MISMATCH_ERR` (17), `SECURITY_ERR` (18), `NETWORK_ERR` (19), `ABORT_ERR` (20), `QUOTA_EXCEEDED_ERR` (22), `TIMEOUT_ERR` (23), `DATA_CLONE_ERR` (25).
+
+### Utility
+
+| API | Signature | Description |
+|-----|-----------|-------------|
+| `structuredClone` | `(value) → value` | Deep-clone objects, arrays, Date, RegExp, Map, Set (throws on functions) |
+| `Symbol.for` | `(key) → Symbol` | Global Symbol registry (Goja native, polyfilled if missing) |
+| `Symbol.keyFor` | `(sym) → string` | Reverse lookup in the global Symbol registry |
+
+## Goja-Native APIs
+
+These are provided by the [Goja](https://github.com/dop251/goja) JavaScript engine itself (ECMAScript 2020+):
+
+- **Primitives:** `Boolean`, `Number`, `String`, `BigInt`, `Symbol`
+- **Core:** `Object`, `Array`, `Function`, `Date`, `RegExp`, `JSON`, `Math`
+- **Errors:** `Error`, `TypeError`, `RangeError`, `ReferenceError`, `SyntaxError`, `URIError`, `AggregateError`
+- **Collections:** `Map`, `Set`, `WeakMap`, `WeakSet`
+- **Binary:** `ArrayBuffer`, `DataView`, `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`
+- **Metaprogramming:** `Proxy`, `Reflect`
+- **Memory:** `WeakRef`, `FinalizationRegistry`
+- **Global functions:** `parseInt`, `parseFloat`, `isNaN`, `isFinite`, `eval`, `encodeURI`, `decodeURI`, `encodeURIComponent`, `decodeURIComponent`
+- **Modern syntax:** Arrow functions, classes, destructuring, template literals, optional chaining (`?.`), nullish coalescing (`??`)
+
+## Known Limitations
+
+| API | Status |
+|-----|--------|
+| `console.log/warn/error/info/debug` | Not provided — supply your own |
+| `fetch()` | Not provided (Headers/FormData available for future use) |
+| `ReadableStream` / Streams API | Intentionally omitted |
+| `Worker` / `MessageChannel` | No threading model |
+| `Intl` | Partial (Goja has limited support) |
+| `File` / `FileReader` | Not provided (use Blob) |
+| `WebSocket` | Not provided |
 
 ## Thread Safety
 
 The adapter coordinates thread safety between:
 
-1. **Goja Runtime**: Not thread-safe; should only be accessed from one goroutine
-2. **Event Loop**: Processes callbacks on its own thread
-3. **Go Code**: Can schedule timers/promises from any goroutine
-4. **Promise APIs**: Fully thread-safe; `then`, `catch`, `finally`, `resolve`, `reject` can be called from any goroutine
+1. **Goja Runtime** — Not thread-safe; access from one goroutine only
+2. **Event Loop** — Processes callbacks on its own goroutine
+3. **Go Code** — Can schedule timers/promises from any goroutine via `loop.Submit()`
+4. **Promise APIs** — `then`, `catch`, `finally`, `resolve`, `reject` are thread-safe
 
-After calling `Bind()`, JavaScript callbacks execute on the event loop thread. The Goja runtime should be accessed from the same thread (typically via `loop.Submit()` or from within callbacks).
+After calling `Bind()`, JavaScript callbacks execute on the event loop goroutine.
+Access the Goja runtime from within callbacks or via `loop.Submit()`, **never**
+concurrently from a separate goroutine.
 
-### ClearInterval Safety
-
-`clearInterval` is safe to call from any goroutine, including from within the interval's own callback. The current execution will complete, and no further executions will occur:
-
-```javascript
-const id = setInterval(() => {
-    console.log("Tick");
-    clearInterval(id); // Safe: current tick completes, no more ticks
-}, 1000);
-```
-
-## Binding Reference
-
-After calling `adapter.Bind()`, the following globals are available in JavaScript:
-
-| Global | Signature | Description |
-|--------|-----------|-------------|
-| `setTimeout` | `(fn, delay?) → number` | Schedule one-time callback |
-| `clearTimeout` | `(id)` | Cancel scheduled timeout |
-| `setInterval` | `(fn, delay?) → number` | Schedule repeating callback |
-| `clearInterval` | `(id)` | Cancel scheduled interval |
-| `queueMicrotask` | `(fn)` | Schedule high-priority callback |
-| `Promise` | `new Promise((resolve, reject) => ...)` | Create async promise || `Promise.resolve` | `(value) → promise` | Create already-fulfilled promise |
-| `Promise.reject` | `(reason) → promise` | Create already-rejected promise |
-| `Promise.all` | `(iterable) → promise` | Wait for all to resolve |
-| `Promise.race` | `(iterable) → promise` | First to settle wins |
-| `Promise.allSettled` | `(iterable) → promise` | Wait for all to settle |
-| `Promise.any` | `(iterable) → promise` | First to resolve wins |
 ## Requirements
 
-- Go 1.21+
-- github.com/dop251/goja
-- github.com/joeycumines/go-eventloop
+- Go 1.25+
+- [github.com/dop251/goja](https://github.com/dop251/goja)
+- [github.com/joeycumines/go-eventloop](https://pkg.go.dev/github.com/joeycumines/go-eventloop)
 
 ## License
 
-MIT License - see [LICENSE](../LICENSE) for details.
+MIT License — see [LICENSE](../LICENSE) for details.

@@ -36,13 +36,13 @@ func TestWrappedPromiseAsRejectReason(t *testing.T) {
 		(async () => {
 			const p1 = Promise.resolve(42);
 			const p2 = Promise.reject(p1);
-			
+
 			// Chain catch handler that receives the wrapped promise
 			const p3 = p2.catch(reason => {
 				// reason should be the wrapped promise object (p1)
 				return reason.then(v => v + 100);
 			});
-			
+
 			const result = await p3;
 			return result === 142;  // 42 + 100 = 142
 		})()

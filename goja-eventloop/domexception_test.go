@@ -96,8 +96,8 @@ func TestDOMException_WithMessage(t *testing.T) {
 	result, err := adapter.runtime.RunString(`
 		(function() {
 			var ex = new DOMException('Something went wrong');
-			return ex.message === 'Something went wrong' && 
-				ex.name === 'Error' && 
+			return ex.message === 'Something went wrong' &&
+				ex.name === 'Error' &&
 				ex.code === 0;
 		})()
 	`)
@@ -117,8 +117,8 @@ func TestDOMException_WithMessageAndName(t *testing.T) {
 	result, err := adapter.runtime.RunString(`
 		(function() {
 			var ex = new DOMException('Invalid state', 'InvalidStateError');
-			return ex.message === 'Invalid state' && 
-				ex.name === 'InvalidStateError' && 
+			return ex.message === 'Invalid state' &&
+				ex.name === 'InvalidStateError' &&
 				ex.code === 11; // InvalidStateError = 11
 		})()
 	`)
@@ -314,9 +314,9 @@ func TestDOMException_InstanceProperties(t *testing.T) {
 	result, err := adapter.runtime.RunString(`
 		(function() {
 			var ex = new DOMException('Test', 'NotFoundError');
-			return 'message' in ex && 
-				'name' in ex && 
-				'code' in ex && 
+			return 'message' in ex &&
+				'name' in ex &&
+				'code' in ex &&
 				'toString' in ex;
 		})()
 	`)
@@ -356,8 +356,8 @@ func TestDOMException_CatchAndCheckProperties(t *testing.T) {
 			try {
 				throw new DOMException('Caught this', 'AbortError');
 			} catch (e) {
-				return e.message === 'Caught this' && 
-					e.name === 'AbortError' && 
+				return e.message === 'Caught this' &&
+					e.name === 'AbortError' &&
 					e.code === 20;
 			}
 		})()
@@ -478,11 +478,11 @@ func TestDOMException_MultipleInstances(t *testing.T) {
 		(function() {
 			var ex1 = new DOMException('first', 'NotFoundError');
 			var ex2 = new DOMException('second', 'TimeoutError');
-			
+
 			var different = ex1 !== ex2;
 			var ex1Correct = ex1.message === 'first' && ex1.name === 'NotFoundError' && ex1.code === 8;
 			var ex2Correct = ex2.message === 'second' && ex2.name === 'TimeoutError' && ex2.code === 23;
-			
+
 			return different && ex1Correct && ex2Correct;
 		})()
 	`)

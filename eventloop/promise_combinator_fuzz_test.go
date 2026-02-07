@@ -1,4 +1,3 @@
-
 // Copyright 2026 Joseph Cumines
 //
 // Permission to use, copy, modify, and distribute this software for any
@@ -87,14 +86,19 @@ func FuzzPromiseAll(f *testing.F) {
 
 		result := js.All(promises)
 
+		// Pre-compute random delays to avoid concurrent rng access
+		delays := make([]time.Duration, count)
+		for i := 0; i < count; i++ {
+			delays[i] = time.Duration(rng.Intn(maxDelayUs)) * time.Microsecond
+		}
+
 		// Resolve in random order with random delays
 		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				delay := time.Duration(rng.Intn(maxDelayUs)) * time.Microsecond
-				time.Sleep(delay)
+				time.Sleep(delays[idx])
 				resolvers[idx](fmt.Sprintf("value-%d", idx))
 			}(i)
 		}
@@ -318,14 +322,19 @@ func FuzzPromiseAllSettled(f *testing.F) {
 
 		result := js.AllSettled(promises)
 
+		// Pre-compute random delays to avoid concurrent rng access
+		delays := make([]time.Duration, count)
+		for i := 0; i < count; i++ {
+			delays[i] = time.Duration(rng.Intn(maxDelayUs)) * time.Microsecond
+		}
+
 		// Settle all promises with random delays
 		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				delay := time.Duration(rng.Intn(maxDelayUs)) * time.Microsecond
-				time.Sleep(delay)
+				time.Sleep(delays[idx])
 				if shouldReject[idx] {
 					rejecters[idx](fmt.Errorf("error-%d", idx))
 				} else {
@@ -450,18 +459,22 @@ func FuzzPromiseAny(f *testing.F) {
 
 		result := js.Any(promises)
 
-		// Settle all promises with random delays
+		// Pre-compute random delays to avoid concurrent rng access
 		// Make the first resolver faster to ensure it wins
+		delays := make([]time.Duration, count)
+		for i := 0; i < count; i++ {
+			delays[i] = time.Duration(rng.Intn(maxDelayUs)+5) * time.Microsecond
+			if willResolve[i] && i == resolveIndices[0] {
+				delays[i] = time.Microsecond // Fastest resolver
+			}
+		}
+
 		var wg sync.WaitGroup
 		for i := 0; i < count; i++ {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
-				delay := time.Duration(rng.Intn(maxDelayUs)+5) * time.Microsecond
-				if willResolve[idx] && idx == resolveIndices[0] {
-					delay = time.Microsecond // Fastest resolver
-				}
-				time.Sleep(delay)
+				time.Sleep(delays[idx])
 				if willResolve[idx] {
 					resolvers[idx](fmt.Sprintf("success-%d", idx))
 				} else {
@@ -891,6 +904,12 @@ func FuzzPromiseCombinator_MixedOperations(f *testing.F) {
 			}
 		}
 
+		// Pre-compute random delays to avoid concurrent rng access
+		delays := make([]time.Duration, len(resolvers))
+		for i := range delays {
+			delays[i] = time.Duration(rng.Intn(100)) * time.Microsecond
+		}
+
 		// Resolve all base promises
 		var wg sync.WaitGroup
 		for i := 0; i < len(resolvers); i++ {
@@ -898,7 +917,7 @@ func FuzzPromiseCombinator_MixedOperations(f *testing.F) {
 			go func(idx int) {
 				defer wg.Done()
 				if idx < len(resolvers) && resolvers[idx] != nil {
-					time.Sleep(time.Duration(rng.Intn(100)) * time.Microsecond)
+					time.Sleep(delays[idx])
 					resolvers[idx](fmt.Sprintf("value-%d", idx))
 				}
 			}(i)

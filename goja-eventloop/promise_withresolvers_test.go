@@ -176,16 +176,16 @@ func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
 		var r1 = Promise.withResolvers();
 		var r2 = Promise.withResolvers();
 		var r3 = Promise.withResolvers();
-		
+
 		// Each should be independent
 		if (r1.promise === r2.promise) throw new Error("r1 and r2 should be different");
 		if (r2.promise === r3.promise) throw new Error("r2 and r3 should be different");
-		
+
 		var results = [];
 		r1.promise.then(function(v) { results.push("r1:" + v); });
 		r2.promise.then(function(v) { results.push("r2:" + v); });
 		r3.promise.then(function(v) { results.push("r3:" + v); });
-		
+
 		r2.resolve("two");
 		r1.resolve("one");
 		r3.resolve("three");
@@ -408,15 +408,15 @@ func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
 
 	_, err = rt.RunString(`
 		var results = [];
-		
+
 		var r1 = Promise.withResolvers();
 		r1.promise.then(function(v) { results.push(v === null ? "null" : "not null"); });
 		r1.resolve(null);
-		
+
 		var r2 = Promise.withResolvers();
 		r2.promise.then(function(v) { results.push(v === undefined ? "undefined" : "not undefined"); });
 		r2.resolve(undefined);
-		
+
 		var r3 = Promise.withResolvers();
 		r3.promise.then(function(v) { results.push("no-arg"); });
 		r3.resolve(); // No argument = undefined
@@ -457,15 +457,15 @@ func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
 
 	_, err = rt.RunString(`
 		var allResult = null;
-		
+
 		var r1 = Promise.withResolvers();
 		var r2 = Promise.withResolvers();
 		var r3 = Promise.withResolvers();
-		
+
 		Promise.all([r1.promise, r2.promise, r3.promise]).then(function(results) {
 			allResult = results;
 		});
-		
+
 		r1.resolve("a");
 		r2.resolve("b");
 		r3.resolve("c");
@@ -509,15 +509,15 @@ func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
 
 	_, err = rt.RunString(`
 		var raceResult = null;
-		
+
 		var r1 = Promise.withResolvers();
 		var r2 = Promise.withResolvers();
 		var r3 = Promise.withResolvers();
-		
+
 		Promise.race([r1.promise, r2.promise, r3.promise]).then(function(result) {
 			raceResult = result;
 		});
-		
+
 		r2.resolve("winner"); // r2 resolves first
 	`)
 	if err != nil {
@@ -556,7 +556,7 @@ func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
 	_, err = rt.RunString(`
 		var result = null;
 		var rejected = false;
-		
+
 		// Create a cancellable delay using withResolvers
 		function delay(ms) {
 			var r = Promise.withResolvers();
@@ -568,11 +568,11 @@ func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
 			};
 			return r;
 		}
-		
+
 		var timer = delay(1000);
 		timer.promise.then(function() { result = "completed"; });
 		timer.promise.catch(function() { rejected = true; });
-		
+
 		// Cancel immediately
 		timer.promise.cancel();
 	`)
@@ -617,12 +617,12 @@ func TestPromiseWithResolvers_Finally(t *testing.T) {
 	_, err = rt.RunString(`
 		var finallyCalled = false;
 		var thenCalled = false;
-		
+
 		var r = Promise.withResolvers();
 		r.promise
 			.then(function(v) { thenCalled = true; return v; })
 			.finally(function() { finallyCalled = true; });
-		
+
 		r.resolve("done");
 	`)
 	if err != nil {

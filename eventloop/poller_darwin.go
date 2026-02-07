@@ -135,18 +135,18 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 	}
 
 	p.fds[fd] = fdInfo{callback: cb, events: events, active: true}
-	p.fdMu.Unlock()
 
+	// Hold lock across Kevent to prevent race with concurrent UnregisterFD.
 	kevents := eventsToKevents(fd, events, unix.EV_ADD|unix.EV_ENABLE)
 	if len(kevents) > 0 {
 		_, err := unix.Kevent(int(p.kq), kevents, nil, nil)
 		if err != nil {
-			p.fdMu.Lock()
 			p.fds[fd] = fdInfo{} // Rollback
 			p.fdMu.Unlock()
 			return err
 		}
 	}
+	p.fdMu.Unlock()
 	return nil
 }
 
@@ -182,13 +182,15 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 	}
 
 	events := p.fds[fd].events
-	p.fds[fd] = fdInfo{}
-	p.fdMu.Unlock()
 
+	// Remove from kqueue while holding lock to prevent race with RegisterFD.
 	kevents := eventsToKevents(fd, events, unix.EV_DELETE)
 	if len(kevents) > 0 {
 		unix.Kevent(int(p.kq), kevents, nil, nil) // Ignore errors on delete
 	}
+
+	p.fds[fd] = fdInfo{}
+	p.fdMu.Unlock()
 	return nil
 }
 

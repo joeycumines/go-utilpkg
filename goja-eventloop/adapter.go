@@ -2516,7 +2516,7 @@ func (a *Adapter) delay(call goja.FunctionCall) goja.Value {
 // EXPAND-022: crypto.randomUUID() Binding
 // ===============================================
 
-// bindCrypto creates the crypto object with randomUUID method.
+// bindCrypto creates the crypto object with randomUUID and getRandomValues methods.
 func (a *Adapter) bindCrypto() error {
 	// Get or create crypto object
 	cryptoVal := a.runtime.Get("crypto")
@@ -2537,6 +2537,98 @@ func (a *Adapter) bindCrypto() error {
 			panic(a.runtime.NewGoError(err))
 		}
 		return a.runtime.ToValue(uuid)
+	}))
+
+	// crypto.getRandomValues(typedArray) - fills TypedArray with cryptographically random values
+	// Spec: https://www.w3.org/TR/WebCryptoAPI/#Crypto-method-getRandomValues
+	// Accepts any integer TypedArray (Int8Array, Uint8Array, Int16Array, Uint16Array,
+	// Int32Array, Uint32Array, Uint8ClampedArray, BigInt64Array, BigUint64Array).
+	// Throws TypeError if the argument is not an integer TypedArray.
+	// Throws a DOMException with name "QuotaExceededError" if byteLength > 65536.
+	// Returns the same TypedArray that was passed in.
+	cryptoObj.Set("getRandomValues", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panic(a.runtime.NewTypeError("Failed to execute 'getRandomValues' on 'Crypto': 1 argument required, but only 0 present."))
+		}
+
+		arg := call.Argument(0)
+		if goja.IsUndefined(arg) || goja.IsNull(arg) {
+			panic(a.runtime.NewTypeError("Failed to execute 'getRandomValues' on 'Crypto': parameter 1 is not of type 'ArrayBufferView'."))
+		}
+
+		obj := arg.ToObject(a.runtime)
+
+		// Verify it's a TypedArray: must have 'buffer', 'byteLength', 'byteOffset', and 'BYTES_PER_ELEMENT'
+		bufferVal := obj.Get("buffer")
+		byteLengthVal := obj.Get("byteLength")
+		bytesPerElementVal := obj.Get("BYTES_PER_ELEMENT")
+		if bufferVal == nil || goja.IsUndefined(bufferVal) ||
+			byteLengthVal == nil || goja.IsUndefined(byteLengthVal) ||
+			bytesPerElementVal == nil || goja.IsUndefined(bytesPerElementVal) {
+			panic(a.runtime.NewTypeError("Failed to execute 'getRandomValues' on 'Crypto': parameter 1 is not of type 'ArrayBufferView'."))
+		}
+
+		// Reject Float32Array and Float64Array (only integer typed arrays allowed)
+		bytesPerElement := int(bytesPerElementVal.ToInteger())
+		constructorObj := obj.Get("constructor")
+		if constructorObj != nil && !goja.IsUndefined(constructorObj) {
+			nameVal := constructorObj.ToObject(a.runtime).Get("name")
+			if nameVal != nil {
+				name := nameVal.String()
+				if name == "Float32Array" || name == "Float64Array" {
+					panic(a.runtime.NewTypeError("Failed to execute 'getRandomValues' on 'Crypto': parameter 1 is not of type 'ArrayBufferView'."))
+				}
+			}
+		}
+
+		byteLength := int(byteLengthVal.ToInteger())
+
+		// QuotaExceededError if byteLength > 65536
+		if byteLength > 65536 {
+			panic(a.throwDOMException("QuotaExceededError", "Failed to execute 'getRandomValues' on 'Crypto': The ArrayBufferView's byte length ("+strconv.Itoa(byteLength)+") exceeds the number of bytes of entropy available via this API (65536)."))
+		}
+
+		// Get the underlying ArrayBuffer and fill with random bytes
+		bufferObj := bufferVal.ToObject(a.runtime)
+		exported := bufferObj.Export()
+
+		if ab, ok := exported.(goja.ArrayBuffer); ok {
+			// Direct access to backing slice
+			backingSlice := ab.Bytes()
+			byteOffset := 0
+			if offsetVal := obj.Get("byteOffset"); offsetVal != nil && !goja.IsUndefined(offsetVal) {
+				byteOffset = int(offsetVal.ToInteger())
+			}
+
+			// Fill the relevant portion with random bytes
+			if byteOffset+byteLength <= len(backingSlice) {
+				_, err := rand.Read(backingSlice[byteOffset : byteOffset+byteLength])
+				if err != nil {
+					panic(a.runtime.NewGoError(fmt.Errorf("crypto.getRandomValues: failed to generate random bytes: %w", err)))
+				}
+			}
+		} else {
+			// Fallback: write random bytes element by element
+			randomBytes := make([]byte, byteLength)
+			_, err := rand.Read(randomBytes)
+			if err != nil {
+				panic(a.runtime.NewGoError(fmt.Errorf("crypto.getRandomValues: failed to generate random bytes: %w", err)))
+			}
+
+			length := int(obj.Get("length").ToInteger())
+			for i := 0; i < length; i++ {
+				// Reconstruct the integer value from the random bytes
+				offset := i * bytesPerElement
+				var val int64
+				for b := 0; b < bytesPerElement && offset+b < len(randomBytes); b++ {
+					val |= int64(randomBytes[offset+b]) << (8 * b) // little-endian
+				}
+				obj.Set(strconv.Itoa(i), val)
+			}
+		}
+
+		// Return the same typed array
+		return arg
 	}))
 
 	return nil
@@ -4614,10 +4706,20 @@ func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
 		return blobObj
 	}))
 
-	// stream() - returns a ReadableStream (stub - returns undefined for now)
-	// Full ReadableStream implementation would require significant additional work
+	// stream() - returns undefined (ReadableStream not implemented)
+	//
+	// ReadableStream is intentionally NOT implemented. The full Streams API
+	// (https://streams.spec.whatwg.org/) requires backpressure management,
+	// queueing strategies, and a controller model that would add significant
+	// complexity for minimal practical benefit in this embedded JS context.
+	//
+	// Alternatives for consuming Blob data:
+	//   - blob.text()        → returns a Promise<string> of the Blob's UTF-8 content
+	//   - blob.arrayBuffer() → returns a Promise<ArrayBuffer> of the raw bytes
+	//   - blob.slice()       → returns a new Blob representing a subset of the data
+	//
+	// These cover the vast majority of Blob consumption use cases.
 	thisObj.Set("stream", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		// TODO: Implement ReadableStream when needed
 		return goja.Undefined()
 	}))
 
@@ -5288,6 +5390,22 @@ type domExceptionWrapper struct {
 	code    int
 }
 
+// throwDOMException creates a DOMException object and returns it as a goja.Value
+// suitable for use with panic() to throw it as a JS exception.
+func (a *Adapter) throwDOMException(name, message string) goja.Value {
+	domExCtor := a.runtime.Get("DOMException")
+	if domExCtor != nil && !goja.IsUndefined(domExCtor) {
+		if ctor, ok := goja.AssertConstructor(domExCtor); ok {
+			obj, err := ctor(nil, a.runtime.ToValue(message), a.runtime.ToValue(name))
+			if err == nil {
+				return obj
+			}
+		}
+	}
+	// Fallback if DOMException constructor is not available
+	return a.runtime.NewTypeError(name + ": " + message)
+}
+
 // domExceptionConstructor creates the DOMException constructor for JavaScript.
 // Usage: new DOMException(message?, name?)
 // message defaults to empty string, name defaults to "Error"
@@ -5411,7 +5529,7 @@ func (a *Adapter) bindSymbol() error {
 		(function() {
 			var symbolRegistry = {};
 			var keyRegistry = new Map(); // Symbol -> key mapping
-			
+
 			Symbol.for = function(key) {
 				if (key === undefined) {
 					throw new TypeError("Symbol.for requires a key argument");
@@ -5425,7 +5543,7 @@ func (a *Adapter) bindSymbol() error {
 				keyRegistry.set(sym, key);
 				return sym;
 			};
-			
+
 			Symbol.keyFor = function(sym) {
 				if (typeof sym !== 'symbol') {
 					throw new TypeError("Symbol.keyFor requires a Symbol argument");

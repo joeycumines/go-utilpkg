@@ -166,14 +166,14 @@ func TestAbortController_ThrowIfAborted(t *testing.T) {
 	// Test throwIfAborted
 	_, err = runtime.RunString(`
 		const controller = new AbortController();
-		
+
 		// Should not throw when not aborted
 		try {
 			controller.signal.throwIfAborted();
 		} catch (e) {
 			throw new Error("should not throw when not aborted");
 		}
-		
+
 		// Should throw after abort
 		controller.abort();
 		let didThrow = false;
@@ -255,7 +255,7 @@ func TestPerformance_Now(t *testing.T) {
 		if (t1 < 0) {
 			throw new Error("performance.now() should return non-negative value");
 		}
-		
+
 		// Second call should be >= first
 		const t2 = performance.now();
 		if (t2 < t1) {
@@ -387,7 +387,7 @@ func TestPerformance_Measure(t *testing.T) {
 	_, err = runtime.RunString(`
 		performance.mark("start");
 		performance.mark("end");
-		
+
 		const entry = performance.measure("test-measure", "start", "end");
 		if (!entry) {
 			throw new Error("measure() should return entry");
@@ -488,7 +488,7 @@ func TestPerformance_GetEntries(t *testing.T) {
 	_, err = runtime.RunString(`
 		performance.mark("mark1");
 		performance.mark("mark2");
-		
+
 		const entries = performance.getEntries();
 		if (!Array.isArray(entries)) {
 			throw new Error("getEntries() should return an array");
@@ -524,12 +524,12 @@ func TestPerformance_GetEntriesByType(t *testing.T) {
 		performance.mark("mark1");
 		performance.mark("mark2");
 		performance.measure("measure1", "mark1", "mark2");
-		
+
 		const marks = performance.getEntriesByType("mark");
 		if (marks.length !== 2) {
 			throw new Error("should have 2 marks");
 		}
-		
+
 		const measures = performance.getEntriesByType("measure");
 		if (measures.length !== 1) {
 			throw new Error("should have 1 measure");
@@ -562,12 +562,12 @@ func TestPerformance_GetEntriesByName(t *testing.T) {
 		performance.mark("target");
 		performance.mark("other");
 		performance.mark("target");
-		
+
 		const entries = performance.getEntriesByName("target");
 		if (entries.length !== 2) {
 			throw new Error("should have 2 entries named 'target'");
 		}
-		
+
 		// With type filter
 		const marks = performance.getEntriesByName("target", "mark");
 		if (marks.length !== 2) {
@@ -600,9 +600,9 @@ func TestPerformance_ClearMarks(t *testing.T) {
 	_, err = runtime.RunString(`
 		performance.mark("keep");
 		performance.mark("remove");
-		
+
 		performance.clearMarks("remove");
-		
+
 		const entries = performance.getEntriesByType("mark");
 		if (entries.length !== 1) {
 			throw new Error("should have 1 mark after clear");
@@ -637,9 +637,9 @@ func TestPerformance_ClearAllMarks(t *testing.T) {
 	_, err = runtime.RunString(`
 		performance.mark("mark1");
 		performance.mark("mark2");
-		
+
 		performance.clearMarks();
-		
+
 		const entries = performance.getEntriesByType("mark");
 		if (entries.length !== 0) {
 			throw new Error("should have 0 marks after clear all, got " + entries.length);
@@ -673,9 +673,9 @@ func TestPerformance_ClearMeasures(t *testing.T) {
 		performance.mark("end");
 		performance.measure("keep", "start", "end");
 		performance.measure("remove", "start", "end");
-		
+
 		performance.clearMeasures("remove");
-		
+
 		const measures = performance.getEntriesByType("measure");
 		if (measures.length !== 1) {
 			throw new Error("should have 1 measure after clear");
@@ -782,18 +782,18 @@ func TestPerformance_Integration(t *testing.T) {
 	_, err = runtime.RunString(`
 		// Simulate async operation with performance measurement
 		performance.mark("operation-start");
-		
+
 		// ... simulate some work ...
-		
+
 		performance.mark("operation-end");
 		performance.measure("operation-duration", "operation-start", "operation-end");
-		
+
 		// Get results
 		const measures = performance.getEntriesByType("measure");
 		if (measures.length !== 1) {
 			throw new Error("should have 1 measure");
 		}
-		
+
 		const duration = measures[0].duration;
 		if (duration < 0) {
 			throw new Error("duration should be non-negative");
@@ -841,18 +841,18 @@ func TestAbortController_WithFetch(t *testing.T) {
 	_, err = runtime.RunString(`
 		const controller = new AbortController();
 		const signal = controller.signal;
-		
+
 		// Simulate a cancellable operation
 		let operationCompleted = false;
 		let operationAborted = false;
-		
+
 		signal.addEventListener('abort', function() {
 			operationAborted = true;
 		});
-		
+
 		// Abort immediately
 		controller.abort("User cancelled");
-		
+
 		// Check state
 		if (!signal.aborted) {
 			throw new Error("signal should be aborted");
@@ -895,16 +895,16 @@ func TestAbortSignal_Any_Basic(t *testing.T) {
 	_, err = runtime.RunString(`
 		const c1 = new AbortController();
 		const c2 = new AbortController();
-		
+
 		const combined = AbortSignal.any([c1.signal, c2.signal]);
-		
+
 		if (combined.aborted) {
 			throw new Error("combined should not be aborted initially");
 		}
-		
+
 		// Abort first controller
 		c1.abort("first reason");
-		
+
 		if (!combined.aborted) {
 			throw new Error("combined should be aborted after c1 aborts");
 		}
@@ -935,12 +935,12 @@ func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
 	_, err = runtime.RunString(`
 		const c1 = new AbortController();
 		const c2 = new AbortController();
-		
+
 		// Abort c1 before creating combined
 		c1.abort("pre-aborted");
-		
+
 		const combined = AbortSignal.any([c1.signal, c2.signal]);
-		
+
 		if (!combined.aborted) {
 			throw new Error("combined should be immediately aborted");
 		}
@@ -970,7 +970,7 @@ func TestAbortSignal_Any_Empty(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const combined = AbortSignal.any([]);
-		
+
 		if (combined.aborted) {
 			throw new Error("combined with empty array should not be aborted");
 		}
@@ -1010,16 +1010,16 @@ func TestAbortSignal_Any_OnAbort(t *testing.T) {
 	_, err = runtime.RunString(`
 		const c1 = new AbortController();
 		const c2 = new AbortController();
-		
+
 		const combined = AbortSignal.any([c1.signal, c2.signal]);
-		
+
 		let handlerCalled = false;
 		combined.onabort = function(reason) {
 			handlerCalled = true;
 		};
-		
+
 		c2.abort("test");
-		
+
 		if (!handlerCalled) {
 			throw new Error("onabort handler should have been called");
 		}
@@ -1065,7 +1065,7 @@ func TestAbortSignal_Timeout_Basic(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const signal = AbortSignal.timeout(50);
-		
+
 		if (signal.aborted) {
 			throw new Error("signal should not be aborted immediately");
 		}
@@ -1114,12 +1114,12 @@ func TestAbortSignal_Timeout_Fires(t *testing.T) {
 	_, err = runtime.RunString(`
 		let resolve;
 		const promise = new Promise(r => { resolve = r; });
-		
+
 		const signal = AbortSignal.timeout(30);
 		signal.onabort = function() {
 			resolve(signal.aborted);
 		};
-		
+
 		testResolve = resolve;
 	`)
 	if err != nil {
@@ -1170,7 +1170,7 @@ func TestAbortSignal_Timeout_Zero(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		const signal = AbortSignal.timeout(0);
-		
+
 		// Should not throw
 		if (typeof signal.aborted !== 'boolean') {
 			throw new Error("signal.aborted should be a boolean");

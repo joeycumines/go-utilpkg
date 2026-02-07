@@ -93,7 +93,7 @@ func TestJSON_ParseWithReviver(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (obj.count !== 10) {
 			throw new Error("Expected count=10 (doubled), got " + obj.count);
 		}
@@ -132,7 +132,7 @@ func TestJSON_ParseWithReviverDate(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (!(obj.created instanceof Date)) {
 			throw new Error("Expected Date instance");
 		}
@@ -168,7 +168,7 @@ func TestJSON_StringifyWithReplacer(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		const parsed = JSON.parse(str);
 		if (parsed.public !== "visible") {
 			throw new Error("Expected public field");
@@ -206,7 +206,7 @@ func TestJSON_StringifyWithReplacerArray(t *testing.T) {
 		const obj = { a: 1, b: 2, c: 3 };
 		// Only include 'a' and 'c'
 		const str = JSON.stringify(obj, ["a", "c"]);
-		
+
 		const parsed = JSON.parse(str);
 		if (parsed.a !== 1) {
 			throw new Error("Expected a=1");
@@ -243,7 +243,7 @@ func TestJSON_StringifyWithSpace(t *testing.T) {
 	_, err = runtime.RunString(`
 		const obj = { name: "test" };
 		const pretty = JSON.stringify(obj, null, 2);
-		
+
 		// Should contain newlines and indentation
 		if (!pretty.includes("\n")) {
 			throw new Error("Expected pretty-printed output with newlines");
@@ -283,7 +283,7 @@ func TestJSON_ParseReviverTransformKey(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (!keys.includes("user_name")) {
 			throw new Error("Reviver should receive 'user_name' key");
 		}
@@ -321,7 +321,7 @@ func TestJSON_StringifyReplacerTransformValue(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (!str.includes("100_transformed")) {
 			throw new Error("Expected transformed value in output: " + str);
 		}
@@ -356,7 +356,7 @@ func TestJSON_ParseReviverNested(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (obj.outer.inner.value !== 50) {
 			throw new Error("Expected nested value=50, got " + obj.outer.inner.value);
 		}
@@ -391,7 +391,7 @@ func TestJSON_ParseReviverArray(t *testing.T) {
 			}
 			return value;
 		});
-		
+
 		if (arr[0] !== 2 || arr[1] !== 4 || arr[2] !== 6) {
 			throw new Error("Expected [2, 4, 6], got " + JSON.stringify(arr));
 		}
@@ -427,12 +427,12 @@ func TestJSON_StringifyPrimitives(t *testing.T) {
 		if (JSON.stringify("hello") !== '"hello"') {
 			throw new Error("String stringify failed: " + JSON.stringify("hello"));
 		}
-		
+
 		// Number
 		if (JSON.stringify(42) !== '42') {
 			throw new Error("Number stringify failed");
 		}
-		
+
 		// Boolean
 		if (JSON.stringify(true) !== 'true') {
 			throw new Error("Boolean true stringify failed");
@@ -440,17 +440,17 @@ func TestJSON_StringifyPrimitives(t *testing.T) {
 		if (JSON.stringify(false) !== 'false') {
 			throw new Error("Boolean false stringify failed");
 		}
-		
+
 		// Null
 		if (JSON.stringify(null) !== 'null') {
 			throw new Error("Null stringify failed");
 		}
-		
+
 		// Negative number
 		if (JSON.stringify(-3.14) !== '-3.14') {
 			throw new Error("Negative float stringify failed");
 		}
-		
+
 		// Zero
 		if (JSON.stringify(0) !== '0') {
 			throw new Error("Zero stringify failed");
@@ -488,10 +488,10 @@ func TestJSON_StringifyNestedObjects(t *testing.T) {
 				}
 			}
 		};
-		
+
 		const str = JSON.stringify(obj);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed.level1.level2.level3.value !== "deep") {
 			throw new Error("Nested object stringify/parse roundtrip failed");
 		}
@@ -525,21 +525,21 @@ func TestJSON_StringifyArrays(t *testing.T) {
 		if (primitiveStr !== '[1,"two",true,null]') {
 			throw new Error("Primitive array stringify failed: " + primitiveStr);
 		}
-		
+
 		// Object array
 		const objArr = [{a: 1}, {b: 2}];
 		const objStr = JSON.stringify(objArr);
 		if (objStr !== '[{"a":1},{"b":2}]') {
 			throw new Error("Object array stringify failed: " + objStr);
 		}
-		
+
 		// Nested arrays
 		const nestedArr = [[1, 2], [3, [4, 5]]];
 		const nestedStr = JSON.stringify(nestedArr);
 		if (nestedStr !== '[[1,2],[3,[4,5]]]') {
 			throw new Error("Nested array stringify failed: " + nestedStr);
 		}
-		
+
 		// Empty array
 		if (JSON.stringify([]) !== '[]') {
 			throw new Error("Empty array stringify failed");
@@ -570,7 +570,7 @@ func TestJSON_StringifyWithTabSpace(t *testing.T) {
 	_, err = runtime.RunString(`
 		const obj = { name: "test", value: 42 };
 		const tabbed = JSON.stringify(obj, null, "\t");
-		
+
 		if (!tabbed.includes("\t")) {
 			throw new Error("Expected tab indentation");
 		}
@@ -605,32 +605,32 @@ func TestJSON_ParsePrimitives(t *testing.T) {
 		if (JSON.parse('"hello"') !== "hello") {
 			throw new Error("String parse failed");
 		}
-		
+
 		// Number
 		if (JSON.parse('42') !== 42) {
 			throw new Error("Number parse failed");
 		}
-		
+
 		// Boolean true
 		if (JSON.parse('true') !== true) {
 			throw new Error("Boolean true parse failed");
 		}
-		
+
 		// Boolean false
 		if (JSON.parse('false') !== false) {
 			throw new Error("Boolean false parse failed");
 		}
-		
+
 		// Null
 		if (JSON.parse('null') !== null) {
 			throw new Error("Null parse failed");
 		}
-		
+
 		// Negative number
 		if (JSON.parse('-3.14') !== -3.14) {
 			throw new Error("Negative float parse failed");
 		}
-		
+
 		// Scientific notation
 		if (JSON.parse('1e10') !== 1e10) {
 			throw new Error("Scientific notation parse failed");
@@ -661,7 +661,7 @@ func TestJSON_ParseNestedObjects(t *testing.T) {
 	_, err = runtime.RunString(`
 		const json = '{"user":{"profile":{"settings":{"theme":"dark"}}}}';
 		const obj = JSON.parse(json);
-		
+
 		if (obj.user.profile.settings.theme !== "dark") {
 			throw new Error("Nested object parse failed");
 		}
@@ -694,19 +694,19 @@ func TestJSON_ParseArrays(t *testing.T) {
 		if (!Array.isArray(simple) || simple.length !== 3) {
 			throw new Error("Simple array parse failed");
 		}
-		
+
 		// Mixed array
 		const mixed = JSON.parse('[1, "two", true, null]');
 		if (mixed[0] !== 1 || mixed[1] !== "two" || mixed[2] !== true || mixed[3] !== null) {
 			throw new Error("Mixed array parse failed");
 		}
-		
+
 		// Nested array
 		const nested = JSON.parse('[[1, 2], [3, 4]]');
 		if (nested[0][0] !== 1 || nested[1][1] !== 4) {
 			throw new Error("Nested array parse failed");
 		}
-		
+
 		// Empty array
 		const empty = JSON.parse('[]');
 		if (!Array.isArray(empty) || empty.length !== 0) {
@@ -738,19 +738,19 @@ func TestJSON_CircularReferenceError(t *testing.T) {
 	_, err = runtime.RunString(`
 		const obj = { name: "circular" };
 		obj.self = obj; // Create circular reference
-		
+
 		let threw = false;
 		try {
 			JSON.stringify(obj);
 		} catch (e) {
 			threw = true;
 			// Error should indicate circular structure
-			if (!e.message.toLowerCase().includes("circular") && 
+			if (!e.message.toLowerCase().includes("circular") &&
 			    !e.message.toLowerCase().includes("cyclic")) {
 				throw new Error("Expected circular reference error, got: " + e.message);
 			}
 		}
-		
+
 		if (!threw) {
 			throw new Error("Expected circular reference to throw");
 		}
@@ -785,10 +785,10 @@ func TestJSON_ToJSONMethod(t *testing.T) {
 				return { public: this.public };
 			}
 		};
-		
+
 		const str = JSON.stringify(obj);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed.public !== "visible") {
 			throw new Error("toJSON should return public field");
 		}
@@ -823,21 +823,21 @@ func TestJSON_UndefinedHandling(t *testing.T) {
 		const obj = { a: 1, b: undefined, c: 3 };
 		const str = JSON.stringify(obj);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed.a !== 1 || parsed.c !== 3) {
 			throw new Error("Other properties should be present");
 		}
 		if ("b" in parsed) {
 			throw new Error("undefined property should be omitted");
 		}
-		
+
 		// Undefined in array - becomes null
 		const arr = [1, undefined, 3];
 		const arrStr = JSON.stringify(arr);
 		if (arrStr !== '[1,null,3]') {
 			throw new Error("undefined in array should become null: " + arrStr);
 		}
-		
+
 		// Top-level undefined
 		const undefinedStr = JSON.stringify(undefined);
 		if (undefinedStr !== undefined) {
@@ -868,28 +868,28 @@ func TestJSON_FunctionHandling(t *testing.T) {
 
 	_, err = runtime.RunString(`
 		// Function in object - should be omitted
-		const obj = { 
-			a: 1, 
+		const obj = {
+			a: 1,
 			fn: function() { return 42; },
-			b: 2 
+			b: 2
 		};
 		const str = JSON.stringify(obj);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed.a !== 1 || parsed.b !== 2) {
 			throw new Error("Other properties should be present");
 		}
 		if ("fn" in parsed) {
 			throw new Error("function property should be omitted");
 		}
-		
+
 		// Function in array - becomes null
 		const arr = [1, function() {}, 3];
 		const arrStr = JSON.stringify(arr);
 		if (arrStr !== '[1,null,3]') {
 			throw new Error("function in array should become null: " + arrStr);
 		}
-		
+
 		// Top-level function
 		const fnStr = JSON.stringify(function() {});
 		if (fnStr !== undefined) {
@@ -924,22 +924,22 @@ func TestJSON_SymbolHandling(t *testing.T) {
 		const obj = { a: 1 };
 		obj[sym] = "symbol value";
 		obj.b = 2;
-		
+
 		const str = JSON.stringify(obj);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed.a !== 1 || parsed.b !== 2) {
 			throw new Error("Other properties should be present");
 		}
 		// Symbol-keyed properties are not enumerable by JSON.stringify anyway
-		
+
 		// Symbol in array - becomes null
 		const arr = [1, Symbol("test"), 3];
 		const arrStr = JSON.stringify(arr);
 		if (arrStr !== '[1,null,3]') {
 			throw new Error("symbol in array should become null: " + arrStr);
 		}
-		
+
 		// Top-level symbol
 		const symStr = JSON.stringify(Symbol("test"));
 		if (symStr !== undefined) {
@@ -978,11 +978,11 @@ func TestJSON_BigIntTypeError(t *testing.T) {
 				throw new Error("Expected TypeError for BigInt, got: " + e.constructor.name);
 			}
 		}
-		
+
 		if (!threw) {
 			throw new Error("Expected BigInt to throw TypeError");
 		}
-		
+
 		// BigInt in object
 		threw = false;
 		try {
@@ -993,7 +993,7 @@ func TestJSON_BigIntTypeError(t *testing.T) {
 				throw new Error("Expected TypeError for BigInt in object");
 			}
 		}
-		
+
 		if (!threw) {
 			throw new Error("Expected BigInt in object to throw TypeError");
 		}
@@ -1025,23 +1025,23 @@ func TestJSON_UnicodeEscapeHandling(t *testing.T) {
 		const unicode = "Hello, 世界! 🌍";
 		const str = JSON.stringify(unicode);
 		const parsed = JSON.parse(str);
-		
+
 		if (parsed !== unicode) {
 			throw new Error("Unicode roundtrip failed");
 		}
-		
+
 		// Escaped unicode in JSON string
 		const escaped = JSON.parse('"Hello, \\u4e16\\u754c"');
 		if (escaped !== "Hello, 世界") {
 			throw new Error("Unicode escape parse failed: " + escaped);
 		}
-		
+
 		// Control characters should be escaped
 		const withNewline = JSON.stringify("line1\nline2");
 		if (!withNewline.includes("\\n")) {
 			throw new Error("Newline should be escaped");
 		}
-		
+
 		// Tab should be escaped
 		const withTab = JSON.stringify("col1\tcol2");
 		if (!withTab.includes("\\t")) {
@@ -1075,14 +1075,14 @@ func TestJSON_NaNBecomeNull(t *testing.T) {
 		if (JSON.stringify(NaN) !== 'null') {
 			throw new Error("NaN should become null");
 		}
-		
+
 		// NaN in object
 		const obj = { value: NaN };
 		const str = JSON.stringify(obj);
 		if (str !== '{"value":null}') {
 			throw new Error("NaN in object should become null: " + str);
 		}
-		
+
 		// NaN in array
 		const arr = [1, NaN, 3];
 		const arrStr = JSON.stringify(arr);
@@ -1117,19 +1117,19 @@ func TestJSON_InfinityBecomesNull(t *testing.T) {
 		if (JSON.stringify(Infinity) !== 'null') {
 			throw new Error("Infinity should become null");
 		}
-		
+
 		// -Infinity becomes null
 		if (JSON.stringify(-Infinity) !== 'null') {
 			throw new Error("-Infinity should become null");
 		}
-		
+
 		// Infinity in object
 		const obj = { pos: Infinity, neg: -Infinity };
 		const str = JSON.stringify(obj);
 		if (str !== '{"pos":null,"neg":null}') {
 			throw new Error("Infinity in object should become null: " + str);
 		}
-		
+
 		// Infinity in array
 		const arr = [1, Infinity, -Infinity, 4];
 		const arrStr = JSON.stringify(arr);
@@ -1162,22 +1162,22 @@ func TestJSON_DateToJSON(t *testing.T) {
 	_, err = runtime.RunString(`
 		const date = new Date("2024-01-15T10:30:00.000Z");
 		const str = JSON.stringify(date);
-		
+
 		// Date.prototype.toJSON calls toISOString
 		const expected = date.toISOString();
 		if (str !== '"' + expected + '"') {
 			throw new Error("Date should stringify to ISO string: " + str);
 		}
-		
+
 		// Date in object
 		const obj = { created: date };
 		const objStr = JSON.stringify(obj);
 		const parsed = JSON.parse(objStr);
-		
+
 		if (parsed.created !== expected) {
 			throw new Error("Date in object should be ISO string");
 		}
-		
+
 		// Invalid date
 		const invalid = new Date("invalid");
 		const invalidStr = JSON.stringify(invalid);
@@ -1216,7 +1216,7 @@ func TestJSON_ParseSyntaxError(t *testing.T) {
 			'undefined',  // undefined is not valid JSON
 			'',  // empty string
 		];
-		
+
 		for (const invalid of invalidCases) {
 			let threw = false;
 			try {
@@ -1259,12 +1259,12 @@ func TestJSON_StringifyEmptyObjects(t *testing.T) {
 		if (JSON.stringify({}) !== '{}') {
 			throw new Error("Empty object stringify failed");
 		}
-		
+
 		// Empty array
 		if (JSON.stringify([]) !== '[]') {
 			throw new Error("Empty array stringify failed");
 		}
-		
+
 		// Nested empty
 		const nested = { arr: [], obj: {} };
 		const str = JSON.stringify(nested);
@@ -1297,19 +1297,19 @@ func TestJSON_StringifyReplacerOrdering(t *testing.T) {
 	_, err = runtime.RunString(`
 		const keys = [];
 		const obj = { a: 1, b: { c: 2, d: 3 } };
-		
+
 		JSON.stringify(obj, (key, value) => {
 			keys.push(key);
 			return value;
 		});
-		
+
 		// First key is empty string for root object
 		if (keys[0] !== "") {
 			throw new Error("First key should be empty string for root");
 		}
-		
+
 		// Should include 'a', 'b', 'c', 'd'
-		if (!keys.includes("a") || !keys.includes("b") || 
+		if (!keys.includes("a") || !keys.includes("b") ||
 		    !keys.includes("c") || !keys.includes("d")) {
 			throw new Error("Missing keys in replacer: " + JSON.stringify(keys));
 		}
@@ -1341,12 +1341,12 @@ func TestJSON_TypesExist(t *testing.T) {
 		if (typeof JSON !== 'object') {
 			throw new Error("JSON should be an object");
 		}
-		
+
 		// JSON.parse is a function
 		if (typeof JSON.parse !== 'function') {
 			throw new Error("JSON.parse should be a function");
 		}
-		
+
 		// JSON.stringify is a function
 		if (typeof JSON.stringify !== 'function') {
 			throw new Error("JSON.stringify should be a function");

@@ -21,7 +21,7 @@ package main
 import (
     "context"
     "time"
-    
+
     "github.com/dop251/goja"
     eventloop "github.com/joeycumines/go-eventloop"
     gojaeventloop "github.com/joeycumines/goja-eventloop"
@@ -30,22 +30,22 @@ import (
 func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
-    
+
     // 1. Create the event loop
     loop, _ := eventloop.New()
-    
+
     // 2. Create Goja runtime
     runtime := goja.New()
-    
+
     // 3. Create adapter and bind globals
     adapter, _ := gojaeventloop.New(loop, runtime)
     adapter.Bind()
-    
+
     // 4. Run JavaScript code (this sets up async operations)
     runtime.RunString(`
         setTimeout(() => console.log("Hello!"), 100);
     `)
-    
+
     // 5. Run the event loop to process async callbacks
     loop.Run(ctx)
 }
@@ -206,7 +206,7 @@ _, _ = runtime.RunString(`
 function withTimeout(promise, ms) {
     return Promise.race([
         promise,
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Timeout')), ms)
         )
     ]);
@@ -226,9 +226,9 @@ withTimeout(
 // Go side - implement fetch
 adapter.Runtime().Set("fetch", func(call goja.FunctionCall) goja.Value {
     url := call.Argument(0).String()
-    
+
     promise, resolve, reject := adapter.JS().NewChainedPromise()
-    
+
     go func() {
         resp, err := http.Get(url)
         if err != nil {
@@ -236,11 +236,11 @@ adapter.Runtime().Set("fetch", func(call goja.FunctionCall) goja.Value {
             return
         }
         defer resp.Body.Close()
-        
+
         body, _ := io.ReadAll(resp.Body)
         resolve(string(body))
     }()
-    
+
     return adapter.GojaWrapPromise(promise)
 })
 
@@ -259,14 +259,14 @@ _, _ = runtime.RunString(`
 // Create an event emitter pattern
 runtime.RunString(`
     const listeners = new Map();
-    
+
     globalThis.on = function(event, handler) {
         if (!listeners.has(event)) {
             listeners.set(event, []);
         }
         listeners.get(event).push(handler);
     };
-    
+
     globalThis.emit = function(event, data) {
         const handlers = listeners.get(event) || [];
         handlers.forEach(h => queueMicrotask(() => h(data)));
@@ -283,7 +283,7 @@ runtime.RunString(`emit('data', { value: 42 })`)
 async function workerPool(tasks, concurrency) {
     const results = [];
     const executing = [];
-    
+
     for (const task of tasks) {
         const p = task().then(result => {
             executing.splice(executing.indexOf(p), 1);
@@ -291,12 +291,12 @@ async function workerPool(tasks, concurrency) {
         });
         results.push(p);
         executing.push(p);
-        
+
         if (executing.length >= concurrency) {
             await Promise.race(executing);
         }
     }
-    
+
     return Promise.all(results);
 }
 ```
@@ -310,11 +310,11 @@ function cancellableFetch(url, signal) {
             reject(signal.reason);
             return;
         }
-        
+
         signal.addEventListener('abort', () => {
             reject(signal.reason);
         });
-        
+
         // Simulated fetch
         setTimeout(() => resolve({ data: 'response' }), 100);
     });
@@ -410,7 +410,7 @@ clearTimeout(id);
    // Setup
    adapter.Bind()
    runtime.RunString(`/* your code */`)
-   
+
    // Then run
    loop.Run(ctx)
    ```

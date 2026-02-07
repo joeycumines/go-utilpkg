@@ -122,11 +122,11 @@ func TestHeaders_ConstructorFromHeaders(t *testing.T) {
 			var h1 = new Headers({ 'X-Test': 'original' });
 			var h2 = new Headers(h1);
 			var valueMatch = h2.get('x-test') === 'original';
-			
+
 			// Modify h2 and verify h1 unchanged
 			h2.set('x-test', 'modified');
 			var h1Unchanged = h1.get('x-test') === 'original';
-			
+
 			return valueMatch && h1Unchanged;
 		})()
 	`)
@@ -218,9 +218,9 @@ func TestHeaders_GetSetCookie(t *testing.T) {
 			h.append('Set-Cookie', 'a=1');
 			h.append('Set-Cookie', 'b=2');
 			var cookies = h.getSetCookie();
-			return Array.isArray(cookies) && 
-				cookies.length === 2 && 
-				cookies[0] === 'a=1' && 
+			return Array.isArray(cookies) &&
+				cookies.length === 2 &&
+				cookies[0] === 'a=1' &&
 				cookies[1] === 'b=2';
 		})()
 	`)
@@ -315,8 +315,8 @@ func TestHeaders_Entries(t *testing.T) {
 				entries.push(pair[0] + ':' + pair[1]);
 			}
 			// Should be sorted alphabetically by name
-			return entries.length === 2 && 
-				entries[0] === 'accept:text/html' && 
+			return entries.length === 2 &&
+				entries[0] === 'accept:text/html' &&
 				entries[1] === 'content-type:application/json';
 		})()
 	`)
@@ -342,8 +342,8 @@ func TestHeaders_Keys(t *testing.T) {
 				keys.push(key);
 			}
 			// Should be sorted alphabetically
-			return keys.length === 2 && 
-				keys[0] === 'a-header' && 
+			return keys.length === 2 &&
+				keys[0] === 'a-header' &&
 				keys[1] === 'b-header';
 		})()
 	`)
@@ -369,8 +369,8 @@ func TestHeaders_Values(t *testing.T) {
 				values.push(value);
 			}
 			// Values should match sorted key order
-			return values.length === 2 && 
-				values[0] === 'a-value' && 
+			return values.length === 2 &&
+				values[0] === 'a-value' &&
 				values[1] === 'b-value';
 		})()
 	`)
@@ -396,8 +396,8 @@ func TestHeaders_ForEach(t *testing.T) {
 				entries.push(key + ':' + value);
 			});
 			// Should be sorted alphabetically
-			return entries.length === 2 && 
-				entries[0] === 'accept:text/html' && 
+			return entries.length === 2 &&
+				entries[0] === 'accept:text/html' &&
 				entries[1] === 'content-type:application/json';
 		})()
 	`)

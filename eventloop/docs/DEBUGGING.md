@@ -129,12 +129,12 @@ This document provides practical guidance for debugging common issues in the `ev
        runtime.ReadMemStats(&m)
        return m
    }
-   
+
    baseline := getMemStats()
    // ... run operations ...
    runtime.GC()
    current := getMemStats()
-   
+
    growth := current.HeapAlloc - baseline.HeapAlloc
    if growth > threshold {
        log.Printf("Memory grew by %d bytes", growth)
@@ -174,7 +174,7 @@ This document provides practical guidance for debugging common issues in the `ev
    ```go
    // BAD: Interval runs forever
    js.SetInterval(func() { log.Print("tick") }, 1000)
-   
+
    // GOOD: Store ID and clear on shutdown
    id := js.SetInterval(func() { log.Print("tick") }, 1000)
    defer js.ClearInterval(id)
@@ -187,7 +187,7 @@ This document provides practical guidance for debugging common issues in the `ev
    js.SetInterval(func() {
        process(largeData) // largeData never released
    }, 60000)
-   
+
    // GOOD: Process and release
    js.SetImmediate(func() {
        largeData := loadHugeDataset()
@@ -212,27 +212,27 @@ func TestNoMemoryLeak(t *testing.T) {
     loop, _ := New()
     ctx, cancel := context.WithCancel(context.Background())
     go loop.Run(ctx)
-    
+
     baseline := getMemStats()
-    
+
     // Run workload
     for i := 0; i < 10000; i++ {
         loop.Submit(func() { /* work */ })
     }
-    
+
     // Allow processing and GC
     time.Sleep(100 * time.Millisecond)
     runtime.GC()
     runtime.GC()
-    
+
     final := getMemStats()
     growth := int64(final.HeapAlloc) - int64(baseline.HeapAlloc)
-    
+
     // Allow some tolerance (1MB)
     if growth > 1024*1024 {
         t.Errorf("Memory grew by %d bytes", growth)
     }
-    
+
     cancel()
 }
 ```
@@ -370,7 +370,7 @@ Test error handling by injecting simulated poll failures:
 ```go
 func TestHandlePollError(t *testing.T) {
     loop, _ := New()
-    
+
     var errorInjected atomic.Bool
     loop.testHooks = &loopTestHooks{
         PollError: func() error {
@@ -380,19 +380,19 @@ func TestHandlePollError(t *testing.T) {
             return nil
         },
     }
-    
+
     // Force I/O mode (PollError only triggers in I/O mode)
     pipeR, pipeW, _ := os.Pipe()
     defer pipeR.Close()
     defer pipeW.Close()
     loop.RegisterFD(int(pipeR.Fd()), EventRead, func(IOEvents) {})
-    
+
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    
+
     err := loop.Run(ctx)
     // Error triggers handlePollError -> state transitions to Terminated
-    
+
     if loop.State() != StateTerminated {
         t.Error("Expected terminated state after poll error")
     }
@@ -406,7 +406,7 @@ Use hooks to control scheduling at critical points:
 ```go
 func TestFastPathModeRace(t *testing.T) {
     loop, _ := New()
-    
+
     proceed := make(chan struct{})
     loop.testHooks = &loopTestHooks{
         AfterOptimisticCheck: func() {
@@ -414,21 +414,21 @@ func TestFastPathModeRace(t *testing.T) {
             <-proceed
         },
     }
-    
+
     // Start SetFastPathMode in background
     go func() {
         loop.SetFastPathMode(FastPathForced)
     }()
-    
+
     // Race with RegisterFD
     time.Sleep(time.Millisecond)
     pipeR, pipeW, _ := os.Pipe()
     defer pipeR.Close()
     defer pipeW.Close()
-    
+
     err := loop.RegisterFD(int(pipeR.Fd()), EventRead, func(IOEvents) {})
     close(proceed) // Allow SetFastPathMode to complete
-    
+
     // Verify invariant: never Force + FDs registered
     if loop.fastPathMode.Load() == int32(FastPathForced) && loop.userIOFDCount.Load() > 0 {
         t.Error("Invariant violated: FastPathForced with registered FDs")
@@ -495,7 +495,7 @@ m.Latency.Sample()
 
 p50 := m.Latency.P50  // Median latency
 p90 := m.Latency.P90  // 90th percentile
-p95 := m.Latency.P95  // 95th percentile  
+p95 := m.Latency.P95  // 95th percentile
 p99 := m.Latency.P99  // 99th percentile (tail latency)
 max := m.Latency.Max  // Maximum observed
 
@@ -552,28 +552,28 @@ The P-Square algorithm provides O(1) streaming percentile estimation with ~1-5% 
 func monitorLoop(loop *Loop, interval time.Duration) {
     ticker := time.NewTicker(interval)
     defer ticker.Stop()
-    
+
     for range ticker.C {
         m := loop.Metrics()
         m.Latency.Sample()  // Compute percentiles
-        
+
         state := loop.State()
         if state != StateRunning && state != StateSleeping {
             log.Printf("⚠️  Loop state: %v", state)
         }
-        
+
         log.Printf("📊 TPS: %.1f | P50: %v | P99: %v | Queue: %d/%d",
             m.TPS,
             m.Latency.P50,
             m.Latency.P99,
             m.Queue.IngressCurrent,
             m.Queue.IngressMax)
-        
+
         // Alert on high latency
         if m.Latency.P99 > 100*time.Millisecond {
             log.Printf("⚠️  High P99 latency: %v", m.Latency.P99)
         }
-        
+
         // Alert on queue growth
         if m.Queue.IngressMax > 500 {
             log.Printf("⚠️  Queue peaked at %d", m.Queue.IngressMax)
@@ -710,12 +710,12 @@ mu.Unlock()
        data map[string]int
        mu   sync.RWMutex
    )
-   
+
    // Write
    mu.Lock()
    data["key"] = value
    mu.Unlock()
-   
+
    // Read
    mu.RLock()
    v := data["key"]
@@ -766,7 +766,7 @@ if err != nil {
 
 // Poll error logs:
 // {
-//   "level": "critical", 
+//   "level": "critical",
 //   "component": "eventloop",
 //   "err": "EBADF",
 //   "msg": "poll error"
@@ -864,7 +864,7 @@ case Rejected:
 ```go
 func debugPromise(p *ChainedPromise, name string) {
     ch := p.ToChannel()
-    
+
     select {
     case result := <-ch:
         state := p.State()
@@ -896,12 +896,12 @@ func awaitAll(promises []*ChainedPromise, timeout time.Duration) ([]Result, erro
     results := make([]Result, len(promises))
     errors := make([]error, len(promises))
     var wg sync.WaitGroup
-    
+
     for i, p := range promises {
         wg.Add(1)
         go func(idx int, promise *ChainedPromise) {
             defer wg.Done()
-            
+
             select {
             case result := <-promise.ToChannel():
                 if promise.State() == Rejected {
@@ -914,9 +914,9 @@ func awaitAll(promises []*ChainedPromise, timeout time.Duration) ([]Result, erro
             }
         }(i, p)
     }
-    
+
     wg.Wait()
-    
+
     // Collect errors
     var errs []error
     for _, err := range errors {
@@ -924,11 +924,11 @@ func awaitAll(promises []*ChainedPromise, timeout time.Duration) ([]Result, erro
             errs = append(errs, err)
         }
     }
-    
+
     if len(errs) > 0 {
         return results, fmt.Errorf("%d promises failed: %v", len(errs), errs)
     }
-    
+
     return results, nil
 }
 ```
@@ -938,7 +938,7 @@ func awaitAll(promises []*ChainedPromise, timeout time.Duration) ([]Result, erro
 ```go
 func tracePromiseChain(initial *ChainedPromise) *ChainedPromise {
     step := 0
-    
+
     trace := func(name string) func(Result) Result {
         myStep := step
         step++
@@ -951,7 +951,7 @@ func tracePromiseChain(initial *ChainedPromise) *ChainedPromise {
             return r
         }
     }
-    
+
     return initial.
         Then(trace("after-initial"), nil).
         Then(func(r Result) Result {

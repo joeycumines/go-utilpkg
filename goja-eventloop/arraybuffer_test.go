@@ -94,7 +94,7 @@ func TestArrayBuffer_Slice(t *testing.T) {
 		var buf = new ArrayBuffer(16);
 		var view = new Uint8Array(buf);
 		for (var i = 0; i < 16; i++) view[i] = i;
-		
+
 		var slice = buf.slice(4, 8);
 		var sliceView = new Uint8Array(slice);
 		slice.byteLength === 4 && sliceView[0] === 4 && sliceView[3] === 7;
@@ -116,7 +116,7 @@ func TestArrayBuffer_SliceNegativeIndices(t *testing.T) {
 		var buf = new ArrayBuffer(10);
 		var view = new Uint8Array(buf);
 		for (var i = 0; i < 10; i++) view[i] = i;
-		
+
 		var slice = buf.slice(-3); // Last 3 bytes
 		var sliceView = new Uint8Array(slice);
 		slice.byteLength === 3 && sliceView[0] === 7 && sliceView[2] === 9;
@@ -138,9 +138,9 @@ func TestArrayBuffer_IsView(t *testing.T) {
 		var buf = new ArrayBuffer(16);
 		var u8 = new Uint8Array(buf);
 		var dv = new DataView(buf);
-		
-		ArrayBuffer.isView(u8) === true && 
-		ArrayBuffer.isView(dv) === true && 
+
+		ArrayBuffer.isView(u8) === true &&
+		ArrayBuffer.isView(dv) === true &&
 		ArrayBuffer.isView(buf) === false &&
 		ArrayBuffer.isView({}) === false &&
 		ArrayBuffer.isView(null) === false;
@@ -287,7 +287,7 @@ func TestDataView_Float32_LittleEndian(t *testing.T) {
 		var dv = new DataView(buf);
 		dv.setFloat32(0, 3.14, true); // little-endian
 		dv.setFloat32(4, -1.5, true);
-		Math.abs(dv.getFloat32(0, true) - 3.14) < 0.0001 && 
+		Math.abs(dv.getFloat32(0, true) - 3.14) < 0.0001 &&
 		Math.abs(dv.getFloat32(4, true) - (-1.5)) < 0.0001;
 	`
 	v, err := runtime.RunString(script)
@@ -308,7 +308,7 @@ func TestDataView_Float64(t *testing.T) {
 		var dv = new DataView(buf);
 		dv.setFloat64(0, Math.PI, true);
 		dv.setFloat64(8, -Math.E, true);
-		Math.abs(dv.getFloat64(0, true) - Math.PI) < 0.0000001 && 
+		Math.abs(dv.getFloat64(0, true) - Math.PI) < 0.0000001 &&
 		Math.abs(dv.getFloat64(8, true) - (-Math.E)) < 0.0000001;
 	`
 	v, err := runtime.RunString(script)
@@ -444,7 +444,7 @@ func TestInt32Array_SliceAndSubarray(t *testing.T) {
 		var i32 = Int32Array.from([1, 2, 3, 4, 5]);
 		var sliced = i32.slice(1, 4);
 		var sub = i32.subarray(1, 4);
-		sliced.length === 3 && sub.length === 3 && 
+		sliced.length === 3 && sub.length === 3 &&
 		sliced.buffer !== i32.buffer && sub.buffer === i32.buffer;
 	`
 	v, err := runtime.RunString(script)
