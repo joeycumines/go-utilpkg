@@ -67,6 +67,7 @@ fi
 
 # --- 3. Construct Remote PowerShell Payload ---
 
+# TODO I'm quite sure the escaping here is dodgy...
 REMOTE_PS_TEMPLATE=$(
   cat <<'EOF'
 $ErrorActionPreference = 'Stop';
@@ -76,41 +77,53 @@ $tempPath = Join-Path $env:TEMP "wsl-run-$([Guid]::NewGuid())";
 $tempDir  = New-Item -ItemType Directory -Path $tempPath -Force;
 
 try {
-    # 1. Path Translation (Fix: Pass as argument to avoid Env/Injection issues)
-    # Uses Absolute Path to bash.exe for reliability
-    $bash = "C:\Windows\System32\bash.exe";
+    # 1. Path Translation
+    # Use wsl.exe instead of bash.exe for better argument handling.
+    # Normalize Windows path to forward slashes to prevent escaping errors in the shell parser.
+    $wslExe = "C:\Windows\System32\wsl.exe";
 
-    $wslPath = ($null | & $bash -c 'wslpath -u "$1"' -- "$($tempDir.FullName)").Trim();
+    # Sanitize path: C:\Temp -> C:/Temp
+    $cleanTempPath = $tempDir.FullName -replace '\\', '/';
 
-    if (-not $wslPath) { throw "Failed to translate Windows path to WSL path."; }
+    # Execute wslpath using explicit execution (-e)
+    $wslPath = ($null | & $wslExe -e wslpath -u "$cleanTempPath").Trim();
+
+    # Check LASTEXITCODE to catch "Invalid argument" errors even if stdout wasn't empty
+    if ($LASTEXITCODE -ne 0 -or -not $wslPath) {
+        throw "Failed to translate Windows path to WSL path (Exit Code: $LASTEXITCODE). Path was: $cleanTempPath";
+    }
 
     # 2. Stream Extraction (Stdin -> Tar)
-    # Fix: Enable pipefail in bash. Pass path as arg $1 to prevent injection.
     $p = New-Object System.Diagnostics.Process;
-    $p.StartInfo.FileName = $bash;
-    # Note: Double quotes inside the PowerShell string must be escaped ("").
-    $p.StartInfo.Arguments = "-c 'set -o pipefail; base64 -d | tar -x -f - -C ""$1""' -- ""$wslPath""";
+    $p.StartInfo.FileName = $wslExe; # Use wsl.exe here too
+    # Pass the clean wslPath.
+    $p.StartInfo.Arguments = "-e bash -c 'set -o pipefail; base64 -d | tar -x -f - -C ""$1""' -- ""$wslPath""";
     $p.StartInfo.UseShellExecute = $false;
     $p.StartInfo.RedirectStandardInput = $true;
-    $p.StartInfo.RedirectStandardOutput = $false; # Inherit Console visibility
-    $p.StartInfo.RedirectStandardError = $false;  # Inherit Console visibility
+    $p.StartInfo.RedirectStandardOutput = $false;
+    $p.StartInfo.RedirectStandardError = $false;
 
     $p.Start() | Out-Null;
 
-    # Explicitly pipe parent Stdin to Process Stdin as raw binary to prevent encoding corruption
     $parentIn = [Console]::OpenStandardInput();
     $childIn  = $p.StandardInput.BaseStream;
     $buffer   = New-Object byte[] 81920;
 
+    # Safe writing loop. If tar dies (due to path error), we stop writing to avoid "Pipe Ended" crash.
     do {
         $count = $parentIn.Read($buffer, 0, $buffer.Length);
         if ($count -gt 0) {
+            # Check if process is still alive before writing
+            if ($p.HasExited) { break; }
             $childIn.Write($buffer, 0, $count);
         }
     } while ($count -gt 0);
 
-    $childIn.Flush();
-    $childIn.Close(); # Vital: Close Stdin to signal EOF to base64/tar
+    # Only flush/close if still running
+    if (-not $p.HasExited) {
+        $childIn.Flush();
+        $childIn.Close();
+    }
 
     $p.WaitForExit();
 
