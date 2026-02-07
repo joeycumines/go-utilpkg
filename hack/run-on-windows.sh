@@ -161,7 +161,7 @@ EOF
 )
 
 # Inject args
-REMOTE_PS_SCRIPT=$(echo "$REMOTE_PS_TEMPLATE" | sed "s|__ARGS_B64__|$ARGS_B64|")
+REMOTE_PS_SCRIPT=$(printf '%s\n' "$REMOTE_PS_TEMPLATE" | sed "s|__ARGS_B64__|$ARGS_B64|")
 
 # --- 4. Transport Preparation ---
 
