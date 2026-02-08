@@ -275,55 +275,51 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		js := loop.JS()
+		defer loop.Shutdown(context.Background())
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		js, err := NewJS(loop)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		var result *ChainedPromise
+		// Create pre-settled promises
+		p1, resolve1, _ := js.NewChainedPromise()
+		p2, _, reject2 := js.NewChainedPromise()
+		p3, resolve3, _ := js.NewChainedPromise()
+
+		// Settle them before passing to All
+		resolve1("value1")
+		reject2(errors.New("rejection reason"))
+		resolve3("value3")
+		loop.tick() // Process settlements
+
+		result := js.All([]*ChainedPromise{p1, p2, p3})
+
 		var settled bool
 		var settledState PromiseState
 		var settledReason Result
+		done := make(chan struct{})
 
-		loop.Submit(func() {
-			// Create pre-settled promises
-			p1, resolve1, _ := js.NewChainedPromise()
-			p2, _, reject2 := js.NewChainedPromise()
-			p3, resolve3, _ := js.NewChainedPromise()
+		result.ThenWithJS(js,
+			func(v Result) Result {
+				settled = true
+				settledState = Fulfilled
+				close(done)
+				return nil
+			},
+			func(r Result) Result {
+				settled = true
+				settledState = Rejected
+				settledReason = r
+				close(done)
+				return nil
+			},
+		)
 
-			// Settle them before passing to All
-			resolve1("value1")
-			reject2(errors.New("rejection reason"))
-			resolve3("value3")
-
-			result = js.All([]*ChainedPromise{p1, p2, p3})
-
-			// Observe the result
-			result.ThenWithJS(js,
-				func(v Result) Result {
-					settled = true
-					settledState = Fulfilled
-					return nil
-				},
-				func(r Result) Result {
-					settled = true
-					settledState = Rejected
-					settledReason = r
-					return nil
-				},
-			)
-
-			// Schedule shutdown after microtasks drain
-			js.QueueMicrotask(func() {
-				js.QueueMicrotask(func() {
-					loop.Shutdown(ctx)
-				})
-			})
-		})
-
-		if err := loop.Run(ctx); err != nil {
-			t.Fatal(err)
-		}
+		// Process microtasks to settle
+		loop.tick()
+		loop.tick()
+		<-done
 
 		if !settled {
 			t.Fatal("result promise was not settled")
@@ -341,47 +337,46 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		js := loop.JS()
+		defer loop.Shutdown(context.Background())
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		js, err := NewJS(loop)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		p1, resolve1, _ := js.NewChainedPromise()
+		p2, resolve2, _ := js.NewChainedPromise()
+
+		resolve1("a")
+		resolve2("b")
+		loop.tick()
+
+		result := js.All([]*ChainedPromise{p1, p2})
 
 		var settled bool
 		var settledState PromiseState
 		var settledValue Result
+		done := make(chan struct{})
 
-		loop.Submit(func() {
-			p1, resolve1, _ := js.NewChainedPromise()
-			p2, resolve2, _ := js.NewChainedPromise()
+		result.ThenWithJS(js,
+			func(v Result) Result {
+				settled = true
+				settledState = Fulfilled
+				settledValue = v
+				close(done)
+				return nil
+			},
+			func(r Result) Result {
+				settled = true
+				settledState = Rejected
+				close(done)
+				return nil
+			},
+		)
 
-			resolve1("a")
-			resolve2("b")
-
-			result := js.All([]*ChainedPromise{p1, p2})
-			result.ThenWithJS(js,
-				func(v Result) Result {
-					settled = true
-					settledState = Fulfilled
-					settledValue = v
-					return nil
-				},
-				func(r Result) Result {
-					settled = true
-					settledState = Rejected
-					return nil
-				},
-			)
-
-			js.QueueMicrotask(func() {
-				js.QueueMicrotask(func() {
-					loop.Shutdown(ctx)
-				})
-			})
-		})
-
-		if err := loop.Run(ctx); err != nil {
-			t.Fatal(err)
-		}
+		loop.tick()
+		loop.tick()
+		<-done
 
 		if !settled {
 			t.Fatal("result promise was not settled")
@@ -403,42 +398,41 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		js := loop.JS()
+		defer loop.Shutdown(context.Background())
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		var settledState PromiseState
-
-		loop.Submit(func() {
-			p1, _, reject1 := js.NewChainedPromise()
-			p2, resolve2, _ := js.NewChainedPromise()
-
-			reject1(errors.New("first rejects"))
-			resolve2("second fulfills")
-
-			result := js.All([]*ChainedPromise{p1, p2})
-			result.ThenWithJS(js,
-				func(v Result) Result {
-					settledState = Fulfilled
-					return nil
-				},
-				func(r Result) Result {
-					settledState = Rejected
-					return nil
-				},
-			)
-
-			js.QueueMicrotask(func() {
-				js.QueueMicrotask(func() {
-					loop.Shutdown(ctx)
-				})
-			})
-		})
-
-		if err := loop.Run(ctx); err != nil {
+		js, err := NewJS(loop)
+		if err != nil {
 			t.Fatal(err)
 		}
+
+		p1, _, reject1 := js.NewChainedPromise()
+		p2, resolve2, _ := js.NewChainedPromise()
+
+		reject1(errors.New("first rejects"))
+		resolve2("second fulfills")
+		loop.tick()
+
+		result := js.All([]*ChainedPromise{p1, p2})
+
+		var settledState PromiseState
+		done := make(chan struct{})
+
+		result.ThenWithJS(js,
+			func(v Result) Result {
+				settledState = Fulfilled
+				close(done)
+				return nil
+			},
+			func(r Result) Result {
+				settledState = Rejected
+				close(done)
+				return nil
+			},
+		)
+
+		loop.tick()
+		loop.tick()
+		<-done
 
 		if settledState != Rejected {
 			t.Errorf("expected Rejected when first promise is rejected, got %v", settledState)
@@ -450,42 +444,41 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		js := loop.JS()
+		defer loop.Shutdown(context.Background())
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		var settledState PromiseState
-
-		loop.Submit(func() {
-			p1, _, reject1 := js.NewChainedPromise()
-			p2, _, reject2 := js.NewChainedPromise()
-
-			reject1(errors.New("r1"))
-			reject2(errors.New("r2"))
-
-			result := js.All([]*ChainedPromise{p1, p2})
-			result.ThenWithJS(js,
-				func(v Result) Result {
-					settledState = Fulfilled
-					return nil
-				},
-				func(r Result) Result {
-					settledState = Rejected
-					return nil
-				},
-			)
-
-			js.QueueMicrotask(func() {
-				js.QueueMicrotask(func() {
-					loop.Shutdown(ctx)
-				})
-			})
-		})
-
-		if err := loop.Run(ctx); err != nil {
+		js, err := NewJS(loop)
+		if err != nil {
 			t.Fatal(err)
 		}
+
+		p1, _, reject1 := js.NewChainedPromise()
+		p2, _, reject2 := js.NewChainedPromise()
+
+		reject1(errors.New("r1"))
+		reject2(errors.New("r2"))
+		loop.tick()
+
+		result := js.All([]*ChainedPromise{p1, p2})
+
+		var settledState PromiseState
+		done := make(chan struct{})
+
+		result.ThenWithJS(js,
+			func(v Result) Result {
+				settledState = Fulfilled
+				close(done)
+				return nil
+			},
+			func(r Result) Result {
+				settledState = Rejected
+				close(done)
+				return nil
+			},
+		)
+
+		loop.tick()
+		loop.tick()
+		<-done
 
 		if settledState != Rejected {
 			t.Errorf("expected Rejected when all promises rejected, got %v", settledState)
