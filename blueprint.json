@@ -209,21 +209,24 @@
     {
       "id": "T027",
       "title": "Parse Windows benchmark results",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
+      "note": "All 18 event loop benchmark categories + 7 promise benchmarks + BenchmarkTournament + BenchmarkChainDepth extracted. Medians of 3 runs computed.",
       "description": "Extract all benchmark data from passing Windows runs.",
       "verificationCriteria": "Complete benchmark tables."
     },
     {
       "id": "T028",
       "title": "Parse Windows correctness results",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "18 correctness tests ALL PASS. Conservation: Main/AltOne/AltThree all 10000/10000. Race detector: 0xc0000139 infrastructure crash.",
       "description": "Build PASS/FAIL/SKIP matrix for Windows.",
       "verificationCriteria": "Complete test result matrix."
     },
     {
       "id": "T029",
       "title": "Write WINDOWS_ANALYSIS.md",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Created at eventloop/docs/tournament/2026-02-08/WINDOWS_ANALYSIS.md. 6 sections: Event Loop Benchmarks (18 categories), Promise Benchmarks, Cross-Platform Comparison, Winner Rankings, Correctness & Race Detector, Key Findings (12 findings).",
       "description": "First-ever Windows tournament analysis. Platform details, benchmarks, correctness, IOCP observations.",
       "verificationCriteria": "WINDOWS_ANALYSIS.md exists with all sections."
     },
