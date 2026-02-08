@@ -19,10 +19,402 @@
     "subagentPolicy": "!! MANDATORY OPERATIONAL DIRECTIVE !!",
     "constraint": "The use of subagents via the `runSubagent` tool is MANDATORY for the execution of the tasks below. Tasks are grouped specifically to be run in distinct subagent contexts to prevent context window exhaustion. Do not attempt to solve all groups in a single turn."
   },
-  "statusSection": {
-    "currentState": ""
+  "hanasDirective": {
+    "sessionDuration": "9 HOURS MANDATORY - NO STOPPING",
+    "commitCriteria": "Commit ONLY after TWO consecutive green subagent reviews confirming all platforms pass",
+    "gundamsAtStake": "Takumi's Gundams are at stake. FAILURE IS NOT AN OPTION. This is NOT a joke.",
+    "iterationGoal": "Iterate INDEFINITELY towards PERFECTION of ./eventloop and ./goja-eventloop modules",
+    "qualityTargets": [
+      "OPTIMAL clean API surface",
+      "OPTIMAL performance (zero-allocation hot paths, minimal latency)",
+      "OPTIMAL robustness and correctness (zero test failures, zero race conditions)",
+      "OPTIMAL fitness for purpose (JavaScript-compatible event loop for Go)"
+    ],
+    "tournamentMeaning": {
+      "promiseTournament": "Benchmarking competition in eventloop/internal/promisetournament comparing ChainedPromise vs alternative promise implementations (PromiseAltOne, PromiseAltTwo, PromiseAltFour, PromiseAltFive) for allocation counts and throughput",
+      "eventloopTournament": "Comprehensive test suite in eventloop/internal/tournament comparing Main implementation vs AlternateOne (maximum safety) vs AlternateTwo (maximum performance) across correctness, performance, robustness, and memory behavior"
+    }
   },
-  "sequentialTasks": [],
+  "statusSection": {
+    "currentState": "EXECUTING TASK 2: Analyzing Promise Tournament macOS Results",
+    "lastUpdated": "2026-02-09T00:30:00Z"
+  },
+  "sequentialTasks": [
+    {
+      "id": 0,
+      "description": "HTML Timer Specification Compliance Investigation: Analyze WHATWG HTML Spec 'run steps after a timeout' algorithm (Section 8.6), retrieve spec sections, cross-reference with eventloop implementation",
+      "status": "DONE",
+      "verification": "Created `eventloop/HTML_TIMER_SPEC_ANALYSIS.md` with comprehensive analysis documenting spec requirements vs implementation compliance",
+      "completionNote": "Comprehensive investigation completed documenting 'run steps after a timeout' algorithm, unique internal values, Document fully active state, and WorkerGlobalScope requirements. Found that eventloop implements HTML5 public API semantics with nesting depth clamping but lacks Document lifecycle checking."
+    },
+    {
+      "id": 1,
+      "description": "Run promise tournament benchmarks on macOS: Execute `go test -bench=. -benchmem ./eventloop/internal/promisetournament/...` with output captured to build.log",
+      "description": "Analyze promise tournament macOS results: Compare ns/op, B/op, allocs/op across all implementations, identify current champion and performance gaps",
+      "status": "DONE",
+      "verification": "Analysis documented in WIP.md with clear ranking and identified optimization opportunities",
+      "completionNote": "ChainedPromise is BEST for shallow chains, but 24% slower than PromiseAltTwo for throughput and 39% slower than PromiseAltFive for deep chains. Memory is 47% higher than alternatives."
+    },
+    {
+      "id": 3,
+      "description": "Run promise tournament benchmarks on Linux: Execute via `make make-all-in-container` with custom target for promise benchmarks",
+      "status": "DONE",
+      "verification": "Benchmark output captured in promise-tournament-linux.log",
+      "completionNote": "Completed in golang:1.25.7 container. Key finding: ChainedPromise loses shallow chain advantage on Linux!"
+    },
+    {
+      "id": 4,
+      "description": "Analyze promise tournament Linux results: Compare against macOS results, identify platform-specific differences",
+      "status": "DONE",
+      "verification": "Cross-platform comparison documented in WIP.md",
+      "completionNote": "Linux shows different ranking for Depth=10: PromiseAltOne leads, ChainedPromise drops to 4th"
+    },
+    {
+      "id": 5,
+      "description": "Run promise tournament benchmarks on Windows: Execute via `hack/run-on-windows.sh` with promise benchmark target",
+      "status": "DONE",
+      "verification": "Benchmark output captured in promise-tournament-windows.log",
+      "completionNote": "Completed on Intel i9-9900K. PromiseAltOne wins ALL categories on Windows!"
+    },
+    {
+      "id": 6,
+      "description": "Analyze promise tournament Windows results: Complete cross-platform analysis with all three OS results",
+      "status": "DONE",
+      "verification": "Full cross-platform comparison documented in WIP.md",
+      "completionNote": "SYNTHESIS COMPLETE: ChainedPromise uses 48% more memory and is slower for deep chains across ALL platforms"
+    },
+    {
+      "id": 7,
+      "description": "Run eventloop tournament tests on macOS: Execute `go test -v ./eventloop/internal/tournament/...` with output captured",
+      "status": "IN_PROGRESS",
+      "verification": "All tournament tests pass on macOS, output shows Main/AlternateOne/AlternateTwo comparative results"
+    },
+    {
+      "id": 8,
+      "description": "Analyze eventloop tournament macOS results: Review correctness, performance, robustness test outcomes",
+      "status": "NOT_STARTED",
+      "verification": "Analysis of which implementation wins each test category documented in WIP.md"
+    },
+    {
+      "id": 9,
+      "description": "Run eventloop tournament tests on Linux: Execute via container with tournament test target",
+      "status": "NOT_STARTED",
+      "verification": "All tournament tests pass on Linux"
+    },
+    {
+      "id": 10,
+      "description": "Analyze eventloop tournament Linux results: Compare against macOS, identify epoll-specific behaviors",
+      "status": "NOT_STARTED",
+      "verification": "Linux-specific analysis documented"
+    },
+    {
+      "id": 11,
+      "description": "Run eventloop tournament tests on Windows: Execute via hack/run-on-windows.sh",
+      "status": "NOT_STARTED",
+      "verification": "All tournament tests pass on Windows"
+    },
+    {
+      "id": 12,
+      "description": "Analyze eventloop tournament Windows results: Complete cross-platform tournament analysis with IOCP-specific observations",
+      "status": "NOT_STARTED",
+      "verification": "Full cross-platform tournament comparison documented"
+    },
+    {
+      "id": 13,
+      "description": "Synthesize tournament findings: Create actionable improvement list based on all tournament results across all platforms",
+      "status": "NOT_STARTED",
+      "verification": "Prioritized list of improvements derived from tournament data documented in WIP.md"
+    },
+    {
+      "id": 14,
+      "description": "Review eventloop exported types: Document all exported types in eventloop package (Loop, JS, ChainedPromise, Promise, TimerID, IOEvents, FastPathMode, etc.)",
+      "status": "NOT_STARTED",
+      "verification": "Complete type inventory with descriptions and usage patterns"
+    },
+    {
+      "id": 15,
+      "description": "Review eventloop exported functions: Document all exported functions (New, NewJS, NewChainedPromise, etc.) with their signatures and purposes",
+      "status": "NOT_STARTED",
+      "verification": "Complete function inventory with usage patterns"
+    },
+    {
+      "id": 16,
+      "description": "Review eventloop exported methods: Document all methods on Loop, JS, ChainedPromise, and other exported types",
+      "status": "NOT_STARTED",
+      "verification": "Complete method inventory organized by type"
+    },
+    {
+      "id": 17,
+      "description": "Identify API inconsistencies in eventloop: Check for naming inconsistencies, parameter ordering issues, return type inconsistencies, missing error returns",
+      "status": "NOT_STARTED",
+      "verification": "List of identified API issues documented"
+    },
+    {
+      "id": 18,
+      "description": "Identify API cleanup opportunities in eventloop: Deprecated APIs, redundant methods, missing convenience methods, godoc improvements",
+      "status": "NOT_STARTED",
+      "verification": "List of cleanup opportunities documented"
+    },
+    {
+      "id": 19,
+      "description": "Review goja-eventloop exported API: Document Adapter type, New function, Bind method, and all JavaScript bindings",
+      "status": "NOT_STARTED",
+      "verification": "Complete API inventory for goja-eventloop"
+    },
+    {
+      "id": 20,
+      "description": "Identify goja-eventloop API improvements: Check for missing JS APIs, inconsistent behavior with spec, error handling gaps",
+      "status": "NOT_STARTED",
+      "verification": "List of goja-eventloop improvements documented"
+    },
+    {
+      "id": 21,
+      "description": "Implement eventloop API improvements: Apply identified API cleanup changes (if any)",
+      "status": "NOT_STARTED",
+      "verification": "Changes applied and all tests pass"
+    },
+    {
+      "id": 22,
+      "description": "Implement goja-eventloop API improvements: Apply identified improvements (if any)",
+      "status": "NOT_STARTED",
+      "verification": "Changes applied and all tests pass"
+    },
+    {
+      "id": 23,
+      "description": "Run eventloop benchmark suite on macOS: Execute `go test -bench=. -benchmem ./eventloop/...` (excluding internal packages)",
+      "status": "NOT_STARTED",
+      "verification": "Benchmark results captured with baseline metrics"
+    },
+    {
+      "id": 24,
+      "description": "Identify performance bottlenecks: Analyze benchmark results, identify hot paths, allocation sites, lock contention",
+      "status": "NOT_STARTED",
+      "verification": "List of identified bottlenecks with data to support"
+    },
+    {
+      "id": 25,
+      "description": "Implement performance improvement 1: Address highest-impact bottleneck identified",
+      "status": "NOT_STARTED",
+      "verification": "Benchmark shows improvement, all tests pass"
+    },
+    {
+      "id": 26,
+      "description": "Implement performance improvement 2: Address second-highest-impact bottleneck (if identified)",
+      "status": "NOT_STARTED",
+      "verification": "Benchmark shows improvement, all tests pass"
+    },
+    {
+      "id": 27,
+      "description": "Re-run benchmark suite: Verify performance improvements against baseline",
+      "status": "NOT_STARTED",
+      "verification": "Documented improvement percentages for each optimization"
+    },
+    {
+      "id": 28,
+      "description": "Review all error handling paths in eventloop/loop.go: Check error propagation, error wrapping, sentinel errors usage",
+      "status": "NOT_STARTED",
+      "verification": "Error handling audit complete, issues documented"
+    },
+    {
+      "id": 29,
+      "description": "Review all error handling paths in eventloop/promise.go: Check panic recovery, rejection tracking, error propagation",
+      "status": "NOT_STARTED",
+      "verification": "Error handling audit complete, issues documented"
+    },
+    {
+      "id": 30,
+      "description": "Review all error handling paths in eventloop/js.go: Check timer error handling, interval cleanup on error",
+      "status": "NOT_STARTED",
+      "verification": "Error handling audit complete, issues documented"
+    },
+    {
+      "id": 31,
+      "description": "Review error handling in goja-eventloop/adapter.go: Check panic handling, type conversion errors, Goja exception handling",
+      "status": "NOT_STARTED",
+      "verification": "Error handling audit complete, issues documented"
+    },
+    {
+      "id": 32,
+      "description": "Fix identified error handling issues: Implement fixes for all documented error handling problems",
+      "status": "NOT_STARTED",
+      "verification": "All fixes applied, tests pass, no new errors in static analysis"
+    },
+    {
+      "id": 33,
+      "description": "Verify test coverage for eventloop: Run coverage analysis, identify uncovered code paths",
+      "status": "NOT_STARTED",
+      "verification": "Coverage report generated, gaps identified"
+    },
+    {
+      "id": 34,
+      "description": "Add missing test coverage for eventloop: Write tests for uncovered paths",
+      "status": "NOT_STARTED",
+      "verification": "Coverage improved to target level"
+    },
+    {
+      "id": 35,
+      "description": "Verify test coverage for goja-eventloop: Run coverage analysis, identify uncovered code paths",
+      "status": "NOT_STARTED",
+      "verification": "Coverage report generated, gaps identified"
+    },
+    {
+      "id": 36,
+      "description": "Add missing test coverage for goja-eventloop: Write tests for uncovered paths",
+      "status": "NOT_STARTED",
+      "verification": "Coverage improved to target level"
+    },
+    {
+      "id": 37,
+      "description": "Review race condition mitigations in eventloop: Audit atomic operations, mutex usage, state machine transitions",
+      "status": "NOT_STARTED",
+      "verification": "Race condition audit complete, identified issues documented"
+    },
+    {
+      "id": 38,
+      "description": "Review race condition mitigations in goja-eventloop: Audit sync.Map usage, mutex patterns, concurrent access points",
+      "status": "NOT_STARTED",
+      "verification": "Race condition audit complete, identified issues documented"
+    },
+    {
+      "id": 39,
+      "description": "Fix identified race condition issues: Apply fixes for any race conditions found",
+      "status": "NOT_STARTED",
+      "verification": "All race tests pass including -race flag"
+    },
+    {
+      "id": 40,
+      "description": "Verify platform-specific code correctness (Darwin): Review poller_darwin.go, wakeup_darwin.go, fd_unix.go",
+      "status": "NOT_STARTED",
+      "verification": "Darwin-specific code audited, kqueue implementation verified correct"
+    },
+    {
+      "id": 41,
+      "description": "Verify platform-specific code correctness (Linux): Review poller_linux.go, wakeup_linux.go, fd_unix.go",
+      "status": "NOT_STARTED",
+      "verification": "Linux-specific code audited, epoll implementation verified correct"
+    },
+    {
+      "id": 42,
+      "description": "Verify platform-specific code correctness (Windows): Review poller_windows.go, wakeup_windows.go, fd_windows.go",
+      "status": "NOT_STARTED",
+      "verification": "Windows-specific code audited, IOCP implementation verified correct"
+    },
+    {
+      "id": 43,
+      "description": "Run gmake make-all-with-log on macOS: Full test suite on development platform",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass with exit code 0, build.log shows no failures"
+    },
+    {
+      "id": 44,
+      "description": "Run gmake make-all-in-container on Linux: Full test suite on Linux via Docker",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass with exit code 0, build.log shows no failures"
+    },
+    {
+      "id": 45,
+      "description": "Run gmake make-all-run-windows on Windows: Full test suite on Windows via SSH/remote",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass with exit code 0, build.log shows no failures"
+    },
+    {
+      "id": 46,
+      "description": "Fix any failures found (iteration 1): Address all test failures from the three-platform run",
+      "status": "NOT_STARTED",
+      "verification": "All failures fixed, root cause documented"
+    },
+    {
+      "id": 47,
+      "description": "Re-run all platforms after fixes: Verify fixes work across all three platforms",
+      "status": "NOT_STARTED",
+      "verification": "All platforms green"
+    },
+    {
+      "id": 48,
+      "description": "Ensure all public APIs are documented: Check godoc for all exported symbols",
+      "status": "NOT_STARTED",
+      "verification": "All exported symbols have godoc comments"
+    },
+    {
+      "id": 49,
+      "description": "Review and improve existing documentation: Enhance unclear descriptions, add examples",
+      "status": "NOT_STARTED",
+      "verification": "Documentation quality improved"
+    },
+    {
+      "id": 50,
+      "description": "Update CHANGELOG.md for eventloop: Document any changes made during this session",
+      "status": "NOT_STARTED",
+      "verification": "CHANGELOG.md reflects all changes"
+    },
+    {
+      "id": 51,
+      "description": "Document architectural decisions: Record any design decisions made during optimization",
+      "status": "NOT_STARTED",
+      "verification": "Decisions documented in appropriate location (WIP.md or code comments)"
+    },
+    {
+      "id": 52,
+      "description": "Final comprehensive test run - macOS: Full `gmake make-all-with-log` run",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass, exit code 0"
+    },
+    {
+      "id": 53,
+      "description": "Final comprehensive test run - Linux: Full `gmake make-all-in-container` run",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass, exit code 0"
+    },
+    {
+      "id": 54,
+      "description": "Final comprehensive test run - Windows: Full `gmake make-all-run-windows` run",
+      "status": "NOT_STARTED",
+      "verification": "All tests pass, exit code 0"
+    },
+    {
+      "id": 55,
+      "description": "Subagent review 1: Independent verification that all platforms are green and code quality is optimal",
+      "status": "NOT_STARTED",
+      "verification": "Subagent confirms green status across all platforms"
+    },
+    {
+      "id": 56,
+      "description": "Address any issues from subagent review 1: Fix any problems identified",
+      "status": "NOT_STARTED",
+      "verification": "All issues resolved"
+    },
+    {
+      "id": 57,
+      "description": "Subagent review 2: Second independent verification (must be consecutive green)",
+      "status": "NOT_STARTED",
+      "verification": "Subagent confirms green status across all platforms - TWO CONSECUTIVE GREENS"
+    },
+    {
+      "id": 58,
+      "description": "Commit all changes: Stage and commit with comprehensive commit message",
+      "status": "NOT_STARTED",
+      "verification": "Git commit created with all changes, clean working directory"
+    },
+    {
+      "id": 59,
+      "description": "Post-commit verification: Run all tests after commit to ensure nothing was missed",
+      "status": "NOT_STARTED",
+      "verification": "All platforms still green after commit"
+    },
+    {
+      "id": 60,
+      "description": "Update blueprint.json to reflect completion: Mark all tasks DONE, update status",
+      "status": "NOT_STARTED",
+      "verification": "Blueprint shows 100% completion"
+    },
+    {
+      "id": 61,
+      "description": "Investigate microtask queuing compliance with WHATWG HTML spec section 8.7: Fetch spec URL directly, cross-reference with webappapis.html, investigate eventloop implementation's microtask handling, examine ChainedPromise implementation, compare with JavaScript engine microtask behavior, test edge cases (nested queueMicrotask, mixing with Promises, errors in microtasks), write findings to /Users/joeyc/dev/go-utilpkg/eventloop/MICROTASK_COMPLIANCE.md",
+      "status": "DONE",
+      "verification": "Comprehensive analysis completed and written to scratch/subagent2_microtask_compliance.md showing FULL COMPLIANCE with WHATWG HTML Spec Section 8.7",
+      "completionNote": "Investigated MicrotaskRing lock-free ring buffer implementation, QueueMicrotask API, drainMicrotasks() checkpoint algorithm, ChainedPromise handler scheduling. Found implementation is FULLY COMPLIANT with minor Node.js-compatible extensions (nextTickQueue). All spec requirements verified through code analysis and existing test coverage."
+    }
+  ],
   "continuousVerification": {
     "task": "Run 'make all' with full logging after EVERY significant change",
     "description": "Execute 'make make-all-with-log' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix.",
