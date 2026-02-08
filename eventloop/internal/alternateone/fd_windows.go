@@ -1,4 +1,3 @@
-package alternateone
 //go:build windows
 
 package alternateone
@@ -9,5 +8,4 @@ func closeFD(fd int) error {
 }
 
 // closeWakeFDs is a no-op on Windows (wake FDs are not used).
-
 func closeWakeFDs(readFd, writeFd int) {}

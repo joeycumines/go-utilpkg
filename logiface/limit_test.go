@@ -2,8 +2,6 @@ package logiface
 
 import (
 	"bytes"
-	"github.com/joeycumines/go-catrate"
-	runtimeutil "github.com/joeycumines/logiface/internal/runtime"
 	"io"
 	"math"
 	"path/filepath"
@@ -11,6 +9,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/go-catrate"
+	runtimeutil "github.com/joeycumines/logiface/internal/runtime"
 )
 
 func TestCallerSkipPackage(t *testing.T) {
