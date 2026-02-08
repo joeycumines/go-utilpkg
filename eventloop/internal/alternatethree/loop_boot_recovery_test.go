@@ -360,6 +360,10 @@ func TestLoop_New_EventFD_Linux(t *testing.T) {
 func TestLoop_New_SelfPipe_Darwin(t *testing.T) {
 	// t.Parallel() // Cannot parallel: platform-specific
 
+	if runtime.GOOS == "windows" {
+		t.Skip("Self-pipe not used on Windows (IOCP wakeup)")
+	}
+
 	// On Darwin (and on Linux as fallback), should create a self-pipe
 	loop, err := New()
 	if err != nil {
