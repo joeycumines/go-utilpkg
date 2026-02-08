@@ -475,9 +475,19 @@ func (p *ChainedPromise) resolve(value Result) {
 	p.h0Used = false
 	p.result = value
 	p.state.Store(int32(Fulfilled))
-	p.mu.Unlock()
 
-	// Notify all channels registered via ToChannel()
+	// Schedule handlers inside lock to guarantee ordering consistency
+	// with concurrent addHandler calls (Promise/A+ §2.2.6).
+	// This matches reject()'s T27 pattern.
+	if useH0 {
+		p.scheduleHandler(h0, int32(Fulfilled), value)
+	}
+	for _, h := range handlers {
+		p.scheduleHandler(h, int32(Fulfilled), value)
+	}
+
+	// Notify all channels registered via ToChannel() while still holding
+	// lock, matching reject()'s pattern for consistent channel behavior.
 	for _, ch := range channels {
 		select {
 		case ch <- value:
@@ -487,20 +497,13 @@ func (p *ChainedPromise) resolve(value Result) {
 	for _, ch := range channels {
 		close(ch)
 	}
+	p.mu.Unlock()
 
 	// CLEANUP: Prevent leak on success
 	if p.js != nil {
 		p.js.promiseHandlersMu.Lock()
 		delete(p.js.promiseHandlers, p.id)
 		p.js.promiseHandlersMu.Unlock()
-	}
-
-	// Schedule handlers outside lock (safe for resolve, no T27 ordering concern)
-	if useH0 {
-		p.scheduleHandler(h0, int32(Fulfilled), value)
-	}
-	for _, h := range handlers {
-		p.scheduleHandler(h, int32(Fulfilled), value)
 	}
 }
 
@@ -701,6 +704,12 @@ func (p *ChainedPromise) Catch(onRejected func(Result) Result) *ChainedPromise {
 // return value is ignored. The promise returned by Finally will settle with
 // the same value/reason as the original promise.
 //
+// Go-specific behavior: If onFinally panics, the panic value is discarded and
+// the original settlement is still propagated to the child promise. This differs
+// from JavaScript's Promise.prototype.finally where a throw inside finally causes
+// the returned promise to be rejected with the thrown value. The Go convention is
+// that cleanup panics should not silently swallow the original result.
+//
 // Use Finally for cleanup operations:
 //
 //	promise.
@@ -876,22 +885,30 @@ func (js *JS) trackRejection(promiseID uint64, reason Result, creationStack []ui
 			}
 		}
 
-		// Check if handler exists in promiseHandlers
-		// If it does, skip the check (it will be handled properly)
-		// If it doesn't, run the check (to catch truly unhandled rejections)
-		js.promiseHandlersMu.RLock()
-		_, handlerExists := js.promiseHandlers[promiseID]
-		js.promiseHandlersMu.RUnlock()
-
-		if !handlerExists {
-			// No handler registered, run check to catch unhandled rejection
+		// ALWAYS run checkUnhandledRejections to catch ALL pending unhandled
+		// rejections, not just this promise's. Without this, concurrent rejections
+		// where one has a handler and another doesn't could result in the unhandled
+		// one never being reported (the CAS gate means only one microtask runs).
+		//
+		// Re-check loop: after resetting the CAS gate, verify no new rejections
+		// arrived during our check. Without this, a rejection that arrives between
+		// the snapshot in checkUnhandledRejections and the CAS reset would be
+		// orphaned permanently (its CAS failed, and no subsequent check runs).
+		for {
 			js.checkUnhandledRejections()
-		}
-		// If handler exists, skip the check - the handler will be processed
-		// and a subsequent check will clean up
+			js.checkRejectionScheduled.Store(false)
 
-		// Mark as completed (allow next one to be scheduled)
-		js.checkRejectionScheduled.Store(false)
+			// Re-check: if new unhandled rejections arrived during our check,
+			// they would have failed the CAS and not scheduled their own microtask.
+			// Re-acquire the CAS and check again to prevent orphaning them.
+			js.rejectionsMu.RLock()
+			pending := len(js.unhandledRejections) > 0
+			js.rejectionsMu.RUnlock()
+			if !pending || !js.checkRejectionScheduled.CompareAndSwap(false, true) {
+				break
+			}
+			// New rejections arrived during our check, loop to process them
+		}
 	})
 }
 

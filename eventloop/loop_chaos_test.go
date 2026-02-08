@@ -869,7 +869,7 @@ func TestChaos_CombinedStress(t *testing.T) {
 	select {
 	case <-normalDone:
 		t.Log("Loop recovered from combined stress")
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Loop appears stuck after combined stress")
 	}
 

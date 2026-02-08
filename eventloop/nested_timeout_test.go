@@ -260,13 +260,16 @@ func TestNestedTimeoutWithExplicitDelay(t *testing.T) {
 	}
 
 	// Verify each delay is approximately 10ms
-	// (accounting for nesting overhead)
+	// (accounting for nesting overhead and race detector slowdown)
 	for i := 1; i < len(executionTimes); i++ {
 		delay := executionTimes[i].Sub(executionTimes[i-1])
 		t.Logf("Timer at depth %d fired with delay %v", i, delay)
 
-		// Allow 5ms tolerance for scheduling overhead
-		if delay < 8*time.Millisecond || delay > 15*time.Millisecond {
+		// Allow generous upper tolerance for scheduling overhead, race detector,
+		// and platform-specific timer resolution (Windows 15.6ms tick, etc.).
+		// The key assertion is that delay >= 8ms (not clamped down to 4ms by
+		// the HTML5 nested timer clamping specification).
+		if delay < 8*time.Millisecond || delay > 40*time.Millisecond {
 			t.Errorf("Expected delay ~10ms at depth %d, got %v", i, delay)
 		}
 	}
