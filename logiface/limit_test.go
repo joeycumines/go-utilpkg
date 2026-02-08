@@ -20,7 +20,7 @@ func TestCallerSkipPackage(t *testing.T) {
 	}
 	if pkgPath == `` {
 		t.Error(`unexpected empty pkgPath`)
-	} else if v.File != filepath.Join(pkgPath, `limit_test.go`) {
+	} else if filepath.ToSlash(v.File) != filepath.ToSlash(filepath.Join(pkgPath, `limit_test.go`)) {
 		t.Errorf(`unexpected file %q`, v.File)
 	}
 	if v.Entry == 0 || v.Line == 0 {

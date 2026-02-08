@@ -1,14 +1,11 @@
+//go:build linux || darwin
+
 package alternatetwo
 
 import "sync"
 
 // chunkSize is the fixed size of each chunk in the chunked linked-list.
 const chunkSize = 128
-
-// Task represents a unit of work submitted to the event loop.
-type Task struct {
-	Fn func()
-}
 
 // chunk is a fixed-size node in the chunked linked-list.
 // PERFORMANCE: Minimal clearing on return to pool.

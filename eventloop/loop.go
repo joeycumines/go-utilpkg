@@ -1396,7 +1396,9 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 
 // scheduleMicrotask adds a task to the microtask queue (internal use).
 //
-// MicrotaskRing now implements dynamic growth, so Push never fails.
+// Used by platform-specific tests (regression_test.go, linux/darwin only).
+//
+//lint:ignore U1000 Used by platform-specific test files with build constraints.
 func (l *Loop) scheduleMicrotask(task func()) {
 	if task != nil {
 		l.microtasks.Push(task)

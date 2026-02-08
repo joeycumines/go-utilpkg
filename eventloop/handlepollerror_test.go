@@ -130,23 +130,13 @@ func TestHandlePollError_PollIOErrorPath(t *testing.T) {
 	// - HandlePollError exists as a method (verified by coverage)
 	// - Loop transitions cleanly to terminated state
 
-	// Create a pipe and register to force I/O mode
-	pipeR, pipeW, err := os.Pipe()
-	if err != nil {
-		t.Fatal("Pipe failed:", err)
-	}
-	defer pipeR.Close()
-	defer pipeW.Close()
+	// Register a FD to force I/O mode
+	fd, fdCleanup := testCreateIOFD(t)
+	defer fdCleanup()
 
-	err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 	if err != nil {
 		t.Fatalf("RegisterFD failed: %v", err)
-	}
-
-	// Write data to pipe (should trigger callback)
-	_, err = pipeW.Write([]byte("test data"))
-	if err != nil {
-		t.Fatal("Write to pipe failed:", err)
 	}
 
 	// Give loop time to process

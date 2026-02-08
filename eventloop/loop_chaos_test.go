@@ -876,20 +876,3 @@ func TestChaos_CombinedStress(t *testing.T) {
 	loop.Shutdown(context.Background())
 	<-runDone
 }
-
-// Helper function to wait for loop to reach a specific state.
-func waitLoopState(t *testing.T, loop *Loop, expected LoopState, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for loop.State() != expected && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
-	if loop.State() != expected {
-		// Accept either Running or Sleeping as "running"
-		state := loop.State()
-		if expected == StateRunning && (state == StateRunning || state == StateSleeping) {
-			return
-		}
-		t.Fatalf("Loop failed to reach %v state (got %v)", expected, state)
-	}
-}

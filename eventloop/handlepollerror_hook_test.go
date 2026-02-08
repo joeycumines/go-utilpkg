@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -47,16 +46,12 @@ func TestHandlePollError_DirectInjection(t *testing.T) {
 	// Assign test hooks directly (following test pattern in fastpath_rollback_test.go)
 	loop.testHooks = testHooks
 
-	// Register a dummy pipe to force I/O mode (userIOFDCount > 0)
+	// Register a dummy FD to force I/O mode (userIOFDCount > 0)
 	// This is required because PollError hook only executes in pollIOMode
-	pipeR, pipeW, err := os.Pipe()
-	if err != nil {
-		t.Fatal("os.Pipe failed:", err)
-	}
-	defer pipeW.Close()
-	defer pipeR.Close()
+	fd, fdCleanup := testCreateIOFD(t)
+	defer fdCleanup()
 
-	err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 	if err != nil {
 		t.Fatal("RegisterFD failed:", err)
 	}
@@ -116,15 +111,11 @@ func TestHandlePollError_LogMessage(t *testing.T) {
 	defer loop.Close()
 	loop.testHooks = testHooks
 
-	// Register a dummy pipe to force I/O mode (required for PollError hook)
-	pipeR, pipeW, err := os.Pipe()
-	if err != nil {
-		t.Fatal("os.Pipe failed:", err)
-	}
-	defer pipeW.Close()
-	defer pipeR.Close()
+	// Register a dummy FD to force I/O mode (required for PollError hook)
+	fd, fdCleanup := testCreateIOFD(t)
+	defer fdCleanup()
 
-	err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 	if err != nil {
 		t.Fatal("RegisterFD failed:", err)
 	}
@@ -175,15 +166,11 @@ func TestHandlePollError_StateTransitionFromSleeping(t *testing.T) {
 	defer loop.Close()
 	loop.testHooks = testHooks
 
-	// Register a dummy pipe to force I/O mode
-	pipeR, pipeW, err := os.Pipe()
-	if err != nil {
-		t.Fatal("os.Pipe failed:", err)
-	}
-	defer pipeW.Close()
-	defer pipeR.Close()
+	// Register a dummy FD to force I/O mode
+	fd, fdCleanup := testCreateIOFD(t)
+	defer fdCleanup()
 
-	err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 	if err != nil {
 		t.Fatal("RegisterFD failed:", err)
 	}
@@ -226,15 +213,11 @@ func TestHandlePollError_ShutdownInvocation(t *testing.T) {
 	defer loop.Close()
 	loop.testHooks = testHooks
 
-	// Register a dummy pipe to force I/O mode
-	pipeR, pipeW, err := os.Pipe()
-	if err != nil {
-		t.Fatal("os.Pipe failed:", err)
-	}
-	defer pipeW.Close()
-	defer pipeR.Close()
+	// Register a dummy FD to force I/O mode
+	fd, fdCleanup := testCreateIOFD(t)
+	defer fdCleanup()
 
-	err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 	if err != nil {
 		t.Fatal("RegisterFD failed:", err)
 	}
@@ -292,15 +275,11 @@ func TestHandlePollError_ErrorVariations(t *testing.T) {
 			defer loop.Close()
 			loop.testHooks = testHooks
 
-			// Register a dummy pipe to force I/O mode
-			pipeR, pipeW, err := os.Pipe()
-			if err != nil {
-				t.Fatal("os.Pipe failed:", err)
-			}
-			defer pipeW.Close()
-			defer pipeR.Close()
+			// Register a dummy FD to force I/O mode
+			fd, fdCleanup := testCreateIOFD(t)
+			defer fdCleanup()
 
-			err = loop.RegisterFD(int(pipeR.Fd()), EventRead, func(events IOEvents) {})
+			err = loop.RegisterFD(fd, EventRead, func(events IOEvents) {})
 			if err != nil {
 				t.Fatal("RegisterFD failed:", err)
 			}

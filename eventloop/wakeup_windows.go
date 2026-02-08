@@ -1,5 +1,7 @@
 //go:build windows
 
+//lint:file-ignore U1000 Platform-specific stub functions (required for cross-platform compilation symmetry)
+
 package eventloop
 
 import "golang.org/x/sys/windows"

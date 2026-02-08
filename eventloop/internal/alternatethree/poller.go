@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // Package alternatethree provides I/O event registration.
 //
 // # I/O Registration (T10)

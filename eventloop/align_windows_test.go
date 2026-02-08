@@ -71,9 +71,12 @@ func TestFastPollerAlign_Windows(t *testing.T) {
 	}
 
 	// Verify total structure size
+	// Minimum size based on cache-line-isolated zones for iocp and closed.
+	// Intermediate fields (fds, fdMu) live between zones and contribute
+	// additional bytes, so actual size will exceed this minimum.
+	// The initialized field's isolation is verified via its offset checks above.
 	expectedMinSize := sizeOfCacheLine + uintptr(iocpSize) + (sizeOfCacheLine - uintptr(iocpSize)) + // padding before and after iocp
-		sizeOfCacheLine + uintptr(closedSize) + sizeOfCacheLine + // padding before and after closed
-		sizeOfCacheLine + uintptr(initSize) + (sizeOfCacheLine - uintptr(initSize)) // padding before and after initialized
+		sizeOfCacheLine + uintptr(closedSize) + (sizeOfCacheLine - uintptr(closedSize)) // padding before and after closed
 
 	actualSize := unsafe.Sizeof(*s)
 	fmt.Printf("\nExpected minimum size: %d bytes\n", expectedMinSize)

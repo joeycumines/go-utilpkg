@@ -8,7 +8,7 @@ package eventloop
 
 import (
 	"context"
-	"os"
+	"net"
 	"testing"
 	"time"
 )
@@ -18,16 +18,28 @@ import (
 // Priority: CRITICAL - Hits doWakeup() path in Wake().
 //
 // This test registers a file descriptor to force I/O MODE
-// (kqueue/epoll blocking), then calls Wake() during poll to
+// (kqueue/epoll/IOCP blocking), then calls Wake() during poll to
 // ensure we hit the state == StateSleeping path.
 func TestWake_IOMode_StateSleeping(t *testing.T) {
-	// Create a pipe for I/O registration
-	r, w, err := os.Pipe()
+	// Create a TCP listener to get a proper socket FD.
+	// TCP sockets work with all poller backends:
+	//   - kqueue (Darwin): TCP sockets are kqueue-compatible
+	//   - epoll (Linux): TCP sockets are epoll-compatible
+	//   - IOCP (Windows): TCP sockets are IOCP-compatible (unlike os.Pipe)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Fatal("Failed to create pipe:", err)
+		t.Fatal("Failed to create TCP listener:", err)
 	}
-	defer r.Close()
-	defer w.Close()
+	defer ln.Close()
+
+	// Get the underlying FD from the listener
+	tcpLn := ln.(*net.TCPListener)
+	f, err := tcpLn.File()
+	if err != nil {
+		t.Fatal("Failed to get listener file:", err)
+	}
+	defer f.Close()
+	fd := int(f.Fd())
 
 	loop, err := New()
 	if err != nil {
@@ -35,17 +47,15 @@ func TestWake_IOMode_StateSleeping(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	// Register read side for read events
+	// Register listener socket for read events (accept-readiness)
 	callbackCalled := false
 	err = loop.Submit(func() {
-		// For Darwin, EventRead corresponds to EVFILT_READ
-		err := loop.RegisterFD(int(r.Fd()), EventRead, func(events IOEvents) {
-			// Unregister and note callback
-			loop.UnregisterFD(int(r.Fd()))
+		err := loop.RegisterFD(fd, EventRead, func(events IOEvents) {
+			loop.UnregisterFD(fd)
 			callbackCalled = true
 		})
 		if err != nil {
-			t.Fatal("RegisterFD failed:", err)
+			t.Errorf("RegisterFD failed: %v", err)
 		}
 	})
 	if err != nil {

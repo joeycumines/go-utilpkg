@@ -95,9 +95,7 @@ func TestIOCPRegisterFD(t *testing.T) {
 	defer windows.Closesocket(sock)
 
 	// Register the socket
-	var callbackCalled bool
 	err = p.RegisterFD(int(sock), EventRead, func(IOEvents) {
-		callbackCalled = true
 	})
 	if err != nil {
 		t.Fatalf("RegisterFD failed: %v", err)

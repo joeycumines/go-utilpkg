@@ -70,6 +70,55 @@
       "verificationCriteria": "Behavior documented as correct in script comments or blueprint."
     },
     {
+      "id": "T052",
+      "title": "Audit test build tags for maximum cross-platform coverage",
+      "status": "IN_PROGRESS",
+      "description": "HANA MANDATE. Audit ALL eventloop test files with //go:build linux || darwin constraints. For each: determine if the constraint is GENUINELY required (uses kqueue/epoll internals, Unix-specific syscalls) or if it can be made cross-platform. Extract platform-specific helpers to separate files, use cross-platform APIs (TCP sockets instead of pipes, net.Listen instead of raw FD ops), move shared test helpers to unconstrained files. Maximize Windows test coverage. Internal alternate packages (alternateone/two/three) MUST have Windows support added (IOCP pollers) so tournament can run on Windows.",
+      "verificationCriteria": "Every //go:build constraint in test files is justified. Tests that CAN run on Windows DO run on Windows. waitLoopState and similar helpers available cross-platform."
+    },
+    {
+      "id": "T053",
+      "title": "Add Windows IOCP poller to alternateone",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Create poller_windows.go, wakeup_windows.go, fd_unix.go, fd_windows.go for alternateone. Create loop_wakeup_unix.go and loop_wakeup_windows.go to split wakeup-related methods. Refactor loop.go to remove //go:build constraint, replace direct unix.* calls with cross-platform helpers. Remove build constraint from shutdown.go. The SafePoller Windows implementation uses IOCP (CreateIoCompletionPort, GetQueuedCompletionStatus, PostQueuedCompletionStatus).",
+      "verificationCriteria": "alternateone compiles and its loop functions correctly on Windows. Tournament benchmarks can use it."
+    },
+    {
+      "id": "T054",
+      "title": "Add Windows IOCP poller to alternatetwo",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Same as T053 but for alternatetwo. Create Windows-compatible FastPoller, wakeup, FD helpers. Remove build constraints from loop.go and chunk.go. The FastPoller Windows implementation uses IOCP with lock-free FD indexing.",
+      "verificationCriteria": "alternatetwo compiles and its loop functions correctly on Windows. Tournament benchmarks can use it."
+    },
+    {
+      "id": "T055",
+      "title": "Add Windows IOCP poller to alternatethree",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Same as T053 but for alternatethree. Create Windows-compatible ioPoller, wakeup, FD helpers. Remove build constraints from loop.go, poller.go, promisify.go. The ioPoller Windows implementation uses IOCP with RWMutex-protected callbacks.",
+      "verificationCriteria": "alternatethree compiles and its loop functions correctly on Windows. Tournament benchmarks can use it."
+    },
+    {
+      "id": "T056",
+      "title": "Remove tournament package build constraints",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Once T053-T055 are complete, remove //go:build linux || darwin constraints from ALL tournament package files. Remove the doc.go stub. Tournament tests must run on Windows. Also remove constraints from all alternate package test files.",
+      "verificationCriteria": "Tournament package has zero build constraints. All tournament tests pass on macOS, Linux, and Windows."
+    },
+    {
+      "id": "T057",
+      "title": "Add Linux container target for tournament execution",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Create make target (e.g., run-tournament-linux) that runs tournament benchmarks inside a Linux container, collecting performance data. make-all-in-container already validates build; this adds targeted tournament data collection.",
+      "verificationCriteria": "New make target runs tournament benchmarks in Linux container. Results can be captured."
+    },
+    {
+      "id": "T058",
+      "title": "Perform complete tournament re-assessment across all platforms. Validate against regressions.",
+      "status": "NOT_STARTED",
+      "description": "HANA MANDATE. Complete tournament re-evaluation. You never actually verified the performance of the Windows implementation, fool. As usual, use EXHAUSTIVE subagent-based analysis, and write up your findings in eventloop/docs/tournament - there are numbers there for you to compare, as well.",
+      "verificationCriteria": "Complete tournament re-evaluation, against all platforms. Windows MUST be on-par performance wise in all areas. If issues exist, additional iterations are required until parity is achieved."
+    },
+    {
       "id": "T008",
       "title": "Verify go.work completeness against all go.mod files",
       "status": "NOT_STARTED",
@@ -382,7 +431,8 @@
     "task": "Run 'make all' with full logging after EVERY significant change",
     "description": "Execute 'make make-all-with-log' after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix.",
     "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions.",
-    "testCoverage": "You will ALWAYS aim for 100% effective test coverage, and VERIFY test coverage by means of the tooling available to you. You will NOT proceed to the next task until you have achieved 100% effective test coverage for the current task, and have verified that coverage with the tools available to you."
+    "testCoverage": "You will ALWAYS aim for 100% effective test coverage, and VERIFY test coverage by means of the tooling available to you. You will NOT proceed to the next task until you have achieved 100% effective test coverage for the current task, and have verified that coverage with the tools available to you.",
+    "crossPlatformDirective": "HANA MANDATE: Audit ALL test files for incorrect build tags. AS MUCH AS POSSIBLE must be exposed to AS MANY PLATFORMS AS POSSIBLE. Do NOT lazily add build constraints to skip Windows. Instead: extract platform-specific helpers, use cross-platform socket APIs, etc. Tests should run on all 3 OS unless they genuinely require platform-specific APIs (kqueue/epoll internals, /dev/poll, etc)."
   },
   "finalEnforcementProtocol": [
     {
