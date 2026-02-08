@@ -104,15 +104,15 @@ func (p *FastPoller) Init() error {
 
 // Close closes the IOCP instance and associated resources.
 func (p *FastPoller) Close() error {
-	// Prevent double-close
-	if p.closed.Load() {
-		return nil // Already closed, return success (idempotent)
-	}
 	if !p.initialized.Load() {
 		return nil // Never initialized, nothing to close
 	}
 
-	p.closed.Store(true)
+	// Atomic swap prevents TOCTOU race with concurrent Close() calls
+	if p.closed.Swap(true) {
+		return nil // Already closed (idempotent)
+	}
+
 	p.initialized.Store(false)
 
 	if p.iocp != 0 {

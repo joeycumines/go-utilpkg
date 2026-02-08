@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 // Package alternatethree provides I/O event registration.
 //
 // # I/O Registration (T10)
@@ -8,8 +6,10 @@
 // platform-native mechanisms:
 //   - Linux: epoll
 //   - Darwin/BSD: kqueue
+//   - Windows: IOCP (I/O Completion Ports)
 //
-// See poller_linux.go and poller_darwin.go for platform-specific implementations.
+// See poller_linux.go, poller_darwin.go, and poller_windows.go for
+// platform-specific implementations.
 //
 // # Usage
 //

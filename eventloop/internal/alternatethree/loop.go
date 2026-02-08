@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 package alternatethree
 
 import (
@@ -11,9 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -181,25 +176,11 @@ func New() (*Loop, error) {
 	loop.state.Store(int32(StateAwake))
 	loop.wakeUpSignalPending.Store(0)
 
-	// T10-FIX-3: Initialize the I/O poller and register wakePipe
-	// This allows us to use pollIO as the unified blocking mechanism.
-	if err := loop.ioPoller.initPoller(); err != nil {
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
-		}
-		return nil, err
-	}
-
-	// Register wakePipe for read events - this will trigger on wake-up signals
-	if err := loop.RegisterFD(wakeFd, EventRead, func(IOEvents) {
-		loop.drainWakeUpPipe()
-	}); err != nil {
-		_ = loop.ioPoller.closePoller()
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
-		}
+	// T10-FIX-3: Initialize the I/O poller and register wakePipe.
+	// On Unix, this registers the wakePipe with epoll/kqueue.
+	// On Windows, this initializes the IOCP handle.
+	if err := loop.initWakeup(); err != nil {
+		closeWakeFDs(wakeFd, wakeWriteFd)
 		return nil, err
 	}
 
@@ -461,26 +442,6 @@ func (l *Loop) shutdown() {
 	l.closeFDs()
 
 	// 10. Loop goroutine will naturally return to Run() caller
-}
-
-// closeFDs closes the wake-up file descriptors and I/O poller.
-// Defect 3 Fix: FDs were never closed, causing resource exhaustion.
-// Defect 7 Fix (Darwin): Ensures both read and write ends are closed.
-// T10: Also closes the ioPoller's epoll/kqueue file descriptor.
-func (l *Loop) closeFDs() {
-	// CRITICAL FIX #2: Close poller FIRST to stop event delivery, THEN close FDs.
-	// Prevents window where events might be delivered to closed FDs.
-	//
-	// Order matters:
-	// 1. Stop event delivery (close epoll/kq)
-	// 2. Close FDs (after event emission stopped)
-	_ = l.ioPoller.closePoller()
-
-	_ = unix.Close(l.wakePipe)
-	// Darwin has separate read/write FDs, Linux eventfd has same FD for both
-	if l.wakePipeWrite != l.wakePipe {
-		_ = unix.Close(l.wakePipeWrite)
-	}
 }
 
 // Close immediately terminates the event loop without waiting for graceful shutdown.
@@ -800,45 +761,6 @@ func (l *Loop) poll(ctx context.Context, tickTime interface{}) {
 	}
 }
 
-func (l *Loop) drainWakeUpPipe() {
-	// HIGH FIX #4: Improve error handling to prevent state corruption
-	// Only clear wakeUpSignalPending if we successfully drained the pipe
-	drained := false
-
-Loop:
-	for {
-		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
-		if err != nil {
-			switch err {
-			case unix.EAGAIN:
-				// Pipe is drained (EWOULDBLOCK has same value on most systems)
-				drained = true
-				break Loop // Exit the loop
-			case unix.EINTR:
-				// Interrupted by signal - retry the read
-				continue
-			case unix.EBADF:
-				// FD closed (shutdown in progress) - don't clear flag
-				// This prevents clearing flag without draining, which would
-				// corrupt the wake-up signal invariant
-				log.Printf("WARN: drainWakeUpPipe called on closed FD")
-				return
-			default:
-				// Unexpected error - log and don't clear flag
-				// This preserves wake-up signal state for investigation
-				log.Printf("ERROR: drainWakeUpPipe failed: %v", err)
-				return
-			}
-		}
-		// Successfully read - continue draining in case of multiple wake signals
-	}
-
-	// ONLY clear flag if we successfully drained the pipe
-	if drained {
-		l.wakeUpSignalPending.Store(0)
-	}
-}
-
 func (l *Loop) calculateTimeout() int {
 	maxDelay := 10 * time.Second // Default/Max block time
 
@@ -862,24 +784,6 @@ func (l *Loop) calculateTimeout() int {
 	}
 
 	return int(maxDelay.Milliseconds())
-}
-
-// submitWakeup performs the wake-up write to the appropriate fd.
-// This is platform-specific: eventfd on Linux, self-pipe on Darwin.
-func (l *Loop) submitWakeup() error {
-	// CRITICAL FIX: Cross-architecture endianness safety.
-	// We use the aligned uint64 variable as the source, then interpret its memory
-	// as a byte slice. This works on ALL architectures (little-endian, big-endian)
-	// and avoids requiring buf to be 8-byte aligned (which it's not on 32-bit stacks).
-	//
-	// 'one' is a native uint64, so it's aligned and in native byte order.
-	// We interpret the memory of 'one' as a byte array, which reads native bytes
-	// without requiring 'buf' to be 8-byte aligned.
-	var one uint64 = 1
-	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
-
-	_, err := unix.Write(l.wakePipeWrite, buf)
-	return err
 }
 
 // Submit enqueues a task to the external ingress queue for execution on the loop.

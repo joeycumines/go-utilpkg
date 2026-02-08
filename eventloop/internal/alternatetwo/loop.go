@@ -1,5 +1,3 @@
-//go:build linux || darwin
-
 package alternatetwo
 
 import (
@@ -9,9 +7,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 // Standard errors.
@@ -96,24 +91,9 @@ func New() (*Loop, error) {
 		loopDone: make(chan struct{}),
 	}
 
-	// Initialize poller
-	if err := loop.poller.Init(); err != nil {
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
-		}
-		return nil, err
-	}
-
-	// Register wake pipe
-	if err := loop.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
-		loop.drainWakeUpPipe()
-	}); err != nil {
-		_ = loop.poller.Close()
-		_ = unix.Close(wakeFd)
-		if wakeWriteFd != wakeFd {
-			_ = unix.Close(wakeWriteFd)
-		}
+	// Initialize poller and register wakeup (platform-specific)
+	if err := loop.initWakeup(); err != nil {
+		closeWakeFDs(wakeFd, wakeWriteFd)
 		return nil, err
 	}
 
@@ -359,27 +339,6 @@ func (l *Loop) poll() {
 	l.state.TryTransition(StateSleeping, StateRunning)
 }
 
-// drainWakeUpPipe drains the wake-up pipe.
-func (l *Loop) drainWakeUpPipe() {
-	for {
-		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
-		if err != nil {
-			break
-		}
-	}
-	l.wakePending.Store(0)
-}
-
-// submitWakeup writes to the wake-up pipe.
-func (l *Loop) submitWakeup() error {
-	// PERFORMANCE: Native endianness, no binary.LittleEndian overhead
-	var one uint64 = 1
-	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
-
-	_, err := unix.Write(l.wakePipeWrite, buf)
-	return err
-}
-
 // Submit submits a task to the external queue.
 func (l *Loop) Submit(fn func()) error {
 	state := l.state.Load()
@@ -464,15 +423,6 @@ func (l *Loop) safeExecute(fn func()) {
 	}()
 
 	fn()
-}
-
-// closeFDs closes file descriptors.
-func (l *Loop) closeFDs() {
-	_ = l.poller.Close()
-	_ = unix.Close(l.wakePipe)
-	if l.wakePipeWrite != l.wakePipe {
-		_ = unix.Close(l.wakePipeWrite)
-	}
 }
 
 // isLoopThread checks if we're on the loop goroutine.
