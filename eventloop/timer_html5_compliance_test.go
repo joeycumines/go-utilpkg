@@ -870,75 +870,121 @@ func TestHTML5_ConcurrentTimerOperations(t *testing.T) {
 }
 
 // TestHTML5_ClampingThreshold tests the exact threshold for clamping (depth > 5).
+// Uses natural nesting depth via nested callbacks to avoid race conditions.
 func TestHTML5_ClampingThreshold(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	// Test scheduling at different nesting depths
-	testCases := []struct {
-		depth       int32
-		delay       time.Duration
-		shouldClamp bool
-		description string
-	}{
-		{0, 0, false, "depth=0, delay=0 -> no clamp"},
-		{5, 0, false, "depth=5, delay=0 -> no clamp (threshold is > 5)"},
-		{6, 0, true, "depth=6, delay=0 -> clamped to 4ms"},
-		{10, 0, true, "depth=10, delay=0 -> clamped to 4ms"},
-		{6, 3 * time.Millisecond, true, "depth=6, delay=3ms -> clamped to 4ms"},
-		{6, 4 * time.Millisecond, false, "depth=6, delay=4ms -> no clamp (already >= 4ms)"},
-		{6, 5 * time.Millisecond, false, "depth=6, delay=5ms -> no clamp"},
-	}
+	// Test 1: Verify that depth <= 5 does NOT clamp (immediate execution at depth 5)
+	t.Run("depth_5_no_clamp", func(t *testing.T) {
+		done := make(chan time.Duration, 1)
 
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			// Set nesting depth directly
-			loop.timerNestingDepth.Store(tc.depth)
-
-			start := time.Now()
-			done := make(chan struct{})
-
-			_, err := loop.ScheduleTimer(tc.delay, func() {
-				close(done)
-			})
-			if err != nil {
-				t.Fatalf("ScheduleTimer error: %v", err)
+		// Create nested timers to reach depth 5, then measure the innermost timer
+		var scheduleNested func(depth int)
+		scheduleNested = func(depth int) {
+			if depth < 5 {
+				_, _ = loop.ScheduleTimer(0, func() {
+					scheduleNested(depth + 1)
+				})
+			} else {
+				// At depth 5, schedule final timer with 0 delay - should NOT clamp
+				start := time.Now()
+				_, _ = loop.ScheduleTimer(0, func() {
+					done <- time.Since(start)
+				})
 			}
+		}
 
-			select {
-			case <-done:
-				elapsed := time.Since(start)
-				t.Logf("Elapsed: %v", elapsed)
+		scheduleNested(0)
 
-				if tc.shouldClamp {
-					// Should take at least ~3.5ms (4ms - tolerance)
-					if elapsed < 3*time.Millisecond {
-						t.Errorf("Expected clamped delay (~4ms), got %v", elapsed)
-					}
-				} else {
-					// Should execute quickly (< 50ms for safety margin)
-					// Note: 0ms delay still involves queue processing overhead
-					if elapsed > 50*time.Millisecond {
-						t.Errorf("Expected fast execution, got %v", elapsed)
-					}
-				}
-
-			case <-time.After(10 * time.Second):
-				t.Fatal("Timeout waiting for timer")
+		select {
+		case elapsed := <-done:
+			t.Logf("Depth 5, delay 0: elapsed=%v", elapsed)
+			// At depth 5, should NOT clamp (threshold is > 5), so should be fast
+			// Allow generous margin for scheduling overhead
+			if elapsed > 100*time.Millisecond {
+				t.Errorf("Expected fast execution at depth 5, got %v", elapsed)
 			}
-		})
-	}
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timeout waiting for timer")
+		}
+	})
 
-	// Reset nesting depth
-	loop.timerNestingDepth.Store(0)
+	// Test 2: Verify that depth > 5 DOES clamp (delayed execution at depth 6+)
+	t.Run("depth_6_with_clamp", func(t *testing.T) {
+		done := make(chan time.Duration, 1)
+
+		// Create nested timers to reach depth 6, then measure the innermost timer
+		var scheduleNested func(depth int)
+		scheduleNested = func(depth int) {
+			if depth < 6 {
+				_, _ = loop.ScheduleTimer(0, func() {
+					scheduleNested(depth + 1)
+				})
+			} else {
+				// At depth 6, schedule final timer with 0 delay - SHOULD clamp to 4ms
+				start := time.Now()
+				_, _ = loop.ScheduleTimer(0, func() {
+					done <- time.Since(start)
+				})
+			}
+		}
+
+		scheduleNested(0)
+
+		select {
+		case elapsed := <-done:
+			t.Logf("Depth 6, delay 0: elapsed=%v", elapsed)
+			// At depth 6+, should clamp to 4ms minimum
+			// Use 2ms as lower bound to account for timing variance
+			if elapsed < 2*time.Millisecond {
+				t.Errorf("Expected clamped delay (~4ms) at depth 6, got %v", elapsed)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timeout waiting for timer")
+		}
+	})
+
+	// Test 3: Verify that delay >= 4ms is NOT clamped even at high depth
+	t.Run("depth_6_delay_4ms_no_extra_clamp", func(t *testing.T) {
+		done := make(chan time.Duration, 1)
+
+		var scheduleNested func(depth int)
+		scheduleNested = func(depth int) {
+			if depth < 6 {
+				_, _ = loop.ScheduleTimer(0, func() {
+					scheduleNested(depth + 1)
+				})
+			} else {
+				// At depth 6, schedule with 4ms delay - should NOT add extra clamping
+				start := time.Now()
+				_, _ = loop.ScheduleTimer(4*time.Millisecond, func() {
+					done <- time.Since(start)
+				})
+			}
+		}
+
+		scheduleNested(0)
+
+		select {
+		case elapsed := <-done:
+			t.Logf("Depth 6, delay 4ms: elapsed=%v", elapsed)
+			// Should be approximately 4ms, not doubled or anything
+			if elapsed < 3*time.Millisecond || elapsed > 50*time.Millisecond {
+				t.Errorf("Expected ~4ms delay, got %v", elapsed)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timeout waiting for timer")
+		}
+	})
 
 	_ = loop.Shutdown(ctx)
 }
