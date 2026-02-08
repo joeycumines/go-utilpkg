@@ -836,21 +836,23 @@
     {
       "id": "T106",
       "title": "Run macOS gmake all (post-refactor)",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
+      "note": "gmake all passed. Fixed: removed dead tryCall function (staticcheck), reordered h0Used field for betteralign (128→120 bytes).",
       "description": "Full gmake make-all-with-log. Must pass 100%.",
       "verificationCriteria": "Zero FAIL lines."
     },
     {
       "id": "T107",
       "title": "Fix macOS failures (post-refactor)",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Fixed during T106: removed tryCall (unused), fixed struct alignment.",
       "description": "Fix all failures from T106.",
       "verificationCriteria": "Re-run zero FAIL."
     },
     {
       "id": "T108",
       "title": "Run Windows gmake all (post-refactor)",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "description": "gmake run-on-windows. Must pass 100%.",
       "verificationCriteria": "Zero FAIL lines on Windows."
     },
