@@ -108,6 +108,7 @@ func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise
 	if err != nil {
 		b.Fatal(err)
 	}
+	b.Cleanup(func() { _ = loop.Close() })
 	js, err := eventloop.NewJS(loop)
 	if err != nil {
 		b.Fatal(err)
@@ -176,6 +177,11 @@ func BenchmarkChainDepth(b *testing.B) {
 
 					// We just measure construction/scheduling speed here too.
 					// Actually running the loop is flawed in microbench because of Startup/Shutdown costs.
+
+					// Stop timer for cleanup to avoid measuring teardown
+					b.StopTimer()
+					_ = l.Close()
+					b.StartTimer()
 				}
 			})
 		}
