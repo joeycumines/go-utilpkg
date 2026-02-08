@@ -45,13 +45,13 @@ type fdInfo struct {
 //
 // PERFORMANCE: Uses direct FD indexing and lock-free design where possible.
 type FastPoller struct { // betteralign:ignore
-	_       [64]byte           // Cache line padding //nolint:unused
-	iocp    windows.Handle     // IOCP handle
-	_       [56]byte           // Pad to cache line //nolint:unused
-	version atomic.Uint64      // Version counter for consistency
-	_       [56]byte           // Pad to cache line //nolint:unused
-	fds     [maxFDs]fdInfo     // Direct indexing, no map
-	closed  atomic.Bool        // Closed flag
+	_       [64]byte       // Cache line padding //nolint:unused
+	iocp    windows.Handle // IOCP handle
+	_       [56]byte       // Pad to cache line //nolint:unused
+	version atomic.Uint64  // Version counter for consistency
+	_       [56]byte       // Pad to cache line //nolint:unused
+	fds     [maxFDs]fdInfo // Direct indexing, no map
+	closed  atomic.Bool    // Closed flag
 }
 
 // Init initializes the IOCP instance.

@@ -640,6 +640,16 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 				return result
 			}
 
+			// Promise/A+ §2.2.7.4: If onRejected is not a function and
+			// promise1 is rejected, promise2 must be rejected with the same reason.
+			if currentState == int32(Rejected) {
+				r := p.Reason()
+				js.QueueMicrotask(func() {
+					result.reject(r, js)
+				})
+				return result
+			}
+
 			// Schedule handler as microtask for already-fulfilled promise
 			v := p.Value()
 			js.QueueMicrotask(func() {
@@ -728,6 +738,16 @@ func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Resul
 			r := p.Reason()
 			js.QueueMicrotask(func() {
 				tryCall(onRejected, r, result)
+			})
+			return result
+		}
+
+		// Promise/A+ §2.2.7.4: If onRejected is not a function and
+		// promise1 is rejected, promise2 must be rejected with the same reason.
+		if currentState == int32(Rejected) {
+			r := p.Reason()
+			js.QueueMicrotask(func() {
+				result.reject(r, js)
 			})
 			return result
 		}
@@ -1312,13 +1332,8 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 				}
 				return nil
 			},
-			nil,
-		)
-
-		// Reject on first rejection
-		p.ThenWithJS(js,
-			nil,
 			func(r Result) Result {
+				// Reject on first rejection
 				if hasRejected.CompareAndSwap(false, true) {
 					reject(r)
 				}
