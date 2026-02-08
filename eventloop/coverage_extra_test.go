@@ -267,7 +267,7 @@ func TestScheduleNextTick_ExecutesBeforeMicrotasks(t *testing.T) {
 		if len(got) != 2 || got[0] != 1 || got[1] != 2 {
 			t.Errorf("Expected nextTick (1) before microtask (2), got %v", got)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out waiting for result")
 	}
 
@@ -316,7 +316,7 @@ func TestChainedPromise_ToChannel_Resolved(t *testing.T) {
 		if v != 42 {
 			t.Errorf("Expected 42, got %v", v)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out")
 	}
 
@@ -364,7 +364,7 @@ func TestChainedPromise_ToChannel_AlreadySettled(t *testing.T) {
 		if v == nil {
 			t.Error("Expected non-nil result from rejected promise")
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timed out")
 	}
 

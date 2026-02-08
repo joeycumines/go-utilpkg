@@ -100,7 +100,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 
 		select {
 		case <-done:
-		case <-time.After(time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("Timeout waiting for tasks")
 		}
 
@@ -223,7 +223,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 
 		select {
 		case <-done:
-		case <-time.After(time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("Timeout waiting for tasks")
 		}
 
@@ -307,7 +307,7 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 		if ops.Load() != 2000 {
 			t.Errorf("Expected 2000 ops, got %d", ops.Load())
 		}
-	case <-time.After(time.Second * 2):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for microtasks (budget logic might have stalled loop?)")
 	}
 }

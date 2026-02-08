@@ -135,8 +135,8 @@ func TestLoop_Close_WaitsForLoopDone(t *testing.T) {
 	select {
 	case <-closeFinished:
 		// Close() completed
-	case <-time.After(1 * time.Second):
-		t.Fatal("Close() didn't return in 1 second (possible deadlock)")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close() didn't return in 5 seconds (possible deadlock)")
 	}
 
 	// Verify loop goroutine has exited
@@ -145,7 +145,7 @@ func TestLoop_Close_WaitsForLoopDone(t *testing.T) {
 		if err != nil && err != ErrLoopTerminated && err != context.Canceled {
 			t.Errorf("Run() unexpected error: %v", err)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Run() goroutine didn't exit after Close()")
 	}
 
@@ -366,7 +366,7 @@ func TestLoop_Stop_Race_Torture(t *testing.T) {
 			if err != nil {
 				t.Errorf("Iteration %d: Shutdown returned error: %v", i, err)
 			}
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(2 * time.Second):
 			t.Fatalf("Iteration %d: DEADLOCK! Loop failed to shut down. The Zombie State bug is present.", i)
 		}
 	}

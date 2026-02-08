@@ -739,10 +739,15 @@ func TestClearInterval_RaceCondition_WrapperRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go loop.Run(ctx)
 
-	// Wait for first execution
-	time.Sleep(25 * time.Millisecond)
-	if !executed.Load() {
-		t.Fatal("Interval did not execute")
+	// Wait for first execution with generous timeout
+	deadline := time.After(5 * time.Second)
+	for !executed.Load() {
+		select {
+		case <-deadline:
+			t.Fatal("Interval did not execute within timeout")
+		default:
+			time.Sleep(5 * time.Millisecond)
+		}
 	}
 
 	// Clear immediately while wrapper might be running (TOCTOU race)

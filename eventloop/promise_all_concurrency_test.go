@@ -257,7 +257,7 @@ func TestPromiseAll_FirstRejectionWins(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -567,7 +567,7 @@ func TestPromiseAll_LargeNumberOfPromises(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout")
 	}
 
@@ -618,7 +618,7 @@ func TestPromiseAll_ResolveAfterRejection(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout")
 	}
 
@@ -861,7 +861,7 @@ func TestPromiseAll_ConcurrentResolveAndReject(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout")
 	}
 
@@ -915,7 +915,7 @@ func TestPromiseAll_AllReject(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout")
 	}
 

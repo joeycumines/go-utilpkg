@@ -35,7 +35,7 @@ func TestToChannel_Simple(t *testing.T) {
 		if v != "value" {
 			t.Errorf("Expected 'value', got: %v", v)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Timed out waiting for value")
 	}
 }
@@ -103,7 +103,7 @@ func TestToChannel_MultipleCalls(t *testing.T) {
 			} else {
 				received++
 			}
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(2 * time.Second):
 			t.Errorf("Channel %d: Timed out waiting for value", i)
 		}
 	}

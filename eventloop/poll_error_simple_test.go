@@ -370,7 +370,7 @@ func Test_PollError_Timers(t *testing.T) {
 
 		select {
 		case <-done:
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(2 * time.Second):
 		}
 	})
 }

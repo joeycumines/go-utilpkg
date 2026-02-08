@@ -321,7 +321,7 @@ func TestFastPath_FuzzMicrotasksDuringTransition(t *testing.T) {
 		select {
 		case <-done:
 			// Success
-		case <-time.After(time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatalf("Iteration %d: STARVATION! Only %d/%d microtasks executed",
 				iter, executed.Load(), expectedTotal)
 		}

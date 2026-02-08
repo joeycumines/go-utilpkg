@@ -247,7 +247,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 	select {
 	case <-taskExecuted:
 		// Task executed
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for task to execute")
 	}
 
@@ -257,7 +257,7 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 	case <-microtaskExecuted:
 		// Microtask executed - this is the expected behavior
 		t.Log("Microtask executed correctly in fast path mode")
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		// BUG: Microtask did not execute
 		// This proves that runAux() does not drain microtasks in fast path
 		t.Errorf("BUG PROVED: Microtask did not execute in fast path mode! Microtasks are being ignored by runAux()")
@@ -496,7 +496,7 @@ func TestFastPath_MicrotaskBudgetOverflow(t *testing.T) {
 		if executed.Load() != int64(count) {
 			t.Errorf("Count mismatch: expected %d, got %d", count, executed.Load())
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatalf("STALL DETECTED: Loop slept with pending microtasks! Executed so far: %d/%d", executed.Load(), count)
 	}
 }

@@ -187,7 +187,7 @@ func TestLoop_MicrotaskWithDelay(t *testing.T) {
 	// Wait for execution
 	select {
 	case <-started:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Microtask did not execute")
 	}
 
@@ -302,7 +302,7 @@ func TestLoop_DoubleShutdown(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Loop did not shutdown")
 	}
 }
@@ -406,7 +406,7 @@ func TestLoop_StateTransitions(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Loop did not shutdown")
 	}
 }

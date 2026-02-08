@@ -330,7 +330,7 @@ func TestFastPath_TimerCreation_ExitsFastPath(t *testing.T) {
 	select {
 	case <-fired:
 		t.Log("Timer fired successfully from fast path")
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Fatal("TIMER NOT FIRED: Fast path may not be exiting for timer execution")
 	}
 

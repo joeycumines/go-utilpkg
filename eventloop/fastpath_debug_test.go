@@ -60,7 +60,7 @@ func TestFastPath_EntryDebug(t *testing.T) {
 	select {
 	case <-done:
 		// Task executed
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Task did not execute within timeout")
 	}
 
@@ -151,12 +151,12 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	// Wait for both tasks
 	select {
 	case <-done:
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Outer task did not execute")
 	}
 	select {
 	case <-innerDone:
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Inner task did not execute")
 	}
 

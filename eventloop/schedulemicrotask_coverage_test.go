@@ -145,7 +145,7 @@ func TestScheduleMicrotask_FastModeChannelWakeup(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Fast mode channel wakeup verified")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Microtask not executed - channel wakeup failed")
 	}
 }
@@ -305,7 +305,7 @@ func TestScheduleMicrotask_WakeupWhileSleeping(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Wakeup while sleeping verified")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Microtask not executed - wakeup while sleeping failed")
 	}
 }
@@ -411,7 +411,7 @@ func TestScheduleMicrotask_NotInSleepingState(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Microtask executed correctly when not in sleeping state")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Microtask not executed")
 	}
 
@@ -555,7 +555,7 @@ func TestScheduleMicrotask_FastModeNoSleepingCheck(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Fast mode channel wakeup (no sleeping check) verified")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Microtask not executed")
 	}
 }

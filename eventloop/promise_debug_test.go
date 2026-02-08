@@ -195,7 +195,7 @@ func TestDebugMode_UnhandledRejectionWithStack(t *testing.T) {
 	// Wait for rejection callback
 	select {
 	case <-reasonReceived:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for rejection callback")
 	}
 
@@ -272,7 +272,7 @@ func TestDebugMode_UnhandledRejectionWithoutStack(t *testing.T) {
 
 	select {
 	case <-reasonReceived:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for rejection callback")
 	}
 

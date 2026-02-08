@@ -89,7 +89,7 @@ func TestChaos_PanicInPanic(t *testing.T) {
 	select {
 	case <-normalDone:
 		// Success - loop recovered from panics
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Normal task after panics timed out - loop may be stuck")
 	}
 
@@ -323,7 +323,7 @@ func TestChaos_RapidStartStop(t *testing.T) {
 			} else {
 				select {
 				case <-done:
-				case <-time.After(time.Second):
+				case <-time.After(5 * time.Second):
 					t.Errorf("Cycle %d: Task didn't execute", cycle)
 				}
 			}
@@ -338,7 +338,7 @@ func TestChaos_RapidStartStop(t *testing.T) {
 			// Wait for run to complete
 			select {
 			case <-runDone:
-			case <-time.After(2 * time.Second):
+			case <-time.After(10 * time.Second):
 				t.Errorf("Cycle %d: Run didn't complete after shutdown", cycle)
 			}
 

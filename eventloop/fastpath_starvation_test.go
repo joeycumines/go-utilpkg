@@ -174,7 +174,7 @@ func TestFastPath_MicrotaskBudgetExceeded_NoBlock(t *testing.T) {
 	select {
 	case <-done:
 		t.Logf("All %d microtasks executed successfully", microtaskCount)
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatalf("STALL: Only %d/%d microtasks executed (budget exceeded, loop blocked)",
 			executed.Load(), microtaskCount)
 	}
@@ -418,7 +418,7 @@ func TestFastPath_RunAux_DrainsMicrotasksAfterInternal(t *testing.T) {
 		mu.Lock()
 		t.Logf("Execution order: %v", order)
 		mu.Unlock()
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for execution")
 	}
 

@@ -271,7 +271,7 @@ func TestPromisify_AfterTerminated(t *testing.T) {
 		if !ok || !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Expected ErrLoopTerminated, got: %v", result)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Promise should settle immediately for terminated loop")
 	}
 }

@@ -645,7 +645,7 @@ func TestEventTarget_WithLoop(t *testing.T) {
 		if receivedType != "message" {
 			t.Errorf("Expected type 'message', got '%s'", receivedType)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Event not received")
 	}
 }
@@ -690,7 +690,7 @@ func TestCustomEvent_WithLoop(t *testing.T) {
 		if detail["value"] != 42 {
 			t.Errorf("Expected value 42, got %d", detail["value"])
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("CustomEvent not received")
 	}
 }

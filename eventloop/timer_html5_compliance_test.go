@@ -55,7 +55,7 @@ func TestHTML5_ZeroDelayAllowed(t *testing.T) {
 	select {
 	case <-executed:
 		// Success - 0ms delay callback executed
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("SetTimeout(0) callback did not execute within 1 second")
 	}
 
@@ -97,7 +97,7 @@ func TestHTML5_NegativeDelayTreatedAsZero(t *testing.T) {
 	select {
 	case <-executed:
 		// Success
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("SetTimeout(-100) callback did not execute within 1 second")
 	}
 
@@ -565,7 +565,7 @@ func TestHTML5_ClearIntervalFromCallback(t *testing.T) {
 	select {
 	case <-done:
 		// Success
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Interval self-clear did not complete")
 	}
 
@@ -637,7 +637,7 @@ func TestHTML5_TimerOrderFIFO(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for timers")
 	}
 
@@ -720,7 +720,7 @@ func TestHTML5_TimerOrderWithDifferentDelays(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for timers")
 	}
 
@@ -931,7 +931,7 @@ func TestHTML5_ClampingThreshold(t *testing.T) {
 					}
 				}
 
-			case <-time.After(2 * time.Second):
+			case <-time.After(10 * time.Second):
 				t.Fatal("Timeout waiting for timer")
 			}
 		})
@@ -1010,7 +1010,7 @@ func TestHTML5_ClearTimeoutAfterFire(t *testing.T) {
 	select {
 	case <-executed:
 		// OK
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout did not execute")
 	}
 

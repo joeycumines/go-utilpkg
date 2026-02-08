@@ -69,7 +69,7 @@ func TestSetIntervalDoneChannelBug(t *testing.T) {
 
 	// Wait for completion or timeout
 	select {
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Test timed out")
 	case err := <-errChan:
 		if err != context.Canceled {

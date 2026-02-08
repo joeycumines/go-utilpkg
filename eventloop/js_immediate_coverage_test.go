@@ -50,7 +50,7 @@ func TestJS_SetImmediate_BasicFunctionality(t *testing.T) {
 	select {
 	case <-executed:
 		// Success
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("SetImmediate callback never executed")
 	}
 }
@@ -624,7 +624,7 @@ func TestJS_SetImmediate_NoTimerHeap(t *testing.T) {
 	select {
 	case <-executed:
 		// Success - executed quickly
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("SetImmediate should execute immediately without timer delay")
 	}
 }

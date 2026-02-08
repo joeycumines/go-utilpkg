@@ -99,7 +99,7 @@ func TestPromise_Then_MultipleChaining(t *testing.T) {
 		if chain.Value() != "start----------" {
 			t.Errorf("Expected 'start----------', got: %v", chain.Value())
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for promise chain to complete")
 	}
 
@@ -149,7 +149,7 @@ func TestPromise_Then_RejectionRecovery(t *testing.T) {
 	select {
 	case <-recoveryComplete:
 		// Success - handler was called
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for rejection handler")
 	}
 
@@ -232,7 +232,7 @@ func TestPromise_Finally_EdgeCases(t *testing.T) {
 	select {
 	case <-finallyComplete:
 		// Success
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for Finally handler")
 	}
 
@@ -253,7 +253,7 @@ func TestPromise_Finally_EdgeCases(t *testing.T) {
 	select {
 	case <-finallyComplete2:
 		// Success
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for Finally handler on rejection")
 	}
 

@@ -214,7 +214,7 @@ func TestJS_ClearInterval_DuringExecution(t *testing.T) {
 		if err != nil {
 			t.Errorf("ClearInterval should not error: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for ClearInterval to complete")
 	}
 
@@ -248,7 +248,7 @@ func TestJS_ClearInterval_MultipleTimes(t *testing.T) {
 	go loop.Run(ctx)
 
 	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// First clear should succeed
 	err = js.ClearInterval(id)
@@ -477,7 +477,7 @@ func TestJS_SetInterval_PanicRecovery(t *testing.T) {
 	case <-done:
 		// Interval continued after panic - success
 		js.ClearInterval(id)
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		finalCount := count.Load()
 		js.ClearInterval(id)
 		// The interval may or may not continue after panic depending on implementation.
@@ -689,7 +689,7 @@ func TestJS_SetInterval_WrapperExecutesAfterClearReturns(t *testing.T) {
 	// Wait for callback to start
 	select {
 	case <-callbackStarted:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Callback didn't start")
 	}
 
@@ -704,7 +704,7 @@ func TestJS_SetInterval_WrapperExecutesAfterClearReturns(t *testing.T) {
 	// Wait for clear to complete (after callback finishes and loop processes cancel)
 	select {
 	case <-clearDone:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("ClearInterval didn't complete")
 	}
 

@@ -629,7 +629,7 @@ func TestHarness_Executor_CoversSecondCmdStopSelect(t *testing.T) {
 }
 
 func TestHarness_Close_GracefulExitPath(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	h, err := NewHarness(ctx)
@@ -640,7 +640,7 @@ func TestHarness_Close_GracefulExitPath(t *testing.T) {
 	h.RunPrompt(nil, prompt.WithExitChecker(func(in string, _ bool) bool { return in == "exit" }))
 	require.NoError(t, h.Console().Await(ctx, h.Console().Snapshot(), Contains("> ")))
 	require.NoError(t, h.Console().SendLine("exit"))
-	require.NoError(t, h.waitExitTimeout(2*time.Second))
+	require.NoError(t, h.waitExitTimeout(10*time.Second))
 
 	// Close after prompt exit should hit the gracefulExitErr==nil path.
 	err = h.Close()

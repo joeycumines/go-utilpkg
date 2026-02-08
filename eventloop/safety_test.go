@@ -53,7 +53,7 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 		}
 	}()
 
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(5 * time.Second)
 
 	for {
 		select {

@@ -619,22 +619,26 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 		js.promiseHandlersMu.Unlock()
 
 	case currentState == Rejected:
-		// Check if still unhandled
+		// Register handler first, then verify it's still needed.
+		// This order prevents a race where checkUnhandledRejections processes
+		// and removes the entry from unhandledRejections between our check
+		// and our set, leaving an orphaned promiseHandlers entry.
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[p.id] = true
+		js.promiseHandlersMu.Unlock()
+		p.signalHandlerReady(js)
+
+		// Double-check: if the rejection was already processed (removed from
+		// unhandledRejections by checkUnhandledRejections running concurrently),
+		// clean up our handler registration to prevent a map entry leak.
 		js.rejectionsMu.RLock()
 		_, isUnhandled := js.unhandledRejections[p.id]
 		js.rejectionsMu.RUnlock()
 
 		if !isUnhandled {
-			// Already handled, clean up
 			js.promiseHandlersMu.Lock()
 			delete(js.promiseHandlers, p.id)
 			js.promiseHandlersMu.Unlock()
-		} else {
-			// Still unhandled: register handler and signal
-			js.promiseHandlersMu.Lock()
-			js.promiseHandlers[p.id] = true
-			js.promiseHandlersMu.Unlock()
-			p.signalHandlerReady(js)
 		}
 
 	default: // Pending

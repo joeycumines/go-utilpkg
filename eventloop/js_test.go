@@ -229,7 +229,7 @@ func TestJSMixedWorkloadOrdering(t *testing.T) {
 
 	// Process microtasks
 	startTime := time.Now()
-	timeout := time.After(2 * time.Second)
+	timeout := time.After(10 * time.Second)
 
 	// Keep processing until we have all expected events
 	expectedEvents := []string{

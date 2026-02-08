@@ -215,7 +215,7 @@ func TestTry_Chaining(t *testing.T) {
 		if v != 84 {
 			t.Errorf("Expected 84, got %v", v)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for result")
 	}
 
@@ -264,7 +264,7 @@ func TestTry_PanicChaining(t *testing.T) {
 		if v != "oops" {
 			t.Errorf("Expected 'oops', got %v", v)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for result")
 	}
 

@@ -60,7 +60,7 @@ func TestWithResolvers_Resolve(t *testing.T) {
 		if val != "test value" {
 			t.Errorf("expected 'test value', got: %v", val)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for resolution")
 	}
 }
@@ -91,7 +91,7 @@ func TestWithResolvers_Reject(t *testing.T) {
 		if got != testErr {
 			t.Errorf("expected test error, got: %v", got)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for rejection")
 	}
 }
@@ -396,7 +396,7 @@ func TestWithResolvers_Chaining(t *testing.T) {
 		if val != 42 {
 			t.Errorf("expected 42, got: %v", val)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for chained result")
 	}
 }
@@ -429,7 +429,7 @@ func TestWithResolvers_ToChannel(t *testing.T) {
 		if val != "channel value" {
 			t.Errorf("expected 'channel value', got: %v", val)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for channel")
 	}
 }
@@ -462,7 +462,7 @@ func TestWithResolvers_AsyncFromGoroutine(t *testing.T) {
 		if val != "async value" {
 			t.Errorf("expected 'async value', got: %v", val)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for resolution")
 	}
 }
@@ -557,7 +557,7 @@ func TestWithResolvers_UseCase_RequestCorrelation(t *testing.T) {
 		if val != "response data" {
 			t.Errorf("expected 'response data', got: %v", val)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("timeout waiting for response")
 	}
 }

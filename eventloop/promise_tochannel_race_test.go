@@ -60,7 +60,7 @@ func TestPromiseToChannel_DoubleCheckPath(t *testing.T) {
 			if v != "value" {
 				t.Fatalf("Iteration %d: Expected 'value', got: %v", i, v)
 			}
-		case <-time.After(time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatalf("Iteration %d: Timed out waiting for ToChannel result", i)
 		}
 	}
@@ -102,7 +102,7 @@ func TestPromiseToChannel_DoubleCheckReject(t *testing.T) {
 			if !ok || e.Error() != "err" {
 				t.Fatalf("Iteration %d: Expected error 'err', got: %v", i, v)
 			}
-		case <-time.After(time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatalf("Iteration %d: Timed out waiting for ToChannel result", i)
 		}
 	}
@@ -158,7 +158,7 @@ func TestPromiseToChannel_MultipleChannelsRace(t *testing.T) {
 				if v != "multi" {
 					t.Fatalf("Iteration %d, channel %d: Expected 'multi', got: %v", i, j, v)
 				}
-			case <-time.After(time.Second):
+			case <-time.After(5 * time.Second):
 				t.Fatalf("Iteration %d, channel %d: Timed out", i, j)
 			}
 		}

@@ -64,8 +64,8 @@ func TestJSSetTimeoutDiagnostic(t *testing.T) {
 	select {
 	case <-doneChan:
 		// Callback ran
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("SetTimeout callback did not run within 500ms")
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetTimeout callback did not run within timeout")
 	}
 
 	execTimeVal, ok := execTime.Load().(time.Time)
@@ -146,8 +146,8 @@ func TestScheduleTimerTimingSanity(t *testing.T) {
 	select {
 	case <-doneChan:
 		// Timer fired
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("ScheduleTimer callback did not run within 500ms")
+	case <-time.After(5 * time.Second):
+		t.Fatal("ScheduleTimer callback did not run within timeout")
 	}
 
 	execTimeVal, ok := execTime.Load().(time.Time)

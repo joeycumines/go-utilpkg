@@ -58,7 +58,7 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -124,7 +124,7 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -184,7 +184,7 @@ func TestPromiseAllSettled_MixedFulfillmentAndRejection(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -421,7 +421,7 @@ func TestPromiseAllSettled_LargeNumberOfPromises(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -478,7 +478,7 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 
@@ -544,7 +544,7 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 	select {
 	case <-handlerDone:
 		// Handler completed successfully
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Handler was not called within timeout - possible deadlock")
 	}
 

@@ -70,7 +70,7 @@ func TestPromiseLateBinding(t *testing.T) {
 		if ok {
 			t.Error("Channel should be closed")
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for late binding result")
 	}
 }

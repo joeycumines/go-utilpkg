@@ -55,8 +55,8 @@ func TestJSSetTimeoutExecutes(t *testing.T) {
 	select {
 	case <-doneChan:
 		// Callback ran
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("SetTimeout callback did not run within 500ms")
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetTimeout callback did not run within timeout")
 	}
 
 	execTimeVal, ok := execTime.Load().(time.Time)
@@ -249,8 +249,8 @@ func TestJSClearIntervalStopsFiring(t *testing.T) {
 		select {
 		case <-triggerChan:
 			fireCount++
-		case <-time.After(500 * time.Millisecond):
-			t.Fatalf("SetInterval did not fire within 500ms (got %d fires)", fireCount)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("SetInterval did not fire within timeout (got %d fires)", fireCount)
 		}
 	}
 

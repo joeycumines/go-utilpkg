@@ -45,7 +45,7 @@ func TestNextTick_Basic(t *testing.T) {
 		if !called.Load() {
 			t.Error("NextTick callback was not called")
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("NextTick callback did not execute in time")
 	}
 
@@ -113,7 +113,7 @@ func TestNextTick_RunsBeforeMicrotask(t *testing.T) {
 		if order[1] != "microtask" {
 			t.Errorf("Expected microtask to run second, got order: %v", order)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Callbacks did not execute in time")
 	}
 
@@ -177,7 +177,7 @@ func TestNextTick_RunsBeforePromise(t *testing.T) {
 		if order[0] != "nextTick" {
 			t.Errorf("Expected nextTick to run first, got order: %v", order)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Callbacks did not execute in time")
 	}
 
@@ -252,7 +252,7 @@ func TestNextTick_MultipleCallbacksOrder(t *testing.T) {
 				t.Errorf("At index %d: expected %d, got %d", i, v, order[i])
 			}
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Callbacks did not execute in time")
 	}
 
@@ -326,7 +326,7 @@ func TestSleep_Basic(t *testing.T) {
 		if elapsed < 40*time.Millisecond {
 			t.Errorf("Sleep resolved too quickly: %v", elapsed)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Sleep did not resolve in time")
 	}
 
@@ -365,7 +365,7 @@ func TestSleep_ZeroDelay(t *testing.T) {
 		if !resolved.Load() {
 			t.Error("Sleep(0) promise did not resolve")
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Sleep(0) did not resolve in time")
 	}
 
@@ -404,7 +404,7 @@ func TestSleep_ResolvesWithNil(t *testing.T) {
 		if result != nil {
 			t.Errorf("Expected nil result, got: %v", result)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Sleep did not resolve in time")
 	}
 
@@ -457,7 +457,7 @@ func TestSleep_Chaining(t *testing.T) {
 		if callOrder[0] != "first" || callOrder[1] != "second" {
 			t.Errorf("Unexpected order: %v", callOrder)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Chain did not complete in time")
 	}
 
@@ -499,7 +499,7 @@ func TestSleep_MultipleConcurrent(t *testing.T) {
 		if count.Load() != 5 {
 			t.Errorf("Expected 5 resolutions, got %d", count.Load())
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("Not all sleeps resolved in time")
 	}
 

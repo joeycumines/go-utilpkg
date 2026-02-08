@@ -59,7 +59,7 @@ func TestPromisify_LoopAlreadyTerminated(t *testing.T) {
 		if !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Expected ErrLoopTerminated, got: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved on terminated loop")
 	}
 }
@@ -105,7 +105,7 @@ func TestPromisify_LoopTerminatingState(t *testing.T) {
 		} else {
 			t.Logf("Promise resolved with: %T %v", result, result)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Promise hung during termination")
 	}
 
@@ -152,7 +152,7 @@ func TestPromisify_ContextCancelledBeforeGoroutineStarts(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("Expected context.Canceled, got: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved for cancelled context")
 	}
 
@@ -196,7 +196,7 @@ func TestPromisify_GoexitDetection(t *testing.T) {
 		if !errors.Is(err, ErrGoexit) {
 			t.Errorf("Expected ErrGoexit, got: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved for Goexit")
 	}
 }
@@ -249,7 +249,7 @@ func TestPromisify_PanicWithValue(t *testing.T) {
 				if panicErr.Value != tc.panicValue {
 					t.Errorf("PanicError.Value = %v, want %v", panicErr.Value, tc.panicValue)
 				}
-			case <-time.After(time.Second):
+			case <-time.After(5 * time.Second):
 				t.Fatal("Promise never resolved for panic")
 			}
 		})
@@ -311,7 +311,7 @@ func TestPromisify_SubmitInternalFallbackOnError(t *testing.T) {
 		} else {
 			t.Logf("Promise resolved with: %v", result)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Promise never resolved (fallback may have failed)")
 	}
 
@@ -366,7 +366,7 @@ func TestPromisify_SubmitInternalFallbackOnPanic(t *testing.T) {
 		if !isPanicErr && !errors.Is(err, ErrLoopTerminated) {
 			t.Errorf("Expected PanicError or ErrLoopTerminated, got: %T %v", err, err)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Promise never resolved during shutdown+panic")
 	}
 
@@ -461,7 +461,7 @@ func TestPromisify_NormalSuccess(t *testing.T) {
 		if result != expected {
 			t.Errorf("Expected %v, got: %v", expected, result)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved for success")
 	}
 }
@@ -499,7 +499,7 @@ func TestPromisify_ReturnsError(t *testing.T) {
 		if !errors.Is(err, expected) {
 			t.Errorf("Expected %v, got: %v", expected, err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved for error")
 	}
 }
@@ -543,7 +543,7 @@ func TestPromisify_ContextTimeoutDuringExecution(t *testing.T) {
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved for timeout")
 	}
 

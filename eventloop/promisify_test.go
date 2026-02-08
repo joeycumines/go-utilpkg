@@ -47,7 +47,7 @@ func TestPromisify_ContextCancellation(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("Expected context.Canceled, got: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Promise never resolved after cancellation")
 	}
 

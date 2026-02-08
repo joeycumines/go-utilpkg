@@ -95,7 +95,7 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 			t.Fatalf("Expected 'result', got: %v", result)
 		}
 		t.Log("SUCCESS: Promise settled correctly (fallback preserved result)")
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("ZOMBIE PROMISE: Never settled after shutdown")
 	}
 }

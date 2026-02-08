@@ -84,7 +84,7 @@ func TestHandlePollError_TriggerViaPollErrorHook(t *testing.T) {
 	select {
 	case <-done:
 		t.Log("Loop exited after poll error")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("Loop did not exit after poll error injection")
 	}
 

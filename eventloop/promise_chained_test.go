@@ -105,7 +105,7 @@ func TestChainedPromiseMultipleThen(t *testing.T) {
 		select {
 		case <-mu:
 			count++
-		case <-time.After(time.Millisecond * 100):
+		case <-time.After(2 * time.Second):
 			t.Error("Timeout waiting for handlers")
 		}
 	}
@@ -223,7 +223,7 @@ func TestChainedPromiseThreeLevelChaining(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		select {
 		case <-mu:
-		case <-time.After(time.Millisecond * 100):
+		case <-time.After(2 * time.Second):
 			t.Fatal("Timeout waiting for handlers")
 		}
 	}

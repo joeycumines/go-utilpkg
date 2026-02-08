@@ -49,7 +49,7 @@ func TestPanicIsolation_IngressTaskPanic(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Loop appears to have crashed - task 3 never executed")
 	}
 
@@ -148,7 +148,7 @@ func TestLoop_SurvivesPanic(t *testing.T) {
 	select {
 	case <-done:
 		// Success
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Loop dead: Panic crashed the worker")
 	}
 

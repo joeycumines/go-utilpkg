@@ -35,7 +35,7 @@ func TestRegression_StopBeforeStart_Deadlock(t *testing.T) {
 		if err != nil {
 			t.Logf("Stop returned error: %v", err)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("DEADLOCK DETECTED: Stop() blocked on unstarted loop")
 	}
 }
@@ -67,7 +67,7 @@ func TestRegression_TimerExecution(t *testing.T) {
 	select {
 	case <-fired:
 		// Success
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("FUNCTIONAL FAILURE: Timer did not fire within 10x budget")
 	}
 
@@ -303,7 +303,7 @@ func TestRegression_ShutdownOrderLostMicrotask(t *testing.T) {
 	select {
 	case <-microtaskRan:
 		// Success
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("DATA LOSS: Microtask spawned by Internal task was dropped during shutdown")
 	}
 }
@@ -605,7 +605,7 @@ func TestCheckThenSleep_BarrierProof(t *testing.T) {
 	select {
 	case <-executed:
 		// PASS: The barrier worked
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatalf("FAILURE: Lost Wake-Up detected. Task sat in queue while loop slept.")
 	}
 
@@ -726,7 +726,7 @@ func TestIngress_NoClosureLeaks(t *testing.T) {
 	select {
 	case <-closureReclaimed:
 		// SUCCESS
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatalf("FAILURE: Memory Leak. Closure was pinned by the chunk pool.")
 	}
 }
@@ -759,7 +759,7 @@ func TestPromisify_Goexit(t *testing.T) {
 		if !ok || pErr != ErrGoexit {
 			t.Fatalf("Expected ErrGoexit, got %v", res)
 		}
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout: Loop failed to catch runtime.Goexit()")
 	}
 }

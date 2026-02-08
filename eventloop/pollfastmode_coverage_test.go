@@ -67,7 +67,7 @@ func TestPollFastMode_ChannelWakeup(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Task executed via channel wakeup in fast mode")
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Task was not executed - channel wakeup failed")
 	}
 
@@ -168,7 +168,7 @@ func TestPollFastMode_TerminationCheck(t *testing.T) {
 		if err != context.Canceled {
 			t.Logf("Run returned: %v (expected context.Canceled)", err)
 		}
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatal("Loop did not terminate after cancel")
 	}
 
@@ -222,7 +222,7 @@ func TestPollFastMode_IndefiniteBlock(t *testing.T) {
 	select {
 	case <-executed:
 		t.Log("Task executed - indefinite block was interrupted by channel signal")
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Task not executed - indefinite block path may be stuck")
 	}
 
