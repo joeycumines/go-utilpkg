@@ -79,6 +79,13 @@ func (sm *ShutdownManager) logPhase(phase, status string) {
 }
 
 // drainIngress drains all tasks from the ingress queue.
+//
+// SAFETY: After draining, closes the ingress while still holding the lock.
+// This prevents the TOCTOU race where Submit() passes the state check
+// (before StateTerminating is set) but pushes AFTER drainIngress has
+// finished draining. Without this atomic drain-and-close, such tasks
+// would be accepted (Push returns nil) but never executed, violating
+// the shutdown conservation invariant.
 func (sm *ShutdownManager) drainIngress() {
 	// Hold lock continuously while draining
 	sm.loop.ingress.Lock()
@@ -91,6 +98,9 @@ func (sm *ShutdownManager) drainIngress() {
 		// Execute task while holding lock
 		sm.loop.safeExecute(task)
 	}
+	// Close ingress atomically with the drain — any Push that acquires the
+	// lock after this point will see closed=true and return ErrLoopTerminated.
+	sm.loop.ingress.closed = true
 }
 
 // drainInternal drains all tasks from the internal queue.
