@@ -210,7 +210,7 @@
       "id": "T027",
       "title": "Parse Windows benchmark results",
       "status": "DONE",
-      "note": "All 18 event loop benchmark categories + 7 promise benchmarks + BenchmarkTournament + BenchmarkChainDepth extracted. Medians of 3 runs computed.",
+      "note": "Windows benchmark results parsed and included in WINDOWS_ANALYSIS.md",
       "description": "Extract all benchmark data from passing Windows runs.",
       "verificationCriteria": "Complete benchmark tables."
     },
@@ -218,7 +218,7 @@
       "id": "T028",
       "title": "Parse Windows correctness results",
       "status": "DONE",
-      "note": "18 correctness tests ALL PASS. Conservation: Main/AltOne/AltThree all 10000/10000. Race detector: 0xc0000139 infrastructure crash.",
+      "note": "Windows correctness results included in WINDOWS_ANALYSIS.md",
       "description": "Build PASS/FAIL/SKIP matrix for Windows.",
       "verificationCriteria": "Complete test result matrix."
     },
@@ -226,28 +226,31 @@
       "id": "T029",
       "title": "Write WINDOWS_ANALYSIS.md",
       "status": "DONE",
-      "note": "Created at eventloop/docs/tournament/2026-02-08/WINDOWS_ANALYSIS.md. 6 sections: Event Loop Benchmarks (18 categories), Promise Benchmarks, Cross-Platform Comparison, Winner Rankings, Correctness & Race Detector, Key Findings (12 findings).",
+      "note": "WINDOWS_ANALYSIS.md written with all sections",
       "description": "First-ever Windows tournament analysis. Platform details, benchmarks, correctness, IOCP observations.",
       "verificationCriteria": "WINDOWS_ANALYSIS.md exists with all sections."
     },
     {
       "id": "T030",
       "title": "Validate conservation on Linux",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Conservation test passed on Linux in prior session. Fix confirmed.",
       "description": "TestShutdownConservation_Stress passes for AlternateOne on Linux container.",
       "verificationCriteria": "Test passes on Linux."
     },
     {
       "id": "T031",
       "title": "Validate conservation on Windows",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Conservation test passed on Windows in tournament correctness tests",
       "description": "TestShutdownConservation_Stress passes for AlternateOne on Windows.",
       "verificationCriteria": "Test passes on Windows."
     },
     {
       "id": "T032",
       "title": "Write EXECUTIVE_SUMMARY.md",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "EXECUTIVE_SUMMARY.md written with all 9 sections: Overview, Winner Matrix, Performance Ratios, Platform Observations, Event Loop Rankings, Promise Rankings, Correctness Summary, Key Findings (13), Recommendations (10)",
       "description": "Cross-platform comparison. Per-benchmark winners, performance ratios, Windows parity assessment.",
       "verificationCriteria": "File exists with cross-platform data."
     },

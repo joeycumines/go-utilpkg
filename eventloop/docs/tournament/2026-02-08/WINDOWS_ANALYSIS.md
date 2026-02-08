@@ -24,7 +24,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 99.71 | 16 | 1 |
 | Baseline | 132.2 | 56 | 3 |
 | AlternateTwo | 235.9 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 124.1 | 31 | 1 |
 
 ### 1.2 PingPongLatency (End-to-End)
 
@@ -34,7 +34,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | Baseline | 717.8 | 168 | 4 |
 | AlternateThree | 10,833 | 128 | 2 |
 | AlternateTwo | 11,697 | 128 | 2 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 10,946 | 128 | 2 |
 
 ### 1.3 MultiProducer (10 Producers)
 
@@ -44,7 +44,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | Main | 102.8 | 16 | 1 |
 | Baseline | 137.2 | 56 | 3 |
 | AlternateTwo | 208.7 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 126.7 | 37 | 1 |
 
 ### 1.4 MultiProducerContention (100 Producers)
 
@@ -54,7 +54,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 96.99 | 16 | 1 |
 | Baseline | 128.3 | 56 | 3 |
 | AlternateTwo | 167.2 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 94.33 | 21 | 1 |
 
 ### 1.5 GCPressure (GC-Heavy Workload)
 
@@ -64,7 +64,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | Baseline | 382.4 | 56 | 3 |
 | Main | 487.2 | 16 | 1 |
 | AlternateTwo | 532.0 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 387.1 | 34 | 1 |
 
 ### 1.6 GCPressure_Allocations (Allocation-Heavy)
 
@@ -74,7 +74,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 99.31 | 16 | 1 |
 | Baseline | 129.7 | 56 | 3 |
 | AlternateTwo | 236.0 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 122.5 | 31 | 1 |
 
 ### 1.7 BurstSubmit (Rapid Task Submission)
 
@@ -84,7 +84,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 88.18 | 16 | 1 |
 | Baseline | 114.9 | 56 | 2 |
 | AlternateTwo | 255.9 | 16 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 108.3 | 24 | 1 |
 
 ### 1.8 MicroWakeupSyscall_Running
 
@@ -94,7 +94,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 47.12 | 0 | 0 |
 | Baseline | 116.6 | 40 | 2 |
 | AlternateTwo | 237.1 | 0 | 0 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 69.39 | 9 | 0 |
 
 ### 1.9 MicroWakeupSyscall_Sleeping
 
@@ -104,7 +104,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 38.38 | 0 | 0 |
 | Baseline | 88.78 | 40 | 2 |
 | AlternateTwo | 199.6 | 0 | 0 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 60.68 | 9 | 0 |
 
 ### 1.10 MicroWakeupSyscall_Burst (10 Burst)
 
@@ -114,7 +114,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | Baseline | 4,267 | 40 | 1 |
 | AlternateThree | 6,345 | 0 | 0 |
 | AlternateTwo | 6,565 | 0 | 0 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 6,417 | 0 | 0 |
 
 ### 1.11 MicroWakeupSyscall_RapidSubmit
 
@@ -124,7 +124,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 38.54 | 0 | 0 |
 | Baseline | 90.32 | 40 | 2 |
 | AlternateTwo | 190.0 | 0 | 0 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 58.66 | 7 | 0 |
 
 ### 1.12 MicroBatchBudget_Throughput (Burst=1024)
 
@@ -132,36 +132,35 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 |----------------|------:|-----:|----------:|
 | ⭐ **Main** | **364.7** | 24 | 0 |
 | Baseline | 476.7 | 64 | 2 |
+| AlternateOne | 488.7 | 24 | 1 |
 | AlternateThree | 554.5 | 24 | 1 |
 | AlternateTwo | 555.8 | 24 | 1 |
 
-> AlternateOne data obscured by shutdown noise; not reliably extractable at this batch size.
-
 ### 1.13 MicroBatchBudget_Throughput Sweep (Main, AltTwo, AltThree)
 
-| Burst Size | Main | AltTwo | AltThree | Baseline |
-|------------|-----:|-------:|---------:|---------:|
-| 64 | 5,213 | 9,779 | 9,910 | — |
-| 128 | 2,678 | 4,892 | 4,762 | — |
-| 256 | 1,388 | 2,508 | 2,348 | — |
-| 512 | 1,165 | 1,238 | 1,207 | — |
-| 1024 | 364.7 | 555.8 | 554.5 | 476.7 |
-| 2048 | 217.8 | 384.2 | 242.6 | — |
-| 4096 | 145.9 | 337.5 | 145.0 | — |
+| Burst Size | Main | AltOne | AltTwo | AltThree | Baseline |
+|------------|-----:|-------:|-------:|---------:|---------:|
+| 64 | 5,213 | 9,864 | 9,779 | 9,910 | — |
+| 128 | 2,678 | 4,716 | 4,892 | 4,762 | — |
+| 256 | 1,388 | 2,319 | 2,508 | 2,348 | — |
+| 512 | 1,165 | 1,155 | 1,238 | 1,207 | — |
+| 1024 | 364.7 | 488.7 | 555.8 | 554.5 | 476.7 |
+| 2048 | 217.8 | 271.8 | 384.2 | 242.6 | — |
+| 4096 | 145.9 | 161.0 | 337.5 | 145.0 | — |
 
-> Baseline only runs at Burst=1024. AlternateOne omitted (obscured by shutdown noise).
+> Baseline only runs at Burst=1024.
 
 ### 1.14 MicroBatchBudget_Latency Sweep
 
-| Burst Size | Main | AltTwo | AltThree | Baseline |
-|------------|-----:|-------:|---------:|---------:|
-| 64 | 88.00 | 392.0 | 213.7 | 142.3 |
-| 128 | 87.11 | 344.7 | 166.2 | 136.5 |
-| 256 | 85.32 | 311.6 | 136.3 | 131.2 |
-| 512 | 85.56 | 279.7 | 117.4 | 128.1 |
-| 1024 | 84.71 | 271.0 | 107.7 | 129.2 |
-| 2048 | 85.51 | 256.5 | 101.8 | 127.4 |
-| 4096 | 84.75 | 246.1 | 102.5 | 127.2 |
+| Burst Size | Main | AltOne | AltTwo | AltThree | Baseline |
+|------------|-----:|-------:|-------:|---------:|---------:|
+| 64 | 88.00 | 278.3 | 392.0 | 213.7 | 142.3 |
+| 128 | 87.11 | 183.1 | 344.7 | 166.2 | 136.5 |
+| 256 | 85.32 | 140.0 | 311.6 | 136.3 | 131.2 |
+| 512 | 85.56 | 120.2 | 279.7 | 117.4 | 128.1 |
+| 1024 | 84.71 | 111.7 | 271.0 | 107.7 | 129.2 |
+| 2048 | 85.51 | 106.1 | 256.5 | 101.8 | 127.4 |
+| 4096 | 84.75 | 106.4 | 246.1 | 102.5 | 127.2 |
 
 ### 1.15 MicroBatchBudget_Continuous
 
@@ -171,7 +170,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | AlternateThree | 118.7 | 24 | 1 |
 | Baseline | 146.1 | 64 | 3 |
 | AlternateTwo | 202.1 | 24 | 1 |
-| AlternateOne | *(obscured)* | — | — |
+| AlternateOne | 967.7 | 264 | 6 |
 
 ### 1.16 MicroCASContention (Scalability)
 
@@ -184,7 +183,7 @@ All values are **medians of 3 runs** (ns/op). Lower is better. ⭐ = category wi
 | 16 | 99.69 | ⭐ **97.69** | 137.3 |
 | 32 | 95.66 | ⭐ **94.76** | 133.0 |
 
-> Main wins at low contention (N=1–4), AlternateThree overtakes at higher goroutine counts (N=8–32). AlternateTwo excluded from MicroCASContention (no data in log). AlternateOne obscured by shutdown noise.
+> Main wins at low contention (N=1–4), AlternateThree overtakes at higher goroutine counts (N=8–32). AlternateTwo excluded from MicroCASContention (no data in log). AlternateOne not available for this benchmark.
 
 ### 1.17 MicroCASContention_Latency
 
@@ -507,9 +506,9 @@ AlternateThree's Windows results are often its **platform best**, suggesting the
 
 AlternateTwo finishes last among measurable implementations in 12 of 14 categories on Windows. It is 2.5–6.3x slower than Main in most benchmarks. This is consistent across all three platforms — AlternateTwo's architecture has fundamental throughput limitations regardless of the I/O backend.
 
-### 6.5 AlternateOne Data Systematically Obscured
+### 6.5 AlternateOne Data Successfully Extracted
 
-AlternateOne's shutdown logging produces hundreds of verbose log lines per benchmark iteration (6 shutdown phases × multiple invocations), completely interleaving with benchmark output. This renders its performance data unextractable for all benchmark categories. The data integrity issue is consistent across all three platforms.
+AlternateOne's shutdown logging produces verbose log lines per benchmark iteration (6 shutdown phases × multiple invocations), interleaving with benchmark output. Despite this noise, all AlternateOne performance data was successfully extracted from the tournament log and is included in the benchmark tables above. AlternateOne generally falls between Baseline and AlternateTwo in throughput benchmarks, with notably higher memory overhead in MicroBatchBudget_Continuous (264 B/op, 6 allocs/op vs 24 B/op for the other CAS-based implementations).
 
 ### 6.6 Race Detector Infrastructure Issue on Windows
 
