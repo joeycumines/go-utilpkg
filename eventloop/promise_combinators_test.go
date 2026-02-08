@@ -1610,8 +1610,8 @@ func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
 	})
 }
 
-// Test ThenWithJS method - covers promise.go:411
-func TestChainedPromise_ThenWithJS(t *testing.T) {
+// Test Then method - covers promise.go Then
+func TestChainedPromise_Then(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -1622,16 +1622,12 @@ func TestChainedPromise_ThenWithJS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js2, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Create promise with js1
 	p := js1.Resolve("original value")
 
-	// Attach handler using different JS instance (js2)
-	result := p.ThenWithJS(js2,
+	// Attach handler using Then (uses promise's stored js)
+	result := p.Then(
 		func(v Result) Result {
 			return v.(string) + " processed by js2"
 		},

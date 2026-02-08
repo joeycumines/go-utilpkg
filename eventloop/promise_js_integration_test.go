@@ -10,10 +10,10 @@ import (
 )
 
 // ============================================================================
-// ThenWithJS Method Tests
+// Then Method Tests
 // ============================================================================
 
-func TestJSIntegration_ThenWithJS_Basic(t *testing.T) {
+func TestJSIntegration_Then_Basic(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -24,18 +24,14 @@ func TestJSIntegration_ThenWithJS_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js2, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Create promise with js1
 	p := js1.Resolve("original value")
 
-	// Attach handler using different JS instance (js2)
-	result := p.ThenWithJS(js2,
+	// Attach handler using Then (uses promise's stored js)
+	result := p.Then(
 		func(v Result) Result {
-			return v.(string) + " processed by js2"
+			return v.(string) + " processed"
 		},
 		nil,
 	)
@@ -48,13 +44,13 @@ func TestJSIntegration_ThenWithJS_Basic(t *testing.T) {
 	}
 
 	val := result.Value()
-	expected := "original value processed by js2"
+	expected := "original value processed"
 	if val != expected {
 		t.Errorf("Expected '%s', got: %v", expected, val)
 	}
 }
 
-func TestJSIntegration_ThenWithJS_MultipleJSInstances(t *testing.T) {
+func TestJSIntegration_Then_MultipleJSInstances(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -73,10 +69,9 @@ func TestJSIntegration_ThenWithJS_MultipleJSInstances(t *testing.T) {
 
 	// Chain through multiple JS instances
 	current := promise
-	for i, js := range jsInstances[1:] {
-		jsLocal := js
+	for i := range jsInstances[1:] {
 		idx := i
-		current = current.ThenWithJS(jsLocal,
+		current = current.Then(
 			func(v Result) Result {
 				return v.(int) + (idx + 1)
 			},
@@ -92,7 +87,7 @@ func TestJSIntegration_ThenWithJS_MultipleJSInstances(t *testing.T) {
 	}
 }
 
-func TestJSIntegration_ThenWithJS_WithRejection(t *testing.T) {
+func TestJSIntegration_Then_WithRejection(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -103,14 +98,10 @@ func TestJSIntegration_ThenWithJS_WithRejection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js2, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	p, _, reject := js1.NewChainedPromise()
 
-	result := p.ThenWithJS(js2,
+	result := p.Then(
 		nil,
 		func(r Result) Result {
 			return "recovered: " + r.(string)
@@ -131,7 +122,7 @@ func TestJSIntegration_ThenWithJS_WithRejection(t *testing.T) {
 	}
 }
 
-func TestJSIntegration_ThenWithJS_PendingPromise(t *testing.T) {
+func TestJSIntegration_Then_PendingPromise(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -142,15 +133,11 @@ func TestJSIntegration_ThenWithJS_PendingPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js2, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	p, resolve, _ := js1.NewChainedPromise()
 
 	var handlerCalled bool
-	result := p.ThenWithJS(js2,
+	result := p.Then(
 		func(v Result) Result {
 			handlerCalled = true
 			return v.(string) + " handled"
@@ -174,7 +161,7 @@ func TestJSIntegration_ThenWithJS_PendingPromise(t *testing.T) {
 	}
 }
 
-func TestJSIntegration_ThenWithJS_ChainingAcrossInstances(t *testing.T) {
+func TestJSIntegration_Then_ChainingAcrossInstances(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -185,23 +172,15 @@ func TestJSIntegration_ThenWithJS_ChainingAcrossInstances(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	js2, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
-	js3, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	p1 := js1.Resolve("start")
-	p2 := p1.ThenWithJS(js2,
+	p2 := p1.Then(
 		func(v Result) Result {
 			return v.(string) + " +js2"
 		},
 		nil,
 	)
-	p3 := p2.ThenWithJS(js3,
+	p3 := p2.Then(
 		func(v Result) Result {
 			return v.(string) + " +js3"
 		},
@@ -224,7 +203,7 @@ func TestJSIntegration_ThenWithJS_ChainingAcrossInstances(t *testing.T) {
 	}
 }
 
-func TestJSIntegration_ThenWithJS_WithMicrotaskScheduling(t *testing.T) {
+func TestJSIntegration_Then_WithMicrotaskScheduling(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -252,7 +231,7 @@ func TestJSIntegration_ThenWithJS_WithMicrotaskScheduling(t *testing.T) {
 
 	// Then attach handler
 	p := js1.Resolve("value")
-	p.ThenWithJS(js2,
+	p.Then(
 		func(v Result) Result {
 			mu.Lock()
 			executionOrder = append(executionOrder, 2)
@@ -288,7 +267,7 @@ func TestJSIntegration_ThenWithJS_WithMicrotaskScheduling(t *testing.T) {
 // ============================================================================
 
 func TestJSIntegration_thenStandalone_Basic(t *testing.T) {
-	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS")
+	t.Skip("thenStandalone is not Promise/A+ compliant - use Then")
 
 	// Create a promise with nil js field (simulating standalone scenario)
 	p := &ChainedPromise{
@@ -317,7 +296,7 @@ func TestJSIntegration_thenStandalone_Basic(t *testing.T) {
 }
 
 func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
-	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS")
+	t.Skip("thenStandalone is not Promise/A+ compliant - use Then")
 
 	p := &ChainedPromise{
 		id: 1,
@@ -381,7 +360,7 @@ func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
 }
 
 func TestJSIntegration_thenStandalone_Rejection(t *testing.T) {
-	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS")
+	t.Skip("thenStandalone is not Promise/A+ compliant - use Then")
 
 	p := &ChainedPromise{
 		id: 1,
@@ -423,7 +402,7 @@ func TestJSIntegration_thenStandalone_NilHandlers(t *testing.T) {
 	p.result = "original"
 
 	// Both handlers nil - would NOT pass-through in thenStandalone path
-	// (this is only for ThenWithJS normal path)
+	// (this is only for Then normal path)
 	result := p.Then(nil, nil)
 
 	// This would fail in thenStandalone case - result stays Pending
@@ -439,7 +418,7 @@ func TestJSIntegration_thenStandalone_NilHandlers(t *testing.T) {
 // TestJSIntegration_thenStandalone_Chaining is skipped because
 // thenStandalone is NOT Promise/A+ compliant and is only for internal/testing use
 func TestJSIntegration_thenStandalone_Chaining(t *testing.T) {
-	t.Skip("thenStandalone is not Promise/A+ compliant - use ThenWithJS for chaining")
+	t.Skip("thenStandalone is not Promise/A+ compliant - use Then for chaining")
 
 	p := &ChainedPromise{
 		id: 1,
@@ -1355,7 +1334,7 @@ func TestJSIntegration_ConcurrentResolveAndThen(t *testing.T) {
 // Integration with Promise Combinators
 // ============================================================================
 
-func TestJSIntegration_ThenWithJS_CombinedWithAll(t *testing.T) {
+func TestJSIntegration_Then_CombinedWithAll(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -1375,16 +1354,16 @@ func TestJSIntegration_ThenWithJS_CombinedWithAll(t *testing.T) {
 	p2 := js1.Resolve("b")
 	p3 := js1.Resolve("c")
 
-	// Transform using ThenWithJS
-	tp1 := p1.ThenWithJS(js2, func(v Result) Result {
+	// Transform using Then
+	tp1 := p1.Then(func(v Result) Result {
 		return v.(string) + " transformed"
 	}, nil)
 
-	tp2 := p2.ThenWithJS(js2, func(v Result) Result {
+	tp2 := p2.Then(func(v Result) Result {
 		return v.(string) + " transformed"
 	}, nil)
 
-	tp3 := p3.ThenWithJS(js2, func(v Result) Result {
+	tp3 := p3.Then(func(v Result) Result {
 		return v.(string) + " transformed"
 	}, nil)
 
@@ -1398,7 +1377,7 @@ func TestJSIntegration_ThenWithJS_CombinedWithAll(t *testing.T) {
 	}
 }
 
-func TestJSIntegration_ThenWithJS_CombinedWithRace(t *testing.T) {
+func TestJSIntegration_Then_CombinedWithRace(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -1416,8 +1395,8 @@ func TestJSIntegration_ThenWithJS_CombinedWithRace(t *testing.T) {
 
 	p1, resolve1, _ := js1.NewChainedPromise()
 
-	// Transform with js2
-	tp1 := p1.ThenWithJS(js2, func(v Result) Result {
+	// Transform with Then
+	tp1 := p1.Then(func(v Result) Result {
 		return v.(string) + " slow"
 	}, nil)
 

@@ -300,7 +300,7 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		var settledReason Result
 		done := make(chan struct{})
 
-		result.ThenWithJS(js,
+		result.Then(
 			func(v Result) Result {
 				settled = true
 				settledState = Fulfilled
@@ -358,7 +358,7 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		var settledValue Result
 		done := make(chan struct{})
 
-		result.ThenWithJS(js,
+		result.Then(
 			func(v Result) Result {
 				settled = true
 				settledState = Fulfilled
@@ -417,7 +417,7 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		var settledState PromiseState
 		done := make(chan struct{})
 
-		result.ThenWithJS(js,
+		result.Then(
 			func(v Result) Result {
 				settledState = Fulfilled
 				close(done)
@@ -463,7 +463,7 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		var settledState PromiseState
 		done := make(chan struct{})
 
-		result.ThenWithJS(js,
+		result.Then(
 			func(v Result) Result {
 				settledState = Fulfilled
 				close(done)

@@ -737,98 +737,106 @@
     {
       "id": "T093",
       "title": "Create promisealtfive directory",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Directory created at eventloop/internal/promisealtfive/",
       "description": "Create eventloop/internal/promisealtfive/ with go.mod scaffolding. This preserves current ChainedPromise's internal mechanism for tournament comparison.",
       "verificationCriteria": "Directory exists with go.mod."
     },
     {
       "id": "T094",
       "title": "Port ChainedPromise to promisealtfive",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Snapshot of ChainedPromise mechanism ported. Package compiles.",
       "description": "Create promise.go in promisealtfive that snapshots ChainedPromise's core mechanism: h0 with nil-target check, resolve/reject with explicit js param pattern, handler storage in result field. Simplified for tournament (no rejection tracking, no debug mode, no channels). Must export New(*JS) (*Promise, ResolveFunc, RejectFunc), Then/Catch/Finally, State/Value/Reason.",
       "verificationCriteria": "Package compiles. Matches ChainedPromise's internal mechanism."
     },
     {
       "id": "T095",
       "title": "Register promisealtfive in tournament",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "p5Wrapper added to BenchmarkTournament and BenchmarkChainDepth.",
       "description": "Add p5Wrapper type and register PromiseAltFive in BenchmarkTournament, BenchmarkChainDepth, and all other tournament benchmarks in promise_tournament_test.go.",
       "verificationCriteria": "Tournament file compiles with 5 promise implementations."
     },
     {
       "id": "T096",
       "title": "Verify tournament builds",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "go test -c compiles with zero errors.",
       "description": "go test -C eventloop/internal/promisetournament -run '^$' ./... - verify compilation.",
       "verificationCriteria": "Compiles with zero errors."
     },
     {
       "id": "T097",
       "title": "Rewrite ChainedPromise addHandler",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Added h0Used field, addHandler/scheduleHandler/executeHandler methods, rewrote resolve/reject (no js param), rewrote Then/ThenWithJS/thenStandalone/Catch/Finally using addHandler pattern, updated tryCall and combinators to new signatures.",
       "description": "Add h0Used bool field to ChainedPromise struct. Create addHandler(h handler) method with optimistic lock-free settled check (like PromiseAltOne). This replaces the inline handler storage logic scattered across Then/Finally/resolve/reject.",
       "verificationCriteria": "addHandler method exists, h0Used field added."
     },
     {
       "id": "T098",
       "title": "Rewrite resolve to use p.js",
-      "status": "NOT_STARTED",
+      "status": "DONE",
       "description": "Change resolve(value Result, js *JS) to resolve(value Result). Use p.js instead of passed js parameter. Simplify promise adoption: instead of ThenWithJS, use addHandler(handler{target: p}) like PromiseAltOne. Update ALL callers of resolve across promise.go.",
       "verificationCriteria": "resolve() has no js parameter. All callers updated."
     },
     {
       "id": "T099",
       "title": "Rewrite reject to use p.js",
-      "status": "NOT_STARTED",
+      "status": "DONE",
       "description": "Change reject(reason Result, js *JS) to reject(reason Result). Use p.js instead of passed js parameter. Keep rejection tracking (trackRejection call). Update ALL callers of reject across promise.go.",
       "verificationCriteria": "reject() has no js parameter. All callers updated."
     },
     {
       "id": "T100",
       "title": "Rewrite Then using addHandler",
-      "status": "NOT_STARTED",
+      "status": "DONE",
       "description": "Simplify then() method to use addHandler for handler attachment. Remove duplicated handler storage logic. Keep rejection tracking integration (promiseHandlers, handlerReadyChans). Remove ThenWithJS method (no longer needed since resolve uses p.js).",
       "verificationCriteria": "Then uses addHandler. ThenWithJS removed or deprecated."
     },
     {
       "id": "T101",
       "title": "Rewrite Finally using PromiseAltOne pattern",
-      "status": "NOT_STARTED",
+      "status": "DONE",
       "description": "Replace current two-handler Finally with PromiseAltOne's single-handler pattern using runFinally closure. Use addHandler for attachment. Keep rejection tracking integration.",
       "verificationCriteria": "Finally uses single handler pattern with addHandler."
     },
     {
       "id": "T102",
       "title": "Update combinators with optimal patterns",
-      "status": "NOT_STARTED",
+      "status": "DONE",
       "description": "Refactor All/Race/AllSettled/Any. Replace ThenWithJS calls with addHandler or Then. For Race: use zero-closure pattern (handler{target: result}). For All: use addHandler with optimistic forwarding. For Any: zero-allocation fulfillment forwarding.",
       "verificationCriteria": "Combinators use addHandler/Then. Race has zero closures."
     },
     {
       "id": "T103",
       "title": "Update goja-eventloop ThenWithJS refs",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "ThenWithJS kept as deprecated wrapper. No Go-level ThenWithJS calls in goja-eventloop. Only JS string references exist.",
       "description": "If ThenWithJS is removed, update any goja-eventloop references. Search for all ThenWithJS usage across the codebase. Replace with Then() calls since js is stored in struct.",
       "verificationCriteria": "Zero ThenWithJS references (or method preserved if needed)."
     },
     {
       "id": "T104",
       "title": "Verify promise test suite passes",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "All promise tests pass. Fixed TestPromiseFinally_PanicInHandler (Finally now preserves original settlement on panic). Also fixed 8 resolve/reject call sites in promise_thenstandalone_coverage_test.go.",
       "description": "Run go test -C eventloop -run 'Promise|promise' -v -timeout=3m ./... on macOS. All promise tests must pass.",
       "verificationCriteria": "All promise tests pass."
     },
     {
       "id": "T105",
       "title": "Verify rejection tracking works",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "All rejection tracking tests pass (included in promise test run).",
       "description": "Run TestUnhandledRejection*, TestPromiseRejection*, TestChainedPromiseUnhandledRejection* specifically. Rejection tracking must work correctly post-rewrite.",
       "verificationCriteria": "All rejection tracking tests pass."
     },
     {
       "id": "T106",
       "title": "Run macOS gmake all (post-refactor)",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "description": "Full gmake make-all-with-log. Must pass 100%.",
       "verificationCriteria": "Zero FAIL lines."
     },

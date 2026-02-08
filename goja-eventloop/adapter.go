@@ -493,7 +493,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 
 		// Promise/A+ 2.3.2: If handler returns a promise, adopt its state
 		// When we return *goeventloop.ChainedPromise, the framework's resolve()
-		// method automatically handles state adoption via ThenWithJS() (see eventloop/promise.go)
+		// method automatically handles state adoption via Then() (see eventloop/promise.go)
 		// This ensures proper chaining: p.then(() => p2) works correctly
 		// R130.6: Use helper to eliminate duplicated promise wrapper detection
 		if isWrappedPromise(ret) {

@@ -199,6 +199,8 @@ type ChainedPromise struct {
 
 	// Atomic state (requires 8-byte alignment)
 	state atomic.Int32
+	// h0Used tracks whether h0 has been assigned (replaces nil-target check).
+	h0Used bool
 	// Non-pointer, non-atomic fields
 	id uint64
 
@@ -263,11 +265,11 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	}
 
 	resolve := func(value Result) {
-		p.resolve(value, js)
+		p.resolve(value)
 	}
 
 	reject := func(reason Result) {
-		p.reject(reason, js)
+		p.reject(reason)
 	}
 
 	return p, resolve, reject
@@ -344,28 +346,109 @@ func (p *ChainedPromise) CreationStackTrace() string {
 	return result
 }
 
-func (p *ChainedPromise) resolve(value Result, js *JS) {
+// addHandler attaches a handler to the promise. If the promise is already settled,
+// the handler is scheduled immediately via microtask. If pending, the handler is
+// stored for later execution when the promise settles.
+//
+// This method uses an optimistic lock-free check for the common case where
+// the promise is already settled, avoiding lock acquisition entirely.
+func (p *ChainedPromise) addHandler(h handler) {
+	// Optimistic check: if already settled, schedule immediately without lock.
+	currentState := p.state.Load()
+	if currentState != int32(Pending) {
+		p.scheduleHandler(h, currentState, p.result)
+		return
+	}
+
+	p.mu.Lock()
+	// Re-check state under lock to avoid race
+	currentState = p.state.Load()
+	if currentState != int32(Pending) {
+		p.mu.Unlock()
+		p.scheduleHandler(h, currentState, p.result)
+		return
+	}
+
+	if !p.h0Used {
+		p.h0 = h
+		p.h0Used = true
+	} else {
+		// Store additional handlers in p.result type-punned as []handler.
+		var handlers []handler
+		if p.result == nil {
+			handlers = make([]handler, 0, 2)
+		} else {
+			handlers = p.result.([]handler)
+		}
+		handlers = append(handlers, h)
+		p.result = handlers
+	}
+	p.mu.Unlock()
+}
+
+// scheduleHandler enqueues a handler for execution via microtask.
+// If no JS adapter is available, executes synchronously.
+func (p *ChainedPromise) scheduleHandler(h handler, state int32, result Result) {
+	if p.js == nil {
+		p.executeHandler(h, state, result)
+		return
+	}
+
+	p.js.QueueMicrotask(func() {
+		p.executeHandler(h, state, result)
+	})
+}
+
+// executeHandler runs a single handler with the given state and result.
+// Handles nil handlers (pass-through), panic recovery, and result propagation.
+func (p *ChainedPromise) executeHandler(h handler, state int32, result Result) {
+	var fn func(Result) Result
+
+	if state == int32(Fulfilled) {
+		fn = h.onFulfilled
+	} else {
+		fn = h.onRejected
+	}
+
+	// If no handler, propagate state to target (pass-through)
+	if fn == nil {
+		if h.target == nil {
+			return
+		}
+		if state == int32(Fulfilled) {
+			h.target.resolve(result)
+		} else {
+			h.target.reject(result)
+		}
+		return
+	}
+
+	// Run handler with panic protection
+	defer func() {
+		if r := recover(); r != nil {
+			if h.target != nil {
+				h.target.reject(PanicError{Value: r})
+			}
+		}
+	}()
+
+	res := fn(result)
+	if h.target != nil {
+		h.target.resolve(res)
+	}
+}
+
+func (p *ChainedPromise) resolve(value Result) {
 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
-	// (We can't easily check identity if value is wrapped, but basic check is good)
 	if pr, ok := value.(*ChainedPromise); ok && pr == p {
-		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.id), js)
+		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.id))
 		return
 	}
 
 	// Spec 2.3.2: If x is a promise, adopt its state.
+	// Use addHandler for zero-closure adoption (PromiseAltOne optimization).
 	if pr, ok := value.(*ChainedPromise); ok {
-		// Wait for pr to settle, then resolve/reject p with the result
-		// We use ThenWithJS to attach standard handlers
-		pr.ThenWithJS(js,
-			func(v Result) Result {
-				p.resolve(v, js) // Recursive resolution (2.3.2.1)
-				return nil
-			},
-			func(r Result) Result {
-				p.reject(r, js) // (2.3.2.3)
-				return nil
-			},
-		)
+		pr.addHandler(handler{target: p})
 		return
 	}
 
@@ -376,20 +459,20 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 	}
 
 	h0 := p.h0
+	useH0 := p.h0Used
 	var handlers []handler
 
 	// Extract handlers before they get overwritten with the actual result
-	if p.result != nil {
-		if hrs, ok := p.result.([]handler); ok {
-			handlers = hrs
-		}
+	if useH0 && p.result != nil {
+		handlers = p.result.([]handler)
 	}
 
 	// Extract channels for notification
 	channels := p.channels
-	p.channels = nil // Clear channels to prevent double-notification
+	p.channels = nil
 
 	p.h0 = handler{}
+	p.h0Used = false
 	p.result = value
 	p.state.Store(int32(Fulfilled))
 	p.mu.Unlock()
@@ -399,137 +482,82 @@ func (p *ChainedPromise) resolve(value Result, js *JS) {
 		select {
 		case ch <- value:
 		default:
-			// Channel might be full or closed, skip
 		}
 	}
-	// Close all channels
 	for _, ch := range channels {
 		close(ch)
 	}
 
 	// CLEANUP: Prevent leak on success
-	if js != nil {
-		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, p.id)
-		js.promiseHandlersMu.Unlock()
+	if p.js != nil {
+		p.js.promiseHandlersMu.Lock()
+		delete(p.js.promiseHandlers, p.id)
+		p.js.promiseHandlersMu.Unlock()
 	}
 
-	process := func(h handler) {
-		if h.onFulfilled != nil {
-			fn := h.onFulfilled
-			target := h.target
-			if js != nil {
-				js.QueueMicrotask(func() {
-					tryCall(fn, value, target)
-				})
-			} else {
-				tryCall(fn, value, target)
-			}
-		} else {
-			// Propagate fulfillment
-			h.target.resolve(value, h.target.js)
-		}
-	}
-
-	if h0.target != nil {
-		process(h0)
+	// Schedule handlers outside lock (safe for resolve, no T27 ordering concern)
+	if useH0 {
+		p.scheduleHandler(h0, int32(Fulfilled), value)
 	}
 	for _, h := range handlers {
-		process(h)
+		p.scheduleHandler(h, int32(Fulfilled), value)
 	}
 }
 
 // reject transitions the promise to rejected state if it's still pending.
-func (p *ChainedPromise) reject(reason Result, js *JS) {
+func (p *ChainedPromise) reject(reason Result) {
 	p.mu.Lock()
 	if p.state.Load() != int32(Pending) {
 		p.mu.Unlock()
 		return
 	}
 
-	// CRITICAL FIX (T27): Snapshot handlers BEFORE clearing them
-	// then() runs concurrently: checks state, then acquires p.mu
-	// If then() sees Pending and stores handler AFTER we clear p.h0
-	// but BEFORE release lock, that handler must be processed too
-	// Solution: Don't clear handlers until AFTER processing them
+	// Snapshot handlers before clearing
 	h0 := p.h0
+	useH0 := p.h0Used
 	var handlers []handler
 
-	// Extract handlers before they get overwritten with the actual reason
-	if p.result != nil {
-		if hrs, ok := p.result.([]handler); ok {
-			handlers = hrs
-		}
+	if useH0 && p.result != nil {
+		handlers = p.result.([]handler)
 	}
 
 	// Extract channels for notification
 	channels := p.channels
-	p.channels = nil // Clear channels to prevent double-notification
+	p.channels = nil
 
-	// Set reason BEFORE processing handlers (needed for error messages)
 	p.result = reason
 	p.state.Store(int32(Rejected))
 
-	// CRITICAL FIX (T27): Process handlers BEFORE clearing them
-	// This ensures any handlers added by concurrent then() are processed
-	// then() checks p.state at line ~457, then acquires p.mu at line ~462
-	// If then() won the race and added handler, we MUST process it
-	process := func(h handler) {
-		if h.onRejected != nil {
-			fn := h.onRejected
-			target := h.target
-			if js != nil {
-				js.QueueMicrotask(func() {
-					tryCall(fn, reason, target)
-				})
-			} else {
-				tryCall(fn, reason, target)
-			}
-		} else {
-			// Propagate rejection
-			h.target.reject(reason, h.target.js)
-		}
-	}
-
-	// CRITICAL FIX (T27): Enqueue handler microtasks FIRST (while holding lock)
-	// THEN release lock to allow then() to add more handlers
-	// THEN call trackRejection() (which enqueues checkUnhandledRejections)
-	//
-	// Microtask ordering after this fix:
-	// 1. Handler microtasks from this loop (queued at line ~388-389)
-	// 2. Late-subscriber microtasks from then() (queued at line ~492)
-	// 3. checkUnhandledRejections microtask from trackRejection (queued at line ~737)
-	//
-	// This ensures checkUnhandledRejections sees handlers added by concurrent then()
-	if h0.target != nil {
-		process(h0)
+	// CRITICAL (T27): Schedule handler microtasks WHILE holding lock.
+	// This ensures proper ordering: handler microtasks run before
+	// checkUnhandledRejections, preventing false-positive reports.
+	if useH0 {
+		p.scheduleHandler(h0, int32(Rejected), reason)
 	}
 	for _, h := range handlers {
-		process(h)
+		p.scheduleHandler(h, int32(Rejected), reason)
 	}
 
-	// Clear handlers AFTER enqueuing their microtasks
+	// Clear handlers AFTER scheduling their microtasks
 	p.h0 = handler{}
+	p.h0Used = false
 
 	// Notify all channels registered via ToChannel()
 	for _, ch := range channels {
 		select {
 		case ch <- reason:
 		default:
-			// Channel might be full or closed, skip
 		}
 	}
-	// Close all channels
 	for _, ch := range channels {
 		close(ch)
 	}
 
 	p.mu.Unlock()
 
-	// NOW call trackRejection (AFTER releasing lock, AFTER enqueuing handlers)
-	// This queues checkUnhandledRejections to run AFTER all handler microtasks
-	if js != nil {
-		js.trackRejection(p.id, reason, p.creationStack) // EXPAND-039: Pass creation stack
+	// trackRejection AFTER releasing lock, AFTER scheduling handlers
+	if p.js != nil {
+		p.js.trackRejection(p.id, reason, p.creationStack)
 	}
 }
 
@@ -549,284 +577,106 @@ func (p *ChainedPromise) reject(reason Result, js *JS) {
 func (p *ChainedPromise) Then(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
 	js := p.js
 	if js == nil {
-		// No JS adapter available, create standalone promise without scheduling
 		return p.thenStandalone(onFulfilled, onRejected)
 	}
-	return p.then(js, onFulfilled, onRejected)
-}
 
-// ThenWithJS adds handlers with explicit JS adapter.
-func (p *ChainedPromise) ThenWithJS(js *JS, onFulfilled, onRejected func(Result) Result) *ChainedPromise {
-	return p.then(js, onFulfilled, onRejected)
-}
-
-func (p *ChainedPromise) then(js *JS, onFulfilled, onRejected func(Result) Result) *ChainedPromise {
-	result := &ChainedPromise{
+	child := &ChainedPromise{
 		id: js.nextTimerID.Add(1),
 		js: js,
 	}
-	result.state.Store(int32(Pending))
+	child.state.Store(int32(Pending))
 
-	h := handler{
+	p.addHandler(handler{
 		onFulfilled: onFulfilled,
 		onRejected:  onRejected,
-		target:      result,
+		target:      child,
+	})
+
+	// Rejection tracking: register handler AFTER addHandler stores/schedules it.
+	// Microtasks queued by addHandler won't execute until the current synchronous
+	// code completes, so this registration happens before the handler runs.
+	if onRejected != nil {
+		p.registerRejectionHandler(js)
 	}
 
-	// NOTE: We DO NOT set js.promiseHandlers[p.id] = true here anymore.
-	// Instead, we set it AFTER the handler is stored, inside the critical section.
-	// This ensures trackRejection sees the handler BEFORE checking unhandled rejections.
+	return child
+}
 
-	// Check current state
-	currentState := p.state.Load()
+// registerRejectionHandler tracks that a rejection handler has been attached
+// to the parent promise. This is used by the unhandled rejection detection system
+// to avoid false-positive reports.
+func (p *ChainedPromise) registerRejectionHandler(js *JS) {
+	currentState := PromiseState(p.state.Load())
 
-	if currentState == int32(Pending) {
-		// CRITICAL FIX (T27): Re-check state after acquiring lock to handle race
-		// then() checks p.state above, then acquires p.mu
-		// If reject() runs concurrently, it may have left Rejected state
-		// Snapshot taken when Pending is now stale
-		// Solution: Re-read state under lock to catch this race
-		p.mu.Lock()
-		currentState = p.state.Load()
+	switch {
+	case currentState == Fulfilled:
+		// Fulfilled promises can never be rejected; clean up tracking
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, p.id)
+		js.promiseHandlersMu.Unlock()
 
-		// If state changed from Pending to [Rejected|Fulfilled] during race,
-		// follow the "already settled" path instead
-		if currentState != int32(Pending) {
-			p.mu.Unlock()
-			// Fall through to "already settled" handling below
-			if onRejected != nil && currentState == int32(Fulfilled) {
-				// Fulfilled promises don't need rejection tracking
-				js.promiseHandlersMu.Lock()
-				delete(js.promiseHandlers, p.id)
-				js.promiseHandlersMu.Unlock()
-			} else if onRejected != nil && currentState == int32(Rejected) {
-				// Rejected promises: only track if currently unhandled
-				js.rejectionsMu.RLock()
-				_, isUnhandled := js.unhandledRejections[p.id]
-				js.rejectionsMu.RUnlock()
+	case currentState == Rejected:
+		// Check if still unhandled
+		js.rejectionsMu.RLock()
+		_, isUnhandled := js.unhandledRejections[p.id]
+		js.rejectionsMu.RUnlock()
 
-				if !isUnhandled {
-					// Already handled, remove tracking
-					js.promiseHandlersMu.Lock()
-					delete(js.promiseHandlers, p.id)
-					js.promiseHandlersMu.Unlock()
-				}
-
-				// Schedule handler as microtask for already-rejected promise
-				// ALSO signal handler ready for trackRejection synchronization
-				if onRejected != nil {
-					js.promiseHandlersMu.Lock()
-					js.promiseHandlers[p.id] = true
-					js.promiseHandlersMu.Unlock()
-					// Signal that handler is registered (for trackRejection synchronization)
-					js.handlerReadyMu.Lock()
-					if ch, exists := js.handlerReadyChans[p.id]; exists {
-						// Close channel to signal handler registration
-						// Use select with default to avoid blocking if no one is waiting
-						select {
-						case <-ch:
-							// Already closed
-						default:
-							close(ch)
-						}
-					}
-					js.handlerReadyMu.Unlock()
-				}
-
-				r := p.Reason()
-				js.QueueMicrotask(func() {
-					tryCall(onRejected, r, result)
-				})
-				return result
-			}
-
-			// Promise/A+ §2.2.7.4: If onRejected is not a function and
-			// promise1 is rejected, promise2 must be rejected with the same reason.
-			if currentState == int32(Rejected) {
-				r := p.Reason()
-				js.QueueMicrotask(func() {
-					result.reject(r, js)
-				})
-				return result
-			}
-
-			// Schedule handler as microtask for already-fulfilled promise
-			v := p.Value()
-			js.QueueMicrotask(func() {
-				tryCall(onFulfilled, v, result)
-			})
-			return result
-		}
-
-		// Still pending: store handler FIRST, then mark as tracked
-		if p.h0.target == nil {
-			p.h0 = h
-		} else {
-			var handlers []handler
-			if p.result == nil {
-				handlers = make([]handler, 0, 2)
-			} else {
-				handlers = p.result.([]handler)
-			}
-			handlers = append(handlers, h)
-			p.result = handlers
-		}
-		p.mu.Unlock()
-
-		// NOW mark as tracked AFTER storing the handler
-		// This ensures trackRejection sees the handler before checking
-		if onRejected != nil {
-			js.promiseHandlersMu.Lock()
-			js.promiseHandlers[p.id] = true
-			js.promiseHandlersMu.Unlock()
-
-			// Signal that handler is registered (for trackRejection synchronization)
-			js.handlerReadyMu.Lock()
-			if ch, exists := js.handlerReadyChans[p.id]; exists {
-				// Close channel to signal handler registration
-				// Use select with default to avoid blocking if no one is waiting
-				select {
-				case <-ch:
-					// Already closed
-				default:
-					close(ch)
-				}
-			}
-			js.handlerReadyMu.Unlock()
-		}
-	} else {
-		// Already settled: retroactive cleanup for settled promises - This fixes Memory Leak #3 from review.md Section 2.A
-		if onRejected != nil && currentState == int32(Fulfilled) {
-			// Fulfilled promises don't need rejection tracking (can never be rejected)
+		if !isUnhandled {
+			// Already handled, clean up
 			js.promiseHandlersMu.Lock()
 			delete(js.promiseHandlers, p.id)
 			js.promiseHandlersMu.Unlock()
-		} else if onRejected != nil && currentState == int32(Rejected) {
-			// Rejected promises: only track if currently unhandled
-			js.rejectionsMu.RLock()
-			_, isUnhandled := js.unhandledRejections[p.id]
-			js.rejectionsMu.RUnlock()
-
-			if !isUnhandled {
-				// Already handled, remove tracking
-				js.promiseHandlersMu.Lock()
-				delete(js.promiseHandlers, p.id)
-				js.promiseHandlersMu.Unlock()
-			}
-
-			// Schedule handler as microtask for already-rejected promise
-			// ONLY track if currently unhandled (for trackRejection synchronization)
-			if isUnhandled {
-				js.promiseHandlersMu.Lock()
-				js.promiseHandlers[p.id] = true
-				js.promiseHandlersMu.Unlock()
-				// Signal that handler is registered (for trackRejection synchronization)
-				js.handlerReadyMu.Lock()
-				if ch, exists := js.handlerReadyChans[p.id]; exists {
-					// Close channel to signal handler registration
-					// Use select with default to avoid blocking if no one is waiting
-					select {
-					case <-ch:
-						// Already closed
-					default:
-						close(ch)
-					}
-				}
-				js.handlerReadyMu.Unlock()
-			}
-
-			r := p.Reason()
-			js.QueueMicrotask(func() {
-				tryCall(onRejected, r, result)
-			})
-			return result
+		} else {
+			// Still unhandled: register handler and signal
+			js.promiseHandlersMu.Lock()
+			js.promiseHandlers[p.id] = true
+			js.promiseHandlersMu.Unlock()
+			p.signalHandlerReady(js)
 		}
 
-		// Promise/A+ §2.2.7.4: If onRejected is not a function and
-		// promise1 is rejected, promise2 must be rejected with the same reason.
-		if currentState == int32(Rejected) {
-			r := p.Reason()
-			js.QueueMicrotask(func() {
-				result.reject(r, js)
-			})
-			return result
-		}
-
-		// Schedule handler as microtask for already-fulfilled promise
-		v := p.Value()
-		js.QueueMicrotask(func() {
-			tryCall(onFulfilled, v, result)
-		})
+	default: // Pending
+		js.promiseHandlersMu.Lock()
+		js.promiseHandlers[p.id] = true
+		js.promiseHandlersMu.Unlock()
+		p.signalHandlerReady(js)
 	}
+}
 
-	return result
+// signalHandlerReady signals that a rejection handler has been registered,
+// allowing trackRejection's synchronization to proceed.
+func (p *ChainedPromise) signalHandlerReady(js *JS) {
+	js.handlerReadyMu.Lock()
+	if ch, exists := js.handlerReadyChans[p.id]; exists {
+		select {
+		case <-ch:
+			// Already closed
+		default:
+			close(ch)
+		}
+	}
+	js.handlerReadyMu.Unlock()
 }
 
 // thenStandalone creates a child promise without JS adapter for basic operations.
+// Uses addHandler internally for simplified code.
 //
 // NOTE: This code path is NOT Promise/A+ compliant - handlers execute synchronously
-// when called on already-settled promises. This is intentional for testing/fallback
-// scenarios where a JS adapter is not available. Normal usage always goes through
-// js.NewChainedPromise() which provides proper async semantics via microtasks.
-//
-// In production code, p.js should never be nil because promises are created
-// via js.NewChainedPromise() which always sets the js field. This path is
-// provided only for testing or future extensions where a standalone promise might be
-// useful without an event loop.
+// when called on already-settled promises (since p.js is nil, scheduleHandler falls
+// back to executeHandler). This is intentional for testing/fallback scenarios.
 func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
-	result := &ChainedPromise{
-		id: p.id + 1, // Simple ID generation for child
+	child := &ChainedPromise{
+		id: p.id + 1,
 		js: nil,
 	}
-	result.state.Store(int32(Pending))
+	child.state.Store(int32(Pending))
 
-	h := handler{
+	p.addHandler(handler{
 		onFulfilled: onFulfilled,
 		onRejected:  onRejected,
-		target:      result,
-	}
+		target:      child,
+	})
 
-	// Check current state
-	currentState := p.state.Load()
-
-	if currentState == int32(Pending) {
-		// Pending: store handler
-		p.mu.Lock()
-		if p.h0.target == nil {
-			p.h0 = h
-		} else {
-			var handlers []handler
-			if p.result == nil {
-				handlers = make([]handler, 0, 2)
-			} else {
-				handlers = p.result.([]handler)
-			}
-			handlers = append(handlers, h)
-			p.result = handlers
-		}
-		p.mu.Unlock()
-	} else {
-		// Already settled: call handler synchronously (not spec-compliant)
-		if currentState == int32(Fulfilled) {
-			v := p.Value()
-			if onFulfilled != nil {
-				tryCall(onFulfilled, v, result)
-			} else {
-				// Nil handler means pass-through
-				result.resolve(v, result.js)
-			}
-		} else if currentState == int32(Rejected) {
-			r := p.Reason()
-			if onRejected != nil {
-				tryCall(onRejected, r, result)
-			} else {
-				// Nil handler means pass-through rejection
-				result.reject(r, result.js)
-			}
-		}
-	}
-
-	return result
+	return child
 }
 
 // Catch adds a rejection handler to the promise.
@@ -860,133 +710,64 @@ func (p *ChainedPromise) Catch(onRejected func(Result) Result) *ChainedPromise {
 //	    })
 func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	js := p.js
-	var result *ChainedPromise
+	var child *ChainedPromise
 	if js != nil {
-		result, _, _ = js.NewChainedPromise()
+		child, _, _ = js.NewChainedPromise()
 	} else {
-		result = &ChainedPromise{
+		child = &ChainedPromise{
 			id: p.id + 1,
 			js: nil,
 		}
-		result.state.Store(int32(Pending))
+		child.state.Store(int32(Pending))
 	}
 
 	if onFinally == nil {
 		onFinally = func() {}
 	}
 
-	// NOTE: We DO NOT set js.promiseHandlers[p.id] = true here anymore.
-	// Instead, we set it AFTER the handlers are stored, inside the critical section.
-	// This ensures trackRejection sees the handler BEFORE checking unhandled rejections.
-
-	// Create handler that runs onFinally then forwards result
-	handlerFunc := func(value Result, isRejection bool, target *ChainedPromise) {
+	// Run onFinally, then propagate the original result.
+	// If onFinally panics, we still propagate the original settlement
+	// (Go panics in cleanup callbacks should not change the promise outcome).
+	runFinally := func(res Result, isRej bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				// Panic in finally: still propagate original settlement.
+				// This matches the Go convention that cleanup panics
+				// should not silently swallow the original result.
+				_ = r // panic value discarded
+				if isRej {
+					child.reject(res)
+				} else {
+					child.resolve(res)
+				}
+			}
+		}()
 		onFinally()
-		if isRejection {
-			target.reject(value, target.js)
+		if isRej {
+			child.reject(res)
 		} else {
-			target.resolve(value, target.js)
+			child.resolve(res)
 		}
 	}
 
-	// Check current state
-	currentState := p.state.Load()
+	p.addHandler(handler{
+		onFulfilled: func(v Result) Result {
+			runFinally(v, false)
+			return nil // Return ignored; child is resolved manually
+		},
+		onRejected: func(r Result) Result {
+			runFinally(r, true)
+			return nil // Return ignored; child is rejected manually
+		},
+		target: child,
+	})
 
-	if currentState == int32(Pending) {
-		// CRITICAL FIX: Re-check state after acquiring lock to handle race
-		// Similar to then() fix - handle concurrent resolution
-		p.mu.Lock()
-		currentState = p.state.Load()
-
-		// If state changed from Pending during race, follow "already settled" path
-		if currentState != int32(Pending) {
-			p.mu.Unlock()
-			// Fall through to "already settled" handling below
-			if currentState == int32(Fulfilled) {
-				handlerFunc(p.Value(), false, result)
-			} else {
-				handlerFunc(p.Reason(), true, result)
-			}
-			return result
-		}
-
-		// Still pending: store custom handlers
-		// We need to duplicate handler logic for both success and failure paths
-		// because finally needs to run in both cases
-		h1 := handler{
-			onFulfilled: func(v Result) Result {
-				handlerFunc(v, false, result)
-				return nil // Result already delivered
-			},
-			target: result,
-		}
-		h2 := handler{
-			onRejected: func(r Result) Result {
-				handlerFunc(r, true, result)
-				return nil
-			},
-			target: result,
-		}
-
-		// Append h1
-		if p.h0.target == nil {
-			p.h0 = h1
-		} else {
-			var handlers []handler
-			if p.result == nil {
-				handlers = make([]handler, 0, 2)
-			} else {
-				handlers = p.result.([]handler)
-			}
-			handlers = append(handlers, h1)
-			p.result = handlers
-		}
-
-		// Append h2
-		// Re-read slice in case it changed/allocated
-		if p.h0.target == nil {
-			p.h0 = h2
-		} else {
-			var handlers []handler
-			if p.result == nil {
-				handlers = make([]handler, 0, 2)
-			} else {
-				handlers = p.result.([]handler)
-			}
-			handlers = append(handlers, h2)
-			p.result = handlers
-		}
-		p.mu.Unlock()
-
-		// NOW mark as tracked AFTER storing the handlers
-		// This ensures trackRejection sees the handler before checking
-		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[p.id] = true
-		js.promiseHandlersMu.Unlock()
-
-		// Signal that handler is registered (for trackRejection synchronization)
-		js.handlerReadyMu.Lock()
-		if ch, exists := js.handlerReadyChans[p.id]; exists {
-			// Close channel to signal handler registration
-			// Use select with default to avoid blocking if no one is waiting
-			select {
-			case <-ch:
-				// Already closed
-			default:
-				close(ch)
-			}
-		}
-		js.handlerReadyMu.Unlock()
-	} else {
-		// Already settled: run onFinally and forward result
-		if currentState == int32(Fulfilled) {
-			handlerFunc(p.Value(), false, result)
-		} else {
-			handlerFunc(p.Reason(), true, result)
-		}
+	// Track rejection handler (Finally always provides onRejected)
+	if js != nil {
+		p.registerRejectionHandler(js)
 	}
 
-	return result
+	return child
 }
 
 // ToChannel returns a channel that will receive the result when the promise settles.
@@ -1019,27 +800,6 @@ func (p *ChainedPromise) ToChannel() <-chan Result {
 	p.mu.Unlock()
 
 	return ch
-}
-
-// tryCall calls a function with the given value, resolving or rejecting the target.
-func tryCall(fn func(Result) Result, v Result, target *ChainedPromise) {
-	defer func() {
-		if r := recover(); r != nil {
-			// Wrap panic value in PanicError to provide consistent error interface
-			panicErr := PanicError{Value: r}
-			target.reject(panicErr, target.js)
-		}
-	}()
-
-	// CRITICAL: Check for nil handler before calling
-	if fn == nil {
-		// No handler means pass-through
-		target.resolve(v, target.js)
-		return
-	}
-
-	result := fn(v)
-	target.resolve(result, target.js)
 }
 
 // trackRejection tracks a rejected promise for unhandled rejection detection.
@@ -1318,7 +1078,7 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 	// Attach handlers to each promise
 	for i, p := range promises {
 		idx := i // Capture index
-		p.ThenWithJS(js,
+		p.Then(
 			func(v Result) Result {
 				// Store value in correct position
 				mu.Lock()
@@ -1372,7 +1132,7 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 
 	// Attach handlers to each promise (first to settle wins)
 	for _, p := range promises {
-		p.ThenWithJS(js,
+		p.Then(
 			func(v Result) Result {
 				if settled.CompareAndSwap(false, true) {
 					resolve(v)
@@ -1427,7 +1187,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 
 	for i, p := range promises {
 		idx := i // Capture index
-		p.ThenWithJS(js,
+		p.Then(
 			func(v Result) Result {
 				mu.Lock()
 				results[idx] = map[string]interface{}{
@@ -1492,7 +1252,7 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 	// Attach handlers to each promise
 	for i, p := range promises {
 		idx := i // Capture index
-		p.ThenWithJS(js,
+		p.Then(
 			func(v Result) Result {
 				if resolved.CompareAndSwap(false, true) {
 					resolve(v)

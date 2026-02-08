@@ -71,7 +71,7 @@ func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 	}
 
 	// Now manually resolve the promise to trigger the handler
-	p.resolve("test value", nil)
+	p.resolve("test value")
 
 	// Allow time for synchronous execution
 	time.Sleep(10 * time.Millisecond)
@@ -146,7 +146,7 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 	}
 
 	// Resolve and verify both handlers called
-	p.resolve("value", nil)
+	p.resolve("value")
 	time.Sleep(10 * time.Millisecond)
 
 	if !handler1Called.Load() {
@@ -198,7 +198,7 @@ func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 	}
 
 	// Resolve and verify all handlers called
-	p.resolve("value", nil)
+	p.resolve("value")
 	time.Sleep(10 * time.Millisecond)
 
 	if !h1.Load() || !h2.Load() || !h3.Load() {
@@ -439,7 +439,7 @@ func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 	wg.Wait()
 
 	// Resolve the promise
-	p.resolve("concurrent value", nil)
+	p.resolve("concurrent value")
 
 	// Wait for handlers to execute
 	time.Sleep(50 * time.Millisecond)
@@ -488,7 +488,7 @@ func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
 
 	// Reject the parent promise
 	testErr := errors.New("rejection reason")
-	p.reject(testErr, nil)
+	p.reject(testErr)
 
 	// Wait for handler execution
 	time.Sleep(10 * time.Millisecond)
@@ -532,7 +532,7 @@ func TestThenStandalone_Pending_BothHandlersNil(t *testing.T) {
 	}
 
 	// Resolve parent - should propagate value to child
-	p.resolve("propagated value", nil)
+	p.resolve("propagated value")
 	time.Sleep(10 * time.Millisecond)
 
 	// Child should be fulfilled with same value (pass-through)
@@ -561,7 +561,7 @@ func TestThenStandalone_Pending_BothHandlersNil_Rejection(t *testing.T) {
 
 	// Reject parent - should propagate rejection to child
 	testErr := errors.New("propagated rejection")
-	p.reject(testErr, nil)
+	p.reject(testErr)
 	time.Sleep(10 * time.Millisecond)
 
 	// Child should be rejected with same reason
@@ -738,7 +738,7 @@ func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 	}
 
 	// Resolve zero-value promise
-	p.resolve(nil, nil)
+	p.resolve(nil)
 	time.Sleep(10 * time.Millisecond)
 
 	if child.State() != Fulfilled {
