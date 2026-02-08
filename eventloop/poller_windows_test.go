@@ -9,50 +9,27 @@ import (
 )
 
 // TestIOCPBasicSocketIO tests basic socket read/write on Windows.
+// Future work: requires connected socket pair with WSASend/WSARecv overlapped I/O.
 func TestIOCPBasicSocketIO(t *testing.T) {
-	// Create a basic TCP client/server pair for testing
-	// Note: This is a simplified test - a full implementation would
-	// use actual overlapped WSASend/WSARecv operations
-
-	t.Skip("Requires full IOCP integration with overlapped I/O")
-
-	// Pseudo-code for proper test:
-	// 1. Create non-blocking TCP sockets
-	// 2. Bind server, connect client
-	// 3. Register server fd for read events
-	// 4. Write from client, verify receive callback fires
-	// 5. Write from server, verify receive callback fires on client
+	t.Skip("Future work: requires connected socket pair with WSASend/WSARecv overlapped I/O")
 }
 
-// TestIOCPTimerFunctionality tests that ScheduleTimer works correctly on Windows.
-func TestIOCPTimerFunctionality(t *testing.T) {
-	t.Skip("Timer functionality is verified by eventloop tests on all platforms")
-
-	// Timer functionality is shared across all platforms
-	// The Windows IOCP implementation uses the same Loop.timer implementation
-	// Run: go test -run TestLoopTimerFires on Windows
-}
-
-// TestIOCPMultipleFDs tests handling multiple file descriptors.
+// TestIOCPMultipleFDs tests handling multiple file descriptors with concurrent I/O.
+// Future work: requires multiple connected socket pairs with overlapped operations.
 func TestIOCPMultipleFDs(t *testing.T) {
-	t.Skip("Requires multiple socket connections with IOCP")
-
-	// Pseudo-code:
-	// 1. Create 10 TCP connections
-	// 2. Register all 10 FDs with poller
-	// 3. Write to each socket
-	// 4. Verify all 10 read events received
+	t.Skip("Future work: requires multiple connected socket pairs with overlapped I/O")
 }
 
-// TestIOCPStressTest tests 1000 I/O operations on Windows.
+// TestIOCPStressTest tests high-volume I/O operations on Windows.
+// Future work: requires full overlapped I/O stress testing infrastructure.
 func TestIOCPStressTest(t *testing.T) {
-	t.Skip("Requires full IOCP stress testing infrastructure")
+	t.Skip("Future work: requires full overlapped I/O stress testing infrastructure")
+}
 
-	// Pseudo-code:
-	// 1. Create 100 TCP connections
-	// 2. Perform 1000+ read/write operations
-	// 3. Verify all operations complete successfully
-	// 4. Verify no memory leaks or handle leaks
+// TestIOCPOverlappedIO tests proper overlapped I/O operation lifecycle.
+// Future work: requires WSASend/WSARecv with proper overlapped structures.
+func TestIOCPOverlappedIO(t *testing.T) {
+	t.Skip("Future work: requires WSASend/WSARecv with proper overlapped structures")
 }
 
 // TestIOCPInitClose tests IOCP initialization and cleanup.
@@ -139,27 +116,6 @@ func TestIOCPRegisterFD(t *testing.T) {
 // Helper function to get WSASocket with overlapped I/O
 func getOverlappedSocket() (windows.Handle, error) {
 	return windows.Socket(windows.AF_INET, windows.SOCK_STREAM, windows.IPPROTO_TCP)
-}
-
-// Helper function to create overlapping I/O structure
-func newOverlapped() *windows.Overlapped {
-	return &windows.Overlapped{
-		HEvent: windows.Handle(0),
-	}
-}
-
-// TestIOCPOverlappedIO tests overlapped I/O operations.
-func TestIOCPOverlappedIO(t *testing.T) {
-	t.Skip("Requires full WSASend/WSARecv implementation for proper IOCP testing")
-
-	// Pseudo-code for proper overlapped I/O test:
-	// 1. Create connected socket pair
-	// 2. Create overlapped structure
-	// 3. Issue WSARecv on one socket with overlapped
-	// 4. Issue WSASend on the other socket
-	// 5. Wait for GetQueuedCompletionStatus
-	// 6. Verify bytes transferred
-	// 7. Verify callback invoked
 }
 
 // TestIOCPConcurrentAccess tests concurrent registration and unregistration.

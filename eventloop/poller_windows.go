@@ -29,10 +29,11 @@ const (
 )
 
 var (
-	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 100000000)")
-	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
-	ErrFDNotRegistered     = errors.New("eventloop: fd not registered")
-	ErrPollerClosed        = errors.New("eventloop: poller closed")
+	ErrFDOutOfRange             = errors.New("eventloop: fd out of range (max 100000000)")
+	ErrFDAlreadyRegistered      = errors.New("eventloop: fd already registered")
+	ErrFDNotRegistered          = errors.New("eventloop: fd not registered")
+	ErrPollerClosed             = errors.New("eventloop: poller closed")
+	ErrPollerAlreadyInitialized = errors.New("eventloop: poller already initialized")
 )
 
 // IOCallback is the callback type for I/O events.
@@ -80,9 +81,9 @@ type FastPoller struct { // betteralign:ignore
 
 // Init initializes the IOCP instance.
 func (p *FastPoller) Init() error {
-	// Prevent double-initialization
+	// Prevent double-initialization (would leak IOCP handle)
 	if p.initialized.Load() {
-		return ErrFDAlreadyRegistered // Using existing error for "already initialized"
+		return ErrPollerAlreadyInitialized
 	}
 	if p.closed.Load() {
 		return ErrPollerClosed
@@ -308,29 +309,26 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 // RACE SAFETY: Uses RLock to safely read fdInfo while allowing concurrent
 // modifications to other fds. Callback is copied under lock then called outside.
 //
-// CRITICAL: This was an empty stub - now properly implements callback dispatch
-// using completion key mechanism.
+// This matches the pattern used by darwin (kqueue) and linux (epoll) pollers.
 func (p *FastPoller) dispatchEvents(fd int) int {
 	if fd < 0 {
 		return 0
 	}
 
 	p.fdMu.RLock()
-	defer p.fdMu.RUnlock()
+	var info fdInfo
+	if fd < len(p.fds) {
+		info = p.fds[fd]
+	}
+	p.fdMu.RUnlock()
 
-	// Check if FD is still registered and active
-	if fd >= len(p.fds) || !p.fds[fd].active {
+	if !info.active || info.callback == nil {
 		return 0
 	}
 
-	// Copy callback under lock, execute outside to avoid holding lock during callback
-	cb := p.fds[fd].callback
-	if cb == nil {
-		return 0
-	}
-
-	// Execute callback with registered events
-	cb(p.fds[fd].events)
+	// Execute callback outside of lock to prevent deadlock if callback
+	// calls RegisterFD/UnregisterFD/ModifyFD.
+	info.callback(info.events)
 
 	return 1
 }
