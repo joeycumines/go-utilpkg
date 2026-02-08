@@ -77,10 +77,19 @@ func TestBarrierOrderingModes(t *testing.T) {
 			wg.Done()
 		}
 
-		// Submit both tasks while loop is sleeping to ensure they're in the same batch
+		// Push both tasks atomically into the external queue while the loop
+		// is sleeping. Using Submit() sequentially would race on platforms
+		// where the loop goroutine schedules between the two calls (the
+		// first Submit wakes the loop before the second pushes its task).
 		waitLoopState(t, l, StateSleeping, time.Second)
-		l.Submit(taskA)
-		l.Submit(taskB)
+		l.externalMu.Lock()
+		l.external.Push(taskA)
+		l.external.Push(taskB)
+		l.externalMu.Unlock()
+		// Wake the loop now that both tasks are enqueued
+		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
+			l.doWakeup()
+		}
 
 		// Wait for completion
 		done := make(chan struct{})
@@ -191,10 +200,19 @@ func TestBarrierOrderingModes(t *testing.T) {
 			wg.Done()
 		}
 
-		// Submit both tasks while loop is sleeping to ensure they're in the same batch
+		// Push both tasks atomically into the external queue while the loop
+		// is sleeping. Using Submit() sequentially would race on platforms
+		// where the loop goroutine schedules between the two calls (the
+		// first Submit wakes the loop before the second pushes its task).
 		waitLoopState(t, l, StateSleeping, time.Second)
-		l.Submit(taskA)
-		l.Submit(taskB)
+		l.externalMu.Lock()
+		l.external.Push(taskA)
+		l.external.Push(taskB)
+		l.externalMu.Unlock()
+		// Wake the loop now that both tasks are enqueued
+		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
+			l.doWakeup()
+		}
 
 		// Wait for completion
 		done := make(chan struct{})
