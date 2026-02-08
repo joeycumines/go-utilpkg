@@ -109,8 +109,6 @@ type Loop struct { // betteralign:ignore
 	wakeUpSignalPending atomic.Uint32 // Wake-up deduplication flag (0 = pending, 1 = clear)
 	state               atomic.Int32  // LoopState for atomic operations
 
-	wakeBuf [8]byte
-
 	forceNonBlockingPoll bool
 
 	// StrictMicrotaskOrdering controls the timing of the microtask barrier.
@@ -742,6 +740,11 @@ func (l *Loop) poll(ctx context.Context, tickTime interface{}) {
 		_ = l.submitWakeup() // Force wake to process shutdown
 		return
 	}
+
+	// Reset the wake-up pending flag after poll returns.
+	// On Unix, the poller callback already drains the pipe; this is a harmless re-Store(0).
+	// On Windows (IOCP), this is the only place the flag is reset, enabling future wakeups.
+	l.drainWakeUpPipe()
 
 	// Upon wake-up, buffer events (don't execute callbacks yet)
 	// Then update CurrentTime

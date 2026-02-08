@@ -25,8 +25,9 @@ func (l *Loop) initWakeup() error {
 
 // drainWakeUpPipe drains the wake-up pipe.
 func (l *Loop) drainWakeUpPipe() {
+	var buf [8]byte
 	for {
-		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
+		_, err := unix.Read(l.wakePipe, buf[:])
 		if err != nil {
 			if err == unix.EAGAIN || err == unix.EINTR {
 				break

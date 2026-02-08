@@ -67,9 +67,6 @@ type Loop struct { // betteralign:ignore
 
 	// 4-byte atomic and 4 bytes padding
 	wakeUpPending atomic.Uint32
-
-	// 8-byte array
-	wakeBuf [8]byte
 }
 
 // timer represents a scheduled task
@@ -443,6 +440,11 @@ func (l *Loop) poll(ctx context.Context) {
 	if err != nil {
 		log.Printf("alternateone: pollIO error: %v", err)
 	}
+
+	// Reset the wake-up pending flag after poll returns.
+	// On Unix, the poller callback already drains the pipe; this is a harmless re-Store(0).
+	// On Windows (IOCP), this is the only place the flag is reset, enabling future wakeups.
+	l.drainWakeUpPipe()
 
 	// Check for termination (may have been called while polling)
 	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {

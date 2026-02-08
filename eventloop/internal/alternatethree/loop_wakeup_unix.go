@@ -30,9 +30,11 @@ func (l *Loop) drainWakeUpPipe() {
 	// Only clear wakeUpSignalPending if we successfully drained the pipe
 	drained := false
 
+	var buf [8]byte
+
 Loop:
 	for {
-		_, err := unix.Read(l.wakePipe, l.wakeBuf[:])
+		_, err := unix.Read(l.wakePipe, buf[:])
 		if err != nil {
 			switch err {
 			case unix.EAGAIN:

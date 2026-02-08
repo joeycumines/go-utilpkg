@@ -319,11 +319,14 @@ func TestTimerReuseSafety(t *testing.T) {
 
 	// Create many timers sequentially, checking that each behaves correctly
 	for iteration := 0; iteration < 50; iteration++ {
-		executed := atomic.Bool{}
+		executed := make(chan struct{}, 1)
 
 		// Schedule timer
 		TimerID, err := loop.ScheduleTimer(1*time.Millisecond, func() {
-			executed.Store(true)
+			select {
+			case executed <- struct{}{}:
+			default:
+			}
 		})
 		if err != nil {
 			t.Fatalf("ScheduleTimer failed at iteration %d: %v", iteration, err)
@@ -337,17 +340,24 @@ func TestTimerReuseSafety(t *testing.T) {
 				t.Fatalf("CancelTimer failed at iteration %d: %v", iteration, err)
 			}
 
-			// Verify timer didn't fire (unless it fired before cancel)
-			time.Sleep(10 * time.Millisecond)
-			if executed.Load() && err == nil {
-				// Only error if we canceled successfully and it still fired
-				t.Errorf("Timer executed despite cancellation at iteration %d", iteration)
+			// Wait briefly - if cancel succeeded, the timer should NOT fire.
+			// Use a generous timeout since we only care about the cancel case.
+			select {
+			case <-executed:
+				if err == nil {
+					// Only error if we canceled successfully and it still fired
+					t.Errorf("Timer executed despite cancellation at iteration %d", iteration)
+				}
+			case <-time.After(50 * time.Millisecond):
+				// Good - timer didn't fire after cancel
 			}
 		} else {
-			// Wait for timer to fire
-			time.Sleep(15 * time.Millisecond)
-			if !executed.Load() {
-				t.Errorf("Timer failed to execute at iteration %d", iteration)
+			// Wait for timer to fire with a generous deadline
+			select {
+			case <-executed:
+				// Good - timer fired
+			case <-time.After(5 * time.Second):
+				t.Fatalf("Timer failed to execute at iteration %d (timed out after 5s)", iteration)
 			}
 		}
 	}

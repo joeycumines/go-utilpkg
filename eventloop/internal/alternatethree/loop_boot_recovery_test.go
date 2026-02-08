@@ -3,8 +3,7 @@ package alternatethree
 import (
 	"context"
 	"errors"
-	"os"
-	"syscall"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -335,7 +334,7 @@ func TestLoop_FileDescriptorAllocationLimit(t *testing.T) {
 func TestLoop_New_EventFD_Linux(t *testing.T) {
 	// t.Parallel() // Cannot parallel: platform-specific
 
-	if os.Getenv("GOOS") != "linux" {
+	if runtime.GOOS != "linux" {
 		t.Skip("eventfd test only applicable on Linux")
 	}
 
@@ -391,9 +390,9 @@ func TestLoop_CloseFDs_ErrorHandling(t *testing.T) {
 	}
 
 	// Close the file descriptors manually to simulate an invalid FD
-	_ = syscall.Close(loop.wakePipe)
+	_ = closeFD(loop.wakePipe)
 	if loop.wakePipe != loop.wakePipeWrite {
-		_ = syscall.Close(loop.wakePipeWrite)
+		_ = closeFD(loop.wakePipeWrite)
 	}
 
 	// closeFDs should not panic even with invalid FDs

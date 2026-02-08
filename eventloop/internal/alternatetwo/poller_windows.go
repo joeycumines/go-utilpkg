@@ -178,9 +178,6 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 	return 0, nil
 }
 
-// dispatchEvents is not used for IOCP (events dispatched one at a time in PollIO).
-func (p *FastPoller) dispatchEvents(n int) {}
-
 // Wakeup wakes up the poller using PostQueuedCompletionStatus.
 func (p *FastPoller) Wakeup() error {
 	if p.closed.Load() {

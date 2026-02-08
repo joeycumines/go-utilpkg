@@ -205,9 +205,6 @@ func (p *SafePoller) PollIO(timeoutMs int) (int, error) {
 	return 0, nil
 }
 
-// processEventsLocked is not needed for IOCP (events processed one at a time).
-func (p *SafePoller) processEventsLocked(n int) {}
-
 // safeCallback executes a callback with panic recovery.
 func (p *SafePoller) safeCallback(callback func(IOEvents), events IOEvents) {
 	defer func() {

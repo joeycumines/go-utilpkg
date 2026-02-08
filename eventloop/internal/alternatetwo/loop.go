@@ -47,7 +47,6 @@ type Loop struct { // betteralign:ignore
 	// Wake-up mechanism
 	wakePipe      int
 	wakePipeWrite int
-	wakeBuf       [8]byte
 	wakePending   atomic.Uint32
 
 	// Timing
@@ -335,6 +334,11 @@ func (l *Loop) poll() {
 		l.state.TryTransition(StateSleeping, StateTerminating)
 		return
 	}
+
+	// Reset the wake-up pending flag after poll returns.
+	// On Unix, the poller callback already drains the pipe; this is a harmless re-Store(0).
+	// On Windows (IOCP), this is the only place the flag is reset, enabling future wakeups.
+	l.drainWakeUpPipe()
 
 	l.state.TryTransition(StateSleeping, StateRunning)
 }
