@@ -705,125 +705,261 @@
     {
       "id": "T089",
       "title": "Final Windows gmake all",
-      "status": "IN_PROGRESS",
-      "note": "Running final Windows gmake all.",
+      "status": "DONE",
+      "note": "Final Windows gmake all passes. Zero FAIL lines.",
       "description": "gmake run-on-windows.",
       "verificationCriteria": "Zero FAIL lines."
     },
     {
       "id": "T090",
       "title": "Fix Windows final failures",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "N/A - no Windows failures to fix.",
       "description": "Highest urgency per Hana.",
       "verificationCriteria": "Re-run zero FAIL."
     },
     {
       "id": "T091",
       "title": "Re-read DIRECTIVE.txt (pre-review)",
-      "status": "NOT_STARTED",
+      "status": "DONE",
+      "note": "Re-read confirmed.",
       "description": "Recall exact review prompt and two-contiguous mandate.",
       "verificationCriteria": "Re-read confirmed."
     },
     {
       "id": "T092",
+      "title": "Analyze ChainedPromise vs PromiseAltOne",
+      "status": "DONE",
+      "note": "APPROACH NOTED: PromiseAltOne won tournament universally. Plan: (1) Snapshot current ChainedPromise as promisealtfive for tournament comparison, (2) Rewrite ChainedPromise internals using PromiseAltOne patterns: addHandler method, h0Used flag, remove js parameter from resolve/reject (use p.js), cleaner promise adoption via addHandler, simplified Finally. Keep ALL existing features: rejection tracking, debug mode, IDs, channels, combinators. (3) Update combinators to use zero-allocation patterns where possible. (4) Validate on all platforms.",
+      "description": "Subagent gap analysis of API surface, features, integration points. PromiseAltOne wins on core patterns: addHandler, h0Used, no JS param passing, zero-closure Race.",
+      "verificationCriteria": "Gap analysis complete, approach documented."
+    },
+    {
+      "id": "T093",
+      "title": "Create promisealtfive directory",
+      "status": "NOT_STARTED",
+      "description": "Create eventloop/internal/promisealtfive/ with go.mod scaffolding. This preserves current ChainedPromise's internal mechanism for tournament comparison.",
+      "verificationCriteria": "Directory exists with go.mod."
+    },
+    {
+      "id": "T094",
+      "title": "Port ChainedPromise to promisealtfive",
+      "status": "NOT_STARTED",
+      "description": "Create promise.go in promisealtfive that snapshots ChainedPromise's core mechanism: h0 with nil-target check, resolve/reject with explicit js param pattern, handler storage in result field. Simplified for tournament (no rejection tracking, no debug mode, no channels). Must export New(*JS) (*Promise, ResolveFunc, RejectFunc), Then/Catch/Finally, State/Value/Reason.",
+      "verificationCriteria": "Package compiles. Matches ChainedPromise's internal mechanism."
+    },
+    {
+      "id": "T095",
+      "title": "Register promisealtfive in tournament",
+      "status": "NOT_STARTED",
+      "description": "Add p5Wrapper type and register PromiseAltFive in BenchmarkTournament, BenchmarkChainDepth, and all other tournament benchmarks in promise_tournament_test.go.",
+      "verificationCriteria": "Tournament file compiles with 5 promise implementations."
+    },
+    {
+      "id": "T096",
+      "title": "Verify tournament builds",
+      "status": "NOT_STARTED",
+      "description": "go test -C eventloop/internal/promisetournament -run '^$' ./... - verify compilation.",
+      "verificationCriteria": "Compiles with zero errors."
+    },
+    {
+      "id": "T097",
+      "title": "Rewrite ChainedPromise addHandler",
+      "status": "NOT_STARTED",
+      "description": "Add h0Used bool field to ChainedPromise struct. Create addHandler(h handler) method with optimistic lock-free settled check (like PromiseAltOne). This replaces the inline handler storage logic scattered across Then/Finally/resolve/reject.",
+      "verificationCriteria": "addHandler method exists, h0Used field added."
+    },
+    {
+      "id": "T098",
+      "title": "Rewrite resolve to use p.js",
+      "status": "NOT_STARTED",
+      "description": "Change resolve(value Result, js *JS) to resolve(value Result). Use p.js instead of passed js parameter. Simplify promise adoption: instead of ThenWithJS, use addHandler(handler{target: p}) like PromiseAltOne. Update ALL callers of resolve across promise.go.",
+      "verificationCriteria": "resolve() has no js parameter. All callers updated."
+    },
+    {
+      "id": "T099",
+      "title": "Rewrite reject to use p.js",
+      "status": "NOT_STARTED",
+      "description": "Change reject(reason Result, js *JS) to reject(reason Result). Use p.js instead of passed js parameter. Keep rejection tracking (trackRejection call). Update ALL callers of reject across promise.go.",
+      "verificationCriteria": "reject() has no js parameter. All callers updated."
+    },
+    {
+      "id": "T100",
+      "title": "Rewrite Then using addHandler",
+      "status": "NOT_STARTED",
+      "description": "Simplify then() method to use addHandler for handler attachment. Remove duplicated handler storage logic. Keep rejection tracking integration (promiseHandlers, handlerReadyChans). Remove ThenWithJS method (no longer needed since resolve uses p.js).",
+      "verificationCriteria": "Then uses addHandler. ThenWithJS removed or deprecated."
+    },
+    {
+      "id": "T101",
+      "title": "Rewrite Finally using PromiseAltOne pattern",
+      "status": "NOT_STARTED",
+      "description": "Replace current two-handler Finally with PromiseAltOne's single-handler pattern using runFinally closure. Use addHandler for attachment. Keep rejection tracking integration.",
+      "verificationCriteria": "Finally uses single handler pattern with addHandler."
+    },
+    {
+      "id": "T102",
+      "title": "Update combinators with optimal patterns",
+      "status": "NOT_STARTED",
+      "description": "Refactor All/Race/AllSettled/Any. Replace ThenWithJS calls with addHandler or Then. For Race: use zero-closure pattern (handler{target: result}). For All: use addHandler with optimistic forwarding. For Any: zero-allocation fulfillment forwarding.",
+      "verificationCriteria": "Combinators use addHandler/Then. Race has zero closures."
+    },
+    {
+      "id": "T103",
+      "title": "Update goja-eventloop ThenWithJS refs",
+      "status": "NOT_STARTED",
+      "description": "If ThenWithJS is removed, update any goja-eventloop references. Search for all ThenWithJS usage across the codebase. Replace with Then() calls since js is stored in struct.",
+      "verificationCriteria": "Zero ThenWithJS references (or method preserved if needed)."
+    },
+    {
+      "id": "T104",
+      "title": "Verify promise test suite passes",
+      "status": "NOT_STARTED",
+      "description": "Run go test -C eventloop -run 'Promise|promise' -v -timeout=3m ./... on macOS. All promise tests must pass.",
+      "verificationCriteria": "All promise tests pass."
+    },
+    {
+      "id": "T105",
+      "title": "Verify rejection tracking works",
+      "status": "NOT_STARTED",
+      "description": "Run TestUnhandledRejection*, TestPromiseRejection*, TestChainedPromiseUnhandledRejection* specifically. Rejection tracking must work correctly post-rewrite.",
+      "verificationCriteria": "All rejection tracking tests pass."
+    },
+    {
+      "id": "T106",
+      "title": "Run macOS gmake all (post-refactor)",
+      "status": "NOT_STARTED",
+      "description": "Full gmake make-all-with-log. Must pass 100%.",
+      "verificationCriteria": "Zero FAIL lines."
+    },
+    {
+      "id": "T107",
+      "title": "Fix macOS failures (post-refactor)",
+      "status": "NOT_STARTED",
+      "description": "Fix all failures from T106.",
+      "verificationCriteria": "Re-run zero FAIL."
+    },
+    {
+      "id": "T108",
+      "title": "Run Windows gmake all (post-refactor)",
+      "status": "NOT_STARTED",
+      "description": "gmake run-on-windows. Must pass 100%.",
+      "verificationCriteria": "Zero FAIL lines on Windows."
+    },
+    {
+      "id": "T109",
+      "title": "Run race detector (post-refactor)",
+      "status": "NOT_STARTED",
+      "description": "go test -race -timeout=6m ./... for eventloop package on macOS.",
+      "verificationCriteria": "Zero DATA RACE."
+    },
+    {
+      "id": "T110",
+      "title": "Run promise tournament comparison",
+      "status": "NOT_STARTED",
+      "description": "Run tournament with promisealtfive (old ChainedPromise) vs new ChainedPromise vs PromiseAltOne. Verify new ChainedPromise matches or approaches PromiseAltOne performance.",
+      "verificationCriteria": "New ChainedPromise faster than promisealtfive."
+    },
+    {
+      "id": "T111",
       "title": "Generate diff against main",
       "status": "NOT_STARTED",
       "description": "Catalog files added/modified/deleted.",
       "verificationCriteria": "Diff summary produced."
     },
     {
-      "id": "T093",
+      "id": "T112",
       "title": "Review diff for accidents",
       "status": "NOT_STARTED",
-      "description": "Check for debug artifacts, stale TODOs, temp skips.",
+      "description": "Check for debug artifacts, stale TODOs, temp skips, leftover test files.",
       "verificationCriteria": "All accidents remediated."
     },
     {
-      "id": "T094",
+      "id": "T113",
       "title": "Review diff for code quality",
       "status": "NOT_STARTED",
-      "description": "godoc, error handling, idiomatic Go.",
+      "description": "godoc coverage, error handling, idiomatic Go patterns.",
       "verificationCriteria": "All exports have godoc."
     },
     {
-      "id": "T095",
+      "id": "T114",
       "title": "First subagent review",
       "status": "NOT_STARTED",
-      "description": "EXACT review prompt from DIRECTIVE.txt. Include diff.",
+      "description": "EXACT review prompt from DIRECTIVE.txt: 'Ensure, or rather GUARANTEE the correctness of my PR.' Include diff. Must be issue-free.",
       "verificationCriteria": "Review completed. Findings cataloged."
     },
     {
-      "id": "T096",
+      "id": "T115",
       "title": "Action first review findings",
       "status": "NOT_STARTED",
-      "description": "Address EVERY finding.",
+      "description": "Address EVERY finding from first review.",
       "verificationCriteria": "All resolved."
     },
     {
-      "id": "T097",
+      "id": "T116",
       "title": "Re-run all 3 platforms after fixes",
       "status": "NOT_STARTED",
-      "description": "Verify all 3 still pass.",
+      "description": "Verify all 3 still pass gmake all.",
       "verificationCriteria": "All 3 pass gmake all."
     },
     {
-      "id": "T098",
+      "id": "T117",
       "title": "Second subagent review",
       "status": "NOT_STARTED",
-      "description": "Contiguous with first. Zero new issues required.",
+      "description": "Contiguous with first. Zero new issues required for commit.",
       "verificationCriteria": "Two contiguous clean reviews."
     },
     {
-      "id": "T099",
+      "id": "T118",
       "title": "Action second review findings",
       "status": "NOT_STARTED",
       "description": "If issues found, fix and repeat cycle.",
       "verificationCriteria": "Zero findings or cycle restarted."
     },
     {
-      "id": "T100",
+      "id": "T119",
       "title": "Re-read DIRECTIVE.txt (pre-commit)",
       "status": "NOT_STARTED",
       "description": "Final re-read before commit.",
       "verificationCriteria": "All mandates satisfied."
     },
     {
-      "id": "T101",
+      "id": "T120",
       "title": "Verify blueprint 100% complete",
       "status": "NOT_STARTED",
       "description": "Every task DONE. Cross-reference WIP.md.",
       "verificationCriteria": "100% completion verified."
     },
     {
-      "id": "T102",
+      "id": "T121",
       "title": "Verify tournament artifacts complete",
       "status": "NOT_STARTED",
-      "description": "5 docs: MACOS, LINUX, WINDOWS, EXECUTIVE, REPORT.",
-      "verificationCriteria": "All 5 exist and non-empty."
+      "description": "5+ docs: MACOS, LINUX, WINDOWS, EXECUTIVE, REPORT.",
+      "verificationCriteria": "All exist and non-empty."
     },
     {
-      "id": "T103",
+      "id": "T122",
       "title": "Clean up temporary files",
       "status": "NOT_STARTED",
       "description": "Remove any temp files per DIRECTIVE.txt.",
       "verificationCriteria": "Workspace clean."
     },
     {
-      "id": "T104",
+      "id": "T123",
       "title": "Final commit",
       "status": "NOT_STARTED",
       "description": "Commit with comprehensive message.",
       "verificationCriteria": "Commit created."
     },
     {
-      "id": "T105",
+      "id": "T124",
       "title": "Post-commit smoke test",
       "status": "NOT_STARTED",
       "description": "gmake all on macOS confirms clean.",
       "verificationCriteria": "Post-commit passes."
     },
     {
-      "id": "T106",
+      "id": "T125",
       "title": "Re-read DIRECTIVE.txt (final)",
       "status": "NOT_STARTED",
       "description": "All directives satisfied. Session completion check.",
