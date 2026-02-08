@@ -310,13 +310,13 @@ Features:
 │  ChunkedIngress - Chunked Linked-List Queue                    │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
-│  head ──▶ [chunk 0: 128 tasks] ──▶ [chunk 1] ──▶ [chunk 2]    │
+│  head ──▶ [chunk 0: 64 tasks] ──▶ [chunk 1] ──▶ [chunk 2]     │
 │                                                      ▲         │
 │                                                      │         │
 │                                                    tail        │
 │                                                                │
 │  Features:                                                     │
-│  - 128 tasks per chunk (~1KB)                                 │
+│  - 64 tasks per chunk (~512B)                                 │
 │  - sync.Pool for chunk recycling                              │
 │  - O(1) push/pop with cursor tracking                         │
 │  - Requires external mutex                                     │

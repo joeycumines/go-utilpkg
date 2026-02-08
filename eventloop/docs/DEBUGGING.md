@@ -77,7 +77,7 @@ This document provides practical guidance for debugging common issues in the `ev
    ```go
    state := loop.State()
    fmt.Printf("Loop state: %v\n", state)
-   // StateRunning = 1, StateSleeping = 2, StateTerminating = 3, StateTerminated = 4
+   // StateAwake = 0, StateTerminated = 1, StateSleeping = 2, StateRunning = 4, StateTerminating = 5
    ```
 
 #### Prevention
@@ -975,10 +975,10 @@ func tracePromiseChain(initial *ChainedPromise) *ChainedPromise {
 | State | Value | Meaning |
 |-------|-------|---------|
 | StateAwake | 0 | Created but not running |
-| StateRunning | 1 | Actively processing tasks |
+| StateTerminated | 1 | Fully stopped |
 | StateSleeping | 2 | Waiting for I/O or wakeup |
-| StateTerminating | 3 | Shutting down |
-| StateTerminated | 4 | Fully stopped |
+| StateRunning | 4 | Actively processing tasks |
+| StateTerminating | 5 | Shutting down |
 
 ### Common Errors
 

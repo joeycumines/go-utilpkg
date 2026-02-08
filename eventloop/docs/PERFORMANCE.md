@@ -124,7 +124,7 @@ allocation strategy.
 
 ```go
 const (
-    chunkSize     = 128  // Tasks per chunk (1KB per chunk)
+    chunkSize     = 64   // Tasks per chunk (~512B per chunk)
     initialChunks = 1    // Start with one chunk
 )
 ```
@@ -132,7 +132,7 @@ const (
 ### Workload Considerations
 
 #### Low-Volume Workloads (<100 tasks/tick)
-- Default chunk size (128) is optimal
+- Default chunk size (64) is optimal
 - Single chunk sufficient
 - No memory waste
 
@@ -162,11 +162,12 @@ fmt.Printf("External queue: current=%d, max=%d, EMA=%.2f\n",
 ### Overflow Handling
 
 ```go
-loop, _ := New(WithOnOverload(func(err error) {
+loop, _ := New()
+loop.OnOverload = func(err error) {
     // Called when external queue exceeds budget
     // Options: log, backpressure, circuit breaker
     log.Printf("Queue overload: %v", err)
-}))
+}
 ```
 
 ---
@@ -587,12 +588,12 @@ loop, err := New(
     // Performance options
     WithFastPathMode(FastPathAuto),  // or Forced/Disabled
     WithMetrics(true),               // Enable if monitoring needed
-
-    // Reliability options
-    WithOnOverload(func(err error) {
-        // Handle backpressure
-    }),
 )
+
+// Reliability callback (set after creation)
+loop.OnOverload = func(err error) {
+    // Handle backpressure
+}
 ```
 
 ### Monitoring Metrics
