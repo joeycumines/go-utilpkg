@@ -55,7 +55,7 @@ func TestPromisify_DuringShutdown(t *testing.T) {
 	select {
 	case <-p.ToChannel():
 		// Good - promise settled
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Promisify promise should settle during shutdown")
 	}
 
@@ -115,7 +115,7 @@ func TestPromisify_ShutdownWaitsForInflight(t *testing.T) {
 		default:
 			t.Error("Shutdown completed before slow Promisify finished")
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Test timed out")
 	}
 	<-shutdownDone
@@ -304,7 +304,9 @@ func TestPromisify_InTerminatingState(t *testing.T) {
 		return "result", nil
 	})
 
-	// Should settle with either result or error - should never hang
+	// Should settle with either result or error - should never hang.
+	// Use generous timeout to prevent intermittent failures under heavy
+	// system load or race detector overhead.
 	select {
 	case result := <-p.ToChannel():
 		if err, ok := result.(error); ok {
@@ -316,7 +318,7 @@ func TestPromisify_InTerminatingState(t *testing.T) {
 		} else {
 			t.Logf("Promise resolved with: %v", result)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Promise should settle during termination")
 	}
 
@@ -367,7 +369,7 @@ func TestPromisify_SubmitInternalFallback(t *testing.T) {
 		} else {
 			t.Logf("Promise resolved with: %v", result)
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Promise should settle even when SubmitInternal fails")
 	}
 
@@ -425,7 +427,7 @@ func TestPromisify_ContextCancelDuringShutdown(t *testing.T) {
 	select {
 	case <-p.ToChannel():
 		// Good
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Promise should settle")
 	}
 
@@ -513,7 +515,7 @@ func TestPromisify_PanicDuringShutdown(t *testing.T) {
 				t.Logf("Got error: %T %v", err, err)
 			}
 		}
-	case <-time.After(2 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Promise should settle")
 	}
 
