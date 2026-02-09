@@ -3,3 +3,4 @@ coverage.out
 /coverage-all.out
 *.log
 /.claude/*.local.*
+/scratch/
