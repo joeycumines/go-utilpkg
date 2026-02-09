@@ -125,7 +125,7 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriber(t *testing.T) {
 
 	// Create and resolve a promise immediately
 	p := js.Resolve("already-settled")
-	promiseID := p.id
+	promiseID := p.getID()
 
 	// Run microtasks to ensure the promise is fully settled
 	loop.tick()
@@ -178,7 +178,7 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriberOnRejected(t *testing.T) {
 
 	// Create and reject a promise
 	p := js.Reject("already-rejected")
-	promiseID := p.id
+	promiseID := p.getID()
 
 	// Run microtasks to ensure rejection is processed
 	// This schedules the unhandled rejection check microtask

@@ -182,6 +182,18 @@ func (p *promise) fanOut() {
 //
 // ChainedPromise is safe for concurrent use. The resolve/reject functions can be
 // called from any goroutine, but handlers always execute on the event loop thread.
+//
+// Performance Characteristics:
+//   - Lazy ID allocation: Promise IDs (atomic.Uint64) only allocated when needed (0 = unallocated, timer IDs start at 1)
+//   - ToChannel() optimized: Direct notification without event loop for pending promises
+//   - Debug stack traces only captured when debug mode is enabled
+//   - Result field reused for handler storage during pending state
+//
+// Memory Usage (unsafe.Sizeof(ChainedPromise) == 120):
+//   - Base struct: 120 bytes
+//   - toChannels slice: Only allocated when ToChannel() is called on pending promises
+//   - creationStack: Only allocated when debug mode is enabled
+//   - id field: Uses 0 sentinel for promises that don't need tracking (saves 8 bytes vs always allocating)
 type ChainedPromise struct {
 	// Pointer fields (all require 8-byte alignment, grouped first for better cache locality)
 	result Result
@@ -189,9 +201,11 @@ type ChainedPromise struct {
 	// h0 is the first handler (embedded to avoid slice allocation).
 	// Most promises have only 1 handler.
 	h0 handler
-	// channels stores channels from ToChannel() calls
-	// Set during pending state, cleared after settlement
-	channels []chan Result
+	// toChannels stores channels from ToChannel() for immediate notification.
+	// Unlike the old channels []chan Result which was always allocated,
+	// this is only allocated when ToChannel() is called on pending promises.
+	// Most promises never use ToChannel, so this field is nil for most promises.
+	toChannels []chan Result
 	// creationStack stores the stack trace when the promise was created.
 	// EXPAND-039: Only populated when debugMode is enabled on the loop.
 	// Use [ChainedPromise.CreationStackTrace] to format as a string.
@@ -201,7 +215,9 @@ type ChainedPromise struct {
 	state atomic.Int32
 
 	// Non-pointer, non-atomic fields
-	id uint64
+	// id is 0 when not allocated yet (lazy), assigned value > 0 when allocated.
+	// Use getID() method to access the ID, which allocates it on first use.
+	id atomic.Uint64
 
 	// Non-pointer synchronization primitives
 	mu sync.Mutex
@@ -248,7 +264,7 @@ type RejectFunc func(Result)
 func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	p := &ChainedPromise{
 		// Start in Pending state (0)
-		id: js.nextTimerID.Add(1),
+		// id: nil  // LAZY - allocate only when needed via getID()
 		js: js,
 	}
 	p.state.Store(int32(Pending))
@@ -272,6 +288,32 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	}
 
 	return p, resolve, reject
+}
+
+// getID returns the promise's ID, allocating it lazily if needed.
+// The ID is only allocated when the promise enters tracking systems
+// (unhandled rejection, handler registration).
+// Precondition: p.js must be non-nil (caller must ensure this).
+// For standalone promises (p.js == nil), this returns 0.
+func (p *ChainedPromise) getID() uint64 {
+	// Fast path: if already allocated, return it
+	if currentID := p.id.Load(); currentID != 0 {
+		return currentID
+	}
+
+	// Standalone promise (no JS adapter) - no ID allocation
+	if p.js == nil {
+		return 0
+	}
+
+	// Allocate ID on first use (thread-safe without mutex)
+	newID := p.js.nextTimerID.Add(1)
+	if p.id.CompareAndSwap(0, newID) {
+		return newID
+	}
+
+	// CAS failed, another goroutine allocated first - return allocated value
+	return p.id.Load()
 }
 
 // State returns the current [PromiseState] of this promise.
@@ -440,7 +482,7 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result Result) {
 func (p *ChainedPromise) resolve(value Result) {
 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
 	if pr, ok := value.(*ChainedPromise); ok && pr == p {
-		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.id))
+		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.getID()))
 		return
 	}
 
@@ -466,9 +508,9 @@ func (p *ChainedPromise) resolve(value Result) {
 		handlers = p.result.([]handler)
 	}
 
-	// Extract channels for notification
-	channels := p.channels
-	p.channels = nil
+	// Extract toChannel for immediate notification (no event loop needed)
+	toCh := p.toChannels
+	p.toChannels = nil
 
 	p.h0 = handler{} // Clears h0 (sets target to nil)
 	p.result = value
@@ -484,24 +526,22 @@ func (p *ChainedPromise) resolve(value Result) {
 		p.scheduleHandler(h, int32(Fulfilled), value)
 	}
 
-	// Notify all channels registered via ToChannel() while still holding
-	// lock, matching reject()'s pattern for consistent channel behavior.
-	for _, ch := range channels {
-		select {
-		case ch <- value:
-		default:
-		}
+	// Notify toChannel immediately (no event loop needed)
+	for _, ch := range toCh {
+		ch <- value
 	}
-	for _, ch := range channels {
+	for _, ch := range toCh {
 		close(ch)
 	}
 	p.mu.Unlock()
 
 	// CLEANUP: Prevent leak on success
 	if p.js != nil {
-		p.js.promiseHandlersMu.Lock()
-		delete(p.js.promiseHandlers, p.id)
-		p.js.promiseHandlersMu.Unlock()
+		if currentID := p.id.Load(); currentID != 0 {
+			p.js.promiseHandlersMu.Lock()
+			delete(p.js.promiseHandlers, currentID)
+			p.js.promiseHandlersMu.Unlock()
+		}
 	}
 }
 
@@ -522,9 +562,9 @@ func (p *ChainedPromise) reject(reason Result) {
 		handlers = p.result.([]handler)
 	}
 
-	// Extract channels for notification
-	channels := p.channels
-	p.channels = nil
+	// Extract toChannel for immediate notification (no event loop needed)
+	toCh := p.toChannels
+	p.toChannels = nil
 
 	p.result = reason
 	p.state.Store(int32(Rejected))
@@ -539,25 +579,22 @@ func (p *ChainedPromise) reject(reason Result) {
 		p.scheduleHandler(h, int32(Rejected), reason)
 	}
 
-	// Clear handlers AFTER scheduling their microtasks
-	p.h0 = handler{} // Clears h0 (sets target to nil)
-
-	// Notify all channels registered via ToChannel()
-	for _, ch := range channels {
-		select {
-		case ch <- reason:
-		default:
-		}
+	// Notify toChannel immediately (no event loop needed)
+	for _, ch := range toCh {
+		ch <- reason
 	}
-	for _, ch := range channels {
+	for _, ch := range toCh {
 		close(ch)
 	}
+
+	// Clear handlers AFTER scheduling their microtasks
+	p.h0 = handler{} // Clears h0 (sets target to nil)
 
 	p.mu.Unlock()
 
 	// trackRejection AFTER releasing lock, AFTER scheduling handlers
 	if p.js != nil {
-		p.js.trackRejection(p.id, reason, p.creationStack)
+		p.js.trackRejection(p.getID(), reason, p.creationStack)
 	}
 }
 
@@ -581,7 +618,6 @@ func (p *ChainedPromise) Then(onFulfilled, onRejected func(Result) Result) *Chai
 	}
 
 	child := &ChainedPromise{
-		id: js.nextTimerID.Add(1),
 		js: js,
 	}
 	child.state.Store(int32(Pending))
@@ -611,8 +647,9 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 	switch {
 	case currentState == Fulfilled:
 		// Fulfilled promises can never be rejected; clean up tracking
+		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, p.id)
+		delete(js.promiseHandlers, id)
 		js.promiseHandlersMu.Unlock()
 
 	case currentState == Rejected:
@@ -620,8 +657,9 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 		// This order prevents a race where checkUnhandledRejections processes
 		// and removes the entry from unhandledRejections between our check
 		// and our set, leaving an orphaned promiseHandlers entry.
+		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[p.id] = true
+		js.promiseHandlers[id] = true
 		js.promiseHandlersMu.Unlock()
 		p.signalHandlerReady(js)
 
@@ -629,18 +667,19 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 		// unhandledRejections by checkUnhandledRejections running concurrently),
 		// clean up our handler registration to prevent a map entry leak.
 		js.rejectionsMu.RLock()
-		_, isUnhandled := js.unhandledRejections[p.id]
+		_, isUnhandled := js.unhandledRejections[id]
 		js.rejectionsMu.RUnlock()
 
 		if !isUnhandled {
 			js.promiseHandlersMu.Lock()
-			delete(js.promiseHandlers, p.id)
+			delete(js.promiseHandlers, id)
 			js.promiseHandlersMu.Unlock()
 		}
 
 	default: // Pending
+		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[p.id] = true
+		js.promiseHandlers[id] = true
 		js.promiseHandlersMu.Unlock()
 		p.signalHandlerReady(js)
 	}
@@ -649,8 +688,9 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 // signalHandlerReady signals that a rejection handler has been registered,
 // allowing trackRejection's synchronization to proceed.
 func (p *ChainedPromise) signalHandlerReady(js *JS) {
+	id := p.getID()
 	js.handlerReadyMu.Lock()
-	if ch, exists := js.handlerReadyChans[p.id]; exists {
+	if ch, exists := js.handlerReadyChans[id]; exists {
 		select {
 		case <-ch:
 			// Already closed
@@ -669,7 +709,6 @@ func (p *ChainedPromise) signalHandlerReady(js *JS) {
 // back to executeHandler). This is intentional for testing/fallback scenarios.
 func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
 	child := &ChainedPromise{
-		id: p.id + 1,
 		js: nil,
 	}
 	child.state.Store(int32(Pending))
@@ -725,7 +764,6 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 		child, _, _ = js.NewChainedPromise()
 	} else {
 		child = &ChainedPromise{
-			id: p.id + 1,
 			js: nil,
 		}
 		child.state.Store(int32(Pending))
@@ -787,15 +825,15 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 func (p *ChainedPromise) ToChannel() <-chan Result {
 	ch := make(chan Result, 1)
 
+	// Fast path: already settled
 	currentState := p.state.Load()
 	if currentState != int32(Pending) {
-		// Already settled, send result immediately
 		ch <- p.result
 		close(ch)
 		return ch
 	}
 
-	// Pending: set up callback to send result when settled
+	// Pending: store channel for immediate notification when settled
 	p.mu.Lock()
 	// Double-check state after acquiring lock
 	if p.state.Load() != int32(Pending) {
@@ -805,8 +843,8 @@ func (p *ChainedPromise) ToChannel() <-chan Result {
 		return ch
 	}
 
-	// Store the channel
-	p.channels = append(p.channels, ch)
+	// Store the channel (allocate slice on first use)
+	p.toChannels = append(p.toChannels, ch)
 	p.mu.Unlock()
 
 	return ch

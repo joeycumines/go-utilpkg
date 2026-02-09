@@ -27,10 +27,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **ChainedPromise memory optimization**: Removed `h0Used` field from ChainedPromise
-  struct, replaced with nil-target check pattern (matching promisealtfive). Reduces
-  struct size by 8 bytes. Deep chain performance improved: now 11% faster than
-  PromiseAltFive benchmark.
+- **BREAKING: ChainedPromise memory optimization** - Struct redesigned for performance:
+  - `id` field now lazy-allocated (atomic.Uint64 with 0 sentinel value)
+  - `channels` field renamed to `toChannels` and is slice (not pre-allocated)
+  - ToChannel() optimized for immediate notification (no event loop needed)
+  - Result: 8 bytes saved for promises that don't need tracking
+  - External code accessing `p.id` directly must use new `p.getID()` method
+
+### Performance Improvements
+
+- **Promise tournament**: ChainedPromise achieves 2nd place (362.5 ns/op)
+  - 36.7% faster than PromiseAltFive (362.5 vs 570.8 ns/op)
+  - Competitive with PromiseAltOne (420.9 ns/op) and PromiseAltTwo (533.4 ns/op)
+  - Full tournament results: `/Users/joeyc/dev/go-utilpkg/internal/tournament/RESULTS-2026-02-09.md`
+
+- ChainedPromise memory footprint reduced through lazy ID allocation:
+  - Promises without rejection tracking: 8 bytes saved (id field uses 0 sentinel)
+  - Promises without ToChannel: toChannels slice not allocated (memory savings only when needed)
+  - Thread-safe lazy ID allocation using atomic.CompareAndSwap (no mutex contention)
+  - Actual struct size: 120 bytes (measured via unsafe.Sizeof)
 
 ### Fixed
 

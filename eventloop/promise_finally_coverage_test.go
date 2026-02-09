@@ -489,7 +489,6 @@ func TestPromiseFinally_WithNilRejection(t *testing.T) {
 func TestPromiseFinally_Standalone(t *testing.T) {
 	// Create promise without JS context - must be already settled
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))

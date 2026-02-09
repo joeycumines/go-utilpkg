@@ -18,7 +18,6 @@ import (
 func TestPromise_ThenStandalone_Basic(t *testing.T) {
 	// Create a standalone promise (nil js field) that is already fulfilled
 	p := &ChainedPromise{
-		id:     1,
 		js:     nil,
 		result: "test value",
 		h0:     handler{}, // Initialize handler slot
@@ -53,7 +52,6 @@ func TestPromise_ThenStandalone_Basic(t *testing.T) {
 // Priority: HIGH - thenStandalone chaining edge case.
 func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
 	p1 := &ChainedPromise{
-		id:     1,
 		js:     nil,
 		result: 5,
 		h0:     handler{}, // Initialize handler slot
@@ -94,7 +92,6 @@ func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
 // Priority: HIGH - thenStandalone rejection handling.
 func TestPromise_ThenStandalone_Rejection(t *testing.T) {
 	p := &ChainedPromise{
-		id:     1,
 		js:     nil,
 		result: "test error",
 		h0:     handler{}, // Initialize handler slot
@@ -137,7 +134,6 @@ func TestPromise_ThenStandalone_Rejection(t *testing.T) {
 func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 	// Test with already fulfilled promise
 	p1 := &ChainedPromise{
-		id:     1,
 		js:     nil,
 		result: "pre-fulfilled",
 		h0:     handler{}, // Initialize handler slot
@@ -163,7 +159,6 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 
 	// Test with already rejected promise
 	p2 := &ChainedPromise{
-		id:     2,
 		js:     nil,
 		result: "pre-rejected",
 		h0:     handler{}, // Initialize handler slot
@@ -193,7 +188,6 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 // Priority: MEDIUM - thenStandalone multiple handlers edge case.
 func TestPromise_ThenStandalone_MultipleHandlers(t *testing.T) {
 	p := &ChainedPromise{
-		id:     1,
 		js:     nil,
 		result: 10,
 		h0:     handler{}, // Initialize handler slot

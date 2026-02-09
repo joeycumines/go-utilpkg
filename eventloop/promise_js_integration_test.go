@@ -271,7 +271,6 @@ func TestJSIntegration_thenStandalone_Basic(t *testing.T) {
 
 	// Create a promise with nil js field (simulating standalone scenario)
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))
@@ -299,7 +298,6 @@ func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use Then")
 
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -363,7 +361,6 @@ func TestJSIntegration_thenStandalone_Rejection(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use Then")
 
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Rejected))
@@ -395,7 +392,6 @@ func TestJSIntegration_thenStandalone_NilHandlers(t *testing.T) {
 	t.Skip("thenStandalone limitation: nil handlers don't trigger settlement")
 
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))
@@ -421,7 +417,6 @@ func TestJSIntegration_thenStandalone_Chaining(t *testing.T) {
 	t.Skip("thenStandalone is not Promise/A+ compliant - use Then for chaining")
 
 	p := &ChainedPromise{
-		id: 1,
 		js: nil,
 	}
 	p.state.Store(int32(Fulfilled))

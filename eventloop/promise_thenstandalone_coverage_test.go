@@ -28,7 +28,6 @@ import (
 func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 	// Create a pending promise with js=nil
 	p := &ChainedPromise{
-		id: 100,
 		js: nil,
 		// h0 is zero-value, so h0.target is nil
 	}
@@ -46,11 +45,6 @@ func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 		},
 		nil,
 	)
-
-	// Verify child promise was created with correct ID
-	if child.id != 101 {
-		t.Errorf("Child ID should be p.id+1=101, got: %d", child.id)
-	}
 
 	// Verify child is pending (handler not called yet)
 	if child.State() != Pending {
@@ -102,7 +96,6 @@ func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 	// Create a pending promise with js=nil
 	p := &ChainedPromise{
-		id: 200,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -128,13 +121,11 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 	)
 
 	// Verify both children created
-	// Note: thenStandalone uses simple p.id+1 for all children, so both get 201
-	if child1.id != 201 {
-		t.Errorf("Child1 ID should be 201, got: %d", child1.id)
+	if child1 == nil {
+		t.Error("child1 should not be nil")
 	}
-	// Both children get the same ID (p.id+1=201) - this is expected for thenStandalone
-	if child2.id != 201 {
-		t.Errorf("Child2 ID should be 201 (same as child1), got: %d", child2.id)
+	if child2 == nil {
+		t.Error("child2 should not be nil")
 	}
 
 	// Verify handlers slice was created
@@ -164,7 +155,6 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 	// Create a pending promise with js=nil
 	p := &ChainedPromise{
-		id: 300,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -214,7 +204,6 @@ func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 func TestThenStandalone_Fulfilled_NilOnFulfilled_PassThrough(t *testing.T) {
 	// Create an already-fulfilled promise with js=nil
 	p := &ChainedPromise{
-		id:     400,
 		js:     nil,
 		result: "original value",
 	}
@@ -241,7 +230,6 @@ func TestThenStandalone_Rejected_NilOnRejected_PassThrough(t *testing.T) {
 	// Create an already-rejected promise with js=nil
 	testErr := errors.New("test rejection")
 	p := &ChainedPromise{
-		id:     500,
 		js:     nil,
 		result: testErr,
 	}
@@ -271,7 +259,6 @@ func TestThenStandalone_Rejected_NilOnRejected_PassThrough(t *testing.T) {
 
 func TestThenStandalone_Fulfilled_WithHandler_Synchronous(t *testing.T) {
 	p := &ChainedPromise{
-		id:     600,
 		js:     nil,
 		result: 42,
 	}
@@ -306,7 +293,6 @@ func TestThenStandalone_Fulfilled_WithHandler_Synchronous(t *testing.T) {
 func TestThenStandalone_Rejected_WithHandler_Synchronous(t *testing.T) {
 	testErr := errors.New("rejected reason")
 	p := &ChainedPromise{
-		id:     700,
 		js:     nil,
 		result: testErr,
 	}
@@ -342,37 +328,8 @@ func TestThenStandalone_Rejected_WithHandler_Synchronous(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Path 8: Child promise ID generation edge case (ID overflow behavior)
+// REMOVED: Standalone promises no longer have IDs
 // ---------------------------------------------------------------------------
-
-func TestThenStandalone_ChildIDGeneration(t *testing.T) {
-	// Test ID generation with various parent IDs
-	testCases := []struct {
-		parentID   uint64
-		expectedID uint64
-	}{
-		{0, 1},
-		{1, 2},
-		{100, 101},
-		{^uint64(0) - 1, ^uint64(0)}, // Max uint64 - 1 -> Max uint64
-		// Note: ^uint64(0) would overflow to 0, but that's acceptable
-	}
-
-	for _, tc := range testCases {
-		p := &ChainedPromise{
-			id:     tc.parentID,
-			js:     nil,
-			result: "value",
-		}
-		p.state.Store(int32(Fulfilled))
-
-		child := p.Then(nil, nil)
-
-		if child.id != tc.expectedID {
-			t.Errorf("Parent ID %d: expected child ID %d, got %d",
-				tc.parentID, tc.expectedID, child.id)
-		}
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Path 9: Handler panic recovery
@@ -380,7 +337,6 @@ func TestThenStandalone_ChildIDGeneration(t *testing.T) {
 
 func TestThenStandalone_HandlerPanic_Recovery(t *testing.T) {
 	p := &ChainedPromise{
-		id:     900,
 		js:     nil,
 		result: "trigger",
 	}
@@ -412,7 +368,6 @@ func TestThenStandalone_HandlerPanic_Recovery(t *testing.T) {
 
 func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 	p := &ChainedPromise{
-		id: 1000,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -464,7 +419,6 @@ func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 
 func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
 	p := &ChainedPromise{
-		id: 1100,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -518,7 +472,6 @@ func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
 
 func TestThenStandalone_Pending_BothHandlersNil(t *testing.T) {
 	p := &ChainedPromise{
-		id: 1200,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -551,7 +504,6 @@ func TestThenStandalone_Pending_BothHandlersNil(t *testing.T) {
 
 func TestThenStandalone_Pending_BothHandlersNil_Rejection(t *testing.T) {
 	p := &ChainedPromise{
-		id: 1300,
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -580,7 +532,6 @@ func TestThenStandalone_Pending_BothHandlersNil_Rejection(t *testing.T) {
 
 func TestThenStandalone_Chaining_Multiple(t *testing.T) {
 	p := &ChainedPromise{
-		id:     1400,
 		js:     nil,
 		result: 1,
 	}
@@ -617,7 +568,6 @@ func TestThenStandalone_Chaining_Multiple(t *testing.T) {
 
 func TestThenStandalone_MixedHandlers_Fulfilled(t *testing.T) {
 	p := &ChainedPromise{
-		id:     1500,
 		js:     nil,
 		result: "fulfilled",
 	}
@@ -652,7 +602,6 @@ func TestThenStandalone_MixedHandlers_Fulfilled(t *testing.T) {
 func TestThenStandalone_MixedHandlers_Rejected(t *testing.T) {
 	testErr := errors.New("rejected")
 	p := &ChainedPromise{
-		id:     1501,
 		js:     nil,
 		result: testErr,
 	}
@@ -694,7 +643,6 @@ func TestThenStandalone_MixedHandlers_Rejected(t *testing.T) {
 
 func TestThenStandalone_HandlerReturnsNil(t *testing.T) {
 	p := &ChainedPromise{
-		id:     1600,
 		js:     nil,
 		result: "original",
 	}
@@ -721,7 +669,7 @@ func TestThenStandalone_HandlerReturnsNil(t *testing.T) {
 func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 	// Zero-value promise (all fields at default)
 	p := &ChainedPromise{}
-	// id=0, js=nil, result=nil, h0 is zero handler
+	// id=nil, js=nil, result=nil, h0 is zero handler
 
 	// State is 0 which is Pending
 	if p.State() != Pending {
@@ -731,11 +679,6 @@ func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 	child := p.Then(func(v Result) Result {
 		return "handled"
 	}, nil)
-
-	// Child ID should be 0+1=1
-	if child.id != 1 {
-		t.Errorf("Child ID should be 1, got: %d", child.id)
-	}
 
 	// Resolve zero-value promise
 	p.resolve(nil)
@@ -757,7 +700,6 @@ func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 func TestThenStandalone_RejectionHandler_Panic(t *testing.T) {
 	testErr := errors.New("original error")
 	p := &ChainedPromise{
-		id:     1800,
 		js:     nil,
 		result: testErr,
 	}

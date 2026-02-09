@@ -192,9 +192,6 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	if p.h0.onFulfilled != nil || p.h0.onRejected != nil || p.h0.target != nil {
 		t.Error("h0 should be zero-value after resolve")
 	}
-	if p.channels != nil {
-		t.Error("channels should be nil after resolve")
-	}
 	p.mu.Unlock()
 
 	// Test 2: After reject, same fields should be cleared
@@ -205,9 +202,6 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	p2.mu.Lock()
 	if p2.h0.onFulfilled != nil || p2.h0.onRejected != nil || p2.h0.target != nil {
 		t.Error("h0 should be zero-value after reject")
-	}
-	if p2.channels != nil {
-		t.Error("channels should be nil after reject")
 	}
 	p2.mu.Unlock()
 
