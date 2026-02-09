@@ -701,3 +701,43 @@ func (js *JS) Sleep(ms time.Duration) *ChainedPromise {
 
 	return promise
 }
+
+// Timeout returns a promise that rejects after the specified delay.
+//
+// This is the rejection counterpart to [JS.Sleep]. While Sleep resolves
+// after a delay, Timeout rejects with a [TimeoutError] after a delay.
+//
+// Use Timeout in combination with [JS.Race] to implement operation timeouts:
+//
+//	// Timeout an operation after 5 seconds
+//	result := js.Race([]*eventloop.ChainedPromise{
+//	    longRunningOperation(),
+//	    js.Timeout(5 * time.Second),
+//	})
+//	// result will reject with TimeoutError if operation takes > 5s
+//
+// Parameters:
+//   - delay: The duration to wait before rejecting.
+//
+// Returns:
+//   - A ChainedPromise that rejects with [TimeoutError] after the delay.
+//
+// Thread Safety: Safe to call from any goroutine.
+// The returned promise is safe for concurrent access.
+func (js *JS) Timeout(delay time.Duration) *ChainedPromise {
+	promise, _, reject := js.NewChainedPromise()
+
+	msg := "timeout after " + delay.String()
+
+	// Schedule timer to reject the promise
+	_, err := js.loop.ScheduleTimer(delay, func() {
+		reject(&TimeoutError{Message: msg})
+	})
+	if err != nil {
+		// If scheduling fails, reject immediately
+		// This handles edge cases like loop termination
+		reject(&TimeoutError{Message: msg})
+	}
+
+	return promise
+}

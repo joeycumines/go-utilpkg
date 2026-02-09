@@ -166,7 +166,7 @@ func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
 }
 
 // TestPromiseMemoryLeak_HandlerFieldsCleared verifies that after settlement,
-// the handler fields (h0, h0Used, result-as-handlers) are properly zeroed,
+// the handler fields (h0, result-as-handlers) are properly zeroed,
 // releasing closure references for garbage collection.
 func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	loop, err := New()
@@ -182,16 +182,13 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test 1: After resolve, h0 and h0Used should be cleared
+	// Test 1: After resolve, h0 should be cleared (target becomes nil)
 	p, resolve, _ := js.NewChainedPromise()
 	p.Then(func(v Result) Result { return v }, nil)
 	resolve("value")
 
 	// Verify internal state
 	p.mu.Lock()
-	if p.h0Used {
-		t.Error("h0Used should be false after resolve")
-	}
 	if p.h0.onFulfilled != nil || p.h0.onRejected != nil || p.h0.target != nil {
 		t.Error("h0 should be zero-value after resolve")
 	}
@@ -206,9 +203,6 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	reject("error")
 
 	p2.mu.Lock()
-	if p2.h0Used {
-		t.Error("h0Used should be false after reject")
-	}
 	if p2.h0.onFulfilled != nil || p2.h0.onRejected != nil || p2.h0.target != nil {
 		t.Error("h0 should be zero-value after reject")
 	}

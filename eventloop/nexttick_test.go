@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -501,6 +502,166 @@ func TestSleep_MultipleConcurrent(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Error("Not all sleeps resolved in time")
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestTimeout_Basic verifies that Timeout returns a promise that rejects after the delay.
+func TestTimeout_Basic(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS failed: %v", err)
+	}
+
+	done := make(chan struct{})
+	start := time.Now()
+	var capturedErr error
+
+	go func() {
+		if err := loop.Run(context.Background()); err != nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+
+	// Timeout should reject after delay
+	js.Timeout(100*time.Millisecond).Then(
+		func(r Result) Result {
+			t.Error("Timeout should not resolve, it should reject")
+			close(done)
+			return nil
+		},
+		func(r Result) Result {
+			capturedErr, _ = r.(error)
+			close(done)
+			return nil
+		},
+	)
+
+	select {
+	case <-done:
+		elapsed := time.Since(start)
+		if elapsed < 100*time.Millisecond {
+			t.Errorf("Timeout resolved too early: %v", elapsed)
+		}
+		if capturedErr == nil {
+			t.Error("Expected rejection with error")
+		}
+		var timeoutErr *TimeoutError
+		if !errors.As(capturedErr, &timeoutErr) {
+			t.Errorf("Expected TimeoutError, got: %T (%v)", capturedErr, capturedErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("Timeout did not reject in time")
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestTimeout_WithRace verifies that Timeout works correctly with Race.
+func TestTimeout_WithRace(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS failed: %v", err)
+	}
+
+	done := make(chan struct{})
+	var rejected atomic.Bool
+	var resolved atomic.Bool
+
+	go func() {
+		if err := loop.Run(context.Background()); err != nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+
+	// Race between a slow operation (200ms) and a timeout (50ms)
+	// The timeout should win
+	slowOp := js.Sleep(200*time.Millisecond).Then(func(r Result) Result {
+		return "slow result"
+	}, nil)
+	timeout := js.Timeout(50 * time.Millisecond)
+
+	js.Race([]*ChainedPromise{slowOp, timeout}).Then(
+		func(r Result) Result {
+			resolved.Store(true)
+			close(done)
+			return nil
+		},
+		func(r Result) Result {
+			rejected.Store(true)
+			close(done)
+			return nil
+		},
+	)
+
+	select {
+	case <-done:
+		if resolved.Load() {
+			t.Error("Race should have rejected with timeout, not resolved with slow result")
+		}
+		if !rejected.Load() {
+			t.Error("Race should have rejected with timeout")
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("Race did not complete in time")
+	}
+
+	loop.Shutdown(context.Background())
+}
+
+// TestTimeout_ZeroDelay verifies that Timeout with zero delay rejects immediately.
+func TestTimeout_ZeroDelay(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS failed: %v", err)
+	}
+
+	done := make(chan struct{})
+	var rejected atomic.Bool
+
+	go func() {
+		if err := loop.Run(context.Background()); err != nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+
+	// Zero delay should still reject (not panic or hang)
+	js.Timeout(0).Then(
+		func(r Result) Result {
+			t.Error("Timeout should reject, not resolve")
+			close(done)
+			return nil
+		},
+		func(r Result) Result {
+			rejected.Store(true)
+			close(done)
+			return nil
+		},
+	)
+
+	select {
+	case <-done:
+		if !rejected.Load() {
+			t.Error("Zero-delay timeout should reject")
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("Zero-delay timeout did not reject in time")
 	}
 
 	loop.Shutdown(context.Background())

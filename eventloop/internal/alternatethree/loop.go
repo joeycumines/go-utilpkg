@@ -485,9 +485,10 @@ func (l *Loop) Close() error {
 		}
 	}
 
-	// Close FDs immediately - don't wait for loop to drain
-	// But the loop has been woken up and will see StateTerminating
-	l.closeFDs()
+	// FIX: Do NOT close FDs here. Let the loop's shutdown() function close them
+	// after the loop has fully exited. This prevents a race where closeFDs() runs
+	// while the loop is still trying to drain the wake pipe after epoll returns.
+	// The loop's shutdown() → closeFDs() ensures the loop is not using any FDs.
 
 	return nil
 }

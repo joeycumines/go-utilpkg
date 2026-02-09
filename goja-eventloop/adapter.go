@@ -179,6 +179,16 @@ func (a *Adapter) Bind() error {
 	// EXPAND-047: FormData class (for fetch-like patterns)
 	a.runtime.Set("FormData", a.formDataConstructor)
 
+	// FETCH API STATUS: Not Implemented
+	// The fetch() API is not currently implemented. If your JavaScript code
+	// requires HTTP functionality, use Go's net/http package on the host side
+	// and expose it via custom bindings. The Headers and FormData classes
+	// are provided to ease future fetch() integration or custom implementations.
+	//
+	// TODO: Consider implementing fetch() with a configurable http.Client.
+	// See: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+	a.runtime.Set("fetch", a.fetchNotImplemented)
+
 	// EXPAND-048: DOMException class
 	a.runtime.Set("DOMException", a.domExceptionConstructor)
 	if err := a.bindDOMExceptionConstants(); err != nil {
@@ -204,9 +214,11 @@ func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewTypeError("setTimeout requires a function as first argument"))
 	}
 
+	// WHATWG HTML Spec Section 8.6: Clamp negative delays to 0
+	// https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
 	delayMs := int(call.Argument(1).ToInteger())
 	if delayMs < 0 {
-		panic(a.runtime.NewTypeError("delay cannot be negative"))
+		delayMs = 0
 	}
 
 	id, err := a.js.SetTimeout(func() {
@@ -238,9 +250,11 @@ func (a *Adapter) setInterval(call goja.FunctionCall) goja.Value {
 		panic(a.runtime.NewTypeError("setInterval requires a function as first argument"))
 	}
 
+	// WHATWG HTML Spec Section 8.6: Clamp negative delays to 0
+	// https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
 	delayMs := int(call.Argument(1).ToInteger())
 	if delayMs < 0 {
-		panic(a.runtime.NewTypeError("delay cannot be negative"))
+		delayMs = 0
 	}
 
 	id, err := a.js.SetInterval(func() {
@@ -5595,8 +5609,66 @@ func (a *Adapter) blobPartToBytes(part goja.Value) ([]byte, error) {
 }
 
 // ===============================================
+// FETCH API: Not Implemented
+// ===============================================
+//
+// The fetch() API is intentionally not implemented in this package because:
+//
+//   1. HTTP client configuration varies significantly between use cases
+//      (timeouts, TLS settings, proxies, authentication, etc.)
+//
+//   2. Server-side JavaScript environments (like this one) often need
+//      different network semantics than browser environments
+//
+//   3. Using Go's net/http package directly from host code provides
+//      better control and type safety
+//
+// If you need HTTP functionality in your JavaScript code, consider:
+//
+//   - Exposing custom Go functions that use net/http
+//   - Creating a fetch-like API tailored to your specific needs
+//   - Using the provided Headers and FormData classes for compatibility
+//
+// The fetchNotImplemented function provides a clear error message when
+// JavaScript code attempts to use fetch().
+
+// fetchNotImplemented returns a rejected promise with a clear error message
+// explaining that fetch() is not implemented and suggesting alternatives.
+func (a *Adapter) fetchNotImplemented(call goja.FunctionCall) goja.Value {
+	// Return a rejected promise with a descriptive error
+	err := fmt.Errorf("fetch() is not implemented in goja-eventloop. " +
+		"For HTTP operations, expose custom Go functions using net/http " +
+		"or implement a fetch wrapper with your preferred http.Client configuration")
+	return a.gojaWrapPromise(a.js.Reject(err))
+}
+
+// ===============================================
 // EXPAND-044: localStorage and sessionStorage (in-memory)
 // ===============================================
+//
+// ⚠️ IMPORTANT LIMITATION: In-Memory Storage Only
+//
+// Unlike browser implementations, localStorage and sessionStorage in this package
+// are ephemeral and NOT persisted to disk:
+//
+//   - localStorage: Persists only for the lifetime of the Adapter instance.
+//     Data is lost when the Go process terminates or the Adapter is garbage collected.
+//
+//   - sessionStorage: Same behavior as localStorage in this implementation.
+//     There is no concept of browser tabs or windows to isolate storage.
+//
+// This in-memory implementation is suitable for:
+//   - Unit testing JavaScript code that uses Web Storage APIs
+//   - Short-lived scripts that need temporary key-value storage
+//   - Applications that don't require persistence
+//
+// If you need persistent storage, consider implementing a custom storage adapter
+// that writes to a database or filesystem.
+//
+// Additionally, the following browser-specific features are NOT implemented:
+//   - Storage events (storage event is not fired on changes)
+//   - Size limits (no quota enforcement)
+//   - Cross-origin isolation
 
 // storageWrapper implements an in-memory Storage interface.
 type storageWrapper struct {

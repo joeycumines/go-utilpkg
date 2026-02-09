@@ -249,7 +249,9 @@ func TestAdapter_setImmediate_NilFunction(t *testing.T) {
 	}
 }
 
-// TestAdapter_setTimeout_NegativeDelay verifies negative delay handling.
+// TestAdapter_setTimeout_NegativeDelay verifies negative delay is clamped to 0 per WHATWG spec.
+// Per https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
+// negative delays should be treated as 0, not throw an error.
 func TestAdapter_setTimeout_NegativeDelay(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -270,10 +272,14 @@ func TestAdapter_setTimeout_NegativeDelay(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	// setTimeout with negative delay should throw
-	_, err = rt.RunString("setTimeout(function(){}, -1)")
-	if err == nil {
-		t.Error("setTimeout with negative delay should throw")
+	// setTimeout with negative delay should succeed (clamped to 0) per WHATWG spec
+	val, err := rt.RunString("setTimeout(function(){}, -1)")
+	if err != nil {
+		t.Errorf("setTimeout with negative delay should NOT throw (WHATWG compliance): %v", err)
+	}
+	// Should return a valid timer ID (positive number)
+	if id := val.ToInteger(); id <= 0 {
+		t.Errorf("setTimeout with negative delay should return positive timer ID, got: %d", id)
 	}
 }
 

@@ -199,8 +199,7 @@ type ChainedPromise struct {
 
 	// Atomic state (requires 8-byte alignment)
 	state atomic.Int32
-	// h0Used tracks whether h0 has been assigned (replaces nil-target check).
-	h0Used bool
+
 	// Non-pointer, non-atomic fields
 	id uint64
 
@@ -369,9 +368,9 @@ func (p *ChainedPromise) addHandler(h handler) {
 		return
 	}
 
-	if !p.h0Used {
+	// h0.target==nil means h0 slot is unused (handlers always have non-nil target)
+	if p.h0.target == nil {
 		p.h0 = h
-		p.h0Used = true
 	} else {
 		// Store additional handlers in p.result type-punned as []handler.
 		var handlers []handler
@@ -459,7 +458,7 @@ func (p *ChainedPromise) resolve(value Result) {
 	}
 
 	h0 := p.h0
-	useH0 := p.h0Used
+	useH0 := p.h0.target != nil
 	var handlers []handler
 
 	// Extract handlers before they get overwritten with the actual result
@@ -471,8 +470,7 @@ func (p *ChainedPromise) resolve(value Result) {
 	channels := p.channels
 	p.channels = nil
 
-	p.h0 = handler{}
-	p.h0Used = false
+	p.h0 = handler{} // Clears h0 (sets target to nil)
 	p.result = value
 	p.state.Store(int32(Fulfilled))
 
@@ -517,7 +515,7 @@ func (p *ChainedPromise) reject(reason Result) {
 
 	// Snapshot handlers before clearing
 	h0 := p.h0
-	useH0 := p.h0Used
+	useH0 := p.h0.target != nil
 	var handlers []handler
 
 	if useH0 && p.result != nil {
@@ -542,8 +540,7 @@ func (p *ChainedPromise) reject(reason Result) {
 	}
 
 	// Clear handlers AFTER scheduling their microtasks
-	p.h0 = handler{}
-	p.h0Used = false
+	p.h0 = handler{} // Clears h0 (sets target to nil)
 
 	// Notify all channels registered via ToChannel()
 	for _, ch := range channels {

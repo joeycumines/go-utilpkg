@@ -4,7 +4,43 @@ All notable changes to the `go-eventloop` package will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-07
+## [Unreleased] - 2026-02-09
+
+### Added
+
+- **JS.Timeout(delay time.Duration)**: New convenience method that returns a promise
+  rejecting with `TimeoutError` after the specified delay. Companion to `JS.Sleep()`.
+  Useful with `JS.Race()` for implementing operation timeouts.
+
+- **fetch() stub with clear error message**: Added `fetch()` binding that returns a
+  rejected promise with a helpful error message explaining that fetch is not implemented
+  and suggesting alternatives (expose custom Go functions via net/http).
+
+- **localStorage/sessionStorage limitation documentation**: Added prominent godoc
+  comments (⚠️ IMPORTANT LIMITATION) explaining that storage is in-memory only,
+  not persisted to disk, and listing unsupported browser features (storage events,
+  size limits, cross-origin isolation).
+
+- **New coverage tests**: Added `loop_coverage_extra_test.go` with 11 tests covering
+  ScheduleNextTick edge cases, SubmitInternal I/O mode, RunTimers strict ordering,
+  OnOverload callbacks, ProcessExternal nextTick priority, and PSquare edge cases.
+
+### Changed
+
+- **ChainedPromise memory optimization**: Removed `h0Used` field from ChainedPromise
+  struct, replaced with nil-target check pattern (matching promisealtfive). Reduces
+  struct size by 8 bytes. Deep chain performance improved: now 11% faster than
+  PromiseAltFive benchmark.
+
+### Fixed
+
+- **WHATWG timer negative delay compliance (goja-eventloop)**: Timer functions
+  (`setTimeout`, `setInterval`, `delay`) now clamp negative delays to 0 per WHATWG
+  HTML Spec Section 8.6, instead of throwing TypeError. This matches browser behavior.
+
+---
+
+## [Previous] - 2026-02-07
 
 ### 🎉 Major New Features
 
