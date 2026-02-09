@@ -4,3 +4,4 @@ coverage.out
 *.log
 /.claude/*.local.*
 /scratch/
+/DIRECTIVE.txt

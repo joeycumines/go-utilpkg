@@ -34,7 +34,7 @@ func TestIOCPOverlappedIO(t *testing.T) {
 
 // TestIOCPInitClose tests IOCP initialization and cleanup.
 func TestIOCPInitClose(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 
 	// Test Init
 	err := p.Init()
@@ -61,7 +61,7 @@ func TestIOCPInitClose(t *testing.T) {
 
 // TestIOCPWakeup tests the wake-up mechanism.
 func TestIOCPWakeup(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 	err := p.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestIOCPWakeup(t *testing.T) {
 
 // TestIOCPRegisterFD tests FD registration.
 func TestIOCPRegisterFD(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 	err := p.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func getOverlappedSocket() (windows.Handle, error) {
 
 // TestIOCPConcurrentAccess tests concurrent registration and unregistration.
 func TestIOCPConcurrentAccess(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 	err := p.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -155,7 +155,7 @@ func TestIOCPConcurrentAccess(t *testing.T) {
 
 // TestIOCPErrorHandling tests error conditions.
 func TestIOCPErrorHandling(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 	err := p.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestIOCPErrorHandling(t *testing.T) {
 // This test matches the darwin equivalent (TestModifyFD_Darwin_ErrorPropagation)
 // for cross-platform consistency in error handling coverage.
 func TestIOCPModifyFD_Windows_ErrorPropagation(t *testing.T) {
-	p := &FastPoller{}
+	p := &fastPoller{}
 	err := p.Init()
 	if err != nil {
 		t.Fatal(err)

@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// TestChunkedIngress_ChunkTransition verifies the ChunkedIngress queue correctly handles
+// Test_chunkedIngress_ChunkTransition verifies the chunkedIngress queue correctly handles
 // chunk boundary transitions during push/pop operations.
-func TestChunkedIngress_ChunkTransition(t *testing.T) {
-	q := NewChunkedIngress()
+func Test_chunkedIngress_ChunkTransition(t *testing.T) {
+	q := newChunkedIngress()
 
 	const chunkSize = 128
 	const cycles = 3
@@ -42,9 +42,9 @@ func TestChunkedIngress_ChunkTransition(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_ConcurrentPushPop verifies correct behavior under concurrent access.
-func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_ConcurrentPushPop verifies correct behavior under concurrent access.
+func Test_chunkedIngress_ConcurrentPushPop(t *testing.T) {
+	q := newChunkedIngress()
 
 	const tasks = 10000
 	const producers = 8
@@ -99,9 +99,9 @@ func TestChunkedIngress_ConcurrentPushPop(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_PushPopIntegrity verifies sequential push/pop integrity without race.
-func TestChunkedIngress_PushPopIntegrity(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_PushPopIntegrity verifies sequential push/pop integrity without race.
+func Test_chunkedIngress_PushPopIntegrity(t *testing.T) {
+	q := newChunkedIngress()
 
 	const count = 1000
 
@@ -134,14 +134,14 @@ func TestChunkedIngress_PushPopIntegrity(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_StressNoTaskLoss performs aggressive stress testing to verify
+// Test_chunkedIngress_StressNoTaskLoss performs aggressive stress testing to verify
 // absolutely no task loss under extreme producer contention.
-func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
+func Test_chunkedIngress_StressNoTaskLoss(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 
 	const tasks = 100000 // 100k tasks for aggressive stress
 	const producers = 32 // 32 producers for maximum contention
@@ -201,9 +201,9 @@ func TestChunkedIngress_StressNoTaskLoss(t *testing.T) {
 		tasks, producers)
 }
 
-// TestChunkedIngress_IsEmpty verifies Length() == 0 behavior.
-func TestChunkedIngress_IsEmpty(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_IsEmpty verifies Length() == 0 behavior.
+func Test_chunkedIngress_IsEmpty(t *testing.T) {
+	q := newChunkedIngress()
 
 	if q.Length() != 0 {
 		t.Fatal("New queue should be empty")

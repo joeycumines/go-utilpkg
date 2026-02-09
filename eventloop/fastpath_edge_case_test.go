@@ -45,7 +45,7 @@ import (
 //  3. Main loop falls through to tick(), which processes auxJobs... NO WAIT
 //
 // CRITICAL INSIGHT: tick() does NOT process auxJobs!
-//   - tick() calls processExternal() which drains l.external (ChunkedIngress)
+//   - tick() calls processExternal() which drains l.external (chunkedIngress)
 //   - auxJobs are ONLY drained by runAux() in fast path mode
 //
 // POTENTIAL BUG: If Submit() puts task in auxJobs but loop transitions to

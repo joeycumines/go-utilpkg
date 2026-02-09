@@ -673,8 +673,9 @@ func TestFormatCreationStack_ValidStack(t *testing.T) {
 // without captured stacks.
 func TestCreationStackTrace_NoStack(t *testing.T) {
 	// Create a ChainedPromise without stack (simulate non-debug mode)
+	// With side table approach, no js means no stack table to look up
 	p := &ChainedPromise{
-		creationStack: nil,
+		js: nil,
 	}
 	p.state.Store(int32(Pending))
 

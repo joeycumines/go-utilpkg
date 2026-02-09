@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-// COVERAGE-018: FastState Full Coverage
+// COVERAGE-018: fastState Full Coverage
 // Gaps: all state transitions, TryTransition failure cases, IsRunning edge cases,
 // concurrent state access patterns
 
@@ -26,17 +26,17 @@ import (
 // StateTerminating (5) → StateTerminated (1)
 // StateTerminated (1)  → (terminal)
 
-// TestFastState_NewFastState verifies initial state is Awake.
-func TestFastState_NewFastState(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_newFastState verifies initial state is Awake.
+func Test_fastState_newFastState(t *testing.T) {
+	s := newFastState()
 
 	if s.Load() != StateAwake {
 		t.Errorf("Expected initial state Awake, got %v", s.Load())
 	}
 }
 
-// TestFastState_Load_AllStates verifies Load returns all state values correctly.
-func TestFastState_Load_AllStates(t *testing.T) {
+// Test_fastState_Load_AllStates verifies Load returns all state values correctly.
+func Test_fastState_Load_AllStates(t *testing.T) {
 	tests := []struct {
 		name  string
 		state LoopState
@@ -50,7 +50,7 @@ func TestFastState_Load_AllStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.v.Store(uint64(tc.state))
 
 			if s.Load() != tc.state {
@@ -60,8 +60,8 @@ func TestFastState_Load_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_Store_AllStates verifies Store works for all states.
-func TestFastState_Store_AllStates(t *testing.T) {
+// Test_fastState_Store_AllStates verifies Store works for all states.
+func Test_fastState_Store_AllStates(t *testing.T) {
 	tests := []struct {
 		name  string
 		state LoopState
@@ -75,7 +75,7 @@ func TestFastState_Store_AllStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 
 			if s.Load() != tc.state {
@@ -85,8 +85,8 @@ func TestFastState_Store_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_TryTransition_ValidTransitions tests all valid state transitions.
-func TestFastState_TryTransition_ValidTransitions(t *testing.T) {
+// Test_fastState_TryTransition_ValidTransitions tests all valid state transitions.
+func Test_fastState_TryTransition_ValidTransitions(t *testing.T) {
 	tests := []struct {
 		name string
 		from LoopState
@@ -102,7 +102,7 @@ func TestFastState_TryTransition_ValidTransitions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.from)
 
 			result := s.TryTransition(tc.from, tc.to)
@@ -116,8 +116,8 @@ func TestFastState_TryTransition_ValidTransitions(t *testing.T) {
 	}
 }
 
-// TestFastState_TryTransition_InvalidFromState tests transition failures when from state doesn't match.
-func TestFastState_TryTransition_InvalidFromState(t *testing.T) {
+// Test_fastState_TryTransition_InvalidFromState tests transition failures when from state doesn't match.
+func Test_fastState_TryTransition_InvalidFromState(t *testing.T) {
 	tests := []struct {
 		name     string
 		actual   LoopState
@@ -133,7 +133,7 @@ func TestFastState_TryTransition_InvalidFromState(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.actual)
 
 			result := s.TryTransition(tc.expected, tc.target)
@@ -147,13 +147,13 @@ func TestFastState_TryTransition_InvalidFromState(t *testing.T) {
 	}
 }
 
-// TestFastState_TryTransition_SameStateTransition tests from == to case.
-func TestFastState_TryTransition_SameStateTransition(t *testing.T) {
+// Test_fastState_TryTransition_SameStateTransition tests from == to case.
+func Test_fastState_TryTransition_SameStateTransition(t *testing.T) {
 	states := []LoopState{StateAwake, StateRunning, StateSleeping, StateTerminating, StateTerminated}
 
 	for _, state := range states {
 		t.Run(state.String()+"→"+state.String(), func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(state)
 
 			result := s.TryTransition(state, state)
@@ -167,9 +167,9 @@ func TestFastState_TryTransition_SameStateTransition(t *testing.T) {
 	}
 }
 
-// TestFastState_TransitionAny_FirstMatchWins verifies first matching state is used.
-func TestFastState_TransitionAny_FirstMatchWins(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_TransitionAny_FirstMatchWins verifies first matching state is used.
+func Test_fastState_TransitionAny_FirstMatchWins(t *testing.T) {
+	s := newFastState()
 	s.Store(StateRunning)
 
 	// Try to transition from [Awake, Running, Sleeping] to Terminating
@@ -184,9 +184,9 @@ func TestFastState_TransitionAny_FirstMatchWins(t *testing.T) {
 	}
 }
 
-// TestFastState_TransitionAny_EmptyValidFrom verifies empty list returns false.
-func TestFastState_TransitionAny_EmptyValidFrom(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_TransitionAny_EmptyValidFrom verifies empty list returns false.
+func Test_fastState_TransitionAny_EmptyValidFrom(t *testing.T) {
+	s := newFastState()
 	s.Store(StateRunning)
 
 	result := s.TransitionAny([]LoopState{}, StateTerminating)
@@ -199,9 +199,9 @@ func TestFastState_TransitionAny_EmptyValidFrom(t *testing.T) {
 	}
 }
 
-// TestFastState_TransitionAny_NoMatchingState verifies no match returns false.
-func TestFastState_TransitionAny_NoMatchingState(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_TransitionAny_NoMatchingState verifies no match returns false.
+func Test_fastState_TransitionAny_NoMatchingState(t *testing.T) {
+	s := newFastState()
 	s.Store(StateTerminated)
 
 	result := s.TransitionAny([]LoopState{StateAwake, StateRunning, StateSleeping}, StateTerminating)
@@ -214,13 +214,13 @@ func TestFastState_TransitionAny_NoMatchingState(t *testing.T) {
 	}
 }
 
-// TestFastState_TransitionAny_AllStatesInList verifies full list works.
-func TestFastState_TransitionAny_AllStatesInList(t *testing.T) {
+// Test_fastState_TransitionAny_AllStatesInList verifies full list works.
+func Test_fastState_TransitionAny_AllStatesInList(t *testing.T) {
 	allStates := []LoopState{StateAwake, StateRunning, StateSleeping, StateTerminating, StateTerminated}
 
 	for _, currentState := range allStates {
 		t.Run(currentState.String(), func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(currentState)
 
 			result := s.TransitionAny(allStates, StateTerminated)
@@ -235,8 +235,8 @@ func TestFastState_TransitionAny_AllStatesInList(t *testing.T) {
 	}
 }
 
-// TestFastState_IsTerminal_AllStates verifies IsTerminal for all states.
-func TestFastState_IsTerminal_AllStates(t *testing.T) {
+// Test_fastState_IsTerminal_AllStates verifies IsTerminal for all states.
+func Test_fastState_IsTerminal_AllStates(t *testing.T) {
 	tests := []struct {
 		state    LoopState
 		expected bool
@@ -250,7 +250,7 @@ func TestFastState_IsTerminal_AllStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.state.String(), func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 
 			if s.IsTerminal() != tc.expected {
@@ -260,8 +260,8 @@ func TestFastState_IsTerminal_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_IsRunning_AllStates verifies IsRunning for all states.
-func TestFastState_IsRunning_AllStates(t *testing.T) {
+// Test_fastState_IsRunning_AllStates verifies IsRunning for all states.
+func Test_fastState_IsRunning_AllStates(t *testing.T) {
 	tests := []struct {
 		state    LoopState
 		expected bool
@@ -275,7 +275,7 @@ func TestFastState_IsRunning_AllStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.state.String(), func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 
 			if s.IsRunning() != tc.expected {
@@ -285,8 +285,8 @@ func TestFastState_IsRunning_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_CanAcceptWork_AllStates verifies CanAcceptWork for all states.
-func TestFastState_CanAcceptWork_AllStates(t *testing.T) {
+// Test_fastState_CanAcceptWork_AllStates verifies CanAcceptWork for all states.
+func Test_fastState_CanAcceptWork_AllStates(t *testing.T) {
 	tests := []struct {
 		state    LoopState
 		expected bool
@@ -300,7 +300,7 @@ func TestFastState_CanAcceptWork_AllStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.state.String(), func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 
 			if s.CanAcceptWork() != tc.expected {
@@ -310,8 +310,8 @@ func TestFastState_CanAcceptWork_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_String_AllStates verifies String for all states including unknown.
-func TestFastState_String_AllStates(t *testing.T) {
+// Test_fastState_String_AllStates verifies String for all states including unknown.
+func Test_fastState_String_AllStates(t *testing.T) {
 	tests := []struct {
 		state    LoopState
 		expected string
@@ -336,9 +336,9 @@ func TestFastState_String_AllStates(t *testing.T) {
 	}
 }
 
-// TestFastState_ConcurrentLoad verifies concurrent Load is safe.
-func TestFastState_ConcurrentLoad(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_ConcurrentLoad verifies concurrent Load is safe.
+func Test_fastState_ConcurrentLoad(t *testing.T) {
+	s := newFastState()
 	s.Store(StateRunning)
 
 	var wg sync.WaitGroup
@@ -359,9 +359,9 @@ func TestFastState_ConcurrentLoad(t *testing.T) {
 	wg.Wait()
 }
 
-// TestFastState_ConcurrentStore verifies concurrent Store is safe (last writer wins).
-func TestFastState_ConcurrentStore(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_ConcurrentStore verifies concurrent Store is safe (last writer wins).
+func Test_fastState_ConcurrentStore(t *testing.T) {
+	s := newFastState()
 
 	states := []LoopState{StateAwake, StateRunning, StateSleeping}
 	var wg sync.WaitGroup
@@ -392,11 +392,11 @@ func TestFastState_ConcurrentStore(t *testing.T) {
 	}
 }
 
-// TestFastState_ConcurrentTryTransition verifies concurrent TryTransition (only one wins).
-func TestFastState_ConcurrentTryTransition(t *testing.T) {
+// Test_fastState_ConcurrentTryTransition verifies concurrent TryTransition (only one wins).
+func Test_fastState_ConcurrentTryTransition(t *testing.T) {
 	const numGoroutines = 100
 
-	s := NewFastState()
+	s := newFastState()
 	s.Store(StateRunning)
 
 	var wg sync.WaitGroup
@@ -426,11 +426,11 @@ func TestFastState_ConcurrentTryTransition(t *testing.T) {
 	}
 }
 
-// TestFastState_ConcurrentTransitionAny verifies concurrent TransitionAny (only one wins).
-func TestFastState_ConcurrentTransitionAny(t *testing.T) {
+// Test_fastState_ConcurrentTransitionAny verifies concurrent TransitionAny (only one wins).
+func Test_fastState_ConcurrentTransitionAny(t *testing.T) {
 	const numGoroutines = 100
 
-	s := NewFastState()
+	s := newFastState()
 	s.Store(StateRunning)
 
 	var wg sync.WaitGroup
@@ -455,9 +455,9 @@ func TestFastState_ConcurrentTransitionAny(t *testing.T) {
 	}
 }
 
-// TestFastState_ConcurrentMixedOperations verifies all operations can run concurrently.
-func TestFastState_ConcurrentMixedOperations(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_ConcurrentMixedOperations verifies all operations can run concurrently.
+func Test_fastState_ConcurrentMixedOperations(t *testing.T) {
+	s := newFastState()
 
 	stop := make(chan struct{})
 
@@ -541,8 +541,8 @@ func TestFastState_ConcurrentMixedOperations(t *testing.T) {
 	wg.Wait()
 }
 
-// TestFastState_StateValueStability verifies state constants haven't changed.
-func TestFastState_StateValueStability(t *testing.T) {
+// Test_fastState_StateValueStability verifies state constants haven't changed.
+func Test_fastState_StateValueStability(t *testing.T) {
 	// These values are documented as stable for serialization
 	// DO NOT CHANGE these values - they are part of the API contract
 	tests := []struct {
@@ -565,11 +565,11 @@ func TestFastState_StateValueStability(t *testing.T) {
 	}
 }
 
-// TestFastState_CacheLinePadding verifies struct size includes cache line padding.
-func TestFastState_CacheLinePadding(t *testing.T) {
-	var s FastState
+// Test_fastState_CacheLinePadding verifies struct size includes cache line padding.
+func Test_fastState_CacheLinePadding(t *testing.T) {
+	var s fastState
 
-	// FastState should be at least 2 cache lines to prevent false sharing
+	// fastState should be at least 2 cache lines to prevent false sharing
 	// Typical cache line is 64 bytes, so expect >= 128 bytes
 	// Note: This is architecture-dependent
 
@@ -580,11 +580,11 @@ func TestFastState_CacheLinePadding(t *testing.T) {
 	}
 }
 
-// TestFastState_TryTransition_LoopPattern verifies typical state machine loop pattern.
-func TestFastState_TryTransition_LoopPattern(t *testing.T) {
+// Test_fastState_TryTransition_LoopPattern verifies typical state machine loop pattern.
+func Test_fastState_TryTransition_LoopPattern(t *testing.T) {
 	// Simulate typical event loop state transitions
 
-	s := NewFastState()
+	s := newFastState()
 
 	// 1. Start: Awake
 	if s.Load() != StateAwake {
@@ -621,18 +621,18 @@ func TestFastState_TryTransition_LoopPattern(t *testing.T) {
 		t.Error("Should be terminal after Terminated")
 	}
 
-	// NOTE: FastState allows ANY CAS-matching transitions (performance-first design).
+	// NOTE: fastState allows ANY CAS-matching transitions (performance-first design).
 	// The state machine does NOT enforce logical transition validity - that's the caller's responsibility.
 	// So TryTransition(StateTerminated, StateAwake) WILL succeed if state == StateTerminated.
 	// This is by design: "PERFORMANCE: Pure CAS, no validation of transition validity."
 }
 
-// TestFastState_TryTransition_RaceConditionSimulation simulates racing shutdown.
-func TestFastState_TryTransition_RaceConditionSimulation(t *testing.T) {
+// Test_fastState_TryTransition_RaceConditionSimulation simulates racing shutdown.
+func Test_fastState_TryTransition_RaceConditionSimulation(t *testing.T) {
 	// Simulate race between poll wakeup and shutdown
 
 	for iter := 0; iter < 100; iter++ {
-		s := NewFastState()
+		s := newFastState()
 		s.Store(StateSleeping)
 
 		var wg sync.WaitGroup

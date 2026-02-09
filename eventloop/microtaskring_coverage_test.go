@@ -1,6 +1,6 @@
-// COVERAGE-013: MicrotaskRing Full Coverage Tests
+// COVERAGE-013: microtaskRing Full Coverage Tests
 //
-// Tests comprehensive coverage of MicrotaskRing including:
+// Tests comprehensive coverage of microtaskRing including:
 // - Overflow path (ring full)
 // - FIFO ordering with overflow
 // - Overflow compaction threshold logic
@@ -17,9 +17,9 @@ import (
 	"time"
 )
 
-// TestMicrotaskRing_OverflowPath tests the overflow slice allocation when ring is full.
-func TestMicrotaskRing_OverflowPath(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowPath tests the overflow slice allocation when ring is full.
+func Test_microtaskRing_OverflowPath(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill the ring completely (4096 items)
 	for i := 0; i < ringBufferSize; i++ {
@@ -63,9 +63,9 @@ func TestMicrotaskRing_OverflowPath(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_OverflowInitialCapacity verifies overflow initial allocation.
-func TestMicrotaskRing_OverflowInitialCapacity(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowInitialCapacity verifies overflow initial allocation.
+func Test_microtaskRing_OverflowInitialCapacity(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill the ring
 	for i := 0; i < ringBufferSize; i++ {
@@ -95,9 +95,9 @@ func TestMicrotaskRing_OverflowInitialCapacity(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_OverflowCompaction tests compaction logic when threshold is exceeded.
-func TestMicrotaskRing_OverflowCompaction(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowCompaction tests compaction logic when threshold is exceeded.
+func Test_microtaskRing_OverflowCompaction(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill the ring
 	for i := 0; i < ringBufferSize; i++ {
@@ -165,9 +165,9 @@ func TestMicrotaskRing_OverflowCompaction(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_OverflowFIFOAppend verifies tasks go to overflow when overflow has items.
-func TestMicrotaskRing_OverflowFIFOAppend(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowFIFOAppend verifies tasks go to overflow when overflow has items.
+func Test_microtaskRing_OverflowFIFOAppend(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill the ring
 	for i := 0; i < ringBufferSize; i++ {
@@ -217,9 +217,9 @@ func TestMicrotaskRing_OverflowFIFOAppend(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_NilTaskHandling tests that nil tasks are properly skipped.
-func TestMicrotaskRing_NilTaskHandling(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_NilTaskHandling tests that nil tasks are properly skipped.
+func Test_microtaskRing_NilTaskHandling(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Push nil
 	r.Push(nil)
@@ -256,9 +256,9 @@ func TestMicrotaskRing_NilTaskHandling(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_NilTaskInOverflow tests nil task handling in overflow slice.
-func TestMicrotaskRing_NilTaskInOverflow(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_NilTaskInOverflow tests nil task handling in overflow slice.
+func Test_microtaskRing_NilTaskInOverflow(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill the ring
 	for i := 0; i < ringBufferSize; i++ {
@@ -297,9 +297,9 @@ func TestMicrotaskRing_NilTaskInOverflow(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_SequenceSkipSentinel verifies ringSeqSkip is used correctly.
-func TestMicrotaskRing_SequenceSkipSentinel(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_SequenceSkipSentinel verifies ringSeqSkip is used correctly.
+func Test_microtaskRing_SequenceSkipSentinel(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// All slots should start with ringSeqSkip and invalid
 	for i := 0; i < ringBufferSize; i++ {
@@ -314,9 +314,9 @@ func TestMicrotaskRing_SequenceSkipSentinel(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_SequenceWrapAround tests sequence number behavior at boundaries.
-func TestMicrotaskRing_SequenceWrapAround(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_SequenceWrapAround tests sequence number behavior at boundaries.
+func Test_microtaskRing_SequenceWrapAround(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Simulate near-max sequence
 	r.tailSeq.Store(^uint64(0) - 10)
@@ -343,9 +343,9 @@ func TestMicrotaskRing_SequenceWrapAround(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_ConcurrentPushPop tests concurrent operations.
-func TestMicrotaskRing_ConcurrentPushPop(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_ConcurrentPushPop tests concurrent operations.
+func Test_microtaskRing_ConcurrentPushPop(t *testing.T) {
+	r := newMicrotaskRing()
 
 	const producers = 4
 	const itemsPerProducer = 10000
@@ -395,9 +395,9 @@ func TestMicrotaskRing_ConcurrentPushPop(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_IsEmpty tests IsEmpty behavior.
-func TestMicrotaskRing_IsEmpty(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_IsEmpty tests IsEmpty behavior.
+func Test_microtaskRing_IsEmpty(t *testing.T) {
+	r := newMicrotaskRing()
 
 	if !r.IsEmpty() {
 		t.Error("New ring should be empty")
@@ -414,9 +414,9 @@ func TestMicrotaskRing_IsEmpty(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_Length tests Length calculation with ring and overflow.
-func TestMicrotaskRing_Length(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_Length tests Length calculation with ring and overflow.
+func Test_microtaskRing_Length(t *testing.T) {
+	r := newMicrotaskRing()
 
 	if r.Length() != 0 {
 		t.Errorf("Expected length 0, got %d", r.Length())
@@ -447,9 +447,9 @@ func TestMicrotaskRing_Length(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_OverflowPendingFlag tests overflowPending atomic flag.
-func TestMicrotaskRing_OverflowPendingFlag(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowPendingFlag tests overflowPending atomic flag.
+func Test_microtaskRing_OverflowPendingFlag(t *testing.T) {
+	r := newMicrotaskRing()
 
 	if r.overflowPending.Load() {
 		t.Error("New ring should not have overflow pending")
@@ -483,9 +483,9 @@ func TestMicrotaskRing_OverflowPendingFlag(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_ValidFlag tests the valid flag for R101 fix.
-func TestMicrotaskRing_ValidFlag(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_ValidFlag tests the valid flag for R101 fix.
+func Test_microtaskRing_ValidFlag(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Push and verify valid flag
 	r.Push(func() {})
@@ -503,9 +503,9 @@ func TestMicrotaskRing_ValidFlag(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_MultipleOverflowDrains tests multiple overflow fill/drain cycles.
-func TestMicrotaskRing_MultipleOverflowDrains(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_MultipleOverflowDrains tests multiple overflow fill/drain cycles.
+func Test_microtaskRing_MultipleOverflowDrains(t *testing.T) {
+	r := newMicrotaskRing()
 
 	for cycle := 0; cycle < 3; cycle++ {
 		// Fill ring
@@ -532,9 +532,9 @@ func TestMicrotaskRing_MultipleOverflowDrains(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_OverflowGrowth tests overflow slice growth beyond initial capacity.
-func TestMicrotaskRing_OverflowGrowth(t *testing.T) {
-	r := NewMicrotaskRing()
+// Test_microtaskRing_OverflowGrowth tests overflow slice growth beyond initial capacity.
+func Test_microtaskRing_OverflowGrowth(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Fill ring
 	for i := 0; i < ringBufferSize; i++ {

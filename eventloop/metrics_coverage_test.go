@@ -151,9 +151,9 @@ func TestQueueMetrics_UpdateMicrotask(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_Basic tests basic TPSCounter operations
-func TestTPSCounter_Basic(t *testing.T) {
-	m := NewTPSCounter(100*time.Millisecond, 10*time.Millisecond)
+// Test_tpsCounter_Basic tests basic tpsCounter operations
+func Test_tpsCounter_Basic(t *testing.T) {
+	m := newTPSCounter(100*time.Millisecond, 10*time.Millisecond)
 
 	// Initial state
 	if m.TPS() != 0 {
@@ -161,9 +161,9 @@ func TestTPSCounter_Basic(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_AddEvents tests adding events to TPS counter
-func TestTPSCounter_AddEvents(t *testing.T) {
-	m := NewTPSCounter(100*time.Millisecond, 10*time.Millisecond)
+// Test_tpsCounter_AddEvents tests adding events to TPS counter
+func Test_tpsCounter_AddEvents(t *testing.T) {
+	m := newTPSCounter(100*time.Millisecond, 10*time.Millisecond)
 
 	m.Increment()
 	m.Increment()
@@ -176,11 +176,11 @@ func TestTPSCounter_AddEvents(t *testing.T) {
 	}
 }
 
-// TestFastState_Basic tests FastState operations
-func TestFastState_Basic(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_Basic tests fastState operations
+func Test_fastState_Basic(t *testing.T) {
+	s := newFastState()
 
-	// NewFastState initializes to StateAwake
+	// newFastState initializes to StateAwake
 	if s.Load() != StateAwake {
 		t.Errorf("Expected StateAwake, got: %d", s.Load())
 	}
@@ -191,9 +191,9 @@ func TestFastState_Basic(t *testing.T) {
 	}
 }
 
-// TestFastState_TryTransition tests state transitions
-func TestFastState_TryTransition(t *testing.T) {
-	s := NewFastState()
+// Test_fastState_TryTransition tests state transitions
+func Test_fastState_TryTransition(t *testing.T) {
+	s := newFastState()
 
 	// Valid transition from initial StateAwake
 	if !s.TryTransition(StateAwake, StateRunning) {

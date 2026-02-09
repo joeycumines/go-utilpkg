@@ -32,6 +32,7 @@ package main
 import (
     "context"
     "fmt"
+    "log"
     "time"
 
     "github.com/joeycumines/go-eventloop"
@@ -41,10 +42,13 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
 
-    loop := eventloop.New()
+    loop, err := eventloop.New()
+    if err != nil {
+        log.Fatal(err)
+    }
 
     // Schedule a timer
-    loop.ScheduleTimer(100*time.Millisecond, func() {
+    _, _ = loop.ScheduleTimer(100*time.Millisecond, func() {
         fmt.Println("Timer fired!")
     })
 
@@ -56,7 +60,10 @@ func main() {
 ### JavaScript-Compatible Timers
 
 ```go
-loop := eventloop.New()
+loop, err := eventloop.New()
+if err != nil {
+    log.Fatal(err)
+}
 js, err := eventloop.NewJS(loop)
 if err != nil {
     log.Fatal(err)
@@ -199,15 +206,18 @@ js, err := eventloop.NewJS(loop,
 ### Performance Metrics
 
 ```go
-loop := eventloop.New(
+loop, err := eventloop.New(
     eventloop.WithMetrics(true),
 )
+if err != nil {
+    log.Fatal(err)
+}
 
 // Later, sample metrics
 metrics := loop.Metrics()
 fmt.Printf("P99 Latency: %v\n", metrics.Latency.P99)
 fmt.Printf("Current TPS: %.2f\n", metrics.TPS)
-fmt.Printf("Queue Depth: %d\n", metrics.Queue.Current)
+fmt.Printf("Queue Depth: %d\n", metrics.Queue.IngressCurrent)
 ```
 
 ## Architecture

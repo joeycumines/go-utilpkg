@@ -828,9 +828,9 @@ func TestPromiseAny_NonErrorRejections(t *testing.T) {
 		t.Fatalf("Expected 2 errors, got %d", len(aggErr.Errors))
 	}
 
-	// Both should be wrapped in ErrorWrapper
+	// Both should be wrapped in errorWrapper
 	for i, e := range aggErr.Errors {
-		if wrapper, ok := e.(*ErrorWrapper); ok {
+		if wrapper, ok := e.(*errorWrapper); ok {
 			t.Logf("Errors[%d] wrapped: %v", i, wrapper.Value)
 		} else if e.Error() == "" {
 			t.Errorf("Errors[%d] should be wrapped: %v", i, e)

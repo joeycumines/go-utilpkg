@@ -1,6 +1,6 @@
-// COVERAGE-014: ChunkedIngress Full Coverage Tests
+// COVERAGE-014: chunkedIngress Full Coverage Tests
 //
-// Tests comprehensive coverage of ChunkedIngress including:
+// Tests comprehensive coverage of chunkedIngress including:
 // - Multi-chunk growth
 // - Chunk pool recycling
 // - returnChunk clearing of task slots (IMP-002)
@@ -16,9 +16,9 @@ import (
 	"testing"
 )
 
-// TestChunkedIngress_MultiChunkGrowth tests allocation of multiple chunks.
-func TestChunkedIngress_MultiChunkGrowth(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_MultiChunkGrowth tests allocation of multiple chunks.
+func Test_chunkedIngress_MultiChunkGrowth(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push more than one chunk (defaultChunkSize = 64)
 	itemCount := defaultChunkSize * 3
@@ -48,9 +48,9 @@ func TestChunkedIngress_MultiChunkGrowth(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_ChunkPoolRecycling tests that chunks are returned to pool.
-func TestChunkedIngress_ChunkPoolRecycling(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_ChunkPoolRecycling tests that chunks are returned to pool.
+func Test_chunkedIngress_ChunkPoolRecycling(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push exactly 2 chunks worth
 	itemCount := defaultChunkSize * 2
@@ -74,10 +74,10 @@ func TestChunkedIngress_ChunkPoolRecycling(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_ReturnChunkClearsSlots tests IMP-002 fix for memory leak.
-func TestChunkedIngress_ReturnChunkClearsSlots(t *testing.T) {
+// Test_chunkedIngress_ReturnChunkClearsSlots tests IMP-002 fix for memory leak.
+func Test_chunkedIngress_ReturnChunkClearsSlots(t *testing.T) {
 	// Create a queue to use its pool and newChunk/returnChunk methods
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 
 	// Create a chunk using the queue's method
 	c := q.newChunk()
@@ -124,9 +124,9 @@ func TestChunkedIngress_ReturnChunkClearsSlots(t *testing.T) {
 	q.returnChunk(c2)
 }
 
-// TestChunkedIngress_ExhaustedChunkHandling tests handling of fully-read chunks.
-func TestChunkedIngress_ExhaustedChunkHandling(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_ExhaustedChunkHandling tests handling of fully-read chunks.
+func Test_chunkedIngress_ExhaustedChunkHandling(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push exactly one chunk worth plus a few more
 	itemCount := defaultChunkSize + 10
@@ -168,9 +168,9 @@ func TestChunkedIngress_ExhaustedChunkHandling(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_LengthTracking tests accurate length tracking.
-func TestChunkedIngress_LengthTracking(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_LengthTracking tests accurate length tracking.
+func Test_chunkedIngress_LengthTracking(t *testing.T) {
+	q := newChunkedIngress()
 
 	if q.Length() != 0 {
 		t.Errorf("Initial length should be 0, got %d", q.Length())
@@ -193,9 +193,9 @@ func TestChunkedIngress_LengthTracking(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_SingleChunkReuse tests cursor reset for single chunk reuse.
-func TestChunkedIngress_SingleChunkReuse(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_SingleChunkReuse tests cursor reset for single chunk reuse.
+func Test_chunkedIngress_SingleChunkReuse(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push and pop within single chunk
 	for cycle := 0; cycle < 5; cycle++ {
@@ -228,9 +228,9 @@ func TestChunkedIngress_SingleChunkReuse(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_PopEmptyQueue tests Pop on empty queue.
-func TestChunkedIngress_PopEmptyQueue(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_PopEmptyQueue tests Pop on empty queue.
+func Test_chunkedIngress_PopEmptyQueue(t *testing.T) {
+	q := newChunkedIngress()
 
 	task, ok := q.Pop()
 	if ok {
@@ -241,9 +241,9 @@ func TestChunkedIngress_PopEmptyQueue(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_PopAfterDrain tests Pop on drained queue.
-func TestChunkedIngress_PopAfterDrain(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_PopAfterDrain tests Pop on drained queue.
+func Test_chunkedIngress_PopAfterDrain(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push and drain
 	q.Push(func() {})
@@ -259,9 +259,9 @@ func TestChunkedIngress_PopAfterDrain(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_ChunkChainIntegrity tests linked list integrity.
-func TestChunkedIngress_ChunkChainIntegrity(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_ChunkChainIntegrity tests linked list integrity.
+func Test_chunkedIngress_ChunkChainIntegrity(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push enough for 4 chunks
 	itemCount := defaultChunkSize * 4
@@ -296,16 +296,16 @@ func TestChunkedIngress_ChunkChainIntegrity(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_ConcurrentPushSingleConsumer tests concurrent pushes with sync.
-func TestChunkedIngress_ConcurrentPushSingleConsumer(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_ConcurrentPushSingleConsumer tests concurrent pushes with sync.
+func Test_chunkedIngress_ConcurrentPushSingleConsumer(t *testing.T) {
+	q := newChunkedIngress()
 
 	const producers = 4
 	const itemsPerProducer = 1000
 	totalItems := producers * itemsPerProducer
 
 	var wg sync.WaitGroup
-	var mu sync.Mutex // External sync required for ChunkedIngress
+	var mu sync.Mutex // External sync required for chunkedIngress
 
 	// Start producers
 	for p := 0; p < producers; p++ {
@@ -341,10 +341,10 @@ func TestChunkedIngress_ConcurrentPushSingleConsumer(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_NewChunk tests newChunk pool allocation.
-func TestChunkedIngress_NewChunk(t *testing.T) {
+// Test_chunkedIngress_NewChunk tests newChunk pool allocation.
+func Test_chunkedIngress_NewChunk(t *testing.T) {
 	// Use queue's method to create chunks
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 	c := q.newChunk()
 
 	if c == nil {
@@ -366,9 +366,9 @@ func TestChunkedIngress_NewChunk(t *testing.T) {
 	q.returnChunk(c)
 }
 
-// TestChunkedIngress_TaskExecution tests that tasks execute correctly.
-func TestChunkedIngress_TaskExecution(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_TaskExecution tests that tasks execute correctly.
+func Test_chunkedIngress_TaskExecution(t *testing.T) {
+	q := newChunkedIngress()
 
 	var counter atomic.Int64
 	const taskCount = 500
@@ -394,9 +394,9 @@ func TestChunkedIngress_TaskExecution(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_GCSafety tests that popped slots are zeroed for GC.
-func TestChunkedIngress_GCSafety(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_GCSafety tests that popped slots are zeroed for GC.
+func Test_chunkedIngress_GCSafety(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Create a large closure to track
 	largeData := make([]byte, 1024*1024) // 1MB
@@ -411,16 +411,16 @@ func TestChunkedIngress_GCSafety(t *testing.T) {
 	// If we get here without panic, GC safety is working
 }
 
-// TestChunkedIngress_ChunkConstants verifies chunk constants.
-func TestChunkedIngress_ChunkConstants(t *testing.T) {
+// Test_chunkedIngress_ChunkConstants verifies chunk constants.
+func Test_chunkedIngress_ChunkConstants(t *testing.T) {
 	if defaultChunkSize != 64 {
 		t.Errorf("Expected defaultChunkSize 64, got %d", defaultChunkSize)
 	}
 }
 
-// TestChunkedIngress_HeadTailNilStart tests initial state.
-func TestChunkedIngress_HeadTailNilStart(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_HeadTailNilStart tests initial state.
+func Test_chunkedIngress_HeadTailNilStart(t *testing.T) {
+	q := newChunkedIngress()
 
 	if q.head != nil {
 		t.Error("Initial head should be nil")
@@ -435,9 +435,9 @@ func TestChunkedIngress_HeadTailNilStart(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_FirstPushCreatesChunk tests lazy chunk allocation.
-func TestChunkedIngress_FirstPushCreatesChunk(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_FirstPushCreatesChunk tests lazy chunk allocation.
+func Test_chunkedIngress_FirstPushCreatesChunk(t *testing.T) {
+	q := newChunkedIngress()
 
 	q.Push(func() {})
 
@@ -454,9 +454,9 @@ func TestChunkedIngress_FirstPushCreatesChunk(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_BoundaryConditions tests chunk boundary behavior.
-func TestChunkedIngress_BoundaryConditions(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_BoundaryConditions tests chunk boundary behavior.
+func Test_chunkedIngress_BoundaryConditions(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Push exactly chunkSize items
 	for i := 0; i < q.chunkSize; i++ {
@@ -481,9 +481,9 @@ func TestChunkedIngress_BoundaryConditions(t *testing.T) {
 	}
 }
 
-// TestChunkedIngress_Interleaved tests interleaved push/pop.
-func TestChunkedIngress_Interleaved(t *testing.T) {
-	q := NewChunkedIngress()
+// Test_chunkedIngress_Interleaved tests interleaved push/pop.
+func Test_chunkedIngress_Interleaved(t *testing.T) {
+	q := newChunkedIngress()
 
 	for cycle := 0; cycle < 100; cycle++ {
 		// Push 10

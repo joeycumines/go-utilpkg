@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	// defaultChunkSize is the default number of tasks per node in the ChunkedIngress linked list.
+	// defaultChunkSize is the default number of tasks per node in the chunkedIngress linked list.
 	// Can be overridden via WithIngressChunkSize option (EXPAND-033).
 	// 64 tasks * 8 bytes/task + overhead = ~512 bytes per chunk.
 	defaultChunkSize = 64
 
-	// ringBufferSize is the fixed size of the MicrotaskRing buffer.
+	// ringBufferSize is the fixed size of the microtaskRing buffer.
 	// It must be a power of 2 to allow for efficient bitwise wrapping.
 	ringBufferSize = 4096
 
@@ -22,7 +22,7 @@ const (
 	// sequence number wrap-around, which could legitimately produce 0.
 	ringSeqSkip = uint64(1) << 63
 
-	// ringOverflowInitCap is the initial capacity for the overflow slice in MicrotaskRing.
+	// ringOverflowInitCap is the initial capacity for the overflow slice in microtaskRing.
 	ringOverflowInitCap = 1024
 
 	// ringOverflowCompactThreshold is the threshold for compacting the overflow slice.
@@ -30,12 +30,12 @@ const (
 	// and it exceeds half the slice length, a copy/compaction occurs.
 	ringOverflowCompactThreshold = 512
 
-	// ringHeadPadSize is the padding size required after the 'head' field in MicrotaskRing
+	// ringHeadPadSize is the padding size required after the 'head' field in microtaskRing
 	// to ensure 'tail' starts on a new cache line.
 	ringHeadPadSize = sizeOfCacheLine - sizeOfAtomicUint64
 )
 
-// ChunkedIngress is a chunked linked-list queue for task submission.
+// chunkedIngress is a chunked linked-list queue for task submission.
 //
 // Thread Safety: This struct is NOT thread-safe.
 // The caller must provide external synchronization (e.g., the Event Loop's mutex).
@@ -45,7 +45,7 @@ const (
 // - sync.Pool chunk recycling prevents GC thrashing under high throughput.
 //
 // EXPAND-033: Chunk size is configurable via WithIngressChunkSize option.
-type ChunkedIngress struct { // betteralign:ignore
+type chunkedIngress struct { // betteralign:ignore
 	head      *chunk
 	tail      *chunk
 	length    int
@@ -65,7 +65,7 @@ type chunk struct { // betteralign:ignore
 
 // newChunk creates and returns a new chunk from the pool.
 // EXPAND-033: Uses per-instance pool for configurable chunk sizes.
-func (q *ChunkedIngress) newChunk() *chunk {
+func (q *chunkedIngress) newChunk() *chunk {
 	c := q.chunkPool.Get().(*chunk)
 	// Reset fields for reuse as the chunk may have been returned with stale data
 	c.pos = 0
@@ -86,7 +86,7 @@ func (q *ChunkedIngress) newChunk() *chunk {
 // IMP-002 Fix: Clear task slots before returning to prevent memory leaks
 // from retained references to task closures.
 // EXPAND-033: Uses per-instance pool for configurable chunk sizes.
-func (q *ChunkedIngress) returnChunk(c *chunk) {
+func (q *chunkedIngress) returnChunk(c *chunk) {
 	// Clear all task slots to prevent memory leaks from retained closures
 	// Matches pattern from alternatetwo/returnChunkFast()
 	for i := 0; i < c.pos; i++ {
@@ -98,23 +98,23 @@ func (q *ChunkedIngress) returnChunk(c *chunk) {
 	q.chunkPool.Put(c)
 }
 
-// NewChunkedIngress creates a new chunked ingress queue with default chunk size.
-func NewChunkedIngress() *ChunkedIngress {
-	return NewChunkedIngressWithSize(defaultChunkSize)
+// newChunkedIngress creates a new chunked ingress queue with default chunk size.
+func newChunkedIngress() *chunkedIngress {
+	return newChunkedIngressWithSize(defaultChunkSize)
 }
 
-// NewChunkedIngressWithSize creates a new chunked ingress queue with the specified chunk size.
+// newChunkedIngressWithSize creates a new chunked ingress queue with the specified chunk size.
 //
 // EXPAND-033: The chunk size determines how many tasks are stored per chunk node.
 // Larger sizes improve throughput by reducing allocation frequency but use more memory.
 //
 // The size should be a power of 2 between 16 and 4096 for optimal performance.
 // Values outside this range are accepted but may not be optimal.
-func NewChunkedIngressWithSize(size int) *ChunkedIngress {
+func newChunkedIngressWithSize(size int) *chunkedIngress {
 	if size <= 0 {
 		size = defaultChunkSize
 	}
-	return &ChunkedIngress{
+	return &chunkedIngress{
 		chunkSize: size,
 		chunkPool: &sync.Pool{
 			New: func() any {
@@ -129,7 +129,7 @@ func NewChunkedIngressWithSize(size int) *ChunkedIngress {
 // Push adds a task to the queue.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Push(task func()) {
+func (q *chunkedIngress) Push(task func()) {
 	if q.tail == nil {
 		q.tail = q.newChunk()
 		q.head = q.tail
@@ -151,7 +151,7 @@ func (q *ChunkedIngress) Push(task func()) {
 // Returns false if the queue is empty.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Pop() (func(), bool) {
+func (q *chunkedIngress) Pop() (func(), bool) {
 	if q.head == nil {
 		return nil, false
 	}
@@ -200,11 +200,11 @@ func (q *ChunkedIngress) Pop() (func(), bool) {
 // Length returns the queue length.
 //
 // CALLER MUST HOLD EXTERNAL MUTEX.
-func (q *ChunkedIngress) Length() int {
+func (q *chunkedIngress) Length() int {
 	return q.length
 }
 
-// MicrotaskRing is a lock-free ring buffer with overflow protection.
+// microtaskRing is a lock-free ring buffer with overflow protection.
 //
 // Memory Ordering & Correctness:
 // This implementation adheres to strict Release/Acquire semantics to prevent bugs
@@ -227,7 +227,7 @@ func (q *ChunkedIngress) Length() int {
 // - Pop:  Load Seq (Acquire) -> Check Validity -> Read Data
 // - Overflow: When ring is full, tasks spill to a mutex-protected slice.
 // - FIFO: If overflow has items, Push appends to overflow to maintain ordering.
-type MicrotaskRing struct { // betteralign:ignore
+type microtaskRing struct { // betteralign:ignore
 	_       [sizeOfCacheLine]byte         // Cache line padding
 	buffer  [ringBufferSize]func()        // Ring buffer for tasks
 	valid   [ringBufferSize]atomic.Bool   // Slot validity flags (R101 fix)
@@ -243,9 +243,9 @@ type MicrotaskRing struct { // betteralign:ignore
 	overflowPending atomic.Bool // FIFO: Flag indicating overflow has items
 }
 
-// NewMicrotaskRing creates a new lock-free ring with sequence tracking.
-func NewMicrotaskRing() *MicrotaskRing {
-	r := &MicrotaskRing{}
+// newMicrotaskRing creates a new lock-free ring with sequence tracking.
+func newMicrotaskRing() *microtaskRing {
+	r := &microtaskRing{}
 	for i := 0; i < ringBufferSize; i++ {
 		r.seq[i].Store(ringSeqSkip) // Use skip sentinel (R101 fix)
 		r.valid[i].Store(false)     // Start with all slots invalid
@@ -254,7 +254,7 @@ func NewMicrotaskRing() *MicrotaskRing {
 }
 
 // Push adds a microtask to the ring buffer. Always returns true.
-func (r *MicrotaskRing) Push(fn func()) bool {
+func (r *microtaskRing) Push(fn func()) bool {
 	// If overflow has items, append to overflow to maintain FIFO.
 	// This fast-path check uses atomic bool to avoid mutex in common case.
 	if r.overflowPending.Load() {
@@ -310,7 +310,7 @@ func (r *MicrotaskRing) Push(fn func()) bool {
 }
 
 // Pop removes and returns a microtask. Returns nil if empty.
-func (r *MicrotaskRing) Pop() func() {
+func (r *microtaskRing) Pop() func() {
 	// Try ring buffer first (maintains FIFO - ring items are older)
 	head := r.head.Load()
 	tail := r.tail.Load()
@@ -401,7 +401,7 @@ func (r *MicrotaskRing) Pop() func() {
 }
 
 // Length returns the total number of microtasks (ring + overflow).
-func (r *MicrotaskRing) Length() int {
+func (r *microtaskRing) Length() int {
 	head := r.head.Load()
 	tail := r.tail.Load()
 
@@ -419,7 +419,7 @@ func (r *MicrotaskRing) Length() int {
 
 // IsEmpty returns true if the ring buffer and overflow are empty.
 // Note: May have false negatives under concurrent modification.
-func (r *MicrotaskRing) IsEmpty() bool {
+func (r *microtaskRing) IsEmpty() bool {
 	head := r.head.Load()
 	tail := r.tail.Load()
 

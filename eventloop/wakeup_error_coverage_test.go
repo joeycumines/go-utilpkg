@@ -62,8 +62,8 @@ func TestCreateWakeFd_CloexecCoverage(t *testing.T) {
 		flags int
 	}{
 		{"NoFlags", 0},
-		{"WithCloexec", EFD_CLOEXEC},
-		{"WithNonblock", EFD_NONBLOCK},
+		{"WithCloexec", efdCloexec},
+		{"WithNonblock", efdNonblock},
 	}
 
 	for _, tc := range testCases {

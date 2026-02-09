@@ -14,9 +14,9 @@ func containsSubstring(haystack, needle string) bool {
 	)
 }
 
-// TestNewTPSCounter validates NewTPSCounter parameter validation and configuration.
+// Test_newTPSCounter validates newTPSCounter parameter validation and configuration.
 // Verifies R111 fix: TPS Counter documentation and input validation.
-func TestNewTPSCounter(t *testing.T) {
+func Test_newTPSCounter(t *testing.T) {
 	tests := []struct {
 		name       string
 		windowSize time.Duration
@@ -98,12 +98,12 @@ func TestNewTPSCounter(t *testing.T) {
 			}
 
 			// This should panic if validation fails
-			counter := NewTPSCounter(tt.windowSize, tt.bucketSize)
+			counter := newTPSCounter(tt.windowSize, tt.bucketSize)
 
 			if tt.wantPanic == "" {
 				// Valid config - verify counter is initialized
 				if counter == nil {
-					t.Fatal("NewTPSCounter should return non-nil counter")
+					t.Fatal("newTPSCounter should return non-nil counter")
 				}
 				if counter.lastRotation.Load().(time.Time).IsZero() {
 					t.Error("lastRotation should be initialized")
@@ -119,9 +119,9 @@ func TestNewTPSCounter(t *testing.T) {
 	}
 }
 
-// TestTPSCounterBasicFunctionality tests basic increment and TPS calculation.
-func TestTPSCounterBasicFunctionality(t *testing.T) {
-	counter := NewTPSCounter(1*time.Second, 100*time.Millisecond)
+// Test_tpsCounterBasicFunctionality tests basic increment and TPS calculation.
+func Test_tpsCounterBasicFunctionality(t *testing.T) {
+	counter := newTPSCounter(1*time.Second, 100*time.Millisecond)
 
 	// Initial TPS should be 0 (no events recorded yet)
 	tps := counter.TPS()
@@ -151,11 +151,11 @@ func TestTPSCounterBasicFunctionality(t *testing.T) {
 	}
 }
 
-// TestTPSCounterRotation tests bucket rotation behavior.
-func TestTPSCounterRotation(t *testing.T) {
+// Test_tpsCounterRotation tests bucket rotation behavior.
+func Test_tpsCounterRotation(t *testing.T) {
 	windowSize := 500 * time.Millisecond
 	bucketSize := 100 * time.Millisecond
-	counter := NewTPSCounter(windowSize, bucketSize)
+	counter := newTPSCounter(windowSize, bucketSize)
 
 	// Record events in first bucket
 	for i := 0; i < 5; i++ {
@@ -194,8 +194,8 @@ func TestTPSCounterRotation(t *testing.T) {
 	}
 }
 
-// TestTPSCounterWindowSizing tests that different window sizes work correctly.
-func TestTPSCounterWindowSizing(t *testing.T) {
+// Test_tpsCounterWindowSizing tests that different window sizes work correctly.
+func Test_tpsCounterWindowSizing(t *testing.T) {
 	testCases := []struct {
 		name       string
 		windowSize time.Duration
@@ -207,7 +207,7 @@ func TestTPSCounterWindowSizing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			counter := NewTPSCounter(tc.windowSize, tc.bucketSize)
+			counter := newTPSCounter(tc.windowSize, tc.bucketSize)
 
 			// For a rolling window TPS counter, we need to account for events aging out
 			// as time advances. We'll record events and verify they are tracked

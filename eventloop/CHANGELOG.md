@@ -4,6 +4,53 @@ All notable changes to the `go-eventloop` package will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] - 2026-02-10
+
+### Changed
+
+- **BREAKING: ChainedPromise struct shrunk from 120B to 64B** — Major memory optimization
+  through field removal and architectural changes:
+  - Removed `toChannels []chan Result` (24B) — moved to `JS.toChannels` side table; direct
+    synchronous notification during resolve/reject (no microtask queue dependency)
+  - Removed `creationStack []uintptr` (24B) — moved to `JS.debugStacks` side table using
+    `weak.Pointer[ChainedPromise]` as key for GC-safe automatic cleanup via `runtime.AddCleanup`
+  - Removed `id atomic.Uint64` (8B) — replaced with pointer identity (`*ChainedPromise` as map
+    key); eliminates global atomic counter and per-promise ID allocation
+  - Go allocator benefit: 120B → 128B size class vs 64B → 64B size class = 64 bytes saved per
+    promise from class rounding alone
+
+- **API cleanup: unexported internal-only types** — Tightened the public API surface by
+  unexporting symbols that were only used internally:
+  - `FastState` → `fastState`
+  - `ChunkedIngress` → `chunkedIngress`
+  - `MicrotaskRing` → `microtaskRing`
+  - `FastPoller` → `fastPoller`
+  - `IOCallback` → `ioCallback`
+  - `MaxFDLimit` → `maxFDLimit`
+  - `EFD_CLOEXEC` → `efdCloexec`, `EFD_NONBLOCK` → `efdNonblock`
+  - `TPSCounter` → `tpsCounter`
+  - `ErrorWrapper` → `errorWrapper`
+  - `ErrNoPromiseResolved` → `errNoPromiseResolved`
+  - And several other internal-only types
+
+- **GojaWrapPromise re-exported** — `Adapter.GojaWrapPromise()` confirmed as part of the
+  public API surface for wrapping Go `*ChainedPromise` values into Goja-compatible JS objects
+  with `.then()`, `.catch()`, `.finally()` methods.
+
+### Fixed
+
+- **`debugStacks` now uses `weak.Pointer` for GC-safe cleanup** — Creation stack traces
+  (debug mode only) are stored in a `JS.debugStacks` side table keyed by
+  `weak.Pointer[ChainedPromise]`. When a promise is garbage collected, `runtime.AddCleanup`
+  automatically removes its stack trace entry, preventing memory leaks in long-running loops.
+
+- **`promiseHandlers` orphan leak fixed** — Fixed a race condition where a promise could be
+  garbage collected between handler registration and rejection tracking, leaving an orphaned
+  entry in the `promiseHandlers` map. The fix ensures cleanup occurs in both the resolve/reject
+  path and the handler attachment path.
+
+---
+
 ## [Unreleased] - 2026-02-09
 
 ### Added

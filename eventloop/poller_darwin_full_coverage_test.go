@@ -21,9 +21,9 @@ import (
 // Tests: kevent/epoll error handling, kevent conversion, dispatchEvents callback dispatch,
 // closed poller edge cases
 
-// TestFastPoller_Init_AlreadyClosed tests Init() on already closed poller
-func TestFastPoller_Init_AlreadyClosed(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Init_AlreadyClosed tests Init() on already closed poller
+func Test_fastPoller_Init_AlreadyClosed(t *testing.T) {
+	poller := &fastPoller{}
 	poller.closed.Store(true)
 
 	err := poller.Init()
@@ -32,9 +32,9 @@ func TestFastPoller_Init_AlreadyClosed(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Init_Success tests successful initialization
-func TestFastPoller_Init_Success(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Init_Success tests successful initialization
+func Test_fastPoller_Init_Success(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -52,9 +52,9 @@ func TestFastPoller_Init_Success(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Close_Idempotent tests that Close() is idempotent
-func TestFastPoller_Close_Idempotent(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Close_Idempotent tests that Close() is idempotent
+func Test_fastPoller_Close_Idempotent(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -79,9 +79,9 @@ func TestFastPoller_Close_Idempotent(t *testing.T) {
 	}
 }
 
-// TestFastPoller_PollIO_Closed tests PollIO on closed poller
-func TestFastPoller_PollIO_Closed(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_PollIO_Closed tests PollIO on closed poller
+func Test_fastPoller_PollIO_Closed(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -94,12 +94,12 @@ func TestFastPoller_PollIO_Closed(t *testing.T) {
 	}
 }
 
-// TestFastPoller_PollIO_EINTR tests that PollIO handles EINTR gracefully
-func TestFastPoller_PollIO_EINTR(t *testing.T) {
+// Test_fastPoller_PollIO_EINTR tests that PollIO handles EINTR gracefully
+func Test_fastPoller_PollIO_EINTR(t *testing.T) {
 	// This test verifies the EINTR handling path exists
 	// We can't reliably trigger EINTR in a unit test, but we verify
 	// the code path is present by checking the implementation handles it
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -116,9 +116,9 @@ func TestFastPoller_PollIO_EINTR(t *testing.T) {
 	}
 }
 
-// TestFastPoller_PollIO_Timeout tests PollIO timeout behavior
-func TestFastPoller_PollIO_Timeout(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_PollIO_Timeout tests PollIO timeout behavior
+func Test_fastPoller_PollIO_Timeout(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -142,9 +142,9 @@ func TestFastPoller_PollIO_Timeout(t *testing.T) {
 	}
 }
 
-// TestFastPoller_PollIO_WithEvents tests PollIO with actual events
-func TestFastPoller_PollIO_WithEvents(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_PollIO_WithEvents tests PollIO with actual events
+func Test_fastPoller_PollIO_WithEvents(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -189,9 +189,9 @@ func TestFastPoller_PollIO_WithEvents(t *testing.T) {
 	}
 }
 
-// TestFastPoller_DispatchEvents_NegativeFD tests dispatchEvents with negative FD
-func TestFastPoller_DispatchEvents_NegativeFD(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_DispatchEvents_NegativeFD tests dispatchEvents with negative FD
+func Test_fastPoller_DispatchEvents_NegativeFD(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -211,9 +211,9 @@ func TestFastPoller_DispatchEvents_NegativeFD(t *testing.T) {
 	// If we get here without panic, test passes
 }
 
-// TestFastPoller_DispatchEvents_FDNotActive tests callback dispatch for inactive FD
-func TestFastPoller_DispatchEvents_FDNotActive(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_DispatchEvents_FDNotActive tests callback dispatch for inactive FD
+func Test_fastPoller_DispatchEvents_FDNotActive(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -232,9 +232,9 @@ func TestFastPoller_DispatchEvents_FDNotActive(t *testing.T) {
 	// If we get here without panic, test passes
 }
 
-// TestFastPoller_DispatchEvents_FDOutOfBounds tests callback dispatch for FD outside fds array
-func TestFastPoller_DispatchEvents_FDOutOfBounds(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_DispatchEvents_FDOutOfBounds tests callback dispatch for FD outside fds array
+func Test_fastPoller_DispatchEvents_FDOutOfBounds(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -253,9 +253,9 @@ func TestFastPoller_DispatchEvents_FDOutOfBounds(t *testing.T) {
 	// If we get here without panic, test passes
 }
 
-// TestFastPoller_RegisterFD_DynamicGrowth tests FD array growth for large FDs
-func TestFastPoller_RegisterFD_DynamicGrowth(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_DynamicGrowth tests FD array growth for large FDs
+func Test_fastPoller_RegisterFD_DynamicGrowth(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -288,9 +288,9 @@ func TestFastPoller_RegisterFD_DynamicGrowth(t *testing.T) {
 	}
 }
 
-// TestFastPoller_RegisterFD_KeventError tests RegisterFD with kevent error rollback
-func TestFastPoller_RegisterFD_KeventError(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_KeventError tests RegisterFD with kevent error rollback
+func Test_fastPoller_RegisterFD_KeventError(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -309,9 +309,9 @@ func TestFastPoller_RegisterFD_KeventError(t *testing.T) {
 	}
 }
 
-// TestFastPoller_UnregisterFD_NegativeFD tests UnregisterFD with negative FD
-func TestFastPoller_UnregisterFD_NegativeFD(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_UnregisterFD_NegativeFD tests UnregisterFD with negative FD
+func Test_fastPoller_UnregisterFD_NegativeFD(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -324,9 +324,9 @@ func TestFastPoller_UnregisterFD_NegativeFD(t *testing.T) {
 	}
 }
 
-// TestFastPoller_UnregisterFD_NotRegistered tests UnregisterFD for unregistered FD
-func TestFastPoller_UnregisterFD_NotRegistered(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_UnregisterFD_NotRegistered tests UnregisterFD for unregistered FD
+func Test_fastPoller_UnregisterFD_NotRegistered(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -339,9 +339,9 @@ func TestFastPoller_UnregisterFD_NotRegistered(t *testing.T) {
 	}
 }
 
-// TestFastPoller_UnregisterFD_OutOfBounds tests UnregisterFD for FD beyond array
-func TestFastPoller_UnregisterFD_OutOfBounds(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_UnregisterFD_OutOfBounds tests UnregisterFD for FD beyond array
+func Test_fastPoller_UnregisterFD_OutOfBounds(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -354,9 +354,9 @@ func TestFastPoller_UnregisterFD_OutOfBounds(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ModifyFD_NegativeFD tests ModifyFD with negative FD
-func TestFastPoller_ModifyFD_NegativeFD(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_ModifyFD_NegativeFD tests ModifyFD with negative FD
+func Test_fastPoller_ModifyFD_NegativeFD(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -369,9 +369,9 @@ func TestFastPoller_ModifyFD_NegativeFD(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ModifyFD_NotRegistered tests ModifyFD for unregistered FD
-func TestFastPoller_ModifyFD_NotRegistered(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_ModifyFD_NotRegistered tests ModifyFD for unregistered FD
+func Test_fastPoller_ModifyFD_NotRegistered(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -384,9 +384,9 @@ func TestFastPoller_ModifyFD_NotRegistered(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ModifyFD_Success tests successful ModifyFD
-func TestFastPoller_ModifyFD_Success(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_ModifyFD_Success tests successful ModifyFD
+func Test_fastPoller_ModifyFD_Success(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -506,13 +506,13 @@ func TestKeventToEvents(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ConcurrentAccess tests concurrent access to poller
-func TestFastPoller_ConcurrentAccess(t *testing.T) {
+// Test_fastPoller_ConcurrentAccess tests concurrent access to poller
+func Test_fastPoller_ConcurrentAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -588,9 +588,9 @@ func TestFastPoller_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 }
 
-// TestFastPoller_RegisterFD_MaxFDLimit tests FD limit enforcement
-func TestFastPoller_RegisterFD_MaxFDLimit(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_maxFDLimit tests FD limit enforcement
+func Test_fastPoller_RegisterFD_maxFDLimit(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -598,21 +598,21 @@ func TestFastPoller_RegisterFD_MaxFDLimit(t *testing.T) {
 	defer poller.Close()
 
 	// Try to register FD at limit
-	err = poller.RegisterFD(MaxFDLimit, EventRead, func(events IOEvents) {})
+	err = poller.RegisterFD(maxFDLimit, EventRead, func(events IOEvents) {})
 	if err != ErrFDOutOfRange {
 		t.Errorf("Expected ErrFDOutOfRange for FD at limit, got: %v", err)
 	}
 
 	// Try to register FD beyond limit
-	err = poller.RegisterFD(MaxFDLimit+1, EventRead, func(events IOEvents) {})
+	err = poller.RegisterFD(maxFDLimit+1, EventRead, func(events IOEvents) {})
 	if err != ErrFDOutOfRange {
 		t.Errorf("Expected ErrFDOutOfRange for FD beyond limit, got: %v", err)
 	}
 }
 
-// TestFastPoller_CallbackNilCheck tests that nil callback is handled
-func TestFastPoller_CallbackNilCheck(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_CallbackNilCheck tests that nil callback is handled
+func Test_fastPoller_CallbackNilCheck(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -645,9 +645,9 @@ func TestFastPoller_CallbackNilCheck(t *testing.T) {
 	// If we get here without panic, test passes
 }
 
-// TestFastPoller_Close_KqZero tests Close when kq is 0
-func TestFastPoller_Close_KqZero(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Close_KqZero tests Close when kq is 0
+func Test_fastPoller_Close_KqZero(t *testing.T) {
+	poller := &fastPoller{}
 	// kq is 0 by default, closed is false
 
 	err := poller.Close()
@@ -661,7 +661,7 @@ func TestMaxFDs_Constant(t *testing.T) {
 	if maxFDs <= 0 {
 		t.Error("maxFDs should be positive")
 	}
-	if maxFDs > MaxFDLimit {
-		t.Error("maxFDs should be <= MaxFDLimit")
+	if maxFDs > maxFDLimit {
+		t.Error("maxFDs should be <= maxFDLimit")
 	}
 }

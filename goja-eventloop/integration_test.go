@@ -51,7 +51,7 @@ func TestIntegration_PromiseChainingAcrossBoundary(t *testing.T) {
 	goPromise, goResolve, _ := js.NewChainedPromise()
 
 	// Wrap and chain in JavaScript
-	gojaRT.Set("goPromise", adapter.gojaWrapPromise(goPromise))
+	gojaRT.Set("goPromise", adapter.GojaWrapPromise(goPromise))
 
 	done := make(chan error, 1)
 	var results []interface{}
@@ -156,7 +156,7 @@ func TestIntegration_ErrorPropagation_GoToJS(t *testing.T) {
 	_, _, goReject := js.NewChainedPromise()
 	goPromise2, _, goReject2 := js.NewChainedPromise()
 
-	gojaRT.Set("goPromise", adapter.gojaWrapPromise(goPromise2))
+	gojaRT.Set("goPromise", adapter.GojaWrapPromise(goPromise2))
 
 	done := make(chan error, 1)
 	var capturedError interface{}
@@ -334,7 +334,7 @@ func TestIntegration_TypeConversions(t *testing.T) {
 			// Create a promise that resolves with the Go value
 			js := adapter.JS()
 			promise, resolve, _ := js.NewChainedPromise()
-			gojaRT.Set("testPromise", adapter.gojaWrapPromise(promise))
+			gojaRT.Set("testPromise", adapter.GojaWrapPromise(promise))
 
 			done := make(chan string, 1)
 			gojaRT.Set("reportType", func(call goja.FunctionCall) goja.Value {
@@ -469,9 +469,9 @@ func TestIntegration_PromiseAllWithGoPromises(t *testing.T) {
 	p2, resolve2, _ := js.NewChainedPromise()
 	p3, resolve3, _ := js.NewChainedPromise()
 
-	gojaRT.Set("goPromise1", adapter.gojaWrapPromise(p1))
-	gojaRT.Set("goPromise2", adapter.gojaWrapPromise(p2))
-	gojaRT.Set("goPromise3", adapter.gojaWrapPromise(p3))
+	gojaRT.Set("goPromise1", adapter.GojaWrapPromise(p1))
+	gojaRT.Set("goPromise2", adapter.GojaWrapPromise(p2))
+	gojaRT.Set("goPromise3", adapter.GojaWrapPromise(p3))
 
 	done := make(chan interface{}, 1)
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
@@ -547,9 +547,9 @@ func TestIntegration_PromiseRaceWithGoPromises(t *testing.T) {
 	p2, resolve2, _ := js.NewChainedPromise()
 	p3, _, _ := js.NewChainedPromise()
 
-	gojaRT.Set("goPromise1", adapter.gojaWrapPromise(p1))
-	gojaRT.Set("goPromise2", adapter.gojaWrapPromise(p2))
-	gojaRT.Set("goPromise3", adapter.gojaWrapPromise(p3))
+	gojaRT.Set("goPromise1", adapter.GojaWrapPromise(p1))
+	gojaRT.Set("goPromise2", adapter.GojaWrapPromise(p2))
+	gojaRT.Set("goPromise3", adapter.GojaWrapPromise(p3))
 
 	done := make(chan interface{}, 1)
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
@@ -771,7 +771,7 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 	for i := 0; i < numPromises; i++ {
 		p, resolve, _ := js.NewChainedPromise()
 		resolvers[i] = resolve
-		gojaRT.Set(fmt.Sprintf("p%d", i), adapter.gojaWrapPromise(p))
+		gojaRT.Set(fmt.Sprintf("p%d", i), adapter.GojaWrapPromise(p))
 
 		_, err := gojaRT.RunString(fmt.Sprintf(`
 			p%d.then(function(v) {
@@ -840,7 +840,7 @@ func TestIntegration_ErrorRecoveryAndRethrow(t *testing.T) {
 	js := adapter.JS()
 	goPromise, _, goReject := js.NewChainedPromise()
 
-	gojaRT.Set("rejectablePromise", adapter.gojaWrapPromise(goPromise))
+	gojaRT.Set("rejectablePromise", adapter.GojaWrapPromise(goPromise))
 
 	done := make(chan []string, 1)
 	var steps []string

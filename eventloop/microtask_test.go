@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// TestMicrotaskRing_OverflowOrder tests basic overflow functionality
-func TestMicrotaskRing_OverflowOrder(t *testing.T) {
-	tr := NewMicrotaskRing()
+// Test_microtaskRing_OverflowOrder tests basic overflow functionality
+func Test_microtaskRing_OverflowOrder(t *testing.T) {
+	tr := newMicrotaskRing()
 
 	// Fill ring beyond capacity to trigger overflow
 	const ringSize = 4100 // Slightly over 4096
@@ -47,9 +47,9 @@ func TestMicrotaskRing_OverflowOrder(t *testing.T) {
 	t.Logf("Verified overflow: %d tasks all executed correctly", executed)
 }
 
-// TestMicrotaskRing_RingOnly tests ring buffer without overflow
-func TestMicrotaskRing_RingOnly(t *testing.T) {
-	tr := NewMicrotaskRing()
+// Test_microtaskRing_RingOnly tests ring buffer without overflow
+func Test_microtaskRing_RingOnly(t *testing.T) {
+	tr := newMicrotaskRing()
 
 	const tasks = 1000 // Well under 4096 capacity
 
@@ -88,11 +88,11 @@ func TestMicrotaskRing_RingOnly(t *testing.T) {
 	t.Logf("Ring-only test passed: %d tasks", executed)
 }
 
-// TestMicrotaskRing_NoDoubleExecution verifies that no task executes twice
+// Test_microtaskRing_NoDoubleExecution verifies that no task executes twice
 // under concurrent producer/consumer scenarios.
 // Runs with -race detector to verify correctness.
-func TestMicrotaskRing_NoDoubleExecution(t *testing.T) {
-	tr := NewMicrotaskRing()
+func Test_microtaskRing_NoDoubleExecution(t *testing.T) {
+	tr := newMicrotaskRing()
 
 	const numProducers = 8
 	const tasksPerProducer = 1000
@@ -144,12 +144,12 @@ func TestMicrotaskRing_NoDoubleExecution(t *testing.T) {
 	t.Logf("Verified: %d tasks executed exactly once", totalTasks)
 }
 
-// TestMicrotaskRing_NoTailCorruption verifies that overflow buffer prevents
+// Test_microtaskRing_NoTailCorruption verifies that overflow buffer prevents
 // tail corruption when multiple producers fill ring beyond capacity.
 // New design uses mutex-protected overflow instead of complex state transitions.
 // Runs with -race detector to verify correctness.
-func TestMicrotaskRing_NoTailCorruption(t *testing.T) {
-	tr := NewMicrotaskRing()
+func Test_microtaskRing_NoTailCorruption(t *testing.T) {
+	tr := newMicrotaskRing()
 
 	var producers atomic.Int64
 
@@ -205,10 +205,10 @@ func TestMicrotaskRing_NoTailCorruption(t *testing.T) {
 	t.Logf("Successfully drained %d tasks without corruption. No tail issues because overflow uses mutex.", drained.Load())
 }
 
-// TestMicrotaskRing_SharedStress tests ring with concurrent
+// Test_microtaskRing_SharedStress tests ring with concurrent
 // producers and consumers, repeatedly triggering overflow transitions.
-func TestMicrotaskRing_SharedStress(t *testing.T) {
-	tr := NewMicrotaskRing()
+func Test_microtaskRing_SharedStress(t *testing.T) {
+	tr := newMicrotaskRing()
 
 	const numProducers = 8
 	const tasksPerProducer = 5000
@@ -253,7 +253,7 @@ func TestMicrotaskRing_SharedStress(t *testing.T) {
 	t.Logf("Stress test passed: %d tasks processed correctly with overflow", totalTasks)
 }
 
-// TestMicrotaskRing_IsEmpty_BugWhenOverflowNotCompacted proves the fix for
+// Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted proves the fix for
 // the IsEmpty() logic error discovered in review.md.
 //
 // Bug: IsEmpty() was checking len(r.overflow) == 0, but overflow is not
@@ -265,8 +265,8 @@ func TestMicrotaskRing_SharedStress(t *testing.T) {
 // This test creates a scenario where overflow has items, partially drains
 // them (so overflowHead > 0 but len(overflow) > 0), then verifies IsEmpty()
 // returns correct values.
-func TestMicrotaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// 1. Fill the ring buffer completely to force overflow use.
 	// Ring capacity is 1024 (1 << 10). Fill it completely.

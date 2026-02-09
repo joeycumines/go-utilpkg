@@ -30,8 +30,8 @@ This document describes the internal architecture of the `eventloop` package.
 │  └────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  ┌─────────────┐     ┌─────────────────┐     ┌─────────────────────────┐   │
-│  │ MicrotaskRing│     │ Internal Queue │     │    Promise Registry    │   │
-│  │ (lock-free) │     │ (ChunkedIngress)│     │   (weak refs + GC)     │   │
+│  │microtaskRing │     │ Internal Queue │     │    Promise Registry    │   │
+│  │ (lock-free) │     │(chunkedIngress) │     │   (weak refs + GC)     │   │
 │  └─────────────┘     └─────────────────┘     └─────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -151,8 +151,8 @@ fast path that achieves ~50ns wakeup latency instead of ~10µs with kqueue/epoll
 | ChainedPromise.Then/Catch/Finally | ✅ Safe | Any goroutine |
 | resolve/reject functions | ✅ Safe | Any goroutine |
 | Callback execution | ⚠️ Loop thread only | Single consumer |
-| MicrotaskRing | ✅ Lock-free | MPSC pattern |
-| ChunkedIngress | ❌ External mutex | Mutex-protected |
+| microtaskRing | ✅ Lock-free | MPSC pattern |
+| chunkedIngress | ❌ External mutex | Mutex-protected |
 
 ## State Machine
 
@@ -266,14 +266,14 @@ Features:
 │  [256]func() batchBuf      - Task execution buffer             │
 │  time.Time tickAnchor      - Monotonic time reference          │
 │  *registry                 - Promise weak reference storage    │
-│  *FastState                - Cache-line padded state           │
-│  *ChunkedIngress external  - External task queue               │
-│  *ChunkedIngress internal  - Internal priority queue           │
-│  *MicrotaskRing            - Lock-free microtask buffer        │
+│  *fastState                - Cache-line padded state           │
+│  *chunkedIngress external  - External task queue               │
+│  *chunkedIngress internal  - Internal priority queue           │
+│  *microtaskRing            - Lock-free microtask buffer        │
 │  chan struct{} fastWakeup  - Fast path wakeup channel          │
 │  map[TimerID]*timer        - Timer lookup table                │
 │  timerHeap                 - Min-heap for timer ordering       │
-│  FastPoller                - Platform I/O poller               │
+│  fastPoller                - Platform I/O poller               │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -283,7 +283,7 @@ Features:
 |-----------|-------------|-------|
 | Timer schedule | ~7 allocs | Result channel, closures |
 | Microtask queue | 0 allocs | Ring buffer, steady state |
-| ChunkedIngress push | 0 allocs | Chunk pooling |
+| Chunked ingress push | 0 allocs | Chunk pooling |
 | Submit (fast path) | <2 allocs | Slice growth amortized |
 | Promise create | ~3 allocs | Promise struct, closures |
 
@@ -303,11 +303,11 @@ Features:
 
 ## Queue System
 
-### ChunkedIngress (External/Internal Queues)
+### Chunked Ingress Queue (External/Internal Queues)
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  ChunkedIngress - Chunked Linked-List Queue                    │
+│  chunkedIngress - Chunked Linked-List Queue                    │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
 │  head ──▶ [chunk 0: 64 tasks] ──▶ [chunk 1] ──▶ [chunk 2]     │
@@ -324,11 +324,11 @@ Features:
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### MicrotaskRing (Lock-Free Ring Buffer)
+### Microtask Ring Buffer (Lock-Free)
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  MicrotaskRing - Lock-Free MPSC Ring Buffer                    │
+│  microtaskRing - Lock-Free MPSC Ring Buffer                    │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
 │  [4096 slots] with sequence numbers for ABA prevention         │
@@ -417,11 +417,11 @@ if nestingDepth > 5 && delay < 4*time.Millisecond {
 ### Unhandled Rejection Detection
 
 ```
-1. Promise rejected ──▶ trackRejection(promiseID, reason)
+1. Promise rejected ──▶ trackRejection(p, reason)    // p is *ChainedPromise
 2. Store in unhandledRejections map
 3. Schedule checkUnhandledRejections microtask
 4. Meanwhile, if .catch() attached:
-   - Set promiseHandlers[promiseID] = true
+   - Set promiseHandlers[p] = true
    - Signal via handlerReadyChans
 5. checkUnhandledRejections runs:
    - If handler exists: remove from tracking (handled)

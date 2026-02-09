@@ -146,7 +146,7 @@ func BenchmarkTimerHeapOperations(b *testing.B) {
 // ============================================================================
 
 // BenchmarkMicrotaskSchedule measures microtask scheduling throughput.
-// Expected: ~0 allocs/op for MicrotaskRing fast path.
+// Expected: ~0 allocs/op for microtaskRing fast path.
 func BenchmarkMicrotaskSchedule(b *testing.B) {
 	loop, err := New()
 	if err != nil {
@@ -196,10 +196,10 @@ func BenchmarkMicrotaskSchedule_Parallel(b *testing.B) {
 	cancel()
 }
 
-// BenchmarkMicrotaskRing_PushPop measures raw ring buffer performance.
+// Benchmark_microtaskRing_PushPop measures raw ring buffer performance.
 // Expected: 0 allocs/op in steady state (ring not overflowing).
-func BenchmarkMicrotaskRing_PushPop(b *testing.B) {
-	ring := NewMicrotaskRing()
+func Benchmark_microtaskRing_PushPop(b *testing.B) {
+	ring := newMicrotaskRing()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -210,9 +210,9 @@ func BenchmarkMicrotaskRing_PushPop(b *testing.B) {
 	}
 }
 
-// BenchmarkMicrotaskRing_Push measures push-only throughput.
-func BenchmarkMicrotaskRing_Push(b *testing.B) {
-	ring := NewMicrotaskRing()
+// Benchmark_microtaskRing_Push measures push-only throughput.
+func Benchmark_microtaskRing_Push(b *testing.B) {
+	ring := newMicrotaskRing()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -222,10 +222,10 @@ func BenchmarkMicrotaskRing_Push(b *testing.B) {
 	}
 }
 
-// BenchmarkMicrotaskRing_Parallel measures MPSC contention.
+// Benchmark_microtaskRing_Parallel measures MPSC contention.
 // Multiple producers, single consumer (typical event loop model).
-func BenchmarkMicrotaskRing_Parallel(b *testing.B) {
-	ring := NewMicrotaskRing()
+func Benchmark_microtaskRing_Parallel(b *testing.B) {
+	ring := newMicrotaskRing()
 
 	// Start consumer goroutine
 	done := make(chan struct{})
@@ -567,10 +567,10 @@ func BenchmarkSubmitExecution(b *testing.B) {
 // SECTION 5: CHUNKED INGRESS BENCHMARKS
 // ============================================================================
 
-// BenchmarkChunkedIngress_Sequential measures push/pop throughput.
+// Benchmark_chunkedIngress_Sequential measures push/pop throughput.
 // Expected: ~0 allocs/op in steady state due to chunk pooling.
-func BenchmarkChunkedIngress_Sequential(b *testing.B) {
-	q := NewChunkedIngress()
+func Benchmark_chunkedIngress_Sequential(b *testing.B) {
+	q := newChunkedIngress()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -581,9 +581,9 @@ func BenchmarkChunkedIngress_Sequential(b *testing.B) {
 	}
 }
 
-// BenchmarkChunkedIngress_Batch measures batched operations.
-func BenchmarkChunkedIngress_Batch(b *testing.B) {
-	q := NewChunkedIngress()
+// Benchmark_chunkedIngress_Batch measures batched operations.
+func Benchmark_chunkedIngress_Batch(b *testing.B) {
+	q := newChunkedIngress()
 	const batchSize = 100
 
 	b.ReportAllocs()
@@ -723,15 +723,15 @@ func TestAllocProfile_TimerSchedule(t *testing.T) {
 	}
 }
 
-// TestAllocProfile_MicrotaskRing documents ring buffer allocations.
+// TestAllocProfile_microtaskRing documents ring buffer allocations.
 //
 // Allocation Sources (steady state):
 // - Ring buffer slots: 0 allocs (pre-allocated)
 // - Overflow: 0 allocs when not triggered
 //
-// VERIFIED: MicrotaskRing achieves 0 allocs/op in steady state (ring not full).
-func TestAllocProfile_MicrotaskRing(t *testing.T) {
-	ring := NewMicrotaskRing()
+// VERIFIED: microtaskRing achieves 0 allocs/op in steady state (ring not full).
+func TestAllocProfile_microtaskRing(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Warm up
 	for i := 0; i < 1000; i++ {
@@ -745,23 +745,23 @@ func TestAllocProfile_MicrotaskRing(t *testing.T) {
 		ring.Pop()
 	})
 
-	t.Logf("ALLOCATION PROFILE: MicrotaskRing push+pop: %.2f allocs/op", allocs)
+	t.Logf("ALLOCATION PROFILE: microtaskRing push+pop: %.2f allocs/op", allocs)
 
 	// Ring buffer MUST be zero-alloc in steady state
 	if allocs > 0 {
-		t.Errorf("MicrotaskRing allocation regression: %.2f/op (expected 0)", allocs)
+		t.Errorf("microtaskRing allocation regression: %.2f/op (expected 0)", allocs)
 	}
 }
 
-// TestAllocProfile_ChunkedIngress documents ChunkedIngress allocations.
+// TestAllocProfile_chunkedIngress documents chunkedIngress allocations.
 //
 // Allocation Sources (steady state):
 // - Chunk pool: 0 allocs (pooled)
 // - Task slots: 0 allocs (pre-allocated in chunk)
 //
-// VERIFIED: ChunkedIngress achieves 0 allocs/op in steady state.
-func TestAllocProfile_ChunkedIngress(t *testing.T) {
-	q := NewChunkedIngress()
+// VERIFIED: chunkedIngress achieves 0 allocs/op in steady state.
+func TestAllocProfile_chunkedIngress(t *testing.T) {
+	q := newChunkedIngress()
 
 	// Warm up chunk pool
 	for i := 0; i < 1000; i++ {
@@ -775,11 +775,11 @@ func TestAllocProfile_ChunkedIngress(t *testing.T) {
 		q.Pop()
 	})
 
-	t.Logf("ALLOCATION PROFILE: ChunkedIngress push+pop: %.2f allocs/op", allocs)
+	t.Logf("ALLOCATION PROFILE: chunkedIngress push+pop: %.2f allocs/op", allocs)
 
 	// Chunk pool MUST be zero-alloc in steady state
 	if allocs > 0 {
-		t.Errorf("ChunkedIngress allocation regression: %.2f/op (expected 0)", allocs)
+		t.Errorf("chunkedIngress allocation regression: %.2f/op (expected 0)", allocs)
 	}
 }
 
@@ -827,7 +827,7 @@ func TestAllocProfile_SubmitFastPath(t *testing.T) {
 // TestAllocProfile_ScheduleMicrotask documents ScheduleMicrotask allocations.
 //
 // Allocation Sources:
-// - MicrotaskRing.Push: 0 allocs (ring buffer)
+// - microtaskRing.Push: 0 allocs (ring buffer)
 // - Mutex lock/unlock: 0 allocs
 //
 // DOCUMENTED: ScheduleMicrotask may have small allocations from locking.
@@ -1054,7 +1054,7 @@ func BenchmarkHighContention(b *testing.B) {
 
 // BenchmarkMicrotaskOverflow measures performance when ring overflows.
 func BenchmarkMicrotaskOverflow(b *testing.B) {
-	ring := NewMicrotaskRing()
+	ring := newMicrotaskRing()
 
 	// Force overflow by filling ring
 	for i := 0; i < ringBufferSize+1000; i++ {

@@ -578,16 +578,16 @@ func TestPerformance_MeasureUsesLatestMark(t *testing.T) {
 	}
 }
 
-// TestPerformanceObserver_Basic tests basic observer functionality.
-func TestPerformanceObserver_Basic(t *testing.T) {
+// Test_performanceObserver_Basic tests basic observer functionality.
+func Test_performanceObserver_Basic(t *testing.T) {
 	perf := NewPerformance()
 
 	var observedEntries []PerformanceEntry
-	observer := NewPerformanceObserver(perf, func(entries []PerformanceEntry, obs *PerformanceObserver) {
+	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {
 		observedEntries = append(observedEntries, entries...)
 	})
 
-	observer.Observe(PerformanceObserverOptions{
+	observer.Observe(performanceObserverOptions{
 		EntryTypes: []string{"mark"},
 		Buffered:   true,
 	})
@@ -598,12 +598,12 @@ func TestPerformanceObserver_Basic(t *testing.T) {
 	}
 }
 
-// TestPerformanceObserver_Disconnect tests observer disconnect.
-func TestPerformanceObserver_Disconnect(t *testing.T) {
+// Test_performanceObserver_Disconnect tests observer disconnect.
+func Test_performanceObserver_Disconnect(t *testing.T) {
 	perf := NewPerformance()
 
-	observer := NewPerformanceObserver(perf, func(entries []PerformanceEntry, obs *PerformanceObserver) {})
-	observer.Observe(PerformanceObserverOptions{
+	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {})
+	observer.Observe(performanceObserverOptions{
 		EntryTypes: []string{"mark", "measure"},
 	})
 
@@ -612,12 +612,12 @@ func TestPerformanceObserver_Disconnect(t *testing.T) {
 	// Should not panic
 }
 
-// TestPerformanceObserver_TakeRecords tests taking records.
-func TestPerformanceObserver_TakeRecords(t *testing.T) {
+// Test_performanceObserver_TakeRecords tests taking records.
+func Test_performanceObserver_TakeRecords(t *testing.T) {
 	perf := NewPerformance()
 
-	observer := NewPerformanceObserver(perf, func(entries []PerformanceEntry, obs *PerformanceObserver) {})
-	observer.Observe(PerformanceObserverOptions{
+	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {})
+	observer.Observe(performanceObserverOptions{
 		EntryTypes: []string{"mark"},
 	})
 

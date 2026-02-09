@@ -292,7 +292,7 @@ func TestNew_WithMetrics(t *testing.T) {
 	}
 
 	if loop1.tpsCounter != nil {
-		t.Error("TPSCounter should be nil when metrics disabled")
+		t.Error("tpsCounter should be nil when metrics disabled")
 	}
 
 	// With metrics
@@ -307,7 +307,7 @@ func TestNew_WithMetrics(t *testing.T) {
 	}
 
 	if loop2.tpsCounter == nil {
-		t.Error("TPSCounter should not be nil when metrics enabled")
+		t.Error("tpsCounter should not be nil when metrics enabled")
 	}
 }
 

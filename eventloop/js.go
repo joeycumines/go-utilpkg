@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"weak"
 )
 
 // maxSafeInteger is `2^53 - 1`, the maximum safe integer in JavaScript
@@ -60,7 +61,7 @@ func WithUnhandledRejection(handler RejectionHandler) JSOption {
 type intervalState struct {
 
 	// Pointer fields last (all require 8-byte alignment)
-	fn      SetTimeoutFunc
+	fn      setTimeoutFunc
 	wrapper func()
 	js      *JS
 
@@ -104,10 +105,12 @@ type JS struct {
 	unhandledCallback   RejectionHandler
 	loop                *Loop
 	intervals           map[uint64]*intervalState
-	unhandledRejections map[uint64]*rejectionInfo
-	promiseHandlers     map[uint64]bool
+	unhandledRejections map[*ChainedPromise]*rejectionInfo
+	promiseHandlers     map[*ChainedPromise]bool
 	setImmediateMap     map[uint64]*setImmediateState
-	handlerReadyChans   map[uint64]chan struct{}
+	handlerReadyChans   map[*ChainedPromise]chan struct{}
+	debugStacks         map[weak.Pointer[ChainedPromise]][]uintptr
+	toChannels          map[*ChainedPromise][]chan Result
 
 	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
@@ -118,6 +121,8 @@ type JS struct {
 	setImmediateMu    sync.RWMutex
 	mu                sync.Mutex
 	handlerReadyMu    sync.Mutex
+	debugStacksMu     sync.Mutex
+	toChannelsMu      sync.Mutex
 
 	// Atomic counters and flags
 	nextImmediateID         atomic.Uint64
@@ -127,15 +132,15 @@ type JS struct {
 
 // setImmediateState tracks a single setImmediate callback
 type setImmediateState struct {
-	fn      SetTimeoutFunc
+	fn      setTimeoutFunc
 	js      *JS
 	id      uint64
 	cleared atomic.Bool // CAS flag for "was cleared"
 }
 
-// SetTimeoutFunc is a callback function for [JS.SetTimeout] and [JS.SetInterval].
+// setTimeoutFunc is a callback function for [JS.SetTimeout] and [JS.SetInterval].
 // The callback is always invoked on the event loop thread.
-type SetTimeoutFunc func()
+type setTimeoutFunc func()
 
 // NewJS creates a new [JS] adapter for the given event loop.
 //
@@ -167,10 +172,12 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 	js := &JS{
 		loop:                loop,
 		intervals:           make(map[uint64]*intervalState),
-		unhandledRejections: make(map[uint64]*rejectionInfo),
-		promiseHandlers:     make(map[uint64]bool),
+		unhandledRejections: make(map[*ChainedPromise]*rejectionInfo),
+		promiseHandlers:     make(map[*ChainedPromise]bool),
 		setImmediateMap:     make(map[uint64]*setImmediateState),
-		handlerReadyChans:   make(map[uint64]chan struct{}),
+		handlerReadyChans:   make(map[*ChainedPromise]chan struct{}),
+		debugStacks:         make(map[weak.Pointer[ChainedPromise]][]uintptr),
+		toChannels:          make(map[*ChainedPromise][]chan Result),
 	}
 
 	// ID Separation: SetImmediates start at high IDs to prevent collision
@@ -192,6 +199,26 @@ func (js *JS) Loop() *Loop {
 	return js.loop
 }
 
+// notifyToChannels writes the result to all channels registered for the given promise
+// in the toChannels side table, then removes the entry. This is called synchronously
+// from resolve/reject while holding p.mu, ensuring ToChannel works without the
+// microtask queue (i.e., even when the event loop is not running).
+//
+// Lock ordering: caller holds p.mu, this method acquires js.toChannelsMu.
+func (js *JS) notifyToChannels(p *ChainedPromise, result Result) {
+	js.toChannelsMu.Lock()
+	channels, ok := js.toChannels[p]
+	if ok {
+		delete(js.toChannels, p)
+	}
+	js.toChannelsMu.Unlock()
+
+	for _, ch := range channels {
+		ch <- result
+		close(ch)
+	}
+}
+
 // SetTimeout schedules a function to run after a delay, following JavaScript setTimeout semantics.
 //
 // Parameters:
@@ -205,7 +232,7 @@ func (js *JS) Loop() *Loop {
 // The callback will execute on the event loop thread. If the delay is 0,
 // the callback is still scheduled (not executed synchronously) but will
 // run after all pending microtasks are processed.
-func (js *JS) SetTimeout(fn SetTimeoutFunc, delayMs int) (uint64, error) {
+func (js *JS) SetTimeout(fn setTimeoutFunc, delayMs int) (uint64, error) {
 	if fn == nil {
 		return 0, nil
 	}
@@ -249,7 +276,7 @@ func (js *JS) ClearTimeout(id uint64) error {
 // The callback will continue to fire at the specified interval until
 // [JS.ClearInterval] is called with the returned ID. Each execution
 // is scheduled after the previous one completes.
-func (js *JS) SetInterval(fn SetTimeoutFunc, delayMs int) (uint64, error) {
+func (js *JS) SetInterval(fn setTimeoutFunc, delayMs int) (uint64, error) {
 	if fn == nil {
 		return 0, nil
 	}
@@ -439,9 +466,9 @@ func (js *JS) ClearInterval(id uint64) error {
 	return nil
 }
 
-// MicrotaskFunc is a callback function for [JS.QueueMicrotask].
+// microtaskFunc is a callback function for [JS.QueueMicrotask].
 // The callback is always invoked on the event loop thread.
-type MicrotaskFunc func()
+type microtaskFunc func()
 
 // QueueMicrotask schedules a microtask to run before any pending timer callbacks.
 //
@@ -451,14 +478,12 @@ type MicrotaskFunc func()
 //
 // This follows the JavaScript queueMicrotask semantics and is used internally
 // by the Promise implementation for then/catch/finally handlers.
-func (js *JS) QueueMicrotask(fn MicrotaskFunc) error {
+func (js *JS) QueueMicrotask(fn microtaskFunc) error {
 	if fn == nil {
 		return nil
 	}
 
-	return js.loop.ScheduleMicrotask(func() {
-		fn()
-	})
+	return js.loop.ScheduleMicrotask(fn)
 }
 
 // getDelay returns the delay as time.Duration for scheduling.
@@ -476,7 +501,7 @@ func (s *intervalState) getDelay() time.Duration {
 // Returns:
 //   - ID that can be passed to [JS.ClearImmediate] to cancel
 //   - Error if the loop is shutting down or all immediate IDs have been exhausted
-func (js *JS) SetImmediate(fn SetTimeoutFunc) (uint64, error) {
+func (js *JS) SetImmediate(fn setTimeoutFunc) (uint64, error) {
 	if fn == nil {
 		return 0, nil
 	}

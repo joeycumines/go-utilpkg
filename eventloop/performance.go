@@ -441,23 +441,23 @@ func (p *Performance) ToJSON() map[string]any {
 	}
 }
 
-// PerformanceObserver observes performance entries and invokes callbacks.
+// performanceObserver observes performance entries and invokes callbacks.
 //
 // This implementation follows the PerformanceObserver interface from the
 // Performance Timeline Level 2 spec.
-type PerformanceObserver struct { //nolint:govet // betteralign:ignore
+type performanceObserver struct { //nolint:govet // betteralign:ignore
 	buffered   []PerformanceEntry
-	callback   PerformanceObserverCallback
+	callback   performanceObserverCallback
 	entryTypes map[string]bool
 	perf       *Performance
 	mu         sync.Mutex
 }
 
-// PerformanceObserverCallback is invoked when new performance entries are recorded.
-type PerformanceObserverCallback func(entries []PerformanceEntry, observer *PerformanceObserver)
+// performanceObserverCallback is invoked when new performance entries are recorded.
+type performanceObserverCallback func(entries []PerformanceEntry, observer *performanceObserver)
 
-// PerformanceObserverOptions specifies which entry types to observe.
-type PerformanceObserverOptions struct {
+// performanceObserverOptions specifies which entry types to observe.
+type performanceObserverOptions struct {
 	// EntryTypes is a list of entry types to observe (e.g., ["mark", "measure"]).
 	EntryTypes []string
 
@@ -465,13 +465,13 @@ type PerformanceObserverOptions struct {
 	Buffered bool
 }
 
-// NewPerformanceObserver creates a new PerformanceObserver.
+// newPerformanceObserver creates a new performanceObserver.
 //
 // Parameters:
 //   - perf: The Performance object to observe
 //   - callback: Function to call when new entries are recorded
-func NewPerformanceObserver(perf *Performance, callback PerformanceObserverCallback) *PerformanceObserver {
-	return &PerformanceObserver{
+func newPerformanceObserver(perf *Performance, callback performanceObserverCallback) *performanceObserver {
+	return &performanceObserver{
 		perf:       perf,
 		callback:   callback,
 		entryTypes: make(map[string]bool),
@@ -482,7 +482,7 @@ func NewPerformanceObserver(perf *Performance, callback PerformanceObserverCallb
 //
 // Parameters:
 //   - options: Specifies which entry types to observe
-func (o *PerformanceObserver) Observe(options PerformanceObserverOptions) {
+func (o *performanceObserver) Observe(options performanceObserverOptions) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -510,7 +510,7 @@ func (o *PerformanceObserver) Observe(options PerformanceObserverOptions) {
 }
 
 // Disconnect stops observing performance entries.
-func (o *PerformanceObserver) Disconnect() {
+func (o *performanceObserver) Disconnect() {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -519,7 +519,7 @@ func (o *PerformanceObserver) Disconnect() {
 }
 
 // TakeRecords returns all recorded entries and clears the buffer.
-func (o *PerformanceObserver) TakeRecords() []PerformanceEntry {
+func (o *performanceObserver) TakeRecords() []PerformanceEntry {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 

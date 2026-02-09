@@ -13,9 +13,9 @@ import (
 // Maximum file descriptor we support with direct indexing.
 const maxFDs = 65536
 
-// MaxFDLimit is the maximum FD value we support for dynamic growth.
+// maxFDLimit is the maximum FD value we support for dynamic growth.
 // 100M is enough for production with ulimit -n > 1M.
-const MaxFDLimit = 100000000
+const maxFDLimit = 100000000
 
 // IOEvents represents the type of I/O events to monitor.
 type IOEvents uint32
@@ -34,17 +34,17 @@ var (
 	ErrPollerClosed        = errors.New("eventloop: poller closed")
 )
 
-// IOCallback is the callback type for I/O events.
-type IOCallback func(IOEvents)
+// ioCallback is the callback type for I/O events.
+type ioCallback func(IOEvents)
 
 // fdInfo stores per-FD callback information.
 type fdInfo struct {
-	callback IOCallback
+	callback ioCallback
 	events   IOEvents
 	active   bool
 }
 
-// FastPoller manages I/O event registration using kqueue (Darwin).
+// fastPoller manages I/O event registration using kqueue (Darwin).
 //
 // PERFORMANCE: Uses RWMutex for fdInfo access. The mutex is only held briefly
 // during registration/callback dispatch. The polling syscall itself is lock-free.
@@ -53,7 +53,7 @@ type fdInfo struct {
 // CACHE LINE PADDING: Padding fields (marked with //nolint:unused) isolate
 // frequently-accessed fields (kq, closed) to reduce false sharing across cache lines.
 // The betteralign tool ensures correct cache line alignment during struct layout optimization.
-type FastPoller struct { // betteralign:ignore
+type fastPoller struct { // betteralign:ignore
 	_        [sizeOfCacheLine]byte     // Cache line padding before kq (isolates from previous fields) //nolint:unused
 	kq       int32                     // kqueue file descriptor
 	_        [sizeOfCacheLine - 4]byte // Padding to isolate eventBuf from isolated field //nolint:unused
@@ -65,7 +65,7 @@ type FastPoller struct { // betteralign:ignore
 }
 
 // Init initializes the kqueue instance.
-func (p *FastPoller) Init() error {
+func (p *fastPoller) Init() error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
@@ -83,7 +83,7 @@ func (p *FastPoller) Init() error {
 }
 
 // Close closes the kqueue instance.
-func (p *FastPoller) Close() error {
+func (p *fastPoller) Close() error {
 	if p.closed.Swap(true) {
 		// Already closed, return nil for idempotent behavior
 		return nil
@@ -103,26 +103,26 @@ func (p *FastPoller) Close() error {
 // NOTE: This method should never be called on Darwin/Linux under normal
 // operation. The loop.go submitWakeup() function checks wakePipe < 0 and
 // writes to the wake pipe for Unix platforms instead of calling Wakeup().
-func (p *FastPoller) Wakeup() error {
+func (p *fastPoller) Wakeup() error {
 	// Darwin: Write to wake pipe in submitWakeup()
 	// This stub exists for API compatibility with Windows
 	return nil
 }
 
 // RegisterFD registers a file descriptor for I/O event monitoring.
-func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
+func (p *fastPoller) RegisterFD(fd int, events IOEvents, cb ioCallback) error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
-	if fd < 0 || fd >= MaxFDLimit {
+	if fd < 0 || fd >= maxFDLimit {
 		return ErrFDOutOfRange
 	}
 
 	p.fdMu.Lock()
 	if fd >= len(p.fds) {
 		newSize := fd*2 + 1
-		if newSize > MaxFDLimit {
-			newSize = MaxFDLimit + 1
+		if newSize > maxFDLimit {
+			newSize = maxFDLimit + 1
 		}
 		newFds := make([]fdInfo, newSize)
 		copy(newFds, p.fds)
@@ -170,7 +170,7 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 //  2. Callbacks must guard against accessing closed FDs
 //
 // This is the correct implementation for high-performance I/O multiplexing.
-func (p *FastPoller) UnregisterFD(fd int) error {
+func (p *fastPoller) UnregisterFD(fd int) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
 	}
@@ -195,7 +195,7 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 }
 
 // ModifyFD updates the events being monitored for a file descriptor.
-func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
+func (p *fastPoller) ModifyFD(fd int, events IOEvents) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
 	}
@@ -229,7 +229,7 @@ func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
 }
 
 // PollIO polls for I/O events.
-func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
+func (p *fastPoller) PollIO(timeoutMs int) (int, error) {
 	if p.closed.Load() {
 		return 0, ErrPollerClosed
 	}
@@ -258,7 +258,7 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 // dispatchEvents executes callbacks inline.
 // RACE SAFETY: Uses RLock to safely read fdInfo while allowing concurrent
 // modifications to other fds. Callback is copied under lock then called outside.
-func (p *FastPoller) dispatchEvents(n int) {
+func (p *fastPoller) dispatchEvents(n int) {
 	for i := 0; i < n; i++ {
 		fd := int(p.eventBuf[i].Ident)
 		if fd < 0 {

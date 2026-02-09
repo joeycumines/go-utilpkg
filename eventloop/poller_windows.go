@@ -14,9 +14,9 @@ import (
 // Maximum file descriptor we support with direct indexing.
 const maxFDs = 65536
 
-// MaxFDLimit is the maximum FD value we support for dynamic growth.
+// maxFDLimit is the maximum FD value we support for dynamic growth.
 // 100M is enough for production with high FD limits.
-const MaxFDLimit = 100000000
+const maxFDLimit = 100000000
 
 // IOEvents represents the type of I/O events to monitor.
 type IOEvents uint32
@@ -36,12 +36,12 @@ var (
 	ErrPollerAlreadyInitialized = errors.New("eventloop: poller already initialized")
 )
 
-// IOCallback is the callback type for I/O events.
-type IOCallback func(IOEvents)
+// ioCallback is the callback type for I/O events.
+type ioCallback func(IOEvents)
 
 // fdInfo stores per-FD callback information.
 type fdInfo struct {
-	callback IOCallback
+	callback ioCallback
 	events   IOEvents
 	active   bool
 }
@@ -53,7 +53,7 @@ type fdInfo struct {
 // the key back, which tells us which FD completed the operation.
 // This is the standard, correct pattern for IOCP when handle==FD mapping is valid.
 
-// FastPoller manages I/O event registration using IOCP (Windows).
+// fastPoller manages I/O event registration using IOCP (Windows).
 //
 // PERFORMANCE: Uses RWMutex for fdInfo access. The mutex is only held briefly
 // during registration/callback dispatch. Uses IOCP for efficient I/O notification.
@@ -67,7 +67,7 @@ type fdInfo struct {
 // frequently-accessed fields (iocp, closed, initialized) to reduce false sharing
 // across cache lines. The betteralign tool ensures correct cache line alignment during
 // struct layout optimization.
-type FastPoller struct { // betteralign:ignore
+type fastPoller struct { // betteralign:ignore
 	_           [sizeOfCacheLine]byte     // Cache line padding before iocp (isolates from previous fields) //nolint:unused
 	iocp        windows.Handle            // IOCP handle
 	_           [sizeOfCacheLine - 8]byte // Padding to isolate fds from isolated field //nolint:unused
@@ -80,7 +80,7 @@ type FastPoller struct { // betteralign:ignore
 }
 
 // Init initializes the IOCP instance.
-func (p *FastPoller) Init() error {
+func (p *fastPoller) Init() error {
 	// Prevent double-initialization (would leak IOCP handle)
 	if p.initialized.Load() {
 		return ErrPollerAlreadyInitialized
@@ -103,7 +103,7 @@ func (p *FastPoller) Init() error {
 }
 
 // Close closes the IOCP instance and associated resources.
-func (p *FastPoller) Close() error {
+func (p *fastPoller) Close() error {
 	if !p.initialized.Load() {
 		return nil // Never initialized, nothing to close
 	}
@@ -133,14 +133,14 @@ func (p *FastPoller) Close() error {
 // LIMITATION: This implementation only supports socket handles that have
 // 1:1 mapping between FD int and windows.Handle. For pipes, files, or
 // other handle types, use platform-specific handle extraction and conversion.
-func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
+func (p *fastPoller) RegisterFD(fd int, events IOEvents, cb ioCallback) error {
 	if !p.initialized.Load() {
 		return ErrPollerClosed
 	}
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
-	if fd < 0 || fd >= MaxFDLimit {
+	if fd < 0 || fd >= maxFDLimit {
 		return ErrFDOutOfRange
 	}
 
@@ -149,8 +149,8 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 
 	if fd >= len(p.fds) {
 		newSize := fd*2 + 1
-		if newSize > MaxFDLimit {
-			newSize = MaxFDLimit + 1
+		if newSize > maxFDLimit {
+			newSize = maxFDLimit + 1
 		}
 		newFds := make([]fdInfo, newSize)
 		copy(newFds, p.fds)
@@ -195,7 +195,7 @@ func (p *FastPoller) RegisterFD(fd int, events IOEvents, cb IOCallback) error {
 //  2. Callbacks must guard against accessing closed FDs
 //
 // This is the correct implementation for high-performance I/O multiplexing.
-func (p *FastPoller) UnregisterFD(fd int) error {
+func (p *fastPoller) UnregisterFD(fd int) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
 	}
@@ -230,7 +230,7 @@ func (p *FastPoller) UnregisterFD(fd int) error {
 //
 // This differs from epoll/kqueue but is correct for IOCP architecture.
 // Cross-platform code must handle this semantic difference.
-func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
+func (p *fastPoller) ModifyFD(fd int, events IOEvents) error {
 	if fd < 0 {
 		return ErrFDOutOfRange
 	}
@@ -264,7 +264,7 @@ func (p *FastPoller) ModifyFD(fd int, events IOEvents) error {
 // 2. Key parameter contains FD (passed as completion key in RegisterFD)
 // 3. Overlapped contains operation-specific data (unused in simple case)
 // 4. Bytes contains number of bytes transferred
-func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
+func (p *fastPoller) PollIO(timeoutMs int) (int, error) {
 	if !p.initialized.Load() {
 		return 0, ErrPollerClosed
 	}
@@ -310,7 +310,7 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 // modifications to other fds. Callback is copied under lock then called outside.
 //
 // This matches the pattern used by darwin (kqueue) and linux (epoll) pollers.
-func (p *FastPoller) dispatchEvents(fd int) int {
+func (p *fastPoller) dispatchEvents(fd int) int {
 	if fd < 0 {
 		return 0
 	}
@@ -338,7 +338,7 @@ func (p *FastPoller) dispatchEvents(fd int) int {
 // Uses PostQueuedCompletionStatus to post a NULL completion to IOCP.
 // This causes GetQueuedCompletionStatus to return immediately with
 // overlapped==nil, triggering wake-up condition in PollIO.
-func (p *FastPoller) Wakeup() error {
+func (p *fastPoller) Wakeup() error {
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
@@ -347,6 +347,6 @@ func (p *FastPoller) Wakeup() error {
 
 // IocpHandle returns the handle for external use (e.g., wake-up mechanism).
 // This is needed by loop.go's submitWakeup() on Windows.
-func (p *FastPoller) IocpHandle() uintptr {
+func (p *fastPoller) IocpHandle() uintptr {
 	return uintptr(p.iocp)
 }

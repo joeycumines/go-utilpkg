@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// TestTPSCounter_ConcurrentRotation tests TPS counter under high contention.
+// Test_tpsCounter_ConcurrentRotation tests TPS counter under high contention.
 // Verify: lastRotation race condition is fixed (issue 7.E.2.1)
-func TestTPSCounter_ConcurrentRotation(t *testing.T) {
-	tps := NewTPSCounter(10*time.Second, 100*time.Millisecond)
+func Test_tpsCounter_ConcurrentRotation(t *testing.T) {
+	tps := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// High contention test to trigger rotate() race condition
 	var wg sync.WaitGroup

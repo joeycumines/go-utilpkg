@@ -359,7 +359,7 @@ func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 // TestRegression_ChunkPooling verifies that ingress chunks are pooled
 // and reused rather than being GC'd.
 func TestRegression_ChunkPooling(t *testing.T) {
-	queue := NewChunkedIngress()
+	queue := newChunkedIngress()
 
 	// Push enough tasks to create multiple chunks
 	for i := 0; i < 256; i++ {
@@ -453,11 +453,11 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 
 // --- T11: Queue Memory Lifecycle Test ---
 
-// TestRegression_QueueMemoryLifecycle verifies that the ChunkedIngress queue properly
+// TestRegression_QueueMemoryLifecycle verifies that the chunkedIngress queue properly
 // manages task references to prevent memory leaks.
 func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	// Test verifies queue properly handles push/pop cycles without issues
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 
 	// Push and pop tasks to exercise queue lifecycle over multiple cycles
 	for cycle := 0; cycle < 10; cycle++ {

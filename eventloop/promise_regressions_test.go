@@ -56,7 +56,7 @@ func TestMemoryLeakProof_HandlerLeak_SuccessPath(t *testing.T) {
 		resolves = append(resolves, resolve)
 
 		// Attach catch handler - this adds entry to promiseHandlers map
-		// The map promiseHandlers[id] = true indicates this promise has
+		// The map promiseHandlers[p] = true indicates this promise has
 		// a rejection handler attached
 		p.Catch(func(r Result) Result {
 			return r
@@ -125,7 +125,6 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriber(t *testing.T) {
 
 	// Create and resolve a promise immediately
 	p := js.Resolve("already-settled")
-	promiseID := p.getID()
 
 	// Run microtasks to ensure the promise is fully settled
 	loop.tick()
@@ -143,15 +142,15 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriber(t *testing.T) {
 	runtime.GC()
 	runtime.GC()
 
-	// Verify promiseHandlers does NOT contain p.id
+	// Verify promiseHandlers does NOT contain promise pointer
 	// Retroactive cleanup in then() should have removed it immediately
 	js.promiseHandlersMu.RLock()
-	_, exists := js.promiseHandlers[promiseID]
+	_, exists := js.promiseHandlers[p]
 	js.promiseHandlersMu.RUnlock()
 
 	if exists {
-		t.Fatalf("Memory Leak: promiseHandlers still contains ID %d after late Catch() on fulfilled promise. "+
-			"Retroactive cleanup failed.", promiseID)
+		t.Fatalf("Memory Leak: promiseHandlers still contains promise %p after late Catch() on fulfilled promise. "+
+			"Retroactive cleanup failed.", p)
 	}
 }
 
@@ -178,7 +177,6 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriberOnRejected(t *testing.T) {
 
 	// Create and reject a promise
 	p := js.Reject("already-rejected")
-	promiseID := p.getID()
 
 	// Run microtasks to ensure rejection is processed
 	// This schedules the unhandled rejection check microtask
@@ -198,16 +196,16 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriberOnRejected(t *testing.T) {
 	runtime.GC()
 	runtime.GC()
 
-	// Verify promiseHandlers does NOT contain p.id
+	// Verify promiseHandlers does NOT contain promise pointer
 	// Retroactive cleanup should have removed it when Catch() was called
 	js.promiseHandlersMu.RLock()
-	_, exists := js.promiseHandlers[promiseID]
+	_, exists := js.promiseHandlers[p]
 	finalHandlerCount := len(js.promiseHandlers)
 	js.promiseHandlersMu.RUnlock()
 
 	if exists {
-		t.Fatalf("Memory Leak: promiseHandlers still contains ID %d after late Catch() on rejected promise. "+
-			"Retroactive cleanup failed.", promiseID)
+		t.Fatalf("Memory Leak: promiseHandlers still contains promise %p after late Catch() on rejected promise. "+
+			"Retroactive cleanup failed.", p)
 	}
 
 	if finalHandlerCount != initialHandlerCount {

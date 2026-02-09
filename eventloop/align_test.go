@@ -130,12 +130,12 @@ func TestLoopAlign(t *testing.T) {
 	fmt.Printf("\n")
 }
 
-// Analyze TPSCounter alignment
-func TestTPSCounterAlign(t *testing.T) {
-	s := &TPSCounter{}
+// Analyze tpsCounter alignment
+func Test_tpsCounterAlign(t *testing.T) {
+	s := &tpsCounter{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== TPSCounter ===\n")
+	fmt.Printf("=== tpsCounter ===\n")
 
 	// Check lastRotation (atomic.Value)
 	lastRotationOffset := unsafe.Offsetof(s.lastRotation)
@@ -152,7 +152,7 @@ func TestTPSCounterAlign(t *testing.T) {
 		t.Logf("✗ lastRotation shares cache line (offset %d, ends at %d, line ends at %d)", lastRotationOffset, lastRotationEnd, lineEnd)
 	}
 
-	fmt.Printf("TPSCounter total size: %d bytes\n", unsafe.Sizeof(*s))
+	fmt.Printf("tpsCounter total size: %d bytes\n", unsafe.Sizeof(*s))
 	fmt.Printf("\n")
 }
 
@@ -162,22 +162,26 @@ func TestChainedPromiseAlign(t *testing.T) {
 	_ = s // Use s to avoid staticcheck warning
 
 	fmt.Printf("=== ChainedPromise ===\n")
-	fmt.Printf("id: offset=%d, size=%d\n", unsafe.Offsetof(s.id), unsafe.Sizeof(s.id))
 	fmt.Printf("js: offset=%d, size=%d\n", unsafe.Offsetof(s.js), unsafe.Sizeof(s.js))
 	fmt.Printf("state: offset=%d, size=%d\n", unsafe.Offsetof(s.state), unsafe.Sizeof(s.state))
 	fmt.Printf("mu: offset=%d, size=%d\n", unsafe.Offsetof(s.mu), unsafe.Sizeof(s.mu))
 	fmt.Printf("result: offset=%d, size=%d\n", unsafe.Offsetof(s.result), unsafe.Sizeof(s.result))
 	fmt.Printf("h0: offset=%d, size=%d\n", unsafe.Offsetof(s.h0), unsafe.Sizeof(s.h0))
 	fmt.Printf("Total: %d bytes\n", unsafe.Sizeof(*s))
+
+	// Verify the struct is exactly 64 bytes
+	if size := unsafe.Sizeof(*s); size != 64 {
+		t.Errorf("Expected ChainedPromise to be 64 bytes, got %d", size)
+	}
 	fmt.Printf("\n")
 }
 
-// Analyze FastState alignment
-func TestFastStateAlign(t *testing.T) {
-	s := &FastState{}
+// Analyze fastState alignment
+func Test_fastStateAlign(t *testing.T) {
+	s := &fastState{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== FastState ===\n")
+	fmt.Printf("=== fastState ===\n")
 	fmt.Printf("_ (pad before): offset=%d, size=%d\n", unsafe.Offsetof(s.v), sizeOfCacheLine)
 	fmt.Printf("v: offset=%d, size=%d\n", unsafe.Offsetof(s.v), unsafe.Sizeof(s.v))
 	vOffset := unsafe.Offsetof(s.v)
@@ -207,12 +211,12 @@ func TestFastStateAlign(t *testing.T) {
 	fmt.Printf("\n")
 }
 
-// Analyze MicrotaskRing alignment
-func TestMicrotaskRingAlign(t *testing.T) {
-	s := &MicrotaskRing{}
+// Analyze microtaskRing alignment
+func Test_microtaskRingAlign(t *testing.T) {
+	s := &microtaskRing{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== MicrotaskRing ===\n")
+	fmt.Printf("=== microtaskRing ===\n")
 
 	// Check buffer offset
 	bufferOffset := unsafe.Offsetof(s.buffer)

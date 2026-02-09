@@ -15,9 +15,9 @@ import (
 // the defects documented in scratch.md.
 // =============================================================================
 
-// TestMicrotaskRing_WriteAfterFree_Race is a torture test proving the Pop ordering bug.
+// Test_microtaskRing_WriteAfterFree_Race is a torture test proving the Pop ordering bug.
 //
-// DEFECT #3 (CRITICAL): MicrotaskRing.Pop() Write-After-Free Race
+// DEFECT #3 (CRITICAL): microtaskRing.Pop() Write-After-Free Race
 //
 // The bug: In Pop(), the code increments head (making the slot available to producers)
 // BEFORE clearing the sequence guard for that slot:
@@ -39,9 +39,9 @@ import (
 //	r.seq[(head)%4096].Store(0)  // Clear guard FIRST
 //	r.head.Add(1)                // Release slot SECOND
 //
-// RUN: go test -v -timeout 30s -run TestMicrotaskRing_WriteAfterFree_Race
-func TestMicrotaskRing_WriteAfterFree_Race(t *testing.T) {
-	ring := NewMicrotaskRing()
+// RUN: go test -v -timeout 30s -run Test_microtaskRing_WriteAfterFree_Race
+func Test_microtaskRing_WriteAfterFree_Race(t *testing.T) {
+	ring := newMicrotaskRing()
 	const iterations = 1_000_000
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -106,9 +106,9 @@ func TestMicrotaskRing_WriteAfterFree_Race(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_FIFO_Violation is a deterministic test proving overflow priority inversion.
+// Test_microtaskRing_FIFO_Violation is a deterministic test proving overflow priority inversion.
 //
-// DEFECT #4 (CRITICAL): MicrotaskRing FIFO Violation
+// DEFECT #4 (CRITICAL): microtaskRing FIFO Violation
 //
 // The bug: The hybrid design of Ring (lock-free) + Overflow (mutex) creates
 // "Priority Inversion" where newer tasks can be processed before older tasks.
@@ -125,9 +125,9 @@ func TestMicrotaskRing_WriteAfterFree_Race(t *testing.T) {
 //
 // FIX: In Push, if overflow buffer is non-empty, append to overflow even if ring has space.
 //
-// RUN: go test -v -run TestMicrotaskRing_FIFO_Violation
-func TestMicrotaskRing_FIFO_Violation(t *testing.T) {
-	r := NewMicrotaskRing()
+// RUN: go test -v -run Test_microtaskRing_FIFO_Violation
+func Test_microtaskRing_FIFO_Violation(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// 1. Saturate the Ring Buffer (4096 items)
 	for i := 0; i < 4096; i++ {
@@ -208,9 +208,9 @@ func TestMicrotaskRing_FIFO_Violation(t *testing.T) {
 	t.Logf("Success: Task A (order=%d) executed before Task B (order=%d)", taskA_Order, taskB_Order)
 }
 
-// TestMicrotaskRing_NilInput_Liveness proves nil input causes infinite loop.
+// Test_microtaskRing_NilInput_Liveness proves nil input causes infinite loop.
 //
-// DEFECT #6 (HIGH): MicrotaskRing.Pop() Infinite Loop on nil Input
+// DEFECT #6 (HIGH): microtaskRing.Pop() Infinite Loop on nil Input
 //
 // The bug: Push does not prevent nil functions. If Push(nil) is called,
 // Pop enters an infinite loop:
@@ -227,9 +227,9 @@ func TestMicrotaskRing_FIFO_Violation(t *testing.T) {
 //
 // FIX Option B: In Push, silently drop or return error for nil functions.
 //
-// RUN: go test -v -timeout 10s -run TestMicrotaskRing_NilInput_Liveness
-func TestMicrotaskRing_NilInput_Liveness(t *testing.T) {
-	r := NewMicrotaskRing()
+// RUN: go test -v -timeout 10s -run Test_microtaskRing_NilInput_Liveness
+func Test_microtaskRing_NilInput_Liveness(t *testing.T) {
+	r := newMicrotaskRing()
 
 	// Push a nil function - this should NOT be allowed, but the current
 	// implementation doesn't validate input

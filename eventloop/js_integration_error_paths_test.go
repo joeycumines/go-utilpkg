@@ -886,11 +886,11 @@ func TestScheduleMicrotask_NilCallback(t *testing.T) {
 	// If we reach here, nil handling is correct
 }
 
-// TestChunkedIngress_Pop_DoubleCheck explicitly tests the double-check
+// Test_chunkedIngress_Pop_DoubleCheck explicitly tests the double-check
 // path when chunk advancement fails.
 // Priority 2: MEDIUM - Explicit double-check path.
-func TestChunkedIngress_Pop_DoubleCheck(t *testing.T) {
-	// This tests ChunkedIngress.Pop() double-check logic when
+func Test_chunkedIngress_Pop_DoubleCheck(t *testing.T) {
+	// This tests chunkedIngress.Pop() double-check logic when
 	// chunk advancement fails (unlikely but tested for completeness)
 	loop, err := New()
 	if err != nil {
@@ -899,7 +899,7 @@ func TestChunkedIngress_Pop_DoubleCheck(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Create ingress
-	ingress := NewChunkedIngress()
+	ingress := newChunkedIngress()
 
 	// Submit tasks
 	for i := 0; i < 5; i++ {

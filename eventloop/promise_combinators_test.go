@@ -928,7 +928,7 @@ func TestPromiseAny_AllReject_RejectsWithAggregateError(t *testing.T) {
 	// Convert errors to strings for comparison
 	errorMessages := make([]string, len(aggregateErr.Errors))
 	for i, err := range aggregateErr.Errors {
-		if wrapper, ok := err.(*ErrorWrapper); ok {
+		if wrapper, ok := err.(*errorWrapper); ok {
 			errorMessages[i] = wrapper.Error()
 		} else {
 			errorMessages[i] = err.Error()
@@ -1672,17 +1672,17 @@ func TestAggregateError_ErrorMessages(t *testing.T) {
 	})
 }
 
-// Test ErrNoPromiseResolved type - covers promise.go:1065
-func TestErrNoPromiseResolved_Error(t *testing.T) {
-	err := ErrNoPromiseResolved{}
+// Test errNoPromiseResolved type - covers promise.go:1065
+func Test_errNoPromiseResolved_Error(t *testing.T) {
+	err := errNoPromiseResolved{}
 	msg := err.Error()
 	if msg != "No promises were provided" {
 		t.Errorf("Expected 'No promises were provided', got: %s", msg)
 	}
 }
 
-// Test ErrorWrapper with various types - covers promise.go:1076
-func TestErrorWrapper_VariousTypes(t *testing.T) {
+// Test errorWrapper with various types - covers promise.go:1076
+func Test_errorWrapper_VariousTypes(t *testing.T) {
 	tests := []struct {
 		name  string
 		input interface{}
@@ -1697,12 +1697,12 @@ func TestErrorWrapper_VariousTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wrapper := &ErrorWrapper{Value: tt.input}
+			wrapper := &errorWrapper{Value: tt.input}
 			errStr := wrapper.Error()
 			if errStr == "" {
-				t.Error("ErrorWrapper should produce non-empty string")
+				t.Error("errorWrapper should produce non-empty string")
 			}
-			// Verify format contains value info (not type info - ErrorWrapper uses %v format)
+			// Verify format contains value info (not type info - errorWrapper uses %v format)
 			expectedValue := fmt.Sprintf("%v", tt.input)
 			if !strings.Contains(errStr, expectedValue) && errStr != expectedValue {
 				t.Errorf("Error string should contain value '%v', got: %s", expectedValue, errStr)

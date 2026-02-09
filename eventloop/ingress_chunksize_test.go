@@ -1,6 +1,6 @@
 // Copyright 2026 Joseph Cumines
 //
-// EXPAND-033: Tests for configurable chunk size in ChunkedIngress.
+// EXPAND-033: Tests for configurable chunk size in chunkedIngress.
 
 package eventloop
 
@@ -142,7 +142,7 @@ func TestWithIngressChunkSize_FunctionalCorrectness(t *testing.T) {
 // correctly with configurable sizes.
 func TestWithIngressChunkSize_ChunkPoolReuse(t *testing.T) {
 	// Create ingress with custom size
-	q := NewChunkedIngressWithSize(32)
+	q := newChunkedIngressWithSize(32)
 
 	// Push more than one chunk's worth
 	for i := 0; i < 64; i++ {
@@ -247,34 +247,34 @@ func TestRoundDownToPowerOf2(t *testing.T) {
 	}
 }
 
-// TestNewChunkedIngressWithSize_EdgeCases tests edge cases for NewChunkedIngressWithSize.
-func TestNewChunkedIngressWithSize_EdgeCases(t *testing.T) {
+// Test_newChunkedIngressWithSize_EdgeCases tests edge cases for newChunkedIngressWithSize.
+func Test_newChunkedIngressWithSize_EdgeCases(t *testing.T) {
 	// Zero size should use default
-	q := NewChunkedIngressWithSize(0)
+	q := newChunkedIngressWithSize(0)
 	if q.chunkSize != defaultChunkSize {
 		t.Errorf("expected default chunk size %d for zero input, got %d", defaultChunkSize, q.chunkSize)
 	}
 
 	// Negative size should use default
-	q = NewChunkedIngressWithSize(-10)
+	q = newChunkedIngressWithSize(-10)
 	if q.chunkSize != defaultChunkSize {
 		t.Errorf("expected default chunk size %d for negative input, got %d", defaultChunkSize, q.chunkSize)
 	}
 
 	// Very large size is accepted (caller's responsibility to be reasonable)
-	q = NewChunkedIngressWithSize(1000000)
+	q = newChunkedIngressWithSize(1000000)
 	if q.chunkSize != 1000000 {
 		t.Errorf("expected chunk size 1000000, got %d", q.chunkSize)
 	}
 }
 
-// TestChunkedIngress_ChunkSizeConsistency verifies chunk size is consistent throughout lifecycle.
-func TestChunkedIngress_ChunkSizeConsistency(t *testing.T) {
+// Test_chunkedIngress_ChunkSizeConsistency verifies chunk size is consistent throughout lifecycle.
+func Test_chunkedIngress_ChunkSizeConsistency(t *testing.T) {
 	sizes := []int{16, 64, 256, 1024}
 
 	for _, size := range sizes {
 		t.Run("", func(t *testing.T) {
-			q := NewChunkedIngressWithSize(size)
+			q := newChunkedIngressWithSize(size)
 
 			// Initial state
 			if q.chunkSize != size {

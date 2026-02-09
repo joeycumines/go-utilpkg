@@ -51,44 +51,44 @@ func (s LoopState) String() string {
 	}
 }
 
-// FastState is a lock-free state machine with cache-line padding.
+// fastState is a lock-free state machine with cache-line padding.
 // PERFORMANCE: Uses pure atomic CAS operations with no mutex.
 // Cache-line padding prevents false sharing between cores.
-type FastState struct { // betteralign:ignore
+type fastState struct { // betteralign:ignore
 	_ [sizeOfCacheLine]byte                      // Cache line padding (before value) //nolint:unused
 	v atomic.Uint64                              // State value
 	_ [sizeOfCacheLine - sizeOfAtomicUint64]byte // Pad to complete cache line //nolint:unused
 }
 
-func NewFastState() *FastState {
-	s := &FastState{}
+func newFastState() *fastState {
+	s := &fastState{}
 	s.v.Store(uint64(StateAwake))
 	return s
 }
 
 // Load returns the current state atomically.
 // PERFORMANCE: No validation, trusts the stored value.
-func (s *FastState) Load() LoopState {
+func (s *fastState) Load() LoopState {
 	return LoopState(s.v.Load())
 }
 
 // Store atomically stores a new state.
 // PERFORMANCE: No transition validation.
-func (s *FastState) Store(state LoopState) {
+func (s *fastState) Store(state LoopState) {
 	s.v.Store(uint64(state))
 }
 
 // TryTransition attempts to atomically transition from one state to another.
 // Returns true if the transition was successful.
 // PERFORMANCE: Pure CAS, no validation of transition validity.
-func (s *FastState) TryTransition(from, to LoopState) bool {
+func (s *fastState) TryTransition(from, to LoopState) bool {
 	return s.v.CompareAndSwap(uint64(from), uint64(to))
 }
 
 // TransitionAny attempts to transition from any valid source state to the target.
 // Returns true if the transition was successful.
 // PERFORMANCE: Uses CAS loop for any-to-target transitions.
-func (s *FastState) TransitionAny(validFrom []LoopState, to LoopState) bool {
+func (s *fastState) TransitionAny(validFrom []LoopState, to LoopState) bool {
 	for _, from := range validFrom {
 		if s.v.CompareAndSwap(uint64(from), uint64(to)) {
 			return true
@@ -98,18 +98,18 @@ func (s *FastState) TransitionAny(validFrom []LoopState, to LoopState) bool {
 }
 
 // IsTerminal returns true if the current state is terminal.
-func (s *FastState) IsTerminal() bool {
+func (s *fastState) IsTerminal() bool {
 	return s.Load() == StateTerminated
 }
 
 // IsRunning returns true if the loop is currently running or sleeping.
-func (s *FastState) IsRunning() bool {
+func (s *fastState) IsRunning() bool {
 	state := s.Load()
 	return state == StateRunning || state == StateSleeping
 }
 
 // CanAcceptWork returns true if the loop can accept new work.
-func (s *FastState) CanAcceptWork() bool {
+func (s *fastState) CanAcceptWork() bool {
 	state := s.Load()
 	return state == StateAwake || state == StateRunning || state == StateSleeping
 }

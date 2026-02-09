@@ -171,8 +171,8 @@ func TestCreateWakeFd_VariousParams(t *testing.T) {
 	}{
 		{0, 0},
 		{1, 0},
-		{0, EFD_CLOEXEC},
-		{0, EFD_NONBLOCK},
+		{0, efdCloexec},
+		{0, efdNonblock},
 	}
 
 	for _, p := range params {

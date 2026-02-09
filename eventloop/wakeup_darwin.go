@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	EFD_CLOEXEC  = unix.O_CLOEXEC
-	EFD_NONBLOCK = unix.O_NONBLOCK
+	efdCloexec  = unix.O_CLOEXEC
+	efdNonblock = unix.O_NONBLOCK
 )
 
 // createWakeFd creates a self-pipe for wake-up notifications (Darwin).

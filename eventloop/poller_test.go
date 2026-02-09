@@ -302,9 +302,9 @@ func TestIOPollerCleanup(t *testing.T) {
 	}
 }
 
-// TestRegression_FastPoller_HotPathAllocations verifies that PollIO does not
+// TestRegression_fastPoller_HotPathAllocations verifies that PollIO does not
 // allocate memory on the hot path.
-func TestRegression_FastPoller_HotPathAllocations(t *testing.T) {
+func TestRegression_fastPoller_HotPathAllocations(t *testing.T) {
 	l, err := New()
 	if err != nil {
 		t.Fatalf("New failed: %v", err)

@@ -32,7 +32,7 @@ func TestState_TransitionAny_Success(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.from)
 			result := s.TransitionAny([]LoopState{tc.from}, tc.to)
 			if result != tc.expected {
@@ -45,7 +45,7 @@ func TestState_TransitionAny_Success(t *testing.T) {
 // TestState_TransitionAny_InvalidSource tests that invalid
 // source states return false.
 func TestState_TransitionAny_InvalidSource(t *testing.T) {
-	s := NewFastState()
+	s := newFastState()
 	s.Store(StateRunning)
 
 	// Try to transition from a state that's NOT in the source list
@@ -58,7 +58,7 @@ func TestState_TransitionAny_InvalidSource(t *testing.T) {
 // TestState_TransitionAny_TransitionsToCurrent tests transitioning
 // to the current state (no-op).
 func TestState_TransitionAny_TransitionsToCurrent(t *testing.T) {
-	s := NewFastState()
+	s := newFastState()
 	s.Store(StateRunning)
 
 	// Try to transition to the same state
@@ -92,7 +92,7 @@ func TestState_IsTerminal(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 			if s.IsTerminal() != tc.expected {
 				t.Errorf("%s state: expected terminal=%v, got %v", tc.name, tc.expected, s.IsTerminal())
@@ -146,7 +146,7 @@ func TestState_CanAcceptWork(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := NewFastState()
+			s := newFastState()
 			s.Store(tc.state)
 			if s.CanAcceptWork() != tc.expected {
 				t.Errorf("%s: expected canAcceptWork=%v, got %v", tc.name, tc.expected, s.CanAcceptWork())
@@ -159,12 +159,12 @@ func TestState_CanAcceptWork(t *testing.T) {
 // alignment for atomic operations.
 // Priority: MEDIUM - Concurrent safety verification.
 func TestState_VolatileMemoryLayout(t *testing.T) {
-	// This test verifies that FastState properly aligns
+	// This test verifies that fastState properly aligns
 	// the v field for atomic access (4-byte alignment).
 	// We verify this by creating multiple instances and checking
 	// that the field can be accessed atomically.
 
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
 
 	// Verify we can load and store values atomically
@@ -187,7 +187,7 @@ func TestState_VolatileMemoryLayout(t *testing.T) {
 // TestState_TryTransition tests CAS operations.
 // Priority: MEDIUM - Atomic CAS verification.
 func TestState_TryTransition(t *testing.T) {
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateAwake)
 
 	// Try to swap from Awake to Running

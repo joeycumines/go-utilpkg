@@ -15,7 +15,7 @@ import (
 //   - All Metrics methods are thread-safe and can be called from any goroutine.
 //   - LatencyMetrics uses sync.RWMutex (single-writer, multi-reader).
 //   - QueueMetrics uses sync.RWMutex (single-writer, multi-reader).
-//   - TPSCounter uses atomic operations and mutex for rotation.
+//   - tpsCounter uses atomic operations and mutex for rotation.
 //   - Metrics() returns a copy, safe for concurrent reads.
 //
 // Example:
@@ -247,7 +247,7 @@ func (q *QueueMetrics) UpdateMicrotask(depth int) {
 	}
 }
 
-// TPSCounter tracks transactions per second with a rolling window.
+// tpsCounter tracks transactions per second with a rolling window.
 //
 // Implementation Details:
 //   - Rolling window length: configurable via windowSize parameter
@@ -274,7 +274,7 @@ func (q *QueueMetrics) UpdateMicrotask(depth int) {
 //
 // Thread Safety: All methods (Increment, TPS) are thread-safe.
 // Concurrent calls are safe from multiple goroutines.
-type TPSCounter struct {
+type tpsCounter struct {
 	lastRotation atomic.Value // Stores time.Time
 	buckets      []int64
 	bucketSize   time.Duration
@@ -282,7 +282,7 @@ type TPSCounter struct {
 	mu           sync.Mutex
 }
 
-// NewTPSCounter creates a new TPS counter with configurable rolling window.
+// newTPSCounter creates a new TPS counter with configurable rolling window.
 //
 // Parameters:
 //
@@ -296,13 +296,13 @@ type TPSCounter struct {
 // Configuration Examples:
 //
 //	// Production: Balanced precision and smoothness
-//	NewTPSCounter(10*time.Second, 100*time.Millisecond) // 100 buckets, 0.1 TPS precision
+//	newTPSCounter(10*time.Second, 100*time.Millisecond) // 100 buckets, 0.1 TPS precision
 //
 //	// High-frequency trading: Fast response, more volatile
-//	NewTPSCounter(5*time.Second, 50*time.Millisecond) // 100 buckets, 0.2 TPS precision
+//	newTPSCounter(5*time.Second, 50*time.Millisecond) // 100 buckets, 0.2 TPS precision
 //
 //	// Long-term analysis: Very smooth, slow response
-//	NewTPSCounter(60*time.Second, 500*time.Millisecond) // 120 buckets, 0.5 TPS precision
+//	newTPSCounter(60*time.Second, 500*time.Millisecond) // 120 buckets, 0.5 TPS precision
 //
 // Returns:
 //
@@ -311,7 +311,7 @@ type TPSCounter struct {
 // Note: At startup, TPS is 0 until the first 'windowSize' period elapses,
 //
 //	providing time for the rolling window to fill with actual metrics.
-func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
+func newTPSCounter(windowSize, bucketSize time.Duration) *tpsCounter {
 	// Input validation: Prevent zero or negative durations
 	if windowSize <= 0 {
 		panic("eventloop: windowSize must be positive (use > 0 duration)")
@@ -325,7 +325,7 @@ func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
 
 	// bucketCount is guaranteed to be >= 1 after the above validation
 	bucketCount := int(windowSize / bucketSize)
-	counter := &TPSCounter{
+	counter := &tpsCounter{
 		buckets:    make([]int64, bucketCount),
 		bucketSize: bucketSize,
 		windowSize: windowSize,
@@ -336,7 +336,7 @@ func NewTPSCounter(windowSize, bucketSize time.Duration) *TPSCounter {
 
 // Increment records a task execution.
 // Thread-safe and O(1).
-func (t *TPSCounter) Increment() {
+func (t *tpsCounter) Increment() {
 	t.rotate()
 	t.mu.Lock()
 	t.buckets[len(t.buckets)-1]++
@@ -344,7 +344,7 @@ func (t *TPSCounter) Increment() {
 }
 
 // rotate advances the bucket counter if time has passed.
-func (t *TPSCounter) rotate() {
+func (t *tpsCounter) rotate() {
 	t.mu.Lock() // critical fix: lock first to prevent race
 	defer t.mu.Unlock()
 
@@ -396,7 +396,7 @@ func (t *TPSCounter) rotate() {
 }
 
 // TPS returns the current transactions per second.
-func (t *TPSCounter) TPS() float64 {
+func (t *tpsCounter) TPS() float64 {
 	t.rotate()
 
 	t.mu.Lock()

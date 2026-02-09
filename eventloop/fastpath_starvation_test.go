@@ -23,7 +23,7 @@ import (
 //  4. Verify: auxJobs MUST be drained before or during transition
 //
 // POTENTIAL BUG: If runFastPath exits (returns false) without draining,
-// tick() would process l.external (ChunkedIngress) but NOT l.auxJobs.
+// tick() would process l.external (chunkedIngress) but NOT l.auxJobs.
 func TestFastPath_AuxJobsStarvation_ModeTransition(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -246,7 +246,7 @@ func TestFastPath_EntryCondition_HasInternalTasks(t *testing.T) {
 	<-runCh
 }
 
-// TestFastPath_ExternalQueueDrained_Transition verifies that the ChunkedIngress
+// TestFastPath_ExternalQueueDrained_Transition verifies that the chunkedIngress
 // external queue is drained when transitioning FROM poll TO fast path.
 //
 // SCENARIO:
@@ -276,7 +276,7 @@ func TestFastPath_ExternalQueueDrained_Transition(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 
-	// Submit tasks - these go to l.external (ChunkedIngress)
+	// Submit tasks - these go to l.external (chunkedIngress)
 	var executed atomic.Int64
 	const taskCount = 50
 	for i := 0; i < taskCount; i++ {

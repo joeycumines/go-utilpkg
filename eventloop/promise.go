@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"weak"
 )
 
 // Result represents the value of a resolved or rejected promise.
@@ -184,16 +185,16 @@ func (p *promise) fanOut() {
 // called from any goroutine, but handlers always execute on the event loop thread.
 //
 // Performance Characteristics:
-//   - Lazy ID allocation: Promise IDs (atomic.Uint64) only allocated when needed (0 = unallocated, timer IDs start at 1)
-//   - ToChannel() optimized: Direct notification without event loop for pending promises
-//   - Debug stack traces only captured when debug mode is enabled
+//   - ToChannel() uses JS.toChannels side table for direct notification without microtasks
+//   - Debug stack traces stored in JS side table, only captured when debug mode is enabled
+//   - Pointer identity (*ChainedPromise) used as map key instead of integer IDs
 //   - Result field reused for handler storage during pending state
 //
-// Memory Usage (unsafe.Sizeof(ChainedPromise) == 120):
-//   - Base struct: 120 bytes
-//   - toChannels slice: Only allocated when ToChannel() is called on pending promises
-//   - creationStack: Only allocated when debug mode is enabled
-//   - id field: Uses 0 sentinel for promises that don't need tracking (saves 8 bytes vs always allocating)
+// Memory Usage (unsafe.Sizeof(ChainedPromise) == 64):
+//   - Base struct: 64 bytes
+//   - Creation stack traces stored in JS.debugStacks side table (only when debug mode enabled)
+//   - Promise identity uses pointer (*ChainedPromise) as map key instead of integer ID
+//   - ToChannel() channels stored in JS.toChannels side table (not on the struct)
 type ChainedPromise struct {
 	// Pointer fields (all require 8-byte alignment, grouped first for better cache locality)
 	result Result
@@ -201,23 +202,9 @@ type ChainedPromise struct {
 	// h0 is the first handler (embedded to avoid slice allocation).
 	// Most promises have only 1 handler.
 	h0 handler
-	// toChannels stores channels from ToChannel() for immediate notification.
-	// Unlike the old channels []chan Result which was always allocated,
-	// this is only allocated when ToChannel() is called on pending promises.
-	// Most promises never use ToChannel, so this field is nil for most promises.
-	toChannels []chan Result
-	// creationStack stores the stack trace when the promise was created.
-	// EXPAND-039: Only populated when debugMode is enabled on the loop.
-	// Use [ChainedPromise.CreationStackTrace] to format as a string.
-	creationStack []uintptr
 
 	// Atomic state (requires 8-byte alignment)
 	state atomic.Int32
-
-	// Non-pointer, non-atomic fields
-	// id is 0 when not allocated yet (lazy), assigned value > 0 when allocated.
-	// Use getID() method to access the ID, which allocates it on first use.
-	id atomic.Uint64
 
 	// Non-pointer synchronization primitives
 	mu sync.Mutex
@@ -263,19 +250,27 @@ type RejectFunc func(Result)
 // Only the first call has an effect; subsequent calls are ignored.
 func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	p := &ChainedPromise{
-		// Start in Pending state (0)
-		// id: nil  // LAZY - allocate only when needed via getID()
 		js: js,
 	}
 	p.state.Store(int32(Pending))
 
-	// EXPAND-039: Capture creation stack trace when debug mode is enabled
+	// EXPAND-039: Capture creation stack trace when debug mode is enabled.
+	// Stored in JS.debugStacks side table (keyed by weak.Pointer to avoid
+	// pinning the promise in memory). runtime.AddCleanup removes the entry
+	// when the promise is garbage collected.
 	if js.loop != nil && js.loop.debugMode {
-		// Capture up to 32 stack frames, skip 2 (this function and runtime.Callers)
-		pcs := make([]uintptr, 32)
-		n := runtime.Callers(2, pcs)
+		var pcs [32]uintptr
+		n := runtime.Callers(2, pcs[:])
 		if n > 0 {
-			p.creationStack = pcs[:n]
+			wp := weak.Make(p)
+			js.debugStacksMu.Lock()
+			js.debugStacks[wp] = pcs[:n]
+			js.debugStacksMu.Unlock()
+			runtime.AddCleanup(p, func(key weak.Pointer[ChainedPromise]) {
+				js.debugStacksMu.Lock()
+				delete(js.debugStacks, key)
+				js.debugStacksMu.Unlock()
+			}, wp)
 		}
 	}
 
@@ -288,32 +283,6 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	}
 
 	return p, resolve, reject
-}
-
-// getID returns the promise's ID, allocating it lazily if needed.
-// The ID is only allocated when the promise enters tracking systems
-// (unhandled rejection, handler registration).
-// Precondition: p.js must be non-nil (caller must ensure this).
-// For standalone promises (p.js == nil), this returns 0.
-func (p *ChainedPromise) getID() uint64 {
-	// Fast path: if already allocated, return it
-	if currentID := p.id.Load(); currentID != 0 {
-		return currentID
-	}
-
-	// Standalone promise (no JS adapter) - no ID allocation
-	if p.js == nil {
-		return 0
-	}
-
-	// Allocate ID on first use (thread-safe without mutex)
-	newID := p.js.nextTimerID.Add(1)
-	if p.id.CompareAndSwap(0, newID) {
-		return newID
-	}
-
-	// CAS failed, another goroutine allocated first - return allocated value
-	return p.id.Load()
 }
 
 // State returns the current [PromiseState] of this promise.
@@ -366,11 +335,20 @@ func (p *ChainedPromise) Reason() Result {
 // This is useful for debugging "where did this promise come from?" issues,
 // especially for unhandled rejections.
 func (p *ChainedPromise) CreationStackTrace() string {
-	if len(p.creationStack) == 0 {
+	if p.js == nil {
 		return ""
 	}
 
-	frames := runtime.CallersFrames(p.creationStack)
+	wp := weak.Make(p)
+	p.js.debugStacksMu.Lock()
+	stack := p.js.debugStacks[wp]
+	p.js.debugStacksMu.Unlock()
+
+	if len(stack) == 0 {
+		return ""
+	}
+
+	frames := runtime.CallersFrames(stack)
 	var result string
 	for {
 		frame, more := frames.Next()
@@ -410,7 +388,7 @@ func (p *ChainedPromise) addHandler(h handler) {
 		return
 	}
 
-	// h0.target==nil means h0 slot is unused (handlers always have non-nil target)
+	// h0 slot is unused when target is nil (no child promise chained).
 	if p.h0.target == nil {
 		p.h0 = h
 	} else {
@@ -482,7 +460,7 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result Result) {
 func (p *ChainedPromise) resolve(value Result) {
 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
 	if pr, ok := value.(*ChainedPromise); ok && pr == p {
-		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise #%d", p.getID()))
+		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise %p", p))
 		return
 	}
 
@@ -508,13 +486,15 @@ func (p *ChainedPromise) resolve(value Result) {
 		handlers = p.result.([]handler)
 	}
 
-	// Extract toChannel for immediate notification (no event loop needed)
-	toCh := p.toChannels
-	p.toChannels = nil
-
-	p.h0 = handler{} // Clears h0 (sets target to nil)
+	p.h0 = handler{} // Clears h0
 	p.result = value
 	p.state.Store(int32(Fulfilled))
+
+	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
+	// This ensures ToChannel works even when the event loop is not running.
+	if p.js != nil {
+		p.js.notifyToChannels(p, value)
+	}
 
 	// Schedule handlers inside lock to guarantee ordering consistency
 	// with concurrent addHandler calls (Promise/A+ §2.2.6).
@@ -525,23 +505,13 @@ func (p *ChainedPromise) resolve(value Result) {
 	for _, h := range handlers {
 		p.scheduleHandler(h, int32(Fulfilled), value)
 	}
-
-	// Notify toChannel immediately (no event loop needed)
-	for _, ch := range toCh {
-		ch <- value
-	}
-	for _, ch := range toCh {
-		close(ch)
-	}
 	p.mu.Unlock()
 
 	// CLEANUP: Prevent leak on success
 	if p.js != nil {
-		if currentID := p.id.Load(); currentID != 0 {
-			p.js.promiseHandlersMu.Lock()
-			delete(p.js.promiseHandlers, currentID)
-			p.js.promiseHandlersMu.Unlock()
-		}
+		p.js.promiseHandlersMu.Lock()
+		delete(p.js.promiseHandlers, p)
+		p.js.promiseHandlersMu.Unlock()
 	}
 }
 
@@ -562,12 +532,14 @@ func (p *ChainedPromise) reject(reason Result) {
 		handlers = p.result.([]handler)
 	}
 
-	// Extract toChannel for immediate notification (no event loop needed)
-	toCh := p.toChannels
-	p.toChannels = nil
-
 	p.result = reason
 	p.state.Store(int32(Rejected))
+
+	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
+	// This ensures ToChannel works even when the event loop is not running.
+	if p.js != nil {
+		p.js.notifyToChannels(p, reason)
+	}
 
 	// CRITICAL (T27): Schedule handler microtasks WHILE holding lock.
 	// This ensures proper ordering: handler microtasks run before
@@ -579,22 +551,14 @@ func (p *ChainedPromise) reject(reason Result) {
 		p.scheduleHandler(h, int32(Rejected), reason)
 	}
 
-	// Notify toChannel immediately (no event loop needed)
-	for _, ch := range toCh {
-		ch <- reason
-	}
-	for _, ch := range toCh {
-		close(ch)
-	}
-
 	// Clear handlers AFTER scheduling their microtasks
-	p.h0 = handler{} // Clears h0 (sets target to nil)
+	p.h0 = handler{} // Clears h0
 
 	p.mu.Unlock()
 
 	// trackRejection AFTER releasing lock, AFTER scheduling handlers
 	if p.js != nil {
-		p.js.trackRejection(p.getID(), reason, p.creationStack)
+		p.js.trackRejection(p, reason)
 	}
 }
 
@@ -647,9 +611,8 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 	switch {
 	case currentState == Fulfilled:
 		// Fulfilled promises can never be rejected; clean up tracking
-		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, id)
+		delete(js.promiseHandlers, p)
 		js.promiseHandlersMu.Unlock()
 
 	case currentState == Rejected:
@@ -657,9 +620,8 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 		// This order prevents a race where checkUnhandledRejections processes
 		// and removes the entry from unhandledRejections between our check
 		// and our set, leaving an orphaned promiseHandlers entry.
-		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[id] = true
+		js.promiseHandlers[p] = true
 		js.promiseHandlersMu.Unlock()
 		p.signalHandlerReady(js)
 
@@ -667,19 +629,18 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 		// unhandledRejections by checkUnhandledRejections running concurrently),
 		// clean up our handler registration to prevent a map entry leak.
 		js.rejectionsMu.RLock()
-		_, isUnhandled := js.unhandledRejections[id]
+		_, isUnhandled := js.unhandledRejections[p]
 		js.rejectionsMu.RUnlock()
 
 		if !isUnhandled {
 			js.promiseHandlersMu.Lock()
-			delete(js.promiseHandlers, id)
+			delete(js.promiseHandlers, p)
 			js.promiseHandlersMu.Unlock()
 		}
 
 	default: // Pending
-		id := p.getID()
 		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[id] = true
+		js.promiseHandlers[p] = true
 		js.promiseHandlersMu.Unlock()
 		p.signalHandlerReady(js)
 	}
@@ -688,9 +649,8 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 // signalHandlerReady signals that a rejection handler has been registered,
 // allowing trackRejection's synchronization to proceed.
 func (p *ChainedPromise) signalHandlerReady(js *JS) {
-	id := p.getID()
 	js.handlerReadyMu.Lock()
-	if ch, exists := js.handlerReadyChans[id]; exists {
+	if ch, exists := js.handlerReadyChans[p]; exists {
 		select {
 		case <-ch:
 			// Already closed
@@ -822,10 +782,17 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 // The channel is buffered (capacity 1) and will be closed after sending.
 // If the promise is already settled, returns a pre-filled channel.
 // Thread-safe and can be called from any goroutine.
+//
+// For JS-backed promises, channels are registered in the JS.toChannels side table
+// and notified synchronously during resolve/reject (without going through the
+// microtask queue). This ensures ToChannel works even when the event loop is not
+// running.
+//
+// For standalone promises (p.js == nil), a handler-based fallback is used.
 func (p *ChainedPromise) ToChannel() <-chan Result {
 	ch := make(chan Result, 1)
 
-	// Fast path: already settled
+	// Fast path: already settled (lock-free)
 	currentState := p.state.Load()
 	if currentState != int32(Pending) {
 		ch <- p.result
@@ -833,20 +800,48 @@ func (p *ChainedPromise) ToChannel() <-chan Result {
 		return ch
 	}
 
-	// Pending: store channel for immediate notification when settled
+	// Standalone promise (no JS adapter): use handler-based fallback.
+	// Handlers execute synchronously for standalone promises (no microtask queue),
+	// so this path works correctly without an event loop.
+	if p.js == nil {
+		return p.toChannelStandalonePromise(ch)
+	}
+
+	// JS-backed promise: register in side table for direct notification.
+	// Lock ordering: p.mu → js.toChannelsMu (same order as resolve/reject).
 	p.mu.Lock()
-	// Double-check state after acquiring lock
-	if p.state.Load() != int32(Pending) {
+	// Double-check state under lock to handle the race where resolve/reject
+	// ran between the fast-path check and lock acquisition.
+	currentState = p.state.Load()
+	if currentState != int32(Pending) {
 		p.mu.Unlock()
 		ch <- p.result
 		close(ch)
 		return ch
 	}
-
-	// Store the channel (allocate slice on first use)
-	p.toChannels = append(p.toChannels, ch)
+	p.js.toChannelsMu.Lock()
+	p.js.toChannels[p] = append(p.js.toChannels[p], ch)
+	p.js.toChannelsMu.Unlock()
 	p.mu.Unlock()
 
+	return ch
+}
+
+// toChannelStandalonePromise handles ToChannel for promises without a JS adapter.
+// Uses addHandler with a dummy target to avoid interfering with the h0 slot check.
+func (p *ChainedPromise) toChannelStandalonePromise(ch chan Result) <-chan Result {
+	dummy := &ChainedPromise{}
+	dummy.state.Store(int32(Pending))
+	writeFn := func(v Result) Result {
+		ch <- v
+		close(ch)
+		return nil
+	}
+	p.addHandler(handler{
+		onFulfilled: writeFn,
+		onRejected:  writeFn,
+		target:      dummy,
+	})
 	return ch
 }
 
@@ -858,17 +853,23 @@ func (p *ChainedPromise) ToChannel() <-chan Result {
 // Each rejection waits for a handler to be registered (or determines none will be)
 // before checking for unhandled rejections.
 //
-// EXPAND-039: creationStack is passed to include in debug output for unhandled rejections.
-func (js *JS) trackRejection(promiseID uint64, reason Result, creationStack []uintptr) {
+// EXPAND-039: creationStack is read from the JS.debugStacks side table.
+func (js *JS) trackRejection(p *ChainedPromise, reason Result) {
+	// Read creation stack from side table (keyed by weak.Pointer).
+	wp := weak.Make(p)
+	js.debugStacksMu.Lock()
+	creationStack := js.debugStacks[wp]
+	js.debugStacksMu.Unlock()
+
 	// Store rejection info
 	info := &rejectionInfo{
-		promiseID:     promiseID,
 		reason:        reason,
-		timestamp:     time.Now().UnixNano(),
+		promise:       p,
 		creationStack: creationStack, // EXPAND-039: Store for debug output
+		timestamp:     time.Now().UnixNano(),
 	}
 	js.rejectionsMu.Lock()
-	js.unhandledRejections[promiseID] = info
+	js.unhandledRejections[p] = info
 	js.rejectionsMu.Unlock()
 
 	// CRITICAL FIX: Use atomic counter to prevent duplicate microtasks
@@ -879,19 +880,15 @@ func (js *JS) trackRejection(promiseID uint64, reason Result, creationStack []ui
 		return
 	}
 
-	// Create a channel for this rejection to signal handler registration
-	// Multiple rejections to the same promise share this channel
 	handlerReady := make(chan struct{})
 
 	// Try to store the channel so then() can signal when handler is registered
 	// Use atomic compare-and-swap to avoid races with concurrent rejections
-	handlerKey := promiseID
-
 	js.handlerReadyMu.Lock()
 	// Check if another rejection already stored a channel
-	if _, exists := js.handlerReadyChans[handlerKey]; !exists {
+	if _, exists := js.handlerReadyChans[p]; !exists {
 		// No channel yet, store ours
-		js.handlerReadyChans[handlerKey] = handlerReady
+		js.handlerReadyChans[p] = handlerReady
 	}
 	js.handlerReadyMu.Unlock()
 
@@ -906,10 +903,10 @@ func (js *JS) trackRejection(promiseID uint64, reason Result, creationStack []ui
 	js.loop.ScheduleMicrotask(func() {
 		// Check if we should wait for a handler
 		js.handlerReadyMu.Lock()
-		ch, exists := js.handlerReadyChans[handlerKey]
+		ch, exists := js.handlerReadyChans[p]
 		if exists {
 			// Remove from map so then() knows we're done waiting
-			delete(js.handlerReadyChans, handlerKey)
+			delete(js.handlerReadyChans, p)
 		}
 		js.handlerReadyMu.Unlock()
 
@@ -974,19 +971,19 @@ func (js *JS) checkUnhandledRejections() {
 
 	// Process snapshot
 	for _, info := range snapshot {
-		promiseID := info.promiseID
+		p := info.promise
 
 		js.promiseHandlersMu.Lock()
-		handled, exists := js.promiseHandlers[promiseID]
+		handled, exists := js.promiseHandlers[p]
 
 		// If a handler exists, clean up tracking now (handled rejection)
 		if exists && handled {
-			delete(js.promiseHandlers, promiseID)
+			delete(js.promiseHandlers, p)
 			js.promiseHandlersMu.Unlock()
 
 			// Remove from unhandled rejections but DON'T report it
 			js.rejectionsMu.Lock()
-			delete(js.unhandledRejections, promiseID)
+			delete(js.unhandledRejections, p)
 			js.rejectionsMu.Unlock()
 			continue
 		}
@@ -1009,17 +1006,26 @@ func (js *JS) checkUnhandledRejections() {
 
 		// Clean up tracking for unhandled rejection
 		js.rejectionsMu.Lock()
-		delete(js.unhandledRejections, promiseID)
+		delete(js.unhandledRejections, p)
 		js.rejectionsMu.Unlock()
+
+		// Clean up any promiseHandlers entry that was set concurrently by
+		// registerRejectionHandler between our handler check and this cleanup.
+		// Without this, the entry becomes orphaned (its unhandledRejections
+		// entry is gone, so registerRejectionHandler's double-check won't
+		// delete it, and no future checkUnhandledRejections will process it).
+		js.promiseHandlersMu.Lock()
+		delete(js.promiseHandlers, p)
+		js.promiseHandlersMu.Unlock()
 	}
 }
 
 // rejectionInfo holds information about a rejected promise.
 type rejectionInfo struct {
-	reason        Result    // Largest field, put first
-	creationStack []uintptr // EXPAND-039: Stack trace of where the promise was created
-	promiseID     uint64
-	timestamp     int64
+	promise       *ChainedPromise // 8B pointer
+	reason        Result          // 16B interface (two pointers)
+	creationStack []uintptr       // 24B slice (data pointer + len + cap)
+	timestamp     int64           // 8B non-pointer
 }
 
 // UnhandledRejectionDebugInfo is passed to [RejectionHandler] when debug mode is enabled
@@ -1295,7 +1301,7 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 	// Handle empty array - reject immediately
 	if len(promises) == 0 {
 		reject(&AggregateError{
-			Errors: []error{&ErrNoPromiseResolved{}},
+			Errors: []error{&errNoPromiseResolved{}},
 		})
 		return result
 	}
@@ -1329,7 +1335,7 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 						if err, ok := r.(error); ok {
 							errors[i] = err
 						} else {
-							errors[i] = &ErrorWrapper{Value: r}
+							errors[i] = &errorWrapper{Value: r}
 						}
 					}
 					reject(&AggregateError{
@@ -1384,22 +1390,22 @@ func (e *AggregateError) Error() string {
 	return "All promises were rejected"
 }
 
-// ErrNoPromiseResolved indicates that [JS.Any] was called with an empty array.
-type ErrNoPromiseResolved struct{}
+// errNoPromiseResolved indicates that [JS.Any] was called with an empty array.
+type errNoPromiseResolved struct{}
 
 // Error implements the error interface.
-func (e *ErrNoPromiseResolved) Error() string {
+func (e *errNoPromiseResolved) Error() string {
 	return "No promises were provided"
 }
 
-// ErrorWrapper wraps a non-error value as an error for [AggregateError] compatibility.
-type ErrorWrapper struct {
+// errorWrapper wraps a non-error value as an error for [AggregateError] compatibility.
+type errorWrapper struct {
 	// Value is the original non-error rejection reason.
 	Value Result
 }
 
 // Error implements the error interface.
-func (e *ErrorWrapper) Error() string {
+func (e *errorWrapper) Error() string {
 	return fmt.Sprintf("%v", e.Value)
 }
 

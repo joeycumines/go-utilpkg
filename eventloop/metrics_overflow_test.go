@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TestTPSCounter_NegativeElapsed verifies that the TPS counter handles
+// Test_tpsCounter_NegativeElapsed verifies that the TPS counter handles
 // negative elapsed times gracefully (which can happen if the system clock
 // jumps backwards due to NTP adjustments, VM snapshot restores, or other
 // time synchronization issues).
@@ -17,8 +17,8 @@ import (
 // 2. Trigger full window reset to recover
 // 3. Continue normal operation after reset
 // 4. Ensure TPS() returns non-negative values even after clock anomalies
-func TestTPSCounter_NegativeElapsed(t *testing.T) {
-	counter := NewTPSCounter(10*time.Second, 100*time.Millisecond)
+func Test_tpsCounter_NegativeElapsed(t *testing.T) {
+	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// Record some initial samples
 	for i := 0; i < 10; i++ {
@@ -66,7 +66,7 @@ func TestTPSCounter_NegativeElapsed(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_LargeElapsed verifies that extremely large elapsed times
+// Test_tpsCounter_LargeElapsed verifies that extremely large elapsed times
 // (exceeding the window size) are handled correctly by clamping.
 //
 // Overflow protection should:
@@ -74,8 +74,8 @@ func TestTPSCounter_NegativeElapsed(t *testing.T) {
 // 2. Clamp bucketsToAdvance to len(t.buckets)
 // 3. Perform full window reset
 // 4. Reset lastRotation appropriately
-func TestTPSCounter_LargeElapsed(t *testing.T) {
-	counter := NewTPSCounter(10*time.Second, 100*time.Millisecond)
+func Test_tpsCounter_LargeElapsed(t *testing.T) {
+	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// Record some initial samples
 	for i := 0; i < 5; i++ {
@@ -117,7 +117,7 @@ func TestTPSCounter_LargeElapsed(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_ExtremeElapsed verifies handling of extremly large
+// Test_tpsCounter_ExtremeElapsed verifies handling of extremly large
 // elapsed times that could theoretically cause integer overflow in the
 // bucketsToAdvance calculation if not properly clamped.
 //
@@ -125,8 +125,8 @@ func TestTPSCounter_LargeElapsed(t *testing.T) {
 // 1. Extremely large time jumps (years into the past)
 // 2. Very large elapsed times due to system suspend/resume
 // 3. Edge cases near int64 limits for time.Duration
-func TestTPSCounter_ExtremeElapsed(t *testing.T) {
-	counter := NewTPSCounter(10*time.Second, 100*time.Millisecond)
+func Test_tpsCounter_ExtremeElapsed(t *testing.T) {
+	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// Test with extreme time jump: 1 year backwards
 	oldRotation := counter.lastRotation.Load().(time.Time)
@@ -170,10 +170,10 @@ func TestTPSCounter_ExtremeElapsed(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_ClockJumps verifies that the TPS counter
+// Test_tpsCounter_ClockJumps verifies that the TPS counter
 // handles rapid clock jumps (both forward and backward) gracefully.
-func TestTPSCounter_ClockJumps(t *testing.T) {
-	counter := NewTPSCounter(10*time.Second, 100*time.Millisecond)
+func Test_tpsCounter_ClockJumps(t *testing.T) {
+	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	now := time.Now()
 	counter.lastRotation.Store(now)
@@ -212,7 +212,7 @@ func TestTPSCounter_ClockJumps(t *testing.T) {
 	}
 }
 
-// TestTPSCounter_TimeSynchronizationAfterLongPause verifies that after
+// Test_tpsCounter_TimeSynchronizationAfterLongPause verifies that after
 // a long pause exceeding the rolling window duration, the internal
 // time tracking (lastRotation) is synchronized to the current actual time
 // rather than permanently lagging behind.
@@ -226,11 +226,11 @@ func TestTPSCounter_ClockJumps(t *testing.T) {
 // After the fix: If bucketsToAdvance >= len(buckets), we reset all
 // buckets to 0 AND set lastRotation = time.Now(), ensuring the counter
 // is fully synchronized with wall clock time.
-func TestTPSCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
+func Test_tpsCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
 	// Create a 10-second window with 100ms buckets (100 buckets)
 	windowSize := 10 * time.Second
 	bucketSize := 100 * time.Millisecond
-	counter := NewTPSCounter(windowSize, bucketSize)
+	counter := newTPSCounter(windowSize, bucketSize)
 
 	// Add some initial events to prove counter is working
 	for i := 0; i < 50; i++ {

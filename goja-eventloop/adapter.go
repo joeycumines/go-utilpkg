@@ -561,28 +561,19 @@ func exportGojaValue(gojaVal goja.Value) (any, bool) {
 	return nil, false
 }
 
-// gojaWrapPromise wraps a ChainedPromise with then/catch/finally instance methods
+// GojaWrapPromise wraps a [goeventloop.ChainedPromise] with then/catch/finally
+// instance methods, returning a goja.Value suitable for use in JavaScript.
 //
-// GARBAGE COLLECTION & LIFECYCLE:
-// The wrapper holds a strong reference to the native ChainedPromise via _internalPromise field.
-// However, Goja objects are garbage collected by Go's GC, and the wrapper itself
-// is a native Goja object. When JavaScript code no longer references the wrapper,
-// both the wrapper AND the native ChainedPromise become eligible for GC.
+// Use this when you create a Go-side promise and need to expose it to JS code:
 //
-// GOJA GC BEHAVIOR:
-// - Goja uses Go's garbage collector internally
-// - Wrapper objects are reclaimed when no JavaScript references exist
-// - Native promises are reclaimed when wrappers are reclaimed (no explicit cleanup needed)
-// - In long-running applications, GC will periodically reclaim unreferenced promises
+//	promise, resolve, _ := adapter.JS().NewChainedPromise()
+//	go func() { resolve(computeResult()) }()
+//	return adapter.GojaWrapPromise(promise)
 //
-// VERIFICATION:
-// - Memory leak tests (see TestMemoryLeaks_MicrotaskLoop) verify GC reclaims promises
-// - Typical high-frequency microtask loops show no unbounded memory growth
-// - If memory growth is observed, ensure promise references are not retained in closures
-//
-// NOTE: If extremely high-frequency promise creation (>100K/sec) is needed, consider
-// pooling or other optimizations. For typical web service workloads, GC is sufficient.
-func (a *Adapter) gojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
+// The wrapper holds a strong reference to the native ChainedPromise. When
+// JavaScript code no longer references the wrapper, both the wrapper AND the
+// native ChainedPromise become eligible for garbage collection.
+func (a *Adapter) GojaWrapPromise(promise *goeventloop.ChainedPromise) goja.Value {
 	// Create a wrapper object
 	wrapper := a.runtime.NewObject()
 
@@ -803,7 +794,7 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	// we must preserve it as-is, not unwrap its value/reason
 	if p, ok := v.(*goeventloop.ChainedPromise); ok {
 		// Wrap the ChainedPromise to preserve identity
-		return a.gojaWrapPromise(p)
+		return a.GojaWrapPromise(p)
 	}
 
 	// Handle slices of Result (from combinators like All, Race, AllSettled, Any)
@@ -876,7 +867,7 @@ func (a *Adapter) bindPromise() error {
 		onFulfilled := a.gojaFuncToHandler(call.Argument(0))
 		onRejected := a.gojaFuncToHandler(call.Argument(1))
 		chained := p.Then(onFulfilled, onRejected)
-		return a.gojaWrapPromise(chained)
+		return a.GojaWrapPromise(chained)
 	})
 
 	// Set catch() method on prototype
@@ -894,7 +885,7 @@ func (a *Adapter) bindPromise() error {
 
 		onRejected := a.gojaFuncToHandler(call.Argument(0))
 		chained := p.Catch(onRejected)
-		return a.gojaWrapPromise(chained)
+		return a.GojaWrapPromise(chained)
 	})
 
 	// Set finally() method on prototype
@@ -912,7 +903,7 @@ func (a *Adapter) bindPromise() error {
 
 		onFinally := a.gojaVoidFuncToHandler(call.Argument(0))
 		chained := p.Finally(onFinally)
-		return a.gojaWrapPromise(chained)
+		return a.GojaWrapPromise(chained)
 	})
 
 	promisePrototype.Set("then", thenFn)
@@ -933,7 +924,7 @@ func (a *Adapter) bindPromise() error {
 		// Skip null/undefined - just return resolved promise
 		if goja.IsNull(value) || goja.IsUndefined(value) {
 			_ = a.js.Resolve(nil)
-			return a.gojaWrapPromise(a.js.Resolve(nil))
+			return a.GojaWrapPromise(a.js.Resolve(nil))
 		}
 
 		// Check if value is already our wrapped promise - return unchanged (identity semantics)
@@ -946,12 +937,12 @@ func (a *Adapter) bindPromise() error {
 		// CRITICAL COMPLIANCE FIX: Check for thenables
 		if p := a.resolveThenable(value); p != nil {
 			// It was a thenable, return the adopted promise
-			return a.gojaWrapPromise(p)
+			return a.GojaWrapPromise(p)
 		}
 
 		// Otherwise create new resolved promise
 		promise := a.js.Resolve(value.Export())
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// Promise.reject(reason)
@@ -966,7 +957,7 @@ func (a *Adapter) bindPromise() error {
 					// This is an Error object - preserve original Goja.Value
 					promise, _, reject := a.js.NewChainedPromise()
 					reject(reason) // Reject with Goja.Error (preserves .message property)
-					return a.gojaWrapPromise(promise)
+					return a.GojaWrapPromise(promise)
 				}
 			}
 		}
@@ -975,7 +966,7 @@ func (a *Adapter) bindPromise() error {
 		// When reason is a wrapped promise object (with _internalPromise field),
 		// we must preserve the wrapper object as the rejection reason per JS spec.
 		// Export() on the wrapper returns a map, which would unwrap and lose identity.
-		// CRITICAL: We must NOT call a.js.Reject(obj) as it triggers gojaWrapPromise again,
+		// CRITICAL: We must NOT call a.js.Reject(obj) as it triggers GojaWrapPromise again,
 		// causing infinite recursion. Instead, create a new rejected promise directly.
 
 		if isWrappedPromise(reason) {
@@ -984,14 +975,14 @@ func (a *Adapter) bindPromise() error {
 			promise, _, reject := a.js.NewChainedPromise()
 			reject(reason) // Reject with the Goja Object (wrapper), not extracted promise
 
-			wrapped := a.gojaWrapPromise(promise)
+			wrapped := a.GojaWrapPromise(promise)
 			return wrapped
 		}
 
 		// For all other types (primitives, plain objects), use Export()
 		// This preserves properties like Error.message and custom fields
 		promise := a.js.Reject(reason.Export())
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// Promise.all(iterable) - with COMPLIANCE FIX for iterables
@@ -1004,7 +995,7 @@ func (a *Adapter) bindPromise() error {
 			// HIGH #1 FIX: Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, the consuming operation should reject"
-			return a.gojaWrapPromise(a.js.Reject(err))
+			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to All()
@@ -1031,7 +1022,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		promise := a.js.All(promises)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// Promise.race(iterable) - with COMPLIANCE FIX for iterables
@@ -1044,7 +1035,7 @@ func (a *Adapter) bindPromise() error {
 			// HIGH #1 FIX: Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
-			return a.gojaWrapPromise(a.js.Reject(err))
+			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to Race()
@@ -1070,7 +1061,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		promise := a.js.Race(promises)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// Promise.allSettled(iterable) - with COMPLIANCE FIX for iterables
@@ -1083,7 +1074,7 @@ func (a *Adapter) bindPromise() error {
 			// HIGH #1 FIX: Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
-			return a.gojaWrapPromise(a.js.Reject(err))
+			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
 		// CRITICAL #1 FIX: Extract wrapped promises before passing to AllSettled()
@@ -1112,7 +1103,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		promise := a.js.AllSettled(promises)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// Promise.any(iterable) - with COMPLIANCE FIX for iterables
@@ -1125,7 +1116,7 @@ func (a *Adapter) bindPromise() error {
 			// HIGH #1 FIX: Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
-			return a.gojaWrapPromise(a.js.Reject(err))
+			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
 		if len(arr) == 0 {
@@ -1157,7 +1148,7 @@ func (a *Adapter) bindPromise() error {
 		}
 
 		promise := a.js.Any(promises)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// FEATURE-005: Promise.withResolvers() ES2024 API
@@ -1170,7 +1161,7 @@ func (a *Adapter) bindPromise() error {
 		obj := a.runtime.NewObject()
 
 		// Wrap the promise
-		obj.Set("promise", a.gojaWrapPromise(resolvers.Promise))
+		obj.Set("promise", a.GojaWrapPromise(resolvers.Promise))
 
 		// Create resolve function
 		obj.Set("resolve", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
@@ -1231,7 +1222,7 @@ func (a *Adapter) bindPromise() error {
 			return result.Export()
 		})
 
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	return nil
@@ -2523,7 +2514,7 @@ func (a *Adapter) delay(call goja.FunctionCall) goja.Value {
 
 	// Use the Go Sleep implementation
 	promise := a.js.Sleep(time.Duration(delayMs) * time.Millisecond)
-	return a.gojaWrapPromise(promise)
+	return a.GojaWrapPromise(promise)
 }
 
 // ===============================================
@@ -4635,7 +4626,7 @@ func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
 		// Return a resolved promise with the text content
 		text := string(blob.data)
 		promise := a.js.Resolve(text)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// arrayBuffer() - returns Promise<ArrayBuffer>
@@ -4651,7 +4642,7 @@ func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
 		// We need to wrap this specially to avoid Export() issues
 		resolve(arrayBuffer)
 
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// slice(start?, end?, contentType?) - returns a new Blob
@@ -4760,7 +4751,7 @@ func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
 	obj.Set("text", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		text := string(blob.data)
 		promise := a.js.Resolve(text)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// arrayBuffer() - returns Promise<ArrayBuffer>
@@ -4768,7 +4759,7 @@ func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
 		promise, resolve, _ := a.js.NewChainedPromise()
 		arrayBuffer := a.runtime.NewArrayBuffer(blob.data)
 		resolve(arrayBuffer)
-		return a.gojaWrapPromise(promise)
+		return a.GojaWrapPromise(promise)
 	}))
 
 	// slice(start?, end?, contentType?) - returns a new Blob
@@ -5639,7 +5630,7 @@ func (a *Adapter) fetchNotImplemented(call goja.FunctionCall) goja.Value {
 	err := fmt.Errorf("fetch() is not implemented in goja-eventloop. " +
 		"For HTTP operations, expose custom Go functions using net/http " +
 		"or implement a fetch wrapper with your preferred http.Client configuration")
-	return a.gojaWrapPromise(a.js.Reject(err))
+	return a.GojaWrapPromise(a.js.Reject(err))
 }
 
 // ===============================================

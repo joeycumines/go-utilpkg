@@ -70,10 +70,9 @@ func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
 	// Reject first
 	reject(errors.New("test error"))
 
-	// A channel should be created for this promise ID
+	// A channel should be created for this promise pointer
 	js.handlerReadyMu.Lock()
-	id := p.getID()
-	_, exists := js.handlerReadyChans[id]
+	_, exists := js.handlerReadyChans[p]
 	js.handlerReadyMu.Unlock()
 
 	if !exists {
@@ -91,7 +90,7 @@ func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
 	// Channel should be cleaned up
 	time.Sleep(20 * time.Millisecond) // Wait for cleanup
 	js.handlerReadyMu.Lock()
-	_, stillExists := js.handlerReadyChans[p.getID()]
+	_, stillExists := js.handlerReadyChans[p]
 	js.handlerReadyMu.Unlock()
 
 	if stillExists {
@@ -321,7 +320,6 @@ func TestTrackRejection_PromiseHandlersCleanup(t *testing.T) {
 	}
 
 	p, resolve, _ := js.NewChainedPromise()
-	promiseID := p.getID()
 
 	// Attach handler with rejection handler
 	p.Then(func(v Result) Result { return v }, func(r Result) Result { return nil })
@@ -335,7 +333,7 @@ func TestTrackRejection_PromiseHandlersCleanup(t *testing.T) {
 
 	// promiseHandlers should be cleaned up for this promise
 	js.promiseHandlersMu.RLock()
-	_, exists := js.promiseHandlers[promiseID]
+	_, exists := js.promiseHandlers[p]
 	js.promiseHandlersMu.RUnlock()
 
 	if exists {
@@ -536,16 +534,15 @@ func TestTrackRejection_RejectionInfoStorage(t *testing.T) {
 
 	// Check rejection info is stored
 	js.rejectionsMu.RLock()
-	id := p.getID()
-	info, exists := js.unhandledRejections[id]
+	info, exists := js.unhandledRejections[p]
 	js.rejectionsMu.RUnlock()
 
 	if !exists {
 		t.Fatal("Rejection info should be stored")
 	}
 
-	if info.promiseID != id {
-		t.Errorf("Expected promiseID %d, got %d", id, info.promiseID)
+	if info.promise != p {
+		t.Errorf("Expected promise pointer %p, got %p", p, info.promise)
 	}
 
 	if info.reason != expectedError {

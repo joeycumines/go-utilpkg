@@ -5,7 +5,7 @@ import (
 )
 
 // Test_FastsState_IsTerminal tests IsTerminal state query method
-func Test_FastState_IsTerminal(t *testing.T) {
+func Test_fastState_IsTerminal(t *testing.T) {
 	t.Parallel()
 
 	t.Run("IsTerminal returns false for non-terminal states", func(t *testing.T) {
@@ -21,7 +21,7 @@ func Test_FastState_IsTerminal(t *testing.T) {
 
 		for _, state := range nonTerminalStates {
 			t.Run(state.String(), func(t *testing.T) {
-				var fs FastState
+				var fs fastState
 				fs.Store(state)
 
 				if fs.IsTerminal() {
@@ -34,7 +34,7 @@ func Test_FastState_IsTerminal(t *testing.T) {
 	t.Run("IsTerminal returns true for StateTerminated", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateTerminated)
 
 		if !fs.IsTerminal() {
@@ -43,8 +43,8 @@ func Test_FastState_IsTerminal(t *testing.T) {
 	})
 }
 
-// Test_FastState_CanAcceptWork tests CanAcceptWork state query method
-func Test_FastState_CanAcceptWork(t *testing.T) {
+// Test_fastState_CanAcceptWork tests CanAcceptWork state query method
+func Test_fastState_CanAcceptWork(t *testing.T) {
 	t.Parallel()
 
 	t.Run("CanAcceptWork returns true for accepting states", func(t *testing.T) {
@@ -58,7 +58,7 @@ func Test_FastState_CanAcceptWork(t *testing.T) {
 
 		for _, state := range acceptingStates {
 			t.Run(state.String(), func(t *testing.T) {
-				var fs FastState
+				var fs fastState
 				fs.Store(state)
 
 				if !fs.CanAcceptWork() {
@@ -78,7 +78,7 @@ func Test_FastState_CanAcceptWork(t *testing.T) {
 
 		for _, state := range nonAcceptingStates {
 			t.Run(state.String(), func(t *testing.T) {
-				var fs FastState
+				var fs fastState
 				fs.Store(state)
 
 				if fs.CanAcceptWork() {
@@ -89,8 +89,8 @@ func Test_FastState_CanAcceptWork(t *testing.T) {
 	})
 }
 
-// Test_FastState_IsRunning tests IsRunning state query method
-func Test_FastState_IsRunning(t *testing.T) {
+// Test_fastState_IsRunning tests IsRunning state query method
+func Test_fastState_IsRunning(t *testing.T) {
 	t.Parallel()
 
 	t.Run("IsRunning returns true for Running states", func(t *testing.T) {
@@ -103,7 +103,7 @@ func Test_FastState_IsRunning(t *testing.T) {
 
 		for _, state := range runningStates {
 			t.Run(state.String(), func(t *testing.T) {
-				var fs FastState
+				var fs fastState
 				fs.Store(state)
 
 				if !fs.IsRunning() {
@@ -124,7 +124,7 @@ func Test_FastState_IsRunning(t *testing.T) {
 
 		for _, state := range nonRunningStates {
 			t.Run(state.String(), func(t *testing.T) {
-				var fs FastState
+				var fs fastState
 				fs.Store(state)
 
 				if fs.IsRunning() {
@@ -135,14 +135,14 @@ func Test_FastState_IsRunning(t *testing.T) {
 	})
 }
 
-// Test_FastState_TransitionAny tests TransitionAny state transition method
-func Test_FastState_TransitionAny(t *testing.T) {
+// Test_fastState_TransitionAny tests TransitionAny state transition method
+func Test_fastState_TransitionAny(t *testing.T) {
 	t.Parallel()
 
 	t.Run("TransitionAny succeeds for valid transition", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateAwake)
 
 		validFrom := []LoopState{StateAwake}
@@ -161,7 +161,7 @@ func Test_FastState_TransitionAny(t *testing.T) {
 	t.Run("TransitionAny fails for invalid source state", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateAwake)
 
 		validFrom := []LoopState{StateRunning} // Not StateAwake
@@ -185,14 +185,14 @@ func Test_FastState_TransitionAny(t *testing.T) {
 		to := StateTerminating
 
 		// Test from StateAwake
-		var fs1 FastState
+		var fs1 fastState
 		fs1.Store(StateAwake)
 		if !fs1.TransitionAny(validFrom, to) {
 			t.Error("TransitionAny failed from StateAwake")
 		}
 
 		// Test from StateRunning
-		var fs2 FastState
+		var fs2 fastState
 		fs2.Store(StateRunning)
 		if !fs2.TransitionAny(validFrom, to) {
 			t.Error("TransitionAny failed from StateRunning")
@@ -202,7 +202,7 @@ func Test_FastState_TransitionAny(t *testing.T) {
 	t.Run("TransitionAny tries all valid sources", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateRunning)
 
 		// Order doesn't matter - should succeed from current state
@@ -220,14 +220,14 @@ func Test_FastState_TransitionAny(t *testing.T) {
 	})
 }
 
-// Test_FastState_TryTransition tests exact state transitions
-func Test_FastState_TryTransition(t *testing.T) {
+// Test_fastState_TryTransition_Exact tests exact state transitions
+func Test_fastState_TryTransition_Exact(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Transition succeeds for exact state match", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateRunning)
 
 		from := StateRunning
@@ -246,7 +246,7 @@ func Test_FastState_TryTransition(t *testing.T) {
 	t.Run("Transition fails for state mismatch", func(t *testing.T) {
 		t.Parallel()
 
-		var fs FastState
+		var fs fastState
 		fs.Store(StateAwake)
 
 		from := StateRunning

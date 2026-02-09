@@ -18,11 +18,11 @@ import (
 // Run with: go test -bench=BenchmarkLatency -benchmem -count=5 ./eventloop/
 
 // -----------------------------------------------------------------------------
-// 1. ChunkedIngress Push (with mutex)
+// 1. chunkedIngress Push (with mutex)
 // -----------------------------------------------------------------------------
 
-func BenchmarkLatencyChunkedIngressPush(b *testing.B) {
-	q := NewChunkedIngress()
+func BenchmarkLatencychunkedIngressPush(b *testing.B) {
+	q := newChunkedIngress()
 	task := func() {}
 
 	b.ResetTimer()
@@ -31,10 +31,10 @@ func BenchmarkLatencyChunkedIngressPush(b *testing.B) {
 	}
 }
 
-func BenchmarkLatencyChunkedIngressPush_WithContention(b *testing.B) {
-	// ChunkedIngress requires external synchronization for concurrent access.
+func BenchmarkLatencychunkedIngressPush_WithContention(b *testing.B) {
+	// chunkedIngress requires external synchronization for concurrent access.
 	// This benchmark now includes proper synchronization to show contention cost.
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 	task := func() {}
 	var mu sync.Mutex // Required: External synchronization
 
@@ -58,11 +58,11 @@ func BenchmarkLatencyChunkedIngressPush_WithContention(b *testing.B) {
 }
 
 // -----------------------------------------------------------------------------
-// 2. ChunkedIngress Pop (with mutex)
+// 2. chunkedIngress Pop (with mutex)
 // -----------------------------------------------------------------------------
 
-func BenchmarkLatencyChunkedIngressPop(b *testing.B) {
-	q := NewChunkedIngress()
+func BenchmarkLatencychunkedIngressPop(b *testing.B) {
+	q := newChunkedIngress()
 
 	// Pre-fill the queue
 	for i := 0; i < b.N; i++ {
@@ -75,9 +75,9 @@ func BenchmarkLatencyChunkedIngressPop(b *testing.B) {
 	}
 }
 
-func BenchmarkLatencyChunkedIngressPushPop(b *testing.B) {
+func BenchmarkLatencychunkedIngressPushPop(b *testing.B) {
 	// Measure complete push+pop round-trip
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 	task := func() {}
 
 	b.ResetTimer()
@@ -146,7 +146,7 @@ func BenchmarkLatencyChannelBufferedRoundTrip(b *testing.B) {
 // -----------------------------------------------------------------------------
 
 func BenchmarkLatencyStateTryTransition(b *testing.B) {
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
 
 	b.ResetTimer()
@@ -162,7 +162,7 @@ func BenchmarkLatencyStateTryTransition(b *testing.B) {
 
 func BenchmarkLatencyStateTryTransition_NoOp(b *testing.B) {
 	// CAS that always fails (measures failed CAS overhead)
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
 
 	b.ResetTimer()
@@ -173,7 +173,7 @@ func BenchmarkLatencyStateTryTransition_NoOp(b *testing.B) {
 }
 
 func BenchmarkLatencyStateLoad(b *testing.B) {
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
 
 	b.ResetTimer()
@@ -238,9 +238,9 @@ func BenchmarkLatencySimulatedSubmit(b *testing.B) {
 	// 3. Push task
 	// 4. Unlock mutex
 
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 	var mu sync.Mutex
 	task := func() {}
 
@@ -260,7 +260,7 @@ func BenchmarkLatencySimulatedPoll(b *testing.B) {
 	// 3. Unlock mutex
 	// 4. Execute task with safe recovery
 
-	q := NewChunkedIngress()
+	q := newChunkedIngress()
 	var mu sync.Mutex
 	fn := func() {}
 
@@ -281,11 +281,11 @@ func BenchmarkLatencySimulatedPoll(b *testing.B) {
 }
 
 // -----------------------------------------------------------------------------
-// 7. MicrotaskRing Operations
+// 7. microtaskRing Operations
 // -----------------------------------------------------------------------------
 
-func BenchmarkLatencyMicrotaskRingPush(b *testing.B) {
-	ring := NewMicrotaskRing()
+func BenchmarkLatencymicrotaskRingPush(b *testing.B) {
+	ring := newMicrotaskRing()
 	fn := func() {}
 
 	b.ResetTimer()
@@ -294,8 +294,8 @@ func BenchmarkLatencyMicrotaskRingPush(b *testing.B) {
 	}
 }
 
-func BenchmarkLatencyMicrotaskRingPop(b *testing.B) {
-	ring := NewMicrotaskRing()
+func BenchmarkLatencymicrotaskRingPop(b *testing.B) {
+	ring := newMicrotaskRing()
 
 	// Pre-fill
 	for i := 0; i < b.N; i++ {
@@ -308,8 +308,8 @@ func BenchmarkLatencyMicrotaskRingPop(b *testing.B) {
 	}
 }
 
-func BenchmarkLatencyMicrotaskRingPushPop(b *testing.B) {
-	ring := NewMicrotaskRing()
+func BenchmarkLatencymicrotaskRingPushPop(b *testing.B) {
+	ring := newMicrotaskRing()
 	fn := func() {}
 
 	b.ResetTimer()

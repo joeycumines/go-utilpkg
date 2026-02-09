@@ -74,7 +74,7 @@ const (
 // Loop is a high-performance event loop implementation.
 //
 // It prioritizes throughput and low latency using:
-//   - Mutex+chunked ingress queue (ChunkedIngress) which outperforms lock-free under contention
+//   - Mutex+chunked ingress queue (chunkedIngress) which outperforms lock-free under contention
 //   - Direct FD indexing
 //   - Inline callback execution
 //
@@ -106,14 +106,14 @@ type Loop struct {
 	batchBuf      [256]func()
 	tickAnchor    time.Time
 	registry      *registry
-	state         *FastState
+	state         *fastState
 	testHooks     *loopTestHooks
-	external      *ChunkedIngress
-	internal      *ChunkedIngress
-	microtasks    *MicrotaskRing
-	nextTickQueue *MicrotaskRing                   // EXPAND-020: process.nextTick queue (runs before microtasks)
+	external      *chunkedIngress
+	internal      *chunkedIngress
+	microtasks    *microtaskRing
+	nextTickQueue *microtaskRing                   // EXPAND-020: process.nextTick queue (runs before microtasks)
 	metrics       *Metrics                         // Phase 5.3: Optional runtime metrics
-	tpsCounter    *TPSCounter                      // Phase 5.3: TPS tracking
+	tpsCounter    *tpsCounter                      // Phase 5.3: TPS tracking
 	logger        *logiface.Logger[logiface.Event] // T25: Optional structured logger
 	OnOverload    func(error)
 	fastWakeupCh  chan struct{}
@@ -122,7 +122,7 @@ type Loop struct {
 	timers        timerHeap
 	auxJobs       []func()
 	auxJobsSpare  []func()
-	poller        FastPoller
+	poller        fastPoller
 	promisifyWg   sync.WaitGroup
 
 	// Simple primitive types BEFORE anything that requires pointer alignment
@@ -213,18 +213,18 @@ func New(opts ...LoopOption) (*Loop, error) {
 		return nil, err
 	}
 
-	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	wakeFd, wakeWriteFd, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		return nil, err
 	}
 
 	loop := &Loop{
 		id:            loopIDCounter.Add(1),
-		state:         NewFastState(),
-		external:      NewChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
-		internal:      NewChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
-		microtasks:    NewMicrotaskRing(),
-		nextTickQueue: NewMicrotaskRing(), // EXPAND-020: nextTick runs before microtasks
+		state:         newFastState(),
+		external:      newChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
+		internal:      newChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
+		microtasks:    newMicrotaskRing(),
+		nextTickQueue: newMicrotaskRing(), // EXPAND-020: nextTick runs before microtasks
 		registry:      newRegistry(),
 		timers:        make(timerHeap, 0),
 		timerMap:      make(map[TimerID]*timer),
@@ -244,7 +244,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	// Phase 5.3: Initialize metrics if enabled
 	if options.metricsEnabled {
 		loop.metrics = &Metrics{}
-		loop.tpsCounter = NewTPSCounter(10*time.Second, 100*time.Millisecond)
+		loop.tpsCounter = newTPSCounter(10*time.Second, 100*time.Millisecond)
 	}
 
 	if err := loop.poller.Init(); err != nil {
@@ -1212,7 +1212,7 @@ func (l *Loop) Submit(task func()) error {
 		return nil
 	}
 
-	// Normal path: Use ChunkedIngress for I/O mode
+	// Normal path: Use chunkedIngress for I/O mode
 	l.external.Push(task)
 	l.externalMu.Unlock()
 
@@ -1353,7 +1353,7 @@ func (l *Loop) Wake() error {
 
 // ScheduleMicrotask schedules a microtask.
 //
-// MicrotaskRing now implements dynamic growth, so Push never fails.
+// microtaskRing now implements dynamic growth, so Push never fails.
 func (l *Loop) ScheduleMicrotask(fn func()) error {
 	state := l.state.Load()
 	if state == StateTerminated {
@@ -1614,10 +1614,11 @@ func (l *Loop) runTimers() {
 			newDepth := t.nestingLevel + 1
 			l.timerNestingDepth.Store(newDepth)
 
-			// Restore nesting depth even if timer callback panics
-			defer l.timerNestingDepth.Store(oldDepth)
-
 			l.safeExecute(t.task)
+
+			// Restore nesting depth after callback execution.
+			// safeExecute recovers panics, so this always runs normally.
+			l.timerNestingDepth.Store(oldDepth)
 			delete(l.timerMap, t.id)
 
 			// Zero-alloc: Return timer to pool

@@ -140,7 +140,7 @@ Your Code                    Event Loop Thread
 | `console.time()` | ✅ Full | Timer API |
 | `console.timeEnd()` | ✅ Full | |
 | `console.timeLog()` | ✅ Full | |
-| `process.nextTick` | ❌ N/A | Use `queueMicrotask` |
+| `process.nextTick` | ✅ Full | Node.js-style microtask (runs before Promise) |
 | `fetch` | ❌ N/A | Implement via Go HTTP |
 | `fs` module | ❌ N/A | Implement via Promisify |
 | `EventEmitter` | ❌ N/A | Implement if needed |
@@ -149,14 +149,14 @@ Your Code                    Event Loop Thread
 
 ```javascript
 // Node.js: process.nextTick runs before Promise microtasks
-// goja-eventloop: Use queueMicrotask instead (runs at same priority as Promise)
+// goja-eventloop: process.nextTick is available and runs before Promise microtasks
 
-// Node.js
+// Both Node.js and goja-eventloop:
 process.nextTick(() => console.log('1'));
 Promise.resolve().then(() => console.log('2'));
-// Output: 1, 2
+// Output: 1, 2 (nextTick runs first, then promise microtasks)
 
-// goja-eventloop
+// queueMicrotask runs at the same priority as Promise microtasks:
 queueMicrotask(() => console.log('1'));
 Promise.resolve().then(() => console.log('2'));
 // Output: 1, 2 (FIFO order within microtask queue)

@@ -721,7 +721,7 @@ func TestAdapter_ErrorConversion_GoError(t *testing.T) {
 
 	// Create a promise that rejects with a Go error
 	promise := adapter.JS().Reject(context.DeadlineExceeded)
-	_ = rt.Set("testPromise", adapter.gojaWrapPromise(promise))
+	_ = rt.Set("testPromise", adapter.GojaWrapPromise(promise))
 
 	_, err = rt.RunString(`
 		var caught = null;
@@ -1317,7 +1317,7 @@ func TestAdapter_isWrappedPromise_Coverage(t *testing.T) {
 
 	// Test with wrapped promise
 	promise := adapter.JS().Resolve(42)
-	wrapped := adapter.gojaWrapPromise(promise)
+	wrapped := adapter.GojaWrapPromise(promise)
 	if !isWrappedPromise(wrapped) {
 		t.Error("Wrapped promise should be detected")
 	}

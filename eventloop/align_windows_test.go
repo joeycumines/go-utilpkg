@@ -8,12 +8,12 @@ import (
 	"unsafe"
 )
 
-// TestFastPollerAlign_Windows validates Windows FastPoller struct alignment
-func TestFastPollerAlign_Windows(t *testing.T) {
-	s := &FastPoller{}
+// Test_fastPollerAlign_Windows validates Windows fastPoller struct alignment
+func Test_fastPollerAlign_Windows(t *testing.T) {
+	s := &fastPoller{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== FastPoller (Windows) ===\n")
+	fmt.Printf("=== fastPoller (Windows) ===\n")
 
 	// Check iocp offset
 	iocpOffset := unsafe.Offsetof(s.iocp)

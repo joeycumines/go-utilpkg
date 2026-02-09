@@ -251,12 +251,13 @@ func TestCancelTimerInvalidHeapIndex(t *testing.T) {
 
 	// Test 3: Multiple rapid cancellations
 	for i := 0; i < 50; i++ {
-		TimerID, err := loop.ScheduleTimer(1*time.Millisecond, func() {})
+		TimerID, err := loop.ScheduleTimer(10*time.Second, func() {})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		// Immediately cancel
+		// Immediately cancel — using a long duration ensures the timer
+		// hasn't fired yet, so CancelTimer must succeed.
 		if err := loop.CancelTimer(TimerID); err != nil {
 			t.Errorf("CancelTimer failed at iteration %d: %v", i, err)
 		}

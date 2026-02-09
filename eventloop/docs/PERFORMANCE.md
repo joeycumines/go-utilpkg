@@ -117,7 +117,7 @@ loop.SetFastPathMode(FastPathAuto)
 
 ## Chunk Size Considerations
 
-The event loop uses `ChunkedIngress` for external task queues with chunked
+The event loop uses a chunked ingress queue for external task queues with chunked
 allocation strategy.
 
 ### Default Configuration
@@ -154,9 +154,9 @@ loop, _ := New(WithMetrics(true))
 // Periodically check metrics
 metrics := loop.Metrics()
 fmt.Printf("External queue: current=%d, max=%d, EMA=%.2f\n",
-    metrics.QueueCurrent.Ingress,
-    metrics.QueueMax.Ingress,
-    metrics.QueueEMA.Ingress)
+    metrics.Queue.IngressCurrent,
+    metrics.Queue.IngressMax,
+    metrics.Queue.IngressAvg)
 ```
 
 ### Overflow Handling
@@ -338,7 +338,7 @@ go tool pprof mem.prof
 
 # Key commands:
 (pprof) top10 -cum          # Top by cumulative allocations
-(pprof) list MicrotaskRing  # Source annotation
+(pprof) list microtaskRing  # Source annotation
 (pprof) alloc_space         # Total allocations (not just in-use)
 ```
 
@@ -452,8 +452,8 @@ benchstat baseline.txt improved.txt
 
 | Operation | Allocations | Notes |
 |-----------|-------------|-------|
-| MicrotaskRing.Push/Pop | 0 | Lock-free ring buffer |
-| ChunkedIngress.Push/Pop | 0 | Chunk pool recycling |
+| microtaskRing push/pop | 0 | Lock-free ring buffer |
+| chunkedIngress push/pop | 0 | Chunk pool recycling |
 | Fast path Submit | 0-2 | Slice growth amortized |
 | Timer fire | 0 | Pool return |
 
@@ -605,8 +605,8 @@ metrics := loop.Metrics()
 fmt.Printf("TPS: %.2f\n", metrics.TPS)
 fmt.Printf("P99 Latency: %.2fms\n", metrics.Latency.P99)
 fmt.Printf("Queue Depth: %d (max: %d)\n",
-    metrics.QueueCurrent.Ingress,
-    metrics.QueueMax.Ingress)
+    metrics.Queue.IngressCurrent,
+    metrics.Queue.IngressMax)
 ```
 
 ### Performance Testing Pattern

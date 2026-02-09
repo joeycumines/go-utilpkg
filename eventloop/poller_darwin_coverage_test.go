@@ -14,10 +14,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// TestFastPoller_Wakeup tests the FastPoller.Wakeup() method
+// Test_fastPoller_Wakeup tests the fastPoller.Wakeup() method
 // This is a stub on Darwin that returns nil
-func TestFastPoller_Wakeup(t *testing.T) {
-	poller := &FastPoller{}
+func Test_fastPoller_Wakeup(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -31,9 +31,9 @@ func TestFastPoller_Wakeup(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Wakeup_AfterClose tests Wakeup() after poller is closed
-func TestFastPoller_Wakeup_AfterClose(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Wakeup_AfterClose tests Wakeup() after poller is closed
+func Test_fastPoller_Wakeup_AfterClose(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -52,9 +52,9 @@ func TestFastPoller_Wakeup_AfterClose(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Close tests the FastPoller.Close() method
-func TestFastPoller_Close(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_Close tests the fastPoller.Close() method
+func Test_fastPoller_Close(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -73,9 +73,9 @@ func TestFastPoller_Close(t *testing.T) {
 	}
 }
 
-// TestFastPoller_RegisterFD tests FD registration
-func TestFastPoller_RegisterFD(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD tests FD registration
+func Test_fastPoller_RegisterFD(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -104,9 +104,9 @@ func TestFastPoller_RegisterFD(t *testing.T) {
 	}
 }
 
-// TestFastPoller_RegisterFD_Closed tests FD registration on closed poller
-func TestFastPoller_RegisterFD_Closed(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_Closed tests FD registration on closed poller
+func Test_fastPoller_RegisterFD_Closed(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -123,9 +123,9 @@ func TestFastPoller_RegisterFD_Closed(t *testing.T) {
 	}
 }
 
-// TestFastPoller_RegisterFD_OutOfRange tests FD registration with invalid FD
-func TestFastPoller_RegisterFD_OutOfRange(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_OutOfRange tests FD registration with invalid FD
+func Test_fastPoller_RegisterFD_OutOfRange(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -140,9 +140,9 @@ func TestFastPoller_RegisterFD_OutOfRange(t *testing.T) {
 	}
 }
 
-// TestFastPoller_RegisterFD_AlreadyRegistered tests FD registration for already registered FD
-func TestFastPoller_RegisterFD_AlreadyRegistered(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_RegisterFD_AlreadyRegistered tests FD registration for already registered FD
+func Test_fastPoller_RegisterFD_AlreadyRegistered(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -172,8 +172,8 @@ func TestFastPoller_RegisterFD_AlreadyRegistered(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Kqueue tests kqueue creation
-func TestFastPoller_Kqueue(t *testing.T) {
+// Test_fastPoller_Kqueue tests kqueue creation
+func Test_fastPoller_Kqueue(t *testing.T) {
 	kq, err := unix.Kqueue()
 	if err != nil {
 		t.Skip("Kqueue not available")
@@ -185,8 +185,8 @@ func TestFastPoller_Kqueue(t *testing.T) {
 	}
 }
 
-// TestFastPoller_Kevent tests kevent system call
-func TestFastPoller_Kevent(t *testing.T) {
+// Test_fastPoller_Kevent tests kevent system call
+func Test_fastPoller_Kevent(t *testing.T) {
 	// Create a kqueue
 	kq, err := unix.Kqueue()
 	if err != nil {
@@ -268,9 +268,9 @@ func TestErrFDAlreadyRegistered(t *testing.T) {
 	}
 }
 
-// TestFastPoller_PollIO tests PollIO method
-func TestFastPoller_PollIO(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_PollIO tests PollIO method
+func Test_fastPoller_PollIO(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -307,9 +307,9 @@ func TestFastPoller_PollIO(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ModifyFD tests ModifyFD method
-func TestFastPoller_ModifyFD(t *testing.T) {
-	poller := &FastPoller{}
+// Test_fastPoller_ModifyFD tests ModifyFD method
+func Test_fastPoller_ModifyFD(t *testing.T) {
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatal(err)

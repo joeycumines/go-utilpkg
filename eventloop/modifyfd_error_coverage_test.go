@@ -31,7 +31,7 @@ import (
 
 // TestModifyFD_ErrorPath_NegativeFD tests error return for negative FD
 func TestModifyFD_ErrorPath_NegativeFD(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -51,7 +51,7 @@ func TestModifyFD_ErrorPath_NegativeFD(t *testing.T) {
 
 // TestModifyFD_ErrorPath_NotRegistered tests error return for unregistered FD
 func TestModifyFD_ErrorPath_NotRegistered(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -73,7 +73,7 @@ func TestModifyFD_ErrorPath_NotRegistered(t *testing.T) {
 
 // TestModifyFD_ErrorPath_AfterUnregister tests ModifyFD after UnregisterFD
 func TestModifyFD_ErrorPath_AfterUnregister(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -108,7 +108,7 @@ func TestModifyFD_ErrorPath_AfterUnregister(t *testing.T) {
 
 // TestModifyFD_SuccessPath_ReadToWrite tests successful modification from read to write
 func TestModifyFD_SuccessPath_ReadToWrite(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -148,7 +148,7 @@ func TestModifyFD_SuccessPath_ReadToWrite(t *testing.T) {
 
 // TestModifyFD_SuccessPath_WriteToRead tests successful modification from write to read
 func TestModifyFD_SuccessPath_WriteToRead(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -188,7 +188,7 @@ func TestModifyFD_SuccessPath_WriteToRead(t *testing.T) {
 
 // TestModifyFD_SuccessPath_AddEvents tests adding events without removing
 func TestModifyFD_SuccessPath_AddEvents(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -228,7 +228,7 @@ func TestModifyFD_SuccessPath_AddEvents(t *testing.T) {
 
 // TestModifyFD_SuccessPath_RemoveEvents tests removing events
 func TestModifyFD_SuccessPath_RemoveEvents(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -268,7 +268,7 @@ func TestModifyFD_SuccessPath_RemoveEvents(t *testing.T) {
 
 // TestModifyFD_SuccessPath_NoChange tests ModifyFD with same events
 func TestModifyFD_SuccessPath_NoChange(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -303,7 +303,7 @@ func TestModifyFD_ConcurrentWithEvents(t *testing.T) {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -400,7 +400,7 @@ func TestModifyFD_Integration_WithLoop(t *testing.T) {
 
 // TestModifyFD_RapidModifications tests rapid event modifications
 func TestModifyFD_RapidModifications(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -439,7 +439,7 @@ func TestModifyFD_RapidModifications(t *testing.T) {
 
 // TestModifyFD_ToNoEvents tests modifying to no events
 func TestModifyFD_ToNoEvents(t *testing.T) {
-	poller := &FastPoller{}
+	poller := &fastPoller{}
 	err := poller.Init()
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)

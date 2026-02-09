@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-// TestFastPoller_InitClose tests basic FastPoller initialization and close.
-func TestFastPoller_InitClose(t *testing.T) {
-	var p FastPoller
+// Test_fastPoller_InitClose tests basic fastPoller initialization and close.
+func Test_fastPoller_InitClose(t *testing.T) {
+	var p fastPoller
 
 	if err := p.Init(); err != nil {
 		t.Fatalf("Failed to init poller: %v", err)
@@ -17,12 +17,12 @@ func TestFastPoller_InitClose(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ConcurrentInit tests that multiple sequential Init/Close cycles are safe.
-// Note: FastPoller.Init() is NOT designed for concurrent initialization from multiple goroutines.
+// Test_fastPoller_ConcurrentInit tests that multiple sequential Init/Close cycles are safe.
+// Note: fastPoller.Init() is NOT designed for concurrent initialization from multiple goroutines.
 // This test verifies that sequential initialization works correctly.
-func TestFastPoller_ConcurrentInit(t *testing.T) {
+func Test_fastPoller_ConcurrentInit(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		var p FastPoller
+		var p fastPoller
 		if err := p.Init(); err != nil {
 			t.Fatalf("Failed to init poller: %v", err)
 		}
@@ -32,11 +32,11 @@ func TestFastPoller_ConcurrentInit(t *testing.T) {
 	}
 }
 
-// TestFastPoller_ConcurrentClose tests that multiple sequential Close calls are safe (idempotent).
-// Note: FastPoller.Close() should be safe to call multiple times from the same goroutine.
-func TestFastPoller_ConcurrentClose(t *testing.T) {
+// Test_fastPoller_ConcurrentClose tests that multiple sequential Close calls are safe (idempotent).
+// Note: fastPoller.Close() should be safe to call multiple times from the same goroutine.
+func Test_fastPoller_ConcurrentClose(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		var p FastPoller
+		var p fastPoller
 		if err := p.Init(); err != nil {
 			t.Fatalf("Failed to init poller: %v", err)
 		}

@@ -20,7 +20,7 @@ import (
 
 // TestCreateWakeFd_Success tests successful pipe creation
 func TestCreateWakeFd_Success(t *testing.T) {
-	r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestCreateWakeFd_Success(t *testing.T) {
 
 // TestCreateWakeFd_NonBlocking tests that the pipe is non-blocking
 func TestCreateWakeFd_NonBlocking(t *testing.T) {
-	r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestCreateWakeFd_NonBlocking(t *testing.T) {
 
 // TestCreateWakeFd_WriteAndRead tests writing to and reading from the pipe
 func TestCreateWakeFd_WriteAndRead(t *testing.T) {
-	r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestCreateWakeFd_FlagsIgnored(t *testing.T) {
 
 // TestCreateWakeFd_CloseOnExec tests that FDs have close-on-exec flag set
 func TestCreateWakeFd_CloseOnExec(t *testing.T) {
-	r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestCreateWakeFd_CloseOnExec(t *testing.T) {
 
 // TestCreateWakeFd_NonBlockingFlag tests that FDs have non-blocking flag set
 func TestCreateWakeFd_NonBlockingFlag(t *testing.T) {
-	r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 	if err != nil {
 		t.Fatalf("createWakeFd failed: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestCreateWakeFd_MultipleCreation(t *testing.T) {
 
 	// Create multiple pipes
 	for i := 0; i < 10; i++ {
-		r, w, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+		r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 		if err != nil {
 			t.Fatalf("createWakeFd %d failed: %v", i, err)
 		}
@@ -223,11 +223,11 @@ func TestSubmitGenericWakeupStub_Darwin(t *testing.T) {
 // TestEFDConstants_Darwin tests that EFD constants are defined correctly
 func TestEFDConstants_Darwin(t *testing.T) {
 	// On Darwin, these map to O_CLOEXEC and O_NONBLOCK
-	if EFD_CLOEXEC != unix.O_CLOEXEC {
-		t.Errorf("EFD_CLOEXEC should equal O_CLOEXEC, got: %d vs %d", EFD_CLOEXEC, unix.O_CLOEXEC)
+	if efdCloexec != unix.O_CLOEXEC {
+		t.Errorf("efdCloexec should equal O_CLOEXEC, got: %d vs %d", efdCloexec, unix.O_CLOEXEC)
 	}
-	if EFD_NONBLOCK != unix.O_NONBLOCK {
-		t.Errorf("EFD_NONBLOCK should equal O_NONBLOCK, got: %d vs %d", EFD_NONBLOCK, unix.O_NONBLOCK)
+	if efdNonblock != unix.O_NONBLOCK {
+		t.Errorf("efdNonblock should equal O_NONBLOCK, got: %d vs %d", efdNonblock, unix.O_NONBLOCK)
 	}
 }
 

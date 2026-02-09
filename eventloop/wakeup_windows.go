@@ -6,13 +6,13 @@ package eventloop
 
 import "golang.org/x/sys/windows"
 
-// EFD_CLOEXEC and EFD_NONBLOCK are Unix eventfd flags.
+// efdCloexec and efdNonblock are Unix eventfd flags.
 // On Windows these are unused (createWakeFd ignores flags) but must be
-// defined so that loop.go's createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+// defined so that loop.go's createWakeFd(0, efdCloexec|efdNonblock)
 // compiles on all platforms.
 const (
-	EFD_CLOEXEC  = 0
-	EFD_NONBLOCK = 0
+	efdCloexec  = 0
+	efdNonblock = 0
 )
 
 // createWakeFd creates a dummy wake mechanism for Windows.

@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-// TestMicrotaskRing_SeqWrapAround verifies that sequence number wrap-around
+// Test_microtaskRing_SeqWrapAround verifies that sequence number wrap-around
 // does not cause infinite spin loops or data loss. This test covers the R101 fix.
-func TestMicrotaskRing_SeqWrapAround(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_SeqWrapAround(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Pre-populate with enough items to advance tailSeq significantly
 	pushedCount := atomic.Int64{}
@@ -55,10 +55,10 @@ func TestMicrotaskRing_SeqWrapAround(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_ConcurrentProducerLoad verifies that under extreme concurrent
+// Test_microtaskRing_ConcurrentProducerLoad verifies that under extreme concurrent
 // producer load, the ring handle sequence validity correctly without infinite spins.
-func TestMicrotaskRing_ConcurrentProducerLoad(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_ConcurrentProducerLoad(t *testing.T) {
+	ring := newMicrotaskRing()
 	numProducers := 50
 	itemsPerProducer := 1000
 
@@ -142,10 +142,10 @@ readLoop:
 	}
 }
 
-// TestMicrotaskRing_OverflowDuringWrapAround verifies that overflow buffer
+// Test_microtaskRing_OverflowDuringWrapAround verifies that overflow buffer
 // works correctly even when sequence numbers are wrapping around.
-func TestMicrotaskRing_OverflowDuringWrapAround(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_OverflowDuringWrapAround(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Manually advance tailSeq to near wrap-around point
 	ring.tailSeq.Store(^uint64(0) - 100)
@@ -187,10 +187,10 @@ func TestMicrotaskRing_OverflowDuringWrapAround(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_ValidityFlagReset verifies that validity flags
+// Test_microtaskRing_ValidityFlagReset verifies that validity flags
 // are correctly reset to false after slots are consumed.
-func TestMicrotaskRing_ValidityFlagReset(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_ValidityFlagReset(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Push and consume one item at a time, verifying validity state
 	for i := 0; i < 100; i++ {
@@ -223,12 +223,12 @@ func TestMicrotaskRing_ValidityFlagReset(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_NilTaskWithSequence verifies that nil tasks
+// Test_microtaskRing_NilTaskWithSequence verifies that nil tasks
 // with valid sequences are properly consumed without infinite loop.
-// Note: MicrotaskRing Pop() consumes nil tasks internally without returning them.
+// Note: microtaskRing Pop() consumes nil tasks internally without returning them.
 // This test verifies nil tasks don't cause infinite loops or block the queue.
-func TestMicrotaskRing_NilTaskWithSequence(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_NilTaskWithSequence(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Push both valid tasks and nil tasks
 	// Pop() skips nil tasks internally, so only non-nil tasks are returned
@@ -269,10 +269,10 @@ func TestMicrotaskRing_NilTaskWithSequence(t *testing.T) {
 	}
 }
 
-// TestMicrotaskRing_NoInfiniteSpinAfterWrap verifies that after sequence
+// Test_microtaskRing_NoInfiniteSpinAfterWrap verifies that after sequence
 // wrap-around, the ring does not enter infinite spin when consuming.
-func TestMicrotaskRing_NoInfiniteSpinAfterWrap(t *testing.T) {
-	ring := NewMicrotaskRing()
+func Test_microtaskRing_NoInfiniteSpinAfterWrap(t *testing.T) {
+	ring := newMicrotaskRing()
 
 	// Force sequence wrap-around by pushing many items in burst
 	// Each item increments tailSeq, so 2^33 items would cause wrap

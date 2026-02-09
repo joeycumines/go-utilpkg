@@ -8,12 +8,12 @@ import (
 	"unsafe"
 )
 
-// TestFastPollerAlign_Linux validates Linux FastPoller struct alignment
-func TestFastPollerAlign_Linux(t *testing.T) {
-	s := &FastPoller{}
+// Test_fastPollerAlign_Linux validates Linux fastPoller struct alignment
+func Test_fastPollerAlign_Linux(t *testing.T) {
+	s := &fastPoller{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== FastPoller (Linux) ===\n")
+	fmt.Printf("=== fastPoller (Linux) ===\n")
 
 	// Check epfd offset (Linux-specific field)
 	epfdOffset := unsafe.Offsetof(s.epfd)

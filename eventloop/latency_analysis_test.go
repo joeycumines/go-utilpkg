@@ -893,25 +893,25 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	mutexTime := time.Since(start)
 	t.Logf("Mutex lock/unlock:   %v/op", mutexTime/ops)
 
-	// 2. Measure ChunkedIngress push
-	q := NewChunkedIngress()
+	// 2. Measure chunkedIngress push
+	q := newChunkedIngress()
 	task := func() {}
 	start = time.Now()
 	for i := 0; i < ops; i++ {
 		q.Push(task)
 	}
 	pushTime := time.Since(start)
-	t.Logf("ChunkedIngress push: %v/op", pushTime/ops)
+	t.Logf("chunkedIngress push: %v/op", pushTime/ops)
 
 	// 3. Measure state load
-	state := NewFastState()
+	state := newFastState()
 	state.Store(StateRunning)
 	start = time.Now()
 	for i := 0; i < ops; i++ {
 		_ = state.Load()
 	}
 	loadTime := time.Since(start)
-	t.Logf("FastState load:      %v/op", loadTime/ops)
+	t.Logf("fastState load:      %v/op", loadTime/ops)
 
 	// 4. Measure CAS
 	start = time.Now()
@@ -923,7 +923,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 		}
 	}
 	casTime := time.Since(start)
-	t.Logf("FastState CAS:       %v/op", casTime/ops)
+	t.Logf("fastState CAS:       %v/op", casTime/ops)
 
 	// 5. Measure wakeUpSignalPending CAS
 	var pending atomic.Uint32

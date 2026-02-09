@@ -8,12 +8,12 @@ import (
 	"unsafe"
 )
 
-// TestFastPollerAlign_Darwin validates Darwin FastPoller struct alignment
-func TestFastPollerAlign_Darwin(t *testing.T) {
-	s := &FastPoller{}
+// Test_fastPollerAlign_Darwin validates Darwin fastPoller struct alignment
+func Test_fastPollerAlign_Darwin(t *testing.T) {
+	s := &fastPoller{}
 	_ = s // Use s to avoid staticcheck warning
 
-	fmt.Printf("=== FastPoller (Darwin) ===\n")
+	fmt.Printf("=== fastPoller (Darwin) ===\n")
 
 	// Check kq offset (Darwin-specific field)
 	kqOffset := unsafe.Offsetof(s.kq)

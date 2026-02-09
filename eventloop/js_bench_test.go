@@ -2,7 +2,6 @@ package eventloop
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 )
@@ -160,18 +159,19 @@ func BenchmarkPromiseHandlerTracking_Optimized(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		id := uint64(i)
+		// Use a distinct pointer per iteration to simulate real promise tracking
+		p := &ChainedPromise{}
 
 		js.promiseHandlersMu.Lock()
-		js.promiseHandlers[id] = true
+		js.promiseHandlers[p] = true
 		js.promiseHandlersMu.Unlock()
 
 		js.promiseHandlersMu.RLock()
-		_ = js.promiseHandlers[id]
+		_ = js.promiseHandlers[p]
 		js.promiseHandlersMu.RUnlock()
 
 		js.promiseHandlersMu.Lock()
-		delete(js.promiseHandlers, id)
+		delete(js.promiseHandlers, p)
 		js.promiseHandlersMu.Unlock()
 	}
 	b.StopTimer()
@@ -197,27 +197,22 @@ func BenchmarkPromiseHandlerTracking_Parallel_Optimized(b *testing.B) {
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
 
-	var counter uint64
-	var mu sync.Mutex
-
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			mu.Lock()
-			id := counter
-			counter++
-			mu.Unlock()
+			// Use a distinct pointer per iteration to simulate real promise tracking
+			p := &ChainedPromise{}
 
 			js.promiseHandlersMu.Lock()
-			js.promiseHandlers[id] = true
+			js.promiseHandlers[p] = true
 			js.promiseHandlersMu.Unlock()
 
 			js.promiseHandlersMu.RLock()
-			_ = js.promiseHandlers[id]
+			_ = js.promiseHandlers[p]
 			js.promiseHandlersMu.RUnlock()
 
 			js.promiseHandlersMu.Lock()
-			delete(js.promiseHandlers, id)
+			delete(js.promiseHandlers, p)
 			js.promiseHandlersMu.Unlock()
 		}
 	})
