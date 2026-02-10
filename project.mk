@@ -3,7 +3,7 @@
 # TODO update this if the root module gets packages
 GO_MODULE_SLUGS_NO_PACKAGES = root
 GO_MODULE_SLUGS_NO_UPDATE = sql.export.mysql
-GO_MODULE_SLUGS_NO_BETTERALIGN = prompt
+GO_MODULE_SLUGS_NO_BETTERALIGN = prompt microbatch
 GRIT_SRC ?= https://github.com/joeycumines/go-utilpkg.git
 GRIT_DST ?= \
     catrate$(MAP_SEPARATOR)https://github.com/joeycumines/go-catrate.git \
@@ -19,7 +19,13 @@ GRIT_DST ?= \
     sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
     prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
     grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
-    floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git
+    floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
+    eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/go-eventloop.git \
+    goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true
+
+.PHONY: betteralign-apply
+betteralign-apply:
+	$(MAKE) betteralign BETTERALIGN_FLAGS=-apply

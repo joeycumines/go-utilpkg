@@ -3,10 +3,10 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-catrate v0.0.0-20251214074454-0aa61eb9263a h1:+7NxG/hBWMFaWchpGYh0adzajn/ui7YUO6lQBHu7yng=
-github.com/joeycumines/go-catrate v0.0.0-20251214074454-0aa61eb9263a/go.mod h1:ynhO0B4N53y/tMknRxZ2WxaJai5lAaJAhCV70bvchUc=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20251216204803-17bc9c2e15a5 h1:2RT2qfbLoHXVv9qS34upe/QuUiXHOH8BCVozTbo2WFc=
-github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20251216204803-17bc9c2e15a5/go.mod h1:/edhaD70giYM7n39mqj6NnKwO5lIDnuVYGpFCU/sE/g=
+github.com/joeycumines/go-catrate v0.0.0-20251223235052-5947b7adba56 h1:DN2LrdUB5/CHXRufBCM0xfnLgeSCKpC4qz9T54jo7hw=
+github.com/joeycumines/go-catrate v0.0.0-20251223235052-5947b7adba56/go.mod h1:ya6IP4C/Vd7m4reiOlbXPTNseBHYGT0Cf3x9bPzSF1o=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260124082548-9a54e4455049 h1:L8uQgBH4Vq/VX0nOjeVO0d74KOUdBypMhJ+T21pkoZY=
+github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260124082548-9a54e4455049/go.mod h1:/edhaD70giYM7n39mqj6NnKwO5lIDnuVYGpFCU/sE/g=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8 h1:4gaPSRcwW29nLQX8o6wD6L/NLwK7q4CatYylOcxTVro=
 github.com/joeycumines/logiface-testsuite v0.0.0-20240124031325-8c3b3b9764b8/go.mod h1:ImPViOpLLb/M0YOd5EQHQBct5MjK8wTFDu7xBfJzn8Q=
 github.com/joeycumines/stumpy v0.4.0 h1:kwfEEUz1s+iBV+HCbPj3f3FhYrk/+pE7fMoObG0UWSk=
@@ -21,8 +21,8 @@ github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0t
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 h1:fQsdNF2N+/YewlRZiricy4P1iimyPKZ/xwniHj8Q2a0=
-golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93/go.mod h1:EPRbTFwzwjXj9NpYyyrvenVh9Y+GFeEvMNh7Xuz7xgU=
+golang.org/x/exp v0.0.0-20260112195511-716be5621a96 h1:Z/6YuSHTLOHfNFdb8zVZomZr7cqNgTJvA8+Qz75D8gU=
+golang.org/x/exp v0.0.0-20260112195511-716be5621a96/go.mod h1:nzimsREAkjBCIEFtHiYkrJyT+2uy9YZJB7H1k68CXZU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=

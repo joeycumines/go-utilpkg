@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"github.com/joeycumines/logiface"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -97,13 +98,18 @@ func (x *Exporter) Export(ctx context.Context) error {
 			excludedCount int
 			tableRows     = make(map[Table][]int64, len(x.Schema.PrimaryKeys))
 		)
-		if err := func() error {
+		if err := func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic during database fetch: %v", r)
+				}
+			}()
 			x.Logger.Debug().Log(`fetch started`)
 			defer x.Logger.Debug().Log(`fetch stopped`)
 
-			rows, err := x.Reader.QueryContext(ctx, snippet.SQL, snippet.Args...)
-			if err != nil {
-				return fmt.Errorf(`query error: %w`, err)
+			rows, dbErr := x.Reader.QueryContext(ctx, snippet.SQL, snippet.Args...)
+			if dbErr != nil {
+				return fmt.Errorf(`query error: %w`, dbErr)
 			}
 			defer rows.Close()
 
@@ -182,7 +188,7 @@ func (x *Exporter) Export(ctx context.Context) error {
 			defer cancel()
 
 			// TODO might want to make this buffer size explicitly configurable
-			// (if the rows are fat then it may blow up)
+			// (if rows are fat then it may blow up)
 			// TODO consider optimisations e.g. pre-allocated buffer pool for columns (used by queued rows)
 			ch := make(chan exporterRow, x.batchSize()*3)
 
@@ -500,6 +506,13 @@ func (x *Exporter) startWriter(ctx context.Context, cfg exporterWriterConfig) <-
 func (x *Exporter) write(ctx context.Context, cfg exporterWriterConfig) error {
 	x.Logger.Debug().Log(`writer started`)
 	defer x.Logger.Debug().Log(`writer stopped`)
+
+	// Panic recovery for database write operations
+	defer func() {
+		if r := recover(); r != nil {
+			x.Logger.Err().Any(`panic`, r).Log(`panic during database write - writer goroutine exiting`)
+		}
+	}()
 
 	var rowCount int
 WriteLoop:

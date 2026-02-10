@@ -1,0 +1,33 @@
+// Package alternatethree provides I/O event registration.
+//
+// # I/O Registration (T10)
+//
+// The event loop supports registering file descriptors for I/O events using
+// platform-native mechanisms:
+//   - Linux: epoll
+//   - Darwin/BSD: kqueue
+//   - Windows: IOCP (I/O Completion Ports)
+//
+// See poller_linux.go, poller_darwin.go, and poller_windows.go for
+// platform-specific implementations.
+//
+// # Usage
+//
+//	loop.RegisterFD(fd, EventRead, func(events IOEvents) {
+//	    // Handle readable event
+//	})
+//
+// # Safety
+//
+// Always call UnregisterFD before closing a file descriptor to prevent
+// stale event delivery due to FD recycling.
+package alternatethree
+
+import "errors"
+
+// Note: RegisterFD, UnregisterFD, ModifyFD, and pollIO are implemented
+// in platform-specific files:
+//   - poller_linux.go (epoll)
+//   - poller_darwin.go (kqueue)
+
+var errEventLoopClosed = errors.New("poller: event loop is closed")

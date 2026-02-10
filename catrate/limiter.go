@@ -50,8 +50,50 @@ var categoryDataPool = sync.Pool{New: func() any {
 	}
 }}
 
+// NewLimiter creates a new rate limiter with configurable sliding windows.
+//
+// The rate limiter maintains separate sliding windows for each time duration,
+// tracking events in a ring buffer per category.
+//
+// Parameters:
+//
+//	rates - Map of time window durations to maximum event counts.
+//	        Keys must be time.Duration values (e.g., 1*time.Second, 1*time.Minute).
+//	        Values are the maximum number of events allowed in that window.
+//
+// Requirements:
+//
+//  1. All rate durations must be positive (non-zero).
+//  2. All rate counts must be positive (non-zero).
+//  3. Rates must be monotonic: Shorter windows must have counts >= longer windows.
+//     For example: 1 second: 10 events, 1 minute: 100 events (valid).
+//     Example: 1 second: 10 events, 1 minute: 5 events (invalid).
+//
+// Behavior:
+//
+//   - Sliding window: Tracks events over the specified duration.
+//   - Allow method: Returns true if adding the event would not exceed any rate.
+//   - Categories: Separate limits per category key (thread-safe).
+//   - Automatic cleanup: Inactive categories are removed after configured time.
+//
+// Example:
+//
+//	// Allow 10 requests per second, 100 per minute
+//	limiter := NewLimiter(map[time.Duration]int{
+//	    1 * time.Second: 10,
+//	    1 * time.Minute:  100,
+//	})
+//
+//	if t, ok := limiter.Allow("user123"); ok {
+//	    // Process request (within rate limits)
+//	} else {
+//	    // Rate limit exceeded - wait until t
+//	}
+//
+// Returns:
+//
+//	A Limiter instance. Panics if rates are invalid (non-positive or non-monotonic).
 func NewLimiter(rates map[time.Duration]int) *Limiter {
-	// TODO document requirements for rates
 	retention, ok := parseRates(rates)
 	if !ok {
 		panic(fmt.Errorf(`catrate: invalid rates: %v`, rates))

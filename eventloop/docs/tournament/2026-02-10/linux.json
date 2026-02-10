@@ -1,0 +1,5408 @@
+{
+  "platform": "linux",
+  "goos": "linux",
+  "goarch": "arm64",
+  "timestamp": "2026-02-10",
+  "benchmarks": [
+    {
+      "name": "BenchmarkCancelTimer_Individual/timers_1-10",
+      "runs": [
+        {
+          "ns_op": 341312,
+          "b_op": 2641,
+          "allocs_op": 51
+        },
+        {
+          "ns_op": 348045,
+          "b_op": 2641,
+          "allocs_op": 51
+        },
+        {
+          "ns_op": 344067,
+          "b_op": 2641,
+          "allocs_op": 51
+        },
+        {
+          "ns_op": 337676,
+          "b_op": 2641,
+          "allocs_op": 51
+        },
+        {
+          "ns_op": 341956,
+          "b_op": 2641,
+          "allocs_op": 51
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 51,
+          "min": 51,
+          "max": 51,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 2641,
+          "min": 2641,
+          "max": 2641,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 342611.2,
+          "min": 337676,
+          "max": 348045,
+          "stddev": 3811.7890419067003
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimer_Individual/timers_5-10",
+      "runs": [
+        {
+          "ns_op": 1736645,
+          "b_op": 13230,
+          "allocs_op": 251
+        },
+        {
+          "ns_op": 1763667,
+          "b_op": 13230,
+          "allocs_op": 251
+        },
+        {
+          "ns_op": 1719366,
+          "b_op": 13232,
+          "allocs_op": 251
+        },
+        {
+          "ns_op": 1752564,
+          "b_op": 13230,
+          "allocs_op": 251
+        },
+        {
+          "ns_op": 1904449,
+          "b_op": 13230,
+          "allocs_op": 251
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 251,
+          "min": 251,
+          "max": 251,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 13230.4,
+          "min": 13230,
+          "max": 13232,
+          "stddev": 0.8944271909999159
+        },
+        "ns_op": {
+          "mean": 1775338.2,
+          "min": 1719366,
+          "max": 1904449,
+          "stddev": 74085.30669235297
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimer_Individual/timers_:-10",
+      "runs": [
+        {
+          "ns_op": 3392926,
+          "b_op": 26550,
+          "allocs_op": 501
+        },
+        {
+          "ns_op": 4056399,
+          "b_op": 26551,
+          "allocs_op": 501
+        },
+        {
+          "ns_op": 3437092,
+          "b_op": 26550,
+          "allocs_op": 501
+        },
+        {
+          "ns_op": 3452242,
+          "b_op": 26550,
+          "allocs_op": 501
+        },
+        {
+          "ns_op": 3515684,
+          "b_op": 26552,
+          "allocs_op": 501
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 501,
+          "min": 501,
+          "max": 501,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 26550.6,
+          "min": 26550,
+          "max": 26552,
+          "stddev": 0.8944271909999159
+        },
+        "ns_op": {
+          "mean": 3570868.6,
+          "min": 3392926,
+          "max": 4056399,
+          "stddev": 274962.32797930704
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimers_Batch/timers_1-10",
+      "runs": [
+        {
+          "ns_op": 71822,
+          "b_op": 1524,
+          "allocs_op": 26
+        },
+        {
+          "ns_op": 72785,
+          "b_op": 1525,
+          "allocs_op": 26
+        },
+        {
+          "ns_op": 73793,
+          "b_op": 1525,
+          "allocs_op": 26
+        },
+        {
+          "ns_op": 73315,
+          "b_op": 1526,
+          "allocs_op": 26
+        },
+        {
+          "ns_op": 72986,
+          "b_op": 1525,
+          "allocs_op": 26
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 26,
+          "min": 26,
+          "max": 26,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 1525,
+          "min": 1524,
+          "max": 1526,
+          "stddev": 0.7071067811865476
+        },
+        "ns_op": {
+          "mean": 72940.2,
+          "min": 71822,
+          "max": 73793,
+          "stddev": 732.1712231438763
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimers_Batch/timers_5-10",
+      "runs": [
+        {
+          "ns_op": 205204,
+          "b_op": 6530,
+          "allocs_op": 103
+        },
+        {
+          "ns_op": 205433,
+          "b_op": 6532,
+          "allocs_op": 103
+        },
+        {
+          "ns_op": 205747,
+          "b_op": 6537,
+          "allocs_op": 103
+        },
+        {
+          "ns_op": 204952,
+          "b_op": 6517,
+          "allocs_op": 102
+        },
+        {
+          "ns_op": 208320,
+          "b_op": 6557,
+          "allocs_op": 103
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 102.8,
+          "min": 102,
+          "max": 103,
+          "stddev": 0.4472135954999579
+        },
+        "b_op": {
+          "mean": 6534.6,
+          "min": 6517,
+          "max": 6557,
+          "stddev": 14.536161804272817
+        },
+        "ns_op": {
+          "mean": 205931.2,
+          "min": 204952,
+          "max": 208320,
+          "stddev": 1367.1275361135845
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimers_Batch/timers_:-10",
+      "runs": [
+        {
+          "ns_op": 344302,
+          "b_op": 12433,
+          "allocs_op": 191
+        },
+        {
+          "ns_op": 345721,
+          "b_op": 12424,
+          "allocs_op": 190
+        },
+        {
+          "ns_op": 342952,
+          "b_op": 12375,
+          "allocs_op": 190
+        },
+        {
+          "ns_op": 344472,
+          "b_op": 12446,
+          "allocs_op": 191
+        },
+        {
+          "ns_op": 343591,
+          "b_op": 12452,
+          "allocs_op": 191
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 190.6,
+          "min": 190,
+          "max": 191,
+          "stddev": 0.5477225575051661
+        },
+        "b_op": {
+          "mean": 12426,
+          "min": 12375,
+          "max": 12452,
+          "stddev": 30.53686296920494
+        },
+        "ns_op": {
+          "mean": 344207.6,
+          "min": 342952,
+          "max": 345721,
+          "stddev": 1039.9429311265114
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimers_Comparison/Batch-10",
+      "runs": [
+        {
+          "ns_op": 208495,
+          "b_op": 6109,
+          "allocs_op": 101
+        },
+        {
+          "ns_op": 208943,
+          "b_op": 6106,
+          "allocs_op": 101
+        },
+        {
+          "ns_op": 206386,
+          "b_op": 6083,
+          "allocs_op": 101
+        },
+        {
+          "ns_op": 208547,
+          "b_op": 6108,
+          "allocs_op": 101
+        },
+        {
+          "ns_op": 211128,
+          "b_op": 6125,
+          "allocs_op": 102
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 101.2,
+          "min": 101,
+          "max": 102,
+          "stddev": 0.4472135954999579
+        },
+        "b_op": {
+          "mean": 6106.2,
+          "min": 6083,
+          "max": 6125,
+          "stddev": 15.023315213360865
+        },
+        "ns_op": {
+          "mean": 208699.8,
+          "min": 206386,
+          "max": 211128,
+          "stddev": 1686.2875496189847
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCancelTimers_Comparison/Individual-10",
+      "runs": [
+        {
+          "ns_op": 1746803,
+          "b_op": 12815,
+          "allocs_op": 250
+        },
+        {
+          "ns_op": 1775717,
+          "b_op": 12814,
+          "allocs_op": 250
+        },
+        {
+          "ns_op": 1742117,
+          "b_op": 12814,
+          "allocs_op": 250
+        },
+        {
+          "ns_op": 1743412,
+          "b_op": 12814,
+          "allocs_op": 250
+        },
+        {
+          "ns_op": 1655805,
+          "b_op": 12814,
+          "allocs_op": 250
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 250,
+          "min": 250,
+          "max": 250,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 12814.2,
+          "min": 12814,
+          "max": 12815,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 1732770.8,
+          "min": 1655805,
+          "max": 1775717,
+          "stddev": 45181.85391503983
+        }
+      }
+    },
+    {
+      "name": "BenchmarkChannelWithMutexQueue-10",
+      "runs": [
+        {
+          "ns_op": 420.7,
+          "b_op": 136,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 423.7,
+          "b_op": 136,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 418.9,
+          "b_op": 136,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 424.7,
+          "b_op": 136,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 426.6,
+          "b_op": 136,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 136,
+          "min": 136,
+          "max": 136,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 422.91999999999996,
+          "min": 418.9,
+          "max": 426.6,
+          "stddev": 3.0987094087700586
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCombinedWorkload_New-10",
+      "runs": [
+        {
+          "ns_op": 84.02,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 84.03,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 84.03,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 84.08,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 84,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 84.032,
+          "min": 84,
+          "max": 84.08,
+          "stddev": 0.029495762407504924
+        }
+      }
+    },
+    {
+      "name": "BenchmarkCombinedWorkload_Old-10",
+      "runs": [
+        {
+          "ns_op": 343.3,
+          "b_op": 82,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 343.6,
+          "b_op": 82,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 348,
+          "b_op": 82,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 342.4,
+          "b_op": 82,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 343.2,
+          "b_op": 82,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 82,
+          "min": 82,
+          "max": 82,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 344.1,
+          "min": 342.4,
+          "max": 348,
+          "stddev": 2.224859546128702
+        }
+      }
+    },
+    {
+      "name": "BenchmarkFastPathExecution-10",
+      "runs": [
+        {
+          "ns_op": 44.63,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 41.2,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 41.04,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 40.2,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 42.66,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 41.946000000000005,
+          "min": 40.2,
+          "max": 44.63,
+          "stddev": 1.7420906979833166
+        }
+      }
+    },
+    {
+      "name": "BenchmarkFastPathSubmit-10",
+      "runs": [
+        {
+          "ns_op": 33.54,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 33.56,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 34.15,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 34.25,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 31.99,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 33.498000000000005,
+          "min": 31.99,
+          "max": 34.25,
+          "stddev": 0.9041957752610884
+        }
+      }
+    },
+    {
+      "name": "BenchmarkGojaStyleSwap-10",
+      "runs": [
+        {
+          "ns_op": 402.6,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 397.8,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 396.8,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 398.7,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 406,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 400.38,
+          "min": 396.8,
+          "max": 406,
+          "stddev": 3.8343187139308075
+        }
+      }
+    },
+    {
+      "name": "BenchmarkHighContention-10",
+      "runs": [
+        {
+          "ns_op": 116.7,
+          "b_op": 43,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 119.9,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 118.8,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 121.2,
+          "b_op": 50,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 120.7,
+          "b_op": 48,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 44.6,
+          "min": 41,
+          "max": 50,
+          "stddev": 4.159326868617084
+        },
+        "ns_op": {
+          "mean": 119.46,
+          "min": 116.7,
+          "max": 121.2,
+          "stddev": 1.789692711054052
+        }
+      }
+    },
+    {
+      "name": "BenchmarkHighFrequencyMonitoring_New-10",
+      "runs": [
+        {
+          "ns_op": 24.53,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.67,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.61,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.53,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.73,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 24.614,
+          "min": 24.53,
+          "max": 24.73,
+          "stddev": 0.08763560920082646
+        }
+      }
+    },
+    {
+      "name": "BenchmarkHighFrequencyMonitoring_Old-10",
+      "runs": [
+        {
+          "ns_op": 23357,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 22665,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 24915,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 23598,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 23806,
+          "b_op": 8248,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8248,
+          "min": 8248,
+          "max": 8248,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 23668.2,
+          "min": 22665,
+          "max": 24915,
+          "stddev": 818.792220285464
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLargeTimerHeap-10",
+      "runs": [
+        {
+          "ns_op": 34198,
+          "b_op": 256,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 34472,
+          "b_op": 256,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 36225,
+          "b_op": 256,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 34743,
+          "b_op": 256,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 34952,
+          "b_op": 256,
+          "allocs_op": 5
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 5,
+          "min": 5,
+          "max": 5,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 256,
+          "min": 256,
+          "max": 256,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 34918,
+          "min": 34198,
+          "max": 36225,
+          "stddev": 783.7962107588936
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyAnalysis_EndToEnd-10",
+      "runs": [
+        {
+          "ns_op": 575,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 551.9,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 556,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 558.8,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 554.3,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 559.2,
+          "min": 551.9,
+          "max": 575,
+          "stddev": 9.183408953106696
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyAnalysis_PingPong-10",
+      "runs": [
+        {
+          "ns_op": 423.9,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 422,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 412.4,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 412.6,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 423.9,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 418.96000000000004,
+          "min": 412.4,
+          "max": 423.9,
+          "stddev": 5.948361118829277
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyAnalysis_SubmitWhileRunning-10",
+      "runs": [
+        {
+          "ns_op": 319,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 317.2,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 336.9,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 319.9,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 333.2,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 325.24,
+          "min": 317.2,
+          "max": 336.9,
+          "stddev": 9.102362330735902
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyChannelBufferedRoundTrip-10",
+      "runs": [
+        {
+          "ns_op": 246.3,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 241.2,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 240.9,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 240.3,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 239.7,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 241.68,
+          "min": 239.7,
+          "max": 246.3,
+          "stddev": 2.6461292485439993
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyChannelRoundTrip-10",
+      "runs": [
+        {
+          "ns_op": 242.2,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 236.5,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 253.3,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 241.6,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 240.4,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 242.8,
+          "min": 236.5,
+          "max": 253.3,
+          "stddev": 6.274950199005571
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyDeferRecover-10",
+      "runs": [
+        {
+          "ns_op": 2.381,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.376,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.391,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.382,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.382,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 2.3823999999999996,
+          "min": 2.376,
+          "max": 2.391,
+          "stddev": 0.005412947441089791
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyDirectCall-10",
+      "runs": [
+        {
+          "ns_op": 0.297,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.2966,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.297,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.2965,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.2976,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 0.29694,
+          "min": 0.2965,
+          "max": 0.2976,
+          "stddev": 0.00043358966777357435
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyMutexLockUnlock-10",
+      "runs": [
+        {
+          "ns_op": 7.544,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.533,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.524,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.536,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.525,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 7.5324,
+          "min": 7.524,
+          "max": 7.544,
+          "stddev": 0.00826438140455749
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyRWMutexRLockRUnlock-10",
+      "runs": [
+        {
+          "ns_op": 7.965,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.912,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.736,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.736,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 8.027,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 7.8751999999999995,
+          "min": 7.736,
+          "max": 8.027,
+          "stddev": 0.13343050625700245
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyRecord_WithPSquare-10",
+      "runs": [
+        {
+          "ns_op": 74.76,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 74.69,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 74.75,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 74.71,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 74.9,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 74.762,
+          "min": 74.69,
+          "max": 74.9,
+          "stddev": 0.08228000972290068
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyRecord_WithoutPSquare-10",
+      "runs": [
+        {
+          "ns_op": 23.33,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 23.47,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 23.22,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 23.24,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 23.3,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 23.312,
+          "min": 23.22,
+          "max": 23.47,
+          "stddev": 0.09884331034521253
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencySafeExecute-10",
+      "runs": [
+        {
+          "ns_op": 3.238,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 3.011,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.972,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.968,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 2.974,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 3.0326,
+          "min": 2.968,
+          "max": 3.238,
+          "stddev": 0.11611976575932278
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencySample_NewPSquare-10",
+      "runs": [
+        {
+          "ns_op": 27.25,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.75,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.59,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.95,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.62,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 25.232,
+          "min": 24.59,
+          "max": 27.25,
+          "stddev": 1.1369784518626551
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencySample_OldSortBased-10",
+      "runs": [
+        {
+          "ns_op": 17036,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 16463,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 16942,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 16011,
+          "b_op": 8248,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 16075,
+          "b_op": 8248,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8248,
+          "min": 8248,
+          "max": 8248,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 16505.4,
+          "min": 16011,
+          "max": 17036,
+          "stddev": 475.2970650025098
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencySimulatedPoll-10",
+      "runs": [
+        {
+          "ns_op": 13.8,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.76,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.8,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.83,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.54,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 14.146,
+          "min": 13.76,
+          "max": 15.54,
+          "stddev": 0.7796665954111406
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencySimulatedSubmit-10",
+      "runs": [
+        {
+          "ns_op": 14.22,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.72,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.82,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 13.68,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 14.21,
+          "b_op": 8,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 13.930000000000001,
+          "min": 13.68,
+          "max": 14.22,
+          "stddev": 0.26514147167125734
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyStateLoad-10",
+      "runs": [
+        {
+          "ns_op": 0.3236,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.3243,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.3183,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.3229,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 0.3348,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 0.32477999999999996,
+          "min": 0.3183,
+          "max": 0.3348,
+          "stddev": 0.006073466884737236
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyStateTryTransition-10",
+      "runs": [
+        {
+          "ns_op": 4.005,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.028,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.063,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.03,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.253,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.075799999999999,
+          "min": 4.005,
+          "max": 4.253,
+          "stddev": 0.10119140279687805
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencyStateTryTransition_NoOp-10",
+      "runs": [
+        {
+          "ns_op": 17.16,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.95,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 16.83,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.81,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 16.07,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 16.363999999999997,
+          "min": 15.81,
+          "max": 17.16,
+          "stddev": 0.5948781387813807
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencychunkedIngressPop-10",
+      "runs": [
+        {
+          "ns_op": 4.347,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.072,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.212,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.103,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.053,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.1574,
+          "min": 4.053,
+          "max": 4.347,
+          "stddev": 0.12255733352190737
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencychunkedIngressPush-10",
+      "runs": [
+        {
+          "ns_op": 10.53,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.967,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 7.549,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 6.55,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 8.384,
+          "b_op": 8,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 8.196,
+          "min": 6.55,
+          "max": 10.53,
+          "stddev": 1.471671328795937
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencychunkedIngressPushPop-10",
+      "runs": [
+        {
+          "ns_op": 3.959,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 3.947,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.111,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.193,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.184,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.078799999999999,
+          "min": 3.947,
+          "max": 4.193,
+          "stddev": 0.1192359006339952
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencychunkedIngressPush_WithContention-10",
+      "runs": [
+        {
+          "ns_op": 37.88,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 38.49,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 39.68,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 38.45,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 39.92,
+          "b_op": 8,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 38.884,
+          "min": 37.88,
+          "max": 39.92,
+          "stddev": 0.874431243723598
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencymicrotaskRingPop-10",
+      "runs": [
+        {
+          "ns_op": 15.68,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.71,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.74,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.78,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 15.68,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 15.718,
+          "min": 15.68,
+          "max": 15.78,
+          "stddev": 0.04266145801540297
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencymicrotaskRingPush-10",
+      "runs": [
+        {
+          "ns_op": 25.19,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 26.18,
+          "b_op": 49,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 26.12,
+          "b_op": 48,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 27.78,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 25.11,
+          "b_op": 46,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 45,
+          "min": 41,
+          "max": 49,
+          "stddev": 3.8078865529319543
+        },
+        "ns_op": {
+          "mean": 26.076,
+          "min": 25.11,
+          "max": 27.78,
+          "stddev": 1.07639676699626
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLatencymicrotaskRingPushPop-10",
+      "runs": [
+        {
+          "ns_op": 21.78,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.71,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 22.58,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 22.55,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.91,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 22.106,
+          "min": 21.71,
+          "max": 22.58,
+          "stddev": 0.4252411080786985
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLoopDirect-10",
+      "runs": [
+        {
+          "ns_op": 478.3,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 491.5,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 496.6,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 478,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 468.7,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 482.62,
+          "min": 468.7,
+          "max": 496.6,
+          "stddev": 11.270181897378595
+        }
+      }
+    },
+    {
+      "name": "BenchmarkLoopDirectWithSubmit-10",
+      "runs": [
+        {
+          "ns_op": 34693,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 34457,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 34558,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 34283,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 34379,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 34474,
+          "min": 34283,
+          "max": 34693,
+          "stddev": 158.75452749449383
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMetricsCollection-10",
+      "runs": [
+        {
+          "ns_op": 33.49,
+          "b_op": 43,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 34.26,
+          "b_op": 42,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 31.49,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 34.44,
+          "b_op": 42,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 39.45,
+          "b_op": 43,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 42.2,
+          "min": 41,
+          "max": 43,
+          "stddev": 0.8366600265340756
+        },
+        "ns_op": {
+          "mean": 34.626,
+          "min": 31.49,
+          "max": 39.45,
+          "stddev": 2.9395799019587834
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicroPingPong-10",
+      "runs": [
+        {
+          "ns_op": 306,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 431.9,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 425.5,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 429.3,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 430.9,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 404.71999999999997,
+          "min": 306,
+          "max": 431.9,
+          "stddev": 55.23985879779201
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicroPingPongWithCount-10",
+      "runs": [
+        {
+          "ns_op": 425.7,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 432.6,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 426.2,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 435.9,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 425,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 429.08000000000004,
+          "min": 425,
+          "max": 435.9,
+          "stddev": 4.880266386171968
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicrotaskExecution-10",
+      "runs": [
+        {
+          "ns_op": 101.4,
+          "b_op": 57,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 105.6,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 104.4,
+          "b_op": 62,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 100.7,
+          "b_op": 60,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 104.7,
+          "b_op": 62,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 61,
+          "min": 57,
+          "max": 64,
+          "stddev": 2.6457513110645907
+        },
+        "ns_op": {
+          "mean": 103.35999999999999,
+          "min": 100.7,
+          "max": 105.6,
+          "stddev": 2.1686401268998017
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicrotaskLatency-10",
+      "runs": [
+        {
+          "ns_op": 323.6,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 335.4,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 353.7,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 362.2,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 345.7,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 344.12,
+          "min": 323.6,
+          "max": 362.2,
+          "stddev": 15.151468575685978
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicrotaskOverflow-10",
+      "runs": [
+        {
+          "ns_op": 24.94,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 23.96,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.87,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.38,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 24.45,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 24.52,
+          "min": 23.96,
+          "max": 24.94,
+          "stddev": 0.39906139878469865
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicrotaskSchedule-10",
+      "runs": [
+        {
+          "ns_op": 55.87,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 58.37,
+          "b_op": 46,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 60.09,
+          "b_op": 43,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 69.45,
+          "b_op": 46,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 59.66,
+          "b_op": 42,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 43.6,
+          "min": 41,
+          "max": 46,
+          "stddev": 2.302172886644268
+        },
+        "ns_op": {
+          "mean": 60.688,
+          "min": 55.87,
+          "max": 69.45,
+          "stddev": 5.1665578483164225
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMicrotaskSchedule_Parallel-10",
+      "runs": [
+        {
+          "ns_op": 59.67,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 58.65,
+          "b_op": 42,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 59.84,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 60.42,
+          "b_op": 46,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 62.07,
+          "b_op": 45,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 43,
+          "min": 41,
+          "max": 46,
+          "stddev": 2.345207879911715
+        },
+        "ns_op": {
+          "mean": 60.129999999999995,
+          "min": 58.65,
+          "max": 62.07,
+          "stddev": 1.258352096990346
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMinimalLoop-10",
+      "runs": [
+        {
+          "ns_op": 412.2,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 406,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 407.6,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 409.1,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 393.7,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 405.71999999999997,
+          "min": 393.7,
+          "max": 412.2,
+          "stddev": 7.097675675881513
+        }
+      }
+    },
+    {
+      "name": "BenchmarkMixedWorkload-10",
+      "runs": [
+        {
+          "ns_op": 326.1,
+          "b_op": 53,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 292.8,
+          "b_op": 52,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 226.5,
+          "b_op": 52,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 182.8,
+          "b_op": 51,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 195.5,
+          "b_op": 51,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 51.8,
+          "min": 51,
+          "max": 53,
+          "stddev": 0.8366600265340756
+        },
+        "ns_op": {
+          "mean": 244.74,
+          "min": 182.8,
+          "max": 326.1,
+          "stddev": 62.2957703219087
+        }
+      }
+    },
+    {
+      "name": "BenchmarkNoMetrics-10",
+      "runs": [
+        {
+          "ns_op": 49.1,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 40.4,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 40.95,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 31.88,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 31.21,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 38.708,
+          "min": 31.21,
+          "max": 49.1,
+          "stddev": 7.394671730374514
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseAll-10",
+      "runs": [
+        {
+          "ns_op": 1699,
+          "b_op": 1241,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1784,
+          "b_op": 1241,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1741,
+          "b_op": 1241,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1859,
+          "b_op": 1240,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1708,
+          "b_op": 1241,
+          "allocs_op": 27
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 27.8,
+          "min": 27,
+          "max": 28,
+          "stddev": 0.4472135954999579
+        },
+        "b_op": {
+          "mean": 1240.8,
+          "min": 1240,
+          "max": 1241,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 1758.2,
+          "min": 1699,
+          "max": 1859,
+          "stddev": 65.47289515517089
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseAll_Memory-10",
+      "runs": [
+        {
+          "ns_op": 1572,
+          "b_op": 1241,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1429,
+          "b_op": 1240,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1524,
+          "b_op": 1240,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1480,
+          "b_op": 1240,
+          "allocs_op": 28
+        },
+        {
+          "ns_op": 1427,
+          "b_op": 1240,
+          "allocs_op": 28
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 28,
+          "min": 28,
+          "max": 28,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 1240.2,
+          "min": 1240,
+          "max": 1241,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 1486.4,
+          "min": 1427,
+          "max": 1572,
+          "stddev": 62.460387446765004
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseChain-10",
+      "runs": [
+        {
+          "ns_op": 570.3,
+          "b_op": 493,
+          "allocs_op": 8
+        },
+        {
+          "ns_op": 531.3,
+          "b_op": 486,
+          "allocs_op": 8
+        },
+        {
+          "ns_op": 549.9,
+          "b_op": 483,
+          "allocs_op": 8
+        },
+        {
+          "ns_op": 537.6,
+          "b_op": 488,
+          "allocs_op": 8
+        },
+        {
+          "ns_op": 531.8,
+          "b_op": 493,
+          "allocs_op": 8
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 488.6,
+          "min": 483,
+          "max": 493,
+          "stddev": 4.39317652729776
+        },
+        "ns_op": {
+          "mean": 544.18,
+          "min": 531.3,
+          "max": 570.3,
+          "stddev": 16.41209919541068
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseCreate-10",
+      "runs": [
+        {
+          "ns_op": 84.41,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.13,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.4,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.28,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 66.58,
+          "b_op": 96,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 96,
+          "min": 96,
+          "max": 96,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 68.76,
+          "min": 64.13,
+          "max": 84.41,
+          "stddev": 8.806131386710057
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseCreation-10",
+      "runs": [
+        {
+          "ns_op": 65.1,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.51,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.08,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.77,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 64.26,
+          "b_op": 96,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 96,
+          "min": 96,
+          "max": 96,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 64.54400000000001,
+          "min": 64.08,
+          "max": 65.1,
+          "stddev": 0.40537636832947915
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseGC-10",
+      "runs": [
+        {
+          "ns_op": 104746,
+          "b_op": 9600,
+          "allocs_op": 300
+        },
+        {
+          "ns_op": 89424,
+          "b_op": 9600,
+          "allocs_op": 300
+        },
+        {
+          "ns_op": 87917,
+          "b_op": 9600,
+          "allocs_op": 300
+        },
+        {
+          "ns_op": 87782,
+          "b_op": 9600,
+          "allocs_op": 300
+        },
+        {
+          "ns_op": 91980,
+          "b_op": 9600,
+          "allocs_op": 300
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 300,
+          "min": 300,
+          "max": 300,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 9600,
+          "min": 9600,
+          "max": 9600,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 92369.8,
+          "min": 87782,
+          "max": 104746,
+          "stddev": 7121.715818536991
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseHandlerTracking_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 102.9,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 102.7,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 102.9,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 123,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 112.2,
+          "b_op": 64,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 64,
+          "min": 64,
+          "max": 64,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 108.74000000000001,
+          "min": 102.7,
+          "max": 123,
+          "stddev": 8.944439613525264
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseHandlerTracking_Parallel_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 177.4,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 176.5,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 180.9,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 173.2,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 181.6,
+          "b_op": 64,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 64,
+          "min": 64,
+          "max": 64,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 177.92000000000002,
+          "min": 173.2,
+          "max": 181.6,
+          "stddev": 3.427389677290871
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseRace-10",
+      "runs": [
+        {
+          "ns_op": 1259,
+          "b_op": 916,
+          "allocs_op": 25
+        },
+        {
+          "ns_op": 1310,
+          "b_op": 916,
+          "allocs_op": 25
+        },
+        {
+          "ns_op": 1337,
+          "b_op": 916,
+          "allocs_op": 25
+        },
+        {
+          "ns_op": 1321,
+          "b_op": 916,
+          "allocs_op": 25
+        },
+        {
+          "ns_op": 1420,
+          "b_op": 916,
+          "allocs_op": 25
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 25,
+          "min": 25,
+          "max": 25,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 916,
+          "min": 916,
+          "max": 916,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 1329.4,
+          "min": 1259,
+          "max": 1420,
+          "stddev": 58.45767699797863
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseReject-10",
+      "runs": [
+        {
+          "ns_op": 536.3,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 526.1,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 539.4,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 532.3,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 525.1,
+          "b_op": 178,
+          "allocs_op": 5
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 5,
+          "min": 5,
+          "max": 5,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 178,
+          "min": 178,
+          "max": 178,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 531.8399999999999,
+          "min": 525.1,
+          "max": 539.4,
+          "stddev": 6.237627754202688
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseRejection-10",
+      "runs": [
+        {
+          "ns_op": 514.4,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 535,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 520.6,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 535.5,
+          "b_op": 178,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 526.1,
+          "b_op": 178,
+          "allocs_op": 5
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 5,
+          "min": 5,
+          "max": 5,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 178,
+          "min": 178,
+          "max": 178,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 526.3199999999999,
+          "min": 514.4,
+          "max": 535.5,
+          "stddev": 9.14423315538269
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseResolution-10",
+      "runs": [
+        {
+          "ns_op": 96.81,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 99.8,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 94.37,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 93.62,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 96.41,
+          "b_op": 104,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 104,
+          "min": 104,
+          "max": 104,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 96.202,
+          "min": 93.62,
+          "max": 99.8,
+          "stddev": 2.417720000330887
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseResolve-10",
+      "runs": [
+        {
+          "ns_op": 105.4,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 88.34,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 88.5,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 87.71,
+          "b_op": 96,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 118.1,
+          "b_op": 96,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 96,
+          "min": 96,
+          "max": 96,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 97.61,
+          "min": 87.71,
+          "max": 118.1,
+          "stddev": 13.669850035753866
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseResolve_Memory-10",
+      "runs": [
+        {
+          "ns_op": 101,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 100.6,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 99.8,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 99.27,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 125.6,
+          "b_op": 104,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 104,
+          "min": 104,
+          "max": 104,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 105.25399999999999,
+          "min": 99.27,
+          "max": 125.6,
+          "stddev": 11.39375179648916
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseThen-10",
+      "runs": [
+        {
+          "ns_op": 343.7,
+          "b_op": 224,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 328.2,
+          "b_op": 224,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 303.6,
+          "b_op": 224,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 312.1,
+          "b_op": 224,
+          "allocs_op": 5
+        },
+        {
+          "ns_op": 304.4,
+          "b_op": 224,
+          "allocs_op": 5
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 5,
+          "min": 5,
+          "max": 5,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 224,
+          "min": 224,
+          "max": 224,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 318.4,
+          "min": 303.6,
+          "max": 343.7,
+          "stddev": 17.25441972365341
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseThenChain-10",
+      "runs": [
+        {
+          "ns_op": 657.7,
+          "b_op": 522,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 628.2,
+          "b_op": 518,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 600.8,
+          "b_op": 518,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 610.5,
+          "b_op": 520,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 617.5,
+          "b_op": 517,
+          "allocs_op": 9
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 9,
+          "min": 9,
+          "max": 9,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 519,
+          "min": 517,
+          "max": 522,
+          "stddev": 2
+        },
+        "ns_op": {
+          "mean": 622.9399999999999,
+          "min": 600.8,
+          "max": 657.7,
+          "stddev": 21.85435883296514
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseTry-10",
+      "runs": [
+        {
+          "ns_op": 101.8,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 102.5,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 102.8,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 101.2,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 117.5,
+          "b_op": 104,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 104,
+          "min": 104,
+          "max": 104,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 105.16,
+          "min": 101.2,
+          "max": 117.5,
+          "stddev": 6.9262543990240495
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromiseWithResolvers-10",
+      "runs": [
+        {
+          "ns_op": 100.5,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 100,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 99.98,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 100.4,
+          "b_op": 104,
+          "allocs_op": 3
+        },
+        {
+          "ns_op": 98.52,
+          "b_op": 104,
+          "allocs_op": 3
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 3,
+          "min": 3,
+          "max": 3,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 104,
+          "min": 104,
+          "max": 104,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 99.88,
+          "min": 98.52,
+          "max": 100.5,
+          "stddev": 0.7951100552753715
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPromisifyAllocation-10",
+      "runs": [
+        {
+          "ns_op": 6772,
+          "b_op": 821,
+          "allocs_op": 14
+        },
+        {
+          "ns_op": 6830,
+          "b_op": 798,
+          "allocs_op": 14
+        },
+        {
+          "ns_op": 6768,
+          "b_op": 775,
+          "allocs_op": 14
+        },
+        {
+          "ns_op": 6492,
+          "b_op": 792,
+          "allocs_op": 14
+        },
+        {
+          "ns_op": 6164,
+          "b_op": 795,
+          "allocs_op": 14
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 14,
+          "min": 14,
+          "max": 14,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 796.2,
+          "min": 775,
+          "max": 821,
+          "stddev": 16.48332490731163
+        },
+        "ns_op": {
+          "mean": 6605.2,
+          "min": 6164,
+          "max": 6830,
+          "stddev": 279.43371306984415
+        }
+      }
+    },
+    {
+      "name": "BenchmarkPureChannelPingPong-10",
+      "runs": [
+        {
+          "ns_op": 343.3,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 347.1,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 339,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 338,
+          "b_op": 128,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 335.3,
+          "b_op": 128,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 128,
+          "min": 128,
+          "max": 128,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 340.54,
+          "min": 335.3,
+          "max": 347.1,
+          "stddev": 4.66186657895741
+        }
+      }
+    },
+    {
+      "name": "BenchmarkQueueMicrotask-10",
+      "runs": [
+        {
+          "ns_op": 58.87,
+          "b_op": 40,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 56.15,
+          "b_op": 40,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 55.57,
+          "b_op": 48,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 55.44,
+          "b_op": 44,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 60.69,
+          "b_op": 47,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 43.8,
+          "min": 40,
+          "max": 48,
+          "stddev": 3.7682887362833544
+        },
+        "ns_op": {
+          "mean": 57.343999999999994,
+          "min": 55.44,
+          "max": 60.69,
+          "stddev": 2.3303604871349832
+        }
+      }
+    },
+    {
+      "name": "BenchmarkScheduleTimerCancel-10",
+      "runs": [
+        {
+          "ns_op": 38322,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 36806,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 23089,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 31981,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 38328,
+          "b_op": 384,
+          "allocs_op": 7
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 7,
+          "min": 7,
+          "max": 7,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 384,
+          "min": 384,
+          "max": 384,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 33705.2,
+          "min": 23089,
+          "max": 38328,
+          "stddev": 6480.290325286361
+        }
+      }
+    },
+    {
+      "name": "BenchmarkScheduleTimerWithPool-10",
+      "runs": [
+        {
+          "ns_op": 481.2,
+          "b_op": 56,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 497.9,
+          "b_op": 54,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 453.2,
+          "b_op": 58,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 444.1,
+          "b_op": 55,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 439.9,
+          "b_op": 57,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 56,
+          "min": 54,
+          "max": 58,
+          "stddev": 1.5811388300841898
+        },
+        "ns_op": {
+          "mean": 463.26000000000005,
+          "min": 439.9,
+          "max": 497.9,
+          "stddev": 25.178224718990805
+        }
+      }
+    },
+    {
+      "name": "BenchmarkScheduleTimerWithPool_FireAndReuse-10",
+      "runs": [
+        {
+          "ns_op": 499.2,
+          "b_op": 34,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 461.6,
+          "b_op": 33,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 443.6,
+          "b_op": 33,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 445.4,
+          "b_op": 33,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 446.5,
+          "b_op": 33,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 33.2,
+          "min": 33,
+          "max": 34,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 459.26000000000005,
+          "min": 443.6,
+          "max": 499.2,
+          "stddev": 23.4565129548277
+        }
+      }
+    },
+    {
+      "name": "BenchmarkScheduleTimerWithPool_Immediate-10",
+      "runs": [
+        {
+          "ns_op": 318.9,
+          "b_op": 44,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 341.5,
+          "b_op": 44,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 335,
+          "b_op": 45,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 313,
+          "b_op": 44,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 305.9,
+          "b_op": 44,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 44.2,
+          "min": 44,
+          "max": 45,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 322.86,
+          "min": 305.9,
+          "max": 341.5,
+          "stddev": 14.961383625854937
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSetImmediate_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 112,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 140.2,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 112,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 112.7,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 112.6,
+          "b_op": 48,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 48,
+          "min": 48,
+          "max": 48,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 117.9,
+          "min": 112,
+          "max": 140.2,
+          "stddev": 12.470364870363653
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSetInterval_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 40280,
+          "b_op": 488,
+          "allocs_op": 10
+        },
+        {
+          "ns_op": 40633,
+          "b_op": 488,
+          "allocs_op": 10
+        },
+        {
+          "ns_op": 39641,
+          "b_op": 488,
+          "allocs_op": 10
+        },
+        {
+          "ns_op": 37778,
+          "b_op": 488,
+          "allocs_op": 10
+        },
+        {
+          "ns_op": 37755,
+          "b_op": 488,
+          "allocs_op": 10
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 10,
+          "min": 10,
+          "max": 10,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 488,
+          "min": 488,
+          "max": 488,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 39217.4,
+          "min": 37755,
+          "max": 40633,
+          "stddev": 1371.4012177331622
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSetInterval_Parallel_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 17293,
+          "b_op": 462,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 17175,
+          "b_op": 462,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 16872,
+          "b_op": 460,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 17682,
+          "b_op": 461,
+          "allocs_op": 9
+        },
+        {
+          "ns_op": 17141,
+          "b_op": 462,
+          "allocs_op": 9
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 9,
+          "min": 9,
+          "max": 9,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 461.4,
+          "min": 460,
+          "max": 462,
+          "stddev": 0.8944271909999159
+        },
+        "ns_op": {
+          "mean": 17232.6,
+          "min": 16872,
+          "max": 17682,
+          "stddev": 294.68169267872753
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSetTimeoutZeroDelay-10",
+      "runs": [
+        {
+          "ns_op": 42620,
+          "b_op": 384,
+          "allocs_op": 6
+        },
+        {
+          "ns_op": 40434,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 39855,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 51954,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 41154,
+          "b_op": 384,
+          "allocs_op": 7
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 6.8,
+          "min": 6,
+          "max": 7,
+          "stddev": 0.4472135954999579
+        },
+        "b_op": {
+          "mean": 384,
+          "min": 384,
+          "max": 384,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 43203.4,
+          "min": 39855,
+          "max": 51954,
+          "stddev": 4999.868878280709
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSetTimeout_Optimized-10",
+      "runs": [
+        {
+          "ns_op": 39287,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 40449,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 40111,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 37932,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 32323,
+          "b_op": 384,
+          "allocs_op": 7
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 7,
+          "min": 7,
+          "max": 7,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 384,
+          "min": 384,
+          "max": 384,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 38020.4,
+          "min": 32323,
+          "max": 40449,
+          "stddev": 3329.458033974899
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSubmit-10",
+      "runs": [
+        {
+          "ns_op": 33.28,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 33.78,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 33,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 32.87,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 32.3,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 33.046,
+          "min": 32.3,
+          "max": 33.78,
+          "stddev": 0.5438565987463991
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSubmitExecution-10",
+      "runs": [
+        {
+          "ns_op": 41.54,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 46.28,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 45.55,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 43.9,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 54.6,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 46.374,
+          "min": 41.54,
+          "max": 54.6,
+          "stddev": 4.945784063219906
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSubmitInternal-10",
+      "runs": [
+        {
+          "ns_op": 2953,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 3285,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 3088,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 2834,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 2941,
+          "b_op": 63,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0.8,
+          "min": 0,
+          "max": 1,
+          "stddev": 0.4472135954999579
+        },
+        "b_op": {
+          "mean": 63.8,
+          "min": 63,
+          "max": 64,
+          "stddev": 0.4472135954999579
+        },
+        "ns_op": {
+          "mean": 3020.2,
+          "min": 2834,
+          "max": 3285,
+          "stddev": 173.3311858841334
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSubmitLatency-10",
+      "runs": [
+        {
+          "ns_op": 336.3,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 317.7,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 318.1,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 327,
+          "b_op": 16,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 315.4,
+          "b_op": 16,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 16,
+          "min": 16,
+          "max": 16,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 322.9,
+          "min": 315.4,
+          "max": 336.3,
+          "stddev": 8.699137888319747
+        }
+      }
+    },
+    {
+      "name": "BenchmarkSubmit_Parallel-10",
+      "runs": [
+        {
+          "ns_op": 62.34,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 65.76,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 62.66,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 60.17,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 63.38,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 62.862,
+          "min": 60.17,
+          "max": 65.76,
+          "stddev": 2.0141300851732504
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTask1_2_ConcurrentSubmissions-10",
+      "runs": [
+        {
+          "ns_op": 70.61,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 69.97,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 72.38,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 67.24,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 65.77,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 69.19399999999999,
+          "min": 65.77,
+          "max": 72.38,
+          "stddev": 2.6598740571688735
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTimerFire-10",
+      "runs": [
+        {
+          "ns_op": 321.1,
+          "b_op": 70,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 300.9,
+          "b_op": 69,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 336.4,
+          "b_op": 69,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 375.3,
+          "b_op": 70,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 417.9,
+          "b_op": 72,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 70,
+          "min": 69,
+          "max": 72,
+          "stddev": 1.224744871391589
+        },
+        "ns_op": {
+          "mean": 350.32,
+          "min": 300.9,
+          "max": 417.9,
+          "stddev": 46.58585622267771
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTimerHeapOperations-10",
+      "runs": [
+        {
+          "ns_op": 86.13,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 82.48,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 74.92,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 76.48,
+          "b_op": 64,
+          "allocs_op": 1
+        },
+        {
+          "ns_op": 74.29,
+          "b_op": 64,
+          "allocs_op": 1
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 1,
+          "min": 1,
+          "max": 1,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 64,
+          "min": 64,
+          "max": 64,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 78.86,
+          "min": 74.29,
+          "max": 86.13,
+          "stddev": 5.196878871014791
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTimerLatency-10",
+      "runs": [
+        {
+          "ns_op": 43949,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 47143,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 33133,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 37794,
+          "b_op": 48,
+          "allocs_op": 2
+        },
+        {
+          "ns_op": 38490,
+          "b_op": 48,
+          "allocs_op": 2
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 2,
+          "min": 2,
+          "max": 2,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 48,
+          "min": 48,
+          "max": 48,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 40101.8,
+          "min": 33133,
+          "max": 47143,
+          "stddev": 5496.986874643235
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTimerSchedule-10",
+      "runs": [
+        {
+          "ns_op": 37714,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 36771,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 36381,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 36903,
+          "b_op": 384,
+          "allocs_op": 7
+        },
+        {
+          "ns_op": 36267,
+          "b_op": 384,
+          "allocs_op": 7
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 7,
+          "min": 7,
+          "max": 7,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 384,
+          "min": 384,
+          "max": 384,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 36807.2,
+          "min": 36267,
+          "max": 37714,
+          "stddev": 571.4535851668095
+        }
+      }
+    },
+    {
+      "name": "BenchmarkTimerSchedule_Parallel-10",
+      "runs": [
+        {
+          "ns_op": 15321,
+          "b_op": 331,
+          "allocs_op": 6
+        },
+        {
+          "ns_op": 15152,
+          "b_op": 331,
+          "allocs_op": 6
+        },
+        {
+          "ns_op": 15225,
+          "b_op": 332,
+          "allocs_op": 6
+        },
+        {
+          "ns_op": 15256,
+          "b_op": 332,
+          "allocs_op": 6
+        },
+        {
+          "ns_op": 15464,
+          "b_op": 332,
+          "allocs_op": 6
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 6,
+          "min": 6,
+          "max": 6,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 331.6,
+          "min": 331,
+          "max": 332,
+          "stddev": 0.5477225575051662
+        },
+        "ns_op": {
+          "mean": 15283.6,
+          "min": 15152,
+          "max": 15464,
+          "stddev": 117.74676216355165
+        }
+      }
+    },
+    {
+      "name": "BenchmarkWakeUpDeduplicationIntegration-10",
+      "runs": [
+        {
+          "ns_op": 70.21,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 72.49,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 69.35,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 70.39,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 72.66,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 71.02,
+          "min": 69.35,
+          "max": 72.66,
+          "stddev": 1.4741438193066512
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_Batch-10",
+      "runs": [
+        {
+          "ns_op": 521.7,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 518.3,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 515,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 514.5,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 518.6,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 517.62,
+          "min": 514.5,
+          "max": 521.7,
+          "stddev": 2.9439769020833175
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_ParallelWithSync-10",
+      "runs": [
+        {
+          "ns_op": 44.91,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 43.24,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 44.37,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 42.62,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 42.57,
+          "b_op": 8,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 43.541999999999994,
+          "min": 42.57,
+          "max": 44.91,
+          "stddev": 1.0539307377622105
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_Pop-10",
+      "runs": [
+        {
+          "ns_op": 4.457,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.023,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.017,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.335,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.243,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.215,
+          "min": 4.017,
+          "max": 4.457,
+          "stddev": 0.19353035937547364
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_Push-10",
+      "runs": [
+        {
+          "ns_op": 8.329,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 6.586,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 6.465,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 6.048,
+          "b_op": 8,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 6.445,
+          "b_op": 8,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 8,
+          "min": 8,
+          "max": 8,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 6.774600000000001,
+          "min": 6.048,
+          "max": 8.329,
+          "stddev": 0.8922114659653284
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_PushPop-10",
+      "runs": [
+        {
+          "ns_op": 4.179,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.262,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 3.946,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 3.939,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 3.933,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.0518,
+          "min": 3.933,
+          "max": 4.262,
+          "stddev": 0.1568397271101935
+        }
+      }
+    },
+    {
+      "name": "Benchmark_chunkedIngress_Sequential-10",
+      "runs": [
+        {
+          "ns_op": 4.167,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.045,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.066,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.031,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 4.095,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 4.0808,
+          "min": 4.031,
+          "max": 4.167,
+          "stddev": 0.05388135113376427
+        }
+      }
+    },
+    {
+      "name": "Benchmark_microtaskRing_Parallel-10",
+      "runs": [
+        {
+          "ns_op": 87.63,
+          "b_op": 42,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 90.33,
+          "b_op": 49,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 86.03,
+          "b_op": 49,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 93.6,
+          "b_op": 42,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 92.26,
+          "b_op": 47,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 45.8,
+          "min": 42,
+          "max": 49,
+          "stddev": 3.5637059362410923
+        },
+        "ns_op": {
+          "mean": 89.97,
+          "min": 86.03,
+          "max": 93.6,
+          "stddev": 3.1444315861535292
+        }
+      }
+    },
+    {
+      "name": "Benchmark_microtaskRing_Push-10",
+      "runs": [
+        {
+          "ns_op": 24.32,
+          "b_op": 41,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 25.39,
+          "b_op": 45,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 31.54,
+          "b_op": 44,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 25.92,
+          "b_op": 40,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 29.98,
+          "b_op": 47,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 43.4,
+          "min": 40,
+          "max": 47,
+          "stddev": 2.8809720581775866
+        },
+        "ns_op": {
+          "mean": 27.43,
+          "min": 24.32,
+          "max": 31.54,
+          "stddev": 3.142785388791286
+        }
+      }
+    },
+    {
+      "name": "Benchmark_microtaskRing_PushPop-10",
+      "runs": [
+        {
+          "ns_op": 21.95,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.61,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.62,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.47,
+          "b_op": 0,
+          "allocs_op": 0
+        },
+        {
+          "ns_op": 21.78,
+          "b_op": 0,
+          "allocs_op": 0
+        }
+      ],
+      "statistics": {
+        "allocs_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "b_op": {
+          "mean": 0,
+          "min": 0,
+          "max": 0,
+          "stddev": 0
+        },
+        "ns_op": {
+          "mean": 21.686,
+          "min": 21.47,
+          "max": 21.95,
+          "stddev": 0.18392933425639335
+        }
+      }
+    }
+  ]
+}
