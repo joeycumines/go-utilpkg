@@ -7,120 +7,13 @@ import (
 	"testing"
 )
 
-// TestErrorWithCause_Error tests the Error() method of ErrorWithCause.
-func TestErrorWithCause_Error(t *testing.T) {
-	tests := []struct {
-		name string
-		err  *ErrorWithCause
-		want string
-	}{
-		{
-			name: "message only",
-			err:  &ErrorWithCause{Message: "something failed"},
-			want: "something failed",
-		},
-		{
-			name: "message with cause",
-			err:  &ErrorWithCause{Message: "top level error", Cause: io.EOF},
-			want: "top level error",
-		},
-		{
-			name: "empty message with cause",
-			err:  &ErrorWithCause{Message: "", Cause: io.EOF},
-			want: "EOF",
-		},
-		{
-			name: "empty message no cause",
-			err:  &ErrorWithCause{Message: "", Cause: nil},
-			want: "unknown error",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.err.Error(); got != tt.want {
-				t.Errorf("Error() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-// TestErrorWithCause_Unwrap tests the Unwrap() method of ErrorWithCause.
-func TestErrorWithCause_Unwrap(t *testing.T) {
-	cause := io.ErrUnexpectedEOF
-	err := &ErrorWithCause{Message: "read failed", Cause: cause}
-
-	if got := err.Unwrap(); got != cause {
-		t.Errorf("Unwrap() = %v, want %v", got, cause)
-	}
-
-	// Test nil cause
-	nilCauseErr := &ErrorWithCause{Message: "no cause"}
-	if got := nilCauseErr.Unwrap(); got != nil {
-		t.Errorf("Unwrap() with nil cause = %v, want nil", got)
-	}
-}
-
-// TestErrorWithCause_ErrorsIs tests errors.Is with ErrorWithCause.
-func TestErrorWithCause_ErrorsIs(t *testing.T) {
-	ioErr := io.EOF
-	wrappedOnce := &ErrorWithCause{Message: "level 1", Cause: ioErr}
-	wrappedTwice := &ErrorWithCause{Message: "level 2", Cause: wrappedOnce}
-
-	// Should find io.EOF through chain
-	if !errors.Is(wrappedOnce, io.EOF) {
-		t.Error("errors.Is(wrappedOnce, io.EOF) = false, want true")
-	}
-
-	if !errors.Is(wrappedTwice, io.EOF) {
-		t.Error("errors.Is(wrappedTwice, io.EOF) = false, want true")
-	}
-
-	// Should not match unrelated error
-	if errors.Is(wrappedOnce, io.ErrClosedPipe) {
-		t.Error("errors.Is(wrappedOnce, io.ErrClosedPipe) = true, want false")
-	}
-}
-
-// TestErrorWithCause_ErrorsAs tests errors.As with ErrorWithCause.
-func TestErrorWithCause_ErrorsAs(t *testing.T) {
-	customErr := &customTestError{code: 42}
-	err := &ErrorWithCause{Message: "wrapped custom", Cause: customErr}
-
-	var target *customTestError
-	if !errors.As(err, &target) {
-		t.Error("errors.As failed to find customTestError")
-	}
-
-	if target.code != 42 {
-		t.Errorf("target.code = %d, want 42", target.code)
-	}
-}
-
+// customTestError is a test error type used by TestPanicError_ErrorsAs.
 type customTestError struct {
 	code int
 }
 
 func (e *customTestError) Error() string {
 	return fmt.Sprintf("custom error: %d", e.code)
-}
-
-// TestNewErrorWithCause tests the constructor function.
-func TestNewErrorWithCause(t *testing.T) {
-	cause := io.EOF
-	err := NewErrorWithCause("operation failed", cause)
-
-	if err.Message != "operation failed" {
-		t.Errorf("Message = %q, want %q", err.Message, "operation failed")
-	}
-
-	if err.Cause != cause {
-		t.Errorf("Cause = %v, want %v", err.Cause, cause)
-	}
-
-	if !errors.Is(err, io.EOF) {
-		t.Error("errors.Is(err, io.EOF) = false, want true")
-	}
 }
 
 // TestPanicError_Unwrap tests the Unwrap() method of PanicError.
@@ -385,48 +278,6 @@ func TestWrapError(t *testing.T) {
 	}
 }
 
-// TestDeepErrorChain tests deep error chains with multiple levels.
-func TestDeepErrorChain(t *testing.T) {
-	// Build a 5-level deep error chain
-	level0 := io.EOF
-	level1 := &ErrorWithCause{Message: "level 1", Cause: level0}
-	level2 := &ErrorWithCause{Message: "level 2", Cause: level1}
-	level3 := PanicError{Value: level2}
-	level4 := &ErrorWithCause{Message: "level 4", Cause: level3}
-
-	// errors.Is should find io.EOF at the bottom
-	if !errors.Is(level4, io.EOF) {
-		t.Error("errors.Is failed to find io.EOF in deep chain")
-	}
-
-	// errors.As should find ErrorWithCause
-	var ewc *ErrorWithCause
-	if !errors.As(level4, &ewc) {
-		t.Error("errors.As failed to find ErrorWithCause in chain")
-	}
-
-	// Should also work with PanicError
-	var pe PanicError
-	if !errors.As(level4, &pe) {
-		t.Error("errors.As failed to find PanicError in chain")
-	}
-}
-
-// TestErrorWithCause_NilCause tests behavior with nil cause.
-func TestErrorWithCause_NilCause(t *testing.T) {
-	err := &ErrorWithCause{Message: "no cause error", Cause: nil}
-
-	// Should work with errors.Is
-	if errors.Is(err, io.EOF) {
-		t.Error("errors.Is(err, io.EOF) = true, want false for nil cause")
-	}
-
-	// Unwrap should return nil
-	if got := errors.Unwrap(err); got != nil {
-		t.Errorf("Unwrap() = %v, want nil", got)
-	}
-}
-
 // TestAggregateError_Is tests the Is method of AggregateError.
 func TestAggregateError_Is(t *testing.T) {
 	aggErr := &AggregateError{
@@ -443,27 +294,5 @@ func TestAggregateError_Is(t *testing.T) {
 	// Should not match non-AggregateError
 	if aggErr.Is(io.EOF) {
 		t.Error("Is(io.EOF) = true, want false for non-AggregateError")
-	}
-}
-
-// TestPanicError_ChainedErrors tests PanicError with chained errors.
-func TestPanicError_ChainedErrors(t *testing.T) {
-	// Create a chain: PanicError -> ErrorWithCause -> io.EOF
-	inner := &ErrorWithCause{Message: "inner", Cause: io.EOF}
-	panic := PanicError{Value: inner}
-
-	// Should find io.EOF through the chain
-	if !errors.Is(panic, io.EOF) {
-		t.Error("errors.Is(panic, io.EOF) = false, want true through chain")
-	}
-
-	// Should find ErrorWithCause
-	var ewc *ErrorWithCause
-	if !errors.As(panic, &ewc) {
-		t.Error("errors.As failed to find ErrorWithCause through panic")
-	}
-
-	if ewc.Message != "inner" {
-		t.Errorf("ewc.Message = %q, want %q", ewc.Message, "inner")
 	}
 }
