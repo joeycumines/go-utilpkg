@@ -33,16 +33,32 @@ type RejectionHandler func(reason Result)
 
 // JSOption configures a [JS] adapter instance.
 // Options are applied in order during [NewJS] construction.
-type JSOption func(*jsOptions)
+type JSOption interface {
+	applyJSOption(*jsOptions) error
+}
 
 type jsOptions struct {
 	onUnhandled RejectionHandler
 }
 
+// jsOptionImpl implements JSOption.
+type jsOptionImpl struct {
+	applyJSOptionFunc func(*jsOptions) error
+}
+
+func (j *jsOptionImpl) applyJSOption(opts *jsOptions) error {
+	return j.applyJSOptionFunc(opts)
+}
+
 func resolveJSOptions(opts []JSOption) (*jsOptions, error) {
 	o := &jsOptions{}
 	for _, opt := range opts {
-		opt(o)
+		if opt == nil {
+			continue // Skip nil options gracefully
+		}
+		if err := opt.applyJSOption(o); err != nil {
+			return nil, err
+		}
 	}
 	return o, nil
 }
@@ -51,9 +67,10 @@ func resolveJSOptions(opts []JSOption) (*jsOptions, error) {
 // promise has no catch handler attached after the microtask queue is drained.
 // This follows the JavaScript unhandledrejection event semantics.
 func WithUnhandledRejection(handler RejectionHandler) JSOption {
-	return func(o *jsOptions) {
+	return &jsOptionImpl{func(o *jsOptions) error {
 		o.onUnhandled = handler
-	}
+		return nil
+	}}
 }
 
 // intervalState tracks the state of an interval timer.
