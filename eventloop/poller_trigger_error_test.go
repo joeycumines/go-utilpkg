@@ -1,11 +1,5 @@
 //go:build linux || darwin
 
-// Copyright 2026 Joseph Cumines
-//
-// Permission to use, copy, modify, and distribute this software for any
-// purpose with or without fee is hereby granted, provided that this copyright
-// notice appears in all copies.
-
 package eventloop
 
 import (

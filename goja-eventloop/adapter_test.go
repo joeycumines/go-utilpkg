@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // Tests for goja-eventloop: Goja adapter to event loop
 
 package gojaeventloop

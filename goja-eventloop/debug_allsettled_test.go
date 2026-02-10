@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // Debug test for allSettled and any issues
 
 package gojaeventloop

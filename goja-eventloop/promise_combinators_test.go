@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // Tests for Promise combinators (All, Race, AllSettled, Any)
 
 package gojaeventloop

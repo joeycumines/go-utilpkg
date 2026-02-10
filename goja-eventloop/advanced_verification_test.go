@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // Advanced verification tests for goja-eventloop adapter
 // Tests from review.md Section 4.C
 

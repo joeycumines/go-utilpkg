@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // JavaScript-level tests for Promise combinators (All, Race, AllSettled, Any)
 // These tests verify the combinators work when called from JavaScript code
 

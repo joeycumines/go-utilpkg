@@ -1,5 +1,3 @@
-// Copyright 2026 Joseph Cumines
-//
 // HTML5 Timers Specification Compliance Tests
 // Reference: https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
 //
