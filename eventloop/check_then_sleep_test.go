@@ -79,14 +79,15 @@ func TestTask1_2_CheckThenSleepBarrier(t *testing.T) {
 				err := loop.Submit(func() {
 					// Task executed - just count
 				})
-				if err != nil && err != eventloop.ErrLoopTerminated {
-					// Context may have expired, ignore ErrLoopTerminated
-					return
+				if err != nil {
+					if err != eventloop.ErrLoopTerminated {
+						// Context may have expired, ignore ErrLoopTerminated
+						return
+					}
+				} else {
+					// Increment counter to track successful submission
+					tasksSubmitted.Add(1)
 				}
-
-				// Increment counter to track submission
-				tasksSubmitted.Add(1)
-
 				// Small delay to stagger submissions
 				time.Sleep(time.Microsecond * time.Duration(j))
 			}
