@@ -227,7 +227,7 @@ func TestHandlePollError_MultipleCycles(t *testing.T) {
 	t.Logf("handlePollError executed %d times", count)
 }
 
-// TestHandlePollError_ConcurrentWith其他Ops tests handlePollError with concurrent operations.
+// TestHandlePollError_ConcurrentWithOtherOps tests handlePollError with concurrent operations.
 // Coverage target: handlePollError concurrent execution paths
 func TestHandlePollError_ConcurrentWithOtherOps(t *testing.T) {
 	testHooks := &loopTestHooks{}
