@@ -634,7 +634,7 @@ func TestChaos_PromiseResolutionRaceWithShutdown(t *testing.T) {
 
 			// Attach Then handlers
 			for i := 0; i < promiseCount; i++ {
-				promises[i].Then(func(v Result) Result {
+				promises[i].Then(func(v any) any {
 					return v
 				}, nil)
 			}

@@ -1377,7 +1377,7 @@ func TestAdapter_convertToGojaValue_Slice(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	slice := []goeventloop.Result{1, "two", 3.0}
+	slice := []any{1, "two", 3.0}
 	converted := adapter.convertToGojaValue(slice)
 
 	obj := converted.ToObject(rt)

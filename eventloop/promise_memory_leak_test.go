@@ -41,7 +41,7 @@ func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 		current := p
 		for d := 0; d < chainDepth; d++ {
-			current = current.Then(func(v Result) Result { return v }, nil)
+			current = current.Then(func(v any) any { return v }, nil)
 		}
 		// Resolve — all handlers should fire and be cleaned up
 		resolve(i)
@@ -65,7 +65,7 @@ func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 		current := p
 		for d := 0; d < chainDepth; d++ {
-			current = current.Then(func(v Result) Result { return v }, nil)
+			current = current.Then(func(v any) any { return v }, nil)
 		}
 		resolve(i + numChains)
 	}
@@ -122,7 +122,7 @@ func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		// Suppress warnings
 	}))
 	if err != nil {
@@ -135,7 +135,7 @@ func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
 		p, _, reject := js.NewChainedPromise()
 		reject("error")
 		// Attach handler after rejection (should clean up tracking)
-		p.Then(nil, func(v Result) Result { return nil })
+		p.Then(nil, func(v any) any { return nil })
 	}
 
 	// Let rejection tracking microtasks drain
@@ -189,7 +189,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 
 	// Test 1: After resolve, h0 should be cleared (target becomes nil)
 	p, resolve, _ := js.NewChainedPromise()
-	p.Then(func(v Result) Result { return v }, nil)
+	p.Then(func(v any) any { return v }, nil)
 	resolve("value")
 
 	// Verify internal state
@@ -201,7 +201,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 
 	// Test 2: After reject, same fields should be cleared
 	p2, _, reject := js.NewChainedPromise()
-	p2.Then(func(v Result) Result { return v }, func(v Result) Result { return v })
+	p2.Then(func(v any) any { return v }, func(v any) any { return v })
 	reject("error")
 
 	p2.mu.Lock()
@@ -212,9 +212,9 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 
 	// Test 3: Multiple handlers — all should be cleared
 	p3, resolve3, _ := js.NewChainedPromise()
-	p3.Then(func(v Result) Result { return v }, nil)
-	p3.Then(func(v Result) Result { return v }, nil)
-	p3.Then(func(v Result) Result { return v }, nil)
+	p3.Then(func(v any) any { return v }, nil)
+	p3.Then(func(v any) any { return v }, nil)
+	p3.Then(func(v any) any { return v }, nil)
 	resolve3("value")
 
 	p3.mu.Lock()
@@ -222,7 +222,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	if _, isHandlers := p3.result.([]handler); isHandlers {
 		t.Error("result should not contain handlers after resolve")
 	}
-	if p3.result != Result("value") {
+	if p3.result != any("value") {
 		t.Errorf("result should be 'value', got: %v", p3.result)
 	}
 	p3.mu.Unlock()

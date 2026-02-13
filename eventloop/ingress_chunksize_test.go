@@ -194,7 +194,7 @@ func TestWithIngressChunkSize_CombinedWithOtherOptions(t *testing.T) {
 	if loop.metrics == nil {
 		t.Error("expected metrics to be enabled")
 	}
-	if !loop.StrictMicrotaskOrdering {
+	if !loop.strictMicrotaskOrdering {
 		t.Error("expected strict microtask ordering to be enabled")
 	}
 }

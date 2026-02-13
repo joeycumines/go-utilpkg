@@ -158,11 +158,11 @@ func TestDebugMode_UnhandledRejectionWithStack(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	var receivedReason Result
+	var receivedReason any
 	var mu sync.Mutex
 	reasonReceived := make(chan struct{})
 
-	js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 		mu.Lock()
 		receivedReason = r
 		mu.Unlock()
@@ -237,11 +237,11 @@ func TestDebugMode_UnhandledRejectionWithoutStack(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	var receivedReason Result
+	var receivedReason any
 	var mu sync.Mutex
 	reasonReceived := make(chan struct{})
 
-	js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 		mu.Lock()
 		receivedReason = r
 		mu.Unlock()
@@ -518,7 +518,7 @@ func TestDebugMode_PromiseReject(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var rejectedCalled atomic.Bool
-	js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 		rejectedCalled.Store(true)
 	}))
 	if err != nil {
@@ -537,7 +537,7 @@ func TestDebugMode_PromiseReject(t *testing.T) {
 	err = loop.Submit(func() {
 		promise = js.Reject(errors.New("error"))
 		// Add handler to prevent unhandled rejection
-		promise.Catch(func(r Result) Result { return nil })
+		promise.Catch(func(r any) any { return nil })
 		cancel()
 	})
 	if err != nil {
@@ -569,7 +569,7 @@ func TestDebugMode_CombinedWithOtherOptions(t *testing.T) {
 	if loop.metrics == nil {
 		t.Error("Expected metrics to be enabled")
 	}
-	if !loop.StrictMicrotaskOrdering {
+	if !loop.strictMicrotaskOrdering {
 		t.Error("Expected strict microtask ordering")
 	}
 }

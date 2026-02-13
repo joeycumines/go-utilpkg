@@ -1,10 +1,4 @@
-// Package eventloop provides ES2022-compatible error types with cause chain support.
 package eventloop
-
-import (
-	"errors"
-	"fmt"
-)
 
 // Unwrap returns the underlying error if the panic value is an error type.
 // This enables use with [errors.Is] and [errors.As] for error matching
@@ -29,12 +23,23 @@ func (e PanicError) Unwrap() error {
 	return nil
 }
 
-// AggregateErrorCause returns the first error in the Errors slice, if any.
+// Is implements custom error matching for PanicError.
+// Returns true if target is a PanicError (regardless of value).
+func (e PanicError) Is(target error) bool {
+	_, ok := target.(PanicError)
+	if !ok {
+		// Also match pointer form
+		_, ok = target.(*PanicError)
+	}
+	return ok
+}
+
+// Cause returns the first error in the Errors slice, if any.
 // This is provided for ES2022 .cause compatibility where you might want
 // to access a primary underlying cause.
 //
 // Returns nil if Errors is empty.
-func (e *AggregateError) AggregateErrorCause() error {
+func (e *AggregateError) Cause() error {
 	if len(e.Errors) > 0 {
 		return e.Errors[0]
 	}
@@ -59,18 +64,18 @@ func (e *AggregateError) Unwrap() []error {
 }
 
 // Is implements custom error matching for AggregateError.
-// Returns true if target is an AggregateError (regardless of contents)
-// or if any of the contained errors match target.
+// Returns true if target is an *AggregateError (regardless of contents).
 func (e *AggregateError) Is(target error) bool {
-	// Check if target is an AggregateError type
-	var aggTarget *AggregateError
-	return errors.As(target, &aggTarget)
+	_, ok := target.(*AggregateError)
+	return ok
 }
 
 // TypeError represents a type error, similar to JavaScript's TypeError.
 // This is used when a value is not of the expected type.
 type TypeError struct {
-	Cause   error
+	// Cause is the underlying error that triggered this type error, if any.
+	Cause error
+	// Message describes the type error. If empty, defaults to "type error".
 	Message string
 }
 
@@ -87,10 +92,19 @@ func (e *TypeError) Unwrap() error {
 	return e.Cause
 }
 
+// Is implements custom error matching for TypeError.
+// Returns true if target is a *TypeError (regardless of message or cause).
+func (e *TypeError) Is(target error) bool {
+	_, ok := target.(*TypeError)
+	return ok
+}
+
 // RangeError represents a range error, similar to JavaScript's RangeError.
 // This is used when a value is not within the expected range.
 type RangeError struct {
-	Cause   error
+	// Cause is the underlying error that triggered this range error, if any.
+	Cause error
+	// Message describes the range error. If empty, defaults to "range error".
 	Message string
 }
 
@@ -107,10 +121,19 @@ func (e *RangeError) Unwrap() error {
 	return e.Cause
 }
 
+// Is implements custom error matching for RangeError.
+// Returns true if target is a *RangeError (regardless of message or cause).
+func (e *RangeError) Is(target error) bool {
+	_, ok := target.(*RangeError)
+	return ok
+}
+
 // TimeoutError represents a timeout error for promise timeouts.
 // This is used when an operation times out.
 type TimeoutError struct {
-	Cause   error
+	// Cause is the underlying error that triggered this timeout, if any.
+	Cause error
+	// Message describes the timeout. If empty, defaults to "operation timed out".
 	Message string
 }
 
@@ -127,14 +150,9 @@ func (e *TimeoutError) Unwrap() error {
 	return e.Cause
 }
 
-// WrapError wraps an error with a message and optional cause chain.
-// This is a convenience function for creating wrapped errors with cause.
-//
-// If the original error should be the cause, pass it as both arguments:
-//
-//	WrapError("context failed", originalErr)
-//
-// The result satisfies errors.Is(result, originalErr) == true.
-func WrapError(message string, cause error) error {
-	return fmt.Errorf("%s: %w", message, cause)
+// Is implements custom error matching for TimeoutError.
+// Returns true if target is a *TimeoutError (regardless of message or cause).
+func (e *TimeoutError) Is(target error) bool {
+	_, ok := target.(*TimeoutError)
+	return ok
 }

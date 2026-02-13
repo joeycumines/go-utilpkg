@@ -111,7 +111,7 @@ type Loop struct { // betteralign:ignore
 
 	forceNonBlockingPoll bool
 
-	// StrictMicrotaskOrdering controls the timing of the microtask barrier.
+	// strictMicrotaskOrdering controls the timing of the microtask barrier.
 	//
 	// Default (false): Batch Mode. The loop processes a batch of Ingress tasks (e.g., 1024),
 	// and then runs the microtask barrier once. This improves throughput but means that
@@ -122,7 +122,7 @@ type Loop struct { // betteralign:ignore
 	// Ingress task. This ensures that if Task A schedules a microtask, it runs immediately
 	// before Task B starts. This guarantees deterministic ordering (Task A -> Microtask A -> Task B)
 	// but significantly reduces throughput due to increased checking overhead.
-	StrictMicrotaskOrdering bool
+	strictMicrotaskOrdering bool
 }
 
 // timer represents a scheduled task
@@ -635,7 +635,7 @@ func (l *Loop) processIngress(ctx context.Context) {
 		// If strict ordering is required, we drain microtasks after EACH ingress task.
 		// This guarantees that any microtasks spawned by this task run immediately,
 		// before the next ingress task.
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}
@@ -972,7 +972,7 @@ func (l *Loop) runTimers() {
 		t := heap.Pop(&l.timers).(timer)
 		l.safeExecute(t.task)
 
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}

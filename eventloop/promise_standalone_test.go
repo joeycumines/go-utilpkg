@@ -20,7 +20,7 @@ func TestPromise_ThenStandalone_Basic(t *testing.T) {
 
 	var handlerCalled atomic.Bool
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled.Store(true)
 			return "result: " + v.(string)
 		},
@@ -54,7 +54,7 @@ func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
 
 	// chain 1 - this should use thenStandalone path
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(int) * 2
 		},
 		nil,
@@ -62,7 +62,7 @@ func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
 
 	// chain 2 - this should also use thenStandalone path
 	p3 := p2.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(int) + 10
 		},
 		nil,
@@ -93,11 +93,11 @@ func TestPromise_ThenStandalone_Rejection(t *testing.T) {
 	p.state.Store(int32(Rejected))
 
 	var rejectionHandled atomic.Bool
-	var rejectionReason Result
+	var rejectionReason any
 
 	result := p.Then(
 		nil,
-		func(r Result) Result {
+		func(r any) any {
 			rejectionHandled.Store(true)
 			rejectionReason = r
 			return "recovered"
@@ -136,7 +136,7 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 
 	var handlerCalled atomic.Bool
 	result1 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled.Store(true)
 			return v.(string) + " extended"
 		},
@@ -162,7 +162,7 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 	var rejectionHandled atomic.Bool
 	result2 := p2.Then(
 		nil,
-		func(r Result) Result {
+		func(r any) any {
 			rejectionHandled.Store(true)
 			return "recovered from pre-rejection"
 		},
@@ -191,7 +191,7 @@ func TestPromise_ThenStandalone_MultipleHandlers(t *testing.T) {
 	var handler1Called, handler2Called atomic.Bool
 
 	r1 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handler1Called.Store(true)
 			return v.(int) * 2
 		},
@@ -199,7 +199,7 @@ func TestPromise_ThenStandalone_MultipleHandlers(t *testing.T) {
 	)
 
 	r2 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handler2Called.Store(true)
 			return v.(int) + 100
 		},

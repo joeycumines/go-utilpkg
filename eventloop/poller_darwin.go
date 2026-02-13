@@ -21,17 +21,27 @@ const maxFDLimit = 100000000
 type IOEvents uint32
 
 const (
+	// EventRead indicates readability (data available to read).
 	EventRead IOEvents = 1 << iota
+	// EventWrite indicates writability (buffer space available to write).
 	EventWrite
+	// EventError indicates an error condition on the file descriptor.
 	EventError
+	// EventHangup indicates the remote end has closed the connection.
 	EventHangup
 )
 
 var (
-	ErrFDOutOfRange        = errors.New("eventloop: fd out of range (max 100000000)")
+	// ErrFDOutOfRange is returned when a file descriptor exceeds the maximum supported value.
+	ErrFDOutOfRange = errors.New("eventloop: fd out of range (max 100000000)")
+	// ErrFDAlreadyRegistered is returned when attempting to register an FD that is already registered.
 	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
-	ErrFDNotRegistered     = errors.New("eventloop: fd not registered")
-	ErrPollerClosed        = errors.New("eventloop: poller closed")
+	// ErrFDNotRegistered is returned when attempting to modify or unregister an FD that is not registered.
+	ErrFDNotRegistered = errors.New("eventloop: fd not registered")
+	// ErrPollerClosed is returned when performing operations on a closed poller.
+	ErrPollerClosed = errors.New("eventloop: poller closed")
+	// ErrPollerAlreadyInitialized is returned when Init is called on an already initialized poller.
+	ErrPollerAlreadyInitialized = errors.New("eventloop: poller already initialized")
 )
 
 // ioCallback is the callback type for I/O events.
@@ -54,18 +64,24 @@ type fdInfo struct {
 // frequently-accessed fields (kq, closed) to reduce false sharing across cache lines.
 // The betteralign tool ensures correct cache line alignment during struct layout optimization.
 type fastPoller struct { // betteralign:ignore
-	_        [sizeOfCacheLine]byte     // Cache line padding before kq (isolates from previous fields) //nolint:unused
-	kq       int32                     // kqueue file descriptor
-	_        [sizeOfCacheLine - 4]byte // Padding to isolate eventBuf from isolated field //nolint:unused
-	eventBuf [256]unix.Kevent_t        // Preallocated event buffer (256 kevents)
-	fds      []fdInfo                  // Dynamic slice, grows on demand
-	fdMu     sync.RWMutex              // Protects fds array access
-	_        [sizeOfCacheLine]byte     // Cache line padding before closed (isolates from previous fields) //nolint:unused
-	closed   atomic.Bool               // Closed flag
+	_           [sizeOfCacheLine]byte     // Cache line padding before kq (isolates from previous fields) //nolint:unused
+	kq          int32                     // kqueue file descriptor
+	_           [sizeOfCacheLine - 4]byte // Padding to isolate eventBuf from isolated field //nolint:unused
+	eventBuf    [256]unix.Kevent_t        // Preallocated event buffer (256 kevents)
+	fds         []fdInfo                  // Dynamic slice, grows on demand
+	fdMu        sync.RWMutex              // Protects fds array access
+	_           [sizeOfCacheLine]byte     // Cache line padding before closed (isolates from previous fields) //nolint:unused
+	closed      atomic.Bool               // Closed flag
+	_           [sizeOfCacheLine - 1]byte // Padding to isolate initialized from closed //nolint:unused
+	initialized atomic.Bool               // Initialization flag
 }
 
 // Init initializes the kqueue instance.
 func (p *fastPoller) Init() error {
+	// Prevent double-initialization (would leak kqueue fd)
+	if p.initialized.Load() {
+		return ErrPollerAlreadyInitialized
+	}
 	if p.closed.Load() {
 		return ErrPollerClosed
 	}
@@ -78,6 +94,7 @@ func (p *fastPoller) Init() error {
 	p.kq = int32(kq)
 
 	p.fds = make([]fdInfo, maxFDs)
+	p.initialized.Store(true)
 
 	return nil
 }

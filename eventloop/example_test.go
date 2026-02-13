@@ -80,11 +80,11 @@ func Example_promiseChaining() {
 	promise, resolve, _ := js.NewChainedPromise()
 
 	promise.
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("Step 1: received %v\n", v)
 			return v.(int) * 2
 		}, nil).
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("Step 2: transformed to %v\n", v)
 			return fmt.Sprintf("result: %v", v)
 		}, nil).
@@ -143,8 +143,8 @@ func Example_promiseAll() {
 
 	// Wait for all to complete
 	allPromise := js.All([]*eventloop.ChainedPromise{p1, p2, p3})
-	allPromise.Then(func(v eventloop.Result) eventloop.Result {
-		results := v.([]eventloop.Result)
+	allPromise.Then(func(v any) any {
+		results := v.([]any)
 		fmt.Printf("All resolved: %v\n", results)
 		done.Done()
 		return nil
@@ -177,7 +177,7 @@ func Example_promiseTimeout() {
 	go loop.Run(ctx)
 
 	// Fast operation - should succeed
-	successPromise := loop.PromisifyWithTimeout(ctx, 500*time.Millisecond, func(ctx context.Context) (eventloop.Result, error) {
+	successPromise := loop.PromisifyWithTimeout(ctx, 500*time.Millisecond, func(ctx context.Context) (any, error) {
 		return "fast result", nil
 	})
 
@@ -188,7 +188,7 @@ func Example_promiseTimeout() {
 	}()
 
 	// Slow operation - should timeout
-	timeoutPromise := loop.PromisifyWithTimeout(ctx, 10*time.Millisecond, func(ctx context.Context) (eventloop.Result, error) {
+	timeoutPromise := loop.PromisifyWithTimeout(ctx, 10*time.Millisecond, func(ctx context.Context) (any, error) {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -387,15 +387,15 @@ func Example_promiseCatch() {
 	promise, _, reject := js.NewChainedPromise()
 
 	promise.
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Println("This won't run")
 			return nil
 		}, nil).
-		Catch(func(r eventloop.Result) eventloop.Result {
+		Catch(func(r any) any {
 			fmt.Printf("Caught error: %v\n", r)
 			return "recovered"
 		}).
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("Continued with: %v\n", v)
 			done.Done()
 			return nil
@@ -446,7 +446,7 @@ func Example_promiseRace() {
 
 	// Race them
 	racePromise := js.Race([]*eventloop.ChainedPromise{fast, slow})
-	racePromise.Then(func(v eventloop.Result) eventloop.Result {
+	racePromise.Then(func(v any) any {
 		fmt.Printf("Winner: %v\n", v)
 		done.Done()
 		return nil
@@ -492,7 +492,7 @@ func Example_promiseAny() {
 
 	// Any will pick the first success
 	anyPromise := js.Any([]*eventloop.ChainedPromise{p1, p2, p3})
-	anyPromise.Then(func(v eventloop.Result) eventloop.Result {
+	anyPromise.Then(func(v any) any {
 		fmt.Printf("First success: %v\n", v)
 		done.Done()
 		return nil
@@ -528,7 +528,7 @@ func Example_promiseWithResolvers() {
 	resolvers := js.WithResolvers()
 
 	// Use the promise
-	resolvers.Promise.Then(func(v eventloop.Result) eventloop.Result {
+	resolvers.Promise.Then(func(v any) any {
 		fmt.Printf("Got: %v\n", v)
 		done.Done()
 		return nil

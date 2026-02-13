@@ -31,7 +31,7 @@ func TestPromiseBasicResolveThen(t *testing.T) {
 
 	done := make(chan int, 1)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		done <- v.(int)
 		return v
 	}, nil)
@@ -62,7 +62,7 @@ func TestPromiseThenAfterResolve(t *testing.T) {
 
 	done := make(chan int, 1)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		done <- v.(int)
 		return v
 	}, nil)
@@ -86,12 +86,12 @@ func TestPromiseMultipleThen(t *testing.T) {
 	count := 0
 	mu := make(chan int, 2)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu <- 1
 		return v
 	}, nil)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu <- 2
 		return v
 	}, nil)
@@ -120,7 +120,7 @@ func TestPromiseFinallyAfterResolve(t *testing.T) {
 	p, resolve, _ := New(js)
 	done := make(chan bool)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		return v
 	}, nil).Finally(func() {
 		done <- true
@@ -144,7 +144,7 @@ func TestPromiseBasicRejectCatch(t *testing.T) {
 	p, _, reject := New(js)
 	done := make(chan string)
 
-	p.Catch(func(v Result) Result {
+	p.Catch(func(v any) any {
 		done <- v.(string)
 		return v
 	})
@@ -170,15 +170,15 @@ func TestPromiseThreeLevelChaining(t *testing.T) {
 	results := make([]int, 3)
 	mu := make(chan struct{}, 3)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		results[0] = v.(int)
 		mu <- struct{}{}
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		results[1] = v.(int)
 		mu <- struct{}{}
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		results[2] = v.(int)
 		mu <- struct{}{}
 		return v
@@ -217,7 +217,7 @@ func TestPromiseErrorPropagation(t *testing.T) {
 		done := make(chan string)
 
 		// Catch should be called when promise rejects
-		p.Catch(func(v Result) Result {
+		p.Catch(func(v any) any {
 			if v.(string) != "original error" {
 				t.Errorf("Expected 'original error', got '%s'", v)
 			}
@@ -242,9 +242,9 @@ func TestPromiseErrorPropagation(t *testing.T) {
 		done := make(chan string)
 
 		// Catch recovers, then receives recovery value
-		p.Catch(func(v Result) Result {
+		p.Catch(func(v any) any {
 			return "recovery complete"
-		}).Then(func(v Result) Result {
+		}).Then(func(v any) any {
 			// This final Then should receive "recovery complete"
 			done <- v.(string)
 			return v

@@ -19,7 +19,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 		// Ensure StrictMode is false (default)
-		l.StrictMicrotaskOrdering = false
+		l.strictMicrotaskOrdering = false
 		// Force poll path for deterministic behavior
 		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
 			t.Fatalf("SetFastPathMode failed: %v", err)
@@ -132,7 +132,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 		// Enable Strict Mode
-		l.StrictMicrotaskOrdering = true
+		l.strictMicrotaskOrdering = true
 		// Force poll path for deterministic behavior
 		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
 			t.Fatalf("SetFastPathMode failed: %v", err)
@@ -256,7 +256,7 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.StrictMicrotaskOrdering = true
+	l.strictMicrotaskOrdering = true
 	// Force poll path for deterministic behavior
 	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
 		t.Fatalf("SetFastPathMode failed: %v", err)

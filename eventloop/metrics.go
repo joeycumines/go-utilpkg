@@ -55,15 +55,21 @@ type LatencyMetrics struct {
 	samples     [sampleSize]time.Duration
 
 	// Computed percentiles (cached after Sample() call)
+	// P50 is the 50th percentile (median) task latency.
 	P50 time.Duration
+	// P90 is the 90th percentile task latency.
 	P90 time.Duration
+	// P95 is the 95th percentile task latency.
 	P95 time.Duration
+	// P99 is the 99th percentile task latency.
 	P99 time.Duration
+	// Max is the maximum observed task latency.
 	Max time.Duration
 
-	// Statistics
+	// Mean is the arithmetic mean of all task latencies.
 	Mean time.Duration
-	Sum  time.Duration
+	// Sum is the total of all task latencies.
+	Sum time.Duration
 }
 
 // sampleSize is the maximum number of latency samples to retain.
@@ -171,20 +177,25 @@ func percentileIndex(n, p int) int {
 type QueueMetrics struct {
 	mu sync.RWMutex
 
-	// Current queue depths
-	IngressCurrent   int
-	InternalCurrent  int
+	// IngressCurrent is the current ingress (external submit) queue depth.
+	IngressCurrent int
+	// InternalCurrent is the current internal priority queue depth.
+	InternalCurrent int
+	// MicrotaskCurrent is the current microtask ring buffer occupancy.
 	MicrotaskCurrent int
 
-	// Maximum observed depths
-	IngressMax   int
-	InternalMax  int
+	// IngressMax is the maximum observed ingress queue depth.
+	IngressMax int
+	// InternalMax is the maximum observed internal queue depth.
+	InternalMax int
+	// MicrotaskMax is the maximum observed microtask queue depth.
 	MicrotaskMax int
 
-	// Average depths (exponential moving average with alpha=0.1)
-	// Warmstart: EMA initializes to first observed value for accuracy
-	IngressAvg   float64
-	InternalAvg  float64
+	// IngressAvg is the exponential moving average of ingress queue depth (alpha=0.1).
+	IngressAvg float64
+	// InternalAvg is the exponential moving average of internal queue depth (alpha=0.1).
+	InternalAvg float64
+	// MicrotaskAvg is the exponential moving average of microtask queue depth (alpha=0.1).
 	MicrotaskAvg float64
 
 	ingressEMAInitialized   bool

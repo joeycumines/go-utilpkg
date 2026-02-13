@@ -748,7 +748,7 @@ func TestPromisify_Goexit(t *testing.T) {
 		<-runDone
 	}()
 
-	p := l.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := l.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		runtime.Goexit()
 		return nil, nil
 	})

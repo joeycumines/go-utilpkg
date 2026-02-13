@@ -24,7 +24,7 @@ func TestPromisifyWithTimeout_Success(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (any, error) {
 		return "success", nil
 	})
 
@@ -53,7 +53,7 @@ func TestPromisifyWithTimeout_Timeout(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	p := loop.PromisifyWithTimeout(ctx, 50*time.Millisecond, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 50*time.Millisecond, func(ctx context.Context) (any, error) {
 		// Wait for context cancellation (timeout)
 		<-ctx.Done()
 		return nil, ctx.Err()
@@ -92,7 +92,7 @@ func TestPromisifyWithTimeout_FunctionError(t *testing.T) {
 
 	testErr := errors.New("test error")
 
-	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (any, error) {
 		return nil, testErr
 	})
 
@@ -125,7 +125,7 @@ func TestPromisifyWithTimeout_ParentContextCancelled(t *testing.T) {
 	// Create a parent context that we will cancel
 	parentCtx, parentCancel := context.WithCancel(ctx)
 
-	p := loop.PromisifyWithTimeout(parentCtx, 10*time.Second, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(parentCtx, 10*time.Second, func(ctx context.Context) (any, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	})
@@ -159,7 +159,7 @@ func TestPromisifyWithTimeout_Panic(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 1*time.Second, func(ctx context.Context) (any, error) {
 		panic("test panic")
 	})
 
@@ -194,7 +194,7 @@ func TestPromisifyWithDeadline_Success(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	deadline := time.Now().Add(1 * time.Second)
-	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		return "success", nil
 	})
 
@@ -224,7 +224,7 @@ func TestPromisifyWithDeadline_DeadlineExceeded(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	deadline := time.Now().Add(50 * time.Millisecond)
-	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	})
@@ -257,7 +257,7 @@ func TestPromisifyWithDeadline_PastDeadline(t *testing.T) {
 
 	// Deadline already passed
 	deadline := time.Now().Add(-1 * time.Second)
-	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	})
@@ -291,7 +291,7 @@ func TestPromisifyWithDeadline_FunctionError(t *testing.T) {
 	testErr := errors.New("test error")
 
 	deadline := time.Now().Add(1 * time.Second)
-	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		return nil, testErr
 	})
 
@@ -322,7 +322,7 @@ func TestPromisifyWithDeadline_Panic(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	deadline := time.Now().Add(1 * time.Second)
-	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		panic("test panic")
 	})
 
@@ -354,7 +354,7 @@ func TestPromisifyWithTimeout_ZeroTimeout(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	p := loop.PromisifyWithTimeout(ctx, 0, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 0, func(ctx context.Context) (any, error) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	})
@@ -385,7 +385,7 @@ func TestPromisifyWithTimeout_LongRunningSuccess(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	p := loop.PromisifyWithTimeout(ctx, 2*time.Second, func(ctx context.Context) (Result, error) {
+	p := loop.PromisifyWithTimeout(ctx, 2*time.Second, func(ctx context.Context) (any, error) {
 		// Simulate work that takes some time but completes before timeout
 		time.Sleep(50 * time.Millisecond)
 		return 42, nil
@@ -424,7 +424,7 @@ func TestPromisifyWithDeadline_ContextRespected(t *testing.T) {
 	receivedContext := make(chan bool, 1)
 
 	deadline := time.Now().Add(50 * time.Millisecond)
-	_ = loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+	_ = loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 		// Verify context has deadline
 		if _, ok := ctx.Deadline(); ok {
 			receivedContext <- true

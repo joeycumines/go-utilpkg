@@ -21,7 +21,11 @@ GRIT_DST ?= \
     grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
     floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
     eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/go-eventloop.git \
-    goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git
+    goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git \
+    goja-grpc$(MAP_SEPARATOR)https://github.com/joeycumines/goja-grpc.git \
+    goja-protobuf$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protobuf.git \
+    goja-protojson$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protojson.git \
+    inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true

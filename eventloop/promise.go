@@ -10,12 +10,6 @@ import (
 	"weak"
 )
 
-// Result represents the value of a resolved or rejected promise.
-// It can be any type, similar to JavaScript's dynamic typing.
-// For fulfilled promises, this holds the success value.
-// For rejected promises, this typically holds an error or rejection reason.
-type Result = any
-
 // PromiseState represents the lifecycle state of a [Promise].
 // A promise starts in [Pending] state and transitions to either
 // [Resolved] (also known as [Fulfilled]) or [Rejected].
@@ -54,18 +48,18 @@ type Promise interface {
 	// For resolved promises, returns the fulfillment value.
 	// For rejected promises, returns the rejection reason.
 	// Note: A resolved promise can legitimately have a nil result value.
-	Result() Result
+	Result() any
 
 	// ToChannel returns a channel that will receive the result when the promise settles.
 	// The channel is buffered (capacity 1) and will be closed after sending.
 	// If the promise is already settled, returns a pre-filled channel.
-	ToChannel() <-chan Result
+	ToChannel() <-chan any
 }
 
 // promise is the concrete implementation.
 type promise struct {
-	result      Result
-	subscribers []chan Result // List of channels waiting for resolution
+	result      any
+	subscribers []chan any // List of channels waiting for resolution
 	state       PromiseState
 	mu          sync.Mutex
 }
@@ -78,32 +72,32 @@ func (p *promise) State() PromiseState {
 	return p.state
 }
 
-func (p *promise) Result() Result {
+func (p *promise) Result() any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.result
 }
 
 // ToChannel returns a channel that will receive the result when settled.
-func (p *promise) ToChannel() <-chan Result {
+func (p *promise) ToChannel() <-chan any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	// If already settled, return a pre-filled, closed channel.
 	if p.state != Pending {
-		ch := make(chan Result, 1)
+		ch := make(chan any, 1)
 		ch <- p.result
 		close(ch)
 		return ch
 	}
 
-	ch := make(chan Result, 1)
+	ch := make(chan any, 1)
 	p.subscribers = append(p.subscribers, ch)
 	return ch
 }
 
 // Resolve sets the promise state to Resolved and notifies all subscribers.
-func (p *promise) Resolve(val Result) {
+func (p *promise) Resolve(val any) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -168,10 +162,10 @@ func (p *promise) fanOut() {
 // Chaining:
 //
 //	promise.
-//	    Then(func(v Result) Result {
+//	    Then(func(v any) any {
 //	        return transform(v)
 //	    }, nil).
-//	    Catch(func(r Result) Result {
+//	    Catch(func(r any) any {
 //	        log.Printf("Error: %v", r)
 //	        return nil // recover from error
 //	    }).
@@ -188,7 +182,7 @@ func (p *promise) fanOut() {
 //   - ToChannel() uses JS.toChannels side table for direct notification without microtasks
 //   - Debug stack traces stored in JS side table, only captured when debug mode is enabled
 //   - Pointer identity (*ChainedPromise) used as map key instead of integer IDs
-//   - Result field reused for handler storage during pending state
+//   - result field reused for handler storage during pending state
 //
 // Memory Usage (unsafe.Sizeof(ChainedPromise) == 64):
 //   - Base struct: 64 bytes
@@ -197,7 +191,7 @@ func (p *promise) fanOut() {
 //   - ToChannel() channels stored in JS.toChannels side table (not on the struct)
 type ChainedPromise struct {
 	// Pointer fields (all require 8-byte alignment, grouped first for better cache locality)
-	result Result
+	result any
 	js     *JS
 	// h0 is the first handler (embedded to avoid slice allocation).
 	// Most promises have only 1 handler.
@@ -212,20 +206,20 @@ type ChainedPromise struct {
 
 // handler represents a reaction to promise settlement.
 type handler struct {
-	onFulfilled func(Result) Result
-	onRejected  func(Result) Result
+	onFulfilled func(any) any
+	onRejected  func(any) any
 	target      *ChainedPromise
 }
 
 // ResolveFunc is the function used to fulfill a promise with a value.
 // Calling resolve on an already-settled promise has no effect.
 // Can be called from any goroutine.
-type ResolveFunc func(Result)
+type ResolveFunc func(any)
 
 // RejectFunc is the function used to reject a promise with a reason.
 // Calling reject on an already-settled promise has no effect.
 // Can be called from any goroutine.
-type RejectFunc func(Result)
+type RejectFunc func(any)
 
 // NewChainedPromise creates a new pending promise along with resolve and reject functions.
 //
@@ -274,11 +268,11 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 		}
 	}
 
-	resolve := func(value Result) {
+	resolve := func(value any) {
 		p.resolve(value)
 	}
 
-	reject := func(reason Result) {
+	reject := func(reason any) {
 		p.reject(reason)
 	}
 
@@ -294,7 +288,7 @@ func (p *ChainedPromise) State() PromiseState {
 // Value returns the fulfillment value if the promise is fulfilled.
 // Returns nil if the promise is pending or rejected.
 // Thread-safe and can be called from any goroutine.
-func (p *ChainedPromise) Value() Result {
+func (p *ChainedPromise) Value() any {
 	if p.state.Load() == int32(Fulfilled) {
 		return p.result
 	}
@@ -304,7 +298,7 @@ func (p *ChainedPromise) Value() Result {
 // Reason returns the rejection reason if the promise is rejected.
 // Returns nil if the promise is pending or fulfilled.
 // Thread-safe and can be called from any goroutine.
-func (p *ChainedPromise) Reason() Result {
+func (p *ChainedPromise) Reason() any {
 	if p.state.Load() == int32(Rejected) {
 		return p.result
 	}
@@ -407,7 +401,7 @@ func (p *ChainedPromise) addHandler(h handler) {
 
 // scheduleHandler enqueues a handler for execution via microtask.
 // If no JS adapter is available, executes synchronously.
-func (p *ChainedPromise) scheduleHandler(h handler, state int32, result Result) {
+func (p *ChainedPromise) scheduleHandler(h handler, state int32, result any) {
 	if p.js == nil {
 		p.executeHandler(h, state, result)
 		return
@@ -420,8 +414,8 @@ func (p *ChainedPromise) scheduleHandler(h handler, state int32, result Result) 
 
 // executeHandler runs a single handler with the given state and result.
 // Handles nil handlers (pass-through), panic recovery, and result propagation.
-func (p *ChainedPromise) executeHandler(h handler, state int32, result Result) {
-	var fn func(Result) Result
+func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
+	var fn func(any) any
 
 	if state == int32(Fulfilled) {
 		fn = h.onFulfilled
@@ -457,7 +451,7 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result Result) {
 	}
 }
 
-func (p *ChainedPromise) resolve(value Result) {
+func (p *ChainedPromise) resolve(value any) {
 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
 	if pr, ok := value.(*ChainedPromise); ok && pr == p {
 		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise %p", p))
@@ -516,7 +510,7 @@ func (p *ChainedPromise) resolve(value Result) {
 }
 
 // reject transitions the promise to rejected state if it's still pending.
-func (p *ChainedPromise) reject(reason Result) {
+func (p *ChainedPromise) reject(reason any) {
 	p.mu.Lock()
 	if p.state.Load() != int32(Pending) {
 		p.mu.Unlock()
@@ -575,7 +569,7 @@ func (p *ChainedPromise) reject(reason Result) {
 //   - If a handler is nil, the result passes through to the returned promise
 //
 // Handlers are always executed as microtasks on the event loop thread.
-func (p *ChainedPromise) Then(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
+func (p *ChainedPromise) Then(onFulfilled, onRejected func(any) any) *ChainedPromise {
 	js := p.js
 	if js == nil {
 		return p.thenStandalone(onFulfilled, onRejected)
@@ -667,7 +661,7 @@ func (p *ChainedPromise) signalHandlerReady(js *JS) {
 // NOTE: This code path is NOT Promise/A+ compliant - handlers execute synchronously
 // when called on already-settled promises (since p.js is nil, scheduleHandler falls
 // back to executeHandler). This is intentional for testing/fallback scenarios.
-func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Result) *ChainedPromise {
+func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(any) any) *ChainedPromise {
 	child := &ChainedPromise{
 		js: nil,
 	}
@@ -689,11 +683,11 @@ func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(Result) Res
 //
 // Use Catch to recover from errors or transform rejection reasons:
 //
-//	promise.Catch(func(r Result) Result {
+//	promise.Catch(func(r any) any {
 //	    log.Printf("Error: %v", r)
 //	    return defaultValue // recover
 //	})
-func (p *ChainedPromise) Catch(onRejected func(Result) Result) *ChainedPromise {
+func (p *ChainedPromise) Catch(onRejected func(any) any) *ChainedPromise {
 	return p.Then(nil, onRejected)
 }
 
@@ -736,7 +730,7 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	// Run onFinally, then propagate the original result.
 	// If onFinally panics, we still propagate the original settlement
 	// (Go panics in cleanup callbacks should not change the promise outcome).
-	runFinally := func(res Result, isRej bool) {
+	runFinally := func(res any, isRej bool) {
 		defer func() {
 			if r := recover(); r != nil {
 				// Panic in finally: still propagate original settlement.
@@ -759,11 +753,11 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 	}
 
 	p.addHandler(handler{
-		onFulfilled: func(v Result) Result {
+		onFulfilled: func(v any) any {
 			runFinally(v, false)
 			return nil // Return ignored; child is resolved manually
 		},
-		onRejected: func(r Result) Result {
+		onRejected: func(r any) any {
 			runFinally(r, true)
 			return nil // Return ignored; child is rejected manually
 		},
@@ -789,8 +783,8 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 // running.
 //
 // For standalone promises (p.js == nil), a handler-based fallback is used.
-func (p *ChainedPromise) ToChannel() <-chan Result {
-	ch := make(chan Result, 1)
+func (p *ChainedPromise) ToChannel() <-chan any {
+	ch := make(chan any, 1)
 
 	// Fast path: already settled (lock-free)
 	currentState := p.state.Load()
@@ -829,10 +823,10 @@ func (p *ChainedPromise) ToChannel() <-chan Result {
 
 // toChannelStandalonePromise handles ToChannel for promises without a JS adapter.
 // Uses addHandler with a dummy target to avoid interfering with the h0 slot check.
-func (p *ChainedPromise) toChannelStandalonePromise(ch chan Result) <-chan Result {
+func (p *ChainedPromise) toChannelStandalonePromise(ch chan any) <-chan any {
 	dummy := &ChainedPromise{}
 	dummy.state.Store(int32(Pending))
-	writeFn := func(v Result) Result {
+	writeFn := func(v any) any {
 		ch <- v
 		close(ch)
 		return nil
@@ -854,7 +848,7 @@ func (p *ChainedPromise) toChannelStandalonePromise(ch chan Result) <-chan Resul
 // before checking for unhandled rejections.
 //
 // EXPAND-039: creationStack is read from the JS.debugStacks side table.
-func (js *JS) trackRejection(p *ChainedPromise, reason Result) {
+func (js *JS) trackRejection(p *ChainedPromise, reason any) {
 	// Read creation stack from side table (keyed by weak.Pointer).
 	wp := weak.Make(p)
 	js.debugStacksMu.Lock()
@@ -1023,7 +1017,7 @@ func (js *JS) checkUnhandledRejections() {
 // rejectionInfo holds information about a rejected promise.
 type rejectionInfo struct {
 	promise       *ChainedPromise // 8B pointer
-	reason        Result          // 16B interface (two pointers)
+	reason        any             // 16B interface (two pointers)
 	creationStack []uintptr       // 24B slice (data pointer + len + cap)
 	timestamp     int64           // 8B non-pointer
 }
@@ -1038,7 +1032,7 @@ type rejectionInfo struct {
 // Users can type-assert the reason in their [RejectionHandler] callback to access
 // the debug information:
 //
-//	js, _ := eventloop.NewJS(loop, eventloop.WithUnhandledRejection(func(r eventloop.Result) {
+//	js, _ := eventloop.NewJS(loop, eventloop.WithUnhandledRejection(func(r any) {
 //	    if debug, ok := r.(*eventloop.UnhandledRejectionDebugInfo); ok {
 //	        log.Printf("Unhandled rejection: %v\\nCreated at:\\n%s",
 //	            debug.Reason, debug.CreationStackTrace)
@@ -1051,7 +1045,7 @@ type rejectionInfo struct {
 // the callback receives the raw rejection reason without wrapping.
 type UnhandledRejectionDebugInfo struct {
 	// Reason is the original rejection value from the failed promise.
-	Reason Result
+	Reason any
 
 	// CreationStackTrace is a formatted stack trace showing where the promise
 	// was created. Each frame is on its own line in the format:
@@ -1120,28 +1114,28 @@ func formatCreationStack(pcs []uintptr) string {
 //	    resolve1("a")
 //	    resolve2("b")
 //	}()
-//	// result will be []Result{"a", "b"}
+//	// result will be []any{"a", "b"}
 //	result := js.All([]*ChainedPromise{p1, p2})
 func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - resolve immediately with empty array
 	if len(promises) == 0 {
-		resolve(make([]Result, 0))
+		resolve(make([]any, 0))
 		return result
 	}
 
 	// Track completion
 	var mu sync.Mutex
 	var completed atomic.Int32
-	values := make([]Result, len(promises))
+	values := make([]any, len(promises))
 	hasRejected := atomic.Bool{}
 
 	// Attach handlers to each promise
 	for i, p := range promises {
 		idx := i // Capture index
 		p.Then(
-			func(v Result) Result {
+			func(v any) any {
 				// Store value in correct position
 				mu.Lock()
 				values[idx] = v
@@ -1154,7 +1148,7 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				// Reject on first rejection
 				if hasRejected.CompareAndSwap(false, true) {
 					reject(r)
@@ -1195,13 +1189,13 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 	// Attach handlers to each promise (first to settle wins)
 	for _, p := range promises {
 		p.Then(
-			func(v Result) Result {
+			func(v any) any {
 				if settled.CompareAndSwap(false, true) {
 					resolve(v)
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				if settled.CompareAndSwap(false, true) {
 					reject(r)
 				}
@@ -1236,7 +1230,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 			js: js,
 		}
 		p.state.Store(int32(Fulfilled))
-		p.result = make([]Result, 0)
+		p.result = make([]any, 0)
 		return p
 	}
 
@@ -1245,12 +1239,12 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 	// Track completion
 	var mu sync.Mutex
 	var completed atomic.Int32
-	results := make([]Result, len(promises))
+	results := make([]any, len(promises))
 
 	for i, p := range promises {
 		idx := i // Capture index
 		p.Then(
-			func(v Result) Result {
+			func(v any) any {
 				mu.Lock()
 				results[idx] = map[string]interface{}{
 					"status": "fulfilled",
@@ -1264,7 +1258,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				mu.Lock()
 				results[idx] = map[string]interface{}{
 					"status": "rejected",
@@ -1308,20 +1302,20 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 
 	var mu sync.Mutex
 	var rejected atomic.Int32
-	rejections := make([]Result, len(promises))
+	rejections := make([]any, len(promises))
 	var resolved atomic.Bool
 
 	// Attach handlers to each promise
 	for i, p := range promises {
 		idx := i // Capture index
 		p.Then(
-			func(v Result) Result {
+			func(v any) any {
 				if resolved.CompareAndSwap(false, true) {
 					resolve(v)
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				mu.Lock()
 				rejections[idx] = r
 				mu.Unlock()
@@ -1363,7 +1357,7 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
 //	    js.Reject(errors.New("error 1")),
 //	    js.Reject(errors.New("error 2")),
 //	})
-//	promise.Catch(func(r Result) Result {
+//	promise.Catch(func(r any) any {
 //	    if agg, ok := r.(*AggregateError); ok {
 //	        fmt.Printf("All failed. Errors:\n")
 //	        for i, err := range agg.Errors {
@@ -1401,7 +1395,7 @@ func (e *errNoPromiseResolved) Error() string {
 // errorWrapper wraps a non-error value as an error for [AggregateError] compatibility.
 type errorWrapper struct {
 	// Value is the original non-error rejection reason.
-	Value Result
+	Value any
 }
 
 // Error implements the error interface.

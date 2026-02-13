@@ -81,7 +81,7 @@ func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
 	}
 
 	// Attach handler - should signal via channel
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		return nil
 	})
 
@@ -106,10 +106,10 @@ func TestTrackRejection_TimeoutWhenNoHandler(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	var unhandledReasons []Result
+	var unhandledReasons []any
 	var mu sync.Mutex
 
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		mu.Lock()
 		unhandledReasons = append(unhandledReasons, reason)
 		mu.Unlock()
@@ -147,7 +147,7 @@ func TestTrackRejection_HandlerBeforeTimeout(t *testing.T) {
 
 	var unhandledCount atomic.Int32
 
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		unhandledCount.Add(1)
 	}))
 	if err != nil {
@@ -159,7 +159,7 @@ func TestTrackRejection_HandlerBeforeTimeout(t *testing.T) {
 
 	// Attach handler immediately (before timeout)
 	handled := false
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		handled = true
 		return nil
 	})
@@ -203,7 +203,7 @@ func TestTrackRejection_HandlerReadyChansCleanup(t *testing.T) {
 
 	// Attach handlers to all
 	for _, p := range promises {
-		p.Catch(func(r Result) Result { return nil })
+		p.Catch(func(r any) any { return nil })
 	}
 
 	loop.tick()
@@ -250,7 +250,7 @@ func TestTrackRejection_ConcurrentRejectAndHandle(t *testing.T) {
 		// Concurrent handler attachment
 		go func() {
 			defer wg.Done()
-			p.Catch(func(r Result) Result {
+			p.Catch(func(r any) any {
 				handled.Store(true)
 				return nil
 			})
@@ -274,7 +274,7 @@ func TestTrackRejection_UnhandledRejectionsMapCleanup(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var callCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		callCount.Add(1)
 	}))
 	if err != nil {
@@ -322,7 +322,7 @@ func TestTrackRejection_PromiseHandlersCleanup(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 
 	// Attach handler with rejection handler
-	p.Then(func(v Result) Result { return v }, func(r Result) Result { return nil })
+	p.Then(func(v any) any { return v }, func(r any) any { return nil })
 
 	// Resolve (not reject) - this triggers cleanup in resolve() for tracking
 	resolve("success")
@@ -350,7 +350,7 @@ func TestTrackRejection_MultipleRejectionsOnSamePromise(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var callCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		callCount.Add(1)
 	}))
 	if err != nil {
@@ -383,7 +383,7 @@ func TestTrackRejection_HandleAfterCheck(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var callCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		callCount.Add(1)
 	}))
 	if err != nil {
@@ -405,7 +405,7 @@ func TestTrackRejection_HandleAfterCheck(t *testing.T) {
 
 	// Now attach handler (too late to prevent report, but should still work)
 	handled := false
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		handled = true
 		return nil
 	})
@@ -463,7 +463,7 @@ func TestTrackRejection_WithFulfilledPromise(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var callCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		callCount.Add(1)
 	}))
 	if err != nil {
@@ -492,7 +492,7 @@ func TestTrackRejection_MultipleRapidRejections(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var callCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		callCount.Add(1)
 	}))
 	if err != nil {
@@ -599,7 +599,7 @@ func TestTrackRejection_HandlerCalledBeforeTimeout(t *testing.T) {
 	// Start goroutine to attach handler with slight delay
 	go func() {
 		time.Sleep(1 * time.Millisecond)
-		p.Catch(func(r Result) Result { return nil })
+		p.Catch(func(r any) any { return nil })
 	}()
 
 	reject(errors.New("error"))

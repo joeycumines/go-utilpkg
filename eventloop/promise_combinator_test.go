@@ -48,9 +48,9 @@ func TestPromiseAll_EmptyArray_Combinator(t *testing.T) {
 	}
 
 	value := result.Value()
-	arr, ok := value.([]Result)
+	arr, ok := value.([]any)
 	if !ok {
-		t.Fatalf("Expected []Result, got %T", value)
+		t.Fatalf("Expected []any, got %T", value)
 	}
 	if len(arr) != 0 {
 		t.Fatalf("Expected empty array, got %v", arr)
@@ -96,7 +96,7 @@ func TestPromiseAll_AlreadySettled(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	if len(arr) != 3 || arr[0] != "a" || arr[1] != "b" || arr[2] != "c" {
 		t.Fatalf("Expected [a, b, c], got %v", arr)
 	}
@@ -138,9 +138,9 @@ func TestPromiseAll_IterationOrderPreserved(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	// Order must match INPUT array, not resolution order
-	expected := []Result{"first", "second", "third"}
+	expected := []any{"first", "second", "third"}
 	if len(arr) != len(expected) {
 		t.Fatalf("Length mismatch: %v", arr)
 	}
@@ -230,7 +230,7 @@ func TestPromiseAll_WithNilValues(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	if len(arr) != 2 || arr[0] != nil || arr[1] != nil {
 		t.Fatalf("Expected [nil, nil], got %v", arr)
 	}
@@ -417,7 +417,7 @@ func TestPromiseAllSettled_EmptyArray_Combinator(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	if len(arr) != 0 {
 		t.Fatalf("Expected empty array, got %v", arr)
 	}
@@ -459,7 +459,7 @@ func TestPromiseAllSettled_MixedSettlement(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	if len(arr) != 3 {
 		t.Fatalf("Expected 3 results, got %d", len(arr))
 	}
@@ -519,7 +519,7 @@ func TestPromiseAllSettled_OrderPreserved(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 
 	// Verify order matches input, not resolution order
 	for i, r := range arr {
@@ -566,7 +566,7 @@ func TestPromiseAllSettled_NeverRejects(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", result.State())
 	}
 
-	arr := result.Value().([]Result)
+	arr := result.Value().([]any)
 	for i, r := range arr {
 		m := r.(map[string]interface{})
 		if m["status"] != "rejected" {
@@ -883,7 +883,7 @@ func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
 	wg.Wait()
 
 	done := make(chan struct{})
-	allResult.Then(func(v Result) Result {
+	allResult.Then(func(v any) any {
 		close(done)
 		return v
 	}, nil)
@@ -900,7 +900,7 @@ func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", allResult.State())
 	}
 
-	arr := allResult.Value().([]Result)
+	arr := allResult.Value().([]any)
 	if len(arr) != numPromises {
 		t.Fatalf("Expected %d results, got %d", numPromises, len(arr))
 	}
@@ -959,7 +959,7 @@ func TestPromiseRace_ConcurrentSettlement(t *testing.T) {
 		wg.Wait()
 
 		done := make(chan struct{})
-		raceResult.Then(func(v Result) Result {
+		raceResult.Then(func(v any) any {
 			close(done)
 			return v
 		}, nil)
@@ -1025,7 +1025,7 @@ func TestPromiseCombinators_LargeArray(t *testing.T) {
 		t.Fatalf("Expected Fulfilled, got %v", allResult.State())
 	}
 
-	arr := allResult.Value().([]Result)
+	arr := allResult.Value().([]any)
 	if len(arr) != numPromises {
 		t.Fatalf("Expected %d results, got %d", numPromises, len(arr))
 	}
@@ -1053,7 +1053,7 @@ func TestPromiseAll_PanicInHandler_Combinator(t *testing.T) {
 
 	// Add handler that panics
 	var caught atomic.Bool
-	allResult.Catch(func(r Result) Result {
+	allResult.Catch(func(r any) any {
 		caught.Store(true)
 		return r
 	})

@@ -72,10 +72,10 @@ func TestAbortIntegration_FetchLikeAbortPattern(t *testing.T) {
 	var promiseRejected atomic.Bool
 	var rejectionReason atomic.Value
 
-	promise.Then(func(val Result) Result {
+	promise.Then(func(val any) any {
 		t.Error("Promise should not resolve when aborted")
 		return val
-	}, func(reason Result) Result {
+	}, func(reason any) any {
 		promiseRejected.Store(true)
 		rejectionReason.Store(reason)
 		return reason
@@ -178,7 +178,7 @@ func TestAbortIntegration_TimeoutAbortRetryPattern(t *testing.T) {
 	}
 
 	var firstAttemptFailed atomic.Bool
-	p1.Then(nil, func(reason Result) Result {
+	p1.Then(nil, func(reason any) any {
 		if _, ok := reason.(*AbortError); ok {
 			firstAttemptFailed.Store(true)
 		}
@@ -194,7 +194,7 @@ func TestAbortIntegration_TimeoutAbortRetryPattern(t *testing.T) {
 		t.Fatal("Failed to create second promise")
 	}
 
-	p2.Then(func(val Result) Result {
+	p2.Then(func(val any) any {
 		successValue.Store(val)
 		return val
 	}, nil)
@@ -249,8 +249,8 @@ func TestAbortIntegration_SignalPropagationThroughPromiseChain(t *testing.T) {
 	)
 
 	// Build promise chain that respects abort signal at each stage
-	checkAbort := func(stage string, started, completed *atomic.Bool) func(Result) Result {
-		return func(val Result) Result {
+	checkAbort := func(stage string, started, completed *atomic.Bool) func(any) any {
+		return func(val any) any {
 			started.Store(true)
 
 			// Check abort at each stage
@@ -271,7 +271,7 @@ func TestAbortIntegration_SignalPropagationThroughPromiseChain(t *testing.T) {
 	// Chain stages
 	p2 := p1.Then(checkAbort("stage1", &stage1Started, &stage1Complete), nil)
 
-	p3 := p2.Then(func(val Result) Result {
+	p3 := p2.Then(func(val any) any {
 		stage2Started.Store(true)
 
 		// This stage has delay - abort during it
@@ -284,7 +284,7 @@ func TestAbortIntegration_SignalPropagationThroughPromiseChain(t *testing.T) {
 		return val
 	}, nil)
 
-	p4 := p3.Then(func(val Result) Result {
+	p4 := p3.Then(func(val any) any {
 		stage3Started.Store(true)
 
 		// If we get an AbortError, propagate rejection
@@ -294,7 +294,7 @@ func TestAbortIntegration_SignalPropagationThroughPromiseChain(t *testing.T) {
 		return val
 	}, nil)
 
-	finalPromise := p4.Catch(func(reason Result) Result {
+	finalPromise := p4.Catch(func(reason any) any {
 		chainRejected.Store(true)
 		return reason
 	})
@@ -746,7 +746,7 @@ func TestAbortIntegration_WithPromisify(t *testing.T) {
 
 		var operationCancelled atomic.Bool
 
-		promise := loop.Promisify(promisifyCtx, func(ctx context.Context) (Result, error) {
+		promise := loop.Promisify(promisifyCtx, func(ctx context.Context) (any, error) {
 			// Long-running operation that checks context
 			for i := 0; i < 50; i++ {
 				select {
@@ -809,7 +809,7 @@ func TestAbortIntegration_WithPromisify(t *testing.T) {
 			promisifyCancel()
 		})
 
-		promise := loop.Promisify(promisifyCtx, func(ctx context.Context) (Result, error) {
+		promise := loop.Promisify(promisifyCtx, func(ctx context.Context) (any, error) {
 			operationStarted.Store(true)
 
 			// Slow operation that will timeout

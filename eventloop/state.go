@@ -26,10 +26,15 @@ import (
 type LoopState uint64
 
 const (
-	StateAwake       LoopState = 0
-	StateTerminated  LoopState = 1
-	StateSleeping    LoopState = 2
-	StateRunning     LoopState = 4
+	// StateAwake is the initial state before [Loop.Run] is called.
+	StateAwake LoopState = 0
+	// StateTerminated is the terminal state after shutdown is complete.
+	StateTerminated LoopState = 1
+	// StateSleeping indicates the loop is blocked in I/O poll, waiting for events.
+	StateSleeping LoopState = 2
+	// StateRunning indicates the loop is actively processing tasks and timers.
+	StateRunning LoopState = 4
+	// StateTerminating indicates a shutdown is in progress.
 	StateTerminating LoopState = 5
 )
 

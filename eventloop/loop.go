@@ -115,15 +115,19 @@ type Loop struct {
 	metrics       *Metrics                         // Phase 5.3: Optional runtime metrics
 	tpsCounter    *tpsCounter                      // Phase 5.3: TPS tracking
 	logger        *logiface.Logger[logiface.Event] // T25: Optional structured logger
-	OnOverload    func(error)
-	fastWakeupCh  chan struct{}
-	loopDone      chan struct{}
-	timerMap      map[TimerID]*timer
-	timers        timerHeap
-	auxJobs       []func()
-	auxJobsSpare  []func()
-	poller        fastPoller
-	promisifyWg   sync.WaitGroup
+	// OnOverload is called when the loop detects task queue overload.
+	// The callback receives [ErrLoopOverloaded] and may be used for
+	// backpressure signaling, metrics, or graceful degradation.
+	// It is called on the loop goroutine; panics are recovered and logged.
+	OnOverload   func(error)
+	fastWakeupCh chan struct{}
+	loopDone     chan struct{}
+	timerMap     map[TimerID]*timer
+	timers       timerHeap
+	auxJobs      []func()
+	auxJobsSpare []func()
+	poller       fastPoller
+	promisifyWg  sync.WaitGroup
 
 	// Simple primitive types BEFORE anything that requires pointer alignment
 	tickCount     uint64
@@ -157,7 +161,7 @@ type Loop struct {
 	_                       [2]byte // Align to 8-byte
 	_                       [2]byte // Align to 8-byte
 	forceNonBlockingPoll    bool
-	StrictMicrotaskOrdering bool
+	strictMicrotaskOrdering bool
 	debugMode               bool       // EXPAND-039: Enable debug features like stack trace capture
 	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
 }
@@ -236,7 +240,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	}
 
 	// Apply options to Loop struct
-	loop.StrictMicrotaskOrdering = options.strictMicrotaskOrdering
+	loop.strictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
 	loop.logger = options.logger
 	loop.debugMode = options.debugMode // EXPAND-039: Enable debug mode
@@ -353,7 +357,7 @@ func (l *Loop) Run(ctx context.Context) error {
 
 	if !l.state.TryTransition(StateAwake, StateRunning) {
 		currentState := l.state.Load()
-		if currentState == StateTerminated {
+		if currentState == StateTerminated || currentState == StateTerminating {
 			return ErrLoopTerminated
 		}
 		return ErrLoopAlreadyRunning
@@ -577,7 +581,7 @@ func (l *Loop) runAux() {
 		l.safeExecute(job)
 		jobs[i] = nil // Clear for GC
 
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}
@@ -873,7 +877,7 @@ func (l *Loop) processExternal() {
 		l.safeExecute(l.batchBuf[i])
 		l.batchBuf[i] = nil // Clear for GC
 
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}
@@ -927,7 +931,7 @@ func (l *Loop) drainAuxJobs() {
 		l.safeExecute(job)
 		jobs[i] = nil // Clear for GC
 
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}
@@ -1635,7 +1639,7 @@ func (l *Loop) runTimers() {
 			timerPool.Put(t)
 		}
 
-		if l.StrictMicrotaskOrdering {
+		if l.strictMicrotaskOrdering {
 			l.drainMicrotasks()
 		}
 	}

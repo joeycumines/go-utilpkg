@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Go monorepo (`go-utilpkg`) that consolidates multiple related modules. Modules are synced to their individual published repositories using the `grit` tool. The root contains no packages - all code lives in subdirectories.
 
+### Architectural Decision Records (ADRs)
+
+ADR files are stored in docs/adr/. On beginning a session, list the contents of docs/adr/ as an enumerated list (filenames only) so you know the names of existing architecture decisions. Do not expand or summarize ADR contents unless explicitly asked — only enumerate filenames by default.
+
 ### Key Modules
 
 - **eventloop**: High-performance JavaScript-compatible event loop with timers, promises, microtasks, and cross-platform I/O polling (kqueue/epoll/IOCP)

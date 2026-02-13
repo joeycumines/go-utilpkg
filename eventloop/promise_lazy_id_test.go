@@ -47,7 +47,7 @@ func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	var tracked bool
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		tracked = true
 	}))
 	if err != nil {
@@ -87,7 +87,7 @@ func TestPromisePointerIdentity_AllocatesOnHandler(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 
 	// Attach handler (triggers tracking via pointer identity)
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		return nil
 	})
 

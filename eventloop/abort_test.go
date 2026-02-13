@@ -434,10 +434,10 @@ func TestAbortController_UseWithPromise(t *testing.T) {
 	controller.Abort("cancelled by user")
 
 	// Wait for promise
-	promise.Then(func(val Result) Result {
+	promise.Then(func(val any) any {
 		promiseResolved = true
 		return val
-	}, func(reason Result) Result {
+	}, func(reason any) any {
 		promiseRejected = true
 		rejectionReason = reason
 		return reason

@@ -55,8 +55,8 @@ func TestNew_ResolveLoopOptions_NilOption(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Verify options were applied correctly
-	if !loop.StrictMicrotaskOrdering {
-		t.Error("StrictMicrotaskOrdering should be true")
+	if !loop.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true")
 	}
 
 	mode := FastPathMode(loop.fastPathMode.Load())
@@ -74,8 +74,8 @@ func TestNew_ResolveLoopOptions_EmptyOptions(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Verify defaults
-	if loop.StrictMicrotaskOrdering {
-		t.Error("Default StrictMicrotaskOrdering should be false")
+	if loop.strictMicrotaskOrdering {
+		t.Error("Default strictMicrotaskOrdering should be false")
 	}
 
 	mode := FastPathMode(loop.fastPathMode.Load())
@@ -125,8 +125,8 @@ func TestNew_ResolveLoopOptions_ChainedOptions(t *testing.T) {
 	}
 
 	// Verify all options were applied
-	if !loop.StrictMicrotaskOrdering {
-		t.Error("StrictMicrotaskOrdering should be true")
+	if !loop.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true")
 	}
 
 	mode := FastPathMode(loop.fastPathMode.Load())
@@ -199,8 +199,8 @@ func TestNew_AllValidOptions(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	if !loop.StrictMicrotaskOrdering {
-		t.Error("StrictMicrotaskOrdering should be true")
+	if !loop.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true")
 	}
 
 	mode := FastPathMode(loop.fastPathMode.Load())

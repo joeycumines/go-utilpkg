@@ -23,7 +23,7 @@ func TestPromiseAll_ConcurrentRejections(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	rejectors := make([]func(Result), numPromises)
+	rejectors := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, _, r := js.NewChainedPromise()
@@ -56,7 +56,7 @@ func TestPromiseAll_ConcurrentRejections(t *testing.T) {
 	rejected := false
 	var rejectionReason string
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		rejectionReason = r.(error).Error()
 		close(handlerDone)
@@ -99,7 +99,7 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -123,10 +123,10 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 	loop.tick()
 
 	// All should resolve with all values
-	var resolvedValues []Result
+	var resolvedValues []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		resolvedValues = v.([]Result)
+	result.Then(func(v any) any {
+		resolvedValues = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -184,7 +184,7 @@ func TestPromiseAll_RejectionWinsOverResolution(t *testing.T) {
 	// Should reject
 	rejected := false
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -229,7 +229,7 @@ func TestPromiseAll_FirstRejectionWins(t *testing.T) {
 	// Should reject with p2's error
 	var rejectionReason string
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		// Handle both error and string rejection reasons
 		if err, ok := r.(error); ok {
 			rejectionReason = err.Error()
@@ -291,17 +291,17 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 
 		var settled bool
 		var settledState PromiseState
-		var settledReason Result
+		var settledReason any
 		done := make(chan struct{})
 
 		result.Then(
-			func(v Result) Result {
+			func(v any) any {
 				settled = true
 				settledState = Fulfilled
 				close(done)
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				settled = true
 				settledState = Rejected
 				settledReason = r
@@ -349,18 +349,18 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 
 		var settled bool
 		var settledState PromiseState
-		var settledValue Result
+		var settledValue any
 		done := make(chan struct{})
 
 		result.Then(
-			func(v Result) Result {
+			func(v any) any {
 				settled = true
 				settledState = Fulfilled
 				settledValue = v
 				close(done)
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				settled = true
 				settledState = Rejected
 				close(done)
@@ -378,11 +378,11 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		if settledState != Fulfilled {
 			t.Errorf("expected Fulfilled, got %v", settledState)
 		}
-		values, ok := settledValue.([]Result)
+		values, ok := settledValue.([]any)
 		if !ok {
-			t.Fatalf("expected []Result, got %T", settledValue)
+			t.Fatalf("expected []any, got %T", settledValue)
 		}
-		if len(values) != 2 || values[0] != Result("a") || values[1] != Result("b") {
+		if len(values) != 2 || values[0] != any("a") || values[1] != any("b") {
 			t.Errorf("expected [a b], got %v", values)
 		}
 	})
@@ -412,12 +412,12 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		done := make(chan struct{})
 
 		result.Then(
-			func(v Result) Result {
+			func(v any) any {
 				settledState = Fulfilled
 				close(done)
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				settledState = Rejected
 				close(done)
 				return nil
@@ -458,12 +458,12 @@ func TestPromiseAll_AlreadySettledPromises(t *testing.T) {
 		done := make(chan struct{})
 
 		result.Then(
-			func(v Result) Result {
+			func(v any) any {
 				settledState = Fulfilled
 				close(done)
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				settledState = Rejected
 				close(done)
 				return nil
@@ -497,9 +497,9 @@ func TestPromiseAll_OnePromise(t *testing.T) {
 
 	result := js.All([]*ChainedPromise{p1})
 
-	var values []Result
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	var values []any
+	result.Then(func(v any) any {
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -529,7 +529,7 @@ func TestPromiseAll_LargeNumberOfPromises(t *testing.T) {
 
 	const numPromises = 100
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -546,10 +546,10 @@ func TestPromiseAll_LargeNumberOfPromises(t *testing.T) {
 	loop.tick()
 
 	// Verify all resolved
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -599,7 +599,7 @@ func TestPromiseAll_ResolveAfterRejection(t *testing.T) {
 	// Should still be rejected
 	rejected := false
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -670,7 +670,7 @@ func TestPromiseAll_PanicInHandler(t *testing.T) {
 	result := js.All([]*ChainedPromise{p1})
 
 	// Handler that panics
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		panic("handler panic")
 	}, nil)
 
@@ -696,18 +696,18 @@ func TestPromiseAll_ChainedPromises(t *testing.T) {
 	p2, resolve2, _ := js.NewChainedPromise()
 
 	// Create chains
-	chained1 := p1.Then(func(v Result) Result {
+	chained1 := p1.Then(func(v any) any {
 		return v.(string) + "-chained1"
 	}, nil)
-	chained2 := p2.Then(func(v Result) Result {
+	chained2 := p2.Then(func(v any) any {
 		return v.(string) + "-chained2"
 	}, nil)
 
 	result := js.All([]*ChainedPromise{chained1, chained2})
 
-	var values []Result
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	var values []any
+	result.Then(func(v any) any {
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -749,9 +749,9 @@ func TestPromiseAll_MixedImmediateAndPending(t *testing.T) {
 
 	result := js.All([]*ChainedPromise{p1, p2})
 
-	var values []Result
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	var values []any
+	result.Then(func(v any) any {
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -842,7 +842,7 @@ func TestPromiseAll_ConcurrentResolveAndReject(t *testing.T) {
 	// Should reject (rejection wins)
 	rejected := false
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -892,7 +892,7 @@ func TestPromiseAll_AllReject(t *testing.T) {
 	// Should reject with first error
 	var rejectionReason string
 	handlerDone := make(chan struct{})
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		if err, ok := r.(error); ok {
 			rejectionReason = err.Error()
 		} else if str, ok := r.(string); ok {

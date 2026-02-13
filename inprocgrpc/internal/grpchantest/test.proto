@@ -1,0 +1,31 @@
+// Adapted from github.com/fullstorydev/grpchan/grpchantesting/test.proto
+// Original: The MIT License (MIT) Copyright (c) 2018 Fullstory, Inc
+
+syntax = "proto3";
+
+package grpchantesting;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "./;grpchantest";
+
+service TestService {
+  rpc Unary(Message) returns (Message);
+  rpc ClientStream(stream Message) returns (Message);
+  rpc ServerStream(Message) returns (stream Message);
+  rpc BidiStream(stream Message) returns (stream Message);
+
+  // UseExternalMessageTwice is here purely to test the protoc-gen-grpchan plug-in
+  rpc UseExternalMessageTwice(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+message Message {
+  bytes payload = 1;
+  int32 count = 2;
+  int32 code = 3;
+  int32 delay_millis = 4;
+  map<string, bytes> headers = 5;
+  map<string, bytes> trailers = 6;
+  repeated google.protobuf.Any error_details = 7;
+}

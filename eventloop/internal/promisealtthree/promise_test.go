@@ -78,9 +78,9 @@ func TestThen(t *testing.T) {
 
 	var result string
 
-	p.Then(func(v promisealtthree.Result) promisealtthree.Result {
+	p.Then(func(v any) any {
 		return v.(string) + " transformed"
-	}, nil).Then(func(v promisealtthree.Result) promisealtthree.Result {
+	}, nil).Then(func(v any) any {
 		result = v.(string)
 		return nil
 	}, nil)
@@ -111,7 +111,7 @@ func TestCatch(t *testing.T) {
 
 	var recovered bool
 
-	p.Catch(func(r promisealtthree.Result) promisealtthree.Result {
+	p.Catch(func(r any) any {
 		recovered = true
 		return "caught"
 	})
@@ -173,7 +173,7 @@ func TestMultipleThen(t *testing.T) {
 	chain := p
 
 	for i := 0; i < 5; i++ {
-		chain = chain.Then(func(v promisealtthree.Result) promisealtthree.Result {
+		chain = chain.Then(func(v any) any {
 			return v
 		}, nil)
 	}
@@ -229,7 +229,7 @@ func TestPromiseWithJS(t *testing.T) {
 func TestResultTypes(t *testing.T) {
 	testCases := []struct {
 		name     string
-		input    promisealtthree.Result
+		input    any
 		isSlice  bool
 		expected interface{}
 	}{
@@ -290,7 +290,7 @@ func TestConcurrentPromises(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = p.Then(func(v promisealtthree.Result) promisealtthree.Result {
+			_ = p.Then(func(v any) any {
 				return v
 			}, nil)
 		}()
@@ -318,11 +318,11 @@ func TestPromiseChaining(t *testing.T) {
 
 	var finalVal int
 
-	p.Then(func(v promisealtthree.Result) promisealtthree.Result {
+	p.Then(func(v any) any {
 		return v.(int) + 1
-	}, nil).Then(func(v promisealtthree.Result) promisealtthree.Result {
+	}, nil).Then(func(v any) any {
 		return v.(int) * 2
-	}, nil).Then(func(v promisealtthree.Result) promisealtthree.Result {
+	}, nil).Then(func(v any) any {
 		finalVal = v.(int)
 		return nil
 	}, nil)

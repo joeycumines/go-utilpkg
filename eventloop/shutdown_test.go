@@ -39,7 +39,7 @@ func TestShutdown_PendingPromisesRejected(t *testing.T) {
 
 	// Create Promisify goroutine that blocks on a manual channel
 	// This creates a promisify goroutine that is still in-flight during shutdown
-	promise := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	promise := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(goroutineStarted)
 		// Block on channel to simulate a long-running operation
 		<-blockCh
@@ -118,7 +118,7 @@ func TestShutdown_PromisifyResolution_Race(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	started := make(chan struct{})
-	p := l.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := l.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(started)
 		time.Sleep(50 * time.Millisecond)
 		return "success", nil

@@ -24,7 +24,7 @@ type Stats struct {
 
 // Generic interface to simplify test code
 type genericPromise interface {
-	Then(func(eventloop.Result) eventloop.Result, func(eventloop.Result) eventloop.Result) genericPromise
+	Then(func(any) any, func(any) any) genericPromise
 }
 
 func BenchmarkTournament(b *testing.B) {
@@ -76,50 +76,50 @@ type cpWrapper struct {
 	resolve eventloop.ResolveFunc
 }
 
-func (w *cpWrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+func (w *cpWrapper) Then(s, f func(any) any) genericPromise {
 	return &cpWrapper{p: w.p.Then(s, f)}
 }
-func (w *cpWrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+func (w *cpWrapper) Resolve(v any) { w.resolve(v) }
 
 type p1Wrapper struct {
 	p       *promisealtone.Promise
 	resolve promisealtone.ResolveFunc
 }
 
-func (w *p1Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+func (w *p1Wrapper) Then(s, f func(any) any) genericPromise {
 	return &p1Wrapper{p: w.p.Then(s, f)}
 }
-func (w *p1Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+func (w *p1Wrapper) Resolve(v any) { w.resolve(v) }
 
 type p2Wrapper struct {
 	p       *promisealttwo.Promise
 	resolve promisealttwo.ResolveFunc
 }
 
-func (w *p2Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+func (w *p2Wrapper) Then(s, f func(any) any) genericPromise {
 	return &p2Wrapper{p: w.p.Then(s, f)}
 }
-func (w *p2Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+func (w *p2Wrapper) Resolve(v any) { w.resolve(v) }
 
 type p4Wrapper struct {
 	p       *promisealtfour.Promise
 	resolve promisealtfour.ResolveFunc
 }
 
-func (w *p4Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+func (w *p4Wrapper) Then(s, f func(any) any) genericPromise {
 	return &p4Wrapper{p: w.p.Then(s, f)}
 }
-func (w *p4Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+func (w *p4Wrapper) Resolve(v any) { w.resolve(v) }
 
 type p5Wrapper struct {
 	p       *promisealtfive.Promise
 	resolve promisealtfive.ResolveFunc
 }
 
-func (w *p5Wrapper) Then(s, f func(eventloop.Result) eventloop.Result) genericPromise {
+func (w *p5Wrapper) Then(s, f func(any) any) genericPromise {
 	return &p5Wrapper{p: w.p.Then(s, f)}
 }
-func (w *p5Wrapper) Resolve(v eventloop.Result) { w.resolve(v) }
+func (w *p5Wrapper) Resolve(v any) { w.resolve(v) }
 
 func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(interface{}))) {
 	b.ReportAllocs()
@@ -143,9 +143,9 @@ func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise
 		p, resolve := factory(js)
 
 		// Chain
-		p.Then(func(v eventloop.Result) eventloop.Result {
+		p.Then(func(v any) any {
 			return v.(int) + 1
-		}, nil).Then(func(v eventloop.Result) eventloop.Result {
+		}, nil).Then(func(v any) any {
 			wg.Done()
 			return nil
 		}, nil)
@@ -186,7 +186,7 @@ func BenchmarkChainDepth(b *testing.B) {
 					p, resolve := factory(js)
 					curr := p
 					for k := 0; k < d; k++ {
-						curr = curr.Then(func(v eventloop.Result) eventloop.Result {
+						curr = curr.Then(func(v any) any {
 							return v
 						}, nil)
 					}

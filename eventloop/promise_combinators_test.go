@@ -28,11 +28,11 @@ func TestPromiseAll_EmptyArray(t *testing.T) {
 	result := js.All([]*ChainedPromise{})
 
 	finalResult := false
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = true
-		values, ok := v.([]Result)
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 		}
 		if len(values) != 0 {
 			t.Errorf("Expected empty slice, got %d elements", len(values))
@@ -63,11 +63,11 @@ func TestPromiseAll_SingleElement(t *testing.T) {
 	result := js.All([]*ChainedPromise{p})
 
 	finalResult := false
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = true
-		values, ok := v.([]Result)
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		if len(values) != 1 {
@@ -106,11 +106,11 @@ func TestPromiseAll_MultipleValues_AllResolve(t *testing.T) {
 
 	result := js.All([]*ChainedPromise{p1, p2, p3})
 
-	finalResult := make([]Result, 3)
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	finalResult := make([]any, 3)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		copy(finalResult, values)
@@ -152,7 +152,7 @@ func TestPromiseAll_AnyRejection_RejectsImmediately(t *testing.T) {
 	result := js.All([]*ChainedPromise{p1, p2, p3})
 
 	rejectionReason := ""
-	result.Catch(func(r Result) Result {
+	result.Catch(func(r any) any {
 		rejectionReason = r.(string)
 		return nil
 	})
@@ -184,10 +184,10 @@ func TestPromiseAll_NestedPromises(t *testing.T) {
 
 	// Create a chain: base -> then -> then
 	base, resolveBase, _ := js.NewChainedPromise()
-	chained := base.Then(func(v Result) Result {
+	chained := base.Then(func(v any) any {
 		return v.(string) + " +1"
 	}, nil)
-	fullyChained := chained.Then(func(v Result) Result {
+	fullyChained := chained.Then(func(v any) any {
 		return v.(string) + " +2"
 	}, nil)
 
@@ -197,10 +197,10 @@ func TestPromiseAll_NestedPromises(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		for i, val := range values {
@@ -240,7 +240,7 @@ func TestPromiseAll_StressTest(t *testing.T) {
 
 	const count = 100
 	promises := make([]*ChainedPromise, count)
-	resolvers := make([]func(Result), count)
+	resolvers := make([]func(any), count)
 
 	// Create promises
 	for i := 0; i < count; i++ {
@@ -251,12 +251,12 @@ func TestPromiseAll_StressTest(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	results := make([]Result, count)
+	results := make([]any, count)
 
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			wg.Done()
 			return nil
 		}
@@ -323,7 +323,7 @@ func TestPromiseRace_SinglePromise(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -355,7 +355,7 @@ func TestPromiseRace_MultiplePromises_FirstToSettleWins(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2, p3})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -401,7 +401,7 @@ func TestPromiseRace_WithSetTimeout(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		wg.Done()
 		return nil
@@ -442,7 +442,7 @@ func TestPromiseRace_FasterPromiseWinsOverTimeout(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		wg.Done()
 		return nil
@@ -485,7 +485,7 @@ func TestPromiseRace_RejectionCanWin(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2})
 
 	rejectionReason := ""
-	result.Catch(func(r Result) Result {
+	result.Catch(func(r any) any {
 		rejectionReason = r.(string)
 		return nil
 	})
@@ -525,11 +525,11 @@ func TestPromiseAllSettled_EmptyArray(t *testing.T) {
 	result := js.AllSettled([]*ChainedPromise{})
 
 	finalResult := false
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = true
-		values, ok := v.([]Result)
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 		}
 		if len(values) != 0 {
 			t.Errorf("Expected empty slice, got %d elements", len(values))
@@ -562,11 +562,11 @@ func TestPromiseAllSettled_AllFulfilled(t *testing.T) {
 
 	result := js.AllSettled([]*ChainedPromise{p1, p2, p3})
 
-	finalResult := make([]Result, 3)
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	finalResult := make([]any, 3)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		if len(values) != 3 {
@@ -621,11 +621,11 @@ func TestPromiseAllSettled_MixedFulfillAndReject(t *testing.T) {
 
 	result := js.AllSettled([]*ChainedPromise{p1, p2, p3})
 
-	finalResult := make([]Result, 3)
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	finalResult := make([]any, 3)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		copy(finalResult, values)
@@ -677,11 +677,11 @@ func TestPromiseAllSettled_AllRejected(t *testing.T) {
 
 	result := js.AllSettled([]*ChainedPromise{p1, p2, p3})
 
-	finalResult := make([]Result, 3)
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	finalResult := make([]any, 3)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		copy(finalResult, values)
@@ -732,17 +732,17 @@ func TestPromiseAllSettled_NestedPromises(t *testing.T) {
 	}
 
 	base, resolveBase, _ := js.NewChainedPromise()
-	chained := base.Then(func(v Result) Result {
+	chained := base.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil)
 
 	result := js.AllSettled([]*ChainedPromise{base, chained})
 
-	finalResult := make([]Result, 2)
-	result.Then(func(v Result) Result {
-		values, ok := v.([]Result)
+	finalResult := make([]any, 2)
+	result.Then(func(v any) any {
+		values, ok := v.([]any)
 		if !ok {
-			t.Errorf("Expected []Result, got %T", v)
+			t.Errorf("Expected []any, got %T", v)
 			return nil
 		}
 		copy(finalResult, values)
@@ -790,7 +790,7 @@ func TestPromiseAny_EmptyArray_RejectsWithAggregateError(t *testing.T) {
 	result := js.Any([]*ChainedPromise{})
 
 	rejectionReason := ""
-	result.Catch(func(r Result) Result {
+	result.Catch(func(r any) any {
 		aggErr, ok := r.(*AggregateError)
 		if !ok {
 			t.Errorf("Expected *AggregateError, got %T", r)
@@ -829,7 +829,7 @@ func TestPromiseAny_SingleValue(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -861,7 +861,7 @@ func TestPromiseAny_FirstFulfillmentWins(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2, p3})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -902,7 +902,7 @@ func TestPromiseAny_AllReject_RejectsWithAggregateError(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2, p3})
 
 	var aggregateErr *AggregateError
-	result.Catch(func(r Result) Result {
+	result.Catch(func(r any) any {
 		var ok bool
 		aggregateErr, ok = r.(*AggregateError)
 		if !ok {
@@ -966,7 +966,7 @@ func TestPromiseAny_RejectThenFulfillment_FulfillmentWins(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2, p3})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -1004,7 +1004,7 @@ func TestPromiseAny_NestedPromises(t *testing.T) {
 
 	// Create a chain that will resolve
 	base, resolveBase, _ := js.NewChainedPromise()
-	chained := base.Then(func(v Result) Result {
+	chained := base.Then(func(v any) any {
 		return v.(string) + " chained"
 	}, nil)
 
@@ -1015,7 +1015,7 @@ func TestPromiseAny_NestedPromises(t *testing.T) {
 	result := js.Any([]*ChainedPromise{chained, js.Reject("ignore me")})
 
 	finalResult := ""
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		finalResult = v.(string)
 		return nil
 	}, nil)
@@ -1155,7 +1155,7 @@ func TestPromiseCombinators_ErrorPropagation(t *testing.T) {
 		result := js.All([]*ChainedPromise{p1, p2, p3})
 
 		var caught error
-		result.Catch(func(r Result) Result {
+		result.Catch(func(r any) any {
 			if err, ok := r.(error); ok {
 				caught = err
 			}
@@ -1185,7 +1185,7 @@ func TestPromiseCombinators_ErrorPropagation(t *testing.T) {
 		result := js.Any([]*ChainedPromise{p1, p2})
 
 		var caught *AggregateError
-		result.Catch(func(r Result) Result {
+		result.Catch(func(r any) any {
 			if agg, ok := r.(*AggregateError); ok {
 				caught = agg
 			}
@@ -1230,8 +1230,8 @@ func TestPromiseCombinators_OrderPreservation(t *testing.T) {
 		result := js.All([]*ChainedPromise{p1, p2, p3})
 
 		order := make([]string, 3)
-		result.Then(func(v Result) Result {
-			values, ok := v.([]Result)
+		result.Then(func(v any) any {
+			values, ok := v.([]any)
 			if !ok {
 				return nil
 			}
@@ -1264,8 +1264,8 @@ func TestPromiseCombinators_OrderPreservation(t *testing.T) {
 		result := js.AllSettled([]*ChainedPromise{p1, p2, p3})
 
 		statuses := make([]string, 3)
-		result.Then(func(v Result) Result {
-			values, ok := v.([]Result)
+		result.Then(func(v any) any {
+			values, ok := v.([]any)
 			if !ok {
 				return nil
 			}
@@ -1628,7 +1628,7 @@ func TestChainedPromise_Then(t *testing.T) {
 
 	// Attach handler using Then (uses promise's stored js)
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " processed by js2"
 		},
 		nil,
@@ -1732,7 +1732,7 @@ func TestPromiseCombinators_NilValues(t *testing.T) {
 		})
 		loop.tick()
 
-		values := result.Value().([]Result)
+		values := result.Value().([]any)
 		if values[1] != nil {
 			t.Errorf("Should preserve nil value, got: %v", values[1])
 		}
@@ -1755,7 +1755,7 @@ func TestPromiseCombinators_NilValues(t *testing.T) {
 		result := js.AllSettled([]*ChainedPromise{js.Resolve(nil)})
 		loop.tick()
 
-		outcomes := result.Value().([]Result)
+		outcomes := result.Value().([]any)
 		status := outcomes[0].(map[string]interface{})
 		if status["value"] != nil {
 			t.Errorf("AllSettled should preserve nil value, got: %v", status["value"])
@@ -1769,7 +1769,7 @@ func TestPromiseCombinators_NilValues(t *testing.T) {
 		result := js.AllSettled([]*ChainedPromise{js.Reject(nil)})
 		loop.tick()
 
-		outcomes := result.Value().([]Result)
+		outcomes := result.Value().([]any)
 		status := outcomes[0].(map[string]interface{})
 		if status["reason"] != nil {
 			t.Errorf("AllSettled should preserve nil reason, got: %v", status["reason"])
@@ -1821,8 +1821,8 @@ func TestPromiseCombinators_AlreadySettled(t *testing.T) {
 		resolve2("pending2")
 		loop.tick()
 
-		values := result.Value().([]Result)
-		expected := []Result{"already1", "pending2", "already3"}
+		values := result.Value().([]any)
+		expected := []any{"already1", "pending2", "already3"}
 		for i, v := range values {
 			if v != expected[i] {
 				t.Errorf("Value[%d]: expected %v, got %v", i, expected[i], v)
@@ -1854,7 +1854,7 @@ func TestPromiseCombinators_AlreadySettled(t *testing.T) {
 		resolve3("later fulfilled")
 		loop.tick()
 
-		outcomes := result.Value().([]Result)
+		outcomes := result.Value().([]any)
 
 		status1 := outcomes[0].(map[string]interface{})
 		if status1["status"] != "fulfilled" || status1["value"] != "fulfilled" {
@@ -1962,7 +1962,7 @@ func TestJS_ConvenienceHelpers(t *testing.T) {
 		p1 := js.Resolve("first")
 
 		var chainCalled bool
-		p2 := p1.Then(func(v Result) Result {
+		p2 := p1.Then(func(v any) any {
 			chainCalled = true
 			return v.(string) + " chained"
 		}, nil)
@@ -1982,7 +1982,7 @@ func TestJS_ConvenienceHelpers(t *testing.T) {
 		p1 := js.Reject("error")
 
 		var catchCalled bool
-		p2 := p1.Catch(func(r Result) Result {
+		p2 := p1.Catch(func(r any) any {
 			catchCalled = true
 			return "recovered: " + r.(string)
 		})
@@ -2022,8 +2022,8 @@ func TestPromiseCombinators_WithConvenienceHelpers(t *testing.T) {
 		resolve2("resolved2")
 		loop.tick()
 
-		values := result.Value().([]Result)
-		expected := []Result{"already1", "resolved2", "already3"}
+		values := result.Value().([]any)
+		expected := []any{"already1", "resolved2", "already3"}
 		for i, v := range values {
 			if v != expected[i] {
 				t.Errorf("Value[%d]: expected %v, got %v", i, expected[i], v)
@@ -2054,7 +2054,7 @@ func TestPromiseCombinators_WithConvenienceHelpers(t *testing.T) {
 		resolve3("later resolved")
 		loop.tick()
 
-		outcomes := result.Value().([]Result)
+		outcomes := result.Value().([]any)
 
 		// Verify all outcomes are represented
 		if len(outcomes) != 3 {
@@ -2113,7 +2113,7 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 
 		current := p
 		for i := 0; i < 10; i++ {
-			current = current.Then(func(v Result) Result {
+			current = current.Then(func(v any) any {
 				return v.(string) + " +1"
 			}, nil)
 		}
@@ -2133,15 +2133,15 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 	t.Run("Chain with mixed resolve and reject", func(t *testing.T) {
 		p, _, reject := js.NewChainedPromise()
 
-		p1 := p.Then(func(v Result) Result {
+		p1 := p.Then(func(v any) any {
 			return "should not execute"
 		}, nil)
 
-		p2 := p1.Catch(func(r Result) Result {
+		p2 := p1.Catch(func(r any) any {
 			return "caught: " + r.(string)
 		})
 
-		p3 := p2.Then(func(v Result) Result {
+		p3 := p2.Then(func(v any) any {
 			return "then after catch: " + v.(string)
 		}, nil)
 
@@ -2214,7 +2214,7 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 
 		p, _, reject := js.NewChainedPromise()
 
-		result := p.Catch(func(r Result) Result {
+		result := p.Catch(func(r any) any {
 			catchCalled = true
 			close(catchExecuted)
 			return "recovered"
@@ -2257,7 +2257,7 @@ func TestChainedPromise_ThenReturnsNewPromise(t *testing.T) {
 	}
 
 	p1, resolve, _ := js.NewChainedPromise()
-	p2 := p1.Then(func(v Result) Result {
+	p2 := p1.Then(func(v any) any {
 		return v.(string) + " modified"
 	}, nil)
 
@@ -2296,7 +2296,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	t.Run("Transform string to int", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
-		result := p.Then(func(v Result) Result {
+		result := p.Then(func(v any) any {
 			return len(v.(string))
 		}, nil)
 
@@ -2312,7 +2312,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	t.Run("Transform int to string", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
-		result := p.Then(func(v Result) Result {
+		result := p.Then(func(v any) any {
 			num := v.(int)
 			return fmt.Sprintf("%d", num)
 		}, nil)
@@ -2329,7 +2329,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	t.Run("Transform to map", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
-		result := p.Then(func(v Result) Result {
+		result := p.Then(func(v any) any {
 			return map[string]interface{}{"value": v}
 		}, nil)
 

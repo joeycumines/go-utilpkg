@@ -269,7 +269,7 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 	}
 
 	// Attach a Go handler for rejection
-	promise.Catch(func(r eventloop.Result) eventloop.Result {
+	promise.Catch(func(r any) any {
 		done <- r
 		return nil
 	})

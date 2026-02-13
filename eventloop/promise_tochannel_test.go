@@ -387,7 +387,7 @@ func TestPromiseToChannel_ChainedPromise(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 
 	// Create chain
-	chained := p.Then(func(v Result) Result {
+	chained := p.Then(func(v any) any {
 		return v.(string) + "-chained"
 	}, nil)
 

@@ -52,7 +52,7 @@ func TestMemoryLeakProof_HandlerLeak_SuccessPath(t *testing.T) {
 		// Attach catch handler - this adds entry to promiseHandlers map
 		// The map promiseHandlers[p] = true indicates this promise has
 		// a rejection handler attached
-		p.Catch(func(r Result) Result {
+		p.Catch(func(r any) any {
 			return r
 		})
 	}
@@ -124,7 +124,7 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriber(t *testing.T) {
 	loop.tick()
 
 	// Attach rejection handler late to an already-fulfilled promise
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		// This won't be called since promise is fulfilled
 		return r
 	})
@@ -178,7 +178,7 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriberOnRejected(t *testing.T) {
 
 	// Now attach a catch handler late to the already-rejected promise
 	// This should remove the promise from promiseHandlers map via retroactive cleanup
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		// Handle the rejection
 		return "recover"
 	})
@@ -344,13 +344,13 @@ func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
 	}
 
 	// Track unhandled rejection calls
-	var unhandledRejects []Result
+	var unhandledRejects []any
 	var unhandledMu sync.Mutex
 	callbackCalled := false
 
 	oldCallback := js.unhandledCallback
 	js.mu.Lock()
-	js.unhandledCallback = func(reason Result) {
+	js.unhandledCallback = func(reason any) {
 		unhandledMu.Lock()
 		unhandledRejects = append(unhandledRejects, reason)
 		callbackCalled = true
@@ -374,7 +374,7 @@ func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
 		var handlerMu sync.Mutex
 
 		// Attach Catch handler FIRST
-		p.Catch(func(r Result) Result {
+		p.Catch(func(r any) any {
 			handlerMu.Lock()
 			handlerCalled = true
 			handlerMu.Unlock()
@@ -542,7 +542,7 @@ func TestMemoryLeakProof_PromiseChainingCleanup(t *testing.T) {
 	for i := 0; i < chainLength-1; i++ {
 		// Each Then() creates a new promise and attaches handler to previous
 		num := i
-		p = p.Then(func(v Result) Result {
+		p = p.Then(func(v any) any {
 			return num
 		}, nil)
 	}

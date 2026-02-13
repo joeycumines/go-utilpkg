@@ -28,7 +28,7 @@ func BenchmarkPromises(b *testing.B) {
 					p, _, _ := impl.Factory(js)
 					curr := p
 					for d := 0; d < 100; d++ {
-						curr = curr.Then(func(v eventloop.Result) eventloop.Result { return v }, nil)
+						curr = curr.Then(func(v any) any { return v }, nil)
 					}
 				}
 			})
@@ -48,7 +48,7 @@ func BenchmarkPromises(b *testing.B) {
 				b.ReportAllocs()
 
 				for i := 0; i < b.N; i++ {
-					p.Then(func(v eventloop.Result) eventloop.Result { return v }, nil)
+					p.Then(func(v any) any { return v }, nil)
 				}
 			})
 
@@ -66,7 +66,7 @@ func BenchmarkPromises(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					// Attach 100 handlers
 					for k := 0; k < 100; k++ {
-						p.Then(func(v eventloop.Result) eventloop.Result { return nil }, nil)
+						p.Then(func(v any) any { return nil }, nil)
 					}
 				}
 			})

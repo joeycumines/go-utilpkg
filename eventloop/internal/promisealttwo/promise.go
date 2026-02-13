@@ -8,9 +8,6 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// Result is an alias for eventloop.Result
-type Result = eventloop.Result
-
 // PromiseState is an alias for eventloop.PromiseState
 type PromiseState = eventloop.PromiseState
 
@@ -24,7 +21,7 @@ const (
 // Promise is a lock-free implementation using atomic linked-lists for handlers.
 type Promise struct { // betteralign:ignore
 	// 8-byte aligned fields first
-	result  Result         // Written once, read after state check
+	result  any            // Written once, read after state check
 	handler unsafe.Pointer // *handlerNode (Treiber stack)
 	js      *eventloop.JS
 	state   atomic.Int32
@@ -32,17 +29,17 @@ type Promise struct { // betteralign:ignore
 
 // handlerNode is a node in the lock-free linked list of handlers
 type handlerNode struct {
-	onFulfilled func(Result) Result
-	onRejected  func(Result) Result
+	onFulfilled func(any) any
+	onRejected  func(any) any
 	next        *handlerNode
 	target      *Promise
 }
 
 // ResolveFunc is the function used to fulfill a promise.
-type ResolveFunc func(Result)
+type ResolveFunc func(any)
 
 // RejectFunc is the function used to reject a promise.
-type RejectFunc func(Result)
+type RejectFunc func(any)
 
 // New creates a new pending promise.
 func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
@@ -51,11 +48,11 @@ func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 	}
 	p.state.Store(int32(Pending))
 
-	resolve := func(value Result) {
+	resolve := func(value any) {
 		p.resolve(value)
 	}
 
-	reject := func(reason Result) {
+	reject := func(reason any) {
 		p.reject(reason)
 	}
 
@@ -66,14 +63,14 @@ func (p *Promise) State() PromiseState {
 	return PromiseState(p.state.Load())
 }
 
-func (p *Promise) Result() Result {
+func (p *Promise) Result() any {
 	if p.state.Load() == int32(Pending) {
 		return nil
 	}
 	return p.result
 }
 
-func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
+func (p *Promise) Then(onFulfilled, onRejected func(any) any) *Promise {
 	child := &Promise{js: p.js}
 	child.state.Store(int32(Pending))
 
@@ -87,7 +84,7 @@ func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
 	return child
 }
 
-func (p *Promise) Catch(onRejected func(Result) Result) *Promise {
+func (p *Promise) Catch(onRejected func(any) any) *Promise {
 	return p.Then(nil, onRejected)
 }
 
@@ -98,7 +95,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 
 	next, resolve, reject := New(p.js)
 
-	runFinally := func(res Result, isRej bool) {
+	runFinally := func(res any, isRej bool) {
 		defer func() {
 			if r := recover(); r != nil {
 				reject(r)
@@ -113,11 +110,11 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	}
 
 	node := &handlerNode{
-		onFulfilled: func(v Result) Result {
+		onFulfilled: func(v any) any {
 			runFinally(v, false)
 			return nil
 		},
-		onRejected: func(r Result) Result {
+		onRejected: func(r any) any {
 			runFinally(r, true)
 			return nil
 		},
@@ -154,7 +151,7 @@ func (p *Promise) addHandler(node *handlerNode) {
 // Sentinel for closed handler list
 var closedHandlers = unsafe.Pointer(&handlerNode{})
 
-func (p *Promise) resolve(value Result) {
+func (p *Promise) resolve(value any) {
 	// Check self-reference/cycles
 	if pr, ok := value.(*Promise); ok && pr == p {
 		p.reject(fmt.Errorf("TypeError: chaining cycle"))
@@ -163,10 +160,10 @@ func (p *Promise) resolve(value Result) {
 
 	// Check chaining
 	if pr, ok := value.(*Promise); ok {
-		pr.Observe(func(v Result) Result {
+		pr.Observe(func(v any) any {
 			p.resolve(v)
 			return nil
-		}, func(r Result) Result {
+		}, func(r any) any {
 			p.reject(r)
 			return nil
 		})
@@ -181,7 +178,7 @@ func (p *Promise) resolve(value Result) {
 	p.processHandlers(int32(Fulfilled), value)
 }
 
-func (p *Promise) reject(reason Result) {
+func (p *Promise) reject(reason any) {
 	if !p.state.CompareAndSwap(int32(Pending), int32(Rejected)) {
 		return
 	}
@@ -190,7 +187,7 @@ func (p *Promise) reject(reason Result) {
 	p.processHandlers(int32(Rejected), reason)
 }
 
-func (p *Promise) processHandlers(state int32, result Result) {
+func (p *Promise) processHandlers(state int32, result any) {
 	// Atomically swap handlers with sentinel to claim them AND prevent new ones
 	head := atomic.SwapPointer(&p.handler, closedHandlers)
 
@@ -213,7 +210,7 @@ func (p *Promise) processHandlers(state int32, result Result) {
 	}
 }
 
-func (p *Promise) scheduleHandler(node *handlerNode, state int32, result Result) {
+func (p *Promise) scheduleHandler(node *handlerNode, state int32, result any) {
 	if p.js == nil {
 		p.executeHandler(node, state, result)
 		return
@@ -223,8 +220,8 @@ func (p *Promise) scheduleHandler(node *handlerNode, state int32, result Result)
 	})
 }
 
-func (p *Promise) executeHandler(node *handlerNode, state int32, result Result) {
-	var fn func(Result) Result
+func (p *Promise) executeHandler(node *handlerNode, state int32, result any) {
+	var fn func(any) any
 	if state == int32(Fulfilled) {
 		fn = node.onFulfilled
 	} else {
@@ -256,7 +253,7 @@ func (p *Promise) executeHandler(node *handlerNode, state int32, result Result) 
 	}
 }
 
-func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
+func (p *Promise) Observe(onFulfilled, onRejected func(any) any) {
 	node := &handlerNode{
 		onFulfilled: onFulfilled,
 		onRejected:  onRejected,
@@ -266,13 +263,13 @@ func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
 }
 
 // ToChannel returns a channel (helper)
-func (p *Promise) ToChannel() <-chan Result {
-	ch := make(chan Result, 1)
-	p.Observe(func(v Result) Result {
+func (p *Promise) ToChannel() <-chan any {
+	ch := make(chan any, 1)
+	p.Observe(func(v any) any {
 		ch <- v
 		close(ch)
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		ch <- r
 		close(ch)
 		return nil

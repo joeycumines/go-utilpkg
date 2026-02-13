@@ -23,7 +23,7 @@ var ErrIntervalIDExhausted = errors.New("eventloop: interval ID exceeded MAX_SAF
 // RejectionHandler is a callback function invoked when an unhandled promise rejection
 // is detected. The reason parameter contains the rejection reason/value.
 // This follows the JavaScript unhandledrejection event pattern.
-type RejectionHandler func(reason Result)
+type RejectionHandler func(reason any)
 
 // JSOption configures a [JS] adapter instance.
 // Options are applied in order during [NewJS] construction.
@@ -121,7 +121,7 @@ type JS struct {
 	setImmediateMap     map[uint64]*setImmediateState
 	handlerReadyChans   map[*ChainedPromise]chan struct{}
 	debugStacks         map[weak.Pointer[ChainedPromise]][]uintptr
-	toChannels          map[*ChainedPromise][]chan Result
+	toChannels          map[*ChainedPromise][]chan any
 
 	// WARNING: Do not use sync.Map here! (It isn't a good fit for this use case)
 
@@ -162,7 +162,7 @@ type setTimeoutFunc func()
 //
 //	loop := eventloop.New()
 //	js, err := eventloop.NewJS(loop,
-//	    eventloop.WithUnhandledRejection(func(reason eventloop.Result) {
+//	    eventloop.WithUnhandledRejection(func(reason any) {
 //	        log.Printf("Unhandled rejection: %v", reason)
 //	    }),
 //	)
@@ -188,7 +188,7 @@ func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 		setImmediateMap:     make(map[uint64]*setImmediateState),
 		handlerReadyChans:   make(map[*ChainedPromise]chan struct{}),
 		debugStacks:         make(map[weak.Pointer[ChainedPromise]][]uintptr),
-		toChannels:          make(map[*ChainedPromise][]chan Result),
+		toChannels:          make(map[*ChainedPromise][]chan any),
 	}
 
 	// ID Separation: SetImmediates start at high IDs to prevent collision
@@ -216,7 +216,7 @@ func (js *JS) Loop() *Loop {
 // microtask queue (i.e., even when the event loop is not running).
 //
 // Lock ordering: caller holds p.mu, this method acquires js.toChannelsMu.
-func (js *JS) notifyToChannels(p *ChainedPromise, result Result) {
+func (js *JS) notifyToChannels(p *ChainedPromise, result any) {
 	js.toChannelsMu.Lock()
 	channels, ok := js.toChannels[p]
 	if ok {
@@ -691,7 +691,7 @@ func (js *JS) Try(fn func() any) *ChainedPromise {
 //	    fmt.Println("This runs before promises")
 //	})
 //
-//	promise.Then(func(r Result) Result {
+//	promise.Then(func(r any) any {
 //	    fmt.Println("This runs after nextTick")
 //	    return nil
 //	}, nil)
@@ -715,7 +715,7 @@ func (js *JS) NextTick(fn func()) error {
 // Example:
 //
 //	// Wait for 100ms, then do something
-//	js.Sleep(100 * time.Millisecond).Then(func(r Result) Result {
+//	js.Sleep(100 * time.Millisecond).Then(func(r any) any {
 //	    fmt.Println("100ms elapsed")
 //	    return nil
 //	}, nil)

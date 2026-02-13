@@ -111,16 +111,6 @@ func (s *AbortSignal) AddEventListener(eventType string, handler func(reason any
 	s.OnAbort(handler)
 }
 
-// RemoveEventListener is provided for API compatibility but does not remove handlers.
-// Go function values cannot be reliably compared. Use context-based cancellation instead.
-//
-// Thread Safety: Safe to call concurrently (no-op).
-func (s *AbortSignal) RemoveEventListener(eventType string, handler func(reason any)) {
-	// Not implemented - see doc comment.
-	// Go functions cannot be compared reliably, so the original implementation
-	// using &h == &handler compared addresses of local variables, always false.
-}
-
 // ThrowIfAborted returns an error if the signal has been aborted.
 //
 // This is a convenience method that follows the AbortSignal.throwIfAborted()

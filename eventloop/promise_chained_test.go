@@ -22,7 +22,7 @@ func TestChainedPromiseBasicResolveThen(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 	result := 0
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		result = v.(int)
 		return v
 	}, nil)
@@ -56,7 +56,7 @@ func TestChainedPromiseThenAfterResolve(t *testing.T) {
 	resolve(2)
 	loop.tick()
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		result = v.(int)
 		return v
 	}, nil)
@@ -86,12 +86,12 @@ func TestChainedPromiseMultipleThen(t *testing.T) {
 	count := 0
 	mu := make(chan int, 2)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu <- 1
 		return v
 	}, nil)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu <- 2
 		return v
 	}, nil)
@@ -131,7 +131,7 @@ func TestChainedPromiseFinallyAfterResolve(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 	finallyCalled := false
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		return v
 	}, nil).Finally(func() {
 		finallyCalled = true
@@ -164,7 +164,7 @@ func TestChainedPromiseBasicRejectCatch(t *testing.T) {
 	caught := false
 	catchMsg := ""
 
-	p.Catch(func(v Result) Result {
+	p.Catch(func(v any) any {
 		caught = true
 		catchMsg = v.(string)
 		return v
@@ -200,15 +200,15 @@ func TestChainedPromiseThreeLevelChaining(t *testing.T) {
 	results := make([]int, 3)
 	mu := make(chan struct{}, 3)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		results[0] = v.(int)
 		mu <- struct{}{}
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		results[1] = v.(int)
 		mu <- struct{}{}
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		results[2] = v.(int)
 		mu <- struct{}{}
 		return v
@@ -258,7 +258,7 @@ func TestChainedPromiseErrorPropagation(t *testing.T) {
 		catchCalled := false
 
 		// Catch should be called when promise rejects
-		p.Catch(func(v Result) Result {
+		p.Catch(func(v any) any {
 			catchCalled = true
 			if v.(string) != "original error" {
 				t.Errorf("Expected 'original error', got '%s'", v)
@@ -279,9 +279,9 @@ func TestChainedPromiseErrorPropagation(t *testing.T) {
 		thenReceived := ""
 
 		// Catch recovers, then receives recovery value
-		p.Catch(func(v Result) Result {
+		p.Catch(func(v any) any {
 			return "recovery complete"
-		}).Then(func(v Result) Result {
+		}).Then(func(v any) any {
 			// This final Then should receive "recovery complete"
 			thenReceived = v.(string)
 			return v
@@ -306,7 +306,7 @@ func TestUnhandledRejectionDetection(t *testing.T) {
 
 	t.Run("UnhandledRejectionCallbackInvoked", func(t *testing.T) {
 		unhandledReason := ""
-		js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+		js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 			unhandledReason = r.(string)
 		}))
 		if err != nil {
@@ -327,7 +327,7 @@ func TestUnhandledRejectionDetection(t *testing.T) {
 
 	t.Run("HandledRejectionNotReported", func(t *testing.T) {
 		unhandledCalled := false
-		js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+		js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 			unhandledCalled = true
 		}))
 		if err != nil {
@@ -336,7 +336,7 @@ func TestUnhandledRejectionDetection(t *testing.T) {
 
 		p, _, reject := js.NewChainedPromise()
 		// Attach catch handler BEFORE rejection
-		p.Catch(func(v Result) Result {
+		p.Catch(func(v any) any {
 			return "handled"
 		})
 
@@ -353,7 +353,7 @@ func TestUnhandledRejectionDetection(t *testing.T) {
 	t.Run("MultipleUnhandledRejectionsDetected", func(t *testing.T) {
 		unhandledCount := 0
 		var reasons []string
-		js, err := NewJS(loop, WithUnhandledRejection(func(r Result) {
+		js, err := NewJS(loop, WithUnhandledRejection(func(r any) {
 			unhandledCount++
 			reasons = append(reasons, r.(string))
 		}))

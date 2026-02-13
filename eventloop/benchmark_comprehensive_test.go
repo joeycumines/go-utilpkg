@@ -373,7 +373,7 @@ func BenchmarkPromiseThen(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		promise, resolve, _ := js.NewChainedPromise()
-		promise.Then(func(v Result) Result { return v }, nil)
+		promise.Then(func(v any) any { return v }, nil)
 		resolve("result")
 	}
 
@@ -405,9 +405,9 @@ func BenchmarkPromiseChain(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		promise, resolve, _ := js.NewChainedPromise()
 		promise.
-			Then(func(v Result) Result { return v }, nil).
-			Then(func(v Result) Result { return v }, nil).
-			Then(func(v Result) Result { return v }, nil)
+			Then(func(v any) any { return v }, nil).
+			Then(func(v any) any { return v }, nil).
+			Then(func(v any) any { return v }, nil)
 		resolve("result")
 	}
 
@@ -997,7 +997,7 @@ func BenchmarkMixedWorkload(b *testing.B) {
 			_, _ = loop.ScheduleTimer(0, func() { executed.Add(1) })
 		case 9: // 10% promises
 			p, r, _ := js.NewChainedPromise()
-			p.Then(func(Result) Result { executed.Add(1); return nil }, nil)
+			p.Then(func(any) any { executed.Add(1); return nil }, nil)
 			r(nil)
 		}
 	}

@@ -30,7 +30,7 @@ func TestJSIntegration_Then_Basic(t *testing.T) {
 
 	// Attach handler using Then (uses promise's stored js)
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " processed"
 		},
 		nil,
@@ -72,7 +72,7 @@ func TestJSIntegration_Then_MultipleJSInstances(t *testing.T) {
 	for i := range jsInstances[1:] {
 		idx := i
 		current = current.Then(
-			func(v Result) Result {
+			func(v any) any {
 				return v.(int) + (idx + 1)
 			},
 			nil,
@@ -103,7 +103,7 @@ func TestJSIntegration_Then_WithRejection(t *testing.T) {
 
 	result := p.Then(
 		nil,
-		func(r Result) Result {
+		func(r any) any {
 			return "recovered: " + r.(string)
 		},
 	)
@@ -138,7 +138,7 @@ func TestJSIntegration_Then_PendingPromise(t *testing.T) {
 
 	var handlerCalled bool
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled = true
 			return v.(string) + " handled"
 		},
@@ -175,13 +175,13 @@ func TestJSIntegration_Then_ChainingAcrossInstances(t *testing.T) {
 
 	p1 := js1.Resolve("start")
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " +js2"
 		},
 		nil,
 	)
 	p3 := p2.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " +js3"
 		},
 		nil,
@@ -232,7 +232,7 @@ func TestJSIntegration_Then_WithMicrotaskScheduling(t *testing.T) {
 	// Then attach handler
 	p := js1.Resolve("value")
 	p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			mu.Lock()
 			executionOrder = append(executionOrder, 2)
 			mu.Unlock()
@@ -278,7 +278,7 @@ func TestJSIntegration_thenStandalone_Basic(t *testing.T) {
 
 	// This should use thenStandalone path
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " transformed"
 		},
 		nil,
@@ -304,7 +304,7 @@ func TestJSIntegration_thenStandalone_PendingPromise(t *testing.T) {
 
 	var handlerCalled bool
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled = true
 			return v.(string) + " handled"
 		},
@@ -368,7 +368,7 @@ func TestJSIntegration_thenStandalone_Rejection(t *testing.T) {
 
 	result := p.Then(
 		nil,
-		func(r Result) Result {
+		func(r any) any {
 			return "recovered: " + r.(string)
 		},
 	)
@@ -423,13 +423,13 @@ func TestJSIntegration_thenStandalone_Chaining(t *testing.T) {
 	p.result = 1
 
 	p2 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(int) + 1
 		},
 		nil,
 	)
 	p3 := p2.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(int) * 2
 		},
 		nil,
@@ -493,7 +493,7 @@ func TestJSIntegration_CallbackReturningNil(t *testing.T) {
 	p := js.Resolve("value")
 
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return nil // Explicit nil return
 		},
 		nil,
@@ -525,7 +525,7 @@ func TestJSIntegration_CallbackReturningUndefinedGoValue(t *testing.T) {
 	p := js.Resolve("value")
 
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return struct{ name string }{} // Empty struct (like undefined object)
 		},
 		nil,
@@ -559,7 +559,7 @@ func TestJSIntegration_PanicInCallback(t *testing.T) {
 	p := js.Resolve("value")
 
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			panic("callback panic")
 		},
 		nil,
@@ -600,7 +600,7 @@ func TestJSIntegration_PanicInCatch(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		panic("catch panic")
 	})
 
@@ -646,7 +646,7 @@ func TestJSIntegration_HandlerReturningPromise(t *testing.T) {
 
 	// Handler returns a promise
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			innerResolve("inner resolved")
 			return innerPromise
 		},
@@ -682,7 +682,7 @@ func TestJSIntegration_HandlerReturningRejectedPromise(t *testing.T) {
 	p1 := js.Resolve("outer")
 
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			innerReject("inner error")
 			return innerPromise
 		},
@@ -722,7 +722,7 @@ func TestJSIntegration_AsyncHandlerPattern(t *testing.T) {
 	innerPromise := js.Resolve(10)
 
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			// Verify we got the right input
 			if v.(int) != 1 {
 				t.Errorf("Expected input 1, got %v", v)
@@ -762,7 +762,7 @@ func TestJSIntegration_MultipleHandlersSamePromise_Then(t *testing.T) {
 	var mu sync.Mutex
 
 	p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			mu.Lock()
 			callOrder = append(callOrder, 1)
 			mu.Unlock()
@@ -771,7 +771,7 @@ func TestJSIntegration_MultipleHandlersSamePromise_Then(t *testing.T) {
 		nil,
 	)
 	p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			mu.Lock()
 			callOrder = append(callOrder, 2)
 			mu.Unlock()
@@ -780,7 +780,7 @@ func TestJSIntegration_MultipleHandlersSamePromise_Then(t *testing.T) {
 		nil,
 	)
 	p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			mu.Lock()
 			callOrder = append(callOrder, 3)
 			mu.Unlock()
@@ -816,12 +816,12 @@ func TestJSIntegration_MultipleHandlersSamePromise_Catch(t *testing.T) {
 
 	callCount := 0
 
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		callCount++
 		return "recovered 1"
 	})
 
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		callCount++
 		return "recovered 2"
 	})
@@ -853,7 +853,7 @@ func TestJSIntegration_ThenAttachesAfterSettled(t *testing.T) {
 
 	// Attach handler AFTER promise is already settled
 	result := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled = true
 			return v.(string) + " handled"
 		},
@@ -892,7 +892,7 @@ func TestJSIntegration_CatchAttachesAfterRejected(t *testing.T) {
 	var handlerCalled bool
 
 	// Attach catch handler AFTER promise is already rejected
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		handlerCalled = true
 		return "recovered"
 	})
@@ -1007,7 +1007,7 @@ func TestJSIntegration_Finally_AfterCatch(t *testing.T) {
 	catchDone := make(chan struct{})
 	finallyDone := make(chan struct{})
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		catchCalled = true
 		close(catchDone)
 		return "recovered"
@@ -1119,20 +1119,20 @@ func TestJSIntegration_ErrorPropagationThroughChain(t *testing.T) {
 	p1, resolve1, _ := js.NewChainedPromise()
 
 	p2 := p1.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return v.(string) + " +1"
 		},
 		nil,
 	)
 
 	p3 := p2.Then(
-		func(v Result) Result {
+		func(v any) any {
 			panic("mid-chain error")
 		},
 		nil,
 	)
 
-	p4 := p3.Catch(func(r Result) Result {
+	p4 := p3.Catch(func(r any) any {
 		// Panic is wrapped in PanicError
 		panicErr, ok := r.(PanicError)
 		if !ok {
@@ -1167,7 +1167,7 @@ func TestJSIntegration_ReasonTransformation(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		// Transform the error
 		errMsg, ok := r.(string)
 		if !ok {
@@ -1200,7 +1200,7 @@ func TestJSIntegration_ErrorTypePreservation(t *testing.T) {
 
 	originalErr := errors.New("original error")
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		// Check if error type is preserved
 		if err, ok := r.(error); ok {
 			if err.Error() == "original error" {
@@ -1248,7 +1248,7 @@ func TestJSIntegration_ConcurrentThenCalls(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < numChainsPerGoroutine; j++ {
 				result := p.Then(
-					func(v Result) Result {
+					func(v any) any {
 						return fmt.Sprintf("%s-%d-%d", v.(string), goroutineID, j)
 					},
 					nil,
@@ -1300,7 +1300,7 @@ func TestJSIntegration_ConcurrentResolveAndThen(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			handlers[idx] = p.Then(
-				func(v Result) Result {
+				func(v any) any {
 					return v
 				},
 				nil,
@@ -1350,15 +1350,15 @@ func TestJSIntegration_Then_CombinedWithAll(t *testing.T) {
 	p3 := js1.Resolve("c")
 
 	// Transform using Then
-	tp1 := p1.Then(func(v Result) Result {
+	tp1 := p1.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil)
 
-	tp2 := p2.Then(func(v Result) Result {
+	tp2 := p2.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil)
 
-	tp3 := p3.Then(func(v Result) Result {
+	tp3 := p3.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil)
 
@@ -1366,7 +1366,7 @@ func TestJSIntegration_Then_CombinedWithAll(t *testing.T) {
 	result := js2.All([]*ChainedPromise{tp1, tp2, tp3})
 	loop.tick()
 
-	values := result.Value().([]Result)
+	values := result.Value().([]any)
 	if values[0] != "a transformed" || values[1] != "b transformed" || values[2] != "c transformed" {
 		t.Errorf("Transformed values incorrect: %v", values)
 	}
@@ -1391,7 +1391,7 @@ func TestJSIntegration_Then_CombinedWithRace(t *testing.T) {
 	p1, resolve1, _ := js1.NewChainedPromise()
 
 	// Transform with Then
-	tp1 := p1.Then(func(v Result) Result {
+	tp1 := p1.Then(func(v any) any {
 		return v.(string) + " slow"
 	}, nil)
 
@@ -1434,7 +1434,7 @@ func TestJSIntegration_DeepChain_WithJSInstances(t *testing.T) {
 	current := p
 	for i := 0; i < 20; i++ {
 		current = current.Then(
-			func(v Result) Result {
+			func(v any) any {
 				return v.(int) + 1
 			},
 			nil,
@@ -1470,7 +1470,7 @@ func TestJSIntegration_WideChain_WithJSInstances(t *testing.T) {
 	for i := 0; i < fanOut; i++ {
 		branchID := i
 		branches[i] = root.Then(
-			func(v Result) Result {
+			func(v any) any {
 				return fmt.Sprintf("%s-branch-%d", v.(string), branchID)
 			},
 			nil,
@@ -1503,18 +1503,18 @@ func TestJSIntegration_MixedResolveRejectChain(t *testing.T) {
 	p := js.Resolve("start")
 
 	p2 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return "step1"
 		},
 		nil,
 	)
 
-	p3 := p2.Catch(func(r Result) Result {
+	p3 := p2.Catch(func(r any) any {
 		return "should not reach here"
 	})
 
 	p4 := p3.Then(
-		func(v Result) Result {
+		func(v any) any {
 			return "step2"
 		},
 		nil,

@@ -115,21 +115,21 @@ func TestAggregateError_ErrorsIs(t *testing.T) {
 	}
 }
 
-// TestAggregateError_AggregateErrorCause tests the AggregateErrorCause helper.
-func TestAggregateError_AggregateErrorCause(t *testing.T) {
+// TestAggregateError_Cause tests the Cause helper.
+func TestAggregateError_Cause(t *testing.T) {
 	// With errors
 	aggErr := &AggregateError{
 		Errors: []error{io.EOF, io.ErrUnexpectedEOF},
 	}
-	cause := aggErr.AggregateErrorCause()
+	cause := aggErr.Cause()
 	if cause != io.EOF {
-		t.Errorf("AggregateErrorCause() = %v, want %v", cause, io.EOF)
+		t.Errorf("Cause() = %v, want %v", cause, io.EOF)
 	}
 
 	// Empty errors
 	emptyAgg := &AggregateError{}
-	if got := emptyAgg.AggregateErrorCause(); got != nil {
-		t.Errorf("AggregateErrorCause() with empty = %v, want nil", got)
+	if got := emptyAgg.Cause(); got != nil {
+		t.Errorf("Cause() with empty = %v, want nil", got)
 	}
 }
 
@@ -262,22 +262,6 @@ func TestTimeoutError(t *testing.T) {
 	})
 }
 
-// TestWrapError tests the WrapError convenience function.
-func TestWrapError(t *testing.T) {
-	original := io.EOF
-	wrapped := WrapError("failed to read", original)
-
-	// Should contain message
-	if got := wrapped.Error(); got != "failed to read: EOF" {
-		t.Errorf("Error() = %q, want %q", got, "failed to read: EOF")
-	}
-
-	// Should match original error
-	if !errors.Is(wrapped, io.EOF) {
-		t.Error("errors.Is(wrapped, io.EOF) = false, want true")
-	}
-}
-
 // TestAggregateError_Is tests the Is method of AggregateError.
 func TestAggregateError_Is(t *testing.T) {
 	aggErr := &AggregateError{
@@ -294,5 +278,85 @@ func TestAggregateError_Is(t *testing.T) {
 	// Should not match non-AggregateError
 	if aggErr.Is(io.EOF) {
 		t.Error("Is(io.EOF) = true, want false for non-AggregateError")
+	}
+}
+
+// TestPanicError_Is tests the Is method of PanicError.
+func TestPanicError_Is(t *testing.T) {
+	panicErr := PanicError{Value: "something panicked"}
+
+	// Should match another PanicError (value form)
+	if !errors.Is(panicErr, PanicError{}) {
+		t.Error("errors.Is(panicErr, PanicError{}) = false, want true")
+	}
+
+	// Should match pointer form
+	if !errors.Is(panicErr, &PanicError{}) {
+		t.Error("errors.Is(panicErr, &PanicError{}) = false, want true")
+	}
+
+	// Should not match unrelated error
+	if errors.Is(panicErr, io.ErrClosedPipe) {
+		t.Error("errors.Is(panicErr, io.ErrClosedPipe) = true, want false")
+	}
+}
+
+// TestTypeError_Is tests the Is method of TypeError.
+func TestTypeError_Is(t *testing.T) {
+	typeErr := &TypeError{Message: "expected string"}
+
+	// Should match another TypeError
+	if !errors.Is(typeErr, &TypeError{}) {
+		t.Error("errors.Is(typeErr, &TypeError{}) = false, want true")
+	}
+
+	// Should not match unrelated error
+	if errors.Is(typeErr, io.EOF) {
+		t.Error("errors.Is(typeErr, io.EOF) = true, want false")
+	}
+
+	// Should not match different error types
+	if errors.Is(typeErr, &RangeError{}) {
+		t.Error("errors.Is(typeErr, &RangeError{}) = true, want false")
+	}
+}
+
+// TestRangeError_Is tests the Is method of RangeError.
+func TestRangeError_Is(t *testing.T) {
+	rangeErr := &RangeError{Message: "out of bounds"}
+
+	// Should match another RangeError
+	if !errors.Is(rangeErr, &RangeError{}) {
+		t.Error("errors.Is(rangeErr, &RangeError{}) = false, want true")
+	}
+
+	// Should not match unrelated error
+	if errors.Is(rangeErr, io.EOF) {
+		t.Error("errors.Is(rangeErr, io.EOF) = true, want false")
+	}
+
+	// Should not match different error types
+	if errors.Is(rangeErr, &TypeError{}) {
+		t.Error("errors.Is(rangeErr, &TypeError{}) = true, want false")
+	}
+}
+
+// TestTimeoutError_Is tests the Is method of TimeoutError.
+func TestTimeoutError_Is(t *testing.T) {
+	timeoutErr := &TimeoutError{Message: "request timed out"}
+
+	// Should match another TimeoutError
+	if !errors.Is(timeoutErr, &TimeoutError{}) {
+		t.Error("errors.Is(timeoutErr, &TimeoutError{}) = false, want true")
+	}
+
+	// Should not match unrelated error
+	if errors.Is(timeoutErr, io.EOF) {
+		t.Error("errors.Is(timeoutErr, io.EOF) = true, want false")
+	}
+
+	// Should not match different error types
+	if errors.Is(timeoutErr, &AbortError{}) {
+		t.Error("errors.Is(timeoutErr, &AbortError{}) = true, want false")
 	}
 }

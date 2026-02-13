@@ -22,7 +22,7 @@ func TestPromiseCatch_OnRejectedPromise(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		return errors.New("recovered: " + r.(error).Error())
 	})
 
@@ -59,7 +59,7 @@ func TestPromiseCatch_OnFulfilledPromise(t *testing.T) {
 
 	p, resolve, _ := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		return errors.New("should not be called")
 	})
 
@@ -91,7 +91,7 @@ func TestPromiseCatch_HandlerReturningValue(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		return "recovered value"
 	})
 
@@ -121,7 +121,7 @@ func TestPromiseCatch_HandlerReThrowing(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		panic("re-throwing")
 	})
 
@@ -151,13 +151,13 @@ func TestPromiseCatch_InPromiseChain(t *testing.T) {
 
 	// Chain: resolve -> then -> then (rejects) -> catch
 	result := p.
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			return v.(string) + "-1"
 		}, nil).
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			panic("error in chain")
 		}, nil).
-		Catch(func(r Result) Result {
+		Catch(func(r any) any {
 			// Panic is wrapped in PanicError
 			panicErr, ok := r.(PanicError)
 			if !ok {
@@ -225,7 +225,7 @@ func TestPromiseCatch_TerminatedLoop(t *testing.T) {
 	js, _ := NewJS(loop)
 	p, _, _ := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		return r
 	})
 
@@ -254,10 +254,10 @@ func TestPromiseCatch_ChainedCatch(t *testing.T) {
 
 	// Chain of catches
 	result := p.
-		Catch(func(r Result) Result {
+		Catch(func(r any) any {
 			return "first catch: " + r.(error).Error()
 		}).
-		Catch(func(r Result) Result {
+		Catch(func(r any) any {
 			return "second catch: " + r.(error).Error()
 		})
 
@@ -289,10 +289,10 @@ func TestPromiseCatch_ConcurrentCatch(t *testing.T) {
 	p, _, reject := js.NewChainedPromise()
 
 	// Attach multiple catches concurrently
-	result1 := p.Catch(func(r Result) Result {
+	result1 := p.Catch(func(r any) any {
 		return "catch1"
 	})
-	result2 := p.Catch(func(r Result) Result {
+	result2 := p.Catch(func(r any) any {
 		return "catch2"
 	})
 
@@ -323,7 +323,7 @@ func TestPromiseCatch_PanicInHandler(t *testing.T) {
 
 	p, _, reject := js.NewChainedPromise()
 
-	result := p.Catch(func(r Result) Result {
+	result := p.Catch(func(r any) any {
 		panic("catch panic")
 	})
 
@@ -463,13 +463,13 @@ func TestPromiseFinally_InPromiseChain(t *testing.T) {
 	finallyOrder := []string{}
 
 	result := p.
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			return v.(string) + "-1"
 		}, nil).
 		Finally(func() {
 			finallyOrder = append(finallyOrder, "finally")
 		}).
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			return v.(string) + "-2"
 		}, nil)
 
@@ -639,7 +639,7 @@ func TestPromiseFinally_CatchAndFinally(t *testing.T) {
 	finallyCalled := false
 
 	result := p.
-		Catch(func(r Result) Result {
+		Catch(func(r any) any {
 			catchCalled = true
 			return "recovered"
 		}).

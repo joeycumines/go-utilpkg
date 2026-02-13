@@ -7,8 +7,8 @@ import (
 // Promise defines the common interface for tournament promises.
 // It reflects the subset of methods we want to benchmark and verify.
 type Promise interface {
-	Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise
-	Result() eventloop.Result
+	Then(onFulfilled, onRejected func(any) any) Promise
+	Result() any
 }
 
 // PromiseFactory creates a new promise and its resolver/rejector.

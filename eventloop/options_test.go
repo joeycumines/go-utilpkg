@@ -16,8 +16,8 @@ func TestDefaultOptions(t *testing.T) {
 	}
 	defer l.Shutdown(context.Background())
 
-	if l.StrictMicrotaskOrdering {
-		t.Error("Default StrictMicrotaskOrdering should be false, got true")
+	if l.strictMicrotaskOrdering {
+		t.Error("Default strictMicrotaskOrdering should be false, got true")
 	}
 
 	// FastPathMode should be Auto (0) by default
@@ -36,8 +36,8 @@ func TestCustomOptions(t *testing.T) {
 	}
 	defer l.Shutdown(context.Background())
 
-	if !l.StrictMicrotaskOrdering {
-		t.Error("StrictMicrotaskOrdering should be true after WithStrictMicrotaskOrdering(true)")
+	if !l.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true after WithStrictMicrotaskOrdering(true)")
 	}
 
 	// Create another loop with forced fast path mode
@@ -50,8 +50,8 @@ func TestCustomOptions(t *testing.T) {
 	}
 	defer l2.Shutdown(context.Background())
 
-	if l2.StrictMicrotaskOrdering {
-		t.Error("StrictMicrotaskOrdering should be false after WithStrictMicrotaskOrdering(false)")
+	if l2.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be false after WithStrictMicrotaskOrdering(false)")
 	}
 
 	mode := FastPathMode(l2.fastPathMode.Load())
@@ -72,8 +72,8 @@ func TestMultipleOptions(t *testing.T) {
 	}
 	defer l1.Shutdown(context.Background())
 
-	if !l1.StrictMicrotaskOrdering {
-		t.Error("Option order 1: StrictMicrotaskOrdering should be true")
+	if !l1.strictMicrotaskOrdering {
+		t.Error("Option order 1: strictMicrotaskOrdering should be true")
 	}
 	mode := FastPathMode(l1.fastPathMode.Load())
 	if mode != FastPathDisabled {
@@ -90,8 +90,8 @@ func TestMultipleOptions(t *testing.T) {
 	}
 	defer l2.Shutdown(context.Background())
 
-	if l2.StrictMicrotaskOrdering {
-		t.Error("Option order 2: StrictMicrotaskOrdering should be false")
+	if l2.strictMicrotaskOrdering {
+		t.Error("Option order 2: strictMicrotaskOrdering should be false")
 	}
 	mode = FastPathMode(l2.fastPathMode.Load())
 	if mode != FastPathForced {
@@ -109,8 +109,8 @@ func TestNilOption(t *testing.T) {
 	defer l.Shutdown(context.Background())
 
 	// Loop should still work with default values
-	if l.StrictMicrotaskOrdering {
-		t.Error("Default with nil option should have StrictMicrotaskOrdering=false")
+	if l.strictMicrotaskOrdering {
+		t.Error("Default with nil option should have strictMicrotaskOrdering=false")
 	}
 	mode := FastPathMode(l.fastPathMode.Load())
 	if mode != FastPathAuto {

@@ -21,7 +21,7 @@ func TestTryExtractWrappedPromise(t *testing.T) {
 	}
 
 	// Test 1: Wrapped promise should be extracted
-	promise := adapter.JS().Resolve(nil).Then(func(r goeventloop.Result) goeventloop.Result { return nil }, func(err goeventloop.Result) goeventloop.Result { return nil })
+	promise := adapter.JS().Resolve(nil).Then(func(r any) any { return nil }, func(err any) any { return nil })
 	wrapped := adapter.GojaWrapPromise(promise)
 
 	extracted, ok := tryExtractWrappedPromise(wrapped)
@@ -94,7 +94,7 @@ func TestTryExtractWrappedPromise_ConcurrentSafety(t *testing.T) {
 	// Create multiple wrapped promises
 	promises := make([]goja.Value, 20)
 	for i := range promises {
-		p := adapter.JS().Resolve(nil).Then(func(r goeventloop.Result) goeventloop.Result { return nil }, func(err goeventloop.Result) goeventloop.Result { return nil })
+		p := adapter.JS().Resolve(nil).Then(func(r any) any { return nil }, func(err any) any { return nil })
 		promises[i] = adapter.GojaWrapPromise(p)
 	}
 
@@ -131,7 +131,7 @@ func BenchmarkTryExtractWrappedPromise(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create adapter: %v", err)
 	}
-	promise := adapter.JS().Resolve(nil).Then(func(r goeventloop.Result) goeventloop.Result { return nil }, func(err goeventloop.Result) goeventloop.Result { return nil })
+	promise := adapter.JS().Resolve(nil).Then(func(r any) any { return nil }, func(err any) any { return nil })
 	wrapped := adapter.GojaWrapPromise(promise)
 
 	b.ResetTimer()

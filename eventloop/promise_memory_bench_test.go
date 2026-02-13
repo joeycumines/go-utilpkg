@@ -88,7 +88,7 @@ func BenchmarkPromiseRejection(b *testing.B) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Use unhandled rejection callback to suppress warnings
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {}))
 	if err != nil {
 		b.Fatalf("NewJS() failed: %v", err)
 	}
@@ -129,9 +129,9 @@ func BenchmarkPromiseThenChain(b *testing.B) {
 		p, resolve, _ := js.NewChainedPromise()
 
 		// Chain 3 .then() handlers
-		p.Then(func(v Result) Result { return v }, nil).
-			Then(func(v Result) Result { return v }, nil).
-			Then(func(v Result) Result { return v }, nil)
+		p.Then(func(v any) any { return v }, nil).
+			Then(func(v any) any { return v }, nil).
+			Then(func(v any) any { return v }, nil)
 
 		resolve(i)
 	}
@@ -181,7 +181,7 @@ func BenchmarkPromiseReject(b *testing.B) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Suppress unhandled rejection warnings
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {}))
 	if err != nil {
 		b.Fatalf("NewJS() failed: %v", err)
 	}
@@ -372,7 +372,7 @@ func BenchmarkPromisifyAllocation(b *testing.B) {
 	done := make(chan struct{}, b.N)
 
 	for i := 0; i < b.N; i++ {
-		p := loop.Promisify(ctx, func(ctx context.Context) (Result, error) {
+		p := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 			return i, nil
 		})
 		go func() {
@@ -474,7 +474,7 @@ func TestPromiseChainAllocationHotspots(t *testing.T) {
 
 		current := p
 		for d := 0; d < depth; d++ {
-			current = current.Then(func(v Result) Result { return v }, nil)
+			current = current.Then(func(v any) any { return v }, nil)
 		}
 
 		resolve(i)

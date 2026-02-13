@@ -22,7 +22,7 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	rejectors := make([]func(Result), numPromises)
+	rejectors := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, _, r := js.NewChainedPromise()
@@ -39,10 +39,10 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 	loop.tick()
 
 	// Should resolve with all rejection status objects
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -88,7 +88,7 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -105,10 +105,10 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 	loop.tick()
 
 	// Should resolve with all fulfillment status objects
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -165,10 +165,10 @@ func TestPromiseAllSettled_MixedFulfillmentAndRejection(t *testing.T) {
 	loop.tick()
 
 	// Should resolve with correct status objects
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -252,7 +252,7 @@ func TestPromiseAllSettled_PanicInHandler(t *testing.T) {
 	result := js.AllSettled([]*ChainedPromise{p1})
 
 	// Handler that panics
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		panic("handler panic")
 	}, nil)
 
@@ -278,9 +278,9 @@ func TestPromiseAllSettled_OnePromise(t *testing.T) {
 
 	result := js.AllSettled([]*ChainedPromise{p1})
 
-	var values []Result
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	var values []any
+	result.Then(func(v any) any {
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -320,9 +320,9 @@ func TestPromiseAllSettled_AlreadySettledPromises(t *testing.T) {
 	result := js.AllSettled([]*ChainedPromise{p1, p2})
 
 	// Should resolve immediately
-	var values []Result
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	var values []any
+	result.Then(func(v any) any {
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -351,11 +351,11 @@ func TestPromiseAllSettled_WithThenHandler(t *testing.T) {
 	result := js.AllSettled([]*ChainedPromise{p1})
 
 	var gotResult bool
-	var values []Result
+	var values []any
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		gotResult = true
-		values = v.([]Result)
+		values = v.([]any)
 		return nil
 	}, nil)
 
@@ -385,7 +385,7 @@ func TestPromiseAllSettled_LargeNumberOfPromises(t *testing.T) {
 
 	const numPromises = 50
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -402,10 +402,10 @@ func TestPromiseAllSettled_LargeNumberOfPromises(t *testing.T) {
 	loop.tick()
 
 	// Verify all resolved
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -441,13 +441,13 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 	p2, _, reject2 := js.NewChainedPromise()
 
 	// Create chains
-	chained1 := p1.Then(func(v Result) Result {
+	chained1 := p1.Then(func(v any) any {
 		return v.(string) + "-chained1"
 	}, nil)
 	// Note: chained2 uses a catch handler that returns a value.
 	// When a catch handler returns a value, the promise becomes fulfilled
 	// with that value (it "caught" the rejection).
-	chained2 := p2.Then(nil, func(r Result) Result {
+	chained2 := p2.Then(nil, func(r any) any {
 		return r.(error).Error() + "-chained2"
 	})
 
@@ -459,10 +459,10 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 	loop.tick()
 
 	// Verify chained results
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)
@@ -525,10 +525,10 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 	loop.tick()
 
 	// Should have both results
-	var values []Result
+	var values []any
 	handlerDone := make(chan struct{})
-	result.Then(func(v Result) Result {
-		values = v.([]Result)
+	result.Then(func(v any) any {
+		values = v.([]any)
 		close(handlerDone)
 		return nil
 	}, nil)

@@ -380,7 +380,7 @@ func TestWithResolvers_Chaining(t *testing.T) {
 
 	// Chain transformers and get final promise
 	finalPromise := resolvers.Promise.
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			return v.(int) * 2
 		}, nil)
 

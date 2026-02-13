@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased] - 2026-02-10
 
+### Fixed
+
+- **Run() returns ErrLoopTerminated for StateTerminating**: Fixed a race condition where
+  `Run()` would return `ErrLoopAlreadyRunning` instead of `ErrLoopTerminated` when
+  `Shutdown()` won the scheduling race on Windows. The `Run()` function now checks for
+  both `StateTerminating` and `StateTerminated` before returning `ErrLoopTerminated`.
+
+### Added
+
+- **Phase 3 coverage tests**: Added `coverage_phase3_test.go` (62 tests) and
+  `coverage_phase3b_test.go` (21 tests) targeting deep coverage of pollFastMode,
+  SubmitInternal, promise handlers, Promisify fallback paths, SetInterval/SetImmediate
+  edge cases, transitionToTerminated draining, and p-square quantile bounds.
+  Coverage: 97.0% → 97.8% (+0.8pp).
+
 ### Changed
 
 - **BREAKING: ChainedPromise struct shrunk from 120B to 64B** — Major memory optimization
@@ -230,8 +245,8 @@ Allocation profiling confirms:
 ### 🔧 Coverage Improvements
 
 #### eventloop Package
-- **Main Package:** 93.3% statement coverage
-- **goja-eventloop:** 88.6%+ statement coverage
+- **Main Package:** 96.9% statement coverage
+- **goja-eventloop:** 96.3% statement coverage
 
 Major coverage additions:
 - 33 tests for Darwin/Linux poller (poller_darwin_full_coverage_test.go)

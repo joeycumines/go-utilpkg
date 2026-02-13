@@ -28,11 +28,11 @@ func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 	p.state.Store(int32(Pending))
 
 	var handlerCalled atomic.Bool
-	var receivedValue Result
+	var receivedValue any
 
 	// Call Then - this should store handler in h0 (first handler slot)
 	child := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handlerCalled.Store(true)
 			receivedValue = v
 			return "transformed"
@@ -98,7 +98,7 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 
 	// First Then - stores in h0
 	child1 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handler1Called.Store(true)
 			return "from handler1"
 		},
@@ -107,7 +107,7 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 
 	// Second Then - should store in handlers slice (p.result is nil initially)
 	child2 := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			handler2Called.Store(true)
 			return "from handler2"
 		},
@@ -156,19 +156,19 @@ func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 	var h1, h2, h3 atomic.Bool
 
 	// Handler 1 - goes into h0
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		h1.Store(true)
 		return nil
 	}, nil)
 
 	// Handler 2 - creates handlers slice with 1 element
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		h2.Store(true)
 		return nil
 	}, nil)
 
 	// Handler 3 - appends to existing slice
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		h3.Store(true)
 		return nil
 	}, nil)
@@ -230,7 +230,7 @@ func TestThenStandalone_Rejected_NilOnRejected_PassThrough(t *testing.T) {
 	p.state.Store(int32(Rejected))
 
 	// Call Then with nil onRejected - should pass through rejection
-	child := p.Then(func(v Result) Result {
+	child := p.Then(func(v any) any {
 		// This should NOT be called
 		t.Error("onFulfilled should not be called for rejected promise")
 		return nil
@@ -260,7 +260,7 @@ func TestThenStandalone_Fulfilled_WithHandler_Synchronous(t *testing.T) {
 
 	var handlerCalled atomic.Bool
 
-	child := p.Then(func(v Result) Result {
+	child := p.Then(func(v any) any {
 		handlerCalled.Store(true)
 		return v.(int) * 2
 	}, nil)
@@ -293,9 +293,9 @@ func TestThenStandalone_Rejected_WithHandler_Synchronous(t *testing.T) {
 	p.state.Store(int32(Rejected))
 
 	var handlerCalled atomic.Bool
-	var receivedReason Result
+	var receivedReason any
 
-	child := p.Then(nil, func(r Result) Result {
+	child := p.Then(nil, func(r any) any {
 		handlerCalled.Store(true)
 		receivedReason = r
 		return "recovered"
@@ -336,7 +336,7 @@ func TestThenStandalone_HandlerPanic_Recovery(t *testing.T) {
 	}
 	p.state.Store(int32(Fulfilled))
 
-	child := p.Then(func(v Result) Result {
+	child := p.Then(func(v any) any {
 		panic("intentional panic")
 	}, nil)
 
@@ -378,7 +378,7 @@ func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 		idx := i
 		go func() {
 			defer wg.Done()
-			children[idx] = p.Then(func(v Result) Result {
+			children[idx] = p.Then(func(v any) any {
 				handlersCalled.Add(1)
 				return v
 			}, nil)
@@ -418,11 +418,11 @@ func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
 	p.state.Store(int32(Pending))
 
 	var onRejectedCalled atomic.Bool
-	var receivedReason Result
+	var receivedReason any
 
 	child := p.Then(
 		nil, // no fulfillment handler
-		func(r Result) Result {
+		func(r any) any {
 			onRejectedCalled.Store(true)
 			receivedReason = r
 			return "recovered"
@@ -532,17 +532,17 @@ func TestThenStandalone_Chaining_Multiple(t *testing.T) {
 	p.state.Store(int32(Fulfilled))
 
 	// Chain 1
-	c1 := p.Then(func(v Result) Result {
+	c1 := p.Then(func(v any) any {
 		return v.(int) + 1
 	}, nil)
 
 	// Chain 2
-	c2 := c1.Then(func(v Result) Result {
+	c2 := c1.Then(func(v any) any {
 		return v.(int) * 2
 	}, nil)
 
 	// Chain 3
-	c3 := c2.Then(func(v Result) Result {
+	c3 := c2.Then(func(v any) any {
 		return v.(int) + 10
 	}, nil)
 
@@ -570,11 +570,11 @@ func TestThenStandalone_MixedHandlers_Fulfilled(t *testing.T) {
 	var fulfillCalled, rejectCalled atomic.Bool
 
 	child := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			fulfillCalled.Store(true)
 			return v
 		},
-		func(r Result) Result {
+		func(r any) any {
 			rejectCalled.Store(true)
 			return r
 		},
@@ -604,11 +604,11 @@ func TestThenStandalone_MixedHandlers_Rejected(t *testing.T) {
 	var fulfillCalled, rejectCalled atomic.Bool
 
 	child := p.Then(
-		func(v Result) Result {
+		func(v any) any {
 			fulfillCalled.Store(true)
 			return v
 		},
-		func(r Result) Result {
+		func(r any) any {
 			rejectCalled.Store(true)
 			return "recovered"
 		},
@@ -642,7 +642,7 @@ func TestThenStandalone_HandlerReturnsNil(t *testing.T) {
 	}
 	p.state.Store(int32(Fulfilled))
 
-	child := p.Then(func(v Result) Result {
+	child := p.Then(func(v any) any {
 		return nil // Explicit nil return
 	}, nil)
 
@@ -670,7 +670,7 @@ func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 		t.Errorf("Zero-value promise should be Pending, got: %v", p.State())
 	}
 
-	child := p.Then(func(v Result) Result {
+	child := p.Then(func(v any) any {
 		return "handled"
 	}, nil)
 
@@ -699,7 +699,7 @@ func TestThenStandalone_RejectionHandler_Panic(t *testing.T) {
 	}
 	p.state.Store(int32(Rejected))
 
-	child := p.Then(nil, func(r Result) Result {
+	child := p.Then(nil, func(r any) any {
 		panic("panic in rejection handler")
 	})
 

@@ -431,7 +431,7 @@ func tryExtractWrappedPromise(value goja.Value) (*goeventloop.ChainedPromise, bo
 
 // gojaFuncToHandler converts a Goja function value to a promise handler
 // CRITICAL #1 FIX: Type conversion at Go-native level BEFORE passing to JavaScript
-func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goeventloop.Result {
+func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 	if fn.Export() == nil {
 		// No handler provided - return nil to let ChainedPromise handle propagation
 		return nil
@@ -443,7 +443,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		return nil
 	}
 
-	return func(result goeventloop.Result) goeventloop.Result {
+	return func(result any) any {
 		// CRITICAL FIX #1: Check type at Go-native level, not after Goja conversion
 		// CRITICAL FIX #2: Check for already-wrapped promises to preserve identity
 		var jsValue goja.Value
@@ -461,7 +461,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(goeventloop.Result) goev
 		} else {
 			// Not a Goja Object, proceed with standard conversion
 			switch v := goNativeValue.(type) {
-			case []goeventloop.Result:
+			case []any:
 				// Convert Go-native slice to JavaScript array
 				jsArr := a.runtime.NewArray()
 				for i, val := range v {
@@ -798,7 +798,7 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	}
 
 	// Handle slices of Result (from combinators like All, Race, AllSettled, Any)
-	if arr, ok := v.([]goeventloop.Result); ok {
+	if arr, ok := v.([]any); ok {
 		jsArr := a.runtime.NewArray()
 		for i, val := range arr {
 			_ = jsArr.Set(strconv.Itoa(i), a.convertToGojaValue(val))
@@ -5324,7 +5324,7 @@ func (a *Adapter) createFormDataIterator(entries []formDataEntry, mode string) g
 // DOMException error codes (from the DOM spec)
 const (
 	DOMExceptionIndexSizeErr             = 1
-	DOMExceptionDomstringSizeErr         = 2 // Deprecated, historical
+	DOMExceptionDOMStringSizeErr         = 2 // Deprecated, historical
 	DOMExceptionHierarchyRequestErr      = 3
 	DOMExceptionWrongDocumentErr         = 4
 	DOMExceptionInvalidCharacterErr      = 5
@@ -5332,7 +5332,7 @@ const (
 	DOMExceptionNoModificationAllowedErr = 7
 	DOMExceptionNotFoundErr              = 8
 	DOMExceptionNotSupportedErr          = 9
-	DOMExceptionInuseAttributeErr        = 10
+	DOMExceptionInUseAttributeErr        = 10
 	DOMExceptionInvalidStateErr          = 11
 	DOMExceptionSyntaxErr                = 12
 	DOMExceptionInvalidModificationErr   = 13
@@ -5359,7 +5359,7 @@ var domExceptionNameToCode = map[string]int{
 	"NoModificationAllowedError": DOMExceptionNoModificationAllowedErr,
 	"NotFoundError":              DOMExceptionNotFoundErr,
 	"NotSupportedError":          DOMExceptionNotSupportedErr,
-	"InUseAttributeError":        DOMExceptionInuseAttributeErr,
+	"InUseAttributeError":        DOMExceptionInUseAttributeErr,
 	"InvalidStateError":          DOMExceptionInvalidStateErr,
 	"SyntaxError":                DOMExceptionSyntaxErr,
 	"InvalidModificationError":   DOMExceptionInvalidModificationErr,
@@ -5464,7 +5464,7 @@ func (a *Adapter) bindDOMExceptionConstants() error {
 
 	// Add static constants
 	domExceptionObj.Set("INDEX_SIZE_ERR", DOMExceptionIndexSizeErr)
-	domExceptionObj.Set("DOMSTRING_SIZE_ERR", DOMExceptionDomstringSizeErr)
+	domExceptionObj.Set("DOMSTRING_SIZE_ERR", DOMExceptionDOMStringSizeErr)
 	domExceptionObj.Set("HIERARCHY_REQUEST_ERR", DOMExceptionHierarchyRequestErr)
 	domExceptionObj.Set("WRONG_DOCUMENT_ERR", DOMExceptionWrongDocumentErr)
 	domExceptionObj.Set("INVALID_CHARACTER_ERR", DOMExceptionInvalidCharacterErr)
@@ -5472,7 +5472,7 @@ func (a *Adapter) bindDOMExceptionConstants() error {
 	domExceptionObj.Set("NO_MODIFICATION_ALLOWED_ERR", DOMExceptionNoModificationAllowedErr)
 	domExceptionObj.Set("NOT_FOUND_ERR", DOMExceptionNotFoundErr)
 	domExceptionObj.Set("NOT_SUPPORTED_ERR", DOMExceptionNotSupportedErr)
-	domExceptionObj.Set("INUSE_ATTRIBUTE_ERR", DOMExceptionInuseAttributeErr)
+	domExceptionObj.Set("INUSE_ATTRIBUTE_ERR", DOMExceptionInUseAttributeErr)
 	domExceptionObj.Set("INVALID_STATE_ERR", DOMExceptionInvalidStateErr)
 	domExceptionObj.Set("SYNTAX_ERR", DOMExceptionSyntaxErr)
 	domExceptionObj.Set("INVALID_MODIFICATION_ERR", DOMExceptionInvalidModificationErr)
