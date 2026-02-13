@@ -19,12 +19,13 @@ import (
 // Used by the handler goroutine launched in [Channel.Invoke] and
 // [Channel.NewStream].
 type serverStreamAdapter struct {
-	ctx    context.Context
-	loop   Loop
-	state  *stream.RPCState
-	cloner Cloner
-	stats  *statsHandlerHelper
-	method string
+	ctx           context.Context
+	loop          Loop
+	cloner        Cloner
+	state         *stream.RPCState
+	stats         *statsHandlerHelper
+	method        string
+	cloneDisabled bool
 }
 
 var _ grpc.ServerStream = (*serverStreamAdapter)(nil)
@@ -94,9 +95,15 @@ func (s *serverStreamAdapter) SendMsg(m any) error {
 	}
 
 	// Clone on the handler goroutine (off-loop).
-	cloned, err := s.cloner.Clone(m)
-	if err != nil {
-		return err
+	var cloned any
+	var err error
+	if s.cloneDisabled {
+		cloned = m
+	} else {
+		cloned, err = s.cloner.Clone(m)
+		if err != nil {
+			return err
+		}
 	}
 
 	if s.stats != nil {
@@ -148,6 +155,10 @@ func (s *serverStreamAdapter) RecvMsg(m any) error {
 		}
 		if s.stats != nil {
 			s.stats.inPayload(s.ctx, r.msg)
+		}
+		if s.cloneDisabled {
+			shallowCopy(m, r.msg)
+			return nil
 		}
 		return s.cloner.Copy(m, r.msg)
 	case <-s.ctx.Done():

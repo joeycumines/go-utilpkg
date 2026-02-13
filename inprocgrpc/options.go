@@ -29,6 +29,7 @@ type channelOptions struct {
 	streamInterceptor grpc.StreamServerInterceptor
 	clientStats       *statsHandlerHelper
 	serverStats       *statsHandlerHelper
+	cloneDisabled     bool
 }
 
 // Option configures a [Channel] instance. Options are applied during
@@ -107,6 +108,21 @@ func WithLoop(loop Loop) Option {
 			return errors.New("inprocgrpc: loop must not be nil")
 		}
 		opts.loop = loop
+		return nil
+	}}
+}
+
+// WithCloneDisabled disables the default behavior of cloning messages
+// passed between client and server.
+//
+// SAFETY WARNING: This option removes the isolation between client and server.
+// If the client modifies a message after sending it (but before the server processes it),
+// or if the server retains a reference to the request message and the client modifies it,
+// data races or unexpected behavior may occur. This mode is unsafe by default and
+// should only be used when the caller guarantees ownership transfer or immutable messages.
+func WithCloneDisabled() Option {
+	return &channelOptionImpl{fn: func(opts *channelOptions) error {
+		opts.cloneDisabled = true
 		return nil
 	}}
 }

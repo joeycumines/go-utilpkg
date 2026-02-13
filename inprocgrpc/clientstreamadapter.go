@@ -23,15 +23,16 @@ import (
 // Used by the caller of [Channel.NewStream].
 type clientStreamAdapter struct {
 	ctx              context.Context
-	cancel           context.CancelFunc
 	loop             Loop
-	state            *stream.RPCState
 	cloner           Cloner
+	cancel           context.CancelFunc
+	state            *stream.RPCState
 	copts            *callopts.CallOptions
 	stats            *statsHandlerHelper
 	method           string
 	sendMu           sync.Mutex
 	recvMu           sync.Mutex
+	cloneDisabled    bool
 	responseStream   bool
 	sendClosed       bool
 	ended            bool
@@ -148,9 +149,15 @@ func (s *clientStreamAdapter) SendMsg(m any) error {
 	}
 
 	// Clone on caller goroutine (off-loop).
-	cloned, err := s.cloner.Clone(m)
-	if err != nil {
-		return err
+	var cloned any
+	var err error
+	if s.cloneDisabled {
+		cloned = m
+	} else {
+		cloned, err = s.cloner.Clone(m)
+		if err != nil {
+			return err
+		}
 	}
 
 	if s.stats != nil {
@@ -214,7 +221,9 @@ func (s *clientStreamAdapter) recvMsgLocked(m any) error {
 		if s.stats != nil {
 			s.stats.inPayload(s.ctx, r.msg)
 		}
-		if err := s.cloner.Copy(m, r.msg); err != nil {
+		if s.cloneDisabled {
+			shallowCopy(m, r.msg)
+		} else if err := s.cloner.Copy(m, r.msg); err != nil {
 			return err
 		}
 		// For unary-response streams, validate exactly one response.

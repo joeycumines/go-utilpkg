@@ -35,6 +35,7 @@ type Channel struct {
 	serverStats    *statsHandlerHelper
 	streamHandlers map[string]StreamHandlerFunc
 	handlers       handlerMap
+	cloneDisabled  bool
 }
 
 var (
@@ -60,12 +61,13 @@ func NewChannel(opts ...Option) *Channel {
 		cloner = cfg.cloner
 	}
 	return &Channel{
-		loop:        cfg.loop,
-		cloner:      cloner,
-		unaryInt:    cfg.unaryInterceptor,
-		streamInt:   cfg.streamInterceptor,
-		clientStats: cfg.clientStats,
-		serverStats: cfg.serverStats,
+		loop:          cfg.loop,
+		cloner:        cloner,
+		cloneDisabled: cfg.cloneDisabled,
+		unaryInt:      cfg.unaryInterceptor,
+		streamInt:     cfg.streamInterceptor,
+		clientStats:   cfg.clientStats,
+		serverStats:   cfg.serverStats,
 	}
 }
 
@@ -156,9 +158,15 @@ func (c *Channel) Invoke(ctx context.Context, method string, req, resp any, opts
 	}
 
 	// Clone request on caller goroutine (off-loop).
-	clonedReq, cloneErr := c.cloner.Clone(req)
-	if cloneErr != nil {
-		return cloneErr
+	var clonedReq any
+	var cloneErr error
+	if c.cloneDisabled {
+		clonedReq = req
+	} else {
+		clonedReq, cloneErr = c.cloner.Clone(req)
+		if cloneErr != nil {
+			return cloneErr
+		}
 	}
 
 	// Client stats: tag and begin.
@@ -182,6 +190,10 @@ func (c *Channel) Invoke(ctx context.Context, method string, req, resp any, opts
 		svrCtx := grpc.NewContextWithServerTransportStream(makeServerContext(ctx), &uts)
 
 		codec := func(out any) error {
+			if c.cloneDisabled {
+				shallowCopy(out, clonedReq)
+				return nil
+			}
 			return c.cloner.Copy(out, clonedReq)
 		}
 
@@ -237,7 +249,9 @@ func (c *Channel) Invoke(ctx context.Context, method string, req, resp any, opts
 						c.clientStats.inHeader(ctx, h, method)
 					}
 				}
-				if copyErr := cloner.Copy(resp, v); copyErr != nil {
+				if c.cloneDisabled {
+					shallowCopy(resp, v)
+				} else if copyErr := cloner.Copy(resp, v); copyErr != nil {
 					resCh <- invokeResult{err: copyErr}
 					return
 				}
@@ -333,12 +347,13 @@ func (c *Channel) NewStream(ctx context.Context, desc *grpc.StreamDesc, method s
 		svrCtx, svrCancel := context.WithCancel(makeServerContext(ctx))
 
 		ssAdapter := &serverStreamAdapter{
-			ctx:    svrCtx,
-			loop:   c.loop,
-			state:  state,
-			cloner: c.cloner,
-			stats:  c.serverStats,
-			method: method,
+			ctx:           svrCtx,
+			loop:          c.loop,
+			state:         state,
+			cloner:        c.cloner,
+			cloneDisabled: c.cloneDisabled,
+			stats:         c.serverStats,
+			method:        method,
 		}
 
 		sts := &transport.ServerTransportStream{Name: method, Stream: ssAdapter}
@@ -388,6 +403,7 @@ func (c *Channel) NewStream(ctx context.Context, desc *grpc.StreamDesc, method s
 			loop:           c.loop,
 			state:          state,
 			cloner:         c.cloner,
+			cloneDisabled:  c.cloneDisabled,
 			method:         method,
 			copts:          copts,
 			stats:          c.clientStats,
@@ -437,9 +453,15 @@ func (c *Channel) invokeStreamHandler(
 	handler StreamHandlerFunc,
 ) error {
 	// Clone request off-loop.
-	clonedReq, cloneErr := c.cloner.Clone(req)
-	if cloneErr != nil {
-		return cloneErr
+	var clonedReq any
+	var cloneErr error
+	if c.cloneDisabled {
+		clonedReq = req
+	} else {
+		clonedReq, cloneErr = c.cloner.Clone(req)
+		if cloneErr != nil {
+			return cloneErr
+		}
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -470,7 +492,9 @@ func (c *Channel) invokeStreamHandler(
 				resCh <- invokeResult{err: grpcutil.TranslateContextError(err)}
 				return
 			}
-			if copyErr := cloner.Copy(resp, msg); copyErr != nil {
+			if c.cloneDisabled {
+				shallowCopy(resp, msg)
+			} else if copyErr := cloner.Copy(resp, msg); copyErr != nil {
 				resCh <- invokeResult{err: copyErr}
 				return
 			}
@@ -533,6 +557,7 @@ func (c *Channel) newStreamWithHandler(
 			loop:           c.loop,
 			state:          state,
 			cloner:         c.cloner,
+			cloneDisabled:  c.cloneDisabled,
 			method:         method,
 			copts:          copts,
 			stats:          nil, // stream handlers bypass stats
