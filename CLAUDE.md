@@ -124,3 +124,4 @@ The eventloop is the most complex module. Key components:
 - **Zero tolerance** for test failures - fix them properly rather than working around
 - Write **high-quality, principled implementations** following best practices
 - All new features require **new tests** for verification
+- **Do not use testify packages**. Only use the built-in `testing` package.
