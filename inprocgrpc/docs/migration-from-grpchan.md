@@ -9,7 +9,7 @@ This guide helps users of `github.com/fullstorydev/grpchan/inprocgrpc` migrate t
 |---------|-------------------|---------------|
 | Event loop | None (goroutine per RPC) | Required (`eventloop.Loop`) |
 | Handler model | Blocking (standard gRPC) | Non-blocking (`StreamHandlerFunc`) |
-| Channel creation | `inprocgrpc.NewChannel()` | `inprocgrpc.NewChannel(loop)` |
+| Channel creation | `inprocgrpc.NewChannel()` | `inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))` |
 | Message cloning | Proto clone | `ProtoCloner` (configurable) |
 | Stats handlers | Not supported | Client + server stats |
 
@@ -36,7 +36,7 @@ defer cancel()
 ch := inprocgrpc.NewChannel(svc)
 
 // After (go-inprocgrpc)
-ch := inprocgrpc.NewChannel(loop)
+ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 ```
 
 ### 3. Register Services
@@ -76,5 +76,5 @@ stream, err := ch.NewStream(ctx, desc, method, opts...)
 go-inprocgrpc uses `ProtoCloner` by default. For custom cloning:
 
 ```go
-ch := inprocgrpc.NewChannel(loop, inprocgrpc.WithCloner(myCloner))
+ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop), inprocgrpc.WithCloner(myCloner))
 ```

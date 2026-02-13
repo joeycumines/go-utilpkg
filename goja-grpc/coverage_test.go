@@ -40,7 +40,7 @@ func TestRequire_ViaRegistry(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adapter.Bind())
 
-	channel := inprocgrpc.NewChannel(loop)
+	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	require.NoError(t, err)
@@ -2604,7 +2604,7 @@ func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adapter.Bind())
 
-	channel := inprocgrpc.NewChannel(loop)
+	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	require.NoError(t, err)

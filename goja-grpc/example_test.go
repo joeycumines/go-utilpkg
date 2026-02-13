@@ -68,7 +68,7 @@ func Example() {
 	}
 
 	// Create in-process gRPC channel.
-	channel := inprocgrpc.NewChannel(loop)
+	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	// Create protobuf module and load descriptors.
 	pbMod, err := gojaprotobuf.New(rt)

@@ -57,7 +57,7 @@ func main() {
     registry.Enable(rt)
 
     // Create in-process gRPC channel
-    channel := inprocgrpc.NewChannel(loop)
+    channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
     pbMod, _ := gojaprotobuf.New(rt)
 
     registry.RegisterNativeModule("grpc", gojagrpc.Require(

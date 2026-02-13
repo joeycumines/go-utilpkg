@@ -28,7 +28,7 @@ func benchEnv(b *testing.B) *grpcTestEnv {
 	adapter, err := gojaeventloop.New(loop, runtime)
 	require.NoError(b, err)
 	require.NoError(b, adapter.Bind())
-	channel := inprocgrpc.NewChannel(loop)
+	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 	pbMod, err := gojaprotobuf.New(runtime)
 	require.NoError(b, err)
 	_, err = pbMod.LoadDescriptorSetBytes(testGrpcDescriptorSetBytes())
@@ -172,7 +172,7 @@ func BenchmarkGoDirectUnaryRPC(b *testing.B) {
 	defer cancel()
 	go loop.Run(ctx)
 
-	ch := inprocgrpc.NewChannel(loop)
+	ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	// Parse the test descriptor set to get message descriptors.
 	var fds descriptorpb.FileDescriptorSet

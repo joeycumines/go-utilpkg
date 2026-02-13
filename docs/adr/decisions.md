@@ -83,6 +83,7 @@ propagating an error that must be handled at every caller.
 **Context**: API naming consistency across the project.
 
 **Decision**: No prepositions in public API names. Examples:
+
 - `WaitForMessage` → `Recv`
 - `IsClosed` → `Closed`
 - `SetToValue` → `SetValue`

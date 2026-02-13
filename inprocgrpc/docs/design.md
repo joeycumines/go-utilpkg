@@ -155,7 +155,7 @@ sequenceDiagram
 
 ### Channel
 
-Create instances with `NewChannel(loop, opts...)`. The zero value is not usable. Configuration uses functional `Option` values applied during construction.
+Create instances with `NewChannel(opts...)`. The loop must be provided via `WithLoop` option. The zero value is not usable. Configuration uses functional `Option` values applied during construction.
 
 ### Handler Map
 
@@ -173,7 +173,7 @@ Server-returned context errors (`context.Canceled`, `context.DeadlineExceeded`) 
 
 1. **Event-loop-driven**: All stream state and message delivery is managed by the event loop. Handler goroutines use blocking adapters wrapping the callback-based core.
 2. **Panic on invariant violations**: Following `grpc.Server` convention, `RegisterService` panics for duplicate registrations and handler type mismatches. `NewChannel` panics if the loop parameter is nil (a programming error). Option validation errors are returned normally.
-3. **Functional options for configuration**: `NewChannel(loop, opts...)` accepts `Option` values. Options are applied during construction and are not modifiable afterward.
+3. **Functional options for configuration**: `NewChannel(opts...)` accepts `Option` values. The loop must be provided via `WithLoop`. Options are applied during construction and are not modifiable afterward.
 4. **Callback-based stream core**: The internal stream uses direct callback delivery on the event loop goroutine, avoiding goroutine and channel overhead. Blocking adapters wrap this for Go handler goroutines.
 
 ## 6. Internal Packages

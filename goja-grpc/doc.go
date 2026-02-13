@@ -253,7 +253,7 @@
 //	adapter := gojaeventloop.NewAdapter(loop, rt)
 //	registry.Enable(rt)
 //
-//	channel := inprocgrpc.NewChannel(loop)
+//	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 //	pbMod, _ := gojaprotobuf.New(rt)
 //
 //	registry.RegisterNativeModule("grpc", gojagrpc.Require(

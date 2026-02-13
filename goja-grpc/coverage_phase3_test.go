@@ -143,7 +143,7 @@ func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	require.NoError(t, err)
 	require.NoError(t, adapter.Bind())
 
-	channel := inprocgrpc.NewChannel(loop, inprocgrpc.WithCloner(&phase3NonProtoCloner{}))
+	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop), inprocgrpc.WithCloner(&phase3NonProtoCloner{}))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	require.NoError(t, err)
