@@ -7,6 +7,17 @@
 // communicate with the loop via blocking adapters wrapping a callback-based
 // stream core.
 //
+// # Why Event Loop Integration?
+//
+// While external in-process gRPC implementations (such as full gRPC in-proc modes)
+// may offer higher performance for pure Go code, this package's design prioritizes
+// integration with single-threaded environments. By coordinating all gRPC operations
+// through an event loop, the package seamlessly supports environments like Goja
+// (JavaScript) where all concurrency must be serialized through the event loop
+// goroutine. This design enables gRPC usage from JavaScript with proper thread safety
+// without requiring synchronization primitives that are incompatible with
+// single-threaded runtimes.
+//
 // # Architecture
 //
 // A [Channel] is created via [NewChannel] with a running [eventloop.Loop]

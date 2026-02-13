@@ -2,6 +2,17 @@
 // JavaScript runtime, enabling JavaScript code to create, manipulate,
 // serialize, and deserialize protobuf messages.
 //
+// # Why Dynamic Protobuf?
+//
+// This package uses dynamicpb.Message and dynamic descriptor loading to enable
+// JavaScript code to operate on protobuf types without requiring Go code
+// regeneration. When evaluating external JavaScript code, the protobuf types
+// used by that code may not be known at Go compile-time. By loading descriptors
+// at runtime from serialized FileDescriptorSet bytes, JavaScript can construct
+// and manipulate protobuf messages without requiring the Go module to be
+// recompiled with updated generated stubs. This provides the same flexibility
+// that protobuf-es brings to JavaScript environments.
+//
 // # Overview
 //
 // The module exposes protobuf functionality through the [goja_nodejs/require]
