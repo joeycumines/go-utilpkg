@@ -10,7 +10,7 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 	// Case 1: Default Mode (Batch)
 	{
 		l, _ := New()
-		l.StrictMicrotaskOrdering = false
+		l.strictMicrotaskOrdering = false
 
 		var order []string
 
@@ -54,7 +54,7 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 	// Case 2: Strict Mode (Per-Task)
 	{
 		l, _ := New()
-		l.StrictMicrotaskOrdering = true
+		l.strictMicrotaskOrdering = true
 
 		var order []string
 

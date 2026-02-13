@@ -24,7 +24,7 @@ func main() {
 
 	loop, _ := eventloop.New()
 	js, _ := eventloop.NewJS(loop,
-		eventloop.WithUnhandledRejection(func(reason eventloop.Result) {
+		eventloop.WithUnhandledRejection(func(reason any) {
 			fmt.Printf("Unhandled rejection: %v\n", reason)
 		}),
 	)
@@ -68,7 +68,7 @@ func basicPromiseExample(js *eventloop.JS) {
 	}()
 
 	// Attach handler
-	promise.Then(func(v eventloop.Result) eventloop.Result {
+	promise.Then(func(v any) any {
 		fmt.Printf("Resolved with: %v\n", v)
 		return nil
 	}, nil)
@@ -86,17 +86,17 @@ func chainingExample(js *eventloop.JS) {
 
 	// Chain multiple transformations
 	promise.
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			n := v.(int)
 			fmt.Printf("Step 1: Got %d, multiplying by 2\n", n)
 			return n * 2
 		}, nil).
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			n := v.(int)
 			fmt.Printf("Step 2: Got %d, adding 5\n", n)
 			return n + 5
 		}, nil).
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("Final result: %v\n", v)
 			return nil
 		}, nil).
@@ -117,15 +117,15 @@ func errorHandlingExample(js *eventloop.JS) {
 
 	// Handle the error with Catch
 	promise.
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Println("This won't run")
 			return v
 		}, nil).
-		Catch(func(r eventloop.Result) eventloop.Result {
+		Catch(func(r any) any {
 			fmt.Printf("Caught error: %v\n", r)
 			return "recovered" // Error recovery
 		}).
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("After recovery: %v\n", v)
 			return nil
 		}, nil)
@@ -151,8 +151,8 @@ func promiseAllExample(js *eventloop.JS) {
 
 	// Wait for all
 	allPromise := js.All([]*eventloop.ChainedPromise{p1, p2, p3})
-	allPromise.Then(func(v eventloop.Result) eventloop.Result {
-		results := v.([]eventloop.Result)
+	allPromise.Then(func(v any) any {
+		results := v.([]any)
 		fmt.Printf("All resolved: %v (order preserved)\n", results)
 		return nil
 	}, nil)
@@ -175,7 +175,7 @@ func promiseRaceExample(js *eventloop.JS) {
 	}()
 
 	racePromise := js.Race([]*eventloop.ChainedPromise{p1, p2})
-	racePromise.Then(func(v eventloop.Result) eventloop.Result {
+	racePromise.Then(func(v any) any {
 		fmt.Printf("Race winner: %v\n", v)
 		return nil
 	}, nil)
@@ -205,11 +205,11 @@ func promiseAnyExample(js *eventloop.JS) {
 	// Any waits for first success
 	anyPromise := js.Any([]*eventloop.ChainedPromise{p1, p2, p3})
 	anyPromise.
-		Then(func(v eventloop.Result) eventloop.Result {
+		Then(func(v any) any {
 			fmt.Printf("First success: %v\n", v)
 			return nil
 		}, nil).
-		Catch(func(r eventloop.Result) eventloop.Result {
+		Catch(func(r any) any {
 			// Only called if ALL promises reject
 			if agg, ok := r.(*eventloop.AggregateError); ok {
 				fmt.Printf("All failed: %v\n", agg.Errors)

@@ -13,11 +13,11 @@ type ChainedPromiseAdapter struct {
 	p *eventloop.ChainedPromise
 }
 
-func (a *ChainedPromiseAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+func (a *ChainedPromiseAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
 	return &ChainedPromiseAdapter{p: a.p.Then(onFulfilled, onRejected)}
 }
 
-func (a *ChainedPromiseAdapter) Result() eventloop.Result {
+func (a *ChainedPromiseAdapter) Result() any {
 	switch a.p.State() {
 	case eventloop.Fulfilled:
 		return a.p.Value()
@@ -33,11 +33,11 @@ type PromiseAltOneAdapter struct {
 	p *promisealtone.Promise
 }
 
-func (a *PromiseAltOneAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+func (a *PromiseAltOneAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
 	return &PromiseAltOneAdapter{p: a.p.Then(onFulfilled, onRejected)}
 }
 
-func (a *PromiseAltOneAdapter) Result() eventloop.Result {
+func (a *PromiseAltOneAdapter) Result() any {
 	return a.p.Result()
 }
 
@@ -46,11 +46,11 @@ type PromiseAltTwoAdapter struct {
 	p *promisealttwo.Promise
 }
 
-func (a *PromiseAltTwoAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+func (a *PromiseAltTwoAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
 	return &PromiseAltTwoAdapter{p: a.p.Then(onFulfilled, onRejected)}
 }
 
-func (a *PromiseAltTwoAdapter) Result() eventloop.Result {
+func (a *PromiseAltTwoAdapter) Result() any {
 	return a.p.Result()
 }
 
@@ -59,11 +59,11 @@ type PromiseAltThreeAdapter struct {
 	p *promisealtthree.Promise
 }
 
-func (a *PromiseAltThreeAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+func (a *PromiseAltThreeAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
 	return &PromiseAltThreeAdapter{p: a.p.Then(onFulfilled, onRejected)}
 }
 
-func (a *PromiseAltThreeAdapter) Result() eventloop.Result {
+func (a *PromiseAltThreeAdapter) Result() any {
 	return a.p.Result()
 }
 
@@ -72,11 +72,11 @@ type PromiseAltFourAdapter struct {
 	p *promisealtfour.Promise
 }
 
-func (a *PromiseAltFourAdapter) Then(onFulfilled, onRejected func(eventloop.Result) eventloop.Result) Promise {
+func (a *PromiseAltFourAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
 	return &PromiseAltFourAdapter{p: a.p.Then(onFulfilled, onRejected)}
 }
 
-func (a *PromiseAltFourAdapter) Result() eventloop.Result {
+func (a *PromiseAltFourAdapter) Result() any {
 	return a.p.Result()
 }
 

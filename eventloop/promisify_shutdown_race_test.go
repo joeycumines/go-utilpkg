@@ -41,7 +41,7 @@ func TestPromisify_DuringShutdown(t *testing.T) {
 
 	// Try Promisify immediately during shutdown window
 	// This races with shutdown - may succeed or be rejected
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		return "result", nil
 	})
 
@@ -79,7 +79,7 @@ func TestPromisify_ShutdownWaitsForInflight(t *testing.T) {
 	// Start a slow Promisify
 	slowStarted := make(chan struct{})
 	slowFinished := make(chan struct{})
-	_ = loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	_ = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(slowStarted)
 		time.Sleep(100 * time.Millisecond) // Slow operation
 		close(slowFinished)
@@ -151,7 +151,7 @@ func TestPromisify_ConcurrentWithShutdown_Race(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+			p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				time.Sleep(time.Duration(idx) * time.Millisecond)
 				return idx, nil
 			})
@@ -211,7 +211,7 @@ func TestPromisify_MuLockCoordination(t *testing.T) {
 		idx := i
 		go func() {
 			defer wg.Done()
-			promises[idx] = loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+			promises[idx] = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				return idx, nil
 			})
 		}()
@@ -253,7 +253,7 @@ func TestPromisify_AfterTerminated(t *testing.T) {
 	<-runDone
 
 	// Now call Promisify on terminated loop
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		t.Error("Function should not be called on terminated loop")
 		return nil, nil
 	})
@@ -293,7 +293,7 @@ func TestPromisify_InTerminatingState(t *testing.T) {
 	go loop.Shutdown(context.Background())
 
 	// Try Promisify during termination - result depends on timing
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		// This may or may not be called depending on timing
 		return "result", nil
 	})
@@ -339,7 +339,7 @@ func TestPromisify_SubmitInternalFallback(t *testing.T) {
 
 	// Start a Promisify that will complete after we start shutdown
 	completionSignal := make(chan struct{})
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		<-completionSignal // Wait for signal
 		return "result after shutdown", nil
 	})
@@ -392,7 +392,7 @@ func TestPromisify_ContextCancelDuringShutdown(t *testing.T) {
 	// Create cancellable context for Promisify
 	promCtx, promCancel := context.WithCancel(context.Background())
 	started := make(chan struct{})
-	p := loop.Promisify(promCtx, func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(promCtx, func(ctx context.Context) (any, error) {
 		close(started)
 		select {
 		case <-ctx.Done():
@@ -448,7 +448,7 @@ func TestPromisify_MultipleShutdownCalls(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Start a slow Promisify
-	_ = loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	_ = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		time.Sleep(100 * time.Millisecond)
 		return "slow", nil
 	})
@@ -487,7 +487,7 @@ func TestPromisify_PanicDuringShutdown(t *testing.T) {
 
 	// Start a Promisify that panics
 	started := make(chan struct{})
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(started)
 		time.Sleep(20 * time.Millisecond)
 		panic("test panic during shutdown")
@@ -540,7 +540,7 @@ func TestPromisify_WgCounterIntegrity(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+				loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 					return nil, nil
 				})
 			}()

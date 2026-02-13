@@ -179,8 +179,8 @@ func TestAplus_2_2_1_ThenCallbacksOptional(t *testing.T) {
 
 	// then() with nil callbacks should not panic
 	p2 := p.Then(nil, nil)
-	p3 := p.Then(func(v Result) Result { return v }, nil)
-	p4 := p.Then(nil, func(r Result) Result { return r })
+	p3 := p.Then(func(v any) any { return v }, nil)
+	p4 := p.Then(nil, func(r any) any { return r })
 
 	resolve("value")
 	loop.tick()
@@ -215,9 +215,9 @@ func TestAplus_2_2_2_OnFulfilledCalledAfterFulfilled(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 
 	var callCount int
-	var receivedValue Result
+	var receivedValue any
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		callCount++
 		receivedValue = v
 		return v
@@ -258,9 +258,9 @@ func TestAplus_2_2_3_OnRejectedCalledAfterRejected(t *testing.T) {
 	p, _, reject := js.NewChainedPromise()
 
 	var callCount int
-	var receivedReason Result
+	var receivedReason any
 
-	p.Then(nil, func(r Result) Result {
+	p.Then(nil, func(r any) any {
 		callCount++
 		receivedReason = r
 		return nil // recover
@@ -303,7 +303,7 @@ func TestAplus_2_2_4_Asynchronous(t *testing.T) {
 
 	var order []int
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, 2)
 		return v
 	}, nil)
@@ -345,17 +345,17 @@ func TestAplus_2_2_6_MultipleHandlersOrder(t *testing.T) {
 	var order []int
 
 	// Register multiple handlers
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, 1)
 		return nil
 	}, nil)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, 2)
 		return nil
 	}, nil)
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, 3)
 		return nil
 	}, nil)
@@ -389,7 +389,7 @@ func TestAplus_2_2_7_ThenReturnsNewPromise(t *testing.T) {
 	}
 	p1, resolve, _ := js.NewChainedPromise()
 
-	p2 := p1.Then(func(v Result) Result {
+	p2 := p1.Then(func(v any) any {
 		return v
 	}, nil)
 
@@ -426,7 +426,7 @@ func TestAplus_2_2_7_1_ReturnValueResolvesChild(t *testing.T) {
 	}
 	p1, resolve, _ := js.NewChainedPromise()
 
-	p2 := p1.Then(func(v Result) Result {
+	p2 := p1.Then(func(v any) any {
 		return "transformed"
 	}, nil)
 
@@ -454,7 +454,7 @@ func TestAplus_2_2_7_2_ThrowExceptionRejectsChild(t *testing.T) {
 	}
 	p1, resolve, _ := js.NewChainedPromise()
 
-	p2 := p1.Then(func(v Result) Result {
+	p2 := p1.Then(func(v any) any {
 		panic("exception!")
 	}, nil)
 
@@ -628,7 +628,7 @@ func TestAplus_2_3_4_PrimitiveValuePassThrough(t *testing.T) {
 
 	testCases := []struct {
 		name  string
-		value Result
+		value any
 	}{
 		{"nil", nil},
 		{"string", "hello"},
@@ -709,16 +709,16 @@ func TestErrorPropagation_ThroughChain(t *testing.T) {
 
 	theErr := errors.New("original error")
 
-	var caughtErr Result
+	var caughtErr any
 
 	// Chain: reject -> then (no catch) -> then (no catch) -> catch
-	p1.Then(func(v Result) Result {
+	p1.Then(func(v any) any {
 		t.Error("onFulfilled should not be called")
 		return v
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		t.Error("second onFulfilled should not be called")
 		return v
-	}, nil).Then(nil, func(r Result) Result {
+	}, nil).Then(nil, func(r any) any {
 		caughtErr = r
 		return nil // recover
 	})
@@ -745,12 +745,12 @@ func TestErrorPropagation_Recovery(t *testing.T) {
 	}
 	p1, _, reject := js.NewChainedPromise()
 
-	var chainResult Result
+	var chainResult any
 
 	// Chain: reject -> catch (returns value) -> then (receives value)
-	p1.Then(nil, func(r Result) Result {
+	p1.Then(nil, func(r any) any {
 		return "recovered" // Return a value to recover
-	}).Then(func(v Result) Result {
+	}).Then(func(v any) any {
 		chainResult = v
 		return v
 	}, nil)
@@ -786,8 +786,8 @@ func TestAlreadySettled_ThenOnFulfilled(t *testing.T) {
 	loop.tick()
 
 	// Now add handler
-	var receivedValue Result
-	p.Then(func(v Result) Result {
+	var receivedValue any
+	p.Then(func(v any) any {
 		receivedValue = v
 		return v
 	}, nil)
@@ -820,7 +820,7 @@ func TestAlreadySettled_MultipleHandlers(t *testing.T) {
 	var count atomic.Int32
 
 	for i := 0; i < 5; i++ {
-		p.Then(func(v Result) Result {
+		p.Then(func(v any) any {
 			count.Add(1)
 			return v
 		}, nil)
@@ -851,9 +851,9 @@ func TestCatch_Alias(t *testing.T) {
 	}
 	p, _, reject := js.NewChainedPromise()
 
-	var caught Result
+	var caught any
 
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		caught = r
 		return nil
 	})
@@ -966,7 +966,7 @@ func TestConcurrent_MultipleHandlersSamePromise(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			p.Then(func(v Result) Result {
+			p.Then(func(v any) any {
 				count.Add(1)
 				return v
 			}, nil)

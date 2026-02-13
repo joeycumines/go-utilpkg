@@ -42,7 +42,7 @@ func TestAdapterAllWithAllResolved(t *testing.T) {
 
 	done := make(chan struct{})
 	var values any
-	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(func(v any) any {
 		t.Logf("All() resolved with: %v (type: %T)", v, v)
 		values = v
 		close(done)
@@ -89,7 +89,7 @@ func TestAdapterAllWithEmptyArray(t *testing.T) {
 
 	done := make(chan struct{})
 	var resolved bool
-	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(func(v any) any {
 		t.Logf("All(empty) resolved with: %v (type: %T)", v, v)
 		resolved = true
 		close(done)
@@ -135,7 +135,7 @@ func TestAdapterAllWithOneRejected(t *testing.T) {
 
 	done := make(chan struct{})
 	var reason any
-	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(nil, func(r any) any {
 		if r != "error from p2" {
 			t.Errorf("Expected rejection reason 'error from p2', got: %v", r)
 		}
@@ -190,7 +190,7 @@ func TestAdapterRaceTiming(t *testing.T) {
 
 	done := make(chan struct{})
 	var winner any
-	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(func(v any) any {
 		winner = v
 		close(done)
 		return nil
@@ -237,7 +237,7 @@ func TestAdapterRaceFirstRejectedWins(t *testing.T) {
 
 	done := make(chan struct{})
 	var reason any
-	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(nil, func(r any) any {
 		reason = r
 		close(done)
 		return r
@@ -290,7 +290,7 @@ func TestAdapterAllSettledMixedResults(t *testing.T) {
 
 	done := make(chan struct{})
 	var results any
-	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(func(v any) any {
 		t.Logf("AllSettled resolved with: %v (type: %T)", v, v)
 		results = v
 		close(done)
@@ -346,7 +346,7 @@ func TestAdapterAnyFirstResolvedWins(t *testing.T) {
 	go func() { _ = loop.Run(ctx) }()
 
 	valCh := make(chan any, 1)
-	resultPromise.Then(func(v goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(func(v any) any {
 		valCh <- v
 		return nil
 	}, nil)
@@ -394,7 +394,7 @@ func TestAdapterAnyAllRejected(t *testing.T) {
 
 	done := make(chan struct{})
 	var rejected bool
-	resultPromise.Then(nil, func(r goeventloop.Result) goeventloop.Result {
+	resultPromise.Then(nil, func(r any) any {
 		// Expect AggregateError when all promises reject
 		rejected = true
 		t.Logf("Rejected with: %v (type: %T)", r, r)

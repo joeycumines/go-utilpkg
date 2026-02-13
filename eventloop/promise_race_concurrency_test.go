@@ -32,7 +32,7 @@ func TestPromiseRace_ConcurrentRejections(t *testing.T) {
 	errorCount := atomic.Int32{}
 
 	// Set up handler to track how many times it's called
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		errorCount.Add(1)
 		return nil
 	})
@@ -88,7 +88,7 @@ func TestPromiseRace_ConcurrentResolutions(t *testing.T) {
 	var wg sync.WaitGroup
 	resolveCount := atomic.Int32{}
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		resolveCount.Add(1)
 		return nil
 	}, nil)
@@ -144,10 +144,10 @@ func TestPromiseRace_MixedConcurrentSettlement(t *testing.T) {
 	var wg sync.WaitGroup
 	settleCount := atomic.Int32{}
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		settleCount.Add(1)
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		settleCount.Add(1)
 		return nil
 	})
@@ -196,7 +196,7 @@ func TestPromiseRace_FirstPromiseSettles(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2, p3})
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)
@@ -239,7 +239,7 @@ func TestPromiseRace_FirstPromiseRejects(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2, p3})
 
 	var winnerErr string
-	result.Catch(func(r Result) Result {
+	result.Catch(func(r any) any {
 		winnerErr = r.(string)
 		return nil
 	})
@@ -277,7 +277,7 @@ func TestPromiseRace_ManyPromisesConcurrent(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -288,7 +288,7 @@ func TestPromiseRace_ManyPromisesConcurrent(t *testing.T) {
 	result := js.Race(promises)
 
 	var settleCount atomic.Int32
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		settleCount.Add(1)
 		return nil
 	}, nil)
@@ -333,7 +333,7 @@ func TestPromiseRace_RaceConditionWithThenHandler(t *testing.T) {
 
 	// Now attach handler
 	var handlerCalled bool
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		handlerCalled = true
 		if v != "quick" {
 			t.Errorf("Expected 'quick', got '%v'", v)
@@ -415,7 +415,7 @@ func TestPromiseRace_WithThenHandler(t *testing.T) {
 	var gotResult bool
 	var resultValue string
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		gotResult = true
 		resultValue = v.(string)
 		return nil
@@ -465,7 +465,7 @@ func TestPromiseRace_MultipleRaces(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx].Then(func(v Result) Result {
+			results[idx].Then(func(v any) any {
 				expected := "race" + string(rune('a'+idx))
 				if v != expected {
 					t.Errorf("Race %d: expected '%s', got '%v'", idx, expected, v)
@@ -503,7 +503,7 @@ func TestPromiseRace_PromiseAlreadySettled(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2})
 
 	var resultValue string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		resultValue = v.(string)
 		return nil
 	}, nil)
@@ -534,7 +534,7 @@ func TestPromiseRace_PanicInHandler(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1})
 
 	// Attach handler that panics
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		panic("handler panic")
 	}, nil)
 
@@ -617,7 +617,7 @@ func TestPromiseRace_SecondPromiseSettles(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2})
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)
@@ -652,7 +652,7 @@ func TestPromiseRace_LastPromiseSettles(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2, p3})
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)

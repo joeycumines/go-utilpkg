@@ -104,7 +104,7 @@ func TestWorkload_SimulatedHTTPServer(t *testing.T) {
 		timeoutP := timeoutPromise(requestTimeout)
 
 		js.Race([]*ChainedPromise{requestP, timeoutP}).Then(
-			func(r Result) Result {
+			func(r any) any {
 				successes.Add(1)
 				completed.Add(1)
 				if int(completed.Load()) == numRequests {
@@ -112,7 +112,7 @@ func TestWorkload_SimulatedHTTPServer(t *testing.T) {
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				timeouts.Add(1)
 				completed.Add(1)
 				if int(completed.Load()) == numRequests {
@@ -198,8 +198,8 @@ func TestWorkload_ScheduledJobProcessing(t *testing.T) {
 			batch[i] = processJob(job)
 		}
 
-		js.All(batch).Then(func(r Result) Result {
-			results := r.([]Result)
+		js.All(batch).Then(func(r any) any {
+			results := r.([]any)
 			jobsMu.Lock()
 			for _, result := range results {
 				if job, ok := result.(Job); ok {
@@ -284,7 +284,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 	}
 
 	// Stage 2: Parse
-	parse := func(data Result) Result {
+	parse := func(data any) any {
 		record := data.(DataRecord)
 		record.Stage = "parsed"
 		record.Value = record.Value + 1
@@ -292,7 +292,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 	}
 
 	// Stage 3: Transform
-	transform := func(data Result) Result {
+	transform := func(data any) any {
 		record := data.(DataRecord)
 		record.Stage = "transformed"
 		record.Value = record.Value * 2
@@ -300,7 +300,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 	}
 
 	// Stage 4: Validate
-	validate := func(data Result) Result {
+	validate := func(data any) any {
 		record := data.(DataRecord)
 		if record.Value < 0 {
 			panic("Invalid value")
@@ -310,7 +310,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 	}
 
 	// Stage 5: Store
-	store := func(data Result) Result {
+	store := func(data any) any {
 		record := data.(DataRecord)
 		record.Stage = "stored"
 		record.Processed = true
@@ -329,7 +329,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 			Then(transform, nil).
 			Then(validate, nil).
 			Then(store, nil).
-			Then(func(r Result) Result {
+			Then(func(r any) any {
 				record := r.(DataRecord)
 				resultsMu.Lock()
 				results = append(results, record)
@@ -339,7 +339,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 					close(done)
 				}
 				return nil
-			}, func(r Result) Result {
+			}, func(r any) any {
 				if int(completed.Add(1)) == numRecords {
 					close(done)
 				}
@@ -422,7 +422,7 @@ func TestWorkload_WorkerPool(t *testing.T) {
 				if !ok {
 					return // No more tasks
 				}
-				worker(workerId, taskId).Then(func(r Result) Result {
+				worker(workerId, taskId).Then(func(r any) any {
 					workerCounts[workerId].Add(1)
 					if int(completed.Add(1)) == numTasks {
 						close(done)
@@ -522,14 +522,14 @@ func TestWorkload_RateLimitedOperations(t *testing.T) {
 	for i := 0; i < numCalls; i++ {
 		callId := i
 		apiCall(callId).Then(
-			func(r Result) Result {
+			func(r any) any {
 				successes.Add(1)
 				if int(completed.Add(1)) == numCalls {
 					close(done)
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				rateLimited.Add(1)
 				if int(completed.Add(1)) == numCalls {
 					close(done)
@@ -639,14 +639,14 @@ func TestWorkload_CircuitBreaker(t *testing.T) {
 	for i := 0; i < numCalls; i++ {
 		callId := i
 		unreliableService(callId).Then(
-			func(r Result) Result {
+			func(r any) any {
 				successes.Add(1)
 				if int(completed.Add(1)) == numCalls {
 					close(done)
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				if err, ok := r.(error); ok && err.Error() == "circuit open" {
 					circuitOpen.Add(1)
 				} else {
@@ -727,11 +727,11 @@ func TestWorkload_RetryWithBackoff(t *testing.T) {
 		var attempt func(retry int)
 		attempt = func(retry int) {
 			flakyOperation(id).Then(
-				func(r Result) Result {
+				func(r any) any {
 					resolve(r)
 					return nil
 				},
-				func(r Result) Result {
+				func(r any) any {
 					if retry >= maxRetries {
 						reject(fmt.Errorf("max retries exceeded: %v", r))
 						return nil
@@ -767,14 +767,14 @@ func TestWorkload_RetryWithBackoff(t *testing.T) {
 	for i := 0; i < numOperations; i++ {
 		opId := i
 		retryWithBackoff(opId, 10, 5).Then(
-			func(r Result) Result {
+			func(r any) any {
 				successes.Add(1)
 				if int(completed.Add(1)) == numOperations {
 					close(done)
 				}
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				failures.Add(1)
 				if int(completed.Add(1)) == numOperations {
 					close(done)
@@ -852,7 +852,7 @@ func TestWorkload_BatchProcessor(t *testing.T) {
 		batch.Items = make([]int, 0, batchSize)
 		batch.mu.Unlock()
 
-		processBatch(items).Then(func(r Result) Result {
+		processBatch(items).Then(func(r any) any {
 			count := r.(int)
 			itemsProcessed.Add(int32(count))
 			batchesProcessed.Add(1)
@@ -975,7 +975,7 @@ func TestWorkload_PubSubPattern(t *testing.T) {
 			}()
 		}
 
-		return js.All(promises).Then(func(r Result) Result {
+		return js.All(promises).Then(func(r any) any {
 			return len(handlers)
 		}, nil)
 	}
@@ -1008,7 +1008,7 @@ func TestWorkload_PubSubPattern(t *testing.T) {
 	for i := 0; i < numEvents; i++ {
 		eventID := i
 		eventType := eventTypes[i%len(eventTypes)]
-		publish(Event{Type: eventType, Data: eventID}).Then(func(r Result) Result {
+		publish(Event{Type: eventType, Data: eventID}).Then(func(r any) any {
 			if int(completed.Add(1)) == numEvents {
 				close(done)
 			}
@@ -1091,7 +1091,7 @@ func TestWorkload_StreamProcessing(t *testing.T) {
 				resolve(item)
 			}()
 
-			p.Then(func(r Result) Result {
+			p.Then(func(r any) any {
 				consumed.Add(1)
 				// Process next after current completes
 				consumeNext()
@@ -1170,12 +1170,12 @@ func TestWorkload_MixedAsyncPatterns(t *testing.T) {
 
 		// Promise chain
 		promises[2] = js.Resolve(iteration).
-			Then(func(r Result) Result { return r.(int) * 2 }, nil).
-			Then(func(r Result) Result { return r.(int) + 1 }, nil)
+			Then(func(r any) any { return r.(int) * 2 }, nil).
+			Then(func(r any) any { return r.(int) + 1 }, nil)
 
 		// Promise that rejects
 		p4, _, rej4 := js.NewChainedPromise()
-		promises[3] = p4.Catch(func(r Result) Result {
+		promises[3] = p4.Catch(func(r any) any {
 			return fmt.Sprintf("recovered-%d", iteration)
 		})
 		go func() {
@@ -1194,8 +1194,8 @@ func TestWorkload_MixedAsyncPatterns(t *testing.T) {
 		}
 
 		// 2. Wait for all with AllSettled
-		js.AllSettled(promises).Then(func(r Result) Result {
-			results := r.([]Result)
+		js.AllSettled(promises).Then(func(r any) any {
+			results := r.([]any)
 			for _, res := range results {
 				m := res.(map[string]interface{})
 				if m["status"] != "fulfilled" && m["status"] != "rejected" {

@@ -239,14 +239,14 @@ func TestMicrotaskOrdering_PromiseReactionsAreMicrotasks(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
 		// Attach then handler (promise reaction = microtask)
-		p.Then(func(v Result) Result {
+		p.Then(func(v any) any {
 			appendOrder("promise-then")
 			return v
 		}, nil)
 
 		// Attach catch handler (must use separate chain since first is not rejected)
 		p2, _, reject2 := js.NewChainedPromise()
-		p2.Catch(func(r Result) Result {
+		p2.Catch(func(r any) any {
 			appendOrder("promise-catch")
 			return r
 		})
@@ -393,16 +393,16 @@ func TestMicrotaskOrdering_ChainsAcrossTicks(t *testing.T) {
 	// Create a promise chain
 	p, resolve, _ := js.NewChainedPromise()
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, "chain-1")
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		order = append(order, "chain-2")
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		order = append(order, "chain-3")
 		return v.(int) + 1
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		order = append(order, "chain-4")
 		return v
 	}, nil)
@@ -439,8 +439,8 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	if !loop.StrictMicrotaskOrdering {
-		t.Fatal("Expected StrictMicrotaskOrdering to be true")
+	if !loop.strictMicrotaskOrdering {
+		t.Fatal("Expected strictMicrotaskOrdering to be true")
 	}
 
 	go func() { loop.Run(ctx) }()
@@ -536,7 +536,7 @@ func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
 
 	// Promise reaction
 	p, resolve, _ := js.NewChainedPromise()
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		order = append(order, "promiseReaction-1")
 		return v
 	}, nil)

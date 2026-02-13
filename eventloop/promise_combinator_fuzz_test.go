@@ -109,9 +109,9 @@ func FuzzPromiseAll(f *testing.F) {
 		}
 
 		// Verify order preserved
-		arr, ok := result.Value().([]Result)
+		arr, ok := result.Value().([]any)
 		if !ok {
-			t.Fatalf("Expected []Result, got %T", result.Value())
+			t.Fatalf("Expected []any, got %T", result.Value())
 		}
 		if len(arr) != count {
 			t.Fatalf("Expected %d elements, got %d", count, len(arr))
@@ -349,9 +349,9 @@ func FuzzPromiseAllSettled(f *testing.F) {
 		}
 
 		// Verify results
-		arr, ok := result.Value().([]Result)
+		arr, ok := result.Value().([]any)
 		if !ok {
-			t.Fatalf("Expected []Result, got %T", result.Value())
+			t.Fatalf("Expected []any, got %T", result.Value())
 		}
 		if len(arr) != count {
 			t.Fatalf("Expected %d elements, got %d", count, len(arr))
@@ -578,7 +578,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 			t.Fatalf("Expected Fulfilled, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != promiseCount {
 			t.Fatalf("Expected %d elements, got %d", promiseCount, len(arr))
 		}
@@ -628,7 +628,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 			t.Fatalf("AllSettled should always fulfill, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != promiseCount {
 			t.Fatalf("Expected %d elements, got %d", promiseCount, len(arr))
 		}
@@ -694,7 +694,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 			t.Fatalf("Expected Fulfilled, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != 1 {
 			t.Fatalf("Expected 1 element, got %d", len(arr))
 		}
@@ -729,7 +729,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 			t.Fatalf("Expected Fulfilled, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != 2 {
 			t.Fatalf("Expected 2 elements, got %d", len(arr))
 		}
@@ -764,7 +764,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 			t.Fatalf("Expected Fulfilled, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != 2 || arr[0] != "1a" || arr[1] != "1b" {
 			t.Errorf("Unexpected result: %v", arr)
 		}
@@ -810,7 +810,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 			t.Fatalf("Expected Fulfilled, got %v", result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != 1 || arr[0] != deepestValue {
 			t.Errorf("Expected [%s], got %v", deepestValue, arr)
 		}
@@ -1008,7 +1008,7 @@ func TestPromiseAll_ConcurrentSettlement(t *testing.T) {
 			t.Fatalf("Iteration %d: Expected Fulfilled, got %v", iter, result.State())
 		}
 
-		arr := result.Value().([]Result)
+		arr := result.Value().([]any)
 		if len(arr) != promisesPerIteration {
 			t.Fatalf("Iteration %d: Expected %d elements, got %d",
 				iter, promisesPerIteration, len(arr))

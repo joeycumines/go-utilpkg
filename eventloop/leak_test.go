@@ -68,13 +68,13 @@ func TestLeak_LongPromiseChains(t *testing.T) {
 		// Create a long promise chain
 		p := js.Resolve(0)
 		for j := 0; j < chainLength; j++ {
-			p = p.Then(func(r Result) Result {
+			p = p.Then(func(r any) any {
 				v := r.(int)
 				return v + 1
 			}, nil)
 		}
 
-		p.Then(func(r Result) Result {
+		p.Then(func(r any) any {
 			if int(completed.Add(1)) == numChains {
 				close(done)
 			}
@@ -215,7 +215,7 @@ func TestLeak_UnhandledRejections(t *testing.T) {
 
 	// Track unhandled rejections
 	var unhandledCount atomic.Int32
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason Result) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		unhandledCount.Add(1)
 	}))
 	if err != nil {
@@ -306,7 +306,7 @@ func TestLeak_PromiseWithHandlers(t *testing.T) {
 		}
 
 		p, resolve, _ := js.NewChainedPromise()
-		p.Then(func(r Result) Result {
+		p.Then(func(r any) any {
 			// Use the data
 			_ = data[0]
 			if int(completed.Add(1)) == numPromises {
@@ -388,10 +388,10 @@ func TestLeak_RegistryCleanup(t *testing.T) {
 			p, resolve, reject := js.NewChainedPromise()
 
 			// Add handlers
-			p.Then(func(r Result) Result {
+			p.Then(func(r any) any {
 				wg.Done()
 				return nil
-			}, func(r Result) Result {
+			}, func(r any) any {
 				wg.Done()
 				return nil
 			})
@@ -673,12 +673,12 @@ func TestLeak_PromiseCombinators(t *testing.T) {
 			combinedPromise = js.Any(promises)
 		}
 
-		combinedPromise.Then(func(r Result) Result {
+		combinedPromise.Then(func(r any) any {
 			if int(completed.Add(1)) == numCombinations {
 				close(done)
 			}
 			return nil
-		}, func(r Result) Result {
+		}, func(r any) any {
 			if int(completed.Add(1)) == numCombinations {
 				close(done)
 			}
@@ -763,7 +763,7 @@ func TestLeak_ConcurrentOperations(t *testing.T) {
 				}
 
 				p, resolve, _ := js.NewChainedPromise()
-				p.Then(func(r Result) Result {
+				p.Then(func(r any) any {
 					_ = data[0]
 					if int(completed.Add(1)) == numGoroutines*operationsPerGoroutine {
 						close(done)
@@ -918,7 +918,7 @@ func TestLeak_LongRunningLoop(t *testing.T) {
 	// Get baseline after warmup
 	for i := 0; i < 100; i++ {
 		p, resolve, _ := js.NewChainedPromise()
-		p.Then(func(r Result) Result { return nil }, nil)
+		p.Then(func(r any) any { return nil }, nil)
 		resolve(i)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -939,10 +939,10 @@ func TestLeak_LongRunningLoop(t *testing.T) {
 			wg.Add(1)
 
 			p, resolve, reject := js.NewChainedPromise()
-			p.Then(func(r Result) Result {
+			p.Then(func(r any) any {
 				wg.Done()
 				return nil
-			}, func(r Result) Result {
+			}, func(r any) any {
 				wg.Done()
 				return nil
 			})

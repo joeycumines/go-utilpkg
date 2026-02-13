@@ -186,9 +186,9 @@ func TestTry_Chaining(t *testing.T) {
 	result := make(chan any, 1)
 	promise := js.Try(func() any {
 		return 42
-	}).Then(func(v Result) Result {
+	}).Then(func(v any) any {
 		return v.(int) * 2
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		result <- v
 		return nil
 	}, nil)
@@ -232,7 +232,7 @@ func TestTry_PanicChaining(t *testing.T) {
 	result := make(chan any, 1)
 	promise := js.Try(func() any {
 		panic("oops")
-	}).Catch(func(r Result) Result {
+	}).Catch(func(r any) any {
 		panicErr, ok := r.(PanicError)
 		if ok {
 			result <- panicErr.Value

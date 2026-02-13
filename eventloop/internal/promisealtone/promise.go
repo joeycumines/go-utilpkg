@@ -8,9 +8,6 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// Result is an alias for eventloop.Result
-type Result = eventloop.Result
-
 // PromiseState is an alias for eventloop.PromiseState
 type PromiseState = eventloop.PromiseState
 
@@ -28,7 +25,7 @@ type Promise struct { // betteralign:ignore
 	// The value or reason of the promise.
 	// Written ONCE before state transition to Fulfilled/Rejected.
 	// Read safely without lock after checking state.
-	result Result
+	result any
 
 	// Optimization: Embedded first handler to avoid slice allocation for simple chains.
 	// This covers the 99% case of linear chaining (A.Then(B).Then(C)).
@@ -51,16 +48,16 @@ type Promise struct { // betteralign:ignore
 // handler represents a reaction to promise settlement.
 // Optimized to point directly to the target promise, avoiding closure allocations.
 type handler struct {
-	onFulfilled func(Result) Result
-	onRejected  func(Result) Result
+	onFulfilled func(any) any
+	onRejected  func(any) any
 	target      *Promise
 }
 
 // ResolveFunc is the function used to fulfill a promise.
-type ResolveFunc func(Result)
+type ResolveFunc func(any)
 
 // RejectFunc is the function used to reject a promise.
-type RejectFunc func(Result)
+type RejectFunc func(any)
 
 // unique error to detect cycles efficiently
 // var errCycle = fmt.Errorf("TypeError: Chaining cycle detected")
@@ -71,11 +68,11 @@ func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 
 	// Capture closures only for the root promise.
 	// Chained promises will not use these pointers.
-	resolve := func(value Result) {
+	resolve := func(value any) {
 		p.resolve(value)
 	}
 
-	reject := func(reason Result) {
+	reject := func(reason any) {
 		p.reject(reason)
 	}
 
@@ -99,7 +96,7 @@ func (p *Promise) State() PromiseState {
 
 // Value returns the fulfillment value.
 // Lock-free.
-func (p *Promise) Value() Result {
+func (p *Promise) Value() any {
 	if p.state.Load() != int32(Fulfilled) {
 		return nil
 	}
@@ -108,7 +105,7 @@ func (p *Promise) Value() Result {
 
 // Reason returns the rejection reason.
 // Lock-free.
-func (p *Promise) Reason() Result {
+func (p *Promise) Reason() any {
 	if p.state.Load() != int32(Rejected) {
 		return nil
 	}
@@ -117,7 +114,7 @@ func (p *Promise) Reason() Result {
 
 // Result returns the result (value or reason) if settled, or nil if pending.
 // Lock-free.
-func (p *Promise) Result() Result {
+func (p *Promise) Result() any {
 	if p.state.Load() == int32(Pending) {
 		return nil
 	}
@@ -125,7 +122,7 @@ func (p *Promise) Result() Result {
 }
 
 // Then adds handlers.
-func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
+func (p *Promise) Then(onFulfilled, onRejected func(any) any) *Promise {
 	// Create the next promise in the chain without allocating resolve/reject closures
 	child := newPromise(p.js)
 
@@ -177,7 +174,7 @@ func (p *Promise) addHandler(h handler) {
 }
 
 // Catch adds a rejection handler.
-func (p *Promise) Catch(onRejected func(Result) Result) *Promise {
+func (p *Promise) Catch(onRejected func(any) any) *Promise {
 	return p.Then(nil, onRejected)
 }
 
@@ -199,7 +196,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	// We reuse the standard handler mechanism but manually construct the callbacks
 
 	// Helper to reduce code duplication
-	runFinally := func(res Result, isRej bool) {
+	runFinally := func(res any, isRej bool) {
 		// Run finally block
 		defer func() {
 			if r := recover(); r != nil {
@@ -217,11 +214,11 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	}
 
 	h := handler{
-		onFulfilled: func(v Result) Result {
+		onFulfilled: func(v any) any {
 			runFinally(v, false)
 			return nil // Return ignored as we manually resolve `next`
 		},
-		onRejected: func(r Result) Result {
+		onRejected: func(r any) any {
 			runFinally(r, true)
 			return nil
 		},
@@ -232,7 +229,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	return next
 }
 
-func (p *Promise) resolve(value Result) {
+func (p *Promise) resolve(value any) {
 	// Check for chaining
 	if pr, ok := value.(*Promise); ok {
 		if pr == p {
@@ -281,7 +278,7 @@ func (p *Promise) resolve(value Result) {
 	}
 }
 
-func (p *Promise) reject(reason Result) {
+func (p *Promise) reject(reason any) {
 	if p.state.Load() != int32(Pending) {
 		return
 	}
@@ -316,7 +313,7 @@ func (p *Promise) reject(reason Result) {
 	}
 }
 
-func (p *Promise) scheduleHandler(h handler, state int32, result Result) {
+func (p *Promise) scheduleHandler(h handler, state int32, result any) {
 	if p.js == nil {
 		// Fallback for no loop (testing?) or sync execution
 		p.executeHandler(h, state, result)
@@ -330,7 +327,7 @@ func (p *Promise) scheduleHandler(h handler, state int32, result Result) {
 
 // Observe adds handlers without creating a child promise.
 // This is useful for fire-and-forget scenarios or combinators like All.
-func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
+func (p *Promise) Observe(onFulfilled, onRejected func(any) any) {
 	h := handler{
 		onFulfilled: onFulfilled,
 		onRejected:  onRejected,
@@ -339,8 +336,8 @@ func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
 	p.addHandler(h)
 }
 
-func (p *Promise) executeHandler(h handler, state int32, result Result) {
-	var fn func(Result) Result
+func (p *Promise) executeHandler(h handler, state int32, result any) {
+	var fn func(any) any
 
 	// Determine which user callback to run
 	if state == int32(Fulfilled) {
@@ -380,13 +377,13 @@ func (p *Promise) executeHandler(h handler, state int32, result Result) {
 }
 
 // ToChannel returns a channel that receives the result.
-func (p *Promise) ToChannel() <-chan Result {
-	ch := make(chan Result, 1)
-	p.Then(func(v Result) Result {
+func (p *Promise) ToChannel() <-chan any {
+	ch := make(chan any, 1)
+	p.Then(func(v any) any {
 		ch <- v
 		close(ch)
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		ch <- r
 		close(ch)
 		return nil
@@ -399,11 +396,11 @@ func All(js *eventloop.JS, promises []*Promise) *Promise {
 	result := newPromise(js)
 
 	if len(promises) == 0 {
-		result.resolve([]Result{})
+		result.resolve([]any{})
 		return result
 	}
 
-	results := make([]Result, len(promises))
+	results := make([]any, len(promises))
 	pending := int32(len(promises))
 
 	// Optimization: onRejected is nil, so rejections are forwarded directly to result.
@@ -412,7 +409,7 @@ func All(js *eventloop.JS, promises []*Promise) *Promise {
 	for i, p := range promises {
 		i := i
 		h := handler{
-			onFulfilled: func(v Result) Result {
+			onFulfilled: func(v any) any {
 				results[i] = v
 				if atomic.AddInt32(&pending, -1) == 0 {
 					result.resolve(results)
@@ -431,10 +428,10 @@ func All(js *eventloop.JS, promises []*Promise) *Promise {
 // Helper to check interface compliance
 var _ interface {
 	State() PromiseState
-	Value() Result
-	Reason() Result
-	Then(func(Result) Result, func(Result) Result) *Promise
-	Catch(func(Result) Result) *Promise
+	Value() any
+	Reason() any
+	Then(func(any) any, func(any) any) *Promise
+	Catch(func(any) any) *Promise
 	Finally(func()) *Promise
 } = (*Promise)(nil)
 
@@ -462,11 +459,11 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 	result := newPromise(js)
 
 	if len(promises) == 0 {
-		result.resolve([]Result{})
+		result.resolve([]any{})
 		return result
 	}
 
-	results := make([]Result, len(promises))
+	results := make([]any, len(promises))
 	pending := int32(len(promises))
 
 	// AllSettled needs to handle both paths to aggregate.
@@ -481,12 +478,12 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 		}
 
 		h := handler{
-			onFulfilled: func(v Result) Result {
+			onFulfilled: func(v any) any {
 				results[i] = map[string]interface{}{"status": "fulfilled", "value": v}
 				checkDone()
 				return nil
 			},
-			onRejected: func(r Result) Result {
+			onRejected: func(r any) any {
 				results[i] = map[string]interface{}{"status": "rejected", "reason": r}
 				checkDone()
 				return nil
@@ -509,7 +506,7 @@ func Any(js *eventloop.JS, promises []*Promise) *Promise {
 		return result
 	}
 
-	errors := make([]Result, len(promises))
+	errors := make([]any, len(promises))
 	pending := int32(len(promises))
 
 	// Optimization: onFulfilled is nil, so fulfillment is forwarded directly.
@@ -519,7 +516,7 @@ func Any(js *eventloop.JS, promises []*Promise) *Promise {
 		i := i
 		h := handler{
 			onFulfilled: nil, // Forward fulfillment immediately
-			onRejected: func(r Result) Result {
+			onRejected: func(r any) any {
 				errors[i] = r
 				if atomic.AddInt32(&pending, -1) == 0 {
 					result.reject(errors)
@@ -557,7 +554,7 @@ func (p *Promise) String() string {
 func (p *Promise) Await(ctx interface {
 	Done() <-chan struct{}
 	Err() error
-}) (Result, error) {
+}) (any, error) {
 	// Fast path
 	state := p.State()
 	if state == Fulfilled {
@@ -577,13 +574,13 @@ func (p *Promise) Await(ctx interface {
 		return nil, fmt.Errorf("%v", p.result)
 	}
 
-	ch := make(chan Result, 1)
-	errCh := make(chan Result, 1)
+	ch := make(chan any, 1)
+	errCh := make(chan any, 1)
 
-	p.Observe(func(v Result) Result {
+	p.Observe(func(v any) any {
 		ch <- v
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		errCh <- r
 		return nil
 	})

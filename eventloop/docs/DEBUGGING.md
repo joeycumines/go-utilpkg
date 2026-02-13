@@ -38,7 +38,7 @@ This document provides practical guidance for debugging common issues in the `ev
    // BAD: Promise A waits for B, B waits for A
    var promiseA, promiseB *ChainedPromise
    promiseA = js.NewPromise(func(resolve, reject Settler) {
-       promiseB.Then(func(r Result) Result {
+       promiseB.Then(func(r any) any {
            resolve(r)
            return nil
        }, nil)
@@ -88,7 +88,7 @@ This document provides practical guidance for debugging common issues in the `ev
    promise := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
        return http.Get("https://slow-server.com")
    })
-   promise.Then(func(r Result) Result {
+   promise.Then(func(r any) any {
        process(r.(*http.Response))
        return nil
    }, nil)
@@ -105,10 +105,10 @@ This document provides practical guidance for debugging common issues in the `ev
    ```go
    // GOOD: Chain promises instead of blocking
    fetchUser(userID).
-       Then(func(user Result) Result {
+       Then(func(user any) any {
            return fetchOrders(user.(*User).ID) // Returns promise
        }, nil).
-       Then(func(orders Result) Result {
+       Then(func(orders any) any {
            displayOrders(orders)
            return nil
        }, nil)

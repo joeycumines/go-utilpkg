@@ -9,9 +9,6 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// Result is an alias for eventloop.Result
-type Result = eventloop.Result
-
 // PromiseState is an alias for eventloop.PromiseState
 type PromiseState = eventloop.PromiseState
 
@@ -33,21 +30,21 @@ var nodePool = sync.Pool{
 
 // Promise is a lock-free implementation with POOLED linked-list handlers.
 type Promise struct { // betteralign:ignore
-	result  Result
+	result  any
 	handler unsafe.Pointer // *handlerNode
 	js      *eventloop.JS
 	state   atomic.Int32
 }
 
 type handlerNode struct {
-	onFulfilled func(Result) Result
-	onRejected  func(Result) Result
+	onFulfilled func(any) any
+	onRejected  func(any) any
 	next        *handlerNode
 	target      *Promise
 }
 
-type ResolveFunc func(Result)
-type RejectFunc func(Result)
+type ResolveFunc func(any)
+type RejectFunc func(any)
 
 func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 	p := &Promise{
@@ -55,11 +52,11 @@ func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 	}
 	p.state.Store(int32(Pending))
 
-	resolve := func(value Result) {
+	resolve := func(value any) {
 		p.resolve(value)
 	}
 
-	reject := func(reason Result) {
+	reject := func(reason any) {
 		p.reject(reason)
 	}
 
@@ -70,7 +67,7 @@ func (p *Promise) State() PromiseState {
 	return PromiseState(p.state.Load())
 }
 
-func (p *Promise) Result() Result {
+func (p *Promise) Result() any {
 	if p.state.Load() == int32(Pending) {
 		return nil
 	}
@@ -78,7 +75,7 @@ func (p *Promise) Result() Result {
 }
 
 // Then uses a pooled node.
-func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
+func (p *Promise) Then(onFulfilled, onRejected func(any) any) *Promise {
 	child := &Promise{js: p.js}
 	child.state.Store(int32(Pending))
 
@@ -93,7 +90,7 @@ func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
 	return child
 }
 
-func (p *Promise) Catch(onRejected func(Result) Result) *Promise {
+func (p *Promise) Catch(onRejected func(any) any) *Promise {
 	return p.Then(nil, onRejected)
 }
 
@@ -104,7 +101,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 
 	next, resolve, reject := New(p.js)
 
-	runFinally := func(res Result, isRej bool) {
+	runFinally := func(res any, isRej bool) {
 		defer func() {
 			if r := recover(); r != nil {
 				reject(r)
@@ -119,11 +116,11 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	}
 
 	node := nodePool.Get().(*handlerNode)
-	node.onFulfilled = func(v Result) Result {
+	node.onFulfilled = func(v any) any {
 		runFinally(v, false)
 		return nil
 	}
-	node.onRejected = func(r Result) Result {
+	node.onRejected = func(r any) any {
 		runFinally(r, true)
 		return nil
 	}
@@ -160,17 +157,17 @@ func (p *Promise) addHandler(node *handlerNode) {
 	}
 }
 
-func (p *Promise) resolve(value Result) {
+func (p *Promise) resolve(value any) {
 	if pr, ok := value.(*Promise); ok && pr == p {
 		p.reject(fmt.Errorf("TypeError: chaining cycle"))
 		return
 	}
 
 	if pr, ok := value.(*Promise); ok {
-		pr.Observe(func(v Result) Result {
+		pr.Observe(func(v any) any {
 			p.resolve(v)
 			return nil
-		}, func(r Result) Result {
+		}, func(r any) any {
 			p.reject(r)
 			return nil
 		})
@@ -185,7 +182,7 @@ func (p *Promise) resolve(value Result) {
 	p.processHandlers(int32(Fulfilled), value)
 }
 
-func (p *Promise) reject(reason Result) {
+func (p *Promise) reject(reason any) {
 	if !p.state.CompareAndSwap(int32(Pending), int32(Rejected)) {
 		return
 	}
@@ -194,7 +191,7 @@ func (p *Promise) reject(reason Result) {
 	p.processHandlers(int32(Rejected), reason)
 }
 
-func (p *Promise) processHandlers(state int32, result Result) {
+func (p *Promise) processHandlers(state int32, result any) {
 	head := atomic.SwapPointer(&p.handler, closedHandlers)
 
 	// Reverse list
@@ -216,7 +213,7 @@ func (p *Promise) processHandlers(state int32, result Result) {
 	}
 }
 
-func (p *Promise) scheduleHandler(node *handlerNode, state int32, result Result) {
+func (p *Promise) scheduleHandler(node *handlerNode, state int32, result any) {
 	if p.js == nil {
 		p.executeHandler(node, state, result)
 		return
@@ -226,7 +223,7 @@ func (p *Promise) scheduleHandler(node *handlerNode, state int32, result Result)
 	})
 }
 
-func (p *Promise) executeHandler(node *handlerNode, state int32, result Result) {
+func (p *Promise) executeHandler(node *handlerNode, state int32, result any) {
 	// Recycle node at the end of execution
 	defer func() {
 		node.onFulfilled = nil
@@ -236,7 +233,7 @@ func (p *Promise) executeHandler(node *handlerNode, state int32, result Result) 
 		nodePool.Put(node)
 	}()
 
-	var fn func(Result) Result
+	var fn func(any) any
 	if state == int32(Fulfilled) {
 		fn = node.onFulfilled
 	} else {
@@ -268,7 +265,7 @@ func (p *Promise) executeHandler(node *handlerNode, state int32, result Result) 
 	}
 }
 
-func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
+func (p *Promise) Observe(onFulfilled, onRejected func(any) any) {
 	node := nodePool.Get().(*handlerNode)
 	node.onFulfilled = onFulfilled
 	node.onRejected = onRejected
@@ -278,13 +275,13 @@ func (p *Promise) Observe(onFulfilled, onRejected func(Result) Result) {
 }
 
 // ToChannel returns a channel (helper)
-func (p *Promise) ToChannel() <-chan Result {
-	ch := make(chan Result, 1)
-	p.Observe(func(v Result) Result {
+func (p *Promise) ToChannel() <-chan any {
+	ch := make(chan any, 1)
+	p.Observe(func(v any) any {
 		ch <- v
 		close(ch)
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		ch <- r
 		close(ch)
 		return nil

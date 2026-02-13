@@ -54,9 +54,33 @@ func Test_fastPollerAlign_Linux(t *testing.T) {
 		t.Errorf("FAIL: closed atomic.Bool shares cache line (offset %d, ends at %d, line %d-%d)", closedOffset, closedEnd, closedLineStart, closedLineEnd-1)
 	}
 
+	// Check initialized offset
+	initOffset := unsafe.Offsetof(s.initialized)
+	initSize := unsafe.Sizeof(s.initialized)
+	fmt.Printf("initialized: offset=%d, size=%d\n", initOffset, initSize)
+
+	// Verify initialized atomic.Bool is on its own cache line (separate from closed)
+	initLineStart := (initOffset / sizeOfCacheLine) * sizeOfCacheLine
+	initLineEnd := initLineStart + sizeOfCacheLine
+
+	initEnd := initOffset + initSize
+	if initOffset >= initLineStart && initEnd <= initLineEnd {
+		fmt.Printf("✓ initialized is isolated on its own cache line (%d-%d)\n", initLineStart, initLineEnd-1)
+	} else {
+		t.Errorf("FAIL: initialized shares cache line (offset %d, ends at %d, line %d-%d)", initOffset, initEnd, initLineStart, initLineEnd-1)
+	}
+
+	// Verify closed and initialized are on DIFFERENT cache lines
+	if closedLineStart != initLineStart {
+		fmt.Printf("✓ closed and initialized on different cache lines (%d vs %d)\n", closedLineStart, initLineStart)
+	} else {
+		t.Errorf("FAIL: closed and initialized share same cache line (%d)", closedLineStart)
+	}
+
 	// Verify total structure size
 	expectedMinSize := sizeOfCacheLine + epfdSize + (sizeOfCacheLine - epfdSize) + // padding before and after epfd
-		sizeOfCacheLine + uintptr(closedSize) + (sizeOfCacheLine - uintptr(closedSize)) // padding before and after closed
+		sizeOfCacheLine + uintptr(closedSize) + (sizeOfCacheLine - uintptr(closedSize)) + // padding before and after closed
+		sizeOfCacheLine + uintptr(initSize) // padding before initialized + initialized
 
 	actualSize := unsafe.Sizeof(*s)
 	fmt.Printf("\nExpected minimum size: %d bytes\n", expectedMinSize)

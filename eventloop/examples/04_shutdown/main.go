@@ -142,7 +142,7 @@ func shutdownUnderLoadExample() {
 
 	// Attach handlers to all promises
 	for _, p := range promises {
-		p.Then(func(v eventloop.Result) eventloop.Result {
+		p.Then(func(v any) any {
 			completed++
 			fmt.Printf("Completed: %v (total: %d)\n", v, completed)
 			return nil

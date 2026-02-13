@@ -44,7 +44,7 @@ func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 	// Start multiple slow Promisify operations that take longer than the old timeout
 	for i := 0; i < numGoroutines; i++ {
 		go func(idx int) {
-			p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+			p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				// Simulate slow operation BEFORE submitting result
 				time.Sleep(slowDelay)
 
@@ -136,7 +136,7 @@ func TestPromisify_VerySlowOperation_ShutdownStillWaits(t *testing.T) {
 	}()
 
 	promiseSubmitted := make(chan struct{})
-	promise := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	promise := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		// Block for a very long time
 		time.Sleep(verySlowDelay)
 		return "slow-result", nil
@@ -188,9 +188,14 @@ func TestPromisify_MultipleShutdowns(t *testing.T) {
 		close(runDone)
 	}()
 
+	// Ensure the loop goroutine is scheduled and running before proceeding.
+	// Without this, on Windows the Shutdown goroutines can win the scheduling
+	// race and terminate the loop before Run() even starts.
+	time.Sleep(20 * time.Millisecond)
+
 	// Start a slow Promisify operation
 	completed := make(chan struct{})
-	loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		time.Sleep(slowDelay)
 		close(completed)
 		return "done", nil
@@ -203,8 +208,8 @@ func TestPromisify_MultipleShutdowns(t *testing.T) {
 	for i := 0; i < numShutdowns; i++ {
 		go func(idx int) {
 			err := loop.Shutdown(context.Background())
-			shutdownErrors <- err
 			t.Logf("Shutdown %d completed with err=%v", idx, err)
+			shutdownErrors <- err
 		}(i)
 	}
 

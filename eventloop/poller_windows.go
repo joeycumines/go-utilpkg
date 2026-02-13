@@ -22,17 +22,26 @@ const maxFDLimit = 100000000
 type IOEvents uint32
 
 const (
+	// EventRead indicates readability (data available to read).
 	EventRead IOEvents = 1 << iota
+	// EventWrite indicates writability (buffer space available to write).
 	EventWrite
+	// EventError indicates an error condition on the file descriptor.
 	EventError
+	// EventHangup indicates the remote end has closed the connection.
 	EventHangup
 )
 
 var (
-	ErrFDOutOfRange             = errors.New("eventloop: fd out of range (max 100000000)")
-	ErrFDAlreadyRegistered      = errors.New("eventloop: fd already registered")
-	ErrFDNotRegistered          = errors.New("eventloop: fd not registered")
-	ErrPollerClosed             = errors.New("eventloop: poller closed")
+	// ErrFDOutOfRange is returned when a file descriptor exceeds the maximum supported value.
+	ErrFDOutOfRange = errors.New("eventloop: fd out of range (max 100000000)")
+	// ErrFDAlreadyRegistered is returned when attempting to register an FD that is already registered.
+	ErrFDAlreadyRegistered = errors.New("eventloop: fd already registered")
+	// ErrFDNotRegistered is returned when attempting to modify or unregister an FD that is not registered.
+	ErrFDNotRegistered = errors.New("eventloop: fd not registered")
+	// ErrPollerClosed is returned when performing operations on a closed poller.
+	ErrPollerClosed = errors.New("eventloop: poller closed")
+	// ErrPollerAlreadyInitialized is returned when Init is called on an already initialized poller.
 	ErrPollerAlreadyInitialized = errors.New("eventloop: poller already initialized")
 )
 
@@ -345,8 +354,8 @@ func (p *fastPoller) Wakeup() error {
 	return windows.PostQueuedCompletionStatus(p.iocp, 0, 0, nil)
 }
 
-// IocpHandle returns the handle for external use (e.g., wake-up mechanism).
+// IOCPHandle returns the handle for external use (e.g., wake-up mechanism).
 // This is needed by loop.go's submitWakeup() on Windows.
-func (p *fastPoller) IocpHandle() uintptr {
+func (p *fastPoller) IOCPHandle() uintptr {
 	return uintptr(p.iocp)
 }

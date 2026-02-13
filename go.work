@@ -9,7 +9,12 @@ use (
 	./fangrpcstream
 	./floater
 	./goja-eventloop
+	./goja-grpc
+	./goja-protobuf
+	./goja-protojson
 	./grpc-proxy
+	./inprocgrpc
+	./inprocgrpc/internal/grpchantest
 	./jsonenc
 	./logiface
 	./logiface-logrus

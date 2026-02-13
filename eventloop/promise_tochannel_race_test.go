@@ -125,7 +125,7 @@ func TestPromiseToChannel_MultipleChannelsRace(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
 		var wg sync.WaitGroup
-		channels := make([]<-chan Result, channelsPerPromise)
+		channels := make([]<-chan any, channelsPerPromise)
 
 		// Launch multiple goroutines calling ToChannel concurrently
 		for j := 0; j < channelsPerPromise; j++ {

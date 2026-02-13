@@ -77,8 +77,8 @@ func TestNewJSWithLoopOptions(t *testing.T) {
 		t.Fatalf("NewJS() failed: %v", err)
 	}
 
-	if !loop.StrictMicrotaskOrdering {
-		t.Error("Loop should have StrictMicrotaskOrdering=true")
+	if !loop.strictMicrotaskOrdering {
+		t.Error("Loop should have strictMicrotaskOrdering=true")
 	}
 	if js.Loop() != loop {
 		t.Error("JS loop reference incorrect")
@@ -115,14 +115,14 @@ func TestJSPromiseStress100Chains(t *testing.T) {
 		// Build chain of depth 10
 		currentPromise := p
 		for j := 0; j < chainDepth; j++ {
-			currentPromise = currentPromise.Then(func(v Result) Result {
+			currentPromise = currentPromise.Then(func(v any) any {
 				// At each step, increment value by 1
 				return v.(int) + 1
 			}, nil)
 		}
 
 		// Final handler marks chain as complete
-		currentPromise.Then(func(v Result) Result {
+		currentPromise.Then(func(v any) any {
 			completedChains[chainIndex] = v.(int)
 			mu <- true
 			return v
@@ -204,7 +204,7 @@ func TestJSMixedWorkloadOrdering(t *testing.T) {
 
 	// Create and resolve a promise (its then handler is a microtask)
 	p, resolve, _ := js.NewChainedPromise()
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		addOrder("promise-then")
 		return v
 	}, nil)

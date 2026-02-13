@@ -67,7 +67,7 @@ func TestThen(t *testing.T) {
 	p, resolve, _ := New(nil)
 
 	resolve("original")
-	_ = p.Then(func(v Result) Result {
+	_ = p.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil)
 
@@ -79,7 +79,7 @@ func TestCatch(t *testing.T) {
 	p, _, reject := New(nil)
 
 	recovered := false
-	p.Catch(func(r Result) Result {
+	p.Catch(func(r any) any {
 		recovered = true
 		return r
 	})
@@ -113,7 +113,7 @@ func TestMultipleThen(t *testing.T) {
 
 	chain := p
 	for i := 0; i < 5; i++ {
-		chain = chain.Then(func(v Result) Result {
+		chain = chain.Then(func(v any) any {
 			return v
 		}, nil)
 	}
@@ -163,7 +163,7 @@ func TestConcurrentPromises(t *testing.T) {
 			defer wg.Done()
 			p, resolve, _ := New(nil)
 
-			p.Then(func(v Result) Result {
+			p.Then(func(v any) any {
 				return v
 			}, nil)
 
@@ -188,7 +188,7 @@ func TestNilHandlers(t *testing.T) {
 
 // TestResultTypes tests promise with different result types
 func TestResultTypes(t *testing.T) {
-	testCases := []Result{
+	testCases := []any{
 		nil,
 		"string",
 		42,
@@ -216,7 +216,7 @@ func TestChainedPromises(t *testing.T) {
 	var mu sync.Mutex
 
 	for i := 0; i < 5; i++ {
-		p.Then(func(v Result) Result {
+		p.Then(func(v any) any {
 			mu.Lock()
 			results = append(results, "handled")
 			mu.Unlock()
@@ -231,7 +231,7 @@ func TestChainedPromises(t *testing.T) {
 func TestRejectChain(t *testing.T) {
 	p, _, reject := New(nil)
 
-	_ = p.Catch(func(r Result) Result {
+	_ = p.Catch(func(r any) any {
 		return errors.New("handled")
 	})
 

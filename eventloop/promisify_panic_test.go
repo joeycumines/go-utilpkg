@@ -25,7 +25,7 @@ func TestPromisify_PanicRecovery(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Test 1: Panic with string
-	p1 := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p1 := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		panic("test string panic")
 	})
 
@@ -52,7 +52,7 @@ func TestPromisify_PanicRecovery(t *testing.T) {
 	}
 
 	// Test 2: Panic with integer
-	p2 := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p2 := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		panic(42)
 	})
 
@@ -99,7 +99,7 @@ func TestPromisify_PanicWithNil(t *testing.T) {
 
 	defer loop.Shutdown(context.Background())
 
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		panic(nil)
 	})
 
@@ -148,7 +148,7 @@ func TestPromisify_NormalError(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	expectedErr := fmt.Errorf("normal error")
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		return nil, expectedErr
 	})
 
@@ -183,7 +183,7 @@ func TestPromisify_MultipleConcurrent_Panics(t *testing.T) {
 
 	for i := 0; i < numPromises; i++ {
 		i := i
-		promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+		promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 			if i%2 == 0 {
 				panic(fmt.Sprintf("panic-%d", i))
 			}
@@ -239,7 +239,7 @@ func TestPromisify_Shutdown_DuringExecution(t *testing.T) {
 
 	// Start async work that takes time
 	started := make(chan struct{})
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(started)
 		time.Sleep(100 * time.Millisecond) // Async work
 		return "result", nil

@@ -25,7 +25,7 @@ func TestPromiseAny_EmptyArray(t *testing.T) {
 	// Should reject with AggregateError
 	handlerDone := make(chan struct{})
 	rejected := false
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -57,7 +57,7 @@ func TestPromiseAny_OnePromiseFulfills(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2})
 
 	var fulfilledValue string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		fulfilledValue = v.(string)
 		return nil
 	}, nil)
@@ -90,7 +90,7 @@ func TestPromiseAny_FirstToFulfillWins(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2, p3})
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)
@@ -140,7 +140,7 @@ func TestPromiseAny_AllReject(t *testing.T) {
 	// Should reject with AggregateError
 	handlerDone := make(chan struct{})
 	rejected := false
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -173,7 +173,7 @@ func TestPromiseAny_OneRejectsOthersFulfill(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2, p3})
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)
@@ -211,7 +211,7 @@ func TestPromiseAny_ConcurrentRejections(t *testing.T) {
 
 	const numPromises = 10
 	promises := make([]*ChainedPromise, numPromises)
-	rejectors := make([]func(Result), numPromises)
+	rejectors := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, _, r := js.NewChainedPromise()
@@ -230,7 +230,7 @@ func TestPromiseAny_ConcurrentRejections(t *testing.T) {
 	// Should reject with AggregateError
 	handlerDone := make(chan struct{})
 	rejected := false
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		close(handlerDone)
 		return nil
@@ -292,7 +292,7 @@ func TestPromiseAny_PanicInHandler(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1})
 
 	// Handler that panics
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		panic("handler panic")
 	}, nil)
 
@@ -319,7 +319,7 @@ func TestPromiseAny_SinglePromise(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1})
 
 	var value string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		value = v.(string)
 		return nil
 	}, nil)
@@ -353,7 +353,7 @@ func TestPromiseAny_AlreadyFulfilledPromise(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2})
 
 	var value string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		value = v.(string)
 		return nil
 	}, nil)
@@ -385,7 +385,7 @@ func TestPromiseAny_WithThenHandler(t *testing.T) {
 	var gotResult bool
 	var value string
 
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		gotResult = true
 		value = v.(string)
 		return nil
@@ -419,17 +419,17 @@ func TestPromiseAny_ChainedPromises(t *testing.T) {
 	p2, _, _ := js.NewChainedPromise()
 
 	// Create chains
-	chained1 := p1.Then(func(v Result) Result {
+	chained1 := p1.Then(func(v any) any {
 		return v.(string) + "-chained1"
 	}, nil)
-	chained2 := p2.Then(nil, func(r Result) Result {
+	chained2 := p2.Then(nil, func(r any) any {
 		return r.(error).Error() + "-chained2"
 	})
 
 	result := js.Any([]*ChainedPromise{chained1, chained2})
 
 	var value string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		value = v.(string)
 		return nil
 	}, nil)
@@ -467,7 +467,7 @@ func TestPromiseAny_AlreadyRejectedPromises(t *testing.T) {
 
 	// Should reject with AggregateError
 	rejected := false
-	result.Then(nil, func(r Result) Result {
+	result.Then(nil, func(r any) any {
 		rejected = true
 		return nil
 	})
@@ -507,7 +507,7 @@ func TestPromiseAny_PromiseAlreadySettled(t *testing.T) {
 
 	// Should resolve with p1 immediately
 	var value string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		value = v.(string)
 		return nil
 	}, nil)
@@ -534,7 +534,7 @@ func TestPromiseAny_LargeNumberOfPromises(t *testing.T) {
 
 	const numPromises = 50
 	promises := make([]*ChainedPromise, numPromises)
-	resolvers := make([]func(Result), numPromises)
+	resolvers := make([]func(any), numPromises)
 
 	for i := 0; i < numPromises; i++ {
 		p, r, _ := js.NewChainedPromise()
@@ -545,7 +545,7 @@ func TestPromiseAny_LargeNumberOfPromises(t *testing.T) {
 	result := js.Any(promises)
 
 	var winner string
-	result.Then(func(v Result) Result {
+	result.Then(func(v any) any {
 		winner = v.(string)
 		return nil
 	}, nil)

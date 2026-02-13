@@ -43,27 +43,6 @@ func (w *testEventWriter) Write(event *testEvent) error {
 	return nil
 }
 
-// --- RemoveEventListener coverage (no-op stubs, 0% → 100%) ---
-
-func TestAbortSignal_RemoveEventListener_NoOp(t *testing.T) {
-	ac := NewAbortController()
-	signal := ac.Signal()
-	// RemoveEventListener is a documented no-op (Go funcs can't be compared).
-	// Calling it should not panic.
-	signal.RemoveEventListener("abort", func(reason any) {})
-	signal.RemoveEventListener("abort", nil)
-	signal.RemoveEventListener("", func(reason any) {})
-}
-
-func TestEventTarget_RemoveEventListener_NoOp(t *testing.T) {
-	et := NewEventTarget()
-	// RemoveEventListener is a documented no-op.
-	// Calling it should not panic.
-	et.RemoveEventListener("click", nil)
-	et.RemoveEventListener("click", func(e *Event) {})
-	et.RemoveEventListener("", nil)
-}
-
 // --- logCritical coverage (20% → higher) ---
 
 func TestLogCritical_WithEnabledLogger(t *testing.T) {

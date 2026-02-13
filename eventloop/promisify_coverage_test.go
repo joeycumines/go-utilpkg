@@ -38,7 +38,7 @@ func TestPromisify_LoopAlreadyTerminated(t *testing.T) {
 	<-runDone
 
 	// Now call Promisify on the terminated loop
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		t.Error("Function should never be called on terminated loop")
 		return "shouldn't happen", nil
 	})
@@ -84,7 +84,7 @@ func TestPromisify_LoopTerminatingState(t *testing.T) {
 
 	// Try to create Promisify during termination - may or may not succeed
 	// depending on timing, but should never hang
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		return "result", nil
 	})
 
@@ -131,7 +131,7 @@ func TestPromisify_ContextCancelledBeforeGoroutineStarts(t *testing.T) {
 	cancel() // Cancel immediately
 
 	funcCalled := atomic.Bool{}
-	p := loop.Promisify(cancelCtx, func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(cancelCtx, func(ctx context.Context) (any, error) {
 		funcCalled.Store(true)
 		return "should not happen", nil
 	})
@@ -176,7 +176,7 @@ func TestPromisify_GoexitDetection(t *testing.T) {
 		<-runDone
 	}()
 
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		runtime.Goexit()
 		return nil, nil // Never reached
 	})
@@ -225,7 +225,7 @@ func TestPromisify_PanicWithValue(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+			p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				panic(tc.panicValue)
 			})
 
@@ -275,7 +275,7 @@ func TestPromisify_SubmitInternalFallbackOnError(t *testing.T) {
 	funcStarted := make(chan struct{})
 	funcContinue := make(chan struct{})
 
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		close(funcStarted)
 		<-funcContinue
 		return "expected result", nil
@@ -333,7 +333,7 @@ func TestPromisify_SubmitInternalFallbackOnPanic(t *testing.T) {
 
 	panicStarted := make(chan struct{})
 
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		// Signal we're about to panic
 		close(panicStarted)
 		// Small delay to allow shutdown to start
@@ -395,7 +395,7 @@ func TestPromisify_ConcurrentWithShutdown(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+			promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				time.Sleep(time.Duration(i) * time.Millisecond)
 				return i, nil
 			})
@@ -446,7 +446,7 @@ func TestPromisify_NormalSuccess(t *testing.T) {
 	}()
 
 	expected := "test result value"
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		return expected, nil
 	})
 
@@ -480,7 +480,7 @@ func TestPromisify_ReturnsError(t *testing.T) {
 	}()
 
 	expected := errors.New("expected error from function")
-	p := loop.Promisify(context.Background(), func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 		return nil, expected
 	})
 
@@ -521,7 +521,7 @@ func TestPromisify_ContextTimeoutDuringExecution(t *testing.T) {
 	defer cancel()
 
 	funcCompleted := atomic.Bool{}
-	p := loop.Promisify(timeoutCtx, func(ctx context.Context) (Result, error) {
+	p := loop.Promisify(timeoutCtx, func(ctx context.Context) (any, error) {
 		// Wait for context to be cancelled
 		<-ctx.Done()
 		funcCompleted.Store(true)

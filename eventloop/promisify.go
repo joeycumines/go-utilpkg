@@ -15,11 +15,13 @@ var (
 	ErrPanic = errors.New("promise: goroutine panicked")
 )
 
-// PanicError wraps a panic value.
+// PanicError wraps a panic value recovered from a [Loop.Promisify] goroutine.
 type PanicError struct {
+	// Value is the recovered panic value (may be any type, including error).
 	Value any
 }
 
+// Error implements the error interface.
 func (e PanicError) Error() string {
 	return fmt.Sprintf("promise: goroutine panicked: %v", e.Value)
 }
@@ -37,7 +39,7 @@ func (e PanicError) Error() string {
 //   - Fallback: Direct resolution if SubmitInternal fails (e.g., during shutdown) to ensure promises always settle.
 //   - Shutdown tracking: Uses promisifyWg to track in-flight goroutines so shutdown can wait for them.
 //   - Atomic check: Checks state before adding to promisifyWg to prevent race with shutdown.
-func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Result, error)) Promise {
+func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any, error)) Promise {
 	// Lock promisifyMu to atomically check state and add to promisifyWg
 	// This prevents race with shutdown which also holds promisifyMu
 	l.promisifyMu.Lock()
@@ -137,7 +139,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 //
 // Example:
 //
-//	promise := loop.PromisifyWithTimeout(ctx, 5*time.Second, func(ctx context.Context) (Result, error) {
+//	promise := loop.PromisifyWithTimeout(ctx, 5*time.Second, func(ctx context.Context) (any, error) {
 //	    // This context will be cancelled after 5 seconds
 //	    return fetchDataFromRemote(ctx)
 //	})
@@ -145,11 +147,11 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 // Thread Safety:
 // The returned Promise is safe for concurrent access. The function fn is
 // executed in a separate goroutine.
-func (l *Loop) PromisifyWithTimeout(parent context.Context, timeout time.Duration, fn func(ctx context.Context) (Result, error)) Promise {
+func (l *Loop) PromisifyWithTimeout(parent context.Context, timeout time.Duration, fn func(ctx context.Context) (any, error)) Promise {
 	ctx, cancel := context.WithTimeout(parent, timeout)
 
 	// Create a wrapper function that ensures cancel is called
-	wrappedFn := func(ctx context.Context) (Result, error) {
+	wrappedFn := func(ctx context.Context) (any, error) {
 		defer cancel()
 		return fn(ctx)
 	}
@@ -179,7 +181,7 @@ func (l *Loop) PromisifyWithTimeout(parent context.Context, timeout time.Duratio
 // Example:
 //
 //	deadline := time.Now().Add(10 * time.Second)
-//	promise := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (Result, error) {
+//	promise := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
 //	    // This context will be cancelled at the deadline
 //	    return processLargeDataset(ctx)
 //	})
@@ -187,11 +189,11 @@ func (l *Loop) PromisifyWithTimeout(parent context.Context, timeout time.Duratio
 // Thread Safety:
 // The returned Promise is safe for concurrent access. The function fn is
 // executed in a separate goroutine.
-func (l *Loop) PromisifyWithDeadline(parent context.Context, deadline time.Time, fn func(ctx context.Context) (Result, error)) Promise {
+func (l *Loop) PromisifyWithDeadline(parent context.Context, deadline time.Time, fn func(ctx context.Context) (any, error)) Promise {
 	ctx, cancel := context.WithDeadline(parent, deadline)
 
 	// Create a wrapper function that ensures cancel is called
-	wrappedFn := func(ctx context.Context) (Result, error) {
+	wrappedFn := func(ctx context.Context) (any, error) {
 		defer cancel()
 		return fn(ctx)
 	}

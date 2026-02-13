@@ -178,20 +178,6 @@ func (et *EventTarget) RemoveEventListenerByID(eventType string, id ListenerID) 
 	return false
 }
 
-// RemoveEventListener is provided for DOM API compatibility but is a no-op.
-//
-// In the DOM API, removeEventListener compares functions by reference.
-// Go function values cannot be reliably compared for equality, so this
-// method cannot work as expected. Use [EventTarget.RemoveEventListenerByID] instead.
-//
-// This method exists only to provide API compatibility with DOM patterns.
-//
-// Thread Safety: Safe to call concurrently (no-op).
-func (et *EventTarget) RemoveEventListener(eventType string, listener EventListenerFunc) {
-	// Cannot implement - Go functions cannot be compared
-	// See RemoveEventListenerByID for the Go-friendly alternative
-}
-
 // DispatchEvent dispatches an event to all registered listeners.
 //
 // The event's Target is set to this EventTarget before listeners are called.

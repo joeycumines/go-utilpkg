@@ -25,7 +25,7 @@ func TestPromiseBasicResolveThen(t *testing.T) {
 	p, resolve, _ := promisealtone.New(js)
 	result := 0
 
-	p.Then(func(v promisealtone.Result) promisealtone.Result {
+	p.Then(func(v any) any {
 		result = v.(int)
 		return v
 	}, nil)
@@ -57,11 +57,11 @@ func TestPromiseChaining(t *testing.T) {
 
 	finalVal := 0
 
-	p.Then(func(v promisealtone.Result) promisealtone.Result {
+	p.Then(func(v any) any {
 		return v.(int) + 1
-	}, nil).Then(func(v promisealtone.Result) promisealtone.Result {
+	}, nil).Then(func(v any) any {
 		return v.(int) * 2
-	}, nil).Then(func(v promisealtone.Result) promisealtone.Result {
+	}, nil).Then(func(v any) any {
 		finalVal = v.(int)
 		return nil
 	}, nil)
@@ -93,7 +93,7 @@ func TestPromiseFinally(t *testing.T) {
 
 	p.Finally(func() {
 		finallyCalled = true
-	}).Catch(func(r promisealtone.Result) promisealtone.Result {
+	}).Catch(func(r any) any {
 		return "caught"
 	})
 
@@ -129,7 +129,7 @@ func BenchmarkPromiseAltOne_Chain(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p, resolve, _ := promisealtone.New(js)
-		p.Then(func(v promisealtone.Result) promisealtone.Result {
+		p.Then(func(v any) any {
 			return v
 		}, nil)
 		resolve(1)
@@ -144,7 +144,7 @@ func BenchmarkStandardPromise_Chain(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		p, resolve, _ := js.NewChainedPromise()
-		p.Then(func(v eventloop.Result) eventloop.Result {
+		p.Then(func(v any) any {
 			return v
 		}, nil)
 		resolve(1)
@@ -160,7 +160,7 @@ func BenchmarkPromiseAltOne_DeepChain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p = p.Then(func(v promisealtone.Result) promisealtone.Result {
+		p = p.Then(func(v any) any {
 			return v
 		}, nil)
 	}
@@ -175,7 +175,7 @@ func BenchmarkStandardPromise_DeepChain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p = p.Then(func(v eventloop.Result) eventloop.Result {
+		p = p.Then(func(v any) any {
 			return v
 		}, nil)
 	}

@@ -27,14 +27,14 @@ func TestPromise_Then_EdgeCases(t *testing.T) {
 	// Test Then after promise is already fulfilled
 	p2, resolve2, _ := js.NewChainedPromise()
 	resolve2("value")
-	p2.Then(func(v Result) Result {
+	p2.Then(func(v any) any {
 		return v
 	}, nil)
 
 	// Test Then after promise is already rejected
 	p3, _, reject3 := js.NewChainedPromise()
 	reject3("error")
-	p3.Then(nil, func(r Result) Result {
+	p3.Then(nil, func(r any) any {
 		return r
 	})
 
@@ -67,13 +67,13 @@ func TestPromise_Then_MultipleChaining(t *testing.T) {
 	// Chain 10 Then calls
 	chain := p
 	for i := 0; i < 10; i++ {
-		chain = chain.Then(func(v Result) Result {
+		chain = chain.Then(func(v any) any {
 			return v.(string) + "-"
 		}, nil)
 	}
 
 	// Add a final handler to wait for completion
-	chain.Then(func(v Result) Result {
+	chain.Then(func(v any) any {
 		wg.Done()
 		return v
 	}, nil)
@@ -128,7 +128,7 @@ func TestPromise_Then_RejectionRecovery(t *testing.T) {
 	var mu sync.Mutex
 	recoveryComplete := make(chan struct{})
 
-	p.Then(nil, func(r Result) Result {
+	p.Then(nil, func(r any) any {
 		mu.Lock()
 		recovered = true
 		mu.Unlock()
@@ -172,11 +172,11 @@ func TestPromise_Then_PanicRecovery(t *testing.T) {
 
 	// Add handler that panics
 	panicValue := "test panic"
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		panic(panicValue)
-	}, nil).Then(func(v Result) Result {
+	}, nil).Then(func(v any) any {
 		return v
-	}, func(r Result) Result {
+	}, func(r any) any {
 		// Catch the panic
 		return r
 	})
@@ -278,7 +278,7 @@ func TestPromise_Catch_EdgeCases(t *testing.T) {
 	// Test Catch on fulfilled promise (should not be called)
 	p1, resolve1, _ := js.NewChainedPromise()
 	catchCalled := false
-	p1.Catch(func(r Result) Result {
+	p1.Catch(func(r any) any {
 		catchCalled = true
 		return r
 	})
@@ -286,7 +286,7 @@ func TestPromise_Catch_EdgeCases(t *testing.T) {
 
 	// Test Catch on rejected promise
 	p2, _, reject2 := js.NewChainedPromise()
-	p2.Catch(func(r Result) Result {
+	p2.Catch(func(r any) any {
 		return errors.New("handled: " + r.(error).Error())
 	})
 	reject2("error")
@@ -439,7 +439,7 @@ func TestPromise_Then_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			p.Then(func(v Result) Result {
+			p.Then(func(v any) any {
 				return v
 			}, nil)
 		}()
@@ -474,12 +474,12 @@ func TestPromise_ChainedRace(t *testing.T) {
 	var mu sync.Mutex
 
 	for i := 0; i < 5; i++ {
-		p.Then(func(v Result) Result {
+		p.Then(func(v any) any {
 			mu.Lock()
 			results = append(results, "fulfilled")
 			mu.Unlock()
 			return v
-		}, func(r Result) Result {
+		}, func(r any) any {
 			mu.Lock()
 			results = append(results, "rejected")
 			mu.Unlock()

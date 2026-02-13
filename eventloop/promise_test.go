@@ -15,7 +15,7 @@ func TestPromiseFanOut(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numSubscribers)
 
-	results := make([]Result, numSubscribers)
+	results := make([]any, numSubscribers)
 
 	for i := 0; i < numSubscribers; i++ {
 		go func(idx int) {

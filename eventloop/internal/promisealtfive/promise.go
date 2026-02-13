@@ -19,9 +19,6 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// Result is an alias for eventloop.Result.
-type Result = eventloop.Result
-
 // PromiseState is an alias for eventloop.PromiseState.
 type PromiseState = eventloop.PromiseState
 
@@ -37,7 +34,7 @@ const (
 // and explicit js parameter passing in resolve/reject.
 type Promise struct {
 	// Fields mirror original ChainedPromise layout.
-	result Result
+	result any
 	js     *eventloop.JS
 	h0     handler
 
@@ -48,16 +45,16 @@ type Promise struct {
 
 // handler represents a reaction to promise settlement.
 type handler struct {
-	onFulfilled func(Result) Result
-	onRejected  func(Result) Result
+	onFulfilled func(any) any
+	onRejected  func(any) any
 	target      *Promise
 }
 
 // ResolveFunc is the function used to fulfill a promise.
-type ResolveFunc func(Result)
+type ResolveFunc func(any)
 
 // RejectFunc is the function used to reject a promise.
-type RejectFunc func(Result)
+type RejectFunc func(any)
 
 // New creates a new pending promise. This mirrors ChainedPromise's NewChainedPromise
 // but simplified for tournament use.
@@ -67,11 +64,11 @@ func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 	}
 	p.state.Store(int32(Pending))
 
-	resolve := func(value Result) {
+	resolve := func(value any) {
 		p.resolve(value, js)
 	}
 
-	reject := func(reason Result) {
+	reject := func(reason any) {
 		p.reject(reason, js)
 	}
 
@@ -84,7 +81,7 @@ func (p *Promise) State() PromiseState {
 }
 
 // Value returns the fulfillment value.
-func (p *Promise) Value() Result {
+func (p *Promise) Value() any {
 	if p.state.Load() == int32(Fulfilled) {
 		return p.result
 	}
@@ -92,7 +89,7 @@ func (p *Promise) Value() Result {
 }
 
 // Reason returns the rejection reason.
-func (p *Promise) Reason() Result {
+func (p *Promise) Reason() any {
 	if p.state.Load() == int32(Rejected) {
 		return p.result
 	}
@@ -101,7 +98,7 @@ func (p *Promise) Reason() Result {
 
 // Then adds handlers. This mirrors the original ChainedPromise.then() mechanism
 // with inline handler storage (no addHandler method).
-func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
+func (p *Promise) Then(onFulfilled, onRejected func(any) any) *Promise {
 	js := p.js
 
 	result := &Promise{
@@ -191,7 +188,7 @@ func (p *Promise) Then(onFulfilled, onRejected func(Result) Result) *Promise {
 }
 
 // Catch adds a rejection handler.
-func (p *Promise) Catch(onRejected func(Result) Result) *Promise {
+func (p *Promise) Catch(onRejected func(any) any) *Promise {
 	return p.Then(nil, onRejected)
 }
 
@@ -207,7 +204,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 		onFinally = func() {}
 	}
 
-	handlerFunc := func(value Result, isRejection bool, target *Promise) {
+	handlerFunc := func(value any, isRejection bool, target *Promise) {
 		onFinally()
 		if isRejection {
 			target.reject(value, target.js)
@@ -234,14 +231,14 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 
 		// Original two-handler approach for Finally
 		h1 := handler{
-			onFulfilled: func(v Result) Result {
+			onFulfilled: func(v any) any {
 				handlerFunc(v, false, result)
 				return nil
 			},
 			target: result,
 		}
 		h2 := handler{
-			onRejected: func(r Result) Result {
+			onRejected: func(r any) any {
 				handlerFunc(r, true, result)
 				return nil
 			},
@@ -289,7 +286,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 
 // resolve transitions the promise to fulfilled state.
 // Takes explicit js parameter (original ChainedPromise pattern).
-func (p *Promise) resolve(value Result, js *eventloop.JS) {
+func (p *Promise) resolve(value any, js *eventloop.JS) {
 	// Promise adoption
 	if pr, ok := value.(*Promise); ok && pr == p {
 		p.reject(fmt.Errorf("TypeError: Chaining cycle detected"), js)
@@ -299,11 +296,11 @@ func (p *Promise) resolve(value Result, js *eventloop.JS) {
 	if pr, ok := value.(*Promise); ok {
 		// Wait for pr to settle via Then (original ThenWithJS pattern)
 		pr.Then(
-			func(v Result) Result {
+			func(v any) any {
 				p.resolve(v, js)
 				return nil
 			},
-			func(r Result) Result {
+			func(r any) any {
 				p.reject(r, js)
 				return nil
 			},
@@ -358,7 +355,7 @@ func (p *Promise) resolve(value Result, js *eventloop.JS) {
 
 // reject transitions the promise to rejected state.
 // Takes explicit js parameter (original ChainedPromise pattern).
-func (p *Promise) reject(reason Result, js *eventloop.JS) {
+func (p *Promise) reject(reason any, js *eventloop.JS) {
 	p.mu.Lock()
 	if p.state.Load() != int32(Pending) {
 		p.mu.Unlock()
@@ -406,13 +403,13 @@ func (p *Promise) reject(reason Result, js *eventloop.JS) {
 }
 
 // ToChannel returns a channel that receives the result when settled.
-func (p *Promise) ToChannel() <-chan Result {
-	ch := make(chan Result, 1)
-	p.Then(func(v Result) Result {
+func (p *Promise) ToChannel() <-chan any {
+	ch := make(chan any, 1)
+	p.Then(func(v any) any {
 		ch <- v
 		close(ch)
 		return nil
-	}, func(r Result) Result {
+	}, func(r any) any {
 		ch <- r
 		close(ch)
 		return nil
@@ -421,7 +418,7 @@ func (p *Promise) ToChannel() <-chan Result {
 }
 
 // tryCall calls a handler function with panic recovery.
-func tryCall(fn func(Result) Result, v Result, target *Promise, js *eventloop.JS) {
+func tryCall(fn func(any) any, v any, target *Promise, js *eventloop.JS) {
 	defer func() {
 		if r := recover(); r != nil {
 			target.reject(r, js)

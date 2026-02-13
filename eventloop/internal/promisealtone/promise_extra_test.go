@@ -21,13 +21,13 @@ func TestPromiseBranching(t *testing.T) {
 	res2 := 0
 
 	// 1. First handler (should go to h0)
-	p.Then(func(v promisealtone.Result) promisealtone.Result {
+	p.Then(func(v any) any {
 		res1 = v.(int)
 		return nil
 	}, nil)
 
 	// 2. Second handler (should force allocation of handlers slice)
-	p.Then(func(v promisealtone.Result) promisealtone.Result {
+	p.Then(func(v any) any {
 		res2 = v.(int) * 2
 		return nil
 	}, nil)
@@ -151,11 +151,11 @@ func FuzzPromiseChains(f *testing.F) {
 
 		for i := 0; i < int(depth); i++ {
 			if i%2 == 0 {
-				last = last.Then(func(v promisealtone.Result) promisealtone.Result {
+				last = last.Then(func(v any) any {
 					return v
 				}, nil)
 			} else {
-				last = last.Catch(func(r promisealtone.Result) promisealtone.Result {
+				last = last.Catch(func(r any) any {
 					return r
 				})
 			}
@@ -209,9 +209,9 @@ func TestPromiseCombinators(t *testing.T) {
 		}
 		val := all.Value()
 		if val == nil {
-			t.Fatal("AllSettled returned nil (expected []Result)")
+			t.Fatal("AllSettled returned nil (expected []any)")
 		}
-		res := val.([]promisealtone.Result)
+		res := val.([]any)
 		if len(res) != 2 {
 			t.Errorf("AllSettled len mismatch")
 		}

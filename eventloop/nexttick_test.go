@@ -145,7 +145,7 @@ func TestNextTick_RunsBeforePromise(t *testing.T) {
 
 	// Create a resolved promise - its then handler is a microtask
 	promise := js.Resolve("test")
-	promise.Then(func(r Result) Result {
+	promise.Then(func(r any) any {
 		mu.Lock()
 		order = append(order, "promise.then")
 		mu.Unlock()
@@ -312,7 +312,7 @@ func TestSleep_Basic(t *testing.T) {
 
 	start := time.Now()
 	promise := js.Sleep(50 * time.Millisecond)
-	promise.Then(func(r Result) Result {
+	promise.Then(func(r any) any {
 		resolved.Store(true)
 		close(done)
 		return nil
@@ -355,7 +355,7 @@ func TestSleep_ZeroDelay(t *testing.T) {
 	}()
 
 	promise := js.Sleep(0)
-	promise.Then(func(r Result) Result {
+	promise.Then(func(r any) any {
 		resolved.Store(true)
 		close(done)
 		return nil
@@ -384,7 +384,7 @@ func TestSleep_ResolvesWithNil(t *testing.T) {
 		t.Fatalf("NewJS failed: %v", err)
 	}
 
-	var result Result
+	var result any
 	done := make(chan struct{})
 
 	go func() {
@@ -394,7 +394,7 @@ func TestSleep_ResolvesWithNil(t *testing.T) {
 	}()
 
 	promise := js.Sleep(10 * time.Millisecond)
-	promise.Then(func(r Result) Result {
+	promise.Then(func(r any) any {
 		result = r
 		close(done)
 		return nil
@@ -434,13 +434,13 @@ func TestSleep_Chaining(t *testing.T) {
 	}()
 
 	js.Sleep(10*time.Millisecond).
-		Then(func(r Result) Result {
+		Then(func(r any) any {
 			mu.Lock()
 			callOrder = append(callOrder, "first")
 			mu.Unlock()
 			return "value1"
 		}, nil).
-		Then(func(r Result) Result {
+		Then(func(r any) any {
 			mu.Lock()
 			callOrder = append(callOrder, "second")
 			mu.Unlock()
@@ -487,7 +487,7 @@ func TestSleep_MultipleConcurrent(t *testing.T) {
 
 	// Schedule multiple sleeps concurrently
 	for i := 0; i < 5; i++ {
-		js.Sleep(time.Duration(i*10)*time.Millisecond).Then(func(r Result) Result {
+		js.Sleep(time.Duration(i*10)*time.Millisecond).Then(func(r any) any {
 			if count.Add(1) == 5 {
 				close(done)
 			}
@@ -531,12 +531,12 @@ func TestTimeout_Basic(t *testing.T) {
 
 	// Timeout should reject after delay
 	js.Timeout(100*time.Millisecond).Then(
-		func(r Result) Result {
+		func(r any) any {
 			t.Error("Timeout should not resolve, it should reject")
 			close(done)
 			return nil
 		},
-		func(r Result) Result {
+		func(r any) any {
 			capturedErr, _ = r.(error)
 			close(done)
 			return nil
@@ -587,18 +587,18 @@ func TestTimeout_WithRace(t *testing.T) {
 
 	// Race between a slow operation (200ms) and a timeout (50ms)
 	// The timeout should win
-	slowOp := js.Sleep(200*time.Millisecond).Then(func(r Result) Result {
+	slowOp := js.Sleep(200*time.Millisecond).Then(func(r any) any {
 		return "slow result"
 	}, nil)
 	timeout := js.Timeout(50 * time.Millisecond)
 
 	js.Race([]*ChainedPromise{slowOp, timeout}).Then(
-		func(r Result) Result {
+		func(r any) any {
 			resolved.Store(true)
 			close(done)
 			return nil
 		},
-		func(r Result) Result {
+		func(r any) any {
 			rejected.Store(true)
 			close(done)
 			return nil
@@ -643,12 +643,12 @@ func TestTimeout_ZeroDelay(t *testing.T) {
 
 	// Zero delay should still reject (not panic or hang)
 	js.Timeout(0).Then(
-		func(r Result) Result {
+		func(r any) any {
 			t.Error("Timeout should reject, not resolve")
 			close(done)
 			return nil
 		},
-		func(r Result) Result {
+		func(r any) any {
 			rejected.Store(true)
 			close(done)
 			return nil

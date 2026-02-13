@@ -28,7 +28,7 @@ func TestPromisify_ContextCancellation(t *testing.T) {
 	taskCtx, cancel := context.WithCancel(context.Background())
 
 	started := make(chan struct{})
-	promise := loop.Promisify(taskCtx, func(ctx context.Context) (Result, error) {
+	promise := loop.Promisify(taskCtx, func(ctx context.Context) (any, error) {
 		close(started)
 		<-ctx.Done()
 		return nil, ctx.Err()
@@ -70,7 +70,7 @@ func TestPromisify_Cancellation_GoroutineLeak(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	l.Promisify(ctx, func(innerCtx context.Context) (Result, error) {
+	l.Promisify(ctx, func(innerCtx context.Context) (any, error) {
 		<-innerCtx.Done()
 		return nil, innerCtx.Err()
 	})

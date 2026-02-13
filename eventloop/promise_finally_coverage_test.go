@@ -309,7 +309,7 @@ func TestPromiseFinally_ChainedWithThen(t *testing.T) {
 	var mu sync.Mutex
 
 	result := p.
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			mu.Lock()
 			order = append(order, "then1")
 			mu.Unlock()
@@ -320,7 +320,7 @@ func TestPromiseFinally_ChainedWithThen(t *testing.T) {
 			order = append(order, "finally")
 			mu.Unlock()
 		}).
-		Then(func(v Result) Result {
+		Then(func(v any) any {
 			mu.Lock()
 			order = append(order, "then2")
 			mu.Unlock()
@@ -575,7 +575,7 @@ func TestPromiseFinally_OrderOfExecution(t *testing.T) {
 	var mu sync.Mutex
 
 	// Attach both Then and Finally
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu.Lock()
 		order = append(order, 1)
 		mu.Unlock()
@@ -588,7 +588,7 @@ func TestPromiseFinally_OrderOfExecution(t *testing.T) {
 		mu.Unlock()
 	})
 
-	p.Then(func(v Result) Result {
+	p.Then(func(v any) any {
 		mu.Lock()
 		order = append(order, 3)
 		mu.Unlock()

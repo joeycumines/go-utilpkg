@@ -130,11 +130,11 @@ go func() {
 
 // Chain handlers
 promise.
-    Then(func(v eventloop.Result) eventloop.Result {
+    Then(func(v any) any {
         fmt.Printf("Got: %v\n", v)
         return transform(v)
     }, nil).
-    Catch(func(r eventloop.Result) eventloop.Result {
+    Catch(func(r any) any {
         fmt.Printf("Error: %v\n", r)
         return nil
     }).
@@ -182,7 +182,7 @@ promise := js.Any([]*eventloop.ChainedPromise{
     js.Reject(errors.New("error 1")),
     js.Reject(errors.New("error 2")),
 })
-promise.Catch(func(r eventloop.Result) eventloop.Result {
+promise.Catch(func(r any) any {
     if agg, ok := r.(*eventloop.AggregateError); ok {
         log.Printf("All promises failed. Reasons:")
         for i, err := range agg.Errors {
@@ -197,7 +197,7 @@ promise.Catch(func(r eventloop.Result) eventloop.Result {
 
 ```go
 js, err := eventloop.NewJS(loop,
-    eventloop.WithUnhandledRejection(func(reason eventloop.Result) {
+    eventloop.WithUnhandledRejection(func(reason any) {
         log.Printf("Unhandled rejection: %v", reason)
     }),
 )
