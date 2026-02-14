@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "fileName": "blueprint.json",
+    "maintenanceInstruction": "KEEP THE PLAN UP TO DATE AS YOU EVOLVE THE CODE. DEVIATIONS TO THE PLAN MUST BE LOGGED WITHIN THE PLAN. THE PLAN MUST BE REASSESSED HOLISTICALLY AFTER ANY CHANGE OF ANY SIZE.",
+    "completionPolicy": "YOU ARE NOT DONE UNTIL YOU HAVE COMPLETED 100% OF THE BLUEPRINT. DO NOT STOP. YOU MUST REFINE AT REGULAR INTERVALS TO KEEP THE BLUEPRINT FULL. NEVER SPECIFY ANY ESTIMATE OF EFFORT OR COST — ESPECIALLY NOT TIME ESTIMATES. NEVER SPECIFY A PRIORITY OF ANY KIND."
+  },
+  "globalAlerts": [
+    {
+      "warning": "PROJECT-SPECIFIC: Replace this entry with tooling constraints for your project. Examples: output limiting (piping through tail), build log locations, banned test patterns (timing-dependent, flaky), required build system targets."
+    },
+    {
+      "warning": "PROJECT-SPECIFIC: Add additional alerts as needed for your environment. Each alert is repeated here for reinforcement — the agent re-reads these on every session start."
+    }
+  ],
+  "mandatoryDirectives": {
+    "contextManagement": "Tasks are grouped to be executed in manageable units. Do not attempt to solve all tasks in a single turn. Break work into sessions as appropriate to prevent context window exhaustion."
+  },
+  "statusSection": {
+    "currentState": ""
+  },
+  "sequentialTasks": [],
+  "continuousVerification": {
+    "task": "Run project-defined build and test commands after EVERY significant change",
+    "description": "Execute the project's build/test pipeline after: (a) Each code change, (b) Each test addition, (c) Each task completion, (d) Each bug fix. Customize this section with the specific commands for your project.",
+    "failPolicy": "If ANY test fails, STOP IMMEDIATELY and fix the issue before proceeding. Zero tolerance for test failures, timing issues, non-determinism, or race conditions.",
+    "testCoverage": "Aim for 100% effective test coverage and VERIFY coverage using the tools available. Do NOT proceed to the next task until coverage is confirmed for the current task."
+  },
+  "finalEnforcementProtocol": [
+    {
+      "type": "POST_EXECUTION_WARNING",
+      "alert": "PROJECT-SPECIFIC: Mirror your globalAlerts here for reinforcement. The agent reads this section last — critical constraints belong here as a final reminder."
+    },
+    {
+      "type": "POST_EXECUTION_WARNING_REPEATED",
+      "alert": "PROJECT-SPECIFIC: Mirror your globalAlerts here for reinforcement. The agent reads this section last — critical constraints belong here as a final reminder."
+    }
+  ]
+}
