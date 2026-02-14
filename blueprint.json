@@ -331,11 +331,6 @@
       "status": "Not Started"
     },
     {
-      "task": "Static analysis with golangci-lint",
-      "description": "Run golangci-lint or equivalent static analysis tools. Fix all warnings: unused parameters, inefficient string conversion, ineffective field assignment, context handling, error check issues.",
-      "status": "Not Started"
-    },
-    {
       "task": "Vet checks with go vet",
       "description": "Run go vet on entire module. Fix all issues: unreachable code, self-assignment, unreachable code, misuse of unsafe pointers, incorrect struct tags, missing new in sync.Pool Put.",
       "status": "Not Started"
@@ -607,7 +602,7 @@
     },
     {
       "task": "Final verification: no lint or static analysis issues",
-      "description": "Run full lint suite: go vet, staticcheck, golangci-lint, any project-specific checks. Ensure zero issues. Fix all warnings before marking complete.",
+      "description": "Run full lint suite: go vet, staticcheck, any project-specific checks. Ensure zero issues. Fix all warnings before marking complete.",
       "status": "Not Started"
     },
     {
