@@ -93,29 +93,17 @@ See `project.mk` for the grit destination mappings.
 
 The eventloop module has its own `Makefile` with additional targets for coverage analysis and custom test runners.
 
-## Development Workflow
-
-1. **Always verify all tests pass** across all three OS platforms (Darwin, Linux, Windows). The `gmake all` target must pass 100% before considering work complete.
-2. **Never commit with failing tests** - timing-dependent failures are treated as bugs to be fixed, not as flakiness to be ignored.
-3. **Use subdirectory Makefiles** for complex commands rather than long shell invocations.
-
-## Architecture Notes
-
-### Eventloop
-
-The eventloop is the most complex module. Key components:
-
-- **Loop**: Core scheduler managing timers, tasks, and I/O polling
-- **JS**: JavaScript-compatible timer APIs (`setTimeout`, `setInterval`, etc.)
-- **ChainedPromise**: Promise/A+ implementation with microtask scheduling
-- **Pollers**: Platform-specific I/O implementations (kqueue for macOS, epoll for Linux, IOCP for Windows)
-- Thread-safe design with zero-allocation hot paths for performance
-
 ### Module Relationships
 
 - `logiface` is the core interface; `logiface-*` packages are adapters
 - `goja-eventloop` depends on `eventloop`
 - `microbatch` is higher-level than `longpoll` with additional concurrency control
+
+## Development Workflow
+
+1. **Always verify all tests pass** across all three OS platforms (Darwin, Linux, Windows). The `gmake all` target must pass 100% before considering work complete.
+2. **Never commit with failing tests** - timing-dependent failures are treated as bugs to be fixed, not as flakiness to be ignored.
+3. **Use subdirectory Makefiles** for complex commands rather than long shell invocations.
 
 ## Code Quality Standards
 
