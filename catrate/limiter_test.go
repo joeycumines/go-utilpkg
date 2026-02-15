@@ -170,7 +170,7 @@ func TestLimiter_Allow_suite1(t *testing.T) {
 		// be discarded / trimmed immediately, since the window is only 1 minute, and the first event was at 0s.
 		next := time.Unix(60, 0)
 		initialIntervalSeconds := 6
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			out := callAllow(t, limiter, 1)
 			<-timeNowIn
 			timeNowOut <- time.Unix(int64(i*initialIntervalSeconds), 0)
@@ -400,7 +400,7 @@ func TestLimiter_worker_cleanupRace(t *testing.T) {
 	{
 		addDone := make(chan struct{})
 		go func() {
-			for i := 0; i < addCount; i++ {
+			for i := range addCount {
 				cat := categoryDataPool.Get().(*categoryData)
 				incNow(time.Second)
 				last := getNow()
@@ -435,7 +435,7 @@ func TestLimiter_worker_cleanupRace(t *testing.T) {
 				close(tickerDone)
 			}()
 			var size int
-			limiter.categories.Range(func(_, _ interface{}) bool {
+			limiter.categories.Range(func(_, _ any) bool {
 				size++
 				<-nowIn
 				incNow(time.Second)
@@ -535,7 +535,7 @@ func TestLimiter_worker_cleanupRace(t *testing.T) {
 	// no others should be deleted
 	{
 		var size int
-		limiter.categories.Range(func(_, _ interface{}) bool {
+		limiter.categories.Range(func(_, _ any) bool {
 			size++
 			return true
 		})
@@ -546,7 +546,7 @@ func TestLimiter_worker_cleanupRace(t *testing.T) {
 
 	// increase time ahead, make everything cleaned up, wait for worker to finish
 	setNow(getNow().Add(limiter.retention + 1))
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		sentToTicker := make(chan struct{})
 		go func() {
 			select {
@@ -577,7 +577,7 @@ func TestLimiter_worker_cleanupRace(t *testing.T) {
 	// all categories should be deleted
 	{
 		var size int
-		limiter.categories.Range(func(_, _ interface{}) bool {
+		limiter.categories.Range(func(_, _ any) bool {
 			size++
 			return true
 		})

@@ -12,7 +12,6 @@ import (
 // This is T5: Robustness - Panic Isolation Test
 func TestPanicIsolation(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			t.Parallel()
 			testPanicIsolation(t, impl)
@@ -30,11 +29,9 @@ func testPanicIsolation(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var beforePanic atomic.Bool
@@ -120,7 +117,7 @@ func testPanicIsolation(t *testing.T, impl Implementation) {
 		Passed:         passed,
 		Error:          errMsg,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"before_panic": beforePanic.Load(),
 			"after_panic":  afterPanic.Load(),
 			"stop_error":   stopErr != nil,
@@ -137,7 +134,6 @@ func testPanicIsolation(t *testing.T, impl Implementation) {
 // TestPanicIsolation_Multiple tests recovery from multiple panics.
 func TestPanicIsolation_Multiple(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testPanicIsolationMultiple(t, impl)
 		})
@@ -157,17 +153,15 @@ func testPanicIsolationMultiple(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var normalExecuted atomic.Int64
 	var wg sync.WaitGroup
 
 	// Submit normal tasks interleaved with panic tasks
-	for i := 0; i < numNormal+numPanics; i++ {
+	for i := range numNormal + numPanics {
 		if i%(numNormal/numPanics+1) == 0 && i < numPanics*(numNormal/numPanics+1) {
 			// Submit panic task
 			_ = loop.Submit(func() {
@@ -212,7 +206,7 @@ func testPanicIsolationMultiple(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"panic_tasks":  numPanics,
 			"normal_tasks": numNormal,
 			"executed":     executed,
@@ -232,7 +226,6 @@ func testPanicIsolationMultiple(t *testing.T, impl Implementation) {
 // TestPanicIsolation_Internal tests panic isolation in internal queue.
 func TestPanicIsolation_Internal(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testPanicIsolationInternal(t, impl)
 		})
@@ -249,11 +242,9 @@ func testPanicIsolationInternal(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var afterPanic atomic.Bool
 	var wg sync.WaitGroup

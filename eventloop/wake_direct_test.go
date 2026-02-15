@@ -83,7 +83,7 @@ func TestWake_WithPendingTasks(t *testing.T) {
 	go loop.Run(ctx)
 
 	// Submit tasks before calling Wake()
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := loop.Submit(func() {
 			executed.Add(1)
 		})
@@ -133,7 +133,7 @@ func TestWake_MultipleConcurrent(t *testing.T) {
 
 	// Call Wake() from multiple goroutines concurrently
 	const numCalls = 50
-	for i := 0; i < numCalls; i++ {
+	for range numCalls {
 		go func() {
 			err := loop.Wake()
 			if err != nil {

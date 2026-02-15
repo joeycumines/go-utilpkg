@@ -29,7 +29,7 @@ func TestPriorityLane_InternalBypassesBudget(t *testing.T) {
 	}
 
 	// Submit 2000 external tasks first
-	for i := 0; i < 2000; i++ {
+	for i := range 2000 {
 		idx := i
 		loop.Submit(func() {
 			record(fmt.Sprintf("external-%d", idx))

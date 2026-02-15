@@ -679,7 +679,7 @@ func TestAdapter_Iterator_ArrayFastPath(t *testing.T) {
 	}
 
 	result := rt.Get("result")
-	arr := result.Export().([]interface{})
+	arr := result.Export().([]any)
 	if len(arr) != 3 || arr[0].(int64) != 1 || arr[1].(int64) != 2 || arr[2].(int64) != 3 {
 		t.Errorf("Expected [1,2,3], got %v", arr)
 	}
@@ -1207,7 +1207,7 @@ func TestAdapter_consumeIterable_Set(t *testing.T) {
 	}
 
 	result := rt.Get("result")
-	arr := result.Export().([]interface{})
+	arr := result.Export().([]any)
 	if len(arr) != 3 {
 		t.Errorf("Expected 3 elements, got %d", len(arr))
 	}
@@ -1262,7 +1262,7 @@ func TestAdapter_consumeIterable_Generator(t *testing.T) {
 	}
 
 	result := rt.Get("result")
-	arr := result.Export().([]interface{})
+	arr := result.Export().([]any)
 	if len(arr) != 3 {
 		t.Errorf("Expected 3 elements from generator, got %d", len(arr))
 	}
@@ -1408,7 +1408,7 @@ func TestAdapter_convertToGojaValue_Map(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	m := map[string]interface{}{
+	m := map[string]any{
 		"status": "fulfilled",
 		"value":  42,
 	}

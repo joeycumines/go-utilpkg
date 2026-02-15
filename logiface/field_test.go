@@ -29,7 +29,7 @@ func fluentObjectTemplate[T interface {
 				panic(`unexpected return value`)
 			}
 
-			if v := logiface.MapObject[logiface.Event](arr2, ``, map[string]interface{}{`k`: math.Inf(-1)}); v != arr2 {
+			if v := logiface.MapObject[logiface.Event](arr2, ``, map[string]any{`k`: math.Inf(-1)}); v != arr2 {
 				panic(`unexpected return value`)
 			}
 

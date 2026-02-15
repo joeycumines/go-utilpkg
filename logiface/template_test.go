@@ -63,7 +63,6 @@ func newEventTemplateMocklogLogger(w io.Writer, enabled bool) *logiface.Logger[l
 
 func TestEventTemplate(t *testing.T) {
 	for i, template := range eventTemplates {
-		template := template
 		t.Run(fmt.Sprintf(`template%d`, i+1), func(t *testing.T) {
 			for _, tc1 := range [...]struct {
 				Name      string
@@ -86,7 +85,6 @@ func TestEventTemplate(t *testing.T) {
 					NilLogger: true,
 				},
 			} {
-				tc1 := tc1
 				t.Run(tc1.Name, func(t *testing.T) {
 					for _, tc2 := range [...]struct {
 						Name    string
@@ -104,7 +102,6 @@ func TestEventTemplate(t *testing.T) {
 							Assert:  template.Mocklog,
 						},
 					} {
-						tc2 := tc2
 						t.Run(tc2.Name, func(t *testing.T) {
 							if tc2.Assert == nil {
 								t.Skip(`not implemented`)
@@ -130,7 +127,6 @@ func TestEventTemplate(t *testing.T) {
 									Log:  template.JSONFunc,
 								},
 							} {
-								tc3 := tc3
 								t.Run(tc3.Name, func(t *testing.T) {
 									if tc3.Log == nil {
 										t.Skip(`not implemented`)
@@ -1157,10 +1153,10 @@ func TestLogger_concurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(workers)
 
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+			for range iterations {
 				for _, fn := range templateFuncs {
 					fn(logger)
 				}

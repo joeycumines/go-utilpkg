@@ -47,8 +47,7 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 	// 	},
 	// }
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
@@ -72,13 +71,11 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 	}
 
 	stopDone := make(chan error, 1)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer stopCancel()
 		stopDone <- l.Shutdown(stopCtx)
-	}()
+	})
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -322,11 +319,11 @@ func TestLoop_TickAnchor_DataRace(t *testing.T) {
 	const concurrentWriters = 4
 	const writesPerWriter = 100
 
-	for i := 0; i < concurrentWriters; i++ {
+	for i := range concurrentWriters {
 		wg.Add(1)
 		go func(writerID int) {
 			defer wg.Done()
-			for j := 0; j < writesPerWriter; j++ {
+			for j := range writesPerWriter {
 				// Simulate external SetTickAnchor call (e.g., for testing)
 				l.SetTickAnchor(time.Now().Add(time.Duration(writerID*1000+j) * time.Millisecond))
 				// Small sleep to increase interleaving chances
@@ -337,7 +334,7 @@ func TestLoop_TickAnchor_DataRace(t *testing.T) {
 
 	// Also submit tasks to trigger tick() calls
 	const tasksToSubmit = 200
-	for i := 0; i < tasksToSubmit; i++ {
+	for range tasksToSubmit {
 		_ = l.Submit(func() {
 			// Trigger some tick processing
 			_ = l.CurrentTickTime()

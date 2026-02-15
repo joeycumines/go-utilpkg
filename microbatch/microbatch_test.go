@@ -272,7 +272,7 @@ func TestBatcher_flushInterval(t *testing.T) {
 	firstSubmitTime := time.Now()
 
 	var jobs []*JobResult[any]
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		result, err := batcher.Submit(context.Background(), i)
 		if err != nil || result == nil || result.Job != i {
 			t.Fatal(result, err)

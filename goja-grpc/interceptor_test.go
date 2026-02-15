@@ -170,7 +170,7 @@ func TestInterceptor_TransformResponse(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	exported := result.Export().(map[string]interface{})
+	exported := result.Export().(map[string]any)
 	assert.Equal(t, true, exported["transformed"])
 	assert.Contains(t, exported["original"], "msg=test")
 }
@@ -431,7 +431,7 @@ func TestInterceptor_ExecutionOrder(t *testing.T) {
 
 	orderVal := env.runtime.Get("order")
 	require.NotNil(t, orderVal)
-	exported := orderVal.Export().([]interface{})
+	exported := orderVal.Export().([]any)
 	// Onion order: first-before → second-before → RPC → second-after → first-after
 	require.Len(t, exported, 4)
 	assert.Equal(t, "first-before", exported[0])

@@ -12,7 +12,6 @@ import (
 // This is T4: Performance - Multi-Producer Stress Benchmark
 func BenchmarkMultiProducer(b *testing.B) {
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkMultiProducer(b, impl)
 		})
@@ -33,11 +32,9 @@ func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -45,10 +42,8 @@ func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 
 	b.ResetTimer()
 
-	for p := 0; p < numProducers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numProducers {
+		wg.Go(func() {
 			for i := 0; i < tasksPerProducer; i++ {
 				err := loop.Submit(func() {
 					counter.Add(1)
@@ -57,7 +52,7 @@ func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 					rejected.Add(1)
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -98,7 +93,6 @@ func TestMultiProducerStress(t *testing.T) {
 	}
 
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testMultiProducerStress(t, impl)
 		})
@@ -119,11 +113,9 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -134,11 +126,11 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 	var latMu sync.Mutex
 	sampleRate := totalTasks / 1000
 
-	for p := 0; p < numProducers; p++ {
+	for p := range numProducers {
 		wg.Add(1)
 		go func(pid int) {
 			defer wg.Done()
-			for i := 0; i < tasksPerProducer; i++ {
+			for i := range tasksPerProducer {
 				submitTime := time.Now()
 				taskID := pid*tasksPerProducer + i
 
@@ -202,7 +194,7 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         exec+rej == totalTasks,
 		Duration:       duration,
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"total_tasks":      totalTasks,
 			"executed":         exec,
 			"rejected":         rej,
@@ -222,7 +214,6 @@ func BenchmarkMultiProducerContention(b *testing.B) {
 	const numProducers = 100 // High contention
 
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkMultiProducerContention(b, impl, numProducers)
 		})
@@ -242,27 +233,23 @@ func benchmarkMultiProducerContention(b *testing.B, impl Implementation, numProd
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
 
 	b.ResetTimer()
 
-	for p := 0; p < numProducers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numProducers {
+		wg.Go(func() {
 			for i := 0; i < tasksPerProducer; i++ {
 				_ = loop.Submit(func() {
 					counter.Add(1)
 				})
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

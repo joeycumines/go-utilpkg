@@ -70,7 +70,7 @@ func (s *assertingService) PingError(ctx context.Context, ping *pb.PingRequest) 
 func (s *assertingService) PingList(ping *pb.PingRequest, stream pb.TestService_PingListServer) error {
 	// Send user trailers and headers.
 	stream.SendHeader(metadata.Pairs(serverHeaderMdKey, "I like turtles."))
-	for i := 0; i < countListResponses; i++ {
+	for i := range countListResponses {
 		stream.Send(&pb.PingResponse{Value: ping.Value, Counter: int32(i)})
 	}
 	stream.SetTrailer(metadata.Pairs(serverTrailerMdKey, "I like ending turtles."))
@@ -121,7 +121,7 @@ func (s *ProxyHappySuite) TestPingEmptyCarriesClientMetadata() {
 }
 
 func (s *ProxyHappySuite) TestPingEmpty_StressTest() {
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		s.TestPingEmptyCarriesClientMetadata()
 	}
 }
@@ -158,7 +158,7 @@ func (s *ProxyHappySuite) TestPingStream_FullDuplexWorks() {
 	stream, err := s.testClient.PingStream(context.Background())
 	require.NoError(s.T(), err, "PingStream request should be successful.")
 
-	for i := 0; i < countListResponses; i++ {
+	for i := range countListResponses {
 		ping := &pb.PingRequest{Value: fmt.Sprintf("foo:%d", i)}
 		require.NoError(s.T(), stream.Send(ping), "sending to PingStream must not fail")
 		resp, err := stream.Recv()
@@ -182,7 +182,7 @@ func (s *ProxyHappySuite) TestPingStream_FullDuplexWorks() {
 }
 
 func (s *ProxyHappySuite) TestPingStream_StressTest() {
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		s.TestPingStream_FullDuplexWorks()
 	}
 }

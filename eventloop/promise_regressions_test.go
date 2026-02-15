@@ -45,7 +45,7 @@ func TestMemoryLeakProof_HandlerLeak_SuccessPath(t *testing.T) {
 	const numPromises = 10000
 	resolves := make([]ResolveFunc, 0, numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for range numPromises {
 		p, resolve, _ := js.NewChainedPromise()
 		resolves = append(resolves, resolve)
 
@@ -68,13 +68,13 @@ func TestMemoryLeakProof_HandlerLeak_SuccessPath(t *testing.T) {
 	}
 
 	// Resolve all promises - this should trigger cleanup in resolve()
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		resolves[i](i)
 	}
 
 	// Run microtasks to process all resolve handlers
 	// We tick multiple times to ensure all microtasks are processed
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.tick()
 	}
 
@@ -239,8 +239,7 @@ func TestMemoryLeakProof_SetImmediate_PanicLeak(t *testing.T) {
 
 	// Need to run the loop in a separate goroutine for SetImmediate to work
 	// since it uses loop.Submit()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() {
 		_ = loop.Run(ctx)
 	}()
@@ -366,8 +365,7 @@ func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
 
 	const numPromises = 100
 
-	for i := 0; i < numPromises; i++ {
-		i := i
+	for i := range numPromises {
 		p, _, reject := js.NewChainedPromise()
 
 		handlerCalled := false
@@ -392,7 +390,7 @@ func TestPromiseRace_ConcurrentThenReject_HandlersCalled(t *testing.T) {
 		// We need enough ticks to process all pending microtasks
 		// With 100 promises and 2 microtasks each (handler + potentially more),
 		// we need at least 200 ticks to ensure all are processed
-		for j := 0; j < 300; j++ {
+		for range 300 {
 			loop.tick()
 		}
 
@@ -430,8 +428,7 @@ func TestMemoryLeakProof_MultipleImmediates(t *testing.T) {
 	}
 
 	// Process immediates via Run() in separate goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() {
 		_ = loop.Run(ctx)
 	}()
@@ -449,7 +446,7 @@ func TestMemoryLeakProof_MultipleImmediates(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numImmediates)
 
-	for i := 0; i < numImmediates; i++ {
+	for range numImmediates {
 		_, err := js.SetImmediate(func() {
 			wg.Done()
 		})
@@ -459,7 +456,7 @@ func TestMemoryLeakProof_MultipleImmediates(t *testing.T) {
 	}
 
 	// Schedule 5 panicking immediates
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, err := js.SetImmediate(func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -539,7 +536,7 @@ func TestMemoryLeakProof_PromiseChainingCleanup(t *testing.T) {
 
 	// Build chain: p0 -> p1 -> p2 -> ... -> p99
 	p := root
-	for i := 0; i < chainLength-1; i++ {
+	for i := range chainLength - 1 {
 		// Each Then() creates a new promise and attaches handler to previous
 		num := i
 		p = p.Then(func(v any) any {
@@ -551,7 +548,7 @@ func TestMemoryLeakProof_PromiseChainingCleanup(t *testing.T) {
 	resolve("start")
 
 	// Process all microtasks
-	for i := 0; i < chainLength+10; i++ {
+	for range chainLength + 10 {
 		loop.tick()
 	}
 

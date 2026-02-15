@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"math/rand"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func benchmarkLatencySample(b *testing.B, usePSquare bool) {
 
 	// Pre-fill with 1000 samples to simulate steady-state
 	rng := rand.New(rand.NewSource(42))
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		// Realistic latency distribution: 1-100ms with occasional outliers
 		duration := time.Duration(rng.ExpFloat64()*10+1) * time.Millisecond
 		lm.Record(duration)
@@ -71,9 +72,7 @@ func sampleWithSort(l *LatencyMetrics) int {
 	// Clone and sort samples (O(n log n))
 	sorted := make([]time.Duration, count)
 	copy(sorted, l.samples[:count])
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i] < sorted[j]
-	})
+	slices.Sort(sorted)
 
 	// Compute percentiles
 	_ = sorted[percentileIndex(count, 50)]
@@ -199,7 +198,7 @@ func benchmarkHighFrequencyMonitoring(b *testing.B, usePSquare bool) {
 
 	// Pre-fill buffer
 	rng := rand.New(rand.NewSource(42))
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		lm.Record(time.Duration(rng.Intn(100)+1) * time.Millisecond)
 	}
 
@@ -371,7 +370,7 @@ func TestPSquareQuantile_Accuracy(t *testing.T) {
 			ps99 := newPSquareQuantile(0.99)
 			exact := make([]float64, 10000)
 
-			for i := 0; i < 10000; i++ {
+			for i := range 10000 {
 				v := tc.generate()
 				exact[i] = v
 				ps99.Update(v)
@@ -470,7 +469,7 @@ func TestLatencyMetrics_ThreadSafety(t *testing.T) {
 
 	// Writer goroutine
 	go func() {
-		for i := 0; i < 10000; i++ {
+		for i := range 10000 {
 			lm.Record(time.Duration(i%100+1) * time.Millisecond)
 		}
 		close(done)

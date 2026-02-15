@@ -51,7 +51,7 @@ func TestChaos_PanicInPanic(t *testing.T) {
 	taskCount := 100
 
 	// Submit tasks that panic
-	for i := 0; i < taskCount; i++ {
+	for i := range taskCount {
 		idx := i
 		err := loop.Submit(func() {
 			panicCount.Add(1)
@@ -144,25 +144,21 @@ func TestChaos_GCPressureDuringPeakLoad(t *testing.T) {
 	}()
 
 	// Heavy workload - create promises and resolve them
-	for g := 0; g < numGoroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < tasksPerGo; i++ {
+	for range numGoroutines {
+		wg.Go(func() {
+			for range tasksPerGo {
 				p, resolve, _ := js.NewChainedPromise()
 				resolve("value")
 				_ = p.State() // Force some work
 				executed.Add(1)
 			}
-		}()
+		})
 	}
 
 	// Also submit regular tasks
-	for g := 0; g < numGoroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < tasksPerGo; i++ {
+	for range numGoroutines {
+		wg.Go(func() {
+			for range tasksPerGo {
 				if err := loop.Submit(func() {
 					executed.Add(1)
 					// Allocate some memory to trigger GC
@@ -173,7 +169,7 @@ func TestChaos_GCPressureDuringPeakLoad(t *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -234,7 +230,7 @@ func TestChaos_TimerCancellationStorm(t *testing.T) {
 	stormEnd := time.Now().Add(stormDurationMs * time.Millisecond)
 
 	var wg sync.WaitGroup
-	for g := 0; g < numGoroutines; g++ {
+	for g := range numGoroutines {
 		wg.Add(1)
 		go func(gid int) {
 			defer wg.Done()
@@ -290,7 +286,7 @@ func TestChaos_TimerCancellationStorm(t *testing.T) {
 func TestChaos_RapidStartStop(t *testing.T) {
 	const cycles = 15 // More than 10 as specified
 
-	for cycle := 0; cycle < cycles; cycle++ {
+	for cycle := range cycles {
 		func() {
 			loop, err := New()
 			if err != nil {
@@ -351,7 +347,7 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 		goroutinesPerSide = 5
 	)
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		func() {
 			loop, err := New()
 			if err != nil {
@@ -372,7 +368,7 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 			// Create pipes for FD testing (both ends stay open to avoid
 			// EPOLLHUP busy-looping on zombie descriptors)
 			fds := make([]int, goroutinesPerSide)
-			for i := 0; i < goroutinesPerSide; i++ {
+			for i := range goroutinesPerSide {
 				var pipefds [2]int
 				if err := unix.Pipe(pipefds[:]); err != nil {
 					t.Fatalf("Pipe failed: %v", err)
@@ -389,7 +385,7 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 			done := make(chan struct{})
 
 			// Goroutines that toggle fast path mode
-			for g := 0; g < goroutinesPerSide; g++ {
+			for g := range goroutinesPerSide {
 				wg.Add(1)
 				go func(gid int) {
 					defer wg.Done()
@@ -408,7 +404,7 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 			}
 
 			// Goroutines that register/unregister FDs
-			for g := 0; g < goroutinesPerSide; g++ {
+			for g := range goroutinesPerSide {
 				wg.Add(1)
 				go func(gid int) {
 					defer wg.Done()
@@ -468,7 +464,7 @@ func TestChaos_ConcurrentRegisterFD_SetFastPathMode(t *testing.T) {
 func TestChaos_SubmitDuringShutdown(t *testing.T) {
 	const iterations = 100
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		func() {
 			loop, err := New()
 			if err != nil {
@@ -489,11 +485,9 @@ func TestChaos_SubmitDuringShutdown(t *testing.T) {
 			var submitted, executed atomic.Int64
 
 			// Goroutines submitting tasks
-			for g := 0; g < 10; g++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for i := 0; i < 100; i++ {
+			for range 10 {
+				wg.Go(func() {
+					for range 100 {
 						if err := loop.Submit(func() {
 							executed.Add(1)
 						}); err == nil {
@@ -502,7 +496,7 @@ func TestChaos_SubmitDuringShutdown(t *testing.T) {
 							return
 						}
 					}
-				}()
+				})
 			}
 
 			// Start shutdown after a tiny delay
@@ -543,7 +537,7 @@ func TestChaos_SubmitDuringShutdown(t *testing.T) {
 func TestChaos_MicrotaskFloodDuringShutdown(t *testing.T) {
 	const iterations = 50
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		func() {
 			loop, err := New()
 			if err != nil {
@@ -564,11 +558,9 @@ func TestChaos_MicrotaskFloodDuringShutdown(t *testing.T) {
 			var scheduled, executed atomic.Int64
 
 			// Goroutines scheduling microtasks
-			for g := 0; g < 10; g++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for i := 0; i < 200; i++ {
+			for range 10 {
+				wg.Go(func() {
+					for range 200 {
 						if err := loop.ScheduleMicrotask(func() {
 							executed.Add(1)
 						}); err == nil {
@@ -577,7 +569,7 @@ func TestChaos_MicrotaskFloodDuringShutdown(t *testing.T) {
 							return
 						}
 					}
-				}()
+				})
 			}
 
 			// Start shutdown after a tiny delay
@@ -600,7 +592,7 @@ func TestChaos_MicrotaskFloodDuringShutdown(t *testing.T) {
 func TestChaos_PromiseResolutionRaceWithShutdown(t *testing.T) {
 	const iterations = 30
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		func() {
 			loop, err := New()
 			if err != nil {
@@ -628,19 +620,19 @@ func TestChaos_PromiseResolutionRaceWithShutdown(t *testing.T) {
 			// Create many promises
 			promises := make([]*ChainedPromise, promiseCount)
 			resolvers := make([]ResolveFunc, promiseCount)
-			for i := 0; i < promiseCount; i++ {
+			for i := range promiseCount {
 				promises[i], resolvers[i], _ = js.NewChainedPromise()
 			}
 
 			// Attach Then handlers
-			for i := 0; i < promiseCount; i++ {
+			for i := range promiseCount {
 				promises[i].Then(func(v any) any {
 					return v
 				}, nil)
 			}
 
 			// Goroutines resolving promises
-			for i := 0; i < promiseCount; i++ {
+			for i := range promiseCount {
 				wg.Add(1)
 				go func(idx int) {
 					defer wg.Done()
@@ -700,11 +692,11 @@ func TestChaos_IntervalCancellationStorm(t *testing.T) {
 	var created, cancelled atomic.Int64
 	var wg sync.WaitGroup
 
-	for g := 0; g < numGoroutines; g++ {
+	for g := range numGoroutines {
 		wg.Add(1)
 		go func(gid int) {
 			defer wg.Done()
-			for i := 0; i < intervalsPerG; i++ {
+			for range intervalsPerG {
 				id, err := js.SetInterval(func() {
 					// Do nothing
 				}, 10+gid) // Small interval
@@ -767,9 +759,7 @@ func TestChaos_CombinedStress(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Pattern 1: Timer storm
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for time.Now().Before(stressEnd) {
 			select {
 			case <-done:
@@ -781,12 +771,10 @@ func TestChaos_CombinedStress(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Pattern 2: Promise creation
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for time.Now().Before(stressEnd) {
 			select {
 			case <-done:
@@ -797,12 +785,10 @@ func TestChaos_CombinedStress(t *testing.T) {
 				_ = p.State()
 			}
 		}
-	}()
+	})
 
 	// Pattern 3: Microtask flood
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for time.Now().Before(stressEnd) {
 			select {
 			case <-done:
@@ -811,12 +797,10 @@ func TestChaos_CombinedStress(t *testing.T) {
 				_ = loop.ScheduleMicrotask(func() {})
 			}
 		}
-	}()
+	})
 
 	// Pattern 4: Mode switching
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		modes := []FastPathMode{FastPathAuto, FastPathDisabled, FastPathForced}
 		i := 0
 		for time.Now().Before(stressEnd) {
@@ -829,12 +813,10 @@ func TestChaos_CombinedStress(t *testing.T) {
 				time.Sleep(time.Millisecond)
 			}
 		}
-	}()
+	})
 
 	// Pattern 5: GC pressure
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for time.Now().Before(stressEnd) {
 			select {
 			case <-done:
@@ -844,7 +826,7 @@ func TestChaos_CombinedStress(t *testing.T) {
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
-	}()
+	})
 
 	// Wait for stress duration
 	<-time.After(5 * time.Second)

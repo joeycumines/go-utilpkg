@@ -75,7 +75,7 @@ func TestLoop_RunRace(t *testing.T) {
 	count := 100
 	wg.Add(count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		go func(id int) {
 			defer wg.Done()
 			err := l.Run(ctx) // Use timeout context instead of context.Background()

@@ -82,7 +82,7 @@ func (ps *pSquareQuantile) Update(x float64) {
 		k = 3
 	} else {
 		// Binary search for the cell
-		for k = 0; k < 4; k++ {
+		for k = range 4 {
 			if ps.q[k] <= x && x < ps.q[k+1] {
 				break
 			}
@@ -95,7 +95,7 @@ func (ps *pSquareQuantile) Update(x float64) {
 	}
 
 	// Update desired positions
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ps.np[i] += ps.dn[i]
 	}
 
@@ -137,7 +137,7 @@ func (ps *pSquareQuantile) initialize() {
 	}
 
 	// Initialize marker heights
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		ps.q[i] = ps.initBuffer[i]
 		ps.n[i] = i
 	}

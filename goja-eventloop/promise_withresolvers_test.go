@@ -206,7 +206,7 @@ func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
 
 	// Check all results arrived
 	resultsVal := rt.Get("results")
-	results := resultsVal.Export().([]interface{})
+	results := resultsVal.Export().([]any)
 	if len(results) != 3 {
 		t.Errorf("expected 3 results, got: %d", len(results))
 	}
@@ -436,7 +436,7 @@ func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
 	<-done
 
 	resultsVal := rt.Get("results")
-	results := resultsVal.Export().([]interface{})
+	results := resultsVal.Export().([]any)
 	if len(results) != 3 {
 		t.Errorf("expected 3 results, got: %d", len(results))
 	}
@@ -485,7 +485,7 @@ func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
 	<-done
 
 	allResultVal := rt.Get("allResult")
-	allResult := allResultVal.Export().([]interface{})
+	allResult := allResultVal.Export().([]any)
 	if len(allResult) != 3 {
 		t.Errorf("expected 3 results, got: %d", len(allResult))
 	}

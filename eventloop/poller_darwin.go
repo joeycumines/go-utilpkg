@@ -276,7 +276,7 @@ func (p *fastPoller) PollIO(timeoutMs int) (int, error) {
 // RACE SAFETY: Uses RLock to safely read fdInfo while allowing concurrent
 // modifications to other fds. Callback is copied under lock then called outside.
 func (p *fastPoller) dispatchEvents(n int) {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fd := int(p.eventBuf[i].Ident)
 		if fd < 0 {
 			continue

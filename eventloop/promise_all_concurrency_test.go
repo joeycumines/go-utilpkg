@@ -25,7 +25,7 @@ func TestPromiseAll_ConcurrentRejections(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	rejectors := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, _, r := js.NewChainedPromise()
 		promises[i] = p
 		rejectors[i] = r
@@ -38,7 +38,7 @@ func TestPromiseAll_ConcurrentRejections(t *testing.T) {
 	var mu sync.Mutex
 
 	// Concurrently reject all promises
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -71,7 +71,7 @@ func TestPromiseAll_ConcurrentRejections(t *testing.T) {
 
 	// Rejection reason should match one of the concurrent rejections
 	found := false
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		expected := "error from " + string(rune('a'+i))
 		if rejectionReason == expected {
 			found = true
@@ -101,7 +101,7 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r
@@ -112,7 +112,7 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrently resolve all promises
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -138,7 +138,7 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 	}
 
 	// Verify all values are present (order preserved)
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		expected := "value" + string(rune('a'+i))
 		if resolvedValues[i] != expected {
 			t.Errorf("Expected %s at index %d, got %v", expected, i, resolvedValues[i])
@@ -531,7 +531,7 @@ func TestPromiseAll_LargeNumberOfPromises(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r
@@ -540,7 +540,7 @@ func TestPromiseAll_LargeNumberOfPromises(t *testing.T) {
 	result := js.All(promises)
 
 	// Resolve all
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		resolvers[i]("value" + string(rune('a'+i%26)))
 	}
 	loop.tick()

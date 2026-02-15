@@ -1242,11 +1242,11 @@ func TestJSIntegration_ConcurrentThenCalls(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan *ChainedPromise, numGoroutines*numChainsPerGoroutine)
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			for j := 0; j < numChainsPerGoroutine; j++ {
+			for j := range numChainsPerGoroutine {
 				result := p.Then(
 					func(v any) any {
 						return fmt.Sprintf("%s-%d-%d", v.(string), goroutineID, j)
@@ -1295,7 +1295,7 @@ func TestJSIntegration_ConcurrentResolveAndThen(t *testing.T) {
 	handlers := make([]*ChainedPromise, numHandlers)
 
 	// Concurrently attach handlers
-	for i := 0; i < numHandlers; i++ {
+	for i := range numHandlers {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -1432,7 +1432,7 @@ func TestJSIntegration_DeepChain_WithJSInstances(t *testing.T) {
 
 	// Create deep chain
 	current := p
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		current = current.Then(
 			func(v any) any {
 				return v.(int) + 1
@@ -1467,7 +1467,7 @@ func TestJSIntegration_WideChain_WithJSInstances(t *testing.T) {
 	const fanOut = 100
 	branches := make([]*ChainedPromise, fanOut)
 
-	for i := 0; i < fanOut; i++ {
+	for i := range fanOut {
 		branchID := i
 		branches[i] = root.Then(
 			func(v any) any {

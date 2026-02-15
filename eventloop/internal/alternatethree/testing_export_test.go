@@ -2,7 +2,7 @@ package alternatethree
 
 // NewRegistryForTesting creates a new registry for testing purposes.
 // This function is exported in test builds only.
-func NewRegistryForTesting(t interface{}) *registry {
+func NewRegistryForTesting(t any) *registry {
 	return newRegistry()
 }
 

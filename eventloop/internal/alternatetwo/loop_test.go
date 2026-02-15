@@ -186,7 +186,7 @@ func TestConcurrentSubmit(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numTasks)
 
-	for i := 0; i < numTasks; i++ {
+	for range numTasks {
 		go func() {
 			err := loop.Submit(func() {
 				executed.Add(1)
@@ -314,7 +314,7 @@ func TestLockFreeIngress(t *testing.T) {
 	}
 
 	// Push some tasks
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		q.Push(func() {})
 	}
 
@@ -323,7 +323,7 @@ func TestLockFreeIngress(t *testing.T) {
 	}
 
 	// Pop all tasks
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		_, ok := q.Pop()
 		if !ok {
 			t.Errorf("Pop failed at iteration %d", i)
@@ -343,7 +343,7 @@ func TestMicrotaskRing(t *testing.T) {
 	}
 
 	// Push some microtasks
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if !r.Push(func() {}) {
 			t.Errorf("Push failed at iteration %d", i)
 		}
@@ -354,7 +354,7 @@ func TestMicrotaskRing(t *testing.T) {
 	}
 
 	// Pop all
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		fn := r.Pop()
 		if fn == nil {
 			t.Errorf("Pop returned nil at iteration %d", i)
@@ -371,7 +371,7 @@ func TestChunkMinimalClearing(t *testing.T) {
 	c := newChunk()
 
 	// Fill some slots
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		c.tasks[i] = Task{Fn: func() {}}
 		c.pos++
 	}
@@ -380,7 +380,7 @@ func TestChunkMinimalClearing(t *testing.T) {
 	returnChunkFast(c)
 
 	// Verify cleared slots
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if c.tasks[i].Fn != nil {
 			t.Errorf("Slot %d not cleared", i)
 		}

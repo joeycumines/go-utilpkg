@@ -92,7 +92,7 @@ func TestSubmit_RaceCondition_FastModeCheckBeforeLock(t *testing.T) {
 		<-submitBarrier
 		// This Submit() may check fastMode=true, then RegisterFD runs,
 		// then Submit() appends to auxJobs despite loop being in poll mode now
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			if err := loop.Submit(func() {
 				executed.Add(1)
 			}); err != nil {
@@ -175,7 +175,7 @@ func TestPollPath_DrainsBothQueues(t *testing.T) {
 	// Manually inject into auxJobs to simulate race condition
 	loop.externalMu.Lock()
 	var auxExecuted atomic.Int64
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.auxJobs = append(loop.auxJobs, func() {
 			auxExecuted.Add(1)
 		})
@@ -184,7 +184,7 @@ func TestPollPath_DrainsBothQueues(t *testing.T) {
 
 	// Submit via normal path (goes to l.external)
 	var externalExecuted atomic.Int64
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		if err := loop.Submit(func() {
 			externalExecuted.Add(1)
 		}); err != nil {
@@ -262,25 +262,21 @@ func TestFastPath_SubmitInternal_DirectExecution_StateRace(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Start shutdown in parallel
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		time.Sleep(time.Millisecond)
 		_ = loop.Shutdown(context.Background())
-	}()
+	})
 
 	// Hammer SubmitInternal concurrently
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			err := loop.SubmitInternal(func() {
 				executed.Add(1)
 			})
 			if err != nil && err != ErrLoopTerminated {
 				t.Errorf("SubmitInternal unexpected error: %v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

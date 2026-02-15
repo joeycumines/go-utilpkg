@@ -165,7 +165,7 @@ func TestPhase3_PollFastMode_DrainAuxJobsAfterPoll(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(n)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		require.NoError(t, loop.Submit(func() {
 			counter.Add(1)
 			wg.Done()
@@ -1324,13 +1324,13 @@ func TestPhase3_ChunkedIngress_PopDoubleCheckExhaustedAfterAdvance(t *testing.T)
 	ci := newChunkedIngressWithSize(2)
 
 	// Push 4 items (fills 2 chunks of size 2)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		ci.Push(func() {})
 	}
 	assert.Equal(t, 4, ci.Length())
 
 	// Pop all 4
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		fn, ok := ci.Pop()
 		assert.True(t, ok)
 		assert.NotNil(t, fn)
@@ -1364,12 +1364,12 @@ func TestPhase3_ChunkedIngress_PostAdvanceExhausted(t *testing.T) {
 	ci := newChunkedIngressWithSize(2)
 
 	// Fill 3 chunks (6 items)
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		ci.Push(func() {})
 	}
 
 	// Pop 6 items — after middle chunk is freed, head advances
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		fn, ok := ci.Pop()
 		assert.True(t, ok, "expected pop %d to succeed", i)
 		assert.NotNil(t, fn)
@@ -1393,7 +1393,7 @@ func TestPhase3_MicrotaskRing_OverflowAndDrain(t *testing.T) {
 
 	// Push more than ringBufferSize items to trigger overflow
 	count := ringBufferSize + 100
-	for i := 0; i < count; i++ {
+	for range count {
 		ok := ring.Push(func() {})
 		assert.True(t, ok)
 	}
@@ -1402,7 +1402,7 @@ func TestPhase3_MicrotaskRing_OverflowAndDrain(t *testing.T) {
 	assert.Equal(t, count, ring.Length())
 
 	// Pop all items — should drain ring first, then overflow
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fn := ring.Pop()
 		assert.NotNil(t, fn, "expected non-nil at position %d", i)
 	}
@@ -1437,14 +1437,14 @@ func TestPhase3_TransitionToTerminated_DrainsAllQueues(t *testing.T) {
 	var drained atomic.Int32
 
 	// External queue tasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		require.NoError(t, loop.Submit(func() {
 			drained.Add(1)
 		}))
 	}
 
 	// Internal queue tasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		require.NoError(t, loop.SubmitInternal(func() {
 			drained.Add(1)
 		}))
@@ -2071,7 +2071,7 @@ func TestPhase3_MicrotaskRing_OverflowCompact(t *testing.T) {
 
 	// Push ringBufferSize + 1024 items: ring gets 4096, overflow gets 1024
 	total := ringBufferSize + 1024
-	for i := 0; i < total; i++ {
+	for i := range total {
 		ok := ring.Push(func() {})
 		require.True(t, ok, "push %d failed", i)
 	}
@@ -2080,7 +2080,7 @@ func TestPhase3_MicrotaskRing_OverflowCompact(t *testing.T) {
 	// Pop all items. After ring drains (4096 pops), overflow pops begin.
 	// After popping ~513 from overflow: overflowHead=513 > 512 AND 513 > 1024/2=512
 	// → compact triggers.
-	for i := 0; i < total; i++ {
+	for i := range total {
 		fn := ring.Pop()
 		require.NotNil(t, fn, "pop %d returned nil", i)
 	}

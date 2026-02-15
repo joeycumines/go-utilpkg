@@ -11,7 +11,7 @@ func Test_microtaskRing_OverflowOrder(t *testing.T) {
 
 	// Fill ring beyond capacity to trigger overflow
 	const ringSize = 4100 // Slightly over 4096
-	for i := 0; i < ringSize; i++ {
+	for i := range ringSize {
 		taskID := i
 		tr.Push(func() {
 			t.Logf("Task %d executed", taskID)
@@ -54,7 +54,7 @@ func Test_microtaskRing_RingOnly(t *testing.T) {
 	const tasks = 1000 // Well under 4096 capacity
 
 	// Push tasks
-	for i := 0; i < tasks; i++ {
+	for i := range tasks {
 		taskID := i
 		tr.Push(func() {
 			t.Logf("Task %d executed", taskID)
@@ -100,11 +100,11 @@ func Test_microtaskRing_NoDoubleExecution(t *testing.T) {
 	var producers atomic.Int64
 
 	// Spawn producers that will push beyond ring capacity
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		go func(id int) {
 			defer producers.Add(-1)
 			// Each producer adds tasks, some will go to overflow
-			for j := 0; j < tasksPerProducer; j++ {
+			for j := range tasksPerProducer {
 				taskID := id*tasksPerProducer + j
 				tr.Push(func() {
 					counter.Add(1)
@@ -155,11 +155,11 @@ func Test_microtaskRing_NoTailCorruption(t *testing.T) {
 
 	// Spawn many producers that will race to fill and trigger overflow
 	const numProducers = 32
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		go func(id int) {
 			defer producers.Add(-1)
 			// Each producer adds 100 tasks (will overflow the ring with 32*100=3200 total)
-			for j := 0; j < 100; j++ {
+			for j := range 100 {
 				taskID := id*100 + j
 				tr.Push(func() {
 					// Task does nothing except exist
@@ -185,7 +185,7 @@ func Test_microtaskRing_NoTailCorruption(t *testing.T) {
 	}
 
 	// Verify we can still push and drain after to race
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		tr.Push(func() {})
 	}
 
@@ -217,10 +217,10 @@ func Test_microtaskRing_SharedStress(t *testing.T) {
 	var activeProducers atomic.Int64
 
 	// Spawn producers
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		go func(id int) {
 			defer activeProducers.Add(-1)
-			for j := 0; j < tasksPerProducer; j++ {
+			for j := range tasksPerProducer {
 				taskID := id*tasksPerProducer + j
 				tr.Push(func() {
 					counter.Add(1)
@@ -273,7 +273,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 	const ringCap = 1024
 	var counter atomic.Int64
 
-	for i := 0; i < ringCap; i++ {
+	for range ringCap {
 		ring.Push(func() {
 			counter.Add(1)
 		})
@@ -281,7 +281,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 
 	// 2. Add MORE items - these will go to overflow.
 	const overflowCount = 100
-	for i := 0; i < overflowCount; i++ {
+	for range overflowCount {
 		ring.Push(func() {
 			counter.Add(1)
 		})
@@ -299,7 +299,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 	}
 
 	// 4. Drain the ring buffer portion completely
-	for i := 0; i < ringCap; i++ {
+	for i := range ringCap {
 		fn := ring.Pop()
 		if fn == nil {
 			t.Fatalf("Pop returned nil at iteration %d, expected item", i)
@@ -323,7 +323,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 	// had only checked len(overflow) == 0 after full drain, it might have
 	// been wrong after compaction timing issues.
 	const drainCount = 50
-	for i := 0; i < drainCount; i++ {
+	for i := range drainCount {
 		fn := ring.Pop()
 		if fn == nil {
 			t.Fatalf("Pop returned nil at overflow iteration %d, expected item", i)
@@ -346,7 +346,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 	}
 
 	// 10. Now drain ALL remaining items
-	for i := 0; i < expectedRemaining; i++ {
+	for i := range expectedRemaining {
 		fn := ring.Pop()
 		if fn == nil {
 			t.Fatalf("Pop returned nil at final drain iteration %d", i)

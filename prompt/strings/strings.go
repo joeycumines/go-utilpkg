@@ -83,7 +83,7 @@ func RuneIndexNthColumn(text string, n Width) RuneNumber {
 // IndexNotByte is similar with strings.IndexByte but showing the opposite behavior.
 func IndexNotByte(s string, c byte) ByteNumber {
 	n := len(s)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if s[i] != c {
 			return ByteNumber(i)
 		}

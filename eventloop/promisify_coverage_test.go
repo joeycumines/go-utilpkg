@@ -390,16 +390,13 @@ func TestPromisify_ConcurrentWithShutdown(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Start promises concurrently
-	for i := 0; i < numPromises; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for i := range numPromises {
+		wg.Go(func() {
 			promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				time.Sleep(time.Duration(i) * time.Millisecond)
 				return i, nil
 			})
-		}()
+		})
 	}
 
 	wg.Wait()

@@ -44,11 +44,9 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 	_, p := l.registry.NewPromise()
 
 	// C4 FIX: Track this goroutine so shutdown can wait for it
-	l.promisifyWg.Add(1)
 
-	go func() {
+	l.promisifyWg.Go(func() {
 		// C4 FIX: Signal completion when done (even on panic)
-		defer l.promisifyWg.Done()
 
 		// Completion flag to distinguish normal return from Goexit
 		completed := false
@@ -117,7 +115,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Resu
 			}
 		}
 		completed = true
-	}()
+	})
 
 	return p
 }

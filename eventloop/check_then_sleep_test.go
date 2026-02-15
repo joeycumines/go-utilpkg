@@ -70,11 +70,11 @@ func TestTask1_2_CheckThenSleepBarrier(t *testing.T) {
 	// Launch many concurrent producers all trying to submit tasks
 	// This creates the "torture test" scenario where producers enqueue
 	// while the loop is transitioning to sleep and back
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		go func(producerID int) {
 			defer wg.Done()
 
-			for j := 0; j < tasksPerProducer; j++ {
+			for j := range tasksPerProducer {
 				// Submit task via loop.Submit()
 				err := loop.Submit(func() {
 					// Task executed - just count

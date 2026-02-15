@@ -30,7 +30,7 @@ func TestReproThenable(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	resultCh := make(chan interface{}, 1)
+	resultCh := make(chan any, 1)
 	_ = runtime.Set("notifyResult", func(call goja.FunctionCall) goja.Value {
 		resultCh <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -84,7 +84,7 @@ func TestReproIterable(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	resultCh := make(chan interface{}, 1)
+	resultCh := make(chan any, 1)
 	_ = runtime.Set("notifyResult", func(call goja.FunctionCall) goja.Value {
 		resultCh <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -117,7 +117,7 @@ func TestReproIterable(t *testing.T) {
 	select {
 	case export := <-resultCh:
 		// Expect array [1, 2]
-		if arr, ok := export.([]interface{}); ok {
+		if arr, ok := export.([]any); ok {
 			if len(arr) != 2 {
 				t.Errorf("Expected length 2, got %d", len(arr))
 			}

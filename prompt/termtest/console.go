@@ -297,10 +297,7 @@ func (c *Console) SendLine(input string) error {
 // supports explicit synchronization (e.g., via a sync protocol), prefer that instead.
 func (c *Console) WaitIdle(ctx context.Context, stableDuration time.Duration) error {
 	checkInterval := 5 * time.Millisecond
-	requiredChecks := int(stableDuration / checkInterval)
-	if requiredChecks < 1 {
-		requiredChecks = 1
-	}
+	requiredChecks := max(int(stableDuration/checkInterval), 1)
 
 	if err := ctx.Err(); err != nil {
 		return err

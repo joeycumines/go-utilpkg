@@ -819,7 +819,7 @@ func TestAlreadySettled_MultipleHandlers(t *testing.T) {
 	// Add multiple handlers after settlement
 	var count atomic.Int32
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p.Then(func(v any) any {
 			count.Add(1)
 			return v
@@ -962,15 +962,13 @@ func TestConcurrent_MultipleHandlersSamePromise(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrently register 10 handlers
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			p.Then(func(v any) any {
 				count.Add(1)
 				return v
 			}, nil)
-		}()
+		})
 	}
 
 	wg.Wait()

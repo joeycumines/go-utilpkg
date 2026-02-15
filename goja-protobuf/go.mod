@@ -1,6 +1,6 @@
 module github.com/joeycumines/goja-protobuf
 
-go 1.25.7
+go 1.26
 
 require (
 	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3

@@ -147,7 +147,7 @@ func TestPromisify_ConcurrentWithShutdown_Race(t *testing.T) {
 	var wg sync.WaitGroup
 	var successCount, rejectCount atomic.Int64
 
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -206,7 +206,7 @@ func TestPromisify_MuLockCoordination(t *testing.T) {
 	var wg sync.WaitGroup
 	promises := make([]Promise, numCalls)
 
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		wg.Add(1)
 		idx := i
 		go func() {
@@ -455,12 +455,10 @@ func TestPromisify_MultipleShutdownCalls(t *testing.T) {
 
 	// Multiple concurrent Shutdown calls
 	var wg sync.WaitGroup
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 5 {
+		wg.Go(func() {
 			loop.Shutdown(context.Background())
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -519,7 +517,7 @@ func TestPromisify_PanicDuringShutdown(t *testing.T) {
 
 // TestPromisify_WgCounterIntegrity tests WaitGroup counter integrity
 func TestPromisify_WgCounterIntegrity(t *testing.T) {
-	for iteration := 0; iteration < 10; iteration++ {
+	for range 10 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -536,14 +534,12 @@ func TestPromisify_WgCounterIntegrity(t *testing.T) {
 
 		// Rapid Promisify and shutdown
 		var wg sync.WaitGroup
-		for i := 0; i < 20; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 20 {
+			wg.Go(func() {
 				loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 					return nil, nil
 				})
-			}()
+			})
 		}
 
 		// Shutdown while Promisify calls are in flight

@@ -55,7 +55,7 @@ func TestBuilder_Limit_callerCategoryRateLimit(t *testing.T) {
 
 	logger := categoryRateLimitTestFactory(&buf)
 
-	for i := 0; i < categoryRateLimitTestCount; i++ {
+	for i := range categoryRateLimitTestCount {
 		b := logger.Info()
 		if b.mode != 0 {
 			t.Fatal(b.mode)
@@ -86,7 +86,7 @@ func TestLogger_CallerCategoryRateLimitModifier(t *testing.T) {
 		t.Fatal()
 	}
 
-	for i := 0; i < categoryRateLimitTestCount; i++ {
+	for i := range categoryRateLimitTestCount {
 		logger.Info().
 			Int(`i`, i).
 			Modifier(modifier).

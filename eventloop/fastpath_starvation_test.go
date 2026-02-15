@@ -50,7 +50,7 @@ func TestFastPath_AuxJobsStarvation_ModeTransition(t *testing.T) {
 	// Submit tasks in fast path mode - these go to auxJobs
 	var executed atomic.Int64
 	const taskCount = 100
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		if err := loop.Submit(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -104,7 +104,7 @@ func TestFastPath_InternalQueueStarvation_FastVsTick(t *testing.T) {
 	// Submit internal tasks
 	var executed atomic.Int64
 	const taskCount = 50
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		if err := loop.SubmitInternal(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -160,7 +160,7 @@ func TestFastPath_MicrotaskBudgetExceeded_NoBlock(t *testing.T) {
 	done := make(chan struct{})
 
 	if err := loop.Submit(func() {
-		for i := 0; i < microtaskCount; i++ {
+		for range microtaskCount {
 			_ = loop.ScheduleMicrotask(func() {
 				if executed.Add(1) == microtaskCount {
 					close(done)
@@ -218,7 +218,7 @@ func TestFastPath_EntryCondition_HasInternalTasks(t *testing.T) {
 	// Submit internal tasks BEFORE switching to fast path
 	var executed atomic.Int64
 	const taskCount = 20
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		if err := loop.SubmitInternal(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -279,7 +279,7 @@ func TestFastPath_ExternalQueueDrained_Transition(t *testing.T) {
 	// Submit tasks - these go to l.external (chunkedIngress)
 	var executed atomic.Int64
 	const taskCount = 50
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		if err := loop.Submit(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -318,8 +318,7 @@ func TestFastPath_TerminatingDrain_AuxJobs(t *testing.T) {
 	}
 	_ = loop.SetFastPathMode(FastPathForced)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	runCh := make(chan error, 1)
 	go func() {
@@ -335,10 +334,8 @@ func TestFastPath_TerminatingDrain_AuxJobs(t *testing.T) {
 	var executed atomic.Int64
 	const taskCount = 100
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < taskCount; i++ {
+	wg.Go(func() {
+		for range taskCount {
 			err := loop.Submit(func() {
 				executed.Add(1)
 			})
@@ -346,7 +343,7 @@ func TestFastPath_TerminatingDrain_AuxJobs(t *testing.T) {
 				break
 			}
 		}
-	}()
+	})
 
 	// Small delay then shutdown
 	time.Sleep(5 * time.Millisecond)
@@ -435,7 +432,7 @@ func TestFastPath_ConcurrentSubmit_ModeSwitch(t *testing.T) {
 		t.Skip("Skipping stress test in short mode")
 	}
 
-	for iteration := 0; iteration < 50; iteration++ {
+	for iteration := range 50 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -457,11 +454,9 @@ func TestFastPath_ConcurrentSubmit_ModeSwitch(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Concurrent submitters
-		for g := 0; g < 10; g++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for i := 0; i < 100; i++ {
+		for range 10 {
+			wg.Go(func() {
+				for range 100 {
 					err := loop.Submit(func() {
 						executed.Add(1)
 					})
@@ -471,19 +466,17 @@ func TestFastPath_ConcurrentSubmit_ModeSwitch(t *testing.T) {
 						return
 					}
 				}
-			}()
+			})
 		}
 
 		// Concurrent mode switcher
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			modes := []FastPathMode{FastPathAuto, FastPathDisabled, FastPathAuto}
 			for _, m := range modes {
 				_ = loop.SetFastPathMode(m)
 				time.Sleep(time.Millisecond)
 			}
-		}()
+		})
 
 		wg.Wait()
 
@@ -518,7 +511,7 @@ func TestFastPath_ConcurrentSubmit_ModeSwitch(t *testing.T) {
 //  6. BUG (fixed): Loop stays in fast path, never drains l.external
 //  7. FIX: runFastPath now checks hasExternalTasks() and exits to tick()
 func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
-	for iter := 0; iter < 100; iter++ {
+	for iter := range 100 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -543,7 +536,7 @@ func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
 		_ = loop.SetFastPathMode(FastPathDisabled)
 
 		// Submit tasks - they go to l.external
-		for i := 0; i < taskCount; i++ {
+		for range taskCount {
 			if err := loop.Submit(func() {
 				executed.Add(1)
 			}); err != nil {

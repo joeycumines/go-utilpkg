@@ -419,7 +419,7 @@ func TestHarness_RunPrompt_MultipleCalls(t *testing.T) {
 func TestHarness_Race_Close_RunPrompt(t *testing.T) {
 	// Regression test for race conditions between starting the prompt and closing the harness.
 	// This loop runs rapidly to increase probability of hitting race windows.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -428,9 +428,7 @@ func TestHarness_Race_Close_RunPrompt(t *testing.T) {
 			// Do NOT defer h.Close() here, we close explicitly below
 
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				// Artificial delay to misalign timing
 				if i%2 == 0 {
 					time.Sleep(time.Microsecond * 10)
@@ -443,7 +441,7 @@ func TestHarness_Race_Close_RunPrompt(t *testing.T) {
 				// The main body of RunPrompt checks atomic CAS.
 				defer func() { recover() }()
 				h.RunPrompt(nil)
-			}()
+			})
 
 			// Concurrent close
 			_ = h.Close()

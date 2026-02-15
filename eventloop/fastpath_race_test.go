@@ -63,10 +63,8 @@ func TestSetFastPathMode_ConcurrentChanges(t *testing.T) {
 	modes := []FastPathMode{FastPathAuto, FastPathDisabled}
 
 	// Launch multiple goroutines that all call SetFastPathMode concurrently
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			for {
 				select {
 				case <-done:
@@ -78,7 +76,7 @@ func TestSetFastPathMode_ConcurrentChanges(t *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	// Let them run for a bit

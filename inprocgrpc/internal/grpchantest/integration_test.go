@@ -1,7 +1,6 @@
 package grpchantest_test
 
 import (
-	"context"
 	"testing"
 
 	eventloop "github.com/joeycumines/go-eventloop"
@@ -14,8 +13,7 @@ func TestRunChannelTestCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eventloop.New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))

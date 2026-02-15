@@ -100,10 +100,10 @@ func (r *Renderer) Close() {
 }
 
 func (r *Renderer) prepareArea(lines int) {
-	for i := 0; i < lines; i++ {
+	for range lines {
 		r.out.ScrollDown()
 	}
-	for i := 0; i < lines; i++ {
+	for range lines {
 		r.out.ScrollUp()
 	}
 }
@@ -129,10 +129,7 @@ func (r *Renderer) renderCompletion(buf *Buffer, completions *CompletionManager)
 	width++
 
 	contentHeight := len(formatted)
-	windowHeight := contentHeight
-	if windowHeight > int(completions.max) {
-		windowHeight = int(completions.max)
-	}
+	windowHeight := min(contentHeight, int(completions.max))
 	if r.dynamicCompletion {
 		cursorLine := buf.DisplayCursorPosition(r.UserInputColumns()).Y
 		availableRows := r.row - cursorLine - 1
@@ -585,7 +582,7 @@ func (r *Renderer) clear(cursor Position) {
 	r.out.SaveCursor()
 
 	// Clear each line precisely
-	for i := 0; i < totalLines; i++ {
+	for i := range totalLines {
 		r.out.EraseLine()
 		if i < totalLines-1 {
 			r.out.CursorDown(1)

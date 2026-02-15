@@ -198,7 +198,7 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 
 // dispatchEvents executes callbacks inline.
 func (p *FastPoller) dispatchEvents(n int) {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fd := int(p.eventBuf[i].Ident)
 		if fd >= 0 && fd < maxFDs {
 			info := &p.fds[fd]

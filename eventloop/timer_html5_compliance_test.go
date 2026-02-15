@@ -294,7 +294,7 @@ func TestHTML5_TimerIDUniqueness(t *testing.T) {
 	wg.Add(numTimeouts)
 
 	// Schedule timeouts - these fire once and decrement WaitGroup
-	for i := 0; i < numTimeouts; i++ {
+	for i := range numTimeouts {
 		id, err := js.SetTimeout(func() {
 			wg.Done()
 		}, 10)
@@ -311,7 +311,7 @@ func TestHTML5_TimerIDUniqueness(t *testing.T) {
 
 	// Schedule intervals - these are tracked separately and cleared immediately
 	// We just verify ID uniqueness, not execution
-	for i := 0; i < numIntervals; i++ {
+	for i := range numIntervals {
 		id, err := js.SetInterval(func() {
 			// No-op - we clear immediately
 		}, 1000) // Long delay so they don't fire before we clear
@@ -612,7 +612,7 @@ func TestHTML5_TimerOrderFIFO(t *testing.T) {
 
 	// Schedule multiple timers with progressively increasing delays
 	// They should execute in delay order (0ms, 10ms, 20ms, ...)
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		idx := i
 		delay := i * 10 // 0ms, 10ms, 20ms, etc.
 		_, err := js.SetTimeout(func() {
@@ -821,11 +821,11 @@ func TestHTML5_ConcurrentTimerOperations(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
-	for g := 0; g < numGoroutines; g++ {
+	for range numGoroutines {
 		go func() {
 			defer wg.Done()
 
-			for i := 0; i < numOpsPerGoroutine; i++ {
+			for i := range numOpsPerGoroutine {
 				// Mix of operations
 				switch i % 4 {
 				case 0:

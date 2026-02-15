@@ -202,7 +202,7 @@ func (x *Exporter) Export(ctx context.Context) error {
 			})
 
 			// note: 2x channels, both send exactly once, never closed
-			for i := 0; i < 2; i++ {
+			for range 2 {
 				var e error
 				select {
 				case e = <-readerCh:

@@ -302,14 +302,12 @@ func TestEventTarget_ConcurrentAccess(t *testing.T) {
 	var count atomic.Int32
 
 	// Add listeners concurrently
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			target.AddEventListener("test", func(e *Event) {
 				count.Add(1)
 			})
-		}()
+		})
 	}
 	wg.Wait()
 

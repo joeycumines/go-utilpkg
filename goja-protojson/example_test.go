@@ -18,14 +18,14 @@ func Example() {
 	}
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{{
-			Name:    proto.String("example.proto"),
-			Package: proto.String("example"),
-			Syntax:  proto.String("proto3"),
+			Name:    new("example.proto"),
+			Package: new("example"),
+			Syntax:  new("proto3"),
 			MessageType: []*descriptorpb.DescriptorProto{{
-				Name: proto.String("Person"),
+				Name: new("Person"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					{Name: proto.String("name"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("name")},
-					{Name: proto.String("age"), Number: proto.Int32(2), Type: descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("age")},
+					{Name: new("name"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("name")},
+					{Name: new("age"), Number: proto.Int32(2), Type: descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("age")},
 				},
 			}},
 		}},

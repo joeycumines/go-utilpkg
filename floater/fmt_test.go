@@ -322,7 +322,7 @@ func FuzzFormatDecimalRat_variant2(f *testing.F) {
 		f.Add(signbit, num, denomSub1, prec)
 	}
 
-	for i := 0; i < math.MaxUint8; i++ {
+	for i := range math.MaxUint8 {
 		prec := uint8(i)
 		add(false, 0, 0, prec)
 		add(true, 0, 0, prec)
@@ -588,8 +588,8 @@ type approximateDecimalBufferSizeTestCase struct {
 
 func (tc approximateDecimalBufferSizeTestCase) val(t interface {
 	Helper()
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
 }) *big.Float {
 	t.Helper()
 	if tc.r != `` {

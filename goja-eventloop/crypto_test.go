@@ -77,7 +77,7 @@ func TestCryptoRandomUUID_Uniqueness(t *testing.T) {
 		t.Fatalf("RunString failed: %v", err)
 	}
 
-	arr := result.Export().([]interface{})
+	arr := result.Export().([]any)
 	seen := make(map[string]bool)
 	for i, v := range arr {
 		uuid := v.(string)
@@ -106,7 +106,7 @@ func TestCryptoRandomUUID_Format(t *testing.T) {
 	}
 
 	// Generate several UUIDs and verify format
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		result, err := runtime.RunString(`crypto.randomUUID()`)
 		if err != nil {
 			t.Fatalf("RunString failed: %v", err)
@@ -234,7 +234,7 @@ func TestGenerateUUIDv4(t *testing.T) {
 
 func TestGenerateUUIDv4_Uniqueness(t *testing.T) {
 	seen := make(map[string]bool)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		uuid, err := generateUUIDv4()
 		if err != nil {
 			t.Fatalf("generateUUIDv4 failed: %v", err)

@@ -76,7 +76,7 @@ func TestPromiseAllFromJavaScript(t *testing.T) {
 	}
 
 	values := result.Export()
-	resultArr, ok := values.([]interface{})
+	resultArr, ok := values.([]any)
 	if !ok {
 		t.Fatalf("Expected []interface{}, got: %T", values)
 	}
@@ -85,7 +85,7 @@ func TestPromiseAllFromJavaScript(t *testing.T) {
 		t.Errorf("Expected 3 values, got: %d", len(resultArr))
 	}
 
-	expected := []interface{}{int64(1), int64(2), int64(3)}
+	expected := []any{int64(1), int64(2), int64(3)}
 	for i, v := range resultArr {
 		if v != expected[i] {
 			t.Errorf("Index %d: expected %v, got %v", i, expected[i], v)
@@ -288,7 +288,7 @@ func TestPromiseAllSettledFromJavaScript(t *testing.T) {
 	}
 
 	values := result.Export()
-	resultArr, ok := values.([]interface{})
+	resultArr, ok := values.([]any)
 	if !ok {
 		t.Fatalf("Expected []interface{}, got: %T", values)
 	}
@@ -298,7 +298,7 @@ func TestPromiseAllSettledFromJavaScript(t *testing.T) {
 	}
 
 	// Check first result: {status: "fulfilled", value: 1}
-	first, ok := resultArr[0].(map[string]interface{})
+	first, ok := resultArr[0].(map[string]any)
 	if !ok {
 		t.Fatalf("Expected map for first result, got: %T", resultArr[0])
 	}
@@ -307,7 +307,7 @@ func TestPromiseAllSettledFromJavaScript(t *testing.T) {
 	}
 
 	// Check second result: {status: "rejected", reason: Error}
-	second, ok := resultArr[1].(map[string]interface{})
+	second, ok := resultArr[1].(map[string]any)
 	if !ok {
 		t.Fatalf("Expected map for second result, got: %T", resultArr[1])
 	}

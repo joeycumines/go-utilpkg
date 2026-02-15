@@ -29,11 +29,9 @@ func TestRunTimers_PanicRecovery(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -102,11 +100,9 @@ func TestRunTimers_CanceledTimerPath(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -117,7 +113,7 @@ func TestRunTimers_CanceledTimerPath(t *testing.T) {
 	const numTimers = 100
 	timersFired := atomic.Int32{}
 
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := loop.ScheduleTimer(10*time.Millisecond, func() {
 			timersFired.Add(1)
 		})
@@ -157,11 +153,9 @@ func TestRunTimers_CanceledTimerPoolReturn(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -169,11 +163,11 @@ func TestRunTimers_CanceledTimerPoolReturn(t *testing.T) {
 	}
 
 	// Exercise timer pool by creating, canceling, and reusing timers
-	for iteration := 0; iteration < 50; iteration++ {
+	for iteration := range 50 {
 		var ids []TimerID
 
 		// Create batch of timers
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			id, err := loop.ScheduleTimer(100*time.Millisecond, func() {
 				// This should never run - we cancel before fire
 			})
@@ -211,11 +205,9 @@ func TestRunTimers_NestingDepthTracking(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -284,11 +276,9 @@ func TestRunTimers_HTML5NestingClamp(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -359,11 +349,9 @@ func TestRunTimers_StrictMicrotaskOrdering(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -440,11 +428,9 @@ func TestRunTimers_EmptyHeap(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -474,11 +460,9 @@ func TestRunTimers_FutureTimer(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -517,11 +501,9 @@ func TestRunTimers_MultipleTimersOrdering(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -587,11 +569,9 @@ func TestRunTimers_TimerMapCleanup(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -768,7 +748,7 @@ func TestScheduleTimer_IDIncrement(t *testing.T) {
 	const numTimers = 100
 	ids := make([]TimerID, numTimers)
 
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer %d failed: %v", i, err)
@@ -877,11 +857,9 @@ func TestRunTimers_MultiplePanics(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	for i := 0; i < 100 && !loop.state.IsRunning(); i++ {
@@ -893,8 +871,7 @@ func TestRunTimers_MultiplePanics(t *testing.T) {
 	done := make(chan struct{})
 
 	// Schedule alternating panic/success timers
-	for i := 0; i < 10; i++ {
-		i := i
+	for i := range 10 {
 		delay := time.Duration(i*5+1) * time.Millisecond
 		if i%2 == 0 {
 			// Panic timer

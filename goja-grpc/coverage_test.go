@@ -115,7 +115,7 @@ func TestUnaryHandler_ReturnsUndefined(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL = 13
 	assert.Contains(t, resultObj["message"], "nil/undefined")
@@ -155,7 +155,7 @@ func TestUnaryHandler_ReturnsNonMessage(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 	assert.Contains(t, resultObj["message"], "handler response")
@@ -197,7 +197,7 @@ func TestUnaryHandler_AsyncRejectString(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 }
@@ -238,7 +238,7 @@ func TestUnaryHandler_AsyncRejectGenericError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 	// Note: the message may vary depending on how goja serializes Error
@@ -288,7 +288,7 @@ func TestUnaryRPC_WithMetadata(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Nil(t, resultObj["error"])
 	assert.Equal(t, "with-metadata", resultObj["message"])
 }
@@ -337,7 +337,7 @@ func TestGrpcErrorFromGoError_DeadlineExceeded(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	// This should be Canceled(1) since we used AbortSignal
 	assert.Equal(t, int64(1), resultObj["code"])
@@ -507,7 +507,7 @@ func TestServerStreamHandler_SyncThrow(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 	assert.Contains(t, resultObj["message"], "sync server stream error")
 }
@@ -547,7 +547,7 @@ func TestClientStreamHandler_SyncThrow(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 	assert.Contains(t, resultObj["message"], "sync client stream error")
 }
@@ -587,7 +587,7 @@ func TestBidiStreamHandler_SyncThrow(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 	assert.Contains(t, resultObj["message"], "sync bidi error")
 }
@@ -704,7 +704,7 @@ func TestIsThenable_NilAndPrimitive(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
 }
 
@@ -791,7 +791,7 @@ func TestUnaryRPC_UnregisteredMethod(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED = 12
 }
@@ -817,7 +817,7 @@ func TestServerStreamRPC_UnregisteredMethod(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
 }
@@ -840,7 +840,7 @@ func TestClientStreamRPC_UnregisteredMethod(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
 }
@@ -863,7 +863,7 @@ func TestBidiStreamRPC_UnregisteredMethod(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
 }
@@ -1237,7 +1237,7 @@ func TestServerHandler_NilReturn(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1282,7 +1282,7 @@ func TestServerStreamHandler_AsyncReject(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Unavailable), resultObj["code"])
 }
 
@@ -1349,7 +1349,7 @@ func TestUnaryHandler_ReturnNonMessage_Sync(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1389,7 +1389,7 @@ func TestUnaryHandler_ReturnNonMessage_Async(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1429,7 +1429,7 @@ func TestUnaryHandler_AsyncReject(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(5), resultObj["code"]) // NOT_FOUND = 5
 	assert.Contains(t, resultObj["message"].(string), "not found")
 }
@@ -1468,7 +1468,7 @@ func TestUnaryHandler_SyncThrow(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(6), resultObj["code"]) // ALREADY_EXISTS = 6
 	assert.Contains(t, resultObj["message"].(string), "dup")
 }
@@ -1512,7 +1512,7 @@ func TestServerStreamHandler_SyncThrow_FailedPrecondition(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(9), resultObj["code"]) // FAILED_PRECONDITION = 9
 }
 
@@ -1599,7 +1599,7 @@ func TestClientStreamHandler_SyncThrow_ResourceExhausted(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(8), resultObj["code"]) // RESOURCE_EXHAUSTED = 8
 }
 
@@ -1641,7 +1641,7 @@ func TestClientStreamHandler_AsyncReject(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(10), resultObj["code"]) // ABORTED = 10
 }
 
@@ -1681,7 +1681,7 @@ func TestClientStreamHandler_ReturnNonMessage(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1721,7 +1721,7 @@ func TestBidiStreamHandler_SyncThrow_DataLoss(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(15), resultObj["code"]) // DATA_LOSS = 15
 }
 
@@ -1763,7 +1763,7 @@ func TestBidiStreamHandler_AsyncReject(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(16), resultObj["code"]) // UNAUTHENTICATED = 16
 }
 
@@ -1819,7 +1819,7 @@ func TestServerStreamHandler_SendThenAsyncResolve(t *testing.T) {
 	result := env.runtime.Get("items")
 	require.NotNil(t, result)
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	require.True(t, ok)
 	assert.Equal(t, 1, len(arr))
 	assert.Equal(t, "first", arr[0])
@@ -1894,7 +1894,7 @@ func TestBidiStreamHandler_SendRecv(t *testing.T) {
 	result := env.runtime.Get("received")
 	require.NotNil(t, result)
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	require.True(t, ok)
 	assert.Equal(t, 1, len(arr))
 	assert.Equal(t, "echo-alpha", arr[0])
@@ -2115,7 +2115,7 @@ func TestClientStream_SendBadType(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "TypeError", resultObj["name"])
 }
 
@@ -2161,7 +2161,7 @@ func TestBidiStream_SendBadType(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "TypeError", resultObj["name"])
 }
 
@@ -2213,7 +2213,7 @@ func TestUnaryRPC_WithAbortSignal_Cancelled(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	// Cancelled = 1
 	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
@@ -2251,7 +2251,7 @@ func TestServerStreamRPC_BadRequestType(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "TypeError", resultObj["name"])
 }
 
@@ -2283,7 +2283,7 @@ func TestUnaryRPC_BadRequestType(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "TypeError", resultObj["name"])
 }
 
@@ -2355,7 +2355,7 @@ func TestApplySignal_AlreadyAborted(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
 }
@@ -2580,7 +2580,7 @@ func TestServerStreamHandler_MultipleItems(t *testing.T) {
 	result := env.runtime.Get("names")
 	require.NotNil(t, result)
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	require.True(t, ok)
 	assert.Equal(t, 3, len(arr))
 	assert.Equal(t, "item-0", arr[0])
@@ -2677,7 +2677,7 @@ func TestServerStreamRPC_PreAbortedSignal(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	// Should be CANCELLED because the context was canceled by the abort.
 	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
@@ -2720,7 +2720,7 @@ func TestClientStreamRPC_PreAbortedSignal(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
 }
@@ -2762,7 +2762,7 @@ func TestBidiStreamRPC_PreAbortedSignal(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
 }

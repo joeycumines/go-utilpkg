@@ -22,7 +22,7 @@ func Test_microtaskRing_OverflowPath(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill the ring completely (4096 items)
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -39,7 +39,7 @@ func Test_microtaskRing_OverflowPath(t *testing.T) {
 	}
 
 	// Drain all ring items
-	for i := 0; i < ringBufferSize; i++ {
+	for i := range ringBufferSize {
 		fn := r.Pop()
 		if fn == nil {
 			t.Fatalf("Expected item at index %d, got nil", i)
@@ -68,7 +68,7 @@ func Test_microtaskRing_OverflowInitialCapacity(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill the ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -100,7 +100,7 @@ func Test_microtaskRing_OverflowCompaction(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill the ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -110,7 +110,7 @@ func Test_microtaskRing_OverflowCompaction(t *testing.T) {
 	// If we push 1200 items, then pop 700:
 	// overflowHead=700, len=1200, 700 > 600? Yes! 700 > 512? Yes! -> compaction
 	overflowCount := 1200
-	for i := 0; i < overflowCount; i++ {
+	for range overflowCount {
 		r.Push(func() {})
 	}
 
@@ -120,7 +120,7 @@ func Test_microtaskRing_OverflowCompaction(t *testing.T) {
 	}
 
 	// Drain the ring first
-	for i := 0; i < ringBufferSize; i++ {
+	for i := range ringBufferSize {
 		fn := r.Pop()
 		if fn == nil {
 			t.Fatalf("Expected ring item at %d", i)
@@ -133,7 +133,7 @@ func Test_microtaskRing_OverflowCompaction(t *testing.T) {
 	// Pop exactly 700 items - at pop 601 (when overflowHead=601, len=1200):
 	// 601 > 600? Yes! 601 > 512? Yes! -> compaction happens
 	popCount := 700
-	for i := 0; i < popCount; i++ {
+	for i := range popCount {
 		fn := r.Pop()
 		if fn == nil {
 			t.Fatalf("Expected overflow item at %d", i)
@@ -152,7 +152,7 @@ func Test_microtaskRing_OverflowCompaction(t *testing.T) {
 
 	// Compaction occurred at some point - verify we can still pop remaining items
 	remaining := overflowCount - popCount // 1200 - 700 = 500
-	for i := 0; i < remaining; i++ {
+	for i := range remaining {
 		fn := r.Pop()
 		if fn == nil {
 			t.Fatalf("Expected remaining overflow item at %d (head=%d, len=%d)", i, overflowHead, overflowLen)
@@ -170,7 +170,7 @@ func Test_microtaskRing_OverflowFIFOAppend(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill the ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -194,7 +194,7 @@ func Test_microtaskRing_OverflowFIFOAppend(t *testing.T) {
 	})
 
 	// Drain the ring (4095 items remaining)
-	for i := 0; i < ringBufferSize-1; i++ {
+	for range ringBufferSize - 1 {
 		r.Pop()
 	}
 
@@ -234,7 +234,7 @@ func Test_microtaskRing_NilTaskHandling(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			fn := r.Pop()
 			if fn != nil {
 				fn()
@@ -261,7 +261,7 @@ func Test_microtaskRing_NilTaskInOverflow(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill the ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -275,7 +275,7 @@ func Test_microtaskRing_NilTaskInOverflow(t *testing.T) {
 	})
 
 	// Drain ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Pop()
 	}
 
@@ -302,7 +302,7 @@ func Test_microtaskRing_SequenceSkipSentinel(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// All slots should start with ringSeqSkip and invalid
-	for i := 0; i < ringBufferSize; i++ {
+	for i := range ringBufferSize {
 		seq := r.seq[i].Load()
 		valid := r.valid[i].Load()
 		if seq != ringSeqSkip {
@@ -322,7 +322,7 @@ func Test_microtaskRing_SequenceWrapAround(t *testing.T) {
 	r.tailSeq.Store(^uint64(0) - 10)
 
 	// Push items - sequence should wrap gracefully
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		executed := false
 		r.Push(func() { executed = true })
 
@@ -356,15 +356,13 @@ func Test_microtaskRing_ConcurrentPushPop(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Start producers
-	for p := 0; p < producers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < itemsPerProducer; i++ {
+	for range producers {
+		wg.Go(func() {
+			for range itemsPerProducer {
 				r.Push(func() {})
 				produced.Add(1)
 			}
-		}()
+		})
 	}
 
 	// Start consumer
@@ -423,7 +421,7 @@ func Test_microtaskRing_Length(t *testing.T) {
 	}
 
 	// Push to ring
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		r.Push(func() {})
 	}
 	if r.Length() != 100 {
@@ -431,7 +429,7 @@ func Test_microtaskRing_Length(t *testing.T) {
 	}
 
 	// Fill ring and overflow
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 	if r.Length() != ringBufferSize+100 {
@@ -439,7 +437,7 @@ func Test_microtaskRing_Length(t *testing.T) {
 	}
 
 	// Pop some
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		r.Pop()
 	}
 	if r.Length() != ringBufferSize+50 {
@@ -456,7 +454,7 @@ func Test_microtaskRing_OverflowPendingFlag(t *testing.T) {
 	}
 
 	// Fill ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
@@ -473,7 +471,7 @@ func Test_microtaskRing_OverflowPendingFlag(t *testing.T) {
 	}
 
 	// Drain all including overflow
-	for i := 0; i < ringBufferSize+1; i++ {
+	for range ringBufferSize + 1 {
 		r.Pop()
 	}
 
@@ -507,19 +505,19 @@ func Test_microtaskRing_ValidFlag(t *testing.T) {
 func Test_microtaskRing_MultipleOverflowDrains(t *testing.T) {
 	r := newMicrotaskRing()
 
-	for cycle := 0; cycle < 3; cycle++ {
+	for cycle := range 3 {
 		// Fill ring
-		for i := 0; i < ringBufferSize; i++ {
+		for range ringBufferSize {
 			r.Push(func() {})
 		}
 
 		// Push to overflow
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			r.Push(func() {})
 		}
 
 		// Drain all
-		for i := 0; i < ringBufferSize+100; i++ {
+		for i := range ringBufferSize + 100 {
 			fn := r.Pop()
 			if fn == nil {
 				t.Fatalf("Cycle %d: expected item at %d", cycle, i)
@@ -537,13 +535,13 @@ func Test_microtaskRing_OverflowGrowth(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// Fill ring
-	for i := 0; i < ringBufferSize; i++ {
+	for range ringBufferSize {
 		r.Push(func() {})
 	}
 
 	// Push many to overflow (more than initial capacity of 1024)
 	overflowItems := ringOverflowInitCap * 3
-	for i := 0; i < overflowItems; i++ {
+	for range overflowItems {
 		r.Push(func() {})
 	}
 
@@ -557,7 +555,7 @@ func Test_microtaskRing_OverflowGrowth(t *testing.T) {
 
 	// Verify all items are retrievable
 	totalItems := ringBufferSize + overflowItems
-	for i := 0; i < totalItems; i++ {
+	for i := range totalItems {
 		fn := r.Pop()
 		if fn == nil {
 			t.Fatalf("Expected item at %d", i)

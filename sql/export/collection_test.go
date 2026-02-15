@@ -176,7 +176,7 @@ func Test_compare2(t *testing.T) {
 		t.Fatalf("unexpected value: %#v\n%s", values, strings.Join(diff, "\n"))
 	}
 	rnd := rand.New(rand.NewSource(9235344))
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		rnd.Shuffle(len(values), func(i, j int) { values[i], values[j] = values[j], values[i] })
 		slices.SortFunc(values, lessCmp(less))
 		if diff := deep.Equal(values, expected); diff != nil {

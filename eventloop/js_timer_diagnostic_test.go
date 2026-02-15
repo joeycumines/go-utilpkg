@@ -9,8 +9,7 @@ import (
 
 // Diagnostic test for SetTimeout timing issue
 func TestJSSetTimeoutDiagnostic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -104,8 +103,7 @@ func TestJSSetTimeoutDiagnostic(t *testing.T) {
 
 // Test direct ScheduleTimer timing
 func TestScheduleTimerTimingSanity(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {

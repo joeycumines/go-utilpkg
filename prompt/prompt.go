@@ -594,10 +594,7 @@ func (p *Prompt) updateSuggestions(fn func()) {
 	// insert the new selection
 	if !prevSelected {
 		// Defensive: ensure we don't pass a negative delete count.
-		delta := p.completion.endCharIndex - p.completion.startCharIndex
-		if delta < 0 {
-			delta = 0
-		}
+		delta := max(p.completion.endCharIndex-p.completion.startCharIndex, 0)
 		p.buffer.DeleteBeforeCursorRunes(delta, cols, rows)
 		if newSelected {
 			p.buffer.InsertTextMoveCursor(newSuggestion.Text, cols, rows, false)
@@ -609,10 +606,7 @@ func (p *Prompt) updateSuggestions(fn func()) {
 	}
 	// delete the previous selection
 	if !newSelected {
-		prevRange := prevEnd - prevStart
-		if prevRange < 0 {
-			prevRange = 0
-		}
+		prevRange := max(prevEnd-prevStart, 0)
 		p.buffer.DeleteBeforeCursorRunes(
 			istrings.RuneCountInString(prevSuggestion.Text)-prevRange,
 			cols,

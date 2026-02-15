@@ -327,14 +327,14 @@ func TestModifyFD_ConcurrentWithEvents(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			unix.Write(fds[1], []byte{1})
 			time.Sleep(time.Millisecond)
 		}
 	}()
 
 	// Concurrently poll and modify
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		poller.PollIO(1)
 
 		// Toggle events
@@ -417,7 +417,7 @@ func TestModifyFD_RapidModifications(t *testing.T) {
 	}
 
 	// Rapid modifications
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		switch i % 4 {
 		case 0:
 			poller.ModifyFD(fds[0], EventRead)

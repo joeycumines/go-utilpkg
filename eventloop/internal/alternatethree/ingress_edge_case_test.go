@@ -20,7 +20,7 @@ func TestIngressPop_MultiChunkEdgeCases(t *testing.T) {
 	// Test 1: Push enough tasks to force multiple chunks
 	// Chunk size is 128 tasks
 	numTasks := 256 // Force at least 2 chunks
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		val := i
 		loop.Submit(func() {
 			// Task will verify we received correct value
@@ -38,7 +38,7 @@ func TestIngressPop_MultiChunkEdgeCases(t *testing.T) {
 
 	// Drain the queue and verify all tasks are executed
 	executed := 0
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		loop.internalMu.Lock()
 		task, ok := loop.ingress.popLocked()
 		loop.internalMu.Unlock()
@@ -130,7 +130,7 @@ func TestIngressPop_DoubleCheckEdgeCase(t *testing.T) {
 
 	// Push enough tasks to create 3 chunks
 	numTasks := 300 // 128 + 128 + 44 tasks
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		val := i
 		loop.Submit(func() {
 			t.Logf("Executing task %d", val)
@@ -175,9 +175,9 @@ func TestIngressPop_ChunkReturnToPool(t *testing.T) {
 	batchSize := 256 // 2 chunks
 	numBatches := 2
 
-	for batch := 0; batch < numBatches; batch++ {
+	for batch := range numBatches {
 		// Push a batch of tasks
-		for i := 0; i < batchSize; i++ {
+		for i := range batchSize {
 			val := i
 			loop.Submit(func() {
 				// Process task
@@ -186,7 +186,7 @@ func TestIngressPop_ChunkReturnToPool(t *testing.T) {
 		}
 
 		// Drain the batch - should return chunks to pool
-		for i := 0; i < batchSize; i++ {
+		for i := range batchSize {
 			loop.internalMu.Lock()
 			task, ok := loop.ingress.popLocked()
 			loop.internalMu.Unlock()
@@ -229,11 +229,11 @@ func TestIngressPop_ConcurrentSafeWithExternalLock(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Producer goroutines pushing tasks
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		wg.Add(1)
 		go func(producerID int) {
 			defer wg.Done()
-			for j := 0; j < numTasks; j++ {
+			for j := range numTasks {
 				val := producerID*numTasks + j
 				loop.Submit(func() {
 					// Task

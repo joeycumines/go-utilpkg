@@ -189,14 +189,12 @@ func TestLoop_ConcurrentSubmit(t *testing.T) {
 
 	// Submit tasks concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < numTasks; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numTasks {
+		wg.Go(func() {
 			_ = loop.Submit(func() {
 				counter.Add(1)
 			})
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -236,14 +234,12 @@ func TestLoop_ShutdownIdempotent(t *testing.T) {
 
 	// Multiple concurrent shutdown calls
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
 			defer shutdownCancel()
 			_ = loop.Shutdown(shutdownCtx)
-		}()
+		})
 	}
 	wg.Wait()
 }

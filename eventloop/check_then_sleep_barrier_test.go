@@ -122,11 +122,11 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numProducers)
 
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		go func(producerID int) {
 			defer wg.Done()
 
-			for j := 0; j < iterationsPerProducer; j++ {
+			for j := range iterationsPerProducer {
 				// Simulate producer attempting to enqueue
 				// The Write-Then-Check protocol should:
 				// 1. Enqueue task
@@ -145,7 +145,7 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 	// Monitor the loop's barriers
 	// In a real implementation, we'd instrument the poll() method
 	go func() {
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			state := loadLoopState(loop)
 			if state == eventloop.StateSleeping {
 				barriersEncountered.Add(1)
@@ -228,7 +228,7 @@ func TestWakeUpDeduplication(t *testing.T) {
 	// Simulate wake-up signal pending flag
 	var wakeUpSignalPending atomic.Uint32
 
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		go func() {
 			defer wg.Done()
 
@@ -324,13 +324,11 @@ func TestTOCTOURacePrevention(t *testing.T) {
 	const stressIterations = 1000
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	// Producer goroutine that attempts to create TOCTOU races
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
-		for i := 0; i < stressIterations; i++ {
+		for range stressIterations {
 			// Attempt to create a TOCTOU scenario:
 			// Enqueue while loop is transitioning to sleep
 
@@ -352,7 +350,7 @@ func TestTOCTOURacePrevention(t *testing.T) {
 			// Small delay to give loop time to cycle
 			time.Sleep(time.Microsecond)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -404,7 +402,6 @@ func TestMultipleProducersNoRedundantSyscalls(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -539,7 +536,7 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 	monitorDone := make(chan struct{})
 	go func() {
 		defer close(monitorDone)
-		for i := 0; i < 50; i++ { // 50 * 10ms = 500ms max
+		for range 50 { // 50 * 10ms = 500ms max
 			currentState := int32(loadLoopState(loop))
 			if currentState != lastState.Load() {
 				// State transition occurred
@@ -570,7 +567,7 @@ func TestBarrierProtocolStateTransitions(t *testing.T) {
 
 	// Verify expected transitions occurred
 	transitionsFound := false
-	stateTransitions.Range(func(key, value interface{}) bool {
+	stateTransitions.Range(func(key, value any) bool {
 		transitionsFound = true
 		trans := key.(struct {
 			from string
@@ -632,11 +629,11 @@ func TestBarrierProtocolUnderStress(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	// Launch many goroutines contending for barrier observation
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
 			defer wg.Done()
 
-			for j := 0; j < iterationsPerGoroutine; j++ {
+			for range iterationsPerGoroutine {
 				state := loadLoopState(loop)
 				_ = state // Observe state
 
@@ -699,13 +696,11 @@ func TestWriteThenCheckProtocol(t *testing.T) {
 	const iterations = 1000
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	// Producer goroutine following Write-Then-Check protocol
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			// Step 1: Enqueue task (write phase)
 			// This MUST happen before state check
 			enqueueOccurred.Store(true)
@@ -725,7 +720,7 @@ func TestWriteThenCheckProtocol(t *testing.T) {
 			// Small delay
 			time.Sleep(time.Microsecond)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -791,11 +786,11 @@ func TestCheckThenSleepNoLostWakeups(t *testing.T) {
 	wg.Add(numProducers)
 
 	// Launch concurrent producers
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		go func() {
 			defer wg.Done()
 
-			for j := 0; j < tasksPerProducer; j++ {
+			for j := range tasksPerProducer {
 				// Simulate task submission
 				tasksSubmitted.Add(1)
 				queueLength.Add(1)

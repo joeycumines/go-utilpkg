@@ -83,7 +83,7 @@ func TestWeakMap_Has(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	if arr[0] != true {
 		t.Errorf("has(key1) = %v, want true", arr[0])
 	}
@@ -110,7 +110,7 @@ func TestWeakMap_Delete(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	if arr[0] != true {
 		t.Errorf("before delete: has = %v, want true", arr[0])
 	}
@@ -173,7 +173,7 @@ func TestWeakMap_MultipleKeys(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	expected := []string{"one", "two", "three"}
 	for i, want := range expected {
 		if arr[i] != want {
@@ -270,7 +270,7 @@ func TestWeakSet_Has(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	if arr[0] != true {
 		t.Errorf("has(o1) = %v, want true", arr[0])
 	}
@@ -297,7 +297,7 @@ func TestWeakSet_Delete(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	if arr[0] != true {
 		t.Errorf("before = %v, want true", arr[0])
 	}
@@ -341,7 +341,7 @@ func TestWeakSet_AddChaining(t *testing.T) {
 		t.Fatalf("script failed: %v", err)
 	}
 
-	arr := v.Export().([]interface{})
+	arr := v.Export().([]any)
 	for i, val := range arr {
 		if val != true {
 			t.Errorf("has[%d] = %v, want true", i, val)

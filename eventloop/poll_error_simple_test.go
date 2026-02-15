@@ -27,8 +27,7 @@ func Test_PollError_Path(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		// Start the loop
 		done := make(chan struct{})
@@ -38,7 +37,7 @@ func Test_PollError_Path(t *testing.T) {
 		}()
 
 		// Submit some tasks
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			err = loop.Submit(func() {})
 			if err != nil {
 				t.Fatalf("Failed to submit task %d: %v", i, err)
@@ -75,8 +74,7 @@ func Test_PollError_Path(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -89,7 +87,7 @@ func Test_PollError_Path(t *testing.T) {
 
 		// Submit tasks
 		taskCount := atomic.Int32{}
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			err = loop.Submit(func() {
 				taskCount.Add(1)
 			})
@@ -124,8 +122,7 @@ func Test_PollError_Path(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -179,8 +176,7 @@ func Test_PollError_Concurrency(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -192,15 +188,13 @@ func Test_PollError_Concurrency(t *testing.T) {
 		taskCount := atomic.Int32{}
 
 		// Submit tasks from multiple goroutines
-		for i := 0; i < 50; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 50 {
+			wg.Go(func() {
 				err := loop.Submit(func() {
 					taskCount.Add(1)
 				})
 				_ = err
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -227,8 +221,7 @@ func Test_PollError_Concurrency(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -239,12 +232,10 @@ func Test_PollError_Concurrency(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Start submitting tasks
-		for i := 0; i < 20; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 20 {
+			wg.Go(func() {
 				_ = loop.Submit(func() {}) // Ignore errors after shutdown
-			}()
+			})
 		}
 
 		// Shutdown while submissions are happening
@@ -279,8 +270,7 @@ func Test_PollError_Microtasks(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -291,7 +281,7 @@ func Test_PollError_Microtasks(t *testing.T) {
 		count := atomic.Int32{}
 
 		// Schedule microtasks
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			loop.ScheduleMicrotask(func() {
 				count.Add(1)
 			})
@@ -338,8 +328,7 @@ func Test_PollError_Timers(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -350,7 +339,7 @@ func Test_PollError_Timers(t *testing.T) {
 		count := atomic.Int32{}
 
 		// Schedule multiple timers
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			_, err = loop.ScheduleTimer(time.Duration(i)*10*time.Millisecond+10, func() {
 				count.Add(1)
 			})
@@ -394,8 +383,7 @@ func Test_PollError_Metrics(t *testing.T) {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		done := make(chan struct{})
 		go func() {
@@ -404,7 +392,7 @@ func Test_PollError_Metrics(t *testing.T) {
 		}()
 
 		// Submit tasks
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			err = loop.Submit(func() {})
 			if err != nil {
 				t.Fatalf("Failed to submit task: %v", err)

@@ -70,32 +70,32 @@ func TestLoadDescriptorSetBytes_RegisterFileNameConflict(t *testing.T) {
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{
 			{
-				Name:    proto.String("phase2_conflict_a.proto"),
-				Package: proto.String("phase2conflict"),
-				Syntax:  proto.String("proto3"),
+				Name:    new("phase2_conflict_a.proto"),
+				Package: new("phase2conflict"),
+				Syntax:  new("proto3"),
 				MessageType: []*descriptorpb.DescriptorProto{{
-					Name: proto.String("DupMsg"),
+					Name: new("DupMsg"),
 					Field: []*descriptorpb.FieldDescriptorProto{{
-						Name:     proto.String("x"),
+						Name:     new("x"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("x"),
+						JsonName: new("x"),
 					}},
 				}},
 			},
 			{
-				Name:    proto.String("phase2_conflict_b.proto"),
-				Package: proto.String("phase2conflict"),
-				Syntax:  proto.String("proto3"),
+				Name:    new("phase2_conflict_b.proto"),
+				Package: new("phase2conflict"),
+				Syntax:  new("proto3"),
 				MessageType: []*descriptorpb.DescriptorProto{{
-					Name: proto.String("DupMsg"), // same full name: phase2conflict.DupMsg
+					Name: new("DupMsg"), // same full name: phase2conflict.DupMsg
 					Field: []*descriptorpb.FieldDescriptorProto{{
-						Name:     proto.String("y"),
+						Name:     new("y"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("y"),
+						JsonName: new("y"),
 					}},
 				}},
 			},
@@ -128,17 +128,17 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 
 	// First file: registers phase2conflict2.DupMsg successfully.
 	fdp1 := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("phase2_conflict_c.proto"),
-		Package: proto.String("phase2conflict2"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("phase2_conflict_c.proto"),
+		Package: new("phase2conflict2"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("DupMsg"),
+			Name: new("DupMsg"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:     proto.String("a"),
+				Name:     new("a"),
 				Number:   proto.Int32(1),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("a"),
+				JsonName: new("a"),
 			}},
 		}},
 	}
@@ -150,17 +150,17 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 
 	// Second file: different path, same type name → RegisterFile fails.
 	fdp2 := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("phase2_conflict_d.proto"),
-		Package: proto.String("phase2conflict2"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("phase2_conflict_d.proto"),
+		Package: new("phase2conflict2"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("DupMsg"), // same full name: phase2conflict2.DupMsg
+			Name: new("DupMsg"), // same full name: phase2conflict2.DupMsg
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:     proto.String("b"),
+				Name:     new("b"),
 				Number:   proto.Int32(1),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("b"),
+				JsonName: new("b"),
 			}},
 		}},
 	}

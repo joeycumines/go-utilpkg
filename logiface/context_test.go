@@ -395,7 +395,6 @@ func TestBuilder_logEventDisabled(t *testing.T) {
 			log:  func(b *Builder[*mockComplexEvent]) { b.LogFunc(func() string { return `message` }) },
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			s := loggerShared[*mockComplexEvent]{pool: new(sync.Pool)}
 			e := &mockComplexEvent{LevelValue: LevelDisabled}
@@ -440,7 +439,6 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 			log:  func(b *Builder[*mockComplexEvent]) { b.LogFunc(func() string { return `message` }) },
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ev := &mockComplexEvent{}
 			s := loggerShared[*mockComplexEvent]{
@@ -735,7 +733,6 @@ func TestBuilder_Modifier_callReleaser(t *testing.T) {
 		fmt.Errorf(`wrapped: %w`, ErrDisabled),
 		fmt.Errorf(`wrapped: %w`, ErrLimited),
 	} {
-		sentinel := sentinel
 		t.Run(sentinel.Error(), func(t *testing.T) {
 			in := make(chan *mockEvent)
 			out := make(chan struct{})

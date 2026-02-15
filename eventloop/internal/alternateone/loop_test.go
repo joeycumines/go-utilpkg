@@ -219,7 +219,7 @@ func TestMultipleSubmits(t *testing.T) {
 	var counter atomic.Int32
 	var wg sync.WaitGroup
 	wg.Add(numTasks)
-	for i := 0; i < numTasks; i++ {
+	for range numTasks {
 		if err := loop.Submit(func() {
 			counter.Add(1)
 			wg.Done()
@@ -337,7 +337,7 @@ func TestShutdownIdempotence(t *testing.T) {
 	var wg sync.WaitGroup
 	const numShutdowns = 10
 	wg.Add(numShutdowns)
-	for i := 0; i < numShutdowns; i++ {
+	for range numShutdowns {
 		go func() {
 			defer wg.Done()
 			shutdownCtx, cancelCtx := context.WithTimeout(context.Background(), time.Second)
@@ -427,10 +427,10 @@ func TestPanicRecovery(t *testing.T) {
 func TestSafeIngressInvariants(t *testing.T) {
 	q := NewSafeIngress()
 	// Push and pop
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		_ = q.Push(func() {}, LaneExternal)
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		_, ok := q.PopExternal()
 		if !ok {
 			t.Fatalf("Pop failed at iteration %d", i)
@@ -446,7 +446,7 @@ func TestSafeIngressInvariants(t *testing.T) {
 func TestChunkFullClear(t *testing.T) {
 	c := newChunk()
 	// Fill with some tasks
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		c.tasks[i] = SafeTask{ID: uint64(i + 1)}
 	}
 	c.pos = 50
@@ -455,7 +455,7 @@ func TestChunkFullClear(t *testing.T) {
 	// Get it back from pool
 	c2 := newChunk()
 	// Verify all slots are cleared
-	for i := 0; i < chunkSize; i++ {
+	for i := range chunkSize {
 		if c2.tasks[i].ID != 0 || c2.tasks[i].Fn != nil {
 			t.Errorf("Slot %d not cleared after returnChunk", i)
 		}
@@ -646,8 +646,7 @@ func TestConcurrentShutdownClose(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	runDone := make(chan error, 1)
 	go func() {

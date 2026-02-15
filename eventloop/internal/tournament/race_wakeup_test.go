@@ -14,7 +14,6 @@ import (
 // This is T2: Correctness - Check-Then-Sleep Race Test
 func TestRaceWakeup(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl // capture
 		t.Run(impl.Name, func(t *testing.T) {
 			t.Parallel()
 			testRaceWakeup(t, impl)
@@ -28,7 +27,7 @@ func testRaceWakeup(t *testing.T, impl Implementation) {
 	start := time.Now()
 	failures := 0
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		if !runSingleWakeupTest(t, impl) {
 			failures++
 		}
@@ -40,7 +39,7 @@ func testRaceWakeup(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"iterations": iterations,
 			"failures":   failures,
 		},
@@ -63,11 +62,9 @@ func runSingleWakeupTest(t *testing.T, impl Implementation) bool {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Wait for loop to be running and potentially sleeping
 	time.Sleep(1 * time.Millisecond)
@@ -121,7 +118,6 @@ func TestRaceWakeup_Aggressive(t *testing.T) {
 	}
 
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testRaceWakeupAggressive(t, impl)
 		})
@@ -142,19 +138,15 @@ func testRaceWakeupAggressive(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < concurrentSubmitters; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations/concurrentSubmitters; j++ {
+	for range concurrentSubmitters {
+		wg.Go(func() {
+			for range iterations / concurrentSubmitters {
 				executed := make(chan struct{}, 1)
 
 				err := loop.Submit(func() {
@@ -174,7 +166,7 @@ func testRaceWakeupAggressive(t *testing.T, impl Implementation) {
 					failures.Add(1)
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -192,7 +184,7 @@ func testRaceWakeupAggressive(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"iterations":         iterations,
 			"concurrent_submits": concurrentSubmitters,
 			"failures":           failCount,

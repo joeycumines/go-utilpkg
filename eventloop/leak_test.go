@@ -64,10 +64,10 @@ func TestLeak_LongPromiseChains(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numChains; i++ {
+	for range numChains {
 		// Create a long promise chain
 		p := js.Resolve(0)
-		for j := 0; j < chainLength; j++ {
+		for range chainLength {
 			p = p.Then(func(r any) any {
 				v := r.(int)
 				return v + 1
@@ -147,7 +147,7 @@ func TestLeak_CanceledTimers(t *testing.T) {
 	var created atomic.Int32
 	var cancelled atomic.Int32
 
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		// Create a large closure to make leaks more visible
 		data := make([]byte, 1024) // 1KB per timer
 		for j := range data {
@@ -231,7 +231,7 @@ func TestLeak_UnhandledRejections(t *testing.T) {
 	const numRejections = 1000
 
 	// Create many unhandled rejections
-	for i := 0; i < numRejections; i++ {
+	for i := range numRejections {
 		// Create large error objects to make leaks visible
 		largeError := fmt.Errorf("error-%d-%s", i, string(make([]byte, 512)))
 		js.Reject(largeError)
@@ -298,7 +298,7 @@ func TestLeak_PromiseWithHandlers(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		// Create promise with large handler closure
 		data := make([]byte, 1024)
 		for j := range data {
@@ -379,10 +379,10 @@ func TestLeak_RegistryCleanup(t *testing.T) {
 	const numCycles = 100
 	const promisesPerCycle = 100
 
-	for cycle := 0; cycle < numCycles; cycle++ {
+	for cycle := range numCycles {
 		var wg sync.WaitGroup
 
-		for i := 0; i < promisesPerCycle; i++ {
+		for i := range promisesPerCycle {
 			wg.Add(1)
 
 			p, resolve, reject := js.NewChainedPromise()
@@ -478,7 +478,7 @@ func TestLeak_IntervalTimers(t *testing.T) {
 	const numIntervals = 1000
 
 	// Create many intervals and clear them after a few ticks
-	for i := 0; i < numIntervals; i++ {
+	for i := range numIntervals {
 		// Create large closure
 		data := make([]byte, 512)
 		for j := range data {
@@ -561,7 +561,7 @@ func TestLeak_MicrotaskQueue(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numMicrotasks; i++ {
+	for i := range numMicrotasks {
 		// Create closure with data
 		data := make([]byte, 256)
 		for j := range data {
@@ -642,10 +642,10 @@ func TestLeak_PromiseCombinators(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numCombinations; i++ {
+	for i := range numCombinations {
 		// Create large data for each promise
 		promises := make([]*ChainedPromise, promisesPerCombination)
-		for j := 0; j < promisesPerCombination; j++ {
+		for j := range promisesPerCombination {
 			data := make([]byte, 512)
 			for k := range data {
 				data[k] = byte(j)
@@ -753,9 +753,9 @@ func TestLeak_ConcurrentOperations(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for g := 0; g < numGoroutines; g++ {
+	for g := range numGoroutines {
 		go func(goroutineId int) {
-			for i := 0; i < operationsPerGoroutine; i++ {
+			for i := range operationsPerGoroutine {
 				// Create promise with handler
 				data := make([]byte, 256)
 				for j := range data {
@@ -841,7 +841,7 @@ func TestLeak_ToChannelCleanup(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, resolve, _ := js.NewChainedPromise()
 
 		// Use ToChannel pattern
@@ -916,7 +916,7 @@ func TestLeak_LongRunningLoop(t *testing.T) {
 	}
 
 	// Get baseline after warmup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		p, resolve, _ := js.NewChainedPromise()
 		p.Then(func(r any) any { return nil }, nil)
 		resolve(i)
@@ -932,10 +932,10 @@ func TestLeak_LongRunningLoop(t *testing.T) {
 	const operationsPerIteration = 1000
 	memSamples := make([]uint64, iterations)
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		var wg sync.WaitGroup
 
-		for i := 0; i < operationsPerIteration; i++ {
+		for i := range operationsPerIteration {
 			wg.Add(1)
 
 			p, resolve, reject := js.NewChainedPromise()
@@ -1020,7 +1020,7 @@ func TestLeak_AbortController(t *testing.T) {
 
 	const numControllers = 10000
 
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		controller := NewAbortController()
 		signal := controller.Signal()
 
@@ -1030,7 +1030,7 @@ func TestLeak_AbortController(t *testing.T) {
 			data[j] = byte(i)
 		}
 
-		signal.OnAbort(func(reason interface{}) {
+		signal.OnAbort(func(reason any) {
 			_ = data[0]
 		})
 
@@ -1090,7 +1090,7 @@ func TestLeak_PerformanceEntries(t *testing.T) {
 
 	const numMarks = 10000
 
-	for i := 0; i < numMarks; i++ {
+	for i := range numMarks {
 		// Create marks with large detail
 		data := make([]byte, 256)
 		for j := range data {

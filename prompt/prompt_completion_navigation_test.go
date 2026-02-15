@@ -11,10 +11,7 @@ import (
 func TestCompletion_TabThen_PageDown_vs_Right(t *testing.T) {
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		idx := d.CurrentRuneIndex()
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -61,10 +58,7 @@ func TestCompletion_PageDownThenTab_ReplacesTokenPreservingPrefix(t *testing.T) 
 		// Replace the last character only
 		idx := d.CurrentRuneIndex()
 		// Replace the previous rune only (a single partial word 'a')
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -114,10 +108,7 @@ func TestCompletion_PageDownThenTab_ReplacesTokenPreservingPrefix(t *testing.T) 
 func TestCompletion_TabThenPageDown_PreservesPrefix(t *testing.T) {
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		idx := d.CurrentRuneIndex()
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -171,10 +162,7 @@ func TestCompletion_TabThenPageDown_PreservesPrefix(t *testing.T) {
 func TestCompletion_TabThenPageUp_PreservesPrefix(t *testing.T) {
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		idx := d.CurrentRuneIndex()
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -228,10 +216,7 @@ func TestCompletion_TabThenPageUp_PreservesPrefix(t *testing.T) {
 func TestCompletion_PageDown_Tab_Then_PageDown_Behavior(t *testing.T) {
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		idx := d.CurrentRuneIndex()
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -286,10 +271,7 @@ func TestCompletion_PageDown_Tab_Then_PageDown_Behavior(t *testing.T) {
 func TestCompletion_PageDown_Tab_Then_PageUp_Behavior(t *testing.T) {
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		idx := d.CurrentRuneIndex()
-		start := idx - 1
-		if start < 0 {
-			start = 0
-		}
+		start := max(idx-1, 0)
 		return []Suggest{{Text: "alpha"}, {Text: "bravo"}}, start, idx
 	}
 
@@ -330,16 +312,11 @@ func TestCompletion_PageDown_Tab_Then_PageUp_Behavior(t *testing.T) {
 func TestCompletion_PageUp_PreservesPreviousSelectionVisibility(t *testing.T) {
 	// Build a long list of suggestions (indexable)
 	suggestions := []string{}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		suggestions = append(suggestions, fmt.Sprintf("item%02d", i))
 	}
 
 	completer := func(d Document) ([]Suggest, istrings.RuneNumber, istrings.RuneNumber) {
-		idx := d.CurrentRuneIndex()
-		start := idx
-		if start < 0 {
-			start = 0
-		}
 		s := make([]Suggest, len(suggestions))
 		for i := range suggestions {
 			s[i] = Suggest{Text: suggestions[i]}

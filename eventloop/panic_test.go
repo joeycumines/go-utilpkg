@@ -89,7 +89,7 @@ func TestLoopSurvivesPanic_ContinuesProcessing(t *testing.T) {
 
 	done := make(chan struct{})
 
-	for i := 0; i < total; i++ {
+	for i := range total {
 		idx := i
 		loop.Submit(func() {
 			if idx%10 == 5 {

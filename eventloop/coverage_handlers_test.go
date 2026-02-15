@@ -81,7 +81,7 @@ func TestDrainWakeUpPipe_Idempotent(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Call drainWakeUpPipe multiple times
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		err = drainWakeUpPipe()
 		if err != nil {
 			t.Errorf("Iteration %d: drainWakeUpPipe error: %v", i, err)
@@ -262,7 +262,7 @@ func TestHandlePollError_ConcurrentWithOtherOps(t *testing.T) {
 
 	// Submit tasks while error is being handled
 	var submitCount atomic.Int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.Submit(func() {
 			submitCount.Add(1)
 		})

@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +13,7 @@ func Test_tpsCounter_ConcurrentRotation(t *testing.T) {
 
 	// High contention test to trigger rotate() race condition
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(2)
 
 		go func(i int) {
@@ -50,7 +49,7 @@ func TestLatencyMetrics_MeanAccuracy(t *testing.T) {
 
 	// Submit exactly 1000 samples to fill buffer
 	targetLatency := 50 * time.Microsecond
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		metrics.Record(targetLatency)
 	}
 
@@ -74,7 +73,7 @@ func TestLatencyMetrics_MeanAccuracy(t *testing.T) {
 
 	// Submit 1000 more samples with different latency (causes buffer wrap)
 	newLatency := 100 * time.Microsecond
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		metrics.Record(newLatency)
 	}
 
@@ -106,8 +105,7 @@ func TestMetrics_ThreadSafety(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() {
 		_ = loop.Run(ctx)

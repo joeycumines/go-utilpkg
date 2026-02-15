@@ -18,6 +18,7 @@ use (
 	./jsonenc
 	./logiface
 	./logiface-logrus
+	./logiface-slog
 	./logiface-stumpy
 	./logiface-testsuite
 	./logiface-zerolog

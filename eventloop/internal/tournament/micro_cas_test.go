@@ -28,7 +28,6 @@ func BenchmarkMicroCASContention(b *testing.B) {
 
 	// Test Main (CAS-based ingress)
 	for _, numProducers := range producerCounts {
-		numProducers := numProducers
 		b.Run("Main/N="+fmtProducers(numProducers), func(b *testing.B) {
 			benchmarkCASContention(b, "Main", numProducers)
 		})
@@ -36,7 +35,6 @@ func BenchmarkMicroCASContention(b *testing.B) {
 
 	// Test AlternateThree (mutex-based ingress)
 	for _, numProducers := range producerCounts {
-		numProducers := numProducers
 		b.Run("AlternateThree/N="+fmtProducers(numProducers), func(b *testing.B) {
 			benchmarkCASContention(b, "AlternateThree", numProducers)
 		})
@@ -44,7 +42,6 @@ func BenchmarkMicroCASContention(b *testing.B) {
 
 	// Test Baseline for comparison (no queue, direct execution)
 	for _, numProducers := range producerCounts {
-		numProducers := numProducers
 		b.Run("Baseline/N="+fmtProducers(numProducers), func(b *testing.B) {
 			benchmarkCASContention(b, "Baseline", numProducers)
 		})
@@ -78,11 +75,9 @@ func benchmarkCASContention(b *testing.B, implName string, numProducers int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -93,19 +88,14 @@ func benchmarkCASContention(b *testing.B, implName string, numProducers int) {
 	b.ResetTimer()
 
 	// Distribute N operations across numProducers goroutines
-	tasksPerProducer := b.N / numProducers
-	if tasksPerProducer < 1 {
-		tasksPerProducer = 1
-	}
+	tasksPerProducer := max(b.N/numProducers, 1)
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
 
-	for i := 0; i < numProducers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < tasksPerProducer; j++ {
+	for range numProducers {
+		wg.Go(func() {
+			for range tasksPerProducer {
 				err := loop.Submit(func() {
 					counter.Add(1)
 				})
@@ -113,7 +103,7 @@ func benchmarkCASContention(b *testing.B, implName string, numProducers int) {
 					// Handle errors gracefully during shutdown
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -140,7 +130,6 @@ func benchmarkCASContention(b *testing.B, implName string, numProducers int) {
 // Collects P50, P95, P99 by measuring single task completion time.
 func BenchmarkMicroCASContention_Latency(b *testing.B) {
 	for _, implName := range []string{"Main", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkCASLatency(b, implName)
 		})
@@ -167,11 +156,9 @@ func benchmarkCASLatency(b *testing.B, implName string) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	warmupDone := make(chan struct{})

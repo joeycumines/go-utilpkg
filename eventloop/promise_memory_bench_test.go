@@ -17,8 +17,7 @@ import (
 
 // BenchmarkPromiseCreation measures allocations for creating a new promise.
 func BenchmarkPromiseCreation(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -45,8 +44,7 @@ func BenchmarkPromiseCreation(b *testing.B) {
 
 // BenchmarkPromiseResolution measures allocations for resolving a promise.
 func BenchmarkPromiseResolution(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -74,8 +72,7 @@ func BenchmarkPromiseResolution(b *testing.B) {
 
 // BenchmarkPromiseRejection measures allocations for rejecting a promise.
 func BenchmarkPromiseRejection(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -104,8 +101,7 @@ func BenchmarkPromiseRejection(b *testing.B) {
 
 // BenchmarkPromiseThenChain measures allocations for building a promise chain.
 func BenchmarkPromiseThenChain(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -139,8 +135,7 @@ func BenchmarkPromiseThenChain(b *testing.B) {
 
 // BenchmarkPromiseResolve_Memory measures allocations for Promise.resolve().
 func BenchmarkPromiseResolve_Memory(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -167,8 +162,7 @@ func BenchmarkPromiseResolve_Memory(b *testing.B) {
 
 // BenchmarkPromiseReject measures allocations for Promise.reject().
 func BenchmarkPromiseReject(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -196,8 +190,7 @@ func BenchmarkPromiseReject(b *testing.B) {
 
 // BenchmarkPromiseAll_Memory measures allocations for Promise.all().
 func BenchmarkPromiseAll_Memory(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -227,8 +220,7 @@ func BenchmarkPromiseAll_Memory(b *testing.B) {
 
 // BenchmarkPromiseRace measures allocations for Promise.race().
 func BenchmarkPromiseRace(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -258,8 +250,7 @@ func BenchmarkPromiseRace(b *testing.B) {
 
 // BenchmarkPromiseWithResolvers measures allocations for Promise.withResolvers().
 func BenchmarkPromiseWithResolvers(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -287,8 +278,7 @@ func BenchmarkPromiseWithResolvers(b *testing.B) {
 
 // BenchmarkPromiseTry measures allocations for Promise.try().
 func BenchmarkPromiseTry(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -316,8 +306,7 @@ func BenchmarkPromiseTry(b *testing.B) {
 // BenchmarkPromiseGC measures how quickly promises are garbage collected.
 // This is an allocation hotspot detection benchmark.
 func BenchmarkPromiseGC(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -339,7 +328,7 @@ func BenchmarkPromiseGC(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Create and immediately resolve 100 promises, then force GC
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			p, resolve, _ := js.NewChainedPromise()
 			resolve(j)
 			_ = p
@@ -353,8 +342,7 @@ func BenchmarkPromiseGC(b *testing.B) {
 
 // BenchmarkPromisifyAllocation measures allocations for Promisify.
 func BenchmarkPromisifyAllocation(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -396,8 +384,7 @@ func BenchmarkPromisifyAllocation(b *testing.B) {
 
 // TestPromiseAllocationHotspots identifies allocation hotspots in promise operations.
 func TestPromiseAllocationHotspots(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -418,7 +405,7 @@ func TestPromiseAllocationHotspots(t *testing.T) {
 
 	// Create 1000 promises
 	const N = 1000
-	for i := 0; i < N; i++ {
+	for i := range N {
 		p, resolve, _ := js.NewChainedPromise()
 		resolve(i)
 		_ = p
@@ -447,8 +434,7 @@ func TestPromiseAllocationHotspots(t *testing.T) {
 
 // TestPromiseChainAllocationHotspots profiles .then() chain allocations.
 func TestPromiseChainAllocationHotspots(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -469,11 +455,11 @@ func TestPromiseChainAllocationHotspots(t *testing.T) {
 	// Create 100 promise chains of depth 10
 	const chains = 100
 	const depth = 10
-	for i := 0; i < chains; i++ {
+	for i := range chains {
 		p, resolve, _ := js.NewChainedPromise()
 
 		current := p
-		for d := 0; d < depth; d++ {
+		for range depth {
 			current = current.Then(func(v any) any { return v }, nil)
 		}
 
@@ -494,8 +480,7 @@ func TestPromiseChainAllocationHotspots(t *testing.T) {
 
 // TestPromiseCombinatorAllocationHotspots profiles Promise.all/race allocations.
 func TestPromiseCombinatorAllocationHotspots(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -516,7 +501,7 @@ func TestPromiseCombinatorAllocationHotspots(t *testing.T) {
 	runtime.ReadMemStats(&m1)
 
 	const N = 100
-	for i := 0; i < N; i++ {
+	for range N {
 		promises := make([]*ChainedPromise, 10)
 		for j := range promises {
 			promises[j] = js.Resolve(j)
@@ -537,7 +522,7 @@ func TestPromiseCombinatorAllocationHotspots(t *testing.T) {
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
 
-	for i := 0; i < N; i++ {
+	for range N {
 		promises := make([]*ChainedPromise, 10)
 		for j := range promises {
 			promises[j] = js.Resolve(j)

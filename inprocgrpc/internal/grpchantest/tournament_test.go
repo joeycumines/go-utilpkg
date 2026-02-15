@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -257,7 +257,7 @@ func BenchmarkTournament_LatencyPercentiles(b *testing.B) {
 			req := &grpchantest.Message{Payload: make([]byte, 32)}
 
 			// Warm-up phase to establish connections / prime caches.
-			for i := 0; i < warmup; i++ {
+			for range warmup {
 				if _, err := cli.Unary(context.Background(), req); err != nil {
 					b.Fatal(err)
 				}
@@ -268,10 +268,10 @@ func BenchmarkTournament_LatencyPercentiles(b *testing.B) {
 			latencies := make([]time.Duration, 0, iterations)
 			ch2 := make(chan []time.Duration, workers)
 
-			for w := 0; w < workers; w++ {
+			for range workers {
 				go func() {
 					local := make([]time.Duration, 0, perWorker)
-					for i := 0; i < perWorker; i++ {
+					for range perWorker {
 						start := time.Now()
 						if _, err := cli.Unary(context.Background(), req); err != nil {
 							// Can't call b.Fatal from non-test goroutine;
@@ -283,11 +283,11 @@ func BenchmarkTournament_LatencyPercentiles(b *testing.B) {
 					ch2 <- local
 				}()
 			}
-			for w := 0; w < workers; w++ {
+			for range workers {
 				latencies = append(latencies, <-ch2...)
 			}
 
-			sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
+			slices.Sort(latencies)
 			p := func(pct float64) time.Duration {
 				idx := int(float64(len(latencies)) * pct)
 				if idx >= len(latencies) {

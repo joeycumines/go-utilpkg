@@ -15,9 +15,9 @@ func TestEvent_String(t *testing.T) {
 			`with all`,
 			Event{
 				Level:   logiface.LevelDebug,
-				Message: ptrString("debug message"),
-				Error:   ptrString("debug error"),
-				Fields:  map[string]interface{}{"num": 42},
+				Message: new("debug message"),
+				Error:   new("debug error"),
+				Fields:  map[string]any{"num": 42},
 			},
 			"level=debug message=\"debug message\" error=\"debug error\" fields={\"num\":42}",
 		},
@@ -25,7 +25,7 @@ func TestEvent_String(t *testing.T) {
 			`level and fields`,
 			Event{
 				Level:  logiface.LevelWarning,
-				Fields: map[string]interface{}{"nested": map[string]interface{}{"again": map[string]interface{}{"key2": "value2"}}},
+				Fields: map[string]any{"nested": map[string]any{"again": map[string]any{"key2": "value2"}}},
 			},
 			"level=warning fields={\"nested\":{\"again\":{\"key2\":\"value2\"}}}",
 		},
@@ -33,12 +33,11 @@ func TestEvent_String(t *testing.T) {
 			`just a level`,
 			Event{
 				Level:  logiface.LevelError,
-				Fields: map[string]interface{}{},
+				Fields: map[string]any{},
 			},
 			`level=err`,
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			output := tc.event.String()
 			if output != tc.output {
@@ -48,20 +47,21 @@ func TestEvent_String(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func ptrString(s string) *string {
-	return &s
+	return new(s)
 }
 
 func TestEventsDiff(t *testing.T) {
 	a := Event{
 		Level:   logiface.LevelDebug,
-		Message: ptrString("debug message"),
-		Error:   ptrString("debug error"),
-		Fields:  map[string]interface{}{"num": 42},
+		Message: new("debug message"),
+		Error:   new("debug error"),
+		Fields:  map[string]any{"num": 42},
 	}
 	b := Event{
 		Level:  logiface.LevelWarning,
-		Fields: map[string]interface{}{"nested": map[string]interface{}{"again": map[string]interface{}{"key2": "value2"}}},
+		Fields: map[string]any{"nested": map[string]any{"again": map[string]any{"key2": "value2"}}},
 	}
 	if s := EventsDiff(
 		[]Event{a, b, b, a, b, a, a},

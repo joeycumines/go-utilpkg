@@ -20,7 +20,7 @@ func Test_microtaskRing_SeqWrapAround(t *testing.T) {
 	// Producer: push items continuously
 	done := make(chan struct{})
 	go func() {
-		for i := 0; i < 10000; i++ {
+		for range 10000 {
 			task := func() {
 				readCount.Add(1)
 			}
@@ -70,12 +70,12 @@ func Test_microtaskRing_ConcurrentProducerLoad(t *testing.T) {
 	doneBarrier.Add(numProducers)
 
 	// Producer goroutines
-	for p := 0; p < numProducers; p++ {
+	for p := range numProducers {
 		go func(producerID int) {
 			startBarrier.Done()
 			startBarrier.Wait() // All producers start simultaneously
 
-			for i := 0; i < itemsPerProducer; i++ {
+			for range itemsPerProducer {
 				task := func() {
 					totalRead.Add(1)
 				}
@@ -155,7 +155,7 @@ func Test_microtaskRing_OverflowDuringWrapAround(t *testing.T) {
 
 	// Producer: push more items than ring buffer can hold, forcing overflow
 	numItems := int64(ringBufferSize + 100)
-	for i := int64(0); i < numItems; i++ {
+	for range numItems {
 		task := func() {
 			readCount.Add(1)
 		}
@@ -193,7 +193,7 @@ func Test_microtaskRing_ValidityFlagReset(t *testing.T) {
 	ring := newMicrotaskRing()
 
 	// Push and consume one item at a time, verifying validity state
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		task := func() {}
 		ring.Push(task)
 
@@ -232,7 +232,7 @@ func Test_microtaskRing_NilTaskWithSequence(t *testing.T) {
 
 	// Push both valid tasks and nil tasks
 	// Pop() skips nil tasks internally, so only non-nil tasks are returned
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		if i%3 == 0 {
 			// Push nil task - these are consumed but not returned by Pop()
 			ring.Push(nil)
@@ -279,7 +279,7 @@ func Test_microtaskRing_NoInfiniteSpinAfterWrap(t *testing.T) {
 	// We use fewer items for practical testing while still stressing the ring
 	const itemsBeforeWrap = 100000 // Large enough to stress but not take forever
 
-	for i := 0; i < itemsBeforeWrap; i++ {
+	for range itemsBeforeWrap {
 		ring.Push(func() {})
 	}
 

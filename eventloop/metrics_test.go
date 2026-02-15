@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,8 +18,7 @@ func TestMetricsAccuracyLatency(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start the loop
 	go func() {
@@ -32,7 +30,7 @@ func TestMetricsAccuracyLatency(t *testing.T) {
 
 	// Submit tasks with known delay
 	var completed atomic.Int32
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		loop.Submit(func() {
 			time.Sleep(taskDelay)
 			completed.Add(1)
@@ -100,8 +98,7 @@ func TestMetricsBasicTPS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start the loop
 	go func() {
@@ -113,7 +110,7 @@ func TestMetricsBasicTPS(t *testing.T) {
 
 	// Submit tasks
 	var completed atomic.Int32
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		loop.Submit(func() {
 			completed.Add(1)
 		})
@@ -155,8 +152,7 @@ func TestMetricsQueueDepthTracking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start the loop
 	go func() {
@@ -186,7 +182,7 @@ func TestMetricsQueueDepthTracking(t *testing.T) {
 
 	// Submit some slow tasks
 	var completed atomic.Int32
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		loop.Submit(func() {
 			time.Sleep(5 * time.Millisecond)
 			completed.Add(1)
@@ -221,8 +217,7 @@ func TestMetricsDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() {
 		_ = loop.Run(ctx)
@@ -253,8 +248,7 @@ func BenchmarkMetricsCollection(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go func() {
 		_ = loop.Run(ctx)
@@ -275,8 +269,7 @@ func BenchmarkNoMetrics(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go func() {
 		_ = loop.Run(ctx)

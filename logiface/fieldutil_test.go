@@ -19,13 +19,13 @@ func ExampleMapFields() {
 	l := newSimpleLogger(w, false)
 
 	// supports logiface.Builder
-	MapFields(l.Notice(), map[string]interface{}{
+	MapFields(l.Notice(), map[string]any{
 		`a`: `A`,
 		`b`: `B`,
 	}).Log(``)
 
 	// supports logiface.Context
-	MapFields(l.Clone(), map[string]interface{}{
+	MapFields(l.Clone(), map[string]any{
 		`a`: `A`,
 		`b`: `B`,
 	}).Logger().Alert().
@@ -34,7 +34,7 @@ func ExampleMapFields() {
 	// supports fluent chaining
 	MapFields(l.Crit().
 		Str(`a`, `A1`).
-		Str(`b`, `B`), map[string]interface{}{
+		Str(`b`, `B`), map[string]any{
 		`a`: `A2`,
 		`c`: `C1`,
 		`d`: `D`}).

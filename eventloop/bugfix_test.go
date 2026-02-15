@@ -49,11 +49,9 @@ func TestTimerNestingDepthPanicRestore(t *testing.T) {
 
 	// Start the loop in goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Start nested recursion
 	loop.ScheduleTimer(1*time.Microsecond, func() {
@@ -114,14 +112,12 @@ func TestTimerPoolFieldClearing(t *testing.T) {
 
 	// Start the loop in goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to initialize
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.state.IsRunning() {
 			break
 		}
@@ -136,7 +132,7 @@ func TestTimerPoolFieldClearing(t *testing.T) {
 	fireCount := atomic.Int32{}
 	var timerWG sync.WaitGroup
 
-	for i := 0; i < scheduleCount; i++ {
+	for i := range scheduleCount {
 		// Half the timers we let fire to exercise the normal path
 		// Half we cancel to exercise the early return to pool path
 		fire := i%2 == 0
@@ -203,11 +199,9 @@ func TestCancelTimerInvalidHeapIndex(t *testing.T) {
 
 	// Start the loop in goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Test 1: Cancel timer that has already fired (heapIndex might be invalid)
 	TimerID1, err := loop.ScheduleTimer(1*time.Microsecond, func() {
@@ -244,7 +238,7 @@ func TestCancelTimerInvalidHeapIndex(t *testing.T) {
 	}
 
 	// Test 3: Multiple rapid cancellations
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		TimerID, err := loop.ScheduleTimer(10*time.Second, func() {})
 		if err != nil {
 			t.Fatal(err)
@@ -266,13 +260,11 @@ func TestCancelTimerInvalidHeapIndex(t *testing.T) {
 	}
 
 	var cancelWG sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		cancelWG.Add(1)
-		go func() {
-			defer cancelWG.Done()
+	for range 10 {
+		cancelWG.Go(func() {
 			// Try to cancel from multiple goroutines
 			loop.CancelTimer(TimerID3)
-		}()
+		})
 	}
 	cancelWG.Wait()
 
@@ -298,14 +290,12 @@ func TestTimerReuseSafety(t *testing.T) {
 
 	// Start the loop in goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to initialize
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.state.IsRunning() {
 			break
 		}
@@ -313,7 +303,7 @@ func TestTimerReuseSafety(t *testing.T) {
 	}
 
 	// Create many timers sequentially, checking that each behaves correctly
-	for iteration := 0; iteration < 50; iteration++ {
+	for iteration := range 50 {
 		executed := make(chan struct{}, 1)
 
 		// Schedule timer
@@ -381,11 +371,9 @@ func TestMultipleNestingLevelsWithPanic(t *testing.T) {
 
 	// Start the loop in goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Test multiple scenarios with panic at different depths
 	// Each scenario should properly restore nesting depth after panic

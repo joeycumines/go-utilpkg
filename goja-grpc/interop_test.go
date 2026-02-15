@@ -385,7 +385,7 @@ func TestJSClientGoServer_Unary(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Nil(t, resultObj["error"])
 	assert.Equal(t, "go-server: from-js", resultObj["message"])
 	assert.Equal(t, int64(42), resultObj["code"])
@@ -404,7 +404,7 @@ func TestJSClientGoServer_ServerStream(t *testing.T) {
 			}
 			// Send 3 items
 			itemDesc, _ := env.pbMod.FindDescriptor("testgrpc.Item")
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				item := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
 				item.Set(item.Descriptor().Fields().ByName("id"), protoreflect.ValueOfString("go-id"))
 				item.Set(item.Descriptor().Fields().ByName("name"),
@@ -444,7 +444,7 @@ func TestJSClientGoServer_ServerStream(t *testing.T) {
 
 	items := env.runtime.Get("items")
 	require.NotNil(t, items)
-	arr := items.Export().([]interface{})
+	arr := items.Export().([]any)
 	assert.Equal(t, 3, len(arr))
 	assert.Equal(t, "go-item-A", arr[0])
 	assert.Equal(t, "go-item-B", arr[1])
@@ -483,7 +483,7 @@ func TestJSClientGoServer_UnaryError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(14), resultObj["code"]) // UNAVAILABLE = 14
 	assert.Contains(t, resultObj["message"], "service down")

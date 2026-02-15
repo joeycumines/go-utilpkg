@@ -10,8 +10,7 @@ import (
 
 // Test 1.4.6: SetTimeout executes
 func TestJSSetTimeoutExecutes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -78,8 +77,7 @@ func TestJSSetTimeoutExecutes(t *testing.T) {
 
 // Test 1.4.7: ClearTimeout prevents execution
 func TestJSClearTimeoutPreventsExecution(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -132,8 +130,7 @@ func TestJSClearTimeoutPreventsExecution(t *testing.T) {
 
 // Test 1.4.8: SetInterval fires multiple times
 func TestJSSetIntervalFiresMultiple(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -202,8 +199,7 @@ func TestJSSetIntervalFiresMultiple(t *testing.T) {
 
 // Test 1.4.9: ClearInterval stops firing
 func TestJSClearIntervalStopsFiring(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -239,7 +235,7 @@ func TestJSClearIntervalStopsFiring(t *testing.T) {
 
 	// Wait for at least 2 fires using channel
 	fireCount := 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case <-triggerChan:
 			fireCount++
@@ -281,8 +277,7 @@ func TestJSClearIntervalStopsFiring(t *testing.T) {
 
 // Test 1.4.10: Timer re-entrancy
 func TestJSTimerReEntrancy(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -350,8 +345,7 @@ func TestJSTimerReEntrancy(t *testing.T) {
 
 // Test 1.5.3: Microtask executes
 func TestJSQueueMicrotaskExecutes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -399,8 +393,7 @@ func TestJSQueueMicrotaskExecutes(t *testing.T) {
 
 // Test 1.5.4: Microtask ordering
 func TestJSQueueMicrotaskOrdering(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New(WithStrictMicrotaskOrdering(true))
 	if err != nil {
@@ -425,8 +418,7 @@ func TestJSQueueMicrotaskOrdering(t *testing.T) {
 	var mu sync.Mutex
 
 	// Queue 3 microtasks
-	for i := 0; i < 3; i++ {
-		i := i
+	for i := range 3 {
 		err := js.QueueMicrotask(func() {
 			mu.Lock()
 			order = append(order, i)
@@ -463,8 +455,7 @@ func TestJSQueueMicrotaskOrdering(t *testing.T) {
 
 // Test 1.5.5: Microtask before timer
 func TestJSMicrotaskBeforeTimer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {

@@ -190,7 +190,7 @@ func TestPromiseToChannel_ConcurrentReads(t *testing.T) {
 
 	// Multiple concurrent reads
 	readCount := 0
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go func() {
 			select {
 			case <-result:

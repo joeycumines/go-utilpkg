@@ -138,7 +138,7 @@ func TestHandlePollError_StateTransitionSleepingToTerminating(t *testing.T) {
 	}()
 
 	// Wait for transition to occur
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		if transitionOccurred.Load() {
 			break
 		}
@@ -355,7 +355,6 @@ func TestHandlePollError_ErrorTypes(t *testing.T) {
 	}
 
 	for _, tc := range errorTypes {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			loop, err := New()
 			if err != nil {
@@ -441,7 +440,7 @@ func TestHandlePollError_WithQueuedTasks(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Queue some tasks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.Submit(func() {
 			tasksExecuted.Add(1)
 		})
@@ -517,9 +516,9 @@ func TestHandlePollError_ConcurrentWithSubmit(t *testing.T) {
 	go loop.Run(ctx)
 
 	// Submit tasks concurrently while poll error may occur
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		go func() {
-			for j := 0; j < 5; j++ {
+			for range 5 {
 				submitCount.Add(1)
 				loop.Submit(func() {
 					executedCount.Add(1)

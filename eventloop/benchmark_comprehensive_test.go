@@ -591,11 +591,11 @@ func Benchmark_chunkedIngress_Batch(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Push batch
-		for j := 0; j < batchSize; j++ {
+		for range batchSize {
 			q.Push(func() {})
 		}
 		// Pop batch
-		for j := 0; j < batchSize; j++ {
+		for range batchSize {
 			q.Pop()
 		}
 	}
@@ -699,7 +699,7 @@ func TestAllocProfile_TimerSchedule(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Warm up pool
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		id, _ := loop.ScheduleTimer(time.Hour, func() {})
 		_ = loop.CancelTimer(id)
 	}
@@ -734,7 +734,7 @@ func TestAllocProfile_microtaskRing(t *testing.T) {
 	ring := newMicrotaskRing()
 
 	// Warm up
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		ring.Push(func() {})
 		ring.Pop()
 	}
@@ -764,7 +764,7 @@ func TestAllocProfile_chunkedIngress(t *testing.T) {
 	q := newChunkedIngress()
 
 	// Warm up chunk pool
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		q.Push(func() {})
 		q.Pop()
 	}
@@ -803,7 +803,7 @@ func TestAllocProfile_SubmitFastPath(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Warm up
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		_ = loop.Submit(func() {})
 	}
 	time.Sleep(10 * time.Millisecond)
@@ -844,7 +844,7 @@ func TestAllocProfile_ScheduleMicrotask(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Warm up
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		_ = loop.ScheduleMicrotask(func() {})
 	}
 	time.Sleep(10 * time.Millisecond)
@@ -1032,15 +1032,13 @@ func BenchmarkHighContention(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for g := 0; g < numGoroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < perGoroutine; i++ {
+	for range numGoroutines {
+		wg.Go(func() {
+			for range perGoroutine {
 				_ = loop.Submit(func() {})
 				_ = loop.ScheduleMicrotask(func() {})
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -1057,7 +1055,7 @@ func BenchmarkMicrotaskOverflow(b *testing.B) {
 	ring := newMicrotaskRing()
 
 	// Force overflow by filling ring
-	for i := 0; i < ringBufferSize+1000; i++ {
+	for range ringBufferSize + 1000 {
 		ring.Push(func() {})
 	}
 

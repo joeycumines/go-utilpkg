@@ -213,7 +213,7 @@ func TestPromiseAny_ConcurrentRejections(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	rejectors := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, _, r := js.NewChainedPromise()
 		promises[i] = p
 		rejectors[i] = r
@@ -222,7 +222,7 @@ func TestPromiseAny_ConcurrentRejections(t *testing.T) {
 	result := js.Any(promises)
 
 	// All reject concurrently
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		rejectors[i](errors.New("error" + string(rune('a'+i))))
 	}
 	loop.tick()
@@ -536,7 +536,7 @@ func TestPromiseAny_LargeNumberOfPromises(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r

@@ -121,7 +121,7 @@ func TestServerInterceptor_Logging(t *testing.T) {
 
 	logs := env.runtime.Get("logs")
 	require.NotNil(t, logs)
-	exported := logs.Export().([]interface{})
+	exported := logs.Export().([]any)
 	require.Len(t, exported, 2)
 	assert.Equal(t, "before:/testgrpc.TestService/Echo", exported[0])
 	assert.Equal(t, "after:/testgrpc.TestService/Echo", exported[1])
@@ -176,7 +176,7 @@ func TestServerInterceptor_Chain(t *testing.T) {
 
 	order := env.runtime.Get("order")
 	require.NotNil(t, order)
-	exported := order.Export().([]interface{})
+	exported := order.Export().([]any)
 	// Onion pattern: first-before → second-before → handler → second-after → first-after
 	require.Len(t, exported, 5)
 	assert.Equal(t, "first-before", exported[0])
@@ -426,7 +426,7 @@ func TestServerInterceptor_ServerStream(t *testing.T) {
 
 	items := env.runtime.Get("items")
 	require.NotNil(t, items)
-	exported := items.Export().([]interface{})
+	exported := items.Export().([]any)
 	require.Len(t, exported, 1)
 	assert.Equal(t, "test", exported[0])
 }

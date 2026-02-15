@@ -3281,7 +3281,7 @@ func TestPhase2_Promise_AllSettled_Thenables(t *testing.T) {
 		t.Fatal("results is nil")
 	}
 	obj := val.Export()
-	arr, ok := obj.([]interface{})
+	arr, ok := obj.([]any)
 	if !ok || len(arr) != 2 {
 		t.Errorf("expected 2 allSettled results, got %v", obj)
 	}

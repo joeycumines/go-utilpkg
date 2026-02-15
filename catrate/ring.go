@@ -1,16 +1,17 @@
 package catrate
 
 import (
-	"golang.org/x/exp/constraints"
+	"cmp"
+
 	"sort"
 )
 
-type ringBuffer[E constraints.Ordered] struct {
+type ringBuffer[E cmp.Ordered] struct {
 	s    []E
 	r, w uint
 }
 
-func newRingBuffer[E constraints.Ordered](size int) *ringBuffer[E] {
+func newRingBuffer[E cmp.Ordered](size int) *ringBuffer[E] {
 	if size <= 0 || size&(size-1) != 0 {
 		panic(`catrate: ring: size must be a power of 2`)
 	}

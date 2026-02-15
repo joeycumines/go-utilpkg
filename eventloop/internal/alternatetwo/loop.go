@@ -282,7 +282,7 @@ func (l *Loop) processExternal() {
 
 	// PERFORMANCE: Batch pop for better cache behavior
 	n := l.external.PopBatch(l.batchBuf[:], budget)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		l.safeExecute(l.batchBuf[i].Fn)
 		l.batchBuf[i] = Task{} // Clear for GC
 	}
@@ -292,7 +292,7 @@ func (l *Loop) processExternal() {
 func (l *Loop) processMicrotasks() {
 	const budget = 1024
 
-	for i := 0; i < budget; i++ {
+	for range budget {
 		fn := l.microtasks.Pop()
 		if fn == nil {
 			break

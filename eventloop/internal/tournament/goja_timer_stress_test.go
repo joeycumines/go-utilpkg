@@ -29,7 +29,7 @@ func TestGojaTimerStress(t *testing.T) {
 			const taskCount = 1000
 
 			// Submit burst of tasks
-			for i := 0; i < taskCount; i++ {
+			for range taskCount {
 				if err := loop.Submit(func() {
 					executed.Add(1)
 				}); err != nil {

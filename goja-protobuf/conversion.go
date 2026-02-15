@@ -372,7 +372,7 @@ func (m *Module) setRepeatedFromGoja(msg *dynamicpb.Message, fd protoreflect.Fie
 
 	length := int(lenVal.ToInteger())
 	list := msg.Mutable(fd).List()
-	for i := 0; i < length; i++ {
+	for i := range length {
 		elem := obj.Get(fmt.Sprintf("%d", i))
 		if elem == nil || goja.IsUndefined(elem) || goja.IsNull(elem) {
 			continue

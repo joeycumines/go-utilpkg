@@ -100,7 +100,7 @@ func TestTryExtractWrappedPromise_ConcurrentSafety(t *testing.T) {
 
 	// Concurrently extract (should be safe - no mutations)
 	done := make(chan struct{})
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go func() {
 			for _, wrapped := range promises {
 				extracted, ok := tryExtractWrappedPromise(wrapped)
@@ -112,7 +112,7 @@ func TestTryExtractWrappedPromise_ConcurrentSafety(t *testing.T) {
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		<-done
 	}
 

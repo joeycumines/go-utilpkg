@@ -3,6 +3,7 @@ package eventloop
 import (
 	"errors"
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -74,13 +75,7 @@ func TestRegistry_NewPromise_AddsToRing(t *testing.T) {
 
 	r.mu.RLock()
 	ringLen := len(r.ring)
-	found := false
-	for _, ringID := range r.ring {
-		if ringID == id {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(r.ring, id)
 	r.mu.RUnlock()
 
 	if ringLen != 1 {
@@ -156,7 +151,7 @@ func TestRegistry_Scavenge_LimitEnforcement(t *testing.T) {
 	r := newRegistry()
 
 	// Create 100 promises
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		r.NewPromise()
 	}
 
@@ -182,7 +177,7 @@ func TestRegistry_Scavenge_WrapsAtEnd(t *testing.T) {
 	r := newRegistry()
 
 	// Create small number of promises
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.NewPromise()
 	}
 
@@ -263,7 +258,7 @@ func TestRegistry_Scavenge_MultipleScavengesAccumulatePruning(t *testing.T) {
 
 	// Create 100 promises, settle odd-indexed ones
 	ids := make([]uint64, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		id, p := r.NewPromise()
 		ids[i] = id
 		if i%2 == 1 {
@@ -272,7 +267,7 @@ func TestRegistry_Scavenge_MultipleScavengesAccumulatePruning(t *testing.T) {
 	}
 
 	// Scavenge in batches
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		r.Scavenge(5)
 	}
 
@@ -291,7 +286,7 @@ func TestRegistry_RejectAll_RejectsAllPendingPromises(t *testing.T) {
 	r := newRegistry()
 
 	promises := make([]*promise, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		_, p := r.NewPromise()
 		promises[i] = p
 	}
@@ -310,7 +305,7 @@ func TestRegistry_RejectAll_RejectsAllPendingPromises(t *testing.T) {
 func TestRegistry_RejectAll_ClearsDataMap(t *testing.T) {
 	r := newRegistry()
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.NewPromise()
 	}
 
@@ -329,7 +324,7 @@ func TestRegistry_RejectAll_ClearsDataMap(t *testing.T) {
 func TestRegistry_RejectAll_ClearsRing(t *testing.T) {
 	r := newRegistry()
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.NewPromise()
 	}
 
@@ -391,10 +386,10 @@ func TestRegistry_ConcurrentNewPromise(t *testing.T) {
 
 	allIDs := make(chan uint64, numGoroutines*promisesPerGoroutine)
 
-	for g := 0; g < numGoroutines; g++ {
+	for range numGoroutines {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < promisesPerGoroutine; i++ {
+			for range promisesPerGoroutine {
 				id, p := r.NewPromise()
 				if p == nil {
 					t.Error("NewPromise returned nil")
@@ -430,7 +425,7 @@ func TestRegistry_ConcurrentScavenge(t *testing.T) {
 	var pendingPromises []*promise
 
 	// Prepopulate with promises, half settled
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		_, p := r.NewPromise()
 		if i%2 == 0 {
 			p.Resolve(nil) // settled - will be scavenged
@@ -442,10 +437,10 @@ func TestRegistry_ConcurrentScavenge(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(10)
 
-	for g := 0; g < 10; g++ {
+	for range 10 {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				r.Scavenge(10)
 				runtime.Gosched()
 			}
@@ -541,7 +536,7 @@ func TestRegistry_WeakReferenceGCCleanup(t *testing.T) {
 	}()
 
 	// Force GC to collect the unreferenced promise
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		runtime.GC()
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -567,7 +562,7 @@ func TestRegistry_CompactionTriggersAtLowLoadFactor(t *testing.T) {
 
 	// Create 300 promises (> 256 threshold), keep only 30 (10% load factor)
 	var keepPromises []*promise
-	for i := 0; i < 300; i++ {
+	for i := range 300 {
 		_, p := r.NewPromise()
 		if i < 30 {
 			keepPromises = append(keepPromises, p) // Keep reference so weak pointer remains valid
@@ -601,7 +596,7 @@ func TestRegistry_CompactionDoesNotTriggerAtHighLoadFactor(t *testing.T) {
 	r := newRegistry()
 
 	// Create 100 promises, keep 50 (50% load factor)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		_, p := r.NewPromise()
 		if i >= 50 {
 			p.Resolve(nil)
@@ -625,7 +620,7 @@ func TestRegistry_CompactAndRenewRebuildsMaps(t *testing.T) {
 	r := newRegistry()
 
 	// Create many promises
-	for i := 0; i < 300; i++ {
+	for i := range 300 {
 		_, p := r.NewPromise()
 		if i >= 30 {
 			p.Resolve(nil)

@@ -17,7 +17,7 @@ func TestPromiseFanOut(t *testing.T) {
 
 	results := make([]any, numSubscribers)
 
-	for i := 0; i < numSubscribers; i++ {
+	for i := range numSubscribers {
 		go func(idx int) {
 			defer wg.Done()
 			ch := p.ToChannel()

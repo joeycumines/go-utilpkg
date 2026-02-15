@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -216,10 +217,7 @@ func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
 
 	// WHATWG HTML Spec Section 8.6: Clamp negative delays to 0
 	// https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
-	delayMs := int(call.Argument(1).ToInteger())
-	if delayMs < 0 {
-		delayMs = 0
-	}
+	delayMs := max(int(call.Argument(1).ToInteger()), 0)
 
 	id, err := a.js.SetTimeout(func() {
 		_, _ = fnCallable(goja.Undefined())
@@ -252,10 +250,7 @@ func (a *Adapter) setInterval(call goja.FunctionCall) goja.Value {
 
 	// WHATWG HTML Spec Section 8.6: Clamp negative delays to 0
 	// https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html
-	delayMs := int(call.Argument(1).ToInteger())
-	if delayMs < 0 {
-		delayMs = 0
-	}
+	delayMs := max(int(call.Argument(1).ToInteger()), 0)
 
 	id, err := a.js.SetInterval(func() {
 		_, _ = fnCallable(goja.Undefined())
@@ -476,7 +471,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 				}
 				jsValue = jsArr
 
-			case map[string]interface{}:
+			case map[string]any:
 				// Convert Go-native map to JavaScript object
 				jsObj := a.runtime.NewObject()
 				for key, val := range v {
@@ -599,7 +594,7 @@ func (a *Adapter) consumeIterable(iterable goja.Value) ([]goja.Value, error) {
 	}
 
 	// 2. Optimisation: Check for standard Array first (fast path)
-	if _, ok := iterable.Export().([]interface{}); ok {
+	if _, ok := iterable.Export().([]any); ok {
 		// Use native export/cast for arrays which is much faster than iterator protocol
 		// However, Export() returns []interface{}, not []goja.Value
 		// We can simpler use ToObject and get elements by index if it's an array
@@ -613,16 +608,13 @@ func (a *Adapter) consumeIterable(iterable goja.Value) ([]goja.Value, error) {
 			// Optimization: Pre-cache string indices for array access
 			// This avoids allocating a new string on each iteration
 			// Cache up to 1000 indices; beyond this, fall back to dynamic conversion
-			cacheSize := length
-			if cacheSize > 1000 {
-				cacheSize = 1000
-			}
+			cacheSize := min(length, 1000)
 			indexCache := make([]string, cacheSize)
-			for i := 0; i < cacheSize; i++ {
+			for i := range cacheSize {
 				indexCache[i] = strconv.Itoa(i)
 			}
 
-			for i := 0; i < length; i++ {
+			for i := range length {
 				if i < cacheSize {
 					result[i] = obj.Get(indexCache[i])
 				} else {
@@ -773,7 +765,7 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 // This is CRITICAL #3, #7, #9, #10 fix for type conversion
 func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	// CRITICAL: Check if this is a wrapper for a preserved Goja Error object
-	if wrapper, ok := v.(map[string]interface{}); ok {
+	if wrapper, ok := v.(map[string]any); ok {
 		if original, hasOriginal := wrapper["_originalError"]; hasOriginal {
 			// This is a wrapped Goja Error - return the original
 			if val, ok := original.(goja.Value); ok {
@@ -807,7 +799,7 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	}
 
 	// Handle maps (from allSettled status objects)
-	if m, ok := v.(map[string]interface{}); ok {
+	if m, ok := v.(map[string]any); ok {
 		jsObj := a.runtime.NewObject()
 		for key, val := range m {
 			_ = jsObj.Set(key, a.convertToGojaValue(val))
@@ -1401,10 +1393,7 @@ func (a *Adapter) bindAbortSignalStatics() error {
 	// EXPAND-002: AbortSignal.timeout(ms)
 	// Creates a signal that aborts after the specified timeout
 	abortSignalObj.Set("timeout", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		delayMs := int(call.Argument(0).ToInteger())
-		if delayMs < 0 {
-			delayMs = 0
-		}
+		delayMs := max(int(call.Argument(0).ToInteger()), 0)
 
 		// Use the Go AbortTimeout function
 		controller, err := goeventloop.AbortTimeout(a.loop, delayMs)
@@ -1900,8 +1889,8 @@ func (a *Adapter) bindConsole() error {
 		indentStr := a.getIndentString(indent)
 
 		// Add indent to each line
-		lines := strings.Split(tableStr, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(tableStr, "\n")
+		for line := range lines {
 			if line != "" {
 				fmt.Fprintf(output, "%s%s\n", indentStr, line)
 			}
@@ -2074,8 +2063,8 @@ func (a *Adapter) bindConsole() error {
 		// Try to serialize as JSON for object inspection
 		exported := obj.Export()
 		inspection := a.inspectValue(exported, 0, 2)
-		lines := strings.Split(inspection, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(inspection, "\n")
+		for line := range lines {
 			if line != "" {
 				fmt.Fprintf(output, "%s%s\n", indentStr, line)
 			}
@@ -2093,11 +2082,12 @@ func joinStrings(strs []string, sep string) string {
 	if len(strs) == 0 {
 		return ""
 	}
-	result := strs[0]
+	var result strings.Builder
+	result.WriteString(strs[0])
 	for i := 1; i < len(strs); i++ {
-		result += sep + strs[i]
+		result.WriteString(sep + strs[i])
 	}
-	return result
+	return result.String()
 }
 
 // ===============================================
@@ -2110,11 +2100,11 @@ func (a *Adapter) getIndentString(level int) string {
 	if level <= 0 {
 		return ""
 	}
-	result := ""
-	for i := 0; i < level; i++ {
-		result += "  "
+	var result strings.Builder
+	for range level {
+		result.WriteString("  ")
 	}
-	return result
+	return result.String()
 }
 
 // generateConsoleTable generates an ASCII table from the given data.
@@ -2126,12 +2116,12 @@ func (a *Adapter) generateConsoleTable(data goja.Value, columnFilter []string) s
 	exported := data.Export()
 
 	// Check if it's an array-like structure
-	if arr, ok := exported.([]interface{}); ok {
+	if arr, ok := exported.([]any); ok {
 		return a.generateTableFromArray(arr, columnFilter)
 	}
 
 	// Check if it's a map (object)
-	if obj, ok := exported.(map[string]interface{}); ok {
+	if obj, ok := exported.(map[string]any); ok {
 		return a.generateTableFromObject(obj, columnFilter)
 	}
 
@@ -2140,7 +2130,7 @@ func (a *Adapter) generateConsoleTable(data goja.Value, columnFilter []string) s
 }
 
 // generateTableFromArray creates a table from an array.
-func (a *Adapter) generateTableFromArray(arr []interface{}, columnFilter []string) string {
+func (a *Adapter) generateTableFromArray(arr []any, columnFilter []string) string {
 	if len(arr) == 0 {
 		return "(index)"
 	}
@@ -2153,7 +2143,7 @@ func (a *Adapter) generateTableFromArray(arr []interface{}, columnFilter []strin
 		rows[i] = make(map[string]string)
 		rows[i]["(index)"] = fmt.Sprintf("%d", i)
 
-		if obj, ok := item.(map[string]interface{}); ok {
+		if obj, ok := item.(map[string]any); ok {
 			for k, v := range obj {
 				allColumns[k] = true
 				rows[i][k] = a.formatCellValue(v)
@@ -2195,7 +2185,7 @@ func (a *Adapter) generateTableFromArray(arr []interface{}, columnFilter []strin
 }
 
 // generateTableFromObject creates a table from an object.
-func (a *Adapter) generateTableFromObject(obj map[string]interface{}, columnFilter []string) string {
+func (a *Adapter) generateTableFromObject(obj map[string]any, columnFilter []string) string {
 	if len(obj) == 0 {
 		return "(index)"
 	}
@@ -2222,7 +2212,7 @@ func (a *Adapter) generateTableFromObject(obj map[string]interface{}, columnFilt
 		row := make(map[string]string)
 		row["(index)"] = k
 
-		if nested, ok := v.(map[string]interface{}); ok {
+		if nested, ok := v.(map[string]any); ok {
 			for nk, nv := range nested {
 				allColumns[nk] = true
 				row[nk] = a.formatCellValue(nv)
@@ -2264,15 +2254,15 @@ func (a *Adapter) generateTableFromObject(obj map[string]interface{}, columnFilt
 }
 
 // formatCellValue formats a value for display in a table cell.
-func (a *Adapter) formatCellValue(v interface{}) string {
+func (a *Adapter) formatCellValue(v any) string {
 	if v == nil {
 		return "null"
 	}
 
 	switch val := v.(type) {
-	case []interface{}:
+	case []any:
 		return "Array(" + fmt.Sprintf("%d", len(val)) + ")"
-	case map[string]interface{}:
+	case map[string]any:
 		return "Object"
 	case string:
 		return val
@@ -2384,7 +2374,7 @@ func (a *Adapter) padRight(s string, width int) string {
 
 // inspectValue creates a human-readable representation of a value.
 // maxDepth controls how deep to inspect nested objects.
-func (a *Adapter) inspectValue(v interface{}, depth int, maxDepth int) string {
+func (a *Adapter) inspectValue(v any, depth int, maxDepth int) string {
 	if v == nil {
 		return "null"
 	}
@@ -2393,7 +2383,7 @@ func (a *Adapter) inspectValue(v interface{}, depth int, maxDepth int) string {
 	nextIndent := strings.Repeat("  ", depth+1)
 
 	switch val := v.(type) {
-	case []interface{}:
+	case []any:
 		if depth >= maxDepth {
 			return fmt.Sprintf("Array(%d)", len(val))
 		}
@@ -2406,7 +2396,7 @@ func (a *Adapter) inspectValue(v interface{}, depth int, maxDepth int) string {
 		}
 		return "[\n" + strings.Join(parts, ",\n") + "\n" + indent + "]"
 
-	case map[string]interface{}:
+	case map[string]any:
 		if depth >= maxDepth {
 			return "Object"
 		}
@@ -2507,10 +2497,7 @@ func (a *Adapter) bindProcess() error {
 // delay returns a promise that resolves after the specified delay.
 // This is similar to setTimeout but returns a promise for async/await patterns.
 func (a *Adapter) delay(call goja.FunctionCall) goja.Value {
-	delayMs := int(call.Argument(0).ToInteger())
-	if delayMs < 0 {
-		delayMs = 0
-	}
+	delayMs := max(int(call.Argument(0).ToInteger()), 0)
 
 	// Use the Go Sleep implementation
 	promise := a.js.Sleep(time.Duration(delayMs) * time.Millisecond)
@@ -2621,7 +2608,7 @@ func (a *Adapter) bindCrypto() error {
 			}
 
 			length := int(obj.Get("length").ToInteger())
-			for i := 0; i < length; i++ {
+			for i := range length {
 				// Reconstruct the integer value from the random bytes
 				offset := i * bytesPerElement
 				var val int64
@@ -3501,7 +3488,7 @@ func (a *Adapter) cloneArray(obj *goja.Object, objPtr uintptr, visited map[uintp
 	visited[objPtr] = newArr
 
 	// Clone each element
-	for i := 0; i < length; i++ {
+	for i := range length {
 		indexStr := strconv.Itoa(i)
 		element := obj.Get(indexStr)
 		if element != nil && !goja.IsUndefined(element) {
@@ -3560,7 +3547,7 @@ func (a *Adapter) clonePlainObject(obj *goja.Object, objPtr uintptr, visited map
 	keysArr := keysResult.ToObject(a.runtime)
 	keysLength := int(keysArr.Get("length").ToInteger())
 
-	for i := 0; i < keysLength; i++ {
+	for i := range keysLength {
 		keyVal := keysArr.Get(strconv.Itoa(i))
 		key := keyVal.String()
 
@@ -4095,10 +4082,8 @@ func (a *Adapter) addURLSearchParamsMethods(obj *goja.Object, linkedURL *urlWrap
 		// If value is provided, check for specific value
 		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
 			value := call.Argument(1).String()
-			for _, v := range params[name] {
-				if v == value {
-					return a.runtime.ToValue(true)
-				}
+			if slices.Contains(params[name], value) {
+				return a.runtime.ToValue(true)
 			}
 			return a.runtime.ToValue(false)
 		}
@@ -4540,7 +4525,7 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 	if lengthVal != nil && !goja.IsUndefined(lengthVal) {
 		length := int(lengthVal.ToInteger())
 		bytes := make([]byte, length)
-		for i := 0; i < length; i++ {
+		for i := range length {
 			val := obj.Get(strconv.Itoa(i))
 			if val != nil && !goja.IsUndefined(val) {
 				bytes[i] = byte(val.ToInteger() & 0xFF)
@@ -4657,10 +4642,7 @@ func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
 			start = int(call.Argument(0).ToInteger())
 			// Handle negative values
 			if start < 0 {
-				start = dataLen + start
-				if start < 0 {
-					start = 0
-				}
+				start = max(dataLen+start, 0)
 			}
 			if start > dataLen {
 				start = dataLen
@@ -4672,10 +4654,7 @@ func (a *Adapter) blobConstructor(call goja.ConstructorCall) *goja.Object {
 			end = int(call.Argument(1).ToInteger())
 			// Handle negative values
 			if end < 0 {
-				end = dataLen + end
-				if end < 0 {
-					end = 0
-				}
+				end = max(dataLen+end, 0)
 			}
 			if end > dataLen {
 				end = dataLen
@@ -4772,10 +4751,7 @@ func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
 		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
 			start = int(call.Argument(0).ToInteger())
 			if start < 0 {
-				start = dataLen + start
-				if start < 0 {
-					start = 0
-				}
+				start = max(dataLen+start, 0)
 			}
 			if start > dataLen {
 				start = dataLen
@@ -4785,10 +4761,7 @@ func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
 		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) {
 			end = int(call.Argument(1).ToInteger())
 			if end < 0 {
-				end = dataLen + end
-				if end < 0 {
-					end = 0
-				}
+				end = max(dataLen+end, 0)
 			}
 			if end > dataLen {
 				end = dataLen
@@ -4887,9 +4860,9 @@ func (a *Adapter) initHeaders(wrapper *headersWrapper, init goja.Value) {
 
 	// Check if it's an array of [name, value] pairs
 	exported := init.Export()
-	if arr, ok := exported.([]interface{}); ok {
+	if arr, ok := exported.([]any); ok {
 		for _, item := range arr {
-			if pair, ok := item.([]interface{}); ok && len(pair) >= 2 {
+			if pair, ok := item.([]any); ok && len(pair) >= 2 {
 				name := strings.ToLower(fmt.Sprintf("%v", pair[0]))
 				value := fmt.Sprintf("%v", pair[1])
 				wrapper.headers[name] = append(wrapper.headers[name], value)

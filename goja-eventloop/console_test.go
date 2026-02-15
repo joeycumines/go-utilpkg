@@ -1854,14 +1854,14 @@ func TestConsoleGroup_Indentation(t *testing.T) {
 		adapter.consoleIndentMu.RUnlock()
 
 		indentStr := adapter.getIndentString(indent)
-		msg := ""
+		var msg strings.Builder
 		for i, arg := range call.Arguments {
 			if i > 0 {
-				msg += " "
+				msg.WriteString(" ")
 			}
-			msg += fmt.Sprintf("%v", arg.Export())
+			msg.WriteString(fmt.Sprintf("%v", arg.Export()))
 		}
-		fmt.Fprintf(&buf, "%s%s\n", indentStr, msg)
+		fmt.Fprintf(&buf, "%s%s\n", indentStr, msg.String())
 		return goja.Undefined()
 	}))
 

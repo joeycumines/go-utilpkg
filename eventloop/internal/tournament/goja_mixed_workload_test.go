@@ -27,11 +27,9 @@ func TestGojaMixedWorkload(t *testing.T) {
 			var wg sync.WaitGroup
 			var externalCount, internalCount atomic.Int64
 
-			for client := 0; client < 10; client++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for i := 0; i < 100; i++ {
+			for range 10 {
+				wg.Go(func() {
+					for range 100 {
 						_ = loop.Submit(func() {
 							externalCount.Add(1)
 							_ = loop.SubmitInternal(func() {
@@ -40,7 +38,7 @@ func TestGojaMixedWorkload(t *testing.T) {
 						})
 						time.Sleep(time.Millisecond)
 					}
-				}()
+				})
 			}
 
 			wg.Wait()

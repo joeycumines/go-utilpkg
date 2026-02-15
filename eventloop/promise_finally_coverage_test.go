@@ -173,18 +173,16 @@ func TestPromiseFinally_ConcurrentMultiple(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make([]*ChainedPromise, 5)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		idx := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			results[idx] = p.Finally(func() {
 				order := counter.Add(1)
 				mu.Lock()
 				callOrder = append(callOrder, int(order))
 				mu.Unlock()
 			})
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -525,7 +523,7 @@ func TestPromiseFinally_ConcurrentWithResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for trial := 0; trial < 100; trial++ {
+	for trial := range 100 {
 		p, resolve, _ := js.NewChainedPromise()
 
 		var finallyCalled atomic.Int32

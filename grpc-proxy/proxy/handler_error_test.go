@@ -38,36 +38,36 @@ func (m *mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, m
 // Its behavior is controlled by its function fields.
 type mockClientStream struct {
 	grpc.ClientStream
-	onRecvMsg   func(m interface{}) error
+	onRecvMsg   func(m any) error
 	onCloseSend func() error
 	onTrailer   func() metadata.MD
 	onContext   func() context.Context
 	onHeader    func() (metadata.MD, error)
 }
 
-func (m *mockClientStream) RecvMsg(msg interface{}) error { return m.onRecvMsg(msg) }
-func (m *mockClientStream) CloseSend() error              { return m.onCloseSend() }
-func (m *mockClientStream) Trailer() metadata.MD          { return m.onTrailer() }
-func (m *mockClientStream) Context() context.Context      { return m.onContext() }
-func (m *mockClientStream) Header() (metadata.MD, error)  { return m.onHeader() }
+func (m *mockClientStream) RecvMsg(msg any) error        { return m.onRecvMsg(msg) }
+func (m *mockClientStream) CloseSend() error             { return m.onCloseSend() }
+func (m *mockClientStream) Trailer() metadata.MD         { return m.onTrailer() }
+func (m *mockClientStream) Context() context.Context     { return m.onContext() }
+func (m *mockClientStream) Header() (metadata.MD, error) { return m.onHeader() }
 
 // mockServerStream implements grpc.ServerStream for testing.
 // Its behavior is controlled by its function fields.
 type mockServerStream struct {
 	grpc.ServerStream
-	onRecvMsg    func(m interface{}) error
+	onRecvMsg    func(m any) error
 	onSetTrailer func(md metadata.MD)
 	onContext    func() context.Context
 	onSendHeader func(md metadata.MD) error
-	onSendMsg    func(m interface{}) error
+	onSendMsg    func(m any) error
 }
 
-func (m *mockServerStream) RecvMsg(msg interface{}) error   { return m.onRecvMsg(msg) }
+func (m *mockServerStream) RecvMsg(msg any) error           { return m.onRecvMsg(msg) }
 func (m *mockServerStream) SetTrailer(md metadata.MD)       { m.onSetTrailer(md) }
 func (m *mockServerStream) Context() context.Context        { return m.onContext() }
 func (m *mockServerStream) SendHeader(md metadata.MD) error { return m.onSendHeader(md) }
 func (m *mockServerStream) SetHeader(metadata.MD) error     { return nil }
-func (m *mockServerStream) SendMsg(v interface{}) error {
+func (m *mockServerStream) SendMsg(v any) error {
 	if m.onSendMsg != nil {
 		return m.onSendMsg(v)
 	}
@@ -113,7 +113,7 @@ func TestHandler_S2CFailurePropagated(t *testing.T) {
 	// --- Mock Definitions ---
 	clientStream := &mockClientStream{
 		onContext: func() context.Context { return testCtx },
-		onRecvMsg: func(m interface{}) error {
+		onRecvMsg: func(m any) error {
 			// Signal that RecvMsg was called on the client stream (c2s).
 			// This call will block for the duration of the test, which is what we want.
 			c2sRecvCall <- call{}
@@ -138,7 +138,7 @@ func TestHandler_S2CFailurePropagated(t *testing.T) {
 				&mockServerTransportStream{methodName: "/test.Service/Method"},
 			)
 		},
-		onRecvMsg: func(m interface{}) error {
+		onRecvMsg: func(m any) error {
 			// 1. Signal that RecvMsg was called on the server stream (s2c).
 			// 2. Wait for the test to provide a return value.
 			select {
@@ -252,12 +252,12 @@ func (m *MockServerStream) Context() context.Context {
 	return context.Background()
 }
 
-func (m *MockServerStream) SendMsg(msg interface{}) error {
+func (m *MockServerStream) SendMsg(msg any) error {
 	args := m.Called(msg)
 	return args.Error(0)
 }
 
-func (m *MockServerStream) RecvMsg(msg interface{}) error {
+func (m *MockServerStream) RecvMsg(msg any) error {
 	args := m.Called(msg)
 	return args.Error(0)
 }
@@ -307,12 +307,12 @@ func (m *MockClientStream) Context() context.Context {
 	return args.Get(0).(context.Context)
 }
 
-func (m *MockClientStream) SendMsg(msg interface{}) error {
+func (m *MockClientStream) SendMsg(msg any) error {
 	args := m.Called(msg)
 	return args.Error(0)
 }
 
-func (m *MockClientStream) RecvMsg(msg interface{}) error {
+func (m *MockClientStream) RecvMsg(msg any) error {
 	args := m.Called(msg)
 	return args.Error(0)
 }
@@ -322,7 +322,7 @@ type MockClientConn struct {
 	mock.Mock
 }
 
-func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply interface{}, opts ...grpc.CallOption) error {
+func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
 	mockArgs := m.Called(ctx, method, args, reply, opts)
 	return mockArgs.Error(0)
 }
@@ -627,7 +627,7 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 					return nil, testCtx.Err()
 				}
 			},
-			onRecvMsg: func(m interface{}) error {
+			onRecvMsg: func(m any) error {
 				c2sRecvCall <- call{}
 				select {
 				case err := <-c2sRecvReturn:
@@ -659,7 +659,7 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 					return testCtx.Err()
 				}
 			},
-			onRecvMsg: func(m interface{}) error {
+			onRecvMsg: func(m any) error {
 				s2cRecvCall <- call{}
 				<-testCtx.Done() // Block until test cleanup
 				return testCtx.Err()

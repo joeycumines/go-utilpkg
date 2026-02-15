@@ -352,7 +352,7 @@ func TestNextafter_continual(t *testing.T) {
 	t.Skip(`oom ci issue`)
 	callTimes := func(v *big.Float, n int, f func(*big.Float) *big.Float) *big.Float {
 		t.Helper()
-		for i := 0; i < n; i++ {
+		for range n {
 			c := Copy(v)
 			c = f(c)
 			if Cmp(c, v) == 0 {

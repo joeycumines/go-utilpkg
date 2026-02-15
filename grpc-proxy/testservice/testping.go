@@ -92,7 +92,7 @@ func TestTestServiceServerImpl(t *testing.T, client TestServiceClient) {
 			close(d)
 		}()
 
-		for i := 0; i < 25; i++ {
+		for i := range 25 {
 			if err := stream.Send(&PingRequest{Value: want}); err != nil {
 				t.Errorf("want no err; got %v", err)
 				return

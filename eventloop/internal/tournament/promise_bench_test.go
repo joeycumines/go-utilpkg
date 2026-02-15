@@ -27,7 +27,7 @@ func BenchmarkPromises(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					p, _, _ := impl.Factory(js)
 					curr := p
-					for d := 0; d < 100; d++ {
+					for range 100 {
 						curr = curr.Then(func(v any) any { return v }, nil)
 					}
 				}
@@ -65,7 +65,7 @@ func BenchmarkPromises(b *testing.B) {
 
 				for i := 0; i < b.N; i++ {
 					// Attach 100 handlers
-					for k := 0; k < 100; k++ {
+					for range 100 {
 						p.Then(func(v any) any { return nil }, nil)
 					}
 				}
@@ -98,7 +98,7 @@ func BenchmarkPromises(b *testing.B) {
 					b.ReportAllocs()
 					for i := 0; i < b.N; i++ {
 						promises := make([]*promisealtone.Promise, 100)
-						for k := 0; k < 100; k++ {
+						for k := range 100 {
 							p, _, _ := promisealtone.New(js)
 							promises[k] = p
 						}
@@ -110,7 +110,7 @@ func BenchmarkPromises(b *testing.B) {
 					b.ReportAllocs()
 					for i := 0; i < b.N; i++ {
 						promises := make([]*eventloop.ChainedPromise, 100)
-						for k := 0; k < 100; k++ {
+						for k := range 100 {
 							p, _, _ := js.NewChainedPromise()
 							promises[k] = p
 						}
@@ -121,7 +121,7 @@ func BenchmarkPromises(b *testing.B) {
 					b.ReportAllocs()
 					for i := 0; i < b.N; i++ {
 						promises := make([]*promisealtfour.Promise, 100)
-						for k := 0; k < 100; k++ {
+						for k := range 100 {
 							p, _, _ := promisealtfour.New(js)
 							promises[k] = p
 						}

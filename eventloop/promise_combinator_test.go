@@ -88,7 +88,7 @@ func TestPromiseAll_AlreadySettled(t *testing.T) {
 	result := js.All([]*ChainedPromise{p1, p2, p3})
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -130,7 +130,7 @@ func TestPromiseAll_IterationOrderPreserved(t *testing.T) {
 	resolve1("first")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -182,7 +182,7 @@ func TestPromiseAll_FirstRejectionWins_Combinator(t *testing.T) {
 	resolve1("a")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -222,7 +222,7 @@ func TestPromiseAll_WithNilValues(t *testing.T) {
 	resolve2(nil)
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -259,7 +259,7 @@ func TestPromiseRace_EmptyArray(t *testing.T) {
 	result := js.Race([]*ChainedPromise{})
 
 	// Process some ticks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.tick()
 	}
 
@@ -297,7 +297,7 @@ func TestPromiseRace_AlreadySettled(t *testing.T) {
 	result := js.Race([]*ChainedPromise{p1, p2})
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -340,7 +340,7 @@ func TestPromiseRace_ShortCircuit(t *testing.T) {
 	resolve1("winner")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -381,7 +381,7 @@ func TestPromiseRace_RejectsIfFirstRejects(t *testing.T) {
 	reject2(errors.New("race-error"))
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -450,7 +450,7 @@ func TestPromiseAllSettled_MixedSettlement(t *testing.T) {
 	resolve3("success-3")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -465,12 +465,12 @@ func TestPromiseAllSettled_MixedSettlement(t *testing.T) {
 	}
 
 	// Check each outcome
-	r1 := arr[0].(map[string]interface{})
+	r1 := arr[0].(map[string]any)
 	if r1["status"] != "fulfilled" || r1["value"] != "success-1" {
 		t.Errorf("arr[0]: %v", r1)
 	}
 
-	r2 := arr[1].(map[string]interface{})
+	r2 := arr[1].(map[string]any)
 	if r2["status"] != "rejected" {
 		t.Errorf("arr[1] status: %v", r2["status"])
 	}
@@ -478,7 +478,7 @@ func TestPromiseAllSettled_MixedSettlement(t *testing.T) {
 		t.Errorf("arr[1] reason: %v", r2["reason"])
 	}
 
-	r3 := arr[2].(map[string]interface{})
+	r3 := arr[2].(map[string]any)
 	if r3["status"] != "fulfilled" || r3["value"] != "success-3" {
 		t.Errorf("arr[2]: %v", r3)
 	}
@@ -511,7 +511,7 @@ func TestPromiseAllSettled_OrderPreserved(t *testing.T) {
 	resolve1(1)
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -523,7 +523,7 @@ func TestPromiseAllSettled_OrderPreserved(t *testing.T) {
 
 	// Verify order matches input, not resolution order
 	for i, r := range arr {
-		m := r.(map[string]interface{})
+		m := r.(map[string]any)
 		if m["value"] != i+1 {
 			t.Errorf("arr[%d].value = %v, want %d", i, m["value"], i+1)
 		}
@@ -557,7 +557,7 @@ func TestPromiseAllSettled_NeverRejects(t *testing.T) {
 	reject3(errors.New("e3"))
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -568,7 +568,7 @@ func TestPromiseAllSettled_NeverRejects(t *testing.T) {
 
 	arr := result.Value().([]any)
 	for i, r := range arr {
-		m := r.(map[string]interface{})
+		m := r.(map[string]any)
 		if m["status"] != "rejected" {
 			t.Errorf("arr[%d].status = %v, want rejected", i, m["status"])
 		}
@@ -643,7 +643,7 @@ func TestPromiseAny_FirstFulfillmentWins_Combinator(t *testing.T) {
 	resolve2("ignored")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -681,7 +681,7 @@ func TestPromiseAny_AllRejectionsAggregated(t *testing.T) {
 	reject3(errors.New("error-3"))
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -728,7 +728,7 @@ func TestPromiseAny_ShortCircuitOnFulfillment(t *testing.T) {
 	resolve1("first")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -772,7 +772,7 @@ func TestPromiseAny_AlreadySettled(t *testing.T) {
 	result := js.Any([]*ChainedPromise{p1, p2})
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -809,7 +809,7 @@ func TestPromiseAny_NonErrorRejections(t *testing.T) {
 	reject2(42)             // int
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 
@@ -840,8 +840,7 @@ func TestPromiseAny_NonErrorRejections(t *testing.T) {
 
 // TestPromiseCombinatorsAreConcurrencySafe verifies combinators under concurrent resolution.
 func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -861,7 +860,7 @@ func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
 	// Create promises
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]ResolveFunc, numPromises)
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, resolve, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = resolve
@@ -872,7 +871,7 @@ func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
 
 	// Resolve all concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -917,8 +916,7 @@ func TestPromiseCombinatorsAreConcurrencySafe(t *testing.T) {
 
 // TestPromiseRace_ConcurrentSettlement verifies Race under concurrent settlement.
 func TestPromiseRace_ConcurrentSettlement(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -935,10 +933,10 @@ func TestPromiseRace_ConcurrentSettlement(t *testing.T) {
 
 	const numPromises = 50
 
-	for trial := 0; trial < 10; trial++ {
+	for trial := range 10 {
 		promises := make([]*ChainedPromise, numPromises)
 		resolvers := make([]ResolveFunc, numPromises)
-		for i := 0; i < numPromises; i++ {
+		for i := range numPromises {
 			p, resolve, _ := js.NewChainedPromise()
 			promises[i] = p
 			resolvers[i] = resolve
@@ -948,7 +946,7 @@ func TestPromiseRace_ConcurrentSettlement(t *testing.T) {
 
 		// Resolve all concurrently
 		var wg sync.WaitGroup
-		for i := 0; i < numPromises; i++ {
+		for i := range numPromises {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
@@ -1006,7 +1004,7 @@ func TestPromiseCombinators_LargeArray(t *testing.T) {
 	const numPromises = 1000
 
 	promises := make([]*ChainedPromise, numPromises)
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, resolve, _ := js.NewChainedPromise()
 		promises[i] = p
 		// Resolve immediately
@@ -1017,7 +1015,7 @@ func TestPromiseCombinators_LargeArray(t *testing.T) {
 	allResult := js.All(promises)
 
 	// Process microtasks
-	for i := 0; i < numPromises+10; i++ {
+	for range numPromises + 10 {
 		loop.tick()
 	}
 
@@ -1062,7 +1060,7 @@ func TestPromiseAll_PanicInHandler_Combinator(t *testing.T) {
 	resolve2("b")
 
 	// Process microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.tick()
 	}
 

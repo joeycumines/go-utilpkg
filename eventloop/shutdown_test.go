@@ -253,7 +253,7 @@ func TestShutdownRace(t *testing.T) {
 
 	// 10 goroutines calling Shutdown() concurrently - ALL must return, not hang
 	results := make([]error, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		go func(id int) {
 			defer wg.Done()
 			results[id] = loop.Shutdown(context.Background())

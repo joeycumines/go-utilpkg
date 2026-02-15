@@ -32,7 +32,7 @@ func TestJS_SetImmediate_MemoryLeak(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(count)
 
-	for i := 0; i < count; i++ {
+	for range count {
 		_, err := js.SetImmediate(func() {
 			wg.Done()
 		})

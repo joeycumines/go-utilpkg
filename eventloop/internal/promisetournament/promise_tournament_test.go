@@ -30,41 +30,41 @@ type genericPromise interface {
 func BenchmarkTournament(b *testing.B) {
 	// Baseline: ChainedPromise
 	b.Run("ChainedPromise", func(b *testing.B) {
-		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := js.NewChainedPromise()
-			return &cpWrapper{p, res}, func(v interface{}) { res(v) }
+			return &cpWrapper{p, res}, func(v any) { res(v) }
 		})
 	})
 
 	// Challenger 1: PromiseAltOne
 	b.Run("PromiseAltOne", func(b *testing.B) {
-		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealtone.New(js)
-			return &p1Wrapper{p, res}, func(v interface{}) { res(v) }
+			return &p1Wrapper{p, res}, func(v any) { res(v) }
 		})
 	})
 
 	// Challenger 2: PromiseAltTwo (Lock-Free)
 	b.Run("PromiseAltTwo", func(b *testing.B) {
-		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealttwo.New(js)
-			return &p2Wrapper{p, res}, func(v interface{}) { res(v) }
+			return &p2Wrapper{p, res}, func(v any) { res(v) }
 		})
 	})
 
 	// Challenger 3: PromiseAltFour (Baseline)
 	b.Run("PromiseAltFour", func(b *testing.B) {
-		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealtfour.New(js)
-			return &p4Wrapper{p, res}, func(v interface{}) { res(v) }
+			return &p4Wrapper{p, res}, func(v any) { res(v) }
 		})
 	})
 
 	// Challenger 4: PromiseAltFive (Original ChainedPromise snapshot)
 	b.Run("PromiseAltFive", func(b *testing.B) {
-		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(interface{})) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealtfive.New(js)
-			return &p5Wrapper{p, res}, func(v interface{}) { res(v) }
+			return &p5Wrapper{p, res}, func(v any) { res(v) }
 		})
 	})
 }
@@ -121,7 +121,7 @@ func (w *p5Wrapper) Then(s, f func(any) any) genericPromise {
 }
 func (w *p5Wrapper) Resolve(v any) { w.resolve(v) }
 
-func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(interface{}))) {
+func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(any))) {
 	b.ReportAllocs()
 	loop, err := eventloop.New()
 	if err != nil {
@@ -164,7 +164,7 @@ func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise
 func BenchmarkChainDepth(b *testing.B) {
 	depths := []int{10, 100}
 
-	run := func(name string, factory func(*eventloop.JS) (genericPromise, func(interface{}))) {
+	run := func(name string, factory func(*eventloop.JS) (genericPromise, func(any))) {
 		for _, d := range depths {
 			b.Run(fmt.Sprintf("%s/Depth=%d", name, d), func(b *testing.B) {
 				b.ReportAllocs()
@@ -185,7 +185,7 @@ func BenchmarkChainDepth(b *testing.B) {
 
 					p, resolve := factory(js)
 					curr := p
-					for k := 0; k < d; k++ {
+					for range d {
 						curr = curr.Then(func(v any) any {
 							return v
 						}, nil)
@@ -206,28 +206,28 @@ func BenchmarkChainDepth(b *testing.B) {
 		}
 	}
 
-	run("ChainedPromise", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+	run("ChainedPromise", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := js.NewChainedPromise()
-		return &cpWrapper{p, res}, func(v interface{}) { res(v) }
+		return &cpWrapper{p, res}, func(v any) { res(v) }
 	})
 
-	run("PromiseAltOne", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+	run("PromiseAltOne", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := promisealtone.New(js)
-		return &p1Wrapper{p, res}, func(v interface{}) { res(v) }
+		return &p1Wrapper{p, res}, func(v any) { res(v) }
 	})
 
-	run("PromiseAltTwo", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+	run("PromiseAltTwo", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := promisealttwo.New(js)
-		return &p2Wrapper{p, res}, func(v interface{}) { res(v) }
+		return &p2Wrapper{p, res}, func(v any) { res(v) }
 	})
 
-	run("PromiseAltFour", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+	run("PromiseAltFour", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := promisealtfour.New(js)
-		return &p4Wrapper{p, res}, func(v interface{}) { res(v) }
+		return &p4Wrapper{p, res}, func(v any) { res(v) }
 	})
 
-	run("PromiseAltFive", func(js *eventloop.JS) (genericPromise, func(interface{})) {
+	run("PromiseAltFive", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := promisealtfive.New(js)
-		return &p5Wrapper{p, res}, func(v interface{}) { res(v) }
+		return &p5Wrapper{p, res}, func(v any) { res(v) }
 	})
 }

@@ -87,10 +87,7 @@ func (r *registry) Scavenge(batchSize int) {
 
 	// Calculate batch range
 	start := r.head
-	end := start + batchSize
-	if end > ringLen {
-		end = ringLen
-	}
+	end := min(start+batchSize, ringLen)
 
 	// Collect IDs to check.
 	// Phase 5.1: Null-Marker Strategy (Skip 0s)

@@ -131,7 +131,7 @@ func TestFastPathAuto_DisablesWhenFDRegistered(t *testing.T) {
 //	If mode == FastPathForced, then userIOFDCount == 0
 func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 	// Run 1000 iterations to expose races
-	for iteration := 0; iteration < 1000; iteration++ {
+	for iteration := range 1000 {
 		l, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -151,18 +151,14 @@ func TestFastPathForced_InvariantUnderConcurrency(t *testing.T) {
 		var modeErr error
 
 		// Goroutine 1: Try to register FD
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			registerErr = l.RegisterFD(fds[0], EventRead, func(IOEvents) {})
-		}()
+		})
 
 		// Goroutine 2: Try to force fast path mode
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			modeErr = l.SetFastPathMode(FastPathForced)
-		}()
+		})
 
 		wg.Wait()
 

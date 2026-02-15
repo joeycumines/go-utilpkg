@@ -47,7 +47,7 @@ func TestAbortIntegration_FetchLikeAbortPattern(t *testing.T) {
 		operationStarted.Store(true)
 
 		// Simulate network latency
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			time.Sleep(10 * time.Millisecond)
 			if signal.Aborted() {
 				operationCancelled.Store(true)
@@ -367,12 +367,12 @@ func TestAbortIntegration_MemoryCleanupAfterAbort(t *testing.T) {
 	controllers := make([]*AbortController, numControllers)
 	handlerCallCounts := make([]atomic.Int32, numControllers)
 
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		controllers[i] = NewAbortController()
 		idx := i
 
 		// Add multiple handlers
-		for j := 0; j < 10; j++ {
+		for range 10 {
 			controllers[i].Signal().OnAbort(func(reason any) {
 				handlerCallCounts[idx].Add(1)
 			})
@@ -380,12 +380,12 @@ func TestAbortIntegration_MemoryCleanupAfterAbort(t *testing.T) {
 	}
 
 	// Abort all controllers
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		controllers[i].Abort("cleanup test")
 	}
 
 	// Verify all handlers were called
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		if handlerCallCounts[i].Load() != 10 {
 			t.Errorf("Controller %d: expected 10 handler calls, got %d",
 				i, handlerCallCounts[i].Load())
@@ -399,7 +399,7 @@ func TestAbortIntegration_MemoryCleanupAfterAbort(t *testing.T) {
 
 	// Verify no memory leaks by creating more controllers
 	// (if handlers weren't cleaned up, this would accumulate memory)
-	for i := 0; i < numControllers; i++ {
+	for range numControllers {
 		c := NewAbortController()
 		c.Signal().OnAbort(func(reason any) {})
 		c.Abort("gc test")
@@ -661,7 +661,7 @@ func TestAbortIntegration_ConcurrentAbortFromMultipleGoroutines(t *testing.T) {
 	var handlerReasons sync.Map
 
 	// Add multiple handlers
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		idx := i
 		signal.OnAbort(func(reason any) {
 			handlerCalls.Add(1)
@@ -673,7 +673,7 @@ func TestAbortIntegration_ConcurrentAbortFromMultipleGoroutines(t *testing.T) {
 	const numGoroutines = 50
 	var wg sync.WaitGroup
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -748,7 +748,7 @@ func TestAbortIntegration_WithPromisify(t *testing.T) {
 
 		promise := loop.Promisify(promisifyCtx, func(ctx context.Context) (any, error) {
 			// Long-running operation that checks context
-			for i := 0; i < 50; i++ {
+			for range 50 {
 				select {
 				case <-ctx.Done():
 					operationCancelled.Store(true)
@@ -813,7 +813,7 @@ func TestAbortIntegration_WithPromisify(t *testing.T) {
 			operationStarted.Store(true)
 
 			// Slow operation that will timeout
-			for i := 0; i < 50; i++ {
+			for range 50 {
 				select {
 				case <-ctx.Done():
 					operationCancelled.Store(true)
@@ -951,7 +951,7 @@ func TestAbortIntegration_LargeHandlerList(t *testing.T) {
 	const numHandlers = 10000
 	var callCount atomic.Int32
 
-	for i := 0; i < numHandlers; i++ {
+	for range numHandlers {
 		signal.OnAbort(func(reason any) {
 			callCount.Add(1)
 		})

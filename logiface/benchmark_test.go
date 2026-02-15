@@ -39,7 +39,6 @@ func BenchmarkBuilder_Limit_callerCategoryRateLimit(b *testing.B) {
 	}
 
 	for _, config := range windowConfigs {
-		config := config
 		b.Run(config.name, func(b *testing.B) {
 			var writer nopWriter
 			logger := stumpy.L.New(

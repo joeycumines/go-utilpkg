@@ -29,7 +29,7 @@ func TestFastPath_FuzzModeTransitions(t *testing.T) {
 		modeSwitches      = 30
 	)
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -56,12 +56,12 @@ func TestFastPath_FuzzModeTransitions(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Concurrent submitters - mix of Submit and SubmitInternal
-		for g := 0; g < goroutines; g++ {
+		for g := range goroutines {
 			wg.Add(1)
 			go func(gid int) {
 				defer wg.Done()
 				rng := rand.New(rand.NewSource(int64(iter*1000 + gid)))
-				for i := 0; i < tasksPerGoroutine; i++ {
+				for range tasksPerGoroutine {
 					var err error
 					if rng.Intn(2) == 0 {
 						err = loop.Submit(func() {
@@ -86,17 +86,15 @@ func TestFastPath_FuzzModeTransitions(t *testing.T) {
 		}
 
 		// Concurrent mode switcher
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			rng := rand.New(rand.NewSource(int64(iter)))
 			modes := []FastPathMode{FastPathAuto, FastPathDisabled, FastPathForced}
-			for i := 0; i < modeSwitches; i++ {
+			for range modeSwitches {
 				mode := modes[rng.Intn(len(modes))]
 				_ = loop.SetFastPathMode(mode)
 				time.Sleep(time.Microsecond * time.Duration(rng.Intn(200)))
 			}
-		}()
+		})
 
 		wg.Wait()
 
@@ -131,7 +129,7 @@ func TestFastPath_FuzzExternalQueueTransition(t *testing.T) {
 
 	const iterations = 200
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -156,7 +154,7 @@ func TestFastPath_FuzzExternalQueueTransition(t *testing.T) {
 		// Submit tasks - they go to l.external
 		var executed atomic.Int64
 		const taskCount = 100
-		for i := 0; i < taskCount; i++ {
+		for range taskCount {
 			if err := loop.Submit(func() {
 				executed.Add(1)
 			}); err != nil {
@@ -195,7 +193,7 @@ func TestFastPath_FuzzInternalDuringTransition(t *testing.T) {
 
 	const iterations = 100
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -218,27 +216,23 @@ func TestFastPath_FuzzInternalDuringTransition(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Submit internal tasks while switching modes
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < taskCount; i++ {
+		wg.Go(func() {
+			for range taskCount {
 				if err := loop.SubmitInternal(func() {
 					executed.Add(1)
 				}); err == ErrLoopTerminated {
 					break
 				}
 			}
-		}()
+		})
 
 		// Rapidly switch modes
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < 20; i++ {
+		wg.Go(func() {
+			for i := range 20 {
 				_ = loop.SetFastPathMode(FastPathMode(i % 3))
 				time.Sleep(50 * time.Microsecond)
 			}
-		}()
+		})
 
 		wg.Wait()
 
@@ -270,7 +264,7 @@ func TestFastPath_FuzzMicrotasksDuringTransition(t *testing.T) {
 
 	const iterations = 50
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -296,9 +290,9 @@ func TestFastPath_FuzzMicrotasksDuringTransition(t *testing.T) {
 		done := make(chan struct{})
 
 		// Submit tasks that schedule microtasks
-		for i := 0; i < taskCount; i++ {
+		for range taskCount {
 			if err := loop.Submit(func() {
-				for j := 0; j < microtasksPerTask; j++ {
+				for range microtasksPerTask {
 					_ = loop.ScheduleMicrotask(func() {
 						if executed.Add(1) == expectedTotal {
 							close(done)
@@ -312,7 +306,7 @@ func TestFastPath_FuzzMicrotasksDuringTransition(t *testing.T) {
 
 		// Rapid mode switching in parallel
 		go func() {
-			for i := 0; i < 15; i++ {
+			for i := range 15 {
 				_ = loop.SetFastPathMode(FastPathMode(i % 3))
 				time.Sleep(100 * time.Microsecond)
 			}

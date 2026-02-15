@@ -604,10 +604,8 @@ func TestConsole_Concurrency_Regression(t *testing.T) {
 	defer cancel()
 
 	// 1. Writer routine: hammers the PTY
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 200; i++ {
+	wg.Go(func() {
+		for i := range 200 {
 			if ctx.Err() != nil {
 				return
 			}
@@ -619,13 +617,11 @@ func TestConsole_Concurrency_Regression(t *testing.T) {
 			}
 			time.Sleep(time.Millisecond)
 		}
-	}()
+	})
 
 	// 2. Reader/Awaiter routine: constantly snapshots and checks
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 50; i++ {
+	wg.Go(func() {
+		for range 50 {
 			if ctx.Err() != nil {
 				return
 			}
@@ -635,29 +631,25 @@ func TestConsole_Concurrency_Regression(t *testing.T) {
 			_ = cp.Await(subCtx, snap, Contains("msg"))
 			subCancel()
 		}
-	}()
+	})
 
 	// 3. String reader: constantly reads the full buffer
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 50; i++ {
+	wg.Go(func() {
+		for range 50 {
 			if ctx.Err() != nil {
 				return
 			}
 			_ = cp.String()
 			time.Sleep(2 * time.Millisecond)
 		}
-	}()
+	})
 
 	// 4. Closer: closes the console randomly during execution
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		time.Sleep(100 * time.Millisecond)
 		_ = cp.Close()
 		cancel() // Stop other workers
-	}()
+	})
 
 	// Wait for completion
 	wg.Wait()

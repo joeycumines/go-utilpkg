@@ -558,8 +558,7 @@ func TestFetchTrailersOnLoop_ContextDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loopCtx, loopCancel := context.WithCancel(context.Background())
-	defer loopCancel()
+	loopCtx := t.Context()
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

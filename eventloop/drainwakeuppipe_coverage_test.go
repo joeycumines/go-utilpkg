@@ -60,7 +60,7 @@ func TestDrainWakeUpPipe_UnixSingleRead(t *testing.T) {
 	// Write one byte to the wake pipe
 	var one uint64 = 1
 	buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
 	_, err = writeFD(loop.wakePipeWrite, buf)
@@ -92,12 +92,12 @@ func TestDrainWakeUpPipe_UnixMultipleReads(t *testing.T) {
 	// Write multiple times to the wake pipe
 	var one uint64 = 1
 	buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
 
 	// Write 3 times to ensure multiple reads are needed
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err = writeFD(loop.wakePipeWrite, buf)
 		if err != nil {
 			t.Fatalf("Write %d to wake pipe failed: %v", i, err)
@@ -185,7 +185,7 @@ func TestDrainWakeUpPipe_ConcurrentWrites(t *testing.T) {
 
 	var one uint64 = 1
 	buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
 
@@ -195,11 +195,9 @@ func TestDrainWakeUpPipe_ConcurrentWrites(t *testing.T) {
 	const writesPerWriter = 100
 
 	// Start writers
-	for i := 0; i < numWriters; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < writesPerWriter; j++ {
+	for range numWriters {
+		wg.Go(func() {
+			for range writesPerWriter {
 				_, err := writeFD(loop.wakePipeWrite, buf)
 				if err == nil {
 					writeCount.Add(1)
@@ -207,7 +205,7 @@ func TestDrainWakeUpPipe_ConcurrentWrites(t *testing.T) {
 				// Small delay to allow interleaving with drains
 				time.Sleep(100 * time.Microsecond)
 			}
-		}()
+		})
 	}
 
 	// Start drainer
@@ -259,7 +257,7 @@ func TestDrainWakeUpPipe_IntegrationWithLoop(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Submit tasks rapidly - each should trigger wakeup and drain
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		err := loop.Submit(func() {
 			taskCount.Add(1)
 		})
@@ -366,7 +364,7 @@ func TestDrainWakeUpPipe_LargePipeBuffer(t *testing.T) {
 
 	var one uint64 = 1
 	buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
 

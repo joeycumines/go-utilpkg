@@ -91,7 +91,7 @@ func (m *Module) parseInterceptors(optsObj *goja.Object) []goja.Callable {
 		return nil
 	}
 	interceptors := make([]goja.Callable, 0, length)
-	for i := 0; i < length; i++ {
+	for i := range length {
 		elemVal := arrObj.Get(fmt.Sprintf("%d", i))
 		fn, fnOk := goja.AssertFunction(elemVal)
 		if !fnOk {

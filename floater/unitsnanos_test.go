@@ -95,7 +95,7 @@ func (x unitsNanosTestCase) init(check bool) unitsNanosTestCase {
 type unitsNanosTestCaseSlice []unitsNanosTestCase
 
 func (x unitsNanosTestCaseSlice) init() unitsNanosTestCaseSlice {
-	for i := 0; i < len(x); i++ {
+	for i := range x {
 		x[i] = x[i].init(true)
 	}
 	return x

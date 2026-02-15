@@ -92,14 +92,14 @@ func TestUnaryRPC_HeaderTrailerCallbacks(t *testing.T) {
 	// Verify headers received.
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-response-id", "42")
 	assertMetadataContains(t, hdrsObj, "x-echo-auth", "bearer-xyz")
 
 	// Verify trailers received.
 	trls := env.runtime.Get("receivedTrailers")
 	require.NotNil(t, trls)
-	trlsObj := trls.Export().(map[string]interface{})
+	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-checksum", "abc123")
 }
 
@@ -150,13 +150,13 @@ func TestUnaryRPC_HeaderTrailerOnError(t *testing.T) {
 
 	errObj := env.runtime.Get("error")
 	require.NotNil(t, errObj)
-	exported := errObj.Export().(map[string]interface{})
+	exported := errObj.Export().(map[string]any)
 	assert.Equal(t, int64(3), exported["code"]) // INVALID_ARGUMENT = 3
 
 	// Trailers should still be received even on error.
 	trls := env.runtime.Get("receivedTrailers")
 	require.NotNil(t, trls)
-	trlsObj := trls.Export().(map[string]interface{})
+	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-error-trace", "trace-001")
 }
 
@@ -266,19 +266,19 @@ func TestServerStream_HeaderTrailerCallbacks(t *testing.T) {
 	// Verify items received.
 	itemsVal := env.runtime.Get("items")
 	require.NotNil(t, itemsVal)
-	itemsExport := itemsVal.Export().([]interface{})
+	itemsExport := itemsVal.Export().([]any)
 	assert.Len(t, itemsExport, 2)
 
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "server")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
 	require.NotNil(t, trls)
-	trlsObj := trls.Export().(map[string]interface{})
+	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-item-count", "2")
 }
 
@@ -369,13 +369,13 @@ func TestClientStream_HeaderTrailerCallbacks(t *testing.T) {
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "client")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
 	require.NotNil(t, trls)
-	trlsObj := trls.Export().(map[string]interface{})
+	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-received", "true")
 }
 
@@ -454,19 +454,19 @@ func TestBidiStream_HeaderTrailerCallbacks(t *testing.T) {
 	// Verify items.
 	itemsVal := env.runtime.Get("items")
 	require.NotNil(t, itemsVal)
-	itemsExport := itemsVal.Export().([]interface{})
+	itemsExport := itemsVal.Export().([]any)
 	assert.Len(t, itemsExport, 1)
 
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "bidi")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
 	require.NotNil(t, trls)
-	trlsObj := trls.Export().(map[string]interface{})
+	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-bidi-done", "yes")
 }
 
@@ -613,7 +613,7 @@ func TestServerStream_SendHeader_ExplicitEarly(t *testing.T) {
 
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-early", "true")
 }
 
@@ -661,7 +661,7 @@ func TestUnaryRPC_MultipleSetHeader(t *testing.T) {
 
 	hdrs := env.runtime.Get("receivedHeaders")
 	require.NotNil(t, hdrs)
-	hdrsObj := hdrs.Export().(map[string]interface{})
+	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-first", "1")
 	assertMetadataContains(t, hdrsObj, "x-second", "2")
 }
@@ -772,7 +772,7 @@ func TestUnaryRPC_TimeoutMs_DeadlineExceeded(t *testing.T) {
 
 	errObj := env.runtime.Get("error")
 	require.NotNil(t, errObj)
-	exported := errObj.Export().(map[string]interface{})
+	exported := errObj.Export().(map[string]any)
 	assert.Equal(t, int64(4), exported["code"]) // DEADLINE_EXCEEDED = 4
 }
 
@@ -853,11 +853,11 @@ func TestUnaryRPC_TimeoutMs_ZeroIgnored(t *testing.T) {
 
 // assertMetadataContains checks that the exported metadata object
 // contains the expected key with the expected first value.
-func assertMetadataContains(t *testing.T, obj map[string]interface{}, key, expectedValue string) {
+func assertMetadataContains(t *testing.T, obj map[string]any, key, expectedValue string) {
 	t.Helper()
 	vals, ok := obj[key]
 	require.True(t, ok, "metadata key %q not found in %v", key, obj)
-	arr, ok := vals.([]interface{})
+	arr, ok := vals.([]any)
 	require.True(t, ok, "metadata key %q value is not an array: %T", key, vals)
 	require.NotEmpty(t, arr, "metadata key %q has empty array", key)
 	assert.Equal(t, expectedValue, arr[0], "metadata key %q first value", key)

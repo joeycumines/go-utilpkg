@@ -176,29 +176,25 @@ func TestRollback_InvariantUnderStress(t *testing.T) {
 		goroutines = 8
 	)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		l, _ := New()
 
 		var wg sync.WaitGroup
 
 		// Half try to force mode
-		for j := 0; j < goroutines/2; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutines / 2 {
+			wg.Go(func() {
 				_ = l.SetFastPathMode(FastPathForced)
-			}()
+			})
 		}
 
 		// Half manipulate count
-		for j := 0; j < goroutines/2; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutines / 2 {
+			wg.Go(func() {
 				l.userIOFDCount.Add(1)
 				runtime.Gosched()
 				l.userIOFDCount.Add(-1)
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -243,7 +239,7 @@ func TestRollback_InvariantUnderStress(t *testing.T) {
 // This test documents the edge case and verifies the safety guarantees are maintained.
 func TestRollback_DoubleRollbackRace(t *testing.T) {
 	// Run iterations to stress the race condition
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		l, _ := New()
 		_ = l.SetFastPathMode(FastPathDisabled)
 
@@ -283,7 +279,7 @@ func TestRollback_DoubleRollbackRace(t *testing.T) {
 		var errors [2]error
 
 		// Two goroutines both try Forced, both should rollback
-		for j := 0; j < 2; j++ {
+		for j := range 2 {
 			wg.Add(1)
 			goroutineIdx := j
 			go func(idx int) {
@@ -342,21 +338,19 @@ func TestRollback_RaceWithActualRegisterFD(t *testing.T) {
 		goroutines = 10
 	)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		l, _ := New()
 
 		var wg sync.WaitGroup
 
 		// Goroutines changing mode
-		for j := 0; j < goroutines; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutines {
+			wg.Go(func() {
 				// Try each mode
 				_ = l.SetFastPathMode(FastPathAuto)
 				_ = l.SetFastPathMode(FastPathDisabled)
 				_ = l.SetFastPathMode(FastPathForced) // May fail
-			}()
+			})
 		}
 
 		// Goroutines registering/unregistering FDs
@@ -366,10 +360,8 @@ func TestRollback_RaceWithActualRegisterFD(t *testing.T) {
 			t.Fatalf("iter %d: createPipePair failed: %v", i, err)
 		}
 
-		for j := 0; j < goroutines; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutines {
+			wg.Go(func() {
 				// Quick register/unregister cycle
 				// Use no-op callback instead of nil to avoid potential panic if events arrive
 				callback := func(IOEvents) {}
@@ -377,7 +369,7 @@ func TestRollback_RaceWithActualRegisterFD(t *testing.T) {
 					time.Sleep(time.Microsecond)
 					_ = l.UnregisterFD(fds[0])
 				}
-			}()
+			})
 		}
 
 		wg.Wait()

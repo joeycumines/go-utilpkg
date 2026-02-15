@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -11,8 +10,7 @@ import (
 // become eligible for garbage collection. This is the primary memory leak test
 // for the promise system after the addHandler/scheduleHandler rewrite.
 func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -37,10 +35,10 @@ func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
 	// Phase 1: Create and resolve many promise chains
 	const numChains = 5000
 	const chainDepth = 5
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		p, resolve, _ := js.NewChainedPromise()
 		current := p
-		for d := 0; d < chainDepth; d++ {
+		for range chainDepth {
 			current = current.Then(func(v any) any { return v }, nil)
 		}
 		// Resolve — all handlers should fire and be cleaned up
@@ -61,10 +59,10 @@ func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
 	runtime.ReadMemStats(&afterCreation)
 
 	// Phase 2: Create another batch (should reuse memory if no leak)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		p, resolve, _ := js.NewChainedPromise()
 		current := p
-		for d := 0; d < chainDepth; d++ {
+		for range chainDepth {
 			current = current.Then(func(v any) any { return v }, nil)
 		}
 		resolve(i + numChains)
@@ -110,8 +108,7 @@ func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
 // tracking maps (unhandledRejections, promiseHandlers, handlerReadyChans) are
 // properly cleaned up after promises settle.
 func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -131,7 +128,7 @@ func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
 
 	// Create and reject many promises, then attach handlers
 	const N = 1000
-	for i := 0; i < N; i++ {
+	for range N {
 		p, _, reject := js.NewChainedPromise()
 		reject("error")
 		// Attach handler after rejection (should clean up tracking)
@@ -178,8 +175,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Shutdown(ctx)
 
 	js, err := NewJS(loop)

@@ -111,7 +111,7 @@ func countOpenFDs(t *testing.T) int {
 func TestRegression_FDLeak(t *testing.T) {
 	initialFDs := countOpenFDs(t)
 
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		l, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)
@@ -243,7 +243,7 @@ func TestRegression_ShutdownNoDataLoss(t *testing.T) {
 	}()
 
 	wg.Add(producerCount)
-	for i := 0; i < producerCount; i++ {
+	for range producerCount {
 		go func() {
 			defer wg.Done()
 			for {
@@ -362,12 +362,12 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	queue := newChunkedIngress()
 
 	// Push enough tasks to create multiple chunks
-	for i := 0; i < 256; i++ {
+	for range 256 {
 		queue.Push(func() {})
 	}
 
 	// Pop all tasks - should return chunks to pool
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		_, ok := queue.Pop()
 		if !ok && i < 128 {
 			t.Fatalf("Expected task at index %d", i)
@@ -378,11 +378,11 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	// With pooling, reused chunks should have 0 allocs after warmup
 	allocs := testing.AllocsPerRun(10, func() {
 		// Push 128 tasks (fills one chunk)
-		for i := 0; i < 128; i++ {
+		for range 128 {
 			queue.Push(func() {})
 		}
 		// Pop all
-		for i := 0; i < 128; i++ {
+		for range 128 {
 			queue.Pop()
 		}
 	})
@@ -460,9 +460,9 @@ func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	q := newChunkedIngress()
 
 	// Push and pop tasks to exercise queue lifecycle over multiple cycles
-	for cycle := 0; cycle < 10; cycle++ {
+	for cycle := range 10 {
 		// Push enough tasks to exercise the queue
-		for i := 0; i < 130; i++ {
+		for range 130 {
 			q.Push(func() {})
 		}
 
@@ -645,10 +645,10 @@ func TestShutdown_ConservationOfTasks(t *testing.T) {
 	tasksPerProducer := 1000
 	wg.Add(producers)
 
-	for i := 0; i < producers; i++ {
+	for range producers {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < tasksPerProducer; j++ {
+			for range tasksPerProducer {
 				err := l.Submit(func() {
 					executed.Add(1)
 				})
@@ -800,14 +800,14 @@ func TestRegression_PollIOErrorHandling(t *testing.T) {
 
 	// PROOF 1: Call Wake() repeatedly to stress the wake-up mechanism
 	// This should NOT cause a busy loop if pollIO were to fail
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		l.Wake()
 		time.Sleep(time.Microsecond)
 	}
 
 	// PROOF 2: Submit tasks rapidly - should not cause polling failures
 	executed := atomic.Int64{}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		l.Submit(func() {
 			executed.Add(1)
 		})
@@ -853,7 +853,7 @@ func TestRegression_EndiannessPortability(t *testing.T) {
 
 	// Send multiple wake-ups using the public Wake() API
 	// Wake() internally calls submitWakeup() which now uses encoding/binary
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if err := l.Wake(); err != nil {
 			t.Logf("Wake() returned error (expected if not sleeping): %v", err)
 		}
@@ -862,7 +862,7 @@ func TestRegression_EndiannessPortability(t *testing.T) {
 
 	// Verify loop is still healthy and processing tasks
 	executed := atomic.Int64{}
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		l.Submit(func() {
 			executed.Add(1)
 		})
@@ -883,7 +883,7 @@ func TestRegistry_Compaction(t *testing.T) {
 	reg := newRegistry()
 	refs := make([]*promise, 10000)
 
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		_, p := reg.NewPromise()
 		if i < 100 {
 			// Keep first 100 references
@@ -894,7 +894,7 @@ func TestRegistry_Compaction(t *testing.T) {
 	// Drop references to 9900 promises
 	runtime.GC()
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		reg.Scavenge(1000)
 	}
 

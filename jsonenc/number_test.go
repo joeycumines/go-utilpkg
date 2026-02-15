@@ -342,7 +342,7 @@ func FuzzAppendFloat32(f *testing.F) {
 
 func generateFloat32s(n int) []float32 {
 	floats := make([]float32, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		floats[i] = rand.Float32()
 	}
 	return floats
@@ -350,7 +350,7 @@ func generateFloat32s(n int) []float32 {
 
 func generateFloat64s(n int) []float64 {
 	floats := make([]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		floats[i] = rand.Float64()
 	}
 	return floats

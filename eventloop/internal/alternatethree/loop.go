@@ -612,7 +612,7 @@ func (l *Loop) processIngress(ctx context.Context) {
 
 	// Pop a batch of tasks to minimize lock contention
 	l.ingressMu.Lock()
-	for i := 0; i < budget; i++ {
+	for range budget {
 		t, ok := l.ingress.popLocked()
 		if !ok {
 			break
@@ -664,7 +664,7 @@ func (l *Loop) processIngress(ctx context.Context) {
 //
 // IMPORTANT: This is NOT an optimistic check that can be hoisted!
 // The length check MUST occur while the mutex is held to prevent TOCTOU races.
-func (l *Loop) poll(ctx context.Context, tickTime interface{}) {
+func (l *Loop) poll(ctx context.Context, tickTime any) {
 	// Check-Then-Sleep Protocol: Commit to sleeping, then verify no work pending
 
 	// Phase 6.2: Read and reset forceNonBlockingPoll at START of poll
@@ -772,10 +772,7 @@ func (l *Loop) calculateTimeout() int {
 	if len(l.timers) > 0 {
 		now := time.Now()
 		nextFire := l.timers[0].when
-		delay := nextFire.Sub(now)
-		if delay < 0 {
-			delay = 0
-		}
+		delay := max(nextFire.Sub(now), 0)
 		if delay < maxDelay {
 			maxDelay = delay
 		}

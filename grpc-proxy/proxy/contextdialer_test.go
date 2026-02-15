@@ -78,8 +78,7 @@ func TestDialWithCancel(t *testing.T) {
 	})
 
 	t.Run("ValidContextAndDialer", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 		dialer := DialWithCancel(ctx, DialTCP)
 		_, err := dialer(context.Background(), "localhost:8080")
 		if err == nil {

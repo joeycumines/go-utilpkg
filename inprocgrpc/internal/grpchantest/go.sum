@@ -22,8 +22,8 @@ github.com/jhump/protoreflect v1.18.0 h1:TOz0MSR/0JOZ5kECB/0ufGnC2jdsgZ123Rd/k4Z
 github.com/jhump/protoreflect v1.18.0/go.mod h1:ezWcltJIVF4zYdIFM+D/sHV4Oh5LNU08ORzCGfwvTz8=
 github.com/jhump/protoreflect/v2 v2.0.0-beta.2 h1:qZU+rEZUOYTz1Bnhi3xbwn+VxdXkLVeEpAeZzVXLY88=
 github.com/jhump/protoreflect/v2 v2.0.0-beta.2/go.mod h1:4tnOYkB/mq7QTyS3YKtVtNrJv4Psqout8HA1U+hZtgM=
-github.com/joeycumines/go-catrate v0.0.0-20260210130411-ef1b624f3188 h1:+LKd8MlKFx9NriTmqRGCwfMjF2HCsM9X3/qHiv/wJMI=
-github.com/joeycumines/go-catrate v0.0.0-20260210130411-ef1b624f3188/go.mod h1:SCSVDCdd2wYb7cnI5MPUvMx1EZzJ3JCMxcw8JIxKdyg=
+github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422 h1:TUNTyOzga3jsCpiODLhbHWXdFKwNL70D1/K08B2uDl0=
+github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422/go.mod h1:ahNfT7VdT3peAU7o6gJ2RzkKkyhAvCeqDP/cOSKhZfA=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=

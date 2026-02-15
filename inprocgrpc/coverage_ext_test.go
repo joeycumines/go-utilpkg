@@ -970,15 +970,13 @@ func TestCoverage_ConcurrentRPCs_WithStatsHandlers(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
 	for i := range n {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			req := &wrapperspb.StringValue{Value: fmt.Sprintf("c%d", i)}
 			resp := new(wrapperspb.StringValue)
 			if err := ch.Invoke(context.Background(), "/test.TestService/Unary", req, resp); err != nil {
 				errs <- err
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

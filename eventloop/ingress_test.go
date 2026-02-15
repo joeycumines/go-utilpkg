@@ -16,7 +16,7 @@ func Test_chunkedIngress_ChunkTransition(t *testing.T) {
 	total := chunkSize * cycles
 
 	// Push total tasks
-	for i := 0; i < total; i++ {
+	for range total {
 		q.Push(func() {})
 	}
 
@@ -25,7 +25,7 @@ func Test_chunkedIngress_ChunkTransition(t *testing.T) {
 	}
 
 	// Pop all tasks
-	for i := 0; i < total; i++ {
+	for i := range total {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Premature exhaustion at index %d", i)
@@ -54,11 +54,11 @@ func Test_chunkedIngress_ConcurrentPushPop(t *testing.T) {
 	var mu sync.Mutex // Required: External synchronization for concurrent Push calls
 
 	// Producer goroutines - concurrent pushes
-	for i := 0; i < producers; i++ {
+	for i := range producers {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < tasks/producers; j++ {
+			for range tasks / producers {
 				mu.Lock()
 				q.Push(func() {
 					counter.Add(1)
@@ -106,7 +106,7 @@ func Test_chunkedIngress_PushPopIntegrity(t *testing.T) {
 	const count = 1000
 
 	// Push tasks
-	for i := 0; i < count; i++ {
+	for range count {
 		q.Push(func() {})
 	}
 
@@ -116,7 +116,7 @@ func Test_chunkedIngress_PushPopIntegrity(t *testing.T) {
 
 	// Pop all tasks
 	var popped int
-	for i := 0; i < count; i++ {
+	for i := range count {
 		_, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Premature empty at %d", i)
@@ -151,11 +151,11 @@ func Test_chunkedIngress_StressNoTaskLoss(t *testing.T) {
 	var mu sync.Mutex // Required: External synchronization for concurrent Push calls
 
 	// Producer goroutines - extreme contention
-	for i := 0; i < producers; i++ {
+	for i := range producers {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < tasks/producers; j++ {
+			for range tasks / producers {
 				mu.Lock()
 				q.Push(func() {
 					counter.Add(1)
@@ -191,7 +191,7 @@ func Test_chunkedIngress_StressNoTaskLoss(t *testing.T) {
 	}
 
 	// Verify queue is truly empty
-	for i := 0; i < 100; i++ { // Check multiple times to be certain
+	for range 100 { // Check multiple times to be certain
 		if _, ok := q.Pop(); ok {
 			t.Fatal("Queue should be empty after processing all tasks")
 		}

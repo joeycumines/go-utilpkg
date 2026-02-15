@@ -703,8 +703,8 @@ func TestPhase5_Promise_AllSettled_Mixed(t *testing.T) {
 		if !ok || len(results) != 2 {
 			t.Fatalf("AllSettled: %v", v)
 		}
-		r0 := results[0].(map[string]interface{})
-		r1 := results[1].(map[string]interface{})
+		r0 := results[0].(map[string]any)
+		r1 := results[1].(map[string]any)
 		if r0["status"] != "fulfilled" || r0["value"] != "ok" {
 			t.Errorf("AllSettled[0]: %v", r0)
 		}
@@ -1530,8 +1530,7 @@ func TestPhase5_PromisifyWithTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForRunning(t, loop)
 	defer loop.Close()
@@ -1557,8 +1556,7 @@ func TestPhase5_PromisifyWithDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForRunning(t, loop)
 	defer loop.Close()
@@ -1648,7 +1646,7 @@ func TestPhase5_Metrics_Record_Sample(t *testing.T) {
 	var lm LatencyMetrics
 
 	// Record some samples
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		lm.Record(time.Duration(i) * time.Millisecond)
 	}
 
@@ -1667,7 +1665,7 @@ func TestPhase5_Metrics_Record_Sample(t *testing.T) {
 func TestPhase5_Metrics_Record_LargeSample(t *testing.T) {
 	// Trigger P-Square path (>= 5 samples, lots of data)
 	var lm LatencyMetrics
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		lm.Record(time.Duration(i) * time.Microsecond)
 	}
 	n := lm.Sample()
@@ -1685,7 +1683,7 @@ func TestPhase5_Metrics_Record_LargeSample(t *testing.T) {
 func TestPhase5_Metrics_Record_Overflow(t *testing.T) {
 	// Fill beyond sampleSize to exercise ring buffer wraparound
 	var lm LatencyMetrics
-	for i := 0; i < sampleSize+100; i++ {
+	for range sampleSize + 100 {
 		lm.Record(time.Millisecond)
 	}
 	n := lm.Sample()
@@ -1767,7 +1765,7 @@ func TestPhase5_TPSCounter(t *testing.T) {
 	}
 
 	// Increment
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		counter.Increment()
 	}
 
@@ -1882,7 +1880,7 @@ func TestPhase5_PSquare_After_Init(t *testing.T) {
 
 func TestPhase5_PSquare_ManyObservations(t *testing.T) {
 	ps := newPSquareQuantile(0.50)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		ps.Update(float64(i))
 	}
 
@@ -1908,7 +1906,7 @@ func TestPhase5_PSquare_Linear(t *testing.T) {
 	// Test linear adjustment (d=1 and d=-1)
 	// Linear is called internally during Update when parabolic is invalid.
 	// We can get coverage by adding values in specific patterns.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		ps.Update(float64(i))
 	}
 	// The linear function is exercised during marker adjustment
@@ -1949,7 +1947,7 @@ func TestPhase5_PSquareMultiQuantile(t *testing.T) {
 	}
 
 	// Add data
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		m.Update(float64(i))
 	}
 
@@ -2036,7 +2034,7 @@ func TestPhase5_Registry_CompactAndRenew(t *testing.T) {
 
 	// Create enough promises to trigger compaction
 	// Need capacity > 256 and load factor < 25%
-	for i := 0; i < 300; i++ {
+	for range 300 {
 		r.NewPromise()
 	}
 
@@ -2052,7 +2050,7 @@ func TestPhase5_Registry_CompactAndRenew(t *testing.T) {
 
 	// Run scavenge cycles to remove settled promises
 	// Need a full cycle completion (head wraps to 0)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r.Scavenge(50)
 	}
 
@@ -2242,8 +2240,7 @@ func TestPhase5_JS_WithUnhandledRejection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForRunning(t, loop)
 

@@ -25,7 +25,7 @@ func TestCreateWakeFd_SyscallErrorInjection(t *testing.T) {
 	}()
 
 	// Try to create file descriptors until we can't anymore
-	for i := 0; i < maxFDs; i++ {
+	for range maxFDs {
 		fd, err := syscall.Open("/dev/null", syscall.O_RDONLY, 0)
 		if err != nil {
 			// System is running low on file descriptors
@@ -114,7 +114,7 @@ func TestDrainWakeUpPipe_ReadErrorPath(t *testing.T) {
 	// 2. Multiple calls are idempotent
 	// 3. Normal operation doesn't error
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		loop.drainWakeUpPipe()
 	}
 
@@ -161,7 +161,7 @@ func TestCreateWakeFd_ResourceCleanup(t *testing.T) {
 	// 2. Resource creation and cleanup patterns
 
 	// Test creating multiple wake FDs sequentially
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		r, w, err := createWakeFd(0, 0)
 		if err != nil {
 			t.Fatalf("Iteration %d: createWakeFd failed: %v", i, err)

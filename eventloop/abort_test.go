@@ -297,31 +297,25 @@ func TestAbortSignal_ConcurrentAccess(t *testing.T) {
 	var handlerCount atomic.Int32
 
 	// Register handlers concurrently
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			signal.OnAbort(func(reason any) {
 				handlerCount.Add(1)
 			})
-		}()
+		})
 	}
 
 	// Check aborted concurrently
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			_ = signal.Aborted()
-		}()
+		})
 	}
 
 	// Abort from another goroutine
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		controller.Abort("concurrent abort")
-	}()
+	})
 
 	wg.Wait()
 
@@ -536,7 +530,7 @@ func TestAbortSignal_HandlerExecutionOrder(t *testing.T) {
 	order := make([]int, 0)
 	mu := sync.Mutex{}
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		idx := i
 		signal.OnAbort(func(reason any) {
 			mu.Lock()
@@ -723,7 +717,7 @@ func TestAbortAny_ConcurrentAbort(t *testing.T) {
 	controllers := make([]*AbortController, numControllers)
 	signals := make([]*AbortSignal, numControllers)
 
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		controllers[i] = NewAbortController()
 		signals[i] = controllers[i].Signal()
 	}
@@ -732,7 +726,7 @@ func TestAbortAny_ConcurrentAbort(t *testing.T) {
 
 	// Abort all concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < numControllers; i++ {
+	for i := range numControllers {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()

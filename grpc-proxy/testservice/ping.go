@@ -65,7 +65,7 @@ func (s defaultPingServer) PingList(request *PingRequest, server TestService_Pin
 		return err
 	}
 	s.setStreamTrailer(server)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if err := server.Send(&PingResponse{
 			Value:   request.Value,
 			Counter: int32(i),

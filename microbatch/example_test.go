@@ -92,9 +92,9 @@ func ExampleBatcher_independentOperations() {
 		}()
 	}
 
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		go func() {
-			for j := 0; j < numOpsPerWorker; j++ {
+			for range numOpsPerWorker {
 				submit()
 			}
 		}()

@@ -134,7 +134,6 @@ func Test_sortedJSONMarshal_success(t *testing.T) {
 			Output: `{"D":3,"a":1,"b":true,"d":[2,{"c":false}]}`,
 		},
 	} {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			var input any

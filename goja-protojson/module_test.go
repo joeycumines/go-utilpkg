@@ -24,7 +24,7 @@ func TestMarshal_SimpleMessage(t *testing.T) {
 		msg.set("value", 42);
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, "hello", parsed["name"])
 	assert.Equal(t, float64(42), parsed["value"])
@@ -46,7 +46,7 @@ func TestMarshal_AllScalarTypes(t *testing.T) {
 		msg.set("bytes_val", "AQID");
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, float64(-42), parsed["int32Val"])
 	assert.Equal(t, true, parsed["boolVal"])
@@ -61,7 +61,7 @@ func TestMarshal_EnumValue(t *testing.T) {
 		msg.set("enum_val", 1);
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, "FIRST", parsed["enumVal"])
 }
@@ -78,10 +78,10 @@ func TestMarshal_NestedMessage(t *testing.T) {
 		msg.set("name", "outer");
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, "outer", parsed["name"])
-	inner := parsed["nestedInner"].(map[string]interface{})
+	inner := parsed["nestedInner"].(map[string]any)
 	assert.Equal(t, float64(77), inner["value"])
 }
 
@@ -94,10 +94,10 @@ func TestMarshal_RepeatedFields(t *testing.T) {
 		msg.set("numbers", [1, 2, 3]);
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	items := parsed["items"].([]interface{})
-	assert.Equal(t, []interface{}{"a", "b", "c"}, items)
+	items := parsed["items"].([]any)
+	assert.Equal(t, []any{"a", "b", "c"}, items)
 }
 
 func TestMarshal_MapFields(t *testing.T) {
@@ -109,11 +109,11 @@ func TestMarshal_MapFields(t *testing.T) {
 		msg.set("counts", {x: 10});
 		protojson.marshal(msg);
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	tags := parsed["tags"].(map[string]interface{})
+	tags := parsed["tags"].(map[string]any)
 	assert.Equal(t, "bar", tags["foo"])
-	counts := parsed["counts"].(map[string]interface{})
+	counts := parsed["counts"].(map[string]any)
 	assert.Equal(t, float64(10), counts["x"])
 }
 
@@ -126,7 +126,7 @@ func TestMarshal_OneofField(t *testing.T) {
 			msg.set("str_choice", "pick me");
 			protojson.marshal(msg);
 		`)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 		assert.Equal(t, "pick me", parsed["strChoice"])
 		_, hasInt := parsed["intChoice"]
@@ -139,7 +139,7 @@ func TestMarshal_OneofField(t *testing.T) {
 			msg.set("int_choice", 99);
 			protojson.marshal(msg);
 		`)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 		assert.Equal(t, float64(99), parsed["intChoice"])
 		_, hasStr := parsed["strChoice"]
@@ -153,7 +153,7 @@ func TestMarshal_EmptyMessage(t *testing.T) {
 		var MT = pb.messageType("test.SimpleMessage");
 		protojson.marshal(new MT());
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	_, hasName := parsed["name"]
 	assert.False(t, hasName)
@@ -264,7 +264,7 @@ func TestMarshalOption_EmitDefaults(t *testing.T) {
 			var MT = pb.messageType("test.SimpleMessage");
 			protojson.marshal(new MT());
 		`)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 		_, hasName := parsed["name"]
 		assert.False(t, hasName)
@@ -274,7 +274,7 @@ func TestMarshalOption_EmitDefaults(t *testing.T) {
 			var MT = pb.messageType("test.SimpleMessage");
 			protojson.marshal(new MT(), {emitDefaults: true});
 		`)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 		assert.Equal(t, "", parsed["name"])
 		assert.Equal(t, float64(0), parsed["value"])
@@ -289,7 +289,7 @@ func TestMarshalOption_EnumAsNumber(t *testing.T) {
 		msg.set("enum_val", 2);
 		protojson.marshal(msg, {enumAsNumber: true});
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, float64(2), parsed["enumVal"])
 }
@@ -338,7 +338,7 @@ func TestMarshalOption_Combined(t *testing.T) {
 		msg.set("enum_val", 1);
 		protojson.marshal(msg, {emitDefaults: true, enumAsNumber: true, useProtoNames: true});
 	`)
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
 	assert.Equal(t, float64(1), parsed["enum_val"])
 	assert.Equal(t, float64(0), parsed["int32_val"])

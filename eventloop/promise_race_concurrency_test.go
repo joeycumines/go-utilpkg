@@ -279,7 +279,7 @@ func TestPromiseRace_ManyPromisesConcurrent(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r
@@ -295,7 +295,7 @@ func TestPromiseRace_ManyPromisesConcurrent(t *testing.T) {
 
 	// Concurrently resolve all promises
 	var wg sync.WaitGroup
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -450,7 +450,7 @@ func TestPromiseRace_MultipleRaces(t *testing.T) {
 	results := make([]*ChainedPromise, numRaces)
 
 	// Create multiple concurrent race operations
-	for i := 0; i < numRaces; i++ {
+	for i := range numRaces {
 		p1, resolve1, _ := js.NewChainedPromise()
 		p2, _, _ := js.NewChainedPromise()
 
@@ -461,7 +461,7 @@ func TestPromiseRace_MultipleRaces(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < numRaces; i++ {
+	for i := range numRaces {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -564,7 +564,7 @@ func TestPromiseRace_ZeroPromises(t *testing.T) {
 	}
 
 	// Tick multiple times - should remain pending
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		loop.tick()
 		if result.State() != Pending {
 			t.Errorf("Expected still Pending at tick %d, got: %v", i, result.State())

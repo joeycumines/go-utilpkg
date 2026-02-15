@@ -28,9 +28,7 @@ func TestFastPath_Stress(t *testing.T) {
 	done := make(chan struct{})
 
 	// Goroutine 1: Randomly toggles modes
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		modes := []FastPathMode{FastPathAuto, FastPathForced, FastPathDisabled}
 		rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 		for {
@@ -45,12 +43,10 @@ func TestFastPath_Stress(t *testing.T) {
 				time.Sleep(time.Microsecond)
 			}
 		}
-	}()
+	})
 
 	// Goroutine 2: Randomly registers/unregisters FDs
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// Use a pipe for valid FDs
 		fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 		if err != nil {
@@ -86,7 +82,7 @@ func TestFastPath_Stress(t *testing.T) {
 				time.Sleep(time.Microsecond)
 			}
 		}
-	}()
+	})
 
 	// Run for 1 second (shorter than plan's 2s for CI)
 	time.Sleep(1 * time.Second)
@@ -127,7 +123,7 @@ func TestFastPath_ConcurrentModeChanges(t *testing.T) {
 	numGoroutines := 10
 
 	// Launch multiple goroutines that all call SetFastPathMode concurrently
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(gid int) {
 			defer wg.Done()

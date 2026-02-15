@@ -130,7 +130,7 @@ func Test_tpsCounterBasicFunctionality(t *testing.T) {
 	}
 
 	// Record some increments
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		counter.Increment()
 	}
 
@@ -158,7 +158,7 @@ func Test_tpsCounterRotation(t *testing.T) {
 	counter := newTPSCounter(windowSize, bucketSize)
 
 	// Record events in first bucket
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		counter.Increment()
 	}
 
@@ -172,7 +172,7 @@ func Test_tpsCounterRotation(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Record events in new buckets
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		counter.Increment()
 	}
 
@@ -224,7 +224,7 @@ func Test_tpsCounterWindowSizing(t *testing.T) {
 			// Use float64 division to correctly convert duration to seconds
 			// tc.windowSize is in nanoseconds, so we divide by float64(time.Second)
 			eventCount := int(expectedTPS * (float64(tc.windowSize) / float64(time.Second)))
-			for i := 0; i < eventCount; i++ {
+			for range eventCount {
 				counter.Increment()
 			}
 

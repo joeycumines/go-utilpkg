@@ -26,7 +26,6 @@ import (
 // This is the fast path - no wakeup syscall should occur.
 func BenchmarkMicroWakeupSyscall_Running(b *testing.B) {
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkWakeupState(b, implName, true) // true = ensure running state
 		})
@@ -37,7 +36,6 @@ func BenchmarkMicroWakeupSyscall_Running(b *testing.B) {
 // This is the slow path - submits must trigger wakeup syscall.
 func BenchmarkMicroWakeupSyscall_Sleeping(b *testing.B) {
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkWakeupState(b, implName, false) // false = ensure sleeping state
 		})
@@ -50,7 +48,6 @@ func BenchmarkMicroWakeupSyscall_Burst(b *testing.B) {
 	const burstSize = 100
 
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkWakeupBurst(b, implName, burstSize)
 		})
@@ -77,11 +74,9 @@ func benchmarkWakeupState(b *testing.B, implName string, ensureRunning bool) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -162,11 +157,9 @@ func benchmarkWakeupBurst(b *testing.B, implName string, burstSize int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -176,14 +169,11 @@ func benchmarkWakeupBurst(b *testing.B, implName string, burstSize int) {
 	// Measure bursty submission pattern
 	b.ResetTimer()
 
-	numBursts := b.N / burstSize
-	if numBursts < 1 {
-		numBursts = 1
-	}
+	numBursts := max(b.N/burstSize, 1)
 
-	for i := 0; i < numBursts; i++ {
+	for range numBursts {
 		// Submit all tasks in burst rapidly
-		for j := 0; j < burstSize; j++ {
+		for range burstSize {
 			_ = loop.Submit(func() {})
 		}
 
@@ -214,7 +204,6 @@ func benchmarkWakeupBurst(b *testing.B, implName string, burstSize int) {
 // Tests if wakePending prevents duplicate syscalls when rapidly submitting tasks.
 func BenchmarkMicroWakeupSyscall_RapidSubmit(b *testing.B) {
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkRapidSubmit(b, implName)
 		})
@@ -241,11 +230,9 @@ func benchmarkRapidSubmit(b *testing.B, implName string) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})

@@ -265,7 +265,7 @@ func (p *SafePoller) PollIO(timeoutMs int) (int, error) {
 // SAFETY: Callbacks execute under lock to prevent re-entrancy issues.
 // Documented: User must not call RegisterFD from callback.
 func (p *SafePoller) processEventsLocked(n int) {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fd := int(p.eventBuf[i].Ident)
 		if info, ok := p.callbacks[fd]; ok && info.callback != nil {
 			// Convert kqueue filter to IOEvents

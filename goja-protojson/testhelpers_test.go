@@ -166,7 +166,7 @@ func testFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 							f("key", 1, tSTRING, lOPT, "key"),
 							f("value", 2, tSTRING, lOPT, "value"),
 						},
-						Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+						Options: &descriptorpb.MessageOptions{MapEntry: new(true)},
 					},
 					{
 						Name: str("CountsEntry"),
@@ -174,7 +174,7 @@ func testFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 							f("key", 1, tSTRING, lOPT, "key"),
 							f("value", 2, tINT32, lOPT, "value"),
 						},
-						Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+						Options: &descriptorpb.MessageOptions{MapEntry: new(true)},
 					},
 				},
 			},

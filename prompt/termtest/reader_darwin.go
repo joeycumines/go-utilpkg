@@ -117,7 +117,7 @@ func (r *ptyReader) waitForRead() error {
 	}
 
 	if n > 0 {
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if int(events[i].Ident) == r.wakeR {
 				var buf [128]byte
 				_, _ = r.ops.read(r.wakeR, buf[:])

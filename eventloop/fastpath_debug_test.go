@@ -34,14 +34,12 @@ func TestFastPath_EntryDebug(t *testing.T) {
 
 	// Start the loop
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.state.Load() == StateRunning || loop.state.Load() == StateSleeping {
 			break
 		}
@@ -116,14 +114,12 @@ func TestFastPath_SubmitInternalDirectExec(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.state.Load() == StateRunning || loop.state.Load() == StateSleeping {
 			break
 		}

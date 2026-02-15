@@ -126,7 +126,7 @@ type (
 		// Fields is a map of field names to values, and must be the same format encoding/json.Unmarshal.
 		// It must include all fields added via the logiface.Event interface, except Message and Error.
 		// It must not include any additional fields (e.g. added by the logger, such as timestamp).
-		Fields map[string]interface{}
+		Fields map[string]any
 		Level  logiface.Level
 	}
 
@@ -290,7 +290,7 @@ func (x TestResponse[E]) ReceiveEvent() (ev Event, ok bool) {
 
 func (x Event) String() string {
 	var b strings.Builder
-	var args []interface{}
+	var args []any
 	b.WriteString(`level=%s`)
 	args = append(args, x.Level)
 	if x.Message != nil {
@@ -392,11 +392,11 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 	var normalizeFields func(v any) any
 	normalizeFields = func(v any) any {
 		switch v := v.(type) {
-		case []interface{}:
+		case []any:
 			for i, val := range v {
 				v[i] = normalizeFields(val)
 			}
-		case map[string]interface{}:
+		case map[string]any:
 			for k, val := range v {
 				v[k] = normalizeFields(val)
 			}
