@@ -26,6 +26,16 @@ has achieved **two contiguous, issue-free subagent reviews** using
 the Paranoia Protocol. The orchestrator does not trust itself. It
 does not trust the user to catch its bugs.
 
+**Same-Context Invariant:** Both contiguous reviews MUST receive
+**effectively identical prompts** AND examine the **exact same diff**.
+This is non-negotiable. The entire strategy rests on probability
+stacking — two independent reviews of identical material compound
+the chance of catching defects. If the diff changes, or if the
+reviewers are instructed differently, they are not overlapping
+reviews — they are just two unrelated reviews, and the probability
+stacking is lost. The only acceptable variation between the two
+prompts is trivial logistics (e.g. output file path).
+
 ## Operational Parameters
 
 - **Review scope**: `diff vs HEAD`
@@ -90,17 +100,35 @@ Include the review scope (diff vs HEAD) and direct output to
 
 ### Step 2: The Contiguous Gate
 
-Both runs use the **identical** full prompt above. Each is a
-comprehensive, independent review — not a graduated pipeline.
+Both runs review the **exact same diff** using **effectively identical
+prompts** (the full prompt from Step 1; only trivial logistics like
+output path may differ). Each is a comprehensive, independent
+review — not a graduated pipeline.
 
-1. **Run 1:** Spawn subagent. Execute full review.
-    - *FAILURE:* Reject. Reset count to 0. Fix all issues. Restart.
-    - *SUCCESS:* Proceed to Run 2.
-2. **Run 2:** Spawn a **new** subagent. Execute full review
-   independently.
-    - *FAILURE:* Reject. Reset count to 0. Fix all issues. Restart
-      at Run 1.
-    - *SUCCESS:* Proceed to Step 3.
+**Why same context matters:** If one review has a probability
+P(miss) of overlooking a defect, two independent reviews of the
+*same material* reduce the miss probability to P(miss)². This is
+the entire value proposition. If the code changes between Run 1 and
+Run 2, the reviews cover different material — they no longer
+overlap, and the probability stacking is lost.
+
+**Context-contamination rule:** If ANY change is made to the
+codebase between Run 1 and Run 2 — fixes, refactors, additional
+commits, anything — the counter resets to 0. Run 1 must be
+repeated against the new diff, then Run 2 against that same new
+diff. There are no exceptions.
+
+1. **Run 1:** Spawn subagent. Execute full review against the
+   current diff.
+    - *FAILURE:* Reject. Fix all issues. The diff has changed.
+      Reset count to 0. Restart at Run 1 against the new diff.
+    - *SUCCESS:* **Freeze the codebase.** Proceed to Run 2.
+2. **Run 2:** Spawn a **new** subagent. Execute full review against
+   the **same diff** that Run 1 reviewed.
+    - *FAILURE:* Reject. Fix all issues. The diff has changed.
+      Reset count to 0. Restart at Run 1 against the new diff.
+    - *SUCCESS:* Two contiguous passes on identical context
+      achieved. Proceed to Step 3.
 
 ### Step 3: Fitness Review
 
@@ -128,6 +156,11 @@ cannot meaningfully perform.
   testing, it is a FAILURE. Reject it.
 - **Target missing**: If any project-defined target (platform,
   environment, etc.) was not checked, the review is a FAILURE.
+- **Context contamination**: If any code was changed between Run 1
+  and Run 2 (e.g. fixing issues found in Run 1), those two runs do
+  NOT form a contiguous pair. The diff changed — the reviews cover
+  different material. Reset to 0 and restart from Run 1 against
+  the current diff.
 - **Work subagent self-gating**: If a work subagent attempts the Rule
   of Two on its own sub-task (self-reviewing, trying to spawn
   reviewers), its prompt is missing the work subagent clause. Re-read
