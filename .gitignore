@@ -5,3 +5,6 @@ cover*.out
 /.claude/*.local.*
 /scratch/
 /DIRECTIVE.txt
+*.test
+/.idea
+/.vscode
