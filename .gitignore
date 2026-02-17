@@ -2,13 +2,14 @@
 cover*.out
 *.log
 *.bak
-/.claude/*.local.*
 /scratch/
 /DIRECTIVE.txt
 *.test
 /.idea
 /.vscode
+/.claude/*.local.*
 /.claude/agents
+/.github/agents
 /.claude/skills
 !/.claude/skills/blueprint-json
 !/.claude/skills/changelog-md
