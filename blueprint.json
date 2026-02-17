@@ -13,6 +13,9 @@
     },
     {
       "warning": "STRICT SERIAL EXECUTION. Do not multitask subagents."
+    },
+    {
+      "warning": "USE GMAKE NOT MAKE. macOS make is too old."
     }
   ],
   "mandatoryDirectives": {
@@ -20,968 +23,858 @@
     "ruleOfTwo": "Every major completion requires a HOSTILE REVIEW phase before moving to the next block."
   },
   "statusSection": {
-    "currentState": "CRITICAL FIX COMPLETE - Compilation restored, ready for testsuite integration",
-    "lastAction": "Added AddGroup method to mockComplexEvent (logiface/mock_test.go) and islog.Event (logiface-slog/slog.go). Tests passing. Ready for next phase: testsuite integration."
+    "currentState": "Core implementation complete. Testsuite 99,501/99,501 passing (cached). 99.5% coverage. Examples implemented. Blueprint refined. Beginning Task 001: staticcheck.",
+    "lastAction": "Blueprint refinement complete. 139 tasks sequenced. Testsuite verified passing."
   },
   "sequentialTasks": [
     {
       "id": "001",
-      "task": "ARCHITECTURAL PLANNING PHASE COMPLETE",
-      "description": "Analyze full scope from current state to ultimate goal. Document ADR filenames. Create exhaustive task list. Write refined blueprint.json.",
-      "status": "Completed"
+      "task": "Run staticcheck on logiface-slog",
+      "description": "Execute 'gmake vet.logiface-slog && cd logiface-slog && staticcheck ./...' Document results. Zero issues required.",
+      "status": "In Progress"
     },
     {
       "id": "002",
-      "task": "Verify testsuite passing status",
-      "description": "Run full testsuite to confirm exact pass/fail count. Identify specific failing test. Document root cause.",
-      "status": "Completed"
+      "task": "Document coverage gaps justification",
+      "description": "Create coverage.md documenting the 3 uncovered statements (628/631 = 99.5%): AddGroup return false (intentional fallback), Write error edge case, toSlogLevel default (defensive unreachable). Confirm these are acceptable or write tests to cover.",
+      "status": "Not Started"
     },
     {
       "id": "003",
-      "task": "Fix remaining testsuite failure",
-      "description": "FIXED: TestLogger_NewEvent_ReleaseEvent/pool_reuse was failing because logiface.Logger defaults to LevelInformational, filtering Debug logs. Added WithLevel[*Event](LevelDebug) to test harnesses.",
-      "status": "Completed"
-    },
-    {
-      "id": "003.5",
-      "task": "CRITICAL FIX: Add AddGroup method to mockComplexEvent",
-      "description": "Add AddGroup(name string) bool method to mockComplexEvent in logiface/mock_test.go. Method should append mockComplexEventField{Type: 'AddGroup', Value: name} and return true. This is required because Event interface was extended with AddGroup.",
-      "status": "Completed"
-    },
-    {
-      "id": "003.6",
-      "task": "CRITICAL FIX: Add AddGroup method to islog.Event",
-      "description": "Add AddGroup(name string) bool method to Event in logiface-slog/slog.go. Return false to indicate fallback to flattened keys (slog will handle). This unblocks compilation of logiface-slog.",
-      "status": "Completed"
-    },
-    {
-      "id": "003.7",
-      "task": "CRITICAL FIX: Verify compilation after AddGroup fixes",
-      "description": "Run 'gmake build.logiface' and 'gmake build.logiface-slog' to verify all compilation errors are resolved. No compiler errors allowed.",
-      "status": "Completed"
+      "task": "Verify examples compile and output matches",
+      "description": "Run 'cd logiface-slog && go test -run=Example' Verify all 7 examples pass without errors. Update Output comments if needed.",
+      "status": "Not Started"
     },
     {
       "id": "004",
-      "task": "Verify 100% testsuite pass rate",
-      "description": "Run testsuite again. Confirm 99,501/99,501 tests passing. No failures tolerated.",
+      "task": "Audit godoc completeness",
+      "description": "Run 'go doc -all' on islog package. Verify: Event type has doc explaining role, Logger type documented, LoggerFactory documented, WithSlogHandler explains config and behavior, all exported methods documented. List gaps.",
       "status": "Not Started"
     },
     {
       "id": "005",
-      "task": "Run go vet on logiface-slog",
-      "description": "Execute 'go vet ./...' in logiface-slog directory. Zero warnings allowed.",
+      "task": "Enhance godoc for Event type",
+      "description": "Add comprehensive doc explaining Event's role as pooled log event, field accumulation pattern, lifecycle (NewEvent -> AddField/AddMessage -> Write -> ReleaseEvent).",
       "status": "Not Started"
     },
     {
       "id": "006",
-      "task": "Run staticcheck on logiface-slog",
-      "description": "Execute 'staticcheck ./...' in logiface-slog directory. Zero issues allowed.",
+      "task": "Enhance godoc for Logger type",
+      "description": "Add comprehensive doc explaining Logger's role as bridge between logiface and slog.Handler, level filtering, event lifecycle management.",
       "status": "Not Started"
     },
     {
       "id": "007",
-      "task": "Check code coverage percentage",
-      "description": "Run 'go test -cover ./...' and verify coverage. Aim for 100%. Document gaps.",
+      "task": "Enhance godoc for LoggerFactory",
+      "description": "Add comprehensive doc explaining convenience wrapper for logiface.LoggerFactory[*Event], relationship to L variable, configuration pattern.",
       "status": "Not Started"
     },
     {
       "id": "008",
-      "task": "Fix any coverage gaps below 100%",
-      "description": "Write tests for any uncovered functions/branches. Achieve 100% coverage.",
+      "task": "Enhance godoc for Event methods",
+      "description": "Document Level(), AddField(), AddMessage(), AddError(), AddGroup() with behavioral details and return value meanings.",
       "status": "Not Started"
     },
     {
       "id": "009",
-      "task": "Review all exported symbols for godoc",
-      "description": "List all exported symbols in islog package. Verify each has proper godoc comment.",
+      "task": "Enhance godoc for Logger methods",
+      "description": "Add comprehensive doc explaining Logger's role as bridge between logiface and slog.Handler, level filtering, event lifecycle management.",
       "status": "Not Started"
     },
     {
       "id": "010",
-      "task": "Write godoc comments for Event type",
-      "description": "Add comprehensive godoc for Event struct explaining its role and usage.",
+      "task": "Enhance package doc.go",
+      "description": "Expand doc.go with: overview of adapter purpose, usage examples, performance characteristics, relationship to log/slog, integration patterns.",
       "status": "Not Started"
     },
     {
       "id": "011",
-      "task": "Write godoc comments for Logger type",
-      "description": "Add comprehensive godoc for Logger struct explaining its role and configuration.",
+      "task": "Create comprehensive README.md",
+      "description": "Write README with: badges (build, coverage, go version, license), installation, quick start, usage examples, performance comparison, API reference link, contributing, license. Reference examples from example_test.go.",
       "status": "Not Started"
     },
     {
       "id": "012",
-      "task": "Write godoc comments for LoggerFactory type",
-      "description": "Add comprehensive godoc for LoggerFactory explaining its purpose.",
+      "task": "Create CHANGELOG.md",
+      "description": "Create changelog following Keep a Changelog 1.1.0 spec. Document Unreleased section and v1.0.0 initial release with features: Event pooling, slog.Handler integration, logiface.Level mapping, 99,501 tests passing, 99.5% coverage.",
       "status": "Not Started"
     },
     {
       "id": "013",
-      "task": "Write godoc comments for WithSlogHandler function",
-      "description": "Add comprehensive godoc explaining configuration options and behavior.",
+      "task": "Create ADR for adapter pattern",
+      "description": "Write docs/adr/NNN-logiface-slog-adapter-design.md documenting: decision to use Event pooling, AddGroup returning false rationale, level mapping choices, error handling strategy, thread safety approach.",
       "status": "Not Started"
     },
     {
       "id": "014",
-      "task": "Write godoc comments for Event methods",
-      "description": "Add godoc for Level(), AddField(), AddMessage(), AddError() methods.",
+      "task": "Verify go.work includes logiface-slog",
+      "description": "Check root go.work has 'use ./logiface-slog' directive. Add if missing.",
       "status": "Not Started"
     },
     {
       "id": "015",
-      "task": "Write godoc comments for Logger methods",
-      "description": "Add godoc for NewEvent(), ReleaseEvent(), Write() methods.",
+      "task": "Run race detector on full test suite",
+      "description": "Execute 'cd logiface-slog && go test -race -count=10 ./...' Verify no data races detected across 10 runs.",
       "status": "Not Started"
     },
     {
       "id": "016",
-      "task": "Create example_test.go with basic usage",
-      "description": "Add ExampleLogger function showing basic usage pattern.",
+      "task": "Run macOS native tests",
+      "description": "Execute 'gmake test.logiface-slog' on macOS. Verify all tests pass, testsuite included.",
       "status": "Not Started"
     },
     {
       "id": "017",
-      "task": "Create example_test.go with level filtering",
-      "description": "Add example showing level filtering configuration.",
+      "task": "Run Linux tests (container or native)",
+      "description": "Execute tests on Linux environment. Verify all tests pass. Document platform in results.",
       "status": "Not Started"
     },
     {
       "id": "018",
-      "task": "Create example_test.go with custom handler",
-      "description": "Add example showing custom slog.Handler usage.",
+      "task": "Run Windows tests",
+      "description": "Execute tests on Windows environment. Verify path handling and all tests pass.",
       "status": "Not Started"
     },
     {
       "id": "019",
-      "task": "Verify examples run with go test",
-      "description": "Execute 'go test' to verify all examples compile and run correctly.",
+      "task": "Run benchmark suite",
+      "description": "Execute 'cd logiface-slog && gmake bench' to run all 42 benchmarks. Save results to benchmarks/ directory.",
       "status": "Not Started"
     },
     {
       "id": "020",
-      "task": "Write comprehensive README.md",
-      "description": "Create README with badges, install, usage, performance characteristics, examples.",
+      "task": "Analyze benchmark results",
+      "description": "Review benchstat output. Document: allocations per operation, ns/op for hot paths (Disabled, Info, field types), comparison to expectations. Identify any regressions or optimization opportunities.",
       "status": "Not Started"
     },
     {
       "id": "021",
-      "task": "Create CHANGELOG.md",
-      "description": "Write changelog following Keep a Changelog format. Document v1.0.0 release.",
+      "task": "Run allocation profiling",
+      "description": "Execute 'go test -memprofile=mem.prof -bench=^BenchmarkDisabled$' and analyze with 'go tool pprof mem.prof'. Verify zero allocations for disabled logs.",
       "status": "Not Started"
     },
     {
       "id": "022",
-      "task": "Create ADR document for architecture",
-      "description": "Write docs/adr/00X-logiface-slog-adapter-pattern.md explaining design decisions.",
+      "task": "Verify event pooling effectiveness",
+      "description": "Examine benchmark results for pool metrics. Confirm Event reuse occurring (no repeated allocations in hot loop benchmarks).",
       "status": "Not Started"
     },
     {
       "id": "023",
-      "task": "Verify go.work includes logiface-slog",
-      "description": "Check that go.work use directive includes ./logiface-slog.",
+      "task": "Check inlining of hot path methods",
+      "description": "Run 'go build -gcflags=-m ./... 2>&1 | grep -E \"(Level|AddField|toSlogLevel)\"' Verify Level(), AddField(), toSlogLevel() are inlined.",
       "status": "Not Started"
     },
     {
       "id": "024",
-      "task": "Test external import of logiface-slog",
-      "description": "Create test app outside module tree. Import islog package. Verify build.",
+      "task": "Verify struct alignment",
+      "description": "Use betteralign or fieldalignment to check Event and Logger struct layouts. Optimize if padding exceeds 10% of struct size.",
       "status": "Not Started"
     },
     {
       "id": "025",
-      "task": "Run macOS native test suite",
-      "description": "Execute 'gmake test.logiface-slog' on macOS. Verify all tests pass.",
+      "task": "Test nil Logger behavior",
+      "description": "Verify existing TestLogger_simple/nil_logger_disabled passes. Confirm nil Logger properly returns disabled events that no-op.",
       "status": "Not Started"
     },
     {
       "id": "026",
-      "task": "Run Linux Docker test suite",
-      "description": "Execute tests in Docker Linux container. Verify all tests pass.",
+      "task": "Test nil Event behavior",
+      "description": "Verify existing TestEvent_Level/nil_event_returns_Disabled passes. Confirm nil Event.Level() returns LevelDisabled.",
       "status": "Not Started"
     },
     {
       "id": "027",
-      "task": "Run Windows test suite (moo host)",
-      "description": "Execute tests on Windows host. Verify path handling and tests pass.",
+      "task": "Test Handler.Enabled() consulted",
+      "description": "Verify existing TestLogger_Write_returns_err_when_disabled test confirms Write() checks Handler.Enabled() before logging.",
       "status": "Not Started"
     },
     {
       "id": "028",
-      "task": "Verify .gitattributes exists",
-      "description": "Check for .gitattributes file with text=auto directive for cross-platform consistency.",
+      "task": "Test WithSlogHandler nil panic",
+      "description": "Verify existing TestWithSlogHandler_panic_on_nil passes. Confirm clear panic message when handler is nil.",
       "status": "Not Started"
     },
     {
       "id": "029",
-      "task": "Create .gitattributes if missing",
-      "description": "Create .gitattributes with proper line ending settings for all text files.",
+      "task": "Test Event.AddGroup returns false",
+      "description": "Verify existing TestEvent_AddGroup passes. Confirm AddGroup() returns false to signal flattened key fallback.",
       "status": "Not Started"
     },
     {
       "id": "030",
-      "task": "Run benchmark suite",
-      "description": "Execute 'gmake bench.logiface-slog' to run all benchmarks.",
+      "task": "Test Write returns ErrDisabled for filtered logs",
+      "description": "Add test verifying Write() returns logiface.ErrDisabled when Handler.Enabled() returns false.",
       "status": "Not Started"
     },
     {
       "id": "031",
-      "task": "Analyze benchmark results",
-      "description": "Review benchstat output. Identify performance regressions vs baseline.",
+      "task": "Test level mapping completeness",
+      "description": "Verify TestLevel_toSlogLevel covers all logiface.Level constants and maps correctly to slog levels (Trace->Debug, Debug->Debug, Info->Info, Notice->Warn, Warning->Warn, Error->Error, Critical/Alert/Emergency->Error).",
       "status": "Not Started"
     },
     {
       "id": "032",
-      "task": "Run allocation profiling",
-      "description": "Execute 'go test -memprofile' and analyze with 'go tool pprof'.",
+      "task": "Test pool reset correctness",
+      "description": "Verify TestLogger_NewEvent_ReleaseEvent/pool_reuse exercises event reuse. Add explicit assertions that released events have cleared fields.",
       "status": "Not Started"
     },
     {
       "id": "033",
-      "task": "Verify zero allocations for disabled logs",
-      "description": "Confirm disabled log paths allocate zero memory. Optimize if necessary.",
+      "task": "Test error field handling",
+      "description": "Verify TestLogger_simple/add_error and add_error_disabled test error formatting. Confirm nil errors are handled gracefully.",
       "status": "Not Started"
     },
     {
       "id": "034",
-      "task": "Run CPU profiling",
-      "description": "Execute 'go test -cpuprofile' and analyze hot paths.",
+      "task": "Test all field types via testsuite",
+      "description": "Confirm testsuite exercises: strings, ints, int64, uint64, float32, float64, bool, time, duration, errors, raw JSON, base64 bytes. Review Test_TestSuite coverage.",
       "status": "Not Started"
     },
     {
       "id": "035",
-      "task": "Verify inlining of hot path methods",
-      "description": "Run with '-gcflags=-m' to confirm Level(), AddField(), etc. are inlined.",
+      "task": "Test slog handler options integration",
+      "description": "Create tests verifying: HandlerOptions.Level respected, HandlerOptions.AddSource works if handler supports it, HandlerOptions.ReplaceAttr modifies output. Use both JSONHandler and TextHandler.",
       "status": "Not Started"
     },
     {
       "id": "036",
-      "task": "Check struct alignment",
-      "description": "Verify Event and Logger struct layouts minimize padding. Optimize if needed.",
+      "task": "Test context propagation",
+      "description": "Verify TestLogger_simple/basic_context_usage exercises Clone() with field propagation. Verify cloned loggers maintain independent field sets.",
       "status": "Not Started"
     },
     {
       "id": "037",
-      "task": "Create nil safety test suite",
-      "description": "Write tests for nil Logger, nil Handler, nil Event, zero-value Event. No panics.",
+      "task": "Test concurrent logging stress",
+      "description": "Create test with 100 goroutines logging concurrently for 1 second. Verify no panics, no data races (run with -race), output parseable.",
       "status": "Not Started"
     },
     {
       "id": "038",
-      "task": "Create concurrency stress test",
-      "description": "Write test with 1000 goroutines logging concurrently. Verify thread safety.",
+      "task": "Test rapid successive logging",
+      "description": "Create test logging 10,000 events in tight loop. Verify no corruption, all events present, pool reuse effective.",
       "status": "Not Started"
     },
     {
       "id": "039",
-      "task": "Create deep nesting test",
-      "description": "Test with 50+ levels of nesting. Verify no stack overflow.",
+      "task": "Test large message handling",
+      "description": "Create test with 1MB log message. Verify no buffer issues, no truncation, handler receives complete message.",
       "status": "Not Started"
     },
     {
       "id": "040",
-      "task": "Create large message test",
-      "description": "Test with 1MB+ log messages. Verify no buffer issues.",
+      "task": "Test many fields handling",
+      "description": "Create test with 100 fields on single event. Verify all fields present in output, no corruption.",
       "status": "Not Started"
     },
     {
       "id": "041",
-      "task": "Verify LICENSE file exists",
-      "description": "Check for LICENSE file in logiface-slog directory.",
+      "task": "Test special characters in keys/values",
+      "description": "Create test with Unicode, null bytes, quotes, backslashes in field keys and values. Verify correct JSON escaping in output.",
       "status": "Not Started"
     },
     {
       "id": "042",
-      "task": "Verify grit configuration",
-      "description": "Check project.mk for logiface-slog grit destination mapping.",
+      "task": "Test handler error propagation",
+      "description": "Create mock handler that returns errors from Handle(). Verify Write() propagates errors correctly.",
       "status": "Not Started"
     },
     {
       "id": "043",
-      "task": "Test grit publish to separate repo",
-      "description": "Verify 'gmake grit.logiface-slog' correctly syncs to separate repository.",
+      "task": "Test invalid RawJSON handling",
+      "description": "Verify TestLogger_simple/invalid_raw_json exercises malformed JSON. Confirm handler receives invalid JSON (handler's responsibility to handle).",
       "status": "Not Started"
     },
     {
       "id": "044",
-      "task": "Create v1.0.0 tag preparation",
-      "description": "Prepare for v1.0.0 release. Verify version in go.mod.",
+      "task": "Test slog.LogValuer integration",
+      "description": "Create test with custom type implementing slog.LogValuer. Verify LogValue() called and result logged correctly.",
       "status": "Not Started"
     },
     {
       "id": "045",
-      "task": "Review API surface for consistency",
-      "description": "Audit all exported symbols. Compare with logiface-logrus, logiface-zerolog patterns.",
+      "task": "Test slog.GroupValue integration",
+      "description": "Create test using slog.GroupValue in AddField(). Verify grouped attributes rendered correctly in output.",
       "status": "Not Started"
     },
     {
       "id": "046",
-      "task": "Check for any TODO comments in code",
-      "description": "Search for TODO/FIXME/HACK comments. Resolve or create tracking issues.",
+      "task": "Test empty message handling",
+      "description": "Verify testsuite LogsEmptyMessage: true enables testing of events with empty message strings.",
       "status": "Not Started"
     },
     {
       "id": "047",
-      "task": "Verify no test failures with -race flag",
-      "description": "Run 'go test -race ./...' and verify no data races detected.",
+      "task": "Test default level filtering",
+      "description": "Create logger without explicit level configuration. Verify defaults to LevelInformational (filters Debug/Trace).",
       "status": "Not Started"
     },
     {
       "id": "048",
-      "task": "Check for unused imports",
-      "description": "Run 'goimports -l' to find unused imports. Fix any issues.",
+      "task": "Test explicit level configuration",
+      "description": "Create logger with logiface.WithLevel[*Event](LevelDebug). Verify Debug logs are not filtered.",
       "status": "Not Started"
     },
     {
       "id": "049",
-      "task": "Verify go.mod has no indirect dependencies",
-      "description": "Run 'go mod tidy'. Verify minimal dependency set.",
+      "task": "Check go.mod minimum Go version",
+      "description": "Verify go.mod 'go' directive specifies minimum supported version (likely go 1.21 for slog). Document in README compatibility.",
       "status": "Not Started"
     },
     {
       "id": "050",
-      "task": "Create integration test with slog.New",
-      "description": "Test using slog.New(islog.Handler(...)) pattern if applicable.",
+      "task": "Test with Go current stable",
+      "description": "Run full test suite with latest Go stable release. Document version tested.",
       "status": "Not Started"
     },
     {
       "id": "051",
-      "task": "Create integration test with slog.SetDefault",
-      "description": "Test setting slog default to use islog handler.",
+      "task": "Test with Go previous stable",
+      "description": "Run full test suite with previous Go stable release. Verify backward compatibility.",
       "status": "Not Started"
     },
     {
       "id": "052",
-      "task": "Test with all slog handler types",
-      "description": "Verify compatibility with JSONHandler, TextHandler, and custom handlers.",
+      "task": "Run go mod tidy",
+      "description": "Execute 'go mod tidy' in logiface-slog directory. Verify no changes (dependencies already minimal).",
       "status": "Not Started"
     },
     {
       "id": "053",
-      "task": "Test slog.HandlerOptions.ReplaceAttr",
-      "description": "Verify ReplaceAttr hooks work correctly with islog adapter.",
+      "task": "Verify no unused imports",
+      "description": "Run 'goimports -l *.go' in logiface-slog. Verify output empty (all imports used).",
       "status": "Not Started"
     },
     {
       "id": "054",
-      "task": "Test slog.HandlerOptions.AddSource",
-      "description": "Verify AddSource option works and source location is captured.",
+      "task": "Run gofmt verification",
+      "description": "Execute 'gofmt -l *.go' in logiface-slog. Verify output empty (all files formatted).",
       "status": "Not Started"
     },
     {
       "id": "055",
-      "task": "Test slog.WithAttrs handler chaining",
-      "description": "Verify slog.Handler.WithAttrs works with islog.",
+      "task": "Check for TODO/FIXME comments",
+      "description": "Search for 'TODO|FIXME|HACK|XXX|BUG' in logiface-slog source. Document or resolve any found.",
       "status": "Not Started"
     },
     {
       "id": "056",
-      "task": "Test slog.WithGroup handler chaining",
-      "description": "Verify slog.Handler.WithGroup works with islog.",
+      "task": "Verify LICENSE file exists and is correct",
+      "description": "Confirm LICENSE file in logiface-slog matches project license. Verify copyright year and holder.",
       "status": "Not Started"
     },
     {
       "id": "057",
-      "task": "Test all logiface levels map correctly",
-      "description": "Verify Trace->Debug, Debug->Debug, Informational->Info, etc.",
+      "task": "Check grit configuration for logiface-slog",
+      "description": "Verify project.mk has grit destination for logiface-slog. Document target repository.",
       "status": "Not Started"
     },
     {
       "id": "058",
-      "task": "Test level filtering at all thresholds",
-      "description": "Test logger behavior at each possible level threshold.",
+      "task": "Test grit publish dry-run",
+      "description": "Execute 'gmake grit.logiface-slog' (or dry-run equivalent). Verify files would sync correctly to separate repo.",
       "status": "Not Started"
     },
     {
       "id": "059",
-      "task": "Verify Event pool reset correctness",
-      "description": "Confirm pooled events are fully reset. No state leakage between uses.",
+      "task": "Verify no linter ignore comments without justification",
+      "description": "Review all //lint:ignore comments in slog.go. Confirm each has clear justification or TODO. Current ignores: U1000 (intentional unexported embedding).",
       "status": "Not Started"
     },
     {
       "id": "060",
-      "task": "Test concurrent pool access",
-      "description": "Verify sync.Pool is thread-safe under high concurrency.",
+      "task": "Run golangci-lint if available",
+      "description": "If golangci-lint installed, run 'golangci-lint run ./...' in logiface-slog. Document and fix any issues.",
       "status": "Not Started"
     },
     {
       "id": "061",
-      "task": "Test with custom slog.Level values",
-      "description": "Verify behavior with non-standard slog levels.",
+      "task": "Verify no exported types that shouldn't be",
+      "description": "Review exported symbols: Event, Logger, LoggerFactory, L, WithSlog Handler. Confirm all are intentionally public. unimplementedEvent and baseLoggerFactory correctly unexported.",
       "status": "Not Started"
     },
     {
       "id": "062",
-      "task": "Test LogValuer interface integration",
-      "description": "Verify types implementing slog.LogValuer work correctly.",
+      "task": "Verify no unsafe package usage",
+      "description": "Search for 'import \"unsafe\"' in logiface-slog source. Verify none found (not needed for this adapter).",
       "status": "Not Started"
     },
     {
       "id": "063",
-      "task": "Test error field formatting",
-      "description": "Verify errors are formatted correctly in output.",
+      "task": "Verify minimal reflect usage",
+      "description": "Search for 'import \"reflect\"' in logiface-slog source. Verify none found (slog handles reflection).",
       "status": "Not Started"
     },
     {
       "id": "064",
-      "task": "Test time field formatting",
-      "description": "Verify time.Time fields are formatted correctly.",
+      "task": "Create fuzz test for attribute conversion",
+      "description": "Write FuzzEventAddField testing arbitrary key/value pairs through AddField(). Run for 1 minute minimum.",
       "status": "Not Started"
     },
     {
       "id": "065",
-      "task": "Test duration field formatting",
-      "description": "Verify time.Duration fields are formatted correctly.",
+      "task": "Create fuzz test for level conversion",
+      "description": "Write FuzzToSlogLevel testing arbitrary uint8 values as logiface.Level. Verify no panics, always returns valid slog.Level.",
       "status": "Not Started"
     },
     {
       "id": "066",
-      "task": "Test int64/uint64 precision",
-      "description": "Verify large integers maintain precision in JSON output.",
+      "task": "Create simple integration test with slog.New",
+      "description": "Test creating slog.Logger with slog.New(customHandler) then wrapping with logiface. Verify bi-directional compatibility if needed.",
       "status": "Not Started"
     },
     {
       "id": "067",
-      "task": "Test float32/float64 precision",
-      "description": "Verify floating point values maintain precision.",
+      "task": "Test handler WithAttrs chaining",
+      "description": "Create handler with WithAttrs(), use with islog. Verify pre-configured attributes appear in all log events.",
       "status": "Not Started"
     },
     {
       "id": "068",
-      "task": "Test base64 byte encoding",
-      "description": "Verify AddBase64Bytes encodes correctly with StdEncoding and URLEncoding.",
+      "task": "Test handler WithGroup chaining",
+      "description": "Create handler with WithGroup('app'), use with islog. Verify fields appear under 'app' group in output.",
       "status": "Not Started"
     },
     {
       "id": "069",
-      "task": "Test RawJSON field embedding",
-      "description": "Verify AddRawJSON correctly embeds JSON fragments.",
+      "task": "Document known limitations",
+      "description": "Create LIMITATIONS.md or section in README documenting: AddGroup returns false (no empty group support), level mapping coarseness (Notice->Warn, Critical->Error), Handler.Enabled governs output not logiface level entirely.",
       "status": "Not Started"
     },
     {
       "id": "070",
-      "task": "Test context propagation",
-      "description": "Verify logiface.Clone and context fields work correctly.",
+      "task": "Create migration guide from direct slog",
+      "description": "Write MIGRATION.md with examples of migrating from slog.Logger to logiface[*Event] with islog adapter. Show before/after code.",
       "status": "Not Started"
     },
     {
       "id": "071",
-      "task": "Test field ordering consistency",
-      "description": "Verify JSON field ordering is deterministic.",
+      "task": "Create performance comparison document",
+      "description": "Write PERFORMANCE.md documenting: overhead vs direct slog, pool effectiveness, allocation characteristics, benchmark results summary, when to use this adapter vs direct slog.",
       "status": "Not Started"
     },
     {
       "id": "072",
-      "task": "Test empty and nil field values",
-      "description": "Verify nil/empty strings, slices, maps are handled correctly.",
+      "task": "Add comparison to logiface-zerolog and logiface-logrus",
+      "description": "Document in README comparative analysis: when to use each adapter, performance characteristics, feature differences, migration paths between adapters.",
       "status": "Not Started"
     },
     {
       "id": "073",
-      "task": "Test special characters in keys and values",
-      "description": "Verify Unicode, quotes, backslashes are escaped correctly.",
+      "task": "Create advanced usage examples",
+      "description": "Add examples to example_test.go: structured error logging with stack traces, request ID propagation pattern, per-request logger configuration, testing logger mocking pattern.",
       "status": "Not Started"
     },
     {
       "id": "074",
-      "task": "Test very long keys and values",
-      "description": "Verify no truncation or corruption with long strings.",
+      "task": "Document testing patterns",
+      "description": "Add TESTING.md showing: how to capture logs in tests, how to assert on log content, how to mock/stub logger for unit tests, memory handler pattern for verification.",
       "status": "Not Started"
     },
     {
       "id": "075",
-      "task": "Test rapid successive logging",
-      "description": "Verify no corruption when logging many events rapidly.",
+      "task": "Create example of HTTP middleware integration",
+      "description": "Add example showing request logger middleware that captures: request ID, method, path, duration, status code using Clone() and per-request logger.",
       "status": "Not Started"
     },
     {
       "id": "076",
-      "task": "Test logger cloning isolation",
-      "description": "Verify cloned loggers maintain independent state.",
+      "task": "Create example of OpenTelemetry trace ID propagation",
+      "description": "Add example showing trace ID extraction from context and logging with every event.",
       "status": "Not Started"
     },
     {
       "id": "077",
-      "task": "Test Write returns error correctly",
-      "description": "Verify handler errors are propagated through Write().",
+      "task": "Document best practices",
+      "description": "Create BEST_PRACTICES.md: field naming conventions, log level selection guidance, context logger pattern, avoiding allocations, error logging patterns, structured logging principles.",
       "status": "Not Started"
     },
     {
       "id": "078",
-      "task": "Test disabled level returns ErrDisabled",
-      "description": "Verify filtered logs return logiface.ErrDisabled.",
+      "task": "Create security documentation",
+      "description": "Add SECURITY.md: PII handling guidance, credential redaction patterns, using ReplaceAttr for sensitive data, audit logging requirements.",
       "status": "Not Started"
     },
     {
       "id": "079",
-      "task": "Test panic on nil handler in WithSlogHandler",
-      "description": "Verify WithSlogHandler(nil) panics with clear message.",
+      "task": "Verify test independence",
+      "description": "Run 'go test -shuffle=on -count=3' to verify tests pass in random order multiple times. Confirms no shared state.",
       "status": "Not Started"
     },
     {
       "id": "080",
-      "task": "Verify package documentation",
-      "description": "Review doc.go for package-level documentation completeness.",
+      "task": "Check test execution time",
+      "description": "Run 'go test -v' and identify any tests taking >1s. Optimize or document long-running tests.",
       "status": "Not Started"
     },
     {
       "id": "081",
-      "task": "Check for exported types that shouldn't be",
-      "description": "Audit exported symbols. Unexport any implementation details.",
+      "task": "Verify no goroutine leaks in tests",
+      "description": "Run tests with 'goleak' if available or manually verify goroutine count stable before/after test execution.",
       "status": "Not Started"
     },
     {
       "id": "082",
-      "task": "Verify no linter ignore comments without justification",
-      "description": "Review all //lint:ignore comments. Each must have TODO or justification.",
+      "task": "Profile test memory usage",
+      "description": "Run 'go test -memprofile=test_mem.prof' and analyze max memory usage. Document if exceeds expected thresholds.",
       "status": "Not Started"
     },
     {
       "id": "083",
-      "task": "Run golangci-lint if available",
-      "description": "Execute 'golangci-lint run' in logiface-slog. Fix issues.",
+      "task": "Create CI configuration",
+      "description": "Add .github/workflows/test.yml with jobs for: test (multi-platform), lint, coverage, benchmark regression detection. Use matrix for Go versions.",
       "status": "Not Started"
     },
     {
       "id": "084",
-      "task": "Verify gofmt compliance",
-      "description": "Run 'gofmt -l' to verify formatting. Fix any issues.",
+      "task": "Create coverage badge configuration",
+      "description": "Configure codecov or coveralls integration. Add badge to README showing coverage percentage.",
       "status": "Not Started"
     },
     {
       "id": "085",
-      "task": "Create performance comparison document",
-      "description": "Document performance characteristics vs direct slog usage.",
+      "task": "Create Go version badge",
+      "description": "Add badge to README showing minimum Go version from go.mod.",
       "status": "Not Started"
     },
     {
       "id": "086",
-      "task": "Create usage examples in README",
-      "description": "Add real-world usage examples to README.md.",
+      "task": "Create license badge",
+      "description": "Add license badge to README matching LICENSE file.",
       "status": "Not Started"
     },
     {
       "id": "087",
-      "task": "Create migration guide from slog",
-      "description": "Document how to migrate existing slog code to logiface-slog.",
+      "task": "Create pkg.go.dev badge",
+      "description": "Add pkg.go.dev badge linking to godoc documentation.",
       "status": "Not Started"
     },
     {
       "id": "088",
-      "task": "Verify all benchmarks run without error",
-      "description": "Execute 'go test -bench=.' and verify no failures.",
+      "task": "Document versioning scheme",
+      "description": "Add VERSION.md or section in README explaining: semantic versioning, API stability guarantees, deprecation policy, release cadence.",
       "status": "Not Started"
     },
     {
       "id": "089",
-      "task": "Compare benchmark results to baseline",
-      "description": "Document performance overhead of adapter layer.",
+      "task": "Create CONTRIBUTING.md",
+      "description": "Document: how to set up dev environment, running tests, coding standards, PR process, project structure, Makefile targets.",
       "status": "Not Started"
     },
     {
       "id": "090",
-      "task": "Test with Go current version",
-      "description": "Verify tests pass on latest Go version.",
+      "task": "Create CODE_OF_CONDUCT.md",
+      "description": "Add standard code of conduct (Contributor Covenant or similar).",
       "status": "Not Started"
     },
     {
       "id": "091",
-      "task": "Test with Go previous version",
-      "description": "Verify tests pass on previous Go stable version.",
+      "task": "Review API for Go idioms",
+      "description": "Audit API against Effective Go and Go Code Review Comments. Verify: error handling patterns, interface design, naming conventions, documentation style.",
       "status": "Not Started"
     },
     {
       "id": "092",
-      "task": "Verify go.mod minimum Go version",
-      "description": "Check go.mod has correct Go version directive.",
+      "task": "Verify context.TODO() usage justification",
+      "description": "Review context.TODO() calls in Write() and test harnesses. Document why context not propagated from caller (slog.Handler.Handle requires context, but logiface.Writer doesn't accept one).",
       "status": "Not Started"
     },
     {
       "id": "093",
-      "task": "Create CI configuration if needed",
-      "description": "Set up GitHub Actions or similar for CI/CD.",
+      "task": "Consider adding context.Context to Logger.Write",
+      "description": "Evaluate if logiface.Writer[T] interface should accept context, or if adapter should store context. Document decision and trade-offs. May require logiface core change.",
       "status": "Not Started"
     },
     {
       "id": "094",
-      "task": "Verify LICENSE text is correct",
-      "description": "Confirm LICENSE file content matches project intent.",
+      "task": "Benchmark comparison: islog vs direct slog",
+      "description": "Create comparison benchmarks showing overhead of islog adapter vs direct slog.Logger usage. Document results in PERFORMANCE.md.",
       "status": "Not Started"
     },
     {
       "id": "095",
-      "task": "Verify AUTHORS file if present",
-      "description": "Check AUTHORS file for proper attribution.",
+      "task": "Benchmark comparison: islog vs other logiface adapters",
+      "description": "Run equivalent benchmarks for logiface-zerolog and logiface-logrus. Compare allocation and performance profiles.",
       "status": "Not Started"
     },
     {
       "id": "096",
-      "task": "Create CONTRIBUTING guide",
-      "description": "Add CONTRIBUTING.md with development instructions.",
+      "task": "Optimization: Event.attrs pre-allocation tuning",
+      "description": "Event.attrs capacity 8, investigate if different capacity (4, 16) yields better pool metrics. Benchmark and document.",
       "status": "Not Started"
     },
     {
       "id": "097",
-      "task": "Create SECURITY policy if needed",
-      "description": "Add SECURITY.md with vulnerability reporting process.",
+      "task": "Optimization: Investigate sync.Pool alternatives",
+      "description": "Research if custom pool or other allocation strategies provide better performance than sync.Pool for Event reuse. Benchmark and document trade-offs.",
       "status": "Not Started"
     },
     {
       "id": "098",
-      "task": "Verify no hardcoded values in tests",
-      "description": "Check tests use configurable values, not magic numbers.",
+      "task": "Create property-based tests",
+      "description": "Use gopter or rapid to create property tests for: Event field accumulation, level mapping invertibility where sensible, pool state invariants.",
       "status": "Not Started"
     },
     {
       "id": "099",
-      "task": "Verify test independence",
-      "description": "Confirm tests can run in any order (no shared state).",
+      "task": "Create table-driven tests consolidation",
+      "description": "Review existing tests for opportunities to consolidate into table-driven style. Improves maintainability and coverage visibility.",
       "status": "Not Started"
     },
     {
       "id": "100",
-      "task": "Add test for slog.LogValuer integration",
-      "description": "Test that custom LogValuer types work correctly.",
+      "task": "Add test for Event zero value behavior",
+      "description": "Create test verifying zero-value Event{} handles methods gracefully (returns sensible defaults, doesn't panic).",
       "status": "Not Started"
     },
     {
       "id": "101",
-      "task": "Add test for slog.Group integration",
-      "description": "Test nested group attributes work correctly.",
+      "task": "Add test for Logger zero value behavior",
+      "description": "Create test verifying zero-value Logger{} handles methods gracefully (nil handler case may panic, document behavior).",
       "status": "Not Started"
     },
     {
       "id": "102",
-      "task": "Add test for slog.Any type handling",
-      "description": "Test arbitrary types via slog.Any are handled.",
+      "task": "Document thread safety guarantees",
+      "description": "Add section to README or godoc explaining: Logger thread safety (safe for concurrent use), Event thread safety (not safe, per-goroutine use only), pool thread safety (sync.Pool guarantees).",
       "status": "Not Started"
     },
     {
       "id": "103",
-      "task": "Verify handler.Enabled() is called correctly",
-      "description": "Confirm Handler.Enabled() is consulted before logging.",
+      "task": "Create example of batched logging",
+      "description": "If slog handlers support batching, show pattern for efficient batch logging with islog adapter.",
       "status": "Not Started"
     },
     {
       "id": "104",
-      "task": "Test context cancellation handling",
-      "description": "Verify canceled context doesn't cause issues.",
+      "task": "Create example of structured error wrapping",
+      "description": "Show pattern for logging errors with error wrapping (errors.Is/As) and extracting structured data from error chains.",
       "status": "Not Started"
     },
     {
       "id": "105",
-      "task": "Test timeout context handling",
-      "description": "Verify expired context doesn't cause issues.",
+      "task": "Verify no blocking operations in hot path",
+      "description": "Review Event and Logger methods for any blocking ops (locks, I/O, allocations). Document that Handler.Handle may block (handler's responsibility).",
       "status": "Not Started"
     },
     {
       "id": "106",
-      "task": "Verify no goroutine leaks",
-      "description": "Run tests with race detector and check for leaks.",
+      "task": "Create stress test: event pool exhaustion",
+      "description": "Create test with 10,000 concurrent goroutines each getting but not releasing events. Verify pool grows but doesn't cause OOM or deadlock.",
       "status": "Not Started"
     },
     {
       "id": "107",
-      "task": "Test handler error handling",
-      "description": "Verify handler errors are returned, not swallowed.",
-      "status": "Not Started"
+      "task": "Create stress test: handler error storm",
+      "description": "Create test where handler returns errors for every call. Verify adapter handles gracefully, no resource leaks.",
+      "status":  "Not Started"
     },
     {
       "id": "108",
-      "task": "Test nil context handling",
-      "description": "Verify nil context is handled gracefully.",
+      "task": "Create stress test: massive field count",
+      "description": "Test with 10,000 fields on single event. Verify memory bounded, no corruption, handler receives all fields.",
       "status": "Not Started"
     },
     {
       "id": "109",
-      "task": "Verify slog.Record.Clone() not needed",
-      "description": "Confirm adapter doesn't require record cloning.",
+      "task": "Create external integration test",
+      "description": "Create test_integration/ directory. Import logiface-slog as external dependency. Verify import path, API usage, compilation in isolated module.",
       "status": "Not Started"
     },
     {
       "id": "110",
-      "task": "Test all Event methods return correct bools",
-      "description": "Verify AddMessage, AddError return true as expected.",
+      "task": "Test with popular slog handlers",
+      "description": "Test integration with community handlers: tint, slog-multi, phsym/console-slog, others. Document compatibility.",
       "status": "Not Started"
     },
     {
       "id": "111",
-      "task": "Test Event.Level() on nil receiver",
-      "description": "Confirm nil Event returns LevelDisabled.",
+      "task": "Create compatibility matrix documentation",
+      "description": "Document tested configurations: Go versions, slog handler types, platforms, logiface versions. Matrix in README or COMPATIBILITY.md.",
       "status": "Not Started"
     },
     {
       "id": "112",
-      "task": "Test Logger methods on nil receiver",
-      "description": "Verify nil Logger methods don't panic.",
+      "task": "RULE OF TWO AUDIT #1",
+      "description": "Launch subagent as HOSTILE REVIEWER. Audit entire logiface-slog codebase (slog.go, tests, examples, docs). Find ALL flaws: logic errors, missing tests, unclear docs, performance issues, API design problems, unsafe patterns.",
       "status": "Not Started"
     },
     {
       "id": "113",
-      "task": "Verify no use of deprecated APIs",
-      "description": "Check for any deprecated stdlib usage.",
+      "task": "Address all findings from RULE OF TWO AUDIT #1",
+      "description": "Fix every issue identified in audit #1. No exceptions. Document fixes and reasoning.",
       "status": "Not Started"
     },
     {
       "id": "114",
-      "task": "Check for any unsafe usage",
-      "description": "Verify no unsafe package usage unless justified.",
+      "task": "RULE OF TWO AUDIT #2",
+      "description": "Launch NEW subagent as HOSTILE REVIEWER. Re-audit entire codebase after fixes. Verify all #1 issues resolved. Find any remaining flaws. If ANY issues found, loop back.",
       "status": "Not Started"
     },
     {
       "id": "115",
-      "task": "Verify reflect package usage is minimal",
-      "description": "Check reflect is only used where necessary.",
+      "task": "SCOPE EXPANSION: Advanced error handling",
+      "description": "Investigate if Event.AddError should extract structured data from errors implementing custom interfaces (stack traces, error codes, user messages). Create spike and ADR.",
       "status": "Not Started"
     },
     {
       "id": "116",
-      "task": "Create fuzz test for attribute conversion",
-      "description": "Fuzz slog.Attr to logiface field conversion.",
+      "task": "SCOPE EXPANSION: Context integration exploration",
+      "description": "Research patterns for context.Context integration. Consider: context values extraction, trace ID propagation, cancellation-aware logging. Create ADR with recommendations.",
       "status": "Not Started"
     },
     {
       "id": "117",
-      "task": "Create fuzz test for record handling",
-      "description": "Fuzz slog.Record processing.",
+      "task": "SCOPE EXPANSION: Sampling support",
+      "description": "Investigate if sampling (log 1 in N events) is valuable for high-volume scenarios. Create example or adapter if compelling use case exists.",
       "status": "Not Started"
     },
     {
       "id": "118",
-      "task": "Run fuzz tests for minimum duration",
-      "description": "Execute fuzz tests for 1 minute each.",
+      "task": "SCOPE EXPANSION: Metrics emission",
+      "description": "Consider opt-in metrics emission: log events per level, errors logged, pool hit rate. Create spike showing integration with prometheus or similar.",
       "status": "Not Started"
     },
     {
       "id": "119",
-      "task": "Verify no test timeouts",
-      "description": "Run tests with short timeout. All should complete.",
+      "task": "SCOPE EXPANSION: Caller frame capture",
+      "description": "Investigate pattern for capturing caller frame info (file, line) if AddSource: true. Determine if runtime.Caller overhead acceptable. Create spike and ADR.",
       "status": "Not Started"
     },
     {
       "id": "120",
-      "task": "Check test execution time",
-      "description": "Identify slow tests. Optimize if >1s per test.",
+      "task": "SCOPE EXPANSION: Compile-time level filtering",
+      "description": "Research build tags or code generation for compile-time log level elimination. Document feasibility and trade-offs.",
       "status": "Not Started"
     },
     {
       "id": "121",
-      "task": "Verify parallel tests don't interfere",
-      "description": "Run tests with -parallel flag. Check for flakiness.",
+      "task": "SCOPE EXPANSION: Dynamic level reconfiguration",
+      "description": "Investigate thread-safe runtime level changes. Determine if atomic.Value pattern applicable. Create example if valuable.",
       "status": "Not Started"
     },
     {
       "id": "122",
-      "task": "Create test for slog.With() propagation",
-      "description": "Test slog.With attributes are captured.",
+      "task": "SCOPE EXPANSION: Benchmark methodology documentation",
+      "description": "Document how to reproduce benchmarks, interpret results, detect regressions, compare across versions. Add to CONTRIBUTING.md.",
       "status": "Not Started"
     },
     {
       "id": "123",
-      "task": "Create test for slog.Default() replacement",
-      "description": "Test replacing default slog handler.",
+      "task": "SCOPE EXPANSION: Extended fuzz campaign",
+      "description": "Run all fuzz tests for 1 hour each. Document any crashes, add to corpus. Create FUZZING.md documenting findings and methodology.",
       "status": "Not Started"
     },
     {
       "id": "124",
-      "task": "Verify all public types are documented",
-      "description": "Check godoc for all exported types has documentation.",
+      "task": "SCOPE EXPANSION: Security audit",
+      "description": "Perform security-focused review: input validation, injection attacks, resource exhaustion, information disclosure. Document findings and remediations.",
       "status": "Not Started"
     },
     {
       "id": "125",
-      "task": "Verify all public functions are documented",
-      "description": "Check godoc for all exported functions has documentation.",
+      "task": "SCOPE EXPANSION: Accessibility of documentation",
+      "description": "Review all documentation for clarity, completeness, accessibility to new users. Get external review. Incorporate feedback.",
       "status": "Not Started"
     },
     {
       "id": "126",
-      "task": "Verify all public constants are documented",
-      "description": "Check any exported constants have documentation.",
+      "task": "SCOPE EXPANSION: Video tutorial creation",
+      "description": "Create screen recording: setup, basic usage, advanced patterns, debugging. Publish to YouTube or project site.",
       "status": "Not Started"
     },
     {
       "id": "127",
-      "task": "Verify all public variables are documented",
-      "description": "Check exported variable L has documentation.",
+      "task": "SCOPE EXPANSION: Blog post series",
+      "description": "Write blog posts: introduction to logiface-slog, migration from slog, performance deep-dive, advanced patterns. Publish and link from README.",
       "status": "Not Started"
     },
     {
       "id": "128",
-      "task": "Create architecture diagram",
-      "description": "Document component relationships in diagram.",
+      "task": "SCOPE EXPANSION: Community engagement",
+      "description": "Create discussions forum structure. Draft initial discussions: feature requests, showcase, Q&A. Monitor and respond to issues.",
       "status": "Not Started"
     },
     {
       "id": "129",
-      "task": "Create data flow diagram",
-      "description": "Document log event flow from call to output.",
+      "task": "FINAL VERIFICATION: All platforms",
+      "description": "Re-run full test suite (including race detector) on macOS, Linux, Windows. Verify 100% pass rate.",
       "status": "Not Started"
     },
     {
       "id": "130",
-      "task": "Verify Makefile targets work",
-      "description": "Test all Makefile targets: all, test, bench, clean.",
+      "task": "FINAL VERIFICATION: All documentation complete",
+      "description": "Verify checklist: README, CHANGELOG, godoc complete, examples working, ADRs written, migration guide exists, performance docs exist.",
       "status": "Not Started"
     },
     {
       "id": "131",
-      "task": "Verify Makefile pipes to build.log",
-      "description": "Confirm build output is redirected to avoid console spam.",
+      "task": "FINAL VERIFICATION: Benchmarks baseline established",
+      "description": "Confirm benchmark results documented, regression detection configured, baseline committed for future comparison.",
       "status": "Not Started"
     },
     {
       "id": "132",
-      "task": "Test Makefile clean target",
-      "description": "Verify make clean removes all generated files.",
+      "task": "FINAL VERIFICATION: CI/CD operational",
+      "description": "Verify GitHub Actions running on every commit, coverage reporting, badges working, release automation configured.",
       "status": "Not Started"
     },
     {
       "id": "133",
-      "task": "Verify benchstat is available",
-      "description": "Check golang.org/x/perf/cmd/benchstat is installed.",
+      "task": "FINAL VERIFICATION: Static analysis clean",
+      "description": "Re-run staticcheck, go vet, golangci-lint. Verify zero issues.",
       "status": "Not Started"
     },
     {
       "id": "134",
-      "task": "Test benchmark reproducibility",
-      "description": "Run benchmarks twice. Results should be similar.",
+      "task": "FINAL VERIFICATION: Coverage target met",
+      "description": "Confirm coverage at target percentage. If gaps remain, document justification for each uncovered line.",
       "status": "Not Started"
     },
     {
       "id": "135",
-      "task": "Create benchmark baseline",
-      "description": "Establish baseline benchmark numbers for regression detection.",
+      "task": "FINAL VERIFICATION: External review requested",
+      "description": "Request code review from external Go developers or logiface community. Incorporate feedback.",
       "status": "Not Started"
     },
     {
       "id": "136",
-      "task": "Verify no memory leaks",
-      "description": "Run tests with repeated allocations. Check for leaks.",
+      "task": "RULE OF TWO AUDIT #3 (FINAL)",
+      "description": "Launch NEW subagent as HOSTILE REVIEWER for final comprehensive audit. This is the FINAL gate before TRUE PERFECTION. Find any remaining issues.",
       "status": "Not Started"
     },
     {
       "id": "137",
-      "task": "Test very large number of fields",
-      "description": "Test event with 100+ fields.",
+      "task": "Address findings from RULE OF TWO AUDIT #3",
+      "description": "Fix any issues from final audit. If issues found, may require additional audit cycle.",
       "status": "Not Started"
     },
     {
       "id": "138",
-      "task": "Test deeply nested JSON in RawJSON",
-      "description": "Verify deeply nested RawJSON is handled.",
+      "task": "Prepare v1.0.0 release",
+      "description": "Tag v1.0.0. Update CHANGELOG to mark release date. Publish grit sync to separate repository. Announce release.",
       "status": "Not Started"
     },
     {
       "id": "139",
-      "task": "Test invalid UTF-8 handling",
-      "description": "Verify invalid UTF-8 is handled without panic.",
-      "status": "Not Started"
-    },
-    {
-      "id": "140",
-      "task": "Test JSON injection attempts",
-      "description": "Verify JSON injection doesn't break output structure.",
-      "status": "Not Started"
-    },
-    {
-      "id": "141",
-      "task": "FIRST RULE OF TWO AUDIT",
-      "description": "Launch subagent as HOSTILE REVIEWER. Audit entire logiface-slog. Find ALL flaws.",
-      "status": "Not Started"
-    },
-    {
-      "id": "142",
-      "task": "Address all findings from First Rule of Two Audit",
-      "description": "Fix every issue found by hostile reviewer. No exceptions.",
-      "status": "Not Started"
-    },
-    {
-      "id": "143",
-      "task": "SECOND RULE OF TWO AUDIT",
-      "description": "Launch subagent to verify perfection after fixes. If ANY issue found, loop back.",
-      "status": "Not Started"
-    },
-    {
-      "id": "144",
-      "task": "SCOPE EXPANSION: Performance optimizations",
-      "description": "Identify and implement additional performance optimizations beyond current state.",
-      "status": "Not Started"
-    },
-    {
-      "id": "145",
-      "task": "SCOPE EXPANSION: Additional convenience APIs",
-      "description": "Add convenience functions that improve ergonomics without breaking minimal pattern.",
-      "status": "Not Started"
-    },
-    {
-      "id": "146",
-      "task": "SCOPE EXPANSION: Advanced examples",
-      "description": "Add sophisticated real-world usage examples.",
-      "status": "Not Started"
-    },
-    {
-      "id": "147",
-      "task": "SCOPE EXPANSION: Middleware integration patterns",
-      "description": "Document patterns for HTTP middleware, tracing, etc.",
-      "status": "Not Started"
-    },
-    {
-      "id": "148",
-      "task": "SCOPE EXPANSION: Integration testing",
-      "description": "Create integration tests with popular slog handlers.",
-      "status": "Not Started"
-    },
-    {
-      "id": "149",
-      "task": "FINAL VERIFICATION: All platforms",
-      "description": "Run full test suite on all three platforms (macOS, Linux, Windows).",
-      "status": "Not Started"
-    },
-    {
-      "id": "150",
-      "task": "FINAL VERIFICATION: All tests pass",
-      "description": "Confirm 100% test pass rate including testsuite.",
-      "status": "Not Started"
-    },
-    {
-      "id": "151",
-      "task": "FINAL VERIFICATION: 100% coverage",
-      "description": "Confirm 100% code coverage achieved.",
-      "status": "Not Started"
-    },
-    {
-      "id": "152",
-      "task": "FINAL VERIFICATION: Static analysis clean",
-      "description": "Confirm zero vet, staticcheck, linter warnings.",
-      "status": "Not Started"
-    },
-    {
-      "id": "153",
-      "task": "FINAL VERIFICATION: Documentation complete",
-      "description": "Confirm all docs written and examples work.",
-      "status": "Not Started"
-    },
-    {
-      "id": "154",
-      "task": "FINAL VERIFICATION: Performance baseline established",
-      "description": "Confirm benchmarks run and baseline documented.",
-      "status": "Not Started"
-    },
-    {
-      "id": "155",
-      "task": "FINAL VERIFICATION: Third Rule of Two Audit",
-      "description": "Final hostile review after all scope expansion. Find remaining issues.",
-      "status": "Not Started"
-    },
-    {
-      "id": "156",
       "task": "TRUE PERFECTION ACHIEVED",
-      "description": "All 156 tasks complete. Three Rule of Two audits passed. 100% tests, coverage, documentation. Project is PERFECT.",
+      "description": "All 139 tasks complete. Three RULE OF TWO audits passed. Tests at 100% pass rate across all platforms. Documentation comprehensive. Performance benchmarked and optimized. Security audited. Community engaged. The logiface-slog adapter has reached TRUE PERFECTION.",
       "status": "Not Started"
     }
   ],
   "continuousVerification": {
-    "policy": "Run brief test set after EVERY file modification. Commit only after two contiguous verification cycles."
+    "policy": "After EVERY file modification, run: 'cd logiface-slog && go test -short' AND 'gmake vet.logiface-slog'. Commit only after two contiguous verification cycles pass.",
+    "buildCommand": "gmake build.logiface-slog",
+    "testCommand": "gmake test.logiface-slog",
+    "lintCommand": "gmake vet.logiface-slog && cd logiface-slog && staticcheck ./...",
+    "coverageTarget": "99.5% minimum (current). Target 100% or document justification for gaps."
   },
+  "finalEnforcementProtocol": [
+    "USE GMAKE NOT MAKE - macOS make is BSD make 3.81, too old.",
+    "PIPE OUTPUT - All build/test commands pipe to build.log and tail.",
+    "TESTSUITE MUST PASS - 99,501/99,501 tests MUST pass before any commit.",
+    "RULE OF TWO - THREE hostile audits required before v1.0.0 release."
+  ],
   "adrs": [
     "001-goja-require-pattern-for-module-initialization.md",
     "002-interface-based-option-pattern.md",

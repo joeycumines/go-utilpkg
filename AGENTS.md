@@ -1,5 +1,7 @@
 # AGENTS.md / CLAUDE.md
 
+This file provides guidance to AI agents.
+
 ## Project Overview
 
 This is a Go monorepo (`go-utilpkg`) that consolidates multiple related modules. Modules are synced to their individual published repositories using the `grit` tool. The root contains no packages - all code lives in subdirectories.
