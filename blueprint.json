@@ -20,8 +20,8 @@
     "ruleOfTwo": "Every major completion requires a HOSTILE REVIEW phase before moving to the next block."
   },
   "statusSection": {
-    "currentState": "ARCHITECTURAL PLANNING PHASE - Creating refined, exhaustive blueprint",
-    "lastAction": "Beginning deep analysis of current logiface-slog state"
+    "currentState": "CRITICAL FIX COMPLETE - Compilation restored, ready for testsuite integration",
+    "lastAction": "Added AddGroup method to mockComplexEvent (logiface/mock_test.go) and islog.Event (logiface-slog/slog.go). Tests passing. Ready for next phase: testsuite integration."
   },
   "sequentialTasks": [
     {
@@ -40,6 +40,24 @@
       "id": "003",
       "task": "Fix remaining testsuite failure",
       "description": "FIXED: TestLogger_NewEvent_ReleaseEvent/pool_reuse was failing because logiface.Logger defaults to LevelInformational, filtering Debug logs. Added WithLevel[*Event](LevelDebug) to test harnesses.",
+      "status": "Completed"
+    },
+    {
+      "id": "003.5",
+      "task": "CRITICAL FIX: Add AddGroup method to mockComplexEvent",
+      "description": "Add AddGroup(name string) bool method to mockComplexEvent in logiface/mock_test.go. Method should append mockComplexEventField{Type: 'AddGroup', Value: name} and return true. This is required because Event interface was extended with AddGroup.",
+      "status": "Completed"
+    },
+    {
+      "id": "003.6",
+      "task": "CRITICAL FIX: Add AddGroup method to islog.Event",
+      "description": "Add AddGroup(name string) bool method to Event in logiface-slog/slog.go. Return false to indicate fallback to flattened keys (slog will handle). This unblocks compilation of logiface-slog.",
+      "status": "Completed"
+    },
+    {
+      "id": "003.7",
+      "task": "CRITICAL FIX: Verify compilation after AddGroup fixes",
+      "description": "Run 'gmake build.logiface' and 'gmake build.logiface-slog' to verify all compilation errors are resolved. No compiler errors allowed.",
       "status": "Completed"
     },
     {
