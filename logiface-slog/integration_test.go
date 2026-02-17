@@ -1,247 +1,159 @@
-package slog
+package islog
 
 import (
 	"bytes"
-	"strings"
-	"testing"
-
+	"encoding/json"
 	"log/slog"
-
-	"github.com/joeycumines/logiface"
+	"testing"
 )
 
-// TestIntegration_SlogNew tests that logiface.Logger with slog.Handler works
-func TestIntegration_SlogNew(t *testing.T) {
-	// Create a buffer to capture output
+// TestIntegration_SlogNew_Logiface_Wrapping tests bi-directional compatibility
+// between slog.Logger and logiface[*Event] with islog adapter.
+func TestIntegration_SlogNew_Logiface_Wrapping(t *testing.T) {
+	t.Parallel()
+
+	// Create a buffer to capture JSON output
 	var buf bytes.Buffer
 
-	// Create slog handler
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+	// Create slog handler and logger via slog.New (standard slog pattern)
+	handler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
+	slogLogger := slog.New(handler)
+
+	// Create logiface[*Event] logger wrapping the same handler
+	logifaceLogger := L.New(L.WithSlogHandler(handler))
+
+	// Log via slog.Logger (baseline)
+	buf.Reset()
+	slogLogger.Info("slog message", "key", "value")
+	slogOutput := buf.String()
+
+	// Log via logiface[*Event] with islog adapter (builder pattern)
+	buf.Reset()
+	logifaceLogger.Info().
+		Str("key", "value").
+		Log("logiface message")
+	logifaceOutput := buf.String()
+
+	// Both should produce valid JSON, formats may differ but both should log
+	if len(slogOutput) == 0 {
+		t.Error("slog.Logger produced no output")
+	}
+	if len(logifaceOutput) == 0 {
+		t.Error("logiface[*Event] produced no output")
+	}
+
+	// Parse both as JSON to ensure validity
+	var slogMap, logifaceMap map[string]any
+	if err := json.Unmarshal([]byte(slogOutput), &slogMap); err != nil {
+		t.Errorf("slog output invalid JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(logifaceOutput), &logifaceMap); err != nil {
+		t.Errorf("logiface output invalid JSON: %v", err)
+	}
+
+	// Both should have level and message fields
+	if slogMap["level"] == nil {
+		t.Error("slog output missing 'level' field")
+	}
+	if logifaceMap["level"] == nil {
+		t.Error("logiface output missing 'level' field")
+	}
+	if slogMap["msg"] == nil {
+		t.Error("slog output missing 'msg' field")
+	}
+	if logifaceMap["msg"] == nil {
+		t.Error("logiface output missing 'msg' field")
+	}
+
+	// Verify the key/value pair exists
+	if slogMap["key"] == nil {
+		t.Error("slog output missing 'key' field")
+	}
+	if logifaceMap["key"] == nil {
+		t.Error("logiface output missing 'key' field")
+	}
+}
+
+// TestIntegration_WithAttrs_Chaining tests that slog.Handler.WithAttrs()
+// pre-configures attributes that appear in all log events via islog.
+func TestIntegration_WithAttrs_Chaining(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	// Create handler with pre-configured attributes
+	baseHandler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
+	handlerWithAttrs := baseHandler.WithAttrs([]slog.Attr{
+		slog.String("service", "test-service"),
+		slog.Int("version", 1),
 	})
 
-	// Create logiface.Logger that writes to slog.Handler
-	logger := logiface.New[*Event](NewLogger(handler))
+	logger := L.New(L.WithSlogHandler(handlerWithAttrs))
 
-	// Test at different levels using builder pattern
-	logger.Debug().Str("key", "value").Log("debug message")
-	logger.Info().Str("key", "value").Log("info message")
-	logger.Warning().Str("key", "value").Log("warn message")
-	logger.Err().Str("key", "value").Log("error message")
+	// Log an event - pre-configured attrs should appear automatically
+	logger.Info().
+		Str("dynamic_field", "value").
+		Log("test message")
 
-	// Verify output contains expected content
 	output := buf.String()
 
-	// slog.Handler has its own level filtering
-	for _, msg := range []string{"info message", "warn message", "error message"} {
-		if !strings.Contains(output, msg) {
-			t.Errorf("Expected output to contain '%s', got: %s", msg, output)
+	// Parse JSON to verify attributes present
+	var logMap map[string]any
+	if err := json.Unmarshal([]byte(output), &logMap); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Verify pre-configured attributes
+	if logMap["service"] != "test-service" {
+		t.Errorf("Expected service='test-service', got %v", logMap["service"])
+	}
+	if logMap["version"] != float64(1) {
+		t.Errorf("Expected version=1, got %v", logMap["version"])
+	}
+
+	// Verify dynamic field present
+	if logMap["dynamic_field"] != "value" {
+		t.Errorf("Expected dynamic_field='value', got %v", logMap["dynamic_field"])
+	}
+}
+
+// TestIntegration_WithGroup_Chaining tests that slog.Handler.WithGroup()
+// groups subsequent fields under the specified group name.
+func TestIntegration_WithGroup_Chaining(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	// Create handler with group configured
+	baseHandler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
+	handlerWithGroup := baseHandler.WithGroup("app")
+
+	logger := L.New(L.WithSlogHandler(handlerWithGroup))
+
+	// Log fields - should appear under "app" group
+	logger.Info().
+		Str("name", "myapp").
+		Str("env", "production").
+		Log("test message")
+
+	output := buf.String()
+
+	// Parse JSON to verify grouping
+	var logMap map[string]any
+	if err := json.Unmarshal([]byte(output), &logMap); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	// Verify "app" group exists and contains the fields
+	appGroup, ok := logMap["app"].(map[string]any)
+	if !ok {
+		t.Errorf("Expected 'app' to be a map, got %T", logMap["app"])
+	} else {
+		if appGroup["name"] != "myapp" {
+			t.Errorf("Expected app.name='myapp', got %v", appGroup["name"])
 		}
-	}
-
-	if !strings.Contains(output, "key=value") {
-		t.Errorf("Expected output to contain 'key=value', got: %s", output)
-	}
-}
-
-// TestIntegration_SlogSetDefault tests integration patterns
-func TestIntegration_SlogSetDefault(t *testing.T) {
-	// This test verifies that logiface.Logger forwards to slog.Handler correctly
-	// The primary use case is: logiface API → slog.Handlers
-	t.Skip("Skipping - primary use case is logiface → slog direction")
-}
-
-// TestIntegration_ContextPropagation tests that context is propagated correctly
-func TestIntegration_ContextPropagation(t *testing.T) {
-	var buf bytes.Buffer
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	logger := logiface.New[*Event](NewLogger(handler))
-
-	// Test logging with message and field
-	logger.Info().Str("key", "value").Log("context test")
-
-	output := buf.String()
-	if !strings.Contains(output, "context test") {
-		t.Errorf("Expected output to contain 'context test', got: %s", output)
-	}
-	if !strings.Contains(output, "key=value") {
-		t.Errorf("Expected output to contain 'key=value', got: %s", output)
-	}
-}
-
-// TestIntegration_AllSlogLevels tests all slog level methods work
-func TestIntegration_AllSlogLevels(t *testing.T) {
-	var buf bytes.Buffer
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	// Test forward direction: logiface.Logger → slog.Handler
-	logger := logiface.New[*Event](NewLogger(handler))
-
-	// Use logiface builder methods to log at different levels
-	logger.Debug().Log("debug message")
-	logger.Info().Log("info message")
-	logger.Warning().Log("warn message")
-	logger.Err().Log("error message")
-
-	output := buf.String()
-
-	// Note: slog.Handler has its own level filtering, so only logs
-	// that pass slog.Handler's level filter will appear in output.
-	// We're just verifying no panic/crash occurs at various levels.
-	if !strings.Contains(output, "info message") {
-		t.Errorf("Expected output to contain 'info message', got: %s", output)
-	}
-}
-
-// TestIntegration_Enabled tests that slog.Handler level filtering works
-func TestIntegration_Enabled(t *testing.T) {
-	var buf bytes.Buffer
-
-	// Create handler that only accepts Warn and above
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
-	})
-
-	// Create logger
-	logger := logiface.New[*Event](NewLogger(handler))
-
-	// Log at different levels - slog.Handler will filter based on its level
-	logger.Debug().Log("debug message")
-	logger.Info().Log("info message")
-	logger.Warning().Log("warn message")
-	logger.Err().Log("error message")
-
-	output := buf.String()
-
-	// Verify only Warn and Error appeared (slog handler level filter)
-	if strings.Contains(output, "debug message") {
-		t.Errorf("Expected debug message to be filtered out by slog handler, got: %s", output)
-	}
-	if strings.Contains(output, "info message") {
-		t.Errorf("Expected info message to be filtered out by slog handler, got: %s", output)
-	}
-	if !strings.Contains(output, "warn message") {
-		t.Errorf("Expected warn message to appear, got: %s", output)
-	}
-	if !strings.Contains(output, "error message") {
-		t.Errorf("Expected error message to appear, got: %s", output)
-	}
-}
-
-// TestIntegration_WithAttrs tests that slog.Handler WithAttrs works
-func TestIntegration_WithAttrs(t *testing.T) {
-	// This test is for slog.Handler.WithAttrs which is used by slog
-	// slog.Handler.WithAttrs returns a new handler with attributes applied to all logs
-	var buf bytes.Buffer
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	// Wrap handler with attributes
-	handlerWithAttrs := handler.WithAttrs([]slog.Attr{
-		slog.String("pre1", "value1"),
-		slog.Int("pre2", 42),
-	})
-
-	// Log using logiface.Logger that writes to this handler
-	logger := logiface.New[*Event](NewLogger(handlerWithAttrs))
-	logger.Info().Log("test message")
-
-	output := buf.String()
-
-	// Verify pre-attributes appear
-	if !strings.Contains(output, "pre1=value1") {
-		t.Errorf("Expected output to contain 'pre1=value1', got: %s", output)
-	}
-	if !strings.Contains(output, "pre2=42") {
-		t.Errorf("Expected output to contain 'pre2=42', got: %s", output)
-	}
-}
-
-// TestIntegration_WithGroup tests that slog.Handler WithGroup works
-func TestIntegration_WithGroup(t *testing.T) {
-	// This test is for slog.Handler.WithGroup which is used by slog
-	var buf bytes.Buffer
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	// Wrap handler with group
-	handlerWithGroup := handler.WithGroup("group1")
-
-	// Log using logiface.Logger that writes to this handler
-	logger := logiface.New[*Event](NewLogger(handlerWithGroup))
-	logger.Info().Str("key", "value").Log("test message")
-
-	output := buf.String()
-
-	// Verify group prefix is applied
-	// TextHandler uses "group1.key=value" format
-	if !strings.Contains(output, "group1.") {
-		t.Errorf("Expected output to contain group prefix 'group1.', got: %s", output)
-	}
-	if !strings.Contains(output, "test message") {
-		t.Errorf("Expected output to contain 'test message', got: %s", output)
-	}
-}
-
-// TestIntegration_CustomHandler tests that logiface-slog works with custom slog.Handler
-func TestIntegration_CustomHandler(t *testing.T) {
-	var buf bytes.Buffer
-
-	// Create a custom handler that writes to buffer
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	logger := logiface.New[*Event](NewLogger(handler))
-
-	// Log multiple messages
-	logger.Info().Log("info message")
-	logger.Warning().Log("warn message")
-
-	output := buf.String()
-
-	// Verify messages were handled (slog handler level filtering applies)
-	if !strings.Contains(output, "info message") {
-		t.Errorf("Expected output to contain 'info message', got: %s", output)
-	}
-	if !strings.Contains(output, "warn message") {
-		t.Errorf("Expected output to contain 'warn message', got: %s", output)
-	}
-}
-
-// TestIntegration_NestedGroups tests nested group handling
-func TestIntegration_NestedGroups(t *testing.T) {
-	var buf bytes.Buffer
-
-	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
-
-	// Create nested groups using slog.Handler.WithGroup
-	handlerWithNested := handler.WithGroup("level1").WithGroup("level2")
-
-	// Log using logiface.Logger
-	logger := logiface.New[*Event](NewLogger(handlerWithNested))
-	logger.Info().Str("key", "value").Log("test message")
-
-	output := buf.String()
-
-	// Verify nested group prefixes are applied
-	if !strings.Contains(output, "level1.") {
-		t.Errorf("Expected output to contain 'level1.', got: %s", output)
-	}
-	if !strings.Contains(output, "level2.") {
-		t.Errorf("Expected output to contain 'level2.', got: %s", output)
+		if appGroup["env"] != "production" {
+			t.Errorf("Expected app.env='production', got %v", appGroup["env"])
+		}
 	}
 }

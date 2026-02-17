@@ -208,6 +208,11 @@ func (x *mockComplexEvent) AddRawJSON(key string, val json.RawMessage) bool {
 	return true
 }
 
+func (x *mockComplexEvent) AddGroup(name string) bool {
+	x.FieldValues = append(x.FieldValues, mockComplexEventField{Type: `AddGroup`, Value: name})
+	return true
+}
+
 func (x *mockComplexEvent) mustEmbedUnimplementedEvent() {}
 
 func (x *mockComplexWriter) Write(event *mockComplexEvent) error {

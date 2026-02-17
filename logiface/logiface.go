@@ -99,6 +99,11 @@ type (
 		// AddRawJSON adds a field of type json.RawMessage.
 		// If not implemented, AddField will be used instead.
 		AddRawJSON(key string, val json.RawMessage) bool
+		// AddGroup adds a group context to the event, effectively nesting subsequent
+		// fields under the group name. It's an optional optimisation.
+		// If not implemented, consumers (like SlogHandler) may fall back to
+		// flattening keys (e.g. "group.key").
+		AddGroup(name string) bool
 
 		mustEmbedUnimplementedEvent()
 	}
@@ -281,6 +286,8 @@ func (UnimplementedEvent) AddInt64(string, int64) bool { return false }
 func (UnimplementedEvent) AddUint64(string, uint64) bool { return false }
 
 func (UnimplementedEvent) AddRawJSON(string, json.RawMessage) bool { return false }
+
+func (UnimplementedEvent) AddGroup(string) bool { return false }
 
 func (UnimplementedEvent) mustEmbedUnimplementedEvent() {}
 

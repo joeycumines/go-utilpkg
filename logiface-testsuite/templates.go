@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/joeycumines/logiface"
 	"math"
 	"time"
+
+	"github.com/joeycumines/logiface"
 )
 
 var eventTemplates = []func(in logiface.Event) (out Event){
@@ -52,7 +53,7 @@ func eventTemplate1(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = 25.5
+		out.Fields[`float32_1`] = float32(25.5)
 	}
 
 	if v := time.Unix(0, 1609457732123456789); in.AddTime(`time_1`, v) {
@@ -172,7 +173,7 @@ func eventTemplate3(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = 25.5
+		out.Fields[`float32_1`] = float32(25.5)
 	}
 
 	if in.AddString(`string_1`, `some string`) {
@@ -232,7 +233,7 @@ func eventTemplate5(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = 25.5
+		out.Fields[`float32_1`] = float32(25.5)
 	}
 
 	return
@@ -257,8 +258,8 @@ func eventTemplate6(in logiface.Event) (out Event) {
 	in.AddField(`int_1`, -100)
 	out.Fields[`int_1`] = -100.0
 
-	in.AddField(`float32_1`, -3.7)
-	out.Fields[`float32_1`] = -3.7
+	in.AddField(`float32_1`, float32(-3.7))
+	out.Fields[`float32_1`] = float32(-3.7)
 
 	return
 }
@@ -291,7 +292,7 @@ func eventTemplate7(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = 25.5
+		out.Fields[`float32_1`] = float32(25.5)
 	}
 
 	return
@@ -319,7 +320,7 @@ func eventTemplate8(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 3.14) {
-		out.Fields[`float32_1`] = 3.14
+		out.Fields[`float32_1`] = float32(3.14)
 	}
 
 	return
@@ -371,7 +372,7 @@ func eventTemplate10(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 2.71) {
-		out.Fields[`float32_1`] = 2.71
+		out.Fields[`float32_1`] = float32(2.71)
 	}
 
 	if in.AddString(`string_1`, `another string`) {

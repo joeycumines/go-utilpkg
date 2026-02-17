@@ -99,4 +99,6 @@ func (x *arrayFields[E, P]) AddRawJSON(_ string, val json.RawMessage) (ok bool) 
 	return
 }
 
+func (x *arrayFields[E, P]) AddGroup(_ string) bool { return false }
+
 func (x *arrayFields[E, P]) mustEmbedUnimplementedEvent() {}

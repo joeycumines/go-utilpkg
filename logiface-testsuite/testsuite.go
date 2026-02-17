@@ -7,14 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	diff "github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
-	"github.com/joeycumines/logiface"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	diff "github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/joeycumines/logiface"
 )
 
 type (
@@ -426,6 +427,24 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 				panic(err)
 			}
 			return j
+		case float32:
+			return float64(v)
+		case int:
+			return float64(v)
+		case int8:
+			return float64(v)
+		case int16:
+			return float64(v)
+		case int32:
+			return float64(v)
+		case uint:
+			return float64(v)
+		case uint8:
+			return float64(v)
+		case uint16:
+			return float64(v)
+		case uint32:
+			return float64(v)
 		}
 		return v
 	}

@@ -800,6 +800,36 @@ func (x *Builder[E]) Float64(key string, val float64) *Builder[E] {
 	return x
 }
 
+func (x modifierMethods[E]) Group(event E, name string) error {
+	if !event.Level().Enabled() {
+		return ErrDisabled
+	}
+	if !event.AddGroup(name) {
+		// Fallback for when AddGroup is not supported?
+		// SlogHandler users should ensure Event supports it.
+		// Ignoring it is safer than panic?
+	}
+	return nil
+}
+
+// Group adds a group context to the event, effectively nesting subsequent
+// fields under the group name.
+func (x *Context[E]) Group(name string) *Context[E] {
+	if x.Enabled() {
+		x.add(func(event E) error { return x.methods.Group(event, name) })
+	}
+	return x
+}
+
+// Group adds a group context to the event, effectively nesting subsequent
+// fields under the group name.
+func (x *Builder[E]) Group(name string) *Builder[E] {
+	if x.Enabled() {
+		_ = x.methods.Group(x.Event, name)
+	}
+	return x
+}
+
 func (x modifierMethods[E]) Int64(event E, key string, val int64) error {
 	if !event.Level().Enabled() {
 		return ErrDisabled
