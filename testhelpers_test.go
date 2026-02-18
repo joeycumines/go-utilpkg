@@ -187,9 +187,9 @@ func testGrpcDescriptorSetBytes() []byte {
 //   - BidiStream(stream Item) returns (stream Item)            — bidi-streaming
 func testGrpcFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("testgrpc.proto"),
-		Package: proto.String("testgrpc"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("testgrpc.proto"),
+		Package: new("testgrpc"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			echoRequestDesc(),
 			echoResponseDesc(),
@@ -203,14 +203,14 @@ func testGrpcFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 
 func echoRequestDesc() *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
-		Name: proto.String("EchoRequest"),
+		Name: new("EchoRequest"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			{
-				Name:     proto.String("message"),
+				Name:     new("message"),
 				Number:   proto.Int32(1),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("message"),
+				JsonName: new("message"),
 			},
 		},
 	}
@@ -218,21 +218,21 @@ func echoRequestDesc() *descriptorpb.DescriptorProto {
 
 func echoResponseDesc() *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
-		Name: proto.String("EchoResponse"),
+		Name: new("EchoResponse"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			{
-				Name:     proto.String("message"),
+				Name:     new("message"),
 				Number:   proto.Int32(1),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("message"),
+				JsonName: new("message"),
 			},
 			{
-				Name:     proto.String("code"),
+				Name:     new("code"),
 				Number:   proto.Int32(2),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("code"),
+				JsonName: new("code"),
 			},
 		},
 	}
@@ -240,21 +240,21 @@ func echoResponseDesc() *descriptorpb.DescriptorProto {
 
 func itemDesc() *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
-		Name: proto.String("Item"),
+		Name: new("Item"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			{
-				Name:     proto.String("id"),
+				Name:     new("id"),
 				Number:   proto.Int32(1),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("id"),
+				JsonName: new("id"),
 			},
 			{
-				Name:     proto.String("name"),
+				Name:     new("name"),
 				Number:   proto.Int32(2),
 				Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-				JsonName: proto.String("name"),
+				JsonName: new("name"),
 			},
 		},
 	}
@@ -262,31 +262,31 @@ func itemDesc() *descriptorpb.DescriptorProto {
 
 func testServiceDesc() *descriptorpb.ServiceDescriptorProto {
 	return &descriptorpb.ServiceDescriptorProto{
-		Name: proto.String("TestService"),
+		Name: new("TestService"),
 		Method: []*descriptorpb.MethodDescriptorProto{
 			{
-				Name:       proto.String("Echo"),
-				InputType:  proto.String(".testgrpc.EchoRequest"),
-				OutputType: proto.String(".testgrpc.EchoResponse"),
+				Name:       new("Echo"),
+				InputType:  new(".testgrpc.EchoRequest"),
+				OutputType: new(".testgrpc.EchoResponse"),
 			},
 			{
-				Name:            proto.String("ServerStream"),
-				InputType:       proto.String(".testgrpc.EchoRequest"),
-				OutputType:      proto.String(".testgrpc.Item"),
-				ServerStreaming: proto.Bool(true),
+				Name:            new("ServerStream"),
+				InputType:       new(".testgrpc.EchoRequest"),
+				OutputType:      new(".testgrpc.Item"),
+				ServerStreaming: new(true),
 			},
 			{
-				Name:            proto.String("ClientStream"),
-				InputType:       proto.String(".testgrpc.Item"),
-				OutputType:      proto.String(".testgrpc.EchoResponse"),
-				ClientStreaming: proto.Bool(true),
+				Name:            new("ClientStream"),
+				InputType:       new(".testgrpc.Item"),
+				OutputType:      new(".testgrpc.EchoResponse"),
+				ClientStreaming: new(true),
 			},
 			{
-				Name:            proto.String("BidiStream"),
-				InputType:       proto.String(".testgrpc.Item"),
-				OutputType:      proto.String(".testgrpc.Item"),
-				ClientStreaming: proto.Bool(true),
-				ServerStreaming: proto.Bool(true),
+				Name:            new("BidiStream"),
+				InputType:       new(".testgrpc.Item"),
+				OutputType:      new(".testgrpc.Item"),
+				ClientStreaming: new(true),
+				ServerStreaming: new(true),
 			},
 		},
 	}

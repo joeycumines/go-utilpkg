@@ -70,7 +70,7 @@ func (m *Module) statusObject() *goja.Object {
 		}
 
 		details := make([]goja.Value, 0, length)
-		for i := 0; i < length; i++ {
+		for i := range length {
 			elemVal := arrObj.Get(fmt.Sprintf("%d", i))
 			if elemVal != nil && !goja.IsUndefined(elemVal) {
 				details = append(details, elemVal)

@@ -67,7 +67,7 @@ func TestStress_JSClient100ConcurrentRPCs(t *testing.T) {
 
 	r := env.runtime.Get("results")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Nil(t, rObj["error"])
 	assert.Equal(t, int64(100), rObj["count"])
 	assert.Equal(t, "echo:stress-0", rObj["first"])
@@ -309,7 +309,7 @@ func TestStress_HeapAllocationCheck(t *testing.T) {
 
 	r := env.runtime.Get("results")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Equal(t, int64(500), rObj["completed"])
 
 	// GC and check heap isn't leaking.

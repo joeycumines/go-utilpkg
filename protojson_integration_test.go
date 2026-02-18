@@ -150,7 +150,7 @@ func TestProtojsonIntegration_UnmarshalRequest(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "processed: test input", resultObj["message"])
 	assert.Equal(t, int64(123), resultObj["code"])
 }
@@ -319,7 +319,7 @@ func TestProtojsonIntegration_RoundtripThroughJSON(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "roundtrip: ping", resultObj["message"])
 	assert.Equal(t, int64(42), resultObj["code"])
 	assert.Contains(t, resultObj["json"].(string), "roundtrip: ping")

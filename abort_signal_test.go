@@ -53,7 +53,7 @@ func TestAbort_BeforeUnaryRPC(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -100,7 +100,7 @@ func TestAbort_BeforeServerStreamRPC(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -141,7 +141,7 @@ func TestAbort_BeforeClientStreamRPC(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -182,7 +182,7 @@ func TestAbort_BeforeBidiStreamRPC(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -233,7 +233,7 @@ func TestAbort_DuringUnarySend(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -305,7 +305,7 @@ func TestAbort_DuringStreamReceive(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
 }
@@ -398,13 +398,13 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 
 	sendErr := env.runtime.Get("sendError")
 	require.NotNil(t, sendErr)
-	sendObj := sendErr.Export().(map[string]interface{})
+	sendObj := sendErr.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", sendObj["name"])
 	assert.Equal(t, int64(1), sendObj["code"]) // CANCELLED
 
 	recvErr := env.runtime.Get("recvError")
 	require.NotNil(t, recvErr)
-	recvObj := recvErr.Export().(map[string]interface{})
+	recvObj := recvErr.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", recvObj["name"])
 	assert.Equal(t, int64(1), recvObj["code"]) // CANCELLED
 }
@@ -481,13 +481,13 @@ func TestAbort_MultipleSignalsSameClient(t *testing.T) {
 
 	r1 := env.runtime.Get("result1")
 	require.NotNil(t, r1)
-	r1Obj := r1.Export().(map[string]interface{})
+	r1Obj := r1.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", r1Obj["name"])
 	assert.Equal(t, int64(1), r1Obj["code"]) // CANCELLED
 
 	r2 := env.runtime.Get("result2")
 	require.NotNil(t, r2)
-	r2Obj := r2.Export().(map[string]interface{})
+	r2Obj := r2.Export().(map[string]any)
 	assert.Equal(t, "fast:quick", r2Obj["message"])
 }
 
@@ -554,13 +554,13 @@ func TestAbort_SharedSignalAcrossRPCs(t *testing.T) {
 
 	r1 := env.runtime.Get("result1")
 	require.NotNil(t, r1)
-	r1Obj := r1.Export().(map[string]interface{})
+	r1Obj := r1.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", r1Obj["name"])
 	assert.Equal(t, int64(1), r1Obj["code"]) // CANCELLED
 
 	r2 := env.runtime.Get("result2")
 	require.NotNil(t, r2)
-	r2Obj := r2.Export().(map[string]interface{})
+	r2Obj := r2.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", r2Obj["name"])
 	assert.Equal(t, int64(1), r2Obj["code"]) // CANCELLED
 }
@@ -613,7 +613,7 @@ func TestAbort_RacesWithCompletion(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	// Either success or cancelled — both are valid outcomes.
 	if resultObj["success"] == true {
 		assert.Equal(t, "completed", resultObj["message"])

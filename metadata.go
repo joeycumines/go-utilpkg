@@ -161,7 +161,7 @@ func (m *Module) metadataToGo(val goja.Value) metadata.MD {
 		}
 		length := int(lengthVal.ToInteger())
 		vals := make([]string, 0, length)
-		for i := 0; i < length; i++ {
+		for i := range length {
 			elemVal := arrObj.Get(strconv.Itoa(i))
 			if elemVal != nil && !goja.IsUndefined(elemVal) {
 				vals = append(vals, elemVal.String())

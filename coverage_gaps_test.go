@@ -45,89 +45,89 @@ func complexTestDescriptorSetBytes() []byte {
 
 func complexTestFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("testcomplex.proto"),
-		Package: proto.String("testcomplex"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("testcomplex.proto"),
+		Package: new("testcomplex"),
+		Syntax:  new("proto3"),
 		EnumType: []*descriptorpb.EnumDescriptorProto{
 			{
-				Name: proto.String("Status"),
+				Name: new("Status"),
 				Value: []*descriptorpb.EnumValueDescriptorProto{
-					{Name: proto.String("UNKNOWN"), Number: proto.Int32(0)},
-					{Name: proto.String("ACTIVE"), Number: proto.Int32(1)},
-					{Name: proto.String("INACTIVE"), Number: proto.Int32(2)},
+					{Name: new("UNKNOWN"), Number: proto.Int32(0)},
+					{Name: new("ACTIVE"), Number: proto.Int32(1)},
+					{Name: new("INACTIVE"), Number: proto.Int32(2)},
 				},
 			},
 		},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("Address"),
+				Name: new("Address"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("street"),
+						Name:     new("street"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("street"),
+						JsonName: new("street"),
 					},
 				},
 			},
 			{
-				Name: proto.String("Person"),
+				Name: new("Person"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("name"),
+						Name:     new("name"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("name"),
+						JsonName: new("name"),
 					},
 					{
-						Name:     proto.String("status"),
+						Name:     new("status"),
 						Number:   proto.Int32(2),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_ENUM.Enum(),
-						TypeName: proto.String(".testcomplex.Status"),
+						TypeName: new(".testcomplex.Status"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("status"),
+						JsonName: new("status"),
 					},
 					{
-						Name:     proto.String("address"),
+						Name:     new("address"),
 						Number:   proto.Int32(3),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-						TypeName: proto.String(".testcomplex.Address"),
+						TypeName: new(".testcomplex.Address"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("address"),
+						JsonName: new("address"),
 					},
 					// Oneof fields
 					{
-						Name:       proto.String("email"),
+						Name:       new("email"),
 						Number:     proto.Int32(4),
 						Type:       descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:      descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName:   proto.String("email"),
+						JsonName:   new("email"),
 						OneofIndex: proto.Int32(0),
 					},
 					{
-						Name:       proto.String("phone"),
+						Name:       new("phone"),
 						Number:     proto.Int32(5),
 						Type:       descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:      descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName:   proto.String("phone"),
+						JsonName:   new("phone"),
 						OneofIndex: proto.Int32(0),
 					},
 				},
 				OneofDecl: []*descriptorpb.OneofDescriptorProto{
-					{Name: proto.String("contact")},
+					{Name: new("contact")},
 				},
 			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("PersonService"),
+				Name: new("PersonService"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
-						Name:       proto.String("GetPerson"),
-						InputType:  proto.String(".testcomplex.Address"),
-						OutputType: proto.String(".testcomplex.Person"),
+						Name:       new("GetPerson"),
+						InputType:  new(".testcomplex.Address"),
+						OutputType: new(".testcomplex.Person"),
 					},
 				},
 			},
@@ -137,39 +137,39 @@ func complexTestFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 
 func proto2TestFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("testproto2.proto"),
-		Package: proto.String("testproto2"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("testproto2.proto"),
+		Package: new("testproto2"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("LegacyMessage"),
+				Name: new("LegacyMessage"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:         proto.String("value"),
+						Name:         new("value"),
 						Number:       proto.Int32(1),
 						Type:         descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 						Label:        descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName:     proto.String("value"),
-						DefaultValue: proto.String("42"),
+						JsonName:     new("value"),
+						DefaultValue: new("42"),
 					},
 					{
-						Name:     proto.String("label"),
+						Name:     new("label"),
 						Number:   proto.Int32(2),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("label"),
+						JsonName: new("label"),
 					},
 				},
 			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("LegacyService"),
+				Name: new("LegacyService"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
-						Name:       proto.String("GetLegacy"),
-						InputType:  proto.String(".testproto2.LegacyMessage"),
-						OutputType: proto.String(".testproto2.LegacyMessage"),
+						Name:       new("GetLegacy"),
+						InputType:  new(".testproto2.LegacyMessage"),
+						OutputType: new(".testproto2.LegacyMessage"),
 					},
 				},
 			},
@@ -220,15 +220,15 @@ func TestReflection_DescribeType_MessageKindField(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testcomplex.Person", desc["name"])
 
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	require.Len(t, fields, 5) // name, status, address, email, phone
 
-	fieldMap := make(map[string]map[string]interface{})
+	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
-		fObj := f.(map[string]interface{})
+		fObj := f.(map[string]any)
 		fieldMap[fObj["name"].(string)] = fObj
 	}
 
@@ -245,11 +245,11 @@ func TestReflection_DescribeType_MessageKindField(t *testing.T) {
 	assert.Equal(t, "testcomplex.Status", statusField["enumType"])
 
 	// Oneofs - should have oneof "contact" with fields "email" and "phone".
-	oneofs := desc["oneofs"].([]interface{})
+	oneofs := desc["oneofs"].([]any)
 	require.Len(t, oneofs, 1)
-	oneof := oneofs[0].(map[string]interface{})
+	oneof := oneofs[0].(map[string]any)
 	assert.Equal(t, "contact", oneof["name"])
-	oneofFields := oneof["fields"].([]interface{})
+	oneofFields := oneof["fields"].([]any)
 	require.Len(t, oneofFields, 2)
 	assert.Equal(t, "email", oneofFields[0])
 	assert.Equal(t, "phone", oneofFields[1])
@@ -288,15 +288,15 @@ func TestReflection_DescribeType_HasDefaultField(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testproto2.LegacyMessage", desc["name"])
 
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	require.Len(t, fields, 2)
 
-	fieldMap := make(map[string]map[string]interface{})
+	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
-		fObj := f.(map[string]interface{})
+		fObj := f.(map[string]any)
 		fieldMap[fObj["name"].(string)] = fObj
 	}
 
@@ -586,7 +586,7 @@ func TestServerInterceptor_ChainReturnsNonCallable(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 	assert.Contains(t, resultObj["message"].(string), "interceptor chain")
 }
@@ -629,7 +629,7 @@ func TestServerInterceptor_ChainThrowsError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	// The interceptor factory threw → Internal error.
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
@@ -1097,7 +1097,7 @@ func TestServerStreamRPC_WithHeaderTrailerCallbacks(t *testing.T) {
 
 	items := env.runtime.Get("items")
 	require.NotNil(t, items)
-	arr := items.Export().([]interface{})
+	arr := items.Export().([]any)
 	assert.Equal(t, 1, len(arr))
 	assert.Equal(t, "item1", arr[0])
 }
@@ -1288,7 +1288,7 @@ func TestBidiStreamRPC_WithHeaderTrailerCallbacks(t *testing.T) {
 
 	items := env.runtime.Get("received")
 	require.NotNil(t, items)
-	arr := items.Export().([]interface{})
+	arr := items.Export().([]any)
 	assert.Equal(t, 1, len(arr))
 	assert.Equal(t, "echo-alpha", arr[0])
 }
@@ -1430,13 +1430,13 @@ func TestReflection_DescribeComplexService(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testcomplex.PersonService", desc["name"])
 
-	methods := desc["methods"].([]interface{})
+	methods := desc["methods"].([]any)
 	require.Len(t, methods, 1)
 
-	mObj := methods[0].(map[string]interface{})
+	mObj := methods[0].(map[string]any)
 	assert.Equal(t, "GetPerson", mObj["name"])
 	assert.Equal(t, "testcomplex.Address", mObj["inputType"])
 	assert.Equal(t, "testcomplex.Person", mObj["outputType"])
@@ -1484,7 +1484,7 @@ func TestReflection_ListServicesWithComplex(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	serviceList := result.Export().([]interface{})
+	serviceList := result.Export().([]any)
 
 	var names []string
 	for _, s := range serviceList {
@@ -1527,12 +1527,12 @@ func TestReflection_DescribeType_Address(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testcomplex.Address", desc["name"])
 
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	require.Len(t, fields, 1)
-	field := fields[0].(map[string]interface{})
+	field := fields[0].(map[string]any)
 	assert.Equal(t, "street", field["name"])
 	assert.Equal(t, "string", field["type"])
 }
@@ -1753,7 +1753,7 @@ func TestServerUnaryHandler_ReturnsUndefined(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 	assert.Contains(t, resultObj["message"].(string), "nil/undefined")
 }
@@ -1790,7 +1790,7 @@ func TestServerUnaryHandler_ReturnsNull(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 	assert.Contains(t, resultObj["message"].(string), "nil/undefined")
 }
@@ -1834,7 +1834,7 @@ func TestServerUnaryHandler_ReturnsNonProtobuf(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 	assert.Contains(t, resultObj["message"].(string), "handler response")
 }
@@ -1879,7 +1879,7 @@ func TestServerUnaryHandler_AsyncReturnsNull(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1923,7 +1923,7 @@ func TestServerUnaryHandler_AsyncReturnsNonProtobuf(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -1970,7 +1970,7 @@ func TestServerStreamHandler_ThrowsError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -2019,7 +2019,7 @@ func TestServerStreamHandler_AsyncRejects(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(7), resultObj["code"])
 }
 
@@ -2292,7 +2292,7 @@ func TestClientStreamHandler_ReturnsNonProtobuf(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -2336,7 +2336,7 @@ func TestBidiHandler_ThrowsSyncError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -2382,7 +2382,7 @@ func TestBidiHandler_AsyncRejectsWithGrpcError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(16), resultObj["code"])
 }
 
@@ -2471,7 +2471,7 @@ func TestServerUnaryHandler_ThrowsGrpcError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(3), resultObj["code"])
 	assert.Contains(t, resultObj["message"].(string), "invalid argument")
 }
@@ -2542,7 +2542,7 @@ func TestServerStreamRPC_WithSignalAbort(t *testing.T) {
 	// The main check is that it doesn't hang.
 	result := env.runtime.Get("error")
 	if result != nil && !isGojaUndefined(result) {
-		resultObj := result.Export().(map[string]interface{})
+		resultObj := result.Export().(map[string]any)
 		assert.Equal(t, int64(codes.Canceled), resultObj["code"])
 	}
 }
@@ -2811,7 +2811,7 @@ func TestClientStreamHandler_ThrowsSyncError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -2861,7 +2861,7 @@ func TestClientStreamHandler_AsyncReturnsNull(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, int64(codes.Internal), resultObj["code"])
 }
 
@@ -2916,15 +2916,15 @@ func TestReflection_DescribeType_LegacyMessage(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testproto2.LegacyMessage", desc["name"])
 
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	require.Len(t, fields, 2)
 
-	fieldMap := make(map[string]map[string]interface{})
+	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
-		fObj := f.(map[string]interface{})
+		fObj := f.(map[string]any)
 		fieldMap[fObj["name"].(string)] = fObj
 	}
 
@@ -2946,19 +2946,19 @@ func TestReflection_DescribeType_LegacyMessage(t *testing.T) {
 func transitiveDepsDescriptorSetBytes() []byte {
 	// File 1: base types
 	baseFile := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("base.proto"),
-		Package: proto.String("testdeps"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("base.proto"),
+		Package: new("testdeps"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("BaseMessage"),
+				Name: new("BaseMessage"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("id"),
+						Name:     new("id"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("id"),
+						JsonName: new("id"),
 					},
 				},
 			},
@@ -2967,33 +2967,33 @@ func transitiveDepsDescriptorSetBytes() []byte {
 
 	// File 2: depends on base.proto
 	dependentFile := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("dependent.proto"),
-		Package:    proto.String("testdeps"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("dependent.proto"),
+		Package:    new("testdeps"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"base.proto"},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("DependentMessage"),
+				Name: new("DependentMessage"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("base"),
+						Name:     new("base"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-						TypeName: proto.String(".testdeps.BaseMessage"),
+						TypeName: new(".testdeps.BaseMessage"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("base"),
+						JsonName: new("base"),
 					},
 				},
 			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("DependentService"),
+				Name: new("DependentService"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
-						Name:       proto.String("GetDependent"),
-						InputType:  proto.String(".testdeps.BaseMessage"),
-						OutputType: proto.String(".testdeps.DependentMessage"),
+						Name:       new("GetDependent"),
+						InputType:  new(".testdeps.BaseMessage"),
+						OutputType: new(".testdeps.DependentMessage"),
 					},
 				},
 			},
@@ -3043,12 +3043,12 @@ func TestReflection_TransitiveDependencyResolution(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testdeps.DependentMessage", desc["name"])
 
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	require.Len(t, fields, 1)
-	field := fields[0].(map[string]interface{})
+	field := fields[0].(map[string]any)
 	assert.Equal(t, "base", field["name"])
 	assert.Equal(t, "message", field["type"])
 	assert.Equal(t, "testdeps.BaseMessage", field["messageType"])
@@ -3086,12 +3086,12 @@ func TestReflection_TransitiveDependencyResolution_Service(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testdeps.DependentService", desc["name"])
 
-	methods := desc["methods"].([]interface{})
+	methods := desc["methods"].([]any)
 	require.Len(t, methods, 1)
-	mObj := methods[0].(map[string]interface{})
+	mObj := methods[0].(map[string]any)
 	assert.Equal(t, "GetDependent", mObj["name"])
 	assert.Equal(t, "testdeps.BaseMessage", mObj["inputType"])
 	assert.Equal(t, "testdeps.DependentMessage", mObj["outputType"])

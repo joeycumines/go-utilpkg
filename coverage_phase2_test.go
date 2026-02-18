@@ -94,19 +94,19 @@ func withLoopRunning(t *testing.T, env *grpcTestEnv, timeout time.Duration) cont
 
 func phase2BaseFileDescriptor() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("phase2_base.proto"),
-		Package: proto.String("phase2"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("phase2_base.proto"),
+		Package: new("phase2"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("BaseMsg"),
+				Name: new("BaseMsg"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("id"),
+						Name:     new("id"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("id"),
+						JsonName: new("id"),
 					},
 				},
 			},
@@ -116,33 +116,33 @@ func phase2BaseFileDescriptor() *descriptorpb.FileDescriptorProto {
 
 func phase2DepFileDescriptor() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("phase2_dep.proto"),
-		Package:    proto.String("phase2"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("phase2_dep.proto"),
+		Package:    new("phase2"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"phase2_base.proto"},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("DepMsg"),
+				Name: new("DepMsg"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("base"),
+						Name:     new("base"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-						TypeName: proto.String(".phase2.BaseMsg"),
+						TypeName: new(".phase2.BaseMsg"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("base"),
+						JsonName: new("base"),
 					},
 				},
 			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("DepService"),
+				Name: new("DepService"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
-						Name:       proto.String("Get"),
-						InputType:  proto.String(".phase2.BaseMsg"),
-						OutputType: proto.String(".phase2.DepMsg"),
+						Name:       new("Get"),
+						InputType:  new(".phase2.BaseMsg"),
+						OutputType: new(".phase2.DepMsg"),
 					},
 				},
 			},
@@ -589,9 +589,9 @@ func TestDoDescribeService_ProtodescError(t *testing.T) {
 
 	// Return a file descriptor with an invalid dependency reference.
 	badFile := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("bad.proto"),
-		Package:    proto.String("bad"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("bad.proto"),
+		Package:    new("bad"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"nonexistent.proto"}, // References missing file
 	}
 
@@ -662,9 +662,9 @@ func TestDoDescribeType_ProtodescError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	badFile := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("bad2.proto"),
-		Package:    proto.String("bad2"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("bad2.proto"),
+		Package:    new("bad2"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"also_nonexistent.proto"},
 	}
 
@@ -771,26 +771,26 @@ func TestToWrappedMessage_SlowPathSuccess(t *testing.T) {
 	// anypb.Any is a generated (non-dynamicpb) proto.Message.
 	// We need a descriptor for Any. Load a descriptor that has google.protobuf.Any.
 	anyFDP := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("phase2_any.proto"),
-		Package: proto.String("phase2any"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("phase2_any.proto"),
+		Package: new("phase2any"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("SimpleMsg"),
+				Name: new("SimpleMsg"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("type_url"),
+						Name:     new("type_url"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("typeUrl"),
+						JsonName: new("typeUrl"),
 					},
 					{
-						Name:     proto.String("value"),
+						Name:     new("value"),
 						Number:   proto.Int32(2),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_BYTES.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("value"),
+						JsonName: new("value"),
 					},
 				},
 			},
@@ -2066,19 +2066,19 @@ func TestServerStreamHandler_ToWrappedMessageError(t *testing.T) {
 func TestFetchFileDescriptor_MultiLevelTransitiveDeps(t *testing.T) {
 	// File C (leaf)
 	fileC := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("level_c.proto"),
-		Package: proto.String("multilevel"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("level_c.proto"),
+		Package: new("multilevel"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("MsgC"),
+				Name: new("MsgC"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("val"),
+						Name:     new("val"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("val"),
+						JsonName: new("val"),
 					},
 				},
 			},
@@ -2087,21 +2087,21 @@ func TestFetchFileDescriptor_MultiLevelTransitiveDeps(t *testing.T) {
 
 	// File B imports File C
 	fileB := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("level_b.proto"),
-		Package:    proto.String("multilevel"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("level_b.proto"),
+		Package:    new("multilevel"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"level_c.proto"},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("MsgB"),
+				Name: new("MsgB"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("c"),
+						Name:     new("c"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-						TypeName: proto.String(".multilevel.MsgC"),
+						TypeName: new(".multilevel.MsgC"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("c"),
+						JsonName: new("c"),
 					},
 				},
 			},
@@ -2110,33 +2110,33 @@ func TestFetchFileDescriptor_MultiLevelTransitiveDeps(t *testing.T) {
 
 	// File A imports File B (and transitively C)
 	fileA := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("level_a.proto"),
-		Package:    proto.String("multilevel"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("level_a.proto"),
+		Package:    new("multilevel"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"level_b.proto"},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("MsgA"),
+				Name: new("MsgA"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("b"),
+						Name:     new("b"),
 						Number:   proto.Int32(1),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-						TypeName: proto.String(".multilevel.MsgB"),
+						TypeName: new(".multilevel.MsgB"),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-						JsonName: proto.String("b"),
+						JsonName: new("b"),
 					},
 				},
 			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("MultiSvc"),
+				Name: new("MultiSvc"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
-						Name:       proto.String("Do"),
-						InputType:  proto.String(".multilevel.MsgA"),
-						OutputType: proto.String(".multilevel.MsgA"),
+						Name:       new("Do"),
+						InputType:  new(".multilevel.MsgA"),
+						OutputType: new(".multilevel.MsgA"),
 					},
 				},
 			},

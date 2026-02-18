@@ -20,7 +20,6 @@ import (
 	grpcmetadata "google.golang.org/grpc/metadata"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
@@ -691,9 +690,9 @@ func TestPhase3_FetchFileDescriptor_TransitiveExtraFile(t *testing.T) {
 
 	// Extra file: returned alongside base.proto. Its name is NOT pre-resolved.
 	extraFile := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("phase3_extra.proto"),
-		Package: proto.String("phase3extra"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("phase3_extra.proto"),
+		Package: new("phase3extra"),
+		Syntax:  new("proto3"),
 	}
 	extraBytes := mustMarshalFDP(extraFile)
 
