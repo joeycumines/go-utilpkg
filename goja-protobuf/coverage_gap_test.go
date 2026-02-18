@@ -27,13 +27,13 @@ import (
 func buildExtensionType(t *testing.T) (protoreflect.ExtensionType, protoreflect.FullName, protoreflect.FullName, protoreflect.FieldNumber) {
 	t.Helper()
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("exttest.proto"),
-		Package: proto.String("exttest"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("exttest.proto"),
+		Package: new("exttest"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("ExtMsg"),
+			Name: new("ExtMsg"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:   proto.String("id"),
+				Name:   new("id"),
 				Number: proto.Int32(1),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
@@ -44,10 +44,10 @@ func buildExtensionType(t *testing.T) (protoreflect.ExtensionType, protoreflect.
 			}},
 		}},
 		Extension: []*descriptorpb.FieldDescriptorProto{{
-			Name:     proto.String("my_ext_field"),
+			Name:     new("my_ext_field"),
 			Number:   proto.Int32(100),
 			Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
-			Extendee: proto.String(".exttest.ExtMsg"),
+			Extendee: new(".exttest.ExtMsg"),
 			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 		}},
 	}
@@ -63,29 +63,29 @@ func buildExtensionType(t *testing.T) (protoreflect.ExtensionType, protoreflect.
 func multiKeyMapFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 	mkEntry := func(name string, keyType descriptorpb.FieldDescriptorProto_Type) *descriptorpb.DescriptorProto {
 		return &descriptorpb.DescriptorProto{
-			Name: proto.String(name),
+			Name: new(name),
 			Field: []*descriptorpb.FieldDescriptorProto{
-				{Name: proto.String("key"), Number: proto.Int32(1), Type: keyType.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("key")},
-				{Name: proto.String("value"), Number: proto.Int32(2), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("value")},
+				{Name: new("key"), Number: proto.Int32(1), Type: keyType.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("key")},
+				{Name: new("value"), Number: proto.Int32(2), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("value")},
 			},
-			Options: &descriptorpb.MessageOptions{MapEntry: proto.Bool(true)},
+			Options: &descriptorpb.MessageOptions{MapEntry: new(true)},
 		}
 	}
 	mkField := func(name string, num int32, entry string) *descriptorpb.FieldDescriptorProto {
 		return &descriptorpb.FieldDescriptorProto{
-			Name: proto.String(name), Number: proto.Int32(num),
+			Name: new(name), Number: new(num),
 			Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-			TypeName: proto.String(".mapkeys.MultiKeyMap." + entry),
+			TypeName: new(".mapkeys.MultiKeyMap." + entry),
 			Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
-			JsonName: proto.String(name),
+			JsonName: new(name),
 		}
 	}
 	return &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("mapkeys.proto"),
-		Package: proto.String("mapkeys"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("mapkeys.proto"),
+		Package: new("mapkeys"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("MultiKeyMap"),
+			Name: new("MultiKeyMap"),
 			Field: []*descriptorpb.FieldDescriptorProto{
 				mkField("bool_map", 1, "BoolMapEntry"),
 				mkField("int32_map", 2, "Int32MapEntry"),
@@ -109,26 +109,26 @@ func multiKeyMapFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 // of messages.
 func containerMessageProto() *descriptorpb.FileDescriptorProto {
 	return &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("container.proto"),
-		Package:    proto.String("container"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("container.proto"),
+		Package:    new("container"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"test.proto"},
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Container"),
+			Name: new("Container"),
 			Field: []*descriptorpb.FieldDescriptorProto{
 				{
-					Name: proto.String("inner"), Number: proto.Int32(1),
+					Name: new("inner"), Number: proto.Int32(1),
 					Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-					TypeName: proto.String(".test.NestedInner"),
+					TypeName: new(".test.NestedInner"),
 					Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
-					JsonName: proto.String("inner"),
+					JsonName: new("inner"),
 				},
 				{
-					Name: proto.String("inners"), Number: proto.Int32(2),
+					Name: new("inners"), Number: proto.Int32(2),
 					Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-					TypeName: proto.String(".test.NestedInner"),
+					TypeName: new(".test.NestedInner"),
 					Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
-					JsonName: proto.String("inners"),
+					JsonName: new("inners"),
 				},
 			},
 		}},
@@ -284,9 +284,9 @@ func TestCombinedTypeResolver_FindExtensionByNumber(t *testing.T) {
 func TestCombinedFileResolver_FindFileByPath_GlobalFallback(t *testing.T) {
 	// Create a file descriptor registered only in global.
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("globalonly.proto"),
-		Package: proto.String("globalonly"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("globalonly.proto"),
+		Package: new("globalonly"),
+		Syntax:  new("proto3"),
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
 	require.NoError(t, err)
@@ -302,9 +302,9 @@ func TestCombinedFileResolver_FindFileByPath_GlobalFallback(t *testing.T) {
 
 func TestCombinedFileResolver_FindFileByPath_LocalHit(t *testing.T) {
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("localonly.proto"),
-		Package: proto.String("localonly"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("localonly.proto"),
+		Package: new("localonly"),
+		Syntax:  new("proto3"),
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
 	require.NoError(t, err)
@@ -320,13 +320,13 @@ func TestCombinedFileResolver_FindFileByPath_LocalHit(t *testing.T) {
 
 func TestCombinedFileResolver_FindDescriptorByName_GlobalFallback(t *testing.T) {
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("globalonly2.proto"),
-		Package: proto.String("globalonly2"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("globalonly2.proto"),
+		Package: new("globalonly2"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Msg"),
+			Name: new("Msg"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name: proto.String("x"), Number: proto.Int32(1),
+				Name: new("x"), Number: proto.Int32(1),
 				Type:  descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			}},
@@ -346,13 +346,13 @@ func TestCombinedFileResolver_FindDescriptorByName_GlobalFallback(t *testing.T) 
 
 func TestCombinedFileResolver_FindDescriptorByName_LocalHit(t *testing.T) {
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("localonly3.proto"),
-		Package: proto.String("localonly3"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("localonly3.proto"),
+		Package: new("localonly3"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Msg"),
+			Name: new("Msg"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name: proto.String("x"), Number: proto.Int32(1),
+				Name: new("x"), Number: proto.Int32(1),
 				Type:  descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 				Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			}},
@@ -528,9 +528,9 @@ func TestJsLoadFileDescriptorProto_BadProtoData(t *testing.T) {
 
 	// File that depends on nonexistent dependency → protodesc.NewFile error.
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("dep.proto"),
-		Package:    proto.String("dep"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("dep.proto"),
+		Package:    new("dep"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"nonexistent.proto"},
 	}
 	data, err := proto.Marshal(fdp)
@@ -557,15 +557,15 @@ func TestJsLoadDescriptorSet_BadProtoData(t *testing.T) {
 	// An FDS with a message referencing a non-existent type.
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{{
-			Name:    proto.String("bad2.proto"),
-			Package: proto.String("bad2"),
-			Syntax:  proto.String("proto3"),
+			Name:    new("bad2.proto"),
+			Package: new("bad2"),
+			Syntax:  new("proto3"),
 			MessageType: []*descriptorpb.DescriptorProto{{
-				Name: proto.String("Bad"),
+				Name: new("Bad"),
 				Field: []*descriptorpb.FieldDescriptorProto{{
-					Name: proto.String("ref"), Number: proto.Int32(1),
+					Name: new("ref"), Number: proto.Int32(1),
 					Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-					TypeName: proto.String(".nonexist.Missing"),
+					TypeName: new(".nonexist.Missing"),
 					Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				}},
 			}},
@@ -808,8 +808,8 @@ func TestProtoMessageToGoja_NonDynamic(t *testing.T) {
 
 	// Use a generated protobuf message (FileDescriptorProto).
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:   proto.String("nondynamic.proto"),
-		Syntax: proto.String("proto3"),
+		Name:   new("nondynamic.proto"),
+		Syntax: new("proto3"),
 	}
 	result := env.m.protoMessageToGoja(fdp.ProtoReflect())
 	assert.NotNil(t, result)
@@ -2468,20 +2468,20 @@ func TestJsToJSON_ProtojsonMarshalError(t *testing.T) {
 	// Build a fake google.protobuf.Timestamp descriptor so protojson
 	// recognises it and applies range validation.
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("fake_timestamp.proto"),
-		Package: proto.String("google.protobuf"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("fake_timestamp.proto"),
+		Package: new("google.protobuf"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Timestamp"),
+			Name: new("Timestamp"),
 			Field: []*descriptorpb.FieldDescriptorProto{
 				{
-					Name:   proto.String("seconds"),
+					Name:   new("seconds"),
 					Number: proto.Int32(1),
 					Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
 					Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				},
 				{
-					Name:   proto.String("nanos"),
+					Name:   new("nanos"),
 					Number: proto.Int32(2),
 					Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
 					Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),

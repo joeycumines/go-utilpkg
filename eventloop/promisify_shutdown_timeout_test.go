@@ -42,7 +42,7 @@ func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 	var completedSubmissions atomic.Int32
 
 	// Start multiple slow Promisify operations that take longer than the old timeout
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		go func(idx int) {
 			p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 				// Simulate slow operation BEFORE submitting result
@@ -205,7 +205,7 @@ func TestPromisify_MultipleShutdowns(t *testing.T) {
 	const numShutdowns = 5
 	shutdownErrors := make(chan error, numShutdowns)
 
-	for i := 0; i < numShutdowns; i++ {
+	for i := range numShutdowns {
 		go func(idx int) {
 			err := loop.Shutdown(context.Background())
 			t.Logf("Shutdown %d completed with err=%v", idx, err)
@@ -215,7 +215,7 @@ func TestPromisify_MultipleShutdowns(t *testing.T) {
 
 	// Wait for all Shutdown calls to complete
 	var shutdownResults []error
-	for i := 0; i < numShutdowns; i++ {
+	for i := range numShutdowns {
 		select {
 		case err := <-shutdownErrors:
 			shutdownResults = append(shutdownResults, err)

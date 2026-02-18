@@ -66,7 +66,7 @@ func TestPromise_Then_MultipleChaining(t *testing.T) {
 
 	// Chain 10 Then calls
 	chain := p
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		chain = chain.Then(func(v any) any {
 			return v.(string) + "-"
 		}, nil)
@@ -435,14 +435,12 @@ func TestPromise_Then_Concurrent(t *testing.T) {
 
 	// Add handlers concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			p.Then(func(v any) any {
 				return v
 			}, nil)
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -473,7 +471,7 @@ func TestPromise_ChainedRace(t *testing.T) {
 	results := []string{}
 	var mu sync.Mutex
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p.Then(func(v any) any {
 			mu.Lock()
 			results = append(results, "fulfilled")

@@ -183,7 +183,6 @@ func TestInsertString(t *testing.T) {
 			},
 		},
 	} {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, tt := range encodeStringTests {
 				b, offset := tc.Factory()
@@ -230,7 +229,6 @@ func TestInsertStringContent(t *testing.T) {
 			},
 		},
 	} {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, tt := range encodeStringTests {
 				b, offset := tc.Factory()
@@ -374,7 +372,7 @@ func FuzzInsertString(f *testing.F) {
 			f.Add(tc2.in, index, tc.in, false)
 		}
 		// case: insert at a random index of a random string
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			lRand, err := rand.Int(rand.Reader, big.NewInt(1<<10))
 			if err != nil {
 				f.Fatal(err)

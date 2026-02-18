@@ -496,7 +496,7 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 		p.ThenWithJS(js,
 			func(v any) any {
 				mu.Lock()
-				results[idx] = map[string]interface{}{
+				results[idx] = map[string]any{
 					"status": "fulfilled",
 					"value":  v,
 				}
@@ -510,7 +510,7 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 			},
 			func(r any) any {
 				mu.Lock()
-				results[idx] = map[string]interface{}{
+				results[idx] = map[string]any{
 					"status": "rejected",
 					"reason": r,
 				}

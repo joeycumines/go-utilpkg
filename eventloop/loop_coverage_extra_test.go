@@ -214,7 +214,7 @@ func TestOnOverload_NormalCallback(t *testing.T) {
 	}()
 
 	// Flood the loop to trigger overload (requires exceeding budget of 1024)
-	for i := 0; i < 2000; i++ {
+	for range 2000 {
 		_ = loop.Submit(func() {
 			// Very slow task to ensure budget is exceeded
 			time.Sleep(10 * time.Millisecond)

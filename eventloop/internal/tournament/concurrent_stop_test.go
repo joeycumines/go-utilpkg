@@ -13,7 +13,6 @@ import (
 // This is T7: Robustness - Concurrent Stop Test
 func TestConcurrentStop(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			t.Parallel()
 			testConcurrentStop(t, impl)
@@ -34,14 +33,12 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Submit some tasks to keep loop busy
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		_ = loop.Submit(func() {
 			time.Sleep(1 * time.Millisecond)
 		})
@@ -53,10 +50,8 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 	var errors atomic.Int64
 
 	// Launch concurrent stoppers
-	for i := 0; i < numStoppers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numStoppers {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					panicked.Store(true)
@@ -73,7 +68,7 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 				errors.Add(1)
 			}
 			completed.Add(1)
-		}()
+		})
 	}
 
 	// Wait for all stoppers with timeout
@@ -98,7 +93,7 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"num_stoppers": numStoppers,
 			"completed":    comp,
 			"panicked":     panicked.Load(),
@@ -119,7 +114,6 @@ func testConcurrentStop(t *testing.T, impl Implementation) {
 // TestConcurrentStop_WithSubmits tests Stop() racing with Submit().
 func TestConcurrentStop_WithSubmits(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testConcurrentStopWithSubmits(t, impl)
 		})
@@ -141,11 +135,9 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var stopCompleted atomic.Int64
@@ -153,30 +145,26 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 	var panicked atomic.Bool
 
 	// Launch submitters
-	for i := 0; i < numSubmitters; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numSubmitters {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					panicked.Store(true)
 				}
 			}()
 
-			for j := 0; j < submitsPerGoroutine; j++ {
+			for range submitsPerGoroutine {
 				_ = loop.Submit(func() {})
 				submitCompleted.Add(1)
 			}
-		}()
+		})
 	}
 
 	// Brief delay then launch stoppers
 	time.Sleep(1 * time.Millisecond)
 
-	for i := 0; i < numStoppers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numStoppers {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					panicked.Store(true)
@@ -188,7 +176,7 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 
 			_ = loop.Shutdown(stopCtx)
 			stopCompleted.Add(1)
-		}()
+		})
 	}
 
 	// Wait with timeout
@@ -212,7 +200,7 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"num_stoppers":   numStoppers,
 			"num_submitters": numSubmitters,
 			"stop_completed": stopCompleted.Load(),
@@ -234,7 +222,6 @@ func testConcurrentStopWithSubmits(t *testing.T, impl Implementation) {
 // TestConcurrentStop_Repeated tests multiple start/stop cycles.
 func TestConcurrentStop_Repeated(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testConcurrentStopRepeated(t, impl)
 		})
@@ -247,7 +234,7 @@ func testConcurrentStopRepeated(t *testing.T, impl Implementation) {
 	start := time.Now()
 	var panicked atomic.Bool
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -263,25 +250,21 @@ func testConcurrentStopRepeated(t *testing.T, impl Implementation) {
 
 			ctx := context.Background()
 			var runWg sync.WaitGroup
-			runWg.Add(1)
-			go func() {
+			runWg.Go(func() {
 				loop.Run(ctx)
-				runWg.Done()
-			}()
+			})
 
 			// Brief work
 			_ = loop.Submit(func() {})
 
 			// Concurrent stops
 			var wg sync.WaitGroup
-			for j := 0; j < 3; j++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			for range 3 {
+				wg.Go(func() {
 					stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 					defer cancel()
 					_ = loop.Shutdown(stopCtx)
-				}()
+				})
 			}
 			wg.Wait()
 		}()
@@ -294,7 +277,7 @@ func testConcurrentStopRepeated(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"iterations": iterations,
 			"panicked":   panicked.Load(),
 		},

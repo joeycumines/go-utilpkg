@@ -25,7 +25,7 @@ func init() {
 }
 
 // Assert ensures expected condition.
-func Assert(cond bool, msg interface{}) {
+func Assert(cond bool, msg any) {
 	if cond {
 		return
 	}
@@ -35,7 +35,7 @@ func Assert(cond bool, msg interface{}) {
 	writeWithSync(2, "[ASSERT] "+toString(msg))
 }
 
-func toString(v interface{}) string {
+func toString(v any) string {
 	switch a := v.(type) {
 	case func() string:
 		return a()

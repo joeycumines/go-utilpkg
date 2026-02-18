@@ -160,10 +160,7 @@ func (c *CompletionManager) NextPage() {
 		newScroll++
 	}
 
-	maxScroll := len(c.tmp) - pageHeight
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
+	maxScroll := max(len(c.tmp)-pageHeight, 0)
 
 	if newScroll > maxScroll {
 		newScroll = maxScroll
@@ -199,10 +196,7 @@ func (c *CompletionManager) PreviousPage() {
 	// On first press from no selection, go to the last item on the last page.
 	if c.selected == -1 {
 		c.selected = len(c.tmp) - 1
-		maxScroll := len(c.tmp) - pageHeight
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
+		maxScroll := max(len(c.tmp)-pageHeight, 0)
 		c.verticalScroll = maxScroll
 		return
 	}
@@ -294,10 +288,7 @@ func (c *CompletionManager) adjustWindowHeight(windowHeight, contentHeight int) 
 }
 
 func (c *CompletionManager) update() {
-	max := int(c.max)
-	if len(c.tmp) < max {
-		max = len(c.tmp)
-	}
+	max := min(len(c.tmp), int(c.max))
 
 	// Reset to -1 when going past the end to create "unfocused" cycling behavior.
 	// This allows TAB/Down to cycle: 0 → 1 → ... → N-1 → -1 (unfocused) → 0 → ...
@@ -327,7 +318,7 @@ func formatTexts(o []string, max istrings.Width, prefix, suffix string) (new []s
 	lenSuffix := istrings.GetWidth(suffix)
 	lenShorten := istrings.GetWidth(shortenSuffix)
 	min := lenPrefix + lenSuffix + lenShorten
-	for i := 0; i < l; i++ {
+	for i := range l {
 		o[i] = deleteBreakLineCharacters(o[i])
 
 		w := istrings.GetWidth(o[i])
@@ -346,7 +337,7 @@ func formatTexts(o []string, max istrings.Width, prefix, suffix string) (new []s
 		width = max - lenPrefix - lenSuffix
 	}
 
-	for i := 0; i < l; i++ {
+	for i := range l {
 		x := istrings.GetWidth(o[i])
 		if x <= width {
 			spaces := strings.Repeat(" ", int(width-x))
@@ -366,11 +357,11 @@ func formatSuggestions(suggests []Suggest, max istrings.Width) (new []Suggest, w
 	new = make([]Suggest, num)
 
 	left := make([]string, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		left[i] = suggests[i].Text
 	}
 	right := make([]string, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		right[i] = suggests[i].Description
 	}
 
@@ -380,7 +371,7 @@ func formatSuggestions(suggests []Suggest, max istrings.Width) (new []Suggest, w
 	}
 	right, rightWidth := formatTexts(right, max-leftWidth, rightPrefix, rightSuffix)
 
-	for i := 0; i < num; i++ {
+	for i := range num {
 		new[i] = Suggest{Text: left[i], Description: right[i]}
 	}
 	return new, istrings.Width(leftWidth + rightWidth)

@@ -50,7 +50,7 @@ func TestReflection_ListServices(t *testing.T) {
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
 	services := result.Export()
-	serviceList, ok := services.([]interface{})
+	serviceList, ok := services.([]any)
 	require.True(t, ok, "result should be a slice, got %T", services)
 
 	// Should contain our TestService and the reflection service itself.
@@ -98,18 +98,18 @@ func TestReflection_DescribeService(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 
 	assert.Equal(t, "testgrpc.TestService", desc["name"])
 
-	methods, ok := desc["methods"].([]interface{})
+	methods, ok := desc["methods"].([]any)
 	require.True(t, ok, "methods should be array, got %T", desc["methods"])
 	assert.Len(t, methods, 4)
 
 	// Verify each method.
-	methodMap := make(map[string]map[string]interface{})
+	methodMap := make(map[string]map[string]any)
 	for _, m := range methods {
-		mObj := m.(map[string]interface{})
+		mObj := m.(map[string]any)
 		methodMap[mObj["name"].(string)] = mObj
 	}
 
@@ -176,17 +176,17 @@ func TestReflection_DescribeType(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 
 	assert.Equal(t, "testgrpc.EchoResponse", desc["name"])
 
-	fields, ok := desc["fields"].([]interface{})
+	fields, ok := desc["fields"].([]any)
 	require.True(t, ok, "fields should be array, got %T", desc["fields"])
 	assert.Len(t, fields, 2)
 
-	fieldMap := make(map[string]map[string]interface{})
+	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
-		fObj := f.(map[string]interface{})
+		fObj := f.(map[string]any)
 		fieldMap[fObj["name"].(string)] = fObj
 	}
 
@@ -311,7 +311,7 @@ func TestReflection_EnableFromJS(t *testing.T) {
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
 	services := result.Export()
-	serviceList, ok := services.([]interface{})
+	serviceList, ok := services.([]any)
 	require.True(t, ok, "result should be a slice, got %T", services)
 
 	var names []string
@@ -357,15 +357,15 @@ func TestReflection_DescribeType_Item(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 
 	assert.Equal(t, "testgrpc.Item", desc["name"])
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	assert.Len(t, fields, 2)
 
-	fieldMap := make(map[string]map[string]interface{})
+	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
-		fObj := f.(map[string]interface{})
+		fObj := f.(map[string]any)
 		fieldMap[fObj["name"].(string)] = fObj
 	}
 	assert.Contains(t, fieldMap, "id")
@@ -415,9 +415,9 @@ func TestReflection_ChainedListAndDescribe(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testgrpc.TestService", desc["name"])
-	methods := desc["methods"].([]interface{})
+	methods := desc["methods"].([]any)
 	assert.Len(t, methods, 4)
 }
 
@@ -467,11 +467,11 @@ func TestReflection_FullDiscoveryWorkflow(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "testgrpc.EchoRequest", desc["name"])
-	fields := desc["fields"].([]interface{})
+	fields := desc["fields"].([]any)
 	assert.Len(t, fields, 1)
-	field := fields[0].(map[string]interface{})
+	field := fields[0].(map[string]any)
 	assert.Equal(t, "message", field["name"])
 	assert.Equal(t, "string", field["type"])
 }
@@ -518,7 +518,7 @@ func TestReflection_EnableFromGo(t *testing.T) {
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
 	services := result.Export()
-	serviceList, ok := services.([]interface{})
+	serviceList, ok := services.([]any)
 	require.True(t, ok, "result should be a slice, got %T", services)
 
 	var names []string
@@ -565,8 +565,8 @@ func TestReflection_DescribeReflectionService(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	desc := result.Export().(map[string]interface{})
+	desc := result.Export().(map[string]any)
 	assert.Equal(t, "grpc.reflection.v1.ServerReflection", desc["name"])
-	methods := desc["methods"].([]interface{})
+	methods := desc["methods"].([]any)
 	assert.Greater(t, len(methods), 0)
 }

@@ -44,7 +44,7 @@ drained1:
 	// Send SIGWINCH multiple times to mitigate races where the handler
 	// might not have been registered at the instant of the signal.
 	go func() {
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			_ = syscall.Kill(os.Getpid(), syscallSIGWINCH)
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -133,7 +133,7 @@ drained2:
 	// Now send SIGWINCH while executor is running. Send multiple signals to
 	// improve the odds the handler receives one after it was registered.
 	go func() {
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			_ = syscall.Kill(os.Getpid(), syscallSIGWINCH)
 			time.Sleep(10 * time.Millisecond)
 		}

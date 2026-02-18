@@ -54,7 +54,7 @@ func TestStructuredLogging_OnOverloadPanic(t *testing.T) {
 	}()
 
 	// Flood the loop to trigger overload
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		_ = loop.Submit(func() {
 			// Slow task
 			time.Sleep(time.Millisecond)

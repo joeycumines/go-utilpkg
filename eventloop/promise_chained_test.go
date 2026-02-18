@@ -101,7 +101,7 @@ func TestChainedPromiseMultipleThen(t *testing.T) {
 	// Run the event loop to process microtasks
 	loop.tick()
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case <-mu:
 			count++
@@ -220,7 +220,7 @@ func TestChainedPromiseThreeLevelChaining(t *testing.T) {
 	loop.tick()
 
 	// Wait for all handlers
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case <-mu:
 		case <-time.After(2 * time.Second):
@@ -362,7 +362,7 @@ func TestUnhandledRejectionDetection(t *testing.T) {
 		}
 
 		// Create 3 rejected promises without catch handlers
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, _, reject := js.NewChainedPromise()
 			reject("error" + string(rune('A'+i)))
 		}

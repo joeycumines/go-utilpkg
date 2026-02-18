@@ -63,8 +63,7 @@ func TestScheduleMicrotask_Ordering(t *testing.T) {
 	done.Store(false)
 
 	// Schedule multiple microtasks
-	for i := 0; i < 5; i++ {
-		i := i
+	for i := range 5 {
 		loop.ScheduleMicrotask(func() {
 			resultsMu.Lock()
 			results = append(results, i)
@@ -122,9 +121,9 @@ func TestScheduleMicrotask_Concurrent(t *testing.T) {
 	const numTasksEach = 10
 
 	// Schedule microtasks concurrently
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
-			for j := 0; j < numTasksEach; j++ {
+			for range numTasksEach {
 				err := loop.ScheduleMicrotask(func() {
 					executed.Add(1)
 				})

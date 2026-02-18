@@ -121,7 +121,7 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		panic(`expected zerolog message to have a level`)
 	}
 
-	var fields map[string]interface{}
+	var fields map[string]any
 	if err := json.Unmarshal(b, &fields); err != nil {
 		panic(err)
 	}

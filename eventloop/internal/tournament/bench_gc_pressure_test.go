@@ -13,7 +13,6 @@ import (
 // This is T6: Memory - GC Pressure Benchmark
 func BenchmarkGCPressure(b *testing.B) {
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkGCPressure(b, impl)
 		})
@@ -28,11 +27,9 @@ func benchmarkGCPressure(b *testing.B, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -87,7 +84,6 @@ func TestGCPressure_Correctness(t *testing.T) {
 	}
 
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testGCPressureCorrectness(t, impl)
 		})
@@ -106,11 +102,9 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var executed atomic.Int64
 	var rejected atomic.Int64
@@ -131,7 +125,7 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 	}()
 
 	// Submit tasks
-	for i := 0; i < numTasks; i++ {
+	for range numTasks {
 		wg.Add(1)
 		err := loop.Submit(func() {
 			executed.Add(1)
@@ -172,7 +166,7 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"total_tasks": numTasks,
 			"executed":    exec,
 			"rejected":    rej,
@@ -192,7 +186,6 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 // BenchmarkGCPressure_Allocations tracks allocations under load.
 func BenchmarkGCPressure_Allocations(b *testing.B) {
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkGCPressureAllocations(b, impl)
 		})
@@ -207,11 +200,9 @@ func benchmarkGCPressureAllocations(b *testing.B, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	warmupDone := make(chan struct{})
@@ -261,7 +252,6 @@ func TestMemoryLeak(t *testing.T) {
 	}
 
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			testMemoryLeak(t, impl)
 		})
@@ -276,7 +266,7 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 
 	var memStats []uint64
 
-	for iter := 0; iter < iterations; iter++ {
+	for range iterations {
 		loop, err := impl.Factory()
 		if err != nil {
 			t.Fatalf("Failed to create loop: %v", err)
@@ -284,14 +274,12 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 
 		ctx := context.Background()
 		var runWg sync.WaitGroup
-		runWg.Add(1)
-		go func() {
+		runWg.Go(func() {
 			loop.Run(ctx)
-			runWg.Done()
-		}()
+		})
 
 		var wg sync.WaitGroup
-		for i := 0; i < tasksPerIteration; i++ {
+		for range tasksPerIteration {
 			wg.Add(1)
 			_ = loop.Submit(func() {
 				wg.Done()
@@ -328,7 +316,7 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"iterations": iterations,
 			"memory_kb":  memStats,
 		},

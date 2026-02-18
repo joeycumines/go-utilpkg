@@ -46,7 +46,7 @@ func FuzzEncodeDecodeRoundTrip(f *testing.F) {
 		`)
 		require.NoError(t, err)
 
-		obj := result.Export().(map[string]interface{})
+		obj := result.Export().(map[string]any)
 		if ok, _ := obj["ok"].(bool); !ok {
 			t.Logf("JS error with content %q: %v", msgContent, obj["error"])
 			// Not all byte sequences are valid UTF-8 strings in JS.

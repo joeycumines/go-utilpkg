@@ -385,7 +385,7 @@ func (l *Loop) processInternal() {
 func (l *Loop) processExternal(ctx context.Context) {
 	const budget = 1024
 
-	for i := 0; i < budget; i++ {
+	for range budget {
 		task, ok := l.ingress.PopExternal()
 		if !ok {
 			break
@@ -398,7 +398,7 @@ func (l *Loop) processExternal(ctx context.Context) {
 func (l *Loop) processMicrotasks() {
 	const budget = 1024
 
-	for i := 0; i < budget; i++ {
+	for range budget {
 		task, ok := l.ingress.PopMicrotask()
 		if !ok {
 			break
@@ -461,10 +461,7 @@ func (l *Loop) calculateTimeout() int {
 
 	l.timersMu.Lock()
 	if len(l.timers) > 0 {
-		delay := time.Until(l.timers[0].when)
-		if delay < 0 {
-			delay = 0
-		}
+		delay := max(time.Until(l.timers[0].when), 0)
 		if delay < maxDelay {
 			maxDelay = delay
 		}

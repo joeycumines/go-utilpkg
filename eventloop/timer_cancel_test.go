@@ -11,8 +11,7 @@ import (
 
 // Test 1.1.9: Cancel before expiration
 func TestScheduleTimerCancelBeforeExpiration(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -62,8 +61,7 @@ func TestScheduleTimerCancelBeforeExpiration(t *testing.T) {
 
 // Test 1.1.10: Cancel after expiration
 func TestScheduleTimerCancelAfterExpiration(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -114,8 +112,7 @@ func TestScheduleTimerCancelAfterExpiration(t *testing.T) {
 
 // Test 1.1.11: Rapid successive cancellations
 func TestScheduleTimerRapidCancellations(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -146,7 +143,7 @@ func TestScheduleTimerRapidCancellations(t *testing.T) {
 	const timerDelay = 5 * time.Second
 
 	// Schedule all timers
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := l.ScheduleTimer(timerDelay, func() {
 			callbackCount.Add(1)
 		})
@@ -190,8 +187,7 @@ func TestScheduleTimerRapidCancellations(t *testing.T) {
 
 // Test 1.1.12: Cancel from different goroutine
 func TestScheduleTimerCancelFromGoroutine(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -220,13 +216,11 @@ func TestScheduleTimerCancelFromGoroutine(t *testing.T) {
 
 	// Cancel from different goroutine
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := l.CancelTimer(id); err != nil {
 			t.Errorf("CancelTimer from different goroutine failed: %v", err)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -248,8 +242,7 @@ func TestScheduleTimerCancelFromGoroutine(t *testing.T) {
 
 // Test 1.1.13: Stress 1000 timers, cancel 50%
 func TestScheduleTimerStressWithCancellations(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -276,7 +269,7 @@ func TestScheduleTimerStressWithCancellations(t *testing.T) {
 
 	// Schedule all timers with longer delays to avoid race between scheduling and firing
 	// Using 200-300ms range gives enough time for slower systems to schedule all 1000 timers before any fire
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		delay := time.Duration(200+(i%100)) * time.Millisecond // 200-300ms staggered delays
 		id, err := l.ScheduleTimer(delay, func() {
 			callbackCount.Add(1)
@@ -288,7 +281,7 @@ func TestScheduleTimerStressWithCancellations(t *testing.T) {
 	}
 
 	// Cancel first 'cancelCount' timers
-	for i := 0; i < cancelCount; i++ {
+	for i := range cancelCount {
 		if err := l.CancelTimer(ids[i]); err != nil {
 			t.Errorf("CancelTimer %d failed: %v", i, err)
 			cancelErrors.Add(1)
@@ -318,8 +311,7 @@ func TestScheduleTimerStressWithCancellations(t *testing.T) {
 
 // Test: CancelTimer returns ErrTimerNotFound for invalid ID
 func TestCancelTimerTimerNotFound(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -354,8 +346,7 @@ func TestCancelTimerTimerNotFound(t *testing.T) {
 
 // Test: Verify unique timer IDs
 func TestScheduleTimerUniqueIdGeneration(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	l, err := New()
 	if err != nil {
@@ -376,7 +367,7 @@ func TestScheduleTimerUniqueIdGeneration(t *testing.T) {
 	ids := make(map[TimerID]struct{})
 
 	// Schedule many timers and collect IDs
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := l.ScheduleTimer(100*time.Millisecond*time.Duration(i), func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer %d failed: %v", i, err)

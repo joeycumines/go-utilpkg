@@ -374,7 +374,7 @@ func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 	children := make([]*ChainedPromise, numGoroutines)
 
 	// Attach handlers concurrently
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		idx := i
 		go func() {
 			defer wg.Done()

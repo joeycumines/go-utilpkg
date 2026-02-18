@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -37,8 +36,7 @@ func TestCancelTimerAfterRun(t *testing.T) {
 		t.Fatalf("ScheduleTimer failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Start the loop
 	go l.Run(ctx)

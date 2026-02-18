@@ -104,7 +104,7 @@ func TestWithIngressChunkSize_FunctionalCorrectness(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(numTasks)
 
-			for i := 0; i < numTasks; i++ {
+			for range numTasks {
 				if err := loop.Submit(func() {
 					counter.Add(1)
 					wg.Done()
@@ -143,12 +143,12 @@ func TestWithIngressChunkSize_ChunkPoolReuse(t *testing.T) {
 	q := newChunkedIngressWithSize(32)
 
 	// Push more than one chunk's worth
-	for i := 0; i < 64; i++ {
+	for range 64 {
 		q.Push(func() {})
 	}
 
 	// Pop all tasks
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Pop() returned false at index %d", i)
@@ -165,7 +165,7 @@ func TestWithIngressChunkSize_ChunkPoolReuse(t *testing.T) {
 	}
 
 	// Push more tasks - should reuse pooled chunks
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		q.Push(func() {})
 	}
 
@@ -280,7 +280,7 @@ func Test_chunkedIngress_ChunkSizeConsistency(t *testing.T) {
 			}
 
 			// After many push/pop cycles
-			for cycle := 0; cycle < 5; cycle++ {
+			for range 5 {
 				for i := 0; i < size*2; i++ {
 					q.Push(func() {})
 				}

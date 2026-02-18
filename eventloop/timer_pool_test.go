@@ -18,11 +18,9 @@ func BenchmarkScheduleTimerWithPool(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up the loop
 	done := make(chan struct{})
@@ -55,11 +53,9 @@ func BenchmarkScheduleTimerWithPool_Immediate(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up the loop
 	done := make(chan struct{})
@@ -94,11 +90,9 @@ func BenchmarkScheduleTimerWithPool_FireAndReuse(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up the loop
 	done := make(chan struct{})
@@ -137,11 +131,9 @@ func TestScheduleTimerPoolVerification(t *testing.T) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up the loop
 	done := make(chan struct{})
@@ -149,7 +141,7 @@ func TestScheduleTimerPoolVerification(t *testing.T) {
 	<-done
 
 	// Warmup: Schedule 1000 timers to populate the pool
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		loop.ScheduleTimer(1*time.Microsecond, func() {})
 	}
 	time.Sleep(50 * time.Millisecond) // Let timers fire
@@ -191,11 +183,9 @@ func BenchmarkScheduleTimerCancel(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up the loop
 	done := make(chan struct{})

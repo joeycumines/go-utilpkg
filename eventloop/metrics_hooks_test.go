@@ -149,7 +149,7 @@ func TestMetrics_MetricsThreadSafety(t *testing.T) {
 	// Submit many tasks concurrently to trigger multiple metric updates
 	const numIterations = 100
 
-	for i := 0; i < numIterations; i++ {
+	for range numIterations {
 		go func() {
 			loop.Submit(func() {})
 		}()

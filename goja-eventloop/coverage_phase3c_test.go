@@ -171,8 +171,7 @@ func TestPhase3c_AbortSignalTimeout_NegativeDelay(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adapter.Bind())
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	// Use Submit to run JS on the loop thread (single-threaded goja safety)

@@ -172,7 +172,7 @@ func TestMultipleThen(t *testing.T) {
 
 	chain := p
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		chain = chain.Then(func(v any) any {
 			return v
 		}, nil)
@@ -231,7 +231,7 @@ func TestResultTypes(t *testing.T) {
 		name     string
 		input    any
 		isSlice  bool
-		expected interface{}
+		expected any
 	}{
 		{"nil", nil, false, nil},
 		{"string", "string", false, "string"},
@@ -286,14 +286,12 @@ func TestConcurrentPromises(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			_ = p.Then(func(v any) any {
 				return v
 			}, nil)
-		}()
+		})
 	}
 
 	resolve("value")

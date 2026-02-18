@@ -106,7 +106,7 @@ func TestJSPromiseStress100Chains(t *testing.T) {
 	mu := make(chan bool, numChains)
 
 	// Create 100 independent promise chains, each with depth 10
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		chainIndex := i
 
 		// Create initial promise
@@ -114,7 +114,7 @@ func TestJSPromiseStress100Chains(t *testing.T) {
 
 		// Build chain of depth 10
 		currentPromise := p
-		for j := 0; j < chainDepth; j++ {
+		for range chainDepth {
 			currentPromise = currentPromise.Then(func(v any) any {
 				// At each step, increment value by 1
 				return v.(int) + 1
@@ -139,7 +139,7 @@ func TestJSPromiseStress100Chains(t *testing.T) {
 	startTime := time.Now()
 	timeout := time.After(5 * time.Second)
 
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		select {
 		case <-mu:
 			// Chain completed

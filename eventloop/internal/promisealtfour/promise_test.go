@@ -98,7 +98,7 @@ func TestPromiseMultipleThen(t *testing.T) {
 
 	resolve(1)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case <-mu:
 			count++
@@ -187,7 +187,7 @@ func TestPromiseThreeLevelChaining(t *testing.T) {
 	resolve(1)
 
 	// Wait for all handlers
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case <-mu:
 		case <-time.After(time.Millisecond * 100):

@@ -48,7 +48,7 @@ func TestLoadFactorCompaction(t *testing.T) {
 	// Create 300 items to exceed the 256 threshold. Keep 30 (10%).
 	// Load Factor 0.1 -> Should Compact
 	keepIDs := make([]uint64, 0, 30)
-	for i := 0; i < 300; i++ {
+	for i := range 300 {
 		id, p := r.NewPromise()
 		if i < 30 {
 			keepIDs = append(keepIDs, id)
@@ -82,7 +82,7 @@ func TestNoCompactionWhenLoadHigh(t *testing.T) {
 
 	// Create 100 items. Keep 50 (50%).
 	// Load Factor 0.5 -> No Compact
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		_, p := r.NewPromise()
 		if i >= 50 {
 			p.Resolve(nil)
@@ -115,7 +115,7 @@ func TestDeterministicDiscovery(t *testing.T) {
 	// Create items, settle some, ensure iteration works
 	// We verify by Scavenging in small batches
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		_, p := r.NewPromise()
 		if i%2 == 0 {
 			p.Resolve(nil)
@@ -148,7 +148,7 @@ func TestRegistry_BucketReclaim(t *testing.T) {
 
 	strongRefs := make([]*promise, count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		_, p := r.NewPromise()
 		strongRefs[i] = p
 	}
@@ -161,7 +161,7 @@ func TestRegistry_BucketReclaim(t *testing.T) {
 	strongRefs = nil
 	runtime.GC()
 
-	for i := 0; i < (count/100)+10; i++ {
+	for range (count / 100) + 10 {
 		r.Scavenge(1000)
 	}
 

@@ -255,7 +255,6 @@ func TestHandlePollError_ErrorVariations(t *testing.T) {
 	}
 
 	for _, tc := range errorTypes {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testHooks := &loopTestHooks{}
 			testHooks.PollError = func() error {

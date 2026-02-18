@@ -257,14 +257,14 @@ func FuzzFilterEvents(f *testing.F) {
 		const maxDur = time.Hour
 
 		rates := make(map[time.Duration]int)
-		for i := 0; i < ratesCount; i++ {
+		for range ratesCount {
 			duration := time.Duration(r.Int63n(int64(maxDur))) + 1 // Random durations 1ns-1h
 			limit := r.Intn(10) + 1                                // Random limits 1-10
 			rates[duration] = limit
 		}
 
 		events := make([]int64, eventsCount)
-		for i := 0; i < eventsCount; i++ {
+		for i := range eventsCount {
 			// random events up to and including now, from 1h ago
 			events[i] = nowUnixNano - int64(maxDur) + r.Int63n(int64(maxDur+1))
 		}

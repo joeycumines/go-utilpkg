@@ -31,9 +31,7 @@ func BenchmarkMicroBatchBudget_Throughput(b *testing.B) {
 	burstSizes := []int{64, 128, 256, 512, 1024, 2048, 4096}
 
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree"} {
-		implName := implName
 		for _, burstSize := range burstSizes {
-			burstSize := burstSize
 			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
 				benchmarkBatchThroughput(b, implName, burstSize)
 			})
@@ -66,11 +64,9 @@ func benchmarkBatchThroughput(b *testing.B, implName string, burstSize int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -80,17 +76,14 @@ func benchmarkBatchThroughput(b *testing.B, implName string, burstSize int) {
 	b.ResetTimer()
 
 	// Submit in bursts to trigger batch processing
-	numBursts := b.N / burstSize
-	if numBursts < 1 {
-		numBursts = 1
-	}
+	numBursts := max(b.N/burstSize, 1)
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
 
-	for i := 0; i < numBursts; i++ {
+	for i := range numBursts {
 		// Submit burst of tasks
-		for j := 0; j < burstSize; j++ {
+		for range burstSize {
 			wg.Add(1)
 			err := loop.Submit(func() {
 				counter.Add(1)
@@ -134,9 +127,7 @@ func BenchmarkMicroBatchBudget_Latency(b *testing.B) {
 	burstSizes := []int{64, 128, 256, 512, 1024, 2048, 4096}
 
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		for _, burstSize := range burstSizes {
-			burstSize := burstSize
 			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
 				benchmarkBatchLatency(b, implName, burstSize)
 			})
@@ -164,11 +155,9 @@ func benchmarkBatchLatency(b *testing.B, implName string, burstSize int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -178,16 +167,13 @@ func benchmarkBatchLatency(b *testing.B, implName string, burstSize int) {
 	b.ResetTimer()
 
 	// Measure burst completion latency
-	numBursts := b.N / burstSize
-	if numBursts < 1 {
-		numBursts = 1
-	}
+	numBursts := max(b.N/burstSize, 1)
 
-	for i := 0; i < numBursts; i++ {
+	for range numBursts {
 		_ = time.Now() // burstStart - placeholder for future latency metrics
 
 		var wg sync.WaitGroup
-		for j := 0; j < burstSize; j++ {
+		for range burstSize {
 			wg.Add(1)
 			_ = loop.Submit(func() {
 				wg.Done()
@@ -219,7 +205,6 @@ func benchmarkBatchLatency(b *testing.B, implName string, burstSize int) {
 // Tests if batch budget hurts steady-state high-throughput scenarios.
 func BenchmarkMicroBatchBudget_Continuous(b *testing.B) {
 	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		implName := implName
 		b.Run(implName, func(b *testing.B) {
 			benchmarkContinuousSubmission(b, implName)
 		})
@@ -246,11 +231,9 @@ func benchmarkContinuousSubmission(b *testing.B, implName string) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -267,7 +250,7 @@ func benchmarkContinuousSubmission(b *testing.B, implName string) {
 
 	// Start multiple producers to create continuous load
 	numProducers := 4
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		wg.Add(1)
 		submitWg.Add(1)
 		go func() {
@@ -321,9 +304,7 @@ func BenchmarkMicroBatchBudget_Mixed(b *testing.B) {
 	burstSizes := []int{100, 500, 1000, 2000, 5000}
 
 	for _, implName := range []string{"Main", "AlternateThree", "Baseline"} {
-		implName := implName
 		for _, burstSize := range burstSizes {
-			burstSize := burstSize
 			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
 				benchmarkMixedWorkload(b, implName, burstSize)
 			})
@@ -351,11 +332,9 @@ func benchmarkMixedWorkload(b *testing.B, implName string, burstSize int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -372,8 +351,8 @@ func benchmarkMixedWorkload(b *testing.B, implName string, burstSize int) {
 	var counter atomic.Int64
 
 	// Submit bursts
-	for i := 0; i < numBursts; i++ {
-		for j := 0; j < burstSize; j++ {
+	for range numBursts {
+		for range burstSize {
 			wg.Add(1)
 			err := loop.Submit(func() {
 				counter.Add(1)

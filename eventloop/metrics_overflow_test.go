@@ -21,7 +21,7 @@ func Test_tpsCounter_NegativeElapsed(t *testing.T) {
 	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// Record some initial samples
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		counter.Increment()
 	}
 
@@ -78,7 +78,7 @@ func Test_tpsCounter_LargeElapsed(t *testing.T) {
 	counter := newTPSCounter(10*time.Second, 100*time.Millisecond)
 
 	// Record some initial samples
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		counter.Increment()
 	}
 
@@ -107,7 +107,7 @@ func Test_tpsCounter_LargeElapsed(t *testing.T) {
 	// System should be stable with full window reset
 	// Reset to old rotation + clamped advance
 	// The window should be in a valid state
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		counter.Increment()
 	}
 
@@ -146,7 +146,7 @@ func Test_tpsCounter_ExtremeElapsed(t *testing.T) {
 	}
 
 	// Verify system remains functional
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		counter.Increment()
 	}
 
@@ -200,7 +200,7 @@ func Test_tpsCounter_ClockJumps(t *testing.T) {
 		}
 
 		// Add some increments
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			counter.Increment()
 		}
 	}
@@ -233,7 +233,7 @@ func Test_tpsCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
 	counter := newTPSCounter(windowSize, bucketSize)
 
 	// Add some initial events to prove counter is working
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		counter.Increment()
 	}
 
@@ -305,7 +305,7 @@ func Test_tpsCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
 
 	// 4. Counter continues to work correctly after sync
 	// Add events after the long pause
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		counter.Increment()
 	}
 

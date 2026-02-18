@@ -105,7 +105,7 @@ func TestStructuredClone_Primitives(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"string", `"hello world"`, "hello world"},
 		{"number_int", `42`, int64(42)},

@@ -40,7 +40,7 @@ func TestScheduleMicrotask_StateCheckWhileLocked(t *testing.T) {
 	// Schedule multiple microtasks while loop is running -
 	// each should pass the state check while holding mutex
 	var executed atomic.Int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := loop.ScheduleMicrotask(func() {
 			executed.Add(1)
 		})
@@ -89,7 +89,7 @@ func TestScheduleMicrotask_IOModeWakeupDeduplication(t *testing.T) {
 	// While in I/O mode, schedule multiple microtasks rapidly
 	// The wakeup should be deduplicated via wakeUpSignalPending
 	var executed atomic.Int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := loop.ScheduleMicrotask(func() {
 			executed.Add(1)
 		})
@@ -222,16 +222,14 @@ func TestScheduleMicrotask_ConcurrentScheduling(t *testing.T) {
 	var executed atomic.Int32
 	var wg sync.WaitGroup
 
-	for g := 0; g < numGoroutines; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < tasksPerGoroutine; i++ {
+	for range numGoroutines {
+		wg.Go(func() {
+			for range tasksPerGoroutine {
 				loop.ScheduleMicrotask(func() {
 					executed.Add(1)
 				})
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -280,7 +278,7 @@ func TestScheduleMicrotask_WakeupWhileSleeping(t *testing.T) {
 	go loop.Run(ctx)
 
 	// Wait for loop to enter sleep state
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		if sleepEntered.Load() {
 			break
 		}
@@ -431,7 +429,7 @@ func TestScheduleMicrotask_MixedModes(t *testing.T) {
 	// Phase 1: Fast mode (no I/O FDs)
 	var phase1Count atomic.Int32
 	done1 := make(chan struct{})
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.ScheduleMicrotask(func() {
 			if phase1Count.Add(1) == 5 {
 				close(done1)
@@ -462,7 +460,7 @@ func TestScheduleMicrotask_MixedModes(t *testing.T) {
 
 	var phase2Count atomic.Int32
 	done2 := make(chan struct{})
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.ScheduleMicrotask(func() {
 			if phase2Count.Add(1) == 5 {
 				close(done2)
@@ -483,7 +481,7 @@ func TestScheduleMicrotask_MixedModes(t *testing.T) {
 	// that microtasks continue working while I/O FD is still registered
 	var phase3Count atomic.Int32
 	done3 := make(chan struct{})
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.ScheduleMicrotask(func() {
 			if phase3Count.Add(1) == 5 {
 				close(done3)

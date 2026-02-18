@@ -1685,7 +1685,7 @@ func TestMultipleConcurrentClose(t *testing.T) {
 	var closeWG sync.WaitGroup
 	closeWG.Add(numCloseCalls)
 
-	for i := 0; i < numCloseCalls; i++ {
+	for range numCloseCalls {
 		go func() {
 			defer closeWG.Done()
 			p.Close()
@@ -1783,7 +1783,7 @@ func TestCloseOnNonRunningPrompt(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(numCalls)
 
-		for i := 0; i < numCalls; i++ {
+		for range numCalls {
 			go func() {
 				defer wg.Done()
 				p.Close()

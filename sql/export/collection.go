@@ -1,13 +1,14 @@
 package export
 
 import (
+	"cmp"
+
 	cycle "github.com/joeycumines/go-detect-cycle/floyds"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
 
 // insertSort performs an insert sort, skipping any existing values.
-func insertSort[S ~[]E, E constraints.Ordered](values S, value E) S {
+func insertSort[S ~[]E, E cmp.Ordered](values S, value E) S {
 	if i, ok := slices.BinarySearch(values, value); !ok {
 		ok = i != len(values)
 		values = append(values, value)
@@ -32,19 +33,11 @@ func insertSortFunc[S ~[]E, E any](values S, value E, cmp func(a, b E) int) S {
 	return values
 }
 
-func compare2[T1 constraints.Ordered, T2 constraints.Ordered](a1 T1, a2 T2, b1 T1, b2 T2) int {
-	switch {
-	case a1 < b1:
-		return -1
-	case a1 != b1:
-		return 1
-	case a2 < b2:
-		return -1
-	case a2 != b2:
-		return 1
-	default:
-		return 0
+func compare2[T1 cmp.Ordered, T2 cmp.Ordered](a1 T1, a2 T2, b1 T1, b2 T2) int {
+	if v := cmp.Compare(a1, b1); v != 0 {
+		return v
 	}
+	return cmp.Compare(a2, b2)
 }
 
 // callOn can be used like callOn(maps.Keys(someMap), func(v []string) { sort.Strings(v) })

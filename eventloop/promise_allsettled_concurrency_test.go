@@ -24,7 +24,7 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	rejectors := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, _, r := js.NewChainedPromise()
 		promises[i] = p
 		rejectors[i] = r
@@ -33,7 +33,7 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 	result := js.AllSettled(promises)
 
 	// All reject concurrently
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		rejectors[i](errors.New("error" + string(rune('a'+i))))
 	}
 	loop.tick()
@@ -62,7 +62,7 @@ func TestPromiseAllSettled_ConcurrentRejections(t *testing.T) {
 
 	// Verify all are rejected
 	for i, r := range values {
-		status, ok := r.(map[string]interface{})
+		status, ok := r.(map[string]any)
 		if !ok {
 			t.Errorf("Expected map, got %T at index %d", r, i)
 			continue
@@ -90,7 +90,7 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r
@@ -99,7 +99,7 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 	result := js.AllSettled(promises)
 
 	// All resolve concurrently
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		resolvers[i]("value" + string(rune('a'+i)))
 	}
 	loop.tick()
@@ -128,7 +128,7 @@ func TestPromiseAllSettled_ConcurrentResolutions(t *testing.T) {
 
 	// Verify all are fulfilled
 	for i, r := range values {
-		status, ok := r.(map[string]interface{})
+		status, ok := r.(map[string]any)
 		if !ok {
 			t.Errorf("Expected map, got %T at index %d", r, i)
 			continue
@@ -187,17 +187,17 @@ func TestPromiseAllSettled_MixedFulfillmentAndRejection(t *testing.T) {
 	}
 
 	// Verify each status
-	status1, ok := values[0].(map[string]interface{})
+	status1, ok := values[0].(map[string]any)
 	if !ok || status1["status"] != "fulfilled" {
 		t.Error("First promise should be fulfilled")
 	}
 
-	status2, ok := values[1].(map[string]interface{})
+	status2, ok := values[1].(map[string]any)
 	if !ok || status2["status"] != "rejected" {
 		t.Error("Second promise should be rejected")
 	}
 
-	status3, ok := values[2].(map[string]interface{})
+	status3, ok := values[2].(map[string]any)
 	if !ok || status3["status"] != "fulfilled" {
 		t.Error("Third promise should be fulfilled")
 	}
@@ -291,7 +291,7 @@ func TestPromiseAllSettled_OnePromise(t *testing.T) {
 		t.Errorf("Expected 1 result, got %d", len(values))
 	}
 
-	status, ok := values[0].(map[string]interface{})
+	status, ok := values[0].(map[string]any)
 	if !ok || status["status"] != "fulfilled" {
 		t.Error("Promise should be fulfilled")
 	}
@@ -387,7 +387,7 @@ func TestPromiseAllSettled_LargeNumberOfPromises(t *testing.T) {
 	promises := make([]*ChainedPromise, numPromises)
 	resolvers := make([]func(any), numPromises)
 
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, r, _ := js.NewChainedPromise()
 		promises[i] = p
 		resolvers[i] = r
@@ -396,7 +396,7 @@ func TestPromiseAllSettled_LargeNumberOfPromises(t *testing.T) {
 	result := js.AllSettled(promises)
 
 	// All resolve
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		resolvers[i]("value" + string(rune('a'+i%26)))
 	}
 	loop.tick()
@@ -480,7 +480,7 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 		t.Errorf("Expected 2 results, got %d", len(values))
 	}
 
-	status1, ok := values[0].(map[string]interface{})
+	status1, ok := values[0].(map[string]any)
 	if !ok || status1["status"] != "fulfilled" {
 		t.Error("First chained promise should be fulfilled")
 	}
@@ -489,7 +489,7 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 	}
 
 	// chained2 is fulfilled because the catch handler returned a value
-	status2, ok := values[1].(map[string]interface{})
+	status2, ok := values[1].(map[string]any)
 	if !ok || status2["status"] != "fulfilled" {
 		t.Error("Second chained promise should be fulfilled (catch handler returned a value)")
 	}
@@ -546,12 +546,12 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 		t.Errorf("Expected 2 results, got %d", len(values))
 	}
 
-	status1, ok := values[0].(map[string]interface{})
+	status1, ok := values[0].(map[string]any)
 	if !ok || status1["status"] != "fulfilled" {
 		t.Error("First promise should be fulfilled")
 	}
 
-	status2, ok := values[1].(map[string]interface{})
+	status2, ok := values[1].(map[string]any)
 	if !ok || status2["status"] != "rejected" {
 		t.Error("Second promise should be rejected")
 	}

@@ -486,7 +486,7 @@ func TestSleep_MultipleConcurrent(t *testing.T) {
 	}()
 
 	// Schedule multiple sleeps concurrently
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		js.Sleep(time.Duration(i*10)*time.Millisecond).Then(func(r any) any {
 			if count.Add(1) == 5 {
 				close(done)

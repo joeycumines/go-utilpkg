@@ -243,7 +243,7 @@ func TestPromiseAll_StressTest(t *testing.T) {
 	resolvers := make([]func(any), count)
 
 	// Create promises
-	for i := 0; i < count; i++ {
+	for i := range count {
 		promises[i], resolvers[i], _ = js.NewChainedPromise()
 	}
 
@@ -266,7 +266,7 @@ func TestPromiseAll_StressTest(t *testing.T) {
 	}, nil)
 
 	// Resolve all promises
-	for i := 0; i < count; i++ {
+	for i := range count {
 		resolvers[i](i)
 	}
 
@@ -274,7 +274,7 @@ func TestPromiseAll_StressTest(t *testing.T) {
 	wg.Wait()
 
 	// Verify all values were received
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if results[i] != i {
 			t.Errorf("Expected %d, got %v", i, results[i])
 		}
@@ -584,7 +584,7 @@ func TestPromiseAllSettled_AllFulfilled(t *testing.T) {
 
 	// Verify all status objects
 	for i, r := range finalResult {
-		statusObj, ok := r.(map[string]interface{})
+		statusObj, ok := r.(map[string]any)
 		if !ok {
 			t.Errorf("Expected map[string]interface{}, got %T", r)
 			continue
@@ -592,7 +592,7 @@ func TestPromiseAllSettled_AllFulfilled(t *testing.T) {
 		if statusObj["status"] != "fulfilled" {
 			t.Errorf("Expected status 'fulfilled', got '%v'", statusObj["status"])
 		}
-		expectedValues := []interface{}{"first", "second", "third"}
+		expectedValues := []any{"first", "second", "third"}
 		if statusObj["value"] != expectedValues[i] {
 			t.Errorf("Expected value '%v', got '%v'", expectedValues[i], statusObj["value"])
 		}
@@ -638,13 +638,13 @@ func TestPromiseAllSettled_MixedFulfillAndReject(t *testing.T) {
 	loop.tick()
 
 	// Check first (fulfilled)
-	status1, ok := finalResult[0].(map[string]interface{})
+	status1, ok := finalResult[0].(map[string]any)
 	if !ok || status1["status"] != "fulfilled" {
 		t.Error("First promise should be fulfilled")
 	}
 
 	// Check second (rejected)
-	status2, ok := finalResult[1].(map[string]interface{})
+	status2, ok := finalResult[1].(map[string]any)
 	if !ok || status2["status"] != "rejected" {
 		t.Error("Second promise should be rejected")
 	}
@@ -653,7 +653,7 @@ func TestPromiseAllSettled_MixedFulfillAndReject(t *testing.T) {
 	}
 
 	// Check third (fulfilled)
-	status3, ok := finalResult[2].(map[string]interface{})
+	status3, ok := finalResult[2].(map[string]any)
 	if !ok || status3["status"] != "fulfilled" {
 		t.Error("Third promise should be fulfilled")
 	}
@@ -695,7 +695,7 @@ func TestPromiseAllSettled_AllRejected(t *testing.T) {
 
 	// Verify all are rejected with status objects
 	for i, r := range finalResult {
-		statusObj, ok := r.(map[string]interface{})
+		statusObj, ok := r.(map[string]any)
 		if !ok {
 			t.Errorf("Expected map[string]interface{}, got %T", r)
 			continue
@@ -703,7 +703,7 @@ func TestPromiseAllSettled_AllRejected(t *testing.T) {
 		if statusObj["status"] != "rejected" {
 			t.Errorf("Expected status 'rejected', got '%v'", statusObj["status"])
 		}
-		expectedReasons := []interface{}{"error 1", "error 2", "error 3"}
+		expectedReasons := []any{"error 1", "error 2", "error 3"}
 		if statusObj["reason"] != expectedReasons[i] {
 			t.Errorf("Expected reason '%v', got '%v'", expectedReasons[i], statusObj["reason"])
 		}
@@ -753,7 +753,7 @@ func TestPromiseAllSettled_NestedPromises(t *testing.T) {
 	loop.tick()
 
 	// Check base promise
-	status1, ok := finalResult[0].(map[string]interface{})
+	status1, ok := finalResult[0].(map[string]any)
 	if !ok || status1["status"] != "fulfilled" {
 		t.Error("Base promise should be fulfilled")
 	}
@@ -762,7 +762,7 @@ func TestPromiseAllSettled_NestedPromises(t *testing.T) {
 	}
 
 	// Check chained promise
-	status2, ok := finalResult[1].(map[string]interface{})
+	status2, ok := finalResult[1].(map[string]any)
 	if !ok || status2["status"] != "fulfilled" {
 		t.Error("Chained promise should be fulfilled")
 	}
@@ -1270,7 +1270,7 @@ func TestPromiseCombinators_OrderPreservation(t *testing.T) {
 				return nil
 			}
 			for i, val := range values {
-				if statusObj, ok := val.(map[string]interface{}); ok {
+				if statusObj, ok := val.(map[string]any); ok {
 					statuses[i] = statusObj["status"].(string)
 				}
 			}
@@ -1685,7 +1685,7 @@ func Test_errNoPromiseResolved_Error(t *testing.T) {
 func Test_errorWrapper_VariousTypes(t *testing.T) {
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 	}{
 		{"string error", "error string"},
 		{"int error", 12345},
@@ -1756,7 +1756,7 @@ func TestPromiseCombinators_NilValues(t *testing.T) {
 		loop.tick()
 
 		outcomes := result.Value().([]any)
-		status := outcomes[0].(map[string]interface{})
+		status := outcomes[0].(map[string]any)
 		if status["value"] != nil {
 			t.Errorf("AllSettled should preserve nil value, got: %v", status["value"])
 		}
@@ -1770,7 +1770,7 @@ func TestPromiseCombinators_NilValues(t *testing.T) {
 		loop.tick()
 
 		outcomes := result.Value().([]any)
-		status := outcomes[0].(map[string]interface{})
+		status := outcomes[0].(map[string]any)
 		if status["reason"] != nil {
 			t.Errorf("AllSettled should preserve nil reason, got: %v", status["reason"])
 		}
@@ -1856,17 +1856,17 @@ func TestPromiseCombinators_AlreadySettled(t *testing.T) {
 
 		outcomes := result.Value().([]any)
 
-		status1 := outcomes[0].(map[string]interface{})
+		status1 := outcomes[0].(map[string]any)
 		if status1["status"] != "fulfilled" || status1["value"] != "fulfilled" {
 			t.Errorf("Outcome[0] incorrect: %v", status1)
 		}
 
-		status2 := outcomes[1].(map[string]interface{})
+		status2 := outcomes[1].(map[string]any)
 		if status2["status"] != "rejected" || status2["reason"] != "rejected" {
 			t.Errorf("Outcome[1] incorrect: %v", status2)
 		}
 
-		status3 := outcomes[2].(map[string]interface{})
+		status3 := outcomes[2].(map[string]any)
 		if status3["status"] != "fulfilled" || status3["value"] != "later fulfilled" {
 			t.Errorf("Outcome[2] incorrect: %v", status3)
 		}
@@ -2062,19 +2062,19 @@ func TestPromiseCombinators_WithConvenienceHelpers(t *testing.T) {
 		}
 
 		// Check first outcome (fulfilled)
-		status1 := outcomes[0].(map[string]interface{})
+		status1 := outcomes[0].(map[string]any)
 		if status1["status"] != "fulfilled" {
 			t.Errorf("Outcome[0] status incorrect: %v", status1)
 		}
 
 		// Check second outcome (rejected)
-		status2 := outcomes[1].(map[string]interface{})
+		status2 := outcomes[1].(map[string]any)
 		if status2["status"] != "rejected" {
 			t.Errorf("Outcome[1] status incorrect: %v", status2)
 		}
 
 		// Check third outcome (fulfilled)
-		status3 := outcomes[2].(map[string]interface{})
+		status3 := outcomes[2].(map[string]any)
 		if status3["status"] != "fulfilled" {
 			t.Errorf("Outcome[2] status incorrect: %v", status3)
 		}
@@ -2112,7 +2112,7 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 		p := js.Resolve("start")
 
 		current := p
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			current = current.Then(func(v any) any {
 				return v.(string) + " +1"
 			}, nil)
@@ -2121,7 +2121,7 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 		loop.tick()
 
 		expected := "start"
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			expected = expected + " +1"
 		}
 
@@ -2330,14 +2330,14 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
 
 		result := p.Then(func(v any) any {
-			return map[string]interface{}{"value": v}
+			return map[string]any{"value": v}
 		}, nil)
 
 		resolve("original")
 		loop.tick()
 
 		val := result.Value()
-		if m, ok := val.(map[string]interface{}); ok {
+		if m, ok := val.(map[string]any); ok {
 			if m["value"] != "original" {
 				t.Errorf("Map value incorrect, got: %v", m)
 			}

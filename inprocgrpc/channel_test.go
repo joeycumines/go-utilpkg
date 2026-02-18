@@ -636,9 +636,7 @@ func TestChannel_ConcurrentRPCs(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, n)
 	for i := range n {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			req := &wrapperspb.StringValue{Value: fmt.Sprintf("msg%d", i)}
 			resp := new(wrapperspb.StringValue)
 			if err := ch.Invoke(context.Background(), "/test.TestService/Unary", req, resp); err != nil {
@@ -649,7 +647,7 @@ func TestChannel_ConcurrentRPCs(t *testing.T) {
 			if resp.GetValue() != expected {
 				errs <- fmt.Errorf("rpc %d: got %q, want %q", i, resp.GetValue(), expected)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

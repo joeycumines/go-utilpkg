@@ -112,7 +112,7 @@ func TestMultipleThen(t *testing.T) {
 	p, resolve, _ := New(nil)
 
 	chain := p
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		chain = chain.Then(func(v any) any {
 			return v
 		}, nil)
@@ -157,10 +157,8 @@ func TestPromiseWithJS(t *testing.T) {
 func TestConcurrentPromises(t *testing.T) {
 	var wg sync.WaitGroup
 
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			p, resolve, _ := New(nil)
 
 			p.Then(func(v any) any {
@@ -168,7 +166,7 @@ func TestConcurrentPromises(t *testing.T) {
 			}, nil)
 
 			resolve("value")
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -215,7 +213,7 @@ func TestChainedPromises(t *testing.T) {
 	results := []string{}
 	var mu sync.Mutex
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p.Then(func(v any) any {
 			mu.Lock()
 			results = append(results, "handled")

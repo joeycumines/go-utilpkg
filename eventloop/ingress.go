@@ -246,7 +246,7 @@ type microtaskRing struct { // betteralign:ignore
 // newMicrotaskRing creates a new lock-free ring with sequence tracking.
 func newMicrotaskRing() *microtaskRing {
 	r := &microtaskRing{}
-	for i := 0; i < ringBufferSize; i++ {
+	for i := range ringBufferSize {
 		r.seq[i].Store(ringSeqSkip) // Use skip sentinel (R101 fix)
 		r.valid[i].Store(false)     // Start with all slots invalid
 	}

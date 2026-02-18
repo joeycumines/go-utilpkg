@@ -1,0 +1,146 @@
+# Usage: make [target]
+#
+# Note: You can run from the root like make run.logiface.slog (default
+# target), or make run-<target>.logiface.slog.
+#
+# Targets:
+#   all: Default target, currently just runs bench.
+#   clean: Removes all generated files, i.e. benchmarks/, which contains the results.
+#   test: Runs tests with race detection and coverage.
+#   bench: Outputs results for all benchmarks, running them if necessary.
+#   bench-<lowercase benchmark name, e.g. disabled>: Similar behavior to bench, for a single benchmark.
+#   list: Outputs a list of all targets, will only work on some systems.
+#   debug-env: Outputs debug information about the environment.
+
+GO ?= go
+BENCHSTAT ?= go tool golang.org/x/perf/cmd/benchstat
+BENCHSTAT_FLAGS ?= -col /variant -row .name
+BENCHMARK_FLAGS ?= -timeout=5m -count=6 -benchmem
+BENCHMARK_DIR ?= benchmarks
+ifneq ($(OS),Windows_NT)
+mkdir_p = mkdir -p $(1)
+rm_rf = rm -rf $(1)
+else
+mkdir_p = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
+rm_rf = if exist $(subst /,\,$(1)) rmdir /s /q $(subst /,\,$(1))
+endif
+
+ifeq ($(BENCHMARK_DIR),)
+$(error BENCHMARK_DIR must not be empty)
+endif
+
+BENCHMARK_NAMES = \
+	Disabled \
+	Info \
+	ContextFields \
+	ContextAppend \
+	LogFields \
+	LogFieldType_Time \
+	ContextFieldType_Time \
+	LogFieldType_Int \
+	ContextFieldType_Int \
+	LogFieldType_Float32 \
+	ContextFieldType_Float32 \
+	LogFieldType_Err \
+	ContextFieldType_Err \
+	LogFieldType_Str \
+	ContextFieldType_Str \
+	LogFieldType_Interface \
+	ContextFieldType_Interface \
+	LogFieldType_InterfaceObject \
+	ContextFieldType_InterfaceObject \
+	LogFieldType_Dur \
+	ContextFieldType_Dur \
+	LogFieldType_Bool \
+	ContextFieldType_Bool \
+	LogFieldType_Float64 \
+	ContextFieldType_Float64 \
+	LogFieldType_Int64 \
+	ContextFieldType_Int64 \
+	LogFieldType_Uint64 \
+	ContextFieldType_Uint64 \
+	Array_Str \
+	NestedArrays \
+	Array_Bool \
+	EventTemplate1_Enabled \
+	EventTemplate1_Disabled \
+	EventTemplate2_Enabled \
+	EventTemplate2_Disabled \
+	EventTemplate3_Enabled \
+	EventTemplate3_Disabled \
+	EventTemplate4_Enabled \
+	EventTemplate4_Disabled \
+	EventTemplate5_Enabled \
+	EventTemplate5_Disabled \
+
+# must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
+BENCHMARK_NAME_SEPARATOR = =
+
+lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
+
+BENCHMARK_TARGETS := $(addprefix bench-,$(call lc,$(BENCHMARK_NAMES)))
+BENCHMARK_FILES := $(addprefix $(BENCHMARK_DIR)/,$(addsuffix .txt,$(call lc,$(BENCHMARK_NAMES))))
+BENCHMARK_NAME_TO_LC := $(foreach name,$(BENCHMARK_NAMES),$(name)$(BENCHMARK_NAME_SEPARATOR)$(call lc,$(name)))
+benchmark_lc_to_name = $(patsubst %$(BENCHMARK_NAME_SEPARATOR)$1,%,$(filter %$(BENCHMARK_NAME_SEPARATOR)$1,$(BENCHMARK_NAME_TO_LC)))
+
+.PHONY: all
+all: bench
+
+.PHONY: test
+test:
+	$(GO) test -race -cover ./... 2>&1 | tee -a ../build.log | tail -n 20
+
+.PHONY: fuzz
+fuzz:
+	$(GO) test -fuzz=FuzzEventAddField -fuzztime=1m ./...
+
+.PHONY: fuzz-short
+fuzz-short:
+	$(GO) test -fuzz=FuzzEventAddField -fuzztime=30s ./...
+
+.PHONY: run-pool-reuse-test
+run-pool-reuse-test:
+	$(GO) test -run "TestLogger_NewEvent_ReleaseEvent/pool_reuse" -v -timeout 10s ./...
+
+.PHONY: run-testsuite
+run-testsuite:
+	$(GO) test -v -run='^Test_TestSuite$$' -timeout=5m ./... 2>&1 | tail -n 100
+
+.PHONY: clean
+clean:
+	$(call rm_rf,$(BENCHMARK_DIR))
+
+# could have defined BENCHMARK_FILES as prerequisites, didn't to avoid parallelism
+.PHONY: bench
+bench:
+	$(foreach target,$(BENCHMARK_FILES),@$(MAKE) $(_bench__TEMPLATE))
+	$(BENCHSTAT) $(BENCHSTAT_FLAGS) $(BENCHMARK_FILES)
+define _bench__TEMPLATE =
+--no-print-directory $(target) >> ../build.log 2>&1
+
+
+endef
+
+.PHONY: $(BENCHMARK_TARGETS)
+$(BENCHMARK_TARGETS): bench-%: $(BENCHMARK_DIR)/%.txt
+	$(BENCHSTAT) $(BENCHSTAT_FLAGS) $(BENCHMARK_DIR)/$*.txt
+
+$(BENCHMARK_FILES): $(BENCHMARK_DIR)/%.txt: | $(BENCHMARK_DIR)
+	$(GO) test $(BENCHMARK_FLAGS) -run=^$$ -bench=^Benchmark$(call benchmark_lc_to_name,$*)$$ >$@
+
+$(BENCHMARK_DIR):
+	$(call mkdir_p,$@)
+
+.PHONY: list
+list:
+ifneq ($(OS),Windows_NT)
+	@LC_ALL=C $(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
+endif
+
+.PHONY: debug-env
+debug-env:
+	@echo BENCHMARK_NAMES = $(BENCHMARK_NAMES)
+	@echo BENCHMARK_TARGETS = $(BENCHMARK_TARGETS)
+	@echo BENCHMARK_FILES = $(BENCHMARK_FILES)
+	@echo BENCHMARK_NAME_TO_LC = $(BENCHMARK_NAME_TO_LC)
+	@echo benchmark_lc_to_name = $(foreach name,$(call lc,$(BENCHMARK_NAMES)),$(name)=$(call benchmark_lc_to_name,$(name)))

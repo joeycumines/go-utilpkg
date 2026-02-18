@@ -26,17 +26,15 @@ func TestPromiseToChannel_DoubleCheckPath(t *testing.T) {
 	}
 
 	const iterations = 2000
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		p, resolve, _ := js.NewChainedPromise()
 
 		var wg sync.WaitGroup
-		wg.Add(1)
 
 		// Goroutine resolves the promise — racing with ToChannel
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resolve("value")
-		}()
+		})
 
 		// Call ToChannel concurrently with resolve.
 		// Depending on scheduling, this may hit:
@@ -76,16 +74,14 @@ func TestPromiseToChannel_DoubleCheckReject(t *testing.T) {
 	}
 
 	const iterations = 2000
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		p, _, reject := js.NewChainedPromise()
 
 		var wg sync.WaitGroup
-		wg.Add(1)
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			reject(errors.New("err"))
-		}()
+		})
 
 		ch := p.ToChannel()
 		wg.Wait()
@@ -121,14 +117,14 @@ func TestPromiseToChannel_MultipleChannelsRace(t *testing.T) {
 	const iterations = 500
 	const channelsPerPromise = 5
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		p, resolve, _ := js.NewChainedPromise()
 
 		var wg sync.WaitGroup
 		channels := make([]<-chan any, channelsPerPromise)
 
 		// Launch multiple goroutines calling ToChannel concurrently
-		for j := 0; j < channelsPerPromise; j++ {
+		for j := range channelsPerPromise {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
@@ -137,11 +133,9 @@ func TestPromiseToChannel_MultipleChannelsRace(t *testing.T) {
 		}
 
 		// Also resolve concurrently
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resolve("multi")
-		}()
+		})
 
 		wg.Wait()
 

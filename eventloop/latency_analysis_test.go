@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"sort"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -60,7 +60,7 @@ func TestLatencyAnalysis_EndToEnd(t *testing.T) {
 	}()
 
 	// Wait for loop to be running
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -69,7 +69,7 @@ func TestLatencyAnalysis_EndToEnd(t *testing.T) {
 
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
@@ -131,7 +131,7 @@ func TestLatencyAnalysis_FastPath(t *testing.T) {
 	}()
 
 	// Wait for loop to be running
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -140,7 +140,7 @@ func TestLatencyAnalysis_FastPath(t *testing.T) {
 
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
@@ -198,7 +198,7 @@ func TestLatencyAnalysis_NoWakeup(t *testing.T) {
 	}()
 
 	// Wait for loop to be running
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -212,7 +212,7 @@ func TestLatencyAnalysis_NoWakeup(t *testing.T) {
 	var wg sync.WaitGroup
 	var taskIdx atomic.Int32
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		wg.Add(1)
 		idx := i
 		rec := &records[idx]
@@ -278,7 +278,7 @@ func TestLatencyAnalysis_PollInstrumented(t *testing.T) {
 	}()
 
 	// Wait for loop
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -291,7 +291,7 @@ func TestLatencyAnalysis_PollInstrumented(t *testing.T) {
 
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 		idx := i
@@ -333,7 +333,7 @@ func TestLatencyAnalysis_PollInstrumented(t *testing.T) {
 	// State analysis
 	sleepingCount := 0
 	runningCount := 0
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		if stateAtSubmit[i] == StateSleeping {
 			sleepingCount++
 		} else if stateAtSubmit[i] == StateRunning {
@@ -365,7 +365,7 @@ func TestLatencyAnalysis_ChannelBaseline(t *testing.T) {
 		close(done)
 	}()
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
@@ -411,7 +411,7 @@ func TestLatencyAnalysis_FullTick(t *testing.T) {
 	}()
 
 	// Wait for loop
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -420,7 +420,7 @@ func TestLatencyAnalysis_FullTick(t *testing.T) {
 
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
@@ -477,7 +477,7 @@ func TestLatencyAnalysis_Wakeup(t *testing.T) {
 	}()
 
 	// Wait for loop
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -488,12 +488,12 @@ func TestLatencyAnalysis_Wakeup(t *testing.T) {
 	// when loop is DEFINITELY sleeping
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
 		// Wait for loop to definitely be sleeping
-		for j := 0; j < 100; j++ {
+		for range 100 {
 			if loop.State() == StateSleeping {
 				break
 			}
@@ -554,7 +554,7 @@ func TestLatencyAnalysis_PipeVsChannel(t *testing.T) {
 			_ = loop.Close()
 		}()
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			start := time.Now()
 			err := loop.submitWakeup()
 			if err != nil {
@@ -564,7 +564,7 @@ func TestLatencyAnalysis_PipeVsChannel(t *testing.T) {
 			durations = append(durations, time.Since(start))
 		}
 
-		sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+		slices.Sort(durations)
 		t.Logf("Pipe write+drain - P50: %v, P95: %v, P99: %v, Mean: %v",
 			durations[len(durations)/2],
 			durations[len(durations)*95/100],
@@ -579,14 +579,14 @@ func TestLatencyAnalysis_PipeVsChannel(t *testing.T) {
 
 		ch := make(chan struct{}, 1)
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			start := time.Now()
 			ch <- struct{}{}
 			<-ch
 			durations = append(durations, time.Since(start))
 		}
 
-		sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+		slices.Sort(durations)
 		t.Logf("Channel send+recv - P50: %v, P95: %v, P99: %v, Mean: %v",
 			durations[len(durations)/2],
 			durations[len(durations)*95/100],
@@ -618,7 +618,7 @@ func TestLatencyAnalysis_IOFDImpact(t *testing.T) {
 			close(loopDone)
 		}()
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			if loop.State() == StateRunning || loop.State() == StateSleeping {
 				break
 			}
@@ -627,12 +627,12 @@ func TestLatencyAnalysis_IOFDImpact(t *testing.T) {
 
 		records := make([]latencyRecord, iterations)
 
-		for i := 0; i < iterations; i++ {
+		for i := range iterations {
 			var rec latencyRecord
 			taskDone := make(chan struct{})
 
 			// Wait for sleeping state
-			for j := 0; j < 50; j++ {
+			for range 50 {
 				if loop.State() == StateSleeping {
 					break
 				}
@@ -685,9 +685,9 @@ func analyzeLatencyRecords(t *testing.T, testName string, records []latencyRecor
 	}
 
 	// Sort for percentiles
-	sort.Slice(queueLats, func(i, j int) bool { return queueLats[i] < queueLats[j] })
-	sort.Slice(execLats, func(i, j int) bool { return execLats[i] < execLats[j] })
-	sort.Slice(totalLats, func(i, j int) bool { return totalLats[i] < totalLats[j] })
+	slices.Sort(queueLats)
+	slices.Sort(execLats)
+	slices.Sort(totalLats)
 
 	t.Log("==========================================================")
 	t.Logf("[%s] LATENCY ANALYSIS (n=%d)", testName, len(records))
@@ -794,7 +794,7 @@ func BenchmarkLatencyAnalysis_EndToEnd(b *testing.B) {
 	}()
 
 	// Wait for loop
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -840,7 +840,7 @@ func BenchmarkLatencyAnalysis_PingPong(b *testing.B) {
 		close(loopDone)
 	}()
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -884,7 +884,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	var sink int //nolint:staticcheck
 	const ops = 10000
 	start := time.Now()
-	for i := 0; i < ops; i++ {
+	for i := range ops {
 		mu.Lock()
 		sink = i // Prevent empty critical section warning
 		mu.Unlock()
@@ -897,7 +897,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	q := newChunkedIngress()
 	task := func() {}
 	start = time.Now()
-	for i := 0; i < ops; i++ {
+	for range ops {
 		q.Push(task)
 	}
 	pushTime := time.Since(start)
@@ -907,7 +907,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	state := newFastState()
 	state.Store(StateRunning)
 	start = time.Now()
-	for i := 0; i < ops; i++ {
+	for range ops {
 		_ = state.Load()
 	}
 	loadTime := time.Since(start)
@@ -915,7 +915,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 
 	// 4. Measure CAS
 	start = time.Now()
-	for i := 0; i < ops; i++ {
+	for i := range ops {
 		if i%2 == 0 {
 			state.TryTransition(StateRunning, StateSleeping)
 		} else {
@@ -928,7 +928,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	// 5. Measure wakeUpSignalPending CAS
 	var pending atomic.Uint32
 	start = time.Now()
-	for i := 0; i < ops; i++ {
+	for range ops {
 		pending.CompareAndSwap(0, 1)
 		pending.Store(0)
 	}
@@ -938,7 +938,7 @@ func TestLatencyAnalysis_DetailedBreakdown(t *testing.T) {
 	// 6. Measure channel send (buffered)
 	ch := make(chan struct{}, 1)
 	start = time.Now()
-	for i := 0; i < ops; i++ {
+	for range ops {
 		select {
 		case ch <- struct{}{}:
 		default:
@@ -988,7 +988,7 @@ func TestLatencyAnalysis_FastWakeupChannel(t *testing.T) {
 		close(loopDone)
 	}()
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}
@@ -1001,12 +1001,12 @@ func TestLatencyAnalysis_FastWakeupChannel(t *testing.T) {
 
 	records := make([]latencyRecord, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		var rec latencyRecord
 		taskDone := make(chan struct{})
 
 		// Wait for sleeping
-		for j := 0; j < 100; j++ {
+		for range 100 {
 			if loop.State() == StateSleeping {
 				break
 			}
@@ -1048,7 +1048,7 @@ func TestLatencyAnalysis_GoroutineScheduling(t *testing.T) {
 
 	var latencies []time.Duration
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		done := make(chan struct{})
 		start := time.Now()
 
@@ -1060,7 +1060,7 @@ func TestLatencyAnalysis_GoroutineScheduling(t *testing.T) {
 		latencies = append(latencies, time.Since(start))
 	}
 
-	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
+	slices.Sort(latencies)
 
 	t.Logf("Goroutine spawn + signal - P50: %v, P95: %v, P99: %v, Mean: %v",
 		latencies[len(latencies)/2],
@@ -1089,13 +1089,13 @@ func TestLatencyAnalysis_RawPollCost(t *testing.T) {
 	const iterations = 1000
 	var durations []time.Duration
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		start := time.Now()
 		_, _ = loop.poller.PollIO(0) // Non-blocking poll
 		durations = append(durations, time.Since(start))
 	}
 
-	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+	slices.Sort(durations)
 
 	t.Logf("PollIO(0) - P50: %v, P95: %v, P99: %v, Mean: %v",
 		durations[len(durations)/2],
@@ -1126,7 +1126,7 @@ func BenchmarkLatencyAnalysis_SubmitWhileRunning(b *testing.B) {
 		close(loopDone)
 	}()
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if loop.State() == StateRunning || loop.State() == StateSleeping {
 			break
 		}

@@ -54,7 +54,7 @@ func TestWake_Concurrent(t *testing.T) {
 	// Call Wake() from multiple goroutines
 	var callCount atomic.Int32
 	const numCalls = 100
-	for i := 0; i < numCalls; i++ {
+	for range numCalls {
 		go func() {
 			err := loop.Wake()
 			if err != nil {

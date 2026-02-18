@@ -21,11 +21,9 @@ func BenchmarkMicroPingPong(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -300,11 +298,9 @@ func BenchmarkLoopDirect(b *testing.B) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	// Start the loop in a goroutine
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// NOTE: We can't call Run() because it has overhead
 		// Instead, let's directly exercise runAux
 
@@ -320,7 +316,7 @@ func BenchmarkLoopDirect(b *testing.B) {
 				loop.runAux()
 			}
 		}
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -367,11 +363,9 @@ func BenchmarkLoopDirectWithSubmit(b *testing.B) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
 	// Start the loop in a goroutine (bypassing Run() but with LockOSThread)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
@@ -385,7 +379,7 @@ func BenchmarkLoopDirectWithSubmit(b *testing.B) {
 				loop.runAux()
 			}
 		}
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -418,11 +412,9 @@ func BenchmarkMicroPingPongWithCount(b *testing.B) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})

@@ -29,18 +29,18 @@ func TestLoadDescriptorSet_InvalidBytes(t *testing.T) {
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{
 			{
-				Name:    proto.String("bad.proto"),
-				Package: proto.String("bad"),
-				Syntax:  proto.String("proto3"),
+				Name:    new("bad.proto"),
+				Package: new("bad"),
+				Syntax:  new("proto3"),
 				MessageType: []*descriptorpb.DescriptorProto{
 					{
-						Name: proto.String("BadMsg"),
+						Name: new("BadMsg"),
 						Field: []*descriptorpb.FieldDescriptorProto{
 							{
-								Name:     proto.String("ref"),
+								Name:     new("ref"),
 								Number:   proto.Int32(1),
 								Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
-								TypeName: proto.String(".nonexist.NoSuchMessage"),
+								TypeName: new(".nonexist.NoSuchMessage"),
 								Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 							},
 						},
@@ -127,9 +127,9 @@ func TestLoadFileDescriptorProto_InvalidBytes(t *testing.T) {
 
 	// File with missing dependency should fail.
 	fdp := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("dep.proto"),
-		Package:    proto.String("dep"),
-		Syntax:     proto.String("proto3"),
+		Name:       new("dep.proto"),
+		Package:    new("dep"),
+		Syntax:     new("proto3"),
 		Dependency: []string{"nonexistent.proto"},
 	}
 	data, err := proto.Marshal(fdp)

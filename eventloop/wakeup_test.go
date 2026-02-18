@@ -46,10 +46,10 @@ func TestWakeup_HighContention(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(producers)
 
-	for p := 0; p < producers; p++ {
+	for range producers {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < tasksPerProducer; i++ {
+			for i := range tasksPerProducer {
 				loop.Submit(func() {
 					executed.Add(1)
 				})

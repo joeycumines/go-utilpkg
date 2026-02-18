@@ -20,11 +20,11 @@ func TestRegistryThreadSafety(t *testing.T) {
 
 	// Producers
 	producersWG.Add(numProducers)
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		go func() {
 			defer producersWG.Done()
 			<-start
-			for j := 0; j < numPromises; j++ {
+			for range numPromises {
 				_, p := r.NewPromise()
 				if p == nil {
 					panic("NewPromise returned nil")
@@ -38,9 +38,7 @@ func TestRegistryThreadSafety(t *testing.T) {
 	// Scavenger
 	scavengeStop := make(chan struct{})
 	var scavengeWG sync.WaitGroup
-	scavengeWG.Add(1)
-	go func() {
-		defer scavengeWG.Done()
+	scavengeWG.Go(func() {
 		<-start
 		for {
 			select {
@@ -51,7 +49,7 @@ func TestRegistryThreadSafety(t *testing.T) {
 				runtime.Gosched()
 			}
 		}
-	}()
+	})
 
 	close(start)
 	producersWG.Wait()
@@ -144,7 +142,7 @@ func TestRegistry_CompactionReclaimsMemory(t *testing.T) {
 	r := newRegistry()
 
 	const count = 1_000_000
-	for i := 0; i < count; i++ {
+	for range count {
 		_, p := r.NewPromise()
 		p.Resolve(nil)
 	}

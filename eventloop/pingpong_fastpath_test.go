@@ -38,7 +38,7 @@ func TestPingPongFastPathCounter(t *testing.T) {
 
 	// Submit 100 tasks one at a time, waiting for each to complete
 	const numTasks = 100
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		err := loop.Submit(func() {

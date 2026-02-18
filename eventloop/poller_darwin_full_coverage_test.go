@@ -516,7 +516,7 @@ func Test_fastPoller_ConcurrentAccess(t *testing.T) {
 	// Create pipes
 	const numPipes = 10
 	var pipes [][2]int
-	for i := 0; i < numPipes; i++ {
+	for i := range numPipes {
 		var fds [2]int
 		if err := unix.Pipe(fds[:]); err != nil {
 			t.Fatalf("Pipe %d failed: %v", i, err)
@@ -542,23 +542,21 @@ func Test_fastPoller_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrent pollers
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
+	for range 5 {
+		wg.Go(func() {
+			for range 100 {
 				poller.PollIO(1)
 			}
-		}()
+		})
 	}
 
 	// Concurrent writers
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		wg.Add(1)
 		idx := i % numPipes
 		go func(pipeIdx int) {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				unix.Write(pipes[pipeIdx][1], []byte{1})
 				time.Sleep(time.Microsecond)
 			}
@@ -566,17 +564,15 @@ func Test_fastPoller_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Concurrent modifiers
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 50; j++ {
+	for range 3 {
+		wg.Go(func() {
+			for j := range 50 {
 				idx := j % numPipes
 				poller.ModifyFD(pipes[idx][0], EventRead|EventWrite)
 				time.Sleep(time.Microsecond)
 				poller.ModifyFD(pipes[idx][0], EventRead)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

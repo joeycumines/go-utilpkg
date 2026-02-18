@@ -181,8 +181,7 @@ func TestPromisify_MultipleConcurrent_Panics(t *testing.T) {
 	const numPromises = 10
 	promises := make([]Promise, numPromises)
 
-	for i := 0; i < numPromises; i++ {
-		i := i
+	for i := range numPromises {
 		promises[i] = loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
 			if i%2 == 0 {
 				panic(fmt.Sprintf("panic-%d", i))

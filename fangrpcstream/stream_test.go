@@ -75,7 +75,7 @@ func TestStream(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			err := stream.Send(ctx, &testapi.Request{Id: "test", Payload: "message", Sequence: int32(i)})
 			if err != nil {
 				t.Errorf("Failed to send message: %v", err)
@@ -90,7 +90,7 @@ func TestStream(t *testing.T) {
 			t.Error(`never ready`)
 		case <-server.ready:
 		}
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			err := server.stream.Send(&testapi.Response{Id: "test", Result: "response", StatusCode: int32(i)})
 			if err != nil {
 				t.Errorf("Failed to send response: %v", err)

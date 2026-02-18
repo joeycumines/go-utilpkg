@@ -93,7 +93,7 @@ func TestWorkload_SimulatedHTTPServer(t *testing.T) {
 	done := make(chan struct{})
 
 	// Simulate incoming requests
-	for i := 0; i < numRequests; i++ {
+	for i := range numRequests {
 		req := Request{
 			ID:          i,
 			ProcessTime: time.Duration(rand.Intn(100)) * time.Millisecond,
@@ -189,7 +189,7 @@ func TestWorkload_ScheduledJobProcessing(t *testing.T) {
 		batchSize := 5
 		batch := make([]*ChainedPromise, batchSize)
 
-		for i := 0; i < batchSize; i++ {
+		for i := range batchSize {
 			job := Job{
 				ID:       int(jobCounter.Add(1)),
 				Priority: rand.Intn(10),
@@ -323,7 +323,7 @@ func TestWorkload_PromiseDataPipeline(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numRecords; i++ {
+	for i := range numRecords {
 		fetch(i).
 			Then(parse, nil).
 			Then(transform, nil).
@@ -403,7 +403,7 @@ func TestWorkload_WorkerPool(t *testing.T) {
 
 	// Task queue
 	tasks := make(chan int, numTasks)
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		tasks <- i
 	}
 	close(tasks)
@@ -413,7 +413,7 @@ func TestWorkload_WorkerPool(t *testing.T) {
 	done := make(chan struct{})
 
 	// Start workers
-	for w := 0; w < numWorkers; w++ {
+	for w := range numWorkers {
 		workerId := w
 		var processNext func()
 		processNext = func() {
@@ -442,7 +442,7 @@ func TestWorkload_WorkerPool(t *testing.T) {
 	select {
 	case <-done:
 		t.Logf("Worker pool completed %d tasks", completed.Load())
-		for i := 0; i < numWorkers; i++ {
+		for i := range numWorkers {
 			t.Logf("  Worker %d: %d tasks", i, workerCounts[i].Load())
 		}
 	case <-time.After(10 * time.Second):
@@ -519,7 +519,7 @@ func TestWorkload_RateLimitedOperations(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		callId := i
 		apiCall(callId).Then(
 			func(r any) any {
@@ -636,7 +636,7 @@ func TestWorkload_CircuitBreaker(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numCalls; i++ {
+	for i := range numCalls {
 		callId := i
 		unreliableService(callId).Then(
 			func(r any) any {
@@ -738,10 +738,9 @@ func TestWorkload_RetryWithBackoff(t *testing.T) {
 					}
 
 					// Exponential backoff
-					delayMs := baseDelayMs * (1 << retry)
-					if delayMs > 100 {
-						delayMs = 100 // Cap delay
-					}
+					delayMs := min(baseDelayMs*(1<<retry),
+						// Cap delay
+						100)
 
 					_, err := js.SetTimeout(func() {
 						attempt(retry + 1)
@@ -764,7 +763,7 @@ func TestWorkload_RetryWithBackoff(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for i := 0; i < numOperations; i++ {
+	for i := range numOperations {
 		opId := i
 		retryWithBackoff(opId, 10, 5).Then(
 			func(r any) any {
@@ -888,7 +887,7 @@ func TestWorkload_BatchProcessor(t *testing.T) {
 	}
 
 	const numItems = 100
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		addItem(i)
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -940,7 +939,7 @@ func TestWorkload_PubSubPattern(t *testing.T) {
 	// Simple pub-sub
 	type Event struct {
 		Type string
-		Data interface{}
+		Data any
 	}
 
 	subscribers := make(map[string][]func(Event))
@@ -1005,7 +1004,7 @@ func TestWorkload_PubSubPattern(t *testing.T) {
 	done := make(chan struct{})
 
 	eventTypes := []string{"user", "order", "system"}
-	for i := 0; i < numEvents; i++ {
+	for i := range numEvents {
 		eventID := i
 		eventType := eventTypes[i%len(eventTypes)]
 		publish(Event{Type: eventType, Data: eventID}).Then(func(r any) any {
@@ -1062,7 +1061,7 @@ func TestWorkload_StreamProcessing(t *testing.T) {
 
 	// Producer
 	go func() {
-		for i := 0; i < numItems; i++ {
+		for i := range numItems {
 			select {
 			case buffer <- i:
 				produced.Add(1)
@@ -1146,7 +1145,7 @@ func TestWorkload_MixedAsyncPatterns(t *testing.T) {
 	var completed atomic.Int32
 	done := make(chan struct{})
 
-	for iter := 0; iter < numIterations; iter++ {
+	for iter := range numIterations {
 		iteration := iter
 
 		// 1. Create multiple promises with different characteristics
@@ -1197,7 +1196,7 @@ func TestWorkload_MixedAsyncPatterns(t *testing.T) {
 		js.AllSettled(promises).Then(func(r any) any {
 			results := r.([]any)
 			for _, res := range results {
-				m := res.(map[string]interface{})
+				m := res.(map[string]any)
 				if m["status"] != "fulfilled" && m["status"] != "rejected" {
 					t.Errorf("Unexpected status: %v", m["status"])
 				}

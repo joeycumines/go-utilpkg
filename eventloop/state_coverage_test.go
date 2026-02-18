@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -338,10 +339,10 @@ func Test_fastState_ConcurrentLoad(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(100)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 1000; j++ {
+			for range 1000 {
 				state := s.Load()
 				if state != StateRunning {
 					t.Errorf("Expected Running, got %v", state)
@@ -364,7 +365,7 @@ func Test_fastState_ConcurrentStore(t *testing.T) {
 	for _, state := range states {
 		go func(st LoopState) {
 			defer wg.Done()
-			for j := 0; j < 1000; j++ {
+			for range 1000 {
 				s.Store(st)
 			}
 		}(state)
@@ -374,13 +375,7 @@ func Test_fastState_ConcurrentStore(t *testing.T) {
 
 	// State should be one of the valid states (non-deterministic which)
 	final := s.Load()
-	valid := false
-	for _, st := range states {
-		if final == st {
-			valid = true
-			break
-		}
-	}
+	valid := slices.Contains(states, final)
 	if !valid {
 		t.Errorf("Final state %v is not one of the expected states", final)
 	}
@@ -398,7 +393,7 @@ func Test_fastState_ConcurrentTryTransition(t *testing.T) {
 
 	var successCount atomic.Int32
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
 			defer wg.Done()
 			if s.TryTransition(StateRunning, StateTerminating) {
@@ -432,7 +427,7 @@ func Test_fastState_ConcurrentTransitionAny(t *testing.T) {
 
 	var successCount atomic.Int32
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
 			defer wg.Done()
 			if s.TransitionAny([]LoopState{StateRunning}, StateTerminating) {
@@ -527,7 +522,7 @@ func Test_fastState_ConcurrentMixedOperations(t *testing.T) {
 	}()
 
 	// Let it run for a bit
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		runtime.Gosched()
 	}
 
@@ -625,7 +620,7 @@ func Test_fastState_TryTransition_LoopPattern(t *testing.T) {
 func Test_fastState_TryTransition_RaceConditionSimulation(t *testing.T) {
 	// Simulate race between poll wakeup and shutdown
 
-	for iter := 0; iter < 100; iter++ {
+	for iter := range 100 {
 		s := newFastState()
 		s.Store(StateSleeping)
 

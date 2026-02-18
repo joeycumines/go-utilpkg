@@ -35,7 +35,7 @@ func Test_Promise_NewPromise(t *testing.T) {
 		registry := newRegistry()
 		ids := make(map[uint64]bool)
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			id, _ := registry.NewPromise()
 			if id == 0 {
 				t.Fatalf("Expected non-zero ID, got %d", id)
@@ -198,7 +198,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		numGoroutines := 10
 
 		// Try to resolve from multiple goroutines
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
@@ -224,7 +224,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		numGoroutines := 10
 
 		// Try to reject from multiple goroutines
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
@@ -249,7 +249,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		var wg sync.WaitGroup
 		numGoroutines := 20
 
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
@@ -338,7 +338,7 @@ func Test_Promise_WeakPointerBehavior(t *testing.T) {
 
 		// Create many promises without keeping references
 		promiseCount := 1000
-		for i := 0; i < promiseCount; i++ {
+		for range promiseCount {
 			_, _ = registry.NewPromise()
 		}
 
@@ -346,7 +346,7 @@ func Test_Promise_WeakPointerBehavior(t *testing.T) {
 		runtime.GC()
 
 		// Run scavenger multiple times
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			registry.Scavenge(200)
 			time.Sleep(1 * time.Millisecond)
 		}
@@ -402,7 +402,7 @@ func Test_Promise_CallbackMemoryLeak(t *testing.T) {
 		const numChannels = 1000
 		channels := make([]<-chan Result, numChannels)
 
-		for i := 0; i < numChannels; i++ {
+		for i := range numChannels {
 			channels[i] = p.ToChannel()
 		}
 

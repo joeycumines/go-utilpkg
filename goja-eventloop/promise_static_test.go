@@ -401,7 +401,7 @@ func TestPromiseAll_EmptyArray(t *testing.T) {
 
 	result := rt.Get("result")
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	if !ok {
 		t.Fatalf("expected array, got: %T", exported)
 	}
@@ -498,7 +498,7 @@ func TestPromiseAllSettled_EmptyArray(t *testing.T) {
 
 	result := rt.Get("result")
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	if !ok {
 		t.Fatalf("expected array, got: %T", exported)
 	}
@@ -612,7 +612,7 @@ func TestPromiseAll_AlreadySettledResolved(t *testing.T) {
 
 	result := rt.Get("result")
 	exported := result.Export()
-	arr, ok := exported.([]interface{})
+	arr, ok := exported.([]any)
 	if !ok {
 		t.Fatalf("expected array, got: %T", exported)
 	}

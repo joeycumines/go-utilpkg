@@ -20,26 +20,26 @@ import (
 func exampleGrpcDescBytes() []byte {
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{{
-			Name:    proto.String("example.proto"),
-			Package: proto.String("example"),
-			Syntax:  proto.String("proto3"),
+			Name:    new("example.proto"),
+			Package: new("example"),
+			Syntax:  new("proto3"),
 			MessageType: []*descriptorpb.DescriptorProto{{
-				Name: proto.String("EchoRequest"),
+				Name: new("EchoRequest"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					{Name: proto.String("message"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("message")},
+					{Name: new("message"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("message")},
 				},
 			}, {
-				Name: proto.String("EchoResponse"),
+				Name: new("EchoResponse"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					{Name: proto.String("message"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: proto.String("message")},
+					{Name: new("message"), Number: proto.Int32(1), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), JsonName: new("message")},
 				},
 			}},
 			Service: []*descriptorpb.ServiceDescriptorProto{{
-				Name: proto.String("EchoService"),
+				Name: new("EchoService"),
 				Method: []*descriptorpb.MethodDescriptorProto{{
-					Name:       proto.String("Echo"),
-					InputType:  proto.String(".example.EchoRequest"),
-					OutputType: proto.String(".example.EchoResponse"),
+					Name:       new("Echo"),
+					InputType:  new(".example.EchoRequest"),
+					OutputType: new(".example.EchoResponse"),
 				}},
 			}},
 		}},

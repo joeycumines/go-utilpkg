@@ -25,8 +25,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 			t.Fatalf("SetFastPathMode failed: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		runDone := make(chan struct{})
 		errChan := make(chan error, 1)
@@ -138,8 +137,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 			t.Fatalf("SetFastPathMode failed: %v", err)
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		runDone := make(chan struct{})
 		errChan := make(chan error, 1)
@@ -262,8 +260,7 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 		t.Fatalf("SetFastPathMode failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	runDone := make(chan struct{})
 	errChan := make(chan error, 1)
@@ -290,7 +287,7 @@ func TestStrictModeRespectsBudget(t *testing.T) {
 	// Task spawns many microtasks
 	task := func() {
 		// Spawn 2000 microtasks (Budget is 1024)
-		for i := 0; i < 2000; i++ {
+		for range 2000 {
 			l.microtasks.Push(func() {
 				ops.Add(1)
 				if ops.Load() == 2000 {

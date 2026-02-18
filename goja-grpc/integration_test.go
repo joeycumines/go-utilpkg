@@ -57,7 +57,7 @@ func TestUnaryRPC_HappyPath(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "echo: hello", resultObj["message"])
 	assert.Equal(t, int64(42), resultObj["code"])
 }
@@ -94,7 +94,7 @@ func TestUnaryRPC_ServerError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(5), resultObj["code"]) // NOT_FOUND = 5
 	assert.Contains(t, resultObj["message"], "item not found")
@@ -196,10 +196,10 @@ func TestServerStreamRPC_HappyPath(t *testing.T) {
 
 	items := env.runtime.Get("items")
 	require.NotNil(t, items)
-	arr := items.Export().([]interface{})
+	arr := items.Export().([]any)
 	assert.Equal(t, 3, len(arr))
-	assert.Equal(t, "item-0", arr[0].(map[string]interface{})["name"])
-	assert.Equal(t, "item-2", arr[2].(map[string]interface{})["name"])
+	assert.Equal(t, "item-0", arr[0].(map[string]any)["name"])
+	assert.Equal(t, "item-2", arr[2].(map[string]any)["name"])
 }
 
 // ============================================================================
@@ -274,7 +274,7 @@ func TestClientStreamRPC_HappyPath(t *testing.T) {
 
 	result := env.runtime.Get("result")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "received: alpha,beta", resultObj["message"])
 	assert.Equal(t, int64(2), resultObj["code"])
 }
@@ -361,10 +361,10 @@ func TestBidiStreamRPC_HappyPath(t *testing.T) {
 
 	received := env.runtime.Get("received")
 	require.NotNil(t, received)
-	arr := received.Export().([]interface{})
+	arr := received.Export().([]any)
 	assert.Equal(t, 2, len(arr))
-	assert.Equal(t, "echo-foo", arr[0].(map[string]interface{})["name"])
-	assert.Equal(t, "echo-bar", arr[1].(map[string]interface{})["name"])
+	assert.Equal(t, "echo-foo", arr[0].(map[string]any)["name"])
+	assert.Equal(t, "echo-bar", arr[1].(map[string]any)["name"])
 }
 
 // ============================================================================
@@ -412,7 +412,7 @@ func TestUnaryRPC_AbortSignal(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	// Cancelled code = 1
 	assert.Equal(t, int64(1), resultObj["code"])
@@ -472,7 +472,7 @@ func TestServerStreamRPC_ServerError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(8), resultObj["code"]) // RESOURCE_EXHAUSTED = 8
 	assert.Contains(t, resultObj["message"], "too many")
@@ -528,7 +528,7 @@ func TestClientStreamRPC_ServerError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(3), resultObj["code"]) // INVALID_ARGUMENT = 3
 	assert.Contains(t, resultObj["message"], "bad input")
@@ -584,7 +584,7 @@ func TestBidiStreamRPC_ServerError(t *testing.T) {
 
 	result := env.runtime.Get("error")
 	require.NotNil(t, result)
-	resultObj := result.Export().(map[string]interface{})
+	resultObj := result.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", resultObj["name"])
 	assert.Equal(t, int64(6), resultObj["code"]) // ALREADY_EXISTS = 6
 	assert.Contains(t, resultObj["message"], "dup")
@@ -755,32 +755,32 @@ func TestIntegration_JSClientJSServer_AllRPCTypes(t *testing.T) {
 	// Check for errors
 	errorsVal := env.runtime.Get("errors")
 	if errorsVal != nil && !isGojaUndefined(errorsVal) {
-		errArr := errorsVal.Export().([]interface{})
+		errArr := errorsVal.Export().([]any)
 		require.Empty(t, errArr, "JS errors: %v", errArr)
 	}
 
 	results := env.runtime.Get("results")
 	require.NotNil(t, results)
-	r := results.Export().(map[string]interface{})
+	r := results.Export().(map[string]any)
 
 	// 1) Unary
-	unary := r["unary"].(map[string]interface{})
+	unary := r["unary"].(map[string]any)
 	assert.Equal(t, "reply: integration", unary["message"])
 	assert.Equal(t, int64(200), unary["code"])
 
 	// 2) Server-streaming
-	ss := r["serverStream"].([]interface{})
+	ss := r["serverStream"].([]any)
 	assert.Equal(t, 3, len(ss))
 	assert.Equal(t, "stream-0", ss[0])
 	assert.Equal(t, "stream-2", ss[2])
 
 	// 3) Client-streaming
-	cs := r["clientStream"].(map[string]interface{})
+	cs := r["clientStream"].(map[string]any)
 	assert.Equal(t, "count=3", cs["message"])
 	assert.Equal(t, int64(3), cs["code"])
 
 	// 4) Bidi-streaming
-	bidi := r["bidi"].([]interface{})
+	bidi := r["bidi"].([]any)
 	assert.Equal(t, 2, len(bidi))
 	assert.Equal(t, "bidi-x", bidi[0])
 	assert.Equal(t, "bidi-y", bidi[1])
@@ -790,7 +790,7 @@ func TestIntegration_JSClientJSServer_AllRPCTypes(t *testing.T) {
 // Helpers
 // ============================================================================
 
-func isGojaUndefined(v interface{}) bool {
+func isGojaUndefined(v any) bool {
 	if v == nil {
 		return true
 	}

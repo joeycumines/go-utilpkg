@@ -19,7 +19,6 @@ import (
 // it may lose tasks under shutdown stress as a documented design trade-off.
 func TestShutdownConservation(t *testing.T) {
 	for _, impl := range Implementations() {
-		impl := impl // capture
 		t.Run(impl.Name, func(t *testing.T) {
 			if impl.Name == "Baseline" {
 				t.Skip("Baseline (goja_nodejs) Stop() doesn't guarantee task completion (library limitation)")
@@ -47,11 +46,9 @@ func testShutdownConservation(t *testing.T, impl Implementation) {
 	ctx := context.Background()
 	var runErr error
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		runErr = loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var executed atomic.Int64
 	var rejected atomic.Int64
@@ -59,11 +56,9 @@ func testShutdownConservation(t *testing.T, impl Implementation) {
 	var wg sync.WaitGroup
 
 	// Start producers
-	for p := 0; p < numProducers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < N/numProducers; i++ {
+	for range numProducers {
+		wg.Go(func() {
+			for range N / numProducers {
 				err := loop.Submit(func() {
 					executed.Add(1)
 				})
@@ -73,7 +68,7 @@ func testShutdownConservation(t *testing.T, impl Implementation) {
 					submitted.Add(1)
 				}
 			}
-		}()
+		})
 	}
 
 	// Let some tasks execute
@@ -114,7 +109,7 @@ func testShutdownConservation(t *testing.T, impl Implementation) {
 		Implementation: impl.Name,
 		Passed:         exec == sub,
 		Duration:       time.Since(start),
-		Metrics: map[string]interface{}{
+		Metrics: map[string]any{
 			"submitted": sub,
 			"executed":  exec,
 			"rejected":  rej,
@@ -140,7 +135,6 @@ func TestShutdownConservation_Stress(t *testing.T) {
 	}
 
 	for _, impl := range Implementations() {
-		impl := impl
 		t.Run(impl.Name, func(t *testing.T) {
 			// AlternateTwo trades task conservation for performance - skip stress test
 			if impl.Name == "AlternateTwo" {
@@ -151,7 +145,7 @@ func TestShutdownConservation_Stress(t *testing.T) {
 			if impl.Name == "Baseline" {
 				t.Skip("Baseline (goja_nodejs) Stop() doesn't guarantee task completion (library limitation)")
 			}
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				t.Run("Iteration", func(t *testing.T) {
 					testShutdownConservation(t, impl)
 				})

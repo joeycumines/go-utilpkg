@@ -125,7 +125,7 @@ func shutdownUnderLoadExample() {
 
 	// Create many promises
 	promises := make([]*eventloop.ChainedPromise, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		p, resolve, _ := js.NewChainedPromise()
 		promises[i] = p
 

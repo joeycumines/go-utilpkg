@@ -89,7 +89,7 @@ func TestPerformance_NowMonotonic(t *testing.T) {
 	perf := NewPerformance()
 
 	prev := perf.Now()
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		curr := perf.Now()
 		if curr < prev {
 			t.Errorf("Now() should be monotonically increasing: %f < %f", curr, prev)
@@ -512,7 +512,7 @@ func TestPerformance_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrent marks
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -521,21 +521,17 @@ func TestPerformance_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Concurrent Now() calls
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			_ = perf.Now()
-		}()
+		})
 	}
 
 	// Concurrent GetEntries
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			_ = perf.GetEntries()
-		}()
+		})
 	}
 
 	wg.Wait()

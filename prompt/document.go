@@ -479,10 +479,7 @@ func (d *Document) GetCursorLeftPositionRunes(count istrings.RuneNumber) istring
 	}
 	runeSlice := []rune(d.Text)
 	var counter istrings.RuneNumber
-	targetPosition := d.cursorPosition - count
-	if targetPosition < 0 {
-		targetPosition = 0
-	}
+	targetPosition := max(d.cursorPosition-count, 0)
 	for range runeSlice[targetPosition:d.cursorPosition] {
 		counter--
 	}
@@ -514,10 +511,7 @@ func (d *Document) GetCursorRightPositionRunes(count istrings.RuneNumber) istrin
 	}
 	runeSlice := []rune(d.Text)
 	var counter istrings.RuneNumber
-	targetPosition := d.cursorPosition + count
-	if targetPosition > istrings.RuneNumber(len(runeSlice)) {
-		targetPosition = istrings.RuneNumber(len(runeSlice))
-	}
+	targetPosition := min(d.cursorPosition+count, istrings.RuneNumber(len(runeSlice)))
 	for range runeSlice[d.cursorPosition:targetPosition] {
 		counter++
 	}
@@ -545,10 +539,7 @@ func (d *Document) GetCursorUpPosition(count int, preferredColumn istrings.Width
 		col = preferredColumn
 	}
 
-	row := int(d.CursorPositionRow()) - count
-	if row < 0 {
-		row = 0
-	}
+	row := max(int(d.CursorPositionRow())-count, 0)
 	return d.TranslateRowColToIndex(row, col) - d.cursorPosition
 }
 

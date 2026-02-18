@@ -28,7 +28,7 @@ func TestGojaImmediateBurst(t *testing.T) {
 			var executed atomic.Int64
 
 			// Submit massive burst
-			for i := 0; i < burstSize; i++ {
+			for range burstSize {
 				if err := loop.Submit(func() {
 					executed.Add(1)
 				}); err != nil {

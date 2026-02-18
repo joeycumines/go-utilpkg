@@ -43,16 +43,14 @@ func BenchmarkLatencychunkedIngressPush_WithContention(b *testing.B) {
 	perProducer := b.N / producers
 
 	b.ResetTimer()
-	for p := 0; p < producers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < perProducer; i++ {
+	for range producers {
+		wg.Go(func() {
+			for range perProducer {
 				mu.Lock()
 				q.Push(task)
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

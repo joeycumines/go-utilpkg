@@ -236,14 +236,12 @@ func TestClearImmediate_Concurrent(t *testing.T) {
 	errChan := make(chan error, 2)
 
 	// Multiple goroutines try to clear of same ID
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 2 {
+		wg.Go(func() {
 			if err := js.ClearImmediate(id); err != nil && !errors.Is(err, ErrTimerNotFound) {
 				errChan <- err
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -350,7 +348,7 @@ func TestSetImmediate_Multiple(t *testing.T) {
 	}
 
 	executed := make([]bool, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		idx := i
 		_, err := js.SetImmediate(func() {
 			executed[idx] = true
@@ -390,7 +388,7 @@ func TestClearImmediate_Multiple(t *testing.T) {
 	}
 
 	ids := make([]uint64, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		id, err := js.SetImmediate(func() {})
 		if err != nil {
 			t.Fatal("SetImmediate failed:", err)
@@ -513,8 +511,7 @@ func TestClearTimeout_BeforeExecution(t *testing.T) {
 	}
 
 	// Test needs a running loop for ClearTimeout
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	time.Sleep(5 * time.Millisecond) // Give loop time to start
 
@@ -557,8 +554,7 @@ func TestClearTimeout_TimerNotFound(t *testing.T) {
 	}
 
 	// Test needs a running loop for ClearTimeout
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond) // Give loop time to start
 
@@ -681,17 +677,15 @@ func TestSetInterval_WrapperInitializationRace(t *testing.T) {
 	// Rapid interval creation
 	iterations := 100
 	var wg sync.WaitGroup
-	for i := 0; i < iterations; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range iterations {
+		wg.Go(func() {
 			// Each goroutine creates its own interval
 			id, _ := js.SetInterval(func() {}, 1000)
 			// No panic should occur during rapid concurrent creation
 			if id != 0 {
 				_ = js.ClearInterval(id) // Cleanup
 			}
-		}()
+		})
 	}
 
 	// Give some time for concurrent operations
@@ -842,8 +836,7 @@ func TestQueueMicrotask_PanicRecovery(t *testing.T) {
 	})
 
 	// Run loop
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	time.Sleep(100 * time.Millisecond)
@@ -902,7 +895,7 @@ func Test_chunkedIngress_Pop_DoubleCheck(t *testing.T) {
 	ingress := newChunkedIngress()
 
 	// Submit tasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		fn := func() {}
 		ingress.Push(fn)
 	}
@@ -956,13 +949,11 @@ func TestScheduleMicrotask_ConcurrentSubmit(t *testing.T) {
 	}()
 
 	// Submit microtasks concurrently
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			err := js.QueueMicrotask(func() {})
 			submitErr <- err
-		}()
+		})
 	}
 
 	// Collect error results

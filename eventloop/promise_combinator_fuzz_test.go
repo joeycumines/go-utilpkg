@@ -359,7 +359,7 @@ func FuzzPromiseAllSettled(f *testing.F) {
 
 		// Verify each result matches expected outcome
 		for i, v := range arr {
-			m, ok := v.(map[string]interface{})
+			m, ok := v.(map[string]any)
 			if !ok {
 				t.Errorf("arr[%d] is not a map: %T", i, v)
 				continue
@@ -551,7 +551,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 		promises := make([]*ChainedPromise, promiseCount)
 		resolvers := make([]ResolveFunc, promiseCount)
 
-		for i := 0; i < promiseCount; i++ {
+		for i := range promiseCount {
 			promises[i], resolvers[i], _ = js.NewChainedPromise()
 		}
 
@@ -559,7 +559,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 
 		// Resolve all
 		var wg sync.WaitGroup
-		for i := 0; i < promiseCount; i++ {
+		for i := range promiseCount {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
@@ -597,7 +597,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 		resolvers := make([]ResolveFunc, promiseCount)
 		rejecters := make([]RejectFunc, promiseCount)
 
-		for i := 0; i < promiseCount; i++ {
+		for i := range promiseCount {
 			promises[i], resolvers[i], rejecters[i] = js.NewChainedPromise()
 		}
 
@@ -605,7 +605,7 @@ func TestPromiseCombinator_LargeArray(t *testing.T) {
 
 		// Alternate resolve/reject
 		var wg sync.WaitGroup
-		for i := 0; i < promiseCount; i++ {
+		for i := range promiseCount {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
@@ -791,7 +791,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 		// Resolve chain from outer to inner
 		go func() {
 			outerResolve(chain[0])
-			for i := 0; i < depth; i++ {
+			for i := range depth {
 				time.Sleep(5 * time.Millisecond)
 				if i < depth-1 {
 					resolvers[i](chain[i+1])
@@ -874,10 +874,7 @@ func FuzzPromiseCombinator_MixedOperations(f *testing.F) {
 		var current *ChainedPromise
 		for op := 0; op < ops; op++ {
 			combinator := rng.Intn(4)
-			subset := rng.Intn(count) + 1
-			if subset > len(promises) {
-				subset = len(promises)
-			}
+			subset := min(rng.Intn(count)+1, len(promises))
 
 			switch combinator {
 			case 0:
@@ -969,11 +966,11 @@ func TestPromiseAll_ConcurrentSettlement(t *testing.T) {
 	const iterations = 50
 	const promisesPerIteration = 50
 
-	for iter := 0; iter < iterations; iter++ {
+	for iter := range iterations {
 		promises := make([]*ChainedPromise, promisesPerIteration)
 		resolvers := make([]ResolveFunc, promisesPerIteration)
 
-		for i := 0; i < promisesPerIteration; i++ {
+		for i := range promisesPerIteration {
 			promises[i], resolvers[i], _ = js.NewChainedPromise()
 		}
 
@@ -982,7 +979,7 @@ func TestPromiseAll_ConcurrentSettlement(t *testing.T) {
 		// Concurrent resolution
 		var resolved atomic.Int32
 		var wg sync.WaitGroup
-		for i := 0; i < promisesPerIteration; i++ {
+		for i := range promisesPerIteration {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()

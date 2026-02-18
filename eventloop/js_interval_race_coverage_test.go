@@ -176,8 +176,7 @@ func TestJS_ClearInterval_DuringExecution(t *testing.T) {
 		t.Fatalf("SetInterval failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	// Wait for callback to start
@@ -237,8 +236,7 @@ func TestJS_ClearInterval_MultipleTimes(t *testing.T) {
 	}
 
 	// Start the loop so ClearInterval works
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	// Give loop time to start
@@ -371,7 +369,7 @@ func TestJS_SetInterval_CurrentLoopTimerID_AtomicAccess(t *testing.T) {
 
 // TestJS_SetInterval_ConcurrentClearDuringReschedule verifies TOCTOU race handling.
 func TestJS_SetInterval_ConcurrentClearDuringReschedule(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		t.Run("iteration", func(t *testing.T) {
 			loop, err := New()
 			if err != nil {
@@ -463,8 +461,7 @@ func TestJS_SetInterval_PanicRecovery(t *testing.T) {
 		t.Fatalf("SetInterval failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	select {
@@ -676,8 +673,7 @@ func TestJS_SetInterval_WrapperExecutesAfterClearReturns(t *testing.T) {
 		t.Fatalf("SetInterval failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	// Wait for callback to start
@@ -732,8 +728,7 @@ func TestJS_SetInterval_ConcurrentClearFromMultipleGoroutines(t *testing.T) {
 	}
 
 	// Start the loop so ClearInterval works
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 
 	// Give loop time to start
@@ -743,10 +738,8 @@ func TestJS_SetInterval_ConcurrentClearFromMultipleGoroutines(t *testing.T) {
 	var successCount, errorCount atomic.Int32
 
 	// Launch multiple goroutines trying to clear the same interval
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			err := js.ClearInterval(id)
 			if err == nil {
 				successCount.Add(1)
@@ -755,7 +748,7 @@ func TestJS_SetInterval_ConcurrentClearFromMultipleGoroutines(t *testing.T) {
 			} else {
 				t.Errorf("Unexpected error: %v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

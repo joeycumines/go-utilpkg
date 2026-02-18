@@ -225,7 +225,7 @@ func TestNew_WakeFdCleanupOnPollerInitError(t *testing.T) {
 	const numLoops = 50
 	loops := make([]*Loop, 0, numLoops)
 
-	for i := 0; i < numLoops; i++ {
+	for i := range numLoops {
 		loop, err := New()
 		if err != nil {
 			// Clean up already-created loops

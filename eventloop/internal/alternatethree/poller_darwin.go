@@ -337,7 +337,7 @@ func (l *Loop) pollIO(timeout int, maxEvents int) (int, error) {
 		l.ioPoller.mu.RUnlock()
 		return 0, nil
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		fd := int(events[i].Ident)
 		cb, exists := l.ioPoller.callbacks[fd]
 		if exists && cb.callback != nil {

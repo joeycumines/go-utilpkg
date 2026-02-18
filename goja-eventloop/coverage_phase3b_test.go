@@ -700,7 +700,7 @@ func TestPhase3b_ConvertToGojaValue_OriginalError(t *testing.T) {
 	adapter := coverSetup(t)
 	// Create a map with _originalError that is a goja.Value
 	errVal := adapter.runtime.NewTypeError("test error")
-	wrapper := map[string]interface{}{
+	wrapper := map[string]any{
 		"_originalError": errVal,
 	}
 	result := adapter.convertToGojaValue(wrapper)
@@ -711,7 +711,7 @@ func TestPhase3b_ConvertToGojaValue_OriginalError(t *testing.T) {
 func TestPhase3b_ConvertToGojaValue_OriginalError_NonGojaValue(t *testing.T) {
 	adapter := coverSetup(t)
 	// _originalError that is NOT a goja.Value should fall through
-	wrapper := map[string]interface{}{
+	wrapper := map[string]any{
 		"_originalError": "just a string",
 	}
 	result := adapter.convertToGojaValue(wrapper)
@@ -1789,9 +1789,9 @@ func TestPhase3b_Performance_Entries(t *testing.T) {
 
 func TestPhase3b_InspectValue_NestedObject(t *testing.T) {
 	adapter := coverSetup(t)
-	nested := map[string]interface{}{
-		"a": map[string]interface{}{
-			"b": map[string]interface{}{
+	nested := map[string]any{
+		"a": map[string]any{
+			"b": map[string]any{
 				"c": "deep",
 			},
 		},
@@ -1803,8 +1803,8 @@ func TestPhase3b_InspectValue_NestedObject(t *testing.T) {
 
 func TestPhase3b_InspectValue_MaxDepth(t *testing.T) {
 	adapter := coverSetup(t)
-	nested := map[string]interface{}{
-		"deep": map[string]interface{}{
+	nested := map[string]any{
+		"deep": map[string]any{
 			"deeper": "value",
 		},
 	}
@@ -1814,7 +1814,7 @@ func TestPhase3b_InspectValue_MaxDepth(t *testing.T) {
 
 func TestPhase3b_InspectValue_Array(t *testing.T) {
 	adapter := coverSetup(t)
-	arr := []interface{}{"hello", float64(42), true}
+	arr := []any{"hello", float64(42), true}
 	result := adapter.inspectValue(arr, 0, 3)
 	assert.Contains(t, result, "hello")
 	assert.Contains(t, result, "42")

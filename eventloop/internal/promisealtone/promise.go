@@ -407,7 +407,6 @@ func All(js *eventloop.JS, promises []*Promise) *Promise {
 	// onFulfilled must be defined to aggregate results.
 
 	for i, p := range promises {
-		i := i
 		h := handler{
 			onFulfilled: func(v any) any {
 				results[i] = v
@@ -470,7 +469,6 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 	// We can't forward directly.
 
 	for i, p := range promises {
-		i := i
 		checkDone := func() {
 			if atomic.AddInt32(&pending, -1) == 0 {
 				result.resolve(results)
@@ -479,12 +477,12 @@ func AllSettled(js *eventloop.JS, promises []*Promise) *Promise {
 
 		h := handler{
 			onFulfilled: func(v any) any {
-				results[i] = map[string]interface{}{"status": "fulfilled", "value": v}
+				results[i] = map[string]any{"status": "fulfilled", "value": v}
 				checkDone()
 				return nil
 			},
 			onRejected: func(r any) any {
-				results[i] = map[string]interface{}{"status": "rejected", "reason": r}
+				results[i] = map[string]any{"status": "rejected", "reason": r}
 				checkDone()
 				return nil
 			},
@@ -513,7 +511,6 @@ func Any(js *eventloop.JS, promises []*Promise) *Promise {
 	// onRejected is handled to aggregate errors.
 
 	for i, p := range promises {
-		i := i
 		h := handler{
 			onFulfilled: nil, // Forward fulfillment immediately
 			onRejected: func(r any) any {

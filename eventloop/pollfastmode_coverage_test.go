@@ -400,7 +400,7 @@ func TestPollFastMode_MultipleSubmitsBeforeWakeup(t *testing.T) {
 
 	// Submit multiple tasks rapidly - they all try to signal fastWakeupCh
 	var executed atomic.Int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.Submit(func() {
 			executed.Add(1)
 		})
@@ -468,7 +468,7 @@ func TestPollFastMode_DrainAuxJobsAfterWakeup(t *testing.T) {
 
 	// Submit to auxJobs (fast path mode)
 	var executed atomic.Int32
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.Submit(func() {
 			executed.Add(1)
 		})

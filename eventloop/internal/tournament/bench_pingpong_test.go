@@ -12,7 +12,6 @@ import (
 // This is T3: Performance - Ping-Pong Throughput Benchmark
 func BenchmarkPingPong(b *testing.B) {
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkPingPong(b, impl)
 		})
@@ -27,11 +26,9 @@ func benchmarkPingPong(b *testing.B, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -72,7 +69,6 @@ func benchmarkPingPong(b *testing.B, impl Implementation) {
 // BenchmarkPingPongLatency measures end-to-end latency for single tasks.
 func BenchmarkPingPongLatency(b *testing.B) {
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkPingPongLatency(b, impl)
 		})
@@ -87,11 +83,9 @@ func benchmarkPingPongLatency(b *testing.B, impl Implementation) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	// Warm up
 	done := make(chan struct{})
@@ -128,7 +122,6 @@ func BenchmarkBurstSubmit(b *testing.B) {
 	const burstSize = 1000
 
 	for _, impl := range Implementations() {
-		impl := impl
 		b.Run(impl.Name, func(b *testing.B) {
 			benchmarkBurstSubmit(b, impl, burstSize)
 		})
@@ -143,11 +136,9 @@ func benchmarkBurstSubmit(b *testing.B, impl Implementation, burstSize int) {
 
 	ctx := context.Background()
 	var runWg sync.WaitGroup
-	runWg.Add(1)
-	go func() {
+	runWg.Go(func() {
 		loop.Run(ctx)
-		runWg.Done()
-	}()
+	})
 
 	var wg sync.WaitGroup
 	var counter atomic.Int64
@@ -161,7 +152,7 @@ func benchmarkBurstSubmit(b *testing.B, impl Implementation, burstSize int) {
 
 	for burst := 0; burst < bursts; burst++ {
 		wg.Add(burstSize)
-		for i := 0; i < burstSize; i++ {
+		for range burstSize {
 			err := loop.Submit(func() {
 				counter.Add(1)
 				wg.Done()

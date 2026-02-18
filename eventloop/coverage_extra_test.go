@@ -211,8 +211,7 @@ func TestScheduleNextTick_ExecutesBeforeMicrotasks(t *testing.T) {
 		t.Fatal("New failed:", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan struct{})
 	go func() {
@@ -256,8 +255,7 @@ func TestChainedPromise_ToChannel_Resolved(t *testing.T) {
 		t.Fatal("New failed:", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan struct{})
 	go func() {
@@ -303,8 +301,7 @@ func TestChainedPromise_ToChannel_AlreadySettled(t *testing.T) {
 		t.Fatal("New failed:", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan struct{})
 	go func() {

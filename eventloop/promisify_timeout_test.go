@@ -11,8 +11,7 @@ import (
 
 // TestPromisifyWithTimeout_Success tests successful completion before timeout.
 func TestPromisifyWithTimeout_Success(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -40,8 +39,7 @@ func TestPromisifyWithTimeout_Success(t *testing.T) {
 
 // TestPromisifyWithTimeout_Timeout tests rejection on timeout.
 func TestPromisifyWithTimeout_Timeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -77,8 +75,7 @@ func TestPromisifyWithTimeout_Timeout(t *testing.T) {
 
 // TestPromisifyWithTimeout_FunctionError tests function returning error.
 func TestPromisifyWithTimeout_FunctionError(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -109,8 +106,7 @@ func TestPromisifyWithTimeout_FunctionError(t *testing.T) {
 
 // TestPromisifyWithTimeout_ParentContextCancelled tests parent context cancellation.
 func TestPromisifyWithTimeout_ParentContextCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -146,8 +142,7 @@ func TestPromisifyWithTimeout_ParentContextCancelled(t *testing.T) {
 
 // TestPromisifyWithTimeout_Panic tests panic in function.
 func TestPromisifyWithTimeout_Panic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -180,8 +175,7 @@ func TestPromisifyWithTimeout_Panic(t *testing.T) {
 
 // TestPromisifyWithDeadline_Success tests successful completion before deadline.
 func TestPromisifyWithDeadline_Success(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -210,8 +204,7 @@ func TestPromisifyWithDeadline_Success(t *testing.T) {
 
 // TestPromisifyWithDeadline_DeadlineExceeded tests rejection on deadline.
 func TestPromisifyWithDeadline_DeadlineExceeded(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -242,8 +235,7 @@ func TestPromisifyWithDeadline_DeadlineExceeded(t *testing.T) {
 
 // TestPromisifyWithDeadline_PastDeadline tests immediate rejection for past deadline.
 func TestPromisifyWithDeadline_PastDeadline(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -275,8 +267,7 @@ func TestPromisifyWithDeadline_PastDeadline(t *testing.T) {
 
 // TestPromisifyWithDeadline_FunctionError tests function returning error.
 func TestPromisifyWithDeadline_FunctionError(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -308,8 +299,7 @@ func TestPromisifyWithDeadline_FunctionError(t *testing.T) {
 
 // TestPromisifyWithDeadline_Panic tests panic in function.
 func TestPromisifyWithDeadline_Panic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -341,8 +331,7 @@ func TestPromisifyWithDeadline_Panic(t *testing.T) {
 
 // TestPromisifyWithTimeout_ZeroTimeout tests immediate timeout with zero duration.
 func TestPromisifyWithTimeout_ZeroTimeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -372,8 +361,7 @@ func TestPromisifyWithTimeout_ZeroTimeout(t *testing.T) {
 
 // TestPromisifyWithTimeout_LongRunningSuccess tests long operation that completes before timeout.
 func TestPromisifyWithTimeout_LongRunningSuccess(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -408,8 +396,7 @@ func TestPromisifyWithTimeout_LongRunningSuccess(t *testing.T) {
 
 // TestPromisifyWithDeadline_ContextRespected tests that the function respects context cancellation.
 func TestPromisifyWithDeadline_ContextRespected(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {

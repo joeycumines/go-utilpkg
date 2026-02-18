@@ -28,7 +28,7 @@ func TestLoop_SubmitMultiple(t *testing.T) {
 	var count int32
 
 	// Submit 100 tasks
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		loop.Submit(func() {
 			atomic.AddInt32(&count, 1)
 		})
@@ -140,7 +140,7 @@ func TestLoop_Microtask(t *testing.T) {
 	var executed int32
 
 	// Schedule microtasks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.ScheduleMicrotask(func() {
 			atomic.AddInt32(&executed, 1)
 		})
@@ -207,8 +207,7 @@ func TestLoop_RunContextCancel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	submitted := int32(0)
 
@@ -217,7 +216,7 @@ func TestLoop_RunContextCancel(t *testing.T) {
 	}()
 
 	// Submit tasks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.Submit(func() {
 			atomic.AddInt32(&submitted, 1)
 		})
@@ -253,14 +252,12 @@ func TestLoop_ConcurrentSubmit(t *testing.T) {
 	var count int32
 
 	// Concurrent submission
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			loop.Submit(func() {
 				atomic.AddInt32(&count, 1)
 			})
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -284,8 +281,7 @@ func TestLoop_DoubleShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan struct{})
 	go func() {
@@ -357,12 +353,12 @@ func TestLoop_Metrics(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Submit some tasks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.Submit(func() {})
 	}
 
 	// Schedule some microtasks
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.ScheduleMicrotask(func() {})
 	}
 
@@ -446,7 +442,7 @@ func TestLoop_SubmitAfterTerminated(t *testing.T) {
 	<-done
 
 	// Multiple submits after termination
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err = loop.Submit(func() {})
 		if err != ErrLoopTerminated {
 			t.Errorf("Expected ErrLoopTerminated, got: %v", err)
@@ -462,7 +458,7 @@ func TestLoop_FastPathSubmits(t *testing.T) {
 	}
 
 	// Submit many small tasks to trigger fast path
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		loop.Submit(func() {
 			// Empty task
 		})
@@ -495,7 +491,7 @@ func TestLoop_MixedOperations(t *testing.T) {
 	var microtaskCount int32
 
 	// Mixed operations
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		loop.Submit(func() {
 			atomic.AddInt32(&submitCount, 1)
 		})

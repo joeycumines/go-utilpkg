@@ -37,11 +37,11 @@ func testDialServer(t *testing.T) (addr string, stop func()) {
 	// Register TestService with manual ServiceDesc using dynamicpb.
 	svcDesc := &grpc.ServiceDesc{
 		ServiceName: "testgrpc.TestService",
-		HandlerType: (*interface{})(nil),
+		HandlerType: (*any)(nil),
 		Methods: []grpc.MethodDesc{
 			{
 				MethodName: "Echo",
-				Handler: func(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+				Handler: func(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 					req := dynamicpb.NewMessage(echoReqDesc)
 					if err := dec(req); err != nil {
 						return nil, err
@@ -58,13 +58,13 @@ func testDialServer(t *testing.T) (addr string, stop func()) {
 			{
 				StreamName:    "ServerStream",
 				ServerStreams: true,
-				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+				Handler: func(srv any, stream grpc.ServerStream) error {
 					req := dynamicpb.NewMessage(echoReqDesc)
 					if err := stream.RecvMsg(req); err != nil {
 						return err
 					}
 					msg := req.Get(echoReqDesc.Fields().ByName("message")).String()
-					for i := 0; i < 3; i++ {
+					for i := range 3 {
 						item := dynamicpb.NewMessage(itemMsgDesc)
 						item.Set(itemMsgDesc.Fields().ByName("id"), protoreflect.ValueOfString(fmt.Sprintf("%d", i)))
 						item.Set(itemMsgDesc.Fields().ByName("name"), protoreflect.ValueOfString(fmt.Sprintf("%s-%d", msg, i)))
@@ -78,7 +78,7 @@ func testDialServer(t *testing.T) (addr string, stop func()) {
 			{
 				StreamName:    "ClientStream",
 				ClientStreams: true,
-				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+				Handler: func(srv any, stream grpc.ServerStream) error {
 					var count int
 					var lastID string
 					for {
@@ -101,7 +101,7 @@ func testDialServer(t *testing.T) (addr string, stop func()) {
 				StreamName:    "BidiStream",
 				ClientStreams: true,
 				ServerStreams: true,
-				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+				Handler: func(srv any, stream grpc.ServerStream) error {
 					for {
 						item := dynamicpb.NewMessage(itemMsgDesc)
 						if err := stream.RecvMsg(item); err != nil {
@@ -189,7 +189,7 @@ func TestDial_UnaryRPC(t *testing.T) {
 
 	r := env.runtime.Get("result")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Equal(t, "dial-echo:hello-dial", rObj["message"])
 	assert.Equal(t, int64(42), rObj["code"])
 }
@@ -241,7 +241,7 @@ func TestDial_ServerStreamRPC(t *testing.T) {
 
 	itemsVal := env.runtime.Get("items")
 	require.NotNil(t, itemsVal)
-	items := itemsVal.Export().([]interface{})
+	items := itemsVal.Export().([]any)
 	require.Len(t, items, 3)
 	assert.Equal(t, "stream-0", items[0])
 	assert.Equal(t, "stream-1", items[1])
@@ -289,7 +289,7 @@ func TestDial_ClientStreamRPC(t *testing.T) {
 
 	r := env.runtime.Get("result")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Equal(t, "received:2:last:B", rObj["message"])
 }
 
@@ -344,7 +344,7 @@ func TestDial_BidiStreamRPC(t *testing.T) {
 
 	resultsVal := env.runtime.Get("results")
 	require.NotNil(t, resultsVal)
-	results := resultsVal.Export().([]interface{})
+	results := resultsVal.Export().([]any)
 	require.Len(t, results, 3)
 	assert.Equal(t, "bidi-echo:ping", results[0])
 	assert.Equal(t, "bidi-echo:pong", results[1])
@@ -461,7 +461,7 @@ func TestDial_ConnectionRefused(t *testing.T) {
 
 	r := env.runtime.Get("result")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", rObj["name"])
 	// UNAVAILABLE (14) for connection refused.
 	assert.Equal(t, int64(14), rObj["code"])
@@ -573,7 +573,7 @@ func TestDial_AbortSignal(t *testing.T) {
 
 	r := env.runtime.Get("result")
 	require.NotNil(t, r)
-	rObj := r.Export().(map[string]interface{})
+	rObj := r.Export().(map[string]any)
 	assert.Equal(t, "GrpcError", rObj["name"])
 	assert.Equal(t, int64(1), rObj["code"]) // CANCELLED
 }

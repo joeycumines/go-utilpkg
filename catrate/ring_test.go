@@ -1,15 +1,15 @@
 package catrate
 
 import (
+	"cmp"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/constraints"
 	"math/rand"
 	"reflect"
 	"testing"
 )
 
-func newRingBufferFrom[E constraints.Ordered](s []E) *ringBuffer[E] {
+func newRingBufferFrom[E cmp.Ordered](s []E) *ringBuffer[E] {
 	// get the next power of 2 >= len(s)
 	size := 1
 	for size < len(s) {
@@ -143,7 +143,7 @@ func TestRingBuffer_Insert(t *testing.T) {
 			rb.r = rb.w
 
 			written := make([]float64, 9)
-			for i := 0; i < len(written); i++ {
+			for i := range written {
 				f := float64(i) + 1.1
 				written[i] = f
 				rb.s[int((rb.w+uint(i))%uint(len(rb.s)))] = f
@@ -196,7 +196,7 @@ func TestRingBuffer_Insert(t *testing.T) {
 			rb.w = uint(len(rb.s) - len(written))
 			rb.r = rb.w
 
-			for i := 0; i < len(written); i++ {
+			for i := range written {
 				f := float64(i) + 1.1
 				written[i] = f
 				rb.s[int((rb.w+uint(i))%uint(len(rb.s)))] = f
@@ -266,7 +266,7 @@ func FuzzRingBuffer_Insert(f *testing.F) {
 		var shifted []int
 
 		//var check bool
-		for i := 0; i < n; i++ {
+		for i := range n {
 			index := r.Intn(rb.Len() + 1)
 			value := r.Int()
 
@@ -287,12 +287,9 @@ func FuzzRingBuffer_Insert(f *testing.F) {
 
 			// 5% chance of shifting 1-10 elements
 			if r.Intn(20) == 0 {
-				shift := r.Intn(10) + 1
-				if shift > rb.Len() {
-					shift = rb.Len()
-				}
+				shift := min(r.Intn(10)+1, rb.Len())
 				// add to shifted from rb
-				for j := 0; j < shift; j++ {
+				for j := range shift {
 					shifted = append(shifted, rb.Get(j))
 				}
 				rb.RemoveBefore(shift)

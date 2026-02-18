@@ -54,8 +54,7 @@ func TestPromise_Await(t *testing.T) {
 			resolve(42)
 		}()
 
-		loopCtx, loopCancel := context.WithCancel(context.Background())
-		defer loopCancel()
+		loopCtx := t.Context()
 
 		go func() {
 			if err := loop.Run(loopCtx); err != nil && err != context.Canceled {
@@ -78,8 +77,7 @@ func TestPromise_Await(t *testing.T) {
 
 		p, _, reject := promisealtone.New(js)
 
-		loopCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		loopCtx := t.Context()
 		go loop.Run(loopCtx)
 
 		go func() {

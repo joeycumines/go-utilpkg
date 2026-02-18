@@ -39,9 +39,7 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-done:
@@ -51,7 +49,7 @@ func TestSafety_DoubleStartRace(t *testing.T) {
 				runtime.Gosched()
 			}
 		}
-	}()
+	})
 
 	timeout := time.After(5 * time.Second)
 
@@ -81,7 +79,7 @@ func TestSafety_RegistryCompactionReallocsMap(t *testing.T) {
 
 	// Create many promises, then let them be GC'd
 	const count = 10000
-	for i := 0; i < count; i++ {
+	for range count {
 		_, p := r.NewPromise()
 		// Immediately resolve so they're eligible for scavenging
 		p.Resolve(nil)

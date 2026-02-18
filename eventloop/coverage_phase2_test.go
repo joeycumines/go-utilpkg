@@ -158,7 +158,7 @@ func TestProcessExternal_OnOverloadFires(t *testing.T) {
 	// leaving 44 remaining → OnOverload fires.
 	const totalTasks = 300
 	var executed atomic.Int32
-	for i := 0; i < totalTasks; i++ {
+	for range totalTasks {
 		if err := loop.Submit(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -208,7 +208,7 @@ func TestProcessExternal_OnOverloadPanics(t *testing.T) {
 
 	const totalTasks = 300
 	var executed atomic.Int32
-	for i := 0; i < totalTasks; i++ {
+	for range totalTasks {
 		if err := loop.Submit(func() {
 			executed.Add(1)
 		}); err != nil {
@@ -789,7 +789,7 @@ func TestAddHandler_MultipleHandlers(t *testing.T) {
 		t.Fatal("timed out waiting for handlers")
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		v := results[i].Load()
 		if v != "hello" {
 			t.Errorf("handler %d: expected 'hello', got %v", i, v)
@@ -814,7 +814,7 @@ func TestChunkedIngress_MultiChunkPopAndReturn(t *testing.T) {
 
 	// Push more items than one chunk can hold — forces 2+ chunks
 	const totalItems = 40 // 16 * 2.5 = spans 3 chunks
-	for i := 0; i < totalItems; i++ {
+	for i := range totalItems {
 		idx := i
 		q.Push(func() { _ = idx })
 	}
@@ -856,9 +856,9 @@ func TestChunkedIngress_MultiChunkPopAndReturn(t *testing.T) {
 func TestChunkedIngress_PushPopCycles(t *testing.T) {
 	q := newChunkedIngressWithSize(16)
 
-	for cycle := 0; cycle < 5; cycle++ {
+	for cycle := range 5 {
 		// Push a full chunk worth + 1 extra (forces two chunks)
-		for i := 0; i < 17; i++ {
+		for range 17 {
 			q.Push(func() {})
 		}
 
@@ -896,7 +896,7 @@ func TestChunkedIngress_PoolReuseCapacityMismatch(t *testing.T) {
 	}
 
 	// Now push more than 32 to span multiple chunks with correct size
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		q.Push(func() {})
 	}
 	count := 0
@@ -1350,7 +1350,7 @@ func TestPollFastMode_ZeroTimeoutViaImmediateTimer(t *testing.T) {
 	// Schedule many timers with 0 delay — this forces calculateTimeout to
 	// return 0 repeatedly, exercising the non-blocking path in pollFastMode.
 	const numTimers = 10
-	for i := 0; i < numTimers; i++ {
+	for range numTimers {
 		loop.ScheduleTimer(0, func() {
 			if count.Add(1) >= numTimers {
 				close(done)
@@ -1425,7 +1425,7 @@ func TestAddHandler_RaceBetweenSettleAndLock(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(iterations)
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		go func() {
 			defer wg.Done()
 			promise, resolve, _ := js.NewChainedPromise()
@@ -1702,7 +1702,7 @@ func TestPollFastMode_ShortTimeoutWokenBySignal(t *testing.T) {
 	// (exercises the <-l.fastWakeupCh case in the select with timer).
 	go func() {
 		// Small window to let the loop enter pollFastMode with the ~500ms timer
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			runtime.Gosched()
 		}
 		loop.Submit(func() {
@@ -1797,7 +1797,7 @@ func TestAddHandler_ReCheckUnderLock_SettledRace(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(iterations)
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		go func() {
 			defer wg.Done()
 			promise, resolve, _ := js.NewChainedPromise()
@@ -1844,7 +1844,7 @@ func TestChunkedIngress_PopDoubleCheckAfterAdvance(t *testing.T) {
 	q := newChunkedIngressWithSize(16)
 
 	// Fill exactly one chunk (16 items) then add 1 more to force second chunk
-	for i := 0; i < 17; i++ {
+	for range 17 {
 		q.Push(func() {})
 	}
 
@@ -1882,7 +1882,7 @@ func TestLoop_MetricsStrictDisabledEndToEnd(t *testing.T) {
 	// Queue several tasks before running to have non-zero queue depths
 	var wg sync.WaitGroup
 	wg.Add(5)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		loop.Submit(func() {
 			wg.Done()
 		})

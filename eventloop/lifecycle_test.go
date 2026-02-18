@@ -31,7 +31,7 @@ func TestStart_ConcurrentCallsOnlyOneSucceeds(t *testing.T) {
 	ready := make(chan struct{})
 
 	wg.Add(goroutines)
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
 			<-ready
@@ -114,7 +114,7 @@ func TestLoop_Close_WaitsForLoopDone(t *testing.T) {
 	}()
 
 	// Wait for loop to start
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if loop.State() == StateRunning {
 			break
 		}
@@ -343,7 +343,7 @@ func TestLoop_Close_PreventsNewSubmits(t *testing.T) {
 // stopped without deadlock. It catches the "Zombie Loop" bug where Shutdown()
 // hangs forever due to state overwrite in poll().
 func TestLoop_Stop_Race_Torture(t *testing.T) {
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		l, err := New()
 		if err != nil {
 			t.Fatalf("Failed to create loop: %v", err)

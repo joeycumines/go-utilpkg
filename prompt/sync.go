@@ -154,10 +154,7 @@ func (s *syncState) ProcessInputBytes(input []byte) (remaining []byte, ids []str
 			// suffix of buf that is a prefix of syncPrefixBytes and keep it.
 			// Everything before that is regular input.
 			keep := 0
-			maxKeep := len(syncPrefixBytes) - 1
-			if maxKeep < 0 {
-				maxKeep = 0
-			}
+			maxKeep := max(len(syncPrefixBytes)-1, 0)
 			// Find longest k such that buf[len(buf)-k:] == syncPrefix[:k]
 			for k := 1; k <= maxKeep && k <= len(buf); k++ {
 				if bytes.Equal(buf[len(buf)-k:], syncPrefixBytes[:k]) {

@@ -32,7 +32,7 @@ func TestTrackRejection_DuplicateMicrotaskPrevention(t *testing.T) {
 
 	// Create multiple rejected promises rapidly
 	const count = 10
-	for i := 0; i < count; i++ {
+	for range count {
 		_, _, reject := js.NewChainedPromise()
 		reject(errors.New("error"))
 	}
@@ -195,7 +195,7 @@ func TestTrackRejection_HandlerReadyChansCleanup(t *testing.T) {
 	// Create and reject multiple promises
 	const count = 5
 	promises := make([]*ChainedPromise, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		p, _, reject := js.NewChainedPromise()
 		promises[i] = p
 		reject(errors.New("error"))
@@ -233,7 +233,7 @@ func TestTrackRejection_ConcurrentRejectAndHandle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for trial := 0; trial < 50; trial++ {
+	for trial := range 50 {
 		p, _, reject := js.NewChainedPromise()
 
 		var wg sync.WaitGroup
@@ -500,7 +500,7 @@ func TestTrackRejection_MultipleRapidRejections(t *testing.T) {
 	}
 
 	const count = 100
-	for i := 0; i < count; i++ {
+	for range count {
 		_, _, reject := js.NewChainedPromise()
 		reject(errors.New("error"))
 	}

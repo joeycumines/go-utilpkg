@@ -1,7 +1,7 @@
 package eventloop
 
 import (
-	"sort"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -134,9 +134,7 @@ func (l *LatencyMetrics) Sample() int {
 		copy(sorted, l.samples[:count])
 
 		// Use standard library sort (O(n log n))
-		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i] < sorted[j]
-		})
+		slices.Sort(sorted)
 
 		// Compute percentiles
 		l.P50 = sorted[percentileIndex(count, 50)]

@@ -145,7 +145,7 @@ func TestPhase3b_SubmitInternal_IOMode_WithUserFDs(t *testing.T) {
 func TestPhase3b_MicrotaskRing_OverflowCompact(t *testing.T) {
 	ring := newMicrotaskRing()
 	total := ringBufferSize + 1024
-	for i := 0; i < total; i++ {
+	for i := range total {
 		ok := ring.Push(func() {})
 		require.True(t, ok, "push %d should succeed", i)
 	}
@@ -496,8 +496,7 @@ func TestPhase3b_Shutdown_CalledTwice(t *testing.T) {
 	loop, err := New()
 	require.NoError(t, err)
 	defer loop.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(ctx) }()
 	waitForRunning(t, loop)

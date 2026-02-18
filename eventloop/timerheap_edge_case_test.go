@@ -152,7 +152,7 @@ func TestTimerHeap_LargeHeap_1000Timers(t *testing.T) {
 
 	// Insert in random order
 	timers := make([]*timer, numTimers)
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		timers[i] = &timer{
 			when: now.Add(time.Duration(i) * time.Millisecond),
 			id:   TimerID(i),
@@ -175,7 +175,7 @@ func TestTimerHeap_LargeHeap_1000Timers(t *testing.T) {
 
 	// Verify heap property by popping all
 	prevWhen := time.Time{}
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		timer := heap.Pop(&h).(*timer)
 		if !prevWhen.IsZero() && timer.when.Before(prevWhen) {
 			t.Errorf("Pop %d: timer out of order (when=%v, prev=%v)", i, timer.when, prevWhen)
@@ -197,7 +197,7 @@ func TestTimerHeap_LargeHeap_5000Timers(t *testing.T) {
 	const numTimers = 5000
 
 	// Insert in random order
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		timer := &timer{
 			when: now.Add(time.Duration(rand.Intn(10000)) * time.Microsecond),
 			id:   TimerID(i),
@@ -234,11 +234,9 @@ func TestTimerHeap_CancelOnLargeHeap(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_ = loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	time.Sleep(10 * time.Millisecond)
@@ -247,7 +245,7 @@ func TestTimerHeap_CancelOnLargeHeap(t *testing.T) {
 
 	// Schedule many timers with long delays so they don't fire during cancellation
 	timerIDs := make([]TimerID, numTimers)
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := loop.ScheduleTimer(time.Duration(10+i)*time.Second, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer %d failed: %v", i, err)
@@ -299,7 +297,7 @@ func TestTimerHeap_HeapIndexUpdate(t *testing.T) {
 
 	// Insert 10 timers
 	timers := make([]*timer, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		timers[i] = &timer{
 			when: now.Add(time.Duration(i) * time.Minute),
 			id:   TimerID(i),
@@ -308,7 +306,7 @@ func TestTimerHeap_HeapIndexUpdate(t *testing.T) {
 	}
 
 	// Verify all have correct heapIndex
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if timers[i].heapIndex < 0 || timers[i].heapIndex >= 10 {
 			t.Errorf("Timer %d has invalid heapIndex: %d", i, timers[i].heapIndex)
 		}
@@ -341,7 +339,7 @@ func TestTimerHeap_SameTime(t *testing.T) {
 	const numTimers = 100
 
 	// Insert timers all with same time
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		timer := &timer{
 			when: now,
 			id:   TimerID(i),
@@ -351,7 +349,7 @@ func TestTimerHeap_SameTime(t *testing.T) {
 
 	// All can be popped (order is arbitrary but consistent)
 	seen := make(map[TimerID]bool)
-	for i := 0; i < numTimers; i++ {
+	for range numTimers {
 		timer := heap.Pop(&h).(*timer)
 		if seen[timer.id] {
 			t.Errorf("Timer %d seen twice", timer.id)
@@ -373,7 +371,7 @@ func TestTimerHeap_Fix(t *testing.T) {
 
 	// Insert 5 timers: 1, 2, 3, 4, 5 minutes from now
 	timers := make([]*timer, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		timers[i] = &timer{
 			when: now.Add(time.Duration(i+1) * time.Minute),
 			id:   TimerID(i + 1),
@@ -414,7 +412,7 @@ func TestTimerHeap_Remove(t *testing.T) {
 
 			now := time.Now()
 			timers := make([]*timer, 10)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				timers[i] = &timer{
 					when: now.Add(time.Duration(i) * time.Minute),
 					id:   TimerID(i),
@@ -465,10 +463,10 @@ func TestTimerHeap_MemoryLeak(t *testing.T) {
 	// The slice may have been re-sliced, but underlying array element should be nil
 	// We can't directly verify this, but we can ensure the implementation is correct
 	// by checking that repeated push/pop doesn't grow memory unexpectedly
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		heap.Push(&h, &timer{when: time.Now(), id: TimerID(i)})
 	}
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		heap.Pop(&h)
 	}
 
@@ -489,11 +487,9 @@ func TestTimerHeap_Integration_WithLoop(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_ = loop.Run(ctx)
-	}()
+	})
 
 	// Wait for loop to start
 	time.Sleep(10 * time.Millisecond)
@@ -503,7 +499,7 @@ func TestTimerHeap_Integration_WithLoop(t *testing.T) {
 	fired := make([]bool, numTimers)
 	var mu sync.Mutex
 
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		idx := i
 		_, err := loop.ScheduleTimer(time.Duration(50+i)*time.Millisecond, func() {
 			mu.Lock()
@@ -543,9 +539,9 @@ func TestTimerHeap_RapidInsertRemove(t *testing.T) {
 
 	now := time.Now()
 
-	for cycle := 0; cycle < 100; cycle++ {
+	for cycle := range 100 {
 		// Insert 10
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			timer := &timer{
 				when: now.Add(time.Duration(rand.Intn(1000)) * time.Millisecond),
 				id:   TimerID(cycle*10 + i),
@@ -554,7 +550,7 @@ func TestTimerHeap_RapidInsertRemove(t *testing.T) {
 		}
 
 		// Remove 5
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			if h.Len() > 0 {
 				heap.Pop(&h)
 			}

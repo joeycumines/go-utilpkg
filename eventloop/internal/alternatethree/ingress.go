@@ -61,7 +61,7 @@ func newChunk() *chunk {
 func returnChunk(c *chunk) {
 	// Zero out all task slots to ensure no leaking references remain
 	// This prevents memory leaks even if pos was lower than 128
-	for i := 0; i < len(c.tasks); i++ {
+	for i := range len(c.tasks) {
 		c.tasks[i] = Task{}
 	}
 	c.pos = 0

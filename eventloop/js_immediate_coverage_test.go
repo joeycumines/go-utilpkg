@@ -338,10 +338,8 @@ func TestJS_SetImmediate_ConcurrentSetAndClear(t *testing.T) {
 	go loop.Run(context.Background())
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 
 			id, err := js.SetImmediate(func() {})
 			if err != nil {
@@ -352,7 +350,7 @@ func TestJS_SetImmediate_ConcurrentSetAndClear(t *testing.T) {
 			if id%2 == 0 {
 				js.ClearImmediate(id)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -510,7 +508,7 @@ func TestJS_SetImmediate_MultipleImmediate(t *testing.T) {
 	const count = 100
 	executed := make(chan int, count)
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		idx := i
 		_, err := js.SetImmediate(func() {
 			executed <- idx
@@ -536,7 +534,7 @@ func TestJS_SetImmediate_MultipleImmediate(t *testing.T) {
 	}
 
 	// Verify all callbacks executed
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if !resultSet[i] {
 			t.Errorf("Callback %d did not execute", i)
 		}
@@ -561,7 +559,7 @@ func TestJS_SetImmediate_OrderingFIFO(t *testing.T) {
 	var mu sync.Mutex
 	done := make(chan struct{})
 
-	for i := 0; i < count; i++ {
+	for i := range count {
 		idx := i
 		js.SetImmediate(func() {
 			mu.Lock()
@@ -582,7 +580,7 @@ func TestJS_SetImmediate_OrderingFIFO(t *testing.T) {
 	}
 
 	// Verify FIFO order
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if order[i] != i {
 			t.Errorf("Order[%d] = %d, expected %d", i, order[i], i)
 		}
@@ -692,7 +690,7 @@ func TestJS_SetImmediate_ManyRapidSchedules(t *testing.T) {
 
 	go loop.Run(context.Background())
 
-	for i := 0; i < count; i++ {
+	for range count {
 		js.SetImmediate(func() {
 			if executed.Add(1) == count {
 				close(done)
@@ -731,7 +729,7 @@ func TestJS_SetImmediate_MemoryReclamation(t *testing.T) {
 	done := make(chan struct{})
 	var executed atomic.Int32
 
-	for i := 0; i < count; i++ {
+	for range count {
 		js.SetImmediate(func() {
 			if executed.Add(1) == count {
 				close(done)
@@ -757,7 +755,7 @@ func TestJS_SetImmediate_MemoryReclamation(t *testing.T) {
 
 // TestJS_ClearImmediate_ConcurrentWithExecution verifies race between clear and run.
 func TestJS_ClearImmediate_ConcurrentWithExecution(t *testing.T) {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() failed: %v", err)

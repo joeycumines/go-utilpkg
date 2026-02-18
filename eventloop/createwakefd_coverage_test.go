@@ -164,7 +164,7 @@ func TestCreateWakeFd_MultipleCreation(t *testing.T) {
 	var fds [][2]int
 
 	// Create multiple pipes
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		r, w, err := createWakeFd(0, efdCloexec|efdNonblock)
 		if err != nil {
 			t.Fatalf("createWakeFd %d failed: %v", i, err)
@@ -258,7 +258,7 @@ func TestCreateWakeFd_WakeupMechanism(t *testing.T) {
 	// Write to wake pipe (simulate submitWakeup)
 	var one uint64 = 1
 	buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
 	_, err = writeFD(loop.wakePipeWrite, buf)

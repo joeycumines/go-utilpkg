@@ -70,7 +70,7 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		panic(err)
 	}
 
-	var fields map[string]interface{}
+	var fields map[string]any
 	if err := json.Unmarshal(b, &fields); err != nil {
 		panic(err)
 	}

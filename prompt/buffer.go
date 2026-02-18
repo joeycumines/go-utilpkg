@@ -127,11 +127,7 @@ func (b *Buffer) setText(text string, col istrings.Width, row int) {
 
 // Set cursor position. Return whether it changed.
 func (b *Buffer) setCursorPosition(p istrings.RuneNumber) {
-	if p > 0 {
-		b.cursorPosition = p
-	} else {
-		b.cursorPosition = 0
-	}
+	b.cursorPosition = max(p, 0)
 }
 
 func (b *Buffer) setDocument(d *Document, columns istrings.Width, rows int) {
@@ -201,10 +197,7 @@ func (b *Buffer) DeleteBeforeCursor(count istrings.GraphemeNumber, columns istri
 	textBeforeCursor := textUtf8.Slice(0, int(b.cursorPosition))
 	graphemeLength := istrings.GraphemeCountInString(textBeforeCursor)
 
-	start := istrings.RuneIndexNthGrapheme(textBeforeCursor, graphemeLength-count)
-	if start < 0 {
-		start = 0
-	}
+	start := max(istrings.RuneIndexNthGrapheme(textBeforeCursor, graphemeLength-count), 0)
 	deleted = textUtf8.Slice(int(start), int(b.cursorPosition))
 	b.setDocument(
 		&Document{
@@ -233,10 +226,7 @@ func (b *Buffer) DeleteBeforeCursorRunes(count istrings.RuneNumber, columns istr
 	}
 	r := []rune(b.Text())
 
-	start := b.cursorPosition - count
-	if start < 0 {
-		start = 0
-	}
+	start := max(b.cursorPosition-count, 0)
 	// Ensure we do not produce a slice with start > end which would panic.
 	if int(start) > len(r) || int(b.cursorPosition) > len(r) {
 		// Fall back to safe no-op delete when indices are out of range.

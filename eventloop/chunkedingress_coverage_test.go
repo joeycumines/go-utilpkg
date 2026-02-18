@@ -23,7 +23,7 @@ func Test_chunkedIngress_MultiChunkGrowth(t *testing.T) {
 	// Push more than one chunk (defaultChunkSize = 64)
 	itemCount := defaultChunkSize * 3
 
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Push(func() {})
 	}
 
@@ -32,7 +32,7 @@ func Test_chunkedIngress_MultiChunkGrowth(t *testing.T) {
 	}
 
 	// Verify we can pop all items
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Pop failed at index %d", i)
@@ -55,17 +55,17 @@ func Test_chunkedIngress_ChunkPoolRecycling(t *testing.T) {
 	// Push exactly 2 chunks worth
 	itemCount := defaultChunkSize * 2
 
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Push(func() {})
 	}
 
 	// Pop all - this should return chunks to pool
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Pop()
 	}
 
 	// Push again - should reuse pooled chunks
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Push(func() {})
 	}
 
@@ -131,12 +131,12 @@ func Test_chunkedIngress_ExhaustedChunkHandling(t *testing.T) {
 	// Push exactly one chunk worth plus a few more
 	itemCount := defaultChunkSize + 10
 
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Push(func() {})
 	}
 
 	// Pop exactly the first chunk
-	for i := 0; i < defaultChunkSize; i++ {
+	for i := range defaultChunkSize {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Pop failed at index %d", i)
@@ -152,7 +152,7 @@ func Test_chunkedIngress_ExhaustedChunkHandling(t *testing.T) {
 	}
 
 	// Pop remaining
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		task, ok := q.Pop()
 		if !ok {
 			t.Fatalf("Pop failed at remaining index %d", i)
@@ -198,12 +198,12 @@ func Test_chunkedIngress_SingleChunkReuse(t *testing.T) {
 	q := newChunkedIngress()
 
 	// Push and pop within single chunk
-	for cycle := 0; cycle < 5; cycle++ {
-		for i := 0; i < 50; i++ {
+	for cycle := range 5 {
+		for range 50 {
 			q.Push(func() {})
 		}
 
-		for i := 0; i < 50; i++ {
+		for i := range 50 {
 			task, ok := q.Pop()
 			if !ok {
 				t.Fatalf("Cycle %d: Pop failed at %d", cycle, i)
@@ -266,7 +266,7 @@ func Test_chunkedIngress_ChunkChainIntegrity(t *testing.T) {
 	// Push enough for 4 chunks
 	itemCount := defaultChunkSize * 4
 
-	for i := 0; i < itemCount; i++ {
+	for range itemCount {
 		q.Push(func() {})
 	}
 
@@ -283,7 +283,7 @@ func Test_chunkedIngress_ChunkChainIntegrity(t *testing.T) {
 	}
 
 	// Drain completely
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		task, ok := q.Pop()
 		if !ok || task == nil {
 			t.Fatalf("Failed to pop at %d", i)
@@ -308,16 +308,14 @@ func Test_chunkedIngress_ConcurrentPushSingleConsumer(t *testing.T) {
 	var mu sync.Mutex // External sync required for chunkedIngress
 
 	// Start producers
-	for p := 0; p < producers; p++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < itemsPerProducer; i++ {
+	for range producers {
+		wg.Go(func() {
+			for range itemsPerProducer {
 				mu.Lock()
 				q.Push(func() {})
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -374,14 +372,14 @@ func Test_chunkedIngress_TaskExecution(t *testing.T) {
 	const taskCount = 500
 
 	// Push tasks that increment counter
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		q.Push(func() {
 			counter.Add(1)
 		})
 	}
 
 	// Pop and execute all tasks
-	for i := 0; i < taskCount; i++ {
+	for i := range taskCount {
 		task, ok := q.Pop()
 		if !ok || task == nil {
 			t.Fatalf("Failed at %d", i)
@@ -485,14 +483,14 @@ func Test_chunkedIngress_BoundaryConditions(t *testing.T) {
 func Test_chunkedIngress_Interleaved(t *testing.T) {
 	q := newChunkedIngress()
 
-	for cycle := 0; cycle < 100; cycle++ {
+	for range 100 {
 		// Push 10
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			q.Push(func() {})
 		}
 
 		// Pop 5
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			q.Pop()
 		}
 	}

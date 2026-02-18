@@ -75,7 +75,6 @@ func newEventTemplateStumpyLogger(w io.Writer, enabled bool) *logiface.Logger[lo
 
 func TestEventTemplate(t *testing.T) {
 	for i, template := range eventTemplates {
-		template := template
 		t.Run(fmt.Sprintf(`template%d`, i+1), func(t *testing.T) {
 			t.Run(`enabled`, func(t *testing.T) {
 				testEventTemplate(t, template, true, false)

@@ -67,7 +67,7 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Launch producers
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		wg.Add(1)
 		go func(producerID int) {
 			defer wg.Done()
@@ -88,7 +88,7 @@ func TestWakeUpDeduplicationIntegration(t *testing.T) {
 	}
 
 	// Wait for all producers to be ready
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		<-ready
 	}
 
@@ -172,7 +172,7 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 	// Perform several wake-up cycles
 	const numCycles = 10
 
-	for cycle := 0; cycle < numCycles; cycle++ {
+	for cycle := range numCycles {
 		// Submit a task - this should trigger a wake-up if loop is sleeping
 		var task func() = nil
 		if err := loop.Submit(task); err != nil {
@@ -298,7 +298,7 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 	ready := make(chan struct{}, numProducers)
 	start := make(chan struct{})
 
-	for i := 0; i < numProducers; i++ {
+	for i := range numProducers {
 		wg.Add(1)
 		go func(producerID int) {
 			defer wg.Done()
@@ -308,7 +308,7 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 			<-start
 
 			// Submit multiple tasks
-			for j := 0; j < tasksPerProducer; j++ {
+			for j := range tasksPerProducer {
 				var task func() = nil
 				if err := loop.Submit(task); err != nil {
 					t.Errorf("Producer %d, task %d: Submit() failed: %v", producerID, j, err)
@@ -319,7 +319,7 @@ func TestConcurrentWakeUpDeduplicationIntegration(t *testing.T) {
 	}
 
 	// Wait for all producers to be ready
-	for i := 0; i < numProducers; i++ {
+	for range numProducers {
 		<-ready
 	}
 
@@ -442,7 +442,7 @@ func TestWakeMethodDeduplicationIntegration(t *testing.T) {
 	const numCallers = 50
 	var wg sync.WaitGroup
 
-	for i := 0; i < numCallers; i++ {
+	for i := range numCallers {
 		wg.Add(1)
 		go func(callerID int) {
 			defer wg.Done()

@@ -55,7 +55,7 @@ func TestPollIO_ErrorRecovery(t *testing.T) {
 	syscall.Close(pipeR)
 
 	// Submit some tasks to verify loop continues operating
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		loop.Submit(func() {
 			executed.Add(1)
 		})
@@ -88,7 +88,7 @@ func TestPollIO_ConcurrentMultipleFDErrors(t *testing.T) {
 
 	const numFDs = 5
 	fds := make([]int, numFDs)
-	for i := 0; i < numFDs; i++ {
+	for i := range numFDs {
 		var pipeFds [2]int
 		if err := syscall.Pipe(pipeFds[:]); err != nil {
 			t.Fatalf("Pipe %d failed: %v", i, err)
@@ -117,7 +117,7 @@ func TestPollIO_ConcurrentMultipleFDErrors(t *testing.T) {
 
 	// Close half the FDs concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < numFDs/2; i++ {
+	for i := range numFDs / 2 {
 		wg.Add(1)
 		go func(fd int) {
 			defer wg.Done()
@@ -126,7 +126,7 @@ func TestPollIO_ConcurrentMultipleFDErrors(t *testing.T) {
 	}
 
 	// Submit tasks concurrently
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		loop.Submit(func() {
 			executed.Add(1)
 		})

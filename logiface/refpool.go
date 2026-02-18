@@ -12,7 +12,7 @@ type (
 )
 
 var (
-	refPool = sync.Pool{New: func() interface{} { return new(refPoolItem) }}
+	refPool = sync.Pool{New: func() any { return new(refPoolItem) }}
 )
 
 func refPoolGet() *refPoolItem {

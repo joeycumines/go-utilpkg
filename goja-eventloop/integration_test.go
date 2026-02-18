@@ -54,7 +54,7 @@ func TestIntegration_PromiseChainingAcrossBoundary(t *testing.T) {
 	gojaRT.Set("goPromise", adapter.GojaWrapPromise(goPromise))
 
 	done := make(chan error, 1)
-	var results []interface{}
+	var results []any
 	var resultsMu sync.Mutex
 
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
@@ -159,7 +159,7 @@ func TestIntegration_ErrorPropagation_GoToJS(t *testing.T) {
 	gojaRT.Set("goPromise", adapter.GojaWrapPromise(goPromise2))
 
 	done := make(chan error, 1)
-	var capturedError interface{}
+	var capturedError any
 	var errorMu sync.Mutex
 
 	gojaRT.Set("captureError", func(call goja.FunctionCall) goja.Value {
@@ -237,7 +237,7 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 
 	// Create promise in JS that will throw error in handler
 	_, err = gojaRT.RunString(`
@@ -298,7 +298,7 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 func TestIntegration_TypeConversions(t *testing.T) {
 	testCases := []struct {
 		name     string
-		goValue  interface{}
+		goValue  any
 		expected string // JavaScript typeof result
 	}{
 		{"string", "hello", "string"},
@@ -306,9 +306,9 @@ func TestIntegration_TypeConversions(t *testing.T) {
 		{"float", 3.14, "number"},
 		{"boolean_true", true, "boolean"},
 		{"boolean_false", false, "boolean"},
-		{"nil", nil, "object"},                      // nil maps to null in JS, typeof null = "object"
-		{"array", []interface{}{1, 2, 3}, "object"}, // Arrays are objects
-		{"object", map[string]interface{}{"a": 1}, "object"},
+		{"nil", nil, "object"},              // nil maps to null in JS, typeof null = "object"
+		{"array", []any{1, 2, 3}, "object"}, // Arrays are objects
+		{"object", map[string]any{"a": 1}, "object"},
 	}
 
 	for _, tc := range testCases {
@@ -396,7 +396,7 @@ func TestIntegration_ThenableUnwrapping(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		done <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -473,7 +473,7 @@ func TestIntegration_PromiseAllWithGoPromises(t *testing.T) {
 	gojaRT.Set("goPromise2", adapter.GojaWrapPromise(p2))
 	gojaRT.Set("goPromise3", adapter.GojaWrapPromise(p3))
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		done <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -502,7 +502,7 @@ func TestIntegration_PromiseAllWithGoPromises(t *testing.T) {
 
 	select {
 	case result := <-done:
-		arr, ok := result.([]interface{})
+		arr, ok := result.([]any)
 		if !ok {
 			t.Fatalf("Expected array, got %T", result)
 		}
@@ -551,7 +551,7 @@ func TestIntegration_PromiseRaceWithGoPromises(t *testing.T) {
 	gojaRT.Set("goPromise2", adapter.GojaWrapPromise(p2))
 	gojaRT.Set("goPromise3", adapter.GojaWrapPromise(p3))
 
-	done := make(chan interface{}, 1)
+	done := make(chan any, 1)
 	gojaRT.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		done <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -768,7 +768,7 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 
 	// Create all promises and set up JS handlers BEFORE starting the loop
 	resolvers := make([]eventloop.ResolveFunc, numPromises)
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		p, resolve, _ := js.NewChainedPromise()
 		resolvers[i] = resolve
 		gojaRT.Set(fmt.Sprintf("p%d", i), adapter.GojaWrapPromise(p))
@@ -792,7 +792,7 @@ func TestIntegration_ConcurrentPromiseResolution(t *testing.T) {
 
 	// Now resolve from goroutines
 	var wg sync.WaitGroup
-	for i := 0; i < numPromises; i++ {
+	for i := range numPromises {
 		wg.Add(1)
 		go func(r eventloop.ResolveFunc, idx int) {
 			defer wg.Done()

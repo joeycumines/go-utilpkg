@@ -1246,7 +1246,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 		p.Then(
 			func(v any) any {
 				mu.Lock()
-				results[idx] = map[string]interface{}{
+				results[idx] = map[string]any{
 					"status": "fulfilled",
 					"value":  v,
 				}
@@ -1260,7 +1260,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 			},
 			func(r any) any {
 				mu.Lock()
-				results[idx] = map[string]interface{}{
+				results[idx] = map[string]any{
 					"status": "rejected",
 					"reason": r,
 				}

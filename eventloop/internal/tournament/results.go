@@ -11,13 +11,13 @@ import (
 
 // TestResult represents the result of a single tournament test.
 type TestResult struct { // betteralign:ignore
-	TestName       string                 `json:"test_name"`
-	Implementation string                 `json:"implementation"`
-	Passed         bool                   `json:"passed"`
-	Error          string                 `json:"error,omitempty"`
-	Duration       time.Duration          `json:"duration_ns"`
-	Metrics        map[string]interface{} `json:"metrics,omitempty"`
-	Timestamp      time.Time              `json:"timestamp"`
+	TestName       string         `json:"test_name"`
+	Implementation string         `json:"implementation"`
+	Passed         bool           `json:"passed"`
+	Error          string         `json:"error,omitzero"`
+	Duration       time.Duration  `json:"duration_ns"`
+	Metrics        map[string]any `json:"metrics,omitzero"`
+	Timestamp      time.Time      `json:"timestamp"`
 }
 
 // BenchmarkResult represents the result of a benchmark test.
@@ -38,11 +38,11 @@ type TournamentResults struct { // betteralign:ignore
 
 	RunID         string            `json:"run_id"`
 	StartTime     time.Time         `json:"start_time"`
-	EndTime       time.Time         `json:"end_time,omitempty"`
+	EndTime       time.Time         `json:"end_time"`
 	TestResults   []TestResult      `json:"test_results"`
 	BenchmarkData []BenchmarkResult `json:"benchmark_results"`
 	Summary       TournamentSummary `json:"summary"`
-	Incompatibles []Incompatibility `json:"incompatibilities,omitempty"`
+	Incompatibles []Incompatibility `json:"incompatibilities,omitzero"`
 }
 
 // TournamentSummary provides a high-level summary of results.

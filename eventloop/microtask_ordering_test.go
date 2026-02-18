@@ -23,8 +23,7 @@ import (
 // TestMicrotaskOrdering_BeforeMacroTask verifies that microtasks run before the next macro-task.
 // This is fundamental to WHATWG spec compliance.
 func TestMicrotaskOrdering_BeforeMacroTask(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -171,8 +170,7 @@ func TestMicrotaskOrdering_NestedMicrotasksInSameCheckpoint(t *testing.T) {
 		})
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() { loop.Run(ctx) }()
 
@@ -347,7 +345,7 @@ func TestMicrotaskOrdering_QueueMicrotaskFIFO(t *testing.T) {
 	const numMicrotasks = 100
 
 	// Queue many microtasks
-	for i := 0; i < numMicrotasks; i++ {
+	for i := range numMicrotasks {
 		idx := i
 		err := js.QueueMicrotask(func() {
 			order = append(order, idx)
@@ -411,7 +409,7 @@ func TestMicrotaskOrdering_ChainsAcrossTicks(t *testing.T) {
 	resolve(1)
 
 	// Process microtasks - may need multiple ticks for chained promises
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		loop.tick()
 	}
 
@@ -431,8 +429,7 @@ func TestMicrotaskOrdering_ChainsAcrossTicks(t *testing.T) {
 
 // TestMicrotaskOrdering_StrictModeEnforcement verifies StrictMicrotaskOrdering option.
 func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New(WithStrictMicrotaskOrdering(true))
 	if err != nil {
@@ -505,8 +502,7 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 // TestMicrotaskOrdering_MixedMicrotaskSources verifies ordering when microtasks
 // come from multiple sources: queueMicrotask, promise reactions, loop.ScheduleMicrotask.
 func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -636,8 +632,7 @@ func TestMicrotaskOrdering_NilCallback(t *testing.T) {
 
 // TestMicrotaskOrdering_ConcurrentQueueing verifies microtask ordering under concurrent queueing.
 func TestMicrotaskOrdering_ConcurrentQueueing(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -660,9 +655,9 @@ func TestMicrotaskOrdering_ConcurrentQueueing(t *testing.T) {
 	done := make(chan struct{})
 
 	// Launch goroutines that queue microtasks concurrently
-	for g := 0; g < numGoroutines; g++ {
+	for range numGoroutines {
 		go func() {
-			for i := 0; i < numPerGoroutine; i++ {
+			for range numPerGoroutine {
 				js.QueueMicrotask(func() {
 					if count.Add(1) == int64(total) {
 						close(done)
@@ -685,8 +680,7 @@ func TestMicrotaskOrdering_ConcurrentQueueing(t *testing.T) {
 
 // TestMicrotaskOrdering_IntervalInteraction verifies microtask/interval interaction.
 func TestMicrotaskOrdering_IntervalInteraction(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {
@@ -802,8 +796,7 @@ func TestMicrotaskOrdering_DeepNesting(t *testing.T) {
 // TestMicrotaskOrdering_AfterTimerFires verifies microtasks queued after timer fires
 // are eventually processed. The exact ordering relative to subsequent timers may vary.
 func TestMicrotaskOrdering_AfterTimerFires(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	loop, err := New()
 	if err != nil {

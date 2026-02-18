@@ -55,7 +55,7 @@ func ExampleChannel() {
 		"Jack",
 	}
 
-	for i := 0; i < 18; i++ {
+	for range 18 {
 		ch <- names[0]
 		names = names[1:]
 	}
@@ -76,7 +76,7 @@ func ExampleChannel() {
 		batch()
 	}()
 	time.Sleep(time.Millisecond * 5)
-	for i := 0; i < numUntilMin; i++ {
+	for range numUntilMin {
 		ch <- names[0]
 		names = names[1:]
 	}

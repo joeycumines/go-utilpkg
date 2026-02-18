@@ -75,10 +75,7 @@ func (r *registry) Scavenge(batchSize int) {
 
 	// Calculate batch range
 	start := r.head
-	end := start + batchSize
-	if end > ringLen {
-		end = ringLen
-	}
+	end := min(start+batchSize, ringLen)
 
 	type item struct {
 		id  uint64

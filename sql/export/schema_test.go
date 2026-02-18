@@ -174,7 +174,7 @@ func TestTemplate_Schema_success(t *testing.T) {
 func TestSchema_dependencyOrder(t *testing.T) {
 	rnd := rand.New(rand.NewSource(42314))
 	schema := jsonUnmarshalTestResource(`schema-example-1.json`, new(Schema))
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		rnd.Shuffle(len(schema.AliasOrder), func(i, j int) {
 			schema.AliasOrder[i], schema.AliasOrder[j] = schema.AliasOrder[j], schema.AliasOrder[i]
 		})

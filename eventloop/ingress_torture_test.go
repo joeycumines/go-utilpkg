@@ -51,7 +51,7 @@ func Test_microtaskRing_WriteAfterFree_Race(t *testing.T) {
 		defer wg.Done()
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			for !ring.Push(func() {}) {
 				runtime.Gosched()
 			}
@@ -130,7 +130,7 @@ func Test_microtaskRing_FIFO_Violation(t *testing.T) {
 	r := newMicrotaskRing()
 
 	// 1. Saturate the Ring Buffer (4096 items)
-	for i := 0; i < 4096; i++ {
+	for i := range 4096 {
 		val := i
 		if !r.Push(func() { _ = val }) {
 			t.Fatalf("Failed to push item %d to ring", i)
@@ -171,7 +171,7 @@ func Test_microtaskRing_FIFO_Violation(t *testing.T) {
 	})
 
 	// 5. Drain the Ring (4095 items remaining from saturation)
-	for i := 0; i < 4095; i++ {
+	for i := range 4095 {
 		if fn := r.Pop(); fn == nil {
 			t.Fatalf("Expected item from ring at iteration %d", i)
 		}
@@ -250,7 +250,7 @@ func Test_microtaskRing_NilInput_Liveness(t *testing.T) {
 		// - Skip the nil and return the valid function (if fixed with Option A)
 		// - Return nil indicating empty (if fixed with Option B - nil was dropped)
 		// - Hang forever (buggy)
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			fn := r.Pop()
 			if fn != nil {
 				fn()

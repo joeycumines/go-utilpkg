@@ -31,7 +31,7 @@ func TestCancelTimers_Basic(t *testing.T) {
 	// Schedule some timers
 	ids := make([]TimerID, 5)
 	var counter atomic.Int64
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		id, err := loop.ScheduleTimer(1*time.Hour, func() {
 			counter.Add(1)
 		})
@@ -271,7 +271,7 @@ func TestCancelTimers_LargeBatch(t *testing.T) {
 	// Schedule 100 timers
 	numTimers := 100
 	ids := make([]TimerID, numTimers)
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		id, err := loop.ScheduleTimer(1*time.Hour, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer failed: %v", err)
@@ -323,7 +323,7 @@ func TestCancelTimers_PreventsFiring(t *testing.T) {
 
 	var fired atomic.Int64
 	ids := make([]TimerID, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		id, _ := loop.ScheduleTimer(50*time.Millisecond, func() {
 			fired.Add(1)
 		})
@@ -359,8 +359,7 @@ func BenchmarkCancelTimer_Individual(b *testing.B) {
 			}
 			defer loop.Close()
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := b.Context()
 
 			go func() { _ = loop.Run(ctx) }()
 			time.Sleep(10 * time.Millisecond)
@@ -369,7 +368,7 @@ func BenchmarkCancelTimer_Individual(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Schedule timers
 				ids := make([]TimerID, numTimers)
-				for j := 0; j < numTimers; j++ {
+				for j := range numTimers {
 					id, _ := loop.ScheduleTimer(1*time.Hour, func() {})
 					ids[j] = id
 				}
@@ -394,8 +393,7 @@ func BenchmarkCancelTimers_Batch(b *testing.B) {
 			}
 			defer loop.Close()
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := b.Context()
 
 			go func() { _ = loop.Run(ctx) }()
 			time.Sleep(10 * time.Millisecond)
@@ -404,7 +402,7 @@ func BenchmarkCancelTimers_Batch(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// Schedule timers
 				ids := make([]TimerID, numTimers)
-				for j := 0; j < numTimers; j++ {
+				for j := range numTimers {
 					id, _ := loop.ScheduleTimer(1*time.Hour, func() {})
 					ids[j] = id
 				}
@@ -428,8 +426,7 @@ func BenchmarkCancelTimers_Comparison(b *testing.B) {
 		}
 		defer loop.Close()
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := b.Context()
 
 		go func() { _ = loop.Run(ctx) }()
 		time.Sleep(10 * time.Millisecond)
@@ -440,7 +437,7 @@ func BenchmarkCancelTimers_Comparison(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
-			for j := 0; j < numTimers; j++ {
+			for j := range numTimers {
 				id, _ := loop.ScheduleTimer(1*time.Hour, func() {})
 				ids[j] = id
 			}
@@ -457,8 +454,7 @@ func BenchmarkCancelTimers_Comparison(b *testing.B) {
 		}
 		defer loop.Close()
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := b.Context()
 
 		go func() { _ = loop.Run(ctx) }()
 		time.Sleep(10 * time.Millisecond)
@@ -469,7 +465,7 @@ func BenchmarkCancelTimers_Comparison(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
-			for j := 0; j < numTimers; j++ {
+			for j := range numTimers {
 				id, _ := loop.ScheduleTimer(1*time.Hour, func() {})
 				ids[j] = id
 			}

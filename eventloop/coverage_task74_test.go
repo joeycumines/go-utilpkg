@@ -641,7 +641,7 @@ func Test_ChainedPromise_MultipleHandlers(t *testing.T) {
 	var mu sync.Mutex
 
 	// Add 3 handlers while still pending -> fills h0 slot + additional handlers slice
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		val := i
 		p.thenStandalone(func(v any) any {
 			mu.Lock()
@@ -858,7 +858,7 @@ func Test_chunkedIngress_PushPop(t *testing.T) {
 
 	executed := 0
 	// Push more than chunk size to test multi-chunk
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		q.Push(func() { executed++ })
 	}
 
@@ -887,7 +887,7 @@ func Test_chunkedIngress_PushPopAlternating(t *testing.T) {
 	q := newChunkedIngressWithSize(4)
 
 	// Push 2, pop 1, alternating
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		val := i
 		q.Push(func() { _ = val })
 		q.Push(func() { _ = val })

@@ -342,7 +342,7 @@ func FuzzSyncProtocol_Fragmentation(f *testing.F) {
 
 		// Generate a random scenario based on the seeded RNG
 		opCount := int(rng.Int32N(50)) + 10 // 10 to 60 operations
-		for j := 0; j < opCount; j++ {
+		for j := range opCount {
 			if rng.Float32() < 0.3 {
 				// Append Sync Request
 				// Note: using 'fuzz' in ID to distinguish runs if debugging
@@ -370,10 +370,7 @@ func FuzzSyncProtocol_Fragmentation(f *testing.F) {
 		offset := 0
 		for offset < len(originalBytes) {
 			remaining := len(originalBytes) - offset
-			size := int(rng.Int32N(maxChunkSize)) + 1
-			if size > remaining {
-				size = remaining
-			}
+			size := min(int(rng.Int32N(maxChunkSize))+1, remaining)
 			chunks = append(chunks, originalBytes[offset:offset+size])
 			offset += size
 		}
@@ -485,7 +482,7 @@ func TestSyncProtocol_HugeID(t *testing.T) {
 	// Construct a payload: Prefix + (MaxBuffer + 100 bytes of ID) + Terminator
 	payload := bytes.Buffer{}
 	payload.WriteString(SyncPrefix)
-	for i := 0; i < maxSyncBufferSize+100; i++ {
+	for range maxSyncBufferSize + 100 {
 		payload.WriteByte('X')
 	}
 	payload.WriteString(StringTerminator)
@@ -602,7 +599,7 @@ func TestSyncProtocol_RapidFire(t *testing.T) {
 
 	var payload bytes.Buffer
 	count := 1000
-	for i := 0; i < count; i++ {
+	for i := range count {
 		id := fmt.Sprintf("%d", i)
 		payload.WriteString(BuildSyncRequest(id))
 	}

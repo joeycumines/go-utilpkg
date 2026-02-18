@@ -26,7 +26,7 @@ func TestLoop_New_PollerInitFailure(t *testing.T) {
 
 	// Alternative: Test that multiple Create/Close cycles work correctly
 	// which exercises the cleanup code even if we don't fail on init
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() iteration %d failed: %v", i, err)
@@ -303,7 +303,7 @@ func TestLoop_FileDescriptorAllocationLimit(t *testing.T) {
 	var createErr error
 
 	// Try to create multiple loops - on systems with low FD limits this might fail
-	for i := 0; i < numLoops; i++ {
+	for i := range numLoops {
 		loops[i], createErr = New()
 		if createErr != nil {
 			// FD limit reached or other error

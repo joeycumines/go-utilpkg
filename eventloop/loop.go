@@ -900,7 +900,7 @@ func (l *Loop) processExternal() {
 func (l *Loop) drainMicrotasks() {
 	const budget = 1024
 
-	for i := 0; i < budget; i++ {
+	for range budget {
 		// Priority 1: nextTick queue (process.nextTick runs before Promise microtasks)
 		if fn := l.nextTickQueue.Pop(); fn != nil {
 			l.safeExecuteFn(fn)
@@ -1584,10 +1584,7 @@ func (l *Loop) calculateTimeout() int {
 	if len(l.timers) > 0 {
 		now := time.Now()
 		nextFire := l.timers[0].when
-		delay := nextFire.Sub(now)
-		if delay < 0 {
-			delay = 0
-		}
+		delay := max(nextFire.Sub(now), 0)
 		if delay < maxDelay {
 			maxDelay = delay
 		}

@@ -82,7 +82,7 @@ func TestRenderer_renderCompletion(t *testing.T) {
 	// Helper function to create a slice of suggestions
 	genSuggestions := func(n int, prefix string) []Suggest {
 		s := make([]Suggest, n)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			s[i] = Suggest{
 				Text:        fmt.Sprintf("%s-text-%d", prefix, i),
 				Description: fmt.Sprintf("%s-desc-%d", prefix, i),

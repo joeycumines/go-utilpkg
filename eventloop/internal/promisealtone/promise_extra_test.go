@@ -96,7 +96,7 @@ func BenchmarkPromiseAltOne_All(b *testing.B) {
 
 	promises := make([]*promisealtone.Promise, 100)
 	resolvers := make([]promisealtone.ResolveFunc, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		promises[i], resolvers[i], _ = promisealtone.New(js)
 	}
 
@@ -104,7 +104,7 @@ func BenchmarkPromiseAltOne_All(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			promises[j] = promisealtone.NewPromiseForTesting(js)
 		}
 		b.StartTimer()
@@ -119,7 +119,7 @@ func BenchmarkStandardPromise_All(b *testing.B) {
 
 	promises := make([]*eventloop.ChainedPromise, 100)
 	resolvers := make([]eventloop.ResolveFunc, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		promises[i], resolvers[i], _ = js.NewChainedPromise()
 	}
 

@@ -4,6 +4,7 @@ package gojaeventloop
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -389,8 +390,8 @@ func TestPromiseChain(t *testing.T) {
 	})
 
 	// Add console.log for debugging
-	_ = runtime.Set("console", map[string]interface{}{
-		"log": func(args ...interface{}) {
+	_ = runtime.Set("console", map[string]any{
+		"log": func(args ...any) {
 			t.Log(args...)
 		},
 	})
@@ -547,7 +548,7 @@ func TestMixedTimersAndPromises(t *testing.T) {
 	if orderIntf == nil {
 		t.Fatal("Expected order array to be populated")
 	}
-	orderArr, ok := orderIntf.([]interface{})
+	orderArr, ok := orderIntf.([]any)
 	if !ok {
 		t.Fatalf("Expected []interface{} for order, got: %T", orderIntf)
 	}
@@ -644,22 +645,22 @@ func TestConcurrentJSOperations(t *testing.T) {
 	}
 
 	// Schedule 50 timers via setTimeout
-	script := ""
-	for i := 0; i < 50; i++ {
-		script += `setTimeout(() => {}, 10);`
+	var script strings.Builder
+	for range 50 {
+		script.WriteString(`setTimeout(() => {}, 10);`)
 	}
 
 	// Schedule 10 promises via Promise.resolve
-	for i := 0; i < 10; i++ {
-		script += `Promise.resolve().then(() => {});`
+	for range 10 {
+		script.WriteString(`Promise.resolve().then(() => {});`)
 	}
 
 	// Schedule 10 promises via new Promise
-	for i := 0; i < 10; i++ {
-		script += `new Promise(resolve => setTimeout(resolve, 10));`
+	for range 10 {
+		script.WriteString(`new Promise(resolve => setTimeout(resolve, 10));`)
 	}
 
-	_, err = runtime.RunString(script)
+	_, err = runtime.RunString(script.String())
 	if err != nil {
 		t.Fatalf("Failed to run JavaScript: %v", err)
 	}

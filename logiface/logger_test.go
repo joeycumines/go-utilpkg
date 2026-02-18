@@ -493,7 +493,7 @@ func TestReverseSlice(t *testing.T) {
 		if len(s) != len(expected) {
 			t.Errorf("expected length %d, but got length %d", len(expected), len(s))
 		}
-		for i := 0; i < len(s); i++ {
+		for i := range s {
 			if s[i] != expected[i] {
 				t.Errorf("expected %v, but got: %v", expected, s)
 			}
@@ -507,7 +507,7 @@ func TestReverseSlice(t *testing.T) {
 		if len(s) != len(expected) {
 			t.Errorf("expected length %d, but got length %d", len(expected), len(s))
 		}
-		for i := 0; i < len(s); i++ {
+		for i := range s {
 			if s[i] != expected[i] {
 				t.Errorf("expected %v, but got: %v", expected, s)
 			}

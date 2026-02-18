@@ -33,7 +33,7 @@ func TestPromiseTry_Success(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resultCh := make(chan interface{}, 1)
+	resultCh := make(chan any, 1)
 	runtime.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		resultCh <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -145,7 +145,7 @@ func TestPromiseTry_ReturnsPromise(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resultCh := make(chan interface{}, 1)
+	resultCh := make(chan any, 1)
 	runtime.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		resultCh <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -203,7 +203,7 @@ func TestPromiseTry_ReturnsNull(t *testing.T) {
 
 	type nullResult struct {
 		thenCalled bool
-		result     interface{}
+		result     any
 	}
 	resultCh := make(chan nullResult, 1)
 	runtime.Set("captureNullResult", func(call goja.FunctionCall) goja.Value {
@@ -300,7 +300,7 @@ func TestPromiseTry_Chaining(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resultCh := make(chan interface{}, 1)
+	resultCh := make(chan any, 1)
 	runtime.Set("captureResult", func(call goja.FunctionCall) goja.Value {
 		resultCh <- call.Argument(0).Export()
 		return goja.Undefined()
@@ -362,7 +362,7 @@ func TestPromiseTry_Finally(t *testing.T) {
 
 	type finallyResult struct {
 		finallyCalled bool
-		result        interface{}
+		result        any
 	}
 	resultCh := make(chan finallyResult, 1)
 	runtime.Set("captureFinallyResult", func(call goja.FunctionCall) goja.Value {

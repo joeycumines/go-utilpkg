@@ -123,7 +123,7 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 
 			// Submit tasks with microtasks
 			const iterations = 20
-			for i := 0; i < iterations; i++ {
+			for range iterations {
 				if err := loop.Submit(func() {
 					count.Add(1) // Count task execution
 					_ = loop.ScheduleMicrotask(func() {
@@ -315,7 +315,7 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 	}
 
 	// Submit tasks that schedule microtasks
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		taskId := i
 		if err := loop.Submit(func() {
 			mu.Lock()
@@ -393,9 +393,9 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	const numTasks = 5
 	const numMicrotasksPerTask = 3
 
-	for i := 0; i < numTasks; i++ {
+	for range numTasks {
 		if err := loop.Submit(func() {
-			for j := 0; j < numMicrotasksPerTask; j++ {
+			for range numMicrotasksPerTask {
 				_ = loop.ScheduleMicrotask(func() {
 					count.Add(1)
 				})
