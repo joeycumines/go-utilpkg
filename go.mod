@@ -21,7 +21,7 @@ require (
 	github.com/yuin/goldmark v1.7.16 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20260212183809-81e46e3db34a // indirect
+	golang.org/x/exp/typeparams v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect

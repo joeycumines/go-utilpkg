@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5
-	github.com/joeycumines/go-eventloop v0.0.0-20260213164852-99e8a33a69b7
+	github.com/joeycumines/go-eventloop v0.0.0-20260218170455-c2bbded118fe
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -13,10 +13,10 @@ require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/pprof v0.0.0-20260202012954-cb029daf43ef // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422 // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20260218170450-94df13f979e9 // indirect
 	github.com/joeycumines/logiface v0.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a // indirect
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

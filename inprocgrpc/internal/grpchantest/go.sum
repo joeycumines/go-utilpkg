@@ -22,8 +22,8 @@ github.com/jhump/protoreflect v1.18.0 h1:TOz0MSR/0JOZ5kECB/0ufGnC2jdsgZ123Rd/k4Z
 github.com/jhump/protoreflect v1.18.0/go.mod h1:ezWcltJIVF4zYdIFM+D/sHV4Oh5LNU08ORzCGfwvTz8=
 github.com/jhump/protoreflect/v2 v2.0.0-beta.2 h1:qZU+rEZUOYTz1Bnhi3xbwn+VxdXkLVeEpAeZzVXLY88=
 github.com/jhump/protoreflect/v2 v2.0.0-beta.2/go.mod h1:4tnOYkB/mq7QTyS3YKtVtNrJv4Psqout8HA1U+hZtgM=
-github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422 h1:TUNTyOzga3jsCpiODLhbHWXdFKwNL70D1/K08B2uDl0=
-github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422/go.mod h1:ahNfT7VdT3peAU7o6gJ2RzkKkyhAvCeqDP/cOSKhZfA=
+github.com/joeycumines/go-catrate v0.0.0-20260218170450-94df13f979e9 h1:zM9Fe032O94LwFLLKaVwp44GU7MoOtdNgBEJDs8jk8E=
+github.com/joeycumines/go-catrate v0.0.0-20260218170450-94df13f979e9/go.mod h1:IzrEKaUjkyLeMzFfFYmVU+Qsl8pgxAJ72pIxO7kzAyk=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=
@@ -48,8 +48,8 @@ go.opentelemetry.io/otel/sdk/metric v1.39.0 h1:cXMVVFVgsIf2YL6QkRF4Urbr/aMInf+2W
 go.opentelemetry.io/otel/sdk/metric v1.39.0/go.mod h1:xq9HEVH7qeX69/JnwEfp6fVq5wosJsY1mt4lLfYdVew=
 go.opentelemetry.io/otel/trace v1.40.0 h1:WA4etStDttCSYuhwvEa8OP8I5EWu24lkOzp+ZYblVjw=
 go.opentelemetry.io/otel/trace v1.40.0/go.mod h1:zeAhriXecNGP/s2SEG3+Y8X9ujcJOTqQ5RgdEJcawiA=
-golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a h1:ovFr6Z0MNmU7nH8VaX5xqw+05ST2uO1exVfZPVqRC5o=
-golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a/go.mod h1:K79w1Vqn7PoiZn+TkNpx3BUWUQksGO3JcVX6qIjytmA=
+golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa h1:Zt3DZoOFFYkKhDT3v7Lm9FDMEV06GpzjG2jrqW+QTE0=
+golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa/go.mod h1:K79w1Vqn7PoiZn+TkNpx3BUWUQksGO3JcVX6qIjytmA=
 golang.org/x/net v0.50.0 h1:ucWh9eiCGyDR3vtzso0WMQinm2Dnt8cFMuQa9K33J60=
 golang.org/x/net v0.50.0/go.mod h1:UgoSli3F/pBgdJBHCTc+tp3gmrU4XswgGRgtnwWTfyM=
 golang.org/x/sync v0.19.0 h1:vV+1eWNmZ5geRlYjzm2adRgW2/mcpevXNg50YZtPCE4=
