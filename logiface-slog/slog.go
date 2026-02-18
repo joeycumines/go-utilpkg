@@ -239,21 +239,21 @@ var (
 
 // WithSlogHandler configures a logiface logger to use a slog handler.
 //
-// The logger will default to filtering at LevelInformational, to match
-// common logging conventions where Debug/Trace are too verbose for production.
+// The slog adapter delegates level filtering to the logiface framework and the slog handler.
+// Events below the configured minimum level will be filtered by the framework before calling Write().
 //
 // See also LoggerFactory.WithSlogHandler and L (an alias for LoggerFactory{}).
 func WithSlogHandler(handler slog.Handler) logiface.Option[*Event] {
 	if handler == nil {
 		panic(`handler cannot be nil`)
 	}
-	l := Logger{
+	l := &Logger{
 		Handler: handler,
 	}
 	return logiface.WithOptions(
-		logiface.WithWriter[*Event](&l),
-		logiface.WithEventFactory[*Event](&l),
-		logiface.WithEventReleaser[*Event](&l),
+		logiface.WithWriter[*Event](l),
+		logiface.WithEventFactory[*Event](l),
+		logiface.WithEventReleaser[*Event](l),
 		logiface.WithLevel[*Event](logiface.LevelInformational), // Default: filter Debug/Trace
 	)
 }
@@ -430,11 +430,6 @@ func (x *Logger) Write(event *Event) error {
 	// Emergency level should panic
 	if event.lvl == logiface.LevelEmergency {
 		panic(logiface.LevelEmergency)
-	}
-	// Alert level should call os.Exit (handled by the slog handler if it's a fatal handler)
-	// Check if level is enabled before creating record
-	if !x.Handler.Enabled(context.TODO(), toSlogLevel(event.lvl)) {
-		return logiface.ErrDisabled
 	}
 	record := slog.NewRecord(time.Now(), toSlogLevel(event.lvl), event.msg, 0)
 	record.AddAttrs(event.attrs...)

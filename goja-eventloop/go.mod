@@ -1,10 +1,10 @@
 module github.com/joeycumines/goja-eventloop
 
-go 1.26
+go 1.26.0
 
 require (
-	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3
-	github.com/joeycumines/go-eventloop v0.0.0
+	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5
+	github.com/joeycumines/go-eventloop v0.0.0-20260213164852-99e8a33a69b7
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -21,5 +21,3 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/joeycumines/go-eventloop => ../eventloop

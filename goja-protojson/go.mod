@@ -1,11 +1,9 @@
 module github.com/joeycumines/goja-protojson
 
-go 1.26
-
-replace github.com/joeycumines/goja-protobuf => ../goja-protobuf
+go 1.26.0
 
 require (
-	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3
+	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5
 	github.com/joeycumines/goja-protobuf v0.0.0-20260213164915-e7601209bd26
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11

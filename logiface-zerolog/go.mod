@@ -1,6 +1,6 @@
 module github.com/joeycumines/izerolog
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/joeycumines/logiface v0.5.0
@@ -13,7 +13,7 @@ require (
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20260213164847-3d7ee3241422 // indirect
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260214144803-18a0281d8748 // indirect
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260215035219-a8f91f707d49 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a // indirect

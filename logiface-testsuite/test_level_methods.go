@@ -87,6 +87,7 @@ func TestLevelMethods[E logiface.Event](t *testing.T, cfg Config[E]) {
 	t.Run(`disabled log levels`, func(t *testing.T) {
 		t.Parallel()
 		for _, tc := range disabledLevelCombinations() {
+			tc := tc
 			t.Run(tc.Name, func(t *testing.T) {
 				t.Parallel()
 				cfg.RunTest(TestRequest[E]{

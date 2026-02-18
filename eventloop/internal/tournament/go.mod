@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-eventloop/internal/tournament
 
-go 1.26
+go 1.26.0
 
 replace github.com/joeycumines/go-eventloop => ../..
 
@@ -13,7 +13,7 @@ require (
 
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
-	github.com/dop251/goja v0.0.0-20260106131823-651366fbe6e3 // indirect
+	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5 // indirect
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/pprof v0.0.0-20260202012954-cb029daf43ef // indirect

@@ -42,6 +42,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 
 			// variants using eventTemplates + logiface.Logger.Log
 			for _, template := range eventTemplates {
+				template := template
 				var once sync.Once
 				variants = append(variants, func(ID int64) (ev Event) {
 					if err := tr.Logger.Log(level, logiface.ModifierFunc[E](func(event E) error {
@@ -65,6 +66,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 
 			// variants using eventTemplates + logiface.Logger.Build
 			for _, template := range eventTemplates {
+				template := template
 				var once sync.Once
 				variants = append(variants, func(ID int64) (ev Event) {
 					modifier := logiface.ModifierFunc[E](func(event E) error {
@@ -96,7 +98,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 		stop := make(chan struct{})
 		var wg sync.WaitGroup
 		wg.Add(numWorkers)
-		for range numWorkers {
+		for i := 0; i < numWorkers; i++ {
 			go func() {
 				defer wg.Done()
 				for {
@@ -122,7 +124,7 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 		}()
 
 		// receive all messages
-		for range maxMessages {
+		for i := 0; i < maxMessages; i++ {
 			ev, ok := tr.ReceiveEvent()
 			if !ok {
 				break

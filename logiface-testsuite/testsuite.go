@@ -7,15 +7,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	diff "github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/joeycumines/logiface"
 	"io"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	diff "github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
-	"github.com/joeycumines/logiface"
 )
 
 type (
@@ -127,7 +126,7 @@ type (
 		// Fields is a map of field names to values, and must be the same format encoding/json.Unmarshal.
 		// It must include all fields added via the logiface.Event interface, except Message and Error.
 		// It must not include any additional fields (e.g. added by the logger, such as timestamp).
-		Fields map[string]any
+		Fields map[string]interface{}
 		Level  logiface.Level
 	}
 
@@ -291,7 +290,7 @@ func (x TestResponse[E]) ReceiveEvent() (ev Event, ok bool) {
 
 func (x Event) String() string {
 	var b strings.Builder
-	var args []any
+	var args []interface{}
 	b.WriteString(`level=%s`)
 	args = append(args, x.Level)
 	if x.Message != nil {
@@ -393,11 +392,11 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 	var normalizeFields func(v any) any
 	normalizeFields = func(v any) any {
 		switch v := v.(type) {
-		case []any:
+		case []interface{}:
 			for i, val := range v {
 				v[i] = normalizeFields(val)
 			}
-		case map[string]any:
+		case map[string]interface{}:
 			for k, val := range v {
 				v[k] = normalizeFields(val)
 			}
@@ -427,24 +426,6 @@ func normalizeEvent[E logiface.Event](cfg Config[E], tr TestResponse[E], ev Even
 				panic(err)
 			}
 			return j
-		case float32:
-			return float64(v)
-		case int:
-			return float64(v)
-		case int8:
-			return float64(v)
-		case int16:
-			return float64(v)
-		case int32:
-			return float64(v)
-		case uint:
-			return float64(v)
-		case uint8:
-			return float64(v)
-		case uint16:
-			return float64(v)
-		case uint32:
-			return float64(v)
 		}
 		return v
 	}

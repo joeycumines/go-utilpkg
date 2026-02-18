@@ -1,12 +1,12 @@
 module github.com/joeycumines/go-prompt
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/creack/pty v1.1.24
 	github.com/google/go-cmp v0.7.0
 	github.com/mattn/go-colorable v0.1.14
-	github.com/mattn/go-runewidth v0.0.19
+	github.com/mattn/go-runewidth v0.0.20
 	github.com/mattn/go-tty v0.0.7
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.7
@@ -17,7 +17,7 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

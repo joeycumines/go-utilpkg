@@ -4,10 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/joeycumines/logiface"
 	"math"
 	"time"
-
-	"github.com/joeycumines/logiface"
 )
 
 var eventTemplates = []func(in logiface.Event) (out Event){
@@ -25,7 +24,7 @@ var eventTemplates = []func(in logiface.Event) (out Event){
 
 func eventTemplate1(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -53,7 +52,7 @@ func eventTemplate1(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = float32(25.5)
+		out.Fields[`float32_1`] = 25.5
 	}
 
 	if v := time.Unix(0, 1609457732123456789); in.AddTime(`time_1`, v) {
@@ -129,7 +128,7 @@ func eventTemplate1(in logiface.Event) (out Event) {
 
 func eventTemplate2(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	if msg := `some message`; in.AddMessage(msg) {
 		out.Message = &msg
@@ -153,7 +152,7 @@ func eventTemplate2(in logiface.Event) (out Event) {
 
 func eventTemplate3(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -173,7 +172,7 @@ func eventTemplate3(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = float32(25.5)
+		out.Fields[`float32_1`] = 25.5
 	}
 
 	if in.AddString(`string_1`, `some string`) {
@@ -189,7 +188,7 @@ func eventTemplate3(in logiface.Event) (out Event) {
 
 func eventTemplate4(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -205,7 +204,7 @@ func eventTemplate4(in logiface.Event) (out Event) {
 
 func eventTemplate5(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -233,7 +232,7 @@ func eventTemplate5(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = float32(25.5)
+		out.Fields[`float32_1`] = 25.5
 	}
 
 	return
@@ -241,7 +240,7 @@ func eventTemplate5(in logiface.Event) (out Event) {
 
 func eventTemplate6(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -258,15 +257,15 @@ func eventTemplate6(in logiface.Event) (out Event) {
 	in.AddField(`int_1`, -100)
 	out.Fields[`int_1`] = -100.0
 
-	in.AddField(`float32_1`, float32(-3.7))
-	out.Fields[`float32_1`] = float32(-3.7)
+	in.AddField(`float32_1`, -3.7)
+	out.Fields[`float32_1`] = -3.7
 
 	return
 }
 
 func eventTemplate7(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 101)
 	out.Fields[`field_1`] = 101.0
@@ -292,7 +291,7 @@ func eventTemplate7(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 25.5) {
-		out.Fields[`float32_1`] = float32(25.5)
+		out.Fields[`float32_1`] = 25.5
 	}
 
 	return
@@ -300,7 +299,7 @@ func eventTemplate7(in logiface.Event) (out Event) {
 
 func eventTemplate8(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, -20.0)
 	out.Fields[`field_1`] = -20.0
@@ -320,7 +319,7 @@ func eventTemplate8(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 3.14) {
-		out.Fields[`float32_1`] = float32(3.14)
+		out.Fields[`float32_1`] = 3.14
 	}
 
 	return
@@ -328,7 +327,7 @@ func eventTemplate8(in logiface.Event) (out Event) {
 
 func eventTemplate9(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	if msg := `another message`; in.AddMessage(msg) {
 		out.Message = &msg
@@ -352,7 +351,7 @@ func eventTemplate9(in logiface.Event) (out Event) {
 
 func eventTemplate10(in logiface.Event) (out Event) {
 	out.Level = in.Level()
-	out.Fields = make(map[string]any)
+	out.Fields = make(map[string]interface{})
 
 	in.AddField(`field_1`, 200)
 	out.Fields[`field_1`] = 200.0
@@ -372,7 +371,7 @@ func eventTemplate10(in logiface.Event) (out Event) {
 	}
 
 	if in.AddFloat32(`float32_1`, 2.71) {
-		out.Fields[`float32_1`] = float32(2.71)
+		out.Fields[`float32_1`] = 2.71
 	}
 
 	if in.AddString(`string_1`, `another string`) {

@@ -11,6 +11,7 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 	t.Run(`disabled levels`, func(t *testing.T) {
 		t.Parallel()
 		for _, tc := range disabledLevelCombinations() {
+			tc := tc
 			t.Run(tc.Name, func(t *testing.T) {
 				t.Parallel()
 				cfg.RunTest(TestRequest[E]{
@@ -27,6 +28,7 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 	t.Run(`enabled levels without modifier`, func(t *testing.T) {
 		t.Parallel()
 		for _, tc := range enabledLevelCombinations() {
+			tc := tc
 			t.Run(tc.Name, func(t *testing.T) {
 				t.Parallel()
 				cfg.RunTest(TestRequest[E]{
@@ -86,6 +88,7 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 
 			var expected []Event
 			for _, template := range eventTemplates {
+				template := template
 				if err := tr.Logger.Log(useLogLevel, logiface.ModifierFunc[E](func(in E) error {
 					ev := template(in)
 					if ev.Level != useLogLevel {
@@ -99,7 +102,7 @@ func TestLoggerLogMethod[E logiface.Event](t *testing.T, cfg Config[E]) {
 			}
 
 			var actual []Event
-			for range eventTemplates {
+			for i := 0; i < len(eventTemplates); i++ {
 				ev, ok := tr.ReceiveEvent()
 				if !ok {
 					break
