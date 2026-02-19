@@ -120,7 +120,6 @@ func TestNilOption(t *testing.T) {
 
 // TestWithLogger verifies that WithLogger option properly attaches
 // a logger to the event loop.
-// Priority 2: HIGH - Logger integration path currently at 0% coverage.
 func TestWithLogger(t *testing.T) {
 	// Create a simple logger using logiface.New
 	// We use io.Discard to ignore output for this test

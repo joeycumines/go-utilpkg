@@ -7,7 +7,6 @@ import (
 
 // TestLoop_HandlePollError verifies that poller errors are properly
 // handled by the event loop.
-// Priority 3: MEDIUM - Error recovery path in loop.go.
 func TestLoop_HandlePollError(t *testing.T) {
 	// This test verifies that poller error handling infrastructure exists
 	// and that the loop can be created and run without errors.
@@ -41,7 +40,6 @@ func TestLoop_HandlePollError(t *testing.T) {
 
 // TestLoop_PollerErrorRecovery verifies that the event loop
 // can recover from poller errors without crashing.
-// Priority 3: MEDIUM - Robustness of error recovery.
 func TestLoop_PollerErrorRecovery(t *testing.T) {
 	// Test verifies that poller error recovery mechanisms exist
 	// in loop.go (handlePollerError, returnPanicOrError)
