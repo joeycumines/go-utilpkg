@@ -460,9 +460,9 @@ goja-grpc-build: ## Build goja-grpc to check compilation
 goja-grpc-grep-testify: ## Check for remaining testify references in goja-grpc
 	@cd $(CURDIR)/goja-grpc && grep -rn 'testify\|assert\.\|require\.' *_test.go 2>/dev/null | head -30 || echo "No testify references found!"
 
-.PHONY: batch-commit-stage
-batch-commit-stage: ## Stage eventloop, goja-grpc, goja-protobuf, goja-protojson, config.mk, scratch for batch commit
-	cd $(CURDIR) && git add eventloop/ goja-grpc/ goja-protobuf/ goja-protojson/ && git add -f config.mk scratch/
+.PHONY: logiface-commit-stage
+logiface-commit-stage: ## Stage logiface core changes
+	cd $(CURDIR) && git add logiface/ && git add -f config.mk scratch/ blueprint.json WIP.md
 
 .PHONY: batch-commit-diff-stat
 batch-commit-diff-stat: ## Show staged diff stat for batch commit

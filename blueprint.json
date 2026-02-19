@@ -18,78 +18,58 @@
     "ruleOfTwo": "Every commit requires TWO contiguous, issue-free hostile review passes on the EXACT SAME diff."
   },
   "statusSection": {
-    "currentState": "LOGIFACE-SLOG COMPLETE (caf0c15). Moving to goja-eventloop and other module assessments.",
-    "lastAction": "logiface-slog committed: stripped doc comments, deleted slop files (doc.go, PERFORMANCE.md, TESTING.md, smoke_test.go, debug_level_test.go), fixed Write() write-then-panic for Emergency, fixed testSuiteLevelMapping for slog 4-level system, removed phantom OTel deps, rewrote README/CHANGELOG/examples. 13 files changed, +40/-2555. Rule of Two passed."
+    "currentState": "MULTI-MODULE CLEANUP COMMITTED. caf0c15 (logiface-slog), 904c28f (Emergency panic fix), 8f1f12b (goja-eventloop AI slop), c1c553a (eventloop tags + testify removal from goja-grpc/protobuf/protojson). macOS full suite PASS.",
+    "lastAction": "Committed c1c553a: Strip AI tags from eventloop (6 prod + 38 test files), delete 4 testify/junk files. Convert goja-grpc (21 files), goja-protobuf (16 files), goja-protojson (2 files) from testify→testing. Remove testify deps. Rule of Two 2/2 PASS. gmake make-all-with-log PASS (25 modules, 0 failures)."
   },
   "sequentialTasks": [
     {
       "task": "logiface-slog: Strip doc comments, delete slop files, fix bugs, clean deps",
-      "description": "COMMITTED caf0c15. Stripped doc to match zerolog/logrus style. Deleted doc.go, PERFORMANCE.md, TESTING.md, smoke_test.go, debug_level_test.go. Fixed Write() write-then-panic for Emergency. Fixed testSuiteLevelMapping (Custom→Debug, Trace→Debug, Notice→Warning, Critical/Alert/Emergency→Error). Removed AlertCallsOsExit. Removed phantom OTel deps. Rewrote README (2 lines), CHANGELOG (minimal), examples (4 kept). 13 files, +40/-2555.",
-      "status": "Done"
-    },
-    {
-      "task": "logiface-slog: Rule of Two review + commit",
-      "description": "Rule of Two passed: Run 1 PASS (42 tests, race -count=10 clean), Run 2 PASS (identical). Committed as caf0c15 on branch wip.",
+      "description": "COMMITTED caf0c15.",
       "status": "Done"
     },
     {
       "task": "FAST-FOLLOW: Remove Emergency panic from slog adapter",
-      "description": "HANA DIRECTIVE: Committed 904c28f. Removed panic(logiface.LevelEmergency) from Write(). Set EmergencyPanics: false. logiface's Builder.send() owns the panic via builderModePanic. Tests pass, race clean, full macOS suite pass. Rule of Two: Run 1 PASS, Run 2 PASS.",
+      "description": "COMMITTED 904c28f. Hana directive.",
       "status": "Done"
     },
     {
-      "task": "Cross-platform: macOS full suite verification",
-      "description": "Run 'gmake all' or 'gmake make-all-with-log' to verify ALL modules pass on macOS after logiface-slog changes. This ensures the slog cleanup didn't break downstream deps.",
+      "task": "goja-eventloop: Remove AI slop (tags, junk files, testify, CHANGELOG)",
+      "description": "COMMITTED 8f1f12b. 43 files changed, +275/-7644. Deleted 8 files (4 debug junk, 4 testify). Stripped ~180 AI tags. Cleaned CHANGELOG. Removed testify from go.mod.",
+      "status": "Done"
+    },
+    {
+      "task": "eventloop: Strip AI tags from 6 prod + 38 test files, delete 4 junk files",
+      "description": "COMMITTED c1c553a. 30 AI tags stripped from production code (promise.go, loop.go, ingress.go, options.go, js.go, eventtarget.go). 43 tags stripped from 38 test files. Deleted coverage_phase3_test.go, coverage_phase3b_test.go, fastpath_debug_test.go, wake_debug_test.go.",
+      "status": "Done"
+    },
+    {
+      "task": "goja-grpc: Convert 21 test files from testify to standard testing",
+      "description": "COMMITTED c1c553a. All assert/require calls converted. testify removed from go.mod.",
+      "status": "Done"
+    },
+    {
+      "task": "goja-protobuf: Convert 16 test files from testify to standard testing",
+      "description": "COMMITTED c1c553a. All assert/require calls converted. testify removed from go.mod.",
+      "status": "Done"
+    },
+    {
+      "task": "goja-protojson: Convert 2 test files from testify to standard testing",
+      "description": "COMMITTED c1c553a. testhelpers_test.go and module_test.go converted. testify removed from go.mod.",
+      "status": "Done"
+    },
+    {
+      "task": "macOS full suite verification",
+      "description": "gmake make-all-with-log PASS. 25 modules, 0 failures, 0 warnings.",
+      "status": "Done"
+    },
+    {
+      "task": "Cross-platform: Full suite Linux",
+      "description": "Run 'gmake make-all-in-container'. Zero failures.",
       "status": "Not Started"
     },
     {
-      "task": "goja-eventloop: Assess adapter.go for AI slop",
-      "description": "Read structure of 5774-line adapter.go. Identify AI comment tags (CRITICAL #1 FIX, EXPAND-001, etc.). Assess doc comment bloat, dead code, over-engineering. Plan cleanup.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-eventloop: Sample test file quality",
-      "description": "Sample 3-5 of the 62 coverage_* test files. Assess: do they have real assertions? Are they redundant? Flag worst slop for removal.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-eventloop: Run tests and static analysis",
-      "description": "Run 'gmake test.goja-eventloop' and 'gmake vet.goja-eventloop'. Establish baseline.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-eventloop: Execute cleanup (comments, dead code, worst test slop)",
-      "description": "Remove AI meta-comments (CRITICAL/EXPAND/FEATURE tags). Remove dead code. Delete top 5-10 worst coverage_* test files. Run tests after each removal.",
-      "status": "Not Started"
-    },
-    {
-      "task": "eventloop: Assess test file explosion (164 test files)",
-      "description": "Sample 5-10 coverage_*, coverage_extra*, coverage_phase* test files. Identify worst slop. Be CONSERVATIVE — core implementation is sophisticated and well-tested.",
-      "status": "Not Started"
-    },
-    {
-      "task": "eventloop: Run tests and static analysis",
-      "description": "Run 'gmake test.eventloop' and 'gmake vet.eventloop'. Establish baseline.",
-      "status": "Not Started"
-    },
-    {
-      "task": "eventloop: Execute cleanup (worst test slop only)",
-      "description": "Remove worst coverage_* slop files. Be conservative — many tests may exercise real edge cases. Run tests after each removal.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-grpc: Assess and clean AI slop",
-      "description": "Review for coverage_phase* naming, AI comment tags. Run 'gmake test.goja-grpc' and 'gmake vet.goja-grpc'. Remove worst slop.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-protobuf: Assess and clean AI slop",
-      "description": "Review for coverage_phase* naming, AI comment tags. Run 'gmake test.goja-protobuf' and 'gmake vet.goja-protobuf'. Remove worst slop.",
-      "status": "Not Started"
-    },
-    {
-      "task": "goja-protojson: Quick verify (cleanest module)",
-      "description": "Quick review. Run 'gmake test.goja-protojson' and 'gmake vet.goja-protojson'. Minimal cleanup expected.",
+      "task": "Cross-platform: Full suite Windows",
+      "description": "Run 'gmake make-all-run-windows'. Zero failures.",
       "status": "Not Started"
     },
     {
@@ -100,31 +80,6 @@
     {
       "task": "logiface-testsuite: Review for slog-specific additions",
       "description": "Check if testsuite was modified with slog-specific exemptions. Verify changes are sound.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Rule of Two: Review goja/eventloop cleanup batch",
-      "description": "Two contiguous hostile reviews on goja/eventloop diff. Must pass on identical diff.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Commit: goja-* and eventloop cleanup batch",
-      "description": "After Rule of Two passes, commit all goja/eventloop changes.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Cross-module: Full suite macOS",
-      "description": "Run 'gmake make-all-with-log'. Zero failures across all modules.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Cross-module: Full suite Linux",
-      "description": "Run 'gmake make-all-in-container'. Zero failures.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Cross-module: Full suite Windows",
-      "description": "Run 'gmake make-all-run-windows'. Zero failures.",
       "status": "Not Started"
     },
     {
@@ -140,16 +95,6 @@
     {
       "task": "Scope expansion: Verify adapter consistency",
       "description": "Compare API surface across all logiface adapters (zerolog, logrus, stumpy, slog). Document inconsistencies.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Final Rule of Two: Comprehensive audit",
-      "description": "Two contiguous hostile reviews on complete diff before declaring phase complete.",
-      "status": "Not Started"
-    },
-    {
-      "task": "Final commit",
-      "description": "Commit any remaining changes after final Rule of Two.",
       "status": "Not Started"
     }
   ],
