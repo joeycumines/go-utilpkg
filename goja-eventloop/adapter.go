@@ -914,7 +914,6 @@ func (a *Adapter) bindPromise() error {
 
 		// Skip null/undefined - just return resolved promise
 		if goja.IsNull(value) || goja.IsUndefined(value) {
-			_ = a.js.Resolve(nil)
 			return a.GojaWrapPromise(a.js.Resolve(nil))
 		}
 
@@ -1734,7 +1733,7 @@ func (a *Adapter) bindConsole() error {
 					dataStrs = append(dataStrs, fmt.Sprintf("%v", call.Argument(i).Export()))
 				}
 				fmt.Fprintf(output, "%s: %.3fms %s\n", label, float64(elapsed.Nanoseconds())/1e6,
-					joinStrings(dataStrs, " "))
+					strings.Join(dataStrs, " "))
 			} else {
 				fmt.Fprintf(output, "%s: %.3fms\n", label, float64(elapsed.Nanoseconds())/1e6)
 			}
@@ -1824,7 +1823,7 @@ func (a *Adapter) bindConsole() error {
 				for i := 1; i < len(call.Arguments); i++ {
 					dataStrs = append(dataStrs, fmt.Sprintf("%v", call.Argument(i).Export()))
 				}
-				fmt.Fprintf(output, "Assertion failed: %s\n", joinStrings(dataStrs, " "))
+				fmt.Fprintf(output, "Assertion failed: %s\n", strings.Join(dataStrs, " "))
 			} else {
 				fmt.Fprintf(output, "Assertion failed\n")
 			}
@@ -2061,20 +2060,6 @@ func (a *Adapter) bindConsole() error {
 	}))
 
 	return nil
-}
-
-// joinStrings joins a slice of strings with a separator.
-// This is a simple helper to avoid importing strings package.
-func joinStrings(strs []string, sep string) string {
-	if len(strs) == 0 {
-		return ""
-	}
-	var result strings.Builder
-	result.WriteString(strs[0])
-	for i := 1; i < len(strs); i++ {
-		result.WriteString(sep + strs[i])
-	}
-	return result.String()
 }
 
 // console.table() Helpers
@@ -3237,7 +3222,12 @@ func (a *Adapter) cloneRegExp(obj *goja.Object, objPtr uintptr, visited map[uint
 	if err != nil {
 		// Fallback: try without escaping
 		script = "new RegExp('" + source + "', '" + flags + "')"
-		newRegexp, _ = a.runtime.RunString(script)
+		newRegexp, err = a.runtime.RunString(script)
+	}
+	if err != nil {
+		// Both attempts failed; return the original object to avoid nil
+		visited[objPtr] = obj
+		return obj
 	}
 
 	// Register in visited map
@@ -4242,8 +4232,7 @@ func (a *Adapter) textEncoderConstructor(call goja.ConstructorCall) *goja.Object
 		bytes := []byte(input)
 
 		// Create Uint8Array by running JS code to use proper 'new' semantics
-		// We pass the bytes array and create the Uint8Array from it
-		arrObj := a.runtime.NewArrayBuffer(bytes)
+		// Create the Uint8Array from the bytes
 
 		// Wrap ArrayBuffer in a Uint8Array view
 		uint8ArrayCtorVal := a.runtime.Get("Uint8Array")
@@ -4265,7 +4254,6 @@ func (a *Adapter) textEncoderConstructor(call goja.ConstructorCall) *goja.Object
 			_ = arrObjTyped.Set(strconv.Itoa(i), int(b))
 		}
 
-		_ = arrObj // silence unused warning
 		return arr
 	}))
 
@@ -4403,19 +4391,6 @@ func (a *Adapter) textDecoderConstructor(call goja.ConstructorCall) *goja.Object
 		// Decode UTF-8
 		result := string(bytes)
 
-		// Validate UTF-8 if fatal mode
-		if decoder.fatal {
-			for i, r := range result {
-				if r == '\uFFFD' {
-					// Check if original bytes at this position were invalid
-					// Go's string conversion replaces invalid UTF-8 with U+FFFD
-					// In fatal mode, we should throw on invalid sequences
-					// Simple heuristic: if we got replacement char, it might be invalid
-					_ = i // For complex validation we'd need more logic
-				}
-			}
-		}
-
 		return a.runtime.ToValue(result)
 	}))
 
@@ -4445,14 +4420,7 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 		buffer := obj.Get("buffer")
 		if buffer != nil && !goja.IsUndefined(buffer) {
 			// It's a typed array view
-			// Get byteOffset
-			byteOffset := 0
-			if offsetVal := obj.Get("byteOffset"); offsetVal != nil && !goja.IsUndefined(offsetVal) {
-				byteOffset = int(offsetVal.ToInteger())
-			}
-			_ = byteOffset // byteOffset is included in accessing via indices
-
-			// Read bytes from the view
+			// Read bytes from the view (index access accounts for byteOffset)
 			viewLength := length
 			if lenVal := obj.Get("length"); lenVal != nil && !goja.IsUndefined(lenVal) {
 				viewLength = int(lenVal.ToInteger())
@@ -4468,10 +4436,7 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 			return bytes, nil
 		}
 
-		// It's an ArrayBuffer - read directly
-		// Goja ArrayBuffer can be accessed via indices when viewed
-		// For raw ArrayBuffer, we need to create a view
-		viewScript := "new Uint8Array"
+		// It's an ArrayBuffer - create a Uint8Array view
 		uint8ArrayVal := a.runtime.Get("Uint8Array")
 		if uint8ArrayVal != nil && !goja.IsUndefined(uint8ArrayVal) {
 			constructorFn, ok := goja.AssertFunction(uint8ArrayVal)
@@ -4482,7 +4447,6 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 				}
 			}
 		}
-		_ = viewScript // fallback path
 	}
 
 	// Check for array-like object with numeric indices

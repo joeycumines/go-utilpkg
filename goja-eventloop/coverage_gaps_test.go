@@ -1177,29 +1177,6 @@ func TestConvertToGojaValue_AggregateError(t *testing.T) {
 }
 
 // ===========================================================================
-// joinStrings — empty slice
-// ===========================================================================
-
-func TestJoinStrings_Empty(t *testing.T) {
-	result := joinStrings(nil, ",")
-	if result != "" {
-		t.Errorf("Expected empty, got %q", result)
-	}
-
-	result = joinStrings([]string{}, ",")
-	if result != "" {
-		t.Errorf("Expected empty, got %q", result)
-	}
-}
-
-func TestJoinStrings_SingleElement(t *testing.T) {
-	result := joinStrings([]string{"hello"}, ",")
-	if result != "hello" {
-		t.Errorf("Expected 'hello', got %q", result)
-	}
-}
-
-// ===========================================================================
 // URL — uncovered branches (empty scheme, base URL)
 // ===========================================================================
 
