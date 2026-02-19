@@ -2,8 +2,8 @@ package gojagrpc
 
 import (
 	"context"
-	"testing"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/dop251/goja"

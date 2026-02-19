@@ -2,7 +2,7 @@
 cover*.out
 *.log
 *.bak
-/scratch/
+/scratch
 /DIRECTIVE.txt
 *.test
 /.idea

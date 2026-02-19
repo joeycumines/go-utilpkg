@@ -1,8 +1,8 @@
 package gojagrpc
 
 import (
-	"testing"
 	"strings"
+	"testing"
 
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 )

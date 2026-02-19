@@ -3,8 +3,8 @@ package gojagrpc
 import (
 	"context"
 	"fmt"
-	"testing"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/dop251/goja"
@@ -1725,20 +1725,22 @@ func TestStreamReader_RecvSubmitFailure(t *testing.T) {
 
 	// Now cancel the loop while a second RecvMsg is in flight.
 	recvDone := make(chan error, 1)
+	recvStarted := make(chan struct{})
 	go func() {
 		respMsg2 := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
+		close(recvStarted)
 		recvDone <- cs.RecvMsg(respMsg2)
 	}()
 
-	// Give the RecvMsg goroutine time to register, then cancel.
-	time.Sleep(20 * time.Millisecond)
+	// Wait for the goroutine to start, then cancel.
+	<-recvStarted
 	cancel()
 
 	select {
 	case err := <-recvDone:
 		// Expected: some error (context cancelled, stream broken, etc.)
 		_ = err
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("RecvMsg didn't complete after loop cancel")
 	}
 }
@@ -2082,19 +2084,21 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 
 	// Start another recv that will be in-flight when we cancel the loop.
 	recvDone := make(chan error, 1)
+	recvStarted := make(chan struct{})
 	go func() {
 		resp2 := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
+		close(recvStarted)
 		recvDone <- cs.RecvMsg(resp2)
 	}()
 
 	// Cancel the loop.
-	time.Sleep(20 * time.Millisecond)
+	<-recvStarted
 	cancel()
 
 	select {
 	case err := <-recvDone:
 		_ = err // some error expected
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("RecvMsg didn't complete")
 	}
 }

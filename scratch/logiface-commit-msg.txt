@@ -1,9 +1,0 @@
-Remove testify from logiface core module
-
-Convert 7 testify assertions across logger_test.go and
-context_test.go to use the built-in testing package:
-- assert.Nil → if != nil check
-- assert.Equal for identity → direct != comparison
-- assert.Equal for deep equality → reflect.DeepEqual
-
-Remove testify and its transitive dependencies from go.mod.

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"testing"
 	"strings"
+	"testing"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/reflect/protodesc"

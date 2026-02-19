@@ -3,14 +3,15 @@ package floater
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	"math"
 	"math/big"
 	"math/rand/v2"
 	"strconv"
 	"strings"
 	"testing"
+
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 func isNumericByte(b byte) bool {

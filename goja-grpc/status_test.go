@@ -1,8 +1,8 @@
 package gojagrpc
 
 import (
-	"testing"
 	"strings"
+	"testing"
 
 	"google.golang.org/grpc/codes"
 )
@@ -246,8 +246,8 @@ func TestNew_NilRuntime_Panics(t *testing.T) {
 			}
 		}()
 		(func() {
-		_, _ = New(nil)
-	})()
+			_, _ = New(nil)
+		})()
 	}()
 }
 

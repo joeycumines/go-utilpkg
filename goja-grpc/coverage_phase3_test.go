@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
-	"strings"
 	"time"
 
 	"github.com/dop251/goja"

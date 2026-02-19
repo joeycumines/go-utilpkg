@@ -1,9 +1,9 @@
 package gojagrpc
 
 import (
-	"testing"
 	"reflect"
 	"strings"
+	"testing"
 
 	"github.com/dop251/goja"
 	"google.golang.org/grpc/metadata"

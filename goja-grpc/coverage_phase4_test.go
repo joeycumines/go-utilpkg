@@ -3,8 +3,8 @@ package gojagrpc
 import (
 	"context"
 	"io"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/dop251/goja"
 	"google.golang.org/grpc"
