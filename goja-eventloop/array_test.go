@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-056: Array Methods Verification
+// Array Methods Verification
 // Tests verify Goja's native support for:
 // - Array.isArray(value)
 // - Array.from(arrayLike, mapFn?)

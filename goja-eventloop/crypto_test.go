@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-022: crypto.randomUUID() Tests
+// crypto.randomUUID() Tests
 // ===============================================
 
 func TestCryptoRandomUUID_Basic(t *testing.T) {

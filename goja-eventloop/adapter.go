@@ -25,19 +25,19 @@ type Adapter struct { //nolint:govet // betteralign:ignore
 	// This allows event listeners to receive the original JS event object (including CustomEvent.detail).
 	dispatchJSEvents sync.Map // map[*goeventloop.Event]goja.Value
 
-	consoleTimersMu   sync.RWMutex // protects consoleTimers (FEATURE-004)
-	consoleCountersMu sync.RWMutex // protects consoleCounters (EXPAND-004)
-	consoleIndentMu   sync.RWMutex // protects consoleIndent (EXPAND-026)
+	consoleTimersMu   sync.RWMutex // protects consoleTimers
+	consoleCountersMu sync.RWMutex // protects consoleCounters
+	consoleIndentMu   sync.RWMutex // protects consoleIndent
 
 	js               *goeventloop.JS
 	runtime          *goja.Runtime
 	loop             *goeventloop.Loop
-	promisePrototype *goja.Object         // CRITICAL #3: Promise.prototype for instanceof support
-	consoleTimers    map[string]time.Time // FEATURE-004: label -> start time
-	consoleCounters  map[string]int       // EXPAND-004: label -> count
+	promisePrototype *goja.Object         // Promise.prototype for instanceof support
+	consoleTimers    map[string]time.Time // label -> start time
+	consoleCounters  map[string]int       // label -> count
 	getIterator      goja.Callable        // Helper function to get [Symbol.iterator]
 	consoleOutput    io.Writer            // output writer for console (defaults to os.Stderr)
-	consoleIndent    int                  // EXPAND-026: current group indentation level
+	consoleIndent    int                  // current group indentation level
 }
 
 // New creates a new Goja adapter for given event loop and runtime.
@@ -112,72 +112,72 @@ func (a *Adapter) Bind() error {
 	}
 	a.getIterator = iterAssert
 
-	// FEATURE-001: AbortController and AbortSignal bindings
+	// AbortController and AbortSignal bindings
 	a.runtime.Set("AbortController", a.abortControllerConstructor)
 	a.runtime.Set("AbortSignal", a.abortSignalConstructor)
 
-	// EXPAND-001 & EXPAND-002: Add static methods to AbortSignal
+	// Add static methods to AbortSignal
 	if err := a.bindAbortSignalStatics(); err != nil {
 		return fmt.Errorf("failed to bind AbortSignal statics: %w", err)
 	}
 
-	// FEATURE-002/003: performance API bindings
+	// performance API bindings
 	if err := a.bindPerformance(); err != nil {
 		return fmt.Errorf("failed to bind performance: %w", err)
 	}
 
-	// FEATURE-004: console.time/timeEnd/timeLog bindings
+	// console.time/timeEnd/timeLog bindings
 	if err := a.bindConsole(); err != nil {
 		return fmt.Errorf("failed to bind console: %w", err)
 	}
 
-	// EXPAND-020: process.nextTick binding
+	// process.nextTick binding
 	if err := a.bindProcess(); err != nil {
 		return fmt.Errorf("failed to bind process: %w", err)
 	}
 
-	// EXPAND-021: delay() global function
+	// delay() global function
 	a.runtime.Set("delay", a.delay)
 
-	// EXPAND-022: crypto.randomUUID binding
+	// crypto.randomUUID binding
 	if err := a.bindCrypto(); err != nil {
 		return fmt.Errorf("failed to bind crypto: %w", err)
 	}
 
-	// EXPAND-023: atob/btoa base64 functions
+	// atob/btoa base64 functions
 	a.runtime.Set("atob", a.atob)
 	a.runtime.Set("btoa", a.btoa)
 
-	// EXPAND-027: EventTarget and Event bindings
+	// EventTarget and Event bindings
 	a.runtime.Set("EventTarget", a.eventTargetConstructor)
 	a.runtime.Set("Event", a.eventConstructor)
 
-	// EXPAND-028: CustomEvent binding
+	// CustomEvent binding
 	a.runtime.Set("CustomEvent", a.customEventConstructor)
 
-	// EXPAND-024: structuredClone global function
+	// structuredClone global function
 	a.runtime.Set("structuredClone", a.structuredClone)
 
-	// EXPAND-041: URL and URLSearchParams bindings
+	// URL and URLSearchParams bindings
 	a.runtime.Set("URL", a.urlConstructor)
 	a.runtime.Set("URLSearchParams", a.urlSearchParamsConstructor)
 
-	// EXPAND-042: TextEncoder and TextDecoder bindings
+	// TextEncoder and TextDecoder bindings
 	a.runtime.Set("TextEncoder", a.textEncoderConstructor)
 	a.runtime.Set("TextDecoder", a.textDecoderConstructor)
 
-	// EXPAND-043: Blob binding
+	// Blob binding
 	a.runtime.Set("Blob", a.blobConstructor)
 
-	// EXPAND-044: localStorage and sessionStorage (in-memory)
+	// localStorage and sessionStorage (in-memory)
 	if err := a.bindStorage(); err != nil {
 		return fmt.Errorf("failed to bind storage: %w", err)
 	}
 
-	// EXPAND-046: Headers class (for fetch-like patterns)
+	// Headers class (for fetch-like patterns)
 	a.runtime.Set("Headers", a.headersConstructor)
 
-	// EXPAND-047: FormData class (for fetch-like patterns)
+	// FormData class (for fetch-like patterns)
 	a.runtime.Set("FormData", a.formDataConstructor)
 
 	// FETCH API STATUS: Not Implemented
@@ -190,18 +190,18 @@ func (a *Adapter) Bind() error {
 	// See: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 	a.runtime.Set("fetch", a.fetchNotImplemented)
 
-	// EXPAND-048: DOMException class
+	// DOMException class
 	a.runtime.Set("DOMException", a.domExceptionConstructor)
 	if err := a.bindDOMExceptionConstants(); err != nil {
 		return fmt.Errorf("failed to bind DOMException constants: %w", err)
 	}
 
-	// EXPAND-050: Symbol.for and Symbol.keyFor utilities
+	// Symbol.for and Symbol.keyFor utilities
 	if err := a.bindSymbol(); err != nil {
 		return fmt.Errorf("failed to bind Symbol: %w", err)
 	}
 
-	// FIX CRITICAL #1, #2, #5, #6: Call bindPromise() to set up all combinators
+	// Call bindPromise() to set up all combinators
 	return a.bindPromise()
 }
 func (a *Adapter) setTimeout(call goja.FunctionCall) goja.Value {
@@ -323,7 +323,7 @@ func (a *Adapter) clearImmediate(call goja.FunctionCall) goja.Value {
 
 // promiseConstructor binding for Goja
 func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
-	// CRITICAL #4: Validate executor FIRST before creating promise to prevent resource leaks
+	// Validate executor FIRST before creating promise to prevent resource leaks
 	executor := call.Argument(0)
 	if executor.Export() == nil {
 		panic(a.runtime.NewTypeError("Promise executor must be a function"))
@@ -373,7 +373,7 @@ func (a *Adapter) promiseConstructor(call goja.ConstructorCall) *goja.Object {
 	return thisObj
 }
 
-// R130.6 Helper: isWrappedPromise checks if a value is a Goja-wrapped
+// isWrappedPromise checks if a value is a Goja-wrapped
 // promise object (has _internalPromise field with valid ChainedPromise).
 //
 // This helper eliminates code duplication across adapter.go, where the promise
@@ -398,7 +398,7 @@ func isWrappedPromise(value goja.Value) bool {
 	return ok && promise != nil
 }
 
-// R130.6 Helper: tryExtractWrappedPromise extracts the internal ChainedPromise
+// tryExtractWrappedPromise extracts the internal ChainedPromise
 // from a wrapped promise object.
 //
 // Returns (promise, true) if value is a wrapped promise, (nil, false) otherwise.
@@ -425,7 +425,7 @@ func tryExtractWrappedPromise(value goja.Value) (*goeventloop.ChainedPromise, bo
 }
 
 // gojaFuncToHandler converts a Goja function value to a promise handler
-// CRITICAL #1 FIX: Type conversion at Go-native level BEFORE passing to JavaScript
+// Type conversion at Go-native level BEFORE passing to JavaScript
 func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 	if fn.Export() == nil {
 		// No handler provided - return nil to let ChainedPromise handle propagation
@@ -439,17 +439,17 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 	}
 
 	return func(result any) any {
-		// CRITICAL FIX #1: Check type at Go-native level, not after Goja conversion
-		// CRITICAL FIX #2: Check for already-wrapped promises to preserve identity
+		// Check type at Go-native level, not after Goja conversion
+		// Check for already-wrapped promises to preserve identity
 		var jsValue goja.Value
 
 		// Extract Go-native type from Result
 		goNativeValue := result
 
-		// CRITICAL #1 FIX: Check if result is already a wrapped Goja Object before conversion
+		// Check if result is already a wrapped Goja Object before conversion
 		// This prevents double-wrapping which breaks Promise identity:
 		//   Promise.all([p]).then(r => r[0] === p) should be true
-		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		// Use helper to eliminate duplicated promise wrapper detection
 		if obj, ok := goNativeValue.(goja.Value); ok && isWrappedPromise(obj) {
 			// Already a wrapped promise - use goja object directly to preserve identity
 			jsValue = obj
@@ -460,8 +460,8 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 				// Convert Go-native slice to JavaScript array
 				jsArr := a.runtime.NewArray()
 				for i, val := range v {
-					// CRITICAL #1 FIX: Check each element for already-wrapped promises
-					// R130.6: Use helper to eliminate duplicated promise wrapper detection
+					// Check each element for already-wrapped promises
+					// Use helper to eliminate duplicated promise wrapper detection
 					if obj, ok := val.(goja.Value); ok && isWrappedPromise(obj) {
 						// Already a wrapped promise - use directly
 						_ = jsArr.Set(strconv.Itoa(i), obj)
@@ -475,8 +475,8 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 				// Convert Go-native map to JavaScript object
 				jsObj := a.runtime.NewObject()
 				for key, val := range v {
-					// CRITICAL #1 FIX: Check each value for already-wrapped promises
-					// R130.6: Use helper to eliminate duplicated promise wrapper detection
+					// Check each value for already-wrapped promises
+					// Use helper to eliminate duplicated promise wrapper detection
 					if obj, ok := val.(goja.Value); ok && isWrappedPromise(obj) {
 						// Already a wrapped promise - use directly
 						_ = jsObj.Set(key, obj)
@@ -495,7 +495,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 		// Call JavaScript handler with the properly converted value
 		ret, err := fnCallable(goja.Undefined(), jsValue)
 		if err != nil {
-			// CRITICAL FIX: Panic so tryCall catches it and rejects the promise
+			// Panic so tryCall catches it and rejects the promise
 			// Returning error would cause it to be treated as a fulfilled value!
 			panic(err)
 		}
@@ -504,7 +504,7 @@ func (a *Adapter) gojaFuncToHandler(fn goja.Value) func(any) any {
 		// When we return *goeventloop.ChainedPromise, the framework's resolve()
 		// method automatically handles state adoption via Then() (see eventloop/promise.go)
 		// This ensures proper chaining: p.then(() => p2) works correctly
-		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		// Use helper to eliminate duplicated promise wrapper detection
 		if isWrappedPromise(ret) {
 			// Extract the internal ChainedPromise from the wrapped object
 			internalVal := ret.ToObject(a.runtime).Get("_internalPromise")
@@ -717,7 +717,7 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 		var val any
 		if len(call.Arguments) > 0 {
 			arg := call.Argument(0)
-			// CRITICAL FIX: Preserve Goja.Error objects directly without Export()
+			// Preserve Goja.Error objects directly without Export()
 			// Export() converts Goja.Error to opaque wrapper that loses .message property
 			// By passing Goja.Value directly, convertToGojaValue() can unwrap it properly
 			if exportedVal, ok := exportGojaValue(arg); ok {
@@ -734,7 +734,7 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 		var val any
 		if len(call.Arguments) > 0 {
 			arg := call.Argument(0)
-			// CRITICAL FIX: Preserve Goja.Error objects directly without Export()
+			// Preserve Goja.Error objects directly without Export()
 			// Export() converts Goja.Error to opaque wrapper that loses .message property
 			// By passing Goja.Value directly, convertToGojaValue() can unwrap it properly
 			if exportedVal, ok := exportGojaValue(arg); ok {
@@ -762,7 +762,6 @@ func (a *Adapter) resolveThenable(value goja.Value) *goeventloop.ChainedPromise 
 }
 
 // convertToGojaValue converts Go-native types to JavaScript-compatible types
-// This is CRITICAL #3, #7, #9, #10 fix for type conversion
 func (a *Adapter) convertToGojaValue(v any) goja.Value {
 	// CRITICAL: Check if this is a wrapper for a preserved Goja Error object
 	if wrapper, ok := v.(map[string]any); ok {
@@ -774,13 +773,13 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 		}
 	}
 
-	// CRITICAL #1 FIX: Handle Goja Error objects directly (they're already Goja values)
+	// Handle Goja Error objects directly (they're already Goja values)
 	// If v is already a Goja value (not a Go-native type), return it directly
 	if val, ok := v.(goja.Value); ok {
 		return val
 	}
 
-	// CRITICAL FIX: Handle ChainedPromise objects by wrapping them
+	// Handle ChainedPromise objects by wrapping them
 	// This preserves referential identity for Promise.reject(p) compliance
 	// When a ChainedPromise is passed through (e.g., as rejection reason),
 	// we must preserve it as-is, not unwrap its value/reason
@@ -807,7 +806,7 @@ func (a *Adapter) convertToGojaValue(v any) goja.Value {
 		return jsObj
 	}
 
-	// CRITICAL #10 FIX: Handle *AggregateError specifically to enable checking err.message/err.errors in JS
+	// Handle *AggregateError specifically to enable checking err.message/err.errors in JS
 	if agg, ok := v.(*goeventloop.AggregateError); ok {
 		jsObj := a.runtime.NewObject()
 		_ = jsObj.Set("message", agg.Error())
@@ -909,7 +908,7 @@ func (a *Adapter) bindPromise() error {
 	// Set the prototype on the constructor (for `Promise.prototype` property)
 	promiseConstructorObj.Set("prototype", promisePrototype)
 
-	// CRITICAL #4 (from 07-GOJA_INTEGRATION_COMBINATORS.md): Promise.resolve() with defensive null/undefined handling
+	// Promise.resolve() with defensive null/undefined handling
 	promiseConstructorObj.Set("resolve", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		value := call.Argument(0)
 
@@ -921,12 +920,12 @@ func (a *Adapter) bindPromise() error {
 
 		// Check if value is already our wrapped promise - return unchanged (identity semantics)
 		// Promise.resolve(promise) === promise
-		// R130.6: Use helper to eliminate duplicated promise wrapper detection
+		// Use helper to eliminate duplicated promise wrapper detection
 		if isWrappedPromise(value) {
 			return value
 		}
 
-		// CRITICAL COMPLIANCE FIX: Check for thenables
+		// Check for thenables
 		if p := a.resolveThenable(value); p != nil {
 			// It was a thenable, return the adopted promise
 			return a.GojaWrapPromise(p)
@@ -941,7 +940,7 @@ func (a *Adapter) bindPromise() error {
 	promiseConstructorObj.Set("reject", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		reason := call.Argument(0)
 
-		// CRITICAL FIX: Preserve Goja Error objects without Export() to maintain .message property
+		// Preserve Goja Error objects without Export() to maintain .message property
 		// When Export() converts Error objects, they become opaque wrappers losing .message
 		if obj, ok := reason.(*goja.Object); ok && !goja.IsNull(reason) && !goja.IsUndefined(reason) {
 			if nameVal := obj.Get("name"); nameVal != nil && !goja.IsUndefined(nameVal) {
@@ -977,20 +976,20 @@ func (a *Adapter) bindPromise() error {
 		return a.GojaWrapPromise(promise)
 	}))
 
-	// Promise.all(iterable) - with COMPLIANCE FIX for iterables
+	// Promise.all(iterable)
 	promiseConstructorObj.Set("all", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
 
 		// Consume iterable using standard protocol
 		arr, err := a.consumeIterable(iterable)
 		if err != nil {
-			// HIGH #1 FIX: Reject promise on iterable error instead of panic
+			// Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, the consuming operation should reject"
 			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
-		// CRITICAL #1 FIX: Extract wrapped promises before passing to All()
+		// Extract wrapped promises before passing to All()
 		// If val is a wrapped promise (from Promise.resolve(1)), extract internal promise
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
@@ -1017,20 +1016,20 @@ func (a *Adapter) bindPromise() error {
 		return a.GojaWrapPromise(promise)
 	}))
 
-	// Promise.race(iterable) - with COMPLIANCE FIX for iterables
+	// Promise.race(iterable)
 	promiseConstructorObj.Set("race", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
 
 		// Consume iterable using standard protocol
 		arr, err := a.consumeIterable(iterable)
 		if err != nil {
-			// HIGH #1 FIX: Reject promise on iterable error instead of panic
+			// Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
 			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
-		// CRITICAL #1 FIX: Extract wrapped promises before passing to Race()
+		// Extract wrapped promises before passing to Race()
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
@@ -1056,20 +1055,20 @@ func (a *Adapter) bindPromise() error {
 		return a.GojaWrapPromise(promise)
 	}))
 
-	// Promise.allSettled(iterable) - with COMPLIANCE FIX for iterables
+	// Promise.allSettled(iterable)
 	promiseConstructorObj.Set("allSettled", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
 
 		// Consume iterable using standard protocol
 		arr, err := a.consumeIterable(iterable)
 		if err != nil {
-			// HIGH #1 FIX: Reject promise on iterable error instead of panic
+			// Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
 			return a.GojaWrapPromise(a.js.Reject(err))
 		}
 
-		// CRITICAL #1 FIX: Extract wrapped promises before passing to AllSettled()
+		// Extract wrapped promises before passing to AllSettled()
 		promises := make([]*goeventloop.ChainedPromise, len(arr))
 		for i, val := range arr {
 			// Check if val is our wrapped promise
@@ -1098,14 +1097,14 @@ func (a *Adapter) bindPromise() error {
 		return a.GojaWrapPromise(promise)
 	}))
 
-	// Promise.any(iterable) - with COMPLIANCE FIX for iterables
+	// Promise.any(iterable)
 	promiseConstructorObj.Set("any", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
 
 		// Consume iterable using standard protocol
 		arr, err := a.consumeIterable(iterable)
 		if err != nil {
-			// HIGH #1 FIX: Reject promise on iterable error instead of panic
+			// Reject promise on iterable error instead of panic
 			// Iterator protocol errors should cause promise rejection, not Go panics
 			// Per ES2021 spec: "If iterator.next() throws, consuming operation should reject"
 			return a.GojaWrapPromise(a.js.Reject(err))
@@ -1143,7 +1142,7 @@ func (a *Adapter) bindPromise() error {
 		return a.GojaWrapPromise(promise)
 	}))
 
-	// FEATURE-005: Promise.withResolvers() ES2024 API
+	// Promise.withResolvers() ES2024 API
 	// Returns an object with { promise, resolve, reject } properties
 	promiseConstructorObj.Set("withResolvers", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		// Use the Go implementation
@@ -1178,7 +1177,7 @@ func (a *Adapter) bindPromise() error {
 		return obj
 	}))
 
-	// EXPAND-003: Promise.try() ES2025 API
+	// Promise.try() ES2025 API
 	// Wraps a function call in a promise, catching synchronous exceptions
 	promiseConstructorObj.Set("try", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		fn := call.Argument(0)
@@ -1220,9 +1219,7 @@ func (a *Adapter) bindPromise() error {
 	return nil
 }
 
-// ===============================================
-// FEATURE-001: AbortController/AbortSignal Bindings
-// ===============================================
+// AbortController/AbortSignal Bindings
 
 // abortControllerConstructor creates the AbortController constructor for JavaScript.
 func (a *Adapter) abortControllerConstructor(call goja.ConstructorCall) *goja.Object {
@@ -1333,9 +1330,7 @@ func (a *Adapter) wrapAbortSignal(signal *goeventloop.AbortSignal) goja.Value {
 	return obj
 }
 
-// ===============================================
-// EXPAND-001 & EXPAND-002: AbortSignal Static Methods
-// ===============================================
+// AbortSignal Static Methods
 
 // bindAbortSignalStatics adds static methods (any, timeout) to AbortSignal.
 func (a *Adapter) bindAbortSignalStatics() error {
@@ -1346,7 +1341,7 @@ func (a *Adapter) bindAbortSignalStatics() error {
 	}
 	abortSignalObj := abortSignalVal.ToObject(a.runtime)
 
-	// EXPAND-001: AbortSignal.any(signals)
+	// AbortSignal.any(signals)
 	// Creates a composite signal that aborts when any input signal aborts
 	abortSignalObj.Set("any", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		iterable := call.Argument(0)
@@ -1390,7 +1385,7 @@ func (a *Adapter) bindAbortSignalStatics() error {
 		return a.wrapAbortSignal(composite)
 	}))
 
-	// EXPAND-002: AbortSignal.timeout(ms)
+	// AbortSignal.timeout(ms)
 	// Creates a signal that aborts after the specified timeout
 	abortSignalObj.Set("timeout", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		delayMs := max(int(call.Argument(0).ToInteger()), 0)
@@ -1408,9 +1403,7 @@ func (a *Adapter) bindAbortSignalStatics() error {
 	return nil
 }
 
-// ===============================================
-// FEATURE-002/003: Performance API Bindings
-// ===============================================
+// Performance API Bindings
 
 // bindPerformance creates the performance API bindings for JavaScript.
 func (a *Adapter) bindPerformance() error {
@@ -1617,9 +1610,7 @@ func (a *Adapter) wrapPerformanceEntries(entries []goeventloop.PerformanceEntry)
 	return arr
 }
 
-// ===============================================
-// FEATURE-004: console.time/timeEnd/timeLog API
-// ===============================================
+// console.time/timeEnd/timeLog API
 
 // SetConsoleOutput sets the writer for console.time/timeEnd/timeLog output.
 // This is useful for testing or redirecting output. Defaults to os.Stderr.
@@ -1752,7 +1743,7 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
-	// EXPAND-004: console.count(label) - logs count for label
+	// console.count(label) - logs count for label
 	// If label is omitted, "default" is used.
 	// Increments count and logs "label: count"
 	consoleObj.Set("count", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
@@ -1778,7 +1769,7 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
-	// EXPAND-004: console.countReset(label) - resets counter for label
+	// console.countReset(label) - resets counter for label
 	// If label is omitted, "default" is used.
 	// If no counter with the label exists, a warning is logged.
 	consoleObj.Set("countReset", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
@@ -1806,7 +1797,7 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
-	// EXPAND-005: console.assert(condition, ...data) - logs only when falsy
+	// console.assert(condition, ...data) - logs only when falsy
 	// If the condition is falsy, logs "Assertion failed: data..."
 	// If condition is truthy, does nothing.
 	consoleObj.Set("assert", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
@@ -1842,9 +1833,7 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
-	// ===============================================
-	// EXPAND-025: console.table() Implementation
-	// ===============================================
+	// console.table() Implementation
 
 	// console.table(data, columns?) - displays tabular data as an ASCII table
 	// If data is an array, each element is a row
@@ -1899,9 +1888,7 @@ func (a *Adapter) bindConsole() error {
 		return goja.Undefined()
 	}))
 
-	// ===============================================
-	// EXPAND-026: console.group/groupEnd/trace/clear/dir
-	// ===============================================
+	// console.group/groupEnd/trace/clear/dir
 
 	// console.group(label?) - starts a new indented group
 	consoleObj.Set("group", a.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
@@ -2090,9 +2077,7 @@ func joinStrings(strs []string, sep string) string {
 	return result.String()
 }
 
-// ===============================================
-// EXPAND-025: console.table() Helpers
-// ===============================================
+// console.table() Helpers
 
 // getIndentString returns a string of spaces for the current indentation level.
 // Each level is 2 spaces.
@@ -2368,9 +2353,7 @@ func (a *Adapter) padRight(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(s))
 }
 
-// ===============================================
-// EXPAND-026: console.dir() Helper
-// ===============================================
+// console.dir() Helper
 
 // inspectValue creates a human-readable representation of a value.
 // maxDepth controls how deep to inspect nested objects.
@@ -2445,9 +2428,7 @@ func (a *Adapter) inspectValue(v any, depth int, maxDepth int) string {
 	}
 }
 
-// ===============================================
-// EXPAND-020: process.nextTick() Binding
-// ===============================================
+// process.nextTick() Binding
 
 // bindProcess creates the process object with nextTick method.
 // This emulates Node.js process.nextTick() semantics.
@@ -2490,9 +2471,7 @@ func (a *Adapter) bindProcess() error {
 	return nil
 }
 
-// ===============================================
-// EXPAND-021: delay() Promise Helper
-// ===============================================
+// delay() Promise Helper
 
 // delay returns a promise that resolves after the specified delay.
 // This is similar to setTimeout but returns a promise for async/await patterns.
@@ -2504,9 +2483,7 @@ func (a *Adapter) delay(call goja.FunctionCall) goja.Value {
 	return a.GojaWrapPromise(promise)
 }
 
-// ===============================================
-// EXPAND-022: crypto.randomUUID() Binding
-// ===============================================
+// crypto.randomUUID() Binding
 
 // bindCrypto creates the crypto object with randomUUID and getRandomValues methods.
 func (a *Adapter) bindCrypto() error {
@@ -2648,9 +2625,7 @@ func generateUUIDv4() (string, error) {
 		uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]), nil
 }
 
-// ===============================================
-// EXPAND-023: atob/btoa Base64 Functions
-// ===============================================
+// atob/btoa Base64 Functions
 
 // btoa encodes a string to base64.
 // This follows the browser's btoa() semantics.
@@ -2703,9 +2678,7 @@ func (a *Adapter) atob(call goja.FunctionCall) goja.Value {
 	return a.runtime.ToValue(string(runes))
 }
 
-// ===============================================
-// EXPAND-027: EventTarget and Event Bindings
-// ===============================================
+// EventTarget and Event Bindings
 
 // eventTargetListenerInfo tracks listener info for Symbol-based identity removal.
 // This enables proper RemoveEventListener implementation in JavaScript where
@@ -2966,9 +2939,7 @@ func (a *Adapter) wrapEventWithObject(event *goeventloop.Event, obj *goja.Object
 	return obj
 }
 
-// ===============================================
-// EXPAND-028: CustomEvent Binding
-// ===============================================
+// CustomEvent Binding
 
 // customEventConstructor creates the CustomEvent constructor for JavaScript.
 func (a *Adapter) customEventConstructor(call goja.ConstructorCall) *goja.Object {
@@ -3025,9 +2996,7 @@ func (a *Adapter) customEventConstructor(call goja.ConstructorCall) *goja.Object
 	return thisObj
 }
 
-// ===============================================
-// EXPAND-024: structuredClone() Global Function
-// ===============================================
+// structuredClone() Global Function
 
 // structuredClone implements the HTML structured clone algorithm.
 // It performs a deep clone of the value, handling:
@@ -3566,9 +3535,7 @@ func (a *Adapter) clonePlainObject(obj *goja.Object, objPtr uintptr, visited map
 	return newObj
 }
 
-// ===============================================
-// EXPAND-041: URL and URLSearchParams APIs
-// ===============================================
+// URL and URLSearchParams APIs
 
 // urlConstructor creates the URL constructor for JavaScript.
 // Implements the WHATWG URL Standard.
@@ -4214,7 +4181,7 @@ func (a *Adapter) createIterator(items []string) goja.Value {
 		return result
 	}))
 
-	// BUG FIX: Add Symbol.iterator that returns the iterator itself
+	// Add Symbol.iterator that returns the iterator itself
 	// Per JS iterator protocol, iterators should also be iterable
 	// Use JavaScript to set Symbol-keyed property (Goja Set() only accepts strings)
 	a.runtime.Set("__tempIterator", iterator)
@@ -4241,7 +4208,7 @@ func (a *Adapter) createValueIterator(items []goja.Value) goja.Value {
 		return result
 	}))
 
-	// BUG FIX: Add Symbol.iterator that returns the iterator itself
+	// Add Symbol.iterator that returns the iterator itself
 	// Per JS iterator protocol, iterators should also be iterable
 	// Use JavaScript to set Symbol-keyed property (Goja Set() only accepts strings)
 	a.runtime.Set("__tempIterator", iterator)
@@ -4251,9 +4218,7 @@ func (a *Adapter) createValueIterator(items []goja.Value) goja.Value {
 	return iterator
 }
 
-// ===============================================
-// EXPAND-042: TextEncoder and TextDecoder APIs
-// ===============================================
+// TextEncoder and TextDecoder APIs
 
 // textEncoderConstructor creates the TextEncoder constructor for JavaScript.
 // TextEncoder always uses UTF-8 encoding per WHATWG Encoding Standard.
@@ -4324,7 +4289,7 @@ func (a *Adapter) textEncoderConstructor(call goja.ConstructorCall) *goja.Object
 
 		// Write as much as fits
 		written := 0
-		runeCount := 0 // BUG FIX: Track rune count separately (not byte index)
+		runeCount := 0 // Track rune count separately (not byte index)
 		for _, r := range source {
 			runeBytes := []byte(string(r))
 			if written+len(runeBytes) > destLength {
@@ -4334,12 +4299,12 @@ func (a *Adapter) textEncoderConstructor(call goja.ConstructorCall) *goja.Object
 				_ = dest.Set(strconv.Itoa(written+j), int(b))
 			}
 			written += len(runeBytes)
-			runeCount++ // BUG FIX: Increment rune count after each character
+			runeCount++ // Increment rune count after each character
 		}
 
 		// Return { read, written }
 		result := a.runtime.NewObject()
-		result.Set("read", runeCount) // BUG FIX: Use rune count, not byte index
+		result.Set("read", runeCount) // Use rune count, not byte index
 		result.Set("written", written)
 
 		return result
@@ -4537,9 +4502,7 @@ func (a *Adapter) extractBytes(input goja.Value) ([]byte, error) {
 	return nil, fmt.Errorf("input must be a BufferSource")
 }
 
-// ===============================================
-// EXPAND-043: Blob API
-// ===============================================
+// Blob API
 
 // blobWrapper holds internal Blob data.
 type blobWrapper struct {
@@ -4798,9 +4761,7 @@ func (a *Adapter) wrapBlobWithObject(blob *blobWrapper, obj *goja.Object) {
 	}))
 }
 
-// ===============================================
-// EXPAND-046: Headers class (for fetch-like patterns)
-// ===============================================
+// Headers class (for fetch-like patterns)
 
 // headersWrapper wraps HTTP headers storage.
 // Header names are normalized to lowercase per HTTP/2 and fetch spec.
@@ -5064,9 +5025,7 @@ func (a *Adapter) createHeadersIterator(pairs [][2]string, mode string) goja.Val
 	return iter
 }
 
-// ===============================================
-// EXPAND-047: FormData class (for fetch-like patterns)
-// ===============================================
+// FormData class (for fetch-like patterns)
 
 // formDataEntry represents a form data entry (just strings, no file support).
 type formDataEntry struct {
@@ -5290,9 +5249,7 @@ func (a *Adapter) createFormDataIterator(entries []formDataEntry, mode string) g
 	return iter
 }
 
-// ===============================================
-// EXPAND-048: DOMException class
-// ===============================================
+// DOMException class
 
 // DOMException error codes (from the DOM spec)
 const (
@@ -5465,9 +5422,7 @@ func (a *Adapter) bindDOMExceptionConstants() error {
 	return nil
 }
 
-// ===============================================
-// EXPAND-050: Symbol.for and Symbol.keyFor utilities
-// ===============================================
+// Symbol.for and Symbol.keyFor utilities
 
 // bindSymbol adds Symbol.for and Symbol.keyFor utilities to the global Symbol object.
 // These implement the global symbol registry per ECMAScript specification.
@@ -5572,9 +5527,7 @@ func (a *Adapter) blobPartToBytes(part goja.Value) ([]byte, error) {
 	return []byte(part.String()), nil
 }
 
-// ===============================================
 // FETCH API: Not Implemented
-// ===============================================
 //
 // The fetch() API is intentionally not implemented in this package because:
 //
@@ -5606,9 +5559,7 @@ func (a *Adapter) fetchNotImplemented(call goja.FunctionCall) goja.Value {
 	return a.GojaWrapPromise(a.js.Reject(err))
 }
 
-// ===============================================
-// EXPAND-044: localStorage and sessionStorage (in-memory)
-// ===============================================
+// localStorage and sessionStorage (in-memory)
 //
 // ⚠️ IMPORTANT LIMITATION: In-Memory Storage Only
 //

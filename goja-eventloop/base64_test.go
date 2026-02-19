@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-023: atob/btoa Base64 Tests
+// atob/btoa Base64 Tests
 // ===============================================
 
 func TestBtoa_Basic(t *testing.T) {

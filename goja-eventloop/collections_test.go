@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-059: Map/Set Verification
+// Map/Set Verification
 // Tests verify Goja's native support for:
 // - Map: get/set/has/delete/clear/size/keys/values/entries/forEach
 // - Set: add/has/delete/clear/size/values/forEach

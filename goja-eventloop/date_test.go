@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-063: Date API Verification Tests
+// Date API Verification Tests
 // Tests verify Goja's native support for:
 // - Date constructor (no args, timestamp, string, year/month/day/hour/min/sec/ms)
 // - Date.now(), Date.parse(), Date.UTC()

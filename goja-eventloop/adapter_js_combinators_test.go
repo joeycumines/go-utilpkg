@@ -16,7 +16,7 @@ import (
 // JavaScript-Level Tests for Promise.all
 // ============================================================================
 
-// CRITICAL #4: Test Promise.all from JavaScript
+// Test Promise.all from JavaScript
 func TestPromiseAllFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -95,7 +95,7 @@ func TestPromiseAllFromJavaScript(t *testing.T) {
 	t.Log("✓ Promise.all works from JavaScript")
 }
 
-// CRITICAL #4: Test Promise.all with rejection from JavaScript
+// Test Promise.all with rejection from JavaScript
 func TestPromiseAllWithRejectionFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -163,7 +163,7 @@ func TestPromiseAllWithRejectionFromJavaScript(t *testing.T) {
 // JavaScript-Level Tests for Promise.race
 // ============================================================================
 
-// CRITICAL #4: Test Promise.race from JavaScript
+// Test Promise.race from JavaScript
 func TestPromiseRaceFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -231,7 +231,7 @@ func TestPromiseRaceFromJavaScript(t *testing.T) {
 // JavaScript-Level Tests for Promise.allSettled
 // ============================================================================
 
-// CRITICAL #4: Test Promise.allSettled from JavaScript
+// Test Promise.allSettled from JavaScript
 func TestPromiseAllSettledFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -322,7 +322,7 @@ func TestPromiseAllSettledFromJavaScript(t *testing.T) {
 // JavaScript-Level Tests for Promise.any
 // ============================================================================
 
-// CRITICAL #4: Test Promise.any from JavaScript
+// Test Promise.any from JavaScript
 func TestPromiseAnyFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -389,7 +389,7 @@ func TestPromiseAnyFromJavaScript(t *testing.T) {
 	t.Log("✓ Promise.any works from JavaScript")
 }
 
-// CRITICAL #4: Test Promise.any with all rejected from JavaScript
+// Test Promise.any with all rejected from JavaScript
 func TestPromiseAnyAllRejectedFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -452,7 +452,7 @@ func TestPromiseAnyAllRejectedFromJavaScript(t *testing.T) {
 	t.Log("✓ Promise.any all-rejected case works from JavaScript")
 }
 
-// CRITICAL #2: Test .then() chain with proper result values
+// Test .then() chain with proper result values
 func TestPromiseThenChainFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -517,7 +517,7 @@ func TestPromiseThenChainFromJavaScript(t *testing.T) {
 	t.Log("✓ Promise .then() chain works correctly from JavaScript")
 }
 
-// CRITICAL #3: Test that errors in .then() handlers don't panic
+// Test that errors in .then() handlers don't panic
 func TestPromiseThenErrorHandlingFromJavaScript(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

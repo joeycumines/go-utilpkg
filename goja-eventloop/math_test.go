@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-065: Math API Verification Tests
+// Math API Verification Tests
 // Tests verify Goja's native support for:
 // - Math constants: E, LN2, LN10, LOG2E, LOG10E, PI, SQRT1_2, SQRT2
 // - Basic: abs, ceil, floor, round, trunc, sign

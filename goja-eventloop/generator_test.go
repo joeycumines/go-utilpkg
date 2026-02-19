@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-069: Generator and Iterator Protocol Tests
+// Generator and Iterator Protocol Tests
 // Tests verify Goja's native support for:
 // - function* generator syntax
 // - yield keyword

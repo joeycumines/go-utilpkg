@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// FEATURE-001: AbortController/AbortSignal Tests
+// AbortController/AbortSignal Tests
 // ===============================================
 
 // TestAbortController_Basic tests basic AbortController functionality from JavaScript.
@@ -226,7 +226,7 @@ func TestAbortSignal_CannotConstruct(t *testing.T) {
 }
 
 // ===============================================
-// FEATURE-002/003: Performance API Tests
+// Performance API Tests
 // ===============================================
 
 // TestPerformance_Now tests performance.now() from JavaScript.
@@ -871,7 +871,7 @@ func TestAbortController_WithFetch(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-001: AbortSignal.any() Tests
+// AbortSignal.any() Tests
 // ===============================================
 
 // TestAbortSignal_Any_Basic tests AbortSignal.any() with multiple signals.
@@ -1033,7 +1033,7 @@ func TestAbortSignal_Any_OnAbort(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-002: AbortSignal.timeout() Tests
+// AbortSignal.timeout() Tests
 // ===============================================
 
 // TestAbortSignal_Timeout_Basic tests AbortSignal.timeout() basic functionality.

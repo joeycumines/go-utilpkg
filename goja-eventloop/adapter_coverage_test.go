@@ -11,7 +11,7 @@ import (
 	goeventloop "github.com/joeycumines/go-eventloop"
 )
 
-// COVERAGE-021: goja-eventloop Adapter Full Coverage
+// goja-eventloop Adapter Full Coverage
 // Gaps: all bindings, error type conversions, thenable resolution, iterator protocol errors,
 // promise wrapper GC behavior
 

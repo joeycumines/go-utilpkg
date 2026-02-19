@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-067: Error Types Verification Tests
+// Error Types Verification Tests
 // Tests verify Goja's native support for:
 // - Error: constructor, message, name, stack
 // - TypeError: constructor, message, name, instanceof Error

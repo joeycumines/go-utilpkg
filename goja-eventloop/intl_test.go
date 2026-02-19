@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-070: Intl API Verification Tests
+// Intl API Verification Tests
 // Tests verify Goja's support for Intl API:
 // - Intl object existence
 // - Intl.Collator (string comparison)

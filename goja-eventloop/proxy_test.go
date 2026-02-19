@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-068: Proxy and Reflect API Verification
+// Proxy and Reflect API Verification
 // Tests verify Goja's native support for:
 // - Proxy: constructor, get/set/has/apply/construct handlers
 // - Proxy: deleteProperty, defineProperty handlers

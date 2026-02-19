@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-050: Symbol.for and Symbol.keyFor Tests
+// Symbol.for and Symbol.keyFor Tests
 // ===============================================
 
 func TestSymbolFor_Basic(t *testing.T) {
@@ -262,7 +262,7 @@ func TestSymbolKeyFor_AfterMultipleFor(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-051: Verify JS Error Types Exist via Goja
+// Verify JS Error Types Exist via Goja
 // ===============================================
 
 func TestJSErrorTypes_ExistViaGoja(t *testing.T) {

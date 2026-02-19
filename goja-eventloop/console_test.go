@@ -589,7 +589,7 @@ func TestConsoleTimeEnd_RemovesTimer(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-004: console.count() / console.countReset() Tests
+// console.count() / console.countReset() Tests
 // ===============================================
 
 // TestConsoleCount_Basic tests basic console.count() usage.
@@ -833,7 +833,7 @@ func TestConsoleCount_NilOutput(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-005: console.assert() Tests
+// console.assert() Tests
 // ===============================================
 
 // TestConsoleAssert_Truthy tests that truthy conditions don't log.
@@ -1032,7 +1032,7 @@ func TestConsoleAssert_NilOutput(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-025: console.table() Tests
+// console.table() Tests
 // ===============================================
 
 // TestConsoleTable_ArrayOfObjects tests console.table with array of objects.
@@ -1335,7 +1335,7 @@ func TestConsoleTable_NilOutput(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-026: console.group/groupEnd/trace/clear/dir Tests
+// console.group/groupEnd/trace/clear/dir Tests
 // ===============================================
 
 // TestConsoleGroup_Basic tests basic console.group() usage.

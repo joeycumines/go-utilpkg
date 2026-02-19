@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-055: Object Static Methods Verification
+// Object Static Methods Verification
 // Tests verify Goja's native support for:
 // - Object.keys(obj)
 // - Object.values(obj)
