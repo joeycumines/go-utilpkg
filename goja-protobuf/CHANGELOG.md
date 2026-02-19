@@ -54,9 +54,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   local types first, then falls back to global registries. Used by `goja-protojson` for
   `protojson.MarshalOptions.Resolver` and `protojson.UnmarshalOptions.Resolver`.
 
-- **99.4% test coverage** — Comprehensive test suite covering all API functions, edge cases,
-  error paths, type coercion, and boundary values.
-
 ### Fixed
 
 - **`timestampFromMs` negative nanos** — Sub-second negative milliseconds (e.g., -500ms)

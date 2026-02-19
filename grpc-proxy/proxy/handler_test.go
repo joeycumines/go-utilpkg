@@ -107,7 +107,6 @@ func TestProxyHappySuite(t *testing.T) {
 		proxyListener    net.Listener
 		proxyServer      *grpc.Server
 		serverClientConn *grpc.ClientConn
-		client           *grpc.ClientConn
 		testClient       pb.TestServiceClient
 	)
 
@@ -188,8 +187,8 @@ func TestProxyHappySuite(t *testing.T) {
 
 	// TearDownSuite
 	t.Cleanup(func() {
-		if client != nil {
-			client.Close()
+		if clientConn != nil {
+			clientConn.Close()
 		}
 		if serverClientConn != nil {
 			serverClientConn.Close()

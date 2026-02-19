@@ -44,7 +44,7 @@ var (
 )
 
 // LoopError represents an error that occurred during event loop operation.
-// All errors include comprehensive context for debugging.
+// All errors include structured context for debugging.
 type LoopError struct {
 	Cause   error          // Underlying error
 	Context map[string]any // Additional context

@@ -65,8 +65,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Stress tests** — 100 concurrent JS RPCs, 100 concurrent Go→JS RPCs,
   goroutine leak detection, heap allocation profiling.
 
-- **99.6% test coverage** across all source files.
-
 ### Technical Notes
 
 - All JS APIs run on the event loop goroutine (single-threaded JS semantics)

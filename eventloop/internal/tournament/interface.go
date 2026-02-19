@@ -1,4 +1,4 @@
-// Package tournament provides a comprehensive test suite for comparing
+// Package tournament provides a test suite for comparing
 // three event loop implementations: Main (balanced), AlternateOne (maximum safety),
 // and AlternateTwo (maximum performance).
 //

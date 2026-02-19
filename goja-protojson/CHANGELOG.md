@@ -19,9 +19,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **`protojson.format(msg)`** — Human-readable JSON formatting with indentation.
 
-- **100% test coverage** — Comprehensive tests including roundtrip, error paths,
-  well-known types, and cross-platform string comparison.
-
 ### Fixed
 
 - **Missing `Resolver` for `Any` types** — `protojson.MarshalOptions.Resolver` and

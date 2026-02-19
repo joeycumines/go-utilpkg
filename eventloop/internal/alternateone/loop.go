@@ -19,7 +19,7 @@ import (
 //   - Conservative check-then-sleep protocol
 //   - Write lock for poll operations
 //   - Serial shutdown phases
-//   - Comprehensive error handling
+//   - Structured error handling
 //
 // # Thread Safety
 //

@@ -1,6 +1,5 @@
 // Package gojaeventloop provides a bridge between the [eventloop] package and
-// the [goja] JavaScript runtime, exposing a comprehensive set of JavaScript
-// globals that delegate to the underlying Go event loop.
+// the [goja] JavaScript runtime, exposing standard JavaScript globals that delegate to the underlying Go event loop.
 //
 // # Overview
 //

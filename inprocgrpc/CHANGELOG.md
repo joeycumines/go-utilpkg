@@ -48,9 +48,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **BREAKING: API rename `IsClosed` → `Closed`** — Both `StreamSender` and `StreamReceiver`
   methods renamed. Prepositions banned from public API names per project conventions.
 
-- **100% test coverage** — Complete coverage of all code paths, including error paths,
-  context cancellation, concurrent access, and platform-specific behavior.
-
 ### Fixed
 
 - **Proper context error translation** — gRPC `DeadlineExceeded` and `Canceled` errors are

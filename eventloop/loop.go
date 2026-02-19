@@ -112,9 +112,9 @@ type Loop struct {
 	internal      *chunkedIngress
 	microtasks    *microtaskRing
 	nextTickQueue *microtaskRing                   // process.nextTick queue (runs before microtasks)
-	metrics       *Metrics                         // Phase 5.3: Optional runtime metrics
-	tpsCounter    *tpsCounter                      // Phase 5.3: TPS tracking
-	logger        *logiface.Logger[logiface.Event] // T25: Optional structured logger
+	metrics       *Metrics                         // Optional runtime metrics
+	tpsCounter    *tpsCounter                      // TPS tracking
+	logger        *logiface.Logger[logiface.Event] // Optional structured logger
 	// OnOverload is called when the loop detects task queue overload.
 	// The callback receives [ErrLoopOverloaded] and may be used for
 	// backpressure signaling, metrics, or graceful degradation.
