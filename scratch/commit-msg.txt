@@ -1,16 +1,10 @@
-Remove AI slop and testify from multiple modules
+Remove testify from catrate, prompt, and grpc-proxy modules
 
-eventloop: Strip AI meta-comment tags (EXPAND-NNN, FEATURE-NNN,
-COVERAGE-NNN, CRITICAL) from 6 production files and 38 test
-files. Delete 2 testify-violating tests (coverage_phase3,
-coverage_phase3b) and 2 debug junk tests (fastpath_debug,
-wake_debug).
+Convert all test assertions to use the built-in testing package:
+- catrate: 23 assertions in ring_test.go
+- prompt/termtest: ~300 assertions across 8 test files
+- grpc-proxy: suite.Suite to t.Run subtests, mock.Mock to manual
+  function-field fakes with channel orchestration
 
-goja-grpc: Convert all 21 test files from testify to standard
-testing package. Remove testify from go.mod.
-
-goja-protobuf: Convert all 16 test files from testify to standard
-testing package. Remove testify from go.mod.
-
-goja-protojson: Convert 2 test files from testify to standard
-testing package. Remove testify from go.mod.
+Remove testify and its transitive dependencies from all go.mod
+files. Clean stale session targets from config.mk.

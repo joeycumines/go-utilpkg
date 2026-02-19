@@ -3,8 +3,6 @@ package termtest
 import (
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLookupKey(t *testing.T) {
@@ -188,11 +186,17 @@ func FuzzLookupKey(f *testing.F) {
 			// Invariant 3: Output consistency
 			// If we look it up again, it should be identical
 			seq2, err2 := lookupKey(key)
-			assert.NoError(t, err2)
-			assert.Equal(t, seq, seq2)
+			if err2 != nil {
+				t.Errorf("lookupKey(%q) second call returned error: %v", key, err2)
+			}
+			if seq != seq2 {
+				t.Errorf("lookupKey(%q) returned different results: %q vs %q", key, seq, seq2)
+			}
 		} else {
 			// Invariant 4: Error messages should be descriptive
-			assert.Contains(t, err.Error(), "unknown key")
+			if !strings.Contains(err.Error(), "unknown key") {
+				t.Errorf("error %q does not contain %q", err.Error(), "unknown key")
+			}
 		}
 
 		// Invariant 5: Normalization
@@ -200,10 +204,16 @@ func FuzzLookupKey(f *testing.F) {
 		// So "ENTER" and "enter" should behave identically.
 		seqUpper, errUpper := lookupKey(strings.ToUpper(key))
 		if err == nil {
-			assert.NoError(t, errUpper)
-			assert.Equal(t, seq, seqUpper)
+			if errUpper != nil {
+				t.Errorf("lookupKey(%q) returned nil error but upper-case returned error: %v", key, errUpper)
+			}
+			if seq != seqUpper {
+				t.Errorf("lookupKey(%q) = %q but upper-case = %q", key, seq, seqUpper)
+			}
 		} else {
-			assert.Error(t, errUpper)
+			if errUpper == nil {
+				t.Errorf("lookupKey(%q) returned error but upper-case returned nil", key)
+			}
 		}
 	})
 }

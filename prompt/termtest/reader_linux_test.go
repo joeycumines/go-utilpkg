@@ -9,26 +9,37 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
 
 func TestPTYReader_InitCloseWaitAndEOFInterpretation(t *testing.T) {
 	// Use a harness to get PTS for reading
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	_, readerFile := h.dupPTS()
-	require.NotNil(t, readerFile)
+	if readerFile == nil {
+		t.Fatalf("expected non-nil readerFile")
+	}
 
 	r := newPTYReader(readerFile)
 
 	// Open should initialize poller (epoll) and not error
-	require.NoError(t, r.Open())
-	require.GreaterOrEqual(t, r.pollFD, 0)
-	require.GreaterOrEqual(t, r.wakeR, 0)
-	require.GreaterOrEqual(t, r.wakeW, 0)
+	if err := r.Open(); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if r.pollFD < 0 {
+		t.Fatalf("pollFD: got %d, want >= 0", r.pollFD)
+	}
+	if r.wakeR < 0 {
+		t.Fatalf("wakeR: got %d, want >= 0", r.wakeR)
+	}
+	if r.wakeW < 0 {
+		t.Fatalf("wakeW: got %d, want >= 0", r.wakeW)
+	}
 
 	// Calling waitForRead without anything should block until data; test using short timeout by running in goroutine.
 	done := make(chan error, 1)
@@ -38,7 +49,9 @@ func TestPTYReader_InitCloseWaitAndEOFInterpretation(t *testing.T) {
 
 	select {
 	case err := <-done:
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("waitForRead: %v", err)
+		}
 	case <-time.After(50 * time.Millisecond):
 		// If blocked, attempt to wake it by writing to wakeW
 		if r.wakeW >= 0 {
@@ -47,18 +60,26 @@ func TestPTYReader_InitCloseWaitAndEOFInterpretation(t *testing.T) {
 		// Wait briefly for the goroutine to return
 		select {
 		case err := <-done:
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("waitForRead after wake: %v", err)
+			}
 		case <-time.After(50 * time.Millisecond):
 			t.Log("waitForRead still blocking after writing to wakeW; continuing")
 		}
 	}
 
 	// shouldInterpretAsEOF true for EIO on Linux, false for other errors (e.g. EINVAL)
-	require.True(t, r.shouldInterpretAsEOF(syscall.EIO))
-	require.False(t, r.shouldInterpretAsEOF(syscall.EINVAL))
+	if !r.shouldInterpretAsEOF(syscall.EIO) {
+		t.Fatalf("expected shouldInterpretAsEOF(EIO) to be true")
+	}
+	if r.shouldInterpretAsEOF(syscall.EINVAL) {
+		t.Fatalf("expected shouldInterpretAsEOF(EINVAL) to be false")
+	}
 
 	// closePoller via Close method
-	require.NoError(t, r.Close())
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 }
 
 func TestLinuxPoller_ErrorBranches(t *testing.T) {
@@ -68,7 +89,9 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		ops.epollCreate1 = func(int) (int, error) { return -1, sentinel }
 		r := &ptyReader{fd: 123, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.initPoller()
-		require.ErrorIs(t, err, sentinel)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
 	})
 
 	t.Run("initPoller pipe error closes epoll fd", func(t *testing.T) {
@@ -85,9 +108,15 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		}
 		r := &ptyReader{fd: 7, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.initPoller()
-		require.ErrorIs(t, err, sentinel)
-		require.Equal(t, 1, closeCalls)
-		require.Equal(t, -1, r.pollFD)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if closeCalls != 1 {
+			t.Fatalf("closeCalls: got %d, want 1", closeCalls)
+		}
+		if r.pollFD != -1 {
+			t.Fatalf("pollFD: got %d, want -1", r.pollFD)
+		}
 	})
 
 	t.Run("initPoller EpollCtl error on PTY registration cleans up", func(t *testing.T) {
@@ -106,13 +135,27 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		}
 		r := &ptyReader{fd: 9, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.initPoller()
-		require.ErrorIs(t, err, sentinel)
-		require.Equal(t, -1, r.pollFD)
-		require.Equal(t, -1, r.wakeR)
-		require.Equal(t, -1, r.wakeW)
-		require.True(t, closed[10])
-		require.True(t, closed[11])
-		require.True(t, closed[12])
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if r.pollFD != -1 {
+			t.Fatalf("pollFD: got %d, want -1", r.pollFD)
+		}
+		if r.wakeR != -1 {
+			t.Fatalf("wakeR: got %d, want -1", r.wakeR)
+		}
+		if r.wakeW != -1 {
+			t.Fatalf("wakeW: got %d, want -1", r.wakeW)
+		}
+		if !closed[10] {
+			t.Fatalf("pollFD not closed")
+		}
+		if !closed[11] {
+			t.Fatalf("wakeR not closed")
+		}
+		if !closed[12] {
+			t.Fatalf("wakeW not closed")
+		}
 	})
 
 	t.Run("initPoller EpollCtl error on wake registration cleans up", func(t *testing.T) {
@@ -138,13 +181,27 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		}
 		r := &ptyReader{fd: 9, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.initPoller()
-		require.ErrorIs(t, err, sentinel)
-		require.Equal(t, -1, r.pollFD)
-		require.Equal(t, -1, r.wakeR)
-		require.Equal(t, -1, r.wakeW)
-		require.True(t, closed[10])
-		require.True(t, closed[11])
-		require.True(t, closed[12])
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if r.pollFD != -1 {
+			t.Fatalf("pollFD: got %d, want -1", r.pollFD)
+		}
+		if r.wakeR != -1 {
+			t.Fatalf("wakeR: got %d, want -1", r.wakeR)
+		}
+		if r.wakeW != -1 {
+			t.Fatalf("wakeW: got %d, want -1", r.wakeW)
+		}
+		if !closed[10] {
+			t.Fatalf("pollFD not closed")
+		}
+		if !closed[11] {
+			t.Fatalf("wakeR not closed")
+		}
+		if !closed[12] {
+			t.Fatalf("wakeW not closed")
+		}
 	})
 
 	t.Run("closePoller returns first error", func(t *testing.T) {
@@ -158,10 +215,18 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		}
 		r := &ptyReader{pollFD: 1, wakeR: 2, wakeW: 3, ops: ops}
 		err := r.closePoller()
-		require.ErrorIs(t, err, sentinel)
-		require.Equal(t, -1, r.pollFD)
-		require.Equal(t, -1, r.wakeR)
-		require.Equal(t, -1, r.wakeW)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if r.pollFD != -1 {
+			t.Fatalf("pollFD: got %d, want -1", r.pollFD)
+		}
+		if r.wakeR != -1 {
+			t.Fatalf("wakeR: got %d, want -1", r.wakeR)
+		}
+		if r.wakeW != -1 {
+			t.Fatalf("wakeW: got %d, want -1", r.wakeW)
+		}
 	})
 
 	t.Run("waitForRead treats EINTR as nil", func(t *testing.T) {
@@ -170,7 +235,9 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 			return 0, syscall.EINTR
 		}
 		r := &ptyReader{pollFD: 1, wakeR: 2, ops: ops}
-		require.NoError(t, r.waitForRead())
+		if err := r.waitForRead(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	})
 
 	t.Run("waitForRead non-EINTR error bubbles", func(t *testing.T) {
@@ -181,7 +248,9 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		}
 		r := &ptyReader{pollFD: 1, wakeR: 2, ops: ops}
 		err := r.waitForRead()
-		require.ErrorIs(t, err, sentinel)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
 	})
 
 	t.Run("waitForRead drains wake pipe", func(t *testing.T) {
@@ -194,7 +263,11 @@ func TestLinuxPoller_ErrorBranches(t *testing.T) {
 		readCalled := false
 		ops.read = func(fd int, p []byte) (int, error) { readCalled = true; return 0, nil }
 		r := &ptyReader{pollFD: 1, wakeR: 99, ops: ops}
-		require.NoError(t, r.waitForRead())
-		require.True(t, readCalled)
+		if err := r.waitForRead(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !readCalled {
+			t.Fatalf("expected read to be called")
+		}
 	})
 }

@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // newTestConsole creates a Console for the helper process using the new API.
@@ -42,95 +40,136 @@ func newTestConsole(t *testing.T, args []string, opts ...ConsoleOption) (*Consol
 func TestConsole_NewTest(t *testing.T) {
 	t.Run("successful creation", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"echo", "ready"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		defer cp.Close()
 		snap := cp.Snapshot()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains("ready"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
 	})
 
 	t.Run("invalid command path", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := NewConsole(ctx, WithCommand("/non/existent/command"))
-		assert.Error(t, err)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
 	})
 
 	t.Run("empty command name", func(t *testing.T) {
 		ctx := context.Background()
 		// Should fail because cmdName is empty
 		_, err := NewConsole(ctx, WithCommand(""))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no command specified")
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "no command specified") {
+			t.Errorf("error %q should contain %q", err.Error(), "no command specified")
+		}
 	})
 
 	t.Run("default timeout", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"echo", "ready"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		defer cp.Close()
 		// Internal timeout should be the default 30s
-		assert.Equal(t, 30*time.Second, cp.defaultTimeout)
+		if cp.defaultTimeout != 30*time.Second {
+			t.Errorf("defaultTimeout: got %v, want %v", cp.defaultTimeout, 30*time.Second)
+		}
 	})
 
 	t.Run("custom timeout", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"echo", "ready"}, WithDefaultTimeout(5*time.Second))
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		defer cp.Close()
-		assert.Equal(t, 5*time.Second, cp.defaultTimeout)
+		if cp.defaultTimeout != 5*time.Second {
+			t.Errorf("defaultTimeout: got %v, want %v", cp.defaultTimeout, 5*time.Second)
+		}
 	})
 
 	t.Run("env and dir options", func(t *testing.T) {
 		tempDir := t.TempDir()
 		cp, err := newTestConsole(t, []string{"pwd"}, WithDir(tempDir))
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		defer cp.Close()
 
 		snap := cp.Snapshot()
 		_, err = cp.WriteString("pwd\n")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WriteString: %v", err)
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains(tempDir))
-		assert.NoError(t, err, "Should have used the specified directory")
+		if err != nil {
+			t.Errorf("Await: %v (should have used the specified directory)", err)
+		}
 	})
 }
 
 func TestConsole_NewConsole_InvalidOption(t *testing.T) {
 	sentinel := errors.New("bad option")
 	_, err := NewConsole(context.Background(), consoleOptionImpl(func(*consoleConfig) error { return sentinel }))
-	require.ErrorIs(t, err, sentinel)
-	require.Contains(t, err.Error(), "failed to apply console option")
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected error wrapping sentinel, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "failed to apply console option") {
+		t.Fatalf("error %q should contain %q", err.Error(), "failed to apply console option")
+	}
 }
 
 func TestConsole_Interaction(t *testing.T) {
 	cp, err := newTestConsole(t, []string{"interactive"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 	defer cp.Close()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err = cp.Await(ctx, snap, Contains("Interactive mode ready"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Await: %v", err)
+	}
 
 	t.Run("SendLine and Expect", func(t *testing.T) {
 		snap := cp.Snapshot()
-		// Test SendLine (which includes a wait and an enter)
 		err := cp.SendLine("hello console")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("SendLine: %v", err)
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains("ECHO: hello console"))
-		assert.NoError(t, err)
-		assert.Contains(t, cp.String(), "ECHO: hello console")
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
+		if !strings.Contains(cp.String(), "ECHO: hello console") {
+			t.Errorf("output should contain %q", "ECHO: hello console")
+		}
 	})
 
 	t.Run("Send invalid key", func(t *testing.T) {
 		err := cp.Send("not-a-key")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unknown key")
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "unknown key") {
+			t.Errorf("error %q should contain %q", err.Error(), "unknown key")
+		}
 	})
 
 	t.Run("Expect timeout description", func(t *testing.T) {
@@ -138,242 +177,320 @@ func TestConsole_Interaction(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
 
-		// We expect this to fail
 		err := cp.Expect(ctx, snap, Contains("text that will not appear"), "magic text")
-		assert.Error(t, err)
-		// Verify the error message contains the user description and context
-		assert.Contains(t, err.Error(), "expected magic text not found")
-		assert.Contains(t, err.Error(), "Output chunk")
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if err != nil {
+			if !strings.Contains(err.Error(), "expected magic text not found") {
+				t.Errorf("error %q should contain %q", err.Error(), "expected magic text not found")
+			}
+			if !strings.Contains(err.Error(), "Output chunk") {
+				t.Errorf("error %q should contain %q", err.Error(), "Output chunk")
+			}
+		}
 	})
 }
 
 func TestConsole_ExpectSince_ExpectNew(t *testing.T) {
 	cp, err := newTestConsole(t, []string{"interactive"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 	defer cp.Close()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err = cp.Await(ctx, snap, Contains("Interactive mode ready"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Await: %v", err)
+	}
 
 	snap = cp.Snapshot()
 	_, err = cp.WriteString("first\n")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = cp.Await(ctx, snap, Contains("ECHO: first"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Await: %v", err)
+	}
 
 	t.Run("ExpectSince", func(t *testing.T) {
 		snap := cp.Snapshot()
 		_, err := cp.WriteString("second\n")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WriteString: %v", err)
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains("ECHO: second"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
 
 		// Should not find old text relative to this snapshot
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel2()
 		err = cp.Await(ctx2, snap, Contains("ECHO: first"))
-		assert.Error(t, err)
+		if err == nil {
+			t.Errorf("expected error (should not find old text), got nil")
+		}
 	})
 
 	t.Run("ExpectNew", func(t *testing.T) {
-		// Snapshot before sending command
 		snap := cp.Snapshot()
 		_, err := cp.WriteString("third\n")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WriteString: %v", err)
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains("ECHO: third"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
 
-		// Similarly for "fourth"
 		snap = cp.Snapshot()
 		_, err = cp.WriteString("fourth\n")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WriteString: %v", err)
+		}
 
 		ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err = cp.Await(ctx, snap, Contains("ECHO: fourth"))
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("Await: %v", err)
+		}
 
 		// Now should not find "third" because we take a fresh snapshot
 		snap = cp.Snapshot()
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel2()
 		err = cp.Await(ctx2, snap, Contains("ECHO: third"))
-		assert.Error(t, err)
+		if err == nil {
+			t.Errorf("expected error (should not find old text), got nil")
+		}
 	})
 }
 
 func TestConsole_ExpectExitCode(t *testing.T) {
 	t.Run("correct exit code", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"exit", "17"})
-		require.NoError(t, err)
-		// No need to defer close, WaitExit waits for termination
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		exitCode, err := cp.WaitExit(ctx)
-		// We expect an ExitError because code is non-zero, but WaitExit returns the code directly
-		assert.Error(t, err)
-		assert.Equal(t, 17, exitCode)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if exitCode != 17 {
+			t.Errorf("exitCode: got %d, want 17", exitCode)
+		}
 	})
 
 	t.Run("incorrect exit code", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"exit", "17"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		exitCode, err := cp.WaitExit(ctx)
-		assert.Error(t, err)
-		assert.NotEqual(t, 18, exitCode, "expected exit code 18, got %d", exitCode)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if exitCode == 18 {
+			t.Errorf("expected exit code != 18, got %d", exitCode)
+		}
 	})
 
 	t.Run("zero exit code", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"exit", "0"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		exitCode, err := cp.WaitExit(ctx)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, exitCode)
+		if err != nil {
+			t.Errorf("WaitExit: %v", err)
+		}
+		if exitCode != 0 {
+			t.Errorf("exitCode: got %d, want 0", exitCode)
+		}
 	})
 
 	t.Run("timeout waiting for exit", func(t *testing.T) {
 		cp, err := newTestConsole(t, []string{"wait", "2s"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		defer cp.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
 		_, err = cp.WaitExit(ctx)
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("expected DeadlineExceeded, got %v", err)
+		}
 	})
 
 	t.Run("wait exit on harness", func(t *testing.T) {
-		// Harness mode doesn't have an underlying cmd to wait for
 		h, err := NewHarness(context.Background())
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewHarness: %v", err)
+		}
 		defer h.Close()
 
 		_, err = h.Console().WaitExit(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "harness mode")
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "harness mode") {
+			t.Errorf("error %q should contain %q", err.Error(), "harness mode")
+		}
 	})
 }
 
 func TestConsole_OutputManagement(t *testing.T) {
 	cp, err := newTestConsole(t, []string{"echo", "line 1", "line 2"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 	defer cp.Close()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = cp.Await(ctx, snap, Contains("line 2"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Await: %v", err)
+	}
 
 	output := cp.String()
-	// Output from helper process will have newlines
-	assert.Contains(t, output, "line 1")
-	assert.Contains(t, output, "line 2")
+	if !strings.Contains(output, "line 1") {
+		t.Errorf("output should contain %q", "line 1")
+	}
+	if !strings.Contains(output, "line 2") {
+		t.Errorf("output should contain %q", "line 2")
+	}
 
-	assert.True(t, len(cp.String()) > 0)
+	if len(cp.String()) <= 0 {
+		t.Errorf("expected non-empty string")
+	}
 }
 
 func TestConsole_WriteSyncAndSendSync(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
-	// Start prompt with default executor and sync protocol enabled
 	h.RunPrompt(nil)
 
-	// Wait briefly for prompt to start
 	time.Sleep(50 * time.Millisecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// We expect to be able to successfully write sync requests
 	err = h.Console().WriteSync(ctx, "sync-test")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
 
-	// And sending keys synchronously should also work (e.g., enter)
 	hCtx, hCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer hCancel()
-	require.NoError(t, h.Console().SendSync(hCtx, "ctrl+j"))
+	if err := h.Console().SendSync(hCtx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync: %v", err)
+	}
 
-	// Test invalid key in SendSync
 	err = h.Console().SendSync(hCtx, "invalid-key-name")
-	assert.Error(t, err)
+	if err == nil {
+		t.Errorf("expected error, got nil")
+	}
 }
 
 func TestConsole_Await_EdgeCases(t *testing.T) {
 	cp, err := newTestConsole(t, []string{"interactive"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 	defer cp.Close()
 
 	// Wait for boot
-	require.NoError(t, cp.Await(context.Background(), cp.Snapshot(), Contains("Interactive mode ready")))
+	if err := cp.Await(context.Background(), cp.Snapshot(), Contains("Interactive mode ready")); err != nil {
+		t.Fatalf("Await boot: %v", err)
+	}
 
 	t.Run("immediate success", func(t *testing.T) {
 		snap := cp.Snapshot()
 		cp.WriteString("immediate\n")
-		// Wait for it to appear first
-		require.NoError(t, cp.Await(context.Background(), snap, Contains("immediate")))
+		if err := cp.Await(context.Background(), snap, Contains("immediate")); err != nil {
+			t.Fatalf("Await: %v", err)
+		}
 
-		// Now Await again on the SAME snapshot - should return nil immediately (fast path)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 		err := cp.Await(ctx, snap, Contains("immediate"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
 	})
 
 	t.Run("context already cancelled", func(t *testing.T) {
 		snap := cp.Snapshot()
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel() // Cancel immediately
+		cancel()
 
 		err := cp.Await(ctx, snap, Contains("will not happen"))
-		assert.ErrorIs(t, err, context.Canceled)
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("expected context.Canceled, got %v", err)
+		}
 	})
 
 	t.Run("snapshot isolation", func(t *testing.T) {
-		// Verify that a snapshot taken *after* output exists doesn't see that output
-		// relative to itself.
 		snap1 := cp.Snapshot()
 		cp.WriteString("isolation_A\n")
-		require.NoError(t, cp.Await(context.Background(), snap1, Contains("ECHO: isolation_A")))
+		if err := cp.Await(context.Background(), snap1, Contains("ECHO: isolation_A")); err != nil {
+			t.Fatalf("Await: %v", err)
+		}
 
 		snap2 := cp.Snapshot()
 		cp.WriteString("isolation_B\n")
-		require.NoError(t, cp.Await(context.Background(), snap2, Contains("isolation_B")))
+		if err := cp.Await(context.Background(), snap2, Contains("isolation_B")); err != nil {
+			t.Fatalf("Await: %v", err)
+		}
 
-		// Verify cross-talk
-		assert.NoError(t, cp.Await(context.Background(), snap1, Contains("isolation_B")), "Snap1 sees B")
+		if err := cp.Await(context.Background(), snap1, Contains("isolation_B")); err != nil {
+			t.Errorf("Snap1 should see B: %v", err)
+		}
 
-		// Snap2 should NOT see A (it was in the past)
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
 		err := cp.Await(ctx, snap2, Contains("isolation_A"))
-		assert.Error(t, err, "Snap2 should not see output from before it was taken")
+		if err == nil {
+			t.Errorf("Snap2 should not see output from before it was taken")
+		}
 	})
 
 	t.Run("out of bounds snapshot", func(t *testing.T) {
-		// Artificially create a snapshot with a huge offset
 		snap := Snapshot{offset: 999999}
-		// Await should fallback to offset 0 and search everything
-		// We expect it to find existing content "Interactive mode ready"
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 		err := cp.Await(ctx, snap, Contains("Interactive mode ready"))
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("Await: %v", err)
+		}
 	})
 }
 
@@ -400,7 +517,9 @@ func TestConsole_Await_ContextDoneButConditionSatisfied(t *testing.T) {
 
 	select {
 	case err := <-done:
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("Await returned error: %v", err)
+		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("timeout waiting for Await to return")
 	}
@@ -421,74 +540,95 @@ func TestConsole_WaitIdle_ResetOnChange(t *testing.T) {
 		c.mu.Unlock()
 	}()
 
-	require.NoError(t, c.WaitIdle(ctx, 30*time.Millisecond))
+	if err := c.WaitIdle(ctx, 30*time.Millisecond); err != nil {
+		t.Fatalf("WaitIdle: %v", err)
+	}
 }
 
 func TestConsole_close_AlreadyClosed_ReturnsNil(t *testing.T) {
 	c := &Console{cancel: func() {}}
 	c.closed = true
-	require.NoError(t, c.close())
+	if err := c.close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 }
 
 func TestConsole_WaitIdle(t *testing.T) {
-	// We need a process that outputs intermittently
 	newConsole := func(t *testing.T) *Console {
 		console, err := newTestConsole(t, []string{"interactive"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("newTestConsole: %v", err)
+		}
 		t.Cleanup(func() {
 			_ = console.Close()
 		})
-		require.NoError(t, console.Await(context.Background(), console.Snapshot(), Contains("Interactive mode ready")))
+		if err := console.Await(context.Background(), console.Snapshot(), Contains("Interactive mode ready")); err != nil {
+			t.Fatalf("Await boot: %v", err)
+		}
 		return console
 	}
 
 	t.Run("stable output returns nil", func(t *testing.T) {
-		// The console is currently doing nothing
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		err := newConsole(t).WaitIdle(ctx, 50*time.Millisecond)
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("WaitIdle: %v", err)
+		}
 	})
 
 	t.Run("cat", func(t *testing.T) {
-		// This is timing dependent, so we use loose checks.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		c, err := NewConsole(ctx, WithCommand("cat")) // cat echoes everything
-		require.NoError(t, err)
+		c, err := NewConsole(ctx, WithCommand("cat"))
+		if err != nil {
+			t.Fatalf("NewConsole: %v", err)
+		}
 		defer c.Close()
 
-		// Write something
 		_, err = c.WriteString("foo")
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WriteString: %v", err)
+		}
 
-		// Wait for it to stabilize
 		err = c.WaitIdle(ctx, 50*time.Millisecond)
-		assert.NoError(t, err)
+		if err != nil {
+			t.Errorf("WaitIdle: %v", err)
+		}
 
-		// Ensure we got the output
-		assert.Contains(t, c.String(), "foo")
+		if !strings.Contains(c.String(), "foo") {
+			t.Errorf("output should contain %q", "foo")
+		}
 	})
 }
 
 func TestConsole_Closed_Operations(t *testing.T) {
 	cp, err := newTestConsole(t, []string{"echo", "done"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 
-	// Close explicitly
-	require.NoError(t, cp.Close())
+	if err := cp.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
 	// Close again should be idempotent
-	assert.NoError(t, cp.Close())
+	if err := cp.Close(); err != nil {
+		t.Errorf("second Close: %v", err)
+	}
 
 	// Write should fail
 	_, err = cp.WriteString("fail")
-	assert.ErrorIs(t, err, io.ErrClosedPipe)
+	if !errors.Is(err, io.ErrClosedPipe) {
+		t.Errorf("WriteString: expected io.ErrClosedPipe, got %v", err)
+	}
 
 	// Send should fail
 	err = cp.Send("enter")
-	assert.ErrorIs(t, err, io.ErrClosedPipe)
+	if !errors.Is(err, io.ErrClosedPipe) {
+		t.Errorf("Send: expected io.ErrClosedPipe, got %v", err)
+	}
 
 	// String() should still work (buffer is preserved)
 	_ = cp.String()
@@ -496,41 +636,59 @@ func TestConsole_Closed_Operations(t *testing.T) {
 
 func TestConsole_WriteSync_Closed(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
-	require.NoError(t, h.Console().Close())
+	if err := h.Console().Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 	err = h.Console().WriteSync(context.Background(), "x")
-	require.ErrorIs(t, err, io.ErrClosedPipe)
+	if !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("expected io.ErrClosedPipe, got %v", err)
+	}
 }
 
 func TestConsole_SendLine_Closed(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
-	require.NoError(t, h.Console().Close())
+	if err := h.Console().Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 	err = h.Console().SendLine("hello")
-	require.ErrorIs(t, err, io.ErrClosedPipe)
+	if !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("expected io.ErrClosedPipe, got %v", err)
+	}
 }
 
 func TestConsole_WaitIdle_EarlyReturnBranches(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	t.Run("ctx already cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		err := h.Console().WaitIdle(ctx, 10*time.Millisecond)
-		require.ErrorIs(t, err, context.Canceled)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
 	})
 
 	t.Run("stableDuration under interval", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		err := h.Console().WaitIdle(ctx, 0)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("WaitIdle: %v", err)
+		}
 	})
 }
 
@@ -539,7 +697,9 @@ func TestConsole_WaitIdle_ContextDeadlineExceeded(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
 	err := c.WaitIdle(ctx, 200*time.Millisecond)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected DeadlineExceeded, got %v", err)
+	}
 }
 
 func TestConsole_Expect_OutOfBoundsSnapshotFormatting(t *testing.T) {
@@ -553,10 +713,15 @@ func TestConsole_Expect_OutOfBoundsSnapshotFormatting(t *testing.T) {
 	cancel()
 
 	err := c.Expect(ctx, Snapshot{offset: 999999}, Contains("nope"), "nope")
-	require.Error(t, err)
-	// Specifically ensure it didn't panic, and it included formatting context.
-	require.Contains(t, err.Error(), "checked from offset")
-	require.Contains(t, err.Error(), "Output chunk")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "checked from offset") {
+		t.Fatalf("error %q should contain %q", err.Error(), "checked from offset")
+	}
+	if !strings.Contains(err.Error(), "Output chunk") {
+		t.Fatalf("error %q should contain %q", err.Error(), "Output chunk")
+	}
 }
 
 func TestConsole_close_TimesOutWaitingForDone(t *testing.T) {
@@ -569,18 +734,24 @@ func TestConsole_close_TimesOutWaitingForDone(t *testing.T) {
 
 	start := time.Now()
 	err := c.close()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), errConsoleReaderLoopTimeout.Error())
-	// Keep this loose: just ensure it actually waited roughly the timeout.
-	require.GreaterOrEqual(t, time.Since(start), consoleWaitOnDoneCloseTimeout)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), errConsoleReaderLoopTimeout.Error()) {
+		t.Fatalf("error %q should contain %q", err.Error(), errConsoleReaderLoopTimeout.Error())
+	}
+	if time.Since(start) < consoleWaitOnDoneCloseTimeout {
+		t.Fatalf("expected to wait at least %v", consoleWaitOnDoneCloseTimeout)
+	}
 }
 
 func TestConsole_checkCondition_BufferResetFallback(t *testing.T) {
-	// Covers the offset>len fallback path in checkCondition.
 	var c Console
 	_, _ = c.output.WriteString("abc")
 	snap := Snapshot{offset: 999}
-	require.True(t, c.checkCondition(snap, Contains("a")))
+	if !c.checkCondition(snap, Contains("a")) {
+		t.Fatalf("expected condition to match")
+	}
 }
 
 func TestConsole_write_StringBufferUsed(t *testing.T) {
@@ -591,10 +762,10 @@ func TestConsole_write_StringBufferUsed(t *testing.T) {
 }
 
 func TestConsole_Concurrency_Regression(t *testing.T) {
-	// Enhanced regression test for race conditions during high-throughput I/O
-	// and concurrent Snapping/Awaiting/Closing.
-	cp, err := newTestConsole(t, []string{"cat"}) // cat echoes everything back
-	require.NoError(t, err)
+	cp, err := newTestConsole(t, []string{"cat"})
+	if err != nil {
+		t.Fatalf("newTestConsole: %v", err)
+	}
 
 	// Note: We don't defer Close() here, we close concurrently in the test.
 

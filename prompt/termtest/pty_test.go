@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
 
@@ -28,39 +26,57 @@ func TestConsole_Write_And_ExpectErrorMessage(t *testing.T) {
 		WithCommand("cat"),
 		WithDefaultTimeout(50*time.Millisecond),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewConsole: %v", err)
+	}
 	defer c.Close()
 
 	snap := c.Snapshot()
 	// Test Write (bytes variant)
 	n, err := c.Write([]byte("hello-bytes\n"))
-	require.NoError(t, err)
-	assert.Greater(t, n, 0)
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if n <= 0 {
+		t.Errorf("expected n > 0, got %d", n)
+	}
 
 	// Expect the output
 	err = c.Expect(ctx, snap, Contains("hello-bytes"), "waiting for cat output")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Expect: %v", err)
+	}
 
 	// Test Expect error path
 	snap = c.Snapshot()
 	_, err = c.WriteString("something\n")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
 
 	// Expect something that won't happen.
 	// context.Background() means we rely on the DefaultTimeout (50ms).
 	// We expect this to fail with our custom description.
 	err = c.Expect(context.Background(), snap, Contains("this will not appear"), "custom description")
 
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
 	// The error message should contain the description we provided
-	assert.Contains(t, err.Error(), "custom description")
+	if !strings.Contains(err.Error(), "custom description") {
+		t.Errorf("error %q should contain %q", err.Error(), "custom description")
+	}
 	// It should also indicate a timeout happened
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected error to wrap DeadlineExceeded, got %v", err)
+	}
 }
 
 func TestPtyWriter_ExtraControlSequences(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	writer := &ptyWriter{file: h.pts}
@@ -81,60 +97,88 @@ func TestPtyWriter_ExtraControlSequences(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			snap := h.Console().Snapshot()
 			tc.action()
-			require.NoError(t, h.Console().Await(context.Background(), snap, ContainsRaw(tc.expected)))
+			if err := h.Console().Await(context.Background(), snap, ContainsRaw(tc.expected)); err != nil {
+				t.Fatalf("Await: %v", err)
+			}
 		})
 	}
 }
 
 func TestPtyWriter_WriteBytes(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	writer := &ptyWriter{file: h.pts}
 	snap := h.Console().Snapshot()
 	_, err = writer.Write([]byte("raw-write-test\n"))
-	require.NoError(t, err)
-	require.NoError(t, h.Console().Await(context.Background(), snap, Contains("raw-write-test")))
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := h.Console().Await(context.Background(), snap, Contains("raw-write-test")); err != nil {
+		t.Fatalf("Await: %v", err)
+	}
 }
 
 func TestPtyWriter_Write_ClosedFileIsIgnored(t *testing.T) {
 	_, w, err := os.Pipe()
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
+	if err != nil {
+		t.Fatalf("Pipe: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
 	writer := &ptyWriter{file: w}
 	_, err = writer.Write([]byte("x"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 }
 
 func TestPtyWriter_WriteString_ClosedFileIsIgnored(t *testing.T) {
 	_, w, err := os.Pipe()
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
+	if err != nil {
+		t.Fatalf("Pipe: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
 	writer := &ptyWriter{file: w}
 	_, err = writer.WriteString("x")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
 }
 
 func TestPtyReader_Open_NoFile(t *testing.T) {
 	r := &ptyReader{file: nil, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1}
 	err := r.Open()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ptyReader has no file")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "ptyReader has no file") {
+		t.Errorf("error %q should contain %q", err.Error(), "ptyReader has no file")
+	}
 }
 
 func TestConsole_Write_ClosedReturnsErrClosedPipe(t *testing.T) {
-	// Recreating the context of newTestConsole since it wasn't in the provided implementations
-	// using a direct NewConsole approach which is public API
 	ctx := context.Background()
 	cp, err := NewConsole(ctx, WithCommand("echo", "test"))
-	require.NoError(t, err)
-	require.NoError(t, cp.Close())
+	if err != nil {
+		t.Fatalf("NewConsole: %v", err)
+	}
+	if err := cp.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
 	_, err = cp.Write([]byte("x"))
-	assert.ErrorIs(t, err, io.ErrClosedPipe)
+	if !errors.Is(err, io.ErrClosedPipe) {
+		t.Errorf("expected io.ErrClosedPipe, got %v", err)
+	}
 }
 
 // FuzzPtyReader tests the robustness of the ptyReader implementation
@@ -199,10 +243,10 @@ func FuzzPtyReader(f *testing.F) {
 }
 
 func TestPtyWriter_ControlSequences(t *testing.T) {
-	// This test verifies that the writer methods produce the expected ANSI sequences.
-	// We write to PTS (slave) and read from PTM (master).
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	writer := &ptyWriter{file: h.pts}
@@ -226,20 +270,28 @@ func TestPtyWriter_ControlSequences(t *testing.T) {
 			snap := h.Console().Snapshot()
 			tc.action()
 			err := h.Console().Await(context.Background(), snap, ContainsRaw(tc.expected))
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("Await: %v", err)
+			}
 			newOut := h.Console().String()[snap.offset:]
-			assert.Equal(t, tc.expected, newOut)
+			if newOut != tc.expected {
+				t.Errorf("got %q, want %q", newOut, tc.expected)
+			}
 		})
 	}
 }
 
 func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 	h, err := NewHarness(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
 	defer h.Close()
 
 	_, readerFile := h.dupPTS()
-	require.NotNil(t, readerFile)
+	if readerFile == nil {
+		t.Fatalf("expected non-nil readerFile")
+	}
 
 	// Prepare default ops; tests will mutate per-instance ops to avoid global state.
 	t.Cleanup(func() {})
@@ -250,8 +302,12 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 		ops.setNonblock = func(int, bool) error { return sentinel }
 		r := &ptyReader{file: readerFile, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.Open()
-		require.ErrorIs(t, err, sentinel)
-		require.Contains(t, err.Error(), "failed to set non-blocking mode")
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to set non-blocking mode") {
+			t.Fatalf("error %q should contain %q", err.Error(), "failed to set non-blocking mode")
+		}
 	})
 
 	t.Run("set raw error", func(t *testing.T) {
@@ -261,8 +317,12 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 		ops.setRaw = func(int) error { return sentinel }
 		r := &ptyReader{file: readerFile, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.Open()
-		require.ErrorIs(t, err, sentinel)
-		require.Contains(t, err.Error(), "failed to set terminal to raw mode")
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to set terminal to raw mode") {
+			t.Fatalf("error %q should contain %q", err.Error(), "failed to set terminal to raw mode")
+		}
 	})
 
 	t.Run("tcgetattr error", func(t *testing.T) {
@@ -273,8 +333,12 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 		ops.tcgetattr = func(uintptr) (*unix.Termios, error) { return nil, sentinel }
 		r := &ptyReader{file: readerFile, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.Open()
-		require.ErrorIs(t, err, sentinel)
-		require.Contains(t, err.Error(), "failed to get terminal attributes")
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to get terminal attributes") {
+			t.Fatalf("error %q should contain %q", err.Error(), "failed to get terminal attributes")
+		}
 	})
 
 	t.Run("tcsetattr error", func(t *testing.T) {
@@ -286,8 +350,12 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 		ops.tcsetattr = func(uintptr, uintptr, *unix.Termios) error { return sentinel }
 		r := &ptyReader{file: readerFile, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.Open()
-		require.ErrorIs(t, err, sentinel)
-		require.Contains(t, err.Error(), "failed to set VMIN=0")
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to set VMIN=0") {
+			t.Fatalf("error %q should contain %q", err.Error(), "failed to set VMIN=0")
+		}
 	})
 
 	t.Run("initPoller error", func(t *testing.T) {
@@ -300,8 +368,12 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 		ops.initPoller = func(*ptyReader) error { return sentinel }
 		r := &ptyReader{file: readerFile, fd: -1, pollFD: -1, wakeR: -1, wakeW: -1, ops: ops}
 		err := r.Open()
-		require.ErrorIs(t, err, sentinel)
-		require.Contains(t, err.Error(), "failed to init poller")
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "failed to init poller") {
+			t.Fatalf("error %q should contain %q", err.Error(), "failed to init poller")
+		}
 	})
 }
 
@@ -311,13 +383,17 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 	t.Run("closed returns EOF", func(t *testing.T) {
 		r := &ptyReader{closed: true, fd: 1}
 		_, err := r.Read(make([]byte, 1))
-		require.ErrorIs(t, err, io.EOF)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("fd negative returns EOF", func(t *testing.T) {
 		r := &ptyReader{closed: false, fd: -1}
 		_, err := r.Read(make([]byte, 1))
-		require.ErrorIs(t, err, io.EOF)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("EAGAIN then wait error returns wait error", func(t *testing.T) {
@@ -327,7 +403,9 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.waitForRead = func(*ptyReader) error { return sentinel }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 1))
-		require.ErrorIs(t, err, sentinel)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
 	})
 
 	t.Run("EAGAIN then wait error but closed returns EOF", func(t *testing.T) {
@@ -342,7 +420,9 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		}
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 1))
-		require.ErrorIs(t, err, io.EOF)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("n>0 EIO returns EOF", func(t *testing.T) {
@@ -350,8 +430,12 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.read = func(int, []byte) (int, error) { return 1, syscall.EIO }
 		r := &ptyReader{fd: 1, ops: ops}
 		n, err := r.Read(make([]byte, 8))
-		require.Equal(t, 1, n)
-		require.ErrorIs(t, err, io.EOF)
+		if n != 1 {
+			t.Fatalf("n: got %d, want 1", n)
+		}
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("n>0 non-EOF error returns error", func(t *testing.T) {
@@ -359,8 +443,12 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.read = func(int, []byte) (int, error) { return 1, syscall.EINVAL }
 		r := &ptyReader{fd: 1, ops: ops}
 		n, err := r.Read(make([]byte, 8))
-		require.Equal(t, 1, n)
-		require.ErrorIs(t, err, syscall.EINVAL)
+		if n != 1 {
+			t.Fatalf("n: got %d, want 1", n)
+		}
+		if !errors.Is(err, syscall.EINVAL) {
+			t.Fatalf("expected syscall.EINVAL, got %v", err)
+		}
 	})
 
 	t.Run("n==0 EIO returns EOF", func(t *testing.T) {
@@ -368,7 +456,9 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.read = func(int, []byte) (int, error) { return 0, syscall.EIO }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 8))
-		require.ErrorIs(t, err, io.EOF)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("n==0 err==nil then wait error returns wait error", func(t *testing.T) {
@@ -378,7 +468,9 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.waitForRead = func(*ptyReader) error { return sentinel }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 8))
-		require.ErrorIs(t, err, sentinel)
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		}
 	})
 
 	t.Run("n==0 err==nil then wait error but closed returns EOF", func(t *testing.T) {
@@ -393,7 +485,9 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		}
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 8))
-		require.ErrorIs(t, err, io.EOF)
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("expected io.EOF, got %v", err)
+		}
 	})
 
 	t.Run("EAGAIN then wait nil continues", func(t *testing.T) {
@@ -409,7 +503,11 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		ops.waitForRead = func(*ptyReader) error { return nil }
 		r := &ptyReader{fd: 1, ops: ops}
 		n, err := r.Read(make([]byte, 8))
-		require.NoError(t, err)
-		require.Equal(t, 2, n)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if n != 2 {
+			t.Fatalf("n: got %d, want 2", n)
+		}
 	})
 }

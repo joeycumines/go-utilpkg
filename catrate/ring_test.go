@@ -3,7 +3,6 @@ package catrate
 import (
 	"cmp"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -26,15 +25,33 @@ func TestNewRingBuffer(t *testing.T) {
 	rb := newRingBuffer[int](size)
 
 	// Check that the ring buffer is initialized correctly
-	assert.NotNil(t, rb)
-	assert.Equal(t, size, len(rb.s))
-	assert.Equal(t, uint(0), rb.r)
-	assert.Equal(t, uint(0), rb.w)
+	if rb == nil {
+		t.Fatalf("expected non-nil ring buffer")
+	}
+	if size != len(rb.s) {
+		t.Errorf("len(s) = %v, want %v", len(rb.s), size)
+	}
+	if rb.r != 0 {
+		t.Errorf("r = %v, want 0", rb.r)
+	}
+	if rb.w != 0 {
+		t.Errorf("w = %v, want 0", rb.w)
+	}
 }
 
 func TestNewRingBuffer_PanicWithInvalidSize(t *testing.T) {
-	assert.Panics(t, func() { newRingBuffer[int](0) }, "Expected panic with size 0")
-	assert.Panics(t, func() { newRingBuffer[int](3) }, "Expected panic with non-power of 2 size")
+	assertPanics(t, func() { newRingBuffer[int](0) }, "Expected panic with size 0")
+	assertPanics(t, func() { newRingBuffer[int](3) }, "Expected panic with non-power of 2 size")
+}
+
+func assertPanics(t *testing.T, f func(), msg string) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("%s", msg)
+		}
+	}()
+	f()
 }
 
 func TestNewRingBufferFrom(t *testing.T) {
@@ -88,22 +105,30 @@ func TestRingBuffer_Search(t *testing.T) {
 	t.Run("empty ring buffer", func(t *testing.T) {
 		rb := newRingBuffer[int](2)
 		index := rb.Search(5)
-		assert.Equal(t, 0, index, "Unexpected index returned for empty ring buffer")
+		if index != 0 {
+			t.Errorf("Unexpected index returned for empty ring buffer: got %v, want 0", index)
+		}
 	})
 
 	t.Run("non-empty ring buffer", func(t *testing.T) {
 		rb := newRingBufferFrom[int]([]int{1, 3, 5, 7, 9})
 		index := rb.Search(5)
-		assert.Equal(t, 2, index, "Unexpected index returned for non-empty ring buffer")
+		if index != 2 {
+			t.Errorf("Unexpected index returned for non-empty ring buffer: got %v, want 2", index)
+		}
 
 		index = rb.Search(10)
-		assert.Equal(t, 5, index, "Unexpected index returned for non-empty ring buffer when searching for non-existent element")
+		if index != 5 {
+			t.Errorf("Unexpected index returned for non-empty ring buffer when searching for non-existent element: got %v, want 5", index)
+		}
 	})
 
 	t.Run("ring buffer with duplicate elements", func(t *testing.T) {
 		rb := newRingBufferFrom[int]([]int{1, 2, 2, 3, 4})
 		index := rb.Search(2)
-		assert.Equal(t, 1, index, "Unexpected index returned for ring buffer with duplicate elements")
+		if index != 1 {
+			t.Errorf("Unexpected index returned for ring buffer with duplicate elements: got %v, want 1", index)
+		}
 	})
 }
 
@@ -111,27 +136,39 @@ func TestRingBuffer_Insert(t *testing.T) {
 	t.Run("insert into an empty ring buffer", func(t *testing.T) {
 		rb := newRingBuffer[int](2)
 		rb.Insert(0, 5)
-		assert.Equal(t, 1, rb.Len(), "Unexpected size after insert")
-		assert.Equal(t, 5, rb.Get(0), "Unexpected value at index 0 after insert")
+		if rb.Len() != 1 {
+			t.Errorf("Unexpected size after insert: got %v, want 1", rb.Len())
+		}
+		if rb.Get(0) != 5 {
+			t.Errorf("Unexpected value at index 0 after insert: got %v, want 5", rb.Get(0))
+		}
 	})
 
 	t.Run("insert into a non-empty ring buffer", func(t *testing.T) {
 		rb := newRingBufferFrom[int]([]int{1, 3, 5, 7, 9})
 		rb.Insert(2, 2)
-		assert.Equal(t, 6, rb.Len(), "Unexpected size after insert")
-		assert.Equal(t, 2, rb.Get(2), "Unexpected value at index 2 after insert")
+		if rb.Len() != 6 {
+			t.Errorf("Unexpected size after insert: got %v, want 6", rb.Len())
+		}
+		if rb.Get(2) != 2 {
+			t.Errorf("Unexpected value at index 2 after insert: got %v, want 2", rb.Get(2))
+		}
 	})
 
 	t.Run("insert into a full ring buffer", func(t *testing.T) {
 		rb := newRingBufferFrom[int]([]int{1, 2})
 		rb.Insert(1, 3)
-		assert.Equal(t, 3, rb.Len(), "Unexpected size after insert into a full ring buffer")
-		assert.Equal(t, 3, rb.Get(1), "Unexpected value at index 1 after insert into a full ring buffer")
+		if rb.Len() != 3 {
+			t.Errorf("Unexpected size after insert into a full ring buffer: got %v, want 3", rb.Len())
+		}
+		if rb.Get(1) != 3 {
+			t.Errorf("Unexpected value at index 1 after insert into a full ring buffer: got %v, want 3", rb.Get(1))
+		}
 	})
 
 	t.Run("insert out of range", func(t *testing.T) {
 		rb := newRingBufferFrom[int]([]int{1, 2, 3, 4, 5})
-		assert.Panics(t, func() { rb.Insert(6, 6) }, "The code did not panic")
+		assertPanics(t, func() { rb.Insert(6, 6) }, "The code did not panic")
 	})
 
 	t.Run("insert into a wrapped around buffer", func(t *testing.T) {
@@ -158,12 +195,16 @@ func TestRingBuffer_Insert(t *testing.T) {
 					t.Fatal(vb, v)
 				}
 			}
-			assert.Equal(t, written, rb.Slice())
+			if !reflect.DeepEqual(written, rb.Slice()) {
+				t.Errorf("Slice() = %v, want %v", rb.Slice(), written)
+			}
 
 			{
 				var v [3]int
 				v[0], v[1], v[2] = rb.bounds()
-				assert.Equal(t, v, [3]int{12, 16, 5})
+				if v != [3]int{12, 16, 5} {
+					t.Errorf("bounds() = %v, want %v", v, [3]int{12, 16, 5})
+				}
 			}
 
 			return rb, written
@@ -182,7 +223,9 @@ func TestRingBuffer_Insert(t *testing.T) {
 				copy(written[i+1:], written[i:])
 				written[i] = v
 
-				assert.Equal(t, written, rb.Slice())
+				if !reflect.DeepEqual(written, rb.Slice()) {
+					t.Errorf("Slice() = %v, want %v", rb.Slice(), written)
+				}
 			})
 		}
 	})
@@ -214,12 +257,16 @@ func TestRingBuffer_Insert(t *testing.T) {
 				}
 			}
 
-			assert.Equal(t, written, rb.Slice())
+			if !reflect.DeepEqual(written, rb.Slice()) {
+				t.Errorf("Slice() = %v, want %v", rb.Slice(), written)
+			}
 
 			{
 				var v [3]int
 				v[0], v[1], v[2] = rb.bounds()
-				assert.Equal(t, v, [3]int{11, 16})
+				if v != [3]int{11, 16} {
+					t.Errorf("bounds() = %v, want %v", v, [3]int{11, 16})
+				}
 			}
 
 			return rb, written
@@ -238,7 +285,9 @@ func TestRingBuffer_Insert(t *testing.T) {
 				copy(written[i+1:], written[i:])
 				written[i] = v
 
-				assert.Equal(t, written, rb.Slice())
+				if !reflect.DeepEqual(written, rb.Slice()) {
+					t.Errorf("Slice() = %v, want %v", rb.Slice(), written)
+				}
 			})
 		}
 	})

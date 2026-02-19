@@ -25,7 +25,7 @@ type nonDynamicMsg struct {
 	*dynamicpb.Message
 }
 
-// errSentinel is a stand-in for testify's assert.AnError.
+// errSentinel is a reusable error value for testing.
 var errSentinel = errors.New("sentinel error for testing")
 
 // ============================================================================
