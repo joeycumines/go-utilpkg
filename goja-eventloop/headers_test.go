@@ -41,7 +41,7 @@ func testSetupHeaders(t *testing.T) (*Adapter, func()) {
 		select {
 		case <-runDone:
 		case <-time.After(2 * time.Second):
-			t.Log("loop did not stop in time")
+			t.Error("loop did not stop in time")
 		}
 	}
 
@@ -560,7 +560,7 @@ func TestHeaders_Console(t *testing.T) {
 		select {
 		case <-runDone:
 		case <-time.After(2 * time.Second):
-			t.Log("loop did not stop in time")
+			t.Error("loop did not stop in time")
 		}
 	}()
 

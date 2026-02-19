@@ -77,6 +77,7 @@ type processorArgsAny struct {
 
 // sets up two job in a batcher, with channels to control the BatchProcessor
 func setupBlockedSubmit(t *testing.T) (_ *Batcher[any], processorInCh <-chan processorArgsAny, processorOutCh chan<- error) {
+	t.Helper()
 	processorIn := make(chan processorArgsAny) // called BatchProcessor
 	processorOut := make(chan error)           // unblock BatchProcessor
 
@@ -155,6 +156,7 @@ func TestBatcher_Submit_ctxCancel(t *testing.T) {
 
 // consolidated test logic for three variants of stopping (Shutdown, Shutdown canceled, Close)
 func testShutdownCloseJobInProgress(t *testing.T, expectCanceled bool, expectedResult error, stopBatcher func(batcher *Batcher[any]) error) {
+	t.Helper()
 	defer checkNumGoroutines(time.Second * 3)(t) // should always clean up
 
 	batcher, processorIn, processorOut := setupBlockedSubmit(t)

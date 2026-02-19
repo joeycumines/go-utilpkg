@@ -55,6 +55,7 @@ func testRaceWakeup(t *testing.T, impl Implementation) {
 }
 
 func runSingleWakeupTest(t *testing.T, impl Implementation) bool {
+	t.Helper()
 	loop, err := impl.Factory()
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
