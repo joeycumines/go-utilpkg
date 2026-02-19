@@ -2004,33 +2004,6 @@ func TestToWrappedMessage_MarshalError(t *testing.T) {
 // The empty-target check is JS-level and tested in dial_test.go.
 
 // ============================================================================
-// Test: makeClientStreamMethod — stream creation error via UNIMPLEMENTED
-//
-// Creates a client for a service but doesn't register a server handler
-// for it. The stream creation fails with UNIMPLEMENTED.
-// ============================================================================
-
-func TestClientStream_StreamCreationError_Unimplemented(t *testing.T) {
-	env := newGrpcTestEnv(t)
-	defer env.shutdown()
-
-	// Register a DIFFERENT service handler but try to use ClientStream
-	// on a non-existent variant by manipulating the channel.
-	// Actually, the simpler approach: register only the service metadata
-	// (so createClient succeeds) but don't register any stream handlers.
-	// This won't work because server.start() registers everything...
-
-	// Alternative: register the service, but use a separate channel
-	// that has NO handlers. Use dial() to connect to a non-existent server.
-	// But that requires a real network connection...
-
-	// Simplest: just ensure the abort-before-call test already covers
-	// the stream creation error path (via cancelled context).
-	// This test is covered above in TestClientStream_AbortBeforeCall.
-	t.Skip("Covered by TestClientStream_AbortBeforeCall")
-}
-
-// ============================================================================
 // Test: Bidi recv Submit failure
 //
 // Covers: client.go line 749 (Submit failure in bidi recv goroutine)
