@@ -4,7 +4,7 @@ All notable changes to the `goja-protobuf` package will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-13
+## [Unreleased]
 
 ### Added
 
@@ -45,9 +45,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   cross-module descriptor resolution (e.g., Go clients sending `dynamicpb.Message` to JS servers).
 
 - **Interface-based options** — `WithResolver(*protoregistry.Types)` for custom type resolution.
-
-- **Fuzz tests** — `FuzzEncodeDecodeRoundTrip` and `FuzzProtoMarshalUnmarshal` for
-  robustness testing with random payloads.
 
 - **`TypeResolver()` API** — Exported method returning a composite interface implementing
   `protoregistry.MessageTypeResolver` and `protoregistry.ExtensionTypeResolver`. Checks

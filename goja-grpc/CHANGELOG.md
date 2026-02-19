@@ -4,7 +4,7 @@ All notable changes to the `goja-grpc` package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-13
+## [Unreleased]
 
 ### Added
 
@@ -61,9 +61,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **gRPC reflection** — `grpc.getServiceMethods(serviceName)` for runtime service
   introspection. Includes method names, types (unary/stream), and descriptors.
-
-- **Stress tests** — 100 concurrent JS RPCs, 100 concurrent Go→JS RPCs,
-  goroutine leak detection, heap allocation profiling.
 
 ### Technical Notes
 

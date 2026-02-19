@@ -4,7 +4,7 @@ All notable changes to the `go-inprocgrpc` package will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-13
+## [Unreleased]
 
 ### Added
 
@@ -31,9 +31,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Per-RPC credentials** — Support for `grpc.PerRPCCredentials` via `grpc.CallOption` in
   Invoke/NewStream.
-
-- **Comprehensive stress tests** — 1000 concurrent unary RPCs, 100 concurrent bidi streams,
-  sustained throughput (1.5M ops/5s), goroutine leak detection, heap allocation checks.
 
 ### Changed
 
