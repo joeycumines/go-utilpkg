@@ -1,4 +1,4 @@
-// COVERAGE-013: microtaskRing Full Coverage Tests
+// microtaskRing Full Coverage Tests
 //
 // Tests comprehensive coverage of microtaskRing including:
 // - Overflow path (ring full)

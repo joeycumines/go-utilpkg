@@ -8,8 +8,6 @@ import (
 	"github.com/dop251/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -25,9 +23,15 @@ func TestMarshal_SimpleMessage(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, "hello", parsed["name"])
-	assert.Equal(t, float64(42), parsed["value"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["name"] != "hello" {
+		t.Errorf("got %v, want %v", parsed["name"], "hello")
+	}
+	if parsed["value"] != float64(42) {
+		t.Errorf("got %v, want %v", parsed["value"], float64(42))
+	}
 }
 
 func TestMarshal_AllScalarTypes(t *testing.T) {
@@ -47,10 +51,18 @@ func TestMarshal_AllScalarTypes(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, float64(-42), parsed["int32Val"])
-	assert.Equal(t, true, parsed["boolVal"])
-	assert.Equal(t, "test string", parsed["stringVal"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["int32Val"] != float64(-42) {
+		t.Errorf("got %v, want %v", parsed["int32Val"], float64(-42))
+	}
+	if parsed["boolVal"] != true {
+		t.Errorf("got %v, want %v", parsed["boolVal"], true)
+	}
+	if parsed["stringVal"] != "test string" {
+		t.Errorf("got %v, want %v", parsed["stringVal"], "test string")
+	}
 }
 
 func TestMarshal_EnumValue(t *testing.T) {
@@ -62,8 +74,12 @@ func TestMarshal_EnumValue(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, "FIRST", parsed["enumVal"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["enumVal"] != "FIRST" {
+		t.Errorf("got %v, want %v", parsed["enumVal"], "FIRST")
+	}
 }
 
 func TestMarshal_NestedMessage(t *testing.T) {
@@ -79,10 +95,16 @@ func TestMarshal_NestedMessage(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, "outer", parsed["name"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["name"] != "outer" {
+		t.Errorf("got %v, want %v", parsed["name"], "outer")
+	}
 	inner := parsed["nestedInner"].(map[string]any)
-	assert.Equal(t, float64(77), inner["value"])
+	if inner["value"] != float64(77) {
+		t.Errorf("got %v, want %v", inner["value"], float64(77))
+	}
 }
 
 func TestMarshal_RepeatedFields(t *testing.T) {
@@ -95,9 +117,15 @@ func TestMarshal_RepeatedFields(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	items := parsed["items"].([]any)
-	assert.Equal(t, []any{"a", "b", "c"}, items)
+	if len(items) != 3 {
+		t.Errorf("expected length %d, got %d", 3, len(items))
+	} else if items[0] != "a" || items[1] != "b" || items[2] != "c" {
+		t.Errorf("got %v, want %v", items, []any{"a", "b", "c"})
+	}
 }
 
 func TestMarshal_MapFields(t *testing.T) {
@@ -110,11 +138,17 @@ func TestMarshal_MapFields(t *testing.T) {
 		protojson.marshal(msg);
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	tags := parsed["tags"].(map[string]any)
-	assert.Equal(t, "bar", tags["foo"])
+	if tags["foo"] != "bar" {
+		t.Errorf("got %v, want %v", tags["foo"], "bar")
+	}
 	counts := parsed["counts"].(map[string]any)
-	assert.Equal(t, float64(10), counts["x"])
+	if counts["x"] != float64(10) {
+		t.Errorf("got %v, want %v", counts["x"], float64(10))
+	}
 }
 
 func TestMarshal_OneofField(t *testing.T) {
@@ -127,10 +161,16 @@ func TestMarshal_OneofField(t *testing.T) {
 			protojson.marshal(msg);
 		`)
 		var parsed map[string]any
-		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-		assert.Equal(t, "pick me", parsed["strChoice"])
+		if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if parsed["strChoice"] != "pick me" {
+			t.Errorf("got %v, want %v", parsed["strChoice"], "pick me")
+		}
 		_, hasInt := parsed["intChoice"]
-		assert.False(t, hasInt)
+		if hasInt {
+			t.Error("expected false")
+		}
 	})
 	t.Run("int choice", func(t *testing.T) {
 		v := env.run(`
@@ -140,10 +180,16 @@ func TestMarshal_OneofField(t *testing.T) {
 			protojson.marshal(msg);
 		`)
 		var parsed map[string]any
-		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-		assert.Equal(t, float64(99), parsed["intChoice"])
+		if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if parsed["intChoice"] != float64(99) {
+			t.Errorf("got %v, want %v", parsed["intChoice"], float64(99))
+		}
 		_, hasStr := parsed["strChoice"]
-		assert.False(t, hasStr)
+		if hasStr {
+			t.Error("expected false")
+		}
 	})
 }
 
@@ -154,9 +200,13 @@ func TestMarshal_EmptyMessage(t *testing.T) {
 		protojson.marshal(new MT());
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, hasName := parsed["name"]
-	assert.False(t, hasName)
+	if hasName {
+		t.Error("expected false")
+	}
 }
 
 func TestUnmarshal_SimpleMessage(t *testing.T) {
@@ -165,7 +215,9 @@ func TestUnmarshal_SimpleMessage(t *testing.T) {
 		var msg = protojson.unmarshal("test.SimpleMessage", '{"name":"world","value":99}');
 		msg.get("name") + ":" + msg.get("value");
 	`)
-	assert.Equal(t, "world:99", v.String())
+	if v.String() != "world:99" {
+		t.Errorf("got %v, want %v", v.String(), "world:99")
+	}
 }
 
 func TestUnmarshal_AllScalarTypes(t *testing.T) {
@@ -176,7 +228,9 @@ func TestUnmarshal_AllScalarTypes(t *testing.T) {
 		}));
 		[msg.get("int32_val"), msg.get("bool_val"), msg.get("string_val"), msg.get("uint32_val")].join(",");
 	`)
-	assert.Equal(t, "-42,true,hello,100", v.String())
+	if v.String() != "-42,true,hello,100" {
+		t.Errorf("got %v, want %v", v.String(), "-42,true,hello,100")
+	}
 }
 
 func TestUnmarshal_EnumByName(t *testing.T) {
@@ -185,7 +239,9 @@ func TestUnmarshal_EnumByName(t *testing.T) {
 		var msg = protojson.unmarshal("test.AllTypes", '{"enumVal":"SECOND"}');
 		msg.get("enum_val");
 	`)
-	assert.Equal(t, int64(2), v.ToInteger())
+	if v.ToInteger() != int64(2) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(2))
+	}
 }
 
 func TestUnmarshal_EnumByNumber(t *testing.T) {
@@ -194,7 +250,9 @@ func TestUnmarshal_EnumByNumber(t *testing.T) {
 		var msg = protojson.unmarshal("test.AllTypes", '{"enumVal":3}');
 		msg.get("enum_val");
 	`)
-	assert.Equal(t, int64(3), v.ToInteger())
+	if v.ToInteger() != int64(3) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(3))
+	}
 }
 
 func TestUnmarshal_NestedMessage(t *testing.T) {
@@ -203,7 +261,9 @@ func TestUnmarshal_NestedMessage(t *testing.T) {
 		var msg = protojson.unmarshal("test.NestedOuter", '{"nestedInner":{"value":55},"name":"test"}');
 		msg.get("nested_inner").get("value") + ":" + msg.get("name");
 	`)
-	assert.Equal(t, "55:test", v.String())
+	if v.String() != "55:test" {
+		t.Errorf("got %v, want %v", v.String(), "55:test")
+	}
 }
 
 func TestUnmarshal_RepeatedFields(t *testing.T) {
@@ -212,7 +272,9 @@ func TestUnmarshal_RepeatedFields(t *testing.T) {
 		var msg = protojson.unmarshal("test.RepeatedMessage", '{"items":["x","y"],"numbers":[10,20]}');
 		msg.get("items").length;
 	`)
-	assert.Equal(t, int64(2), v.ToInteger())
+	if v.ToInteger() != int64(2) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(2))
+	}
 }
 
 func TestUnmarshal_MapFields(t *testing.T) {
@@ -221,7 +283,9 @@ func TestUnmarshal_MapFields(t *testing.T) {
 		var msg = protojson.unmarshal("test.MapMessage", '{"tags":{"a":"b"},"counts":{"k":5}}');
 		msg.get("tags").get("a");
 	`)
-	assert.Equal(t, "b", v.String())
+	if v.String() != "b" {
+		t.Errorf("got %v, want %v", v.String(), "b")
+	}
 }
 
 func TestUnmarshal_Oneof(t *testing.T) {
@@ -230,7 +294,9 @@ func TestUnmarshal_Oneof(t *testing.T) {
 		var msg = protojson.unmarshal("test.OneofMessage", '{"strChoice":"chosen"}');
 		msg.get("str_choice") + ":" + msg.whichOneof("choice");
 	`)
-	assert.Equal(t, "chosen:str_choice", v.String())
+	if v.String() != "chosen:str_choice" {
+		t.Errorf("got %v, want %v", v.String(), "chosen:str_choice")
+	}
 }
 
 func TestUnmarshal_DiscardUnknown(t *testing.T) {
@@ -240,7 +306,9 @@ func TestUnmarshal_DiscardUnknown(t *testing.T) {
 		protojson.unmarshal("test.SimpleMessage", '{"name":"ok","bogusField":true}', {discardUnknown: true});
 		"passed";
 	`)
-	assert.Equal(t, "passed", v.String())
+	if v.String() != "passed" {
+		t.Errorf("got %v, want %v", v.String(), "passed")
+	}
 }
 
 func TestUnmarshal_MalformedJSON(t *testing.T) {
@@ -254,7 +322,9 @@ func TestUnmarshal_EmptyJSON(t *testing.T) {
 		var msg = protojson.unmarshal("test.SimpleMessage", '{}');
 		msg.get("name");
 	`)
-	assert.Equal(t, "", v.String())
+	if v.String() != "" {
+		t.Errorf("got %v, want %v", v.String(), "")
+	}
 }
 
 func TestMarshalOption_EmitDefaults(t *testing.T) {
@@ -265,9 +335,13 @@ func TestMarshalOption_EmitDefaults(t *testing.T) {
 			protojson.marshal(new MT());
 		`)
 		var parsed map[string]any
-		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
+		if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		_, hasName := parsed["name"]
-		assert.False(t, hasName)
+		if hasName {
+			t.Error("expected false")
+		}
 	})
 	t.Run("with", func(t *testing.T) {
 		v := env.run(`
@@ -275,9 +349,15 @@ func TestMarshalOption_EmitDefaults(t *testing.T) {
 			protojson.marshal(new MT(), {emitDefaults: true});
 		`)
 		var parsed map[string]any
-		require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-		assert.Equal(t, "", parsed["name"])
-		assert.Equal(t, float64(0), parsed["value"])
+		if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if parsed["name"] != "" {
+			t.Errorf("got %v, want %v", parsed["name"], "")
+		}
+		if parsed["value"] != float64(0) {
+			t.Errorf("got %v, want %v", parsed["value"], float64(0))
+		}
 	})
 }
 
@@ -290,8 +370,12 @@ func TestMarshalOption_EnumAsNumber(t *testing.T) {
 		protojson.marshal(msg, {enumAsNumber: true});
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, float64(2), parsed["enumVal"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["enumVal"] != float64(2) {
+		t.Errorf("got %v, want %v", parsed["enumVal"], float64(2))
+	}
 }
 
 func TestMarshalOption_UseProtoNames(t *testing.T) {
@@ -303,8 +387,12 @@ func TestMarshalOption_UseProtoNames(t *testing.T) {
 			msg.set("int32_val", 1);
 			protojson.marshal(msg);
 		`)
-		assert.Contains(t, v.String(), "int32Val")
-		assert.NotContains(t, v.String(), "int32_val")
+		if !strings.Contains(v.String(), "int32Val") {
+			t.Errorf("expected %q to contain %q", v.String(), "int32Val")
+		}
+		if strings.Contains(v.String(), "int32_val") {
+			t.Errorf("expected %q to not contain %q", v.String(), "int32_val")
+		}
 	})
 	t.Run("proto names", func(t *testing.T) {
 		v := env.run(`
@@ -313,7 +401,9 @@ func TestMarshalOption_UseProtoNames(t *testing.T) {
 			msg.set("int32_val", 1);
 			protojson.marshal(msg, {useProtoNames: true});
 		`)
-		assert.Contains(t, v.String(), "int32_val")
+		if !strings.Contains(v.String(), "int32_val") {
+			t.Errorf("expected %q to contain %q", v.String(), "int32_val")
+		}
 	})
 }
 
@@ -326,8 +416,12 @@ func TestMarshalOption_Indent(t *testing.T) {
 		protojson.marshal(msg, {indent: "    "});
 	`)
 	s := v.String()
-	assert.Contains(t, s, "\n")
-	assert.Contains(t, s, "    ")
+	if !strings.Contains(s, "\n") {
+		t.Errorf("expected %q to contain %q", s, "\n")
+	}
+	if !strings.Contains(s, "    ") {
+		t.Errorf("expected %q to contain %q", s, "    ")
+	}
 }
 
 func TestMarshalOption_Combined(t *testing.T) {
@@ -339,9 +433,15 @@ func TestMarshalOption_Combined(t *testing.T) {
 		protojson.marshal(msg, {emitDefaults: true, enumAsNumber: true, useProtoNames: true});
 	`)
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(v.String()), &parsed))
-	assert.Equal(t, float64(1), parsed["enum_val"])
-	assert.Equal(t, float64(0), parsed["int32_val"])
+	if err := json.Unmarshal([]byte(v.String()), &parsed); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if parsed["enum_val"] != float64(1) {
+		t.Errorf("got %v, want %v", parsed["enum_val"], float64(1))
+	}
+	if parsed["int32_val"] != float64(0) {
+		t.Errorf("got %v, want %v", parsed["int32_val"], float64(0))
+	}
 }
 
 func TestFormat_ProducesMultiline(t *testing.T) {
@@ -355,8 +455,12 @@ func TestFormat_ProducesMultiline(t *testing.T) {
 	`)
 	s := v.String()
 	lines := strings.Split(s, "\n")
-	assert.Greater(t, len(lines), 1)
-	assert.Contains(t, s, "  ")
+	if len(lines) <= 1 {
+		t.Errorf("expected length > 1, got %d", len(lines))
+	}
+	if !strings.Contains(s, "  ") {
+		t.Errorf("expected %q to contain %q", s, "  ")
+	}
 }
 
 func TestMarshal_InvalidArgument(t *testing.T) {
@@ -389,56 +493,85 @@ func TestUnmarshal_MissingJSONString(t *testing.T) {
 func TestUnmarshal_UnknownType(t *testing.T) {
 	env := newTestEnv(t)
 	err := env.mustFail(`protojson.unmarshal("test.NoSuchType", '{}');`)
-	assert.Contains(t, err.Error(), "unknown type")
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Errorf("expected %q to contain %q", err.Error(), "unknown type")
+	}
 }
 
 func TestUnmarshal_NotAMessageType(t *testing.T) {
 	env := newTestEnv(t)
 	err := env.mustFail(`protojson.unmarshal("test.TestEnum", '{}');`)
-	assert.Contains(t, err.Error(), "not a message type")
+	if !strings.Contains(err.Error(), "not a message type") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not a message type")
+	}
 }
 
 func TestNew_NilRuntime(t *testing.T) {
-	assert.Panics(t, func() { _, _ = gojaprotojson.New(nil) })
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic")
+		}
+	}()
+	_, _ = gojaprotojson.New(nil)
 }
 
 func TestNew_MissingProtobuf(t *testing.T) {
 	rt := goja.New()
 	_, err := gojaprotojson.New(rt)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "protobuf module is required")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "protobuf module is required") {
+		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module is required")
+	}
 }
 
 func TestWithProtobuf_Nil(t *testing.T) {
 	rt := goja.New()
 	_, err := gojaprotojson.New(rt, gojaprotojson.WithProtobuf(nil))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must not be nil")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "must not be nil") {
+		t.Errorf("expected %q to contain %q", err.Error(), "must not be nil")
+	}
 }
 
 func TestRequire(t *testing.T) {
 	rt := goja.New()
 	pb, err := gojaprotobuf.New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = pb.LoadDescriptorSetBytes(testDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	module := rt.NewObject()
 	exports := rt.NewObject()
 	_ = module.Set("exports", exports)
 	loader := gojaprotojson.Require(gojaprotojson.WithProtobuf(pb))
 	loader(rt, module)
-	require.NoError(t, rt.Set("protojson", module.Get("exports")))
+	if err := rt.Set("protojson", module.Get("exports")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	pbObj := rt.NewObject()
 	pb.SetupExports(pbObj)
-	require.NoError(t, rt.Set("pb", pbObj))
+	if err := rt.Set("pb", pbObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	v, err := rt.RunString(`
 		var MT = pb.messageType("test.SimpleMessage");
 		var msg = new MT();
 		msg.set("name", "require test");
 		protojson.marshal(msg);
 	`)
-	require.NoError(t, err)
-	assert.Contains(t, v.String(), "require test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(v.String(), "require test") {
+		t.Errorf("expected %q to contain %q", v.String(), "require test")
+	}
 }
 
 func TestRequire_PanicsOnBadOptions(t *testing.T) {
@@ -447,7 +580,12 @@ func TestRequire_PanicsOnBadOptions(t *testing.T) {
 	exports := rt.NewObject()
 	_ = module.Set("exports", exports)
 	loader := gojaprotojson.Require()
-	assert.Panics(t, func() { loader(rt, module) })
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic")
+		}
+	}()
+	loader(rt, module)
 }
 
 func TestRoundTrip_MarshalUnmarshal(t *testing.T) {
@@ -466,7 +604,9 @@ func TestRoundTrip_MarshalUnmarshal(t *testing.T) {
 		[restored.get("int32_val"), restored.get("string_val"),
 		 restored.get("bool_val"), restored.get("enum_val")].join(",");
 	`)
-	assert.Equal(t, "42,hello,true,2", v.String())
+	if v.String() != "42,hello,true,2" {
+		t.Errorf("got %v, want %v", v.String(), "42,hello,true,2")
+	}
 }
 
 func TestRoundTrip_MapMessage(t *testing.T) {
@@ -480,7 +620,9 @@ func TestRoundTrip_MapMessage(t *testing.T) {
 		var restored = protojson.unmarshal("test.MapMessage", jsonStr);
 		restored.get("tags").get("k1") + ":" + restored.get("counts").get("b");
 	`)
-	assert.Equal(t, "v1:2", v.String())
+	if v.String() != "v1:2" {
+		t.Errorf("got %v, want %v", v.String(), "v1:2")
+	}
 }
 
 func TestMarshal_NilOptions(t *testing.T) {
@@ -491,7 +633,9 @@ func TestMarshal_NilOptions(t *testing.T) {
 		msg.set("name", "test");
 		protojson.marshal(msg, undefined);
 	`)
-	assert.Contains(t, v.String(), "test")
+	if !strings.Contains(v.String(), "test") {
+		t.Errorf("expected %q to contain %q", v.String(), "test")
+	}
 }
 
 // TestMarshal_MarshalError covers the protojson.Marshal error path (marshal.go:19-20).
@@ -508,11 +652,15 @@ func TestMarshal_MarshalError(t *testing.T) {
 
 	// Wrap and inject into JS.
 	wrapped := env.pb.WrapMessage(msg)
-	require.NoError(t, env.rt.Set("badTimestamp", wrapped))
+	if err := env.rt.Set("badTimestamp", wrapped); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Attempting to marshal should trigger protojson.Marshal error.
 	err := env.mustFail(`protojson.marshal(badTimestamp);`)
-	assert.Contains(t, err.Error(), "marshal:")
+	if !strings.Contains(err.Error(), "marshal:") {
+		t.Errorf("expected %q to contain %q", err.Error(), "marshal:")
+	}
 }
 
 // TestFormat_MarshalError covers the protojson.Format error path (marshal.go:40-41).
@@ -526,8 +674,12 @@ func TestFormat_MarshalError(t *testing.T) {
 	msg.Set(tsDesc.Fields().ByName("nanos"), protoreflect.ValueOfInt32(0))
 
 	wrapped := env.pb.WrapMessage(msg)
-	require.NoError(t, env.rt.Set("badTimestamp", wrapped))
+	if err := env.rt.Set("badTimestamp", wrapped); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	err := env.mustFail(`protojson.format(badTimestamp);`)
-	assert.Contains(t, err.Error(), "format:")
+	if !strings.Contains(err.Error(), "format:") {
+		t.Errorf("expected %q to contain %q", err.Error(), "format:")
+	}
 }

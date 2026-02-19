@@ -11,8 +11,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// EXPAND-006: Linux Poller Full Coverage Tests
-// CREATED_FOR_LINUX_CI: These tests mirror poller_darwin_full_coverage_test.go
+// Linux Poller Full Coverage Tests
+// These tests mirror poller_darwin_full_coverage_test.go
 // and are designed to run only on Linux. They test the epoll-based fastPoller
 // implementation for full coverage.
 

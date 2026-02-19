@@ -6,15 +6,15 @@ import "github.com/joeycumines/logiface"
 // Fields are ordered for optimal struct alignment (larger types first).
 type loopOptions struct {
 	logger                  *logiface.Logger[logiface.Event] // 8 bytes
-	ingressChunkSize        int                              // 8 bytes - EXPAND-033: Configurable chunk size for ChunkedIngress
+	ingressChunkSize        int                              // 8 bytes - Configurable chunk size for ChunkedIngress
 	fastPathMode            FastPathMode                     // 4 bytes
 	strictMicrotaskOrdering bool                             // 1 byte
 	metricsEnabled          bool                             // 1 byte
-	debugMode               bool                             // 1 byte - EXPAND-039: Enable debug features like stack trace capture
+	debugMode               bool                             // 1 byte - Enable debug features like stack trace capture
 	// 1 byte padding
 }
 
-// Default chunk size for ingress queue (EXPAND-033).
+// Default chunk size for ingress queue.
 const defaultIngressChunkSize = 64
 
 // --- Loop Options ---
@@ -75,7 +75,7 @@ func WithLogger(logger *logiface.Logger[logiface.Event]) LoopOption {
 
 // WithIngressChunkSize sets the chunk size for the ChunkedIngress queue.
 //
-// EXPAND-033: The chunk size controls how many tasks are stored per chunk node in
+// The chunk size controls how many tasks are stored per chunk node in
 // the ingress linked-list. Larger sizes improve throughput at the cost of memory,
 // smaller sizes reduce memory but increase allocation frequency.
 //
@@ -109,7 +109,7 @@ func WithIngressChunkSize(size int) LoopOption {
 
 // WithDebugMode enables debug mode for the Loop.
 //
-// EXPAND-039: When debug mode is enabled, the following features are activated:
+// When debug mode is enabled, the following features are activated:
 //   - Promise creation stack traces are captured (see [ChainedPromise.CreationStackTrace])
 //   - Unhandled rejection logs include where the promise was created
 //
@@ -153,7 +153,7 @@ func roundDownToPowerOf2(n int) int {
 func resolveLoopOptions(opts []LoopOption) (*loopOptions, error) {
 	cfg := &loopOptions{
 		fastPathMode:     FastPathAuto,            // default
-		ingressChunkSize: defaultIngressChunkSize, // EXPAND-033: default 64
+		ingressChunkSize: defaultIngressChunkSize, // default 64
 	}
 	for _, opt := range opts {
 		if opt == nil {

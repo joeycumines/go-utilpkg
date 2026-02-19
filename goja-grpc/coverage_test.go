@@ -2,6 +2,9 @@ package gojagrpc
 
 import (
 	"context"
+	"errors"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -10,8 +13,6 @@ import (
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -24,6 +25,9 @@ type nonDynamicMsg struct {
 	*dynamicpb.Message
 }
 
+// errSentinel is a stand-in for testify's assert.AnError.
+var errSentinel = errors.New("sentinel error for testing")
+
 // ============================================================================
 // T083: Coverage gap tests
 // ============================================================================
@@ -32,18 +36,26 @@ type nonDynamicMsg struct {
 
 func TestRequire_ViaRegistry(t *testing.T) {
 	loop, err := eventloop.New()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	runtime := goja.New()
 
 	adapter, err := gojaeventloop.New(loop, runtime)
-	require.NoError(t, err)
-	require.NoError(t, adapter.Bind())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if adapter.Bind() != nil {
+		t.Fatalf("unexpected error: %v", adapter.Bind())
+	}
 
 	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	registry := gojarequire.NewRegistry()
 	registry.RegisterNativeModule("protobuf", gojaprotobuf.Require())
@@ -62,8 +74,12 @@ func TestRequire_ViaRegistry(t *testing.T) {
 		typeof grpc.status === 'object' &&
 		typeof grpc.metadata === 'object';
 	`)
-	require.NoError(t, err)
-	assert.True(t, val.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !(val.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- SetupExports public wrapper ---
@@ -75,10 +91,18 @@ func TestSetupExports_PublicWrapper(t *testing.T) {
 	exports := env.runtime.NewObject()
 	env.grpcMod.SetupExports(exports)
 
-	assert.NotNil(t, exports.Get("createClient"))
-	assert.NotNil(t, exports.Get("createServer"))
-	assert.NotNil(t, exports.Get("status"))
-	assert.NotNil(t, exports.Get("metadata"))
+	if exports.Get("createClient") == nil {
+		t.Errorf("expected non-nil")
+	}
+	if exports.Get("createServer") == nil {
+		t.Errorf("expected non-nil")
+	}
+	if exports.Get("status") == nil {
+		t.Errorf("expected non-nil")
+	}
+	if exports.Get("metadata") == nil {
+		t.Errorf("expected non-nil")
+	}
 }
 
 // --- Unary handler returning nil/undefined ---
@@ -114,11 +138,19 @@ func TestUnaryHandler_ReturnsUndefined(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL = 13
-	assert.Contains(t, resultObj["message"], "nil/undefined")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "nil/undefined") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "nil/undefined")
+	}
 }
 
 // --- Unary handler returning wrong type ---
@@ -154,11 +186,19 @@ func TestUnaryHandler_ReturnsNonMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
-	assert.Contains(t, resultObj["message"], "handler response")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "handler response") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "handler response")
+	}
 }
 
 // --- Async unary handler rejects with string ---
@@ -196,10 +236,16 @@ func TestUnaryHandler_AsyncRejectString(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
 }
 
 // --- Async unary handler rejects with generic Error ---
@@ -237,10 +283,16 @@ func TestUnaryHandler_AsyncRejectGenericError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
 	// Note: the message may vary depending on how goja serializes Error
 	// objects through Promise rejection chains.
 }
@@ -287,10 +339,16 @@ func TestUnaryRPC_WithMetadata(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Nil(t, resultObj["error"])
-	assert.Equal(t, "with-metadata", resultObj["message"])
+	if resultObj["error"] != nil {
+		t.Errorf("expected nil, got %v", resultObj["error"])
+	}
+	if got := resultObj["message"]; got != "with-metadata" {
+		t.Errorf("expected %v, got %v", "with-metadata", got)
+	}
 }
 
 // --- context.DeadlineExceeded maps to DEADLINE_EXCEEDED ---
@@ -336,11 +394,17 @@ func TestGrpcErrorFromGoError_DeadlineExceeded(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 	// This should be Canceled(1) since we used AbortSignal
-	assert.Equal(t, int64(1), resultObj["code"])
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // --- applySignal: signal property is not an object ---
@@ -381,8 +445,12 @@ func TestApplySignal_NonObject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- applySignal: signal._signal is missing ---
@@ -423,8 +491,12 @@ func TestApplySignal_MissingNativeSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- applySignal: _signal is not an AbortSignal ---
@@ -465,8 +537,12 @@ func TestApplySignal_WrongNativeType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- Server streaming handler that throws ---
@@ -506,10 +582,16 @@ func TestServerStreamHandler_SyncThrow(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
-	assert.Contains(t, resultObj["message"], "sync server stream error")
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "sync server stream error") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "sync server stream error")
+	}
 }
 
 // --- Client stream handler that throws on first recv ---
@@ -546,10 +628,16 @@ func TestClientStreamHandler_SyncThrow(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
-	assert.Contains(t, resultObj["message"], "sync client stream error")
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "sync client stream error") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "sync client stream error")
+	}
 }
 
 // --- Bidi handler that throws ---
@@ -586,10 +674,16 @@ func TestBidiStreamHandler_SyncThrow(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
-	assert.Contains(t, resultObj["message"], "sync bidi error")
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "sync bidi error") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "sync bidi error")
+	}
 }
 
 // --- parseCallOpts: no opts argument ---
@@ -627,8 +721,12 @@ func TestParseCallOpts_NoArg(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "no-opts", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "no-opts" {
+		t.Errorf("expected %v, got %v", "no-opts", got)
+	}
 }
 
 // --- parseCallOpts: null opts ---
@@ -665,8 +763,12 @@ func TestParseCallOpts_NullOpts(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "null-opts", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "null-opts" {
+		t.Errorf("expected %v, got %v", "null-opts", got)
+	}
 }
 
 // --- isThenable: null/undefined/non-object ---
@@ -703,9 +805,13 @@ func TestIsThenable_NilAndPrimitive(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(13), resultObj["code"]) // INTERNAL
+	if got := resultObj["code"]; got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
 }
 
 // --- resolveOptions: option that returns error ---
@@ -716,8 +822,12 @@ func TestResolveOptions_BadOption(t *testing.T) {
 	_, err := New(runtime,
 		WithChannel(nil), // nil channel should error
 	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "channel")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "channel") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel")
+	}
 }
 
 // --- Metadata.toObject for metadataToGo with non-wrapper ---
@@ -763,8 +873,12 @@ func TestMetadataToGo_PlainObject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "got-metadata", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "got-metadata" {
+		t.Errorf("expected %v, got %v", "got-metadata", got)
+	}
 }
 
 // --- Unregistered method errors (covers client error paths) ---
@@ -790,10 +904,16 @@ func TestUnaryRPC_UnregisteredMethod(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED = 12
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(12) {
+		t.Errorf("expected %v, got %v", int64(12), got)
+	}
 }
 
 func TestServerStreamRPC_UnregisteredMethod(t *testing.T) {
@@ -816,10 +936,16 @@ func TestServerStreamRPC_UnregisteredMethod(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(12) {
+		t.Errorf("expected %v, got %v", int64(12), got)
+	}
 }
 
 func TestClientStreamRPC_UnregisteredMethod(t *testing.T) {
@@ -839,10 +965,16 @@ func TestClientStreamRPC_UnregisteredMethod(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(12) {
+		t.Errorf("expected %v, got %v", int64(12), got)
+	}
 }
 
 func TestBidiStreamRPC_UnregisteredMethod(t *testing.T) {
@@ -862,10 +994,16 @@ func TestBidiStreamRPC_UnregisteredMethod(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(12), resultObj["code"]) // UNIMPLEMENTED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(12) {
+		t.Errorf("expected %v, got %v", int64(12), got)
+	}
 }
 
 // ============================================================================
@@ -880,9 +1018,15 @@ func TestGrpcErrorFromGoError_Direct_StatusError(t *testing.T) {
 
 	err := status.Errorf(codes.NotFound, "not here")
 	obj := env.grpcMod.grpcErrorFromGoError(err)
-	assert.Equal(t, "GrpcError", obj.Get("name").String())
-	assert.Equal(t, int64(codes.NotFound), obj.Get("code").ToInteger())
-	assert.Contains(t, obj.Get("message").String(), "not here")
+	if got := obj.Get("name").String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.NotFound) {
+		t.Errorf("expected %v, got %v", int64(codes.NotFound), got)
+	}
+	if !strings.Contains(obj.Get("message").String(), "not here") {
+		t.Errorf("expected %q to contain %q", obj.Get("message").String(), "not here")
+	}
 }
 
 func TestGrpcErrorFromGoError_Direct_ContextCanceled(t *testing.T) {
@@ -890,8 +1034,12 @@ func TestGrpcErrorFromGoError_Direct_ContextCanceled(t *testing.T) {
 	defer env.shutdown()
 
 	obj := env.grpcMod.grpcErrorFromGoError(context.Canceled)
-	assert.Equal(t, "GrpcError", obj.Get("name").String())
-	assert.Equal(t, int64(codes.Canceled), obj.Get("code").ToInteger())
+	if got := obj.Get("name").String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 func TestGrpcErrorFromGoError_Direct_DeadlineExceeded(t *testing.T) {
@@ -899,17 +1047,25 @@ func TestGrpcErrorFromGoError_Direct_DeadlineExceeded(t *testing.T) {
 	defer env.shutdown()
 
 	obj := env.grpcMod.grpcErrorFromGoError(context.DeadlineExceeded)
-	assert.Equal(t, "GrpcError", obj.Get("name").String())
-	assert.Equal(t, int64(codes.DeadlineExceeded), obj.Get("code").ToInteger())
+	if got := obj.Get("name").String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.DeadlineExceeded) {
+		t.Errorf("expected %v, got %v", int64(codes.DeadlineExceeded), got)
+	}
 }
 
 func TestGrpcErrorFromGoError_Direct_GenericError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	obj := env.grpcMod.grpcErrorFromGoError(assert.AnError)
-	assert.Equal(t, "GrpcError", obj.Get("name").String())
-	assert.Equal(t, int64(codes.Internal), obj.Get("code").ToInteger())
+	obj := env.grpcMod.grpcErrorFromGoError(errSentinel)
+	if got := obj.Get("name").String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // --- toWrappedMessage direct tests (33.3% → 100%) ---
@@ -919,14 +1075,20 @@ func TestToWrappedMessage_Direct_DynamicPB(t *testing.T) {
 	defer env.shutdown()
 
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 	msg := dynamicpb.NewMessage(msgDesc)
 	msg.Set(msgDesc.Fields().ByName("message"), protoreflect.ValueOfString("fast"))
 
 	obj, convErr := env.grpcMod.toWrappedMessage(msg, msgDesc)
-	require.NoError(t, convErr)
-	require.NotNil(t, obj)
+	if convErr != nil {
+		t.Fatalf("unexpected error: %v", convErr)
+	}
+	if obj == nil {
+		t.Fatalf("expected non-nil")
+	}
 }
 
 func TestToWrappedMessage_Direct_NonProto(t *testing.T) {
@@ -934,12 +1096,18 @@ func TestToWrappedMessage_Direct_NonProto(t *testing.T) {
 	defer env.shutdown()
 
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 
 	_, convErr := env.grpcMod.toWrappedMessage("not a proto", msgDesc)
-	require.Error(t, convErr)
-	assert.Contains(t, convErr.Error(), "not a proto.Message")
+	if convErr == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(convErr.Error(), "not a proto.Message") {
+		t.Errorf("expected %q to contain %q", convErr.Error(), "not a proto.Message")
+	}
 }
 
 func TestToWrappedMessage_Direct_NilValue(t *testing.T) {
@@ -947,12 +1115,18 @@ func TestToWrappedMessage_Direct_NilValue(t *testing.T) {
 	defer env.shutdown()
 
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 
 	_, convErr := env.grpcMod.toWrappedMessage(nil, msgDesc)
-	require.Error(t, convErr)
-	assert.Contains(t, convErr.Error(), "not a proto.Message")
+	if convErr == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(convErr.Error(), "not a proto.Message") {
+		t.Errorf("expected %q to contain %q", convErr.Error(), "not a proto.Message")
+	}
 }
 
 // --- jsErrorToGRPC direct tests (75% → 100%) ---
@@ -961,10 +1135,14 @@ func TestJsErrorToGRPC_Direct_NonException(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	err := env.grpcMod.jsErrorToGRPC(assert.AnError)
+	err := env.grpcMod.jsErrorToGRPC(errSentinel)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
 }
 
 func TestJsErrorToGRPC_Direct_GrpcErrorException(t *testing.T) {
@@ -974,13 +1152,21 @@ func TestJsErrorToGRPC_Direct_GrpcErrorException(t *testing.T) {
 	_, jsErr := env.runtime.RunString(`
 		(function() { throw grpc.status.createError(grpc.status.PERMISSION_DENIED, "denied"); })()
 	`)
-	require.Error(t, jsErr)
+	if jsErr == nil {
+		t.Fatalf("expected an error")
+	}
 
 	grpcErr := env.grpcMod.jsErrorToGRPC(jsErr)
 	s, ok := status.FromError(grpcErr)
-	require.True(t, ok)
-	assert.Equal(t, codes.PermissionDenied, s.Code())
-	assert.Contains(t, s.Message(), "denied")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.PermissionDenied {
+		t.Errorf("expected %v, got %v", codes.PermissionDenied, got)
+	}
+	if !strings.Contains(s.Message(), "denied") {
+		t.Errorf("expected %q to contain %q", s.Message(), "denied")
+	}
 }
 
 func TestJsErrorToGRPC_Direct_GenericJSException(t *testing.T) {
@@ -990,13 +1176,21 @@ func TestJsErrorToGRPC_Direct_GenericJSException(t *testing.T) {
 	_, jsErr := env.runtime.RunString(`
 		(function() { throw new Error("generic error"); })()
 	`)
-	require.Error(t, jsErr)
+	if jsErr == nil {
+		t.Fatalf("expected an error")
+	}
 
 	grpcErr := env.grpcMod.jsErrorToGRPC(jsErr)
 	s, ok := status.FromError(grpcErr)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
-	assert.Contains(t, s.Message(), "generic error")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
+	if !strings.Contains(s.Message(), "generic error") {
+		t.Errorf("expected %q to contain %q", s.Message(), "generic error")
+	}
 }
 
 // --- jsValueToGRPCError direct tests (92.9% → 100%) ---
@@ -1007,9 +1201,15 @@ func TestJsValueToGRPCError_Direct_Nil(t *testing.T) {
 
 	err := env.grpcMod.jsValueToGRPCError(nil)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
-	assert.Contains(t, s.Message(), "unknown error")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
+	if !strings.Contains(s.Message(), "unknown error") {
+		t.Errorf("expected %q to contain %q", s.Message(), "unknown error")
+	}
 }
 
 func TestJsValueToGRPCError_Direct_Undefined(t *testing.T) {
@@ -1018,8 +1218,12 @@ func TestJsValueToGRPCError_Direct_Undefined(t *testing.T) {
 
 	err := env.grpcMod.jsValueToGRPCError(goja.Undefined())
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
 }
 
 func TestJsValueToGRPCError_Direct_NonObject(t *testing.T) {
@@ -1028,9 +1232,15 @@ func TestJsValueToGRPCError_Direct_NonObject(t *testing.T) {
 
 	err := env.grpcMod.jsValueToGRPCError(env.runtime.ToValue("plain string"))
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
-	assert.Contains(t, s.Message(), "plain string")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
+	if !strings.Contains(s.Message(), "plain string") {
+		t.Errorf("expected %q to contain %q", s.Message(), "plain string")
+	}
 }
 
 func TestJsValueToGRPCError_Direct_GenericJSError(t *testing.T) {
@@ -1038,13 +1248,21 @@ func TestJsValueToGRPCError_Direct_GenericJSError(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`new Error("something broke")`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 
 	err := env.grpcMod.jsValueToGRPCError(val)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
-	assert.Contains(t, s.Message(), "something broke")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
+	if !strings.Contains(s.Message(), "something broke") {
+		t.Errorf("expected %q to contain %q", s.Message(), "something broke")
+	}
 }
 
 func TestJsValueToGRPCError_Direct_ObjectNoMessage(t *testing.T) {
@@ -1053,12 +1271,18 @@ func TestJsValueToGRPCError_Direct_ObjectNoMessage(t *testing.T) {
 
 	// Object with no name or message property.
 	val, jsErr := env.runtime.RunString(`({foo: "bar"})`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 
 	err := env.grpcMod.jsValueToGRPCError(val)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, s.Code())
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
 }
 
 // --- Require error path (83.3% → 100%) ---
@@ -1071,9 +1295,14 @@ func TestRequire_ErrorFromOptions(t *testing.T) {
 	exports := rt.NewObject()
 	_ = module.Set("exports", exports)
 
-	assert.Panics(t, func() {
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatalf("expected panic")
+			}
+		}()
 		loader(rt, module)
-	})
+	}()
 }
 
 // --- resolveOptions nil option (92.3% → 100%) ---
@@ -1088,7 +1317,9 @@ func TestResolveOptions_NilOption(t *testing.T) {
 		WithProtobuf(env.pbMod),
 		WithAdapter(env.adapter),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 // --- metadataToGo edge cases (82.9% → 100%) ---
@@ -1098,8 +1329,12 @@ func TestMetadataToGo_Direct_ToObjectNotFunction(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: "not-a-function"})`)
-	require.NoError(t, jsErr)
-	assert.Nil(t, env.grpcMod.metadataToGo(val))
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
+	if env.grpcMod.metadataToGo(val) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(val))
+	}
 }
 
 func TestMetadataToGo_Direct_ToObjectThrows(t *testing.T) {
@@ -1107,8 +1342,12 @@ func TestMetadataToGo_Direct_ToObjectThrows(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { throw new Error("boom"); }})`)
-	require.NoError(t, jsErr)
-	assert.Nil(t, env.grpcMod.metadataToGo(val))
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
+	if env.grpcMod.metadataToGo(val) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(val))
+	}
 }
 
 func TestMetadataToGo_Direct_ToObjectReturnsNonObject(t *testing.T) {
@@ -1116,8 +1355,12 @@ func TestMetadataToGo_Direct_ToObjectReturnsNonObject(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { return 42; }})`)
-	require.NoError(t, jsErr)
-	assert.Nil(t, env.grpcMod.metadataToGo(val))
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
+	if env.grpcMod.metadataToGo(val) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(val))
+	}
 }
 
 func TestMetadataToGo_Direct_EmptyArrayValue(t *testing.T) {
@@ -1125,9 +1368,13 @@ func TestMetadataToGo_Direct_EmptyArrayValue(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { return {key: []}; }})`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 	md := env.grpcMod.metadataToGo(val)
-	assert.Empty(t, md.Get("key"))
+	if len(md.Get("key")) != 0 {
+		t.Errorf("expected empty, got len %d", len(md.Get("key")))
+	}
 }
 
 func TestMetadataToGo_Direct_NonArrayValue(t *testing.T) {
@@ -1135,9 +1382,13 @@ func TestMetadataToGo_Direct_NonArrayValue(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { return {key: "not-array"}; }})`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 	md := env.grpcMod.metadataToGo(val)
-	assert.Nil(t, md.Get("key"))
+	if md.Get("key") != nil {
+		t.Errorf("expected nil, got %v", md.Get("key"))
+	}
 }
 
 // --- parseCallOpts non-object arg ---
@@ -1176,8 +1427,12 @@ func TestParseCallOpts_NonObjectArg(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- isThenable direct edge cases ---
@@ -1186,23 +1441,39 @@ func TestIsThenable_Direct(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	assert.False(t, env.grpcMod.isThenable(nil))
-	assert.False(t, env.grpcMod.isThenable(goja.Undefined()))
-	assert.False(t, env.grpcMod.isThenable(goja.Null()))
-	assert.False(t, env.grpcMod.isThenable(env.runtime.ToValue(42)))
-	assert.False(t, env.grpcMod.isThenable(env.runtime.ToValue("string")))
+	if env.grpcMod.isThenable(nil) {
+		t.Errorf("expected false")
+	}
+	if env.grpcMod.isThenable(goja.Undefined()) {
+		t.Errorf("expected false")
+	}
+	if env.grpcMod.isThenable(goja.Null()) {
+		t.Errorf("expected false")
+	}
+	if env.grpcMod.isThenable(env.runtime.ToValue(42)) {
+		t.Errorf("expected false")
+	}
+	if env.grpcMod.isThenable(env.runtime.ToValue("string")) {
+		t.Errorf("expected false")
+	}
 
 	// Object without then.
 	obj := env.runtime.NewObject()
-	assert.False(t, env.grpcMod.isThenable(obj))
+	if env.grpcMod.isThenable(obj) {
+		t.Errorf("expected false")
+	}
 
 	// Object with non-function then.
 	_ = obj.Set("then", "not-a-function")
-	assert.False(t, env.grpcMod.isThenable(obj))
+	if env.grpcMod.isThenable(obj) {
+		t.Errorf("expected false")
+	}
 
 	// Object with function then.
 	_ = obj.Set("then", env.runtime.ToValue(func(goja.FunctionCall) goja.Value { return goja.Undefined() }))
-	assert.True(t, env.grpcMod.isThenable(obj))
+	if !(env.grpcMod.isThenable(obj)) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- Unary handler returning a non-message wrapped value ---
@@ -1236,9 +1507,13 @@ func TestServerHandler_NilReturn(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // --- Server stream: async handler error path ---
@@ -1281,9 +1556,13 @@ func TestServerStreamHandler_AsyncReject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Unavailable), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Unavailable) {
+		t.Errorf("expected %v, got %v", int64(codes.Unavailable), got)
+	}
 }
 
 // ============================================================================
@@ -1297,7 +1576,9 @@ func TestToWrappedMessage_Direct_SlowPath(t *testing.T) {
 	defer env.shutdown()
 
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 
 	// Create a dynamicpb message and wrap in nonDynamicMsg to force slow path.
@@ -1306,15 +1587,25 @@ func TestToWrappedMessage_Direct_SlowPath(t *testing.T) {
 	wrapped := &nonDynamicMsg{Message: inner}
 
 	obj, convErr := env.grpcMod.toWrappedMessage(wrapped, msgDesc)
-	require.NoError(t, convErr)
-	require.NotNil(t, obj)
+	if convErr != nil {
+		t.Fatalf("unexpected error: %v", convErr)
+	}
+	if obj == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// The returned object should be a valid wrapped protobuf message.
 	// The get() method should work to retrieve the field.
 	getFn, ok := goja.AssertFunction(obj.Get("get"))
-	require.True(t, ok, "wrapped message should have get() method")
+	if !(ok) {
+		t.Fatalf("wrapped message should have get() method")
+	}
 	val, callErr := getFn(obj, env.runtime.ToValue("message"))
-	require.NoError(t, callErr)
-	assert.Equal(t, "slow-path", val.String())
+	if callErr != nil {
+		t.Fatalf("unexpected error: %v", callErr)
+	}
+	if got := val.String(); got != "slow-path" {
+		t.Errorf("expected %v, got %v", "slow-path", got)
+	}
 }
 
 // --- finishUnaryResponse: handler returns non-message (sync) ---
@@ -1348,9 +1639,13 @@ func TestUnaryHandler_ReturnNonMessage_Sync(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // --- finishUnaryResponse: handler returns non-message (async) ---
@@ -1388,9 +1683,13 @@ func TestUnaryHandler_ReturnNonMessage_Async(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // --- thenFinishUnary rejection: async unary handler rejects ---
@@ -1428,10 +1727,16 @@ func TestUnaryHandler_AsyncReject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(5), resultObj["code"]) // NOT_FOUND = 5
-	assert.Contains(t, resultObj["message"].(string), "not found")
+	if got := resultObj["code"]; got != int64(5) {
+		t.Errorf("expected %v, got %v", int64(5), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "not found") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "not found")
+	}
 }
 
 // --- makeUnaryHandler: handler throws sync (not async) ---
@@ -1467,10 +1772,16 @@ func TestUnaryHandler_SyncThrow(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(6), resultObj["code"]) // ALREADY_EXISTS = 6
-	assert.Contains(t, resultObj["message"].(string), "dup")
+	if got := resultObj["code"]; got != int64(6) {
+		t.Errorf("expected %v, got %v", int64(6), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "dup") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "dup")
+	}
 }
 
 // --- makeServerStreamHandler: handler throws sync with specific code ---
@@ -1511,9 +1822,13 @@ func TestServerStreamHandler_SyncThrow_FailedPrecondition(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(9), resultObj["code"]) // FAILED_PRECONDITION = 9
+	if got := resultObj["code"]; got != int64(9) {
+		t.Errorf("expected %v, got %v", int64(9), got)
+	}
 }
 
 // --- addServerSend: send non-message triggers TypeError ---
@@ -1558,8 +1873,12 @@ func TestServerStreamHandler_SendBadType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("streamDone")
-	require.NotNil(t, result)
-	assert.True(t, result.ToBoolean())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(result.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- makeClientStreamHandler: sync throw with specific code ---
@@ -1598,9 +1917,13 @@ func TestClientStreamHandler_SyncThrow_ResourceExhausted(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(8), resultObj["code"]) // RESOURCE_EXHAUSTED = 8
+	if got := resultObj["code"]; got != int64(8) {
+		t.Errorf("expected %v, got %v", int64(8), got)
+	}
 }
 
 // --- makeClientStreamHandler: async reject ---
@@ -1640,9 +1963,13 @@ func TestClientStreamHandler_AsyncReject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(10), resultObj["code"]) // ABORTED = 10
+	if got := resultObj["code"]; got != int64(10) {
+		t.Errorf("expected %v, got %v", int64(10), got)
+	}
 }
 
 // --- makeClientStreamHandler: returns non-message (sync) ---
@@ -1680,9 +2007,13 @@ func TestClientStreamHandler_ReturnNonMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // --- makeBidiStreamHandler: sync throw with specific code ---
@@ -1720,9 +2051,13 @@ func TestBidiStreamHandler_SyncThrow_DataLoss(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(15), resultObj["code"]) // DATA_LOSS = 15
+	if got := resultObj["code"]; got != int64(15) {
+		t.Errorf("expected %v, got %v", int64(15), got)
+	}
 }
 
 // --- makeBidiStreamHandler: async reject ---
@@ -1762,9 +2097,13 @@ func TestBidiStreamHandler_AsyncReject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(16), resultObj["code"]) // UNAUTHENTICATED = 16
+	if got := resultObj["code"]; got != int64(16) {
+		t.Errorf("expected %v, got %v", int64(16), got)
+	}
 }
 
 // --- Server Stream: handler sends valid item then finishes async ---
@@ -1817,12 +2156,20 @@ func TestServerStreamHandler_SendThenAsyncResolve(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("items")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := result.Export()
 	arr, ok := exported.([]any)
-	require.True(t, ok)
-	assert.Equal(t, 1, len(arr))
-	assert.Equal(t, "first", arr[0])
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := len(arr); got != 1 {
+		t.Errorf("expected %v, got %v", 1, got)
+	}
+	if got := arr[0]; got != "first" {
+		t.Errorf("expected %v, got %v", "first", got)
+	}
 }
 
 // --- Bidi stream: send and receive items ---
@@ -1892,12 +2239,20 @@ func TestBidiStreamHandler_SendRecv(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("received")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := result.Export()
 	arr, ok := exported.([]any)
-	require.True(t, ok)
-	assert.Equal(t, 1, len(arr))
-	assert.Equal(t, "echo-alpha", arr[0])
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := len(arr); got != 1 {
+		t.Errorf("expected %v, got %v", 1, got)
+	}
+	if got := arr[0]; got != "echo-alpha" {
+		t.Errorf("expected %v, got %v", "echo-alpha", got)
+	}
 }
 
 // --- Client stream: send items and receive response ---
@@ -1967,8 +2322,12 @@ func TestClientStreamHandler_SendAndReceive(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "received:2", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "received:2" {
+		t.Errorf("expected %v, got %v", "received:2", got)
+	}
 }
 
 // --- metadataFromGo: nil metadata (direct) ---
@@ -1978,7 +2337,9 @@ func TestMetadataFromGo_Direct_Nil(t *testing.T) {
 	defer env.shutdown()
 
 	result := env.grpcMod.metadataFromGo(nil)
-	assert.True(t, goja.IsUndefined(result))
+	if !(goja.IsUndefined(result)) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- metadataFromGo: non-nil metadata (direct) ---
@@ -1991,24 +2352,38 @@ func TestMetadataFromGo_Direct_NonNil(t *testing.T) {
 	md["x-test"] = []string{"val1", "val2"}
 
 	result := env.grpcMod.metadataFromGo(md)
-	require.NotNil(t, result)
-	assert.False(t, goja.IsUndefined(result))
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if goja.IsUndefined(result) {
+		t.Errorf("expected false")
+	}
 }
 
 // --- lowerFirst edge cases ---
 
 func TestLowerFirst_SingleChar(t *testing.T) {
-	assert.Equal(t, "a", lowerFirst("A"))
-	assert.Equal(t, "z", lowerFirst("Z"))
+	if got := lowerFirst("A"); got != "a" {
+		t.Errorf("expected %v, got %v", "a", got)
+	}
+	if got := lowerFirst("Z"); got != "z" {
+		t.Errorf("expected %v, got %v", "z", got)
+	}
 }
 
 func TestLowerFirst_AlreadyLower(t *testing.T) {
-	assert.Equal(t, "already", lowerFirst("already"))
+	if got := lowerFirst("already"); got != "already" {
+		t.Errorf("expected %v, got %v", "already", got)
+	}
 }
 
 func TestLowerFirst_MultiChar(t *testing.T) {
-	assert.Equal(t, "echo", lowerFirst("Echo"))
-	assert.Equal(t, "serverStream", lowerFirst("ServerStream"))
+	if got := lowerFirst("Echo"); got != "echo" {
+		t.Errorf("expected %v, got %v", "echo", got)
+	}
+	if got := lowerFirst("ServerStream"); got != "serverStream" {
+		t.Errorf("expected %v, got %v", "serverStream", got)
+	}
 }
 
 // --- metadata wrapper: forEach, delete, getAll ---
@@ -2038,10 +2413,16 @@ func TestMetadataWrapper_ForEachDeleteGetAll(t *testing.T) {
 			afterDelete: afterDelete === undefined
 		});
 	`)
-	require.NotNil(t, val)
+	if val == nil {
+		t.Fatalf("expected non-nil")
+	}
 	result := val.Export().(string)
-	assert.Contains(t, result, `"all1Length":2`)
-	assert.Contains(t, result, `"afterDelete":true`)
+	if !strings.Contains(result, `"all1Length":2`) {
+		t.Errorf("expected %q to contain %q", result, `"all1Length":2`)
+	}
+	if !strings.Contains(result, `"afterDelete":true`) {
+		t.Errorf("expected %q to contain %q", result, `"afterDelete":true`)
+	}
 }
 
 // --- metadata set requires 2 args ---
@@ -2054,7 +2435,9 @@ func TestMetadataWrapper_SetTooFewArgs(t *testing.T) {
 		var md = grpc.metadata.create();
 		md.set('only-key');
 	`)
-	assert.Contains(t, err.Error(), "at least 2 arguments")
+	if !strings.Contains(err.Error(), "at least 2 arguments") {
+		t.Errorf("expected %q to contain %q", err.Error(), "at least 2 arguments")
+	}
 }
 
 // --- metadata forEach requires function ---
@@ -2067,7 +2450,9 @@ func TestMetadataWrapper_ForEachNonFunction(t *testing.T) {
 		var md = grpc.metadata.create();
 		md.forEach("not a function");
 	`)
-	assert.Contains(t, err.Error(), "function")
+	if !strings.Contains(err.Error(), "function") {
+		t.Errorf("expected %q to contain %q", err.Error(), "function")
+	}
 }
 
 // --- Client stream: send bad type throws TypeError ---
@@ -2114,9 +2499,13 @@ func TestClientStream_SendBadType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "TypeError", resultObj["name"])
+	if got := resultObj["name"]; got != "TypeError" {
+		t.Errorf("expected %v, got %v", "TypeError", got)
+	}
 }
 
 // --- Bidi stream: send bad type throws TypeError ---
@@ -2160,9 +2549,13 @@ func TestBidiStream_SendBadType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "TypeError", resultObj["name"])
+	if got := resultObj["name"]; got != "TypeError" {
+		t.Errorf("expected %v, got %v", "TypeError", got)
+	}
 }
 
 // --- Unary RPC with AbortSignal: cancelled ---
@@ -2212,11 +2605,17 @@ func TestUnaryRPC_WithAbortSignal_Cancelled(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 	// Cancelled = 1
-	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 // ============================================================================
@@ -2250,9 +2649,13 @@ func TestServerStreamRPC_BadRequestType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "TypeError", resultObj["name"])
+	if got := resultObj["name"]; got != "TypeError" {
+		t.Errorf("expected %v, got %v", "TypeError", got)
+	}
 }
 
 // --- makeUnaryMethod: bad request argument (panic path) ---
@@ -2282,9 +2685,13 @@ func TestUnaryRPC_BadRequestType(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "TypeError", resultObj["name"])
+	if got := resultObj["name"]; got != "TypeError" {
+		t.Errorf("expected %v, got %v", "TypeError", got)
+	}
 }
 
 // --- metadataToGo: object value without length (plain object as array value) ---
@@ -2294,9 +2701,13 @@ func TestMetadataToGo_Direct_ObjectValueNoLength(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { return {"x-key": {foo: "bar"}}; }})`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 	md := env.grpcMod.metadataToGo(val)
-	assert.Nil(t, md.Get("x-key"))
+	if md.Get("x-key") != nil {
+		t.Errorf("expected nil, got %v", md.Get("x-key"))
+	}
 }
 
 // --- metadataToGo: array with undefined element ---
@@ -2306,11 +2717,15 @@ func TestMetadataToGo_Direct_ArrayWithUndefined(t *testing.T) {
 	defer env.shutdown()
 
 	val, jsErr := env.runtime.RunString(`({toObject: function() { return {"key": [undefined, "val"]}; }})`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 	md := env.grpcMod.metadataToGo(val)
 	vals := md.Get("key")
 	// Only "val" should be present since undefined is skipped.
-	assert.Equal(t, []string{"val"}, vals)
+	if !reflect.DeepEqual(vals, []string{"val"}) {
+		t.Errorf("expected %v, got %v", []string{"val"}, vals)
+	}
 }
 
 // --- applySignal: signal that is already aborted ---
@@ -2354,10 +2769,16 @@ func TestApplySignal_AlreadyAborted(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 // --- applySignal: signal option is non-object ---
@@ -2397,8 +2818,12 @@ func TestApplySignal_NonObjectSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- applySignal: signal without _signal property (fake signal) ---
@@ -2438,8 +2863,12 @@ func TestApplySignal_FakeSignalObject(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // --- makeBidiStreamHandler: async resolve (non-error finish) ---
@@ -2484,8 +2913,12 @@ func TestBidiStreamHandler_AsyncResolve(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("done")
-	require.NotNil(t, result)
-	assert.True(t, result.ToBoolean())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(result.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- Server stream: EOF path (no items sent) ---
@@ -2525,8 +2958,12 @@ func TestServerStreamHandler_EmptyStream(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("streamDone")
-	require.NotNil(t, result)
-	assert.True(t, result.ToBoolean())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(result.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // --- Server stream: multiple items sent then resolve ---
@@ -2578,14 +3015,26 @@ func TestServerStreamHandler_MultipleItems(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("names")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := result.Export()
 	arr, ok := exported.([]any)
-	require.True(t, ok)
-	assert.Equal(t, 3, len(arr))
-	assert.Equal(t, "item-0", arr[0])
-	assert.Equal(t, "item-1", arr[1])
-	assert.Equal(t, "item-2", arr[2])
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := len(arr); got != 3 {
+		t.Errorf("expected %v, got %v", 3, got)
+	}
+	if got := arr[0]; got != "item-0" {
+		t.Errorf("expected %v, got %v", "item-0", got)
+	}
+	if got := arr[1]; got != "item-1" {
+		t.Errorf("expected %v, got %v", "item-1", got)
+	}
+	if got := arr[2]; got != "item-2" {
+		t.Errorf("expected %v, got %v", "item-2", got)
+	}
 }
 
 // ============================================================================
@@ -2596,25 +3045,35 @@ func TestServerStreamHandler_MultipleItems(t *testing.T) {
 
 func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
 	loop, err := eventloop.New()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	runtime := goja.New()
 
 	adapter, err := gojaeventloop.New(loop, runtime)
-	require.NoError(t, err)
-	require.NoError(t, adapter.Bind())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if adapter.Bind() != nil {
+		t.Fatalf("unexpected error: %v", adapter.Bind())
+	}
 
 	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	grpcMod, err := New(runtime,
 		WithChannel(channel),
 		WithProtobuf(pbMod),
 		WithAdapter(adapter),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Shut down the loop so Submit will fail.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -2631,9 +3090,15 @@ func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
 		t.Fatal("fn should not be called when loop is stopped")
 	})
 
-	assert.True(t, rejected)
-	require.NotNil(t, rejectedVal)
-	assert.Contains(t, rejectedVal.(error).Error(), "event loop not running")
+	if !(rejected) {
+		t.Errorf("expected true")
+	}
+	if rejectedVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(rejectedVal.(error).Error(), "event loop not running") {
+		t.Errorf("expected %q to contain %q", rejectedVal.(error).Error(), "event loop not running")
+	}
 }
 
 // --- Server stream RPC with pre-aborted signal ---
@@ -2676,11 +3141,17 @@ func TestServerStreamRPC_PreAbortedSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 	// Should be CANCELLED because the context was canceled by the abort.
-	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 // --- Client stream RPC with pre-aborted signal ---
@@ -2719,10 +3190,16 @@ func TestClientStreamRPC_PreAbortedSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 // --- Bidi stream RPC with pre-aborted signal ---
@@ -2761,10 +3238,16 @@ func TestBidiStreamRPC_PreAbortedSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+	}
 }
 
 // --- Server stream: error during recv after initial success ---
@@ -2823,8 +3306,12 @@ func TestServerStreamRPC_RecvError(t *testing.T) {
 
 	// Should get at least one item, then an error on subsequent recv.
 	result := env.runtime.Get("items")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	errResult := env.runtime.Get("recvError")
 	// Either we got items and error, or just error.
-	assert.True(t, errResult != nil && !goja.IsUndefined(errResult) || result != nil)
+	if !(errResult != nil && !goja.IsUndefined(errResult) || result != nil) {
+		t.Errorf("expected true")
+	}
 }

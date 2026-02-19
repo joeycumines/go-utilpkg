@@ -6,9 +6,8 @@ import (
 	"io"
 	"net"
 	"testing"
+	"strings"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -24,7 +23,9 @@ func testDialServer(t *testing.T) (addr string, stop func()) {
 	t.Helper()
 
 	lis, err := net.Listen("tcp", "localhost:0")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Resolve message descriptors from our test proto.
 	msgDescs := testMessageDescriptors(t)
@@ -141,7 +142,9 @@ func testMessageDescriptors(t *testing.T) map[string]protoreflect.MessageDescrip
 	// raw FileDescriptorProto. We pass nil for the resolver because
 	// our test proto has no imports.
 	file, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result := make(map[string]protoreflect.MessageDescriptor)
 	for i := 0; i < file.Messages().Len(); i++ {
@@ -188,10 +191,16 @@ func TestDial_UnaryRPC(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Equal(t, "dial-echo:hello-dial", rObj["message"])
-	assert.Equal(t, int64(42), rObj["code"])
+	if got := rObj["message"]; got != "dial-echo:hello-dial" {
+		t.Errorf("expected %v, got %v", "dial-echo:hello-dial", got)
+	}
+	if got := rObj["code"]; got != int64(42) {
+		t.Errorf("expected %v, got %v", int64(42), got)
+	}
 }
 
 // ============================================================================
@@ -240,12 +249,22 @@ func TestDial_ServerStreamRPC(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	itemsVal := env.runtime.Get("items")
-	require.NotNil(t, itemsVal)
+	if itemsVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	items := itemsVal.Export().([]any)
-	require.Len(t, items, 3)
-	assert.Equal(t, "stream-0", items[0])
-	assert.Equal(t, "stream-1", items[1])
-	assert.Equal(t, "stream-2", items[2])
+	if got := len(items); got != 3 {
+		t.Fatalf("expected len %d, got %d", 3, got)
+	}
+	if got := items[0]; got != "stream-0" {
+		t.Errorf("expected %v, got %v", "stream-0", got)
+	}
+	if got := items[1]; got != "stream-1" {
+		t.Errorf("expected %v, got %v", "stream-1", got)
+	}
+	if got := items[2]; got != "stream-2" {
+		t.Errorf("expected %v, got %v", "stream-2", got)
+	}
 }
 
 // TestDial_ClientStreamRPC verifies client-streaming over a dialed connection.
@@ -288,9 +307,13 @@ func TestDial_ClientStreamRPC(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Equal(t, "received:2:last:B", rObj["message"])
+	if got := rObj["message"]; got != "received:2:last:B" {
+		t.Errorf("expected %v, got %v", "received:2:last:B", got)
+	}
 }
 
 // TestDial_BidiStreamRPC verifies bidi-streaming over a dialed connection.
@@ -343,12 +366,22 @@ func TestDial_BidiStreamRPC(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	resultsVal := env.runtime.Get("results")
-	require.NotNil(t, resultsVal)
+	if resultsVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	results := resultsVal.Export().([]any)
-	require.Len(t, results, 3)
-	assert.Equal(t, "bidi-echo:ping", results[0])
-	assert.Equal(t, "bidi-echo:pong", results[1])
-	assert.Equal(t, "DONE", results[2])
+	if got := len(results); got != 3 {
+		t.Fatalf("expected len %d, got %d", 3, got)
+	}
+	if got := results[0]; got != "bidi-echo:ping" {
+		t.Errorf("expected %v, got %v", "bidi-echo:ping", got)
+	}
+	if got := results[1]; got != "bidi-echo:pong" {
+		t.Errorf("expected %v, got %v", "bidi-echo:pong", got)
+	}
+	if got := results[2]; got != "DONE" {
+		t.Errorf("expected %v, got %v", "DONE", got)
+	}
 }
 
 // ============================================================================
@@ -368,8 +401,12 @@ func TestDial_Close(t *testing.T) {
 	`)
 
 	tgt := env.runtime.Get("tgt")
-	require.NotNil(t, tgt)
-	assert.Equal(t, "localhost:0", tgt.String())
+	if tgt == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := tgt.String(); got != "localhost:0" {
+		t.Errorf("expected %v, got %v", "localhost:0", got)
+	}
 }
 
 // TestDial_ChannelOption verifies the { channel: ch } createClient option.
@@ -401,8 +438,12 @@ func TestDial_ChannelOption(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
-	assert.Equal(t, "dial-echo:channel-opt", r.String())
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := r.String(); got != "dial-echo:channel-opt" {
+		t.Errorf("expected %v, got %v", "dial-echo:channel-opt", got)
+	}
 }
 
 // ============================================================================
@@ -415,7 +456,9 @@ func TestDial_EmptyTarget(t *testing.T) {
 	defer env.shutdown()
 
 	err := env.mustFail(t, `grpc.dial('')`)
-	assert.Contains(t, err.Error(), "target must be a non-empty string")
+	if !strings.Contains(err.Error(), "target must be a non-empty string") {
+		t.Errorf("expected %q to contain %q", err.Error(), "target must be a non-empty string")
+	}
 }
 
 // TestDial_InvalidChannel verifies that { channel: 42 } throws.
@@ -424,7 +467,9 @@ func TestDial_InvalidChannel(t *testing.T) {
 	defer env.shutdown()
 
 	err := env.mustFail(t, `grpc.createClient('testgrpc.TestService', { channel: 42 })`)
-	assert.Contains(t, err.Error(), "channel must be a dial() result")
+	if !strings.Contains(err.Error(), "channel must be a dial() result") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must be a dial() result")
+	}
 }
 
 // TestDial_ConnectionRefused verifies that dialing a non-existent
@@ -432,7 +477,9 @@ func TestDial_InvalidChannel(t *testing.T) {
 func TestDial_ConnectionRefused(t *testing.T) {
 	// Find an unused port by binding and then closing.
 	lis, err := net.Listen("tcp", "localhost:0")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	deadAddr := lis.Addr().String()
 	lis.Close()
 
@@ -460,11 +507,17 @@ func TestDial_ConnectionRefused(t *testing.T) {
 	`, deadAddr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", rObj["name"])
+	if got := rObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 	// UNAVAILABLE (14) for connection refused.
-	assert.Equal(t, int64(14), rObj["code"])
+	if got := rObj["code"]; got != int64(14) {
+		t.Errorf("expected %v, got %v", int64(14), got)
+	}
 }
 
 // TestDial_Authority verifies the authority option is passed through.
@@ -497,8 +550,12 @@ func TestDial_Authority(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
-	assert.Equal(t, "dial-echo:authority-test", r.String())
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := r.String(); got != "dial-echo:authority-test" {
+		t.Errorf("expected %v, got %v", "dial-echo:authority-test", got)
+	}
 }
 
 // TestDial_NoTransportSecurity verifies dial without insecure throws.
@@ -508,7 +565,9 @@ func TestDial_NoTransportSecurity(t *testing.T) {
 
 	// grpc.NewClient requires explicit transport security.
 	err := env.mustFail(t, `grpc.dial('localhost:0')`)
-	assert.Contains(t, err.Error(), "no transport security set")
+	if !strings.Contains(err.Error(), "no transport security set") {
+		t.Errorf("expected %q to contain %q", err.Error(), "no transport security set")
+	}
 }
 
 // TestDial_NullOptions verifies dial with null options throws (no transport security).
@@ -517,7 +576,9 @@ func TestDial_NullOptions(t *testing.T) {
 	defer env.shutdown()
 
 	err := env.mustFail(t, `grpc.dial('localhost:0', null)`)
-	assert.Contains(t, err.Error(), "no transport security set")
+	if !strings.Contains(err.Error(), "no transport security set") {
+		t.Errorf("expected %q to contain %q", err.Error(), "no transport security set")
+	}
 }
 
 // TestDial_ChannelNull verifies null channel falls back to in-proc.
@@ -537,7 +598,9 @@ func TestDial_ChannelMissingConn(t *testing.T) {
 	defer env.shutdown()
 
 	err := env.mustFail(t, `grpc.createClient('testgrpc.TestService', { channel: {} })`)
-	assert.Contains(t, err.Error(), "channel must be a dial() result")
+	if !strings.Contains(err.Error(), "channel must be a dial() result") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must be a dial() result")
+	}
 }
 
 // TestDial_AbortSignal verifies that AbortSignal works with dialed connections.
@@ -572,8 +635,14 @@ func TestDial_AbortSignal(t *testing.T) {
 	`, addr), defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", rObj["name"])
-	assert.Equal(t, int64(1), rObj["code"]) // CANCELLED
+	if got := rObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := rObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }

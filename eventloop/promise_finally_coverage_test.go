@@ -1,4 +1,4 @@
-// COVERAGE-015: Promise Finally Full Coverage Tests
+// Promise Finally Full Coverage Tests
 //
 // Tests comprehensive coverage of ChainedPromise.Finally including:
 // - Handler execution on fulfilled promise

@@ -1,10 +1,8 @@
 package gojagrpc
 
 import (
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -82,23 +80,33 @@ func TestUnaryRPC_HeaderTrailerCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	// Verify response message.
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "echo: hi", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "echo: hi" {
+		t.Errorf("expected %v, got %v", "echo: hi", got)
+	}
 
 	// Verify headers received.
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-response-id", "42")
 	assertMetadataContains(t, hdrsObj, "x-echo-auth", "bearer-xyz")
 
 	// Verify trailers received.
 	trls := env.runtime.Get("receivedTrailers")
-	require.NotNil(t, trls)
+	if trls == nil {
+		t.Fatalf("expected non-nil")
+	}
 	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-checksum", "abc123")
 }
@@ -149,13 +157,19 @@ func TestUnaryRPC_HeaderTrailerOnError(t *testing.T) {
 	`, defaultTimeout)
 
 	errObj := env.runtime.Get("error")
-	require.NotNil(t, errObj)
+	if errObj == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := errObj.Export().(map[string]any)
-	assert.Equal(t, int64(3), exported["code"]) // INVALID_ARGUMENT = 3
+	if got := exported["code"]; got != int64(3) {
+		t.Errorf("expected %v, got %v", int64(3), got)
+	}
 
 	// Trailers should still be received even on error.
 	trls := env.runtime.Get("receivedTrailers")
-	require.NotNil(t, trls)
+	if trls == nil {
+		t.Fatalf("expected non-nil")
+	}
 	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-error-trace", "trace-001")
 }
@@ -192,8 +206,12 @@ func TestUnaryRPC_NoCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // -------------- Server-Streaming: header/trailer round-trip ----------------
@@ -265,19 +283,27 @@ func TestServerStream_HeaderTrailerCallbacks(t *testing.T) {
 
 	// Verify items received.
 	itemsVal := env.runtime.Get("items")
-	require.NotNil(t, itemsVal)
+	if itemsVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	itemsExport := itemsVal.Export().([]any)
-	assert.Len(t, itemsExport, 2)
+	if got := len(itemsExport); got != 2 {
+		t.Errorf("expected len %d, got %d", 2, got)
+	}
 
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "server")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
-	require.NotNil(t, trls)
+	if trls == nil {
+		t.Fatalf("expected non-nil")
+	}
 	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-item-count", "2")
 }
@@ -363,18 +389,26 @@ func TestClientStream_HeaderTrailerCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	resultVal := env.runtime.Get("result")
-	require.NotNil(t, resultVal)
-	assert.Equal(t, "received 2", resultVal.String())
+	if resultVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := resultVal.String(); got != "received 2" {
+		t.Errorf("expected %v, got %v", "received 2", got)
+	}
 
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "client")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
-	require.NotNil(t, trls)
+	if trls == nil {
+		t.Fatalf("expected non-nil")
+	}
 	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-received", "true")
 }
@@ -453,19 +487,27 @@ func TestBidiStream_HeaderTrailerCallbacks(t *testing.T) {
 
 	// Verify items.
 	itemsVal := env.runtime.Get("items")
-	require.NotNil(t, itemsVal)
+	if itemsVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	itemsExport := itemsVal.Export().([]any)
-	assert.Len(t, itemsExport, 1)
+	if got := len(itemsExport); got != 1 {
+		t.Errorf("expected len %d, got %d", 1, got)
+	}
 
 	// Verify headers.
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-stream-type", "bidi")
 
 	// Verify trailers.
 	trls := env.runtime.Get("receivedTrailers")
-	require.NotNil(t, trls)
+	if trls == nil {
+		t.Fatalf("expected non-nil")
+	}
 	trlsObj := trls.Export().(map[string]any)
 	assertMetadataContains(t, trlsObj, "x-bidi-done", "yes")
 }
@@ -512,8 +554,12 @@ func TestServerHandler_RequestHeaderAccess(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "auth=token-123 trace=trace-456", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "auth=token-123 trace=trace-456" {
+		t.Errorf("expected %v, got %v", "auth=token-123 trace=trace-456", got)
+	}
 }
 
 func TestServerHandler_RequestHeaderEmpty(t *testing.T) {
@@ -554,8 +600,12 @@ func TestServerHandler_RequestHeaderEmpty(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "keys=0", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "keys=0" {
+		t.Errorf("expected %v, got %v", "keys=0", got)
+	}
 }
 
 // -------------- Server-side sendHeader (explicit early headers) ----------------
@@ -612,7 +662,9 @@ func TestServerStream_SendHeader_ExplicitEarly(t *testing.T) {
 	`, defaultTimeout)
 
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-early", "true")
 }
@@ -660,7 +712,9 @@ func TestUnaryRPC_MultipleSetHeader(t *testing.T) {
 	`, defaultTimeout)
 
 	hdrs := env.runtime.Get("receivedHeaders")
-	require.NotNil(t, hdrs)
+	if hdrs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	hdrsObj := hdrs.Export().(map[string]any)
 	assertMetadataContains(t, hdrsObj, "x-first", "1")
 	assertMetadataContains(t, hdrsObj, "x-second", "2")
@@ -697,8 +751,12 @@ func TestCallOpts_OnHeaderNotAFunction(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "onHeader must be a function")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "onHeader must be a function") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "onHeader must be a function")
+	}
 }
 
 func TestCallOpts_OnTrailerNotAFunction(t *testing.T) {
@@ -729,8 +787,12 @@ func TestCallOpts_OnTrailerNotAFunction(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "onTrailer must be a function")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "onTrailer must be a function") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "onTrailer must be a function")
+	}
 }
 
 // -------------- T170: timeoutMs client call option ----------------
@@ -771,9 +833,13 @@ func TestUnaryRPC_TimeoutMs_DeadlineExceeded(t *testing.T) {
 	`, defaultTimeout)
 
 	errObj := env.runtime.Get("error")
-	require.NotNil(t, errObj)
+	if errObj == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := errObj.Export().(map[string]any)
-	assert.Equal(t, int64(4), exported["code"]) // DEADLINE_EXCEEDED = 4
+	if got := exported["code"]; got != int64(4) {
+		t.Errorf("expected %v, got %v", int64(4), got)
+	}
 }
 
 func TestUnaryRPC_TimeoutMs_SuccessBeforeTimeout(t *testing.T) {
@@ -808,8 +874,12 @@ func TestUnaryRPC_TimeoutMs_SuccessBeforeTimeout(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "fast", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "fast" {
+		t.Errorf("expected %v, got %v", "fast", got)
+	}
 }
 
 func TestUnaryRPC_TimeoutMs_ZeroIgnored(t *testing.T) {
@@ -845,8 +915,12 @@ func TestUnaryRPC_TimeoutMs_ZeroIgnored(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // ======================== Test Helpers ==========================
@@ -856,9 +930,17 @@ func TestUnaryRPC_TimeoutMs_ZeroIgnored(t *testing.T) {
 func assertMetadataContains(t *testing.T, obj map[string]any, key, expectedValue string) {
 	t.Helper()
 	vals, ok := obj[key]
-	require.True(t, ok, "metadata key %q not found in %v", key, obj)
+	if !(ok) {
+		t.Fatalf("metadata key %q not found in %v", key, obj)
+	}
 	arr, ok := vals.([]any)
-	require.True(t, ok, "metadata key %q value is not an array: %T", key, vals)
-	require.NotEmpty(t, arr, "metadata key %q has empty array", key)
-	assert.Equal(t, expectedValue, arr[0], "metadata key %q first value", key)
+	if !(ok) {
+		t.Fatalf("metadata key %q value is not an array: %T", key, vals)
+	}
+	if len(arr) == 0 {
+		t.Fatalf("metadata key %q has empty array", key)
+	}
+	if got := arr[0]; got != expectedValue {
+		t.Errorf("metadata key %q first value: expected %v, got %v", key, expectedValue, got)
+	}
 }

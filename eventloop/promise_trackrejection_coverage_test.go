@@ -1,4 +1,4 @@
-// COVERAGE-016: Promise trackRejection Full Coverage Tests
+// Promise trackRejection Full Coverage Tests
 //
 // Tests comprehensive coverage of trackRejection including:
 // - Duplicate microtask prevention via checkRejectionScheduled

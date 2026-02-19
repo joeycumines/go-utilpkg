@@ -9,7 +9,7 @@ import (
 
 const (
 	// defaultChunkSize is the default number of tasks per node in the chunkedIngress linked list.
-	// Can be overridden via WithIngressChunkSize option (EXPAND-033).
+	// Can be overridden via WithIngressChunkSize option.
 	// 64 tasks * 8 bytes/task + overhead = ~512 bytes per chunk.
 	defaultChunkSize = 64
 
@@ -44,18 +44,18 @@ const (
 // - Fixed-size arrays (chunkSize) provide cache locality and amortize allocations.
 // - sync.Pool chunk recycling prevents GC thrashing under high throughput.
 //
-// EXPAND-033: Chunk size is configurable via WithIngressChunkSize option.
+// Chunk size is configurable via WithIngressChunkSize option.
 type chunkedIngress struct { // betteralign:ignore
 	head      *chunk
 	tail      *chunk
 	length    int
-	chunkSize int        // EXPAND-033: Configurable chunk size
-	chunkPool *sync.Pool // EXPAND-033: Per-instance pool for configurable sizes
+	chunkSize int        // Configurable chunk size
+	chunkPool *sync.Pool // Per-instance pool for configurable sizes
 }
 
 // chunk is a node in the chunked linked-list.
 // It uses readPos/writePos cursors for O(1) push/pop without shifting.
-// EXPAND-033: tasks is now a slice instead of fixed-size array to support configurable sizes.
+// tasks is now a slice instead of fixed-size array to support configurable sizes.
 type chunk struct { // betteralign:ignore
 	tasks   []func()
 	next    *chunk
@@ -64,7 +64,7 @@ type chunk struct { // betteralign:ignore
 }
 
 // newChunk creates and returns a new chunk from the pool.
-// EXPAND-033: Uses per-instance pool for configurable chunk sizes.
+// Uses per-instance pool for configurable chunk sizes.
 func (q *chunkedIngress) newChunk() *chunk {
 	c := q.chunkPool.Get().(*chunk)
 	// Reset fields for reuse as the chunk may have been returned with stale data
@@ -85,7 +85,7 @@ func (q *chunkedIngress) newChunk() *chunk {
 //
 // IMP-002 Fix: Clear task slots before returning to prevent memory leaks
 // from retained references to task closures.
-// EXPAND-033: Uses per-instance pool for configurable chunk sizes.
+// Uses per-instance pool for configurable chunk sizes.
 func (q *chunkedIngress) returnChunk(c *chunk) {
 	// Clear all task slots to prevent memory leaks from retained closures
 	// Matches pattern from alternatetwo/returnChunkFast()
@@ -105,7 +105,7 @@ func newChunkedIngress() *chunkedIngress {
 
 // newChunkedIngressWithSize creates a new chunked ingress queue with the specified chunk size.
 //
-// EXPAND-033: The chunk size determines how many tasks are stored per chunk node.
+// The chunk size determines how many tasks are stored per chunk node.
 // Larger sizes improve throughput by reducing allocation frequency but use more memory.
 //
 // The size should be a power of 2 between 16 and 4096 for optimal performance.

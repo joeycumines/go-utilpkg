@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// COVERAGE-019: JS SetInterval/ClearInterval Race Coverage
+// JS SetInterval/ClearInterval Race Coverage
 // Gaps: wrapper executing while ClearInterval called, canceled flag checking at each checkpoint,
 // currentLoopTimerID atomic operations, TOCTOU mitigation verification
 

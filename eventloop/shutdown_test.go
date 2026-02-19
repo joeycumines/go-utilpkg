@@ -218,7 +218,7 @@ func TestLoop_ShutdownWakesSleepingLoop(t *testing.T) {
 }
 
 // TestStopRace verifies that multiple concurrent Stop() callers all return
-// without hanging. This tests CRITICAL #1 fix (stopOnce sync.Once).
+// without hanging. This tests the stopOnce sync.Once fix.
 //
 // Failure Mode WITHOUT Fix:
 //   - Multiple goroutines call Stop() concurrently

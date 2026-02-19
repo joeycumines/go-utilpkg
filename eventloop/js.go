@@ -671,7 +671,7 @@ func (js *JS) Try(fn func() any) *ChainedPromise {
 
 // NextTick schedules a function to run before any microtasks in the current tick.
 //
-// EXPAND-020: This emulates Node.js process.nextTick() semantics. NextTick callbacks
+// This emulates Node.js process.nextTick() semantics. NextTick callbacks
 // have higher priority than regular microtasks (promises, queueMicrotask), meaning
 // they run before any promise handlers in the same tick.
 //
@@ -703,7 +703,7 @@ func (js *JS) NextTick(fn func()) error {
 
 // Sleep returns a promise that resolves after the specified delay.
 //
-// EXPAND-021: This is a convenience helper for promise-based delays,
+// This is a convenience helper for promise-based delays,
 // similar to the delay() or sleep() patterns common in JavaScript.
 //
 // Parameters:

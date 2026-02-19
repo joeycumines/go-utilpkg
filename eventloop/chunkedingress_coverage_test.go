@@ -1,4 +1,4 @@
-// COVERAGE-014: chunkedIngress Full Coverage Tests
+// chunkedIngress Full Coverage Tests
 //
 // Tests comprehensive coverage of chunkedIngress including:
 // - Multi-chunk growth

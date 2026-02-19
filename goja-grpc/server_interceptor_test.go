@@ -2,9 +2,8 @@ package gojagrpc
 
 import (
 	"testing"
+	"strings"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -66,13 +65,23 @@ func TestServerInterceptor_AuthCheck(t *testing.T) {
 	`, defaultTimeout)
 
 	err1 := env.runtime.Get("error1")
-	require.NotNil(t, err1)
-	assert.Contains(t, err1.String(), "16:")
-	assert.Contains(t, err1.String(), "unauthenticated")
+	if err1 == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(err1.String(), "16:") {
+		t.Errorf("expected %q to contain %q", err1.String(), "16:")
+	}
+	if !strings.Contains(err1.String(), "unauthenticated") {
+		t.Errorf("expected %q to contain %q", err1.String(), "unauthenticated")
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok:hello", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok:hello" {
+		t.Errorf("expected %v, got %v", "ok:hello", got)
+	}
 }
 
 func TestServerInterceptor_Logging(t *testing.T) {
@@ -116,15 +125,27 @@ func TestServerInterceptor_Logging(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "logged", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "logged" {
+		t.Errorf("expected %v, got %v", "logged", got)
+	}
 
 	logs := env.runtime.Get("logs")
-	require.NotNil(t, logs)
+	if logs == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := logs.Export().([]any)
-	require.Len(t, exported, 2)
-	assert.Equal(t, "before:/testgrpc.TestService/Echo", exported[0])
-	assert.Equal(t, "after:/testgrpc.TestService/Echo", exported[1])
+	if got := len(exported); got != 2 {
+		t.Fatalf("expected len %d, got %d", 2, got)
+	}
+	if got := exported[0]; got != "before:/testgrpc.TestService/Echo" {
+		t.Errorf("expected %v, got %v", "before:/testgrpc.TestService/Echo", got)
+	}
+	if got := exported[1]; got != "after:/testgrpc.TestService/Echo" {
+		t.Errorf("expected %v, got %v", "after:/testgrpc.TestService/Echo", got)
+	}
 }
 
 func TestServerInterceptor_Chain(t *testing.T) {
@@ -175,15 +196,29 @@ func TestServerInterceptor_Chain(t *testing.T) {
 	`, defaultTimeout)
 
 	order := env.runtime.Get("order")
-	require.NotNil(t, order)
+	if order == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := order.Export().([]any)
 	// Onion pattern: first-before → second-before → handler → second-after → first-after
-	require.Len(t, exported, 5)
-	assert.Equal(t, "first-before", exported[0])
-	assert.Equal(t, "second-before", exported[1])
-	assert.Equal(t, "handler", exported[2])
-	assert.Equal(t, "second-after", exported[3])
-	assert.Equal(t, "first-after", exported[4])
+	if got := len(exported); got != 5 {
+		t.Fatalf("expected len %d, got %d", 5, got)
+	}
+	if got := exported[0]; got != "first-before" {
+		t.Errorf("expected %v, got %v", "first-before", got)
+	}
+	if got := exported[1]; got != "second-before" {
+		t.Errorf("expected %v, got %v", "second-before", got)
+	}
+	if got := exported[2]; got != "handler" {
+		t.Errorf("expected %v, got %v", "handler", got)
+	}
+	if got := exported[3]; got != "second-after" {
+		t.Errorf("expected %v, got %v", "second-after", got)
+	}
+	if got := exported[4]; got != "first-after" {
+		t.Errorf("expected %v, got %v", "first-after", got)
+	}
 }
 
 func TestServerInterceptor_AddResponseMetadata(t *testing.T) {
@@ -230,8 +265,12 @@ func TestServerInterceptor_AddResponseMetadata(t *testing.T) {
 	`, defaultTimeout)
 
 	hdr := env.runtime.Get("headerVal")
-	require.NotNil(t, hdr)
-	assert.Equal(t, "was-here", hdr.String())
+	if hdr == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := hdr.String(); got != "was-here" {
+		t.Errorf("expected %v, got %v", "was-here", got)
+	}
 }
 
 func TestServerInterceptor_ErrorMapping(t *testing.T) {
@@ -273,9 +312,15 @@ func TestServerInterceptor_ErrorMapping(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "7:")
-	assert.Contains(t, result.String(), "access denied")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "7:") {
+		t.Errorf("expected %q to contain %q", result.String(), "7:")
+	}
+	if !strings.Contains(result.String(), "access denied") {
+		t.Errorf("expected %q to contain %q", result.String(), "access denied")
+	}
 }
 
 func TestServerInterceptor_MethodAccess(t *testing.T) {
@@ -315,8 +360,12 @@ func TestServerInterceptor_MethodAccess(t *testing.T) {
 	`, defaultTimeout)
 
 	method := env.runtime.Get("capturedMethod")
-	require.NotNil(t, method)
-	assert.Equal(t, "/testgrpc.TestService/Echo", method.String())
+	if method == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := method.String(); got != "/testgrpc.TestService/Echo" {
+		t.Errorf("expected %v, got %v", "/testgrpc.TestService/Echo", got)
+	}
 }
 
 func TestServerInterceptor_AddInterceptorNotAFunction(t *testing.T) {
@@ -335,8 +384,12 @@ func TestServerInterceptor_AddInterceptorNotAFunction(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "addInterceptor: argument must be a function")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "addInterceptor: argument must be a function") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "addInterceptor: argument must be a function")
+	}
 }
 
 func TestServerInterceptor_Chaining(t *testing.T) {
@@ -354,8 +407,12 @@ func TestServerInterceptor_Chaining(t *testing.T) {
 	`, defaultTimeout)
 
 	isSame := env.runtime.Get("isSame")
-	require.NotNil(t, isSame)
-	assert.True(t, isSame.ToBoolean())
+	if isSame == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(isSame.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestServerInterceptor_ServerStream(t *testing.T) {
@@ -419,16 +476,28 @@ func TestServerInterceptor_ServerStream(t *testing.T) {
 	`, defaultTimeout)
 
 	ec := env.runtime.Get("errorCode")
-	require.NotNil(t, ec)
-	assert.Equal(t, int64(16), ec.ToInteger())
+	if ec == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := ec.ToInteger(); got != int64(16) {
+		t.Errorf("expected %v, got %v", int64(16), got)
+	}
 
-	assert.True(t, env.runtime.Get("interceptorCalled").ToBoolean())
+	if !(env.runtime.Get("interceptorCalled").ToBoolean()) {
+		t.Errorf("expected true")
+	}
 
 	items := env.runtime.Get("items")
-	require.NotNil(t, items)
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := items.Export().([]any)
-	require.Len(t, exported, 1)
-	assert.Equal(t, "test", exported[0])
+	if got := len(exported); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
+	if got := exported[0]; got != "test" {
+		t.Errorf("expected %v, got %v", "test", got)
+	}
 }
 
 func TestServerInterceptor_RequestFieldAccess(t *testing.T) {
@@ -473,10 +542,18 @@ func TestServerInterceptor_RequestFieldAccess(t *testing.T) {
 	`, defaultTimeout)
 
 	capturedMsg := env.runtime.Get("capturedMsg")
-	require.NotNil(t, capturedMsg)
-	assert.Equal(t, "intercepted-value", capturedMsg.String())
+	if capturedMsg == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := capturedMsg.String(); got != "intercepted-value" {
+		t.Errorf("expected %v, got %v", "intercepted-value", got)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "echo:intercepted-value", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "echo:intercepted-value" {
+		t.Errorf("expected %v, got %v", "echo:intercepted-value", got)
+	}
 }

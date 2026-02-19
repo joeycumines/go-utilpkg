@@ -111,7 +111,7 @@ type Loop struct {
 	external      *chunkedIngress
 	internal      *chunkedIngress
 	microtasks    *microtaskRing
-	nextTickQueue *microtaskRing                   // EXPAND-020: process.nextTick queue (runs before microtasks)
+	nextTickQueue *microtaskRing                   // process.nextTick queue (runs before microtasks)
 	metrics       *Metrics                         // Phase 5.3: Optional runtime metrics
 	tpsCounter    *tpsCounter                      // Phase 5.3: TPS tracking
 	logger        *logiface.Logger[logiface.Event] // T25: Optional structured logger
@@ -162,7 +162,7 @@ type Loop struct {
 	_                       [2]byte // Align to 8-byte
 	forceNonBlockingPoll    bool
 	strictMicrotaskOrdering bool
-	debugMode               bool       // EXPAND-039: Enable debug features like stack trace capture
+	debugMode               bool       // Enable debug features like stack trace capture
 	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
@@ -225,10 +225,10 @@ func New(opts ...LoopOption) (*Loop, error) {
 	loop := &Loop{
 		id:            loopIDCounter.Add(1),
 		state:         newFastState(),
-		external:      newChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
-		internal:      newChunkedIngressWithSize(options.ingressChunkSize), // EXPAND-033: configurable chunk size
+		external:      newChunkedIngressWithSize(options.ingressChunkSize), // configurable chunk size
+		internal:      newChunkedIngressWithSize(options.ingressChunkSize), // configurable chunk size
 		microtasks:    newMicrotaskRing(),
-		nextTickQueue: newMicrotaskRing(), // EXPAND-020: nextTick runs before microtasks
+		nextTickQueue: newMicrotaskRing(), // nextTick runs before microtasks
 		registry:      newRegistry(),
 		timers:        make(timerHeap, 0),
 		timerMap:      make(map[TimerID]*timer),
@@ -243,7 +243,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	loop.strictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
 	loop.logger = options.logger
-	loop.debugMode = options.debugMode // EXPAND-039: Enable debug mode
+	loop.debugMode = options.debugMode // Enable debug mode
 
 	// Phase 5.3: Initialize metrics if enabled
 	if options.metricsEnabled {
@@ -896,7 +896,7 @@ func (l *Loop) processExternal() {
 }
 
 // drainMicrotasks drains the microtask queue.
-// EXPAND-020: nextTick callbacks run before regular microtasks (like Node.js).
+// nextTick callbacks run before regular microtasks (like Node.js).
 func (l *Loop) drainMicrotasks() {
 	const budget = 1024
 
@@ -1411,7 +1411,7 @@ func (l *Loop) scheduleMicrotask(task func()) {
 
 // ScheduleNextTick schedules a function to run before any microtasks in the current tick.
 //
-// EXPAND-020: This emulates Node.js process.nextTick() semantics. NextTick callbacks
+// This emulates Node.js process.nextTick() semantics. NextTick callbacks
 // have higher priority than regular microtasks (promises, queueMicrotask), meaning
 // they run before any promise handlers in the same tick.
 //
@@ -1740,7 +1740,7 @@ func (l *Loop) CancelTimer(id TimerID) error {
 
 // CancelTimers cancels multiple scheduled timers in a single batch operation.
 //
-// EXPAND-034: This is more efficient than calling CancelTimer multiple times because
+// This is more efficient than calling CancelTimer multiple times because
 // it acquires the lock once, removes all matching timers, and returns pool entries once.
 //
 // Returns a slice of errors corresponding to each timer ID:
@@ -1865,9 +1865,7 @@ func (l *Loop) safeExecuteFn(fn func()) {
 	fn()
 }
 
-// ===============================================
-// EXPAND-015: Structured Error Logging Helpers
-// ===============================================
+// Structured Error Logging Helpers
 
 // logError logs an error message using structured logging if configured,
 // otherwise falls back to log.Printf for backward compatibility.

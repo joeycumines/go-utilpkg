@@ -1,11 +1,11 @@
 package gojagrpc
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -184,7 +184,9 @@ func newGrpcTestEnvWithComplexDescriptors(t *testing.T) *grpcTestEnv {
 	t.Helper()
 	env := newGrpcTestEnv(t)
 	_, err := env.pbMod.LoadDescriptorSetBytes(complexTestDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return env
 }
 
@@ -216,15 +218,23 @@ func TestReflection_DescribeType_MessageKindField(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testcomplex.Person", desc["name"])
+	if got := desc["name"]; got != "testcomplex.Person" {
+		t.Errorf("expected %v, got %v", "testcomplex.Person", got)
+	}
 
 	fields := desc["fields"].([]any)
-	require.Len(t, fields, 5) // name, status, address, email, phone
+	if got := len(fields); got != 5 {
+		t.Fatalf("expected len %d, got %d", 5, got)
+	}
 
 	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
@@ -234,25 +244,47 @@ func TestReflection_DescribeType_MessageKindField(t *testing.T) {
 
 	// MessageKind field — should have "messageType" set.
 	addressField := fieldMap["address"]
-	require.NotNil(t, addressField, "address field not found")
-	assert.Equal(t, "message", addressField["type"])
-	assert.Equal(t, "testcomplex.Address", addressField["messageType"])
+	if addressField == nil {
+		t.Fatalf("address field not found")
+	}
+	if got := addressField["type"]; got != "message" {
+		t.Errorf("expected %v, got %v", "message", got)
+	}
+	if got := addressField["messageType"]; got != "testcomplex.Address" {
+		t.Errorf("expected %v, got %v", "testcomplex.Address", got)
+	}
 
 	// EnumKind field — should have "enumType" set.
 	statusField := fieldMap["status"]
-	require.NotNil(t, statusField, "status field not found")
-	assert.Equal(t, "enum", statusField["type"])
-	assert.Equal(t, "testcomplex.Status", statusField["enumType"])
+	if statusField == nil {
+		t.Fatalf("status field not found")
+	}
+	if got := statusField["type"]; got != "enum" {
+		t.Errorf("expected %v, got %v", "enum", got)
+	}
+	if got := statusField["enumType"]; got != "testcomplex.Status" {
+		t.Errorf("expected %v, got %v", "testcomplex.Status", got)
+	}
 
 	// Oneofs - should have oneof "contact" with fields "email" and "phone".
 	oneofs := desc["oneofs"].([]any)
-	require.Len(t, oneofs, 1)
+	if got := len(oneofs); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 	oneof := oneofs[0].(map[string]any)
-	assert.Equal(t, "contact", oneof["name"])
+	if got := oneof["name"]; got != "contact" {
+		t.Errorf("expected %v, got %v", "contact", got)
+	}
 	oneofFields := oneof["fields"].([]any)
-	require.Len(t, oneofFields, 2)
-	assert.Equal(t, "email", oneofFields[0])
-	assert.Equal(t, "phone", oneofFields[1])
+	if got := len(oneofFields); got != 2 {
+		t.Fatalf("expected len %d, got %d", 2, got)
+	}
+	if got := oneofFields[0]; got != "email" {
+		t.Errorf("expected %v, got %v", "email", got)
+	}
+	if got := oneofFields[1]; got != "phone" {
+		t.Errorf("expected %v, got %v", "phone", got)
+	}
 }
 
 // TestReflection_DescribeType_HasDefaultField tests that the
@@ -284,15 +316,23 @@ func TestReflection_DescribeType_HasDefaultField(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testproto2.LegacyMessage", desc["name"])
+	if got := desc["name"]; got != "testproto2.LegacyMessage" {
+		t.Errorf("expected %v, got %v", "testproto2.LegacyMessage", got)
+	}
 
 	fields := desc["fields"].([]any)
-	require.Len(t, fields, 2)
+	if got := len(fields); got != 2 {
+		t.Fatalf("expected len %d, got %d", 2, got)
+	}
 
 	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
@@ -302,15 +342,25 @@ func TestReflection_DescribeType_HasDefaultField(t *testing.T) {
 
 	// HasDefault field — should have "defaultValue" set.
 	valueField := fieldMap["value"]
-	require.NotNil(t, valueField, "value field not found")
-	assert.Equal(t, "int32", valueField["type"])
-	assert.Equal(t, "42", valueField["defaultValue"])
+	if valueField == nil {
+		t.Fatalf("value field not found")
+	}
+	if got := valueField["type"]; got != "int32" {
+		t.Errorf("expected %v, got %v", "int32", got)
+	}
+	if got := valueField["defaultValue"]; got != "42" {
+		t.Errorf("expected %v, got %v", "42", got)
+	}
 
 	// Non-default field — should NOT have "defaultValue".
 	labelField := fieldMap["label"]
-	require.NotNil(t, labelField, "label field not found")
+	if labelField == nil {
+		t.Fatalf("label field not found")
+	}
 	_, hasDefault := labelField["defaultValue"]
-	assert.False(t, hasDefault, "label should not have defaultValue")
+	if hasDefault {
+		t.Errorf("label should not have defaultValue")
+	}
 }
 
 // TestReflection_DescribeService_NotAService tests the error path
@@ -340,8 +390,12 @@ func TestReflection_DescribeService_NotAService(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "not a service")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "not a service") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "not a service")
+	}
 }
 
 // TestReflection_DescribeType_NotAMessage tests the error path
@@ -372,8 +426,12 @@ func TestReflection_DescribeType_NotAMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "not a message type")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "not a message type") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "not a message type")
+	}
 }
 
 // ============================================================================
@@ -392,7 +450,9 @@ func TestStatusCreateError_DetailsPrimitive(t *testing.T) {
 		var err = grpc.status.createError(13, 'test-msg', true);
 		err.code + ':' + err.message + ':' + err.details.length;
 	`)
-	assert.Equal(t, "13:test-msg:0", val.String())
+	if got := val.String(); got != "13:test-msg:0" {
+		t.Errorf("expected %v, got %v", "13:test-msg:0", got)
+	}
 }
 
 func TestStatusCreateError_DetailsNumber(t *testing.T) {
@@ -403,7 +463,9 @@ func TestStatusCreateError_DetailsNumber(t *testing.T) {
 		var err = grpc.status.createError(13, 'test-msg', 42);
 		err.code + ':' + err.message + ':' + err.details.length;
 	`)
-	assert.Equal(t, "13:test-msg:0", val.String())
+	if got := val.String(); got != "13:test-msg:0" {
+		t.Errorf("expected %v, got %v", "13:test-msg:0", got)
+	}
 }
 
 // ============================================================================
@@ -423,7 +485,9 @@ func TestStatusCreateError_DetailsWithInvalidElements(t *testing.T) {
 		err.code + ':' + err.details.length;
 	`)
 	// All 3 elements are non-nil/non-undefined so they all appear in the JS details array.
-	assert.Equal(t, "13:3", val.String())
+	if got := val.String(); got != "13:3" {
+		t.Errorf("expected %v, got %v", "13:3", got)
+	}
 }
 
 func TestStatusCreateError_DetailsWithValidMessage(t *testing.T) {
@@ -439,7 +503,9 @@ func TestStatusCreateError_DetailsWithValidMessage(t *testing.T) {
 		var err = grpc.status.createError(13, 'test-msg', [detail]);
 		err.code + ':' + err.details.length;
 	`)
-	assert.Equal(t, "13:1", val.String())
+	if got := val.String(); got != "13:1" {
+		t.Errorf("expected %v, got %v", "13:1", got)
+	}
 }
 
 // ============================================================================
@@ -456,7 +522,9 @@ func TestExtractGoDetails_Direct_WrongType(t *testing.T) {
 	// Set _goDetails to something that's not a *goDetailsHolder.
 	_ = obj.Set("_goDetails", 42)
 	result := env.grpcMod.extractGoDetails(obj)
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 func TestExtractGoDetails_Direct_NilValue(t *testing.T) {
@@ -466,7 +534,9 @@ func TestExtractGoDetails_Direct_NilValue(t *testing.T) {
 	obj := env.grpcMod.newGrpcError(codes.Internal, "test")
 	// _goDetails not set at all — should return nil.
 	result := env.grpcMod.extractGoDetails(obj)
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 // ============================================================================
@@ -489,7 +559,9 @@ func TestWrapStatusDetails_Direct_UnknownType(t *testing.T) {
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
 	// Unknown type should be silently skipped.
-	assert.Equal(t, int64(0), arr.Get("length").ToInteger())
+	if got := arr.Get("length").ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestWrapStatusDetails_Direct_NonMessageType(t *testing.T) {
@@ -505,7 +577,9 @@ func TestWrapStatusDetails_Direct_NonMessageType(t *testing.T) {
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
 	// Enum type should be skipped (not a message).
-	assert.Equal(t, int64(0), arr.Get("length").ToInteger())
+	if got := arr.Get("length").ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestWrapStatusDetails_Direct_CorruptedData(t *testing.T) {
@@ -521,7 +595,9 @@ func TestWrapStatusDetails_Direct_CorruptedData(t *testing.T) {
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
 	// Unmarshal error should be silently skipped.
-	assert.Equal(t, int64(0), arr.Get("length").ToInteger())
+	if got := arr.Get("length").ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestWrapStatusDetails_Direct_ValidDetail(t *testing.T) {
@@ -537,7 +613,9 @@ func TestWrapStatusDetails_Direct_ValidDetail(t *testing.T) {
 		},
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
-	assert.Equal(t, int64(1), arr.Get("length").ToInteger())
+	if got := arr.Get("length").ToInteger(); got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -585,10 +663,16 @@ func TestServerInterceptor_ChainReturnsNonCallable(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
-	assert.Contains(t, resultObj["message"].(string), "interceptor chain")
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "interceptor chain") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "interceptor chain")
+	}
 }
 
 func TestServerInterceptor_ChainThrowsError(t *testing.T) {
@@ -628,10 +712,14 @@ func TestServerInterceptor_ChainThrowsError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
 	// The interceptor factory threw → Internal error.
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -691,8 +779,12 @@ func TestClientInterceptors_NotAnArray(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 func TestClientInterceptors_ElementNotFunction(t *testing.T) {
@@ -705,7 +797,9 @@ func TestClientInterceptors_ElementNotFunction(t *testing.T) {
 			interceptors: [42]
 		});
 	`)
-	assert.Contains(t, err.Error(), "not a function")
+	if !strings.Contains(err.Error(), "not a function") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not a function")
+	}
 }
 
 // ============================================================================
@@ -751,8 +845,12 @@ func TestClientInterceptor_FactoryThrows(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "interceptor factory error")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "interceptor factory error") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptor factory error")
+	}
 }
 
 func TestClientInterceptor_ReturnsNonCallable(t *testing.T) {
@@ -792,8 +890,12 @@ func TestClientInterceptor_ReturnsNonCallable(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "interceptor chain")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "interceptor chain") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptor chain")
+	}
 }
 
 // ============================================================================
@@ -811,7 +913,9 @@ func TestParseChannelOpt_WrongNativeType(t *testing.T) {
 		var fakeChannel = { _conn: 42, close: function(){}, target: function(){} };
 		grpc.createClient('testgrpc.TestService', { channel: fakeChannel });
 	`)
-	assert.Contains(t, err.Error(), "channel must be a dial() result")
+	if !strings.Contains(err.Error(), "channel must be a dial() result") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must be a dial() result")
+	}
 }
 
 func TestParseChannelOpt_MissingConn(t *testing.T) {
@@ -822,7 +926,9 @@ func TestParseChannelOpt_MissingConn(t *testing.T) {
 		var fakeChannel = { close: function(){}, target: function(){} };
 		grpc.createClient('testgrpc.TestService', { channel: fakeChannel });
 	`)
-	assert.Contains(t, err.Error(), "channel must be a dial() result")
+	if !strings.Contains(err.Error(), "channel must be a dial() result") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must be a dial() result")
+	}
 }
 
 func TestParseChannelOpt_NotAnObject(t *testing.T) {
@@ -832,7 +938,9 @@ func TestParseChannelOpt_NotAnObject(t *testing.T) {
 	err := env.mustFail(t, `
 		grpc.createClient('testgrpc.TestService', { channel: "not-an-object" });
 	`)
-	assert.Contains(t, err.Error(), "channel must be a dial() result")
+	if !strings.Contains(err.Error(), "channel must be a dial() result") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must be a dial() result")
+	}
 }
 
 // ============================================================================
@@ -846,7 +954,9 @@ func TestMetadataToGo_Direct_NilInput(t *testing.T) {
 	defer env.shutdown()
 
 	result := env.grpcMod.metadataToGo(nil)
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 func TestMetadataToGo_Direct_NullInput(t *testing.T) {
@@ -854,7 +964,9 @@ func TestMetadataToGo_Direct_NullInput(t *testing.T) {
 	defer env.shutdown()
 
 	result := env.grpcMod.metadataToGo(goja.Null())
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 func TestMetadataToGo_Direct_UndefinedInput(t *testing.T) {
@@ -862,7 +974,9 @@ func TestMetadataToGo_Direct_UndefinedInput(t *testing.T) {
 	defer env.shutdown()
 
 	result := env.grpcMod.metadataToGo(goja.Undefined())
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 func TestMetadataToGo_Direct_Primitive(t *testing.T) {
@@ -870,7 +984,9 @@ func TestMetadataToGo_Direct_Primitive(t *testing.T) {
 	defer env.shutdown()
 
 	result := env.grpcMod.metadataToGo(env.runtime.ToValue(42))
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 // ============================================================================
@@ -922,12 +1038,20 @@ func TestServerHandler_SetHeaderFromInterceptor(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 
 	hdr := env.runtime.Get("headerVal")
-	require.NotNil(t, hdr)
-	assert.Equal(t, "value", hdr.String())
+	if hdr == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := hdr.String(); got != "value" {
+		t.Errorf("expected %v, got %v", "value", got)
+	}
 }
 
 // ============================================================================
@@ -947,15 +1071,25 @@ func TestJsValueToGRPCError_Direct_GrpcErrorWithDetails(t *testing.T) {
 		detail.set('message', 'detail-info');
 		grpc.status.createError(5, 'not found', [detail]);
 	`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 
 	err := env.grpcMod.jsValueToGRPCError(val)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.NotFound, s.Code())
-	assert.Contains(t, s.Message(), "not found")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.NotFound {
+		t.Errorf("expected %v, got %v", codes.NotFound, got)
+	}
+	if !strings.Contains(s.Message(), "not found") {
+		t.Errorf("expected %q to contain %q", s.Message(), "not found")
+	}
 	// Details should be preserved via extractGoDetails.
-	assert.Len(t, s.Proto().GetDetails(), 1)
+	if got := len(s.Proto().GetDetails()); got != 1 {
+		t.Errorf("expected len %d, got %d", 1, got)
+	}
 }
 
 func TestJsValueToGRPCError_Direct_GrpcErrorNoDetails(t *testing.T) {
@@ -965,13 +1099,21 @@ func TestJsValueToGRPCError_Direct_GrpcErrorNoDetails(t *testing.T) {
 	val, jsErr := env.runtime.RunString(`
 		grpc.status.createError(5, 'simple error');
 	`)
-	require.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 
 	err := env.grpcMod.jsValueToGRPCError(val)
 	s, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.NotFound, s.Code())
-	assert.Len(t, s.Proto().GetDetails(), 0)
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := s.Code(); got != codes.NotFound {
+		t.Errorf("expected %v, got %v", codes.NotFound, got)
+	}
+	if got := len(s.Proto().GetDetails()); got != 0 {
+		t.Errorf("expected len %d, got %d", 0, got)
+	}
 }
 
 // ============================================================================
@@ -1014,8 +1156,12 @@ func TestUnaryRPC_WithTimeoutMs(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "fast", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "fast" {
+		t.Errorf("expected %v, got %v", "fast", got)
+	}
 }
 
 // ============================================================================
@@ -1088,18 +1234,32 @@ func TestServerStreamRPC_WithHeaderTrailerCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	hdr := env.runtime.Get("headerReceived")
-	require.NotNil(t, hdr)
-	assert.Equal(t, "header-value", hdr.String())
+	if hdr == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := hdr.String(); got != "header-value" {
+		t.Errorf("expected %v, got %v", "header-value", got)
+	}
 
 	trailer := env.runtime.Get("trailerReceived")
-	require.NotNil(t, trailer)
-	assert.Equal(t, "trailer-value", trailer.String())
+	if trailer == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := trailer.String(); got != "trailer-value" {
+		t.Errorf("expected %v, got %v", "trailer-value", got)
+	}
 
 	items := env.runtime.Get("items")
-	require.NotNil(t, items)
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
 	arr := items.Export().([]any)
-	assert.Equal(t, 1, len(arr))
-	assert.Equal(t, "item1", arr[0])
+	if got := len(arr); got != 1 {
+		t.Errorf("expected %v, got %v", 1, got)
+	}
+	if got := arr[0]; got != "item1" {
+		t.Errorf("expected %v, got %v", "item1", got)
+	}
 }
 
 // ============================================================================
@@ -1184,12 +1344,20 @@ func TestClientStreamRPC_WithHeaderTrailerCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "received:1", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "received:1" {
+		t.Errorf("expected %v, got %v", "received:1", got)
+	}
 
 	trailer := env.runtime.Get("trailerReceived")
-	require.NotNil(t, trailer)
-	assert.Equal(t, "cs-trailer", trailer.String())
+	if trailer == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := trailer.String(); got != "cs-trailer" {
+		t.Errorf("expected %v, got %v", "cs-trailer", got)
+	}
 }
 
 // ============================================================================
@@ -1279,18 +1447,32 @@ func TestBidiStreamRPC_WithHeaderTrailerCallbacks(t *testing.T) {
 	`, defaultTimeout)
 
 	hdr := env.runtime.Get("headerReceived")
-	require.NotNil(t, hdr)
-	assert.Equal(t, "bidi-h", hdr.String())
+	if hdr == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := hdr.String(); got != "bidi-h" {
+		t.Errorf("expected %v, got %v", "bidi-h", got)
+	}
 
 	trailer := env.runtime.Get("trailerReceived")
-	require.NotNil(t, trailer)
-	assert.Equal(t, "bidi-t", trailer.String())
+	if trailer == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := trailer.String(); got != "bidi-t" {
+		t.Errorf("expected %v, got %v", "bidi-t", got)
+	}
 
 	items := env.runtime.Get("received")
-	require.NotNil(t, items)
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
 	arr := items.Export().([]any)
-	assert.Equal(t, 1, len(arr))
-	assert.Equal(t, "echo-alpha", arr[0])
+	if got := len(arr); got != 1 {
+		t.Errorf("expected %v, got %v", 1, got)
+	}
+	if got := arr[0]; got != "echo-alpha" {
+		t.Errorf("expected %v, got %v", "echo-alpha", got)
+	}
 }
 
 // ============================================================================
@@ -1336,8 +1518,12 @@ func TestServerHandler_SetTrailerNil(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 }
 
 // ============================================================================
@@ -1354,7 +1540,9 @@ func TestStatusCreateError_EmptyDetailsArray(t *testing.T) {
 		var err = grpc.status.createError(13, 'msg', []);
 		err.code + ':' + err.details.length;
 	`)
-	assert.Equal(t, "13:0", val.String())
+	if got := val.String(); got != "13:0" {
+		t.Errorf("expected %v, got %v", "13:0", got)
+	}
 }
 
 // ============================================================================
@@ -1371,7 +1559,9 @@ func TestStatusCreateError_DetailsObjectNoLength(t *testing.T) {
 		var err = grpc.status.createError(13, 'msg', {});
 		err.code + ':' + err.details.length;
 	`)
-	assert.Equal(t, "13:0", val.String())
+	if got := val.String(); got != "13:0" {
+		t.Errorf("expected %v, got %v", "13:0", got)
+	}
 }
 
 // ============================================================================
@@ -1385,7 +1575,9 @@ func TestToWrappedMessage_Direct_SlowPath_BadMarshal(t *testing.T) {
 	defer env.shutdown()
 
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Cast to protoreflect.MessageDescriptor which is what toWrappedMessage expects.
 	md := desc.(protoreflect.MessageDescriptor)
@@ -1393,8 +1585,12 @@ func TestToWrappedMessage_Direct_SlowPath_BadMarshal(t *testing.T) {
 	// badMarshalMsg is not a proto.Message — should trigger the
 	// "not a proto.Message" error path.
 	_, convErr := env.grpcMod.toWrappedMessage(badMarshalMsg{}, md)
-	require.Error(t, convErr)
-	assert.Contains(t, convErr.Error(), "not a proto.Message")
+	if convErr == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(convErr.Error(), "not a proto.Message") {
+		t.Errorf("expected %q to contain %q", convErr.Error(), "not a proto.Message")
+	}
 }
 
 // ============================================================================
@@ -1426,20 +1622,34 @@ func TestReflection_DescribeComplexService(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testcomplex.PersonService", desc["name"])
+	if got := desc["name"]; got != "testcomplex.PersonService" {
+		t.Errorf("expected %v, got %v", "testcomplex.PersonService", got)
+	}
 
 	methods := desc["methods"].([]any)
-	require.Len(t, methods, 1)
+	if got := len(methods); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 
 	mObj := methods[0].(map[string]any)
-	assert.Equal(t, "GetPerson", mObj["name"])
-	assert.Equal(t, "testcomplex.Address", mObj["inputType"])
-	assert.Equal(t, "testcomplex.Person", mObj["outputType"])
+	if got := mObj["name"]; got != "GetPerson" {
+		t.Errorf("expected %v, got %v", "GetPerson", got)
+	}
+	if got := mObj["inputType"]; got != "testcomplex.Address" {
+		t.Errorf("expected %v, got %v", "testcomplex.Address", got)
+	}
+	if got := mObj["outputType"]; got != "testcomplex.Person" {
+		t.Errorf("expected %v, got %v", "testcomplex.Person", got)
+	}
 }
 
 // ============================================================================
@@ -1480,18 +1690,26 @@ func TestReflection_ListServicesWithComplex(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	serviceList := result.Export().([]any)
 
 	var names []string
 	for _, s := range serviceList {
 		names = append(names, s.(string))
 	}
-	assert.Contains(t, names, "testgrpc.TestService")
-	assert.Contains(t, names, "testcomplex.PersonService")
+	if !slices.Contains(names, "testgrpc.TestService") {
+		t.Errorf("expected %q to contain %q", names, "testgrpc.TestService")
+	}
+	if !slices.Contains(names, "testcomplex.PersonService") {
+		t.Errorf("expected %q to contain %q", names, "testcomplex.PersonService")
+	}
 }
 
 // ============================================================================
@@ -1523,18 +1741,30 @@ func TestReflection_DescribeType_Address(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testcomplex.Address", desc["name"])
+	if got := desc["name"]; got != "testcomplex.Address" {
+		t.Errorf("expected %v, got %v", "testcomplex.Address", got)
+	}
 
 	fields := desc["fields"].([]any)
-	require.Len(t, fields, 1)
+	if got := len(fields); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 	field := fields[0].(map[string]any)
-	assert.Equal(t, "street", field["name"])
-	assert.Equal(t, "string", field["type"])
+	if got := field["name"]; got != "street" {
+		t.Errorf("expected %v, got %v", "street", got)
+	}
+	if got := field["type"]; got != "string" {
+		t.Errorf("expected %v, got %v", "string", got)
+	}
 }
 
 // ============================================================================
@@ -1584,16 +1814,28 @@ func TestUnaryRPC_WithOnHeaderNoServerHeaders(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "ok", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "ok" {
+		t.Errorf("expected %v, got %v", "ok", got)
+	}
 
 	hCalled := env.runtime.Get("headerCalled")
-	require.NotNil(t, hCalled)
-	assert.True(t, hCalled.ToBoolean())
+	if hCalled == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(hCalled.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 
 	tCalled := env.runtime.Get("trailerCalled")
-	require.NotNil(t, tCalled)
-	assert.True(t, tCalled.ToBoolean())
+	if tCalled == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(tCalled.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // ============================================================================
@@ -1650,12 +1892,20 @@ func TestUnaryRPC_WithInterceptors_FullChain(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "response:intercepted", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "response:intercepted" {
+		t.Errorf("expected %v, got %v", "response:intercepted", got)
+	}
 
 	ic := env.runtime.Get("interceptorCalled")
-	require.NotNil(t, ic)
-	assert.True(t, ic.ToBoolean())
+	if ic == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(ic.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestUnaryRPC_WithInterceptors_ModifyMetadata(t *testing.T) {
@@ -1701,8 +1951,12 @@ func TestUnaryRPC_WithInterceptors_ModifyMetadata(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "from-interceptor", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "from-interceptor" {
+		t.Errorf("expected %v, got %v", "from-interceptor", got)
+	}
 }
 
 // ============================================================================
@@ -1752,10 +2006,16 @@ func TestServerUnaryHandler_ReturnsUndefined(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
-	assert.Contains(t, resultObj["message"].(string), "nil/undefined")
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "nil/undefined") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "nil/undefined")
+	}
 }
 
 func TestServerUnaryHandler_ReturnsNull(t *testing.T) {
@@ -1789,10 +2049,16 @@ func TestServerUnaryHandler_ReturnsNull(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
-	assert.Contains(t, resultObj["message"].(string), "nil/undefined")
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "nil/undefined") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "nil/undefined")
+	}
 }
 
 // ============================================================================
@@ -1833,10 +2099,16 @@ func TestServerUnaryHandler_ReturnsNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
-	assert.Contains(t, resultObj["message"].(string), "handler response")
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "handler response") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "handler response")
+	}
 }
 
 // ============================================================================
@@ -1878,9 +2150,13 @@ func TestServerUnaryHandler_AsyncReturnsNull(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -1922,9 +2198,13 @@ func TestServerUnaryHandler_AsyncReturnsNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -1969,9 +2249,13 @@ func TestServerStreamHandler_ThrowsError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -2018,9 +2302,13 @@ func TestServerStreamHandler_AsyncRejects(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(7), resultObj["code"])
+	if got := resultObj["code"]; got != int64(7) {
+		t.Errorf("expected %v, got %v", int64(7), got)
+	}
 }
 
 // ============================================================================
@@ -2069,8 +2357,12 @@ func TestServerStreamHandler_SendNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("sendError")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "send")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "send") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "send")
+	}
 }
 
 // ============================================================================
@@ -2109,8 +2401,12 @@ func TestReflection_ListServices_NoReflectionEnabled(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.NotEqual(t, "should-not-succeed", errVal.String())
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := errVal.String(); got == "should-not-succeed" {
+		t.Errorf("unexpected value: %v", got)
+	}
 }
 
 func TestReflection_DescribeService_NoReflectionEnabled(t *testing.T) {
@@ -2139,8 +2435,12 @@ func TestReflection_DescribeService_NoReflectionEnabled(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.NotEqual(t, "should-not-succeed", errVal.String())
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := errVal.String(); got == "should-not-succeed" {
+		t.Errorf("unexpected value: %v", got)
+	}
 }
 
 func TestReflection_DescribeType_NoReflectionEnabled(t *testing.T) {
@@ -2169,8 +2469,12 @@ func TestReflection_DescribeType_NoReflectionEnabled(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.NotEqual(t, "should-not-succeed", errVal.String())
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := errVal.String(); got == "should-not-succeed" {
+		t.Errorf("unexpected value: %v", got)
+	}
 }
 
 // ============================================================================
@@ -2206,8 +2510,12 @@ func TestReflection_DescribeService_NonExistent(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.NotEqual(t, "should-not-succeed", errVal.String())
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := errVal.String(); got == "should-not-succeed" {
+		t.Errorf("unexpected value: %v", got)
+	}
 }
 
 func TestReflection_DescribeType_NonExistent(t *testing.T) {
@@ -2237,8 +2545,12 @@ func TestReflection_DescribeType_NonExistent(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.NotEqual(t, "should-not-succeed", errVal.String())
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := errVal.String(); got == "should-not-succeed" {
+		t.Errorf("unexpected value: %v", got)
+	}
 }
 
 // ============================================================================
@@ -2291,9 +2603,13 @@ func TestClientStreamHandler_ReturnsNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -2335,9 +2651,13 @@ func TestBidiHandler_ThrowsSyncError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -2381,9 +2701,13 @@ func TestBidiHandler_AsyncRejectsWithGrpcError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(16), resultObj["code"])
+	if got := resultObj["code"]; got != int64(16) {
+		t.Errorf("expected %v, got %v", int64(16), got)
+	}
 }
 
 // ============================================================================
@@ -2429,8 +2753,12 @@ func TestUnaryRPC_WithMetadata_ServerReadback(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "from-client", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "from-client" {
+		t.Errorf("expected %v, got %v", "from-client", got)
+	}
 }
 
 // ============================================================================
@@ -2470,10 +2798,16 @@ func TestServerUnaryHandler_ThrowsGrpcError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(3), resultObj["code"])
-	assert.Contains(t, resultObj["message"].(string), "invalid argument")
+	if got := resultObj["code"]; got != int64(3) {
+		t.Errorf("expected %v, got %v", int64(3), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "invalid argument") {
+		t.Errorf("expected %q to contain %q", resultObj["message"].(string), "invalid argument")
+	}
 }
 
 // ============================================================================
@@ -2543,7 +2877,9 @@ func TestServerStreamRPC_WithSignalAbort(t *testing.T) {
 	result := env.runtime.Get("error")
 	if result != nil && !isGojaUndefined(result) {
 		resultObj := result.Export().(map[string]any)
-		assert.Equal(t, int64(codes.Canceled), resultObj["code"])
+		if got := resultObj["code"]; got != int64(codes.Canceled) {
+			t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+		}
 	}
 }
 
@@ -2600,7 +2936,9 @@ func TestServerHandler_SetHeaderAfterSendHeader(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// With inprocgrpc, SetHeader after SendHeader may or may not error.
 	// The test still exercises the code path.
 	t.Logf("result=%v, setHeaderError=%v", result, env.runtime.Get("setHeaderError"))
@@ -2660,8 +2998,12 @@ func TestClientStreamRPC_SendNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "send")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "send") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "send")
+	}
 }
 
 // ============================================================================
@@ -2706,8 +3048,12 @@ func TestBidiStreamRPC_SendNonProtobuf(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "send")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "send") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "send")
+	}
 }
 
 // ============================================================================
@@ -2733,7 +3079,9 @@ func TestServerStreamRPC_NonProtobufRequest(t *testing.T) {
 		var client = grpc.createClient('testgrpc.TestService');
 		client.serverStream("not a protobuf");
 	`)
-	assert.Contains(t, err.Error(), "server-stream")
+	if !strings.Contains(err.Error(), "server-stream") {
+		t.Errorf("expected %q to contain %q", err.Error(), "server-stream")
+	}
 }
 
 // ============================================================================
@@ -2765,8 +3113,12 @@ func TestReflection_DescribeEnum(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "not a message type")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "not a message type") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "not a message type")
+	}
 }
 
 // ============================================================================
@@ -2810,9 +3162,13 @@ func TestClientStreamHandler_ThrowsSyncError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -2860,9 +3216,13 @@ func TestClientStreamHandler_AsyncReturnsNull(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, int64(codes.Internal), resultObj["code"])
+	if got := resultObj["code"]; got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 }
 
 // ============================================================================
@@ -2878,7 +3238,9 @@ func TestDial_NoAddress(t *testing.T) {
 	err := env.mustFail(t, `
 		grpc.dial();
 	`)
-	assert.NotNil(t, err)
+	if err == nil {
+		t.Errorf("expected non-nil")
+	}
 }
 
 // ============================================================================
@@ -2912,15 +3274,23 @@ func TestReflection_DescribeType_LegacyMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testproto2.LegacyMessage", desc["name"])
+	if got := desc["name"]; got != "testproto2.LegacyMessage" {
+		t.Errorf("expected %v, got %v", "testproto2.LegacyMessage", got)
+	}
 
 	fields := desc["fields"].([]any)
-	require.Len(t, fields, 2)
+	if got := len(fields); got != 2 {
+		t.Fatalf("expected len %d, got %d", 2, got)
+	}
 
 	fieldMap := make(map[string]map[string]any)
 	for _, f := range fields {
@@ -2930,8 +3300,12 @@ func TestReflection_DescribeType_LegacyMessage(t *testing.T) {
 
 	// value field has default "42"
 	valueField := fieldMap["value"]
-	require.NotNil(t, valueField)
-	assert.Equal(t, "42", valueField["defaultValue"])
+	if valueField == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := valueField["defaultValue"]; got != "42" {
+		t.Errorf("expected %v, got %v", "42", got)
+	}
 }
 
 // ============================================================================
@@ -3015,7 +3389,9 @@ func TestReflection_TransitiveDependencyResolution(t *testing.T) {
 	defer env.shutdown()
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(transitiveDepsDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		var server = grpc.createServer();
@@ -3039,19 +3415,33 @@ func TestReflection_TransitiveDependencyResolution(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testdeps.DependentMessage", desc["name"])
+	if got := desc["name"]; got != "testdeps.DependentMessage" {
+		t.Errorf("expected %v, got %v", "testdeps.DependentMessage", got)
+	}
 
 	fields := desc["fields"].([]any)
-	require.Len(t, fields, 1)
+	if got := len(fields); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 	field := fields[0].(map[string]any)
-	assert.Equal(t, "base", field["name"])
-	assert.Equal(t, "message", field["type"])
-	assert.Equal(t, "testdeps.BaseMessage", field["messageType"])
+	if got := field["name"]; got != "base" {
+		t.Errorf("expected %v, got %v", "base", got)
+	}
+	if got := field["type"]; got != "message" {
+		t.Errorf("expected %v, got %v", "message", got)
+	}
+	if got := field["messageType"]; got != "testdeps.BaseMessage" {
+		t.Errorf("expected %v, got %v", "testdeps.BaseMessage", got)
+	}
 }
 
 func TestReflection_TransitiveDependencyResolution_Service(t *testing.T) {
@@ -3059,7 +3449,9 @@ func TestReflection_TransitiveDependencyResolution_Service(t *testing.T) {
 	defer env.shutdown()
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(transitiveDepsDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		var server = grpc.createServer();
@@ -3082,19 +3474,33 @@ func TestReflection_TransitiveDependencyResolution_Service(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	desc := result.Export().(map[string]any)
-	assert.Equal(t, "testdeps.DependentService", desc["name"])
+	if got := desc["name"]; got != "testdeps.DependentService" {
+		t.Errorf("expected %v, got %v", "testdeps.DependentService", got)
+	}
 
 	methods := desc["methods"].([]any)
-	require.Len(t, methods, 1)
+	if got := len(methods); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 	mObj := methods[0].(map[string]any)
-	assert.Equal(t, "GetDependent", mObj["name"])
-	assert.Equal(t, "testdeps.BaseMessage", mObj["inputType"])
-	assert.Equal(t, "testdeps.DependentMessage", mObj["outputType"])
+	if got := mObj["name"]; got != "GetDependent" {
+		t.Errorf("expected %v, got %v", "GetDependent", got)
+	}
+	if got := mObj["inputType"]; got != "testdeps.BaseMessage" {
+		t.Errorf("expected %v, got %v", "testdeps.BaseMessage", got)
+	}
+	if got := mObj["outputType"]; got != "testdeps.DependentMessage" {
+		t.Errorf("expected %v, got %v", "testdeps.DependentMessage", got)
+	}
 }
 
 // ============================================================================
@@ -3143,8 +3549,12 @@ func TestClientInterceptor_WrapperThrows(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "wrapper function error")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "wrapper function error") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "wrapper function error")
+	}
 }
 
 // ============================================================================
@@ -3193,8 +3603,12 @@ func TestClientInterceptor_NextWithNilBundle(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "interceptor must call next with request")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "interceptor must call next with request") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptor must call next with request")
+	}
 }
 
 func TestClientInterceptor_NextWithInvalidMessage(t *testing.T) {
@@ -3238,8 +3652,12 @@ func TestClientInterceptor_NextWithInvalidMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "invalid message")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "invalid message") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "invalid message")
+	}
 }
 
 // ============================================================================
@@ -3265,7 +3683,9 @@ func TestUnaryRPC_NonProtobufRequest(t *testing.T) {
 		var client = grpc.createClient('testgrpc.TestService');
 		client.echo("not a protobuf");
 	`)
-	assert.Contains(t, err.Error(), "unary")
+	if !strings.Contains(err.Error(), "unary") {
+		t.Errorf("expected %q to contain %q", err.Error(), "unary")
+	}
 }
 
 // ============================================================================
@@ -3312,8 +3732,12 @@ func TestServerStreamHandler_SyncNoSend(t *testing.T) {
 	`, defaultTimeout)
 
 	items := env.runtime.Get("items")
-	require.NotNil(t, items)
-	assert.Equal(t, int64(0), items.(*goja.Object).Get("length").ToInteger())
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := items.(*goja.Object).Get("length").ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 // ============================================================================
@@ -3362,6 +3786,8 @@ func TestBidiHandler_SyncNonThenable(t *testing.T) {
 	// Should complete without error — stream just ends.
 	done := env.runtime.Get("done")
 	if done != nil && !isGojaUndefined(done) {
-		assert.True(t, done.ToBoolean())
+		if !(done.ToBoolean()) {
+			t.Errorf("expected true")
+		}
 	}
 }

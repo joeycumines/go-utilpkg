@@ -355,10 +355,6 @@ func NewEventWithOptions(eventType string, bubbles, cancelable bool) *Event {
 	}
 }
 
-// ============================================================================
-// EXPAND-028: CustomEvent Support
-// ============================================================================
-
 // CustomEvent is an Event that carries custom data in its Detail field.
 //
 // This implementation follows the W3C DOM CustomEvent specification:

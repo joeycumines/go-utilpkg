@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Promise Memory Profiling Benchmarks (EXPAND-012)
+// Promise Memory Profiling Benchmarks
 //
 // This file contains benchmarks to profile memory allocation patterns in
 // promise creation, resolution, and garbage collection. Use with -benchmem

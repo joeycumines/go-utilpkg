@@ -3,11 +3,10 @@ package gojagrpc
 import (
 	"context"
 	"testing"
+	"strings"
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // T102: Edge case - concurrent handler registration during RPC dispatch.
@@ -26,7 +25,9 @@ func TestEdge_DoubleStart(t *testing.T) {
 		server.start();
 		server.start(); // should throw
 	`)
-	assert.Contains(t, err.Error(), "already started")
+	if !strings.Contains(err.Error(), "already started") {
+		t.Errorf("expected %q to contain %q", err.Error(), "already started")
+	}
 }
 
 // T103: Edge case - JS handler that panics (throws exception).
@@ -57,9 +58,13 @@ func TestEdge_HandlerPanic(t *testing.T) {
 	`, 5*time.Second)
 
 	v := env.runtime.Get("result")
-	require.NotNil(t, v)
+	if v == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Should get INTERNAL error (code 13)
-	assert.Equal(t, int64(13), v.ToInteger())
+	if got := v.ToInteger(); got != int64(13) {
+		t.Errorf("expected %v, got %v", int64(13), got)
+	}
 }
 
 // T104: Edge case - handler throws a GrpcError (not generic Error).
@@ -89,7 +94,9 @@ func TestEdge_HandlerThrowsGrpcError(t *testing.T) {
 	`, 5*time.Second)
 
 	v := env.runtime.Get("result")
-	assert.Equal(t, "7:forbidden", v.String())
+	if got := v.String(); got != "7:forbidden" {
+		t.Errorf("expected %v, got %v", "7:forbidden", got)
+	}
 }
 
 // T105: Edge case - very large message (1MB+ byte-like field via string).
@@ -130,7 +137,9 @@ func TestEdge_LargeMessage(t *testing.T) {
 	`, 10*time.Second)
 
 	v := env.runtime.Get("result")
-	assert.Equal(t, int64(101000), v.ToInteger())
+	if got := v.ToInteger(); got != int64(101000) {
+		t.Errorf("expected %v, got %v", int64(101000), got)
+	}
 }
 
 // T106: Edge case - deeply nested message not applicable to goja-grpc
@@ -176,7 +185,9 @@ func TestEdge_SequentialRPCs(t *testing.T) {
 	`, 5*time.Second)
 
 	v := env.runtime.Get("result")
-	assert.Equal(t, "rpc1:1,rpc2:2,rpc3:3,rpc4:4,rpc5:5,rpc6:6,rpc7:7,rpc8:8,rpc9:9,rpc10:10", v.String())
+	if got := v.String(); got != "rpc1:1,rpc2:2,rpc3:3,rpc4:4,rpc5:5,rpc6:6,rpc7:7,rpc8:8,rpc9:9,rpc10:10" {
+		t.Errorf("expected %v, got %v", "rpc1:1,rpc2:2,rpc3:3,rpc4:4,rpc5:5,rpc6:6,rpc7:7,rpc8:8,rpc9:9,rpc10:10", got)
+	}
 }
 
 // T107: Edge case - null/undefined/wrong-type inputs to all APIs.
@@ -198,7 +209,9 @@ func TestEdge_NullInputs(t *testing.T) {
 		md.set('key', 'value');
 		md.get('key');
 	`)
-	assert.Equal(t, "value", v.String())
+	if got := v.String(); got != "value" {
+		t.Errorf("expected %v, got %v", "value", got)
+	}
 }
 
 // T108: Edge case - event loop shutdown during RPC.
@@ -260,5 +273,7 @@ func TestEdge_ShutdownDuringRPC(t *testing.T) {
 	}
 
 	// No panics or deadlocks occurred - that's the test.
-	assert.NoError(t, jsErr)
+	if jsErr != nil {
+		t.Errorf("unexpected error: %v", jsErr)
+	}
 }

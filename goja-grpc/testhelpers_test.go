@@ -10,7 +10,6 @@ import (
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
@@ -35,29 +34,41 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 	t.Helper()
 
 	loop, err := eventloop.New()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	runtime := goja.New()
 
 	adapter, err := gojaeventloop.New(loop, runtime)
-	require.NoError(t, err)
-	require.NoError(t, adapter.Bind())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Load test service descriptors.
 	_, err = pbMod.LoadDescriptorSetBytes(testGrpcDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	grpcMod, err := New(runtime,
 		WithChannel(channel),
 		WithProtobuf(pbMod),
 		WithAdapter(adapter),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Wire JS exports.
 	pbExports := runtime.NewObject()
@@ -83,7 +94,9 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 func (e *grpcTestEnv) run(t *testing.T, code string) goja.Value {
 	t.Helper()
 	v, err := e.runtime.RunString(code)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return v
 }
 
@@ -91,7 +104,9 @@ func (e *grpcTestEnv) run(t *testing.T, code string) goja.Value {
 func (e *grpcTestEnv) mustFail(t *testing.T, code string) error {
 	t.Helper()
 	_, err := e.runtime.RunString(code)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 	return err
 }
 

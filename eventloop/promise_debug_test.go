@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Tests for EXPAND-039: Async Stack Trace Enhancement
+// Tests for Async Stack Trace Enhancement
 
 // TestDebugMode_PromiseCreationStackCapture verifies that promises capture
 // creation stack traces when debug mode is enabled.

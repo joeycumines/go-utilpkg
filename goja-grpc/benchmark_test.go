@@ -10,7 +10,6 @@ import (
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -23,22 +22,34 @@ import (
 func benchEnv(b *testing.B) *grpcTestEnv {
 	b.Helper()
 	loop, err := eventloop.New()
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	runtime := goja.New()
 	adapter, err := gojaeventloop.New(loop, runtime)
-	require.NoError(b, err)
-	require.NoError(b, adapter.Bind())
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
+	if err := adapter.Bind(); err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
 	pbMod, err := gojaprotobuf.New(runtime)
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	_, err = pbMod.LoadDescriptorSetBytes(testGrpcDescriptorSetBytes())
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	grpcMod, err := New(runtime,
 		WithChannel(channel),
 		WithProtobuf(pbMod),
 		WithAdapter(adapter),
 	)
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	pbExports := runtime.NewObject()
 	pbMod.SetupExports(pbExports)
 	_ = runtime.Set("pb", pbExports)
@@ -167,7 +178,9 @@ func BenchmarkMetadataCreate(b *testing.B) {
 // BenchmarkUnaryRPC.
 func BenchmarkGoDirectUnaryRPC(b *testing.B) {
 	loop, err := eventloop.New()
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)
@@ -176,16 +189,24 @@ func BenchmarkGoDirectUnaryRPC(b *testing.B) {
 
 	// Parse the test descriptor set to get message descriptors.
 	var fds descriptorpb.FileDescriptorSet
-	require.NoError(b, proto.Unmarshal(testGrpcDescriptorSetBytes(), &fds))
+	if err := proto.Unmarshal(testGrpcDescriptorSetBytes(), &fds); err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	files, err := protodesc.NewFiles(&fds)
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 
 	reqDescRaw, err := files.FindDescriptorByName("testgrpc.EchoRequest")
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	reqMsgDesc := reqDescRaw.(protoreflect.MessageDescriptor)
 
 	respDescRaw, err := files.FindDescriptorByName("testgrpc.EchoResponse")
-	require.NoError(b, err)
+	if err != nil {
+		b.Fatalf("unexpected error: %v", err)
+	}
 	respMsgDesc := respDescRaw.(protoreflect.MessageDescriptor)
 
 	// Register a Go handler as a standard grpc.ServiceDesc.

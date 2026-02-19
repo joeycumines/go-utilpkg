@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// EXPAND-009: timerHeap Edge Case Coverage
+// timerHeap Edge Case Coverage
 // Tests for:
 // - Empty heap operations
 // - Single element heap

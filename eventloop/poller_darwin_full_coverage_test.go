@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// COVERAGE-012: Darwin Poller Full Coverage
+// Darwin Poller Full Coverage
 // Tests: kevent/epoll error handling, kevent conversion, dispatchEvents callback dispatch,
 // closed poller edge cases
 

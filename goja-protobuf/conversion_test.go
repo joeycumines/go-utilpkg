@@ -3,9 +3,6 @@ package gojaprotobuf
 import (
 	"math/big"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBigInt_Int64(t *testing.T) {
@@ -19,8 +16,12 @@ func TestBigInt_Int64(t *testing.T) {
 	exported := v.Export()
 
 	bi, ok := exported.(*big.Int)
-	require.True(t, ok, "expected *big.Int, got %T", exported)
-	assert.Equal(t, "9007199254740993", bi.String())
+	if !ok {
+		t.Fatalf("expected *big.Int, got %T", exported)
+	}
+	if bi.String() != "9007199254740993" {
+		t.Errorf("got %v, want %v", bi.String(), "9007199254740993")
+	}
 }
 
 func TestBigInt_Int64_SafeRange(t *testing.T) {
@@ -30,11 +31,15 @@ func TestBigInt_Int64_SafeRange(t *testing.T) {
 	// Value within safe integer range should be returned as number, not BigInt.
 	env.run(t, `msg.set('int64_val', 42)`)
 	v := env.run(t, `msg.get('int64_val')`)
-	assert.Equal(t, int64(42), v.ToInteger())
+	if v.ToInteger() != int64(42) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(42))
+	}
 
 	// Verify it's not a BigInt in JS.
 	v = env.run(t, `typeof msg.get('int64_val') === 'number'`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestBigInt_Int64_Negative(t *testing.T) {
@@ -48,8 +53,12 @@ func TestBigInt_Int64_Negative(t *testing.T) {
 	exported := v.Export()
 
 	bi, ok := exported.(*big.Int)
-	require.True(t, ok, "expected *big.Int, got %T", exported)
-	assert.Equal(t, "-9007199254740993", bi.String())
+	if !ok {
+		t.Fatalf("expected *big.Int, got %T", exported)
+	}
+	if bi.String() != "-9007199254740993" {
+		t.Errorf("got %v, want %v", bi.String(), "-9007199254740993")
+	}
 }
 
 func TestBigInt_Uint64(t *testing.T) {
@@ -63,8 +72,12 @@ func TestBigInt_Uint64(t *testing.T) {
 	exported := v.Export()
 
 	bi, ok := exported.(*big.Int)
-	require.True(t, ok, "expected *big.Int, got %T", exported)
-	assert.Equal(t, "9007199254740993", bi.String())
+	if !ok {
+		t.Fatalf("expected *big.Int, got %T", exported)
+	}
+	if bi.String() != "9007199254740993" {
+		t.Errorf("got %v, want %v", bi.String(), "9007199254740993")
+	}
 }
 
 func TestBigInt_Uint64_SafeRange(t *testing.T) {
@@ -73,7 +86,9 @@ func TestBigInt_Uint64_SafeRange(t *testing.T) {
 
 	env.run(t, `msg.set('uint64_val', 42)`)
 	v := env.run(t, `typeof msg.get('uint64_val') === 'number'`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestOverflow_Int32(t *testing.T) {
@@ -89,12 +104,16 @@ func TestOverflow_Int32(t *testing.T) {
 	// MaxInt32 is fine.
 	env.run(t, `msg.set('int32_val', 2147483647)`)
 	v := env.run(t, `msg.get('int32_val')`)
-	assert.Equal(t, int64(2147483647), v.ToInteger())
+	if v.ToInteger() != int64(2147483647) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(2147483647))
+	}
 
 	// MinInt32 is fine.
 	env.run(t, `msg.set('int32_val', -2147483648)`)
 	v = env.run(t, `msg.get('int32_val')`)
-	assert.Equal(t, int64(-2147483648), v.ToInteger())
+	if v.ToInteger() != int64(-2147483648) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(-2147483648))
+	}
 }
 
 func TestOverflow_Uint32(t *testing.T) {
@@ -110,7 +129,9 @@ func TestOverflow_Uint32(t *testing.T) {
 	// MaxUint32 is fine.
 	env.run(t, `msg.set('uint32_val', 4294967295)`)
 	v := env.run(t, `msg.get('uint32_val')`)
-	assert.Equal(t, int64(4294967295), v.ToInteger())
+	if v.ToInteger() != int64(4294967295) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(4294967295))
+	}
 }
 
 func TestOverflow_Uint64_Negative(t *testing.T) {
@@ -128,11 +149,15 @@ func TestEnumByName(t *testing.T) {
 	// Set by string name.
 	env.run(t, `msg.set('enum_val', 'FIRST')`)
 	v := env.run(t, `msg.get('enum_val')`)
-	assert.Equal(t, int64(1), v.ToInteger())
+	if v.ToInteger() != int64(1) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(1))
+	}
 
 	env.run(t, `msg.set('enum_val', 'THIRD')`)
 	v = env.run(t, `msg.get('enum_val')`)
-	assert.Equal(t, int64(3), v.ToInteger())
+	if v.ToInteger() != int64(3) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(3))
+	}
 }
 
 func TestEnumByNumber(t *testing.T) {
@@ -141,11 +166,15 @@ func TestEnumByNumber(t *testing.T) {
 
 	env.run(t, `msg.set('enum_val', 2)`)
 	v := env.run(t, `msg.get('enum_val')`)
-	assert.Equal(t, int64(2), v.ToInteger())
+	if v.ToInteger() != int64(2) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(2))
+	}
 
 	env.run(t, `msg.set('enum_val', 0)`)
 	v = env.run(t, `msg.get('enum_val')`)
-	assert.Equal(t, int64(0), v.ToInteger())
+	if v.ToInteger() != int64(0) {
+		t.Errorf("got %v, want %v", v.ToInteger(), int64(0))
+	}
 }
 
 func TestEnumByName_Invalid(t *testing.T) {
@@ -163,16 +192,22 @@ func TestBoolCoercion(t *testing.T) {
 	// Truthy values coerce to true.
 	env.run(t, `msg.set('bool_val', 1)`)
 	v := env.run(t, `msg.get('bool_val')`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 
 	// Falsy values coerce to false.
 	env.run(t, `msg.set('bool_val', 0)`)
 	v = env.run(t, `msg.get('bool_val')`)
-	assert.False(t, v.ToBoolean())
+	if v.ToBoolean() {
+		t.Error("expected false")
+	}
 
 	env.run(t, `msg.set('bool_val', '')`)
 	v = env.run(t, `msg.get('bool_val')`)
-	assert.False(t, v.ToBoolean())
+	if v.ToBoolean() {
+		t.Error("expected false")
+	}
 }
 
 func TestBigInt_RoundTrip_Encode_Decode(t *testing.T) {
@@ -189,5 +224,7 @@ func TestBigInt_RoundTrip_Encode_Decode(t *testing.T) {
 		var val = decoded.get('int64_val');
 		typeof val === 'bigint' && val === BigInt('9007199254740993')
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }

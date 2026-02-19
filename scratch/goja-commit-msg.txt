@@ -1,0 +1,11 @@
+Remove AI slop from goja-eventloop module
+
+Strip AI-generated meta-comment tags (CRITICAL, EXPAND-NNN,
+FEATURE-NNN, HIGH, R130.N, COVERAGE-NNN) from adapter.go and
+26 test files. Delete 8 test files: 4 debug junk files with no
+assertions (adapter_debug, debug_promise, debug_allsettled,
+export_behavior) and 4 testify-violating files (coverage_phase3,
+coverage_phase3b, coverage_phase3c, adapter_iterator_error).
+Clean CHANGELOG.md to Keep a Changelog spec. Strip t.Log spam
+from critical_fixes_test.go. Remove testify from go.mod via
+go mod tidy.

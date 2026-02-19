@@ -4,10 +4,19 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
+
+// sliceContains reports whether slice contains item.
+func sliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
 
 type testEnv struct {
 	rt *goja.Runtime
@@ -18,9 +27,13 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = m.loadDescriptorSetBytes(testDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	pb := rt.NewObject()
 	m.setupExports(pb)
 	if err := rt.Set("pb", pb); err != nil {
@@ -32,14 +45,18 @@ func newTestEnv(t *testing.T) *testEnv {
 func (e *testEnv) run(t *testing.T, code string) goja.Value {
 	t.Helper()
 	v, err := e.rt.RunString(code)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return v
 }
 
 func (e *testEnv) mustFail(t *testing.T, code string) {
 	t.Helper()
 	_, err := e.rt.RunString(code)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatal("expected error")
+	}
 }
 
 func testDescriptorSetBytes() []byte {

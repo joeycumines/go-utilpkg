@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// COVERAGE-017: Registry Full Coverage
+// Registry Full Coverage
 // Gaps: NewPromise ID generation, Scavenge limit enforcement, RejectAll termination path,
 // concurrent access patterns, weak reference cleanup
 

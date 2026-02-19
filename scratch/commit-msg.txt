@@ -1,0 +1,16 @@
+Remove AI slop and testify from multiple modules
+
+eventloop: Strip AI meta-comment tags (EXPAND-NNN, FEATURE-NNN,
+COVERAGE-NNN, CRITICAL) from 6 production files and 38 test
+files. Delete 2 testify-violating tests (coverage_phase3,
+coverage_phase3b) and 2 debug junk tests (fastpath_debug,
+wake_debug).
+
+goja-grpc: Convert all 21 test files from testify to standard
+testing package. Remove testify from go.mod.
+
+goja-protobuf: Convert all 16 test files from testify to standard
+testing package. Remove testify from go.mod.
+
+goja-protojson: Convert 2 test files from testify to standard
+testing package. Remove testify from go.mod.

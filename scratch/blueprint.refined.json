@@ -1,0 +1,338 @@
+{
+  "meta": {
+    "fileName": "blueprint.json",
+    "maintenanceInstruction": "KEEP THE PLAN UP TO DATE AS YOU EVOLVE THE CODE. DEVIATIONS TO THE PLAN MUST BE LOGGED WITHIN THE PLAN. THE PLAN MUST BE REASSESSED HOLISTICALLY AFTER ANY CHANGE OF ANY SIZE.",
+    "completionPolicy": "YOU ARE NOT DONE UNTIL EVERY SINGLE TASK IS CHECKED OFF AND VERIFIED WITH DOUBLE-CYCLE REVIEW. DO NOT STOP. EXPAND SCOPE CONTINUALLY."
+  },
+  "globalAlerts": [
+    {"warning": "USE GMAKE NOT MAKE. macOS make is BSD make 3.81, too old."},
+    {"warning": "PIPE OUTPUT. Use piped tail/tee for large outputs to avoid context explosion."},
+    {"warning": "TIMING DEPENDENT TESTS ARE BANNED. Use synchronization primitives only."},
+    {"warning": "STRICT SERIAL SUBAGENT EXECUTION. Do not parallelize subagent spawning."},
+    {"warning": "Windows host is 'moo'. Linux via Docker. macOS is local."},
+    {"warning": "DO NOT USE TESTIFY. Only built-in testing package."}
+  ],
+  "mandatoryDirectives": {
+    "contextManagement": "Tasks are executed sequentially. Break into manageable units to prevent context window exhaustion.",
+    "subagentPolicy": "Subagents for review (Rule of Two) run serially. Work subagents must NOT self-review.",
+    "ruleOfTwo": "Every commit requires TWO contiguous, issue-free hostile review passes on the EXACT SAME diff."
+  },
+  "statusSection": {
+    "currentState": "ARCHITECTURAL PLANNING COMPLETE. Blueprint rewritten. Ready to begin logiface-slog aggressive cleanup.",
+    "lastAction": "Analyzed all in-scope modules (logiface-slog, goja-*, eventloop, logiface core). Identified AI slop, phantom deps, over-documentation, test scaffolding debris. Blueprint rebuilt from scratch."
+  },
+  "sequentialTasks": [
+    {
+      "task": "logiface-slog: Strip ALL excessive doc comments from slog.go",
+      "description": "slog.go is 480 lines but only ~120 of functional code. Strip doc comments to match zerolog/logrus adapter style (0-1 line per method, 1-3 lines per struct max). Remove: 50-line Event struct comment, 60-line Logger struct comment, 30-line LoggerFactory comment, all multi-line method comments. Keep only essential 1-line godoc summaries. Reference logiface-zerolog/zerolog.go as the gold standard.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Fix Write() doc/code mismatch",
+      "description": "Write() doc claims it calls Handler.Enabled() but the code never does. The logiface framework handles level filtering before Write() is called, so the check is unnecessary (zerolog adapter's Write() doesn't check either). Remove the misleading doc comment. The stripped slog.go should have no doc on Write() beyond a one-liner.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Strip doc.go to single-line package comment",
+      "description": "doc.go is 107 lines of AI-generated documentation. Replace with a single line matching zerolog adapter pattern: '// Package islog implements support for using log/slog with github.com/joeycumines/logiface.' Remove all sections.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Delete PERFORMANCE.md",
+      "description": "~600 lines of fabricated benchmark analysis. Numbers are hallucinated, code examples reference non-existent methods. Delete entirely.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Delete TESTING.md",
+      "description": "~330 lines of AI tutorial with non-compiling code. Delete entirely.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Delete smoke_test.go",
+      "description": "Contains one test (TestQuickSmoke) that only calls t.Log. Verifies nothing. Delete.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Delete debug_level_test.go",
+      "description": "Diagnostic test (TestSimpleLevelBehavior) with zero assertions, only t.Log calls. Delete.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Evaluate and consolidate simple_filter_test.go",
+      "description": "Overlaps with level filtering tests in slog_test.go. Read both, identify redundancy. If slog_test.go covers same behavior with assertions, delete simple_filter_test.go.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Review and trim example_test.go",
+      "description": "10 Example functions - too many. Remove over-engineered ones: captureStackTrace/ExampleLogger_structuredErrorLogging, ExampleLogger_testingMockingPattern, ExampleLogger_perRequestConfiguration, ExampleLogger_requestIDPropagation, ExampleLogger_poolReuse. Keep: ExampleLogger, ExampleLogger_levelFiltering, ExampleLogger_customHandler, ExampleLogger_errorHandling, ExampleLogger_allLevels. Also remove contextKey type and logEventError type if not needed by remaining examples. Ensure remaining examples have valid Output comments.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Remove phantom OTel dependencies",
+      "description": "go.mod requires go.opentelemetry.io/otel and otel/trace but NO source file imports them. Run 'go mod edit -droprequire go.opentelemetry.io/otel -droprequire go.opentelemetry.io/otel/trace' then 'go mod tidy'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Rewrite README.md",
+      "description": "~300 lines with fabricated metrics. Rewrite to ~30-50 lines: package name, one-sentence description, basic usage example, link to pkg.go.dev, license. Remove fake badges, fake benchmarks, adapter comparison table, references to non-existent files.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Clean CHANGELOG.md",
+      "description": "Has duplicate content ([Unreleased] repeats [1.0.0]) and non-standard sections (Security Notes, Migration Guide). Keep only [Unreleased] with actual features. Remove v1.0.0 (not released). Follow Keep a Changelog 1.1.0 strictly.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Verify tests pass after cleanup",
+      "description": "Run: cd logiface-slog && go test ./... and gmake vet.logiface-slog. Fix any breakage.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Run go mod tidy",
+      "description": "Run 'cd logiface-slog && go mod tidy'. Verify only logiface and logiface-testsuite remain as direct deps.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Review slog_test.go for AI slop",
+      "description": "Read slog_test.go. Check for: excessive comments, dead test branches, cargo-culted code. Trim to match zerolog/logrus test patterns.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Review integration_test.go",
+      "description": "Determine if tests are valuable or redundant with testsuite. Keep if testing real adapter behavior; consolidate or remove if trivial.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Review fuzz_test.go",
+      "description": "Verify FuzzEventAddField is correctly implemented and provides real value.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Run full test suite including testsuite",
+      "description": "Run 'cd logiface-slog && go test -v -timeout=5m ./...' Verify testsuite passes. Diagnose timeout if it persists.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Run race detector",
+      "description": "Run 'cd logiface-slog && go test -race -count=3 -timeout=10m ./...' Zero races required.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Run staticcheck and vet",
+      "description": "Run 'gmake vet.logiface-slog' and 'cd logiface-slog && staticcheck ./...' Zero issues required.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Verify grit configuration",
+      "description": "Check project.mk for logiface-slog grit destination. If missing, add it.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface core: Review for ill-conceived additions",
+      "description": "Check logiface/ for recently added features. Verify AddGroup is properly designed. Compare API surface against what adapters use.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface core: Run tests and static analysis",
+      "description": "Run 'gmake test.logiface' and 'gmake vet.logiface'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-testsuite: Review for slog-specific additions",
+      "description": "Check if testsuite was modified for slog. Review any slog-specific exemptions.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-eventloop: Assess adapter.go",
+      "description": "Read structure of 5774-line adapter.go. Identify AI comment tags (CRITICAL #1 FIX, EXPAND-001, etc.). Plan cleanup.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-eventloop: Review test file quality",
+      "description": "Sample 3-5 coverage_* files. Assess quality. Flag obvious slop for removal.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-eventloop: Run tests and static analysis",
+      "description": "Run 'gmake test.goja-eventloop' and 'gmake vet.goja-eventloop'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-grpc: Review and run tests",
+      "description": "Review for AI slop. Run 'gmake test.goja-grpc' and 'gmake vet.goja-grpc'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-protobuf: Review and run tests",
+      "description": "Review for AI slop. Run 'gmake test.goja-protobuf' and 'gmake vet.goja-protobuf'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-protojson: Verify and run tests",
+      "description": "Quick review and run 'gmake test.goja-protojson' and 'gmake vet.goja-protojson'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "eventloop: Assess test file explosion",
+      "description": "Sample 5-10 coverage_* and coverage_extra* test files. Identify worst slop. Be conservative - core implementation is sophisticated.",
+      "status": "Not Started"
+    },
+    {
+      "task": "eventloop: Run tests and static analysis",
+      "description": "Run 'gmake test.eventloop' and 'gmake vet.eventloop'.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Cross-module: Full suite macOS",
+      "description": "Run 'gmake make-all-with-log'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Cross-module: Full suite Linux",
+      "description": "Run 'gmake make-all-in-container'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Cross-module: Full suite Windows",
+      "description": "Run 'gmake make-all-run-windows'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Rule of Two: First hostile review (logiface-slog)",
+      "description": "Spawn HOSTILE REVIEWER subagent to audit logiface-slog diff vs HEAD.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Rule of Two: Fix findings, second review (same diff)",
+      "description": "Address all findings. Freeze. Second review on SAME diff. Two contiguous passes.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Commit: logiface-slog cleanup",
+      "description": "After two passes, commit logiface-slog changes.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Assess type-specific Add* methods",
+      "description": "Determine if adding AddString/AddInt/etc using slog typed constructors provides value over generic AddField.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Implement type-specific methods if warranted",
+      "description": "Implement AddString, AddInt, AddFloat32, AddTime, AddDuration, AddBool, AddFloat64, AddInt64, AddUint64 using slog typed constructors.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Assess and implement AddRawJSON",
+      "description": "Check if slog supports json.RawMessage. Implement if feasible.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Verify test coverage",
+      "description": "Run -coverprofile. Identify and address gaps.",
+      "status": "Not Started"
+    },
+    {
+      "task": "logiface-slog: Run benchmarks, establish real baseline",
+      "description": "Run 'cd logiface-slog && make bench' for REAL numbers. Save results.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-eventloop: Clean AI comment tags",
+      "description": "Remove CRITICAL/EXPAND/FEATURE meta-comments from adapter.go. Run tests after.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-eventloop: Remove worst AI test slop",
+      "description": "Remove top 5-10 worst coverage_* test files. Verify no coverage regression.",
+      "status": "Not Started"
+    },
+    {
+      "task": "goja-grpc: Clean identified slop",
+      "description": "Remove worst coverage_phase* slop. Run tests.",
+      "status": "Not Started"
+    },
+    {
+      "task": "eventloop: Clean identified test slop",
+      "description": "Remove worst coverage_* slop. Run tests. Be conservative.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Rule of Two: Hostile review (goja/eventloop cleanup)",
+      "description": "Two contiguous hostile reviews on goja/eventloop diff.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Commit: goja-* and eventloop cleanup",
+      "description": "After two passes, commit goja/eventloop changes.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Scope expansion: logiface-slog JSONSupport",
+      "description": "Assess if slog adapter should implement JSONSupport using slog.GroupValue.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Scope expansion: AddGroup improvement",
+      "description": "Research slog.Handler.WithGroup() for true group support instead of key flattening.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Scope expansion: Verify adapter consistency",
+      "description": "Compare API surface across all logiface adapters. Document inconsistencies.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Scope expansion: Run deadcode across all modules",
+      "description": "Run 'gmake deadcode'. Remove actual dead code.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Scope expansion: Run betteralign across all modules",
+      "description": "Run 'gmake betteralign'. Apply fixes.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Final verification: macOS",
+      "description": "Run 'gmake make-all-with-log'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Final verification: Linux",
+      "description": "Run 'gmake make-all-in-container'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Final verification: Windows",
+      "description": "Run 'gmake make-all-run-windows'. Zero failures.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Final Rule of Two: Comprehensive audit",
+      "description": "Two contiguous hostile reviews on complete diff before declaring phase complete.",
+      "status": "Not Started"
+    },
+    {
+      "task": "Final commit",
+      "description": "Commit any remaining changes after final Rule of Two.",
+      "status": "Not Started"
+    }
+  ],
+  "continuousVerification": {
+    "task": "Run project-defined checks after EVERY significant change",
+    "buildCommand": "gmake build",
+    "testCommand": "gmake test",
+    "moduleTestCommand": "gmake test.<module-slug>",
+    "lintCommand": "gmake vet.<module-slug>",
+    "allPlatformsCommand": "gmake make-all-with-log && gmake make-all-in-container && gmake make-all-run-windows",
+    "failPolicy": "If ANY test fails, STOP and fix before proceeding. Zero tolerance.",
+    "testCoverage": "100% target. Verify with -coverprofile. Document justified gaps."
+  },
+  "finalEnforcementProtocol": [
+    "USE GMAKE NOT MAKE on macOS.",
+    "PIPE OUTPUT through tail/tee for large commands.",
+    "RULE OF TWO: Two contiguous hostile reviews on SAME diff before commit.",
+    "ALL PLATFORMS: macOS, Linux (Docker), Windows (moo) must pass.",
+    "NO TESTIFY: Only built-in testing package."
+  ]
+}

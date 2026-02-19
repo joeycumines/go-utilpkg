@@ -5,8 +5,6 @@ import (
 
 	"github.com/dop251/goja"
 	gojarequire "github.com/dop251/goja_nodejs/require"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestFullJSWorkflow is a comprehensive end-to-end integration test that
@@ -147,11 +145,15 @@ func TestFullJSWorkflow(t *testing.T) {
 		// Success
 		true
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
-// TestFullJSWorkflow_mapFromObject tests setting map field from a plain
+// TestFullJSWorkflow_MapFromObject tests setting map field from a plain
 // JS object through the full require() path.
 func TestFullJSWorkflow_MapFromObject(t *testing.T) {
 	rt := goja.New()
@@ -172,8 +174,12 @@ func TestFullJSWorkflow_MapFromObject(t *testing.T) {
 		var tags = msg.get('tags');
 		tags.get('hello') === 'world' && tags.get('foo') === 'bar' && tags.size === 2
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // TestFullJSWorkflow_RepeatedFromArray tests setting repeated field from
@@ -197,8 +203,12 @@ func TestFullJSWorkflow_RepeatedFromArray(t *testing.T) {
 		var items = msg.get('items');
 		items.length === 3 && items.get(0) === 'x' && items.get(2) === 'z'
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // TestFullJSWorkflow_EqualsCloneIsMessage exercises the equals, clone,
@@ -268,6 +278,10 @@ func TestFullJSWorkflow_EqualsCloneIsMessage(t *testing.T) {
 		// Success
 		true
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }

@@ -11,9 +11,7 @@ import (
 	"time"
 )
 
-// ============================================================================
-// EXPAND-030: Promise Combinator Fuzz Tests
-// ============================================================================
+// Promise Combinator Fuzz Tests
 //
 // This file contains Go 1.18+ fuzz tests for Promise combinators:
 // - Promise.All with random settlement order and timing

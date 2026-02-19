@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// COVERAGE-018: fastState Full Coverage
+// fastState Full Coverage
 // Gaps: all state transitions, TryTransition failure cases, IsRunning edge cases,
 // concurrent state access patterns
 

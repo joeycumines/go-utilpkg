@@ -377,5 +377,5 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 		t.Fatalf("Expected %d task executions, got %d", ringCap+overflowCount, counter.Load())
 	}
 
-	t.Logf("IsEmpty() bug fix verified: properly handles overflowHead advancement")
+	t.Logf("IsEmpty() verified: properly handles overflowHead advancement")
 }

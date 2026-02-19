@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// EXPAND-014: Tests for PromisifyWithTimeout and PromisifyWithDeadline
+// Tests for PromisifyWithTimeout and PromisifyWithDeadline
 
 // TestPromisifyWithTimeout_Success tests successful completion before timeout.
 func TestPromisifyWithTimeout_Success(t *testing.T) {

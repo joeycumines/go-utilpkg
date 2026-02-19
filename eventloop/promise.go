@@ -248,7 +248,7 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 	}
 	p.state.Store(int32(Pending))
 
-	// EXPAND-039: Capture creation stack trace when debug mode is enabled.
+	// Capture creation stack trace when debug mode is enabled.
 	// Stored in JS.debugStacks side table (keyed by weak.Pointer to avoid
 	// pinning the promise in memory). runtime.AddCleanup removes the entry
 	// when the promise is garbage collected.
@@ -307,7 +307,7 @@ func (p *ChainedPromise) Reason() any {
 
 // CreationStackTrace returns a formatted stack trace of where this promise was created.
 //
-// EXPAND-039: This method returns an empty string unless debug mode was enabled on the
+// This method returns an empty string unless debug mode was enabled on the
 // event loop when the promise was created. Use [WithDebugMode] to enable stack trace capture.
 //
 // The returned string contains one line per stack frame, formatted as:
@@ -847,7 +847,7 @@ func (p *ChainedPromise) toChannelStandalonePromise(ch chan any) <-chan any {
 // Each rejection waits for a handler to be registered (or determines none will be)
 // before checking for unhandled rejections.
 //
-// EXPAND-039: creationStack is read from the JS.debugStacks side table.
+// creationStack is read from the JS.debugStacks side table.
 func (js *JS) trackRejection(p *ChainedPromise, reason any) {
 	// Read creation stack from side table (keyed by weak.Pointer).
 	wp := weak.Make(p)
@@ -859,7 +859,7 @@ func (js *JS) trackRejection(p *ChainedPromise, reason any) {
 	info := &rejectionInfo{
 		reason:        reason,
 		promise:       p,
-		creationStack: creationStack, // EXPAND-039: Store for debug output
+		creationStack: creationStack, // Store for debug output
 		timestamp:     time.Now().UnixNano(),
 	}
 	js.rejectionsMu.Lock()
@@ -985,7 +985,7 @@ func (js *JS) checkUnhandledRejections() {
 
 		// No handler found - report unhandled rejection
 		if callback != nil {
-			// EXPAND-039: If debug mode captured a creation stack, wrap the reason
+			// If debug mode captured a creation stack, wrap the reason
 			// with debug info so the callback can access where the promise was created
 			if len(info.creationStack) > 0 {
 				stackTrace := formatCreationStack(info.creationStack)
@@ -1025,7 +1025,7 @@ type rejectionInfo struct {
 // UnhandledRejectionDebugInfo is passed to [RejectionHandler] when debug mode is enabled
 // and the promise has a creation stack trace.
 //
-// EXPAND-039: This type wraps the rejection reason and includes debug information
+// This type wraps the rejection reason and includes debug information
 // about where the promise was created. This helps answer "where did this promise
 // come from?" when debugging unhandled rejections.
 //
@@ -1072,7 +1072,7 @@ func (u *UnhandledRejectionDebugInfo) Unwrap() error {
 }
 
 // formatCreationStack formats a slice of program counters as a stack trace string.
-// EXPAND-039: Used by checkUnhandledRejections to format creation stack for debug output.
+// Used by checkUnhandledRejections to format creation stack for debug output.
 func formatCreationStack(pcs []uintptr) string {
 	if len(pcs) == 0 {
 		return ""

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// EXPAND-008: Promisify Shutdown Race Coverage
+// Promisify Shutdown Race Coverage
 // Tests for:
 // - Promisify called during shutdown
 // - Shutdown waits for in-flight Promisify goroutines

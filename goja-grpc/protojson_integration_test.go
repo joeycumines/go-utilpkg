@@ -2,9 +2,7 @@ package gojagrpc
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"strings"
 
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 )
@@ -22,11 +20,15 @@ func newGrpcProtojsonTestEnv(t *testing.T) *grpcProtojsonTestEnv {
 	env := newGrpcTestEnv(t)
 
 	pjMod, err := gojaprotojson.New(env.runtime, gojaprotojson.WithProtobuf(env.pbMod))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pjExports := env.runtime.NewObject()
 	pjMod.SetupExports(pjExports)
-	require.NoError(t, env.runtime.Set("protojson", pjExports))
+	if env.runtime.Set("protojson", pjExports) != nil {
+		t.Fatalf("unexpected error: %v", env.runtime.Set("protojson", pjExports))
+	}
 
 	return &grpcProtojsonTestEnv{grpcTestEnv: env, pjMod: pjMod}
 }
@@ -79,22 +81,36 @@ func TestProtojsonIntegration_MarshalResponse(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	// Verify JSON string is valid proto3 JSON
 	jsonStr := env.runtime.Get("jsonStr")
-	require.NotNil(t, jsonStr)
+	if jsonStr == nil {
+		t.Fatalf("expected non-nil")
+	}
 	js := jsonStr.Export().(string)
-	assert.Contains(t, js, `"message"`)
-	assert.Contains(t, js, `hello world`)
+	if !strings.Contains(js, `"message"`) {
+		t.Errorf("expected %q to contain %q", js, `"message"`)
+	}
+	if !strings.Contains(js, `hello world`) {
+		t.Errorf("expected %q to contain %q", js, `hello world`)
+	}
 
 	// Verify unmarshaled message has correct fields
 	unmarshaled := env.runtime.Get("unmarshaled")
-	require.NotNil(t, unmarshaled)
+	if unmarshaled == nil {
+		t.Fatalf("expected non-nil")
+	}
 	msg := env.run(t, `unmarshaled.get('message')`)
-	assert.Equal(t, "hello world", msg.Export())
+	if got := msg.Export(); got != "hello world" {
+		t.Errorf("expected %v, got %v", "hello world", got)
+	}
 	code := env.run(t, `unmarshaled.get('code')`)
-	assert.Equal(t, int64(99), code.Export())
+	if got := code.Export(); got != int64(99) {
+		t.Errorf("expected %v, got %v", int64(99), got)
+	}
 }
 
 // TestProtojsonIntegration_UnmarshalRequest verifies that a gRPC server
@@ -146,13 +162,21 @@ func TestProtojsonIntegration_UnmarshalRequest(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "processed: test input", resultObj["message"])
-	assert.Equal(t, int64(123), resultObj["code"])
+	if got := resultObj["message"]; got != "processed: test input" {
+		t.Errorf("expected %v, got %v", "processed: test input", got)
+	}
+	if got := resultObj["code"]; got != int64(123) {
+		t.Errorf("expected %v, got %v", int64(123), got)
+	}
 }
 
 // TestProtojsonIntegration_FormatMessage verifies protojson.format()
@@ -195,15 +219,25 @@ func TestProtojsonIntegration_FormatMessage(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	formatted := env.runtime.Get("formatted")
-	require.NotNil(t, formatted)
+	if formatted == nil {
+		t.Fatalf("expected non-nil")
+	}
 	fmtStr := formatted.Export().(string)
 	// format() uses 2-space indentation
-	assert.Contains(t, fmtStr, "\n")
-	assert.Contains(t, fmtStr, `"message"`)
-	assert.Contains(t, fmtStr, `formatted`)
+	if !strings.Contains(fmtStr, "\n") {
+		t.Errorf("expected %q to contain %q", fmtStr, "\n")
+	}
+	if !strings.Contains(fmtStr, `"message"`) {
+		t.Errorf("expected %q to contain %q", fmtStr, `"message"`)
+	}
+	if !strings.Contains(fmtStr, `formatted`) {
+		t.Errorf("expected %q to contain %q", fmtStr, `formatted`)
+	}
 }
 
 // TestProtojsonIntegration_MarshalOptions verifies custom marshal options
@@ -250,15 +284,21 @@ func TestProtojsonIntegration_MarshalOptions(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	without := env.runtime.Get("withoutDefaults").Export().(string)
 	with := env.runtime.Get("withDefaults").Export().(string)
 
 	// Without emitDefaults, code:0 should be omitted
-	assert.NotContains(t, without, `"code"`)
+	if strings.Contains(without, `"code"`) {
+		t.Errorf("expected %q to not contain %q", without, `"code"`)
+	}
 	// With emitDefaults, code:0 should appear
-	assert.Contains(t, with, `"code"`)
+	if !strings.Contains(with, `"code"`) {
+		t.Errorf("expected %q to contain %q", with, `"code"`)
+	}
 }
 
 // TestProtojsonIntegration_RoundtripThroughJSON verifies a complete
@@ -315,12 +355,22 @@ func TestProtojsonIntegration_RoundtripThroughJSON(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "roundtrip: ping", resultObj["message"])
-	assert.Equal(t, int64(42), resultObj["code"])
-	assert.Contains(t, resultObj["json"].(string), "roundtrip: ping")
+	if got := resultObj["message"]; got != "roundtrip: ping" {
+		t.Errorf("expected %v, got %v", "roundtrip: ping", got)
+	}
+	if got := resultObj["code"]; got != int64(42) {
+		t.Errorf("expected %v, got %v", int64(42), got)
+	}
+	if !strings.Contains(resultObj["json"].(string), "roundtrip: ping") {
+		t.Errorf("expected %q to contain %q", resultObj["json"].(string), "roundtrip: ping")
+	}
 }

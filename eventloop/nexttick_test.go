@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-// ===============================================
-// EXPAND-020: process.nextTick() Tests
-// ===============================================
+// process.nextTick() Tests
 
 func TestNextTick_Basic(t *testing.T) {
 	loop, err := New()
@@ -286,9 +284,7 @@ func TestNextTick_AfterLoopShutdown(t *testing.T) {
 	}
 }
 
-// ===============================================
-// EXPAND-021: sleep/delay Promise Helper Tests
-// ===============================================
+// sleep/delay Promise Helper Tests
 
 func TestSleep_Basic(t *testing.T) {
 	loop, err := New()

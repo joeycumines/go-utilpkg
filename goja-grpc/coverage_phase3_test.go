@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"strings"
 	"time"
 
 	"github.com/dop251/goja"
@@ -13,8 +14,6 @@ import (
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcmetadata "google.golang.org/grpc/metadata"
@@ -121,9 +120,13 @@ func (c *phase3NonProtoCloner) Copy(out, in any) error {
 func phase3FindMsgDesc(t *testing.T, env *grpcTestEnv, name string) protoreflect.MessageDescriptor {
 	t.Helper()
 	desc, err := env.pbMod.FindDescriptor(protoreflect.FullName(name))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	md, ok := desc.(protoreflect.MessageDescriptor)
-	require.True(t, ok)
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
 	return md
 }
 
@@ -134,27 +137,39 @@ func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	t.Helper()
 
 	loop, err := eventloop.New()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	runtime := goja.New()
 
 	adapter, err := gojaeventloop.New(loop, runtime)
-	require.NoError(t, err)
-	require.NoError(t, adapter.Bind())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if adapter.Bind() != nil {
+		t.Fatalf("unexpected error: %v", adapter.Bind())
+	}
 
 	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop), inprocgrpc.WithCloner(&phase3NonProtoCloner{}))
 
 	pbMod, err := gojaprotobuf.New(runtime)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = pbMod.LoadDescriptorSetBytes(testGrpcDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	grpcMod, err := New(runtime,
 		WithChannel(channel),
 		WithProtobuf(pbMod),
 		WithAdapter(adapter),
 	)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pbExports := runtime.NewObject()
 	pbMod.SetupExports(pbExports)
@@ -235,15 +250,23 @@ func TestPhase3_NewGrpcErrorWithDetails_UnwrapError(t *testing.T) {
 	}
 
 	obj := env.grpcMod.newGrpcErrorWithDetails(codes.Internal, "test error", details)
-	require.NotNil(t, obj)
+	if obj == nil {
+		t.Fatalf("expected non-nil")
+	}
 
 	name := obj.Get("name").String()
-	assert.Equal(t, "GrpcError", name)
-	assert.Equal(t, int64(codes.Internal), obj.Get("code").ToInteger())
+	if got := name; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 
 	// _goDetails should be nil or empty: all details failed UnwrapMessage
 	goDetails := env.grpcMod.extractGoDetails(obj)
-	assert.Empty(t, goDetails)
+	if len(goDetails) != 0 {
+		t.Errorf("expected empty, got len %d", len(goDetails))
+	}
 }
 
 // ============================================================================
@@ -274,7 +297,9 @@ func TestPhase3_ServerStream_SendMsgError(t *testing.T) {
 		fn := env.grpcMod.makeServerStreamMethod(mockCC, "/test/ServerStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p3SsSendFn", fn)
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
@@ -290,13 +315,19 @@ func TestPhase3_ServerStream_SendMsgError(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("__p3SsSendErr")
-	require.NotNil(t, errVal)
-	require.False(t, goja.IsUndefined(errVal))
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if goja.IsUndefined(errVal) {
+		t.Fatalf("expected false")
+	}
 	// Should be a GrpcError with UNAVAILABLE
 	if errObj, ok := errVal.(*goja.Object); ok {
 		nameVal := errObj.Get("name")
 		if nameVal != nil && nameVal.String() == "GrpcError" {
-			assert.Equal(t, int64(codes.Unavailable), errObj.Get("code").ToInteger())
+			if got := errObj.Get("code").ToInteger(); got != int64(codes.Unavailable) {
+				t.Errorf("expected %v, got %v", int64(codes.Unavailable), got)
+			}
 		}
 	}
 }
@@ -602,8 +633,12 @@ func TestPhase3_UnaryHandler_ConvError(t *testing.T) {
 	reqMsg := dynamicpb.NewMessage(echoReqDesc)
 
 	err := env.channel.Invoke(ctx, "/testgrpc.TestService/Echo", reqMsg, respMsg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "request conversion")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "request conversion") {
+		t.Errorf("expected %q to contain %q", err.Error(), "request conversion")
+	}
 }
 
 // ============================================================================
@@ -624,16 +659,26 @@ func TestPhase3_ServerStreamHandler_ConvError(t *testing.T) {
 	reqMsg := dynamicpb.NewMessage(echoReqDesc)
 
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, "/testgrpc.TestService/ServerStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	require.NoError(t, cs.SendMsg(reqMsg))
-	require.NoError(t, cs.CloseSend())
+	if cs.SendMsg(reqMsg) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(reqMsg))
+	}
+	if cs.CloseSend() != nil {
+		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	}
 
 	itemDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	respMsg := dynamicpb.NewMessage(itemDesc)
 	err = cs.RecvMsg(respMsg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "request conversion")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "request conversion") {
+		t.Errorf("expected %q to contain %q", err.Error(), "request conversion")
+	}
 }
 
 // ============================================================================
@@ -656,20 +701,32 @@ func TestPhase3_ClientStreamRecv_ConvError(t *testing.T) {
 	reqMsg := dynamicpb.NewMessage(itemDesc)
 
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true}, "/testgrpc.TestService/ClientStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	require.NoError(t, cs.SendMsg(reqMsg))
-	require.NoError(t, cs.CloseSend())
+	if cs.SendMsg(reqMsg) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(reqMsg))
+	}
+	if cs.CloseSend() != nil {
+		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	}
 
 	echoRespDesc := phase3FindMsgDesc(t, env, "testgrpc.EchoResponse")
 	respMsg := dynamicpb.NewMessage(echoRespDesc)
 	err = cs.RecvMsg(respMsg)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 	// The error originates from addServerRecv's toWrappedMessage failure
 	// and propagates through the promise chain to the gRPC status.
 	st, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.Internal, st.Code())
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := st.Code(); got != codes.Internal {
+		t.Errorf("expected %v, got %v", codes.Internal, got)
+	}
 }
 
 // ============================================================================
@@ -684,7 +741,9 @@ func TestPhase3_FetchFileDescriptor_TransitiveExtraFile(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	baseBytes := mustMarshalFDP(phase2BaseFileDescriptor())
 
@@ -724,11 +783,17 @@ func TestPhase3_FetchFileDescriptor_TransitiveExtraFile(t *testing.T) {
 	defer stop()
 
 	fds, err := env.grpcMod.fetchFileDescriptorForSymbol("phase2.DepMsg")
-	require.NoError(t, err)
-	require.NotNil(t, fds)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fds == nil {
+		t.Fatalf("expected non-nil")
+	}
 
 	// Should have 3 files: dep + base + extra
-	require.Len(t, fds.File, 3)
+	if got := len(fds.File); got != 3 {
+		t.Fatalf("expected len %d, got %d", 3, got)
+	}
 
 	var foundExtra bool
 	for _, f := range fds.File {
@@ -736,5 +801,7 @@ func TestPhase3_FetchFileDescriptor_TransitiveExtraFile(t *testing.T) {
 			foundExtra = true
 		}
 	}
-	assert.True(t, foundExtra, "extra file should be in the result set")
+	if !(foundExtra) {
+		t.Errorf("extra file should be in the result set")
+	}
 }

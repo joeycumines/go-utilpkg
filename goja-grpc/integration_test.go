@@ -1,11 +1,9 @@
 package gojagrpc
 
 import (
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // defaultTimeout is the maximum time for event loop operations in tests.
@@ -53,13 +51,21 @@ func TestUnaryRPC_HappyPath(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "echo: hello", resultObj["message"])
-	assert.Equal(t, int64(42), resultObj["code"])
+	if got := resultObj["message"]; got != "echo: hello" {
+		t.Errorf("expected %v, got %v", "echo: hello", got)
+	}
+	if got := resultObj["code"]; got != int64(42) {
+		t.Errorf("expected %v, got %v", int64(42), got)
+	}
 }
 
 func TestUnaryRPC_ServerError(t *testing.T) {
@@ -93,11 +99,19 @@ func TestUnaryRPC_ServerError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(5), resultObj["code"]) // NOT_FOUND = 5
-	assert.Contains(t, resultObj["message"], "item not found")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(5) {
+		t.Errorf("expected %v, got %v", int64(5), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "item not found") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "item not found")
+	}
 }
 
 func TestUnaryRPC_AsyncHandler(t *testing.T) {
@@ -134,8 +148,12 @@ func TestUnaryRPC_AsyncHandler(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Equal(t, "async: world", result.String())
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := result.String(); got != "async: world" {
+		t.Errorf("expected %v, got %v", "async: world", got)
+	}
 }
 
 // ============================================================================
@@ -192,14 +210,24 @@ func TestServerStreamRPC_HappyPath(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	items := env.runtime.Get("items")
-	require.NotNil(t, items)
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
 	arr := items.Export().([]any)
-	assert.Equal(t, 3, len(arr))
-	assert.Equal(t, "item-0", arr[0].(map[string]any)["name"])
-	assert.Equal(t, "item-2", arr[2].(map[string]any)["name"])
+	if got := len(arr); got != 3 {
+		t.Errorf("expected %v, got %v", 3, got)
+	}
+	if got := arr[0].(map[string]any)["name"]; got != "item-0" {
+		t.Errorf("expected %v, got %v", "item-0", got)
+	}
+	if got := arr[2].(map[string]any)["name"]; got != "item-2" {
+		t.Errorf("expected %v, got %v", "item-2", got)
+	}
 }
 
 // ============================================================================
@@ -270,13 +298,21 @@ func TestClientStreamRPC_HappyPath(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "received: alpha,beta", resultObj["message"])
-	assert.Equal(t, int64(2), resultObj["code"])
+	if got := resultObj["message"]; got != "received: alpha,beta" {
+		t.Errorf("expected %v, got %v", "received: alpha,beta", got)
+	}
+	if got := resultObj["code"]; got != int64(2) {
+		t.Errorf("expected %v, got %v", int64(2), got)
+	}
 }
 
 // ============================================================================
@@ -357,14 +393,24 @@ func TestBidiStreamRPC_HappyPath(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.True(t, errVal == nil || isGojaUndefined(errVal), "unexpected error: %v", errVal)
+	if !(errVal == nil || isGojaUndefined(errVal)) {
+		t.Fatalf("unexpected error: %v", errVal)
+	}
 
 	received := env.runtime.Get("received")
-	require.NotNil(t, received)
+	if received == nil {
+		t.Fatalf("expected non-nil")
+	}
 	arr := received.Export().([]any)
-	assert.Equal(t, 2, len(arr))
-	assert.Equal(t, "echo-foo", arr[0].(map[string]any)["name"])
-	assert.Equal(t, "echo-bar", arr[1].(map[string]any)["name"])
+	if got := len(arr); got != 2 {
+		t.Errorf("expected %v, got %v", 2, got)
+	}
+	if got := arr[0].(map[string]any)["name"]; got != "echo-foo" {
+		t.Errorf("expected %v, got %v", "echo-foo", got)
+	}
+	if got := arr[1].(map[string]any)["name"]; got != "echo-bar" {
+		t.Errorf("expected %v, got %v", "echo-bar", got)
+	}
 }
 
 // ============================================================================
@@ -411,11 +457,17 @@ func TestUnaryRPC_AbortSignal(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 	// Cancelled code = 1
-	assert.Equal(t, int64(1), resultObj["code"])
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -471,11 +523,19 @@ func TestServerStreamRPC_ServerError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(8), resultObj["code"]) // RESOURCE_EXHAUSTED = 8
-	assert.Contains(t, resultObj["message"], "too many")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(8) {
+		t.Errorf("expected %v, got %v", int64(8), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "too many") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "too many")
+	}
 }
 
 // ============================================================================
@@ -527,11 +587,19 @@ func TestClientStreamRPC_ServerError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(3), resultObj["code"]) // INVALID_ARGUMENT = 3
-	assert.Contains(t, resultObj["message"], "bad input")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(3) {
+		t.Errorf("expected %v, got %v", int64(3), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "bad input") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "bad input")
+	}
 }
 
 // ============================================================================
@@ -583,11 +651,19 @@ func TestBidiStreamRPC_ServerError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(6), resultObj["code"]) // ALREADY_EXISTS = 6
-	assert.Contains(t, resultObj["message"], "dup")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(6) {
+		t.Errorf("expected %v, got %v", int64(6), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "dup") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "dup")
+	}
 }
 
 // ============================================================================
@@ -756,34 +832,58 @@ func TestIntegration_JSClientJSServer_AllRPCTypes(t *testing.T) {
 	errorsVal := env.runtime.Get("errors")
 	if errorsVal != nil && !isGojaUndefined(errorsVal) {
 		errArr := errorsVal.Export().([]any)
-		require.Empty(t, errArr, "JS errors: %v", errArr)
+		if len(errArr) != 0 {
+			t.Fatalf("JS errors: %v", errArr)
+		}
 	}
 
 	results := env.runtime.Get("results")
-	require.NotNil(t, results)
+	if results == nil {
+		t.Fatalf("expected non-nil")
+	}
 	r := results.Export().(map[string]any)
 
 	// 1) Unary
 	unary := r["unary"].(map[string]any)
-	assert.Equal(t, "reply: integration", unary["message"])
-	assert.Equal(t, int64(200), unary["code"])
+	if got := unary["message"]; got != "reply: integration" {
+		t.Errorf("expected %v, got %v", "reply: integration", got)
+	}
+	if got := unary["code"]; got != int64(200) {
+		t.Errorf("expected %v, got %v", int64(200), got)
+	}
 
 	// 2) Server-streaming
 	ss := r["serverStream"].([]any)
-	assert.Equal(t, 3, len(ss))
-	assert.Equal(t, "stream-0", ss[0])
-	assert.Equal(t, "stream-2", ss[2])
+	if got := len(ss); got != 3 {
+		t.Errorf("expected %v, got %v", 3, got)
+	}
+	if got := ss[0]; got != "stream-0" {
+		t.Errorf("expected %v, got %v", "stream-0", got)
+	}
+	if got := ss[2]; got != "stream-2" {
+		t.Errorf("expected %v, got %v", "stream-2", got)
+	}
 
 	// 3) Client-streaming
 	cs := r["clientStream"].(map[string]any)
-	assert.Equal(t, "count=3", cs["message"])
-	assert.Equal(t, int64(3), cs["code"])
+	if got := cs["message"]; got != "count=3" {
+		t.Errorf("expected %v, got %v", "count=3", got)
+	}
+	if got := cs["code"]; got != int64(3) {
+		t.Errorf("expected %v, got %v", int64(3), got)
+	}
 
 	// 4) Bidi-streaming
 	bidi := r["bidi"].([]any)
-	assert.Equal(t, 2, len(bidi))
-	assert.Equal(t, "bidi-x", bidi[0])
-	assert.Equal(t, "bidi-y", bidi[1])
+	if got := len(bidi); got != 2 {
+		t.Errorf("expected %v, got %v", 2, got)
+	}
+	if got := bidi[0]; got != "bidi-x" {
+		t.Errorf("expected %v, got %v", "bidi-x", got)
+	}
+	if got := bidi[1]; got != "bidi-y" {
+		t.Errorf("expected %v, got %v", "bidi-y", got)
+	}
 }
 
 // ============================================================================

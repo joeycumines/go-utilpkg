@@ -6,7 +6,6 @@ import (
 	"github.com/dop251/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
@@ -22,31 +21,45 @@ func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 	rt := goja.New()
 	pb, err := gojaprotobuf.New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = pb.LoadDescriptorSetBytes(testDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	pbObj := rt.NewObject()
 	pb.SetupExports(pbObj)
-	require.NoError(t, rt.Set("pb", pbObj))
+	if err := rt.Set("pb", pbObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	pj, err := gojaprotojson.New(rt, gojaprotojson.WithProtobuf(pb))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	pjObj := rt.NewObject()
 	pj.SetupExports(pjObj)
-	require.NoError(t, rt.Set("protojson", pjObj))
+	if err := rt.Set("protojson", pjObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return &testEnv{rt: rt, pb: pb, pj: pj, t: t}
 }
 
 func (e *testEnv) run(code string) goja.Value {
 	e.t.Helper()
 	v, err := e.rt.RunString(code)
-	require.NoError(e.t, err)
+	if err != nil {
+		e.t.Fatalf("unexpected error: %v", err)
+	}
 	return v
 }
 
 func (e *testEnv) mustFail(code string) error {
 	e.t.Helper()
 	_, err := e.rt.RunString(code)
-	require.Error(e.t, err)
+	if err == nil {
+		e.t.Fatal("expected error")
+	}
 	return err
 }
 

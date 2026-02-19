@@ -10,11 +10,9 @@ import (
 	"time"
 )
 
-// ========================================================================
-// COVERAGE-003: promisify() Function 100% Coverage
+// promisify() Function 100% Coverage
 // Tests for: loop terminated check, context cancellation before goroutine,
 //            function panic, runtime.Goexit(), SubmitInternal() failure paths
-// ========================================================================
 
 // TestPromisify_LoopAlreadyTerminated tests the immediate rejection path
 // when calling Promisify on an already-terminated loop.

@@ -5,8 +5,6 @@ import (
 
 	"github.com/dop251/goja"
 	gojarequire "github.com/dop251/goja_nodejs/require"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRequire_LoadsProtobufModule(t *testing.T) {
@@ -26,8 +24,12 @@ func TestRequire_LoadsProtobufModule(t *testing.T) {
 		typeof pb.toJSON === 'function' &&
 		typeof pb.fromJSON === 'function'
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestRequire_CustomModuleName(t *testing.T) {
@@ -40,6 +42,10 @@ func TestRequire_CustomModuleName(t *testing.T) {
 		var pb = require('my-pb');
 		typeof pb.messageType === 'function'
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }

@@ -4,27 +4,46 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 func TestNew_NilRuntime_Panics(t *testing.T) {
-	assert.PanicsWithValue(t, "gojaprotobuf: runtime must not be nil", func() {
-		_, _ = New(nil)
-	})
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic")
+		}
+		if r != "gojaprotobuf: runtime must not be nil" {
+			t.Fatalf("unexpected panic value: %v", r)
+		}
+	}()
+	_, _ = New(nil)
 }
 
 func TestNew_Default(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
-	assert.NotNil(t, m)
-	assert.Equal(t, rt, m.Runtime())
-	assert.Equal(t, protoregistry.GlobalTypes, m.resolver)
-	assert.Equal(t, protoregistry.GlobalFiles, m.files)
-	assert.NotNil(t, m.localTypes)
-	assert.NotNil(t, m.localFiles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m == nil {
+		t.Fatal("expected non-nil module")
+	}
+	if m.Runtime() != rt {
+		t.Errorf("got %v, want %v", m.Runtime(), rt)
+	}
+	if m.resolver != protoregistry.GlobalTypes {
+		t.Errorf("got %v, want %v", m.resolver, protoregistry.GlobalTypes)
+	}
+	if m.files != protoregistry.GlobalFiles {
+		t.Errorf("got %v, want %v", m.files, protoregistry.GlobalFiles)
+	}
+	if m.localTypes == nil {
+		t.Error("expected non-nil localTypes")
+	}
+	if m.localFiles == nil {
+		t.Error("expected non-nil localFiles")
+	}
 }
 
 func TestNew_WithOptions(t *testing.T) {
@@ -33,14 +52,24 @@ func TestNew_WithOptions(t *testing.T) {
 	f := new(protoregistry.Files)
 
 	m, err := New(rt, WithResolver(r), WithFiles(f))
-	require.NoError(t, err)
-	assert.Equal(t, r, m.resolver)
-	assert.Equal(t, f, m.files)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.resolver != r {
+		t.Errorf("got %v, want %v", m.resolver, r)
+	}
+	if m.files != f {
+		t.Errorf("got %v, want %v", m.files, f)
+	}
 }
 
 func TestRuntime_Accessor(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
-	assert.Same(t, rt, m.Runtime())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.Runtime() != rt {
+		t.Error("Runtime() did not return the same runtime pointer")
+	}
 }
