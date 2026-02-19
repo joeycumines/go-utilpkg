@@ -29,7 +29,7 @@ var (
 var testSuiteConfig = testsuite.Config[*Event]{
 	LoggerFactory:    testSuiteLoggerFactory,
 	WriteTimeout:     time.Second * 10,
-	EmergencyPanics:  true,
+	EmergencyPanics:  false,
 	LogsEmptyMessage: true,
 }
 

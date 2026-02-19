@@ -125,11 +125,7 @@ func (x *Logger) ReleaseEvent(event *Event) {
 func (x *Logger) Write(event *Event) error {
 	record := slog.NewRecord(time.Now(), toSlogLevel(event.lvl), event.msg, 0)
 	record.AddAttrs(event.attrs...)
-	err := x.Handler.Handle(context.TODO(), record)
-	if event.lvl == logiface.LevelEmergency {
-		panic(logiface.LevelEmergency)
-	}
-	return err
+	return x.Handler.Handle(context.TODO(), record)
 }
 
 func toSlogLevel(level logiface.Level) slog.Level {
