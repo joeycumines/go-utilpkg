@@ -69,17 +69,13 @@ session-time-check: ## Check session time elapsed
 		echo "No .session-time.log found. Start with 'gmake session-time-start'"; \
 	fi
 
-.PHONY: stage-testify-batch
-stage-testify-batch: ## Stage testify removal batch for commit
-	cd $(CURDIR) && git add catrate/ prompt/ grpc-proxy/ goja-grpc/coverage_test.go config.mk && git add -f scratch/
+.PHONY: stage-all
+stage-all: ## Stage all changes (git add -A)
+	git add -A
 
 .PHONY: diff-stat-staged
 diff-stat-staged: ## Show staged diff stat
 	@git diff --staged --stat
-
-.PHONY: commit-testify-batch
-commit-testify-batch: ## Commit testify removal batch using message file
-	git commit -F $(CURDIR)/scratch/commit-msg.txt
 
 .PHONY: commit-log
 commit-log: ## Show last 5 commits

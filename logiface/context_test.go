@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/joeycumines/logiface/internal/fieldtest"
 	"math"
 	"os"
 	"reflect"
@@ -13,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/logiface/internal/fieldtest"
 )
 
 func TestBuilder_Call_nilReceiver(t *testing.T) {
