@@ -19,9 +19,6 @@ const (
 	Rejected  = eventloop.Rejected
 )
 
-// nodePoolRecycled tracks how many nodes we recycled (optional debug)
-// var nodePoolRecycled int64
-
 var nodePool = sync.Pool{
 	New: func() any {
 		return &handlerNode{}

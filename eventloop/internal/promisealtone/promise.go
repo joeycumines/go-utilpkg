@@ -59,9 +59,6 @@ type ResolveFunc func(any)
 // RejectFunc is the function used to reject a promise.
 type RejectFunc func(any)
 
-// unique error to detect cycles efficiently
-// var errCycle = fmt.Errorf("TypeError: Chaining cycle detected")
-
 // New creates a new pending promise.
 func New(js *eventloop.JS) (*Promise, ResolveFunc, RejectFunc) {
 	p := newPromise(js)
