@@ -1,6 +1,7 @@
 ---
 name: changelog-md
 description: Creates, validates, and maintains CHANGELOG.md files following Keep a Changelog 1.1.0 specification. Use when user asks to create a changelog, validate a changelog, add changelog entries, format a changelog, check changelog format, or mentions "Keep a Changelog". Works with markdown changelogs following to standard format with Unreleased sections, version headers (## [VERSION] - YYYY-MM-DD), and change categories (Added, Changed, Deprecated, Removed, Fixed, Security).
+license: MIT
 ---
 
 # Changelog MD
