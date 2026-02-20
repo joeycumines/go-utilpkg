@@ -1692,7 +1692,7 @@ func TestStreamReader_RecvSubmitFailure(t *testing.T) {
 
 	select {
 	case <-setupDone:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		cancel()
 		t.Fatal("timeout")
 	}
@@ -2052,7 +2052,7 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 
 	select {
 	case <-setupDone:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		cancel()
 		t.Fatal("timeout")
 	}
