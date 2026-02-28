@@ -3,12 +3,12 @@ package gojagrpc
 import (
 	"context"
 	"io"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +25,9 @@ import (
 func makeEchoRequest(t *testing.T, env *grpcTestEnv, message string) *dynamicpb.Message {
 	t.Helper()
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 	msg := dynamicpb.NewMessage(msgDesc)
 	msg.Set(msgDesc.Fields().ByName("message"), protoreflect.ValueOfString(message))
@@ -36,7 +38,9 @@ func makeEchoRequest(t *testing.T, env *grpcTestEnv, message string) *dynamicpb.
 func makeEchoResponse(t *testing.T, env *grpcTestEnv) *dynamicpb.Message {
 	t.Helper()
 	desc, err := env.pbMod.FindDescriptor("testgrpc.EchoResponse")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 }
 
@@ -44,7 +48,9 @@ func makeEchoResponse(t *testing.T, env *grpcTestEnv) *dynamicpb.Message {
 func makeItem(t *testing.T, env *grpcTestEnv, id string, name string) *dynamicpb.Message {
 	t.Helper()
 	desc, err := env.pbMod.FindDescriptor("testgrpc.Item")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 	msg := dynamicpb.NewMessage(msgDesc)
 	msg.Set(msgDesc.Fields().ByName("id"), protoreflect.ValueOfString(id))
@@ -56,7 +62,9 @@ func makeItem(t *testing.T, env *grpcTestEnv, id string, name string) *dynamicpb
 func makeEmptyItem(t *testing.T, env *grpcTestEnv) *dynamicpb.Message {
 	t.Helper()
 	desc, err := env.pbMod.FindDescriptor("testgrpc.Item")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 }
 
@@ -120,12 +128,18 @@ func TestGoClientJSServer_Unary(t *testing.T) {
 	resp := makeEchoResponse(t, env)
 
 	err := env.channel.Invoke(context.Background(), "/testgrpc.TestService/Echo", req, resp)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	msgField := resp.Descriptor().Fields().ByName("message")
 	codeField := resp.Descriptor().Fields().ByName("code")
-	assert.Equal(t, "go-called: from-go", resp.Get(msgField).String())
-	assert.Equal(t, int32(77), int32(resp.Get(codeField).Int()))
+	if got := resp.Get(msgField).String(); got != "go-called: from-go" {
+		t.Errorf("expected %v, got %v", "go-called: from-go", got)
+	}
+	if got := int32(resp.Get(codeField).Int()); got != int32(77) {
+		t.Errorf("expected %v, got %v", int32(77), got)
+	}
 }
 
 // --- Unary: Go client -> JS server error ---
@@ -152,12 +166,20 @@ func TestGoClientJSServer_UnaryError(t *testing.T) {
 	resp := makeEchoResponse(t, env)
 
 	err := env.channel.Invoke(context.Background(), "/testgrpc.TestService/Echo", req, resp)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 
 	st, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.PermissionDenied, st.Code())
-	assert.Contains(t, st.Message(), "access denied")
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
+	if got := st.Code(); got != codes.PermissionDenied {
+		t.Errorf("expected %v, got %v", codes.PermissionDenied, got)
+	}
+	if !strings.Contains(st.Message(), "access denied") {
+		t.Errorf("expected %q to contain %q", st.Message(), "access denied")
+	}
 }
 
 // --- Server-streaming: Go client -> JS server ---
@@ -189,11 +211,17 @@ func TestGoClientJSServer_ServerStream(t *testing.T) {
 	ctx := context.Background()
 	desc := &grpc.StreamDesc{ServerStreams: true}
 	cs, err := env.channel.NewStream(ctx, desc, "/testgrpc.TestService/ServerStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	req := makeEchoRequest(t, env, "list")
-	require.NoError(t, cs.SendMsg(req))
-	require.NoError(t, cs.CloseSend())
+	if cs.SendMsg(req) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(req))
+	}
+	if cs.CloseSend() != nil {
+		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	}
 
 	var items []string
 	for {
@@ -208,7 +236,9 @@ func TestGoClientJSServer_ServerStream(t *testing.T) {
 		items = append(items, item.Get(nameField).String())
 	}
 
-	assert.Equal(t, []string{"go-stream-0", "go-stream-1", "go-stream-2"}, items)
+	if !reflect.DeepEqual(items, []string{"go-stream-0", "go-stream-1", "go-stream-2"}) {
+		t.Errorf("expected %v, got %v", []string{"go-stream-0", "go-stream-1", "go-stream-2"}, items)
+	}
 }
 
 // --- Client-streaming: Go client -> JS server ---
@@ -251,19 +281,33 @@ func TestGoClientJSServer_ClientStream(t *testing.T) {
 	ctx := context.Background()
 	desc := &grpc.StreamDesc{ClientStreams: true}
 	cs, err := env.channel.NewStream(ctx, desc, "/testgrpc.TestService/ClientStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	require.NoError(t, cs.SendMsg(makeItem(t, env, "1", "alpha")))
-	require.NoError(t, cs.SendMsg(makeItem(t, env, "2", "beta")))
-	require.NoError(t, cs.CloseSend())
+	if cs.SendMsg(makeItem(t, env, "1", "alpha")) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(makeItem(t, env, "1", "alpha")))
+	}
+	if cs.SendMsg(makeItem(t, env, "2", "beta")) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(makeItem(t, env, "2", "beta")))
+	}
+	if cs.CloseSend() != nil {
+		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	}
 
 	resp := makeEchoResponse(t, env)
-	require.NoError(t, cs.RecvMsg(resp))
+	if cs.RecvMsg(resp) != nil {
+		t.Fatalf("unexpected error: %v", cs.RecvMsg(resp))
+	}
 
 	msgField := resp.Descriptor().Fields().ByName("message")
 	codeField := resp.Descriptor().Fields().ByName("code")
-	assert.Equal(t, "got: alpha,beta", resp.Get(msgField).String())
-	assert.Equal(t, int32(2), int32(resp.Get(codeField).Int()))
+	if got := resp.Get(msgField).String(); got != "got: alpha,beta" {
+		t.Errorf("expected %v, got %v", "got: alpha,beta", got)
+	}
+	if got := int32(resp.Get(codeField).Int()); got != int32(2) {
+		t.Errorf("expected %v, got %v", int32(2), got)
+	}
 }
 
 // --- Bidi-streaming: Go client -> JS server ---
@@ -305,11 +349,19 @@ func TestGoClientJSServer_BidiStream(t *testing.T) {
 	ctx := context.Background()
 	desc := &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}
 	cs, err := env.channel.NewStream(ctx, desc, "/testgrpc.TestService/BidiStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	require.NoError(t, cs.SendMsg(makeItem(t, env, "1", "x")))
-	require.NoError(t, cs.SendMsg(makeItem(t, env, "2", "y")))
-	require.NoError(t, cs.CloseSend())
+	if cs.SendMsg(makeItem(t, env, "1", "x")) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(makeItem(t, env, "1", "x")))
+	}
+	if cs.SendMsg(makeItem(t, env, "2", "y")) != nil {
+		t.Fatalf("unexpected error: %v", cs.SendMsg(makeItem(t, env, "2", "y")))
+	}
+	if cs.CloseSend() != nil {
+		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	}
 
 	var names []string
 	for {
@@ -324,7 +376,9 @@ func TestGoClientJSServer_BidiStream(t *testing.T) {
 		names = append(names, item.Get(nameField).String())
 	}
 
-	assert.Equal(t, []string{"go-echo-x", "go-echo-y"}, names)
+	if !reflect.DeepEqual(names, []string{"go-echo-x", "go-echo-y"}) {
+		t.Errorf("expected %v, got %v", []string{"go-echo-x", "go-echo-y"}, names)
+	}
 }
 
 // ============================================================================
@@ -384,11 +438,19 @@ func TestJSClientGoServer_Unary(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Nil(t, resultObj["error"])
-	assert.Equal(t, "go-server: from-js", resultObj["message"])
-	assert.Equal(t, int64(42), resultObj["code"])
+	if resultObj["error"] != nil {
+		t.Errorf("expected nil, got %v", resultObj["error"])
+	}
+	if got := resultObj["message"]; got != "go-server: from-js" {
+		t.Errorf("expected %v, got %v", "go-server: from-js", got)
+	}
+	if got := resultObj["code"]; got != int64(42) {
+		t.Errorf("expected %v, got %v", int64(42), got)
+	}
 }
 
 // TestJSClientGoServer_ServerStream registers a Go server-stream handler.
@@ -443,12 +505,22 @@ func TestJSClientGoServer_ServerStream(t *testing.T) {
 	`, defaultTimeout)
 
 	items := env.runtime.Get("items")
-	require.NotNil(t, items)
+	if items == nil {
+		t.Fatalf("expected non-nil")
+	}
 	arr := items.Export().([]any)
-	assert.Equal(t, 3, len(arr))
-	assert.Equal(t, "go-item-A", arr[0])
-	assert.Equal(t, "go-item-B", arr[1])
-	assert.Equal(t, "go-item-C", arr[2])
+	if got := len(arr); got != 3 {
+		t.Errorf("expected %v, got %v", 3, got)
+	}
+	if got := arr[0]; got != "go-item-A" {
+		t.Errorf("expected %v, got %v", "go-item-A", got)
+	}
+	if got := arr[1]; got != "go-item-B" {
+		t.Errorf("expected %v, got %v", "go-item-B", got)
+	}
+	if got := arr[2]; got != "go-item-C" {
+		t.Errorf("expected %v, got %v", "go-item-C", got)
+	}
 }
 
 // TestJSClientGoServer_UnaryError tests Go server returning gRPC error.
@@ -482,9 +554,17 @@ func TestJSClientGoServer_UnaryError(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(14), resultObj["code"]) // UNAVAILABLE = 14
-	assert.Contains(t, resultObj["message"], "service down")
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(14) {
+		t.Errorf("expected %v, got %v", int64(14), got)
+	}
+	if !strings.Contains(resultObj["message"].(string), "service down") {
+		t.Errorf("expected %q to contain %q", resultObj["message"], "service down")
+	}
 }

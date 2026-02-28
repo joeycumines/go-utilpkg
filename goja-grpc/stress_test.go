@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
@@ -66,12 +64,22 @@ func TestStress_JSClient100ConcurrentRPCs(t *testing.T) {
 	`, 30*time.Second)
 
 	r := env.runtime.Get("results")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Nil(t, rObj["error"])
-	assert.Equal(t, int64(100), rObj["count"])
-	assert.Equal(t, "echo:stress-0", rObj["first"])
-	assert.Equal(t, "echo:stress-99", rObj["last"])
+	if rObj["error"] != nil {
+		t.Errorf("expected nil, got %v", rObj["error"])
+	}
+	if got := rObj["count"]; got != int64(100) {
+		t.Errorf("expected %v, got %v", int64(100), got)
+	}
+	if got := rObj["first"]; got != "echo:stress-0" {
+		t.Errorf("expected %v, got %v", "echo:stress-0", got)
+	}
+	if got := rObj["last"]; got != "echo:stress-99" {
+		t.Errorf("expected %v, got %v", "echo:stress-99", got)
+	}
 }
 
 // ============================================================================
@@ -127,17 +135,23 @@ func TestStress_GoClient100ConcurrentRPCsToJSServer(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for server setup")
 	}
-	require.NoError(t, jsErr, "JS setup error")
+	if jsErr != nil {
+		t.Fatalf("unexpected error: %v", jsErr)
+	}
 
 	// Resolve message descriptors from the SAME protobuf module used by JS.
 	// This is critical: using a different protodesc.NewFile would create
 	// distinct descriptor instances that proto.Merge rejects.
 	resolver := env.pbMod.FileResolver()
 	reqDescAny, err := resolver.FindDescriptorByName("testgrpc.EchoRequest")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	reqDesc := reqDescAny.(protoreflect.MessageDescriptor)
 	respDescAny, err := resolver.FindDescriptorByName("testgrpc.EchoResponse")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	respDesc := respDescAny.(protoreflect.MessageDescriptor)
 
 	// Send 100 concurrent RPCs from Go using dynamicpb.
@@ -308,9 +322,13 @@ func TestStress_HeapAllocationCheck(t *testing.T) {
 	`, 30*time.Second)
 
 	r := env.runtime.Get("results")
-	require.NotNil(t, r)
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
 	rObj := r.Export().(map[string]any)
-	assert.Equal(t, int64(500), rObj["completed"])
+	if got := rObj["completed"]; got != int64(500) {
+		t.Errorf("expected %v, got %v", int64(500), got)
+	}
 
 	// GC and check heap isn't leaking.
 	runtime.GC()

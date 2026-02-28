@@ -1,11 +1,11 @@
 package gojagrpc
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -21,7 +21,9 @@ func TestMetadata_Create(t *testing.T) {
 		var md = grpc.metadata.create();
 		typeof md;
 	`)
-	assert.Equal(t, "object", val.String())
+	if got := val.String(); got != "object" {
+		t.Errorf("expected %v, got %v", "object", got)
+	}
 }
 
 func TestMetadata_SetAndGet(t *testing.T) {
@@ -34,7 +36,9 @@ func TestMetadata_SetAndGet(t *testing.T) {
 	`)
 
 	val := env.run(t, `md.get('my-key')`)
-	assert.Equal(t, "my-value", val.String())
+	if got := val.String(); got != "my-value" {
+		t.Errorf("expected %v, got %v", "my-value", got)
+	}
 }
 
 func TestMetadata_GetMissing(t *testing.T) {
@@ -45,7 +49,9 @@ func TestMetadata_GetMissing(t *testing.T) {
 		var md = grpc.metadata.create();
 		md.get('nonexistent');
 	`)
-	assert.True(t, goja.IsUndefined(val))
+	if !(goja.IsUndefined(val)) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestMetadata_SetMultipleValues(t *testing.T) {
@@ -59,21 +65,31 @@ func TestMetadata_SetMultipleValues(t *testing.T) {
 
 	// get returns first value
 	val := env.run(t, `md.get('multi')`)
-	assert.Equal(t, "v1", val.String())
+	if got := val.String(); got != "v1" {
+		t.Errorf("expected %v, got %v", "v1", got)
+	}
 
 	// getAll returns all values
 	all := env.run(t, `
 		var arr = md.getAll('multi');
 		arr.length;
 	`)
-	assert.Equal(t, int64(3), all.ToInteger())
+	if got := all.ToInteger(); got != int64(3) {
+		t.Errorf("expected %v, got %v", int64(3), got)
+	}
 
 	v0 := env.run(t, `arr[0]`)
 	v1 := env.run(t, `arr[1]`)
 	v2 := env.run(t, `arr[2]`)
-	assert.Equal(t, "v1", v0.String())
-	assert.Equal(t, "v2", v1.String())
-	assert.Equal(t, "v3", v2.String())
+	if got := v0.String(); got != "v1" {
+		t.Errorf("expected %v, got %v", "v1", got)
+	}
+	if got := v1.String(); got != "v2" {
+		t.Errorf("expected %v, got %v", "v2", got)
+	}
+	if got := v2.String(); got != "v3" {
+		t.Errorf("expected %v, got %v", "v3", got)
+	}
 }
 
 func TestMetadata_GetAllMissing(t *testing.T) {
@@ -84,7 +100,9 @@ func TestMetadata_GetAllMissing(t *testing.T) {
 		var md = grpc.metadata.create();
 		md.getAll('nonexistent').length;
 	`)
-	assert.Equal(t, int64(0), val.ToInteger())
+	if got := val.ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestMetadata_Delete(t *testing.T) {
@@ -97,7 +115,9 @@ func TestMetadata_Delete(t *testing.T) {
 		md.delete('key');
 		md.get('key');
 	`)
-	assert.True(t, goja.IsUndefined(val))
+	if !(goja.IsUndefined(val)) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestMetadata_DeleteNonexistent(t *testing.T) {
@@ -121,7 +141,9 @@ func TestMetadata_SetOverwrite(t *testing.T) {
 		md.set('key', 'new');
 		md.get('key');
 	`)
-	assert.Equal(t, "new", val.String())
+	if got := val.String(); got != "new" {
+		t.Errorf("expected %v, got %v", "new", got)
+	}
 }
 
 func TestMetadata_ForEach(t *testing.T) {
@@ -138,7 +160,9 @@ func TestMetadata_ForEach(t *testing.T) {
 		});
 		pairs.sort().join(',');
 	`)
-	assert.Equal(t, "a=v1,b=v2", val.String())
+	if got := val.String(); got != "a=v1,b=v2" {
+		t.Errorf("expected %v, got %v", "a=v1,b=v2", got)
+	}
 }
 
 func TestMetadata_ForEachMultipleValues(t *testing.T) {
@@ -154,7 +178,9 @@ func TestMetadata_ForEachMultipleValues(t *testing.T) {
 		});
 		pairs.sort().join(',');
 	`)
-	assert.Equal(t, "key=v1,key=v2", val.String())
+	if got := val.String(); got != "key=v1,key=v2" {
+		t.Errorf("expected %v, got %v", "key=v1,key=v2", got)
+	}
 }
 
 func TestMetadata_ForEachNotAFunction(t *testing.T) {
@@ -180,11 +206,15 @@ func TestMetadata_ToObject(t *testing.T) {
 
 	// x-request-id should have array with one element
 	val := env.run(t, `obj['x-request-id'][0]`)
-	assert.Equal(t, "abc123", val.String())
+	if got := val.String(); got != "abc123" {
+		t.Errorf("expected %v, got %v", "abc123", got)
+	}
 
 	// auth should have array with two elements
 	len := env.run(t, `obj['auth'].length`)
-	assert.Equal(t, int64(2), len.ToInteger())
+	if got := len.ToInteger(); got != int64(2) {
+		t.Errorf("expected %v, got %v", int64(2), got)
+	}
 }
 
 func TestMetadata_ToObjectEmpty(t *testing.T) {
@@ -195,7 +225,9 @@ func TestMetadata_ToObjectEmpty(t *testing.T) {
 		var md = grpc.metadata.create();
 		Object.keys(md.toObject()).length;
 	`)
-	assert.Equal(t, int64(0), val.ToInteger())
+	if got := val.ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestMetadata_CaseInsensitive(t *testing.T) {
@@ -208,7 +240,9 @@ func TestMetadata_CaseInsensitive(t *testing.T) {
 		md.set('My-Key', 'hello');
 		md.get('my-key');
 	`)
-	assert.Equal(t, "hello", val.String())
+	if got := val.String(); got != "hello" {
+		t.Errorf("expected %v, got %v", "hello", got)
+	}
 }
 
 func TestMetadata_CaseInsensitiveGetAll(t *testing.T) {
@@ -220,7 +254,9 @@ func TestMetadata_CaseInsensitiveGetAll(t *testing.T) {
 		md.set('X-Custom', 'a', 'b');
 		md.getAll('x-custom').length;
 	`)
-	assert.Equal(t, int64(2), val.ToInteger())
+	if got := val.ToInteger(); got != int64(2) {
+		t.Errorf("expected %v, got %v", int64(2), got)
+	}
 }
 
 func TestMetadata_CaseInsensitiveDelete(t *testing.T) {
@@ -233,7 +269,9 @@ func TestMetadata_CaseInsensitiveDelete(t *testing.T) {
 		md.delete('remove-me');
 		md.get('remove-me');
 	`)
-	assert.True(t, goja.IsUndefined(val))
+	if !(goja.IsUndefined(val)) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestMetadata_SetRequiresMinArgs(t *testing.T) {
@@ -262,19 +300,31 @@ func TestMetadataToGo_Roundtrip(t *testing.T) {
 	// Extract as Go metadata.MD
 	mdVal := env.runtime.Get("md")
 	goMD := env.grpcMod.metadataToGo(mdVal)
-	require.NotNil(t, goMD)
+	if goMD == nil {
+		t.Fatalf("expected non-nil")
+	}
 
-	assert.Equal(t, []string{"val1"}, goMD.Get("key1"))
-	assert.Equal(t, []string{"val2a", "val2b"}, goMD.Get("key2"))
+	if !reflect.DeepEqual(goMD.Get("key1"), []string{"val1"}) {
+		t.Errorf("expected %v, got %v", []string{"val1"}, goMD.Get("key1"))
+	}
+	if !reflect.DeepEqual(goMD.Get("key2"), []string{"val2a", "val2b"}) {
+		t.Errorf("expected %v, got %v", []string{"val2a", "val2b"}, goMD.Get("key2"))
+	}
 }
 
 func TestMetadataToGo_NilInput(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	assert.Nil(t, env.grpcMod.metadataToGo(nil))
-	assert.Nil(t, env.grpcMod.metadataToGo(goja.Null()))
-	assert.Nil(t, env.grpcMod.metadataToGo(goja.Undefined()))
+	if env.grpcMod.metadataToGo(nil) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(nil))
+	}
+	if env.grpcMod.metadataToGo(goja.Null()) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(goja.Null()))
+	}
+	if env.grpcMod.metadataToGo(goja.Undefined()) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(goja.Undefined()))
+	}
 }
 
 func TestMetadataToGo_NonWrapper(t *testing.T) {
@@ -283,7 +333,9 @@ func TestMetadataToGo_NonWrapper(t *testing.T) {
 
 	// A plain object without toObject() should return nil.
 	plainObj := env.runtime.NewObject()
-	assert.Nil(t, env.grpcMod.metadataToGo(plainObj))
+	if env.grpcMod.metadataToGo(plainObj) != nil {
+		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(plainObj))
+	}
 }
 
 func TestMetadataFromGo_Nil(t *testing.T) {
@@ -291,7 +343,9 @@ func TestMetadataFromGo_Nil(t *testing.T) {
 	defer env.shutdown()
 
 	val := env.grpcMod.metadataFromGo(nil)
-	assert.True(t, goja.IsUndefined(val))
+	if !(goja.IsUndefined(val)) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestMetadataFromGo_Roundtrip(t *testing.T) {
@@ -305,10 +359,14 @@ func TestMetadataFromGo_Roundtrip(t *testing.T) {
 	_ = env.runtime.Set("goMD", jsVal)
 
 	val := env.run(t, `goMD.get('alpha')`)
-	assert.Equal(t, "1", val.String())
+	if got := val.String(); got != "1" {
+		t.Errorf("expected %v, got %v", "1", got)
+	}
 
 	all := env.run(t, `goMD.getAll('beta').length`)
-	assert.Equal(t, int64(2), all.ToInteger())
+	if got := all.ToInteger(); got != int64(2) {
+		t.Errorf("expected %v, got %v", int64(2), got)
+	}
 }
 
 func TestMetadataFromGo_GetAllValues(t *testing.T) {
@@ -323,7 +381,9 @@ func TestMetadataFromGo_GetAllValues(t *testing.T) {
 		var vals = goMD.getAll('x');
 		vals[0] + ',' + vals[1] + ',' + vals[2];
 	`)
-	assert.Equal(t, "a,b,c", val.String())
+	if got := val.String(); got != "a,b,c" {
+		t.Errorf("expected %v, got %v", "a,b,c", got)
+	}
 }
 
 // =============== Service Resolution Tests (T072 adjacent) ===============
@@ -333,9 +393,15 @@ func TestResolveService_Success(t *testing.T) {
 	defer env.shutdown()
 
 	sd, err := env.grpcMod.resolveService("testgrpc.TestService")
-	require.NoError(t, err)
-	assert.Equal(t, "TestService", string(sd.Name()))
-	assert.Equal(t, 4, sd.Methods().Len())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := string(sd.Name()); got != "TestService" {
+		t.Errorf("expected %v, got %v", "TestService", got)
+	}
+	if got := sd.Methods().Len(); got != 4 {
+		t.Errorf("expected %v, got %v", 4, got)
+	}
 }
 
 func TestResolveService_NotFound(t *testing.T) {
@@ -343,8 +409,12 @@ func TestResolveService_NotFound(t *testing.T) {
 	defer env.shutdown()
 
 	_, err := env.grpcMod.resolveService("nonexistent.Service")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not found")
+	}
 }
 
 func TestResolveService_NotAService(t *testing.T) {
@@ -353,15 +423,27 @@ func TestResolveService_NotAService(t *testing.T) {
 
 	// EchoRequest is a message, not a service.
 	_, err := env.grpcMod.resolveService("testgrpc.EchoRequest")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a service")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "not a service") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not a service")
+	}
 }
 
 func TestLowerFirst(t *testing.T) {
-	assert.Equal(t, "echo", lowerFirst("Echo"))
-	assert.Equal(t, "serverStream", lowerFirst("ServerStream"))
-	assert.Equal(t, "a", lowerFirst("A"))
-	assert.Equal(t, "", lowerFirst(""))
+	if got := lowerFirst("Echo"); got != "echo" {
+		t.Errorf("expected %v, got %v", "echo", got)
+	}
+	if got := lowerFirst("ServerStream"); got != "serverStream" {
+		t.Errorf("expected %v, got %v", "serverStream", got)
+	}
+	if got := lowerFirst("A"); got != "a" {
+		t.Errorf("expected %v, got %v", "a", got)
+	}
+	if got := lowerFirst(""); got != "" {
+		t.Errorf("expected %v, got %v", "", got)
+	}
 }
 
 func TestCreateClient_ServiceMethods(t *testing.T) {
@@ -372,16 +454,24 @@ func TestCreateClient_ServiceMethods(t *testing.T) {
 	env.run(t, `var client = grpc.createClient('testgrpc.TestService')`)
 
 	hasEcho := env.run(t, `typeof client.echo === 'function'`)
-	assert.True(t, hasEcho.ToBoolean())
+	if !(hasEcho.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 
 	hasServerStream := env.run(t, `typeof client.serverStream === 'function'`)
-	assert.True(t, hasServerStream.ToBoolean())
+	if !(hasServerStream.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 
 	hasClientStream := env.run(t, `typeof client.clientStream === 'function'`)
-	assert.True(t, hasClientStream.ToBoolean())
+	if !(hasClientStream.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 
 	hasBidiStream := env.run(t, `typeof client.bidiStream === 'function'`)
-	assert.True(t, hasBidiStream.ToBoolean())
+	if !(hasBidiStream.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 func TestCreateClient_InvalidService(t *testing.T) {
