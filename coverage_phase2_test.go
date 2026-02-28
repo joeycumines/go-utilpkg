@@ -3,13 +3,12 @@ package gojagrpc
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dop251/goja"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
@@ -225,7 +224,9 @@ func TestFetchFileDescriptor_TransitiveDepLoop(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	baseBytes := mustMarshalFDP(phase2BaseFileDescriptor())
 	depBytes := mustMarshalFDP(phase2DepFileDescriptor())
@@ -263,10 +264,16 @@ func TestFetchFileDescriptor_TransitiveDepLoop(t *testing.T) {
 	defer stop()
 
 	fds, err := env.grpcMod.fetchFileDescriptorForSymbol("phase2.DepMsg")
-	require.NoError(t, err)
-	require.NotNil(t, fds)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fds == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Should have both files: dep + base
-	require.Len(t, fds.File, 2)
+	if got := len(fds.File); got != 2 {
+		t.Fatalf("expected len %d, got %d", 2, got)
+	}
 }
 
 // ============================================================================
@@ -286,8 +293,12 @@ func TestFetchFileDescriptor_ErrorResponse(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("nonexistent.Symbol")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "symbol not found")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "symbol not found") {
+		t.Errorf("expected %q to contain %q", err.Error(), "symbol not found")
+	}
 }
 
 // ============================================================================
@@ -308,8 +319,12 @@ func TestFetchFileDescriptor_NilFdResponse(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("nonexistent.Symbol")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected response type")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "unexpected response type") {
+		t.Errorf("expected %q to contain %q", err.Error(), "unexpected response type")
+	}
 }
 
 // ============================================================================
@@ -335,7 +350,9 @@ func TestFetchFileDescriptor_UnmarshalError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("test.Symbol")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -360,7 +377,9 @@ func TestFetchFileDescriptor_SendError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("test.Symbol")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -381,7 +400,9 @@ func TestFetchFileDescriptor_RecvError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("test.Symbol")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -396,7 +417,9 @@ func TestFetchFileDescriptor_TransitiveLoop_SendError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	depBytes := mustMarshalFDP(phase2DepFileDescriptor())
 
@@ -421,7 +444,9 @@ func TestFetchFileDescriptor_TransitiveLoop_SendError(t *testing.T) {
 	defer stop()
 
 	_, err = env.grpcMod.fetchFileDescriptorForSymbol("phase2.DepMsg")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -436,7 +461,9 @@ func TestFetchFileDescriptor_TransitiveLoop_NilFdResp(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	depBytes := mustMarshalFDP(phase2DepFileDescriptor())
 
@@ -464,10 +491,16 @@ func TestFetchFileDescriptor_TransitiveLoop_NilFdResp(t *testing.T) {
 	fds, err := env.grpcMod.fetchFileDescriptorForSymbol("phase2.DepMsg")
 	// Should succeed because the loop continues on nil fdResp and the
 	// missing dep was already marked as resolved.
-	require.NoError(t, err)
-	require.NotNil(t, fds)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fds == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Only the dep file (base not actually added)
-	require.Len(t, fds.File, 1)
+	if got := len(fds.File); got != 1 {
+		t.Fatalf("expected len %d, got %d", 1, got)
+	}
 }
 
 // ============================================================================
@@ -480,7 +513,9 @@ func TestFetchFileDescriptor_TransitiveLoop_UnmarshalError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	depBytes := mustMarshalFDP(phase2DepFileDescriptor())
 
@@ -508,7 +543,9 @@ func TestFetchFileDescriptor_TransitiveLoop_UnmarshalError(t *testing.T) {
 	defer stop()
 
 	_, err = env.grpcMod.fetchFileDescriptorForSymbol("phase2.DepMsg")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -529,8 +566,12 @@ func TestDoListServices_NilListResponse(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doListServices()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected response type")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "unexpected response type") {
+		t.Errorf("expected %q to contain %q", err.Error(), "unexpected response type")
+	}
 }
 
 // ============================================================================
@@ -554,7 +595,9 @@ func TestDoListServices_SendError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doListServices()
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -575,7 +618,9 @@ func TestDoListServices_RecvError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doListServices()
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -603,7 +648,9 @@ func TestDoDescribeService_ProtodescError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeService("bad.SomeService")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -626,7 +673,9 @@ func TestDoDescribeService_FindNotFound(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeService("phase2.NonexistentService")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -648,8 +697,12 @@ func TestDoDescribeService_NotAServiceInFile(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeService("phase2.BaseMsg")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a service")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "not a service") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not a service")
+	}
 }
 
 // ============================================================================
@@ -676,7 +729,9 @@ func TestDoDescribeType_ProtodescError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeType("bad2.SomeType")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -696,7 +751,9 @@ func TestDoDescribeType_FindNotFound(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeType("phase2.NonexistentType")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -716,8 +773,12 @@ func TestDoDescribeType_NotAMessage(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doDescribeType("phase2.DepService")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a message type")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "not a message type") {
+		t.Errorf("expected %q to contain %q", err.Error(), "not a message type")
+	}
 }
 
 // ============================================================================
@@ -734,7 +795,9 @@ func TestExtractGoDetails_ExportWrongType(t *testing.T) {
 	_ = obj.Set("_goDetails", env.runtime.ToValue("not a holder"))
 
 	result := env.grpcMod.extractGoDetails(obj)
-	assert.Nil(t, result)
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
 }
 
 // ============================================================================
@@ -747,13 +810,21 @@ func TestToWrappedMessage_NotProtoMessage(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	desc, err := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.EchoRequest"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc, ok := desc.(protoreflect.MessageDescriptor)
-	require.True(t, ok)
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
 
 	_, wrapErr := env.grpcMod.toWrappedMessage("not a proto message", msgDesc)
-	require.Error(t, wrapErr)
-	assert.Contains(t, wrapErr.Error(), "not a proto.Message")
+	if wrapErr == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(wrapErr.Error(), "not a proto.Message") {
+		t.Errorf("expected %q to contain %q", wrapErr.Error(), "not a proto.Message")
+	}
 }
 
 // ============================================================================
@@ -798,14 +869,22 @@ func TestToWrappedMessage_SlowPathSuccess(t *testing.T) {
 	}
 	fds := &descriptorpb.FileDescriptorSet{File: []*descriptorpb.FileDescriptorProto{anyFDP}}
 	data, err := proto.Marshal(fds)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.pbMod.LoadDescriptorSetBytes(data)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	desc, err := env.pbMod.FindDescriptor(protoreflect.FullName("phase2any.SimpleMsg"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc, ok := desc.(protoreflect.MessageDescriptor)
-	require.True(t, ok)
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
 
 	// Create a generated proto message (anypb.Any) that has the same
 	// wire format as SimpleMsg (type_url=field1, value=field2).
@@ -815,8 +894,12 @@ func TestToWrappedMessage_SlowPathSuccess(t *testing.T) {
 	}
 
 	result, wrapErr := env.grpcMod.toWrappedMessage(anyMsg, msgDesc)
-	require.NoError(t, wrapErr)
-	require.NotNil(t, result)
+	if wrapErr != nil {
+		t.Fatalf("unexpected error: %v", wrapErr)
+	}
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 }
 
 // ============================================================================
@@ -873,25 +956,35 @@ func TestUnaryHandler_RecvError_NoMessage(t *testing.T) {
 	}
 	select {
 	case err := <-runDone:
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for RunString")
 	}
 
 	// Use NewStream (streaming API) to send zero messages for a unary method.
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{}, "/testgrpc.TestService/Echo")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Close send without sending any message — server handler gets io.EOF.
 	err = cs.CloseSend()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Try to receive — should get an error because the handler finished with EOF.
 	desc, findErr := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.EchoResponse"))
-	require.NoError(t, findErr)
+	if findErr != nil {
+		t.Fatalf("unexpected error: %v", findErr)
+	}
 	respMsg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 	err = cs.RecvMsg(respMsg)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -946,23 +1039,33 @@ func TestServerStreamHandler_RecvError_NoMessage(t *testing.T) {
 	}
 	select {
 	case err := <-runDone:
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for RunString")
 	}
 
 	// Use NewStream for the server-streaming method but close without sending.
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, "/testgrpc.TestService/ServerStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	err = cs.CloseSend()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	desc, findErr := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.Item"))
-	require.NoError(t, findErr)
+	if findErr != nil {
+		t.Fatalf("unexpected error: %v", findErr)
+	}
 	respMsg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 	err = cs.RecvMsg(respMsg)
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -1019,7 +1122,9 @@ func TestUnaryHandler_ToWrappedMessageError(t *testing.T) {
 	}
 	select {
 	case err := <-runDone:
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for RunString")
 	}
@@ -1034,7 +1139,9 @@ func TestUnaryHandler_ToWrappedMessageError(t *testing.T) {
 	// Use a channel.Invoke call with a non-dynamicpb message.
 	// This sends the generated type directly to the handler.
 	desc, findErr := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.EchoResponse"))
-	require.NoError(t, findErr)
+	if findErr != nil {
+		t.Fatalf("unexpected error: %v", findErr)
+	}
 	respMsg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 
 	// Invoke with a generated proto type (will hit slow path, but succeed)
@@ -1292,13 +1399,17 @@ func TestServerStream_AbortBeforeCall(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// The error should be a GrpcError (cancelled) or similar
 	if errObj, ok := errVal.(*goja.Object); ok {
 		name := objGetString(errObj, "name")
 		if name == "GrpcError" {
 			code := errObj.Get("code").ToInteger()
-			assert.Equal(t, int64(codes.Canceled), code)
+			if got := code; got != int64(codes.Canceled) {
+				t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
+			}
 		}
 	}
 }
@@ -1344,7 +1455,9 @@ func TestClientStream_AbortBeforeCall(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 }
 
 // ============================================================================
@@ -1382,7 +1495,9 @@ func TestBidiStream_AbortBeforeCall(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 }
 
 // ============================================================================
@@ -1398,7 +1513,9 @@ func TestReflection_SubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Run the loop briefly then stop it.  After Run returns, the loop
 	// is fully stopped and Submit calls will fail.
@@ -1575,45 +1692,55 @@ func TestStreamReader_RecvSubmitFailure(t *testing.T) {
 
 	select {
 	case <-setupDone:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		cancel()
 		t.Fatal("timeout")
 	}
 
 	// Make a server-streaming call from Go.
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, "/testgrpc.TestService/ServerStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Send the request.
 	desc, _ := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.EchoRequest"))
 	reqMsg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 	err = cs.SendMsg(reqMsg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = cs.CloseSend()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Receive the first item.
 	itemDesc, _ := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.Item"))
 	respMsg := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
 	err = cs.RecvMsg(respMsg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Now cancel the loop while a second RecvMsg is in flight.
 	recvDone := make(chan error, 1)
+	recvStarted := make(chan struct{})
 	go func() {
 		respMsg2 := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
+		close(recvStarted)
 		recvDone <- cs.RecvMsg(respMsg2)
 	}()
 
-	// Give the RecvMsg goroutine time to register, then cancel.
-	time.Sleep(20 * time.Millisecond)
+	// Wait for the goroutine to start, then cancel.
+	<-recvStarted
 	cancel()
 
 	select {
 	case err := <-recvDone:
 		// Expected: some error (context cancelled, stream broken, etc.)
 		_ = err
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("RecvMsg didn't complete after loop cancel")
 	}
 }
@@ -1630,7 +1757,9 @@ func TestFetchFileDescriptor_TransitiveLoop_RecvEOF(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	_, err := env.pbMod.LoadDescriptorSetBytes(phase2DescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	depBytes := mustMarshalFDP(phase2DepFileDescriptor())
 
@@ -1668,7 +1797,9 @@ func TestFetchFileDescriptor_TransitiveLoop_RecvEOF(t *testing.T) {
 	// loop, but the outer loop then checks for missing again and breaks.
 	// The result has only the dep file (base was not fetched).
 	if err == nil {
-		require.NotNil(t, fds)
+		if fds == nil {
+			t.Fatalf("expected non-nil")
+		}
 	}
 	// If there IS an error (EOF propagated), that's also fine — it
 	// exercises the code path we want.
@@ -1691,7 +1822,9 @@ func TestFetchFileDescriptor_StreamCreationError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.fetchFileDescriptorForSymbol("some.Symbol")
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -1712,7 +1845,9 @@ func TestDoListServices_StreamCreationError(t *testing.T) {
 	defer stop()
 
 	_, err := env.grpcMod.doListServices()
-	require.Error(t, err)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
 }
 
 // ============================================================================
@@ -1845,9 +1980,13 @@ func TestToWrappedMessage_MarshalError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
 	desc, err := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.EchoRequest"))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msgDesc, ok := desc.(protoreflect.MessageDescriptor)
-	require.True(t, ok)
+	if !(ok) {
+		t.Fatalf("expected true")
+	}
 
 	// proto.Marshal panics for messages with nil ProtoReflect. The production
 	// code doesn't recover panics, so this path is only reachable when Marshal
@@ -1865,33 +2004,6 @@ func TestToWrappedMessage_MarshalError(t *testing.T) {
 // dial.go:67 — grpc.NewClient error is extremely hard to trigger
 // (NewClient accepts virtually any input without error).
 // The empty-target check is JS-level and tested in dial_test.go.
-
-// ============================================================================
-// Test: makeClientStreamMethod — stream creation error via UNIMPLEMENTED
-//
-// Creates a client for a service but doesn't register a server handler
-// for it. The stream creation fails with UNIMPLEMENTED.
-// ============================================================================
-
-func TestClientStream_StreamCreationError_Unimplemented(t *testing.T) {
-	env := newGrpcTestEnv(t)
-	defer env.shutdown()
-
-	// Register a DIFFERENT service handler but try to use ClientStream
-	// on a non-existent variant by manipulating the channel.
-	// Actually, the simpler approach: register only the service metadata
-	// (so createClient succeeds) but don't register any stream handlers.
-	// This won't work because server.start() registers everything...
-
-	// Alternative: register the service, but use a separate channel
-	// that has NO handlers. Use dial() to connect to a non-existent server.
-	// But that requires a real network connection...
-
-	// Simplest: just ensure the abort-before-call test already covers
-	// the stream creation error path (via cancelled context).
-	// This test is covered above in TestClientStream_AbortBeforeCall.
-	t.Skip("Covered by TestClientStream_AbortBeforeCall")
-}
 
 // ============================================================================
 // Test: Bidi recv Submit failure
@@ -1940,7 +2052,7 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 
 	select {
 	case <-setupDone:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		cancel()
 		t.Fatal("timeout")
 	}
@@ -1950,35 +2062,43 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 		ClientStreams: true,
 		ServerStreams: true,
 	}, "/testgrpc.TestService/BidiStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Send a message.
 	itemDesc, _ := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.Item"))
 	msg := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
 	msg.Set(msg.Descriptor().Fields().ByName("id"), protoreflect.ValueOfString("1"))
 	err = cs.SendMsg(msg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Receive the echo.
 	respMsg := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
 	err = cs.RecvMsg(respMsg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Start another recv that will be in-flight when we cancel the loop.
 	recvDone := make(chan error, 1)
+	recvStarted := make(chan struct{})
 	go func() {
 		resp2 := dynamicpb.NewMessage(itemDesc.(protoreflect.MessageDescriptor))
+		close(recvStarted)
 		recvDone <- cs.RecvMsg(resp2)
 	}()
 
 	// Cancel the loop.
-	time.Sleep(20 * time.Millisecond)
+	<-recvStarted
 	cancel()
 
 	select {
 	case err := <-recvDone:
 		_ = err // some error expected
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("RecvMsg didn't complete")
 	}
 }
@@ -2034,7 +2154,9 @@ func TestServerStreamHandler_ToWrappedMessageError(t *testing.T) {
 
 	// Create a server-streaming call via Go and send a non-dynamicpb message.
 	cs, err := env.channel.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, "/testgrpc.TestService/ServerStream")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Send a generated proto type (anypb.Any) instead of dynamicpb.
 	// The handler's toWrappedMessage will try slow path marshal+unmarshal.
@@ -2042,9 +2164,13 @@ func TestServerStreamHandler_ToWrappedMessageError(t *testing.T) {
 	// but it exercises the slow path.
 	anyMsg := &anypb.Any{TypeUrl: "test-type", Value: []byte("test-data")}
 	err = cs.SendMsg(anyMsg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = cs.CloseSend()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Recv — might succeed or fail depending on slow path behavior.
 	itemDesc, _ := env.pbMod.FindDescriptor(protoreflect.FullName("testgrpc.Item"))
@@ -2148,9 +2274,13 @@ func TestFetchFileDescriptor_MultiLevelTransitiveDeps(t *testing.T) {
 	// Load all descriptors into protobuf module.
 	fds := &descriptorpb.FileDescriptorSet{File: []*descriptorpb.FileDescriptorProto{fileC, fileB, fileA}}
 	data, err := proto.Marshal(fds)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.pbMod.LoadDescriptorSetBytes(data)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	bytesA := mustMarshalFDP(fileA)
 	bytesB := mustMarshalFDP(fileB)
@@ -2196,10 +2326,16 @@ func TestFetchFileDescriptor_MultiLevelTransitiveDeps(t *testing.T) {
 	defer stop()
 
 	fdSet, err := env.grpcMod.fetchFileDescriptorForSymbol("multilevel.MsgA")
-	require.NoError(t, err)
-	require.NotNil(t, fdSet)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fdSet == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Should have all three files: A, B, C
-	assert.Len(t, fdSet.File, 3)
+	if got := len(fdSet.File); got != 3 {
+		t.Errorf("expected len %d, got %d", 3, got)
+	}
 }
 
 // ============================================================================

@@ -2,9 +2,6 @@ package gojagrpc
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -52,10 +49,16 @@ func TestAbort_BeforeUnaryRPC(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // TestAbort_BeforeServerStreamRPC verifies pre-abort on server-streaming.
@@ -99,10 +102,16 @@ func TestAbort_BeforeServerStreamRPC(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // TestAbort_BeforeClientStreamRPC verifies pre-abort on client-streaming.
@@ -140,10 +149,16 @@ func TestAbort_BeforeClientStreamRPC(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // TestAbort_BeforeBidiStreamRPC verifies pre-abort on bidi-streaming.
@@ -181,10 +196,16 @@ func TestAbort_BeforeBidiStreamRPC(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -232,10 +253,16 @@ func TestAbort_DuringUnarySend(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -300,14 +327,24 @@ func TestAbort_DuringStreamReceive(t *testing.T) {
 	`, defaultTimeout)
 
 	firstMsg := env.runtime.Get("firstMessage")
-	require.NotNil(t, firstMsg)
-	assert.Equal(t, "first", firstMsg.String())
+	if firstMsg == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := firstMsg.String(); got != "first" {
+		t.Errorf("expected %v, got %v", "first", got)
+	}
 
 	result := env.runtime.Get("error")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", resultObj["name"])
-	assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+	if got := resultObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := resultObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -393,20 +430,36 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 	`, defaultTimeout)
 
 	firstEcho := env.runtime.Get("firstEchoName")
-	require.NotNil(t, firstEcho)
-	assert.Equal(t, "echo-hello", firstEcho.String())
+	if firstEcho == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := firstEcho.String(); got != "echo-hello" {
+		t.Errorf("expected %v, got %v", "echo-hello", got)
+	}
 
 	sendErr := env.runtime.Get("sendError")
-	require.NotNil(t, sendErr)
+	if sendErr == nil {
+		t.Fatalf("expected non-nil")
+	}
 	sendObj := sendErr.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", sendObj["name"])
-	assert.Equal(t, int64(1), sendObj["code"]) // CANCELLED
+	if got := sendObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := sendObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 
 	recvErr := env.runtime.Get("recvError")
-	require.NotNil(t, recvErr)
+	if recvErr == nil {
+		t.Fatalf("expected non-nil")
+	}
 	recvObj := recvErr.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", recvObj["name"])
-	assert.Equal(t, int64(1), recvObj["code"]) // CANCELLED
+	if got := recvObj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := recvObj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -480,15 +533,25 @@ func TestAbort_MultipleSignalsSameClient(t *testing.T) {
 	`, defaultTimeout)
 
 	r1 := env.runtime.Get("result1")
-	require.NotNil(t, r1)
+	if r1 == nil {
+		t.Fatalf("expected non-nil")
+	}
 	r1Obj := r1.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", r1Obj["name"])
-	assert.Equal(t, int64(1), r1Obj["code"]) // CANCELLED
+	if got := r1Obj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := r1Obj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 
 	r2 := env.runtime.Get("result2")
-	require.NotNil(t, r2)
+	if r2 == nil {
+		t.Fatalf("expected non-nil")
+	}
 	r2Obj := r2.Export().(map[string]any)
-	assert.Equal(t, "fast:quick", r2Obj["message"])
+	if got := r2Obj["message"]; got != "fast:quick" {
+		t.Errorf("expected %v, got %v", "fast:quick", got)
+	}
 }
 
 // ============================================================================
@@ -553,16 +616,28 @@ func TestAbort_SharedSignalAcrossRPCs(t *testing.T) {
 	`, defaultTimeout)
 
 	r1 := env.runtime.Get("result1")
-	require.NotNil(t, r1)
+	if r1 == nil {
+		t.Fatalf("expected non-nil")
+	}
 	r1Obj := r1.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", r1Obj["name"])
-	assert.Equal(t, int64(1), r1Obj["code"]) // CANCELLED
+	if got := r1Obj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := r1Obj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 
 	r2 := env.runtime.Get("result2")
-	require.NotNil(t, r2)
+	if r2 == nil {
+		t.Fatalf("expected non-nil")
+	}
 	r2Obj := r2.Export().(map[string]any)
-	assert.Equal(t, "GrpcError", r2Obj["name"])
-	assert.Equal(t, int64(1), r2Obj["code"]) // CANCELLED
+	if got := r2Obj["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := r2Obj["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
 }
 
 // ============================================================================
@@ -612,13 +687,19 @@ func TestAbort_RacesWithCompletion(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	resultObj := result.Export().(map[string]any)
 	// Either success or cancelled — both are valid outcomes.
 	if resultObj["success"] == true {
-		assert.Equal(t, "completed", resultObj["message"])
+		if got := resultObj["message"]; got != "completed" {
+			t.Errorf("expected %v, got %v", "completed", got)
+		}
 	} else {
-		assert.Equal(t, int64(1), resultObj["code"]) // CANCELLED
+		if got := resultObj["code"]; got != int64(1) {
+			t.Errorf("expected %v, got %v", int64(1), got)
+		}
 	}
 }
 
@@ -670,12 +751,20 @@ func TestAbort_CleanupAfterRPC(t *testing.T) {
 	`, defaultTimeout)
 
 	r := env.runtime.Get("result")
-	require.NotNil(t, r)
-	assert.Equal(t, "done", r.String())
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := r.String(); got != "done" {
+		t.Errorf("expected %v, got %v", "done", got)
+	}
 
 	aborted := env.runtime.Get("abortedAfter")
-	require.NotNil(t, aborted)
-	assert.True(t, aborted.ToBoolean())
+	if aborted == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !(aborted.ToBoolean()) {
+		t.Errorf("expected true")
+	}
 }
 
 // TestAbort_CleanupNoGoroutineLeak verifies that abort signal usage

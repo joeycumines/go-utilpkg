@@ -1,10 +1,9 @@
 package gojagrpc
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 )
 
@@ -42,7 +41,9 @@ func TestStatusCodes_AllAccessible(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.jsName, func(t *testing.T) {
 			val := env.run(t, "grpc.status."+tc.jsName)
-			assert.Equal(t, int64(tc.expected), val.ToInteger())
+			if got := val.ToInteger(); got != int64(tc.expected) {
+				t.Errorf("expected %v, got %v", int64(tc.expected), got)
+			}
 		})
 	}
 }
@@ -57,7 +58,9 @@ func TestStatusCodes_Count(t *testing.T) {
 		keys.length;
 	`)
 	// 17 codes + 1 createError = 18 keys.
-	assert.Equal(t, int64(18), val.ToInteger())
+	if got := val.ToInteger(); got != int64(18) {
+		t.Errorf("expected %v, got %v", int64(18), got)
+	}
 }
 
 func TestCreateError_BasicUsage(t *testing.T) {
@@ -68,13 +71,19 @@ func TestCreateError_BasicUsage(t *testing.T) {
 	env.run(t, `var err = grpc.status.createError(grpc.status.NOT_FOUND, "resource missing")`)
 
 	name := env.run(t, `err.name`)
-	assert.Equal(t, "GrpcError", name.String())
+	if got := name.String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
 
 	code := env.run(t, `err.code`)
-	assert.Equal(t, int64(codes.NotFound), code.ToInteger())
+	if got := code.ToInteger(); got != int64(codes.NotFound) {
+		t.Errorf("expected %v, got %v", int64(codes.NotFound), got)
+	}
 
 	msg := env.run(t, `err.message`)
-	assert.Equal(t, "resource missing", msg.String())
+	if got := msg.String(); got != "resource missing" {
+		t.Errorf("expected %v, got %v", "resource missing", got)
+	}
 }
 
 func TestCreateError_ToString(t *testing.T) {
@@ -85,7 +94,9 @@ func TestCreateError_ToString(t *testing.T) {
 		var err = grpc.status.createError(grpc.status.INTERNAL, "oh no");
 		err.toString();
 	`)
-	assert.Equal(t, "GrpcError: Internal: oh no", val.String())
+	if got := val.String(); got != "GrpcError: Internal: oh no" {
+		t.Errorf("expected %v, got %v", "GrpcError: Internal: oh no", got)
+	}
 }
 
 func TestCreateError_AllCodes(t *testing.T) {
@@ -106,14 +117,20 @@ func TestCreateError_AllCodes(t *testing.T) {
 			env.run(t, `var testErr = grpc.status.createError(grpc.status.`+name+`, "test")`)
 
 			errName := env.run(t, `testErr.name`)
-			assert.Equal(t, "GrpcError", errName.String())
+			if got := errName.String(); got != "GrpcError" {
+				t.Errorf("expected %v, got %v", "GrpcError", got)
+			}
 
 			errCode := env.run(t, `testErr.code`)
 			codeVal := env.run(t, `grpc.status.`+name)
-			assert.Equal(t, codeVal.ToInteger(), errCode.ToInteger())
+			if got := errCode.ToInteger(); got != codeVal.ToInteger() {
+				t.Errorf("expected %v, got %v", codeVal.ToInteger(), got)
+			}
 
 			errMsg := env.run(t, `testErr.message`)
-			assert.Equal(t, "test", errMsg.String())
+			if got := errMsg.String(); got != "test" {
+				t.Errorf("expected %v, got %v", "test", got)
+			}
 		})
 	}
 }
@@ -126,10 +143,14 @@ func TestCreateError_CustomCode(t *testing.T) {
 	env.run(t, `var err = grpc.status.createError(99, "custom code")`)
 
 	code := env.run(t, `err.code`)
-	assert.Equal(t, int64(99), code.ToInteger())
+	if got := code.ToInteger(); got != int64(99) {
+		t.Errorf("expected %v, got %v", int64(99), got)
+	}
 
 	msg := env.run(t, `err.message`)
-	assert.Equal(t, "custom code", msg.String())
+	if got := msg.String(); got != "custom code" {
+		t.Errorf("expected %v, got %v", "custom code", got)
+	}
 }
 
 func TestCreateError_ZeroCode(t *testing.T) {
@@ -138,7 +159,9 @@ func TestCreateError_ZeroCode(t *testing.T) {
 
 	env.run(t, `var err = grpc.status.createError(0, "ok error")`)
 	code := env.run(t, `err.code`)
-	assert.Equal(t, int64(0), code.ToInteger())
+	if got := code.ToInteger(); got != int64(0) {
+		t.Errorf("expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestCreateError_EmptyMessage(t *testing.T) {
@@ -147,7 +170,9 @@ func TestCreateError_EmptyMessage(t *testing.T) {
 
 	env.run(t, `var err = grpc.status.createError(grpc.status.INTERNAL, "")`)
 	msg := env.run(t, `err.message`)
-	assert.Equal(t, "", msg.String())
+	if got := msg.String(); got != "" {
+		t.Errorf("expected %v, got %v", "", got)
+	}
 }
 
 func TestGrpcError_Properties(t *testing.T) {
@@ -158,16 +183,24 @@ func TestGrpcError_Properties(t *testing.T) {
 
 	// Verify all expected properties exist.
 	hasName := env.run(t, `'name' in err`)
-	assert.Equal(t, true, hasName.ToBoolean())
+	if got := hasName.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasCode := env.run(t, `'code' in err`)
-	assert.Equal(t, true, hasCode.ToBoolean())
+	if got := hasCode.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasMessage := env.run(t, `'message' in err`)
-	assert.Equal(t, true, hasMessage.ToBoolean())
+	if got := hasMessage.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasToString := env.run(t, `typeof err.toString === 'function'`)
-	assert.Equal(t, true, hasToString.ToBoolean())
+	if got := hasToString.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 }
 
 func TestGrpcError_MultipleInstances(t *testing.T) {
@@ -182,75 +215,120 @@ func TestGrpcError_MultipleInstances(t *testing.T) {
 
 	code1 := env.run(t, `err1.code`)
 	code2 := env.run(t, `err2.code`)
-	assert.Equal(t, int64(codes.NotFound), code1.ToInteger())
-	assert.Equal(t, int64(codes.Internal), code2.ToInteger())
+	if got := code1.ToInteger(); got != int64(codes.NotFound) {
+		t.Errorf("expected %v, got %v", int64(codes.NotFound), got)
+	}
+	if got := code2.ToInteger(); got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 
 	msg1 := env.run(t, `err1.message`)
 	msg2 := env.run(t, `err2.message`)
-	assert.Equal(t, "first", msg1.String())
-	assert.Equal(t, "second", msg2.String())
+	if got := msg1.String(); got != "first" {
+		t.Errorf("expected %v, got %v", "first", got)
+	}
+	if got := msg2.String(); got != "second" {
+		t.Errorf("expected %v, got %v", "second", got)
+	}
 }
 
 // ======================== Module-Level Tests ========================
 
 func TestNew_NilRuntime_Panics(t *testing.T) {
-	assert.PanicsWithValue(t, "gojagrpc: runtime must not be nil", func() {
-		_, _ = New(nil)
-	})
+	func() {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatalf("expected panic")
+			}
+			if r != "gojagrpc: runtime must not be nil" {
+				t.Fatalf("expected panic value %v, got %v", "gojagrpc: runtime must not be nil", r)
+			}
+		}()
+		(func() {
+			_, _ = New(nil)
+		})()
+	}()
 }
 
 func TestNew_MissingChannel(t *testing.T) {
 	rt := newGrpcTestEnv(t)
 	defer rt.shutdown()
 	_, err := New(rt.runtime)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "channel is required")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "channel is required") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel is required")
+	}
 }
 
 func TestNew_MissingProtobuf(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 	_, err := New(env.runtime, WithChannel(env.channel))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "protobuf module is required")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "protobuf module is required") {
+		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module is required")
+	}
 }
 
 func TestNew_MissingAdapter(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "adapter is required")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "adapter is required") {
+		t.Errorf("expected %q to contain %q", err.Error(), "adapter is required")
+	}
 }
 
 func TestNew_NilChannel(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 	_, err := New(env.runtime, WithChannel(nil), WithProtobuf(env.pbMod), WithAdapter(env.adapter))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "channel must not be nil")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "channel must not be nil") {
+		t.Errorf("expected %q to contain %q", err.Error(), "channel must not be nil")
+	}
 }
 
 func TestNew_NilProtobuf(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(nil), WithAdapter(env.adapter))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "protobuf module must not be nil")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "protobuf module must not be nil") {
+		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module must not be nil")
+	}
 }
 
 func TestNew_NilAdapter(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod), WithAdapter(nil))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "adapter must not be nil")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "adapter must not be nil") {
+		t.Errorf("expected %q to contain %q", err.Error(), "adapter must not be nil")
+	}
 }
 
 func TestRuntime_Accessor(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	assert.Same(t, env.runtime, env.grpcMod.Runtime())
+	if env.runtime != env.grpcMod.Runtime() {
+		t.Errorf("expected same pointer, got different")
+	}
 }
 
 func TestSetupExports_Accessible(t *testing.T) {
@@ -259,14 +337,22 @@ func TestSetupExports_Accessible(t *testing.T) {
 
 	// Verify all top-level exports are accessible.
 	hasCreateClient := env.run(t, `typeof grpc.createClient === 'function'`)
-	assert.Equal(t, true, hasCreateClient.ToBoolean())
+	if got := hasCreateClient.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasCreateServer := env.run(t, `typeof grpc.createServer === 'function'`)
-	assert.Equal(t, true, hasCreateServer.ToBoolean())
+	if got := hasCreateServer.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasStatus := env.run(t, `typeof grpc.status === 'object'`)
-	assert.Equal(t, true, hasStatus.ToBoolean())
+	if got := hasStatus.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 
 	hasMetadata := env.run(t, `typeof grpc.metadata === 'object'`)
-	assert.Equal(t, true, hasMetadata.ToBoolean())
+	if got := hasMetadata.ToBoolean(); got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
 }

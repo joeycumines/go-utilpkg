@@ -2,8 +2,6 @@ package gojagrpc
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 // ============================================================================
@@ -51,11 +49,21 @@ func TestErrorDetails_UnaryRoundTrip(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	assert.Equal(t, int64(3), env.runtime.Get("errorCode").ToInteger())
-	assert.Equal(t, "bad request", env.runtime.Get("errorMessage").String())
-	assert.Equal(t, int64(1), env.runtime.Get("detailCount").ToInteger())
-	assert.Equal(t, "extra info", env.runtime.Get("detailMsg").String())
-	assert.Equal(t, int64(42), env.runtime.Get("detailCode").ToInteger())
+	if got := env.runtime.Get("errorCode").ToInteger(); got != int64(3) {
+		t.Errorf("errorCode: expected %v, got %v", int64(3), got)
+	}
+	if got := env.runtime.Get("errorMessage").String(); got != "bad request" {
+		t.Errorf("errorMessage: expected %q, got %q", "bad request", got)
+	}
+	if got := env.runtime.Get("detailCount").ToInteger(); got != int64(1) {
+		t.Errorf("detailCount: expected %v, got %v", int64(1), got)
+	}
+	if got := env.runtime.Get("detailMsg").String(); got != "extra info" {
+		t.Errorf("detailMsg: expected %q, got %q", "extra info", got)
+	}
+	if got := env.runtime.Get("detailCode").ToInteger(); got != int64(42) {
+		t.Errorf("detailCode: expected %v, got %v", int64(42), got)
+	}
 }
 
 func TestErrorDetails_MultipleDetails(t *testing.T) {
@@ -102,11 +110,21 @@ func TestErrorDetails_MultipleDetails(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	assert.Equal(t, int64(2), env.runtime.Get("detailCount").ToInteger())
-	assert.Equal(t, "id-1", env.runtime.Get("d1Id").String())
-	assert.Equal(t, "first", env.runtime.Get("d1Name").String())
-	assert.Equal(t, "id-2", env.runtime.Get("d2Id").String())
-	assert.Equal(t, "second", env.runtime.Get("d2Name").String())
+	if got := env.runtime.Get("detailCount").ToInteger(); got != int64(2) {
+		t.Errorf("detailCount: expected %v, got %v", int64(2), got)
+	}
+	if got := env.runtime.Get("d1Id").String(); got != "id-1" {
+		t.Errorf("d1Id: expected %q, got %q", "id-1", got)
+	}
+	if got := env.runtime.Get("d1Name").String(); got != "first" {
+		t.Errorf("d1Name: expected %q, got %q", "first", got)
+	}
+	if got := env.runtime.Get("d2Id").String(); got != "id-2" {
+		t.Errorf("d2Id: expected %q, got %q", "id-2", got)
+	}
+	if got := env.runtime.Get("d2Name").String(); got != "second" {
+		t.Errorf("d2Name: expected %q, got %q", "second", got)
+	}
 }
 
 func TestErrorDetails_NoDetails(t *testing.T) {
@@ -138,8 +156,12 @@ func TestErrorDetails_NoDetails(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	assert.Equal(t, int64(5), env.runtime.Get("errorCode").ToInteger())
-	assert.Equal(t, int64(0), env.runtime.Get("detailCount").ToInteger())
+	if got := env.runtime.Get("errorCode").ToInteger(); got != int64(5) {
+		t.Errorf("errorCode: expected %v, got %v", int64(5), got)
+	}
+	if got := env.runtime.Get("detailCount").ToInteger(); got != int64(0) {
+		t.Errorf("detailCount: expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestErrorDetails_EmptyDetailsArray(t *testing.T) {
@@ -170,7 +192,9 @@ func TestErrorDetails_EmptyDetailsArray(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	assert.Equal(t, int64(0), env.runtime.Get("detailCount").ToInteger())
+	if got := env.runtime.Get("detailCount").ToInteger(); got != int64(0) {
+		t.Errorf("detailCount: expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestErrorDetails_DetailsProperty_ExistsOnAllErrors(t *testing.T) {
@@ -188,10 +212,18 @@ func TestErrorDetails_DetailsProperty_ExistsOnAllErrors(t *testing.T) {
 		__done();
 	`, defaultTimeout)
 
-	assert.True(t, env.runtime.Get("hasDetails1").ToBoolean())
-	assert.True(t, env.runtime.Get("hasDetails2").ToBoolean())
-	assert.Equal(t, int64(0), env.runtime.Get("len1").ToInteger())
-	assert.Equal(t, int64(0), env.runtime.Get("len2").ToInteger())
+	if got := env.runtime.Get("hasDetails1").ToBoolean(); !got {
+		t.Errorf("hasDetails1: expected true")
+	}
+	if got := env.runtime.Get("hasDetails2").ToBoolean(); !got {
+		t.Errorf("hasDetails2: expected true")
+	}
+	if got := env.runtime.Get("len1").ToInteger(); got != int64(0) {
+		t.Errorf("len1: expected %v, got %v", int64(0), got)
+	}
+	if got := env.runtime.Get("len2").ToInteger(); got != int64(0) {
+		t.Errorf("len2: expected %v, got %v", int64(0), got)
+	}
 }
 
 func TestErrorDetails_ServerStreamWithDetails(t *testing.T) {
@@ -232,7 +264,13 @@ func TestErrorDetails_ServerStreamWithDetails(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	assert.Equal(t, int64(10), env.runtime.Get("errorCode").ToInteger())
-	assert.Equal(t, int64(1), env.runtime.Get("detailCount").ToInteger())
-	assert.Equal(t, "err-id", env.runtime.Get("detailId").String())
+	if got := env.runtime.Get("errorCode").ToInteger(); got != int64(10) {
+		t.Errorf("errorCode: expected %v, got %v", int64(10), got)
+	}
+	if got := env.runtime.Get("detailCount").ToInteger(); got != int64(1) {
+		t.Errorf("detailCount: expected %v, got %v", int64(1), got)
+	}
+	if got := env.runtime.Get("detailId").String(); got != "err-id" {
+		t.Errorf("detailId: expected %q, got %q", "err-id", got)
+	}
 }

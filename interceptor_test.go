@@ -1,10 +1,8 @@
 package gojagrpc
 
 import (
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // ============================================================================
@@ -58,8 +56,12 @@ func TestInterceptor_AddMetadata(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "auth=bearer-123")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "auth=bearer-123") {
+		t.Errorf("expected %q to contain %q", result.String(), "auth=bearer-123")
+	}
 }
 
 func TestInterceptor_ChainMultiple(t *testing.T) {
@@ -96,9 +98,15 @@ func TestInterceptor_ChainMultiple(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "auth=token")
-	assert.Contains(t, result.String(), "trace=trace-456")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "auth=token") {
+		t.Errorf("expected %q to contain %q", result.String(), "auth=token")
+	}
+	if !strings.Contains(result.String(), "trace=trace-456") {
+		t.Errorf("expected %q to contain %q", result.String(), "trace=trace-456")
+	}
 }
 
 func TestInterceptor_InspectResponse(t *testing.T) {
@@ -132,11 +140,17 @@ func TestInterceptor_InspectResponse(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 
 	method := env.runtime.Get("loggedMethod")
-	require.NotNil(t, method)
-	assert.Equal(t, "/testgrpc.TestService/Echo", method.String())
+	if method == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if got := method.String(); got != "/testgrpc.TestService/Echo" {
+		t.Errorf("expected %v, got %v", "/testgrpc.TestService/Echo", got)
+	}
 }
 
 func TestInterceptor_TransformResponse(t *testing.T) {
@@ -169,10 +183,16 @@ func TestInterceptor_TransformResponse(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := result.Export().(map[string]any)
-	assert.Equal(t, true, exported["transformed"])
-	assert.Contains(t, exported["original"], "msg=test")
+	if got := exported["transformed"]; got != true {
+		t.Errorf("expected %v, got %v", true, got)
+	}
+	if !strings.Contains(exported["original"].(string), "msg=test") {
+		t.Errorf("expected %q to contain %q", exported["original"], "msg=test")
+	}
 }
 
 func TestInterceptor_NoInterceptors(t *testing.T) {
@@ -196,8 +216,12 @@ func TestInterceptor_NoInterceptors(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "msg=hello")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "msg=hello") {
+		t.Errorf("expected %q to contain %q", result.String(), "msg=hello")
+	}
 }
 
 func TestInterceptor_WithCallOptions(t *testing.T) {
@@ -233,10 +257,16 @@ func TestInterceptor_WithCallOptions(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Both interceptor-set and call-set metadata should be present.
-	assert.Contains(t, result.String(), "auth=interceptor-auth")
-	assert.Contains(t, result.String(), "trace=call-trace")
+	if !strings.Contains(result.String(), "auth=interceptor-auth") {
+		t.Errorf("expected %q to contain %q", result.String(), "auth=interceptor-auth")
+	}
+	if !strings.Contains(result.String(), "trace=call-trace") {
+		t.Errorf("expected %q to contain %q", result.String(), "trace=call-trace")
+	}
 }
 
 func TestInterceptor_ErrorHandling(t *testing.T) {
@@ -278,8 +308,12 @@ func TestInterceptor_ErrorHandling(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "msg=test")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "msg=test") {
+		t.Errorf("expected %q to contain %q", result.String(), "msg=test")
+	}
 }
 
 func TestInterceptor_NotAFunction(t *testing.T) {
@@ -299,8 +333,12 @@ func TestInterceptor_NotAFunction(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "interceptor at index 0 is not a function")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "interceptor at index 0 is not a function") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptor at index 0 is not a function")
+	}
 }
 
 func TestInterceptor_NotAnArray(t *testing.T) {
@@ -331,9 +369,13 @@ func TestInterceptor_NotAnArray(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	// Non-array interceptors value throws a TypeError.
-	assert.Contains(t, errVal.String(), "interceptors must be an array")
+	if !strings.Contains(errVal.String(), "interceptors must be an array") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptors must be an array")
+	}
 }
 
 func TestInterceptor_NoOptionsArg(t *testing.T) {
@@ -355,8 +397,12 @@ func TestInterceptor_NoOptionsArg(t *testing.T) {
 	`, defaultTimeout)
 
 	result := env.runtime.Get("result")
-	require.NotNil(t, result)
-	assert.Contains(t, result.String(), "msg=hello")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(result.String(), "msg=hello") {
+		t.Errorf("expected %q to contain %q", result.String(), "msg=hello")
+	}
 }
 
 func TestInterceptor_InterceptorReturnsNonFunction(t *testing.T) {
@@ -386,8 +432,12 @@ func TestInterceptor_InterceptorReturnsNonFunction(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("error")
-	require.NotNil(t, errVal)
-	assert.Contains(t, errVal.String(), "interceptor chain did not produce a callable")
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if !strings.Contains(errVal.String(), "interceptor chain did not produce a callable") {
+		t.Errorf("expected %q to contain %q", errVal.String(), "interceptor chain did not produce a callable")
+	}
 }
 
 func TestInterceptor_ExecutionOrder(t *testing.T) {
@@ -430,12 +480,24 @@ func TestInterceptor_ExecutionOrder(t *testing.T) {
 	`, defaultTimeout)
 
 	orderVal := env.runtime.Get("order")
-	require.NotNil(t, orderVal)
+	if orderVal == nil {
+		t.Fatalf("expected non-nil")
+	}
 	exported := orderVal.Export().([]any)
 	// Onion order: first-before → second-before → RPC → second-after → first-after
-	require.Len(t, exported, 4)
-	assert.Equal(t, "first-before", exported[0])
-	assert.Equal(t, "second-before", exported[1])
-	assert.Equal(t, "second-after", exported[2])
-	assert.Equal(t, "first-after", exported[3])
+	if got := len(exported); got != 4 {
+		t.Fatalf("expected len %d, got %d", 4, got)
+	}
+	if got := exported[0]; got != "first-before" {
+		t.Errorf("expected %v, got %v", "first-before", got)
+	}
+	if got := exported[1]; got != "second-before" {
+		t.Errorf("expected %v, got %v", "second-before", got)
+	}
+	if got := exported[2]; got != "second-after" {
+		t.Errorf("expected %v, got %v", "second-after", got)
+	}
+	if got := exported[3]; got != "first-after" {
+		t.Errorf("expected %v, got %v", "first-after", got)
+	}
 }

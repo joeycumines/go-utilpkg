@@ -3,11 +3,10 @@ package gojagrpc
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,7 +59,9 @@ func TestPhase4_ServerStream_CloseSendError(t *testing.T) {
 		fn := env.grpcMod.makeServerStreamMethod(mockCC, "/test/ServerStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p4SsCS", fn)
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
@@ -76,11 +77,17 @@ func TestPhase4_ServerStream_CloseSendError(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("__p4SsCSerr")
-	require.NotNil(t, errVal)
-	require.False(t, goja.IsUndefined(errVal))
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if goja.IsUndefined(errVal) {
+		t.Fatalf("expected false")
+	}
 	if errObj, ok := errVal.(*goja.Object); ok {
 		if nameVal := errObj.Get("name"); nameVal != nil && nameVal.String() == "GrpcError" {
-			assert.Equal(t, int64(codes.Internal), errObj.Get("code").ToInteger())
+			if got := errObj.Get("code").ToInteger(); got != int64(codes.Internal) {
+				t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+			}
 		}
 	}
 }
@@ -121,7 +128,9 @@ func TestPhase4_ClientSender_CloseSendErrorWithSubmitSuccess(t *testing.T) {
 		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", outputDesc)
 		_ = env.runtime.Set("__p4CSFn2", fn)
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		__p4CSFn2().then(function(call) {
@@ -136,13 +145,19 @@ func TestPhase4_ClientSender_CloseSendErrorWithSubmitSuccess(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("__p4CSErr2")
-	require.NotNil(t, errVal)
-	require.False(t, goja.IsUndefined(errVal))
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if goja.IsUndefined(errVal) {
+		t.Fatalf("expected false")
+	}
 	errStr := errVal.String()
 	t.Logf("closeSend error: %s", errStr)
 	if errObj, ok := errVal.(*goja.Object); ok {
 		if nameVal := errObj.Get("name"); nameVal != nil && nameVal.String() == "GrpcError" {
-			assert.Equal(t, int64(codes.Unavailable), errObj.Get("code").ToInteger())
+			if got := errObj.Get("code").ToInteger(); got != int64(codes.Unavailable) {
+				t.Errorf("expected %v, got %v", int64(codes.Unavailable), got)
+			}
 		}
 	}
 }
@@ -174,7 +189,9 @@ func TestPhase4_BidiSender_CloseSendErrorWithSubmitSuccess(t *testing.T) {
 		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", outputDesc)
 		_ = env.runtime.Set("__p4BSFn2", fn)
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	env.runOnLoop(t, `
 		__p4BSFn2().then(function(stream) {
@@ -189,13 +206,19 @@ func TestPhase4_BidiSender_CloseSendErrorWithSubmitSuccess(t *testing.T) {
 	`, defaultTimeout)
 
 	errVal := env.runtime.Get("__p4BSErr2")
-	require.NotNil(t, errVal)
-	require.False(t, goja.IsUndefined(errVal))
+	if errVal == nil {
+		t.Fatalf("expected non-nil")
+	}
+	if goja.IsUndefined(errVal) {
+		t.Fatalf("expected false")
+	}
 	errStr := errVal.String()
 	t.Logf("bidi closeSend error: %s", errStr)
 	if errObj, ok := errVal.(*goja.Object); ok {
 		if nameVal := errObj.Get("name"); nameVal != nil && nameVal.String() == "GrpcError" {
-			assert.Equal(t, int64(codes.Internal), errObj.Get("code").ToInteger())
+			if got := errObj.Get("code").ToInteger(); got != int64(codes.Internal) {
+				t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+			}
 		}
 	}
 }
@@ -221,8 +244,12 @@ func TestPhase4_ToWrappedMessage_MarshalError_InvalidUTF8(t *testing.T) {
 	wrapped := &nonDynamicMsg{Message: inner}
 
 	_, err := env.grpcMod.toWrappedMessage(wrapped, echoReqDesc)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "marshal")
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "marshal") {
+		t.Errorf("expected %q to contain %q", err.Error(), "marshal")
+	}
 }
 
 // ============================================================================
@@ -250,13 +277,21 @@ func TestPhase4_NewGrpcErrorWithDetails_AnypbNewError(t *testing.T) {
 	// Call newGrpcErrorWithDetails with this as a detail.
 	// UnwrapMessage succeeds → anypb.New fails → continue → empty goDetails.
 	obj := env.grpcMod.newGrpcErrorWithDetails(codes.Internal, "test error", []goja.Value{wrappedObj})
-	require.NotNil(t, obj)
+	if obj == nil {
+		t.Fatalf("expected non-nil")
+	}
 
-	assert.Equal(t, "GrpcError", obj.Get("name").String())
-	assert.Equal(t, int64(codes.Internal), obj.Get("code").ToInteger())
+	if got := obj.Get("name").String(); got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := obj.Get("code").ToInteger(); got != int64(codes.Internal) {
+		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
+	}
 
 	// The detail should have been skipped because anypb.New failed
 	// (proto.Marshal rejects invalid UTF-8 for proto3 string fields).
 	goDetails := env.grpcMod.extractGoDetails(obj)
-	assert.Empty(t, goDetails, "details should be empty because anypb.New failed on invalid UTF-8")
+	if len(goDetails) != 0 {
+		t.Errorf("details should be empty because anypb.New failed on invalid UTF-8")
+	}
 }
