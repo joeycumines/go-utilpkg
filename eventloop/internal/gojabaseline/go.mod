@@ -3,7 +3,7 @@ module github.com/joeycumines/go-eventloop/internal/gojabaseline
 go 1.26.0
 
 require (
-	github.com/dop251/goja v0.0.0-20260216154549-8b74ce4618c5
+	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 )
 
