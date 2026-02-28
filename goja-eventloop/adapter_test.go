@@ -520,7 +520,7 @@ func TestMixedTimersAndPromises(t *testing.T) {
 		done <- loop.Run(ctx)
 	}()
 
-	// HIGH #7 FIX: Wait for both operations to complete via events (not hardcoded sleep)
+	// Wait for both operations to complete via events (not hardcoded sleep)
 	operationsCompleted := 0
 	for operationsCompleted < 2 {
 		select {

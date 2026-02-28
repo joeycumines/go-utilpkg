@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-066: Number API Verification Tests
+// Number API Verification Tests
 // Tests verify Goja's native support for:
 // - Number constructor and Number() function
 // - Static methods: isFinite, isInteger, isNaN, isSafeInteger, parseFloat, parseInt

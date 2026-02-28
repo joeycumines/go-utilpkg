@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-061: ArrayBuffer/DataView/TypedArray tests
+// ArrayBuffer/DataView/TypedArray tests
 // Tests verify Goja's native support for:
 // - ArrayBuffer: constructor, byteLength, slice(), isView()
 // - DataView: constructor, getInt8/setInt8, getUint16/setUint16, getFloat32/setFloat32 (littleEndian)

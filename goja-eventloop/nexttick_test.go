@@ -11,7 +11,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-020: process.nextTick() JS Binding Tests
+// process.nextTick() JS Binding Tests
 // ===============================================
 
 func TestProcessNextTick_Basic(t *testing.T) {
@@ -226,7 +226,7 @@ func TestProcessNextTick_NoArgumentError(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-021: delay() JS Binding Tests
+// delay() JS Binding Tests
 // ===============================================
 
 func TestDelay_Basic(t *testing.T) {

@@ -1,4 +1,4 @@
-// Tests for CRITICAL fixes
+// Tests for critical bug fixes in the Promise implementation.
 
 package gojaeventloop
 
@@ -11,7 +11,7 @@ import (
 	goeventloop "github.com/joeycumines/go-eventloop"
 )
 
-// TestCriticalFixes_Verification verifies all CRITICAL issues are fixed
+// TestCriticalFixes_Verification verifies Promise identity and reject semantics.
 func TestCriticalFixes_Verification(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -30,39 +30,31 @@ func TestCriticalFixes_Verification(t *testing.T) {
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
-	_ = adapter // Suppress unused variable warning
 
-	// Test CRITICAL #1: Promise identity preservation (double-wrapping fix)
-	t.Log("Test 1: Promise identity preservation...")
+	// Promise identity preservation (no double-wrapping)
 	val1, err := runtime.RunString(`
 		(async () => {
 			const p1 = Promise.resolve(1);
 			const p2 = Promise.all([p1]);
 			const results = await p2;
-			return results[0] === p1;  // Should be true with our fix
+			return results[0] === p1;
 		})()
 	`)
 	if err != nil {
-		t.Fatalf("Test 1 failed to execute: %v", err)
+		t.Fatalf("Promise identity test failed to execute: %v", err)
 	}
-	result1 := val1.ToBoolean()
-	if !result1 {
-		t.Error("Test 1 FAILED: Promise identity not preserved (double-wrapping issue)")
-	} else {
-		t.Log("Test 1 PASSED!")
+	if !val1.ToBoolean() {
+		t.Error("Promise identity not preserved (double-wrapping issue)")
 	}
 
-	// Test CRITICAL #3: Promise.reject(promise) semantics
-	t.Log("Test 2: Promise.reject with wrapped promise...")
+	// Promise.reject(promise) should reject with the promise itself
 	val2, err := runtime.RunString(`
 		(async () => {
 			const p1 = new Promise(r => r(1));
 			const caughtReject = Promise.reject(p1);
 
-			// Wait for p1 to resolve
-			const p1Val = await p1;
+			await p1;
 
-			// caughtReject should reject with p1 itself
 			let caughtValue = null;
 			try {
 				await caughtReject;
@@ -70,32 +62,18 @@ func TestCriticalFixes_Verification(t *testing.T) {
 				caughtValue = reason;
 			}
 
-			// The rejection reason should be wrapper object (not unwrapped)
-			const isWrapper = caughtValue !== null &&
-				                 typeof caughtValue === 'object' &&
-				                 '_internalPromise' in caughtValue;
-			return isWrapper;
+			return caughtValue !== null &&
+				typeof caughtValue === 'object' &&
+				'_internalPromise' in caughtValue;
 		})()
 	`)
 	if err != nil {
-		t.Fatalf("Test 2 failed to execute: %v", err)
+		t.Fatalf("Promise.reject test failed to execute: %v", err)
 	}
-	result2 := val2.ToBoolean()
-	if !result2 {
-		t.Error("Test 2 FAILED: Promise.reject semantics incorrect")
-	} else {
-		t.Log("Test 2 PASSED!")
+	if !val2.ToBoolean() {
+		t.Error("Promise.reject semantics incorrect")
 	}
 
-	// Let's loop run to process microtasks
 	go func() { _ = loop.Run(ctx) }()
-
-	// Wait for async tasks
 	time.Sleep(100 * time.Millisecond)
-
-	t.Log("\nAll CRITICAL fix tests PASSED!")
-	t.Log("Summary:")
-	t.Log("  CRITICAL #1 (Double-wrapping): FIXED - Promise identity preserved")
-	t.Log("  CRITICAL #3 (Promise.reject): FIXED - Promise semantics correct")
-	t.Log("  CRITICAL #2 (Memory leak): CODED - cleanup in resolve/reject")
 }

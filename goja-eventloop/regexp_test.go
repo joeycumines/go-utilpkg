@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-062: RegExp API Verification Tests
+// RegExp API Verification Tests
 // Tests verify Goja's native support for:
 // 1. RegExp constructor - new RegExp(pattern), new RegExp(pattern, flags)
 // 2. test() method

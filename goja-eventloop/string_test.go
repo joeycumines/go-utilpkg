@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-057: String Methods Verification
+// String Methods Verification
 // Tests verify Goja's native support for:
 // - String.prototype.at(index) (ES2022)
 // - padStart(length, fillString?)

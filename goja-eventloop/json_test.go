@@ -402,7 +402,7 @@ func TestJSON_ParseReviverArray(t *testing.T) {
 }
 
 // ============================================================================
-// EXPAND-064: JSON API verification tests
+// JSON API verification tests
 // ============================================================================
 
 // TestJSON_StringifyPrimitives tests JSON.stringify with primitives.

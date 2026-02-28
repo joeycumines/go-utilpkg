@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-058: WeakMap/WeakSet Verification
+// WeakMap/WeakSet Verification
 // Tests verify Goja's native support for:
 // - WeakMap: get/set/has/delete with object keys
 // - WeakSet: add/has/delete

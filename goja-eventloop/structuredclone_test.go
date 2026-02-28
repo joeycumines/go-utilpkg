@@ -39,7 +39,7 @@ func testSetup(t *testing.T) (*Adapter, func()) {
 		select {
 		case <-runDone:
 		case <-time.After(2 * time.Second):
-			t.Log("loop did not stop in time")
+			t.Error("loop did not stop in time")
 		}
 	}
 

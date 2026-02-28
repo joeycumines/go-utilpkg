@@ -1,6 +1,6 @@
 // Package gojaeventloop provides tests for Promise static methods.
 //
-// EXPAND-060: Promise static method tests
+// Promise static method tests
 //
 // Tests cover:
 // - Promise.resolve() with value, thenable, and promise

@@ -9,7 +9,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-052: URI Encoding/Decoding Functions
+// URI Encoding/Decoding Functions
 // Tests verify Goja's native support for:
 // - encodeURIComponent(str)
 // - decodeURIComponent(str)
@@ -312,7 +312,7 @@ func TestURIComponent_InvalidSequence(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-053: parseInt/parseFloat
+// parseInt/parseFloat
 // Tests verify Goja's native support for:
 // - parseInt(str, radix?)
 // - parseFloat(str)
@@ -487,7 +487,7 @@ func TestParseFloat_NaN(t *testing.T) {
 }
 
 // ===============================================
-// EXPAND-054: isNaN/isFinite/Number.isNaN/Number.isFinite
+// isNaN/isFinite/Number.isNaN/Number.isFinite
 // Tests verify Goja's native support for:
 // - isNaN(value)
 // - isFinite(value)

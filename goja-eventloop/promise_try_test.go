@@ -10,7 +10,7 @@ import (
 )
 
 // ===============================================
-// EXPAND-003: Promise.try() Tests
+// Promise.try() Tests
 // ===============================================
 
 // TestPromiseTry_Success tests Promise.try() with a successful function.

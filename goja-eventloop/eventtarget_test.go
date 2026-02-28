@@ -28,7 +28,7 @@ func testEventLoopSetup(t *testing.T) (*goeventloop.Loop, func()) {
 }
 
 // ============================================================================
-// EventTarget JS Binding Tests (EXPAND-027)
+// EventTarget JS Binding Tests
 // ============================================================================
 
 func TestEventTarget_Constructor(t *testing.T) {
@@ -250,7 +250,7 @@ func TestEventTarget_RemoveEventListener_DifferentFunction(t *testing.T) {
 }
 
 // ============================================================================
-// Event JS Binding Tests (EXPAND-027)
+// Event JS Binding Tests
 // ============================================================================
 
 func TestEvent_Constructor(t *testing.T) {
@@ -465,7 +465,7 @@ func TestEvent_NoTypeArgument(t *testing.T) {
 }
 
 // ============================================================================
-// CustomEvent JS Binding Tests (EXPAND-028)
+// CustomEvent JS Binding Tests
 // ============================================================================
 
 func TestCustomEvent_Constructor(t *testing.T) {
