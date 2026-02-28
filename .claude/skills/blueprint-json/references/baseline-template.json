@@ -16,7 +16,9 @@
     "contextManagement": "Tasks are grouped to be executed in manageable units. Do not attempt to solve all tasks in a single turn. Break work into sessions as appropriate to prevent context window exhaustion."
   },
   "statusSection": {
-    "currentState": ""
+    "currentState": "",
+    "goalState": "",
+    "replanLog": []
   },
   "sequentialTasks": [],
   "continuousVerification": {

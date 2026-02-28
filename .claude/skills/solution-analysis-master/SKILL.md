@@ -1,6 +1,7 @@
 ---
 name: solution-analysis-master
 description: Orchestrates rigorous, multi-pipeline solution analysis with subagent-based strict review gates. Use when user asks to "analyze a problem deeply", "produce optimal solution analysis", "run solution pipelines", "strict review gate", "quorum-based review", or when comprehensive technical analysis with verification is needed. Produces independently-generated analyses that pass strict review quorum. Designed for complex technical problems requiring high confidence.
+license: MIT
 ---
 
 # Solution Analysis Master
