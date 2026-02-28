@@ -537,8 +537,13 @@ WriteLoop:
 		{
 			i := indexOfValue(row.columns, x.Schema.PrimaryKeys[row.table])
 			data.PrimaryKey = *(row.values[i].(*int64))
-			data.Columns = append(append(make([]string, 0, len(row.columns)-1), row.columns[:i]...), row.columns[i+1:]...)
-			data.Values = append(append(make([]any, 0, len(row.values)-1), row.values[:i]...), row.values[i+1:]...)
+			// Pre-allocate with exact capacity, then append both halves
+			data.Columns = make([]string, 0, len(row.columns)-1)
+			data.Columns = append(data.Columns, row.columns[:i]...)
+			data.Columns = append(data.Columns, row.columns[i+1:]...)
+			data.Values = make([]any, 0, len(row.values)-1)
+			data.Values = append(data.Values, row.values[:i]...)
+			data.Values = append(data.Values, row.values[i+1:]...)
 		}
 
 		for i, value := range data.Values {

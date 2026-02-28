@@ -73,10 +73,10 @@ func (x *Template) Schema() (*Schema, error) {
 
 func (x *Template) validate() error {
 	if x == nil {
-		return errors.New(`nil template`)
+		return errors.New(`validation failed: nil template for schema`)
 	}
 	if len(x.Targets) == 0 {
-		return errors.New(`no targets`)
+		return errors.New(`validation failed: template has no targets`)
 	}
 	return nil
 }
@@ -119,7 +119,7 @@ func (x *Schema) ColumnIndexes(table Table, columns []string) (primaryKey int, f
 
 func (x *Schema) validate() error {
 	if x == nil {
-		return errors.New(`nil schema`)
+		return errors.New(`validation failed: nil schema`)
 	}
 	if err := x.Template.validate(); err != nil {
 		return err
@@ -137,7 +137,7 @@ func (x *Schema) init() error {
 	x.AliasOrder = make([]string, 0, len(x.Template.Targets))
 	for alias, target := range x.Template.Targets {
 		if alias == `` {
-			return errors.New(`empty alias`)
+			return fmt.Errorf(`validation failed: empty alias in template targets`)
 		}
 
 		if target == nil ||
