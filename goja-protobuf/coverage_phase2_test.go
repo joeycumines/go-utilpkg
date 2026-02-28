@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -32,40 +30,51 @@ import (
 func TestTypeResolver_ReturnsWorkingResolver(t *testing.T) {
 	env := newTestEnv(t)
 	resolver := env.m.TypeResolver()
-	require.NotNil(t, resolver, "TypeResolver must return non-nil")
+	if resolver == nil {
+		t.Fatal("TypeResolver must return non-nil")
+	}
 
 	// FindMessageByName — type in local registries.
 	mt, err := resolver.FindMessageByName("test.SimpleMessage")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.SimpleMessage"), mt.Descriptor().FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mt.Descriptor().FullName() != protoreflect.FullName("test.SimpleMessage") {
+		t.Errorf("got %v, want %v", mt.Descriptor().FullName(), "test.SimpleMessage")
+	}
 
 	// FindMessageByURL — same type via URL.
 	mt2, err := resolver.FindMessageByURL("test.SimpleMessage")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.SimpleMessage"), mt2.Descriptor().FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mt2.Descriptor().FullName() != protoreflect.FullName("test.SimpleMessage") {
+		t.Errorf("got %v, want %v", mt2.Descriptor().FullName(), "test.SimpleMessage")
+	}
 
 	// FindExtensionByName — not found is OK; we just prove the method works.
 	_, err = resolver.FindExtensionByName("nonexistent.ext")
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 
 	// FindExtensionByNumber — not found is OK.
 	_, err = resolver.FindExtensionByNumber("nonexistent.Msg", 999)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // 2. loadDescriptorSetBytes RegisterFile name conflict (descriptors.go:80)
-//
-// Two files in the same FDS with different paths but the same fully-
-// qualified message name. The first file registers fine; the second
-// file's RegisterFile call fails due to the name conflict, triggering
-// the defensive `continue` on line 85.
 // ---------------------------------------------------------------------------
 
 func TestLoadDescriptorSetBytes_RegisterFileNameConflict(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{
@@ -102,29 +111,31 @@ func TestLoadDescriptorSetBytes_RegisterFileNameConflict(t *testing.T) {
 		},
 	}
 	data, err := proto.Marshal(fds)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// The second file's RegisterFile fails (name conflict), but the
-	// function treats it as non-fatal and continues. Overall call succeeds.
+	// function treats it as non-fatal and continues.
 	names, err := m.loadDescriptorSetBytes(data)
-	require.NoError(t, err)
-	// Only type from the first file should be registered.
-	assert.Contains(t, names, "phase2conflict.DupMsg")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !sliceContains(names, "phase2conflict.DupMsg") {
+		t.Errorf("expected names to contain phase2conflict.DupMsg, got %v", names)
+	}
 }
 
 // ---------------------------------------------------------------------------
 // 3. loadFileDescriptorProtoBytes RegisterFile name conflict
-//    (descriptors.go:110)
-//
-// Load two files sequentially with different paths but the same fully-
-// qualified message name. The second load's RegisterFile fails, and the
-// function returns nil, nil.
 // ---------------------------------------------------------------------------
 
 func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// First file: registers phase2conflict2.DupMsg successfully.
 	fdp1 := &descriptorpb.FileDescriptorProto{
@@ -143,10 +154,16 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 		}},
 	}
 	data1, err := proto.Marshal(fdp1)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	names1, err := m.loadFileDescriptorProtoBytes(data1)
-	require.NoError(t, err)
-	require.Contains(t, names1, "phase2conflict2.DupMsg")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !sliceContains(names1, "phase2conflict2.DupMsg") {
+		t.Fatalf("expected names to contain phase2conflict2.DupMsg, got %v", names1)
+	}
 
 	// Second file: different path, same type name → RegisterFile fails.
 	fdp2 := &descriptorpb.FileDescriptorProto{
@@ -165,11 +182,17 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 		}},
 	}
 	data2, err := proto.Marshal(fdp2)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	names2, err := m.loadFileDescriptorProtoBytes(data2)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	// RegisterFile fails → returns nil, nil (no names registered).
-	assert.Nil(t, names2)
+	if names2 != nil {
+		t.Errorf("expected nil, got %v", names2)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -181,21 +204,32 @@ func TestTypeResolver_GlobalFallback(t *testing.T) {
 	rt := goja.New()
 	// Create a module WITHOUT loading any descriptors into localTypes.
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	resolver := m.TypeResolver()
-	require.NotNil(t, resolver)
+	if resolver == nil {
+		t.Fatal("expected non-nil")
+	}
 
 	// Try to find a message that's only in global registry (not local).
-	// google.protobuf.Timestamp is in protoregistry.GlobalTypes.
 	mt, err := resolver.FindMessageByName("google.protobuf.Timestamp")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("google.protobuf.Timestamp"), mt.Descriptor().FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mt.Descriptor().FullName() != protoreflect.FullName("google.protobuf.Timestamp") {
+		t.Errorf("got %v, want %v", mt.Descriptor().FullName(), "google.protobuf.Timestamp")
+	}
 
 	// Also via URL.
 	mt2, err := resolver.FindMessageByURL("type.googleapis.com/google.protobuf.Timestamp")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("google.protobuf.Timestamp"), mt2.Descriptor().FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mt2.Descriptor().FullName() != protoreflect.FullName("google.protobuf.Timestamp") {
+		t.Errorf("got %v, want %v", mt2.Descriptor().FullName(), "google.protobuf.Timestamp")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -205,15 +239,25 @@ func TestTypeResolver_GlobalFallback(t *testing.T) {
 func TestFileResolver_ReturnsWorkingResolver(t *testing.T) {
 	env := newTestEnv(t)
 	resolver := env.m.FileResolver()
-	require.NotNil(t, resolver)
+	if resolver == nil {
+		t.Fatal("expected non-nil")
+	}
 
 	// FindDescriptorByName for a locally-loaded type.
 	desc, err := resolver.FindDescriptorByName("test.SimpleMessage")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.SimpleMessage"), desc.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if desc.FullName() != protoreflect.FullName("test.SimpleMessage") {
+		t.Errorf("got %v, want %v", desc.FullName(), "test.SimpleMessage")
+	}
 
 	// FindFileByPath for a locally-loaded file.
 	fd, err := resolver.FindFileByPath("test.proto")
-	require.NoError(t, err)
-	assert.Equal(t, "test.proto", fd.Path())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fd.Path() != "test.proto" {
+		t.Errorf("got %v, want %v", fd.Path(), "test.proto")
+	}
 }

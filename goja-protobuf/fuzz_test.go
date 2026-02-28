@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
@@ -44,7 +43,9 @@ func FuzzEncodeDecodeRoundTrip(f *testing.F) {
 				({ ok: false, error: e.message });
 			}
 		`)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		obj := result.Export().(map[string]any)
 		if ok, _ := obj["ok"].(bool); !ok {
@@ -115,11 +116,15 @@ func newFuzzEnv(t testing.TB) *fuzzEnv {
 	t.Helper()
 	runtime := goja.New()
 	mod, err := New(runtime)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Load test descriptors.
 	_, err = mod.LoadDescriptorSetBytes(testDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	exports := runtime.NewObject()
 	mod.SetupExports(exports)

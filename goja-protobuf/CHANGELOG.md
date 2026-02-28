@@ -4,7 +4,7 @@ All notable changes to the `goja-protobuf` package will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-13
+## [Unreleased]
 
 ### Added
 
@@ -46,16 +46,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Interface-based options** — `WithResolver(*protoregistry.Types)` for custom type resolution.
 
-- **Fuzz tests** — `FuzzEncodeDecodeRoundTrip` and `FuzzProtoMarshalUnmarshal` for
-  robustness testing with random payloads.
-
 - **`TypeResolver()` API** — Exported method returning a composite interface implementing
   `protoregistry.MessageTypeResolver` and `protoregistry.ExtensionTypeResolver`. Checks
   local types first, then falls back to global registries. Used by `goja-protojson` for
   `protojson.MarshalOptions.Resolver` and `protojson.UnmarshalOptions.Resolver`.
-
-- **99.4% test coverage** — Comprehensive test suite covering all API functions, edge cases,
-  error paths, type coercion, and boundary values.
 
 ### Fixed
 

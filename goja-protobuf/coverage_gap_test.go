@@ -3,12 +3,12 @@ package gojaprotobuf
 import (
 	"fmt"
 	"math"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dop251/goja"
 	gojarequire "github.com/dop251/goja_nodejs/require"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -52,7 +52,9 @@ func buildExtensionType(t *testing.T) (protoreflect.ExtensionType, protoreflect.
 		}},
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	extDesc := fd.Extensions().Get(0)
 	xt := dynamicpb.NewExtensionType(extDesc)
 	return xt, extDesc.FullName(), "exttest.ExtMsg", 100
@@ -141,9 +143,12 @@ func newTestEnvWithMapKeys(t *testing.T) *testEnv {
 	t.Helper()
 	env := newTestEnv(t)
 	data, err := proto.Marshal(multiKeyMapFileDescriptorProto())
-	require.NoError(t, err)
-	_, err = env.m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := env.m.loadFileDescriptorProtoBytes(data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	return env
 }
 
@@ -154,66 +159,98 @@ func newTestEnvWithMapKeys(t *testing.T) *testEnv {
 func TestCombinedTypeResolver_FindMessageByName(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	mt := dynamicpb.NewMessageType(md)
 
 	t.Run("local_hit", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, local.RegisterMessage(mt))
+		if err := local.RegisterMessage(mt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindMessageByName("test.SimpleMessage")
-		require.NoError(t, err)
-		assert.Equal(t, "test.SimpleMessage", string(result.Descriptor().FullName()))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := string(result.Descriptor().FullName()); got != "test.SimpleMessage" {
+			t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+		}
 	})
 
 	t.Run("global_fallback", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, global.RegisterMessage(mt))
+		if err := global.RegisterMessage(mt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindMessageByName("test.SimpleMessage")
-		require.NoError(t, err)
-		assert.Equal(t, "test.SimpleMessage", string(result.Descriptor().FullName()))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := string(result.Descriptor().FullName()); got != "test.SimpleMessage" {
+			t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+		}
 	})
 
 	t.Run("both_miss", func(t *testing.T) {
 		r := &combinedTypeResolver{local: new(protoregistry.Types), global: new(protoregistry.Types)}
 		_, err := r.FindMessageByName("nonexistent.Foo")
-		assert.Error(t, err)
+		if err == nil {
+			t.Error("expected error")
+		}
 	})
 }
 
 func TestCombinedTypeResolver_FindMessageByURL(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	mt := dynamicpb.NewMessageType(md)
 
 	t.Run("local_hit", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, local.RegisterMessage(mt))
+		if err := local.RegisterMessage(mt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindMessageByURL("test.SimpleMessage")
-		require.NoError(t, err)
-		assert.Equal(t, "test.SimpleMessage", string(result.Descriptor().FullName()))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := string(result.Descriptor().FullName()); got != "test.SimpleMessage" {
+			t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+		}
 	})
 
 	t.Run("global_fallback", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, global.RegisterMessage(mt))
+		if err := global.RegisterMessage(mt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindMessageByURL("test.SimpleMessage")
-		require.NoError(t, err)
-		assert.Equal(t, "test.SimpleMessage", string(result.Descriptor().FullName()))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := string(result.Descriptor().FullName()); got != "test.SimpleMessage" {
+			t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+		}
 	})
 
 	t.Run("both_miss", func(t *testing.T) {
 		r := &combinedTypeResolver{local: new(protoregistry.Types), global: new(protoregistry.Types)}
 		_, err := r.FindMessageByURL("nonexistent.Foo")
-		assert.Error(t, err)
+		if err == nil {
+			t.Error("expected error")
+		}
 	})
 }
 
@@ -223,27 +260,41 @@ func TestCombinedTypeResolver_FindExtensionByName(t *testing.T) {
 	t.Run("local_hit", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, local.RegisterExtension(xt))
+		if err := local.RegisterExtension(xt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindExtensionByName(extName)
-		require.NoError(t, err)
-		assert.NotNil(t, result)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Error("expected non-nil result")
+		}
 	})
 
 	t.Run("global_fallback", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, global.RegisterExtension(xt))
+		if err := global.RegisterExtension(xt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindExtensionByName(extName)
-		require.NoError(t, err)
-		assert.NotNil(t, result)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Error("expected non-nil result")
+		}
 	})
 
 	t.Run("both_miss", func(t *testing.T) {
 		r := &combinedTypeResolver{local: new(protoregistry.Types), global: new(protoregistry.Types)}
 		_, err := r.FindExtensionByName("nonexistent.ext")
-		assert.Error(t, err)
+		if err == nil {
+			t.Error("expected error")
+		}
 	})
 }
 
@@ -253,27 +304,41 @@ func TestCombinedTypeResolver_FindExtensionByNumber(t *testing.T) {
 	t.Run("local_hit", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, local.RegisterExtension(xt))
+		if err := local.RegisterExtension(xt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindExtensionByNumber(msgName, protoreflect.FieldNumber(fieldNum))
-		require.NoError(t, err)
-		assert.NotNil(t, result)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Error("expected non-nil result")
+		}
 	})
 
 	t.Run("global_fallback", func(t *testing.T) {
 		local := new(protoregistry.Types)
 		global := new(protoregistry.Types)
-		require.NoError(t, global.RegisterExtension(xt))
+		if err := global.RegisterExtension(xt); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 		r := &combinedTypeResolver{local: local, global: global}
 		result, err := r.FindExtensionByNumber(msgName, protoreflect.FieldNumber(fieldNum))
-		require.NoError(t, err)
-		assert.NotNil(t, result)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result == nil {
+			t.Error("expected non-nil result")
+		}
 	})
 
 	t.Run("both_miss", func(t *testing.T) {
 		r := &combinedTypeResolver{local: new(protoregistry.Types), global: new(protoregistry.Types)}
 		_, err := r.FindExtensionByNumber("nonexistent.Msg", 999)
-		assert.Error(t, err)
+		if err == nil {
+			t.Error("expected error")
+		}
 	})
 }
 
@@ -282,22 +347,29 @@ func TestCombinedTypeResolver_FindExtensionByNumber(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCombinedFileResolver_FindFileByPath_GlobalFallback(t *testing.T) {
-	// Create a file descriptor registered only in global.
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:    new("globalonly.proto"),
 		Package: new("globalonly"),
 		Syntax:  new("proto3"),
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	global := new(protoregistry.Files)
-	require.NoError(t, global.RegisterFile(fd))
+	if err := global.RegisterFile(fd); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	r := &combinedFileResolver{local: new(protoregistry.Files), global: global}
 	result, err := r.FindFileByPath("globalonly.proto")
-	require.NoError(t, err)
-	assert.Equal(t, "globalonly.proto", result.Path())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.Path(); got != "globalonly.proto" {
+		t.Errorf("got %q, want %q", got, "globalonly.proto")
+	}
 }
 
 func TestCombinedFileResolver_FindFileByPath_LocalHit(t *testing.T) {
@@ -307,15 +379,23 @@ func TestCombinedFileResolver_FindFileByPath_LocalHit(t *testing.T) {
 		Syntax:  new("proto3"),
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	local := new(protoregistry.Files)
-	require.NoError(t, local.RegisterFile(fd))
+	if err := local.RegisterFile(fd); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	r := &combinedFileResolver{local: local, global: new(protoregistry.Files)}
 	result, err := r.FindFileByPath("localonly.proto")
-	require.NoError(t, err)
-	assert.Equal(t, "localonly.proto", result.Path())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.Path(); got != "localonly.proto" {
+		t.Errorf("got %q, want %q", got, "localonly.proto")
+	}
 }
 
 func TestCombinedFileResolver_FindDescriptorByName_GlobalFallback(t *testing.T) {
@@ -333,15 +413,23 @@ func TestCombinedFileResolver_FindDescriptorByName_GlobalFallback(t *testing.T) 
 		}},
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	global := new(protoregistry.Files)
-	require.NoError(t, global.RegisterFile(fd))
+	if err := global.RegisterFile(fd); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	r := &combinedFileResolver{local: new(protoregistry.Files), global: global}
 	desc, err := r.FindDescriptorByName("globalonly2.Msg")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("globalonly2.Msg"), desc.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := desc.FullName(); got != protoreflect.FullName("globalonly2.Msg") {
+		t.Errorf("got %q, want %q", got, "globalonly2.Msg")
+	}
 }
 
 func TestCombinedFileResolver_FindDescriptorByName_LocalHit(t *testing.T) {
@@ -359,15 +447,23 @@ func TestCombinedFileResolver_FindDescriptorByName_LocalHit(t *testing.T) {
 		}},
 	}
 	fd, err := protodesc.NewFile(fdp, nil)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	local := new(protoregistry.Files)
-	require.NoError(t, local.RegisterFile(fd))
+	if err := local.RegisterFile(fd); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	r := &combinedFileResolver{local: local, global: new(protoregistry.Files)}
 	desc, err := r.FindDescriptorByName("localonly3.Msg")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("localonly3.Msg"), desc.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := desc.FullName(); got != protoreflect.FullName("localonly3.Msg") {
+		t.Errorf("got %q, want %q", got, "localonly3.Msg")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -377,12 +473,17 @@ func TestCombinedFileResolver_FindDescriptorByName_LocalHit(t *testing.T) {
 func TestExtractBytes_NonBytesValue(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// A number should fail all extraction attempts.
 	_, err = m.extractBytes(rt.ToValue(42))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected Uint8Array or ArrayBuffer")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "expected Uint8Array or ArrayBuffer") {
+		t.Errorf("error %q should contain %q", err.Error(), "expected Uint8Array or ArrayBuffer")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -391,32 +492,42 @@ func TestExtractBytes_NonBytesValue(t *testing.T) {
 
 func TestNewUint8Array_NoGlobal(t *testing.T) {
 	rt := goja.New()
-	// Remove the Uint8Array global.
-	require.NoError(t, rt.Set("Uint8Array", goja.Undefined()))
+	if err := rt.Set("Uint8Array", goja.Undefined()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result := m.newUint8Array([]byte{1, 2, 3})
-	assert.NotNil(t, result)
-	// Should return an ArrayBuffer directly.
+	if result == nil {
+		t.Error("expected non-nil result")
+	}
 	exported := result.Export()
-	_, isAB := exported.(goja.ArrayBuffer)
-	assert.True(t, isAB, "expected ArrayBuffer, got %T", exported)
+	if _, isAB := exported.(goja.ArrayBuffer); !isAB {
+		t.Errorf("expected ArrayBuffer, got %T", exported)
+	}
 }
 
 func TestNewUint8Array_ConstructorError(t *testing.T) {
 	rt := goja.New()
-	// Set Uint8Array to something that's not a constructor.
-	require.NoError(t, rt.Set("Uint8Array", "not_a_constructor"))
+	if err := rt.Set("Uint8Array", "not_a_constructor"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result := m.newUint8Array([]byte{1, 2, 3})
-	assert.NotNil(t, result)
-	// Should fall back to ArrayBuffer.
+	if result == nil {
+		t.Error("expected non-nil result")
+	}
 	exported := result.Export()
-	_, isAB := exported.(goja.ArrayBuffer)
-	assert.True(t, isAB, "expected ArrayBuffer fallback, got %T", exported)
+	if _, isAB := exported.(goja.ArrayBuffer); !isAB {
+		t.Errorf("expected ArrayBuffer fallback, got %T", exported)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -426,39 +537,58 @@ func TestNewUint8Array_ConstructorError(t *testing.T) {
 func TestExtractMessageDesc_InvalidHolder(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Object with _pbMsgDesc set to wrong type.
 	obj := rt.NewObject()
-	require.NoError(t, obj.Set("_pbMsgDesc", "not a holder"))
+	if err := obj.Set("_pbMsgDesc", "not a holder"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = m.extractMessageDesc(obj)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a protobuf message type constructor")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "not a protobuf message type constructor") {
+		t.Errorf("error %q should contain %q", err.Error(), "not a protobuf message type constructor")
+	}
 }
 
 func TestExtractMessageDesc_NoDescProperty(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Plain object without _pbMsgDesc.
 	obj := rt.NewObject()
 	_, err = m.extractMessageDesc(obj)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a protobuf message type constructor")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "not a protobuf message type constructor") {
+		t.Errorf("error %q should contain %q", err.Error(), "not a protobuf message type constructor")
+	}
 }
 
 func TestExtractMessageDesc_NilHolder(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Object with _pbMsgDesc set to nil *messageDescHolder.
 	obj := rt.NewObject()
-	require.NoError(t, obj.Set("_pbMsgDesc", (*messageDescHolder)(nil)))
+	if err := obj.Set("_pbMsgDesc", (*messageDescHolder)(nil)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = m.extractMessageDesc(obj)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a protobuf message type constructor")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "not a protobuf message type constructor") {
+		t.Errorf("error %q should contain %q", err.Error(), "not a protobuf message type constructor")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -468,21 +598,33 @@ func TestExtractMessageDesc_NilHolder(t *testing.T) {
 func TestLoadFileDescriptorProtoBytes_AlreadyRegistered(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fdp := testFileDescriptorProto()
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// Load once.
 	names1, err := m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
-	assert.NotEmpty(t, names1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(names1) == 0 {
+		t.Error("expected non-empty names")
+	}
 
 	// Load again — should return nil, nil since already registered.
 	names2, err := m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
-	assert.Nil(t, names2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if names2 != nil {
+		t.Errorf("expected nil, got %v", names2)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -492,41 +634,55 @@ func TestLoadFileDescriptorProtoBytes_AlreadyRegistered(t *testing.T) {
 func TestJsLoadFileDescriptorProto_ViaJS(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fdp := testFileDescriptorProto()
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
-	require.NoError(t, rt.Set("protoBytes", rt.NewArrayBuffer(data)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("protoBytes", rt.NewArrayBuffer(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	v, err := rt.RunString(`
 		var names = pb.loadFileDescriptorProto(new Uint8Array(protoBytes));
 		names.length > 0
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestJsLoadFileDescriptorProto_InvalidInput(t *testing.T) {
 	env := newTestEnv(t)
-	// Pass a string — should fail extractBytes.
 	env.mustFail(t, `pb.loadFileDescriptorProto("not bytes")`)
 }
 
 func TestJsLoadFileDescriptorProto_BadProtoData(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// File that depends on nonexistent dependency → protodesc.NewFile error.
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:       new("dep.proto"),
 		Package:    new("dep"),
@@ -534,11 +690,17 @@ func TestJsLoadFileDescriptorProto_BadProtoData(t *testing.T) {
 		Dependency: []string{"nonexistent.proto"},
 	}
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
-	require.NoError(t, rt.Set("badBytes", rt.NewArrayBuffer(data)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("badBytes", rt.NewArrayBuffer(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = rt.RunString(`pb.loadFileDescriptorProto(new Uint8Array(badBytes))`)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -548,13 +710,16 @@ func TestJsLoadFileDescriptorProto_BadProtoData(t *testing.T) {
 func TestJsLoadDescriptorSet_BadProtoData(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// An FDS with a message referencing a non-existent type.
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{{
 			Name:    new("bad2.proto"),
@@ -572,11 +737,17 @@ func TestJsLoadDescriptorSet_BadProtoData(t *testing.T) {
 		}},
 	}
 	data, err := proto.Marshal(fds)
-	require.NoError(t, err)
-	require.NoError(t, rt.Set("badBytes", rt.NewArrayBuffer(data)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("badBytes", rt.NewArrayBuffer(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = rt.RunString(`pb.loadDescriptorSet(new Uint8Array(badBytes))`)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -586,37 +757,54 @@ func TestJsLoadDescriptorSet_BadProtoData(t *testing.T) {
 func TestUnwrapMessage_NonObject(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Pass a primitive value (number) — val.(*goja.Object) should fail.
 	_, err = m.unwrapMessage(rt.ToValue(42))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected protobuf message object")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "expected protobuf message object") {
+		t.Errorf("error %q should contain %q", err.Error(), "expected protobuf message object")
+	}
 }
 
 func TestUnwrapMessage_ObjectWithoutPbMsg(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Plain object without _pbMsg.
 	obj := rt.NewObject()
 	_, err = m.unwrapMessage(obj)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a protobuf message wrapper")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "not a protobuf message wrapper") {
+		t.Errorf("error %q should contain %q", err.Error(), "not a protobuf message wrapper")
+	}
 }
 
 func TestUnwrapMessage_InvalidPbMsg(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Object with _pbMsg set to wrong type.
 	obj := rt.NewObject()
-	require.NoError(t, obj.Set("_pbMsg", "wrong"))
+	if err := obj.Set("_pbMsg", "wrong"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = m.unwrapMessage(obj)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a protobuf message wrapper")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "not a protobuf message wrapper") {
+		t.Errorf("error %q should contain %q", err.Error(), "not a protobuf message wrapper")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -625,7 +813,6 @@ func TestUnwrapMessage_InvalidPbMsg(t *testing.T) {
 
 func TestWrapMessage_SetRepeatedError(t *testing.T) {
 	env := newTestEnv(t)
-	// Trigger setRepeatedFromGoja error: int32 overflow in repeated field.
 	env.mustFail(t, `
 		var msg = new (pb.messageType('test.RepeatedMessage'))();
 		msg.set('numbers', [9999999999]);
@@ -634,7 +821,6 @@ func TestWrapMessage_SetRepeatedError(t *testing.T) {
 
 func TestWrapMessage_SetMapError(t *testing.T) {
 	env := newTestEnv(t)
-	// Trigger setMapFromGoja error: int32 overflow in map<string,int32> value.
 	env.run(t, `var MM = pb.messageType('test.MapMessage')`)
 	env.mustFail(t, `
 		var msg = new MM();
@@ -652,7 +838,6 @@ func TestRepeatedField_SetError(t *testing.T) {
 		var msg = new (pb.messageType('test.RepeatedMessage'))();
 		msg.get('numbers').add(10);
 	`)
-	// set() on repeated element: overflow int32.
 	env.mustFail(t, `msg.get('numbers').set(0, 9999999999)`)
 }
 
@@ -661,7 +846,6 @@ func TestRepeatedField_AddError(t *testing.T) {
 	env.run(t, `
 		var msg = new (pb.messageType('test.RepeatedMessage'))();
 	`)
-	// add() with overflow int32.
 	env.mustFail(t, `msg.get('numbers').add(9999999999)`)
 }
 
@@ -673,7 +857,6 @@ func TestMapField_GetKeyError(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	env.run(t, `var MKM = pb.messageType('mapkeys.MultiKeyMap')`)
 	env.run(t, `var msg = new MKM()`)
-	// int32 map key error: BigInt that overflows int64 → gojaToInt64 error → gojaToProtoMapKey error.
 	env.mustFail(t, `msg.get('int32_map').get(BigInt('9223372036854775808'))`)
 }
 
@@ -702,9 +885,6 @@ func TestMapField_SetValueError(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	env.run(t, `var MKM = pb.messageType('mapkeys.MultiKeyMap')`)
 	env.run(t, `var msg = new MKM()`)
-	// Value is string → gojaToProtoValue for StringKind always succeeds.
-	// We need a map with a different value type. The existing MapMessage has
-	// map<string, int32> for counts. Let's trigger int32 overflow in the value.
 	env.run(t, `var MM = pb.messageType('test.MapMessage')`)
 	env.run(t, `var mm = new MM()`)
 	env.mustFail(t, `mm.get('counts').set('key', 9999999999)`)
@@ -724,8 +904,12 @@ func (o *errorOption) applyOption(*moduleOptions) error {
 func TestNew_ErrorOption(t *testing.T) {
 	rt := goja.New()
 	_, err := New(rt, &errorOption{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "test option error")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "test option error") {
+		t.Errorf("error %q should contain %q", err.Error(), "test option error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -734,8 +918,12 @@ func TestNew_ErrorOption(t *testing.T) {
 
 func TestResolveOptions_Error(t *testing.T) {
 	_, err := resolveOptions([]Option{&errorOption{}})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "test option error")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "test option error") {
+		t.Errorf("error %q should contain %q", err.Error(), "test option error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -748,9 +936,10 @@ func TestRequire_ErrorOption(t *testing.T) {
 	registry.RegisterNativeModule("protobuf", Require(&errorOption{}))
 	registry.Enable(rt)
 
-	// require('protobuf') should panic → goja throws.
 	_, err := rt.RunString(`require('protobuf')`)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -758,45 +947,59 @@ func TestRequire_ErrorOption(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFindMessageDescriptor_GlobalFallback(t *testing.T) {
-	// Create a Module with a custom resolver that has a type registered.
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	mt := dynamicpb.NewMessageType(md)
 
-	// Create new module with custom resolver containing the type.
 	customResolver := new(protoregistry.Types)
-	require.NoError(t, customResolver.RegisterMessage(mt))
+	if err := customResolver.RegisterMessage(mt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	rt := goja.New()
 	m, err := New(rt, WithResolver(customResolver))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Type is not in localTypes (empty) but IS in resolver → global fallback.
 	result, err := m.findMessageDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.SimpleMessage"), result.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.FullName(); got != protoreflect.FullName("test.SimpleMessage") {
+		t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+	}
 }
 
 func TestFindEnumDescriptor_GlobalFallback(t *testing.T) {
 	env := newTestEnv(t)
-	// Find a known enum in localTypes.
 	ed, err := env.m.findEnumDescriptor("test.TestEnum")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	et := dynamicpb.NewEnumType(ed)
 
-	// Create new module with custom resolver containing the enum.
 	customResolver := new(protoregistry.Types)
-	require.NoError(t, customResolver.RegisterEnum(et))
+	if err := customResolver.RegisterEnum(et); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	rt := goja.New()
 	m, err := New(rt, WithResolver(customResolver))
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Enum is not in localTypes but IS in resolver → global fallback.
 	result, err := m.findEnumDescriptor("test.TestEnum")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.TestEnum"), result.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.FullName(); got != protoreflect.FullName("test.TestEnum") {
+		t.Errorf("got %q, want %q", got, "test.TestEnum")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -806,18 +1009,20 @@ func TestFindEnumDescriptor_GlobalFallback(t *testing.T) {
 func TestProtoMessageToGoja_NonDynamic(t *testing.T) {
 	env := newTestEnv(t)
 
-	// Use a generated protobuf message (FileDescriptorProto).
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:   new("nondynamic.proto"),
 		Syntax: new("proto3"),
 	}
 	result := env.m.protoMessageToGoja(fdp.ProtoReflect())
-	assert.NotNil(t, result)
+	if result == nil {
+		t.Error("expected non-nil result")
+	}
 
-	// The wrapper should expose the $type accessor.
 	obj := result.ToObject(env.rt)
 	typeVal := obj.Get("$type")
-	assert.Contains(t, typeVal.String(), "FileDescriptorProto")
+	if !strings.Contains(typeVal.String(), "FileDescriptorProto") {
+		t.Errorf("$type %q should contain %q", typeVal.String(), "FileDescriptorProto")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -826,18 +1031,18 @@ func TestProtoMessageToGoja_NonDynamic(t *testing.T) {
 
 func TestGojaToInt64_BigIntOverflow(t *testing.T) {
 	env := newTestEnv(t)
-	// BigInt that exceeds int64 range.
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 	env.mustFail(t, `msg.set('int64_val', BigInt('9223372036854775808'))`)
 }
 
 func TestGojaToInt64_FloatDefault(t *testing.T) {
 	env := newTestEnv(t)
-	// A float value triggers the default case in gojaToInt64.
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 	env.run(t, `msg.set('int64_val', 3.7)`)
 	v := env.run(t, `msg.get('int64_val')`)
-	assert.Equal(t, int64(3), v.ToInteger())
+	if got := v.ToInteger(); got != int64(3) {
+		t.Errorf("got %d, want %d", got, 3)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -847,22 +1052,21 @@ func TestGojaToInt64_FloatDefault(t *testing.T) {
 func TestGojaToUint64_BigIntOverflow(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
-	// 2^64 = 18446744073709551616 → overflows uint64.
 	env.mustFail(t, `msg.set('uint64_val', BigInt('18446744073709551616'))`)
 }
 
 func TestGojaToUint64_FloatPositive(t *testing.T) {
 	env := newTestEnv(t)
-	// Float triggers default case, positive → uint conversion.
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 	env.run(t, `msg.set('uint64_val', 3.7)`)
 	v := env.run(t, `msg.get('uint64_val')`)
-	assert.Equal(t, int64(3), v.ToInteger())
+	if got := v.ToInteger(); got != int64(3) {
+		t.Errorf("got %d, want %d", got, 3)
+	}
 }
 
 func TestGojaToUint64_FloatNegative(t *testing.T) {
 	env := newTestEnv(t)
-	// Float triggers default case, negative → error.
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 	env.mustFail(t, `msg.set('uint64_val', -1.5)`)
 }
@@ -874,7 +1078,6 @@ func TestGojaToUint64_FloatNegative(t *testing.T) {
 func TestGojaToProtoValue_BytesError(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
-	// Set bytes_val to a number → extractBytes error.
 	env.mustFail(t, `msg.set('bytes_val', 42)`)
 }
 
@@ -885,76 +1088,117 @@ func TestGojaToProtoValue_BytesError(t *testing.T) {
 func TestJsObjectToMessage_WithRepeatedField(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	arrVal, err := env.rt.RunString(`([10, 20, 30])`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	obj := env.rt.NewObject()
-	require.NoError(t, obj.Set("repeated_int32", arrVal))
+	if err := obj.Set("repeated_int32", arrVal); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg, err := env.m.jsObjectToMessage(obj, md)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fd := md.Fields().ByName("repeated_int32")
-	assert.Equal(t, 3, msg.Get(fd).List().Len())
+	if got := msg.Get(fd).List().Len(); got != 3 {
+		t.Errorf("got %d, want %d", got, 3)
+	}
 }
 
 func TestJsObjectToMessage_WithMapField(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	mapObj := env.rt.NewObject()
-	require.NoError(t, mapObj.Set("k1", "v1"))
-	require.NoError(t, mapObj.Set("k2", "v2"))
+	if err := mapObj.Set("k1", "v1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := mapObj.Set("k2", "v2"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	obj := env.rt.NewObject()
-	require.NoError(t, obj.Set("tags", mapObj))
+	if err := obj.Set("tags", mapObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg, err := env.m.jsObjectToMessage(obj, md)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fd := md.Fields().ByName("tags")
-	assert.Equal(t, 2, msg.Get(fd).Map().Len())
+	if got := msg.Get(fd).Map().Len(); got != 2 {
+		t.Errorf("got %d, want %d", got, 2)
+	}
 }
 
 func TestJsObjectToMessage_ScalarError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// bytes_val with a number triggers extractBytes error.
 	obj := env.rt.NewObject()
-	require.NoError(t, obj.Set("bytes_val", 42))
+	if err := obj.Set("bytes_val", 42); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.jsObjectToMessage(obj, md)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestJsObjectToMessage_RepeatedError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Pass a repeated int32 with overflow values.
 	arrVal, err := env.rt.RunString(`([9999999999])`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	obj := env.rt.NewObject()
-	require.NoError(t, obj.Set("repeated_int32", arrVal))
+	if err := obj.Set("repeated_int32", arrVal); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.jsObjectToMessage(obj, md)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestJsObjectToMessage_MapError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// counts is map<string, int32>. Set value to overflow int32.
 	countsObj := env.rt.NewObject()
-	require.NoError(t, countsObj.Set("k", 9999999999))
+	if err := countsObj.Set("k", 9999999999); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	obj := env.rt.NewObject()
-	require.NoError(t, obj.Set("counts", countsObj))
+	if err := obj.Set("counts", countsObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.jsObjectToMessage(obj, md)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -964,51 +1208,72 @@ func TestJsObjectToMessage_MapError(t *testing.T) {
 func TestSetRepeatedFromGoja_NoLength(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.RepeatedMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("items")
 
-	// Object without a 'length' property.
 	noLength := env.rt.NewObject()
 	err = env.m.setRepeatedFromGoja(msg, fd, noLength)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expected array for repeated field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "expected array for repeated field") {
+		t.Errorf("error %q should contain %q", err.Error(), "expected array for repeated field")
+	}
 }
 
 func TestSetRepeatedFromGoja_SparseArray(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.RepeatedMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("items")
 
-	// Simulate a sparse array: length=3, only indices 0 and 2 set.
 	sparse := env.rt.NewObject()
-	require.NoError(t, sparse.Set("length", 3))
-	require.NoError(t, sparse.Set("0", "first"))
-	// index 1 missing
-	require.NoError(t, sparse.Set("2", "third"))
+	if err := sparse.Set("length", 3); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sparse.Set("0", "first"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sparse.Set("2", "third"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	err = env.m.setRepeatedFromGoja(msg, fd, sparse)
-	require.NoError(t, err)
-	// Only 2 elements should be appended (sparse index 1 skipped).
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	list := msg.Get(fd).List()
-	assert.Equal(t, 2, list.Len())
+	if got := list.Len(); got != 2 {
+		t.Errorf("got %d, want %d", got, 2)
+	}
 }
 
 func TestSetRepeatedFromGoja_ConversionError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.RepeatedMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("numbers") // repeated int32
+	fd := md.Fields().ByName("numbers")
 
-	// Array with overflow int32 value.
 	arrVal, err := env.rt.RunString(`([9999999999])`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setRepeatedFromGoja(msg, fd, arrVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "repeated field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "repeated field") {
+		t.Errorf("error %q should contain %q", err.Error(), "repeated field")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,45 +1292,61 @@ func TestSetMapFromGoja_JSMap(t *testing.T) {
 		msg.set('tags', m);
 		msg.get('tags').get('key1') === 'val1' && msg.get('tags').get('key2') === 'val2' && msg.get('tags').size === 2
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestSetMapFromGoja_JSMapKeyError(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("int32_map")
 
-	// Create a JS Map with a key that causes gojaToProtoMapKey error.
 	mapVal, err := env.rt.RunString(`
 		var m = new Map();
 		m.set(BigInt('9223372036854775808'), 'v');
 		m
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, mapVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 func TestSetMapFromGoja_JSMapValueError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("counts") // map<string, int32>
+	fd := md.Fields().ByName("counts")
 
-	// JS Map with int32 overflow value.
 	mapVal, err := env.rt.RunString(`
 		var m = new Map();
 		m.set('k', 9999999999);
 		m
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, mapVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1075,7 +1356,9 @@ func TestSetMapFromGoja_JSMapValueError(t *testing.T) {
 func TestGojaToProtoMapKey_AllTypes(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	tests := []struct {
 		field string
@@ -1090,14 +1373,22 @@ func TestGojaToProtoMapKey_AllTypes(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.field, func(t *testing.T) {
 			fd := md.Fields().ByName(protoreflect.Name(tc.field))
-			require.NotNil(t, fd, "field %s not found", tc.field)
+			if fd == nil {
+				t.Fatalf("field %s not found", tc.field)
+			}
 			keyDesc := fd.MapKey()
 
 			val, err := env.rt.RunString(tc.jsKey)
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			mk, err := env.m.gojaToProtoMapKey(val, keyDesc)
-			require.NoError(t, err)
-			assert.True(t, mk.IsValid())
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !mk.IsValid() {
+				t.Error("expected valid map key")
+			}
 		})
 	}
 }
@@ -1105,55 +1396,71 @@ func TestGojaToProtoMapKey_AllTypes(t *testing.T) {
 func TestGojaToProtoMapKey_Int32Error(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("int32_map")
 	keyDesc := fd.MapKey()
 
-	// BigInt that overflows int64.
 	val, err := env.rt.RunString(`BigInt('9223372036854775808')`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.gojaToProtoMapKey(val, keyDesc)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestGojaToProtoMapKey_Int64Error(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("int64_map")
 	keyDesc := fd.MapKey()
 
-	// BigInt that overflows int64.
 	val, err := env.rt.RunString(`BigInt('9223372036854775808')`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.gojaToProtoMapKey(val, keyDesc)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestGojaToProtoMapKey_Uint32Error(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("uint32_map")
 	keyDesc := fd.MapKey()
 
-	// Negative value.
 	val := env.rt.ToValue(-1)
 	_, err = env.m.gojaToProtoMapKey(val, keyDesc)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestGojaToProtoMapKey_Uint64Error(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("uint64_map")
 	keyDesc := fd.MapKey()
 
-	// Negative value.
 	val := env.rt.ToValue(-1)
 	_, err = env.m.gojaToProtoMapKey(val, keyDesc)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1163,34 +1470,43 @@ func TestGojaToProtoMapKey_Uint64Error(t *testing.T) {
 func TestMapKeyToGoja_AllTypes(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 
-	// Populate each map type via JS, then read back to exercise mapKeyToGoja.
 	env.run(t, `var MKM = pb.messageType('mapkeys.MultiKeyMap')`)
 	env.run(t, `var msg = new MKM()`)
 
 	// bool key
 	env.run(t, `msg.get('bool_map').set(true, 'yes')`)
 	v := env.run(t, `msg.get('bool_map').get(true)`)
-	assert.Equal(t, "yes", v.String())
+	if got := v.String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 
 	// int32 key
 	env.run(t, `msg.get('int32_map').set(42, 'answer')`)
 	v = env.run(t, `msg.get('int32_map').get(42)`)
-	assert.Equal(t, "answer", v.String())
+	if got := v.String(); got != "answer" {
+		t.Errorf("got %q, want %q", got, "answer")
+	}
 
 	// int64 key
 	env.run(t, `msg.get('int64_map').set(100, 'hundred')`)
 	v = env.run(t, `msg.get('int64_map').get(100)`)
-	assert.Equal(t, "hundred", v.String())
+	if got := v.String(); got != "hundred" {
+		t.Errorf("got %q, want %q", got, "hundred")
+	}
 
 	// uint32 key
 	env.run(t, `msg.get('uint32_map').set(200, 'twohundred')`)
 	v = env.run(t, `msg.get('uint32_map').get(200)`)
-	assert.Equal(t, "twohundred", v.String())
+	if got := v.String(); got != "twohundred" {
+		t.Errorf("got %q, want %q", got, "twohundred")
+	}
 
 	// uint64 key
 	env.run(t, `msg.get('uint64_map').set(300, 'threehundred')`)
 	v = env.run(t, `msg.get('uint64_map').get(300)`)
-	assert.Equal(t, "threehundred", v.String())
+	if got := v.String(); got != "threehundred" {
+		t.Errorf("got %q, want %q", got, "threehundred")
+	}
 
 	// Exercise forEach on each type → triggers mapKeyToGoja.
 	env.run(t, `
@@ -1220,7 +1536,9 @@ func TestMapKeyToGoja_Entries(t *testing.T) {
 		}
 		result[1] === 'one' && result[2] === 'two'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1229,9 +1547,6 @@ func TestMapKeyToGoja_Entries(t *testing.T) {
 
 func TestGojaToProtoMessage_ObjectConversionError(t *testing.T) {
 	env := newTestEnv(t)
-	// NestedInner.value is int32; passing a value > MaxInt32 via a plain
-	// object triggers int32 overflow within jsObjectToMessage → error
-	// propagates through gojaToProtoMessage → gojaToProtoValue.
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 	env.mustFail(t, `msg.set('nested_val', {value: 9999999999})`)
 }
@@ -1243,21 +1558,27 @@ func TestGojaToProtoMessage_ObjectConversionError(t *testing.T) {
 func TestSetMapFromGoja_PlainObjectValueError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("counts") // map<string, int32>
+	fd := md.Fields().ByName("counts")
 
-	// Plain object with int32 overflow value.
 	objVal, err := env.rt.RunString(`({k: 9999999999})`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // serialize.go: jsEncode — proto.Marshal error
-// (This is very hard to trigger with dynamicpb; we test what we can.)
 // ---------------------------------------------------------------------------
 
 func TestJsEncode_EncodesEmptyCorrectly(t *testing.T) {
@@ -1268,12 +1589,13 @@ func TestJsEncode_EncodesEmptyCorrectly(t *testing.T) {
 		var encoded = pb.encode(msg);
 		encoded.length === 0
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // serialize.go: jsToJSON — protojson.Marshal error
-// (Hard to trigger without Any types; test what we can.)
 // ---------------------------------------------------------------------------
 
 func TestJsToJSON_EmptyMessage(t *testing.T) {
@@ -1284,7 +1606,9 @@ func TestJsToJSON_EmptyMessage(t *testing.T) {
 		var json = pb.toJSON(msg);
 		typeof json === 'object' && json !== null
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1294,8 +1618,6 @@ func TestJsToJSON_EmptyMessage(t *testing.T) {
 func TestJsFromJSON_InvalidFieldValue(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var SM = pb.messageType('test.SimpleMessage')`)
-	// Pass a value that cause protojson unmarshal to fail.
-	// An int where an object is expected.
 	env.mustFail(t, `pb.fromJSON(SM, 42)`)
 }
 
@@ -1306,7 +1628,9 @@ func TestJsFromJSON_EmptyObject(t *testing.T) {
 		var msg = pb.fromJSON(SM, {});
 		msg.get('name') === '' && msg.get('value') === 0
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1315,13 +1639,11 @@ func TestJsFromJSON_EmptyObject(t *testing.T) {
 
 func TestJsDecode_NonConstructorFirstArg(t *testing.T) {
 	env := newTestEnv(t)
-	// Pass a number as the first arg (not a constructor).
 	env.mustFail(t, `pb.decode(42, new Uint8Array([]))`)
 }
 
 // ---------------------------------------------------------------------------
-// Comprehensive multi-key-map integration test (exercises mapKeyToGoja,
-// gojaToProtoMapKey, setMapFromGoja for all key types)
+// Comprehensive multi-key-map integration test
 // ---------------------------------------------------------------------------
 
 func TestMultiKeyMap_RoundTrip(t *testing.T) {
@@ -1331,25 +1653,19 @@ func TestMultiKeyMap_RoundTrip(t *testing.T) {
 		var MKM = pb.messageType('mapkeys.MultiKeyMap');
 		var msg = new MKM();
 
-		// bool key
 		msg.get('bool_map').set(true, 'yes');
 		msg.get('bool_map').set(false, 'no');
 
-		// int32 key
 		msg.get('int32_map').set(-5, 'neg');
 		msg.get('int32_map').set(0, 'zero');
 		msg.get('int32_map').set(42, 'pos');
 
-		// int64 key
 		msg.get('int64_map').set(100, 'hundred');
 
-		// uint32 key
 		msg.get('uint32_map').set(200, 'twohundred');
 
-		// uint64 key
 		msg.get('uint64_map').set(300, 'threehundred');
 
-		// Encode/decode roundtrip
 		var encoded = pb.encode(msg);
 		var decoded = pb.decode(MKM, encoded);
 
@@ -1362,7 +1678,9 @@ func TestMultiKeyMap_RoundTrip(t *testing.T) {
 		decoded.get('uint32_map').get(200) === 'twohundred' &&
 		decoded.get('uint64_map').get(300) === 'threehundred'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestMultiKeyMap_Delete(t *testing.T) {
@@ -1372,7 +1690,9 @@ func TestMultiKeyMap_Delete(t *testing.T) {
 	env.run(t, `msg.get('bool_map').set(true, 'yes')`)
 	env.run(t, `msg.get('bool_map').delete(true)`)
 	v := env.run(t, `msg.get('bool_map').has(true)`)
-	assert.False(t, v.ToBoolean())
+	if v.ToBoolean() {
+		t.Error("expected false")
+	}
 }
 
 func TestMultiKeyMap_Has(t *testing.T) {
@@ -1381,9 +1701,13 @@ func TestMultiKeyMap_Has(t *testing.T) {
 	env.run(t, `var msg = new MKM()`)
 	env.run(t, `msg.get('int32_map').set(42, 'answer')`)
 	v := env.run(t, `msg.get('int32_map').has(42)`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 	v = env.run(t, `msg.get('int32_map').has(99)`)
-	assert.False(t, v.ToBoolean())
+	if v.ToBoolean() {
+		t.Error("expected false")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1401,7 +1725,9 @@ func TestSetMapFromGoja_JSMapBoolKeys(t *testing.T) {
 		msg.set('bool_map', m);
 		msg.get('bool_map').get(true) === 'yes' && msg.get('bool_map').get(false) === 'no'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 func TestSetMapFromGoja_JSMapInt32Keys(t *testing.T) {
@@ -1415,7 +1741,9 @@ func TestSetMapFromGoja_JSMapInt32Keys(t *testing.T) {
 		msg.set('int32_map', m);
 		msg.get('int32_map').get(42) === 'answer' && msg.get('int32_map').get(-1) === 'neg'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1425,39 +1753,52 @@ func TestSetMapFromGoja_JSMapInt32Keys(t *testing.T) {
 func TestLoadDescriptorSet_DuplicateFileInSameFDS(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fdp := testFileDescriptorProto()
-	// FDS with the same file twice → second one should be skipped.
 	fds := &descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{fdp, fdp},
 	}
 	data, err := proto.Marshal(fds)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	names, err := m.loadDescriptorSetBytes(data)
-	require.NoError(t, err)
-	// Should return names only from the first load.
-	assert.NotEmpty(t, names)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(names) == 0 {
+		t.Error("expected non-empty names")
+	}
 }
 
 func TestLoadDescriptorSet_UnmarshalError(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Truncated varint → proto.Unmarshal error.
 	_, err = m.loadDescriptorSetBytes([]byte{0x0A, 0xFF})
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestLoadFileDescriptorProtoBytes_UnmarshalError(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = m.loadFileDescriptorProtoBytes([]byte{0x0A, 0xFF})
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1467,23 +1808,35 @@ func TestLoadFileDescriptorProtoBytes_UnmarshalError(t *testing.T) {
 func TestGojaToProtoMessage_Nil(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.NestedOuter")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("nested_inner")
 
 	_, err = env.m.gojaToProtoMessage(nil, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null value for message field")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "null value for message field") {
+		t.Errorf("error %q should contain %q", err.Error(), "null value for message field")
+	}
 }
 
 func TestGojaToProtoMessage_Undefined(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.NestedOuter")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("nested_inner")
 
 	_, err = env.m.gojaToProtoMessage(goja.Undefined(), fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null value for message field")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "null value for message field") {
+		t.Errorf("error %q should contain %q", err.Error(), "null value for message field")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1493,12 +1846,18 @@ func TestGojaToProtoMessage_Undefined(t *testing.T) {
 func TestGojaToProtoValue_NilReturnsDefault(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("name")
 
 	pv, err := env.m.gojaToProtoValue(nil, fd)
-	require.NoError(t, err)
-	assert.Equal(t, "", pv.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := pv.String(); got != "" {
+		t.Errorf("got %q, want %q", got, "")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1513,8 +1872,12 @@ func TestRequire_WithOptions(t *testing.T) {
 	registry.Enable(rt)
 
 	v, err := rt.RunString(`typeof require('protobuf').encode === 'function'`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1524,27 +1887,41 @@ func TestRequire_WithOptions(t *testing.T) {
 func TestExtractBytes_ArrayBuffer(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	ab := rt.NewArrayBuffer([]byte{1, 2, 3})
 	b, err := m.extractBytes(rt.ToValue(ab))
-	require.NoError(t, err)
-	assert.Equal(t, []byte{1, 2, 3}, b)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(b, []byte{1, 2, 3}) {
+		t.Errorf("got %v, want %v", b, []byte{1, 2, 3})
+	}
 }
 
 func TestExtractBytes_NullUndefined(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = m.extractBytes(nil)
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error for nil")
+	}
 
 	_, err = m.extractBytes(goja.Undefined())
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error for undefined")
+	}
 
 	_, err = m.extractBytes(goja.Null())
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error for null")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1554,15 +1931,25 @@ func TestExtractBytes_NullUndefined(t *testing.T) {
 func TestExtractMessageDesc_NullUndefined(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = m.extractMessageDesc(nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "null/undefined")
+	if err == nil {
+		t.Error("expected error for nil")
+	}
+	if !strings.Contains(err.Error(), "null/undefined") {
+		t.Errorf("error %q should contain %q", err.Error(), "null/undefined")
+	}
 
 	_, err = m.extractMessageDesc(goja.Undefined())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "null/undefined")
+	if err == nil {
+		t.Error("expected error for undefined")
+	}
+	if !strings.Contains(err.Error(), "null/undefined") {
+		t.Errorf("error %q should contain %q", err.Error(), "null/undefined")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1572,18 +1959,20 @@ func TestExtractMessageDesc_NullUndefined(t *testing.T) {
 func TestProtoValueToGoja_NilBytes(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("bytes_val")
 
-	// Default bytes val is empty → should wrap to Uint8Array of length 0.
 	val := env.m.protoValueToGoja(msg.Get(fd), fd)
-	assert.NotNil(t, val)
+	if val == nil {
+		t.Error("expected non-nil value")
+	}
 }
 
 // ---------------------------------------------------------------------------
-// MapField: forEach callback with non-function (already tested elsewhere
-// but needed for wrapMapField coverage completeness)
+// MapField: forEach callback with non-function
 // ---------------------------------------------------------------------------
 
 func TestMapField_ForEachNonFunctionOnMultiKeyMap(t *testing.T) {
@@ -1609,7 +1998,9 @@ func TestToJSON_FromJSON_MultiKeyMap(t *testing.T) {
 		var msg2 = pb.fromJSON(MKM, json);
 		msg2.get('bool_map').get(true) === 'yes' && msg2.get('int32_map').get(42) === 'answer'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1619,26 +2010,34 @@ func TestToJSON_FromJSON_MultiKeyMap(t *testing.T) {
 func TestCombinedFileResolver_FindFileByPath_BothMiss(t *testing.T) {
 	r := &combinedFileResolver{local: new(protoregistry.Files), global: new(protoregistry.Files)}
 	_, err := r.FindFileByPath("nonexistent.proto")
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestCombinedFileResolver_FindDescriptorByName_BothMiss(t *testing.T) {
 	r := &combinedFileResolver{local: new(protoregistry.Files), global: new(protoregistry.Files)}
 	_, err := r.FindDescriptorByName("nonexistent.Msg")
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestModule_FindDescriptor(t *testing.T) {
 	env := newTestEnv(t)
 
-	// Finds a message descriptor by full name.
 	desc, err := env.m.FindDescriptor("test.SimpleMessage")
-	require.NoError(t, err)
-	assert.Equal(t, protoreflect.FullName("test.SimpleMessage"), desc.FullName())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := desc.FullName(); got != protoreflect.FullName("test.SimpleMessage") {
+		t.Errorf("got %q, want %q", got, "test.SimpleMessage")
+	}
 
-	// Not found returns error.
 	_, err = env.m.FindDescriptor("nonexistent.Type")
-	assert.Error(t, err)
+	if err == nil {
+		t.Error("expected error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1648,100 +2047,126 @@ func TestModule_FindDescriptor(t *testing.T) {
 func TestSetMapFromGoja_EntriesNotFunction(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("tags") // map<string, string>
+	fd := md.Fields().ByName("tags")
 
-	// Create an object with 'entries' property that is NOT a function.
-	// Should fall through to plain object iteration.
 	objVal, err := env.rt.RunString(`({entries: 'not_a_function', k1: 'v1', k2: 'v2'})`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	require.NoError(t, err)
-	// entries is an own property key, so it will be iterated as a map entry.
-	// k1 and k2 are the actual entries.
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	protoMap := msg.Get(fd).Map()
-	assert.True(t, protoMap.Len() >= 2)
+	if protoMap.Len() < 2 {
+		t.Errorf("expected at least 2 entries, got %d", protoMap.Len())
+	}
 }
 
 func TestSetMapFromGoja_EntriesCallError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("tags")
 
-	// Create an object with 'entries' function that throws.
-	// Should fall through to plain object iteration.
 	objVal, err := env.rt.RunString(`
 		var o = {k1: 'v1'};
 		o.entries = function() { throw new Error("boom"); };
 		o
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	protoMap := msg.Get(fd).Map()
-	assert.True(t, protoMap.Len() >= 1)
+	if protoMap.Len() < 1 {
+		t.Errorf("expected at least 1 entry, got %d", protoMap.Len())
+	}
 }
 
 func TestSetMapFromGoja_EntriesNoNext(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("tags")
 
-	// Create an object whose entries() returns an object without next().
-	// Should fall through to plain object iteration.
 	objVal, err := env.rt.RunString(`
 		var o = {k1: 'v1'};
 		o.entries = function() { return {}; };
 		o
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	protoMap := msg.Get(fd).Map()
-	assert.True(t, protoMap.Len() >= 1)
+	if protoMap.Len() < 1 {
+		t.Errorf("expected at least 1 entry, got %d", protoMap.Len())
+	}
 }
 
 // ---------------------------------------------------------------------------
 // conversion.go: setRepeatedFromGoja — obj with entries (not an array)
-// triggers the object-without-length path through wrapMessage.set()
 // ---------------------------------------------------------------------------
 
 func TestSetRepeatedFromGoja_ObjectNoLengthViaJS(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var msg = new (pb.messageType('test.RepeatedMessage'))()`)
-	// Passing an object without length to a repeated field via set() should throw.
 	env.mustFail(t, `msg.set('items', {foo: 'bar'})`)
 }
 
 // ---------------------------------------------------------------------------
-// descriptors.go: jsLoadDescriptorSet — empty FDS via JS (loop body uncovered)
+// descriptors.go: jsLoadDescriptorSet — empty FDS via JS
 // ---------------------------------------------------------------------------
 
 func TestJsLoadDescriptorSet_EmptyFDS(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	emptyFDS := &descriptorpb.FileDescriptorSet{}
 	data, err := proto.Marshal(emptyFDS)
-	require.NoError(t, err)
-	require.NoError(t, rt.Set("emptyBytes", rt.NewArrayBuffer(data)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("emptyBytes", rt.NewArrayBuffer(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	v, err := rt.RunString(`
 		var names = pb.loadDescriptorSet(new Uint8Array(emptyBytes));
 		names.length === 0
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToBoolean())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1781,11 +2206,12 @@ func TestMapField_ForEachCallbackThrows(t *testing.T) {
 func TestSetMapFromGoja_IteratorNextError(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("tags")
 
-	// Create an object with entries() that returns iterator whose next() throws.
 	objVal, err := env.rt.RunString(`
 		var o = {};
 		o.entries = function() {
@@ -1795,12 +2221,19 @@ func TestSetMapFromGoja_IteratorNextError(t *testing.T) {
 		};
 		o
 	`)
-	require.NoError(t, err)
-	// The next() error must be propagated — silent swallowing is a bug.
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "map field tags iterator:")
-	require.Contains(t, err.Error(), "iter error")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field tags iterator:") {
+		t.Fatalf("error %q should contain %q", err.Error(), "map field tags iterator:")
+	}
+	if !strings.Contains(err.Error(), "iter error") {
+		t.Fatalf("error %q should contain %q", err.Error(), "iter error")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1810,24 +2243,28 @@ func TestSetMapFromGoja_IteratorNextError(t *testing.T) {
 func TestLoadFileDescriptorProtoBytes_RegisterFileError(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fdp := testFileDescriptorProto()
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// First load succeeds.
 	_, err = m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Create a slightly different file with the SAME path but different
-	// content. The localFiles.FindFileByPath check should find it (already
-	// registered), so it returns nil, nil (the already-registered path
-	// tested earlier). This confirms we can't easily trigger RegisterFile
-	// error in a single-threaded test.
 	names, err := m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
-	assert.Nil(t, names)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if names != nil {
+		t.Errorf("expected nil, got %v", names)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1837,35 +2274,50 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileError(t *testing.T) {
 func TestJsLoadFileDescriptorProto_AlreadyRegisteredViaJS(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	fdp := testFileDescriptorProto()
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
-	require.NoError(t, rt.Set("protoBytes", rt.NewArrayBuffer(data)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("protoBytes", rt.NewArrayBuffer(data)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	// First load.
 	v, err := rt.RunString(`
 		var names1 = pb.loadFileDescriptorProto(new Uint8Array(protoBytes));
 		names1.length
 	`)
-	require.NoError(t, err)
-	assert.True(t, v.ToInteger() > 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if v.ToInteger() <= 0 {
+		t.Error("expected positive length")
+	}
 
 	// Second load — already registered, returns empty array.
 	v, err = rt.RunString(`
 		var names2 = pb.loadFileDescriptorProto(new Uint8Array(protoBytes));
 		names2.length
 	`)
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), v.ToInteger())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := v.ToInteger(); got != int64(0) {
+		t.Errorf("got %d, want %d", got, 0)
+	}
 }
 
-// Test that the map entries iterator properly terminates (done=true path).
 func TestMapField_EntriesIteratorDone(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `
@@ -1878,10 +2330,11 @@ func TestMapField_EntriesIteratorDone(t *testing.T) {
 		var r2 = iter.next();
 		!r1.done && r2.done && r1.value[0] === 'only' && r1.value[1] === 'one'
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
-// Test encoding/decoding with bytes field.
 func TestEncodeDecodeBytes(t *testing.T) {
 	env := newTestEnv(t)
 	v := env.run(t, `
@@ -1893,7 +2346,9 @@ func TestEncodeDecodeBytes(t *testing.T) {
 		var b = decoded.get('bytes_val');
 		b[0] === 0xDE && b[1] === 0xAD && b[2] === 0xBE && b[3] === 0xEF
 	`)
-	assert.True(t, v.ToBoolean())
+	if !v.ToBoolean() {
+		t.Error("expected true")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1907,7 +2362,6 @@ func TestJsToJSON_JSONParseOverridden(t *testing.T) {
 		var msg = new SM();
 		msg.set('name', 'test');
 	`)
-	// Override JSON.parse with a non-function.
 	env.run(t, `JSON.parse = 42`)
 	env.mustFail(t, `pb.toJSON(msg)`)
 }
@@ -1919,7 +2373,6 @@ func TestJsToJSON_JSONParseOverridden(t *testing.T) {
 func TestJsFromJSON_JSONStringifyOverridden(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var SM = pb.messageType('test.SimpleMessage')`)
-	// Override JSON.stringify with a non-function.
 	env.run(t, `JSON.stringify = 42`)
 	env.mustFail(t, `pb.fromJSON(SM, {name: 'test'})`)
 }
@@ -1931,7 +2384,6 @@ func TestJsFromJSON_JSONStringifyOverridden(t *testing.T) {
 func TestJsFromJSON_StringifyCallErrors(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var SM = pb.messageType('test.SimpleMessage')`)
-	// A circular reference causes JSON.stringify to throw a TypeError.
 	env.mustFail(t, `
 		var c = {};
 		c.self = c;
@@ -1941,7 +2393,6 @@ func TestJsFromJSON_StringifyCallErrors(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // serialize.go: jsToJSON — JSON.parse call throws
-// We override JSON.parse with a function that always throws.
 // ---------------------------------------------------------------------------
 
 func TestJsToJSON_JSONParseCallErrors(t *testing.T) {
@@ -1951,22 +2402,16 @@ func TestJsToJSON_JSONParseCallErrors(t *testing.T) {
 		var msg = new SM();
 		msg.set('name', 'test');
 	`)
-	// Override JSON.parse with a function that throws.
 	env.run(t, `JSON.parse = function() { throw new Error("parse error"); }`)
 	env.mustFail(t, `pb.toJSON(msg)`)
 }
 
 // ---------------------------------------------------------------------------
 // descriptors.go: jsLoadDescriptorSet — invalid-but-extractable bytes
-// This tests the proto.Unmarshal error path inside loadDescriptorSetBytes
-// when called via JS.
 // ---------------------------------------------------------------------------
 
 func TestJsLoadDescriptorSet_InvalidProtobufBytes(t *testing.T) {
 	env := newTestEnv(t)
-	// Create bytes that are extractable but fail proto.Unmarshal.
-	// A truncated length-delimited field: tag 0x0A (field 1, wire type 2),
-	// length 200, but no data.
 	env.rt.Set("badData", env.rt.NewArrayBuffer([]byte{0x0A, 0xC8, 0x01}))
 	env.mustFail(t, `pb.loadDescriptorSet(new Uint8Array(badData))`)
 }
@@ -1977,7 +2422,6 @@ func TestJsLoadDescriptorSet_InvalidProtobufBytes(t *testing.T) {
 
 func TestJsLoadFileDescriptorProto_InvalidProtobufBytes(t *testing.T) {
 	env := newTestEnv(t)
-	// Same truncated bytes approach.
 	env.rt.Set("badData", env.rt.NewArrayBuffer([]byte{0x0A, 0xC8, 0x01}))
 	env.mustFail(t, `pb.loadFileDescriptorProto(new Uint8Array(badData))`)
 }
@@ -1987,59 +2431,77 @@ func TestGojaToProtoValue_NullForAllScalarTypes(t *testing.T) {
 	env := newTestEnv(t)
 	env.run(t, `var msg = new (pb.messageType('test.AllTypes'))()`)
 
-	// Setting each field to null should clear to its default.
 	env.run(t, `msg.set('int32_val', 42); msg.set('int32_val', null)`)
 	v := env.run(t, `msg.get('int32_val')`)
-	assert.Equal(t, int64(0), v.ToInteger())
+	if got := v.ToInteger(); got != int64(0) {
+		t.Errorf("got %d, want %d", got, 0)
+	}
 
 	env.run(t, `msg.set('uint64_val', 100); msg.set('uint64_val', null)`)
 	v = env.run(t, `msg.get('uint64_val')`)
-	assert.Equal(t, int64(0), v.ToInteger())
+	if got := v.ToInteger(); got != int64(0) {
+		t.Errorf("got %d, want %d", got, 0)
+	}
 
 	env.run(t, `msg.set('float_val', 1.5); msg.set('float_val', null)`)
 	v = env.run(t, `msg.get('float_val')`)
-	assert.InDelta(t, 0.0, v.ToFloat(), 0.001)
+	if d := math.Abs(v.ToFloat() - 0.0); d > 0.001 {
+		t.Errorf("got %f, want %f (delta %f > 0.001)", v.ToFloat(), 0.0, d)
+	}
 }
 
 // Test map field set via plain object key error path.
 func TestSetMapFromGoja_PlainObjectKeyError(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("uint32_map")
 
-	// Plain object with string key "-1" → when parsed, gojaToUint64 returns
-	// error for negative value.
 	objVal, err := env.rt.RunString(`({"-1": "v"})`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Additional setMapFromGoja: JS Map key error with maps iterated via
-// the entries() protocol (exercises the error return inside the iterator)
+// the entries() protocol
 // ---------------------------------------------------------------------------
 
 func TestSetMapFromGoja_JSMapKeyErrorViaEntries(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("uint32_map")
 
-	// A JS Map with a negative key → gojaToUint64 returns error for neg value.
 	mapVal, err := env.rt.RunString(`
 		var m = new Map();
 		m.set(-1, 'neg');
 		m
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, mapVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2048,47 +2510,58 @@ func TestSetMapFromGoja_JSMapKeyErrorViaEntries(t *testing.T) {
 
 func TestSetMapFromGoja_JSMapValueErrorViaEntries(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
-	// Use a message with map<string, int32> values (like MapMessage.counts)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("counts") // map<string, int32>
+	fd := md.Fields().ByName("counts")
 
-	// A JS Map with a value that causes int32 overflow.
 	mapVal, err := env.rt.RunString(`
 		var m = new Map();
 		m.set('k', 9999999999);
 		m
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, mapVal)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "map field")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "map field") {
+		t.Errorf("error %q should contain %q", err.Error(), "map field")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Descriptor loading: file with dependencies resolved from local
-// (exercises combinedFileResolver.FindFileByPath local-hit through protodesc)
 // ---------------------------------------------------------------------------
 
 func TestLoadDescriptorSet_WithDependencyResolution(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// First: load the base test descriptors into localFiles.
 	_, err = m.loadDescriptorSetBytes(testDescriptorSetBytes())
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Now: load a file that depends on test.proto (already in localFiles).
-	// This exercises FindFileByPath for the combinedFileResolver local hit
-	// path within protodesc.NewFile.
 	depFdp := containerMessageProto()
 	data, err := proto.Marshal(depFdp)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	names, err := m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
-	assert.Contains(t, names, "container.Container")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !sliceContains(names, "container.Container") {
+		t.Errorf("expected names to contain %q, got %v", "container.Container", names)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2123,26 +2596,38 @@ func TestRepeatedField_SetNull_Throws(t *testing.T) {
 func TestMapKeyInt32Overflow(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("int32_map")
 
 	// Int32 overflow.
 	bigVal := env.rt.ToValue(int64(math.MaxInt32) + 1)
 	_, err = env.m.gojaToProtoMapKey(bigVal, fd.MapKey())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int32")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int32") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int32")
+	}
 
 	// Int32 underflow.
 	smallVal := env.rt.ToValue(int64(math.MinInt32) - 1)
 	_, err = env.m.gojaToProtoMapKey(smallVal, fd.MapKey())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int32")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int32") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int32")
+	}
 }
 
 func TestMapKeyUint32Overflow(t *testing.T) {
 	env := newTestEnvWithMapKeys(t)
 	md, err := env.m.findMessageDescriptor("mapkeys.MultiKeyMap")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	_ = msg // suppress unused
 	fd := md.Fields().ByName("uint32_map")
@@ -2150,8 +2635,12 @@ func TestMapKeyUint32Overflow(t *testing.T) {
 	// Uint32 overflow.
 	bigVal := env.rt.ToValue(int64(math.MaxUint32) + 1)
 	_, err = env.m.gojaToProtoMapKey(bigVal, fd.MapKey())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows uint32")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows uint32") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows uint32")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2168,13 +2657,19 @@ func TestMapField_SetNullDeletesEntry(t *testing.T) {
 		msg.get('tags').set('del', null);
 		msg.get('tags').size
 	`)
-	assert.Equal(t, int64(1), v.ToInteger())
+	if got := v.ToInteger(); got != int64(1) {
+		t.Errorf("got %d, want %d", got, 1)
+	}
 
 	v = env.run(t, `msg.get('tags').get('del')`)
-	assert.True(t, goja.IsUndefined(v))
+	if !goja.IsUndefined(v) {
+		t.Errorf("expected undefined, got %v", v)
+	}
 
 	v = env.run(t, `msg.get('tags').get('keep')`)
-	assert.Equal(t, "yes", v.String())
+	if got := v.String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2184,20 +2679,30 @@ func TestMapField_SetNullDeletesEntry(t *testing.T) {
 func TestGojaToProtoEnum_Int32Overflow(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	fd := md.Fields().ByName("enum_val")
 
 	// Overflow positive.
 	bigVal := env.rt.ToValue(int64(math.MaxInt32) + 1)
 	_, err = env.m.gojaToProtoEnum(bigVal, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int32")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int32") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int32")
+	}
 
 	// Overflow negative.
 	smallVal := env.rt.ToValue(int64(math.MinInt32) - 1)
 	_, err = env.m.gojaToProtoEnum(smallVal, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int32")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int32") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int32")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2213,13 +2718,19 @@ func TestBoolMapKey_PlainObject_FalseString(t *testing.T) {
 		var m = msg.get('bool_map');
 		m.size
 	`)
-	assert.Equal(t, int64(2), v.ToInteger())
+	if got := v.ToInteger(); got != int64(2) {
+		t.Errorf("got %d, want %d", got, 2)
+	}
 
 	v = env.run(t, `m.get(true)`)
-	assert.Equal(t, "yes", v.String())
+	if got := v.String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 
 	v = env.run(t, `m.get(false)`)
-	assert.Equal(t, "no", v.String())
+	if got := v.String(); got != "no" {
+		t.Errorf("got %q, want %q", got, "no")
+	}
 }
 
 func TestBoolMapKey_JSMap(t *testing.T) {
@@ -2233,13 +2744,19 @@ func TestBoolMapKey_JSMap(t *testing.T) {
 		msg.set('bool_map', bm);
 		msg.get('bool_map').size
 	`)
-	assert.Equal(t, int64(2), v.ToInteger())
+	if got := v.ToInteger(); got != int64(2) {
+		t.Errorf("got %d, want %d", got, 2)
+	}
 
 	v = env.run(t, `msg.get('bool_map').get(true)`)
-	assert.Equal(t, "yes", v.String())
+	if got := v.String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 
 	v = env.run(t, `msg.get('bool_map').get(false)`)
-	assert.Equal(t, "no", v.String())
+	if got := v.String(); got != "no" {
+		t.Errorf("got %q, want %q", got, "no")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -2248,8 +2765,6 @@ func TestBoolMapKey_JSMap(t *testing.T) {
 
 func TestGojaToProtoMessage_TypeMismatch(t *testing.T) {
 	env := newTestEnv(t)
-	// Create a NestedOuter with field nested_inner (type NestedInner).
-	// Try to set nested_inner with a SimpleMessage — wrong type.
 	env.run(t, `
 		var Outer = pb.messageType('test.NestedOuter');
 		var Simple = pb.messageType('test.SimpleMessage');
@@ -2257,13 +2772,11 @@ func TestGojaToProtoMessage_TypeMismatch(t *testing.T) {
 		var simple = new Simple();
 		simple.set('name', 'oops');
 	`)
-	// Should throw TypeError, not Go panic.
 	env.mustFail(t, `outer.set('nested_inner', simple)`)
 }
 
 func TestGojaToProtoMessage_TypeMatch(t *testing.T) {
 	env := newTestEnv(t)
-	// Create matching types — should succeed.
 	env.run(t, `
 		var Outer = pb.messageType('test.NestedOuter');
 		var Inner = pb.messageType('test.NestedInner');
@@ -2273,125 +2786,157 @@ func TestGojaToProtoMessage_TypeMatch(t *testing.T) {
 		outer.set('nested_inner', inner);
 	`)
 	v := env.run(t, `outer.get('nested_inner').get('value')`)
-	assert.Equal(t, int64(42), v.ToInteger())
+	if got := v.ToInteger(); got != int64(42) {
+		t.Errorf("got %d, want %d", got, 42)
+	}
 }
 
 // ---------------------------------------------------------------------------
-// Batch 5: Targeted coverage for remaining gaps identified via
-// `grep ' 0$' coverage.out`.
+// Batch 5: Targeted coverage for remaining gaps
 // ---------------------------------------------------------------------------
 
-// conversion.go:109 — gojaToProtoValue null/undefined for MessageKind field.
-// The wrapMessage set() handler catches null before calling gojaToProtoValue,
-// so we must call the function directly to exercise this path.
 func TestGojaToProtoValue_NullForMessageField(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.NestedOuter")
-	require.NoError(t, err)
-	fd := md.Fields().ByName("nested_inner") // MessageKind
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	fd := md.Fields().ByName("nested_inner")
 
 	// nil → error
 	_, err = env.m.gojaToProtoValue(nil, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null value for message field")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "null value for message field") {
+		t.Fatalf("error %q should contain %q", err.Error(), "null value for message field")
+	}
 
 	// goja.Null() → error
 	_, err = env.m.gojaToProtoValue(goja.Null(), fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null value for message field")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "null value for message field") {
+		t.Fatalf("error %q should contain %q", err.Error(), "null value for message field")
+	}
 
 	// goja.Undefined() → error
 	_, err = env.m.gojaToProtoValue(goja.Undefined(), fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null value for message field")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "null value for message field") {
+		t.Fatalf("error %q should contain %q", err.Error(), "null value for message field")
+	}
 }
 
-// conversion.go:121 — gojaToProtoValue Int32Kind when gojaToInt64 returns
-// error (BigInt that overflows int64).
 func TestGojaToProtoValue_Int32BigIntOverflow(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
-	fd := md.Fields().ByName("int32_val") // Int32Kind
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	fd := md.Fields().ByName("int32_val")
 
-	// BigInt that overflows int64 → gojaToInt64 error path.
 	bigVal, err := env.rt.RunString(`BigInt('9223372036854775808')`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.gojaToProtoValue(bigVal, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int64")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int64") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int64")
+	}
 }
 
-// conversion.go:239 — gojaToProtoEnum when gojaToInt64 returns error
-// (BigInt that overflows int64, before the int32 overflow check).
 func TestGojaToProtoEnum_BigIntOverflow(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.AllTypes")
-	require.NoError(t, err)
-	fd := md.Fields().ByName("enum_val") // EnumKind
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	fd := md.Fields().ByName("enum_val")
 
-	// BigInt that overflows int64 → gojaToInt64 error path inside gojaToProtoEnum.
 	bigVal, err := env.rt.RunString(`BigInt('9223372036854775808')`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	_, err = env.m.gojaToProtoEnum(bigVal, fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "overflows int64")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "overflows int64") {
+		t.Fatalf("error %q should contain %q", err.Error(), "overflows int64")
+	}
 }
 
-// conversion.go:423 — setMapFromGoja entries iterator null value skip.
-// A JS Map entry where value is null → continue (skip the entry).
 func TestSetMapFromGoja_JSMapNullValueSkip(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
-	fd := md.Fields().ByName("tags") // map<string, string>
+	fd := md.Fields().ByName("tags")
 
-	// JS Map with one valid and one null entry.
 	mapVal, err := env.rt.RunString(`
 		var m = new Map();
 		m.set('keep', 'yes');
 		m.set('skip', null);
 		m
 	`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, mapVal)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	protoMap := msg.Get(fd).Map()
-	assert.Equal(t, 1, protoMap.Len())
-	assert.Equal(t, "yes", protoMap.Get(protoreflect.ValueOfString("keep").MapKey()).String())
+	if got := protoMap.Len(); got != 1 {
+		t.Errorf("got %d, want %d", got, 1)
+	}
+	if got := protoMap.Get(protoreflect.ValueOfString("keep").MapKey()).String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 }
 
-// conversion.go:447 — setMapFromGoja plain object null value skip.
-// A plain object where one property value is null → skip.
 func TestSetMapFromGoja_PlainObjNullValueSkip(t *testing.T) {
 	env := newTestEnv(t)
 	md, err := env.m.findMessageDescriptor("test.MapMessage")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	fd := md.Fields().ByName("tags")
 
-	// Plain object with one valid and one null value.
 	objVal, err := env.rt.RunString(`({keep: 'yes', skip: null})`)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	err = env.m.setMapFromGoja(msg, fd, objVal)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	protoMap := msg.Get(fd).Map()
-	assert.Equal(t, 1, protoMap.Len())
-	assert.Equal(t, "yes", protoMap.Get(protoreflect.ValueOfString("keep").MapKey()).String())
+	if got := protoMap.Len(); got != 1 {
+		t.Errorf("got %d, want %d", got, 1)
+	}
+	if got := protoMap.Get(protoreflect.ValueOfString("keep").MapKey()).String(); got != "yes" {
+		t.Errorf("got %q, want %q", got, "yes")
+	}
 }
 
-// descriptors.go:19 — jsLoadDescriptorSet extractBytes error.
-// Passing a number (not bytes) triggers extractBytes error.
 func TestJsLoadDescriptorSet_ExtractBytesError(t *testing.T) {
 	env := newTestEnv(t)
 	env.mustFail(t, `pb.loadDescriptorSet(42)`)
 }
 
-// descriptors.go:41 — jsLoadFileDescriptorProto extractBytes error.
-// Passing a number (not bytes) triggers extractBytes error.
 func TestJsLoadFileDescriptorProto_ExtractBytesError(t *testing.T) {
 	env := newTestEnv(t)
 	env.mustFail(t, `pb.loadFileDescriptorProto(42)`)
@@ -2399,74 +2944,72 @@ func TestJsLoadFileDescriptorProto_ExtractBytesError(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Batch 6: Mock FieldDescriptor to test default branches in type switches.
-// These branches handle invalid/unknown protoreflect.Kind values which
-// cannot be produced by the normal protobuf library. They are defensive
-// safety nets.
 // ---------------------------------------------------------------------------
 
 // mockFieldDesc is a minimal mock for [protoreflect.FieldDescriptor] that
 // returns a custom [protoreflect.Kind]. All other methods delegate to the
 // embedded interface and will panic if called — only Kind() is overridden.
 type mockFieldDesc struct {
-	protoreflect.FieldDescriptor // nil: panics on any non-overridden call
-	kind                         protoreflect.Kind
+	protoreflect.FieldDescriptor
+	kind protoreflect.Kind
 }
 
 func (f *mockFieldDesc) Kind() protoreflect.Kind { return f.kind }
 
-// conversion.go:60 — protoValueToGoja default case (unknown Kind).
 func TestProtoValueToGoja_DefaultBranch(t *testing.T) {
 	env := newTestEnv(t)
 	fd := &mockFieldDesc{kind: protoreflect.Kind(99)}
 	result := env.m.protoValueToGoja(protoreflect.ValueOfString("x"), fd)
-	assert.True(t, goja.IsUndefined(result))
+	if !goja.IsUndefined(result) {
+		t.Errorf("expected undefined, got %v", result)
+	}
 }
 
-// conversion.go:175 — gojaToProtoValue default case (unknown Kind).
 func TestGojaToProtoValue_DefaultBranch(t *testing.T) {
 	env := newTestEnv(t)
 	fd := &mockFieldDesc{kind: protoreflect.Kind(99)}
 	_, err := env.m.gojaToProtoValue(env.rt.ToValue("test"), fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported field kind")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "unsupported field kind") {
+		t.Fatalf("error %q should contain %q", err.Error(), "unsupported field kind")
+	}
 }
 
-// conversion.go:356 — gojaToProtoMapKey default case (unknown Kind).
 func TestGojaToProtoMapKey_DefaultBranch(t *testing.T) {
 	env := newTestEnv(t)
 	fd := &mockFieldDesc{kind: protoreflect.Kind(99)}
 	_, err := env.m.gojaToProtoMapKey(env.rt.ToValue("test"), fd)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported map key kind")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "unsupported map key kind") {
+		t.Fatalf("error %q should contain %q", err.Error(), "unsupported map key kind")
+	}
 }
 
-// conversion.go:479 — mapKeyToGoja default case (unknown Kind).
 func TestMapKeyToGoja_DefaultBranch(t *testing.T) {
 	env := newTestEnv(t)
 	fd := &mockFieldDesc{kind: protoreflect.Kind(99)}
 	mk := protoreflect.ValueOfString("test").MapKey()
 	result := env.m.mapKeyToGoja(mk, fd)
-	// Default branch returns mk.String().
-	assert.Equal(t, "test", result.String())
+	if got := result.String(); got != "test" {
+		t.Errorf("got %q, want %q", got, "test")
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Batch 7: Trigger protojson.Marshal error via well-known type validation.
-//
-// protojson has special validation for google.protobuf.Timestamp: if
-// seconds is outside [-62135596800, 253402300800], marshal fails. We
-// create a dynamic Timestamp descriptor with the correct full name,
-// set seconds to an out-of-range value, and call toJSON.
 // ---------------------------------------------------------------------------
 
-// serialize.go:62 — jsToJSON protojson.Marshal error.
 func TestJsToJSON_ProtojsonMarshalError(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	// Build a fake google.protobuf.Timestamp descriptor so protojson
-	// recognises it and applies range validation.
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:    new("fake_timestamp.proto"),
 		Package: new("google.protobuf"),
@@ -2490,25 +3033,39 @@ func TestJsToJSON_ProtojsonMarshalError(t *testing.T) {
 		}},
 	}
 	data, err := proto.Marshal(fdp)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	names, err := m.loadFileDescriptorProtoBytes(data)
-	require.NoError(t, err)
-	require.Contains(t, names, "google.protobuf.Timestamp")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !sliceContains(names, "google.protobuf.Timestamp") {
+		t.Fatalf("expected names to contain %q, got %v", "google.protobuf.Timestamp", names)
+	}
 
-	// Create a Timestamp with out-of-range seconds → protojson.Marshal error.
 	md, err := m.findMessageDescriptor("google.protobuf.Timestamp")
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	msg := dynamicpb.NewMessage(md)
 	msg.Set(md.Fields().ByName("seconds"), protoreflect.ValueOfInt64(999999999999))
 
-	// Wrap and attempt toJSON.
 	wrapped := m.wrapMessage(msg)
 	pb := rt.NewObject()
 	m.setupExports(pb)
-	require.NoError(t, rt.Set("pb", pb))
-	require.NoError(t, rt.Set("msg", wrapped))
+	if err := rt.Set("pb", pb); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := rt.Set("msg", wrapped); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	_, err = rt.RunString("pb.toJSON(msg)")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "seconds") // error mentions seconds field
+	if err == nil {
+		t.Error("expected error")
+	}
+	if !strings.Contains(err.Error(), "seconds") {
+		t.Errorf("error %q should contain %q", err.Error(), "seconds")
+	}
 }
