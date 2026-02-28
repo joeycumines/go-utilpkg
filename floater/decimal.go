@@ -42,7 +42,7 @@ func (x *decimal) get(i int) byte {
 // trunc accepts an index of the buffer (NOT the mantissa)
 func (x *decimal) trunc(i int) {
 	switch {
-	case i == -1: // TODO: "do nothing case" that probs should be omitted
+	case i == -1: // at() returned -1 (out of range); nothing to truncate
 		return
 	case i < x.mant:
 		panic("floater: decimal: trunc: invalid index")

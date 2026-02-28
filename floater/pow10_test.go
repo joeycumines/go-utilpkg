@@ -134,6 +134,7 @@ func Test_pow10Table3(t *testing.T) {
 }
 
 func testPow10Table(t *testing.T, vals []big.Float, neg bool, step int) {
+	t.Helper()
 	prec := uint(64)
 	e := 0
 	for i := range vals {
