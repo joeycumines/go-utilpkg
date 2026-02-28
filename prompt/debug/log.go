@@ -19,11 +19,13 @@ var (
 func loadLoggerEnv() {
 	if e := os.Getenv(envEnableLog); e == "true" || e == "1" {
 		var err error
-		logfile, err = os.OpenFile(logFileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		logfile, err = os.OpenFile(logFileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
 		if err == nil {
 			logger = log.New(logfile, "", log.Llongfile)
 			return
 		}
+		// Report error to stderr so administrators know why logging isn't working
+		_, _ = os.Stderr.WriteString("go-prompt: failed to open debug log: " + err.Error() + "\n")
 	}
 	logger = log.New(io.Discard, "", log.Llongfile)
 }

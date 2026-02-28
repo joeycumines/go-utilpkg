@@ -422,7 +422,7 @@ func DefaultPrefixCallback() string {
 	return "> "
 }
 
-// New returns a Prompt with powerful auto-completion.
+// New returns a Prompt configured with the given executor and options.
 func New(executor Executor, opts ...Option) *Prompt {
 	pt := &Prompt{
 		reader:                 NewStdinReader(),

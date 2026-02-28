@@ -96,6 +96,6 @@ func TestRestoreFDSuccess(t *testing.T) {
 	err := RestoreFD(-1)
 	if err == nil {
 		// On some systems this might actually work if -1 is somehow valid
-		t.Log("RestoreFD(-1) unexpectedly succeeded")
+		t.Error("RestoreFD(-1) unexpectedly succeeded")
 	}
 }

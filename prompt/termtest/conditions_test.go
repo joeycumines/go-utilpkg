@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
-
-	"github.com/stretchr/testify/assert"
 )
 
 // Unit tests for normalizeTTYOutput
@@ -70,7 +68,9 @@ func TestNormalizeTTYOutput_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, normalizeTTYOutput(tt.input))
+			if got := normalizeTTYOutput(tt.input); got != tt.expected {
+				t.Errorf("got %q, want %q", got, tt.expected)
+			}
 		})
 	}
 }
@@ -82,9 +82,15 @@ func TestConditions_Combinators(t *testing.T) {
 			func(s string) bool { return strings.Contains(s, "a") },
 			func(s string) bool { return strings.Contains(s, "b") },
 		)
-		assert.True(t, c("ab"), "should match when all true")
-		assert.False(t, c("a"), "should fail when one false")
-		assert.False(t, c("c"), "should fail when all false")
+		if !c("ab") {
+			t.Errorf("should match when all true")
+		}
+		if c("a") {
+			t.Errorf("should fail when one false")
+		}
+		if c("c") {
+			t.Errorf("should fail when all false")
+		}
 	})
 
 	t.Run("Any", func(t *testing.T) {
@@ -92,35 +98,61 @@ func TestConditions_Combinators(t *testing.T) {
 			func(s string) bool { return strings.Contains(s, "a") },
 			func(s string) bool { return strings.Contains(s, "b") },
 		)
-		assert.True(t, c("a"), "should match when first true")
-		assert.True(t, c("b"), "should match when second true")
-		assert.False(t, c("c"), "should fail when all false")
+		if !c("a") {
+			t.Errorf("should match when first true")
+		}
+		if !c("b") {
+			t.Errorf("should match when second true")
+		}
+		if c("c") {
+			t.Errorf("should fail when all false")
+		}
 	})
 
 	t.Run("Not", func(t *testing.T) {
 		c := Not(Contains("fail"))
-		assert.True(t, c("success"), "should be true when inner is false")
-		assert.False(t, c("fail"), "should be false when inner is true")
+		if !c("success") {
+			t.Errorf("should be true when inner is false")
+		}
+		if c("fail") {
+			t.Errorf("should be false when inner is true")
+		}
 	})
 
 	t.Run("Contains Variants", func(t *testing.T) {
 		raw := "foo\x1b[31mbar"
 		// Contains (Normalized)
-		assert.True(t, Contains("foobar")(raw), "Contains should match normalized")
-		assert.True(t, Contains("\x1b")(raw), "Contains should match normalized even with raw chars")
-		assert.False(t, Contains("baz")(raw), "Contains should fail when substring not present")
-		assert.True(t, Contains("linebreak")(raw+"\r\nlinebreak"), "Contains should ignore CR")
+		if !Contains("foobar")(raw) {
+			t.Errorf("Contains should match normalized")
+		}
+		if !Contains("\x1b")(raw) {
+			t.Errorf("Contains should match normalized even with raw chars")
+		}
+		if Contains("baz")(raw) {
+			t.Errorf("Contains should fail when substring not present")
+		}
+		if !Contains("linebreak")(raw + "\r\nlinebreak") {
+			t.Errorf("Contains should ignore CR")
+		}
 
 		// ContainsRaw
-		assert.True(t, ContainsRaw("\x1b[31m")(raw), "ContainsRaw should match ansi codes")
+		if !ContainsRaw("\x1b[31m")(raw) {
+			t.Errorf("ContainsRaw should match ansi codes")
+		}
 	})
 
 	t.Run("Matches", func(t *testing.T) {
 		re := regexp.MustCompile(`\d+`)
-		assert.True(t, Matches(re)("abc 123"), "should match regex")
-		assert.False(t, Matches(re)("abc"), "should fail regex")
+		if !Matches(re)("abc 123") {
+			t.Errorf("should match regex")
+		}
+		if Matches(re)("abc") {
+			t.Errorf("should fail regex")
+		}
 		// Matches also normalizes
-		assert.True(t, Matches(re)("abc \x1b[31m123\x1b[0m"), "should match regex against normalized string")
+		if !Matches(re)("abc \x1b[31m123\x1b[0m") {
+			t.Errorf("should match regex against normalized string")
+		}
 	})
 }
 
@@ -149,20 +181,26 @@ func TestMatchesAndNormalize(t *testing.T) {
 
 	// verify that carriage returns are removed
 	normalized := normalizeTTYOutput("foo\rbar")
-	assert.Equal(t, "foobar", normalized)
+	if normalized != "foobar" {
+		t.Errorf("got %q, want %q", normalized, "foobar")
+	}
 }
 
 func TestCollapseWhitespace(t *testing.T) {
 	s := "a\t b\n  c   d"
 	got := collapseWhitespace(s)
-	assert.Equal(t, "a b c d", got)
+	if got != "a b c d" {
+		t.Errorf("got %q, want %q", got, "a b c d")
+	}
 }
 
 func TestCollapseWhitespace_NBSP(t *testing.T) {
 	// Regression test for non-breaking space (\u00A0) handling
 	s := "foo\u00A0\u00A0bar"
 	got := collapseWhitespace(s)
-	assert.Equal(t, "foo bar", got)
+	if got != "foo bar" {
+		t.Errorf("got %q, want %q", got, "foo bar")
+	}
 }
 
 func TestAll_AllTrue_EvaluatesAllAndReturnsTrue(t *testing.T) {
