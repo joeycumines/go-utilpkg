@@ -539,10 +539,18 @@ func TestHandlePollError_ImmediateError(t *testing.T) {
 		t.Fatal("New failed:", err)
 	}
 
-	// Inject error immediately on first poll
+	// Use PrePollSleep to inject the error on first poll
+	var pollCount int32
+	testErr := errors.New("immediate poll failure")
 	loop.testHooks = &loopTestHooks{
-		PollError: func() error {
-			return errors.New("immediate poll failure")
+		PrePollSleep: func() {
+			atomic.AddInt32(&pollCount, 1)
+			// Inject error on first poll attempt
+			if atomic.LoadInt32(&pollCount) == 1 {
+				loop.testHooks.PollError = func() error {
+					return testErr
+				}
+			}
 		},
 	}
 
@@ -559,7 +567,8 @@ func TestHandlePollError_ImmediateError(t *testing.T) {
 		t.Fatal("RegisterFD failed:", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	// Use context with timeout - when it fires, it will wake up the poll via doWakeup
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	done := make(chan struct{})
@@ -568,17 +577,34 @@ func TestHandlePollError_ImmediateError(t *testing.T) {
 		close(done)
 	}()
 
-	// Loop should terminate quickly due to immediate error
-	select {
-	case <-done:
-		t.Log("Loop terminated after immediate poll error")
-	case <-time.After(150 * time.Millisecond):
-		cancel()
-		t.Log("Loop did not terminate immediately (context timeout kicked in)")
+	// Wait for loop to terminate - must wait longer than poll timeout (10s)
+	// but context should wake up poll after 500ms
+	timeout := time.Now().Add(12 * time.Second)
+	terminated := false
+	for time.Now().Before(timeout) {
+		state := loop.state.Load()
+		if state == StateTerminated {
+			terminated = true
+			t.Log("Loop terminated after immediate poll error")
+			break
+		}
+		select {
+		case <-done:
+			// Loop has exited
+			state := loop.state.Load()
+			if state == StateTerminated {
+				terminated = true
+			}
+			goto checkState
+		default:
+			// Not done yet, continue polling
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 
-	state := loop.state.Load()
-	if state != StateTerminated {
-		t.Errorf("Expected StateTerminated, got %v", state)
+checkState:
+	if !terminated {
+		state := loop.state.Load()
+		t.Errorf("Expected StateTerminated, got %v (poll count: %d)", state, atomic.LoadInt32(&pollCount))
 	}
 }
