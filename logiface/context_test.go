@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/joeycumines/logiface/internal/fieldtest"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"os"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/logiface/internal/fieldtest"
 )
 
 func TestBuilder_Call_nilReceiver(t *testing.T) {
@@ -304,7 +305,9 @@ func TestEvent_max(t *testing.T) {
 				},
 			},
 		}
-		assert.Equal(t, w.events, expected)
+		if !reflect.DeepEqual(w.events, expected) {
+			t.Errorf("got %v, want %v", w.events, expected)
+		}
 	}
 	t.Run(`Context`, func(t *testing.T) {
 		test(t, func(l *Logger[*mockComplexEvent]) {

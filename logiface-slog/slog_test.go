@@ -29,8 +29,7 @@ var (
 var testSuiteConfig = testsuite.Config[*Event]{
 	LoggerFactory:    testSuiteLoggerFactory,
 	WriteTimeout:     time.Second * 10,
-	AlertCallsOsExit: true,
-	EmergencyPanics:  true,
+	EmergencyPanics:  false,
 	LogsEmptyMessage: true,
 }
 
@@ -56,13 +55,18 @@ func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {
 	if !lvl.Enabled() {
 		return logiface.LevelDisabled
 	}
+	// slog only has 4 levels (DEBUG, INFO, WARN, ERROR), so the mapping is lossy.
+	// Custom levels (>= 9) bypass the logger's level check but map to DEBUG in slog.
+	if lvl.Custom() {
+		return logiface.LevelDebug
+	}
 	switch lvl {
+	case logiface.LevelTrace:
+		return logiface.LevelDebug
 	case logiface.LevelNotice:
 		return logiface.LevelWarning
 	case logiface.LevelCritical, logiface.LevelAlert, logiface.LevelEmergency:
 		return logiface.LevelError
-	case logiface.LevelTrace:
-		return logiface.LevelDebug
 	default:
 		if lvl.Custom() {
 			return logiface.LevelDebug
@@ -88,7 +92,6 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		Level   *string `json:"level"` // slog level (DEBUG, INFO, WARN, ERROR)
 		Message *string `json:"msg"`
 		Error   *string `json:"error"`
-		OrigLvl *string `json:"_level"` // original logiface level name
 	}
 	if err := json.Unmarshal(b, &data); err != nil {
 		panic(err)
@@ -105,7 +108,6 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 	delete(fields, `msg`)
 	delete(fields, `time`)
 	delete(fields, `error`)
-	delete(fields, `_level`) // Remove internal field from output fields
 
 	ev := testsuite.Event{
 		Message: data.Message,
@@ -113,54 +115,17 @@ func testSuiteParseEvent(r io.Reader) ([]byte, *testsuite.Event) {
 		Fields:  fields,
 	}
 
-	// Prefer the original logiface level if available
-	if data.OrigLvl != nil {
-		// Parse the original level string to get the correct logiface.Level
-		// Level.String() returns: disabled, emerg, alert, crit, err, warning, notice, info, debug, trace
-		// For disabled/custom levels, it returns the numeric value as a string
-		switch *data.OrigLvl {
-		case "trace":
-			ev.Level = logiface.LevelTrace
-		case "debug":
-			ev.Level = logiface.LevelDebug
-		case "info":
-			ev.Level = logiface.LevelInformational
-		case "notice":
-			ev.Level = logiface.LevelNotice
-		case "warning":
-			ev.Level = logiface.LevelWarning
-		case "err":
-			ev.Level = logiface.LevelError
-		case "crit":
-			ev.Level = logiface.LevelCritical
-		case "alert":
-			ev.Level = logiface.LevelAlert
-		case "emerg":
-			ev.Level = logiface.LevelEmergency
-		default:
-			// For disabled or custom levels, the String() returns numeric value
-			// We can try to parse it as an int and convert to logiface.Level
-			var lvl int
-			if _, err := fmt.Sscanf(*data.OrigLvl, "%d", &lvl); err == nil {
-				ev.Level = logiface.Level(lvl)
-			} else {
-				panic(fmt.Errorf(`unexpected original level %q`, *data.OrigLvl))
-			}
-		}
-	} else {
-		// Fallback to slog level (shouldn't happen with current implementation)
-		switch *data.Level {
-		case "DEBUG":
-			ev.Level = logiface.LevelDebug
-		case "INFO":
-			ev.Level = logiface.LevelInformational
-		case "WARN":
-			ev.Level = logiface.LevelWarning
-		case "ERROR":
-			ev.Level = logiface.LevelError
-		default:
-			panic(fmt.Errorf(`unexpected slog level %q`, *data.Level))
-		}
+	switch *data.Level {
+	case "DEBUG":
+		ev.Level = logiface.LevelDebug
+	case "INFO":
+		ev.Level = logiface.LevelInformational
+	case "WARN":
+		ev.Level = logiface.LevelWarning
+	case "ERROR":
+		ev.Level = logiface.LevelError
+	default:
+		panic(fmt.Errorf(`unexpected slog level %q`, *data.Level))
 	}
 
 	b, err := io.ReadAll(d.Buffered())

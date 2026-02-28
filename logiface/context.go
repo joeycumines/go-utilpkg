@@ -365,9 +365,6 @@ func formatDuration(d time.Duration) string {
 	nanos := d.Nanoseconds()
 	secs := nanos / 1e9
 	nanos -= secs * 1e9
-	//if nanos <= -1e9 || nanos >= 1e9 || (secs > 0 && nanos < 0) || (secs < 0 && nanos > 0) {
-	//	panic("invalid duration")
-	//}
 	sign := ""
 	if secs < 0 || nanos < 0 {
 		sign, secs, nanos = "-", -1*secs, -1*nanos

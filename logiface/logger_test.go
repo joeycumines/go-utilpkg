@@ -3,7 +3,6 @@ package logiface
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
 	"reflect"
@@ -523,18 +522,24 @@ func TestLoggerConfig_resolveWriter(t *testing.T) {
 	// Test empty writer slice
 	config := &loggerConfig[*mockEvent]{}
 	writer := config.resolveWriter()
-	assert.Nil(t, writer)
+	if writer != nil {
+		t.Errorf("expected nil, got %v", writer)
+	}
 
 	// Test single writer
 	config.writer = WriterSlice[*mockEvent]{writer1}
 	writer = config.resolveWriter()
-	assert.Equal(t, writer1, writer)
+	if writer != writer1 {
+		t.Errorf("got %v, want %v", writer, writer1)
+	}
 
 	// Test multiple writers
 	config.writer = WriterSlice[*mockEvent]{writer1, writer2, writer3}
 	writer = config.resolveWriter()
 	expected := WriterSlice[*mockEvent]{writer3, writer2, writer1}
-	assert.Equal(t, expected, writer)
+	if !reflect.DeepEqual(writer, expected) {
+		t.Errorf("got %v, want %v", writer, expected)
+	}
 	// reflect.DeepEqual doesn't seem to catch the reference equality
 	for i, v := range writer.(WriterSlice[*mockEvent]) {
 		if v != expected[i] {
@@ -551,18 +556,24 @@ func TestLoggerConfig_resolveModifier(t *testing.T) {
 	// Test empty modifier slice
 	config := &loggerConfig[*mockEvent]{}
 	modifier := config.resolveModifier()
-	assert.Nil(t, modifier)
+	if modifier != nil {
+		t.Errorf("expected nil, got %v", modifier)
+	}
 
 	// Test single modifier
 	config.modifier = ModifierSlice[*mockEvent]{modifier1}
 	modifier = config.resolveModifier()
-	assert.Equal(t, modifier1, modifier)
+	if modifier != modifier1 {
+		t.Errorf("got %v, want %v", modifier, modifier1)
+	}
 
 	// Test multiple modifiers
 	config.modifier = ModifierSlice[*mockEvent]{modifier1, modifier2, modifier3}
 	modifier = config.resolveModifier()
 	expected := ModifierSlice[*mockEvent]{modifier1, modifier2, modifier3}
-	assert.Equal(t, expected, modifier)
+	if !reflect.DeepEqual(modifier, expected) {
+		t.Errorf("got %v, want %v", modifier, expected)
+	}
 	// reflect.DeepEqual doesn't seem to catch the reference equality
 	for i, v := range modifier.(ModifierSlice[*mockEvent]) {
 		if v != expected[i] {
