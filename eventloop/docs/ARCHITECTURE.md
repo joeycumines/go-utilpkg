@@ -201,83 +201,20 @@ fast path that achieves ~50ns wakeup latency instead of ~10µs with kqueue/epoll
 - **Terminating → Terminated**: After all queues drained
 - **Terminated**: Terminal state, no further transitions
 
-## Platform Differences
+## Platform Pollers
 
-### macOS (Darwin) - kqueue
+| Platform | Poller | Wake Mechanism | Thread Lock Required |
+|----------|--------|----------------|---------------------|
+| Darwin | kqueue(2) | pipe | Yes |
+| Linux | epoll(7) | eventfd(2) | Yes |
+| Windows | IOCP | PostQueuedCompletionStatus | No |
 
-```go
-// File: poller_darwin.go
-// Uses kqueue(2) for I/O notification
-// Wake mechanism: pipe + kevent
-// Thread affinity: Required for kevent
+Fast path (no user I/O FDs): channel-based, ~50ns wakeup latency.
+I/O path: platform poller, ~8-15µs wakeup latency.
 
-Features:
-- EV_SET for registering FDs
-- EVFILT_READ / EVFILT_WRITE filters
-- Millisecond timeout granularity
-```
+See `poller_darwin.go`, `poller_linux.go`, `poller_windows.go` for details.
 
-### Linux - epoll
-
-```go
-// File: poller_linux.go
-// Uses epoll(7) for I/O notification
-// Wake mechanism: eventfd(2)
-// Thread affinity: Required for epoll_wait
-
-Features:
-- epoll_ctl for add/mod/del
-- EPOLLIN / EPOLLOUT events
-- Edge-triggered mode supported
-- eventfd for efficient wakeup
-```
-
-### Windows - IOCP
-
-```go
-// File: poller_windows.go
-// Uses I/O Completion Ports
-// Wake mechanism: PostQueuedCompletionStatus
-// Thread affinity: Not required
-
-Features:
-- GetQueuedCompletionStatus for events
-- Completion key for FD mapping
-- Async I/O model (different from Unix)
-```
-
-### Wakeup Mechanism Comparison
-
-| Platform | Fast Path | I/O Path | Latency |
-|----------|-----------|----------|---------|
-| All | chan struct{} | - | ~50ns |
-| Darwin | - | pipe write | ~10µs |
-| Linux | - | eventfd write | ~8µs |
-| Windows | - | PostQCPS | ~15µs |
-
-## Performance Characteristics
-
-### Memory Layout
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│  Loop struct (~2KB)                                            │
-├────────────────────────────────────────────────────────────────┤
-│  [256]func() batchBuf      - Task execution buffer             │
-│  time.Time tickAnchor      - Monotonic time reference          │
-│  *registry                 - Promise weak reference storage    │
-│  *fastState                - Cache-line padded state           │
-│  *chunkedIngress external  - External task queue               │
-│  *chunkedIngress internal  - Internal priority queue           │
-│  *microtaskRing            - Lock-free microtask buffer        │
-│  chan struct{} fastWakeup  - Fast path wakeup channel          │
-│  map[TimerID]*timer        - Timer lookup table                │
-│  timerHeap                 - Min-heap for timer ordering       │
-│  fastPoller                - Platform I/O poller               │
-└────────────────────────────────────────────────────────────────┘
-```
-
-### Allocation Profile
+## Allocation Profile
 
 | Operation | Allocations | Notes |
 |-----------|-------------|-------|
@@ -286,20 +223,6 @@ Features:
 | Chunked ingress push | 0 allocs | Chunk pooling |
 | Submit (fast path) | <2 allocs | Slice growth amortized |
 | Promise create | ~3 allocs | Promise struct, closures |
-
-### Latency Budget (per tick)
-
-```
-┌──────────────────────────────────────────────────────┐
-│  Typical tick() cycle breakdown                      │
-├──────────────────────────────────────────────────────┤
-│  runTimers()       │ 100-500ns per timer            │
-│  processInternal   │ 50-100ns per task              │
-│  processExternal   │ 50-100ns per task (budget 1024)│
-│  drainMicrotasks   │ 30-80ns per microtask          │
-│  poll()            │ 0-10ms (blocking)              │
-└──────────────────────────────────────────────────────┘
-```
 
 ## Queue System
 
@@ -458,33 +381,6 @@ if nestingDepth > 5 && delay < 4*time.Millisecond {
 │                                                                │
 │  5. loopDone channel closed                                   │
 │     └── Shutdown() returns to caller                          │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-```
-
-## Metrics System
-
-When metrics are enabled (`WithMetrics(true)`):
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│  Metrics Collection                                            │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│  TPS (Transactions Per Second)                                 │
-│  - Rolling window counter (10s window, 100ms buckets)          │
-│  - Incremented on successful task execution                   │
-│                                                                │
-│  Latency (P-Square Algorithm)                                  │
-│  - O(1) streaming percentile estimation                       │
-│  - P50, P90, P95, P99, Max, Mean                              │
-│  - <5% relative error                                         │
-│                                                                │
-│  Queue Depths                                                  │
-│  - Ingress (external queue)                                   │
-│  - Internal queue                                             │
-│  - Microtask queue                                            │
-│  - Current, Max, EMA (exponential moving average)             │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```

@@ -8,16 +8,12 @@ import (
 	"time"
 )
 
-// ============================================================================
-// COVERAGE-001: thenStandalone Function 100% Coverage Tests
+// thenStandalone Function 100% Coverage Tests
 //
 // These tests target specific code paths in thenStandalone() that were
 // previously uncovered. The function handles promises without a JS adapter.
-// ============================================================================
 
-// ---------------------------------------------------------------------------
 // Path 1: Pending promise, h0.target is nil (first handler storage)
-// ---------------------------------------------------------------------------
 
 func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 	// Create a pending promise with js=nil

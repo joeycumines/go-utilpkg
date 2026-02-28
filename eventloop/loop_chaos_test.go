@@ -14,9 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ============================================================================
-// EXPAND-031: Loop Recovery Chaos Tests
-// ============================================================================
+// Loop Recovery Chaos Tests
 //
 // This file contains chaos tests for loop recovery and stability:
 // - Panic-in-panic: callback panics, recovery panics

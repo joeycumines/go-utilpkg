@@ -1,4 +1,4 @@
-// EXPAND-034: Tests for batch timer cancellation.
+// Tests for batch timer cancellation.
 
 package eventloop
 

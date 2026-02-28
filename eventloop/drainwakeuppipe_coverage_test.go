@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// COVERAGE-009: drainWakeUpPipe Full Coverage
+// drainWakeUpPipe Full Coverage
 // Tests: Windows path (wakePipe < 0), Unix path with multiple reads until EAGAIN,
 // wakeUpSignalPending reset logic
 

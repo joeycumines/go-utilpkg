@@ -6,9 +6,7 @@ import (
 	"time"
 )
 
-// ========================================================
-// FEATURE-002 & FEATURE-003: Performance API Tests
-// ========================================================
+// Performance API Tests
 
 // TestPerformance_New tests creating a new Performance object.
 func TestPerformance_New(t *testing.T) {

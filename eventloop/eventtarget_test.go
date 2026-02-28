@@ -8,9 +8,7 @@ import (
 	"time"
 )
 
-// ============================================================================
-// EventTarget Tests (EXPAND-027)
-// ============================================================================
+// EventTarget Tests
 
 func TestEventTarget_NewEventTarget(t *testing.T) {
 	target := NewEventTarget()
@@ -323,9 +321,7 @@ func TestEventTarget_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// Event Tests (EXPAND-027)
-// ============================================================================
+// Event Tests
 
 func TestEvent_NewEvent(t *testing.T) {
 	event := NewEvent("click")
@@ -456,9 +452,7 @@ func TestEvent_DispatchEvent_ReturnValue_NotCancelable(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// CustomEvent Tests (EXPAND-028)
-// ============================================================================
+// CustomEvent Tests
 
 func TestCustomEvent_NewCustomEvent(t *testing.T) {
 	detail := map[string]any{"key": "value", "count": 42}

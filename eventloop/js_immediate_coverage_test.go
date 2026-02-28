@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// COVERAGE-020: JS SetImmediate/ClearImmediate Full Coverage
+// JS SetImmediate/ClearImmediate Full Coverage
 // Gaps: ID exhaustion path, cleared flag CAS logic, map cleanup on panic in run(),
 // Submit() failure path
 

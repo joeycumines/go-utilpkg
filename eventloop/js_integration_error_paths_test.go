@@ -409,23 +409,7 @@ func TestClearImmediate_Multiple(t *testing.T) {
 	loop.tick()
 }
 
-// TestSetImmediate_ErrImmediateIDExhausted verifies that when immediate ID counter
-// exceeds MAX_SAFE_INTEGER, ErrImmediateIDExhausted is returned.
-// Priority 1: HIGH - ID exhaustion is a real scenario in long-running systems.
-func TestSetImmediate_ErrImmediateIDExhausted(t *testing.T) {
-	t.Skip("ID exhaustion test: Requires mocking atomic counter or running >2^53 immediates")
-
-	// Note: This test would require:
-	// 1. Forcing nextImmediateID > MAX_SAFE_INTEGER (9007199254740991)
-	// 2. Verifying ErrImmediateIDExhausted is returned
-	// 3. Testing recovery after counter wrap
-	//
-	// Current implementation: nextImmediateID is atomic.Uint64 in loop.go
-	// Realistic test needs ~2^53 calls, which is impractical in test
-}
-
 // TestSetTimeout_NilCallback verifies that nil callback returns ID=0 without error.
-// Priority 1: HIGH - Nil handling is critical for robustness.
 func TestSetTimeout_NilCallback(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -447,19 +431,8 @@ func TestSetTimeout_NilCallback(t *testing.T) {
 	}
 }
 
-// TestSetTimeout_ErrTimerIDExhausted verifies that when timer ID counter
-// exceeds MAX_SAFE_INTEGER, ErrTimerIDExhausted is returned.
-// Priority 1: HIGH - ID exhaustion is a real scenario.
-func TestSetTimeout_ErrTimerIDExhausted(t *testing.T) {
-	t.Skip("ID exhaustion test: Requires mocking atomic counter or running >2^53 timers")
-
-	// Note: Similar to SetImmediate exhaustion, requires forcing
-	// nextTimerID > MAX_SAFE_INTEGER and verifying error return
-}
-
 // TestSetTimeout_SubmitError_LoopShutdown verifies error propagation when
 // scheduling timer during loop shutdown.
-// Priority 1: HIGH - Resource leak prevention.
 func TestSetTimeout_SubmitError_LoopShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -567,7 +540,6 @@ func TestClearTimeout_TimerNotFound(t *testing.T) {
 }
 
 // TestClearTimeout_InvalidID_Cast verifies safe handling of invalid IDs.
-// Priority 4: LOW - Invalid input handling.
 func TestClearTimeout_InvalidID_Cast(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -592,7 +564,6 @@ func TestClearTimeout_InvalidID_Cast(t *testing.T) {
 }
 
 // TestSetInterval_NilCallback verifies that nil callback returns ID=0 without error.
-// Priority 1: HIGH - Nil handling is critical.
 func TestSetInterval_NilCallback(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -614,19 +585,8 @@ func TestSetInterval_NilCallback(t *testing.T) {
 	}
 }
 
-// TestSetInterval_ErrIntervalIDExhausted verifies that when interval ID counter
-// exceeds MAX_SAFE_INTEGER, ErrIntervalIDExhausted is returned.
-// Priority 1: HIGH - ID exhaustion is a real scenario.
-func TestSetInterval_ErrIntervalIDExhausted(t *testing.T) {
-	t.Skip("ID exhaustion test: Requires mocking atomic counter or running >2^53 intervals")
-
-	// Note: Similar to timer exhaustion, requires forcing
-	// nextIntervalID > MAX_SAFE_INTEGER and verifying error return
-}
-
 // TestSetInterval_SubmitError_LoopShutdown verifies error cleanup when
 // scheduling interval during loop shutdown.
-// Priority 1: HIGH - Resource leak prevention.
 func TestSetInterval_SubmitError_LoopShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -661,7 +621,6 @@ func TestSetInterval_SubmitError_LoopShutdown(t *testing.T) {
 
 // TestSetInterval_WrapperInitializationRace verifies race between interval
 // initialization and map storage.
-// Priority 1: HIGH - Race during startup.
 func TestSetInterval_WrapperInitializationRace(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -704,7 +663,6 @@ func TestSetInterval_WrapperInitializationRace(t *testing.T) {
 
 // TestClearInterval_RaceCondition_WrapperRunning verifies TOCTOU race
 // where ClearInterval is called while wrapper is actively executing.
-// Priority 1: HIGH - TOCTOU race documented in js.go.
 func TestClearInterval_RaceCondition_WrapperRunning(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -782,7 +740,6 @@ func TestClearInterval_InvalidID(t *testing.T) {
 
 // TestQueueMicrotask_ErrLoopTerminated verifies that QueueMicrotask
 // returns ErrLoopTerminated when loop is terminated.
-// Priority 1: HIGH - Loop shutdown error path.
 func TestQueueMicrotask_ErrLoopTerminated(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -810,7 +767,6 @@ func TestQueueMicrotask_ErrLoopTerminated(t *testing.T) {
 
 // TestQueueMicrotask_PanicRecovery verifies that panic in microtask
 // doesn't crash the loop.
-// Priority 1: HIGH - Robustness requirement.
 func TestQueueMicrotask_PanicRecovery(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -881,7 +837,6 @@ func TestScheduleMicrotask_NilCallback(t *testing.T) {
 
 // Test_chunkedIngress_Pop_DoubleCheck explicitly tests the double-check
 // path when chunk advancement fails.
-// Priority 2: MEDIUM - Explicit double-check path.
 func Test_chunkedIngress_Pop_DoubleCheck(t *testing.T) {
 	// This tests chunkedIngress.Pop() double-check logic when
 	// chunk advancement fails (unlikely but tested for completeness)
@@ -917,7 +872,6 @@ func Test_chunkedIngress_Pop_DoubleCheck(t *testing.T) {
 
 // TestScheduleMicrotask_ConcurrentSubmit verifies error handling when
 // submitting microtasks concurrently during loop shutdown.
-// Priority 4: LOW - Concurrent error scenarios.
 func TestScheduleMicrotask_ConcurrentSubmit(t *testing.T) {
 	loop, err := New()
 	if err != nil {

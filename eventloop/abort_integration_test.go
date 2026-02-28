@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-// ==============================================================================
-// EXPAND-029: AbortController Integration Tests
-// ==============================================================================
+// AbortController Integration Tests
 
 // TestAbortIntegration_FetchLikeAbortPattern simulates a fetch-like abort pattern:
 // start async operation, abort mid-flight, verify cleanup.

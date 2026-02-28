@@ -11,16 +11,13 @@ import (
 	"time"
 )
 
-// =============================================================================
-// COVERAGE-006: ScheduleMicrotask Function 100% Coverage
-// =============================================================================
+// ScheduleMicrotask Function 100% Coverage
 // Target: loop.go ScheduleMicrotask function
 // Gaps covered:
 // - State check while holding mutex
 // - I/O mode wakeup with deduplication
 // - Fast mode channel wakeup path
 // - Early termination check
-// =============================================================================
 
 // TestScheduleMicrotask_StateCheckWhileLocked tests the state check
 // that occurs while holding the external mutex.

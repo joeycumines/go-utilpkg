@@ -7,9 +7,7 @@ import (
 	"time"
 )
 
-// ===============================================
-// EXPAND-003: Promise.try() Tests
-// ===============================================
+// Promise.try() Tests
 
 // TestTry_Success tests that Try resolves with the function's return value.
 func TestTry_Success(t *testing.T) {

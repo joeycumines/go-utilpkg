@@ -1,4 +1,4 @@
-// EXPAND-033: Tests for configurable chunk size in chunkedIngress.
+// Tests for configurable chunk size in chunkedIngress.
 
 package eventloop
 

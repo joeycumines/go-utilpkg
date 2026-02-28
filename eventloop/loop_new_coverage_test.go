@@ -6,11 +6,9 @@ import (
 	"testing"
 )
 
-// ========================================================================
-// COVERAGE-002: New() Function 100% Coverage
+// New() Function 100% Coverage
 // Tests for: New(), resolveLoopOptions(), createWakeFd failure handling,
 //            poller.Init() failure handling
-// ========================================================================
 
 // TestNew_ResolveLoopOptions_ErrorPath tests that New() returns an error
 // when resolveLoopOptions() returns an error from a bad LoopOption.

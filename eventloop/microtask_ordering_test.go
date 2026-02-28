@@ -30,9 +30,6 @@ func TestMicrotaskOrdering_BeforeMacroTask(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
-
 	js, err := NewJS(loop)
 	if err != nil {
 		t.Fatalf("NewJS() failed: %v", err)
@@ -41,40 +38,40 @@ func TestMicrotaskOrdering_BeforeMacroTask(t *testing.T) {
 	var order []string
 	done := make(chan struct{})
 
-	// Schedule a setTimeout (macro-task) with 0ms delay
-	_, err = js.SetTimeout(func() {
-		order = append(order, "setTimeout-0ms")
+	// Submit all registrations atomically within the loop goroutine.
+	// Registering from outside creates a race: external ingress items
+	// may arrive across different ticks, so microtasks submitted after
+	// a setTimeout from an external goroutine might not be queued
+	// before the timer fires.
+	loop.Submit(func() {
+		// Schedule a setTimeout (macro-task) with 0ms delay
+		js.SetTimeout(func() {
+			order = append(order, "setTimeout-0ms")
 
-		// Queue another microtask from within the macro-task
+			// Queue another microtask from within the macro-task
+			js.QueueMicrotask(func() {
+				order = append(order, "microtask-from-setTimeout")
+			})
+
+			// Schedule another setTimeout to verify ordering persists
+			js.SetTimeout(func() {
+				order = append(order, "setTimeout-nested")
+				close(done)
+			}, 0)
+		}, 0)
+
+		// Queue a microtask (should run before the setTimeout above)
 		js.QueueMicrotask(func() {
-			order = append(order, "microtask-from-setTimeout")
+			order = append(order, "microtask-1")
 		})
 
-		// Schedule another setTimeout to verify ordering persists
-		js.SetTimeout(func() {
-			order = append(order, "setTimeout-nested")
-			close(done)
-		}, 0)
-	}, 0)
-	if err != nil {
-		t.Fatalf("SetTimeout failed: %v", err)
-	}
-
-	// Queue a microtask (should run before the setTimeout above)
-	err = js.QueueMicrotask(func() {
-		order = append(order, "microtask-1")
+		// Queue another microtask (should run before setTimeout, after microtask-1)
+		js.QueueMicrotask(func() {
+			order = append(order, "microtask-2")
+		})
 	})
-	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
-	}
 
-	// Queue another microtask (should run before setTimeout, after microtask-1)
-	err = js.QueueMicrotask(func() {
-		order = append(order, "microtask-2")
-	})
-	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
-	}
+	go func() { loop.Run(ctx) }()
 
 	// Process events
 	select {
@@ -440,9 +437,6 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 		t.Fatal("Expected strictMicrotaskOrdering to be true")
 	}
 
-	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
-
 	js, err := NewJS(loop)
 	if err != nil {
 		t.Fatalf("NewJS() failed: %v", err)
@@ -451,22 +445,28 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 	var order []string
 	done := make(chan struct{})
 
-	// With strict ordering, microtasks should be processed more aggressively
-	js.QueueMicrotask(func() {
-		order = append(order, "micro-1")
+	// Submit all registrations atomically within the loop goroutine
+	// to avoid cross-tick race between microtasks and timers.
+	loop.Submit(func() {
+		// With strict ordering, microtasks should be processed more aggressively
 		js.QueueMicrotask(func() {
-			order = append(order, "micro-nested")
+			order = append(order, "micro-1")
+			js.QueueMicrotask(func() {
+				order = append(order, "micro-nested")
+			})
 		})
+
+		js.QueueMicrotask(func() {
+			order = append(order, "micro-2")
+		})
+
+		js.SetTimeout(func() {
+			order = append(order, "timeout")
+			close(done)
+		}, 0)
 	})
 
-	js.QueueMicrotask(func() {
-		order = append(order, "micro-2")
-	})
-
-	js.SetTimeout(func() {
-		order = append(order, "timeout")
-		close(done)
-	}, 0)
+	go func() { loop.Run(ctx) }()
 
 	select {
 	case <-done:
@@ -509,9 +509,6 @@ func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
-
 	js, err := NewJS(loop)
 	if err != nil {
 		t.Fatalf("NewJS() failed: %v", err)
@@ -520,44 +517,47 @@ func TestMicrotaskOrdering_MixedMicrotaskSources(t *testing.T) {
 	var order []string
 	done := make(chan struct{})
 
-	// Queue via loop.ScheduleMicrotask (internal API)
-	loop.ScheduleMicrotask(func() {
-		order = append(order, "scheduleMicrotask-1")
+	// Submit all registrations atomically within the loop goroutine
+	// to avoid cross-tick race between microtasks and timers.
+	loop.Submit(func() {
+		// Queue via loop.ScheduleMicrotask (internal API)
+		loop.ScheduleMicrotask(func() {
+			order = append(order, "scheduleMicrotask-1")
+		})
+
+		// Queue via js.QueueMicrotask (JS API)
+		js.QueueMicrotask(func() {
+			order = append(order, "queueMicrotask-1")
+		})
+
+		// Promise reaction
+		p, resolve, _ := js.NewChainedPromise()
+		p.Then(func(v any) any {
+			order = append(order, "promiseReaction-1")
+			return v
+		}, nil)
+
+		// Resolve the promise to queue its reaction as a microtask.
+		resolve("value")
+
+		// More ScheduleMicrotask
+		loop.ScheduleMicrotask(func() {
+			order = append(order, "scheduleMicrotask-2")
+		})
+
+		// More QueueMicrotask
+		js.QueueMicrotask(func() {
+			order = append(order, "queueMicrotask-2")
+		})
+
+		// Final timeout - scheduled after resolve() to ensure microtasks first
+		js.SetTimeout(func() {
+			order = append(order, "timeout")
+			close(done)
+		}, 0)
 	})
 
-	// Queue via js.QueueMicrotask (JS API)
-	js.QueueMicrotask(func() {
-		order = append(order, "queueMicrotask-1")
-	})
-
-	// Promise reaction
-	p, resolve, _ := js.NewChainedPromise()
-	p.Then(func(v any) any {
-		order = append(order, "promiseReaction-1")
-		return v
-	}, nil)
-
-	// IMPORTANT: Resolve the promise BEFORE scheduling timeout to ensure
-	// the promise reaction microtask is queued before the timeout.
-	// This avoids a race condition where the timeout fires before the
-	// promise reaction is processed.
-	resolve("value")
-
-	// More ScheduleMicrotask
-	loop.ScheduleMicrotask(func() {
-		order = append(order, "scheduleMicrotask-2")
-	})
-
-	// More QueueMicrotask
-	js.QueueMicrotask(func() {
-		order = append(order, "queueMicrotask-2")
-	})
-
-	// Final timeout - scheduled after resolve() to ensure microtasks first
-	js.SetTimeout(func() {
-		order = append(order, "timeout")
-		close(done)
-	}, 0)
+	go func() { loop.Run(ctx) }()
 
 	select {
 	case <-done:

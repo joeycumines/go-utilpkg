@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// COVERAGE-010: createWakeFd Full Coverage Per Platform (Darwin)
+// createWakeFd Full Coverage Per Platform (Darwin)
 // Tests: Pipe creation, close-on-exec, non-blocking flags, error paths
 
 // TestCreateWakeFd_Success tests successful pipe creation

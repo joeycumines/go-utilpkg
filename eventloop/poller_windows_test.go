@@ -8,30 +8,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// TestIOCPBasicSocketIO tests basic socket read/write on Windows.
-// Future work: requires connected socket pair with WSASend/WSARecv overlapped I/O.
-func TestIOCPBasicSocketIO(t *testing.T) {
-	t.Skip("Future work: requires connected socket pair with WSASend/WSARecv overlapped I/O")
-}
-
-// TestIOCPMultipleFDs tests handling multiple file descriptors with concurrent I/O.
-// Future work: requires multiple connected socket pairs with overlapped operations.
-func TestIOCPMultipleFDs(t *testing.T) {
-	t.Skip("Future work: requires multiple connected socket pairs with overlapped I/O")
-}
-
-// TestIOCPStressTest tests high-volume I/O operations on Windows.
-// Future work: requires full overlapped I/O stress testing infrastructure.
-func TestIOCPStressTest(t *testing.T) {
-	t.Skip("Future work: requires full overlapped I/O stress testing infrastructure")
-}
-
-// TestIOCPOverlappedIO tests proper overlapped I/O operation lifecycle.
-// Future work: requires WSASend/WSARecv with proper overlapped structures.
-func TestIOCPOverlappedIO(t *testing.T) {
-	t.Skip("Future work: requires WSASend/WSARecv with proper overlapped structures")
-}
-
 // TestIOCPInitClose tests IOCP initialization and cleanup.
 func TestIOCPInitClose(t *testing.T) {
 	p := &fastPoller{}

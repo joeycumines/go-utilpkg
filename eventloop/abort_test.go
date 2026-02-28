@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-// ===============================================
-// FEATURE-001: AbortController/AbortSignal Tests
-// ===============================================
+// AbortController/AbortSignal Tests
 
 // TestAbortController_New tests creating a new AbortController.
 func TestAbortController_New(t *testing.T) {
@@ -582,9 +580,7 @@ func TestAbortError_Unwrap(t *testing.T) {
 	}
 }
 
-// ===============================================
-// EXPAND-001: AbortAny Tests
-// ===============================================
+// AbortAny Tests
 
 // TestAbortAny_Empty tests AbortAny with empty slice.
 func TestAbortAny_Empty(t *testing.T) {

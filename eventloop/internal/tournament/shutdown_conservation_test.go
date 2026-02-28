@@ -50,6 +50,19 @@ func testShutdownConservation(t *testing.T, impl Implementation) {
 		runErr = loop.Run(ctx)
 	})
 
+	// Ensure the event loop is running before starting producers.
+	// Without this, on constrained systems (e.g. Docker containers),
+	// Run() may not be scheduled before Shutdown() is called.
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		t.Fatalf("Failed to submit ready sentinel: %v", err)
+	}
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Event loop failed to start processing within 5s")
+	}
+
 	var executed atomic.Int64
 	var rejected atomic.Int64
 	var submitted atomic.Int64

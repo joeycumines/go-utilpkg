@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// EXPAND-007: ModifyFD Error Paths Coverage
+// ModifyFD Error Paths Coverage
 // Tests for kevent/epoll_ctl failure in ModifyFD.
 //
 // APPROACH: ModifyFD can return errors when:

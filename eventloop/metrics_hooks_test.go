@@ -8,7 +8,6 @@ import (
 
 // TestMetrics_UpdateHooks verifies that metrics Update hooks are called
 // during loop execution when Metrics are provided.
-// Priority 1: HIGH - Core metrics metrics functions at 0% coverage.
 func TestMetrics_UpdateHooks(t *testing.T) {
 	// WithMetrics enables metrics collection on the loop
 	opts := []LoopOption{WithMetrics(true)}
@@ -47,7 +46,6 @@ func TestMetrics_UpdateHooks(t *testing.T) {
 
 // TestMetrics_MetricsStructure verifies that Metrics struct has expected
 // fields for proper metrics collection.
-// Priority 1: HIGH - Ensures Metrics API is testable.
 func TestMetrics_MetricsStructure(t *testing.T) {
 	var metrics Metrics
 
@@ -104,7 +102,6 @@ func TestMetrics_MetricsStructure(t *testing.T) {
 
 // TestMetrics_NoMetrics verifies that loop works correctly when no
 // metrics are provided (default behavior).
-// Priority 2: MEDIUM - Ensures optional metrics work correctly.
 func TestMetrics_NoMetrics(t *testing.T) {
 	// Create loop without WithMetrics option (metrics disabled by default)
 	loop, err := New()
@@ -134,7 +131,6 @@ func TestMetrics_NoMetrics(t *testing.T) {
 
 // TestMetrics_MetricsThreadSafety verifies that metrics updates are
 // thread-safe under concurrent access.
-// Priority 2: MEDIUM - Race condition detection.
 func TestMetrics_MetricsThreadSafety(t *testing.T) {
 	// Create loop with metrics enabled
 	loop, err := New(WithMetrics(true))
