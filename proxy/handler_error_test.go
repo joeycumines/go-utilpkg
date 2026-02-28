@@ -4,14 +4,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -39,6 +38,7 @@ func (m *mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, m
 type mockClientStream struct {
 	grpc.ClientStream
 	onRecvMsg   func(m any) error
+	onSendMsg   func(m any) error
 	onCloseSend func() error
 	onTrailer   func() metadata.MD
 	onContext   func() context.Context
@@ -46,6 +46,7 @@ type mockClientStream struct {
 }
 
 func (m *mockClientStream) RecvMsg(msg any) error        { return m.onRecvMsg(msg) }
+func (m *mockClientStream) SendMsg(msg any) error        { return m.onSendMsg(msg) }
 func (m *mockClientStream) CloseSend() error             { return m.onCloseSend() }
 func (m *mockClientStream) Trailer() metadata.MD         { return m.onTrailer() }
 func (m *mockClientStream) Context() context.Context     { return m.onContext() }
@@ -229,117 +230,29 @@ func TestHandler_S2CFailurePropagated(t *testing.T) {
 	//    s2c stream.
 	select {
 	case err := <-handlerErrChan:
-		require.Error(t, err, "handler should have returned the s2c error")
+		if err == nil {
+			t.Fatal("handler should have returned the s2c error")
+		}
 		s, ok := status.FromError(err)
-		require.True(t, ok, "error should be a gRPC status error")
-		assert.Equal(t, codes.Internal, s.Code(), "error code should be Internal")
-		assert.Contains(t, s.Message(), "failed proxying s2c: a specific s2c error", "error message should contain the original s2c error")
+		if !ok {
+			t.Fatal("error should be a gRPC status error")
+		}
+		if s.Code() != codes.Internal {
+			t.Errorf("error code should be Internal, got %v", s.Code())
+		}
+		if !strings.Contains(s.Message(), "failed proxying s2c: a specific s2c error") {
+			t.Errorf("error message should contain the original s2c error, got %q", s.Message())
+		}
 	case <-testCtx.Done():
 		t.Fatal("timed out waiting for handler to return an error")
 	}
 }
 
-// MockServerStream implements grpc.ServerStream for testing
-type MockServerStream struct {
-	mock.Mock
-	ctx context.Context
-}
-
-func (m *MockServerStream) Context() context.Context {
-	if m.ctx != nil {
-		return m.ctx
-	}
-	return context.Background()
-}
-
-func (m *MockServerStream) SendMsg(msg any) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-func (m *MockServerStream) RecvMsg(msg any) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-func (m *MockServerStream) SetHeader(metadata.MD) error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockServerStream) SendHeader(md metadata.MD) error {
-	args := m.Called(md)
-	return args.Error(0)
-}
-
-func (m *MockServerStream) SetTrailer(md metadata.MD) {
-	m.Called(md)
-}
-
-// MockClientStream implements grpc.ClientStream for testing
-type MockClientStream struct {
-	mock.Mock
-}
-
-func (m *MockClientStream) Header() (metadata.MD, error) {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(metadata.MD), args.Error(1)
-}
-
-func (m *MockClientStream) Trailer() metadata.MD {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(metadata.MD)
-}
-
-func (m *MockClientStream) CloseSend() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *MockClientStream) Context() context.Context {
-	args := m.Called()
-	return args.Get(0).(context.Context)
-}
-
-func (m *MockClientStream) SendMsg(msg any) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-func (m *MockClientStream) RecvMsg(msg any) error {
-	args := m.Called(msg)
-	return args.Error(0)
-}
-
-// MockClientConn implements grpc.ClientConnInterface for testing
-type MockClientConn struct {
-	mock.Mock
-}
-
-func (m *MockClientConn) Invoke(ctx context.Context, method string, args, reply any, opts ...grpc.CallOption) error {
-	mockArgs := m.Called(ctx, method, args, reply, opts)
-	return mockArgs.Error(0)
-}
-
-func (m *MockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	args := m.Called(ctx, desc, method, opts)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(grpc.ClientStream), args.Error(1)
-}
-
 func TestHandler_ErrorCases(t *testing.T) {
 	t.Run("MethodFromServerStream_fails", func(t *testing.T) {
 		// Create a server stream without method information
-		serverStream := &MockServerStream{
-			ctx: context.Background(), // no method info in context
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return context.Background() },
 		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
@@ -349,9 +262,15 @@ func TestHandler_ErrorCases(t *testing.T) {
 		handler := proxy.TransparentHandler(director)
 		err := handler(nil, serverStream)
 
-		require.Error(t, err)
-		assert.Equal(t, codes.Internal, status.Code(err))
-		assert.Contains(t, err.Error(), "lowLevelServerStream not exists in context")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if got := status.Code(err); got != codes.Internal {
+			t.Errorf("expected code %v, got %v", codes.Internal, got)
+		}
+		if !strings.Contains(err.Error(), "lowLevelServerStream not exists in context") {
+			t.Errorf("expected error to contain %q, got %q", "lowLevelServerStream not exists in context", err.Error())
+		}
 	})
 
 	t.Run("Director_returns_error", func(t *testing.T) {
@@ -360,7 +279,9 @@ func TestHandler_ErrorCases(t *testing.T) {
 			methodName: "/test.Service/Method",
 		})
 
-		serverStream := &MockServerStream{ctx: ctx}
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return ctx },
+		}
 
 		directorErr := status.Error(codes.PermissionDenied, "director rejection")
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
@@ -370,9 +291,15 @@ func TestHandler_ErrorCases(t *testing.T) {
 		handler := proxy.TransparentHandler(director)
 		err := handler(nil, serverStream)
 
-		require.Error(t, err)
-		assert.Equal(t, codes.PermissionDenied, status.Code(err))
-		assert.Contains(t, err.Error(), "director rejection")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if got := status.Code(err); got != codes.PermissionDenied {
+			t.Errorf("expected code %v, got %v", codes.PermissionDenied, got)
+		}
+		if !strings.Contains(err.Error(), "director rejection") {
+			t.Errorf("expected error to contain %q, got %q", "director rejection", err.Error())
+		}
 	})
 
 	t.Run("NewStream_fails", func(t *testing.T) {
@@ -380,11 +307,18 @@ func TestHandler_ErrorCases(t *testing.T) {
 			methodName: "/test.Service/Method",
 		})
 
-		serverStream := &MockServerStream{ctx: ctx}
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return ctx },
+		}
 
-		mockConn := &MockClientConn{}
 		newStreamErr := status.Error(codes.Unavailable, "connection failed")
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(nil, newStreamErr)
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return nil, newStreamErr
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -393,9 +327,15 @@ func TestHandler_ErrorCases(t *testing.T) {
 		handler := proxy.TransparentHandler(director)
 		err := handler(nil, serverStream)
 
-		require.Error(t, err)
-		assert.Equal(t, codes.Unavailable, status.Code(err))
-		mockConn.AssertExpectations(t)
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if got := status.Code(err); got != codes.Unavailable {
+			t.Errorf("expected code %v, got %v", codes.Unavailable, got)
+		}
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
 	})
 
 	t.Run("ServerToClient_error_processed_first", func(t *testing.T) {
@@ -403,21 +343,26 @@ func TestHandler_ErrorCases(t *testing.T) {
 			methodName: "/test.Service/Method",
 		})
 
-		serverStream := &MockServerStream{ctx: ctx}
-		clientStream := &MockClientStream{}
-		mockConn := &MockClientConn{}
-
-		// Setup successful NewStream
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(clientStream, nil)
-
-		// For client-to-server: make it block indefinitely (simulate very slow client)
-		clientStream.On("RecvMsg", mock.Anything).Run(func(args mock.Arguments) {
-			// Block forever to ensure s2c error gets processed first
-			<-make(chan struct{})
-		}).Return(io.EOF)
-
-		// For server-to-client: fail immediately (this should be processed first)
-		serverStream.On("RecvMsg", mock.Anything).Return(errors.New("recv error"))
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return ctx },
+			onRecvMsg: func(m any) error {
+				return errors.New("recv error")
+			},
+		}
+		clientStream := &mockClientStream{
+			onRecvMsg: func(m any) error {
+				// Block forever to ensure s2c error gets processed first
+				<-make(chan struct{})
+				return io.EOF
+			},
+		}
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return clientStream, nil
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -434,16 +379,23 @@ func TestHandler_ErrorCases(t *testing.T) {
 		// Wait for result with timeout
 		select {
 		case err := <-errChan:
-			require.Error(t, err)
-			assert.Equal(t, codes.Internal, status.Code(err))
-			assert.Contains(t, err.Error(), "failed proxying s2c")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if got := status.Code(err); got != codes.Internal {
+				t.Errorf("expected code %v, got %v", codes.Internal, got)
+			}
+			if !strings.Contains(err.Error(), "failed proxying s2c") {
+				t.Errorf("expected error to contain %q, got %q", "failed proxying s2c", err.Error())
+			}
 		case <-time.After(1 * time.Second):
 			t.Fatal("Handler should have returned an error quickly due to s2c error")
 		}
 
-		mockConn.AssertExpectations(t)
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
 		// Don't assert client stream since it's blocked
-		serverStream.AssertExpectations(t)
 	})
 
 	t.Run("ServerToClient_EOF_triggers_CloseSend", func(t *testing.T) {
@@ -451,24 +403,36 @@ func TestHandler_ErrorCases(t *testing.T) {
 			methodName: "/test.Service/Method",
 		})
 
-		serverStream := &MockServerStream{ctx: ctx}
-		clientStream := &MockClientStream{}
-		mockConn := &MockClientConn{}
-
-		// Setup successful NewStream
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(clientStream, nil)
-
-		// For server-to-client: return EOF first (this should trigger CloseSend)
-		serverStream.On("RecvMsg", mock.Anything).Return(io.EOF)
-		clientStream.On("CloseSend").Return(nil)
-
-		// For client-to-server: block briefly so s2c EOF gets processed first
-		clientStream.On("RecvMsg", mock.Anything).Run(func(args mock.Arguments) {
-			// Give time for s2c to be processed first
-			time.Sleep(50 * time.Millisecond)
-		}).Return(io.EOF)
-		clientStream.On("Trailer").Return(metadata.MD{})
-		serverStream.On("SetTrailer", mock.Anything)
+		setTrailerCalled := false
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return ctx },
+			onRecvMsg: func(m any) error {
+				return io.EOF
+			},
+			onSetTrailer: func(md metadata.MD) {
+				setTrailerCalled = true
+			},
+		}
+		closeSendCalled := false
+		clientStream := &mockClientStream{
+			onRecvMsg: func(m any) error {
+				// Give time for s2c to be processed first
+				time.Sleep(50 * time.Millisecond)
+				return io.EOF
+			},
+			onCloseSend: func() error {
+				closeSendCalled = true
+				return nil
+			},
+			onTrailer: func() metadata.MD { return metadata.MD{} },
+		}
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return clientStream, nil
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -477,11 +441,18 @@ func TestHandler_ErrorCases(t *testing.T) {
 		handler := proxy.TransparentHandler(director)
 		err := handler(nil, serverStream)
 
-		require.NoError(t, err)
-
-		mockConn.AssertExpectations(t)
-		clientStream.AssertExpectations(t)
-		serverStream.AssertExpectations(t)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
+		if !closeSendCalled {
+			t.Error("expected CloseSend to be called")
+		}
+		if !setTrailerCalled {
+			t.Error("expected SetTrailer to be called")
+		}
 	})
 }
 
@@ -511,23 +482,37 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 			onContext:    func() context.Context { return ctx },
 			onSendHeader: nil,
 		}
-		clientStream := &MockClientStream{}
-		mockConn := &MockClientConn{}
-
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(clientStream, nil)
 
 		// First RecvMsg succeeds (i == 0 case triggers header logic)
-		clientStream.On("RecvMsg", mock.Anything).Return(nil).Once()
-
-		// Header call fails
 		headerErr := errors.New("header error")
-		clientStream.On("Header").Return(nil, headerErr)
-
-		// The c2s channel will eventually be read with the error
-		// and the handler will call Trailer() and SetTrailer(), then return the error
 		clientTrailer := metadata.MD{}
 		clientTrailer.Set(`test-trailer`, `valueValue`)
-		clientStream.On("Trailer").Return(clientTrailer)
+
+		recvMsgCallCount := 0
+		clientStream := &mockClientStream{
+			onRecvMsg: func(m any) error {
+				recvMsgCallCount++
+				if recvMsgCallCount == 1 {
+					return nil
+				}
+				t.Fatalf("unexpected RecvMsg call #%d", recvMsgCallCount)
+				return nil
+			},
+			onHeader: func() (metadata.MD, error) {
+				return nil, headerErr
+			},
+			onTrailer: func() metadata.MD {
+				return clientTrailer
+			},
+		}
+
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return clientStream, nil
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -560,7 +545,9 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("timeout")
 		case md := <-onSetTrailerIn:
-			assert.Equal(t, clientTrailer, md, "expected server stream to receive client stream trailer")
+			if !reflect.DeepEqual(clientTrailer, md) {
+				t.Errorf("expected server stream to receive client stream trailer: got %v, want %v", md, clientTrailer)
+			}
 			onSetTrailerOut <- struct{}{} // unblock SetTrailer
 		}
 
@@ -584,8 +571,12 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 			t.Fatal("expected", headerErr, "got", err)
 		}
 
-		clientStream.AssertExpectations(t)
-		mockConn.AssertExpectations(t)
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
+		if recvMsgCallCount != 1 {
+			t.Errorf("expected RecvMsg to be called once, got %d", recvMsgCallCount)
+		}
 	})
 
 	t.Run("SendHeader_error", func(t *testing.T) {
@@ -790,17 +781,34 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 			},
 		}
 
-		clientStream := &MockClientStream{}
-		mockConn := &MockClientConn{}
-
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(clientStream, nil)
-
 		// First RecvMsg from the client stream succeeds, which kicks off the forwarding
-		clientStream.On("RecvMsg", mock.Anything).Return(nil).Once()
-		// Header from the client stream also succeeds
-		clientStream.On("Header").Return(metadata.MD{"test": []string{"value"}}, nil)
-		// Trailer will be called during the error handling path
-		clientStream.On("Trailer").Return(metadata.MD{})
+		recvMsgCallCount := 0
+		clientStream := &mockClientStream{
+			onRecvMsg: func(m any) error {
+				recvMsgCallCount++
+				if recvMsgCallCount == 1 {
+					return nil
+				}
+				t.Fatalf("unexpected RecvMsg call #%d", recvMsgCallCount)
+				return nil
+			},
+			// Header from the client stream also succeeds
+			onHeader: func() (metadata.MD, error) {
+				return metadata.MD{"test": []string{"value"}}, nil
+			},
+			// Trailer will be called during the error handling path
+			onTrailer: func() metadata.MD {
+				return metadata.MD{}
+			},
+		}
+
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return clientStream, nil
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -871,8 +879,12 @@ func TestForwardClientToServer_ErrorCases(t *testing.T) {
 			t.Fatalf("expected error %v, got %v", sendMsgErr, err)
 		}
 
-		clientStream.AssertExpectations(t)
-		mockConn.AssertExpectations(t)
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
+		if recvMsgCallCount != 1 {
+			t.Errorf("expected RecvMsg to be called once, got %d", recvMsgCallCount)
+		}
 	})
 }
 
@@ -882,22 +894,38 @@ func TestForwardServerToClient_ErrorCases(t *testing.T) {
 			methodName: "/test.Service/Method",
 		})
 
-		serverStream := &MockServerStream{ctx: ctx}
-		clientStream := &MockClientStream{}
-		mockConn := &MockClientConn{}
+		srvRecvMsgCallCount := 0
+		serverStream := &mockServerStream{
+			onContext: func() context.Context { return ctx },
+			onRecvMsg: func(m any) error {
+				srvRecvMsgCallCount++
+				if srvRecvMsgCallCount == 1 {
+					return nil
+				}
+				t.Fatalf("unexpected serverStream.RecvMsg call #%d", srvRecvMsgCallCount)
+				return nil
+			},
+		}
 
-		mockConn.On("NewStream", mock.Anything, mock.Anything, "/test.Service/Method", mock.Anything).Return(clientStream, nil)
-
-		// Setup for client-to-server to delay so server-to-client error gets processed first
-		clientStream.On("RecvMsg", mock.Anything).Run(func(args mock.Arguments) {
-			// Give time for s2c error to be processed first
-			time.Sleep(50 * time.Millisecond)
-		}).Return(io.EOF)
-
-		// For server-to-client: RecvMsg succeeds, but SendMsg fails
-		serverStream.On("RecvMsg", mock.Anything).Return(nil).Once()
 		sendMsgErr := errors.New("send msg error")
-		clientStream.On("SendMsg", mock.Anything).Return(sendMsgErr)
+		clientStream := &mockClientStream{
+			onRecvMsg: func(m any) error {
+				// Give time for s2c error to be processed first
+				time.Sleep(50 * time.Millisecond)
+				return io.EOF
+			},
+			onSendMsg: func(m any) error {
+				return sendMsgErr
+			},
+		}
+
+		newStreamCalled := false
+		mockConn := &mockClientConn{
+			onNewStream: func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+				newStreamCalled = true
+				return clientStream, nil
+			},
+		}
 
 		director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 			return ctx, mockConn, nil
@@ -907,12 +935,21 @@ func TestForwardServerToClient_ErrorCases(t *testing.T) {
 		err := handler(nil, serverStream)
 
 		// The s2c error should be processed first and cause the handler to return an error
-		require.Error(t, err)
-		assert.Equal(t, codes.Internal, status.Code(err))
-		assert.Contains(t, err.Error(), "failed proxying s2c")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if got := status.Code(err); got != codes.Internal {
+			t.Errorf("expected code %v, got %v", codes.Internal, got)
+		}
+		if !strings.Contains(err.Error(), "failed proxying s2c") {
+			t.Errorf("expected error to contain %q, got %q", "failed proxying s2c", err.Error())
+		}
 
-		clientStream.AssertExpectations(t)
-		serverStream.AssertExpectations(t)
-		mockConn.AssertExpectations(t)
+		if !newStreamCalled {
+			t.Error("expected NewStream to be called")
+		}
+		if srvRecvMsgCallCount != 1 {
+			t.Errorf("expected serverStream.RecvMsg to be called once, got %d", srvRecvMsgCallCount)
+		}
 	})
 }
