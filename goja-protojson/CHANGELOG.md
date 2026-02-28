@@ -4,7 +4,7 @@ All notable changes to the `goja-protojson` package will be documented in this f
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-02-13
+## [Unreleased]
 
 ### Added
 
@@ -18,9 +18,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   using `protojson.Unmarshal`.
 
 - **`protojson.format(msg)`** — Human-readable JSON formatting with indentation.
-
-- **100% test coverage** — Comprehensive tests including roundtrip, error paths,
-  well-known types, and cross-platform string comparison.
 
 ### Fixed
 
