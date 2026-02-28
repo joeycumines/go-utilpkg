@@ -488,13 +488,9 @@ func TestMixedTimersAndPromises(t *testing.T) {
 	}
 
 	// Test microtasks execute before timer callbacks - use event-based completion
-	completion := make(chan struct{})
+	completion := make(chan struct{}, 2)
 	_ = runtime.Set("notifyDone", func() {
-		select {
-		case completion <- struct{}{}:
-		default:
-			// Already notified
-		}
+		completion <- struct{}{}
 	})
 
 	_, err = runtime.RunString(`

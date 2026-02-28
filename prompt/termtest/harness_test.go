@@ -270,9 +270,8 @@ func TestConsole_NewConsole_External(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	// Wait for output
-	snap := c.Snapshot()
-	err = c.Expect(ctx, snap, Contains("hello world"), "waiting for echo output")
+	// Wait for output from the beginning to avoid race conditions with fast commands
+	err = c.Expect(ctx, Snapshot{}, Contains("hello world"), "waiting for echo output")
 	require.NoError(t, err)
 
 	// Wait for exit
@@ -348,7 +347,7 @@ func TestConsole_Environment(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	require.NoError(t, c.Expect(ctx, c.Snapshot(), Contains("foobar"), "environment variable output not found"))
+	require.NoError(t, c.Expect(ctx, Snapshot{}, Contains("foobar"), "environment variable output not found"))
 }
 
 func TestConsole_Dir(t *testing.T) {
@@ -368,7 +367,7 @@ func TestConsole_Dir(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	require.NoError(t, c.Expect(ctx, c.Snapshot(), Contains(resolvedTmp), "working directory output not found"))
+	require.NoError(t, c.Expect(ctx, Snapshot{}, Contains(resolvedTmp), "working directory output not found"))
 }
 
 func TestHarness_RunPrompt_PanicRecovery(t *testing.T) {

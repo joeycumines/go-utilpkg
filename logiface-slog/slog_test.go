@@ -53,15 +53,20 @@ func testSuiteLoggerFactory(req testsuite.LoggerRequest[*Event]) testsuite.Logge
 }
 
 func testSuiteLevelMapping(lvl logiface.Level) logiface.Level {
-	if !lvl.Enabled() || lvl.Custom() {
+	if !lvl.Enabled() {
 		return logiface.LevelDisabled
 	}
 	switch lvl {
 	case logiface.LevelNotice:
 		return logiface.LevelWarning
-	case logiface.LevelCritical:
+	case logiface.LevelCritical, logiface.LevelAlert, logiface.LevelEmergency:
 		return logiface.LevelError
+	case logiface.LevelTrace:
+		return logiface.LevelDebug
 	default:
+		if lvl.Custom() {
+			return logiface.LevelDebug
+		}
 		return lvl
 	}
 }

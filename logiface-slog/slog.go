@@ -427,13 +427,20 @@ func (x *Logger) ReleaseEvent(event *Event) {
 // After Write() returns (successfully or with error), the logiface framework
 // automatically calls ReleaseEvent() to return the event to the pool.
 func (x *Logger) Write(event *Event) error {
+	// Check if the handler is enabled for this level
+	if !event.lvl.Enabled() || !x.Handler.Enabled(context.TODO(), toSlogLevel(event.lvl)) {
+		return logiface.ErrDisabled
+	}
+	record := slog.NewRecord(time.Now(), toSlogLevel(event.lvl), event.msg, 0)
+	record.AddAttrs(event.attrs...)
+	err := x.Handler.Handle(context.TODO(), record)
+
 	// Emergency level should panic
 	if event.lvl == logiface.LevelEmergency {
 		panic(logiface.LevelEmergency)
 	}
-	record := slog.NewRecord(time.Now(), toSlogLevel(event.lvl), event.msg, 0)
-	record.AddAttrs(event.attrs...)
-	return x.Handler.Handle(context.TODO(), record)
+
+	return err
 }
 
 // toSlogLevel converts logiface.Level to slog.Level.
