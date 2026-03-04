@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Prompt.EnterKeyPressed()` method to distinguish Enter (submit) from Ctrl+J (newline) in `ExecuteOnEnterCallback`
+- `Prompt.LastKeyStroke()` method to inspect the last key pressed
+- Integration tests for freeform multiline input, mode switching, and cursor navigation via the `termtest` package
+
+### Fixed
+- Fix exact-fill line wrapping: lines exactly filling the terminal width now correctly wrap instead of miscounting position
+- Fix `clear()` cursor positioning: replace unreliable ESC [s/u (SCO save/restore cursor) with explicit cursor movement for macOS Terminal.app compatibility
+- Fix `prepareArea` completion space allocation: replace ESC D/ESC M (Index/Reverse Index) with newlines and CursorUp for macOS Terminal.app compatibility
+- Fix `ptyReader` lifecycle in test harness: allow Close/Open cycle between prompt submissions without permanently closing the file descriptor
+
 ## [1.3.0] - 21.05.2025
 
 [Diff](https://github.com/elk-language/go-prompt/compare/v1.2.0...elk-language:go-prompt:v1.3.0)

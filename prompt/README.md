@@ -75,6 +75,28 @@ func main() {
 
 ![multiline editing](readme/multiline-editing.gif)
 
+### Freeform text input and mode switching
+
+The `ExecuteOnEnterCallback` combined with `Prompt.EnterKeyPressed()` enables
+freeform text input where <kbd>Ctrl+J</kbd> inserts a newline and
+<kbd>Enter</kbd> submits. Dynamic mode switching (like Claude Code's `!` prefix
+for shell commands) is supported by inspecting the buffer text in the callback:
+
+```go
+callback := func(p *prompt.Prompt, indentSize int) (int, bool) {
+    text := p.Buffer().Text()
+    if strings.HasPrefix(text, "!") {
+        // Shell mode: always execute immediately
+        return 0, true
+    }
+    // Freeform mode: Enter submits, Ctrl+J inserts newline
+    if p.EnterKeyPressed() {
+        return 0, true
+    }
+    return 0, false // insert newline
+}
+```
+
 ### Custom syntax highlighting
 
 ![syntax highlighting](readme/syntax-highlighting.gif)

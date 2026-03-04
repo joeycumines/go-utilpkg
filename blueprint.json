@@ -119,70 +119,70 @@
       "id": "writer-vt100-review",
       "title": "Audit VT100Writer for terminal compatibility issues",
       "description": "Review all escape sequences in writer_vt100.go for compatibility with: macOS Terminal.app, iTerm2, Linux console, xterm, Windows Terminal. Specifically verify: SaveCursor/UnSaveCursor (ESC [s/u vs ESC 7/8), ScrollDown (ESC D vs \\n), CursorGoTo (1-based vs 0-based). Document any incompatibilities found.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "All escape sequences reviewed. Any incompatibilities documented in code comments. Fixes applied where needed for macOS Terminal.app. No behavioral changes for working terminals."
     },
     {
       "id": "cross-platform-darwin-test",
       "title": "Ensure all tests pass on Darwin (macOS)",
       "description": "Run gmake make-all-with-log and verify all prompt module tests pass. Fix any failures. The termtest package has Darwin-specific reader code (reader_darwin.go) that must work correctly.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "gmake make-all-with-log exits 0. All prompt tests pass. No test flakiness observed on repeated runs."
     },
     {
       "id": "cross-platform-linux-test",
       "title": "Ensure all tests pass on Linux (container)",
       "description": "Run gmake make-all-in-container and verify all prompt module tests pass. Fix any failures. The termtest package has Linux-specific reader code (reader_linux.go) that must work correctly.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "gmake make-all-in-container exits 0. All prompt tests pass in the Linux container."
     },
     {
       "id": "cross-platform-windows-test",
       "title": "Ensure all tests pass on Windows",
       "description": "Run gmake make-all-run-windows and verify all prompt module tests pass. The prompt module has Windows-specific files (reader_windows.go, writer_windows.go) that must compile and work. Fix any compilation or test failures.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "gmake make-all-run-windows exits 0. All prompt tests pass on Windows. writer_windows.go and reader_windows.go compile correctly."
     },
     {
       "id": "completion-hide-show-consistency",
       "title": "Audit completion hide/show state transitions for consistency",
       "description": "Review the interaction between hideCompletionsAfterExecute, showCompletionsForUserIntent, completionHiddenByExecute, and the completion manager's IsHidden/Hide/Show methods. Ensure there are no edge cases where completions are incorrectly shown or hidden after mode switches, Ctrl+C, or history navigation.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "All state transitions documented. Any bugs found are fixed with regression tests. No existing test regressions."
     },
     {
       "id": "doc-multiline-usage",
       "title": "Document multiline input usage patterns in README",
       "description": "Update prompt/README.md to document: (1) how to use executeOnEnterCallback for multiline input, (2) the new Ctrl+J behavior for literal newlines, (3) the freeform mode option, (4) the mode switching capability. Include code examples.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "README.md updated with clear documentation of multiline features. Code examples are correct and runnable."
     },
     {
       "id": "changelog-update",
       "title": "Update CHANGELOG.md with all changes",
       "description": "Add entries to prompt/CHANGELOG.md under [Unreleased] for all fixes and features implemented in this effort: rendering fixes, multiline input support, mode switching, new options, new test coverage.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "CHANGELOG.md has entries for all changes following Keep a Changelog format."
     },
     {
       "id": "code-quality-staticcheck",
       "title": "Ensure staticcheck passes with zero warnings",
       "description": "Run staticcheck on the prompt module and fix any warnings. The project uses staticcheck as part of the standard build checks.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "staticcheck reports zero warnings for the prompt module."
     },
     {
       "id": "code-quality-vet",
       "title": "Ensure go vet passes with zero warnings",
       "description": "Run go vet on the prompt module and fix any warnings.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "go vet ./... reports zero warnings for the prompt module."
     },
     {
       "id": "code-quality-betteralign",
       "title": "Ensure betteralign passes",
       "description": "Run betteralign on the prompt module and fix any alignment issues in struct definitions.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "betteralign reports no issues for the prompt module."
     }
   ]
