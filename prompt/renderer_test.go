@@ -245,6 +245,41 @@ func TestRenderer_countInputLines(t *testing.T) {
 			col:       10,
 			want:      3, // line 1 (second wrap of first line), line 2, line 3
 		},
+		{
+			name:      "exact fill single line",
+			text:      "abc",
+			startLine: 0,
+			col:       3,
+			want:      1, // fills exactly, no overflow content
+		},
+		{
+			name:      "exact fill with trailing newline",
+			text:      "abc\n",
+			startLine: 0,
+			col:       3,
+			want:      2, // exact fill line + empty line from newline
+		},
+		{
+			name:      "exact fill followed by more text",
+			text:      "abcde",
+			startLine: 0,
+			col:       3,
+			want:      2, // "abc" fills line, "de" on next line
+		},
+		{
+			name:      "multiple exact fills",
+			text:      "abcdef",
+			startLine: 0,
+			col:       3,
+			want:      2, // "abc" fills line 0, "def" fills line 1
+		},
+		{
+			name:      "exact fill then newline then text",
+			text:      "abc\nxy",
+			startLine: 0,
+			col:       3,
+			want:      2, // "abc" on line 0, newline consumed by wrap, "xy" on line 1
+		},
 	}
 
 	for _, tt := range tests {

@@ -866,3 +866,123 @@ func newTestCompleter(suggestions ...string) prompt.Completer {
 		return sug, 0, istrings.RuneNumber(len(d.Text))
 	}
 }
+
+func TestHarness_LineWrapRendering(t *testing.T) {
+	// Regression test: verify that typed text which exactly fills or wraps
+	// the terminal width does not produce spurious blank lines when the
+	// prompt re-renders (e.g. after triggering completions).
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	const cols = 30 // narrow terminal
+	h, err := NewHarness(ctx,
+		WithSize(24, cols),
+		WithPromptOptions(prompt.WithPrefix("> ")),
+	)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	// Completer that always returns suggestions (regardless of input).
+	completer := func(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
+		return []prompt.Suggest{
+			{Text: "done", Description: "finish"},
+		}, 0, istrings.RuneNumber(len(d.Text))
+	}
+	h.RunPrompt(nil, prompt.WithCompleter(completer))
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("> ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Type text that fills the available width exactly.
+	// Prefix "> " = 2 chars, so available = 28 chars.
+	text := strings.Repeat("x", 28) // exactly fills the line
+	before := h.Console().Snapshot()
+	if _, err := h.Console().WriteString(text); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := h.Console().Await(ctx, before, Contains(text)); err != nil {
+		t.Fatalf("Await text: %v", err)
+	}
+
+	// Trigger completions with Tab
+	beforeTab := h.Console().Snapshot()
+	if err := h.Console().Send("tab"); err != nil {
+		t.Fatalf("Send tab: %v", err)
+	}
+	if err := h.Console().Await(ctx, beforeTab, Contains("done")); err != nil {
+		t.Fatalf("Await completion: %v", err)
+	}
+
+	// Verify the output is clean: the typed text should still be present
+	// and there should be no excessive blank lines (the original bug
+	// manifested as many newlines pushed above the prompt).
+	full := h.Console().String()
+	norm := normalizeTTYOutput(full)
+	if !strings.Contains(norm, text) {
+		t.Errorf("normalized output missing typed text %q", text)
+	}
+	// Four consecutive newlines would indicate rendering corruption.
+	if strings.Contains(norm, "\n\n\n\n") {
+		t.Errorf("output contains excessive blank lines indicating rendering corruption:\n%s", norm)
+	}
+}
+
+func TestHarness_LineWrapOverflow(t *testing.T) {
+	// Test rendering when text overflows past the terminal width (wraps).
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	const cols = 25
+	h, err := NewHarness(ctx,
+		WithSize(24, cols),
+		WithPromptOptions(prompt.WithPrefix("$ ")),
+	)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	completer := func(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
+		return []prompt.Suggest{
+			{Text: "result", Description: "test"},
+		}, 0, istrings.RuneNumber(len(d.Text))
+	}
+	h.RunPrompt(nil, prompt.WithCompleter(completer))
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Prefix "$ " = 2 chars, available = 23. Type 30 chars to force a wrap.
+	text := strings.Repeat("y", 30)
+	before := h.Console().Snapshot()
+	if _, err := h.Console().WriteString(text); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := h.Console().Await(ctx, before, Contains(text)); err != nil {
+		t.Fatalf("Await text: %v", err)
+	}
+
+	// Trigger completion with Tab
+	beforeTab := h.Console().Snapshot()
+	if err := h.Console().Send("tab"); err != nil {
+		t.Fatalf("Send tab: %v", err)
+	}
+	if err := h.Console().Await(ctx, beforeTab, Contains("result")); err != nil {
+		t.Fatalf("Await completion: %v", err)
+	}
+
+	full := h.Console().String()
+	norm := normalizeTTYOutput(full)
+	if !strings.Contains(norm, text) {
+		t.Errorf("normalized output missing typed text %q", text)
+	}
+	if strings.Contains(norm, "\n\n\n\n") {
+		t.Errorf("output contains excessive blank lines indicating rendering corruption:\n%s", norm)
+	}
+}

@@ -14,7 +14,7 @@
       "id": "render-line-wrap-tests",
       "title": "Add unit tests for line-wrap edge cases in position and renderer",
       "description": "Add test cases to position_test.go for: text that exactly fills columns (right==columns produces wrap), text one char short of columns, text one char over columns, text with wide characters (CJK) that don't fit at line boundary, multiline text where a line wraps mid-grapheme. Add renderer countInputLines tests for the same scenarios.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "New tests cover all edge cases listed. Tests pass on Darwin. Tests use only stdlib testing package."
     },
     {
@@ -35,14 +35,14 @@
       "id": "render-integration-test-wrapping",
       "title": "Add termtest harness integration test for line-wrap rendering",
       "description": "Write an integration test using the termtest.Harness that: (1) creates a prompt with a narrow terminal width (e.g. 20 cols), (2) types text that exceeds the width causing a wrap, (3) triggers completion, (4) verifies the output does not contain spurious newlines or corrupt rendering. Use WriteSync for deterministic synchronization.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Test passes reliably on Darwin. Uses termtest.Harness with narrow columns. Verifies output via Console.Expect with appropriate Conditions."
     },
     {
       "id": "countinputlines-exactfill",
       "title": "Fix countInputLines to handle lines that exactly fill terminal width",
       "description": "countInputLines iterates characters and increments lineNumber when lineCharIndex >= col. But when a line exactly fills the column width (lineCharIndex == col), it starts a new line. If the next character is a newline, that newline should not count as an additional line. Audit and fix the interaction between soft-wrap counting and explicit newlines.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "countInputLines returns correct count for: text exactly filling one line, text exactly filling multiple lines, text with trailing newline at exact fill point. Unit tests added."
     },
     {

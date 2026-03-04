@@ -77,6 +77,47 @@ func TestPositionAtEndOfString(t *testing.T) {
 				Y: 2,
 			},
 		},
+		"exact fill single line": {
+			input:   "abc",
+			columns: 3,
+			want: Position{
+				X: 0,
+				Y: 1,
+			},
+		},
+		"one char short of fill": {
+			input:   "ab",
+			columns: 3,
+			want: Position{
+				X: 2,
+				Y: 0,
+			},
+		},
+		"one char over fill": {
+			input:   "abcd",
+			columns: 3,
+			want: Position{
+				X: 1,
+				Y: 1,
+			},
+		},
+		"exact fill multiple lines": {
+			input:   "abcdef",
+			columns: 3,
+			want: Position{
+				X: 0,
+				Y: 2,
+			},
+		},
+		"exact fill with newline after": {
+			input:   "abc\nd",
+			columns: 3,
+			want: Position{
+				// "abc" fills → wrap to line 1, '\n' → line 2, 'd' at (1, 2)
+				X: 1,
+				Y: 2,
+			},
+		},
 	}
 
 	for name, tc := range tests {
