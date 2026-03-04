@@ -322,6 +322,21 @@ func (p *Prompt) Buffer() *Buffer {
 	return p.buffer
 }
 
+// LastKeyStroke returns the last key pressed by the user. This is useful
+// within ExecuteOnEnterCallback to distinguish Enter (submit) from
+// ControlJ (insert newline) for multiline input support.
+func (p *Prompt) LastKeyStroke() Key {
+	return p.buffer.lastKeyStroke
+}
+
+// EnterKeyPressed reports whether the last key was the Enter key (as
+// opposed to Ctrl+J). Within ExecuteOnEnterCallback, this allows
+// implementing multiline input where Enter submits and Ctrl+J inserts
+// a newline (or the reverse via freeform mode).
+func (p *Prompt) EnterKeyPressed() bool {
+	return p.buffer.lastKeyStroke == ControlM
+}
+
 // NOTE: drainSyncWake removed deliberately - draining the wake channel is
 // unsafe because it cannot distinguish a stale wake from a fresh one. It's
 // better to ignore redundant wakes than risk consuming a wake meant for a
@@ -844,6 +859,11 @@ func (p *Prompt) processInputBytes(buf []byte) []byte {
 
 	if len(buf) == 1 && buf[0] == '\t' {
 		// if only a single Tab key has been pressed, handle it as a keybind
+		return buf
+	}
+	if len(buf) == 1 && buf[0] == '\r' {
+		// Keep single carriage return as-is so feed() can distinguish
+		// Enter (ControlM / 0x0d) from Ctrl+J (Enter / 0x0a).
 		return buf
 	}
 	if len(buf) == 0 || (len(buf) == 1 && buf[0] == 0) {

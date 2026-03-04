@@ -242,8 +242,11 @@ func TestHarness_Close(t *testing.T) {
 	}
 
 	exitErr := h.waitExitTimeout(2 * time.Second)
-	if !errors.Is(exitErr, context.Canceled) {
-		t.Errorf("expected context.Canceled, got %v", exitErr)
+	// With the fixed ptyReader, the prompt exits cleanly when Close is
+	// called (no longer deadlocks in waitForRead). A nil error indicates
+	// a clean shutdown; context.Canceled indicates the old forced path.
+	if exitErr != nil && !errors.Is(exitErr, context.Canceled) {
+		t.Errorf("expected nil or context.Canceled, got %v", exitErr)
 	}
 
 	wg.Wait()
@@ -984,5 +987,91 @@ func TestHarness_LineWrapOverflow(t *testing.T) {
 	}
 	if strings.Contains(norm, "\n\n\n\n") {
 		t.Errorf("output contains excessive blank lines indicating rendering corruption:\n%s", norm)
+	}
+}
+
+func TestHarness_EnterVsCtrlJ(t *testing.T) {
+	// Verify that ExecuteOnEnterCallback can distinguish Enter from Ctrl+J
+	// via Prompt.EnterKeyPressed(). Enter sends \r which is preserved as
+	// ControlM; Ctrl+J sends \n which maps to Enter.
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	h, err := NewHarness(ctx)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	type callbackResult struct {
+		enterKey bool
+		text     string
+	}
+	resultCh := make(chan callbackResult, 10)
+
+	// Callback that records whether EnterKeyPressed() returns true,
+	// then always executes (submits).
+	enterCallback := func(p *prompt.Prompt, indentSize int) (int, bool) {
+		resultCh <- callbackResult{
+			enterKey: p.EnterKeyPressed(),
+			text:     p.Buffer().Text(),
+		}
+		return 0, true
+	}
+
+	h.RunPrompt(func(s string) {},
+		prompt.WithPrefix("$ "),
+		prompt.WithExecuteOnEnterCallback(enterCallback),
+	)
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Test 1: type "hello" then press Enter (\r) → EnterKeyPressed
+	if err := h.Console().WriteSync(ctx, "hello"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "enter"); err != nil {
+		t.Fatalf("SendSync enter: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		if !r.enterKey {
+			t.Errorf("Enter key: EnterKeyPressed() = false, want true")
+		}
+		if r.text != "hello" {
+			t.Errorf("Enter key: text = %q, want %q", r.text, "hello")
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for Enter callback")
+	}
+
+	// Wait for next prompt
+	snap = h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await second prompt: %v", err)
+	}
+
+	// Test 2: type "world" then press Ctrl+J (\n) → NOT EnterKeyPressed
+	if err := h.Console().WriteSync(ctx, "world"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync ctrl+j: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		if r.enterKey {
+			t.Errorf("Ctrl+J: EnterKeyPressed() = true, want false")
+		}
+		if r.text != "world" {
+			t.Errorf("Ctrl+J: text = %q, want %q", r.text, "world")
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for Ctrl+J callback")
 	}
 }

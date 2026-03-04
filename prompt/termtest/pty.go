@@ -75,15 +75,14 @@ func newPTYReader(file *os.File) *ptyReader {
 }
 
 type ptyReader struct {
-	file      *os.File
-	fd        int
-	pollFD    int
-	wakeR     int
-	wakeW     int
-	closed    bool
-	mu        sync.Mutex
-	closeOnce sync.Once
-	ops       *ptyOps
+	file   *os.File
+	fd     int
+	pollFD int
+	wakeR  int
+	wakeW  int
+	closed bool
+	mu     sync.Mutex
+	ops    *ptyOps
 }
 
 func (r *ptyReader) Open() error {
@@ -93,6 +92,7 @@ func (r *ptyReader) Open() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.closed = false
 	r.fd = int(r.file.Fd())
 
 	if err := r.ops.setNonblock(r.fd, true); err != nil {
@@ -117,86 +117,66 @@ func (r *ptyReader) Open() error {
 	return nil
 }
 
+// Close restores terminal attributes and tears down the poller, allowing
+// the reader to be reopened via Open(). It does NOT close the underlying
+// file descriptor — that is handled by the harness when it closes the PTY
+// slave. This supports the prompt's Close/Open cycle between command
+// submissions.
 func (r *ptyReader) Close() error {
-	r.closeOnce.Do(func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.closed = true
-		if r.wakeW >= 0 {
-			_, _ = unix.Write(r.wakeW, []byte("x"))
-		}
-		if r.file != nil {
-			_ = promptterm.RestoreFD(r.fd)
-			_ = r.file.Close()
-			_ = r.closePoller()
-			r.file = nil
-			r.fd = -1
-		}
-	})
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.closed = true
+
+	// Wake any blocked waitForRead before closing the poller.
+	if r.wakeW >= 0 {
+		_, _ = unix.Write(r.wakeW, []byte("x"))
+	}
+
+	if r.fd >= 0 {
+		_ = promptterm.RestoreFD(r.fd)
+		_ = r.closePoller()
+		r.fd = -1
+	}
+
 	return nil
 }
 
 func (r *ptyReader) Read(p []byte) (int, error) {
-	for {
-		r.mu.Lock()
-		if r.closed || r.fd < 0 {
-			r.mu.Unlock()
+	r.mu.Lock()
+	if r.closed || r.fd < 0 {
+		r.mu.Unlock()
+		return 0, io.EOF
+	}
+
+	n, err := r.ops.read(r.fd, p)
+	r.mu.Unlock()
+
+	if err != nil {
+		if errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EWOULDBLOCK) {
+			// Return EAGAIN to the caller (readBuffer) so it can poll
+			// stopCh between reads. The caller's time.Sleep handles
+			// backoff to avoid busy-waiting.
+			return 0, err
+		}
+		if n > 0 {
+			if r.shouldInterpretAsEOF(err) {
+				return n, io.EOF
+			}
+			return n, err
+		}
+		if r.shouldInterpretAsEOF(err) {
 			return 0, io.EOF
 		}
-
-		n, err := r.ops.read(r.fd, p)
-		if err != nil {
-			if errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EWOULDBLOCK) {
-				r.mu.Unlock()
-				if waitErr := r.ops.waitForRead(r); waitErr != nil {
-					r.mu.Lock()
-					isClosed := r.closed
-					r.mu.Unlock()
-					if isClosed {
-						return 0, io.EOF
-					}
-					return 0, waitErr
-				}
-				continue
-			}
-
-			if n > 0 {
-				r.mu.Unlock()
-				if r.shouldInterpretAsEOF(err) {
-					return n, io.EOF
-				}
-				return n, err
-			}
-
-			if r.shouldInterpretAsEOF(err) {
-				r.mu.Unlock()
-				return 0, io.EOF
-			}
-		}
-
-		// VMIN=0 means read returns 0 when no data is available.
-		// We must NOT treat n=0, err=nil as EOF in this case, or go-prompt
-		// will exit immediately on startup. We must treat it as "no data" and
-		// continue polling.
-		// Real EOF is handled via the p.Close() -> reader.Close() -> r.closed flow.
-		if n == 0 && err == nil {
-			r.mu.Unlock()
-			// Continue loop to wait for data (equivalent to EAGAIN handling)
-			if waitErr := r.ops.waitForRead(r); waitErr != nil {
-				r.mu.Lock()
-				isClosed := r.closed
-				r.mu.Unlock()
-				if isClosed {
-					return 0, io.EOF
-				}
-				return 0, waitErr
-			}
-			continue
-		}
-
-		r.mu.Unlock()
-		return n, err
 	}
+
+	// VMIN=0 means read returns 0 when no data is available.
+	// Return EAGAIN so the caller's sleep loop handles polling.
+	if n == 0 && err == nil {
+		return 0, syscall.EAGAIN
+	}
+
+	return n, err
 }
 
 func (r *ptyReader) GetWinSize() *prompt.WinSize {

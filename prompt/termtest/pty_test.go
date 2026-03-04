@@ -396,32 +396,23 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		}
 	})
 
-	t.Run("EAGAIN then wait error returns wait error", func(t *testing.T) {
-		sentinel := errors.New("wait")
+	t.Run("EAGAIN returns EAGAIN directly", func(t *testing.T) {
 		ops := newPTYOps()
 		ops.read = func(int, []byte) (int, error) { return 0, syscall.EAGAIN }
-		ops.waitForRead = func(*ptyReader) error { return sentinel }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 1))
-		if !errors.Is(err, sentinel) {
-			t.Fatalf("expected error wrapping sentinel, got %v", err)
+		if !errors.Is(err, syscall.EAGAIN) {
+			t.Fatalf("expected EAGAIN, got %v", err)
 		}
 	})
 
-	t.Run("EAGAIN then wait error but closed returns EOF", func(t *testing.T) {
-		sentinel := errors.New("wait")
+	t.Run("EWOULDBLOCK returns EWOULDBLOCK directly", func(t *testing.T) {
 		ops := newPTYOps()
-		ops.read = func(int, []byte) (int, error) { return 0, syscall.EAGAIN }
-		ops.waitForRead = func(r *ptyReader) error {
-			r.mu.Lock()
-			r.closed = true
-			r.mu.Unlock()
-			return sentinel
-		}
+		ops.read = func(int, []byte) (int, error) { return 0, syscall.EWOULDBLOCK }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 1))
-		if !errors.Is(err, io.EOF) {
-			t.Fatalf("expected io.EOF, got %v", err)
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			t.Fatalf("expected EWOULDBLOCK, got %v", err)
 		}
 	})
 
@@ -461,53 +452,13 @@ func TestPtyReader_Read_Branches(t *testing.T) {
 		}
 	})
 
-	t.Run("n==0 err==nil then wait error returns wait error", func(t *testing.T) {
-		sentinel := errors.New("wait")
+	t.Run("n==0 err==nil returns EAGAIN", func(t *testing.T) {
 		ops := newPTYOps()
 		ops.read = func(int, []byte) (int, error) { return 0, nil }
-		ops.waitForRead = func(*ptyReader) error { return sentinel }
 		r := &ptyReader{fd: 1, ops: ops}
 		_, err := r.Read(make([]byte, 8))
-		if !errors.Is(err, sentinel) {
-			t.Fatalf("expected error wrapping sentinel, got %v", err)
-		}
-	})
-
-	t.Run("n==0 err==nil then wait error but closed returns EOF", func(t *testing.T) {
-		sentinel := errors.New("wait")
-		ops := newPTYOps()
-		ops.read = func(int, []byte) (int, error) { return 0, nil }
-		ops.waitForRead = func(r *ptyReader) error {
-			r.mu.Lock()
-			r.closed = true
-			r.mu.Unlock()
-			return sentinel
-		}
-		r := &ptyReader{fd: 1, ops: ops}
-		_, err := r.Read(make([]byte, 8))
-		if !errors.Is(err, io.EOF) {
-			t.Fatalf("expected io.EOF, got %v", err)
-		}
-	})
-
-	t.Run("EAGAIN then wait nil continues", func(t *testing.T) {
-		calls := 0
-		ops := newPTYOps()
-		ops.read = func(int, []byte) (int, error) {
-			calls++
-			if calls == 1 {
-				return 0, syscall.EAGAIN
-			}
-			return 2, nil
-		}
-		ops.waitForRead = func(*ptyReader) error { return nil }
-		r := &ptyReader{fd: 1, ops: ops}
-		n, err := r.Read(make([]byte, 8))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if n != 2 {
-			t.Fatalf("n: got %d, want 2", n)
+		if !errors.Is(err, syscall.EAGAIN) {
+			t.Fatalf("expected EAGAIN, got %v", err)
 		}
 	})
 }
