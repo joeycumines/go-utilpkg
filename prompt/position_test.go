@@ -102,8 +102,30 @@ foobar`,
 			cols: 3,
 			line: 1,
 			want: Position{
-				X: 2,
+				// "foo" exactly fills 3 cols → cursor wraps to (0, 2)
+				// we've passed line=1, so break with autowrap position
+				X: 0,
+				Y: 2,
+			},
+		},
+		"exact fill on target line": {
+			input: "abc",
+			cols: 3,
+			line: 0,
+			want: Position{
+				// "abc" exactly fills 3 cols → cursor wraps to (0, 1)
+				X: 0,
 				Y: 1,
+			},
+		},
+		"exact fill not on target line": {
+			input: "abcdef",
+			cols: 3,
+			line: 5,
+			want: Position{
+				// "abc" fills line 0 (wraps), "def" fills line 1 (wraps)
+				X: 0,
+				Y: 2,
 			},
 		},
 		"last line is in the middle": {

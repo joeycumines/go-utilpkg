@@ -59,6 +59,7 @@ charLoop:
 			}
 			down++
 			right = 0
+			continue
 		}
 
 		right += istrings.Width(g.Width())
@@ -69,8 +70,15 @@ charLoop:
 			}
 			right = istrings.Width(g.Width())
 			down++
+		} else if right == columns {
+			// Exactly filled: cursor wraps to start of next line,
+			// consistent with positionAtEndOfString.
+			right = 0
+			down++
+			if down > line {
+				break charLoop
+			}
 		}
-
 	}
 
 	return Position{

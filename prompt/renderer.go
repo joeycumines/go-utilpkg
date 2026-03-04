@@ -565,7 +565,9 @@ func (r *Renderer) UserInputColumns() istrings.Width {
 
 // clear erases the screen from a beginning of input
 // even if there is line break which means input length exceeds a window's width.
-// Uses precise line-by-line clearing with cursor save/restore to handle terminal reflow.
+// Uses carriage return for reliable horizontal positioning and explicit
+// cursor movement to return to start position (avoids terminal-dependent
+// SaveCursor/UnSaveCursor behavior).
 func (r *Renderer) clear(cursor Position) {
 	totalLines := r.previousInputLines + r.previousCompletionLines
 	if totalLines <= 0 {
@@ -578,22 +580,24 @@ func (r *Renderer) clear(cursor Position) {
 	// Move to the start position
 	r.move(cursor, Position{})
 
-	// Save cursor at the start position (top-left of our content area)
-	r.out.SaveCursor()
-
-	// Clear each line precisely
+	// Clear each line precisely using \r for reliable column 0 positioning
 	for i := range totalLines {
+		if _, err := r.out.WriteString("\r"); err != nil {
+			panic(err)
+		}
 		r.out.EraseLine()
 		if i < totalLines-1 {
 			r.out.CursorDown(1)
-			if _, err := r.out.WriteString("\r"); err != nil {
-				panic(err)
-			}
 		}
 	}
 
-	// Restore cursor to the start position (top-left)
-	r.out.UnSaveCursor()
+	// Return to start position: move up to row 0 and reset column
+	if totalLines > 1 {
+		r.out.CursorUp(totalLines - 1)
+	}
+	if _, err := r.out.WriteString("\r"); err != nil {
+		panic(err)
+	}
 }
 
 // backward moves cursor to backward from a current cursor position
