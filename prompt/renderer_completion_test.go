@@ -77,6 +77,10 @@ func (m *mockWriterLogger) SetTitle(title string)   { m.addCall("SetTitle", titl
 func (m *mockWriterLogger) ClearTitle()             { m.addCall("ClearTitle") }
 func (m *mockWriterLogger) ScrollUp()               { m.addCall("ScrollUp") }
 func (m *mockWriterLogger) ScrollDown()             { m.addCall("ScrollDown") }
+func (m *mockWriterLogger) WriteRaw(data []byte)    { m.addCall("WriteRaw", string(data)) }
+func (m *mockWriterLogger) WriteRawString(data string) {
+	m.addCall("WriteRawString", data)
+}
 
 func TestRenderer_renderCompletion(t *testing.T) {
 	// Helper function to create a slice of suggestions
@@ -142,10 +146,9 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{2}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -189,10 +192,9 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{2}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -236,8 +238,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"CursorUp", []any{0}},
 				{"CursorBackward", []any{0}},
 				{"SetColor", []any{White, Cyan, false}},
@@ -272,8 +274,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -305,8 +307,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"CursorUp", []any{0}},
 				{"CursorBackward", []any{18}},
 				{"SetColor", []any{White, Cyan, false}},
@@ -339,14 +341,11 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{4}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}}, {"WriteString", []any{"\r"}}, {"CursorForward", []any{2}},
 				{"SetColor", []any{White, Cyan, false}}, {"WriteString", []any{" item-text-5 "}},
@@ -385,16 +384,12 @@ func TestRenderer_renderCompletion(t *testing.T) {
 			},
 			// selected = 0 should force verticalScroll to 0 so item 0 is shown and highlighted.
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{5}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -477,22 +472,15 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{8}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}}, {"WriteString", []any{"\r"}}, {"CursorForward", []any{2}},
 				{"SetColor", []any{White, Cyan, false}}, {"WriteString", []any{" item-text-20 "}},
@@ -555,8 +543,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"CursorUp", []any{0}},
 				{"CursorBackward", []any{0}},
 				{"SetColor", []any{White, Cyan, false}},
@@ -590,8 +578,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -621,8 +609,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -655,8 +643,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -687,8 +675,8 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{1}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},
@@ -737,20 +725,14 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				return r, b, c
 			},
 			expectedCalls: []mockCall{
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollDown", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
-				{"ScrollUp", nil},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"WriteRawString", []any{"\n"}},
+				{"CursorUp", []any{7}},
 				{"SetColor", []any{White, Cyan, false}},
 				{"CursorDown", []any{1}},
 				{"WriteString", []any{"\r"}},

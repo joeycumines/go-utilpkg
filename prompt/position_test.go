@@ -151,8 +151,8 @@ foobar`,
 		},
 		"exact fill on target line": {
 			input: "abc",
-			cols: 3,
-			line: 0,
+			cols:  3,
+			line:  0,
 			want: Position{
 				// "abc" exactly fills 3 cols → cursor wraps to (0, 1)
 				X: 0,
@@ -161,8 +161,8 @@ foobar`,
 		},
 		"exact fill not on target line": {
 			input: "abcdef",
-			cols: 3,
-			line: 5,
+			cols:  3,
+			line:  5,
 			want: Position{
 				// "abc" fills line 0 (wraps), "def" fills line 1 (wraps)
 				X: 0,

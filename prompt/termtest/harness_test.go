@@ -1075,3 +1075,295 @@ func TestHarness_EnterVsCtrlJ(t *testing.T) {
 		t.Fatalf("timeout waiting for Ctrl+J callback")
 	}
 }
+
+func TestHarness_FreeformMultiline(t *testing.T) {
+	// Exercises freeform text input: Ctrl+J inserts a newline (execute=false),
+	// Enter submits the full multiline buffer (execute=true).
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+
+	h, err := NewHarness(ctx)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	type callbackResult struct {
+		text string
+	}
+	resultCh := make(chan callbackResult, 10)
+
+	// Freeform mode callback: Ctrl+J inserts newline, Enter submits.
+	freeformCallback := func(p *prompt.Prompt, indentSize int) (int, bool) {
+		if p.EnterKeyPressed() {
+			resultCh <- callbackResult{text: p.Buffer().Text()}
+			return 0, true
+		}
+		// Ctrl+J: insert newline, no indent
+		return 0, false
+	}
+
+	h.RunPrompt(func(s string) {},
+		prompt.WithPrefix("$ "),
+		prompt.WithExecuteOnEnterCallback(freeformCallback),
+	)
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Type first line
+	if err := h.Console().WriteSync(ctx, "line one"); err != nil {
+		t.Fatalf("WriteSync line one: %v", err)
+	}
+
+	// Ctrl+J to insert newline (should NOT submit)
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync ctrl+j: %v", err)
+	}
+
+	// Verify no submission yet
+	select {
+	case r := <-resultCh:
+		t.Fatalf("unexpected submission after Ctrl+J: %q", r.text)
+	default:
+	}
+
+	// Type second line
+	if err := h.Console().WriteSync(ctx, "line two"); err != nil {
+		t.Fatalf("WriteSync line two: %v", err)
+	}
+
+	// Another Ctrl+J for a third line
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync ctrl+j 2: %v", err)
+	}
+
+	if err := h.Console().WriteSync(ctx, "line three"); err != nil {
+		t.Fatalf("WriteSync line three: %v", err)
+	}
+
+	// Enter to submit the full multiline input
+	if err := h.Console().SendSync(ctx, "enter"); err != nil {
+		t.Fatalf("SendSync enter: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		want := "line one\nline two\nline three"
+		if r.text != want {
+			t.Errorf("submitted text = %q, want %q", r.text, want)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for submission")
+	}
+}
+
+func TestHarness_ModeSwitching(t *testing.T) {
+	// Demonstrates dynamic mode switching based on input prefix.
+	// Default mode: freeform (Ctrl+J inserts newline, Enter submits).
+	// Bang mode ("!" prefix): Enter submits immediately (no freeform).
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+
+	h, err := NewHarness(ctx)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	type callbackResult struct {
+		text string
+	}
+	resultCh := make(chan callbackResult, 10)
+
+	modeCallback := func(p *prompt.Prompt, indentSize int) (int, bool) {
+		text := p.Buffer().Text()
+		if strings.HasPrefix(text, "!") {
+			// Bang mode: always execute on any Enter/Ctrl+J
+			resultCh <- callbackResult{text: text}
+			return 0, true
+		}
+		// Freeform mode: Enter submits, Ctrl+J inserts newline
+		if p.EnterKeyPressed() {
+			resultCh <- callbackResult{text: text}
+			return 0, true
+		}
+		return 0, false
+	}
+
+	h.RunPrompt(func(s string) {},
+		prompt.WithPrefix("$ "),
+		prompt.WithExecuteOnEnterCallback(modeCallback),
+	)
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Test 1: Freeform mode — multiline input with Ctrl+J
+	if err := h.Console().WriteSync(ctx, "hello"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync ctrl+j: %v", err)
+	}
+
+	// No submission yet
+	select {
+	case r := <-resultCh:
+		t.Fatalf("unexpected submission in freeform mode: %q", r.text)
+	default:
+	}
+
+	if err := h.Console().WriteSync(ctx, "world"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "enter"); err != nil {
+		t.Fatalf("SendSync enter: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		want := "hello\nworld"
+		if r.text != want {
+			t.Errorf("freeform text = %q, want %q", r.text, want)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for freeform submission")
+	}
+
+	// Wait for next prompt
+	snap = h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await second prompt: %v", err)
+	}
+
+	// Test 2: Bang mode — "!" prefix causes immediate submit on Enter
+	if err := h.Console().WriteSync(ctx, "!ls -la"); err != nil {
+		t.Fatalf("WriteSync bang: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "enter"); err != nil {
+		t.Fatalf("SendSync enter: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		want := "!ls -la"
+		if r.text != want {
+			t.Errorf("bang text = %q, want %q", r.text, want)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for bang submission")
+	}
+
+	// Wait for next prompt
+	snap = h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await third prompt: %v", err)
+	}
+
+	// Test 3: Bang mode with Ctrl+J — also submits immediately
+	if err := h.Console().WriteSync(ctx, "!echo hi"); err != nil {
+		t.Fatalf("WriteSync bang 2: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync ctrl+j: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		want := "!echo hi"
+		if r.text != want {
+			t.Errorf("bang ctrl+j text = %q, want %q", r.text, want)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for bang ctrl+j submission")
+	}
+}
+
+func TestHarness_MultilineCursorNavigation(t *testing.T) {
+	// Verifies that Up/Down arrow keys navigate between lines in a
+	// multiline buffer, and that edits apply to the correct line.
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+
+	h, err := NewHarness(ctx)
+	if err != nil {
+		t.Fatalf("NewHarness: %v", err)
+	}
+	defer h.Close()
+
+	type callbackResult struct {
+		text string
+	}
+	resultCh := make(chan callbackResult, 10)
+
+	freeformCallback := func(p *prompt.Prompt, indentSize int) (int, bool) {
+		if p.EnterKeyPressed() {
+			resultCh <- callbackResult{text: p.Buffer().Text()}
+			return 0, true
+		}
+		return 0, false
+	}
+
+	h.RunPrompt(func(s string) {},
+		prompt.WithPrefix("$ "),
+		prompt.WithExecuteOnEnterCallback(freeformCallback),
+	)
+
+	snap := h.Console().Snapshot()
+	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
+		t.Fatalf("Await prompt: %v", err)
+	}
+
+	// Build a 3-line buffer: "aaa" / "bbb" / "ccc"
+	if err := h.Console().WriteSync(ctx, "aaa"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync: %v", err)
+	}
+	if err := h.Console().WriteSync(ctx, "bbb"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+	if err := h.Console().SendSync(ctx, "ctrl+j"); err != nil {
+		t.Fatalf("SendSync: %v", err)
+	}
+	if err := h.Console().WriteSync(ctx, "ccc"); err != nil {
+		t.Fatalf("WriteSync: %v", err)
+	}
+
+	// Navigate up to "bbb" and type "X"
+	if err := h.Console().SendSync(ctx, "up"); err != nil {
+		t.Fatalf("SendSync up: %v", err)
+	}
+	if err := h.Console().WriteSync(ctx, "X"); err != nil {
+		t.Fatalf("WriteSync X: %v", err)
+	}
+
+	// Navigate up to "aaa" and type "Y"
+	if err := h.Console().SendSync(ctx, "up"); err != nil {
+		t.Fatalf("SendSync up: %v", err)
+	}
+	if err := h.Console().WriteSync(ctx, "Y"); err != nil {
+		t.Fatalf("WriteSync Y: %v", err)
+	}
+
+	// Submit with Enter
+	if err := h.Console().SendSync(ctx, "enter"); err != nil {
+		t.Fatalf("SendSync enter: %v", err)
+	}
+
+	select {
+	case r := <-resultCh:
+		want := "aaaY\nbbbX\nccc"
+		if r.text != want {
+			t.Errorf("submitted text = %q, want %q", r.text, want)
+		}
+	case <-ctx.Done():
+		t.Fatalf("timeout waiting for submission")
+	}
+}

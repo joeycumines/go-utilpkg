@@ -100,12 +100,14 @@ func (r *Renderer) Close() {
 }
 
 func (r *Renderer) prepareArea(lines int) {
+	// Create space below the cursor for the completion window by
+	// writing newlines (which scroll at the bottom of the screen)
+	// then moving back up. This replaces ESC D / ESC M (Index /
+	// Reverse Index) which behave unreliably on macOS Terminal.app.
 	for range lines {
-		r.out.ScrollDown()
+		r.out.WriteRawString("\n")
 	}
-	for range lines {
-		r.out.ScrollUp()
-	}
+	r.out.CursorUp(lines)
 }
 
 // UpdateWinSize called when window size is changed.

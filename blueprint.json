@@ -7,7 +7,7 @@
       "id": "render-line-wrap-bug",
       "title": "Fix line-wrap rendering bug causing spurious newlines on macOS Terminal",
       "description": "When input + prefix width exceeds terminal columns, the renderer miscalculates cursor positions during clear/redraw cycles. positionAtEndOfStringLine does not handle the exact-fill case (right == columns) that positionAtEndOfString does, and countInputLines has a similar gap. This causes the clear function to move the cursor incorrectly, leaving artifacts (extra newlines above the prompt). Fix all three functions to be consistent and correct for wrapped lines. The clear method itself should also use absolute positioning (\\r + column) instead of relative cursor moves that are fragile when the terminal has reflowed.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "No spurious newlines appear when input text wraps across terminal width on macOS Terminal. positionAtEndOfStringLine handles right==columns. countInputLines correctly counts soft-wrapped lines. Existing position_test.go, renderer_test.go all pass. New test cases for exact-fill wrapping added."
     },
     {
@@ -28,7 +28,7 @@
       "id": "render-completion-position-fix",
       "title": "Fix completion dropdown position calculation for wrapped input lines",
       "description": "In renderCompletion, the cursor position is calculated for placing the dropdown relative to the cursor. When input wraps, the X position used for the dropdown may exceed the terminal width, causing the backward() call to produce incorrect positioning. Ensure the completion column is clamped and accounts for soft-wrapped lines.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Completion dropdown renders correctly when input text wraps. No visual corruption. Tested with harness tests showing completions with long input."
     },
     {
@@ -56,63 +56,63 @@
       "id": "multiline-ctrl-j-support",
       "title": "Ensure Ctrl+J inserts literal newline when executeOnEnterCallback says no",
       "description": "In feed(), Enter/ControlJ/ControlM all call executeOnEnterCallback. Currently Ctrl+J (ControlJ) is treated identically to Enter. For multiline support, the design should allow the executeOnEnterCallback to differentiate between Enter (which might submit) and Ctrl+J (which should always insert a newline). However, changing the callback signature is a breaking change. Instead, expose the triggering key via the Prompt API so callbacks can check it. Document that Ctrl+J can be used for literal newline insertion by configuring executeOnEnterCallback appropriately.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Ctrl+J inserts a literal newline when executeOnEnterCallback returns execute=false. Prompt exposes the triggering key to the callback (or uses Document.LastKeyStroke). No breaking API changes. Tests verify Ctrl+J inserts newline while Enter submits."
     },
     {
       "id": "multiline-enter-vs-ctrlj-api",
       "title": "Add API to distinguish Enter from Ctrl+J in ExecuteOnEnterCallback",
       "description": "The ExecuteOnEnterCallback currently receives (prompt, indentSize) but has no way to know which key triggered it (Enter vs Ctrl+J). The buffer already stores lastKeyStroke. Ensure that Document.LastKeyStroke() is accessible within the callback via p.Buffer().Document().LastKeyStroke(). Add a helper method on Prompt like LastKeyStroke() Key that delegates. Document this pattern for multiline usage.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Prompt.LastKeyStroke() returns the key that triggered the current callback. ExecuteOnEnterCallback implementations can distinguish Enter (submit) from ControlJ (insert newline). Example added to documentation or _example directory."
     },
     {
       "id": "multiline-freeform-mode",
       "title": "Design and implement freeform text input mode",
       "description": "Implement a mode where Enter inserts a newline (like a text editor) and a specific key combination (e.g., Ctrl+D on empty line, or configurable submit key) submits the text. This is the 'agentic TUI' pattern where the default is freeform multiline editing. The mode should be configurable via a new Option, e.g. WithFreeformMode(submitKey Key). In freeform mode: Enter inserts newline, the submit key executes. Ctrl+J also inserts newline. The existing executeOnEnterCallback should still be invoked but with the appropriate context. This must NOT break the existing default behavior (Enter submits).",
-      "status": "pending",
+      "status": "done",
       "acceptance": "New WithFreeformMode option available. When enabled, Enter inserts newline, configurable submit key submits input. Ctrl+J also inserts newline. Default behavior (Enter submits) unchanged. Integration test via termtest verifies both modes."
     },
     {
       "id": "multiline-mode-switching",
       "title": "Implement dynamic mode switching based on input prefix",
       "description": "Support the Claude Code pattern where input starting with '!' switches to a different mode (e.g., bash mode with different completions and submission semantics). Implement a ModeResolver callback that receives the current buffer text and returns the active mode configuration (completer, executeOnEnterCallback, etc). When the mode changes mid-input, the prompt reconfigures dynamically. This requires a new Option like WithModeResolver(fn func(text string) *ModeConfig) and a ModeConfig struct. Design must allow entirely different completion behavior per mode.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "WithModeResolver option available. ModeConfig struct defined with Completer, ExecuteOnEnterCallback, optional Prefix to strip before execution. Mode changes dynamically as user types. Completions update when mode changes. Integration test with two modes (default and !-prefixed) passes."
     },
     {
       "id": "multiline-cursor-nav-tests",
       "title": "Add comprehensive tests for cursor navigation in multiline buffers",
       "description": "Ensure cursor up/down in multiline text (with explicit newlines and soft-wrapped lines) moves correctly. Test CursorUp/CursorDown with preferredColumn preservation. Test navigating across a soft-wrap boundary vs a hard newline boundary. Test with wide characters.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "New test cases in buffer_test.go or document_test.go for multiline cursor navigation. Cover: up/down across hard newlines, up/down across soft wraps, preferred column preservation, wide character boundaries."
     },
     {
       "id": "multiline-integration-test-ctrlj",
       "title": "Add termtest integration test for Ctrl+J multiline input",
       "description": "Write a termtest.Harness integration test that: types some text, presses Ctrl+J to insert a newline, types more text, presses Enter to submit. Verify the executed command contains the literal newline. Verify the terminal output shows multiline prefix characters.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Test creates harness, sends text + Ctrl+J + more text + Enter. Asserts executed command contains \\n. Asserts terminal output shows multiline prefix dots. Test passes reliably."
     },
     {
       "id": "multiline-integration-test-freeform",
       "title": "Add termtest integration test for freeform text input mode",
       "description": "Write a termtest.Harness integration test that creates a prompt in freeform mode, types text, presses Enter (expecting newline insertion), types more text, then presses the configured submit key. Verify the executed command contains newlines from Enter presses. Verify correct rendering of multiline input.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "Test uses WithFreeformMode, sends text + Enter + text + submit key. Asserts executed command has embedded newlines. Test passes reliably."
     },
     {
       "id": "multiline-integration-test-mode-switch",
       "title": "Add termtest integration test for dynamic mode switching",
-      "description": "Write a termtest.Harness integration test that creates a prompt with a ModeResolver (default mode + '!' bash mode). Test: (1) type normal text → completions from default completer, (2) clear and type '!ls' → completions from bash completer, (3) submit → executed command is 'ls' (prefix stripped). Verify mode switching is seamless.",
-      "status": "pending",
+      "description": "Write a termtest.Harness integration test that creates a prompt with a ModeResolver (default mode + '!' bash mode). Test: (1) type normal text \u2192 completions from default completer, (2) clear and type '!ls' \u2192 completions from bash completer, (3) submit \u2192 executed command is 'ls' (prefix stripped). Verify mode switching is seamless.",
+      "status": "done",
       "acceptance": "Test creates harness with mode resolver. Verifies completions change based on prefix. Verifies prefix stripping on execution. Passes reliably."
     },
     {
       "id": "renderer-preparearea-fix",
       "title": "Fix prepareArea ScrollDown/ScrollUp to be compatible with macOS Terminal",
       "description": "prepareArea uses ESC D (Index) and ESC M (Reverse Index). ESC D in some terminals is 'cursor down' not 'scroll'. On macOS Terminal.app, this can cause unexpected behavior. Consider using \\n for scrolling down (universally supported) instead of ESC D. Or use the scroll region approach. Verify behavior on macOS Terminal.app.",
-      "status": "pending",
+      "status": "done",
       "acceptance": "prepareArea works correctly on macOS Terminal.app. No spurious scrolling or newlines. If ESC D is replaced, replacement is universally compatible."
     },
     {
