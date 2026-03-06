@@ -105,8 +105,9 @@ const _Key_name = "EscapeControlAControlBControlCControlDControlEControlFControl
 var _Key_index = [...]uint16{0, 6, 14, 22, 30, 38, 46, 54, 62, 70, 78, 86, 94, 102, 110, 118, 126, 134, 142, 150, 158, 166, 174, 182, 190, 198, 206, 214, 226, 242, 260, 277, 294, 305, 317, 326, 337, 339, 343, 348, 356, 360, 367, 376, 383, 392, 402, 406, 409, 415, 426, 439, 445, 453, 460, 466, 475, 487, 490, 495, 497, 499, 501, 503, 505, 507, 509, 511, 513, 516, 519, 522, 525, 528, 531, 534, 537, 540, 543, 546, 549, 552, 555, 558, 561, 572, 587, 604, 618, 624, 634}
 
 func (i Key) String() string {
-	if i < 0 || i >= Key(len(_Key_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Key_index)-1 {
 		return "Key(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Key_name[_Key_index[i]:_Key_index[i+1]]
+	return _Key_name[_Key_index[idx]:_Key_index[idx+1]]
 }

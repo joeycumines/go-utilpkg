@@ -1,6 +1,7 @@
 package gojaprotobuf
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -10,12 +11,7 @@ import (
 
 // sliceContains reports whether slice contains item.
 func sliceContains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }
 
 type testEnv struct {

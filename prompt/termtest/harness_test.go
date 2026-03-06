@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -597,12 +598,7 @@ func TestHarness_ExecutorAndExecutedCommands_Coverage(t *testing.T) {
 }
 
 func sliceContainsStr(s []string, v string) bool {
-	for _, item := range s {
-		if item == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, v)
 }
 
 func TestHarness_RunPrompt_NoPTS(t *testing.T) {

@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-inprocgrpc/internal/grpchantest
 
-go 1.26.0
+go 1.26.1
 
 replace github.com/joeycumines/go-inprocgrpc => ../..
 
@@ -8,8 +8,8 @@ replace github.com/joeycumines/go-eventloop => ../../../eventloop
 
 require (
 	github.com/fullstorydev/grpchan v1.1.2
-	github.com/joeycumines/go-eventloop v0.0.0-20260228170514-ce9591fd940c
-	github.com/joeycumines/go-inprocgrpc v0.0.0-20260228154239-f7983abaf819
+	github.com/joeycumines/go-eventloop v0.0.0-20260228171504-11d0b71e95d7
+	github.com/joeycumines/go-inprocgrpc v0.0.0-20260228171536-0b3b2f75648d
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
 )

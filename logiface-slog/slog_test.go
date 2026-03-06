@@ -472,7 +472,7 @@ func TestLogger_NewEvent_ReleaseEvent(t *testing.T) {
 		h := newHarness(t)
 
 		// Log multiple times to exercise pool
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			h.L.Build(logiface.LevelDebug).Str(`key`, `value`).Log(`test`)
 		}
 

@@ -1,6 +1,6 @@
 module github.com/joeycumines/logiface
 
-go 1.26.0
+go 1.26.1
 
 require (
 	github.com/hexops/gotextdiff v1.0.3
@@ -9,4 +9,4 @@ require (
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 )
 
-require github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260228170940-8e97e685a639 // indirect
+require github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260304160753-ca668452f98b // indirect

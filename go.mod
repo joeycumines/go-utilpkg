@@ -1,13 +1,13 @@
 module github.com/joeycumines/go-utilpkg
 
-go 1.26.0
+go 1.26.1
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/KimMachineGun/automemlimit v0.7.5 // indirect
 	github.com/aws/aws-sdk-go v1.44.259 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dkorunic/betteralign v0.8.4 // indirect
+	github.com/dkorunic/betteralign v0.9.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/grailbio/base v0.0.11 // indirect
@@ -25,7 +25,7 @@ require (
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260213145524-e0ab670178e1 // indirect
+	golang.org/x/telemetry v0.0.0-20260304144227-18da59047661 // indirect
 	golang.org/x/tools v0.42.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
