@@ -243,6 +243,20 @@ func (p *Prompt) RunNoExit() int {
 					return -1
 				}
 
+				// If Close() was requested while the executor was running, do not
+				// re-enter the normal read loop. Re-open the reader and hand off
+				// directly to graceful shutdown so pending input is processed in
+				// one place without racing the main loop.
+				select {
+				case <-stopCh:
+					debug.AssertNoError(p.reader.Open())
+					go p.readBuffer(bufCh, stopReadBufCh, leftoverData)
+					go p.handleExitSignals(exitCh, stopExitHandleSignalCh)
+					p.shutdown(stopReadBufCh, bufCh, stopExitHandleSignalCh, stopWinHandleSignalCh)
+					return -1
+				default:
+				}
+
 				// Set raw mode
 				debug.AssertNoError(p.reader.Open())
 				go p.readBuffer(bufCh, stopReadBufCh, leftoverData)
@@ -1142,16 +1156,42 @@ type horizontalCursorModifier[CountT ~int] func(CountT, istrings.Width, int) boo
 func promptCursorHorizontalMove[CountT ~int](p *Prompt, modifierFunc horizontalCursorModifier[CountT], count CountT) bool {
 	b := p.buffer
 	cols := p.renderer.UserInputColumns()
-	previousCursor := b.DisplayCursorPosition(cols)
+	prefixWidth := istrings.GetWidth(p.renderer.prefixCallback())
+	previousCursor, previousIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
 
 	rerender := modifierFunc(count, cols, p.renderer.row) || p.completionReset || len(p.completion.tmp) > 0
 	if rerender {
 		return true
 	}
 
-	newCursor := b.DisplayCursorPosition(cols)
+	newCursor, newIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
+
+	// DisplayCursorPosition returns ABSOLUTE document coordinates (0-indexed
+	// X within user-input columns, absolute Y). Convert to the same coordinate
+	// space that Render() stores in r.previousCursor:
+	//   X += prefixWidth  (Render adds it)
+	//   Y -= startLine    (viewport-relative)
+	// Also clamp Y to [0, r.row-1] to prevent negative/overflow ANSI sequences.
+	newCursor.X += prefixWidth
+	newCursor.Y -= b.startLine
+	if newCursor.Y < 0 {
+		newCursor.Y = 0
+	} else if p.renderer.row > 0 && newCursor.Y >= p.renderer.row {
+		newCursor.Y = p.renderer.row - 1
+	}
+
+	// previousCursor for the move delta also needs the same transform
+	previousCursor.X += prefixWidth
+	previousCursor.Y -= b.startLine
+	if previousCursor.Y < 0 {
+		previousCursor.Y = 0
+	} else if p.renderer.row > 0 && previousCursor.Y >= p.renderer.row {
+		previousCursor.Y = p.renderer.row - 1
+	}
+
 	p.renderer.previousCursor = newCursor
-	p.renderer.move(previousCursor, newCursor)
+	p.renderer.previousCursorIsFullWidth = newIsFullWidth
+	p.renderer.move(previousCursor, previousIsFullWidth, newCursor, newIsFullWidth)
 	p.renderer.flush()
 	return false
 }
@@ -1161,16 +1201,35 @@ func promptCursorHorizontalMove[CountT ~int](p *Prompt, modifierFunc horizontalC
 func (p *Prompt) CursorUp(count int) bool {
 	b := p.buffer
 	cols := p.renderer.UserInputColumns()
-	previousCursor := b.DisplayCursorPosition(cols)
+	prefixWidth := istrings.GetWidth(p.renderer.prefixCallback())
+	previousCursor, previousIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
 
 	rerender := p.buffer.CursorUp(count, cols, p.renderer.row) || p.completionReset || len(p.completion.tmp) > 0
 	if rerender {
 		return true
 	}
 
-	newCursor := b.DisplayCursorPosition(cols)
+	newCursor, newIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
+
+	newCursor.X += prefixWidth
+	newCursor.Y -= b.startLine
+	if newCursor.Y < 0 {
+		newCursor.Y = 0
+	} else if p.renderer.row > 0 && newCursor.Y >= p.renderer.row {
+		newCursor.Y = p.renderer.row - 1
+	}
+
+	previousCursor.X += prefixWidth
+	previousCursor.Y -= b.startLine
+	if previousCursor.Y < 0 {
+		previousCursor.Y = 0
+	} else if p.renderer.row > 0 && previousCursor.Y >= p.renderer.row {
+		previousCursor.Y = p.renderer.row - 1
+	}
+
 	p.renderer.previousCursor = newCursor
-	p.renderer.move(previousCursor, newCursor)
+	p.renderer.previousCursorIsFullWidth = newIsFullWidth
+	p.renderer.move(previousCursor, previousIsFullWidth, newCursor, newIsFullWidth)
 	p.renderer.flush()
 	return false
 }
@@ -1180,16 +1239,35 @@ func (p *Prompt) CursorUp(count int) bool {
 func (p *Prompt) CursorDown(count int) bool {
 	b := p.buffer
 	cols := p.renderer.UserInputColumns()
-	previousCursor := b.DisplayCursorPosition(cols)
+	prefixWidth := istrings.GetWidth(p.renderer.prefixCallback())
+	previousCursor, previousIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
 
 	rerender := p.buffer.CursorDown(count, cols, p.renderer.row) || p.completionReset || len(p.completion.tmp) > 0
 	if rerender {
 		return true
 	}
 
-	newCursor := b.DisplayCursorPosition(cols)
+	newCursor, newIsFullWidth := b.DisplayCursorPositionFullWidth(cols)
+
+	newCursor.X += prefixWidth
+	newCursor.Y -= b.startLine
+	if newCursor.Y < 0 {
+		newCursor.Y = 0
+	} else if p.renderer.row > 0 && newCursor.Y >= p.renderer.row {
+		newCursor.Y = p.renderer.row - 1
+	}
+
+	previousCursor.X += prefixWidth
+	previousCursor.Y -= b.startLine
+	if previousCursor.Y < 0 {
+		previousCursor.Y = 0
+	} else if p.renderer.row > 0 && previousCursor.Y >= p.renderer.row {
+		previousCursor.Y = p.renderer.row - 1
+	}
+
 	p.renderer.previousCursor = newCursor
-	p.renderer.move(previousCursor, newCursor)
+	p.renderer.previousCursorIsFullWidth = newIsFullWidth
+	p.renderer.move(previousCursor, previousIsFullWidth, newCursor, newIsFullWidth)
 	p.renderer.flush()
 	return false
 }

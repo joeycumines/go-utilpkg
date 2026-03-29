@@ -48,8 +48,21 @@ func (b *Buffer) Document() (d *Document) {
 
 // DisplayCursorPosition returns the cursor position on rendered text on terminal emulators.
 // So if Document is "日本(cursor)語", DisplayedCursorPosition returns 4 because '日' and '本' are double width characters.
+//
+// For exact-fill boundaries (text that exactly fills the column width), the returned
+// Position uses legacy semantics: X=0, Y+=1. Use DisplayCursorPositionFullWidth to
+// access the raw exact-fill state instead.
 func (b *Buffer) DisplayCursorPosition(columns istrings.Width) Position {
 	return b.Document().DisplayCursorPosition(columns)
+}
+
+// DisplayCursorPositionFullWidth returns the cursor position on rendered text
+// along with whether the cursor sits at an exact-fill wrapped boundary.
+// When fullWidth is true, the line exactly filled the column width (X == columns).
+// This is the raw internal representation; callers that need legacy coordinates
+// should use DisplayCursorPosition instead.
+func (b *Buffer) DisplayCursorPositionFullWidth(columns istrings.Width) (Position, bool) {
+	return b.Document().DisplayCursorPositionFullWidth(columns)
 }
 
 // Insert string into the buffer and move the cursor.
@@ -100,13 +113,30 @@ func (b *Buffer) resetStartLine() {
 }
 
 // Calculates the startLine once again and returns true when it's been changed.
+//
+// The viewport scrolls only when the cursor's logical line (pos.Y) is outside
+// the visible range [startLine, startLine+rows-1]. For exact-fill cursors
+// (fullWidth=true), the terminal has NOT yet wrapped — xenl/deferred-wrap
+// semantics mean the next character will trigger the wrap. The viewport does
+// NOT preemptively scroll for the wrap that hasn't happened. This guarantees
+// strict idempotency: calling this function N times on identical state never
+// changes startLine.
 func (b *Buffer) recalculateStartLine(columns istrings.Width, rows int) bool {
 	origStartLine := b.startLine
-	pos := b.DisplayCursorPosition(columns)
-	if pos.Y > b.startLine+rows-1 {
-		b.startLine = pos.Y - rows + 1
-	} else if pos.Y < b.startLine {
-		b.startLine = pos.Y
+	pos, _ := b.DisplayCursorPositionFullWidth(columns)
+	if rows > 0 {
+		// Normal case: keep cursor within [startLine, startLine+rows-1].
+		if pos.Y > b.startLine+rows-1 {
+			b.startLine = pos.Y - rows + 1
+		} else if pos.Y < b.startLine {
+			b.startLine = pos.Y
+		}
+	} else {
+		// Edge case: viewport has no height. Keep cursor at or above its
+		// absolute position (don't push startLine beyond the content).
+		if pos.Y < b.startLine {
+			b.startLine = pos.Y
+		}
 	}
 
 	if b.startLine < 0 {

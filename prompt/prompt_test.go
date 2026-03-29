@@ -3,6 +3,7 @@ package prompt
 import (
 	"bytes"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -2379,7 +2380,6 @@ func TestGracefulShutdownExecutesMultipleCommands(t *testing.T) {
 	}
 
 	// While executor is blocked, feed multiple complete commands
-	// readBuffer will read these and block trying to send to bufCh (unbuffered, main loop busy)
 	r.Feed([]byte("command one"))
 	r.Feed(findASCIICode(Enter))
 	r.Feed([]byte("command two"))
@@ -2735,6 +2735,127 @@ func TestWithGracefulClose(t *testing.T) {
 		p := New(func(s string) {})
 		if p.gracefulCloseEnabled {
 			t.Error("expected gracefulCloseEnabled to be false by default")
+		}
+	})
+}
+
+// TestRunNoExit_NoGoroutineLeak verifies that RunNoExit + Close cycles
+// do not leave internal go-prompt goroutines running. Uses runtime.Stack()
+// to deterministically inspect for leaked readBuffer, handleExitSignals,
+// or handleWinSizeSignals goroutines — immune to GC/sysmon background noise.
+func TestRunNoExit_NoGoroutineLeak(t *testing.T) {
+	// internalGoroutines are the method names of goroutines spawned by the
+	// prompt loop.  A leak means one of these is still running after Close().
+	internalGoroutines := []string{
+		"readBuffer",
+		"handleExitSignals",
+		"handleWinSizeSignals",
+	}
+
+	// leakCheck inspects all goroutine stacks for internal prompt goroutines.
+	// Returns the set of leaked method names (empty = no leak).
+	// Uses dynamic buffer growth to guarantee no truncation: starts at 64KB
+	// and doubles until runtime.Stack reports n < len(buf).
+	leakCheck := func() []string {
+		size := 64 * 1024 // 64 KB initial buffer
+		for {
+			buf := make([]byte, size)
+			n := runtime.Stack(buf, true)
+			if n < len(buf) {
+				// Buffer was large enough to capture all stacks.
+				stacks := string(buf[:n])
+				var leaked []string
+				for _, name := range internalGoroutines {
+					// Prefix with "." to match "package.readBuffer" or "(*Prompt).readBuffer"
+					// guaranteeing we don't false-positive on random file paths.
+					if strings.Contains(stacks, "."+name) {
+						leaked = append(leaked, name)
+					}
+				}
+				return leaked
+			}
+			// Buffer was too small (n == len(buf)), double and retry.
+			size *= 2
+		}
+	}
+
+	// waitForLeakDrain polls until no internal goroutines are detected or
+	// the deadline expires.  This accounts for the brief window where
+	// goroutines are in their deferred signal.Stop() cleanup (which
+	// acquires an internal Go runtime mutex and may take a few
+	// milliseconds under contention).
+	waitForLeakDrain := func(t *testing.T, deadline time.Duration, contextMsg string) {
+		t.Helper()
+		deadlineCh := time.After(deadline)
+		for {
+			if leaked := leakCheck(); len(leaked) == 0 {
+				return
+			}
+			select {
+			case <-deadlineCh:
+				// Final check — fail with details. Use Fatalf to prevent cascading.
+				if leaked := leakCheck(); len(leaked) > 0 {
+					t.Fatalf("goroutine leak detected %s (after %v): %v", contextMsg, deadline, leaked)
+				}
+				return
+			default:
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}
+
+	// Confirm baseline has no internal goroutines.
+	// We wait here instead of an instant check because other tests running
+	// beforehand may still have goroutines in the process of shutting down.
+	waitForLeakDrain(t, 2*time.Second, "at baseline")
+
+	t.Run("normal run and close", func(t *testing.T) {
+		r := newMockReader()
+		p := newTestPrompt(r, func(s string) {}, nil)
+
+		runDone := make(chan struct{})
+		go func() {
+			defer func() { _ = r.Close() }()
+			p.RunNoExit()
+			close(runDone)
+		}()
+
+		r.WaitReady()
+
+		// Trigger Close() which closes stopCh, causing RunNoExit to shutdown.
+		p.Close()
+
+		select {
+		case <-runDone:
+		case <-time.After(2 * time.Second):
+			t.Fatal("RunNoExit did not finish after Close")
+		}
+
+		waitForLeakDrain(t, 2*time.Second, "after normal run and close")
+	})
+
+	t.Run("multiple run close cycles", func(t *testing.T) {
+		for i := range 3 {
+			r := newMockReader()
+			p := newTestPrompt(r, func(s string) {}, nil)
+
+			runDone := make(chan struct{})
+			go func() {
+				defer func() { _ = r.Close() }()
+				p.RunNoExit()
+				close(runDone)
+			}()
+
+			r.WaitReady()
+			p.Close()
+
+			select {
+			case <-runDone:
+			case <-time.After(2 * time.Second):
+				t.Fatalf("RunNoExit cycle %d did not finish", i)
+			}
+
+			waitForLeakDrain(t, 2*time.Second, "during multiple run close cycles")
 		}
 	})
 }

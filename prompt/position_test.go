@@ -1,5 +1,3 @@
-//go:build !windows
-
 package prompt
 
 import (
@@ -11,9 +9,10 @@ import (
 
 func TestPositionAtEndOfString(t *testing.T) {
 	tests := map[string]struct {
-		input   string
-		columns istrings.Width
-		want    Position
+		input         string
+		columns       istrings.Width
+		want          Position
+		wantFullWidth bool
 	}{
 		"empty": {
 			input:   "",
@@ -46,14 +45,16 @@ func TestPositionAtEndOfString(t *testing.T) {
 				X: 2,
 				Y: 0,
 			},
-		}, "wide overflow": {
+		},
+		"wide overflow": {
 			input:   "🙆🏿‍♂️",
 			columns: 1,
 			want: Position{
 				X: 2,
-				Y: 1,
+				Y: 0,
 			},
-		}, "one-line fits in columns": {
+		},
+		"one-line fits in columns": {
 			input:   "foo bar",
 			columns: 20,
 			want: Position{
@@ -70,20 +71,21 @@ func TestPositionAtEndOfString(t *testing.T) {
 			},
 		},
 		"one-line wrapping": {
-			input:   "foobar",
+			input:   "abcd",
 			columns: 3,
 			want: Position{
-				X: 0,
-				Y: 2,
+				X: 1,
+				Y: 1,
 			},
 		},
 		"exact fill single line": {
 			input:   "abc",
 			columns: 3,
 			want: Position{
-				X: 0,
-				Y: 1,
+				X: 3,
+				Y: 0,
 			},
+			wantFullWidth: true,
 		},
 		"one char short of fill": {
 			input:   "ab",
@@ -105,24 +107,28 @@ func TestPositionAtEndOfString(t *testing.T) {
 			input:   "abcdef",
 			columns: 3,
 			want: Position{
-				X: 0,
-				Y: 2,
+				X: 3,
+				Y: 1,
 			},
+			wantFullWidth: true,
 		},
 		"exact fill with newline after": {
 			input:   "abc\nd",
 			columns: 3,
 			want: Position{
-				// "abc" fills → wrap to line 1, '\n' → line 2, 'd' at (1, 2)
+				// "abc" fills, '\n' → line 1, 'd' at (1, 1)
 				X: 1,
-				Y: 2,
+				Y: 1,
 			},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := positionAtEndOfString(tc.input, tc.columns)
+			got, gotFullWidth := positionAtEndOfString(tc.input, tc.columns)
+			if gotFullWidth != tc.wantFullWidth {
+				t.Errorf("wantFullWidth %v, got %v", tc.wantFullWidth, gotFullWidth)
+			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Fatal(diff)
 			}
@@ -132,21 +138,39 @@ func TestPositionAtEndOfString(t *testing.T) {
 
 func TestPositionAtEndOfStringLine(t *testing.T) {
 	tests := map[string]struct {
-		input string
-		cols  istrings.Width
-		line  int
-		want  Position
+		input         string
+		cols          istrings.Width
+		line          int
+		want          Position
+		wantFullWidth bool
 	}{
-		"last line overflows": {
-			input: `hi
-foobar`,
-			cols: 3,
-			line: 1,
+		"exact fill target line": {
+			input: "foo\nfoobar",
+			cols:  3,
+			line:  1,
 			want: Position{
-				// "foo" exactly fills 3 cols → cursor wraps to (0, 2)
-				// we've passed line=1, so break with autowrap position
-				X: 0,
-				Y: 2,
+				X: 3,
+				Y: 1,
+			},
+			wantFullWidth: true,
+		},
+		"Clipped Soft Wrap Position": {
+			input: "abcd",
+			cols:  3,
+			line:  0,
+			want: Position{
+				X: 3,
+				Y: 0,
+			},
+			wantFullWidth: true,
+		},
+		"Clipped Explicit Newline Position": {
+			input: "abc\ndef",
+			cols:  10,
+			line:  0,
+			want: Position{
+				X: 3,
+				Y: 0,
 			},
 		},
 		"exact fill on target line": {
@@ -154,20 +178,22 @@ foobar`,
 			cols:  3,
 			line:  0,
 			want: Position{
-				// "abc" exactly fills 3 cols → cursor wraps to (0, 1)
-				X: 0,
-				Y: 1,
+				// "abc" exactly fills 3 cols → stays on line 0 at X=3
+				X: 3,
+				Y: 0,
 			},
+			wantFullWidth: true,
 		},
 		"exact fill not on target line": {
 			input: "abcdef",
 			cols:  3,
 			line:  5,
 			want: Position{
-				// "abc" fills line 0 (wraps), "def" fills line 1 (wraps)
-				X: 0,
-				Y: 2,
+				// "abc" fills line 0 (wraps), "def" fills line 1 (no wrap, stays at 3,1)
+				X: 3,
+				Y: 1,
 			},
+			wantFullWidth: true,
 		},
 		"last line is in the middle": {
 			input: `hi
@@ -197,7 +223,10 @@ baz`,
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := positionAtEndOfStringLine(tc.input, tc.cols, tc.line)
+			got, gotFullWidth := positionAtEndOfStringLine(tc.input, tc.cols, tc.line)
+			if gotFullWidth != tc.wantFullWidth {
+				t.Errorf("wantFullWidth %v, got %v", tc.wantFullWidth, gotFullWidth)
+			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Fatal(diff)
 			}
@@ -207,9 +236,10 @@ baz`,
 
 func TestPositionAdd(t *testing.T) {
 	tests := map[string]struct {
-		left  Position
-		right Position
-		want  Position
+		left          Position
+		right         Position
+		want          Position
+		wantFullWidth bool
 	}{
 		"empty": {
 			left:  Position{},
@@ -250,9 +280,10 @@ func TestPositionAdd(t *testing.T) {
 
 func TestPositionSubtract(t *testing.T) {
 	tests := map[string]struct {
-		left  Position
-		right Position
-		want  Position
+		left          Position
+		right         Position
+		want          Position
+		wantFullWidth bool
 	}{
 		"empty": {
 			left:  Position{},
@@ -293,9 +324,10 @@ func TestPositionSubtract(t *testing.T) {
 
 func TestPositionJoin(t *testing.T) {
 	tests := map[string]struct {
-		left  Position
-		right Position
-		want  Position
+		left          Position
+		right         Position
+		want          Position
+		wantFullWidth bool
 	}{
 		"empty": {
 			left:  Position{},

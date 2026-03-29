@@ -193,7 +193,6 @@ func TestRenderer_renderCompletion_Hidden(t *testing.T) {
 		scrollbarBGColor:             Cyan,
 	}
 
-	buffer := NewBuffer()
 	completion := NewCompletionManager(5)
 	completion.tmp = []Suggest{
 		{Text: "test1", Description: "desc1"},
@@ -202,9 +201,13 @@ func TestRenderer_renderCompletion_Hidden(t *testing.T) {
 
 	mockOut := renderer.out.(*mockWriterLogger)
 
+	// Compute the clamped cursor: empty buffer → cursor at end of prefix on line 0.
+	// prefix "> " has width 2; empty text means IsFullWidth = false.
+	clampedCursor := Position{X: 2, Y: 0}
+
 	// Test 1: Render when visible (should render)
 	mockOut.reset()
-	renderer.renderCompletion(buffer, completion)
+	renderer.renderCompletion(completion, clampedCursor, false)
 	if len(mockOut.calls) == 0 {
 		t.Error("renderCompletion should produce output when not hidden")
 	}
@@ -212,7 +215,7 @@ func TestRenderer_renderCompletion_Hidden(t *testing.T) {
 	// Test 2: Render when hidden (should not render)
 	completion.Hide()
 	mockOut.reset()
-	renderer.renderCompletion(buffer, completion)
+	renderer.renderCompletion(completion, clampedCursor, false)
 	if len(mockOut.calls) != 0 {
 		t.Error("renderCompletion should not produce output when hidden")
 	}
@@ -220,7 +223,7 @@ func TestRenderer_renderCompletion_Hidden(t *testing.T) {
 	// Test 3: Render when shown again (should render)
 	completion.Show()
 	mockOut.reset()
-	renderer.renderCompletion(buffer, completion)
+	renderer.renderCompletion(completion, clampedCursor, false)
 	if len(mockOut.calls) == 0 {
 		t.Error("renderCompletion should produce output after Show()")
 	}

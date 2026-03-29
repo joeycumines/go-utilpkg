@@ -1,0 +1,5 @@
+go test fuzz v1
+string("燉")
+uint(1)
+int(199)
+int(949)

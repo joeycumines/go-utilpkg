@@ -36,7 +36,21 @@ func (d *Document) LastKeyStroke() Key {
 
 // DisplayCursorPosition returns the cursor position on rendered text on terminal emulators.
 // So if Document is "日本(cursor)語", DisplayedCursorPosition returns 4 because '日' and '本' are double width characters.
+//
+// For exact-fill boundaries (text that exactly fills the column width), the returned
+// Position uses legacy semantics: X=0, Y+=1. Use DisplayCursorPositionFullWidth to
+// access the raw exact-fill state instead.
 func (d *Document) DisplayCursorPosition(columns istrings.Width) Position {
+	pos, fullWidth := d.DisplayCursorPositionFullWidth(columns)
+	return legacyNormalize(pos, fullWidth)
+}
+
+// DisplayCursorPositionFullWidth returns the cursor position on rendered text
+// along with whether the cursor sits at an exact-fill wrapped boundary.
+// When fullWidth is true, the line exactly filled the column width (X == columns).
+// This is the raw internal representation; callers that need legacy coordinates
+// should use DisplayCursorPosition instead.
+func (d *Document) DisplayCursorPositionFullWidth(columns istrings.Width) (Position, bool) {
 	str := utf8string.NewString(d.Text).Slice(0, int(d.cursorPosition))
 	return positionAtEndOfString(str, columns)
 }
@@ -521,11 +535,25 @@ func (d *Document) GetCursorRightPositionRunes(count istrings.RuneNumber) istrin
 
 // Get the current cursor position.
 func (d *Document) GetCursorPosition(columns istrings.Width) Position {
+	pos, _ := d.GetCursorPositionFullWidth(columns)
+	return pos
+}
+
+// GetCursorPositionFullWidth returns the current cursor position and whether it
+// is logically sitting at an exact-fill wrapped boundary.
+func (d *Document) GetCursorPositionFullWidth(columns istrings.Width) (Position, bool) {
 	return positionAtEndOfString(d.TextBeforeCursor(), columns)
 }
 
 // Get the position of the end of the current text.
 func (d *Document) GetEndOfTextPosition(columns istrings.Width) Position {
+	pos, _ := d.GetEndOfTextPositionFullWidth(columns)
+	return pos
+}
+
+// GetEndOfTextPositionFullWidth returns the end-of-text position and whether
+// it is logically sitting at an exact-fill wrapped boundary.
+func (d *Document) GetEndOfTextPositionFullWidth(columns istrings.Width) (Position, bool) {
 	return positionAtEndOfString(d.Text, columns)
 }
 

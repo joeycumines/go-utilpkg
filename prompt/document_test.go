@@ -28,7 +28,8 @@ func ExampleDocument_DisplayCursorPosition() {
 		Text:           `Hello! my name is c-bata.`,
 		cursorPosition: istrings.RuneCountInString(`Hello`),
 	}
-	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition(50))
+	pos := d.DisplayCursorPosition(50)
+	fmt.Println("DisplayCursorPosition", pos)
 	// Output:
 	// DisplayCursorPosition {5 0}
 }
@@ -96,7 +97,8 @@ func ExampleDocument_DisplayCursorPosition_withJapanese() {
 		Text:           `こんにちは、芝田 将です。`,
 		cursorPosition: 3,
 	}
-	fmt.Println("DisplayCursorPosition", d.DisplayCursorPosition(30))
+	pos := d.DisplayCursorPosition(30)
+	fmt.Println("DisplayCursorPosition", pos)
 	// Output:
 	// DisplayCursorPosition {6 0}
 }
