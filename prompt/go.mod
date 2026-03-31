@@ -6,23 +6,23 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/google/go-cmp v0.7.0
 	github.com/mattn/go-colorable v0.1.14
-	github.com/mattn/go-runewidth v0.0.20
+	github.com/mattn/go-runewidth v0.0.21
 	github.com/mattn/go-tty v0.0.7
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.7
-	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
-	golang.org/x/sys v0.41.0
+	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
+	golang.org/x/sys v0.42.0
 )
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/yuin/goldmark v1.7.16 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/tools v0.42.0 // indirect
+	github.com/yuin/goldmark v1.8.2 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20260312153236-7ab1446f8b90 // indirect
+	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/tools v0.43.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
 	honnef.co/go/tools v0.7.0 // indirect
