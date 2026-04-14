@@ -183,14 +183,14 @@ func TestPhase5_EventTarget_PreventDefault(t *testing.T) {
 
 func TestPhase5_EventTarget_StopPropagation(t *testing.T) {
 	ev := NewEvent("test")
-	if ev.IsPropagationStopped() {
+	if ev.PropagationStopped() {
 		t.Error("should not be stopped initially")
 	}
 	ev.StopPropagation()
-	if !ev.IsPropagationStopped() {
+	if !ev.PropagationStopped() {
 		t.Error("should be stopped after StopPropagation")
 	}
-	if ev.IsImmediatePropagationStopped() {
+	if ev.ImmediatePropagationStopped() {
 		t.Error("immediate should not be stopped by StopPropagation alone")
 	}
 }
@@ -212,10 +212,10 @@ func TestPhase5_EventTarget_StopImmediatePropagation(t *testing.T) {
 	if len(order) != 1 || order[0] != 1 {
 		t.Errorf("only first listener should fire: got %v", order)
 	}
-	if !ev.IsPropagationStopped() {
+	if !ev.PropagationStopped() {
 		t.Error("propagation should be stopped")
 	}
-	if !ev.IsImmediatePropagationStopped() {
+	if !ev.ImmediatePropagationStopped() {
 		t.Error("immediate propagation should be stopped")
 	}
 }

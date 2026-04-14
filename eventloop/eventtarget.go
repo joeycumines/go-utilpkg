@@ -309,13 +309,13 @@ func (e *Event) StopImmediatePropagation() {
 	e.immediatePropagationStopped = true
 }
 
-// IsPropagationStopped returns true if StopPropagation or StopImmediatePropagation was called.
-func (e *Event) IsPropagationStopped() bool {
+// PropagationStopped returns true if StopPropagation or StopImmediatePropagation was called.
+func (e *Event) PropagationStopped() bool {
 	return e.propagationStopped
 }
 
-// IsImmediatePropagationStopped returns true if StopImmediatePropagation was called.
-func (e *Event) IsImmediatePropagationStopped() bool {
+// ImmediatePropagationStopped returns true if StopImmediatePropagation was called.
+func (e *Event) ImmediatePropagationStopped() bool {
 	return e.immediatePropagationStopped
 }
 

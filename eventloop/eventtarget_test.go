@@ -373,16 +373,16 @@ func TestEvent_PreventDefault_NotCancelable(t *testing.T) {
 
 func TestEvent_StopPropagation(t *testing.T) {
 	event := NewEvent("click")
-	if event.IsPropagationStopped() {
+	if event.PropagationStopped() {
 		t.Error("Propagation should not be stopped initially")
 	}
 
 	event.StopPropagation()
 
-	if !event.IsPropagationStopped() {
+	if !event.PropagationStopped() {
 		t.Error("Propagation should be stopped after StopPropagation")
 	}
-	if event.IsImmediatePropagationStopped() {
+	if event.ImmediatePropagationStopped() {
 		t.Error("Immediate propagation should not be stopped by StopPropagation")
 	}
 }
@@ -392,10 +392,10 @@ func TestEvent_StopImmediatePropagation(t *testing.T) {
 
 	event.StopImmediatePropagation()
 
-	if !event.IsPropagationStopped() {
+	if !event.PropagationStopped() {
 		t.Error("Propagation should be stopped by StopImmediatePropagation")
 	}
-	if !event.IsImmediatePropagationStopped() {
+	if !event.ImmediatePropagationStopped() {
 		t.Error("Immediate propagation should be stopped")
 	}
 }
@@ -547,7 +547,7 @@ func TestCustomEvent_InheritsMethods(t *testing.T) {
 	}
 
 	event.StopImmediatePropagation()
-	if !event.IsImmediatePropagationStopped() {
+	if !event.ImmediatePropagationStopped() {
 		t.Error("CustomEvent should inherit StopImmediatePropagation")
 	}
 }
