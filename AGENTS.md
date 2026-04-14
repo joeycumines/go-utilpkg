@@ -113,3 +113,4 @@ The eventloop module has its own `Makefile` with additional targets for coverage
 - Write **high-quality, principled implementations** following best practices
 - All new features require **new tests** for verification
 - **Do not use testify packages**. Only use the built-in `testing` package.
+- **Avoid prepositions in exposed symbols**. No prepositions (From, Into, To, By, On, In, Of, For, etc.) in method, function, type, or variable names — especially public APIs. Prefer `LoadConfig` over `LoadFromConfig`. **Allowed exception**: prepositions used with clear structural intent — e.g. `With*` option constructors convey a specific structural pattern; `ToJSON` matches an external API contract. The preposition must carry meaning beyond being part of a phrase that happens to be a symbol name.

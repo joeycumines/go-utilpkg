@@ -17,7 +17,7 @@ These are non-negotiable. Violating any of them is a failure state.
 1. **Flat, sequential task list.** Tasks in `sequentialTasks` are a flat array executed in order. One level of sub-items is permitted for grouping only — never deeper.
 2. **NO estimates.** Perfection isn't cheap. No effort estimates, time estimates, duration estimates, story points, or t-shirt sizes. These are proxies for laziness and are strictly forbidden. You must feed the "Wolf of Perfection," and it does not care about cost.
 3. **NO priorities.** You must complete 100% of the work. Prioritization implies some tasks are optional or less important, allowing the "Wolf of Completion" to win at the expense of quality. There is only the sequence, and it must all be done.
-4. **The "Rule of Two" (Commit Gate).** No commits are permitted until **two contiguous, issue-free #runSubagent reviews** have guaranteed correctness. Subagents are for **serial context management**, not parallelization. They must be instructed to be skeptical, hostile to errors, and used to find the local maximum of correctness.
+4. **The "Rule of Two" (Commit Gate).** No commits are permitted until **two contiguous, issue-free #runSubagent reviews** have guaranteed correctness. Subagents are for **verification only** — never for the initial creation of the blueprint itself. The top-level agent must write the blueprint because it has the core context. Subagents must be instructed to be skeptical, hostile to errors, and used to find the local maximum of correctness.
 5. **NO stopping (Indefinite Cycle).** The work is never done. Scope must always expand towards "True Perfection". You must feed both the wolf of completion and the wolf of perfection. Concluding that work is "done" or "good enough" is forbidden.
 6. **Incremental updates.** Status must be updated after every sub-task, not batched. The next session's agent reads this file cold — stale state is fatal.
 7. **Scope must expand.** After completing all current tasks, ideate new improvements, refinements, and features. Add them. Repeat.
@@ -70,11 +70,11 @@ Before generating _any_ tasks, the planner must build a sufficient mental model.
 #### Phase 1: Task Enumeration
 
 1. If `baseline.blueprint.json` exists in the project root, use it as the starting template. Otherwise, read `references/baseline-template.json` for structure.
-2. **Mandatory Subagent Plan:** You **MUST** use a subagent to generate the initial `sequentialTasks` list. The subagent prompt must include all context gathered in Phase 0.
-3. **Overwhelming Completeness:** The subagent must populate the list to be "overwhelmingly complete," enumerating *every* task between the current state and the goal.
+2. **Write the blueprint directly.** The top-level agent must write the `sequentialTasks` list itself. Do NOT delegate this to a subagent. The blueprint author must have the core context — subagents do not, and context loss produces shallow plans.
+3. **Overwhelming Completeness:** Populate the list to be "overwhelmingly complete," enumerating *every* task between the current state and the goal.
 4. **Depth over breadth.** Each task must meet the Planning Depth Standard: specific to _this_ project, with `acceptance` criteria, context pointers (files/functions/types), and explicit dependencies. A plan full of generic tasks like "implement feature X" or "add tests" is vaporware — it will be rejected.
 5. **Surface unknowns explicitly.** Where context is insufficient to plan precisely, insert a research task + replanning checkpoint rather than a vague implementation task.
-6. **Autonomy:** If the path is unclear, the subagent must draft the best possible exhaustive plan without waiting for user intervention — but must flag uncertainty as unknowns, never paper over it.
+6. **Autonomy:** If the path is unclear, draft the best possible exhaustive plan without waiting for user intervention — but must flag uncertainty as unknowns, never paper over it.
 
 #### Phase 2: Plan Stress-Test
 
@@ -226,7 +226,7 @@ When the user asks to create or refine a `baseline.blueprint.json`:
 
 ## Troubleshooting
 
-* **Empty `sequentialTasks`**: The blueprint was not populated. Use a subagent to generate an *overwhelmingly complete* list immediately.
+* **Empty `sequentialTasks`**: The blueprint was not populated. Populate it directly with an *overwhelmingly complete* task list. Do NOT delegate this to a subagent.
 * **Stale task statuses**: You forgot incremental updates. Audit every task — does its status reflect reality?
 * **Tasks contain estimates or priorities**: Remove them immediately. They prevent you from feeding the wolf of perfection.
 * **Agent concludes work is "done"**: It is not. Expand scope towards True Perfection. Read the Hard Constraints.

@@ -11,6 +11,7 @@ cover*.out
 /.claude/agents
 /.github/agents
 /.claude/skills
+!/.claude/skills/adversarial-codebase-autopsy
 !/.claude/skills/blueprint-json
 !/.claude/skills/changelog-md
 !/.claude/skills/git-commit
