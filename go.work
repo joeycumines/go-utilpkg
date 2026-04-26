@@ -12,6 +12,7 @@ use (
 	./goja-grpc
 	./goja-protobuf
 	./goja-protojson
+	./goroutineid
 	./grpc-proxy
 	./inprocgrpc
 	./inprocgrpc/internal/grpchantest
