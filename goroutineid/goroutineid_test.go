@@ -327,7 +327,8 @@ func BenchmarkStressLargeGoroutineCount(b *testing.B) {
 	const goroutineCount = 1000
 	pool := sync.Pool{
 		New: func() interface{} {
-			return make([]byte, 64)
+			b := make([]byte, 64)
+			return &b
 		},
 	}
 
@@ -338,8 +339,8 @@ func BenchmarkStressLargeGoroutineCount(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				buf := pool.Get().([]byte)
-				_ = Slow(buf)
+				buf := pool.Get().(*[]byte)
+				_ = Slow(*buf)
 				pool.Put(buf)
 			}()
 		}

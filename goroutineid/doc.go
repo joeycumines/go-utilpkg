@@ -63,12 +63,15 @@
 //
 // Use when multiple goroutines frequently hit the fallback path.
 //
-//	var bufPool = sync.Pool{New: func() any { return make([]byte, 64) }}
+//	var bufPool = sync.Pool{New: func() any {
+//	    b := make([]byte, 64)
+//	    return &b
+//	}}
 //	// ...
 //	ID := goroutineid.Fast()
 //	if ID == -1 {
-//	    buf := bufPool.Get().([]byte)
-//	    ID = goroutineid.Slow(buf)
+//	    buf := bufPool.Get().(*[]byte)
+//	    ID = goroutineid.Slow(*buf)
 //	    bufPool.Put(buf)
 //	}
 //
