@@ -25,7 +25,8 @@ GRIT_DST ?= \
     goja-grpc$(MAP_SEPARATOR)https://github.com/joeycumines/goja-grpc.git \
     goja-protobuf$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protobuf.git \
     goja-protojson$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protojson.git \
-    inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git
+    inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git \
+    goroutineid$(MAP_SEPARATOR)https://github.com/joeycumines/goroutineid.git
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true
@@ -33,3 +34,9 @@ DEADCODE_ERROR_ON_UNIGNORED = true
 .PHONY: betteralign-apply
 betteralign-apply:
 	$(MAKE) betteralign BETTERALIGN_FLAGS=-apply
+
+##@ goroutineid
+
+.PHONY: bench-goroutineid
+bench-goroutineid: ## Run goroutineid benchmarks.
+	$(GO) -C $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.))/goroutineid test -run='^$$' -bench='.' -benchmem
