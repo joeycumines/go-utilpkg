@@ -23,8 +23,8 @@ import (
 
 // WorkItem represents a unit of async work to process
 type WorkItem struct {
-	ID        int
 	Payload   string
+	ID        int
 	ProcessMs int
 }
 
