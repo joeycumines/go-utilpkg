@@ -1523,60 +1523,6 @@ func TestPhase5_FastState_CanAcceptWork(t *testing.T) {
 	}
 }
 
-// --- promisify.go ---
-
-func TestPhase5_PromisifyWithTimeout(t *testing.T) {
-	loop, err := New(WithFastPathMode(FastPathForced))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := t.Context()
-	go func() { _ = loop.Run(ctx) }()
-	waitForRunning(t, loop)
-	defer loop.Close()
-
-	// Success case
-	p := loop.PromisifyWithTimeout(context.Background(), 5*time.Second, func(ctx context.Context) (any, error) {
-		return "ok", nil
-	})
-
-	ch := p.ToChannel()
-	select {
-	case v := <-ch:
-		if v != "ok" {
-			t.Errorf("PromisifyWithTimeout: %v", v)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
-	}
-}
-
-func TestPhase5_PromisifyWithDeadline(t *testing.T) {
-	loop, err := New(WithFastPathMode(FastPathForced))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := t.Context()
-	go func() { _ = loop.Run(ctx) }()
-	waitForRunning(t, loop)
-	defer loop.Close()
-
-	// Success case
-	p := loop.PromisifyWithDeadline(context.Background(), time.Now().Add(5*time.Second), func(ctx context.Context) (any, error) {
-		return "deadline-ok", nil
-	})
-
-	ch := p.ToChannel()
-	select {
-	case v := <-ch:
-		if v != "deadline-ok" {
-			t.Errorf("PromisifyWithDeadline: %v", v)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
-	}
-}
-
 // --- loop.go ---
 
 func TestPhase5_SetFastPathMode(t *testing.T) {

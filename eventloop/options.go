@@ -11,7 +11,7 @@ type loopOptions struct {
 	strictMicrotaskOrdering bool                             // 1 byte
 	metricsEnabled          bool                             // 1 byte
 	debugMode               bool                             // 1 byte - Enable debug features like stack trace capture
-	// 1 byte padding
+	autoExit                bool                             // 1 byte - Exit Run() when Alive() returns false
 }
 
 // Default chunk size for ingress queue.
@@ -132,6 +132,49 @@ func WithDebugMode(enabled bool) LoopOption {
 		return nil
 	}}
 }
+
+// AutoExitOption controls whether Run() automatically returns when the loop
+// is not alive.
+type AutoExitOption struct {
+	enabled bool
+}
+
+// WithAutoExit controls whether Run() automatically returns when the loop
+// has no ref'd pending work (i.e., [Loop.Alive] returns false).
+//
+// When disabled (default), Run() blocks until the context is cancelled,
+// Shutdown(), or Close() is called. This preserves the pre-aliveness behavior
+// and is appropriate for long-lived server event loops.
+//
+// When enabled, Run() returns nil when Alive() becomes false — no ref'd timers
+// pending, all queues empty, no in-flight Promisify goroutines, and no registered
+// I/O FDs. This is analogous to libuv's UV_RUN_DEFAULT mode and is appropriate
+// for script-style workloads where the loop should exit once all work completes.
+//
+// Example:
+//
+//	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+//	if err != nil {
+//	    return err
+//	}
+//	loop.Submit(func() {
+//	    // This work will execute, then the loop exits when done.
+//	    fmt.Println("done")
+//	})
+//	if err := loop.Run(context.Background()); err != nil {
+//	    log.Fatal(err)
+//	}
+func WithAutoExit(enabled bool) *AutoExitOption {
+	return &AutoExitOption{enabled: enabled}
+}
+
+func (o *AutoExitOption) applyLoop(opts *loopOptions) error {
+	opts.autoExit = o.enabled
+	return nil
+}
+
+// Compile-time compliance check.
+var _ LoopOption = (*AutoExitOption)(nil)
 
 // roundDownToPowerOf2 rounds n down to the nearest power of 2.
 // Assumes n >= 1.

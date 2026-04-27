@@ -551,3 +551,75 @@ func TestPromisify_WgCounterIntegrity(t *testing.T) {
 	}
 	// If WaitGroup counter becomes negative, we'll get a panic
 }
+
+// TestPromisify_ContextCancelDuringExecution verifies that cancelling the context
+// passed to Promisify causes the promise to be rejected with the context error,
+// the function receives the cancellation signal, and promisifyCount returns to 0.
+func TestPromisify_ContextCancelDuringExecution(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	ctx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
+
+	go loop.Run(ctx)
+
+	// Create a cancellable context for the Promisify call
+	pCtx, pCancel := context.WithCancel(context.Background())
+
+	// Start a Promisify that blocks until context is cancelled or unblocked
+	unblock := make(chan struct{})
+	p := loop.Promisify(pCtx, func(ctx context.Context) (any, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-unblock:
+			return "completed", nil
+		}
+	})
+
+	// Wait for the goroutine to start
+	time.Sleep(20 * time.Millisecond)
+
+	// Cancel the context — the function should see ctx.Done()
+	pCancel()
+
+	// Wait for the promise to settle
+	select {
+	case result := <-p.ToChannel():
+		if p.State() != Rejected {
+			t.Fatalf("Expected Rejected, got %v (result: %v)", p.State(), result)
+		}
+		// The result should be the context error
+		if result == nil {
+			t.Fatal("Expected non-nil result for rejected promise")
+		}
+		if err, ok := result.(error); ok {
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("Expected context.Canceled, got %v", err)
+			}
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promise did not settle within 5 seconds")
+	}
+
+	// Verify promisifyCount returned to 0.
+	// Poll because the defer that decrements promisifyCount runs on the Promisify
+	// goroutine which may not have executed yet even though the promise settled.
+	deadline := time.Now().Add(time.Second)
+	for loop.promisifyCount.Load() != 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("promisifyCount did not reach 0 within 1 second: %d", loop.promisifyCount.Load())
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	// Unblock the channel to prevent goroutine leak
+	close(unblock)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+}

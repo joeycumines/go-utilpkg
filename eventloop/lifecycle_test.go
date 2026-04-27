@@ -371,3 +371,122 @@ func TestLoop_Stop_Race_Torture(t *testing.T) {
 		}
 	}
 }
+
+// TestLoop_Close_BeforeRun verifies Close() on a loop that never had Run() called.
+func TestLoop_Close_BeforeRun(t *testing.T) {
+	t.Parallel()
+
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := loop.Close(); err != nil {
+		t.Fatalf("Close before Run: %v", err)
+	}
+
+	if loop.State() != StateTerminated {
+		t.Fatalf("expected StateTerminated, got %v", loop.State())
+	}
+
+	if err := loop.Close(); err != ErrLoopTerminated {
+		t.Fatalf("second Close: expected ErrLoopTerminated, got %v", err)
+	}
+}
+
+// TestLoop_Shutdown_BeforeRun verifies Shutdown() on a loop that never had Run() called.
+func TestLoop_Shutdown_BeforeRun(t *testing.T) {
+	t.Parallel()
+
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := loop.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown before Run: %v", err)
+	}
+
+	if loop.State() != StateTerminated {
+		t.Fatalf("expected StateTerminated, got %v", loop.State())
+	}
+}
+
+// TestLoop_CloseShutdown_ConcurrentStress verifies that concurrent Close()
+// and Shutdown() calls do not panic or deadlock. This was a fatal bug:
+// TryTransition's CAS identity hole allowed both paths to enter
+// terminateCleanup() concurrently, causing a fatal map panic.
+func TestLoop_CloseShutdown_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	const iterations = 50
+
+	for i := range iterations {
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		go func() {
+			loop.Run(ctx)
+		}()
+
+		waitLoopState(t, loop, StateRunning, 2*time.Second)
+
+		// Populate timerMap to maximize the impact if terminateCleanup races.
+		for j := range 10 {
+			_, err := loop.ScheduleTimer(5*time.Second, func() {})
+			if err != nil {
+				t.Fatalf("iteration %d, timer %d: ScheduleTimer: %v", i, j, err)
+			}
+		}
+
+		var (
+			wg          sync.WaitGroup
+			closeErr    error
+			shutdownErr error
+		)
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			closeErr = loop.Close()
+		}()
+
+		go func() {
+			defer wg.Done()
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownCancel()
+			shutdownErr = loop.Shutdown(shutdownCtx)
+		}()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Both completed without panic — the identity guard works.
+		case <-time.After(15 * time.Second):
+			t.Fatalf("iteration %d: deadlock in concurrent Close+Shutdown", i)
+		}
+
+		// At least one should succeed; the other may return ErrLoopTerminated.
+		_ = closeErr
+		_ = shutdownErr
+
+		if loop.State() != StateTerminated {
+			t.Fatalf("iteration %d: expected StateTerminated, got %v", i, loop.State())
+		}
+	}
+}

@@ -5,6 +5,7 @@ cover*.out
 /scratch
 /DIRECTIVE.txt
 *.test
+__pycache__
 /.idea
 /.vscode
 /.claude/*.local.*

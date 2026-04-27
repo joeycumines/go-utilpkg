@@ -31,12 +31,26 @@ GRIT_DST ?= \
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true
 
+# ---
+
+##@ Convenience targets
+
 .PHONY: betteralign-apply
-betteralign-apply:
+betteralign-apply: ## Apply betteralign lint fixes.
 	$(MAKE) betteralign BETTERALIGN_FLAGS=-apply
 
-##@ goroutineid
+##@ goroutineid targets
 
 .PHONY: bench-goroutineid
 bench-goroutineid: ## Run goroutineid benchmarks.
 	$(GO) -C $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.))/goroutineid test -run='^$$' -bench='.' -benchmem
+
+##@ eventloop targets
+
+# Tournament bench target - runs eventloop full benchmark suite with 5 iterations for statistical validity
+# Output is captured by the caller (e.g., config.mk targets via run-on-windows.sh)
+.PHONY: eventloop-tournament-bench
+eventloop-tournament-bench: ## Run eventloop full benchmark suite (5 iterations, 1s each) for tournament.
+	$(GO) -C $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.)) test -bench=. -benchmem -count=5 -run='^$$' -benchtime=1s -timeout=10m ./eventloop/internal/tournament ./eventloop/internal/promisetournament
+
+# ---

@@ -873,3 +873,84 @@ func TestMicrotaskOrdering_AfterTimerFires(t *testing.T) {
 
 	t.Logf("After-timer microtask order: %v", order)
 }
+
+// TestMicrotaskOrdering_ConcurrentNextTickAndMicrotask floods both ScheduleNextTick
+// and ScheduleMicrotask from multiple goroutines concurrently, verifying:
+// (1) all callbacks execute, (2) no data races, (3) completion count is exact.
+//
+// This stress-tests the externalMu-protected ingress paths for both queues
+// and the epoch-based Alive() consistency mechanism under concurrent load.
+func TestMicrotaskOrdering_ConcurrentNextTickAndMicrotask(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	go loop.Run(ctx)
+
+	const (
+		numGoroutines = 16
+		nextTickPerG  = 500
+		microtaskPerG = 500
+	)
+	totalNextTick := numGoroutines * nextTickPerG
+	totalMicrotask := numGoroutines * microtaskPerG
+	total := totalNextTick + totalMicrotask
+
+	var nextTickCount atomic.Int64
+	var microtaskCount atomic.Int64
+	done := make(chan struct{})
+
+	// Launch goroutines that flood both queues concurrently
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+	for range numGoroutines {
+		go func() {
+			defer wg.Done()
+			for i := range nextTickPerG {
+				if err := loop.ScheduleNextTick(func() {
+					nextTickCount.Add(1)
+					if c := nextTickCount.Load() + microtaskCount.Load(); c == int64(total) {
+						close(done)
+					}
+				}); err != nil {
+					// Loop terminated before we could submit — count remaining
+					nextTickCount.Add(int64(nextTickPerG - i))
+					microtaskCount.Add(int64(microtaskPerG))
+					return
+				}
+			}
+			for i := range microtaskPerG {
+				if err := loop.ScheduleMicrotask(func() {
+					microtaskCount.Add(1)
+					if c := nextTickCount.Load() + microtaskCount.Load(); c == int64(total) {
+						close(done)
+					}
+				}); err != nil {
+					microtaskCount.Add(int64(microtaskPerG - i))
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	select {
+	case <-done:
+		// All callbacks executed
+	case <-time.After(5 * time.Second):
+		nt := nextTickCount.Load()
+		mt := microtaskCount.Load()
+		t.Fatalf("Timeout: nextTick=%d/%d microtask=%d/%d", nt, totalNextTick, mt, totalMicrotask)
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	t.Logf("Concurrent flood: %d nextTick + %d microtask = %d callbacks",
+		nextTickCount.Load(), microtaskCount.Load(), nextTickCount.Load()+microtaskCount.Load())
+}

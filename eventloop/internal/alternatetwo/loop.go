@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
 )
 
 // Standard errors.
@@ -54,7 +56,7 @@ type Loop struct { // betteralign:ignore
 	tickTimeOffset atomic.Int64
 
 	// Goroutine tracking
-	loopGoroutineID atomic.Uint64
+	loopGoroutineID atomic.Int64
 	tickCount       atomic.Uint64
 
 	// Loop ID
@@ -178,7 +180,7 @@ func (l *Loop) run(ctx context.Context) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	l.loopGoroutineID.Store(getGoroutineID())
+	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
 	defer l.loopGoroutineID.Store(0)
 
 	for {
@@ -435,22 +437,7 @@ func (l *Loop) isLoopThread() bool {
 	if loopID == 0 {
 		return false
 	}
-	return getGoroutineID() == loopID
-}
-
-// getGoroutineID returns the current goroutine's ID.
-func getGoroutineID() uint64 {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	var id uint64
-	for i := len("goroutine "); i < n; i++ {
-		if buf[i] >= '0' && buf[i] <= '9' {
-			id = id*10 + uint64(buf[i]-'0')
-		} else {
-			break
-		}
-	}
-	return id
+	return runtimeutil.GoroutineID() == loopID
 }
 
 // State returns the current loop state.

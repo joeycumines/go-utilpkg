@@ -86,6 +86,7 @@ type intervalState struct {
 	currentLoopTimerID atomic.Uint64
 	canceled           atomic.Bool
 	running            atomic.Bool // Tracks when wrapper is actively executing to fix ClearInterval race
+	refed              atomic.Bool // true = interval timer counts toward Alive(); persists across reschedules
 }
 
 // JS provides JavaScript-compatible timer and microtask operations on top of [Loop].
@@ -301,6 +302,9 @@ func (js *JS) SetInterval(fn setTimeoutFunc, delayMs int) (uint64, error) {
 		js:      js,
 	}
 
+	// New intervals are refed by default (timer counts toward Alive())
+	state.refed.Store(true)
+
 	// Create wrapper function that captures itself via closure variable
 	// This avoids race condition where wrapper reads state.wrapper without lock
 	var wrapper func()
@@ -368,6 +372,23 @@ func (js *JS) SetInterval(fn setTimeoutFunc, delayMs int) (uint64, error) {
 		// 2. ClearInterval uses CompareAndSwap, so it won't overwrite our new value
 		// 3. If ClearInterval races with us, the CAS will fail harmlessly
 		state.currentLoopTimerID.CompareAndSwap(0, uint64(loopTimerID))
+
+		// Propagate interval ref state to the new timer.
+		// If the interval was unref'd (via UnrefInterval), each
+		// rescheduled timer must also be unref'd so the interval
+		// does not re-keep the loop alive on every tick.
+		//
+		// TOCTOU mitigation: Re-check state.refed after UnrefTimer.
+		// If RefInterval raced between our refed.Load() and UnrefTimer(),
+		// it set refed=true and RefTimer'd the timer (via currentLoopTimerID).
+		// Our UnrefTimer then overrode that ref. Detect this by re-checking:
+		// if refed is now true, compensate by re-reffing the timer.
+		if !state.refed.Load() {
+			js.loop.UnrefTimer(loopTimerID)
+			if state.refed.Load() {
+				js.loop.RefTimer(loopTimerID)
+			}
+		}
 	}
 
 	// IMPORTANT: Assign id BEFORE any scheduling
@@ -473,6 +494,59 @@ func (js *JS) ClearInterval(id uint64) error {
 	// 2. Deadlock Avoidance: Waiting here would deadlock if ClearInterval is called
 	//    from within the interval callback (same goroutine).
 	// 3. JS Semantics: clearInterval is non-blocking.
+
+	return nil
+}
+
+// UnrefInterval marks the interval as unref'd. The interval continues to fire, but its underlying timers no longer count toward the event loop's [Loop.Alive] check. When only unref'd intervals (and other unref'd resources) remain, [Loop.Alive] returns false and the loop exits.
+// Analogous to Node.js's timer.unref() behavior for setInterval. After calling UnrefInterval, the loop may exit even though the interval is still active. Call [JS.RefInterval] to reverse this and keep the loop alive again.
+// Safe to call from any goroutine.
+func (js *JS) UnrefInterval(id uint64) error {
+	js.intervalsMu.RLock()
+	state, ok := js.intervals[id]
+	js.intervalsMu.RUnlock()
+
+	if !ok {
+		return ErrTimerNotFound
+	}
+
+	state.m.Lock()
+	defer state.m.Unlock()
+
+	// Mark the interval as unref'd. The wrapper will propagate this
+	// to each rescheduled timer by calling UnrefTimer after ScheduleTimer.
+	state.refed.Store(false)
+
+	// Also unref the current underlying timer, if any.
+	currentID := TimerID(state.currentLoopTimerID.Load())
+	if currentID != 0 {
+		_ = js.loop.UnrefTimer(currentID)
+	}
+
+	return nil
+}
+
+// RefInterval reverses a previous [JS.UnrefInterval] call, marking the interval as ref'd again. Its underlying timers will count toward [Loop.Alive].
+// Safe to call from any goroutine.
+func (js *JS) RefInterval(id uint64) error {
+	js.intervalsMu.RLock()
+	state, ok := js.intervals[id]
+	js.intervalsMu.RUnlock()
+
+	if !ok {
+		return ErrTimerNotFound
+	}
+
+	state.m.Lock()
+	defer state.m.Unlock()
+
+	state.refed.Store(true)
+
+	// Also ref the current underlying timer, if any.
+	currentID := TimerID(state.currentLoopTimerID.Load())
+	if currentID != 0 {
+		_ = js.loop.RefTimer(currentID)
+	}
 
 	return nil
 }

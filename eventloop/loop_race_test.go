@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
 )
 
 // TestPollStateOverwrite_PreSleep tests the race condition where poll()
@@ -153,13 +155,13 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	// Wait for loop to be running
 	time.Sleep(10 * time.Millisecond)
 
-	var loopGoroutineID, taskGoroutineID uint64
+	var loopGoroutineID, taskGoroutineID int64
 	var wg sync.WaitGroup
 
 	// Capture the loop's goroutine ID via a task
 	wg.Add(1)
 	l.Submit(func() {
-		loopGoroutineID = getGoroutineID()
+		loopGoroutineID = runtimeutil.GoroutineID()
 		wg.Done()
 	})
 
@@ -177,7 +179,7 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	go func() {
 		// This submission is from a different goroutine
 		err := l.SubmitInternal(func() {
-			taskGoroutineID = getGoroutineID()
+			taskGoroutineID = runtimeutil.GoroutineID()
 			wg.Done()
 		})
 
@@ -232,13 +234,13 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	// Wait for loop to be running
 	time.Sleep(10 * time.Millisecond)
 
-	var loopGoroutineID, taskGoroutineID uint64
+	var loopGoroutineID, taskGoroutineID int64
 	var wg sync.WaitGroup
 
 	// Capture loop goroutine ID
 	wg.Add(1)
 	l.Submit(func() {
-		loopGoroutineID = getGoroutineID()
+		loopGoroutineID = runtimeutil.GoroutineID()
 		wg.Done()
 	})
 
@@ -252,7 +254,7 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		err := l.SubmitInternal(func() {
-			taskGoroutineID = getGoroutineID()
+			taskGoroutineID = runtimeutil.GoroutineID()
 			wg.Done()
 		})
 
@@ -352,4 +354,127 @@ func TestLoop_TickAnchor_DataRace(t *testing.T) {
 	<-runDone
 
 	t.Log("TickAnchor data race test passed: no race warnings with concurrent SetTickAnchor/tick()")
+}
+
+// TestLoop_CancelTimer_ConcurrentWithClose verifies that CancelTimer called
+// concurrently with Close() does not deadlock. The dual-select pattern
+// (<-result, <-loopDone) provides a guaranteed escape hatch.
+func TestLoop_CancelTimer_ConcurrentWithClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	const iterations = 30
+
+	for i := range iterations {
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		go func() {
+			loop.Run(ctx)
+		}()
+
+		waitLoopState(t, loop, StateRunning, 2*time.Second)
+
+		timerIDs := make([]TimerID, 10)
+		for j := range timerIDs {
+			timerIDs[j], err = loop.ScheduleTimer(1*time.Hour, func() {})
+			if err != nil {
+				t.Fatalf("iteration %d, timer %d: ScheduleTimer: %v", i, j, err)
+			}
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(1 + len(timerIDs))
+
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Millisecond)
+			loop.Close()
+		}()
+
+		for _, id := range timerIDs {
+			go func(timerID TimerID) {
+				defer wg.Done()
+				_ = loop.CancelTimer(timerID)
+			}(id)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("iteration %d: deadlock — CancelTimer blocked during Close()", i)
+		}
+	}
+}
+
+// TestLoop_CancelTimers_ConcurrentWithClose verifies the batch variant of
+// CancelTimer concurrent with Close() does not deadlock.
+func TestLoop_CancelTimers_ConcurrentWithClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	const iterations = 20
+
+	for i := range iterations {
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		go func() {
+			loop.Run(ctx)
+		}()
+
+		waitLoopState(t, loop, StateRunning, 2*time.Second)
+
+		timerIDs := make([]TimerID, 20)
+		for j := range timerIDs {
+			timerIDs[j], err = loop.ScheduleTimer(1*time.Hour, func() {})
+			if err != nil {
+				t.Fatalf("iteration %d, timer %d: ScheduleTimer: %v", i, j, err)
+			}
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Millisecond)
+			loop.Close()
+		}()
+
+		go func() {
+			defer wg.Done()
+			loop.CancelTimers(timerIDs)
+		}()
+
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("iteration %d: deadlock — CancelTimers blocked during Close()", i)
+		}
+	}
 }

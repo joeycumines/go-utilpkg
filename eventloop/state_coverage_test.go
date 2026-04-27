@@ -142,7 +142,8 @@ func Test_fastState_TryTransition_InvalidFromState(t *testing.T) {
 	}
 }
 
-// Test_fastState_TryTransition_SameStateTransition tests from == to case.
+// Test_fastState_TryTransition_SameStateTransition tests that identity
+// transitions (from == to) are rejected to prevent re-entrancy bugs.
 func Test_fastState_TryTransition_SameStateTransition(t *testing.T) {
 	states := []LoopState{StateAwake, StateRunning, StateSleeping, StateTerminating, StateTerminated}
 
@@ -152,8 +153,8 @@ func Test_fastState_TryTransition_SameStateTransition(t *testing.T) {
 			s.Store(state)
 
 			result := s.TryTransition(state, state)
-			if !result {
-				t.Errorf("TryTransition from %v to %v should succeed (CAS same value)", state, state)
+			if result {
+				t.Errorf("TryTransition from %v to %v should be rejected (identity)", state, state)
 			}
 			if s.Load() != state {
 				t.Errorf("State should remain %v, got %v", state, s.Load())
@@ -209,7 +210,8 @@ func Test_fastState_TransitionAny_NoMatchingState(t *testing.T) {
 	}
 }
 
-// Test_fastState_TransitionAny_AllStatesInList verifies full list works.
+// Test_fastState_TransitionAny_AllStatesInList verifies that TransitionAny
+// succeeds for distinct-state transitions and rejects identity transitions.
 func Test_fastState_TransitionAny_AllStatesInList(t *testing.T) {
 	allStates := []LoopState{StateAwake, StateRunning, StateSleeping, StateTerminating, StateTerminated}
 
@@ -220,11 +222,21 @@ func Test_fastState_TransitionAny_AllStatesInList(t *testing.T) {
 
 			result := s.TransitionAny(allStates, StateTerminated)
 
-			if !result {
-				t.Errorf("TransitionAny with all states should always succeed from %v", currentState)
-			}
-			if s.Load() != StateTerminated {
-				t.Errorf("State should be Terminated, got %v", s.Load())
+			if currentState == StateTerminated {
+				// Identity transition: Terminated→Terminated must be rejected
+				if result {
+					t.Error("TransitionAny should reject identity transition Terminated→Terminated")
+				}
+				if s.Load() != StateTerminated {
+					t.Errorf("State should remain Terminated, got %v", s.Load())
+				}
+			} else {
+				if !result {
+					t.Errorf("TransitionAny with all states should succeed from %v", currentState)
+				}
+				if s.Load() != StateTerminated {
+					t.Errorf("State should be Terminated, got %v", s.Load())
+				}
 			}
 		})
 	}

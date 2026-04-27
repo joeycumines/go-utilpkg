@@ -161,61 +161,6 @@ func Example_promiseAll() {
 	// All resolved: [first second third]
 }
 
-// Example_promiseTimeout demonstrates PromisifyWithTimeout for timeout handling.
-//
-// This shows how to wrap a potentially slow operation with a timeout.
-func Example_promiseTimeout() {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	loop, _ := eventloop.New()
-
-	var done sync.WaitGroup
-	done.Add(2)
-
-	// Run loop in background
-	go loop.Run(ctx)
-
-	// Fast operation - should succeed
-	successPromise := loop.PromisifyWithTimeout(ctx, 500*time.Millisecond, func(ctx context.Context) (any, error) {
-		return "fast result", nil
-	})
-
-	go func() {
-		result := <-successPromise.ToChannel()
-		fmt.Printf("Fast operation: %v\n", result)
-		done.Done()
-	}()
-
-	// Slow operation - should timeout
-	timeoutPromise := loop.PromisifyWithTimeout(ctx, 10*time.Millisecond, func(ctx context.Context) (any, error) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
-			return "slow result", nil
-		}
-	})
-
-	go func() {
-		result := <-timeoutPromise.ToChannel()
-		if err, ok := result.(error); ok && errors.Is(err, context.DeadlineExceeded) {
-			fmt.Println("Slow operation: timed out")
-		}
-		done.Done()
-	}()
-
-	done.Wait()
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer shutdownCancel()
-	loop.Shutdown(shutdownCtx)
-
-	// Output:
-	// Fast operation: fast result
-	// Slow operation: timed out
-}
-
 // Example_timerNesting demonstrates the HTML5 nested timeout clamping behavior.
 //
 // When setTimeout is nested more than 5 levels deep, the minimum delay
@@ -548,4 +493,709 @@ func Example_promiseWithResolvers() {
 
 	// Output:
 	// Got: resolved via WithResolvers
+}
+
+// ============================================================================
+// Core Eventloop API Examples
+//
+// The following examples demonstrate the core eventloop APIs without the
+// JS adapter. These are the building blocks for building custom event-driven
+// systems on top of the loop.
+// ============================================================================
+
+// Example_scheduleTimer demonstrates scheduling and cancelling timers using
+// the core Loop.ScheduleTimer and Loop.CancelTimer APIs.
+//
+// ScheduleTimer returns a TimerID that can be used to cancel the timer before
+// it fires. Timers are one-shot; for repeating behavior, reschedule in the
+// callback.
+func Example_scheduleTimer() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+	go loop.Run(ctx)
+
+	var done sync.WaitGroup
+	done.Add(2)
+
+	// Schedule a one-shot timer
+	_, err := loop.ScheduleTimer(50*time.Millisecond, func() {
+		fmt.Println("Timer fired")
+		done.Done()
+	})
+	if err != nil {
+		fmt.Printf("ScheduleTimer failed: %v\n", err)
+		return
+	}
+
+	// Schedule and immediately cancel a timer
+	timerID, _ := loop.ScheduleTimer(time.Hour, func() {
+		fmt.Println("This should not run")
+		done.Done()
+	})
+	if err := loop.CancelTimer(timerID); err != nil {
+		fmt.Printf("CancelTimer failed: %v\n", err)
+	} else {
+		fmt.Println("Timer cancelled")
+		done.Done()
+	}
+
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Timer cancelled
+	// Timer fired
+}
+
+// Example_promisify demonstrates wrapping a blocking operation as a promise
+// using Loop.Promisify.
+//
+// Promisify launches the function in a new goroutine and returns a Promise
+// that settles with the function's result. The promise resolves on the loop
+// thread via SubmitInternal, maintaining the single-owner invariant.
+func Example_promisify() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+	go loop.Run(ctx)
+
+	// Wrap a blocking computation as a promise
+	p := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
+		// Simulate blocking work (e.g., HTTP request, file I/O)
+		time.Sleep(20 * time.Millisecond)
+		return 42, nil
+	})
+
+	// Wait for the promise to settle via channel
+	result := <-p.ToChannel()
+	fmt.Printf("Result: %v\n", result)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Result: 42
+}
+
+// Example_autoExit demonstrates the WithAutoExit option.
+//
+// When auto-exit is enabled, Run() returns when the loop has no remaining
+// work (no pending tasks, timers, or Promisify goroutines). This is useful
+// for batch processing where the loop should shut itself down.
+func Example_autoExit() {
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	// Submit a single task
+	loop.Submit(func() {
+		fmt.Println("Task running")
+	})
+
+	// Run blocks until the task completes and no work remains.
+	// No explicit Shutdown needed.
+	if err := loop.Run(context.Background()); err != nil {
+		fmt.Printf("Run returned error: %v\n", err)
+	}
+
+	fmt.Println("Loop exited automatically")
+
+	// Output:
+	// Task running
+	// Loop exited automatically
+}
+
+// Example_submitInternal demonstrates the difference between Submit and
+// SubmitInternal.
+//
+// SubmitInternal adds work to the internal (priority) queue, which is
+// processed before the external queue in each tick. This is useful for
+// protocol-internal operations that must run before user callbacks.
+func Example_submitInternal() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	var done sync.WaitGroup
+	done.Add(3)
+
+	// External task (normal priority)
+	loop.Submit(func() {
+		fmt.Println("External task")
+		done.Done()
+	})
+
+	// Internal task (high priority — runs first in the same tick)
+	loop.SubmitInternal(func() {
+		fmt.Println("Internal task")
+		done.Done()
+	})
+
+	// Another external task
+	loop.Submit(func() {
+		fmt.Println("External task 2")
+		done.Done()
+	})
+
+	// Start the loop AFTER all submissions to guarantee single-tick processing.
+	// This ensures the internal queue is drained before the external queue,
+	// producing deterministic output order.
+	go loop.Run(ctx)
+
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Internal task
+	// External task
+	// External task 2
+}
+
+// Example_eventTarget demonstrates the DOM-style EventTarget for custom event
+// dispatching. EventTarget supports adding listeners, dispatching events, and
+// removing listeners by ID — following the W3C DOM specification.
+func Example_eventTarget() {
+	et := eventloop.NewEventTarget()
+
+	// Add a listener for "data" events
+	id := et.AddEventListener("data", func(event *eventloop.Event) {
+		fmt.Printf("Event type: %s\n", event.Type)
+	})
+
+	// Dispatch an event — the listener receives it
+	et.DispatchEvent(&eventloop.Event{
+		Type: "data",
+	})
+
+	// Remove the listener
+	et.RemoveEventListenerByID("data", id)
+
+	// Dispatch again — no listener receives it (returns true since event
+	// was not canceled via PreventDefault).
+	dispatched := et.DispatchEvent(&eventloop.Event{
+		Type: "data",
+	})
+
+	fmt.Printf("Dispatched after removal: %v\n", dispatched)
+
+	// Output:
+	// Event type: data
+	// Dispatched after removal: true
+}
+
+// Example_metrics demonstrates enabling metrics collection and reading
+// runtime statistics from the event loop.
+//
+// WithMetrics(true) instruments the loop to record task latency, queue depth,
+// and throughput (TPS). Metrics() returns a snapshot of the current state.
+func Example_metrics() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New(eventloop.WithMetrics(true))
+
+	var done sync.WaitGroup
+	done.Add(3)
+
+	// Submit a few tasks to generate metrics
+	for i := range 3 {
+		loop.Submit(func() {
+			time.Sleep(time.Duration(i+1) * time.Millisecond)
+			done.Done()
+		})
+	}
+
+	go loop.Run(ctx)
+	done.Wait()
+
+	// Read a metrics snapshot
+	stats := loop.Metrics()
+	if stats == nil {
+		fmt.Println("Metrics is nil")
+		return
+	}
+
+	// Latency percentiles are available after tasks execute
+	fmt.Printf("P50 latency > 0: %v\n", stats.Latency.P50 > 0)
+	fmt.Printf("Max latency > 0: %v\n", stats.Latency.Max > 0)
+
+	// Queue depth metrics track ingress, internal, and microtask queues
+	fmt.Printf("Has queue metrics: %v\n", stats.Queue.IngressMax >= 0)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// P50 latency > 0: true
+	// Max latency > 0: true
+	// Has queue metrics: true
+}
+
+// Example_fastPathMode demonstrates configuring the loop's fast-path mode.
+//
+// Fast-path mode controls how the loop waits for new work. Auto (default)
+// selects the optimal strategy. Forced requires no I/O FDs. Disabled always
+// uses the poll path.
+func Example_fastPathMode() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Default: FastPathAuto — automatically selects based on I/O load
+	loop, _ := eventloop.New(
+		eventloop.WithFastPathMode(eventloop.FastPathAuto),
+	)
+
+	var done sync.WaitGroup
+	done.Add(1)
+
+	loop.Submit(func() {
+		fmt.Println("Auto mode task executed")
+		done.Done()
+	})
+
+	go loop.Run(ctx)
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Auto mode task executed
+}
+
+// Example_alive demonstrates the Alive() method for checking loop liveness.
+//
+// Alive() returns true when the loop has ref'd timers, in-flight Promisify
+// goroutines, registered I/O FDs, or pending work in queues. With auto-exit,
+// Run() returns when Alive() becomes false.
+func Example_alive() {
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	// Before running: Alive() returns true because a task is queued
+	loop.Submit(func() {
+		fmt.Println("Task executing")
+	})
+
+	fmt.Printf("Alive before Run: %v\n", loop.Alive())
+
+	// Run blocks until Alive() is false (auto-exit mode)
+	_ = loop.Run(context.Background())
+
+	// After auto-exit: Alive() returns false
+	fmt.Printf("Alive after Run: %v\n", loop.Alive())
+
+	// State is now Terminated
+	fmt.Printf("State: %v\n", loop.State())
+
+	// Output:
+	// Alive before Run: true
+	// Task executing
+	// Alive after Run: false
+	// State: Terminated
+}
+
+// Example_refTimer demonstrates timer reference counting for liveness management.
+//
+// RefTimer/UnrefTimer control whether a timer keeps the event loop alive.
+// When all timers are unref'd, the loop can auto-exit even with pending timers.
+// This is useful for periodic background tasks that should not prevent shutdown.
+func Example_refTimer() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	// Schedule a long-running timer (ref'd by default, keeps loop alive)
+	timerID, _ := loop.ScheduleTimer(time.Hour, func() {
+		fmt.Println("Timer fired")
+	})
+
+	runDone := make(chan struct{})
+	go func() {
+		_ = loop.Run(ctx)
+		close(runDone)
+	}()
+
+	// Wait for the loop to start, then unref the timer from outside.
+	// After unref, the timer no longer keeps the loop alive.
+	time.Sleep(20 * time.Millisecond)
+	_ = loop.UnrefTimer(timerID)
+
+	// Loop should auto-exit since no ref'd work remains
+	<-runDone
+
+	fmt.Printf("Loop exited: %v\n", loop.State() == eventloop.StateTerminated)
+
+	// Output:
+	// Loop exited: true
+}
+
+// Example_setFastPathMode demonstrates runtime fast-path mode switching.
+//
+// SetFastPathMode allows changing the I/O strategy at runtime. Auto (default)
+// adapts to I/O load. Disabled forces poll-based waiting. Forced requires no
+// registered I/O file descriptors.
+func Example_setFastPathMode() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	var done sync.WaitGroup
+	done.Add(1)
+
+	loop.Submit(func() {
+		fmt.Println("Task executed")
+		done.Done()
+	})
+
+	go loop.Run(ctx)
+
+	done.Wait()
+
+	// Switch mode while the loop is running
+	_ = loop.SetFastPathMode(eventloop.FastPathDisabled)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Task executed
+}
+
+// Example_scheduleMicrotask demonstrates microtask and nextTick queue ordering.
+//
+// Both nextTick and microtask callbacks are deferred until after the current
+// task completes. In the deferred queue, nextTick callbacks are processed
+// before microtask callbacks. This follows the eventloop's drainDeferredQueues
+// ordering: nextTick first, then microtasks.
+func Example_scheduleMicrotask() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	var done sync.WaitGroup
+	done.Add(1)
+
+	// Schedule a microtask (deferred until after current task)
+	_ = loop.ScheduleMicrotask(func() {
+		fmt.Println("Microtask callback")
+	})
+
+	// Schedule a nextTick callback (deferred, runs before microtasks)
+	_ = loop.ScheduleNextTick(func() {
+		fmt.Println("NextTick callback")
+	})
+
+	loop.Submit(func() {
+		// After this task, nextTick runs first, then microtasks
+		fmt.Println("Main task")
+		done.Done()
+	})
+
+	go loop.Run(ctx)
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Main task
+	// NextTick callback
+	// Microtask callback
+}
+
+// Example_errorHandling demonstrates detecting loop termination errors.
+//
+// After the loop terminates, API calls return ErrLoopTerminated. Use errors.Is
+// to detect this condition and handle graceful degradation.
+func Example_errorHandling() {
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	// Submit one task to trigger auto-exit
+	loop.Submit(func() {})
+
+	// Run until auto-exit
+	_ = loop.Run(context.Background())
+
+	// Further operations return ErrLoopTerminated
+	_, err := loop.ScheduleTimer(time.Second, func() {})
+	fmt.Printf("Timer error: %v\n", errors.Is(err, eventloop.ErrLoopTerminated))
+
+	err = loop.Submit(func() {})
+	fmt.Printf("Submit error: %v\n", errors.Is(err, eventloop.ErrLoopTerminated))
+
+	err = loop.ScheduleMicrotask(func() {})
+	fmt.Printf("Microtask error: %v\n", errors.Is(err, eventloop.ErrLoopTerminated))
+
+	// Output:
+	// Timer error: true
+	// Submit error: true
+	// Microtask error: true
+}
+
+// Example_scheduleTimerRepeating demonstrates implementing a repeating timer
+// by rescheduling in the callback.
+//
+// ScheduleTimer is one-shot — to repeat, reschedule from within the callback.
+// Using WithAutoExit(true) keeps the example self-contained.
+func Example_scheduleTimerRepeating() {
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	count := 0
+	interval := 10 * time.Millisecond
+	maxCount := 3
+
+	// Start a timer that reschedules itself
+	var schedule func()
+	schedule = func() {
+		_, _ = loop.ScheduleTimer(interval, func() {
+			count++
+			fmt.Printf("Tick %d\n", count)
+			if count < maxCount {
+				schedule() // Reschedule for next interval
+			}
+		})
+	}
+
+	schedule()
+
+	_ = loop.Run(context.Background())
+
+	fmt.Printf("Final count: %d\n", count)
+
+	// Output:
+	// Tick 1
+	// Tick 2
+	// Tick 3
+	// Final count: 3
+}
+
+// Example_submitInternalConcurrent demonstrates that SubmitInternal tasks
+// are processed before Submit tasks when queued in the same tick.
+//
+// SubmitInternal adds to the priority (internal) queue, which is drained
+// before the external queue within each tick. This is useful for protocol-
+// internal operations that must run before user callbacks.
+func Example_submitInternalConcurrent() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	var done sync.WaitGroup
+	done.Add(2)
+
+	// Enqueue both tasks before starting the loop to guarantee they
+	// are processed in the same tick, demonstrating queue priority.
+	_ = loop.Submit(func() {
+		fmt.Println("External task")
+		done.Done()
+	})
+
+	_ = loop.SubmitInternal(func() {
+		fmt.Println("Internal task")
+		done.Done()
+	})
+
+	go loop.Run(ctx)
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Internal task
+	// External task
+}
+
+// Example_shutdownTimeout demonstrates Shutdown with a context timeout.
+//
+// Shutdown blocks until all in-flight operations complete or the context
+// expires. A short timeout can be used to enforce a maximum wait time.
+func Example_shutdownTimeout() {
+	loop, _ := eventloop.New()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runDone := make(chan struct{})
+	go func() {
+		_ = loop.Run(ctx)
+		close(runDone)
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+
+	// Shutdown with generous timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+
+	err := loop.Shutdown(shutdownCtx)
+	if err != nil {
+		fmt.Printf("Shutdown error: %v\n", err)
+	} else {
+		fmt.Println("Shutdown clean")
+	}
+
+	<-runDone
+
+	// Output:
+	// Shutdown clean
+}
+
+// Example_cancelTimers demonstrates batch cancellation of multiple timers.
+//
+// CancelTimers cancels all specified timers in a single operation. Timers that
+// have already fired are silently ignored. This is more efficient than calling
+// CancelTimer individually for each timer.
+func Example_cancelTimers() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New(eventloop.WithAutoExit(true))
+
+	// Schedule three long-running timers
+	id1, _ := loop.ScheduleTimer(time.Hour, func() {
+		fmt.Println("Timer 1 fired (should not happen)")
+	})
+	id2, _ := loop.ScheduleTimer(time.Hour, func() {
+		fmt.Println("Timer 2 fired (should not happen)")
+	})
+
+	// Schedule a short timer that triggers after cancellation
+	_, _ = loop.ScheduleTimer(10*time.Millisecond, func() {
+		fmt.Println("Short timer fired")
+	})
+
+	// Cancel the first two from within the loop goroutine.
+	// External calls require the loop to be running first.
+	loop.Submit(func() {
+		errs := loop.CancelTimers([]eventloop.TimerID{id1, id2})
+		fmt.Printf("Cancelled: %d\n", len(errs))
+	})
+
+	_ = loop.Run(ctx)
+
+	fmt.Printf("Done: %v\n", loop.State() == eventloop.StateTerminated)
+
+	// Output:
+	// Cancelled: 2
+	// Short timer fired
+	// Done: true
+}
+
+// Example_promisifyError demonstrates Promisify with a function that returns
+// an error. The promise rejects with the error value, accessible via
+// ToChannel and the Rejected state.
+func Example_promisifyError() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	go loop.Run(ctx)
+
+	p := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
+		return nil, errors.New("operation failed")
+	})
+
+	// Wait for the promise to settle
+	result := <-p.ToChannel()
+
+	if p.State() == eventloop.Rejected {
+		fmt.Printf("Rejected: %v\n", result)
+	} else {
+		fmt.Printf("Unexpected: %v\n", result)
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Rejected: operation failed
+}
+
+// Example_promisifyPanic demonstrates Promisify panic recovery.
+//
+// When the Promisify function panics, the promise rejects with a PanicError
+// wrapping the panic value. This prevents goroutine crashes from propagating
+// and allows graceful error handling.
+func Example_promisifyPanic() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	go loop.Run(ctx)
+
+	p := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
+		panic("something went very wrong")
+	})
+
+	// Wait for the promise to settle
+	result := <-p.ToChannel()
+
+	// The result should be a PanicError
+	if panicErr, ok := result.(eventloop.PanicError); ok {
+		fmt.Printf("Caught panic: %v\n", panicErr.Value)
+	} else {
+		fmt.Printf("Unexpected type: %T\n", result)
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Caught panic: something went very wrong
+}
+
+// Example_currentTickTime demonstrates accessing the cached tick time.
+//
+// CurrentTickTime returns a monotonic time value that is cached at the start
+// of each tick. This provides consistent time for timer scheduling within
+// a single tick, avoiding the overhead and inconsistency of time.Now().
+func Example_currentTickTime() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	loop, _ := eventloop.New()
+
+	var done sync.WaitGroup
+	done.Add(1)
+
+	var tickTime time.Time
+
+	loop.Submit(func() {
+		tickTime = loop.CurrentTickTime()
+		fmt.Printf("Tick time: %v\n", !tickTime.IsZero())
+		done.Done()
+	})
+
+	go loop.Run(ctx)
+	done.Wait()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer shutdownCancel()
+	loop.Shutdown(shutdownCtx)
+
+	// Output:
+	// Tick time: true
 }

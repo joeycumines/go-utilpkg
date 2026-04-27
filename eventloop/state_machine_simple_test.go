@@ -263,6 +263,64 @@ func Test_fastState_TryTransition_Exact(t *testing.T) {
 	})
 }
 
+// Test_fastState_TryTransition_RejectsIdentity verifies that TryTransition
+// rejects identity transitions (from == to). This prevents re-entrancy into
+// code guarded by the state machine — e.g., Close() piggybacking on
+// Shutdown()'s StateTerminating transition to enter terminateCleanup() concurrently.
+func Test_fastState_TryTransition_RejectsIdentity(t *testing.T) {
+	t.Parallel()
+
+	identityCases := []LoopState{
+		StateAwake,
+		StateRunning,
+		StateSleeping,
+		StateTerminating,
+		StateTerminated,
+	}
+
+	for _, state := range identityCases {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+
+			fs := newFastState()
+			fs.Store(state)
+
+			if fs.TryTransition(state, state) {
+				t.Fatalf("TryTransition(%v, %v) should reject identity transitions",
+					state, state)
+			}
+
+			if fs.Load() != state {
+				t.Fatalf("state should remain %v, got %v", state, fs.Load())
+			}
+		})
+	}
+}
+
+// Test_fastState_TryTransition_IdentityVersusDistinct verifies that identity
+// rejection does not weaken distinct-value transitions.
+func Test_fastState_TryTransition_IdentityVersusDistinct(t *testing.T) {
+	t.Parallel()
+
+	fs := newFastState()
+	fs.Store(StateRunning)
+
+	// Identity: rejected
+	if fs.TryTransition(StateRunning, StateRunning) {
+		t.Fatal("identity transition Running→Running should be rejected")
+	}
+
+	// Distinct: succeeds
+	if !fs.TryTransition(StateRunning, StateSleeping) {
+		t.Fatal("distinct transition Running→Sleeping should succeed")
+	}
+
+	// Stale: fails
+	if fs.TryTransition(StateRunning, StateTerminating) {
+		t.Fatal("stale transition from Running should fail, state is Sleeping")
+	}
+}
+
 // Test_LoopState_String tests that String() returns non-empty values
 func Test_LoopState_String(t *testing.T) {
 	t.Parallel()

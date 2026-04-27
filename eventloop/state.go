@@ -85,16 +85,26 @@ func (s *fastState) Store(state LoopState) {
 
 // TryTransition attempts to atomically transition from one state to another.
 // Returns true if the transition was successful.
-// PERFORMANCE: Pure CAS, no validation of transition validity.
+// Rejects identity transitions (from == to) to prevent re-entrancy into
+// code guarded by the state machine (e.g., both Close() and Shutdown()
+// entering terminateCleanup concurrently).
+// PERFORMANCE: Single branch before CAS, negligible overhead.
 func (s *fastState) TryTransition(from, to LoopState) bool {
+	if from == to {
+		return false
+	}
 	return s.v.CompareAndSwap(uint64(from), uint64(to))
 }
 
 // TransitionAny attempts to transition from any valid source state to the target.
 // Returns true if the transition was successful.
+// Rejects identity transitions (from == to) consistent with TryTransition.
 // PERFORMANCE: Uses CAS loop for any-to-target transitions.
 func (s *fastState) TransitionAny(validFrom []LoopState, to LoopState) bool {
 	for _, from := range validFrom {
+		if from == to {
+			continue
+		}
 		if s.v.CompareAndSwap(uint64(from), uint64(to)) {
 			return true
 		}

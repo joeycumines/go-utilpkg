@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
 )
 
 var (
@@ -85,8 +87,8 @@ type Loop struct { // betteralign:ignore
 
 	// N.B. The atomic.Int64 and atomic.Uint64 types are alignment-safe, irrespective of field order.
 
-	tickTimeOffset  atomic.Int64  // Nanoseconds since tickAnchor (C3: prevent torn reads)
-	loopGoroutineID atomic.Uint64 // Goroutine ID for re-entrancy detection (D08)
+	tickTimeOffset  atomic.Int64 // Nanoseconds since tickAnchor (C3: prevent torn reads)
+	loopGoroutineID atomic.Int64 // Goroutine ID for re-entrancy detection (D08)
 
 	// tickCount tracks the number of loop iterations (Task 10.2)
 	tickCount uint64
@@ -320,7 +322,7 @@ func (l *Loop) run(ctx context.Context) {
 	defer runtime.UnlockOSThread()
 
 	// D08: Store goroutine ID for re-entrancy detection
-	l.loopGoroutineID.Store(getGoroutineID())
+	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
 	defer l.loopGoroutineID.Store(0)
 
 	for {
@@ -867,24 +869,7 @@ func (l *Loop) isLoopThread() bool {
 	if loopID == 0 {
 		return false // Loop not running
 	}
-	return getGoroutineID() == loopID
-}
-
-// getGoroutineID returns the current goroutine's ID.
-// This uses runtime internals and is only for debugging/re-entrancy detection.
-func getGoroutineID() uint64 {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	// Stack trace starts with "goroutine NNN ["
-	var id uint64
-	for i := len("goroutine "); i < n; i++ {
-		if buf[i] >= '0' && buf[i] <= '9' {
-			id = id*10 + uint64(buf[i]-'0')
-		} else {
-			break
-		}
-	}
-	return id
+	return runtimeutil.GoroutineID() == loopID
 }
 
 // SubmitInternal submits a task to the internal priority lane.

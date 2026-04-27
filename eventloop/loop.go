@@ -11,6 +11,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
 	"github.com/joeycumines/logiface"
 )
 
@@ -52,7 +53,9 @@ type loopTestHooks struct {
 	OnFastPathEntry        func()       // Called when entering fast path (runFastPath or direct exec)
 	AfterOptimisticCheck   func()       // Called after optimistic check, before Swap
 	BeforeFastPathRollback func()       // Called before attempting to rollback fast path mode
+	BeforeTerminateState   func()       // Called after choosing termination, before StateTerminated is stored
 	PollError              func() error // Injects poll error for testing handlePollError
+	OnSubmitWakeup         func()       // Called when submitWakeup() is invoked (for testing pipe write optimization)
 }
 
 // FastPathMode controls how fast path mode selection works.
@@ -80,6 +83,30 @@ const (
 //
 // Design note: Mutex+chunking is used for ingress because benchmarks showed it outperforms
 // lock-free CAS under high contention due to O(N) retry storms.
+//
+// Auto-Exit and the Quiescing Protocol:
+//
+// When WithAutoExit(true) is configured, the loop monitors its own liveness via [Loop.Alive]
+// and terminates itself when no liveness-adding work remains (ref'd timers, I/O FDs, Promisify
+// goroutines). The quiescing protocol prevents a race between the decision to exit and
+// concurrent API calls that would add liveness:
+//
+// The loop goroutine sets an atomic quiescing flag before committing to termination. All
+// liveness-adding APIs—[Loop.ScheduleTimer], [Loop.RegisterFD], [Loop.RefTimer],
+// [Loop.Promisify], and the internal submitToQueue—check this flag and reject work with
+// [ErrLoopTerminated] when set. After setting quiescing, the loop re-checks [Loop.Alive]; if
+// new work arrived between the first check and the flag (detected via submissionEpoch), the
+// termination is aborted and the flag cleared.
+//
+// The following APIs are intentionally NOT gated by quiescing because they represent
+// ephemeral, self-draining work whose arrival is detected by the submissionEpoch mechanism
+// inside [Loop.Alive], causing the termination abort:
+//   - [Loop.Submit] — enqueues a one-shot task
+//   - [Loop.ScheduleMicrotask] — enqueues a microtask
+//   - [Loop.ScheduleNextTick] — enqueues a nextTick callback
+//
+// Adding a quiescing check to these ephemeral APIs would be actively harmful: it would
+// reject work that would correctly prevent the (now-invalid) termination.
 //
 // Thread Safety:
 //
@@ -122,6 +149,7 @@ type Loop struct {
 	OnOverload   func(error)
 	fastWakeupCh chan struct{}
 	loopDone     chan struct{}
+	runCh        chan struct{} // closed when Run() is first called
 	timerMap     map[TimerID]*timer
 	timers       timerHeap
 	auxJobs      []func()
@@ -144,18 +172,30 @@ type Loop struct {
 	// See align_test.go for verification of cache line positions.
 	nextTimerID         atomic.Uint64
 	tickElapsedTime     atomic.Int64
-	loopGoroutineID     atomic.Uint64
+	loopGoroutineID     atomic.Int64
 	fastPathEntries     atomic.Int64
 	fastPathSubmits     atomic.Int64
 	tickAnchorMu        sync.RWMutex
 	stopOnce            sync.Once
 	closeOnce           sync.Once
+	closeLoopDoneOnce   sync.Once // ensures loopDone is closed exactly once
+	runChOnce           sync.Once // ensures runCh is closed exactly once
 	externalMu          sync.Mutex
 	internalQueueMu     sync.Mutex
 	timerNestingDepth   atomic.Int32 // HTML5 spec: nesting depth for timeout clamping
 	userIOFDCount       atomic.Int32
 	wakeUpSignalPending atomic.Uint32
 	fastPathMode        atomic.Int32
+	refedTimerCount     atomic.Int32 // ref'd active timers only
+	// quiescing is the auto-exit quiescing gate. Set by the loop goroutine in run()/runFastPath()
+	// before committing to termination. All liveness-adding APIs (ScheduleTimer, RegisterFD,
+	// RefTimer, Promisify, submitToQueue) check this flag and reject work when set. In run(),
+	// cleared if the Alive() re-check detects in-flight work (termination abort). In
+	// runFastPath(), the flag may remain set on return to run(), which re-evaluates it.
+	// Never set when autoExit is false.
+	quiescing       atomic.Bool
+	promisifyCount  atomic.Int64  // in-flight Promisify goroutines
+	submissionEpoch atomic.Uint64 // incremented after each work-adding mutation for Alive() consistency
 
 	wakeBuf                 [8]byte
 	_                       [2]byte // Align to 8-byte
@@ -163,6 +203,7 @@ type Loop struct {
 	forceNonBlockingPoll    bool
 	strictMicrotaskOrdering bool
 	debugMode               bool       // Enable debug features like stack trace capture
+	autoExit                bool       // Exit Run() when Alive() returns false
 	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
@@ -176,7 +217,8 @@ type timer struct {
 	id           TimerID
 	heapIndex    int
 	canceled     atomic.Bool
-	nestingLevel int32 // Nesting level at scheduling time for HTML5 clamping
+	nestingLevel int32       // Nesting level at scheduling time for HTML5 clamping
+	refed        atomic.Bool // default true; when false, timer doesn't keep loop alive
 }
 
 // timerHeap is a min-heap of timers
@@ -202,7 +244,8 @@ func (h *timerHeap) Pop() any {
 	old := *h
 	n := len(old)
 	t := old[n-1]
-	old[n-1] = nil // Avoid memory leak
+	old[n-1] = nil   // Avoid memory leak
+	t.heapIndex = -1 // Invalidate index to prevent re-entrant heap corruption
 	*h = old[:n-1]
 	return t
 }
@@ -237,6 +280,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 		// Buffer size 1 prevents blocking on send when channel is full
 		fastWakeupCh: make(chan struct{}, 1),
 		loopDone:     make(chan struct{}),
+		runCh:        make(chan struct{}),
 	}
 
 	// Apply options to Loop struct
@@ -244,6 +288,7 @@ func New(opts ...LoopOption) (*Loop, error) {
 	loop.fastPathMode.Store(int32(options.fastPathMode))
 	loop.logger = options.logger
 	loop.debugMode = options.debugMode // Enable debug mode
+	loop.autoExit = options.autoExit   // Auto-exit when not alive
 
 	// Phase 5.3: Initialize metrics if enabled
 	if options.metricsEnabled {
@@ -355,6 +400,13 @@ func (l *Loop) Run(ctx context.Context) error {
 		return ErrReentrantRun
 	}
 
+	// Signal that Run() has been called so that synchronous operations
+	// (UnrefTimer, RefTimer, CancelTimer, CancelTimers) can distinguish
+	// "Run() called but goroutine hasn't started" from "Run() never called".
+	// Uses sync.Once to prevent double-close panic when multiple goroutines
+	// call Run() concurrently.
+	l.runChOnce.Do(func() { close(l.runCh) })
+
 	if !l.state.TryTransition(StateAwake, StateRunning) {
 		currentState := l.state.Load()
 		if currentState == StateTerminated || currentState == StateTerminating {
@@ -363,8 +415,12 @@ func (l *Loop) Run(ctx context.Context) error {
 		return ErrLoopAlreadyRunning
 	}
 
-	// Close loopDone when run exits to signal completion to Shutdown waiters
-	defer close(l.loopDone)
+	// Close loopDone when Run() exits — placed AFTER TryTransition so only
+	// the goroutine that successfully transitions to StateRunning owns the
+	// loopDone lifecycle. A second Run() call that fails TryTransition must
+	// NOT close loopDone, as that would poison sync operations (CancelTimer,
+	// RefTimer) that monitor loopDone to detect termination.
+	defer l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
 
 	l.tickAnchorMu.Lock()
 	l.tickAnchor = time.Now()
@@ -398,9 +454,25 @@ func (l *Loop) shutdownImpl(ctx context.Context) error {
 
 		if l.state.TryTransition(currentState, StateTerminating) {
 			if currentState == StateAwake {
-				// Loop hasn't started running yet - just set state and return (T28 bug remains)
+				// Loop hasn't started running yet - just set state and return
 				l.state.Store(StateTerminated)
 				l.closeFDs()
+
+				// Close loopDone since Run() was never called and won't close it.
+				// Without this, goroutines blocked on <-loopDone in
+				// submitTimerRefChange/CancelTimer/CancelTimers would deadlock
+				// (or wait 100ms before timing out with ErrLoopNotRunning).
+				l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
+
+				// Wait for in-flight Promisify goroutines before cleanup
+				l.promisifyMu.Lock()
+				//lint:ignore SA2001 intentional memory barrier
+				l.promisifyMu.Unlock()
+				l.promisifyWg.Wait()
+
+				l.terminateCleanup()
+				l.registry.RejectAll(ErrLoopTerminated)
+
 				return nil
 			}
 
@@ -435,7 +507,7 @@ func (l *Loop) run(ctx context.Context) error {
 	// Thread locking is deferred to tick() when it actually polls for I/O.
 	var osThreadLocked bool
 
-	l.loopGoroutineID.Store(getGoroutineID())
+	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
 	defer l.loopGoroutineID.Store(0)
 
 	// Start context watcher goroutine to wake loop on cancellation
@@ -476,6 +548,7 @@ func (l *Loop) run(ctx context.Context) error {
 			// Transition state to Terminated so new Promisify operations are rejected
 			// Drain queues and clean up - promisifyWg.Wait() is handled by Shutdown() caller
 			l.transitionToTerminated()
+			l.terminateCleanup() // GAP-AE-06: full cleanup resets all liveness counters
 			l.closeFDs()
 			return ctx.Err()
 		default:
@@ -483,6 +556,31 @@ func (l *Loop) run(ctx context.Context) error {
 
 		if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
 			// State already set by Shutdown caller - just do cleanup and return
+			l.closeFDs()
+			return nil
+		}
+
+		// Auto-exit: if enabled and no ref'd work remains, terminate cleanly.
+		// This is analogous to libuv's UV_RUN_DEFAULT mode where the loop exits
+		// when there are no more active and referenced handles.
+		//
+		// Quiescing protocol: set the quiescing flag BEFORE committing termination.
+		// This gates all liveness-adding APIs (ScheduleTimer, RegisterFD, RefTimer,
+		// Promisify) so no new work can be accepted after this point. Then re-check
+		// Alive() to catch any work that was added between the initial !Alive()
+		// decision and the flag being set (the epoch-based consistency in Alive()
+		// detects concurrent epoch changes). If work was added, abort termination.
+		if l.autoExit && !l.Alive() {
+			l.quiescing.Store(true)
+
+			// Re-check after gate: catches work added between !Alive() and the flag.
+			if l.Alive() {
+				l.quiescing.Store(false)
+				continue
+			}
+
+			l.transitionToTerminated()
+			l.terminateCleanup()
 			l.closeFDs()
 			return nil
 		}
@@ -529,6 +627,17 @@ func (l *Loop) runFastPath(ctx context.Context) bool {
 	}
 
 	for {
+		// Auto-exit check: don't block in fast path if loop should exit.
+		// Uses quiescing protocol: set flag, re-check Alive(), abort if work arrived.
+		if l.autoExit && !l.Alive() {
+			l.quiescing.Store(true)
+			if l.Alive() {
+				l.quiescing.Store(false)
+				continue
+			}
+			return true // exit to main loop — quiescing flag stays set
+		}
+
 		select {
 		case <-ctx.Done():
 			return true
@@ -640,6 +749,10 @@ func (l *Loop) hasExternalTasks() bool {
 // that can be safely called from the loop goroutine itself.
 // This does NOT wait for promisifyWg to prevent deadlock.
 func (l *Loop) transitionToTerminated() {
+	if l.testHooks != nil && l.testHooks.BeforeTerminateState != nil {
+		l.testHooks.BeforeTerminateState()
+	}
+
 	// Lock promisifyMu to prevent new Promisify operations while we shut down
 	l.promisifyMu.Lock()
 	l.state.Store(StateTerminated)
@@ -682,14 +795,7 @@ func (l *Loop) transitionToTerminated() {
 	}
 	l.auxJobsSpare = jobs[:0]
 
-	// Drain microtasks
-	for {
-		fn := l.microtasks.Pop()
-		if fn == nil {
-			break
-		}
-		l.safeExecuteFn(fn)
-	}
+	l.drainDeferredQueues()
 
 	// Reject all remaining pending promises
 	l.registry.RejectAll(ErrLoopTerminated)
@@ -758,13 +864,7 @@ func (l *Loop) shutdown() {
 		}
 		l.auxJobsSpare = jobs[:0]
 
-		// Drain microtasks
-		for {
-			fn := l.microtasks.Pop()
-			if fn == nil {
-				break
-			}
-			l.safeExecuteFn(fn)
+		if l.drainDeferredQueues() {
 			drained = true
 		}
 
@@ -779,7 +879,83 @@ func (l *Loop) shutdown() {
 	// Reject all remaining pending promises
 	l.registry.RejectAll(ErrLoopTerminated)
 
+	l.terminateCleanup()
+
 	l.closeFDs()
+}
+
+func (l *Loop) cleanupTimers() {
+	for id, t := range l.timerMap {
+		t.task = nil
+		t.refed.Store(false)
+		t.canceled.Store(true)
+		t.nestingLevel = 0
+		t.heapIndex = -1
+		timerPool.Put(t)
+		delete(l.timerMap, id)
+	}
+	l.timers = l.timers[:0]
+	l.refedTimerCount.Store(0)
+}
+
+// terminateCleanup clears all remaining loop state after termination.
+// It discards timers, resets liveness counters, and drains queues without
+// executing callbacks. Must only be called after transitionToTerminated()
+// has been called (which sets StateTerminated and drains+executes queues).
+// In the Shutdown/Close paths, promisifyWg must be waited for first.
+// In the auto-exit and context cancellation paths, it is called from the
+// loop goroutine itself (no concurrent access risk since the goroutine is
+// the sole consumer of these structures).
+func (l *Loop) terminateCleanup() {
+	// Clear quiescing flag: the termination decision is complete, so the gate
+	// is no longer needed. This maintains the invariant that quiescing is only
+	// true during the brief window between !Alive() and transitionToTerminated().
+	// While benign in practice (StateTerminated is checked first in all gated APIs),
+	// clearing the flag prevents stale state if the code is refactored.
+	l.quiescing.Store(false)
+
+	l.cleanupTimers()
+	l.userIOFDCount.Store(0)
+
+	// Discard remaining internal queue items
+	for {
+		l.internalQueueMu.Lock()
+		_, ok := l.internal.Pop()
+		l.internalQueueMu.Unlock()
+		if !ok {
+			break
+		}
+	}
+
+	// Discard remaining external queue items
+	for {
+		l.externalMu.Lock()
+		_, ok := l.external.Pop()
+		l.externalMu.Unlock()
+		if !ok {
+			break
+		}
+	}
+
+	// Discard remaining auxJobs
+	l.externalMu.Lock()
+	for i := range l.auxJobs {
+		l.auxJobs[i] = nil
+	}
+	l.auxJobs = l.auxJobs[:0]
+	l.externalMu.Unlock()
+
+	// Discard remaining nextTick and microtask items
+	for {
+		if l.nextTickQueue.Pop() == nil {
+			break
+		}
+	}
+	for {
+		if l.microtasks.Pop() == nil {
+			break
+		}
+	}
 }
 
 // tick is a single iteration of the event loop.
@@ -916,6 +1092,25 @@ func (l *Loop) drainMicrotasks() {
 	}
 }
 
+func (l *Loop) drainDeferredQueues() bool {
+	const budget = 4096 // Safety limit: prevents infinite recursion if callbacks re-schedule
+	drained := false
+	for i := 0; i < budget; i++ {
+		if fn := l.nextTickQueue.Pop(); fn != nil {
+			l.safeExecuteFn(fn)
+			drained = true
+			continue
+		}
+		fn := l.microtasks.Pop()
+		if fn == nil {
+			break
+		}
+		l.safeExecuteFn(fn)
+		drained = true
+	}
+	return drained
+}
+
 // drainAuxJobs drains leftover tasks from the fast path auxJobs queue.
 // This handles the race condition where Submit() checks canUseFastPath() before
 // acquiring the lock, mode changes (e.g., FD registered), and the task ends up
@@ -972,6 +1167,12 @@ func (l *Loop) poll() {
 	l.internalQueueMu.Unlock()
 
 	if extLen > 0 || intLen > 0 || !l.microtasks.IsEmpty() {
+		l.state.TryTransition(StateSleeping, StateRunning)
+		return
+	}
+
+	// Auto-exit check: don't block in poll if loop should exit.
+	if l.autoExit && !l.Alive() {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
@@ -1046,6 +1247,12 @@ func (l *Loop) pollFastMode(timeoutMs int) {
 	// This prevents a race where shutdown happens after the channel drain
 	// but before we block, causing us to sleep indefinitely.
 	if l.state.Load() == StateTerminating {
+		l.state.TryTransition(StateSleeping, StateRunning)
+		return
+	}
+
+	// Auto-exit check: don't block in pollFastMode if loop should exit.
+	if l.autoExit && !l.Alive() {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
@@ -1144,6 +1351,10 @@ func (l *Loop) drainWakeUpPipe() {
 // - Unix/Linux/Darwin: Writes to wake pipe (eventfd or pipe)
 // - Windows/IOCP: Calls poller.Wakeup() which uses PostQueuedCompletionStatus
 func (l *Loop) submitWakeup() error {
+	// Test hook: allow tests to observe submitWakeup calls
+	if l.testHooks != nil && l.testHooks.OnSubmitWakeup != nil {
+		l.testHooks.OnSubmitWakeup()
+	}
 	// Check state and reject ONLY if fully terminated
 	// We MUST allow wake-up during StateTerminating so the loop can
 	// drain queued tasks and complete shutdown
@@ -1177,6 +1388,13 @@ func (l *Loop) submitWakeup() error {
 //   - StateTerminating: ALLOWS submission (loop needs to drain in-flight work)
 //   - StateSleeping/StateRunning: normal operation
 //
+// Quiescing Protocol: Submit is intentionally NOT gated by the quiescing flag.
+// Submitted tasks are ephemeral work detected by Alive() via the submissionEpoch
+// mechanism. If a task is submitted during the quiescing window, the epoch change
+// causes the Alive() re-check to abort termination, and the task executes normally
+// in the next tick. Adding a quiescing check here would be harmful: it would reject
+// work that correctly prevents the (now-invalid) termination.
+//
 // Thread Safety: Uses mutex-based atomic state-check-and-push pattern.
 func (l *Loop) Submit(task func()) error {
 	// Check fast mode conditions BEFORE taking lock
@@ -1197,6 +1415,7 @@ func (l *Loop) Submit(task func()) error {
 	if fastMode {
 		l.fastPathSubmits.Add(1)
 		l.auxJobs = append(l.auxJobs, task)
+		l.submissionEpoch.Add(1)
 		l.externalMu.Unlock()
 
 		// Channel wakeup with automatic deduplication (buffered size 1)
@@ -1218,6 +1437,7 @@ func (l *Loop) Submit(task func()) error {
 
 	// Normal path: Use chunkedIngress for I/O mode
 	l.external.Push(task)
+	l.submissionEpoch.Add(1)
 	l.externalMu.Unlock()
 
 	// I/O Mode: Need more careful wakeup with deduplication
@@ -1297,18 +1517,37 @@ func (l *Loop) SubmitInternal(task func()) error {
 		}
 	}
 
+	return l.submitToQueue(task)
+}
+
+// submitToQueue pushes a task to the internal queue and wakes the loop.
+// This is the slow path of SubmitInternal, extracted so that callers who
+// have already determined they are NOT on the loop thread can skip the
+// expensive isLoopThread() fast-path check (which calls runtime.Stack at
+// ~1760 ns and 1 alloc per invocation).
+func (l *Loop) submitToQueue(task func()) error {
 	// Lock internal queue mutex for atomic state-check-and-push
 	l.internalQueueMu.Lock()
 
 	// Check state while holding mutex
-	state = l.state.Load()
+	state := l.state.Load()
 	if state == StateTerminated {
+		l.internalQueueMu.Unlock()
+		return ErrLoopTerminated
+	}
+
+	// Check quiescing flag (auto-exit termination window).
+	// This closes the TOCTOU gap: an external goroutine may have passed the
+	// API-level quiescing check before the flag was set, but this check (under
+	// the same lock that guards the epoch increment) ensures correctness.
+	if l.quiescing.Load() {
 		l.internalQueueMu.Unlock()
 		return ErrLoopTerminated
 	}
 
 	// Push the task
 	l.internal.Push(task)
+	l.submissionEpoch.Add(1)
 	l.internalQueueMu.Unlock()
 
 	// In fast mode, runFastPath blocks on fastWakeupCh while state remains StateRunning
@@ -1318,6 +1557,15 @@ func (l *Loop) SubmitInternal(task func()) error {
 		case l.fastWakeupCh <- struct{}{}:
 		default:
 		}
+
+		// No defense-in-depth submitWakeup() needed here. When userIOFDCount
+		// transitions from >0 to 0, UnregisterFD's GAP-004 doWakeup() already sent
+		// the pipe write that interrupts PollIO. The fastWakeupCh signal above is
+		// buffered and consumed when the loop enters fast-mode after PollIO returns.
+		// The loop only enters PollIO when userIOFDCount > 0, and the only path from
+		// >0 to 0 during normal operation is UnregisterFD (which triggers GAP-004).
+		// See docs/eventloop-autopsy-20260419/03_critical_finding.md for proof.
+
 		return nil
 	}
 
@@ -1355,9 +1603,191 @@ func (l *Loop) Wake() error {
 	return nil
 }
 
+// RefTimer marks the timer as keeping the event loop alive.
+// Analogous to libuv's uv_ref(). Timers are ref'd by default.
+//
+// Thread-safe: safe to call from any goroutine.
+// When called from the loop goroutine: immediate synchronous effect via
+// applyTimerRefChange (timerMap lookup + refedTimerCount update).
+// When called from external goroutines: blocks until the loop processes
+// the change via SubmitInternal (synchronous channel round-trip).
+// Silently ignores timers that have already fired or don't exist.
+func (l *Loop) RefTimer(id TimerID) error {
+	return l.submitTimerRefChange(id, true)
+}
+
+// UnrefTimer marks the timer as NOT keeping the event loop alive.
+// Analogous to libuv's uv_unref(). If the only remaining work is
+// unref'd timers, the loop is considered idle.
+//
+// Thread-safe: safe to call from any goroutine.
+// When called from the loop goroutine: immediate synchronous effect via
+// applyTimerRefChange (timerMap lookup + refedTimerCount update).
+// When called from external goroutines: blocks until the loop processes
+// the change via SubmitInternal (synchronous channel round-trip).
+// Silently ignores timers that have already fired or don't exist.
+func (l *Loop) UnrefTimer(id TimerID) error {
+	return l.submitTimerRefChange(id, false)
+}
+
+func (l *Loop) submitTimerRefChange(id TimerID, ref bool) error {
+	if l.state.Load() == StateTerminated {
+		return ErrLoopTerminated
+	}
+	// Gate RefTimer (liveness-adding) during quiescing.
+	// UnrefTimer (ref=false) is allowed — it reduces liveness.
+	if ref && l.quiescing.Load() {
+		return ErrLoopTerminated
+	}
+	if l.isLoopThread() {
+		l.applyTimerRefChange(id, ref)
+		return nil
+	}
+	// Ensure Run() has been called. If Run() was never called, submitting a
+	// synchronous closure to the internal queue will never be drained, causing
+	// the caller to block forever. Wait for runCh to confirm Run() was called.
+	// The select has two paths: non-blocking (already started) and blocking
+	// with timeout (just called via go loop.Run(), goroutine hasn't run yet).
+	select {
+	case <-l.runCh:
+		// Run() has been called — proceed
+	default:
+		// Run() hasn't been called yet. Wait briefly for the goroutine to start.
+		select {
+		case <-l.runCh:
+			// Run() started during our brief wait
+		case <-l.loopDone:
+			return ErrLoopTerminated
+		case <-time.After(time.Second):
+			return ErrLoopNotRunning
+		}
+	}
+	// External goroutine: synchronous submission to ensure immediate effect.
+	// Matches libuv semantics where uv_ref()/uv_unref() are always immediate.
+	result := make(chan struct{}, 1)
+	// Uses submitToQueue to skip the redundant isLoopThread() check.
+	if err := l.submitToQueue(func() {
+		l.applyTimerRefChange(id, ref)
+		result <- struct{}{}
+		// Note: doWakeup() is NOT called here. applyTimerRefChange already
+		// calls doWakeup() conditionally when old != ref (state actually
+		// changed). Calling it unconditionally would cause spurious wakeups
+		// when old == ref (no-op case, timer already in target state).
+	}); err != nil {
+		return err
+	}
+	// Use select with loopDone to prevent deadlock if Close() is called
+	// while waiting for the result (Close() sets Terminated and exits without
+	// processing queued closures).
+	select {
+	case <-result:
+		return nil
+	case <-l.loopDone:
+		return ErrLoopTerminated
+	}
+}
+
+// applyTimerRefChange applies the ref/unref change directly.
+// MUST be called on the loop goroutine (timerMap is not thread-safe).
+// Silently ignores timers that have already fired, been cancelled, or don't exist.
+// When called from external goroutines, FIFO ordering of SubmitInternal ensures
+// the timer registration closure runs before the ref change closure.
+// When called from the loop thread, ScheduleTimer registers synchronously.
+func (l *Loop) applyTimerRefChange(id TimerID, ref bool) {
+	t, ok := l.timerMap[id]
+	if !ok {
+		// Timer already fired, was cancelled, or doesn't exist. Silently ignore.
+		return
+	}
+	old := t.refed.Swap(ref)
+	if old != ref {
+		if ref {
+			l.refedTimerCount.Add(1)
+		} else {
+			l.refedTimerCount.Add(-1)
+		}
+		// Increment epoch to ensure Alive() detects the liveness change
+		l.submissionEpoch.Add(1)
+		// Wake the loop so auto-exit re-checks Alive() after the count changes.
+		// Only needed when auto-exit is enabled: the loop may be in PollIO
+		// and needs to return so the auto-exit check sees the liveness transition.
+		// When auto-exit is disabled, this is pure overhead (pipe write syscall
+		// at ~1700 ns per call) with no benefit.
+		if l.autoExit {
+			l.doWakeup()
+		}
+	}
+}
+
+// Alive reports whether the event loop has ref'd pending work.
+// When false, all ref'd timers have fired, all queues are empty,
+// no Promisify goroutines are in-flight, and no I/O FDs are registered.
+//
+// Analogous to libuv's uv_loop_alive().
+// Safe to call from any goroutine, including event loop callbacks.
+// Uses epoch-based consistency to prevent false negatives under
+// concurrent submission: reads submissionEpoch before and after checks;
+// if it changed (concurrent work added), retries up to 3 times.
+// After max retries, conservatively returns true.
+//
+// Check ordering: atomic counters are checked first (no lock acquisition)
+// to reduce mutex contention under high load. Queue checks require mutex
+// acquisition and are performed only when all atomic checks return zero.
+func (l *Loop) Alive() bool {
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		epoch := l.submissionEpoch.Load()
+
+		// Fast path: check atomic counters and lock-free ring buffers first.
+		// These avoid internalQueueMu/externalMu contention. Note: IsEmpty()
+		// on the ring buffers may acquire overflowMu, but this is a separate,
+		// low-contention lock distinct from the main queue mutexes.
+		if l.refedTimerCount.Load() > 0 {
+			return true
+		}
+		if l.promisifyCount.Load() > 0 {
+			return true
+		}
+		if l.userIOFDCount.Load() > 0 {
+			return true
+		}
+		if !l.microtasks.IsEmpty() || !l.nextTickQueue.IsEmpty() {
+			return true
+		}
+
+		// Slow path: check queue lengths under mutex.
+		l.internalQueueMu.Lock()
+		hasInternal := l.internal.Length() > 0
+		l.internalQueueMu.Unlock()
+		if hasInternal {
+			return true
+		}
+		l.externalMu.Lock()
+		hasExternal := l.external.Length() > 0 || len(l.auxJobs) > 0
+		l.externalMu.Unlock()
+		if hasExternal {
+			return true
+		}
+
+		// Validate epoch: if unchanged, no concurrent work was added during checks
+		if l.submissionEpoch.Load() == epoch {
+			return false
+		}
+		// Epoch changed — concurrent work was added. Retry.
+	}
+	// Max retries exhausted — conservatively return true (safer to say alive when unsure)
+	return true
+}
+
 // ScheduleMicrotask schedules a microtask.
 //
 // microtaskRing now implements dynamic growth, so Push never fails.
+//
+// Quiescing Protocol: ScheduleMicrotask is intentionally NOT gated by the quiescing
+// flag. Microtasks are ephemeral work detected by Alive() via the submissionEpoch
+// mechanism. If a microtask is scheduled during the quiescing window, the epoch change
+// causes the Alive() re-check to abort termination. Adding a quiescing check here
+// would be harmful: it would reject work that correctly prevents termination.
 func (l *Loop) ScheduleMicrotask(fn func()) error {
 	state := l.state.Load()
 	if state == StateTerminated {
@@ -1379,6 +1809,7 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 
 	// Add to microtask queue
 	l.microtasks.Push(fn)
+	l.submissionEpoch.Add(1)
 	l.externalMu.Unlock()
 
 	// Wake up the loop to process the microtask
@@ -1425,6 +1856,13 @@ func (l *Loop) scheduleMicrotask(task func()) {
 // Returns:
 //   - ErrLoopTerminated if the loop has been shut down.
 //
+// Quiescing Protocol: ScheduleNextTick is intentionally NOT gated by the quiescing
+// flag. nextTick callbacks are ephemeral work detected by Alive() via the
+// submissionEpoch mechanism. If a callback is scheduled during the quiescing window,
+// the epoch change causes the Alive() re-check to abort termination. Adding a
+// quiescing check here would be harmful: it would reject work that correctly
+// prevents termination.
+//
 // Thread Safety: Safe to call from any goroutine.
 func (l *Loop) ScheduleNextTick(fn func()) error {
 	if fn == nil {
@@ -1451,6 +1889,7 @@ func (l *Loop) ScheduleNextTick(fn func()) error {
 
 	// Add to nextTick queue (higher priority than microtasks)
 	l.nextTickQueue.Push(fn)
+	l.submissionEpoch.Add(1)
 	l.externalMu.Unlock()
 
 	// Wake up the loop to process the nextTick callback
@@ -1481,6 +1920,16 @@ func (l *Loop) ScheduleNextTick(fn func()) error {
 // Thread Safety: Safe to call concurrently with SetFastPathMode.
 // Uses optimistic increment with validation/rollback on conflict.
 func (l *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents)) error {
+	// Defense-in-depth: reject on terminated loop (GAP-AE-03).
+	if l.state.Load() == StateTerminated {
+		return ErrLoopTerminated
+	}
+
+	// Reject during auto-exit quiescing window.
+	if l.quiescing.Load() {
+		return ErrLoopTerminated
+	}
+
 	// Fast rejection before expensive syscall.
 	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
 		return ErrFastPathIncompatible
@@ -1492,10 +1941,17 @@ func (l *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents
 		return err
 	}
 
+	// Re-check quiescing after expensive syscall.
+	// The syscall can take microseconds, during which the loop may have
+	// entered quiescing. If so, rollback the registration.
+	if l.quiescing.Load() {
+		_ = l.poller.UnregisterFD(fd)
+		return ErrLoopTerminated
+	}
+
 	// Increment count (Store our side of the invariant)
 	l.userIOFDCount.Add(1)
-
-	// Verify Mode (Load to check secondary state)
+	l.submissionEpoch.Add(1) // Alive() consistency: FD registration is work
 	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
 		// ROLLBACK: Mode incompatibility detected.
 		// Only decrement if UnregisterFD succeeds (we removed the FD).
@@ -1530,6 +1986,14 @@ func (l *Loop) UnregisterFD(fd int) error {
 	err := l.poller.UnregisterFD(fd)
 	if err == nil {
 		l.userIOFDCount.Add(-1)
+		l.submissionEpoch.Add(1) // Alive() consistency: FD unregistration changes liveness
+		// When the last I/O FD is removed, the loop may still be blocked in
+		// PollIO() (not listening on fastWakeupCh). Wake it so it transitions
+		// to pollFastMode immediately, rather than waiting for the next
+		// submitToQueue call or PollIO timeout to trigger the mode change.
+		if l.userIOFDCount.Load() == 0 {
+			l.doWakeup()
+		}
 	}
 	return err
 }
@@ -1577,10 +2041,19 @@ func (l *Loop) State() LoopState {
 }
 
 // calculateTimeout determines how long to block in poll.
+//
+// Uses time.Now() (wall-clock) rather than CurrentTickTime() (stable tick time).
+// This is intentional: the poll timeout must reflect actual remaining time until
+// the next timer fires. CurrentTickTime() is set once at tick start and would
+// be stale by the time calculateTimeout is called (end of tick). Timers are
+// scheduled using CurrentTickTime().Add(delay), so their .when values use the
+// stable tick time. The wall-clock comparison here correctly computes the
+// remaining real time, and tickElapsedTime catches up at the start of the next
+// tick so runTimers sees the timer as due.
 func (l *Loop) calculateTimeout() int {
 	maxDelay := 10 * time.Second
 
-	// Cap by next timer
+	// Cap by next timer. Uses time.Now() for wall-clock accuracy (see doc comment).
 	if len(l.timers) > 0 {
 		now := time.Now()
 		nextFire := l.timers[0].when
@@ -1622,17 +2095,32 @@ func (l *Loop) runTimers() {
 			l.timerNestingDepth.Store(oldDepth)
 			delete(l.timerMap, t.id)
 
+			if t.refed.Load() {
+				l.refedTimerCount.Add(-1)
+			}
+
 			// Zero-alloc: Return timer to pool
 			t.heapIndex = -1   // Clear stale heap data
 			t.nestingLevel = 0 // Clear stale nesting level
-			t.task = nil       // Avoid keeping reference
+			t.refed.Store(false)
+			t.task = nil // Avoid keeping reference
 			timerPool.Put(t)
 		} else {
 			delete(l.timerMap, t.id)
+
+			if t.refed.Load() {
+				// Decrement refedTimerCount without incrementing submissionEpoch.
+				// This is correct: epoch tracks liveness-*adding* mutations. A
+				// timer firing reduces liveness, so Alive() returning false after
+				// this decrement is the correct outcome. The epoch-based retry in
+				// Alive() only needs to detect concurrent additions, not removals.
+				l.refedTimerCount.Add(-1)
+			}
 			// Zero-alloc: Return timer to pool even if canceled
 			t.heapIndex = -1   // Clear stale heap data
 			t.nestingLevel = 0 // Clear stale nesting level
-			t.task = nil       // FIX: Clear closure reference to prevent memory leak on canceled timer path
+			t.refed.Store(false)
+			t.task = nil // Clear closure reference to prevent memory leak
 			timerPool.Put(t)
 		}
 
@@ -1650,6 +2138,12 @@ func (l *Loop) runTimers() {
 // If this timer is nested deeper than 5 levels, its delay will be clamped to 4ms.
 // This matches browser behavior for nested setTimeout/setInterval.
 func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
+	// Fast rejection during auto-exit quiescing window.
+	// Avoids timer pool allocation when the loop is terminating.
+	if l.quiescing.Load() {
+		return 0, ErrLoopTerminated
+	}
+
 	// HTML5 spec: Clamp delay to 4ms if nesting depth > 5 and delay < 4ms
 	// See: https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers
 	// "If nesting level is greater than 5, and timeout is less than 4, then increase timeout to 4."
@@ -1668,6 +2162,7 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 	t.task = fn
 	t.nestingLevel = currentDepth
 	t.canceled.Store(false)
+	t.refed.Store(true)
 	t.heapIndex = -1
 
 	// Return timer to pool on error
@@ -1677,19 +2172,55 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 	// This must happen BEFORE SubmitInternal to prevent resource leak
 	const maxSafeInteger = 9007199254740991 // 2^53 - 1
 	if uint64(id) > maxSafeInteger {
-		// Put back to pool - timer was never scheduled
-		t.task = nil // Avoid keeping reference
+		// Put back to pool - timer was never scheduled.
+		// Reset ALL fields per pool hygiene contract (heapIndex, nestingLevel, refed, task).
+		t.heapIndex = -1
+		t.nestingLevel = 0
+		t.refed.Store(false)
+		t.task = nil
 		timerPool.Put(t)
 		return 0, ErrTimerIDExhausted
 	}
 
-	err := l.SubmitInternal(func() {
+	// On the loop thread: register synchronously. This bypasses
+	// SubmitInternal which may queue the task in I/O mode (when
+	// canUseFastPath is false), causing Schedule-then-Unref from a
+	// loop callback to race if the unref arrives before the queued
+	// registration is processed.
+	if l.isLoopThread() {
+		// Re-check quiescing on loop thread (defense-in-depth for callbacks
+		// executing during termination drain phase).
+		if l.quiescing.Load() {
+			t.heapIndex = -1
+			t.nestingLevel = 0
+			t.refed.Store(false)
+			t.task = nil
+			timerPool.Put(t)
+			return 0, ErrLoopTerminated
+		}
 		l.timerMap[id] = t
 		heap.Push(&l.timers, t)
+		l.refedTimerCount.Add(1)
+		l.submissionEpoch.Add(1)
+		return id, nil
+	}
+
+	// External goroutine: use submitToQueue (not SubmitInternal) to
+	// skip the redundant isLoopThread() check. We already proved
+	// we're not on the loop thread above.
+	err := l.submitToQueue(func() {
+		l.timerMap[id] = t
+		heap.Push(&l.timers, t)
+		l.refedTimerCount.Add(1)
+		l.submissionEpoch.Add(1)
 	})
 	if err != nil {
-		// Put back to pool on error
-		t.task = nil // Avoid keeping reference
+		// Put back to pool on error.
+		// Reset ALL fields per pool hygiene contract (heapIndex, nestingLevel, refed, task).
+		t.heapIndex = -1
+		t.nestingLevel = 0
+		t.refed.Store(false)
+		t.task = nil
 		timerPool.Put(t)
 		return 0, err
 	}
@@ -1699,43 +2230,89 @@ func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 
 // CancelTimer cancels a scheduled timer before it fires.
 // Returns ErrTimerNotFound if the timer does not exist.
-// Returns ErrLoopNotRunning if the loop is not in a valid state (not running or terminated).
+// Returns ErrLoopNotRunning if the loop is not in a valid state (not running or terminating or terminated).
+//
+// Not gated by the quiescing flag: cancellation reduces liveness (opposite of
+// ScheduleTimer which IS gated). This asymmetry is intentional — during the
+// quiescing window, callers can cancel timers but not schedule new ones.
 func (l *Loop) CancelTimer(id TimerID) error {
 	// Check if loop is in a valid state for cancellation.
-	// Timer cancellation requires synchronous confirmation via channel,
-	// so we can only proceed if loop is Running or Terminated.
-	//
-	// We CANNOT queue cancellation tasks when loop is in StateAwake or StateStopping,
-	// because SubmitInternal would accept them but there would be no loop goroutine
-	// to process the response, causing CancelTimer to block forever on the result channel.
 	state := l.state.Load()
-	if !l.state.IsRunning() && state != StateTerminated {
-		return ErrLoopNotRunning
+	if state == StateTerminated {
+		return ErrLoopTerminated
+	}
+
+	// If Run() was never called, queueing a synchronous closure will never
+	// be drained. Wait for runCh to confirm Run() was called.
+	if state == StateAwake {
+		select {
+		case <-l.runCh:
+			// Run() called — proceed
+		case <-l.loopDone:
+			return ErrLoopTerminated
+		case <-time.After(time.Second):
+			return ErrLoopNotRunning
+		}
+	}
+
+	// Loop thread: execute directly to prevent deadlock when I/O FDs are
+	// registered (canUseFastPath=false). Without this check, submitToQueue
+	// would queue the closure and the caller would block on <-result while
+	// the loop thread (the only consumer of the queue) is blocked waiting.
+	if l.isLoopThread() {
+		return l.applyCancelTimer(id)
 	}
 
 	result := make(chan error, 1)
 
-	// Submit to loop thread to ensure thread-safe access to timerMap and timer heap
-	if err := l.SubmitInternal(func() {
-		t, exists := l.timerMap[id]
-		if !exists {
-			result <- ErrTimerNotFound
-			return
-		}
-		// Mark as canceled
-		t.canceled.Store(true)
-		// Remove from timerMap
-		delete(l.timerMap, id)
-		// Remove from heap using heapIndex
-		if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
-			heap.Remove(&l.timers, t.heapIndex)
-		}
-		result <- nil
+	// Submit to loop thread. Uses submitToQueue to skip the redundant
+	// isLoopThread() check — we already proved we're external above.
+	if err := l.submitToQueue(func() {
+		result <- l.applyCancelTimer(id)
 	}); err != nil {
 		return err
 	}
 
-	return <-result
+	// Use select with loopDone to prevent deadlock if Close() is called
+	// while this goroutine is waiting for the result. Close() sets
+	// StateTerminated and the loop exits without processing queued closures,
+	// so the result channel would never be written to.
+	select {
+	case err := <-result:
+		return err
+	case <-l.loopDone:
+		return ErrLoopTerminated
+	}
+}
+
+// applyCancelTimer cancels a timer by ID. MUST be called on the loop goroutine.
+func (l *Loop) applyCancelTimer(id TimerID) error {
+	t, exists := l.timerMap[id]
+	if !exists {
+		// Timer not in map — already fired or cancelled
+		return ErrTimerNotFound
+	}
+	// Mark as canceled
+	t.canceled.Store(true)
+	// If timer was already popped from heap (e.g., by runTimers during
+	// a callback that calls CancelTimer on its own timer ID), skip cleanup.
+	// runTimers will handle counter decrement and pool return.
+	if t.heapIndex < 0 || t.heapIndex >= len(l.timers) {
+		return nil
+	}
+	// Timer is still in heap — we own the cleanup
+	delete(l.timerMap, id)
+	if t.refed.Load() {
+		l.refedTimerCount.Add(-1)
+	}
+	heap.Remove(&l.timers, t.heapIndex)
+	// Return timer to pool
+	t.heapIndex = -1
+	t.nestingLevel = 0
+	t.task = nil
+	t.refed.Store(false)
+	timerPool.Put(t)
+	return nil
 }
 
 // CancelTimers cancels multiple scheduled timers in a single batch operation.
@@ -1750,6 +2327,9 @@ func (l *Loop) CancelTimer(id TimerID) error {
 // Returns ErrLoopNotRunning (for all IDs) if the loop is not in a valid state.
 // Returns ErrLoopTerminated (for all IDs) if SubmitInternal fails.
 //
+// Not gated by the quiescing flag: cancellation reduces liveness (opposite of
+// ScheduleTimer which IS gated). See CancelTimer for rationale.
+//
 // Thread Safety: Safe to call from any goroutine.
 func (l *Loop) CancelTimers(ids []TimerID) []error {
 	if len(ids) == 0 {
@@ -1758,57 +2338,48 @@ func (l *Loop) CancelTimers(ids []TimerID) []error {
 
 	// Check if loop is in a valid state for cancellation.
 	state := l.state.Load()
-	if !l.state.IsRunning() && state != StateTerminated {
-		// Return ErrLoopNotRunning for all IDs
+	if state == StateTerminated {
 		errors := make([]error, len(ids))
 		for i := range errors {
-			errors[i] = ErrLoopNotRunning
+			errors[i] = ErrLoopTerminated
 		}
 		return errors
 	}
 
+	// If Run() was never called, queueing a synchronous closure will never
+	// be drained. Wait for runCh to confirm Run() was called.
+	if state == StateAwake {
+		select {
+		case <-l.runCh:
+			// Run() called — proceed
+		case <-l.loopDone:
+			errors := make([]error, len(ids))
+			for i := range errors {
+				errors[i] = ErrLoopTerminated
+			}
+			return errors
+		case <-time.After(time.Second):
+			errors := make([]error, len(ids))
+			for i := range errors {
+				errors[i] = ErrLoopNotRunning
+			}
+			return errors
+		}
+	}
+
+	// Loop thread: execute directly to prevent deadlock (same as CancelTimer)
+	if l.isLoopThread() {
+		return l.applyCancelTimers(ids)
+	}
+
 	result := make(chan []error, 1)
 
-	// Submit to loop thread to ensure thread-safe access to timerMap and timer heap
-	if err := l.SubmitInternal(func() {
-		errors := make([]error, len(ids))
-
-		// Collect timers to remove from heap (use slice to batch heap operations)
-		toRemove := make([]*timer, 0, len(ids))
-
-		for i, id := range ids {
-			t, exists := l.timerMap[id]
-			if !exists {
-				errors[i] = ErrTimerNotFound
-				continue
-			}
-			// Mark as canceled
-			t.canceled.Store(true)
-			// Remove from timerMap
-			delete(l.timerMap, id)
-			// Collect for batch heap removal
-			if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
-				toRemove = append(toRemove, t)
-			}
-			errors[i] = nil
-		}
-
-		// Note: heap.Remove dynamically updates heapIndex via Swap, so the order of removals
-		// doesn't actually matter for correctness - each timer's heapIndex is current at removal time.
-		for _, t := range toRemove {
-			if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
-				heap.Remove(&l.timers, t.heapIndex)
-			}
-			// Return timer to pool
-			t.heapIndex = -1
-			t.nestingLevel = 0
-			t.task = nil
-			timerPool.Put(t)
-		}
-
-		result <- errors
+	// Submit to loop thread. Uses submitToQueue to skip the redundant
+	// isLoopThread() check — we already proved we're external above.
+	if err := l.submitToQueue(func() {
+		result <- l.applyCancelTimers(ids)
 	}); err != nil {
-		// SubmitInternal failed, return error for all IDs
+		// submitToQueue failed, return error for all IDs
 		errors := make([]error, len(ids))
 		for i := range errors {
 			errors[i] = err
@@ -1816,7 +2387,67 @@ func (l *Loop) CancelTimers(ids []TimerID) []error {
 		return errors
 	}
 
-	return <-result
+	// Use select with loopDone to prevent deadlock if Close() is called
+	select {
+	case res := <-result:
+		return res
+	case <-l.loopDone:
+		errors := make([]error, len(ids))
+		for i := range errors {
+			errors[i] = ErrLoopTerminated
+		}
+		return errors
+	}
+}
+
+// applyCancelTimers cancels multiple timers. MUST be called on the loop goroutine.
+func (l *Loop) applyCancelTimers(ids []TimerID) []error {
+	errors := make([]error, len(ids))
+
+	// Collect timers to remove from heap (use slice to batch heap operations)
+	toRemove := make([]*timer, 0, len(ids))
+
+	for i, id := range ids {
+		t, exists := l.timerMap[id]
+		if !exists {
+			// Timer not in map — already fired or cancelled
+			errors[i] = ErrTimerNotFound
+			continue
+		}
+		// Mark as canceled
+		t.canceled.Store(true)
+		// If timer was already popped from heap (e.g., by runTimers during
+		// a re-entrant callback), skip cleanup. runTimers handles it.
+		if t.heapIndex < 0 || t.heapIndex >= len(l.timers) {
+			errors[i] = nil
+			continue
+		}
+		// Timer is still in heap — we own the cleanup
+		delete(l.timerMap, id)
+
+		if t.refed.Load() {
+			l.refedTimerCount.Add(-1)
+		}
+		// Collect for batch heap removal
+		toRemove = append(toRemove, t)
+		errors[i] = nil
+	}
+
+	// Note: heap.Remove dynamically updates heapIndex via Swap, so the order of removals
+	// doesn't actually matter for correctness - each timer's heapIndex is current at removal time.
+	for _, t := range toRemove {
+		if t.heapIndex >= 0 && t.heapIndex < len(l.timers) {
+			heap.Remove(&l.timers, t.heapIndex)
+		}
+		// Return timer to pool
+		t.heapIndex = -1
+		t.nestingLevel = 0
+		t.refed.Store(false)
+		t.task = nil
+		timerPool.Put(t)
+	}
+
+	return errors
 }
 
 // safeExecute executes a task with panic recovery.
@@ -2017,31 +2648,15 @@ func (l *Loop) closeFDs() {
 
 // isLoopThread checks if we're on the loop goroutine.
 //
-// Performance Note: This implementation uses runtime.Stack to retrieve the goroutine ID,
-// which involves a stack-trace capture and string parsing. While the buffer is small (64 bytes),
-// it is still significantly more expensive than a simple pointer comparison.
+// Performance Note: This implementation uses runtimeutil.GoroutineID() which provides
+// ~2-5ns access vs ~1000-2000ns for runtime.Stack parsing.
 // Use sparingly in extremely hot paths.
 func (l *Loop) isLoopThread() bool {
 	loopID := l.loopGoroutineID.Load()
 	if loopID == 0 {
 		return false
 	}
-	return getGoroutineID() == loopID
-}
-
-// getGoroutineID returns the current goroutine's ID.
-func getGoroutineID() uint64 {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	var id uint64
-	for i := len("goroutine "); i < n; i++ {
-		if buf[i] >= '0' && buf[i] <= '9' {
-			id = id*10 + uint64(buf[i]-'0')
-		} else {
-			break
-		}
-	}
-	return id
+	return runtimeutil.GoroutineID() == loopID
 }
 
 // Close immediately terminates the event loop without waiting for graceful shutdown.
@@ -2049,10 +2664,22 @@ func getGoroutineID() uint64 {
 // NOTE: Close() waits for the loop goroutine to exit before returning.
 // This prevents data races where the caller frees resources that the loop
 // goroutine might still be accessing.
+//
+// Concurrent Close()/Shutdown(): Only one of Close() or Shutdown() will
+// execute cleanup. The other will see StateTerminating or StateTerminated
+// and return ErrLoopTerminated. The TryTransition identity rejection and
+// loopDone channel ensure safe concurrent calling.
 func (l *Loop) Close() error {
 	for {
 		currentState := l.state.Load()
 		if currentState == StateTerminated {
+			return ErrLoopTerminated
+		}
+
+		// Another goroutine (Shutdown or Close) is already terminating.
+		// Wait for it to complete rather than spinning on the CAS.
+		if currentState == StateTerminating {
+			<-l.loopDone
 			return ErrLoopTerminated
 		}
 
@@ -2062,12 +2689,24 @@ func (l *Loop) Close() error {
 				l.state.Store(StateTerminated)
 				l.closeFDs()
 
-				// CRITICAL FIX: Wait for in-flight Promisify goroutines before returning
-				// Same safety as shutdown() - promisifyMu guards promisifyWg usage
-				// Any goroutines that already called promisifyWg.Add() must complete
+				// Close loopDone since Run() was never called and won't close it.
+				// Without this, goroutines blocked on <-loopDone in
+				// submitTimerRefChange/CancelTimer/CancelTimers would deadlock.
+				l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
+
+				// Wait for in-flight Promisify goroutines before returning.
+				// Lock+Unlock acts as a memory barrier so any in-flight
+				// Promisify goroutine that passed its initial state check
+				// will observe StateTerminated on loopDone. Unlock before
+				// Wait() so concurrent Promisify() calls can acquire the
+				// mutex, see Terminated state, and reject immediately.
 				l.promisifyMu.Lock()
-				l.promisifyWg.Wait()
+				//lint:ignore SA2001 intentional memory barrier
 				l.promisifyMu.Unlock()
+				l.promisifyWg.Wait()
+
+				l.terminateCleanup()
+				l.registry.RejectAll(ErrLoopTerminated)
 
 				return nil
 			}
@@ -2079,8 +2718,17 @@ func (l *Loop) Close() error {
 			// Wake up the loop so it sees the Terminated state and exits
 			l.doWakeup()
 			// Wait for the loop goroutine to exit
-			// The goroutine will call shutdown() which handles drain and closeFDs()
 			<-l.loopDone
+
+			// Wait for in-flight Promisify goroutines before cleanup
+			l.promisifyMu.Lock()
+			//lint:ignore SA2001 intentional memory barrier
+			l.promisifyMu.Unlock()
+			l.promisifyWg.Wait()
+
+			l.terminateCleanup()
+			l.registry.RejectAll(ErrLoopTerminated)
+
 			return nil
 		}
 	}

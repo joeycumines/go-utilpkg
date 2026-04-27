@@ -49,17 +49,16 @@ func TestState_TransitionAny_InvalidSource(t *testing.T) {
 	}
 }
 
-// TestState_TransitionAny_TransitionsToCurrent tests transitioning
-// to the current state (no-op).
+// TestState_TransitionAny_TransitionsToCurrent tests that transitioning
+// to the current state (identity) is rejected by TryTransition's identity guard.
 func TestState_TransitionAny_TransitionsToCurrent(t *testing.T) {
 	s := newFastState()
 	s.Store(StateRunning)
 
-	// Try to transition to the same state
+	// Try to transition to the same state — should be rejected
 	result := s.TransitionAny([]LoopState{StateRunning}, StateRunning)
-	// TransitionAny should return true (no-op allowed)
-	if !result {
-		t.Error("TransitionAny should allow transition to current state")
+	if result {
+		t.Error("TransitionAny should reject identity transitions (from == to)")
 	}
 
 	// State should remain unchanged

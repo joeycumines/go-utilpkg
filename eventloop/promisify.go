@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 )
 
 var (
@@ -51,13 +50,34 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 		return p
 	}
 
+	// Reject during auto-exit quiescing window (GAP-AE-05).
+	// Checked under promisifyMu for atomicity with the state check above.
+	if l.quiescing.Load() {
+		l.promisifyMu.Unlock()
+		_, p := l.registry.NewPromise()
+		p.Reject(ErrLoopTerminated)
+		return p
+	}
+
 	_, p := l.registry.NewPromise()
 
 	l.promisifyWg.Add(1)
+	l.promisifyCount.Add(1)
+	l.submissionEpoch.Add(1)
 	l.promisifyMu.Unlock()
 
 	go func() {
 		defer l.promisifyWg.Done()
+		defer func() {
+			l.promisifyCount.Add(-1)
+			// Wake the loop so it re-checks Alive() after the count changes.
+			// Only needed when auto-exit is enabled: the loop may be blocked
+			// in PollIO/fast-path select and needs to re-evaluate liveness.
+			// When auto-exit is disabled, this is pure overhead (syscall).
+			if l.autoExit {
+				l.doWakeup()
+			}
+		}()
 
 		// Completion flag to distinguish normal return from Goexit
 		completed := false
@@ -116,87 +136,4 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 	}()
 
 	return p
-}
-
-// PromisifyWithTimeout executes a function in a goroutine with a timeout.
-//
-// This is a convenience wrapper that combines context.WithTimeout with Promisify.
-// The promise will be rejected with context.DeadlineExceeded if the function
-// does not complete within the specified timeout.
-//
-// Parameters:
-//   - parent: Parent context. Can be context.Background() if no parent cancellation needed.
-//   - timeout: Maximum duration to wait for the function to complete.
-//   - fn: The function to execute. Receives a context that will be cancelled on timeout.
-//
-// Returns:
-//   - A Promise that resolves with the function's result, or rejects with:
-//   - context.DeadlineExceeded if the timeout is reached
-//   - context.Canceled if the parent context is cancelled
-//   - The function's error if it returns one
-//   - PanicError if the function panics
-//   - ErrGoexit if the function calls runtime.Goexit()
-//
-// Example:
-//
-//	promise := loop.PromisifyWithTimeout(ctx, 5*time.Second, func(ctx context.Context) (any, error) {
-//	    // This context will be cancelled after 5 seconds
-//	    return fetchDataFromRemote(ctx)
-//	})
-//
-// Thread Safety:
-// The returned Promise is safe for concurrent access. The function fn is
-// executed in a separate goroutine.
-func (l *Loop) PromisifyWithTimeout(parent context.Context, timeout time.Duration, fn func(ctx context.Context) (any, error)) Promise {
-	ctx, cancel := context.WithTimeout(parent, timeout)
-
-	// Create a wrapper function that ensures cancel is called
-	wrappedFn := func(ctx context.Context) (any, error) {
-		defer cancel()
-		return fn(ctx)
-	}
-
-	return l.Promisify(ctx, wrappedFn)
-}
-
-// PromisifyWithDeadline executes a function in a goroutine with a deadline.
-//
-// This is a convenience wrapper that combines context.WithDeadline with Promisify.
-// The promise will be rejected with context.DeadlineExceeded if the function
-// does not complete before the specified deadline.
-//
-// Parameters:
-//   - parent: Parent context. Can be context.Background() if no parent cancellation needed.
-//   - deadline: Absolute time by which the function must complete.
-//   - fn: The function to execute. Receives a context that will be cancelled at the deadline.
-//
-// Returns:
-//   - A Promise that resolves with the function's result, or rejects with:
-//   - context.DeadlineExceeded if the deadline is reached
-//   - context.Canceled if the parent context is cancelled
-//   - The function's error if it returns one
-//   - PanicError if the function panics
-//   - ErrGoexit if the function calls runtime.Goexit()
-//
-// Example:
-//
-//	deadline := time.Now().Add(10 * time.Second)
-//	promise := loop.PromisifyWithDeadline(ctx, deadline, func(ctx context.Context) (any, error) {
-//	    // This context will be cancelled at the deadline
-//	    return processLargeDataset(ctx)
-//	})
-//
-// Thread Safety:
-// The returned Promise is safe for concurrent access. The function fn is
-// executed in a separate goroutine.
-func (l *Loop) PromisifyWithDeadline(parent context.Context, deadline time.Time, fn func(ctx context.Context) (any, error)) Promise {
-	ctx, cancel := context.WithDeadline(parent, deadline)
-
-	// Create a wrapper function that ensures cancel is called
-	wrappedFn := func(ctx context.Context) (any, error) {
-		defer cancel()
-		return fn(ctx)
-	}
-
-	return l.Promisify(ctx, wrappedFn)
 }
