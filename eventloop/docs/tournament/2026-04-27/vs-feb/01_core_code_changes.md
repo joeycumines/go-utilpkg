@@ -65,7 +65,7 @@ func (l *Loop) isLoopThread() bool {
     if loopID == 0 {
         return false
     }
-    return uint64(runtimeutil.GoroutineID()) == loopID
+    return uint64(goroutineid.Get()) == loopID
 }
 ```
 

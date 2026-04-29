@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
+	"github.com/joeycumines/goroutineid"
 )
 
 var (
@@ -322,7 +322,7 @@ func (l *Loop) run(ctx context.Context) {
 	defer runtime.UnlockOSThread()
 
 	// D08: Store goroutine ID for re-entrancy detection
-	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
+	l.loopGoroutineID.Store(goroutineid.Get())
 	defer l.loopGoroutineID.Store(0)
 
 	for {
@@ -869,7 +869,7 @@ func (l *Loop) isLoopThread() bool {
 	if loopID == 0 {
 		return false // Loop not running
 	}
-	return runtimeutil.GoroutineID() == loopID
+	return goroutineid.Get() == loopID
 }
 
 // SubmitInternal submits a task to the internal priority lane.

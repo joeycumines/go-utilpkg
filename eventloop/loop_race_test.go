@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
+	"github.com/joeycumines/goroutineid"
 )
 
 // TestPollStateOverwrite_PreSleep tests the race condition where poll()
@@ -161,7 +161,7 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	// Capture the loop's goroutine ID via a task
 	wg.Add(1)
 	l.Submit(func() {
-		loopGoroutineID = runtimeutil.GoroutineID()
+		loopGoroutineID = goroutineid.Get()
 		wg.Done()
 	})
 
@@ -179,7 +179,7 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	go func() {
 		// This submission is from a different goroutine
 		err := l.SubmitInternal(func() {
-			taskGoroutineID = runtimeutil.GoroutineID()
+			taskGoroutineID = goroutineid.Get()
 			wg.Done()
 		})
 
@@ -240,7 +240,7 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	// Capture loop goroutine ID
 	wg.Add(1)
 	l.Submit(func() {
-		loopGoroutineID = runtimeutil.GoroutineID()
+		loopGoroutineID = goroutineid.Get()
 		wg.Done()
 	})
 
@@ -254,7 +254,7 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		err := l.SubmitInternal(func() {
-			taskGoroutineID = runtimeutil.GoroutineID()
+			taskGoroutineID = goroutineid.Get()
 			wg.Done()
 		})
 

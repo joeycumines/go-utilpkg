@@ -11,7 +11,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
+	"github.com/joeycumines/goroutineid"
 	"github.com/joeycumines/logiface"
 )
 
@@ -507,7 +507,7 @@ func (l *Loop) run(ctx context.Context) error {
 	// Thread locking is deferred to tick() when it actually polls for I/O.
 	var osThreadLocked bool
 
-	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
+	l.loopGoroutineID.Store(goroutineid.Get())
 	defer l.loopGoroutineID.Store(0)
 
 	// Start context watcher goroutine to wake loop on cancellation
@@ -2648,7 +2648,7 @@ func (l *Loop) closeFDs() {
 
 // isLoopThread checks if we're on the loop goroutine.
 //
-// Performance Note: This implementation uses runtimeutil.GoroutineID() which provides
+// Performance Note: This implementation uses goroutineid.Get() which provides
 // ~2-5ns access vs ~1000-2000ns for runtime.Stack parsing.
 // Use sparingly in extremely hot paths.
 func (l *Loop) isLoopThread() bool {
@@ -2656,7 +2656,7 @@ func (l *Loop) isLoopThread() bool {
 	if loopID == 0 {
 		return false
 	}
-	return runtimeutil.GoroutineID() == loopID
+	return goroutineid.Get() == loopID
 }
 
 // Close immediately terminates the event loop without waiting for graceful shutdown.

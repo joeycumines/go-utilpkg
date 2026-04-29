@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/joeycumines/go-eventloop/internal/runtimeutil"
+	"github.com/joeycumines/goroutineid"
 )
 
 // Loop is the "Maximum Safety" event loop implementation.
@@ -236,7 +236,7 @@ func (l *Loop) run(ctx context.Context) error {
 	defer runtime.UnlockOSThread()
 
 	// Store goroutine ID for re-entrancy detection
-	l.loopGoroutineID.Store(runtimeutil.GoroutineID())
+	l.loopGoroutineID.Store(goroutineid.Get())
 	defer l.loopGoroutineID.Store(0)
 
 	for {
@@ -595,7 +595,7 @@ func (l *Loop) isLoopThread() bool {
 	if loopID == 0 {
 		return false
 	}
-	return runtimeutil.GoroutineID() == loopID
+	return goroutineid.Get() == loopID
 }
 
 // State returns the current loop state.
