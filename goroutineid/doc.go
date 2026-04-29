@@ -13,14 +13,19 @@
 // goroutine IDs for state management is a fundamental anti-pattern in Go that
 // leads to memory leaks, hidden concurrency bugs, and unidiomatic code.
 //
-// This package offers two complementary approaches:
+// This package offers three complementary approaches:
 //
-//  1. [Fast] - Assembly-based retrieval when available: Platform-specific
+//  1. [Get] - Convenience API with automatic fallback: The preferred method
+//     for most use cases. Uses [Fast] for optimal performance and automatically
+//     falls back to [Slow] with a [sync.Pool] buffer to reduce allocations.
+//     Recommended for all use cases where you don't need custom allocation control.
+//
+//  2. [Fast] - Assembly-based retrieval when available: Platform-specific
 //     assembly code that reads the G struct's goid field directly, achieving
 //     ~2-5ns operation. Returns -1 when assembly is not supported
 //     on the current platform.
 //
-//  2. [Slow] - Pure-Go fallback: Uses [runtime.Stack] to parse goroutine ID
+//  3. [Slow] - Pure-Go fallback: Uses [runtime.Stack] to parse goroutine ID
 //     from the stack trace. Slower (~1000-2000ns) but works on all platforms
 //     including WASM.
 //
@@ -28,6 +33,7 @@
 //
 // The API is intentionally simple:
 //
+//   - `Get() int64` - returns goroutine ID with automatic Fast/Slow fallback
 //   - `Fast() int64` - returns goroutine ID fast, or -1 if unsupported
 //   - `Slow(buf []byte) int64` - returns goroutine ID reliably, buffer must be >= 64 bytes
 //
