@@ -24,53 +24,96 @@ type LoopOption interface {
 	applyLoop(*loopOptions) error
 }
 
-// loopOptionImpl implements LoopOption.
-type loopOptionImpl struct {
-	applyLoopFunc func(*loopOptions) error
-}
+// --- StrictMicrotaskOrderingOption ---
 
-func (l *loopOptionImpl) applyLoop(opts *loopOptions) error {
-	return l.applyLoopFunc(opts)
+// StrictMicrotaskOrderingOption controls whether microtasks should be drained
+// after each task execution for strict ordering.
+type StrictMicrotaskOrderingOption struct {
+	enabled bool
 }
 
 // WithStrictMicrotaskOrdering sets whether microtasks should be drained
 // after each task execution for strict ordering.
 // When enabled, microtasks are guaranteed to run after every task.
 // When disabled (default), microtasks are drained in batches for better performance.
-func WithStrictMicrotaskOrdering(enabled bool) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		opts.strictMicrotaskOrdering = enabled
-		return nil
-	}}
+func WithStrictMicrotaskOrdering(enabled bool) *StrictMicrotaskOrderingOption {
+	return &StrictMicrotaskOrderingOption{enabled: enabled}
+}
+
+func (o *StrictMicrotaskOrderingOption) applyLoop(opts *loopOptions) error {
+	opts.strictMicrotaskOrdering = o.enabled
+	return nil
+}
+
+var _ LoopOption = (*StrictMicrotaskOrderingOption)(nil)
+
+// --- FastPathModeOption ---
+
+// FastPathModeOption sets the fast path mode for Loop.
+type FastPathModeOption struct {
+	mode FastPathMode
 }
 
 // WithFastPathMode sets the fast path mode for Loop.
 // See FastPathMode documentation for available modes.
-func WithFastPathMode(mode FastPathMode) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		opts.fastPathMode = mode
-		return nil
-	}}
+func WithFastPathMode(mode FastPathMode) *FastPathModeOption {
+	return &FastPathModeOption{mode: mode}
+}
+
+func (o *FastPathModeOption) applyLoop(opts *loopOptions) error {
+	opts.fastPathMode = o.mode
+	return nil
+}
+
+var _ LoopOption = (*FastPathModeOption)(nil)
+
+// --- MetricsOption ---
+
+// MetricsOption controls whether runtime metrics collection is enabled on the Loop.
+type MetricsOption struct {
+	enabled bool
 }
 
 // WithMetrics enables runtime metrics collection on the Loop.
 // When enabled, metrics can be accessed via Loop.Metrics().
 // This adds minimal overhead (e.g., record latency after each task, update queue depths).
 // For zero-allocation hot paths, disable metrics in production.
-func WithMetrics(enabled bool) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		opts.metricsEnabled = enabled
-		return nil
-	}}
+func WithMetrics(enabled bool) *MetricsOption {
+	return &MetricsOption{enabled: enabled}
+}
+
+func (o *MetricsOption) applyLoop(opts *loopOptions) error {
+	opts.metricsEnabled = o.enabled
+	return nil
+}
+
+var _ LoopOption = (*MetricsOption)(nil)
+
+// --- LoggerOption ---
+
+// LoggerOption sets the structured logger for the Loop.
+type LoggerOption struct {
+	logger *logiface.Logger[logiface.Event]
 }
 
 // WithLogger sets the structured logger for the Loop.
 // The logger is optional; if nil, logging is disabled.
-func WithLogger(logger *logiface.Logger[logiface.Event]) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		opts.logger = logger
-		return nil
-	}}
+func WithLogger(logger *logiface.Logger[logiface.Event]) *LoggerOption {
+	return &LoggerOption{logger: logger}
+}
+
+func (o *LoggerOption) applyLoop(opts *loopOptions) error {
+	opts.logger = o.logger
+	return nil
+}
+
+var _ LoopOption = (*LoggerOption)(nil)
+
+// --- IngressChunkSizeOption ---
+
+// IngressChunkSizeOption sets the chunk size for the ChunkedIngress queue.
+type IngressChunkSizeOption struct {
+	size int
 }
 
 // WithIngressChunkSize sets the chunk size for the ChunkedIngress queue.
@@ -90,21 +133,34 @@ func WithLogger(logger *logiface.Logger[logiface.Event]) LoopOption {
 //   - 64 (default): Balanced for typical workloads
 //   - 128-256: High-throughput scenarios with many concurrent submitters
 //   - 512-4096: Extreme throughput, batch processing
-func WithIngressChunkSize(size int) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		// Clamp to valid range [16, 4096]
-		if size < 16 {
-			size = 16
-		} else if size > 4096 {
-			size = 4096
-		}
+func WithIngressChunkSize(size int) *IngressChunkSizeOption {
+	return &IngressChunkSizeOption{size: size}
+}
 
-		// Round down to nearest power of 2
-		size = roundDownToPowerOf2(size)
+func (o *IngressChunkSizeOption) applyLoop(opts *loopOptions) error {
+	size := o.size
 
-		opts.ingressChunkSize = size
-		return nil
-	}}
+	// Clamp to valid range [16, 4096]
+	if size < 16 {
+		size = 16
+	} else if size > 4096 {
+		size = 4096
+	}
+
+	// Round down to nearest power of 2
+	size = roundDownToPowerOf2(size)
+
+	opts.ingressChunkSize = size
+	return nil
+}
+
+var _ LoopOption = (*IngressChunkSizeOption)(nil)
+
+// --- DebugModeOption ---
+
+// DebugModeOption enables debug mode for the Loop.
+type DebugModeOption struct {
+	enabled bool
 }
 
 // WithDebugMode enables debug mode for the Loop.
@@ -126,12 +182,18 @@ func WithIngressChunkSize(size int) LoopOption {
 //	// Promises now capture creation stack traces
 //	p, _, _ := js.NewChainedPromise()
 //	fmt.Println(p.CreationStackTrace()) // Prints where the promise was created
-func WithDebugMode(enabled bool) LoopOption {
-	return &loopOptionImpl{func(opts *loopOptions) error {
-		opts.debugMode = enabled
-		return nil
-	}}
+func WithDebugMode(enabled bool) *DebugModeOption {
+	return &DebugModeOption{enabled: enabled}
 }
+
+func (o *DebugModeOption) applyLoop(opts *loopOptions) error {
+	opts.debugMode = o.enabled
+	return nil
+}
+
+var _ LoopOption = (*DebugModeOption)(nil)
+
+// --- AutoExitOption ---
 
 // AutoExitOption controls whether Run() automatically returns when the loop
 // is not alive.
@@ -173,8 +235,9 @@ func (o *AutoExitOption) applyLoop(opts *loopOptions) error {
 	return nil
 }
 
-// Compile-time compliance check.
 var _ LoopOption = (*AutoExitOption)(nil)
+
+// --- Helpers ---
 
 // roundDownToPowerOf2 rounds n down to the nearest power of 2.
 // Assumes n >= 1.

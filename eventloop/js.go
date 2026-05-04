@@ -35,15 +35,6 @@ type jsOptions struct {
 	onUnhandled RejectionHandler
 }
 
-// jsOptionImpl implements JSOption.
-type jsOptionImpl struct {
-	applyJSOptionFunc func(*jsOptions) error
-}
-
-func (j *jsOptionImpl) applyJSOption(opts *jsOptions) error {
-	return j.applyJSOptionFunc(opts)
-}
-
 func resolveJSOptions(opts []JSOption) (*jsOptions, error) {
 	o := &jsOptions{}
 	for _, opt := range opts {
@@ -57,15 +48,24 @@ func resolveJSOptions(opts []JSOption) (*jsOptions, error) {
 	return o, nil
 }
 
+// UnhandledRejectionOption configures the handler for unhandled promise rejections.
+type UnhandledRejectionOption struct {
+	handler RejectionHandler
+}
+
 // WithUnhandledRejection configures a handler that is invoked when a rejected
 // promise has no catch handler attached after the microtask queue is drained.
 // This follows the JavaScript unhandledrejection event semantics.
-func WithUnhandledRejection(handler RejectionHandler) JSOption {
-	return &jsOptionImpl{func(o *jsOptions) error {
-		o.onUnhandled = handler
-		return nil
-	}}
+func WithUnhandledRejection(handler RejectionHandler) *UnhandledRejectionOption {
+	return &UnhandledRejectionOption{handler: handler}
 }
+
+func (o *UnhandledRejectionOption) applyJSOption(opts *jsOptions) error {
+	opts.onUnhandled = o.handler
+	return nil
+}
+
+var _ JSOption = (*UnhandledRejectionOption)(nil)
 
 // intervalState tracks the state of an interval timer.
 // It is stored in js.intervals map (uint64 -> *intervalState)

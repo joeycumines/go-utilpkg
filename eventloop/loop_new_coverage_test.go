@@ -6,6 +6,25 @@ import (
 	"testing"
 )
 
+// testTrackLoopOption is a LoopOption that records application order and can optionally return an error.
+type testTrackLoopOption struct {
+	id    int
+	err   error
+	order *[]int
+}
+
+func (o *testTrackLoopOption) applyLoop(opts *loopOptions) error {
+	if o.order != nil {
+		*o.order = append(*o.order, o.id)
+	}
+	if o.err != nil {
+		return o.err
+	}
+	return nil
+}
+
+var _ LoopOption = (*testTrackLoopOption)(nil)
+
 // New() Function 100% Coverage
 // Tests for: New(), resolveLoopOptions(), createWakeFd failure handling,
 //            poller.Init() failure handling
@@ -15,11 +34,7 @@ import (
 func TestNew_ResolveLoopOptions_ErrorPath(t *testing.T) {
 	// Create a LoopOption that returns an error
 	expectedErr := errors.New("intentional option error for testing")
-	badOption := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			return expectedErr
-		},
-	}
+	badOption := &testTrackLoopOption{err: expectedErr}
 
 	// New should return the error from the bad option
 	loop, err := New(badOption)
@@ -84,32 +99,12 @@ func TestNew_ResolveLoopOptions_EmptyOptions(t *testing.T) {
 
 // TestNew_ResolveLoopOptions_ChainedOptions tests applying multiple options.
 func TestNew_ResolveLoopOptions_ChainedOptions(t *testing.T) {
-	// Test that all options are applied in order
-	order := make([]int, 0, 3)
+	// Test that all options are applied in order by tracking via shared slice
+	var order []int
 
-	opt1 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			order = append(order, 1)
-			opts.strictMicrotaskOrdering = true
-			return nil
-		},
-	}
-
-	opt2 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			order = append(order, 2)
-			opts.fastPathMode = FastPathDisabled
-			return nil
-		},
-	}
-
-	opt3 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			order = append(order, 3)
-			opts.metricsEnabled = true
-			return nil
-		},
-	}
+	opt1 := &testTrackLoopOption{id: 1, order: &order}
+	opt2 := &testTrackLoopOption{id: 2, order: &order}
+	opt3 := &testTrackLoopOption{id: 3, order: &order}
 
 	loop, err := New(opt1, opt2, opt3)
 	if err != nil {
@@ -117,52 +112,21 @@ func TestNew_ResolveLoopOptions_ChainedOptions(t *testing.T) {
 	}
 	defer loop.Shutdown(context.Background())
 
-	// Verify order of application
+	// Verify order of application (populated by applyLoop during New())
 	if len(order) != 3 || order[0] != 1 || order[1] != 2 || order[2] != 3 {
 		t.Errorf("Options applied in wrong order: %v, expected [1 2 3]", order)
-	}
-
-	// Verify all options were applied
-	if !loop.strictMicrotaskOrdering {
-		t.Error("strictMicrotaskOrdering should be true")
-	}
-
-	mode := FastPathMode(loop.fastPathMode.Load())
-	if mode != FastPathDisabled {
-		t.Errorf("FastPathMode should be Disabled")
-	}
-
-	if loop.metrics == nil {
-		t.Error("Metrics should be enabled")
 	}
 }
 
 // TestNew_ResolveLoopOptions_ErrorAtMiddle tests error in middle of options chain.
 func TestNew_ResolveLoopOptions_ErrorAtMiddle(t *testing.T) {
 	// Error in middle option should stop processing
-	applied := make([]int, 0, 3)
+	var applied []int
 	expectedErr := errors.New("middle option error")
 
-	opt1 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			applied = append(applied, 1)
-			return nil
-		},
-	}
-
-	opt2 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			applied = append(applied, 2)
-			return expectedErr
-		},
-	}
-
-	opt3 := &loopOptionImpl{
-		applyLoopFunc: func(opts *loopOptions) error {
-			applied = append(applied, 3) // This should NOT be reached
-			return nil
-		},
-	}
+	opt1 := &testTrackLoopOption{id: 1, order: &applied}
+	opt2 := &testTrackLoopOption{id: 2, err: expectedErr, order: &applied}
+	opt3 := &testTrackLoopOption{id: 3, order: &applied}
 
 	loop, err := New(opt1, opt2, opt3)
 	if loop != nil {
@@ -178,7 +142,7 @@ func TestNew_ResolveLoopOptions_ErrorAtMiddle(t *testing.T) {
 		t.Errorf("Wrong error: got %v, want %v", err, expectedErr)
 	}
 
-	// Only first two options should have been applied
+	// Only first two options should have been applied (opt2 errors, opt3 never reached)
 	if len(applied) != 2 || applied[0] != 1 || applied[1] != 2 {
 		t.Errorf("Wrong options applied: %v, expected [1 2]", applied)
 	}

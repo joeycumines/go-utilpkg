@@ -102,11 +102,20 @@ func TestNew_NilOptionSkipped(t *testing.T) {
 	}
 }
 
+// testErrorLoopOption is a LoopOption that returns a fixed error.
+type testErrorLoopOption struct {
+	err error
+}
+
+func (o *testErrorLoopOption) applyLoop(_ *loopOptions) error {
+	return o.err
+}
+
+var _ LoopOption = (*testErrorLoopOption)(nil)
+
 // TestNew_OptionReturnsError verifies that resolveLoopOptions error propagates.
 func TestNew_OptionReturnsError(t *testing.T) {
-	badOpt := &loopOptionImpl{func(opts *loopOptions) error {
-		return errors.New("intentional option error")
-	}}
+	badOpt := &testErrorLoopOption{err: errors.New("intentional option error")}
 	_, err := New(badOpt)
 	if err == nil {
 		t.Fatal("expected error from bad option")

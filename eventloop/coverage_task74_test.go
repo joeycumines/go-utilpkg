@@ -439,12 +439,18 @@ func Test_pSquareQuantile_P99_FewObs(t *testing.T) {
 // resolveJSOptions error path (covers js.go:53)
 // ===========================================================================
 
+type testErrorJSOption struct {
+	err error
+}
+
+func (o *testErrorJSOption) applyJSOption(_ *jsOptions) error {
+	return o.err
+}
+
+var _ JSOption = (*testErrorJSOption)(nil)
+
 func Test_resolveJSOptions_ErrorOption(t *testing.T) {
-	errOption := &jsOptionImpl{
-		applyJSOptionFunc: func(o *jsOptions) error {
-			return errors.New("option error")
-		},
-	}
+	errOption := &testErrorJSOption{err: errors.New("option error")}
 
 	_, err := resolveJSOptions([]JSOption{errOption})
 	if err == nil {
