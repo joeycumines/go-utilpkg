@@ -29,4 +29,5 @@ use (
 	./smartpoll
 	./sql
 	./sql/export/mysql
+	../../../goja
 )
