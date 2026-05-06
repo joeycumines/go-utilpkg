@@ -8,6 +8,8 @@ CUSTOM_TARGETS_DEFINED := 1
 # IF YOU NEED A CUSTOM TARGET, DEFINE IT BELOW THIS LINE, BEFORE THE `endif`
 
 _CUSTOM_MAKE_ALL_TARGET_MAKE_ARGS := all GO_TEST_FLAGS=-timeout=6m
+WINDOWS_HOST ?= moo
+WINDOWS_RUNNER ?= hack/run-on-windows.sh
 
 .PHONY: make-all-with-log
 make-all-with-log: ## Run all targets with logging to build.log
@@ -35,11 +37,15 @@ make-all-run-windows: SHELL := /bin/bash
 make-all-run-windows:
 	@echo "Output limited to avoid context explosion. See $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.))/build.log for full content."; \
 set -o pipefail; \
-hack/run-on-windows.sh moo make $(_CUSTOM_MAKE_ALL_TARGET_MAKE_ARGS) 2>&1 | fold -w 200 | tee $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.))/build.log | tail -n 15; \
+test -n "$(WINDOWS_HOST)" || { echo "Set WINDOWS_HOST to a verified Windows host before running $@."; exit 2; }; \
+$(WINDOWS_RUNNER) "$(WINDOWS_HOST)" make $(_CUSTOM_MAKE_ALL_TARGET_MAKE_ARGS) 2>&1 | fold -w 200 | tee $(or $(PROJECT_ROOT),$(error If you are reading this you specified the `file` option when calling `mcp-server-make`. DONT DO THAT.))/build.log | tail -n 15; \
 exit $${PIPESTATUS[0]}
 
 .PHONY: eventloop-tournament
-eventloop-tournament: eventloop-tournament-darwin eventloop-tournament-linux eventloop-tournament-windows ## Run full 3-platform eventloop tournament
+eventloop-tournament: eventloop-tournament-darwin eventloop-tournament-linux ## Run locally accessible Darwin/Linux eventloop tournament; Windows is explicit
+
+.PHONY: eventloop-tournament-all
+eventloop-tournament-all: eventloop-tournament eventloop-tournament-windows ## Run Darwin/Linux plus Windows after WINDOWS_HOST is verified
 
 .PHONY: eventloop-tournament-darwin
 eventloop-tournament-darwin: ## Run eventloop benchmarks on Darwin (local macOS)
@@ -61,12 +67,13 @@ eventloop-tournament-linux:
 	exit $${PIPESTATUS[0]}
 
 .PHONY: eventloop-tournament-windows
-eventloop-tournament-windows: ## Run eventloop benchmarks on Windows
+eventloop-tournament-windows: ## Run eventloop benchmarks on Windows after setting WINDOWS_HOST
 eventloop-tournament-windows: SHELL := /bin/bash
 eventloop-tournament-windows:
 	@echo "Running eventloop benchmarks on Windows..."; \
 	set -o pipefail; \
-	hack/run-on-windows.sh moo make eventloop-tournament-bench 2>&1 | tee $(PROJECT_ROOT)/eventloop-tournament-windows.log; \
+	test -n "$(WINDOWS_HOST)" || { echo "Set WINDOWS_HOST to a verified Windows host before claiming Windows tournament results."; exit 2; }; \
+	$(WINDOWS_RUNNER) "$(WINDOWS_HOST)" make eventloop-tournament-bench 2>&1 | tee $(PROJECT_ROOT)/eventloop-tournament-windows.log; \
 	exit $${PIPESTATUS[0]}
 
 # IF YOU NEED A CUSTOM TARGET, DEFINE IT ABOVE THIS LINE, AFTER THE `##@ Custom Targets`

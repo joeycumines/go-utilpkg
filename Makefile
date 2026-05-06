@@ -201,7 +201,7 @@ RUN_FLAGS ?=
 
 # determines the output of the debug-vars target
 # N.B. only _defined_ variables will be present in the output
-$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS,$$(GO_MK_VAR_PREFIX)$$v))
+$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST GO_PACKAGES $$(addprefix GO_PACKAGES.,$$(GO_MODULE_SLUGS)) SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS,$$(GO_MK_VAR_PREFIX)$$v))
 
 # ---
 
@@ -213,7 +213,9 @@ MAKEFILE_TARGET_PREFIXES ?=
 GO ?= go
 GO_FLAGS ?=
 GO_TEST_FLAGS ?=
+GO_PACKAGES ?= ./...
 # callable variables, with param $1 being a go module slug (see go_module_slug_to_path)
+go_module_slug_to_packages = $(or $(GO_PACKAGES.$1),$(GO_PACKAGES))
 GO_TEST ?= $(GO) -C $(call go_module_slug_to_path,$1) test $(GO_FLAGS) $(GO_TEST_FLAGS)
 GO_BUILD ?= $(GO) -C $(call go_module_slug_to_path,$1) build $(GO_FLAGS)
 GO_VET ?= $(GO) -C $(call go_module_slug_to_path,$1) vet $(GO_FLAGS)
@@ -231,6 +233,7 @@ GRIT_BRANCH ?= main
 GRIT_SRC ?=
 GRIT_DST ?=
 GRIT_INIT_TARGET ?=
+GRIT_MODULE_COMMAND ?= $(GRIT) $(GRIT_FLAGS) $(call go_module_slug_to_grit_src,$1) $(call go_module_slug_to_grit_dst,$1)
 STATICCHECK ?= $(call go_tool_binary_path,$(GO_PKG_STATICCHECK))
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(call go_tool_binary_path,$(GO_PKG_BETTERALIGN))
@@ -426,7 +429,7 @@ $(GO_TARGET_PREFIX)build: $($(GO_MK_VAR_PREFIX)BUILD_TARGETS) ## Runs the go bui
 
 .PHONY: $($(GO_MK_VAR_PREFIX)BUILD_TARGETS)
 $($(GO_MK_VAR_PREFIX)BUILD_TARGETS): $(GO_TARGET_PREFIX)build.%:
-	$(call GO_BUILD,$*) ./...
+	$(call GO_BUILD,$*) $(call go_module_slug_to_packages,$*)
 
 # lint, lint.<go module slug>
 
@@ -447,7 +450,7 @@ $(GO_TARGET_PREFIX)vet: $($(GO_MK_VAR_PREFIX)VET_TARGETS) ## Runs the go vet too
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
-	$(call GO_VET,$*) ./...
+	$(call GO_VET,$*) $(call go_module_slug_to_packages,$*)
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)vet.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)vet.%:
@@ -461,11 +464,11 @@ $(GO_TARGET_PREFIX)staticcheck: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS) ## Run
 
 .PHONY: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS)
 $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS): $(GO_TARGET_PREFIX)staticcheck.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_staticcheck STATICCHECK_FLAGS=$(call escape_command_arg,$(STATICCHECK_FLAGS))
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_staticcheck STATICCHECK_FLAGS=$(call escape_command_arg,$(STATICCHECK_FLAGS)) "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(GO_TARGET_PREFIX)_staticcheck
 $(GO_TARGET_PREFIX)_staticcheck:
-	$(STATICCHECK) $(STATICCHECK_FLAGS) ./...
+	$(STATICCHECK) $(STATICCHECK_FLAGS) $(GO_PACKAGES)
 
 # betteralign, betteralign.<go module slug>
 
@@ -476,14 +479,14 @@ $(GO_TARGET_PREFIX)betteralign: $($(GO_MK_VAR_PREFIX)BETTERALIGN_TARGETS) ## Run
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN))
 $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_EXCL_NO_BETTERALIGN)): $(GO_TARGET_PREFIX)betteralign.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_betteralign BETTERALIGN_FLAGS=$(call escape_command_arg,$(BETTERALIGN_FLAGS))
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_betteralign BETTERALIGN_FLAGS=$(call escape_command_arg,$(BETTERALIGN_FLAGS)) "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN))
 $(addprefix $(GO_TARGET_PREFIX)betteralign.,$(GO_MODULE_SLUGS_INCL_NO_BETTERALIGN)): $(GO_TARGET_PREFIX)betteralign.%:
 
 .PHONY: $(GO_TARGET_PREFIX)_betteralign
 $(GO_TARGET_PREFIX)_betteralign:
-	$(BETTERALIGN) $(BETTERALIGN_FLAGS) ./...
+	$(BETTERALIGN) $(BETTERALIGN_FLAGS) $(GO_PACKAGES)
 
 # deadcode, deadcode.<go module slug>
 
@@ -512,7 +515,7 @@ $(GO_TARGET_PREFIX)test: $($(GO_MK_VAR_PREFIX)TEST_TARGETS) ## Runs the go test 
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
-	$(call GO_TEST,$*) ./...
+	$(call GO_TEST,$*) $(call go_module_slug_to_packages,$*)
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)test.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)test.%:
@@ -540,7 +543,7 @@ endif
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
-	$(call GO_TEST,$*) -coverprofile=$(GO_COVERAGE_MODULE_FILE) -covermode=count ./...
+	$(call GO_TEST,$*) -coverprofile=$(GO_COVERAGE_MODULE_FILE) -covermode=count $(call go_module_slug_to_packages,$*)
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)cover.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)cover.%:
@@ -554,11 +557,11 @@ $(GO_TARGET_PREFIX)fmt: $($(GO_MK_VAR_PREFIX)FMT_TARGETS) ## Runs the go fmt com
 
 .PHONY: $($(GO_MK_VAR_PREFIX)FMT_TARGETS)
 $($(GO_MK_VAR_PREFIX)FMT_TARGETS): $(GO_TARGET_PREFIX)fmt.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fmt
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fmt "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(GO_TARGET_PREFIX)_fmt
 $(GO_TARGET_PREFIX)_fmt:
-	$(GO_FMT) ./...
+	$(GO_FMT) $(GO_PACKAGES)
 
 # generate, generate.<go module slug>
 
@@ -569,11 +572,11 @@ $(GO_TARGET_PREFIX)generate: $($(GO_MK_VAR_PREFIX)GENERATE_TARGETS) ## Runs the 
 
 .PHONY: $($(GO_MK_VAR_PREFIX)GENERATE_TARGETS)
 $($(GO_MK_VAR_PREFIX)GENERATE_TARGETS): $(GO_TARGET_PREFIX)generate.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_generate
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_generate "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(GO_TARGET_PREFIX)_generate
 $(GO_TARGET_PREFIX)_generate:
-	$(GO_GENERATE) ./...
+	$(GO_GENERATE) $(GO_PACKAGES)
 
 # fix, fix.<go module slug>
 
@@ -584,14 +587,14 @@ $(GO_TARGET_PREFIX)fix: $($(GO_MK_VAR_PREFIX)FIX_TARGETS) ## Runs the go fix com
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)fix.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)fix.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)fix.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fix
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_fix "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)fix.,$(GO_MODULE_SLUGS_NO_PACKAGES))
 $(addprefix $(GO_TARGET_PREFIX)fix.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)fix.%:
 
 .PHONY: $(GO_TARGET_PREFIX)_fix
 $(GO_TARGET_PREFIX)_fix:
-	$(GO_FIX) ./...
+	$(GO_FIX) $(GO_PACKAGES)
 
 # update, update.<go module slug>
 
@@ -650,7 +653,7 @@ $(GO_TARGET_PREFIX)grit: $($(GO_MK_VAR_PREFIX)GRIT_TARGETS) ## Runs grit to sync
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST))
 $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
-	$(GRIT) $(GRIT_FLAGS) $(call go_module_slug_to_grit_src,$*) $(call go_module_slug_to_grit_dst,$*)
+	$(call GRIT_MODULE_COMMAND,$*)
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST))
 $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
