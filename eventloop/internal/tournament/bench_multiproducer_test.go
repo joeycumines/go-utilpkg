@@ -1,7 +1,7 @@
 package tournament
 
 import (
-	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -20,70 +20,51 @@ func BenchmarkMultiProducer(b *testing.B) {
 
 func benchmarkMultiProducer(b *testing.B, impl Implementation) {
 	const numProducers = 10
-	tasksPerProducer := b.N / numProducers
-	if tasksPerProducer == 0 {
-		tasksPerProducer = 1
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
-	var counter atomic.Int64
-	var rejected atomic.Int64
+	producers := newBenchmarkProducerGroup(b, numProducers)
+	tasks := newBenchmarkBarrier(b.N)
+	submitErrors := make(chan error, 1)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ResetTimer()
 
-	for range numProducers {
-		wg.Go(func() {
-			for i := 0; i < tasksPerProducer; i++ {
-				err := loop.Submit(func() {
-					counter.Add(1)
-				})
+	for producer := range numProducers {
+		taskCount := b.N / numProducers
+		if producer < b.N%numProducers {
+			taskCount++
+		}
+		producers.Go(func(stop <-chan struct{}) {
+			for range taskCount {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				err := loop.Submit(tasks.Done)
 				if err != nil {
-					rejected.Add(1)
+					tasks.Done()
+					select {
+					case submitErrors <- err:
+					default:
+					}
 				}
 			}
 		})
 	}
 
-	wg.Wait()
-
-	// Wait for all tasks to complete
-	for {
-		c := counter.Load()
-		r := rejected.Load()
-		total := int64(numProducers * tasksPerProducer)
-		if c+r >= total {
-			break
-		}
-		time.Sleep(1 * time.Millisecond)
-	}
+	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "multi-producer exit")
+	waitBenchmarkBarrier(b, tasks, deadline.C, "multi-producer callback drain")
 
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	totalTasks := numProducers * tasksPerProducer
-	result := BenchmarkResult{
-		BenchmarkName:  "MultiProducer",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(totalTasks),
-		Iterations:     totalTasks,
-		Duration:       b.Elapsed(),
+	select {
+	case err := <-submitErrors:
+		b.Fatalf("Submit: %v", err)
+	default:
 	}
-	GetResults().RecordBenchmark(result)
+
 }
 
 // TestMultiProducerStress is a test variant that measures latency distribution.
@@ -104,37 +85,29 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 	const totalTasks = 100000 // 100K for test mode
 	const tasksPerProducer = totalTasks / numProducers
 
-	start := time.Now()
+	loop, cleanup := startTournamentTestLoop(t, impl)
 
-	loop, err := impl.Factory()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
+	producerDone := make(chan struct{}, numProducers)
+	tasks := newTournamentTestBarrier(totalTasks)
 	var counter atomic.Int64
 	var rejected atomic.Int64
+	submitErrors := make(chan error, 1)
 
 	// Track latencies (approximate P99)
 	latencies := make([]time.Duration, 0, 1000) // Sample
 	var latMu sync.Mutex
 	sampleRate := totalTasks / 1000
+	start := time.Now()
 
 	for p := range numProducers {
-		wg.Add(1)
 		go func(pid int) {
-			defer wg.Done()
+			defer func() { producerDone <- struct{}{} }()
 			for i := range tasksPerProducer {
 				submitTime := time.Now()
 				taskID := pid*tasksPerProducer + i
 
 				err := loop.Submit(func() {
+					defer tasks.Done()
 					counter.Add(1)
 					if taskID%sampleRate == 0 {
 						lat := time.Since(submitTime)
@@ -144,55 +117,37 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 					}
 				})
 				if err != nil {
+					tasks.Done()
 					rejected.Add(1)
+					select {
+					case submitErrors <- err:
+					default:
+					}
 				}
 			}
 		}(p)
 	}
 
-	wg.Wait()
-
-	// Wait for all tasks to complete
-	timeout := time.After(30 * time.Second)
-	for {
-		c := counter.Load()
-		r := rejected.Load()
-		if c+r >= totalTasks {
-			break
-		}
-		select {
-		case <-timeout:
-			t.Fatalf("Timeout waiting for tasks: completed=%d, rejected=%d, expected=%d",
-				c, r, totalTasks)
-		case <-time.After(10 * time.Millisecond):
-		}
-	}
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
+	waitTournamentCount(t, producerDone, numProducers, "multi-producer exit")
+	waitTournamentSignal(t, tasks.done, "multi-producer callback drain")
 	duration := time.Since(start)
+	cleanup()
 	exec := counter.Load()
 	rej := rejected.Load()
 	throughput := float64(exec) / duration.Seconds()
 
-	// Calculate P99 latency (approximate - find max in top 1%)
+	// Calculate the sampled P99 latency.
 	var p99 time.Duration
 	if len(latencies) > 0 {
-		// Find max latency as approximate P99
-		for _, l := range latencies {
-			if l > p99 {
-				p99 = l
-			}
-		}
+		slices.Sort(latencies)
+		p99 = latencies[percentileIndex(len(latencies), 99)]
 	}
 
 	result := TestResult{
 		TestName:       "MultiProducerStress",
+		VariantID:      impl.VariantID,
 		Implementation: impl.Name,
-		Passed:         exec+rej == totalTasks,
+		Passed:         exec == totalTasks && rej == 0,
 		Duration:       duration,
 		Metrics: map[string]any{
 			"total_tasks":      totalTasks,
@@ -204,6 +159,11 @@ func testMultiProducerStress(t *testing.T, impl Implementation) {
 		},
 	}
 	GetResults().RecordTest(result)
+	select {
+	case err := <-submitErrors:
+		t.Errorf("Submit: %v", err)
+	default:
+	}
 
 	t.Logf("%s: Throughput=%.0f ops/s, Executed=%d, Rejected=%d, P99≈%v",
 		impl.Name, throughput, exec, rej, p99)
@@ -221,56 +181,49 @@ func BenchmarkMultiProducerContention(b *testing.B) {
 }
 
 func benchmarkMultiProducerContention(b *testing.B, impl Implementation, numProducers int) {
-	tasksPerProducer := b.N / numProducers
-	if tasksPerProducer == 0 {
-		tasksPerProducer = 1
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
-	var counter atomic.Int64
+	producers := newBenchmarkProducerGroup(b, numProducers)
+	tasks := newBenchmarkBarrier(b.N)
+	submitErrors := make(chan error, 1)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ResetTimer()
 
-	for range numProducers {
-		wg.Go(func() {
-			for i := 0; i < tasksPerProducer; i++ {
-				_ = loop.Submit(func() {
-					counter.Add(1)
-				})
+	for producer := range numProducers {
+		taskCount := b.N / numProducers
+		if producer < b.N%numProducers {
+			taskCount++
+		}
+		producers.Go(func(stop <-chan struct{}) {
+			for range taskCount {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				err := loop.Submit(tasks.Done)
+				if err != nil {
+					tasks.Done()
+					select {
+					case submitErrors <- err:
+					default:
+					}
+				}
 			}
 		})
 	}
 
-	wg.Wait()
-
-	// Brief wait for execution
-	time.Sleep(10 * time.Millisecond)
+	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "contention producer exit")
+	waitBenchmarkBarrier(b, tasks, deadline.C, "contention callback drain")
 
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	totalTasks := numProducers * tasksPerProducer
-	result := BenchmarkResult{
-		BenchmarkName:  "MultiProducerContention",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(totalTasks),
-		Iterations:     totalTasks,
-		Duration:       b.Elapsed(),
+	select {
+	case err := <-submitErrors:
+		b.Fatalf("Submit: %v", err)
+	default:
 	}
-	GetResults().RecordBenchmark(result)
+
 }

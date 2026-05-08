@@ -6,18 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // testSetupDOMException creates an event loop, adapter and runs it for testing.
 func testSetupDOMException(t *testing.T) (*Adapter, func()) {
 	t.Helper()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -25,8 +22,15 @@ func testSetupDOMException(t *testing.T) (*Adapter, func()) {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
 
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("failed to bind adapter: %v", err)
+	if err := runtime.Set("DOMException", adapter.domExceptionConstructor); err != nil {
+		t.Fatalf("failed to install DOMException constructor: %v", err)
+	}
+	constructor := runtime.Get("DOMException").ToObject(runtime)
+	if err := adapter.bindDOMExceptionConstants(constructor, constructorPrototype(runtime, "Error")); err != nil {
+		t.Fatalf("failed to bind DOMException: %v", err)
+	}
+	if err := runtime.Set("structuredClone", adapter.structuredClone); err != nil {
+		t.Fatalf("failed to install structuredClone: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -63,6 +67,24 @@ func TestDOMException_Constructor(t *testing.T) {
 	}
 	if !result.ToBoolean() {
 		t.Errorf("DOMException constructor failed")
+	}
+}
+
+func TestDOMException_ConstructorName(t *testing.T) {
+	adapter, cleanup := testSetupDOMException(t)
+	defer cleanup()
+
+	result, err := adapter.runtime.RunString(`
+		(function() {
+			var ex = new DOMException('bad', 'DataCloneError');
+			return DOMException.name + ':' + ex.constructor.name + ':' + (ex.constructor === DOMException);
+		})()
+	`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := result.String(), "DOMException:DOMException:true"; got != want {
+		t.Fatalf("DOMException constructor name = %q, want %q", got, want)
 	}
 }
 
@@ -502,7 +524,7 @@ func TestDOMException_ToStringEmpty(t *testing.T) {
 	result, err := adapter.runtime.RunString(`
 		(function() {
 			var ex = new DOMException();
-			return ex.toString() === 'Error: ';
+			return ex.toString() === 'Error';
 		})()
 	`)
 	if err != nil {
@@ -510,5 +532,72 @@ func TestDOMException_ToStringEmpty(t *testing.T) {
 	}
 	if !result.ToBoolean() {
 		t.Errorf("DOMException.toString empty failed")
+	}
+}
+
+func TestDOMException_PrototypeDescriptorsAndBrand(t *testing.T) {
+	adapter, cleanup := testSetupDOMException(t)
+	defer cleanup()
+
+	_, err := adapter.runtime.RunString(`
+		const ex = new DOMException("bad", "DataCloneError");
+		if (!(ex instanceof DOMException)) throw new Error("missing DOMException brand");
+		if (!(ex instanceof Error)) throw new Error("missing Error inheritance");
+		if (Object.keys(ex).length !== 0) throw new Error("enumerable instance state leaked");
+		if (Object.getOwnPropertyNames(ex).includes("_domException")) throw new Error("public state leaked");
+		if (Object.prototype.toString.call(ex) !== "[object DOMException]") throw new Error("wrong toStringTag");
+		if (typeof ex.stack !== "string" || !ex.stack.startsWith("DataCloneError: bad")) throw new Error("missing native Error stack");
+		const stackDescriptor = Object.getOwnPropertyDescriptor(ex, "stack");
+		if (!stackDescriptor || typeof stackDescriptor.value !== "string" || !stackDescriptor.writable || stackDescriptor.enumerable || !stackDescriptor.configurable) {
+			throw new Error("stack descriptor mismatch");
+		}
+		if (DOMException.name !== "DOMException" || DOMException.length !== 0) throw new Error("constructor metadata");
+
+		for (const name of ["message", "name", "code"]) {
+			const descriptor = Object.getOwnPropertyDescriptor(DOMException.prototype, name);
+			if (!descriptor || typeof descriptor.get !== "function") throw new Error(name + " getter missing");
+			if (descriptor.set !== undefined || !descriptor.enumerable || !descriptor.configurable) {
+				throw new Error(name + " descriptor mismatch");
+			}
+			let threw = false;
+			try { Reflect.apply(descriptor.get, {}, []); } catch (err) { threw = err instanceof TypeError; }
+			if (!threw) throw new Error(name + " getter accepted incompatible receiver");
+		}
+
+		for (const holder of [DOMException, DOMException.prototype]) {
+			const descriptor = Object.getOwnPropertyDescriptor(holder, "DATA_CLONE_ERR");
+			if (!descriptor || descriptor.value !== 25 || descriptor.writable || descriptor.configurable || !descriptor.enumerable) {
+				throw new Error("constant descriptor mismatch");
+			}
+		}
+	`)
+	if err != nil {
+		t.Fatalf("DOMException prototype contract: %v", err)
+	}
+}
+
+func TestDOMException_StructuredClonePreservesSerializedState(t *testing.T) {
+	adapter, cleanup := testSetupDOMException(t)
+	defer cleanup()
+
+	_, err := adapter.runtime.RunString(`
+		const source = new DOMException("bad", "DataCloneError");
+		source.stack = "pinned stack";
+		source.expando = { ignored: true };
+		Object.setPrototypeOf(source, null);
+		const graph = { first: source, second: source };
+		graph.self = graph;
+		const cloned = structuredClone(graph);
+		if (cloned === graph || cloned.self !== cloned) throw new Error("graph cycle");
+		if (cloned.first !== cloned.second || cloned.first === source) throw new Error("DOMException identity");
+		if (!(cloned.first instanceof DOMException) || !(cloned.first instanceof Error)) throw new Error("DOMException clone brand");
+		if (cloned.first.name !== "DataCloneError" || cloned.first.message !== "bad" || cloned.first.code !== 25) {
+			throw new Error("DOMException clone fields");
+		}
+		if (cloned.first.stack !== "pinned stack") throw new Error("DOMException clone stack");
+		if (cloned.first.expando !== undefined) throw new Error("DOMException expando cloned");
+	`)
+	if err != nil {
+		t.Fatalf("DOMException structured clone: %v", err)
 	}
 }

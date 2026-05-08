@@ -3,9 +3,7 @@ package alternatethree
 import (
 	"errors"
 	"runtime"
-	"sync"
 	"testing"
-	"time"
 )
 
 // Test_Promise_NewPromise tests creating promises in different initial states
@@ -184,33 +182,33 @@ func Test_Promise_MonotonicState(t *testing.T) {
 
 // Test_Promise_ConcurrentSettlement tests concurrent settlement attempts
 func Test_Promise_ConcurrentSettlement(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping in short mode")
-	}
-
 	t.Run("Concurrent resolve attempts", func(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
 		_, p := registry.NewPromise()
 
-		var wg sync.WaitGroup
-		numGoroutines := 10
+		const numGoroutines = 10
+		done := make(chan struct{}, numGoroutines)
 
 		// Try to resolve from multiple goroutines
 		for i := range numGoroutines {
-			wg.Add(1)
 			go func(index int) {
-				defer wg.Done()
 				p.Resolve(index)
+				done <- struct{}{}
 			}(i)
 		}
-
-		wg.Wait()
+		for range numGoroutines {
+			waitAlternateThreeSignal(t, done, "concurrent resolve")
+		}
 
 		// Exactly one resolution should have succeeded
 		if p.State() != Resolved {
 			t.Fatalf("Expected Resolved state, got %v", p.State())
+		}
+		result, ok := p.Result().(int)
+		if !ok || result < 0 || result >= numGoroutines {
+			t.Errorf("winning resolve result = %v, want submitted integer", p.Result())
 		}
 	})
 
@@ -220,23 +218,27 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		registry := newRegistry()
 		_, p := registry.NewPromise()
 
-		var wg sync.WaitGroup
-		numGoroutines := 10
+		const numGoroutines = 10
+		done := make(chan struct{}, numGoroutines)
 
 		// Try to reject from multiple goroutines
-		for i := range numGoroutines {
-			wg.Add(1)
-			go func(index int) {
-				defer wg.Done()
+		for range numGoroutines {
+			go func() {
 				p.Reject(errors.New("error"))
-			}(i)
+				done <- struct{}{}
+			}()
 		}
-
-		wg.Wait()
+		for range numGoroutines {
+			waitAlternateThreeSignal(t, done, "concurrent reject")
+		}
 
 		// Exactly one rejection should have succeeded
 		if p.State() != Rejected {
 			t.Fatalf("Expected Rejected state, got %v", p.State())
+		}
+		result, ok := p.Result().(error)
+		if !ok || result.Error() != "error" {
+			t.Errorf("winning reject result = %v, want error", p.Result())
 		}
 	})
 
@@ -246,27 +248,35 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		registry := newRegistry()
 		_, p := registry.NewPromise()
 
-		var wg sync.WaitGroup
-		numGoroutines := 20
+		const numGoroutines = 20
+		done := make(chan struct{}, numGoroutines)
 
 		for i := range numGoroutines {
-			wg.Add(1)
 			go func(index int) {
-				defer wg.Done()
 				if index%2 == 0 {
 					p.Resolve(index)
 				} else {
 					p.Reject(errors.New("error"))
 				}
+				done <- struct{}{}
 			}(i)
 		}
-
-		wg.Wait()
+		for range numGoroutines {
+			waitAlternateThreeSignal(t, done, "concurrent mixed settlement")
+		}
 
 		// Exactly one settlement should have succeeded
 		state := p.State()
 		if state != Resolved && state != Rejected {
 			t.Fatalf("Expected settled state, got %v", state)
+		}
+		if state == Resolved {
+			value, ok := p.Result().(int)
+			if !ok || value < 0 || value >= numGoroutines || value%2 != 0 {
+				t.Errorf("winning resolved value = %v, want submitted even integer", p.Result())
+			}
+		} else if reason, ok := p.Result().(error); !ok || reason.Error() != "error" {
+			t.Errorf("winning rejected reason = %v, want error", p.Result())
 		}
 	})
 }
@@ -275,7 +285,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 func Test_Promise_ToChannel(t *testing.T) {
 	t.Parallel()
 
-	t.Run("ToChannel returns result when resolved asynchronously", func(t *testing.T) {
+	t.Run("ToChannel returns result when resolved after subscription", func(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
@@ -283,19 +293,17 @@ func Test_Promise_ToChannel(t *testing.T) {
 
 		resultCh := p.ToChannel()
 
-		// Resolve in separate goroutine
-		go func() {
-			time.Sleep(10 * time.Millisecond)
-			p.Resolve("async result")
-		}()
-
+		p.Resolve("result")
 		select {
 		case result := <-resultCh:
-			if result != "async result" {
-				t.Fatalf("Expected 'async result', got %v", result)
+			if result != "result" {
+				t.Fatalf("Expected 'result', got %v", result)
 			}
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("Timeout waiting for result")
+		default:
+			t.Fatal("resolved result was not published synchronously")
+		}
+		if _, ok := <-resultCh; ok {
+			t.Fatal("result channel remained open after resolution")
 		}
 	})
 
@@ -307,59 +315,38 @@ func Test_Promise_ToChannel(t *testing.T) {
 
 		resultCh := p.ToChannel()
 
-		// Reject in separate goroutine
-		go func() {
-			time.Sleep(10 * time.Millisecond)
-			p.Reject(errors.New("async rejection"))
-		}()
-
-		// Receiving from channel should return error
+		p.Reject(errors.New("rejection"))
 		select {
 		case result := <-resultCh:
-			if result == nil || result.(error).Error() != "async rejection" {
-				t.Fatalf("Expected error 'async rejection', got %v", result)
+			reason, ok := result.(error)
+			if !ok || reason.Error() != "rejection" {
+				t.Fatalf("Expected error 'rejection', got %v", result)
 			}
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("Timeout waiting for rejection")
+		default:
+			t.Fatal("rejected result was not published synchronously")
+		}
+		if _, ok := <-resultCh; ok {
+			t.Fatal("result channel remained open after rejection")
 		}
 	})
 }
 
 // Test_Promise_WeakPointerBehavior tests interaction with weak pointers and GC
 func Test_Promise_WeakPointerBehavior(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping in short mode")
-	}
-
-	t.Run("GC cleans up unreferenced promises", func(t *testing.T) {
+	t.Run("reachable pending promise survives scavenge", func(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-
-		// Create many promises without keeping references
-		promiseCount := 1000
-		for range promiseCount {
-			_, _ = registry.NewPromise()
-		}
-
-		// Run GC
+		id, promise := registry.NewPromise()
 		runtime.GC()
-
-		// Run scavenger multiple times
-		for range 10 {
-			registry.Scavenge(200)
-			time.Sleep(1 * time.Millisecond)
-		}
-
-		// Most promises should have been cleaned up
+		registry.Scavenge(1)
 		registry.mu.RLock()
-		dataCount := len(registry.data)
+		_, exists := registry.data[id]
 		registry.mu.RUnlock()
-
-		// We expect most (but possibly not all) promises to be cleaned up
-		if dataCount > promiseCount/10 {
-			t.Logf("Warning: Only cleaned %d/%d promises", promiseCount-dataCount, promiseCount)
+		if !exists {
+			t.Error("reachable pending promise was removed")
 		}
+		runtime.KeepAlive(promise)
 	})
 
 	t.Run("Scavenger cleans up resolved promises", func(t *testing.T) {
@@ -368,35 +355,29 @@ func Test_Promise_WeakPointerBehavior(t *testing.T) {
 		registry := newRegistry()
 
 		// Create and resolve a promise
-		_, p := registry.NewPromise()
+		id, p := registry.NewPromise()
 		p.Resolve("result")
 
 		// Run scavenger
 		registry.Scavenge(100)
 
-		// Verify resolved promise is cleaned from registry
-		// (The scavener removes settled promises according to Phase 5.3)
 		registry.mu.RLock()
-		dataCount := len(registry.data)
+		_, exists := registry.data[id]
 		registry.mu.RUnlock()
-
-		if dataCount != 0 {
-			t.Logf("Note: Resolved promise may still be in registry (count: %d)", dataCount)
+		if exists {
+			t.Error("settled promise remained in registry after Scavenge")
 		}
+		runtime.KeepAlive(p)
 	})
 }
 
 // Test_Promise_CallbackMemoryLeak tests that callbacks don't cause memory leaks
 func Test_Promise_CallbackMemoryLeak(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping in short mode")
-	}
-
 	t.Run("Channels are cleaned up after settlement", func(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		id, p := registry.NewPromise()
 
 		// Register many channels
 		const numChannels = 1000
@@ -409,17 +390,32 @@ func Test_Promise_CallbackMemoryLeak(t *testing.T) {
 		// Resolve promise (triggers all channels)
 		p.Resolve("result")
 
-		// Wait for channels
-		for _, ch := range channels {
-			<-ch
+		for index, ch := range channels {
+			select {
+			case result := <-ch:
+				if result != "result" {
+					t.Errorf("channel %d result = %v, want result", index, result)
+				}
+			default:
+				t.Errorf("channel %d had no result", index)
+				continue
+			}
+			if _, ok := <-ch; ok {
+				t.Errorf("channel %d remained open", index)
+			}
 		}
-
-		// Run GC and scavenger
-		channels = nil
-		runtime.GC()
+		p.mu.Lock()
+		subscriberCount := len(p.subscribers)
+		p.mu.Unlock()
+		if subscriberCount != 0 {
+			t.Errorf("subscriber count after settlement = %d, want 0", subscriberCount)
+		}
 		registry.Scavenge(200)
-
-		// If channels are properly cleaned up, this shouldn't cause issues
-		// (This test mainly ensures no panics or leaks)
+		registry.mu.RLock()
+		_, exists := registry.data[id]
+		registry.mu.RUnlock()
+		if exists {
+			t.Error("settled promise remained registered")
+		}
 	})
 }

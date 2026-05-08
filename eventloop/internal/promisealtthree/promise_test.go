@@ -1,11 +1,9 @@
 package promisealtthree_test
 
 import (
-	"context"
 	"errors"
-	"sync"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-eventloop/internal/promisealtthree"
@@ -63,31 +61,29 @@ func TestReject(t *testing.T) {
 
 // TestThen tests promise chaining
 func TestThen(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, resolve, _ := promisealtthree.New(js)
 
 	var result string
 
+	done := make(chan struct{}, 1)
 	p.Then(func(v any) any {
 		return v.(string) + " transformed"
 	}, nil).Then(func(v any) any {
 		result = v.(string)
+		done <- struct{}{}
 		return nil
 	}, nil)
 
 	resolve("original")
 
-	runLoopFor(loop, time.Millisecond*10)
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case <-done:
+	default:
+		t.Fatal("Then chain did not complete before auto-exit")
+	}
 
 	if result != "original transformed" {
 		t.Errorf("Expected 'original transformed', got: %v", result)
@@ -96,29 +92,27 @@ func TestThen(t *testing.T) {
 
 // TestCatch tests promise rejection handling
 func TestCatch(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, _, reject := promisealtthree.New(js)
 
 	var recovered bool
 
+	done := make(chan struct{}, 1)
 	p.Catch(func(r any) any {
 		recovered = true
+		done <- struct{}{}
 		return "caught"
 	})
 
 	reject("error")
 
-	runLoopFor(loop, time.Millisecond*10)
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case <-done:
+	default:
+		t.Fatal("Catch handler did not complete before auto-exit")
+	}
 
 	if !recovered {
 		t.Error("Catch handler should have been called")
@@ -127,28 +121,26 @@ func TestCatch(t *testing.T) {
 
 // TestFinally tests finally execution
 func TestFinally(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, resolve, _ := promisealtthree.New(js)
 
 	var finallyCalled bool
 
+	done := make(chan struct{}, 1)
 	p.Finally(func() {
 		finallyCalled = true
+		done <- struct{}{}
 	})
 
 	resolve("value")
 
-	runLoopFor(loop, time.Millisecond*10)
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case <-done:
+	default:
+		t.Fatal("Finally handler did not complete before auto-exit")
+	}
 
 	if !finallyCalled {
 		t.Error("Finally handler should have been called")
@@ -157,16 +149,7 @@ func TestFinally(t *testing.T) {
 
 // TestMultipleThen tests multiple then calls
 func TestMultipleThen(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, resolve, _ := promisealtthree.New(js)
 
@@ -177,10 +160,26 @@ func TestMultipleThen(t *testing.T) {
 			return v
 		}, nil)
 	}
+	done := make(chan any, 1)
+	chain = chain.Then(func(value any) any {
+		done <- value
+		return value
+	}, nil)
 
 	resolve("value")
 
-	runLoopFor(loop, time.Millisecond*10)
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case value := <-done:
+		if value != "value" {
+			t.Errorf("final value = %v, want value", value)
+		}
+	default:
+		t.Fatal("multiple-Then chain did not complete before auto-exit")
+	}
+	if chain.State() != promisealtthree.Fulfilled || chain.Result() != "value" {
+		t.Errorf("final chain = (%v, %v), want (Fulfilled, value)", chain.State(), chain.Result())
+	}
 }
 
 // TestStateConstants tests state constants
@@ -189,8 +188,8 @@ func TestStateConstants(t *testing.T) {
 		t.Errorf("Expected Pending=%d, got: %d", eventloop.Pending, promisealtthree.Pending)
 	}
 
-	if promisealtthree.Resolved != eventloop.Resolved {
-		t.Errorf("Expected Resolved=%d, got: %d", eventloop.Resolved, promisealtthree.Resolved)
+	if promisealtthree.Resolved != eventloop.Fulfilled {
+		t.Errorf("Expected Resolved=%d, got: %d", eventloop.Fulfilled, promisealtthree.Resolved)
 	}
 
 	if promisealtthree.Fulfilled != eventloop.Fulfilled {
@@ -204,16 +203,7 @@ func TestStateConstants(t *testing.T) {
 
 // TestPromiseWithJS tests promise with JS adapter
 func TestPromiseWithJS(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, resolve, reject := promisealtthree.New(js)
 
@@ -221,8 +211,27 @@ func TestPromiseWithJS(t *testing.T) {
 		t.Errorf("Expected Pending, got: %v", p.State())
 	}
 
-	_ = resolve
-	_ = reject
+	if resolve == nil || reject == nil {
+		t.Fatal("New() returned a nil settlement function")
+	}
+	done := make(chan any, 1)
+	child := p.Then(func(value any) any {
+		done <- value
+		return value
+	}, nil)
+	resolve("value")
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case value := <-done:
+		if value != "value" {
+			t.Errorf("observed value = %v, want value", value)
+		}
+	default:
+		t.Fatal("JS reaction did not complete before auto-exit")
+	}
+	if child.State() != promisealtthree.Fulfilled || child.Result() != "value" {
+		t.Errorf("JS child = (%v, %v), want (Fulfilled, value)", child.State(), child.Result())
+	}
 }
 
 // TestResultTypes tests promise with different result types
@@ -284,58 +293,55 @@ func TestNilHandlers(t *testing.T) {
 func TestConcurrentPromises(t *testing.T) {
 	p, resolve, _ := promisealtthree.New(nil)
 
-	var wg sync.WaitGroup
-
+	var completed atomic.Int32
+	registered := make(chan struct{}, 10)
 	for range 10 {
-		wg.Go(func() {
-			_ = p.Then(func(v any) any {
+		go func() {
+			p.Then(func(v any) any {
+				completed.Add(1)
 				return v
 			}, nil)
-		})
+			registered <- struct{}{}
+		}()
 	}
-
+	for range 10 {
+		waitPromiseAltThreeSignal(t, registered, "concurrent handler registration")
+	}
 	resolve("value")
-
-	wg.Wait()
+	if completed.Load() != 10 {
+		t.Errorf("handler executions = %d, want 10", completed.Load())
+	}
 }
 
 // TestPromiseChaining verifies chaining
 func TestPromiseChaining(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
-
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop, js := newPromiseAltThreeAutoLoop(t)
 
 	p, resolve, _ := promisealtthree.New(js)
 
 	var finalVal int
 
+	done := make(chan struct{}, 1)
 	p.Then(func(v any) any {
 		return v.(int) + 1
 	}, nil).Then(func(v any) any {
 		return v.(int) * 2
 	}, nil).Then(func(v any) any {
 		finalVal = v.(int)
+		done <- struct{}{}
 		return nil
 	}, nil)
 
 	resolve(1)
 
-	runLoopFor(loop, time.Millisecond*50)
+	runPromiseAltThreeAutoLoop(t, loop)
+	select {
+	case <-done:
+	default:
+		t.Fatal("Promise chain did not complete before auto-exit")
+	}
 
 	if finalVal != 4 {
 		t.Errorf("Expected 4, got %d", finalVal)
 	}
-}
-
-func runLoopFor(loop *eventloop.Loop, d time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), d)
-	defer cancel()
-	loop.Run(ctx)
 }

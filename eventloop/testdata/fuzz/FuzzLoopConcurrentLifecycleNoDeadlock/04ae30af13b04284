@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8110(\"\x82y'\xe2!01010C0")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(".17-700\x1e101'aB8\x00\x00C8YY2998A80!9 c 1&9")

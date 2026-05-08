@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("C!*Xc090%8#0%101c00'1001Z&(")

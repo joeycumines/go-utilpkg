@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("y\"!\rx72798YBc80170Jz11888Yy120\"BZ")

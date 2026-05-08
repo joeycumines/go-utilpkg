@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ===============================================
@@ -15,10 +15,7 @@ import (
 // ===============================================
 
 func TestProcessNextTick_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -69,10 +66,7 @@ func TestProcessNextTick_Basic(t *testing.T) {
 }
 
 func TestProcessNextTick_RunsBeforePromise(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -137,10 +131,7 @@ func TestProcessNextTick_RunsBeforePromise(t *testing.T) {
 }
 
 func TestProcessNextTick_Multiple(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -196,10 +187,7 @@ func TestProcessNextTick_Multiple(t *testing.T) {
 }
 
 func TestProcessNextTick_NoArgumentError(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -230,10 +218,7 @@ func TestProcessNextTick_NoArgumentError(t *testing.T) {
 // ===============================================
 
 func TestDelay_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -289,10 +274,7 @@ func TestDelay_Basic(t *testing.T) {
 }
 
 func TestDelay_ZeroMs(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -332,10 +314,7 @@ func TestDelay_ZeroMs(t *testing.T) {
 }
 
 func TestDelay_Chaining(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -396,10 +375,7 @@ func TestDelay_Chaining(t *testing.T) {
 }
 
 func TestDelay_ReturnsPromise(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -426,10 +402,7 @@ func TestDelay_ReturnsPromise(t *testing.T) {
 }
 
 func TestDelay_NegativeValueTreatedAsZero(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

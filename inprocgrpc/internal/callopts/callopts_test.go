@@ -51,6 +51,9 @@ func TestGetCallOptions(t *testing.T) {
 	if co.MaxRecv != 1024 || co.MaxSend != 2048 {
 		t.Fatalf("MaxRecv=%d MaxSend=%d", co.MaxRecv, co.MaxSend)
 	}
+	if !co.MaxRecvSet || !co.MaxSendSet {
+		t.Fatalf("message limit presence = (%t, %t), want true", co.MaxRecvSet, co.MaxSendSet)
+	}
 }
 
 func TestGetCallOptions_Empty(t *testing.T) {

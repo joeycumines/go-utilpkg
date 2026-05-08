@@ -1,10 +1,9 @@
 package gojaprotobuf
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 // jsEncode is the JS-facing implementation of pb.encode(msg).
@@ -28,7 +27,7 @@ func (m *Module) jsEncode(call goja.FunctionCall) goja.Value {
 // It deserialises binary data into a new message of the given type.
 // msgType must be a constructor returned by messageType().
 func (m *Module) jsDecode(call goja.FunctionCall) goja.Value {
-	msgDesc, err := m.extractMessageDesc(call.Argument(0))
+	messageType, err := m.extractMessageType(call.Argument(0))
 	if err != nil {
 		panic(m.runtime.NewTypeError("decode: %s", err))
 	}
@@ -38,8 +37,8 @@ func (m *Module) jsDecode(call goja.FunctionCall) goja.Value {
 		panic(m.runtime.NewTypeError("decode: %s", err))
 	}
 
-	msg := dynamicpb.NewMessage(msgDesc)
-	if err := proto.Unmarshal(data, msg); err != nil {
+	msg := messageType.New().Interface()
+	if err := (proto.UnmarshalOptions{Resolver: m.typeResolver()}).Unmarshal(data, msg); err != nil {
 		panic(m.runtime.NewGoError(err))
 	}
 
@@ -80,7 +79,7 @@ func (m *Module) jsToJSON(call goja.FunctionCall) goja.Value {
 // pb.fromJSON(msgType, obj). It creates a message from a proto3 JSON
 // object. msgType must be a constructor returned by messageType().
 func (m *Module) jsFromJSON(call goja.FunctionCall) goja.Value {
-	msgDesc, err := m.extractMessageDesc(call.Argument(0))
+	messageType, err := m.extractMessageType(call.Argument(0))
 	if err != nil {
 		panic(m.runtime.NewTypeError("fromJSON: %s", err))
 	}
@@ -98,10 +97,9 @@ func (m *Module) jsFromJSON(call goja.FunctionCall) goja.Value {
 		panic(m.runtime.NewGoError(err))
 	}
 
-	msg := dynamicpb.NewMessage(msgDesc)
+	msg := messageType.New().Interface()
 	uOpts := protojson.UnmarshalOptions{
-		Resolver:       m.typeResolver(),
-		DiscardUnknown: true,
+		Resolver: m.typeResolver(),
 	}
 	if err := uOpts.Unmarshal([]byte(jsonStr.String()), msg); err != nil {
 		panic(m.runtime.NewGoError(err))

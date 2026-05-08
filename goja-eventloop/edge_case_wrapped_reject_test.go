@@ -1,4 +1,4 @@
-// Edge case test for wrapped promise as rejection reason
+// Edge case test for a native Promise used as a rejection reason.
 
 package gojaeventloop
 
@@ -7,20 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
-// TestWrappedPromiseAsRejectReason verifies that when a wrapped promise
-// is used as a rejection reason, it's preserved correctly through the chain
-func TestWrappedPromiseAsRejectReason(t *testing.T) {
+// TestNativePromiseAsRejectReason verifies that a native Promise rejection
+// reason preserves identity through the chain.
+func TestNativePromiseAsRejectReason(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -37,9 +34,9 @@ func TestWrappedPromiseAsRejectReason(t *testing.T) {
 			const p1 = Promise.resolve(42);
 			const p2 = Promise.reject(p1);
 
-			// Chain catch handler that receives the wrapped promise
+			// Chain a catch handler that receives the native Promise.
 			const p3 = p2.catch(reason => {
-				// reason should be the wrapped promise object (p1)
+				// The reason is the exact Promise object (p1).
 				return reason.then(v => v + 100);
 			});
 
@@ -53,9 +50,9 @@ func TestWrappedPromiseAsRejectReason(t *testing.T) {
 
 	result := val.ToBoolean()
 	if !result {
-		t.Error("FAILED: Wrapped promise as reject reason not preserved correctly in handler chain")
+		t.Error("native Promise rejection reason was not preserved in the handler chain")
 	} else {
-		t.Log("PASSED: Wrapped promise as reject reason preserved correctly")
+		t.Log("native Promise rejection reason preserved correctly")
 	}
 
 	// Run loop

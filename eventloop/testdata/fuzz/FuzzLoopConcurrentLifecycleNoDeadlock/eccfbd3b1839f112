@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BRB\x83$B$B$BBB$'000xB$B3$B$B$Bc9000000")

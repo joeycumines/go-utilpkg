@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestPromiseWithResolvers_Basic tests basic Promise.withResolvers() usage.
 func TestPromiseWithResolvers_Basic(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -36,9 +36,49 @@ func TestPromiseWithResolvers_Basic(t *testing.T) {
 	loop.Shutdown(context.Background())
 }
 
+func TestPromiseWithResolvers_CustomConstructorValidation(t *testing.T) {
+	loop := goeventloop.New()
+	defer loop.Shutdown(context.Background())
+
+	runtime := goja.New()
+	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatalf("Failed to create adapter: %v", err)
+	}
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("Failed to bind: %v", err)
+	}
+
+	value, err := runtime.RunString(`
+		const events = [];
+		for (const C of [
+			function Fake(executor) {},
+			function Fake2(executor) { return {}; },
+			function Fake3(executor) { executor(function(){}, undefined); },
+			function FirstValidSecondValid(executor) { executor(function(){}, function(){}); executor(function(){}, function(){}); },
+			function FirstValidSecondInvalid(executor) { executor(function(){}, function(){}); executor(function(){}, undefined); },
+		]) {
+			try { Promise.withResolvers.call(C); events.push(C.name + ":ok"); }
+			catch (err) { events.push(C.name + ":" + err.name + ":" + err.message); }
+		}
+		events.join("\n");
+	`)
+	if err != nil {
+		t.Fatalf("Promise.withResolvers custom constructor validation script failed: %v", err)
+	}
+	want := "Fake:TypeError:Promise resolve or reject function is not callable\n" +
+		"Fake2:TypeError:Promise resolve or reject function is not callable\n" +
+		"Fake3:TypeError:Promise resolve or reject function is not callable\n" +
+		"FirstValidSecondValid:TypeError:Promise executor has already been invoked with non-undefined arguments\n" +
+		"FirstValidSecondInvalid:TypeError:Promise executor has already been invoked with non-undefined arguments"
+	if got := value.String(); got != want {
+		t.Fatalf("Promise.withResolvers custom constructor validation = %q, want %q", got, want)
+	}
+}
+
 // TestPromiseWithResolvers_Resolve tests resolving via withResolvers.
 func TestPromiseWithResolvers_Resolve(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -79,7 +119,7 @@ func TestPromiseWithResolvers_Resolve(t *testing.T) {
 
 // TestPromiseWithResolvers_Reject tests rejecting via withResolvers.
 func TestPromiseWithResolvers_Reject(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -120,7 +160,7 @@ func TestPromiseWithResolvers_Reject(t *testing.T) {
 
 // TestPromiseWithResolvers_Chaining tests chaining from withResolvers promise.
 func TestPromiseWithResolvers_Chaining(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -161,7 +201,7 @@ func TestPromiseWithResolvers_Chaining(t *testing.T) {
 
 // TestPromiseWithResolvers_MultiplePromises tests creating multiple withResolvers.
 func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -214,7 +254,7 @@ func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
 
 // TestPromiseWithResolvers_IdempotentResolve tests that resolve is idempotent.
 func TestPromiseWithResolvers_IdempotentResolve(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -258,7 +298,7 @@ func TestPromiseWithResolvers_IdempotentResolve(t *testing.T) {
 
 // TestPromiseWithResolvers_IdempotentReject tests that reject is idempotent.
 func TestPromiseWithResolvers_IdempotentReject(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -301,7 +341,7 @@ func TestPromiseWithResolvers_IdempotentReject(t *testing.T) {
 
 // TestPromiseWithResolvers_ResolveAfterReject tests resolve after reject is ignored.
 func TestPromiseWithResolvers_ResolveAfterReject(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -348,7 +388,7 @@ func TestPromiseWithResolvers_ResolveAfterReject(t *testing.T) {
 
 // TestPromiseWithResolvers_RejectAfterResolve tests reject after resolve is ignored.
 func TestPromiseWithResolvers_RejectAfterResolve(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -395,7 +435,7 @@ func TestPromiseWithResolvers_RejectAfterResolve(t *testing.T) {
 
 // TestPromiseWithResolvers_NullUndefined tests resolving/rejecting with null/undefined.
 func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -444,7 +484,7 @@ func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
 
 // TestPromiseWithResolvers_WithPromiseAll tests using withResolvers with Promise.all.
 func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -496,7 +536,7 @@ func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
 
 // TestPromiseWithResolvers_WithPromiseRace tests using withResolvers with Promise.race.
 func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -542,7 +582,7 @@ func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
 
 // TestPromiseWithResolvers_TimeoutPattern tests timeout pattern implementation.
 func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -603,7 +643,7 @@ func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
 
 // TestPromiseWithResolvers_Finally tests finally handler with withResolvers.
 func TestPromiseWithResolvers_Finally(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {

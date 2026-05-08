@@ -31,13 +31,10 @@ func TestPerformance_New(t *testing.T) {
 func TestPerformance_Now(t *testing.T) {
 	perf := NewPerformance()
 
-	// First call should be close to 0 (just after creation)
+	// The first call is relative to construction and must be non-negative.
 	t1 := perf.Now()
 	if t1 < 0 {
 		t.Error("Now() should return non-negative value")
-	}
-	if t1 > 100 { // Should be < 100ms since creation
-		t.Errorf("First Now() call should be close to 0, got %f", t1)
 	}
 
 	// Wait and measure again
@@ -49,36 +46,11 @@ func TestPerformance_Now(t *testing.T) {
 		t.Errorf("Now() should be monotonically increasing: %f <= %f", t2, t1)
 	}
 
-	// Difference should be approximately 10ms (allow some tolerance)
+	// Difference should include the requested sleep. Do not impose an upper
+	// bound because Performance.Now reports real scheduler pauses.
 	diff := t2 - t1
-	if diff < 8 || diff > 50 {
-		t.Errorf("Expected ~10ms difference, got %f ms", diff)
-	}
-}
-
-// TestPerformance_NowSubMillisecondPrecision tests sub-millisecond precision.
-func TestPerformance_NowSubMillisecondPrecision(t *testing.T) {
-	perf := NewPerformance()
-
-	// Take multiple samples rapidly
-	samples := make([]float64, 100)
-	for i := range samples {
-		samples[i] = perf.Now()
-	}
-
-	// Check that we have sub-millisecond precision
-	// At least some consecutive samples should differ by < 1ms
-	subMsPrecisionFound := false
-	for i := 1; i < len(samples); i++ {
-		diff := samples[i] - samples[i-1]
-		if diff > 0 && diff < 1.0 {
-			subMsPrecisionFound = true
-			break
-		}
-	}
-
-	if !subMsPrecisionFound {
-		t.Log("Warning: Could not verify sub-millisecond precision - might be due to slow system")
+	if diff < 8 {
+		t.Errorf("Now difference = %fms, want at least the requested sleep", diff)
 	}
 }
 
@@ -141,9 +113,7 @@ func TestPerformance_MarkMultiple(t *testing.T) {
 	perf := NewPerformance()
 
 	perf.Mark("first")
-	time.Sleep(5 * time.Millisecond)
 	perf.Mark("second")
-	time.Sleep(5 * time.Millisecond)
 	perf.Mark("third")
 
 	entries := perf.GetEntries()
@@ -156,12 +126,12 @@ func TestPerformance_MarkMultiple(t *testing.T) {
 		t.Error("Marks should be in order: first, second, third")
 	}
 
-	// Verify times are increasing
-	if entries[1].StartTime <= entries[0].StartTime {
-		t.Error("Second mark should be after first")
+	// Equal clock samples remain in insertion order; time must not go backward.
+	if entries[1].StartTime < entries[0].StartTime {
+		t.Error("Second mark time precedes first")
 	}
-	if entries[2].StartTime <= entries[1].StartTime {
-		t.Error("Third mark should be after second")
+	if entries[2].StartTime < entries[1].StartTime {
+		t.Error("Third mark time precedes second")
 	}
 }
 
@@ -170,9 +140,7 @@ func TestPerformance_MarkSameName(t *testing.T) {
 	perf := NewPerformance()
 
 	perf.Mark("duplicate")
-	time.Sleep(5 * time.Millisecond)
 	perf.Mark("duplicate")
-	time.Sleep(5 * time.Millisecond)
 	perf.Mark("duplicate")
 
 	entries := perf.GetEntriesByName("duplicate")
@@ -221,8 +189,10 @@ func TestPerformance_Measure(t *testing.T) {
 		t.Errorf("Expected name 'test-measure', got %s", measure.Name)
 	}
 
-	// Duration should be approximately 20ms
-	if measure.Duration < 15 || measure.Duration > 100 {
+	// Duration should include at least the requested sleep. Do not assert an upper
+	// bound: loaded CI/container hosts can pause the goroutine between marks, and
+	// Performance.Measure must report that actual elapsed time rather than hide it.
+	if measure.Duration < 15 {
 		t.Errorf("Expected ~20ms duration, got %f ms", measure.Duration)
 	}
 }
@@ -249,9 +219,10 @@ func TestPerformance_MeasureFromOrigin(t *testing.T) {
 		t.Errorf("Expected StartTime 0, got %f", measures[0].StartTime)
 	}
 
-	// Duration should be approximately 10ms
-	if measures[0].Duration < 5 || measures[0].Duration > 100 {
-		t.Errorf("Expected ~10ms duration, got %f ms", measures[0].Duration)
+	// Duration should include the requested sleep; scheduler pauses are part of
+	// the observed interval and therefore have no correctness upper bound.
+	if measures[0].Duration < 5 {
+		t.Errorf("Duration = %fms, want at least the requested sleep", measures[0].Duration)
 	}
 }
 
@@ -272,9 +243,10 @@ func TestPerformance_MeasureToNow(t *testing.T) {
 		t.Fatalf("Expected 1 measure, got %d", len(measures))
 	}
 
-	// Duration should be approximately 10ms
-	if measures[0].Duration < 5 || measures[0].Duration > 100 {
-		t.Errorf("Expected ~10ms duration, got %f ms", measures[0].Duration)
+	// Duration should include the requested sleep; scheduler pauses are part of
+	// the observed interval and therefore have no correctness upper bound.
+	if measures[0].Duration < 5 {
+		t.Errorf("Duration = %fms, want at least the requested sleep", measures[0].Duration)
 	}
 }
 
@@ -326,11 +298,13 @@ func TestPerformance_GetEntries(t *testing.T) {
 
 	perf.Mark("mark1")
 	perf.Mark("mark2")
-	_ = perf.Measure("measure1", "mark1", "mark2")
+	if err := perf.Measure("measure1", "mark1", "mark2"); err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
 
 	entries := perf.GetEntries()
 	if len(entries) != 3 {
-		t.Errorf("Expected 3 entries, got %d", len(entries))
+		t.Fatalf("Expected 3 entries, got %d", len(entries))
 	}
 }
 
@@ -341,17 +315,21 @@ func TestPerformance_GetEntriesByType(t *testing.T) {
 	perf.Mark("mark1")
 	perf.Mark("mark2")
 	perf.Mark("mark3")
-	_ = perf.Measure("measure1", "mark1", "mark2")
-	_ = perf.Measure("measure2", "mark2", "mark3")
+	if err := perf.Measure("measure1", "mark1", "mark2"); err != nil {
+		t.Fatalf("Measure 1: %v", err)
+	}
+	if err := perf.Measure("measure2", "mark2", "mark3"); err != nil {
+		t.Fatalf("Measure 2: %v", err)
+	}
 
 	marks := perf.GetEntriesByType("mark")
 	if len(marks) != 3 {
-		t.Errorf("Expected 3 marks, got %d", len(marks))
+		t.Fatalf("Expected 3 marks, got %d", len(marks))
 	}
 
 	measures := perf.GetEntriesByType("measure")
 	if len(measures) != 2 {
-		t.Errorf("Expected 2 measures, got %d", len(measures))
+		t.Fatalf("Expected 2 measures, got %d", len(measures))
 	}
 }
 
@@ -362,18 +340,20 @@ func TestPerformance_GetEntriesByName(t *testing.T) {
 	perf.Mark("target")
 	perf.Mark("other")
 	perf.Mark("target")
-	_ = perf.Measure("target", "", "")
+	if err := perf.Measure("target", "", ""); err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
 
 	// All entries named "target"
 	entries := perf.GetEntriesByName("target")
 	if len(entries) != 3 {
-		t.Errorf("Expected 3 entries named 'target', got %d", len(entries))
+		t.Fatalf("Expected 3 entries named 'target', got %d", len(entries))
 	}
 
 	// Only marks named "target"
 	marks := perf.GetEntriesByName("target", "mark")
 	if len(marks) != 2 {
-		t.Errorf("Expected 2 marks named 'target', got %d", len(marks))
+		t.Fatalf("Expected 2 marks named 'target', got %d", len(marks))
 	}
 }
 
@@ -384,14 +364,16 @@ func TestPerformance_ClearMarks(t *testing.T) {
 	perf.Mark("keep")
 	perf.Mark("remove")
 	perf.Mark("remove")
-	_ = perf.Measure("measure", "keep", "remove")
+	if err := perf.Measure("measure", "keep", "remove"); err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
 
 	// Clear specific mark
 	perf.ClearMarks("remove")
 
 	marks := perf.GetEntriesByType("mark")
 	if len(marks) != 1 {
-		t.Errorf("Expected 1 mark after clear, got %d", len(marks))
+		t.Fatalf("Expected 1 mark after clear, got %d", len(marks))
 	}
 	if marks[0].Name != "keep" {
 		t.Error("Wrong mark remaining")
@@ -411,7 +393,9 @@ func TestPerformance_ClearAllMarks(t *testing.T) {
 	perf.Mark("mark1")
 	perf.Mark("mark2")
 	perf.Mark("mark3")
-	_ = perf.Measure("measure", "", "")
+	if err := perf.Measure("measure", "", ""); err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
 
 	perf.ClearMarks("")
 
@@ -433,14 +417,18 @@ func TestPerformance_ClearMeasures(t *testing.T) {
 
 	perf.Mark("mark1")
 	perf.Mark("mark2")
-	_ = perf.Measure("keep", "mark1", "mark2")
-	_ = perf.Measure("remove", "mark1", "mark2")
+	if err := perf.Measure("keep", "mark1", "mark2"); err != nil {
+		t.Fatalf("Measure keep: %v", err)
+	}
+	if err := perf.Measure("remove", "mark1", "mark2"); err != nil {
+		t.Fatalf("Measure remove: %v", err)
+	}
 
 	perf.ClearMeasures("remove")
 
 	measures := perf.GetEntriesByType("measure")
 	if len(measures) != 1 {
-		t.Errorf("Expected 1 measure after clear, got %d", len(measures))
+		t.Fatalf("Expected 1 measure after clear, got %d", len(measures))
 	}
 	if measures[0].Name != "keep" {
 		t.Error("Wrong measure remaining")
@@ -452,8 +440,12 @@ func TestPerformance_ClearAllMeasures(t *testing.T) {
 	perf := NewPerformance()
 
 	perf.Mark("mark")
-	_ = perf.Measure("measure1", "", "mark")
-	_ = perf.Measure("measure2", "", "mark")
+	if err := perf.Measure("measure1", "", "mark"); err != nil {
+		t.Fatalf("Measure 1: %v", err)
+	}
+	if err := perf.Measure("measure2", "", "mark"); err != nil {
+		t.Fatalf("Measure 2: %v", err)
+	}
 
 	perf.ClearMeasures("")
 
@@ -483,23 +475,78 @@ func TestPerformance_ToJSON(t *testing.T) {
 	}
 }
 
-// TestPerformance_GetEntriesSorted tests sorted entry retrieval.
-func TestPerformance_GetEntriesSorted(t *testing.T) {
-	perf := NewPerformance()
+func TestPerformance_GetEntriesChronological(t *testing.T) {
+	perf := &Performance{entries: []PerformanceEntry{
+		{Name: "late", EntryType: "mark", StartTime: 3},
+		{Name: "shared", EntryType: "mark", StartTime: 2},
+		{Name: "first-equal", EntryType: "measure", StartTime: 0},
+		{Name: "shared", EntryType: "measure", StartTime: 1},
+		{Name: "second-equal", EntryType: "measure", StartTime: 0},
+	}}
 
-	perf.Mark("first")
-	time.Sleep(5 * time.Millisecond)
-	perf.Mark("second")
-	time.Sleep(5 * time.Millisecond)
-	perf.Mark("third")
+	entries := perf.GetEntries()
+	if got, want := len(entries), 5; got != want {
+		t.Fatalf("GetEntries returned %d entries, want %d", got, want)
+	}
+	if entries[0].Name != "first-equal" || entries[1].Name != "second-equal" || entries[4].Name != "late" {
+		t.Fatalf("GetEntries is not chronological: %+v", entries)
+	}
 
-	entries := perf.GetEntriesSorted()
+	byName := perf.GetEntriesByName("shared", "mark", "measure")
+	if got, want := len(byName), 2; got != want {
+		t.Fatalf("GetEntriesByName returned %d entries, want %d", got, want)
+	}
+	if byName[0].EntryType != "measure" || byName[1].EntryType != "mark" {
+		t.Fatalf("GetEntriesByName is not chronological: %+v", byName)
+	}
 
-	// Should be sorted by start time
-	for i := 1; i < len(entries); i++ {
-		if entries[i].StartTime < entries[i-1].StartTime {
-			t.Errorf("Entries not sorted: %f < %f", entries[i].StartTime, entries[i-1].StartTime)
+	measures := perf.GetEntriesByType("measure")
+	if got, want := len(measures), 3; got != want {
+		t.Fatalf("GetEntriesByType returned %d measures, want %d", got, want)
+	}
+	if measures[0].Name != "first-equal" || measures[1].Name != "second-equal" || measures[2].Name != "shared" {
+		t.Fatalf("equal-time measures did not retain recording order: %+v", measures)
+	}
+}
+
+func TestPerformance_ZeroValueConcurrent(t *testing.T) {
+	var perf Performance
+
+	const workers = 32
+	origins := make([]float64, workers)
+	start := make(chan struct{})
+	startNow := contractRelease(t, start)
+	ready := make(chan struct{}, workers)
+	var group sync.WaitGroup
+	for i := range workers {
+		group.Go(func() {
+			ready <- struct{}{}
+			<-start
+			origins[i] = perf.TimeOrigin()
+			perf.Mark("zero-value")
+		})
+	}
+	for range workers {
+		waitContractSignal(t, ready, "zero-value Performance worker readiness")
+	}
+	startNow()
+	workersDone := make(chan struct{})
+	go func() {
+		group.Wait()
+		close(workersDone)
+	}()
+	waitContractSignal(t, workersDone, "zero-value Performance operations")
+
+	for i, origin := range origins[1:] {
+		if origin != origins[0] {
+			t.Fatalf("origin %d = %v, want %v", i+1, origin, origins[0])
 		}
+	}
+	if got, want := len(perf.GetEntries()), workers; got != want {
+		t.Fatalf("zero-value Performance recorded %d marks, want %d", got, want)
+	}
+	if now := perf.Now(); now < 0 {
+		t.Fatalf("zero-value Performance.Now() = %v, want non-negative", now)
 	}
 }
 
@@ -507,130 +554,123 @@ func TestPerformance_GetEntriesSorted(t *testing.T) {
 func TestPerformance_ConcurrentAccess(t *testing.T) {
 	perf := NewPerformance()
 
-	var wg sync.WaitGroup
+	const (
+		markWorkers     = 100
+		nowWorkers      = 100
+		snapshotWorkers = 50
+	)
+	start := make(chan struct{})
+	startNow := contractRelease(t, start)
+	ready := make(chan struct{}, markWorkers+nowWorkers+snapshotWorkers)
+	nowResults := make(chan float64, nowWorkers)
+	snapshotResults := make(chan []PerformanceEntry, snapshotWorkers)
+	var group sync.WaitGroup
 
-	// Concurrent marks
-	for i := range 100 {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
+	for range markWorkers {
+		group.Go(func() {
+			ready <- struct{}{}
+			<-start
 			perf.Mark("concurrent-mark")
-		}(i)
-	}
-
-	// Concurrent Now() calls
-	for range 100 {
-		wg.Go(func() {
-			_ = perf.Now()
 		})
 	}
 
-	// Concurrent GetEntries
-	for range 50 {
-		wg.Go(func() {
-			_ = perf.GetEntries()
+	for range nowWorkers {
+		group.Go(func() {
+			ready <- struct{}{}
+			<-start
+			nowResults <- perf.Now()
 		})
 	}
 
-	wg.Wait()
+	for range snapshotWorkers {
+		group.Go(func() {
+			ready <- struct{}{}
+			<-start
+			snapshotResults <- perf.GetEntries()
+		})
+	}
+
+	for range markWorkers + nowWorkers + snapshotWorkers {
+		waitContractSignal(t, ready, "concurrent Performance worker readiness")
+	}
+	startNow()
+	workersDone := make(chan struct{})
+	go func() {
+		group.Wait()
+		close(workersDone)
+	}()
+	waitContractSignal(t, workersDone, "concurrent Performance operations")
+
+	for range nowWorkers {
+		if now := waitContractValue(t, nowResults, "concurrent Performance.Now result"); now < 0 {
+			t.Fatalf("concurrent Performance.Now = %v, want non-negative", now)
+		}
+	}
+	for range snapshotWorkers {
+		entries := waitContractValue(t, snapshotResults, "concurrent Performance snapshot")
+		if len(entries) > markWorkers {
+			t.Fatalf("concurrent snapshot contains %d entries, want at most %d", len(entries), markWorkers)
+		}
+		for index, entry := range entries {
+			if entry.Name != "concurrent-mark" || entry.EntryType != "mark" || entry.StartTime < 0 || entry.Duration != 0 {
+				t.Fatalf("concurrent snapshot entry %d = %+v, want a non-negative concurrent-mark", index, entry)
+			}
+			if index > 0 && entry.StartTime < entries[index-1].StartTime {
+				t.Fatalf("concurrent snapshot is not chronological at %d: %+v", index, entries)
+			}
+		}
+	}
 
 	entries := perf.GetEntriesByName("concurrent-mark")
-	if len(entries) != 100 {
-		t.Errorf("Expected 100 concurrent marks, got %d", len(entries))
+	if len(entries) != markWorkers {
+		t.Fatalf("concurrent marks = %d, want %d", len(entries), markWorkers)
 	}
 }
 
 // TestPerformance_MeasureUsesLatestMark tests that measure uses latest mark.
 func TestPerformance_MeasureUsesLatestMark(t *testing.T) {
-	perf := NewPerformance()
+	perf := newPerformance(time.Now())
+	perf.marks["start"] = []float64{10, 25}
+	perf.marks["end"] = []float64{40, 70}
 
-	// Create multiple marks with same name
-	perf.Mark("point")
-	time.Sleep(10 * time.Millisecond)
-	perf.Mark("point") // This is the one that should be used
-	time.Sleep(10 * time.Millisecond)
-
-	err := perf.Measure("test", "point", "")
-	if err != nil {
-		t.Fatalf("Measure failed: %v", err)
+	if err := perf.Measure("test", "start", "end"); err != nil {
+		t.Fatalf("Measure: %v", err)
 	}
 
 	measures := perf.GetEntriesByType("measure")
 	if len(measures) != 1 {
-		t.Fatalf("Expected 1 measure, got %d", len(measures))
+		t.Fatalf("measure count = %d, want 1", len(measures))
 	}
-
-	// Duration should be ~10ms (from second mark to now), not ~20ms
-	if measures[0].Duration > 50 {
-		t.Errorf("Measure should use latest mark, got duration %f ms", measures[0].Duration)
+	if got := measures[0].StartTime; got != 25 {
+		t.Fatalf("measure start = %v, want latest start mark 25", got)
 	}
-}
-
-// Test_performanceObserver_Basic tests basic observer functionality.
-func Test_performanceObserver_Basic(t *testing.T) {
-	perf := NewPerformance()
-
-	var observedEntries []PerformanceEntry
-	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {
-		observedEntries = append(observedEntries, entries...)
-	})
-
-	observer.Observe(performanceObserverOptions{
-		EntryTypes: []string{"mark"},
-		Buffered:   true,
-	})
-
-	// Initially no buffered entries
-	if len(observedEntries) != 0 {
-		t.Errorf("Expected 0 initial entries, got %d", len(observedEntries))
+	if got := measures[0].Duration; got != 45 {
+		t.Fatalf("measure duration = %v, want latest mark delta 45", got)
 	}
 }
 
-// Test_performanceObserver_Disconnect tests observer disconnect.
-func Test_performanceObserver_Disconnect(t *testing.T) {
-	perf := NewPerformance()
+func TestNewLoopPerformance(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
+	anchor := time.Unix(1_234_567_890, 123_456_789)
+	loop.setTickAnchor(anchor)
 
-	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {})
-	observer.Observe(performanceObserverOptions{
-		EntryTypes: []string{"mark", "measure"},
-	})
-
-	observer.Disconnect()
-
-	// Should not panic
-}
-
-// Test_performanceObserver_TakeRecords tests taking records.
-func Test_performanceObserver_TakeRecords(t *testing.T) {
-	perf := NewPerformance()
-
-	observer := newPerformanceObserver(perf, func(entries []PerformanceEntry, obs *performanceObserver) {})
-	observer.Observe(performanceObserverOptions{
-		EntryTypes: []string{"mark"},
-	})
-
-	records := observer.TakeRecords()
-	if len(records) != 0 {
-		t.Errorf("Expected no records, got %d", len(records))
-	}
-}
-
-// TestLoopPerformance_New tests creating loop-bound performance.
-func TestLoopPerformance_New(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-	defer loop.Close()
-
-	loopPerf := NewLoopPerformance(loop)
-	if loopPerf == nil {
+	performance := NewLoopPerformance(loop)
+	if performance == nil {
 		t.Fatal("NewLoopPerformance returned nil")
 	}
 
-	// Should have access to standard Performance methods
-	_ = loopPerf.Now()
-	loopPerf.Mark("test")
+	if now := performance.Now(); now < 0 {
+		t.Fatalf("Performance.Now = %v, want non-negative", now)
+	}
+	if got, want := performance.TimeOrigin(), float64(anchor.UnixNano())/1e6; got != want {
+		t.Fatalf("Performance.TimeOrigin = %v, want loop anchor %v", got, want)
+	}
+	performance.Mark("test")
+	entries := performance.GetEntriesByName("test", "mark")
+	if len(entries) != 1 || entries[0].Name != "test" || entries[0].EntryType != "mark" || entries[0].StartTime < 0 || entries[0].Duration != 0 {
+		t.Fatalf("Performance mark entries = %+v, want one non-negative test mark", entries)
+	}
 }
 
 // TestPerformance_ClearResourceTimings tests clearing resource timings.
@@ -661,27 +701,11 @@ func TestPerformance_EmptyName(t *testing.T) {
 	}
 }
 
-// TestPerformance_ZeroDuration tests that marks have zero duration.
-func TestPerformance_ZeroDuration(t *testing.T) {
-	perf := NewPerformance()
-
-	perf.Mark("test")
-
-	entries := perf.GetEntriesByType("mark")
-	for _, entry := range entries {
-		if entry.Duration != 0 {
-			t.Errorf("Mark duration should be 0, got %f", entry.Duration)
-		}
-	}
-}
-
 // TestPerformance_NegativeDuration tests measure with reversed marks.
 func TestPerformance_NegativeDuration(t *testing.T) {
-	perf := NewPerformance()
-
-	perf.Mark("first")
-	time.Sleep(10 * time.Millisecond)
-	perf.Mark("second")
+	perf := newPerformance(time.Now())
+	perf.marks["first"] = []float64{10}
+	perf.marks["second"] = []float64{25}
 
 	// Measure from second to first (reversed)
 	err := perf.Measure("reversed", "second", "first")
@@ -693,9 +717,10 @@ func TestPerformance_NegativeDuration(t *testing.T) {
 	if len(measures) != 1 {
 		t.Fatalf("Expected 1 measure, got %d", len(measures))
 	}
-
-	// Duration should be negative
-	if measures[0].Duration >= 0 {
-		t.Errorf("Expected negative duration, got %f", measures[0].Duration)
+	if got := measures[0].StartTime; got != 25 {
+		t.Fatalf("reversed measure start = %v, want 25", got)
+	}
+	if got := measures[0].Duration; got != -15 {
+		t.Fatalf("reversed measure duration = %v, want -15", got)
 	}
 }

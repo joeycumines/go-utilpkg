@@ -4,16 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestJSON_ParseBasic tests basic JSON.parse.
 func TestJSON_ParseBasic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -41,10 +38,7 @@ func TestJSON_ParseBasic(t *testing.T) {
 
 // TestJSON_StringifyBasic tests basic JSON.stringify.
 func TestJSON_StringifyBasic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -69,10 +63,7 @@ func TestJSON_StringifyBasic(t *testing.T) {
 
 // TestJSON_ParseWithReviver tests JSON.parse with reviver function.
 func TestJSON_ParseWithReviver(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -108,10 +99,7 @@ func TestJSON_ParseWithReviver(t *testing.T) {
 
 // TestJSON_ParseWithReviverDate tests JSON.parse reviver for date conversion.
 func TestJSON_ParseWithReviverDate(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -144,10 +132,7 @@ func TestJSON_ParseWithReviverDate(t *testing.T) {
 
 // TestJSON_StringifyWithReplacer tests JSON.stringify with replacer function.
 func TestJSON_StringifyWithReplacer(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -187,10 +172,7 @@ func TestJSON_StringifyWithReplacer(t *testing.T) {
 
 // TestJSON_StringifyWithReplacerArray tests JSON.stringify with array replacer.
 func TestJSON_StringifyWithReplacerArray(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -225,10 +207,7 @@ func TestJSON_StringifyWithReplacerArray(t *testing.T) {
 
 // TestJSON_StringifyWithSpace tests JSON.stringify with space parameter.
 func TestJSON_StringifyWithSpace(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -259,10 +238,7 @@ func TestJSON_StringifyWithSpace(t *testing.T) {
 
 // TestJSON_ParseReviverTransformKey tests reviver can see the key.
 func TestJSON_ParseReviverTransformKey(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -298,10 +274,7 @@ func TestJSON_ParseReviverTransformKey(t *testing.T) {
 
 // TestJSON_StringifyReplacerTransformValue tests replacer can transform values.
 func TestJSON_StringifyReplacerTransformValue(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -333,10 +306,7 @@ func TestJSON_StringifyReplacerTransformValue(t *testing.T) {
 
 // TestJSON_ParseReviverNested tests reviver works with nested objects.
 func TestJSON_ParseReviverNested(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -368,10 +338,7 @@ func TestJSON_ParseReviverNested(t *testing.T) {
 
 // TestJSON_ParseReviverArray tests reviver works with arrays.
 func TestJSON_ParseReviverArray(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -407,10 +374,7 @@ func TestJSON_ParseReviverArray(t *testing.T) {
 
 // TestJSON_StringifyPrimitives tests JSON.stringify with primitives.
 func TestJSON_StringifyPrimitives(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -463,10 +427,7 @@ func TestJSON_StringifyPrimitives(t *testing.T) {
 
 // TestJSON_StringifyNestedObjects tests JSON.stringify with nested objects.
 func TestJSON_StringifyNestedObjects(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -503,10 +464,7 @@ func TestJSON_StringifyNestedObjects(t *testing.T) {
 
 // TestJSON_StringifyArrays tests JSON.stringify with arrays.
 func TestJSON_StringifyArrays(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -552,10 +510,7 @@ func TestJSON_StringifyArrays(t *testing.T) {
 
 // TestJSON_StringifyWithTabSpace tests JSON.stringify with tab indentation.
 func TestJSON_StringifyWithTabSpace(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -585,10 +540,7 @@ func TestJSON_StringifyWithTabSpace(t *testing.T) {
 
 // TestJSON_ParsePrimitives tests JSON.parse with primitives.
 func TestJSON_ParsePrimitives(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -643,10 +595,7 @@ func TestJSON_ParsePrimitives(t *testing.T) {
 
 // TestJSON_ParseNestedObjects tests JSON.parse with nested objects.
 func TestJSON_ParseNestedObjects(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -673,10 +622,7 @@ func TestJSON_ParseNestedObjects(t *testing.T) {
 
 // TestJSON_ParseArrays tests JSON.parse with arrays.
 func TestJSON_ParseArrays(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -720,10 +666,7 @@ func TestJSON_ParseArrays(t *testing.T) {
 
 // TestJSON_CircularReferenceError tests that circular references throw.
 func TestJSON_CircularReferenceError(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -762,10 +705,7 @@ func TestJSON_CircularReferenceError(t *testing.T) {
 
 // TestJSON_ToJSONMethod tests that toJSON() method is respected.
 func TestJSON_ToJSONMethod(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -803,10 +743,7 @@ func TestJSON_ToJSONMethod(t *testing.T) {
 
 // TestJSON_UndefinedHandling tests that undefined is omitted.
 func TestJSON_UndefinedHandling(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -851,10 +788,7 @@ func TestJSON_UndefinedHandling(t *testing.T) {
 
 // TestJSON_FunctionHandling tests that functions are omitted.
 func TestJSON_FunctionHandling(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -903,10 +837,7 @@ func TestJSON_FunctionHandling(t *testing.T) {
 
 // TestJSON_SymbolHandling tests that symbols are omitted.
 func TestJSON_SymbolHandling(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -953,10 +884,7 @@ func TestJSON_SymbolHandling(t *testing.T) {
 
 // TestJSON_BigIntTypeError tests that BigInt throws TypeError.
 func TestJSON_BigIntTypeError(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1005,10 +933,7 @@ func TestJSON_BigIntTypeError(t *testing.T) {
 
 // TestJSON_UnicodeEscapeHandling tests Unicode escape sequences.
 func TestJSON_UnicodeEscapeHandling(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1055,10 +980,7 @@ func TestJSON_UnicodeEscapeHandling(t *testing.T) {
 
 // TestJSON_NaNBecomeNull tests that NaN becomes null.
 func TestJSON_NaNBecomeNull(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1097,10 +1019,7 @@ func TestJSON_NaNBecomeNull(t *testing.T) {
 
 // TestJSON_InfinityBecomesNull tests that Infinity becomes null.
 func TestJSON_InfinityBecomesNull(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1144,10 +1063,7 @@ func TestJSON_InfinityBecomesNull(t *testing.T) {
 
 // TestJSON_DateToJSON tests Date objects use toJSON/toISOString.
 func TestJSON_DateToJSON(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1192,10 +1108,7 @@ func TestJSON_DateToJSON(t *testing.T) {
 
 // TestJSON_ParseSyntaxError tests that invalid JSON throws SyntaxError.
 func TestJSON_ParseSyntaxError(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1239,10 +1152,7 @@ func TestJSON_ParseSyntaxError(t *testing.T) {
 
 // TestJSON_StringifyEmptyObjects tests empty object/array serialization.
 func TestJSON_StringifyEmptyObjects(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1279,10 +1189,7 @@ func TestJSON_StringifyEmptyObjects(t *testing.T) {
 
 // TestJSON_StringifyReplacerOrdering tests replacer function receives keys in order.
 func TestJSON_StringifyReplacerOrdering(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -1321,10 +1228,7 @@ func TestJSON_StringifyReplacerOrdering(t *testing.T) {
 
 // TestJSON_TypesExist verifies JSON object and methods exist.
 func TestJSON_TypesExist(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create event loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

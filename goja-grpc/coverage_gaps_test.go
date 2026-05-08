@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -444,14 +444,11 @@ func TestStatusCreateError_DetailsPrimitive(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	// Pass a primitive (boolean) as details — should fall through
-	// and create error without details.
-	val := env.run(t, `
-		var err = grpc.status.createError(13, 'test-msg', true);
-		err.code + ':' + err.message + ':' + err.details.length;
+	err := env.mustFail(t, `
+		grpc.status.createError(13, 'test-msg', true);
 	`)
-	if got := val.String(); got != "13:test-msg:0" {
-		t.Errorf("expected %v, got %v", "13:test-msg:0", got)
+	if !strings.Contains(err.Error(), "details must be an array") {
+		t.Fatalf("primitive details error = %v, want array requirement", err)
 	}
 }
 
@@ -459,34 +456,40 @@ func TestStatusCreateError_DetailsNumber(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	val := env.run(t, `
-		var err = grpc.status.createError(13, 'test-msg', 42);
-		err.code + ':' + err.message + ':' + err.details.length;
+	err := env.mustFail(t, `
+		grpc.status.createError(13, 'test-msg', 42);
 	`)
-	if got := val.String(); got != "13:test-msg:0" {
-		t.Errorf("expected %v, got %v", "13:test-msg:0", got)
+	if !strings.Contains(err.Error(), "details must be an array") {
+		t.Fatalf("numeric details error = %v, want array requirement", err)
 	}
 }
 
 // ============================================================================
-// Coverage gaps: status.go — newGrpcErrorWithDetails error paths
-//
-// Covers: UnwrapMessage failure (line ~125), anypb.New failure (line ~129)
+// Status details reject values that cannot be represented losslessly.
 // ============================================================================
 
 func TestStatusCreateError_DetailsWithInvalidElements(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	// Array with non-message elements — UnwrapMessage should fail,
-	// those elements are skipped in Go details but kept in JS array.
-	val := env.run(t, `
-		var err = grpc.status.createError(13, 'test-msg', [42, "invalid", null]);
-		err.code + ':' + err.details.length;
-	`)
-	// All 3 elements are non-nil/non-undefined so they all appear in the JS details array.
-	if got := val.String(); got != "13:3" {
-		t.Errorf("expected %v, got %v", "13:3", got)
+	for _, test := range []struct {
+		name    string
+		details string
+	}{
+		{name: "number", details: "[42]"},
+		{name: "string", details: `["invalid"]`},
+		{name: "null", details: "[null]"},
+		{name: "undefined", details: "[undefined]"},
+		{name: "sparse", details: "Array(1)"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := env.mustFail(t,
+				`grpc.status.createError(13, "test-msg", `+test.details+`);`,
+			)
+			if !strings.Contains(err.Error(), "status detail") {
+				t.Fatalf("invalid detail error = %v, want status-detail failure", err)
+			}
+		})
 	}
 }
 
@@ -509,30 +512,28 @@ func TestStatusCreateError_DetailsWithValidMessage(t *testing.T) {
 }
 
 // ============================================================================
-// Coverage gaps: status.go — extractGoDetails type assertion failure
-//
-// Covers: extractGoDetails line ~148 (Export() is not *goDetailsHolder)
+// Public properties cannot forge the private status-detail identity.
 // ============================================================================
 
-func TestExtractGoDetails_Direct_WrongType(t *testing.T) {
+func TestExtractGoDetailsIgnoresPublicSpoof(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
 	obj := env.grpcMod.newGrpcError(codes.Internal, "test")
-	// Set _goDetails to something that's not a *goDetailsHolder.
-	_ = obj.Set("_goDetails", 42)
+	if err := obj.Set("_goDetails", 42); err != nil {
+		t.Fatal(err)
+	}
 	result := env.grpcMod.extractGoDetails(obj)
 	if result != nil {
 		t.Errorf("expected nil, got %v", result)
 	}
 }
 
-func TestExtractGoDetails_Direct_NilValue(t *testing.T) {
+func TestExtractGoDetailsReturnsNilWithoutPrivateIdentity(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
 	obj := env.grpcMod.newGrpcError(codes.Internal, "test")
-	// _goDetails not set at all — should return nil.
 	result := env.grpcMod.extractGoDetails(obj)
 	if result != nil {
 		t.Errorf("expected nil, got %v", result)
@@ -558,9 +559,16 @@ func TestWrapStatusDetails_Direct_UnknownType(t *testing.T) {
 		},
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
-	// Unknown type should be silently skipped.
-	if got := arr.Get("length").ToInteger(); got != int64(0) {
-		t.Errorf("expected %v, got %v", int64(0), got)
+	// Unknown status details remain available losslessly as Any wrappers.
+	if got := arr.Get("length").ToInteger(); got != int64(1) {
+		t.Fatalf("expected %v, got %v", int64(1), got)
+	}
+	message, err := env.pbMod.UnwrapMessage(arr.Get("0"))
+	if err != nil {
+		t.Fatalf("UnwrapMessage: %v", err)
+	}
+	if !proto.Equal(message, details[0]) {
+		t.Fatalf("unknown detail = %v, want %v", message, details[0])
 	}
 }
 
@@ -576,9 +584,16 @@ func TestWrapStatusDetails_Direct_NonMessageType(t *testing.T) {
 		},
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
-	// Enum type should be skipped (not a message).
-	if got := arr.Get("length").ToInteger(); got != int64(0) {
-		t.Errorf("expected %v, got %v", int64(0), got)
+	// Non-message type URLs remain available losslessly as Any wrappers.
+	if got := arr.Get("length").ToInteger(); got != int64(1) {
+		t.Fatalf("expected %v, got %v", int64(1), got)
+	}
+	message, err := env.pbMod.UnwrapMessage(arr.Get("0"))
+	if err != nil {
+		t.Fatalf("UnwrapMessage: %v", err)
+	}
+	if !proto.Equal(message, details[0]) {
+		t.Fatalf("non-message detail = %v, want %v", message, details[0])
 	}
 }
 
@@ -594,9 +609,16 @@ func TestWrapStatusDetails_Direct_CorruptedData(t *testing.T) {
 		},
 	}
 	arr := env.grpcMod.wrapStatusDetails(details)
-	// Unmarshal error should be silently skipped.
-	if got := arr.Get("length").ToInteger(); got != int64(0) {
-		t.Errorf("expected %v, got %v", int64(0), got)
+	// Corrupted payloads remain available losslessly as Any wrappers.
+	if got := arr.Get("length").ToInteger(); got != int64(1) {
+		t.Fatalf("expected %v, got %v", int64(1), got)
+	}
+	message, err := env.pbMod.UnwrapMessage(arr.Get("0"))
+	if err != nil {
+		t.Fatalf("UnwrapMessage: %v", err)
+	}
+	if !proto.Equal(message, details[0]) {
+		t.Fatalf("corrupted detail = %v, want %v", message, details[0])
 	}
 }
 
@@ -1546,31 +1568,26 @@ func TestStatusCreateError_EmptyDetailsArray(t *testing.T) {
 }
 
 // ============================================================================
-// Coverage gaps: status.go — createError with details array length=undefined
-//
-// Covers the lenVal nil/undefined check.
+// Non-array detail containers fail instead of silently dropping identity.
 // ============================================================================
 
 func TestStatusCreateError_DetailsObjectNoLength(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	val := env.run(t, `
-		var err = grpc.status.createError(13, 'msg', {});
-		err.code + ':' + err.details.length;
+	err := env.mustFail(t, `
+		grpc.status.createError(13, 'msg', {});
 	`)
-	if got := val.String(); got != "13:0" {
-		t.Errorf("expected %v, got %v", "13:0", got)
+	if !strings.Contains(err.Error(), "details must be an array") {
+		t.Fatalf("object details error = %v, want array requirement", err)
 	}
 }
 
 // ============================================================================
-// Coverage gaps: toWrappedMessage — marshal error in slow path
-//
-// Covers: server.go toWrappedMessage slow path panic on corrupted msg
+// Non-protobuf transport values are rejected before wrapper construction.
 // ============================================================================
 
-func TestToWrappedMessage_Direct_SlowPath_BadMarshal(t *testing.T) {
+func TestToWrappedMessageDirectRejectsNonProtobuf(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
@@ -1579,11 +1596,8 @@ func TestToWrappedMessage_Direct_SlowPath_BadMarshal(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Cast to protoreflect.MessageDescriptor which is what toWrappedMessage expects.
 	md := desc.(protoreflect.MessageDescriptor)
 
-	// badMarshalMsg is not a proto.Message — should trigger the
-	// "not a proto.Message" error path.
 	_, convErr := env.grpcMod.toWrappedMessage(badMarshalMsg{}, md)
 	if convErr == nil {
 		t.Fatalf("expected an error")
@@ -2586,19 +2600,21 @@ func TestClientStreamHandler_ReturnsNonProtobuf(t *testing.T) {
 
 		var client = grpc.createClient('testgrpc.TestService');
 		var error;
-		client.clientStream().then(function(call) {
-			call.closeSend().then(function() {
-				return call.response;
-			}).then(function(resp) {
-				error = { unexpected: true };
-				__done();
-			}).catch(function(err) {
-				error = { code: err.code, message: err.message };
-				__done();
-			});
-		}).catch(function(err) {
+		var finished = false;
+		function finish(err) {
+			if (finished) return;
+			finished = true;
 			error = { code: err.code, message: err.message };
 			__done();
+		}
+		client.clientStream().then(function(call) {
+			call.response.then(function(resp) {
+				error = { unexpected: true };
+				__done();
+			}).catch(finish);
+			call.closeSend().catch(finish);
+		}).catch(function(err) {
+			finish(err);
 		});
 	`, defaultTimeout)
 
@@ -2872,14 +2888,13 @@ func TestServerStreamRPC_WithSignalAbort(t *testing.T) {
 		});
 	`, defaultTimeout)
 
-	// Either we get items then error, or just error.
-	// The main check is that it doesn't hang.
 	result := env.runtime.Get("error")
-	if result != nil && !isGojaUndefined(result) {
-		resultObj := result.Export().(map[string]any)
-		if got := resultObj["code"]; got != int64(codes.Canceled) {
-			t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
-		}
+	if result == nil || isGojaUndefined(result) {
+		t.Fatal("stream cancellation did not reject recv")
+	}
+	resultObj := result.Export().(map[string]any)
+	if got := resultObj["code"]; got != int64(codes.Canceled) {
+		t.Errorf("expected %v, got %v", int64(codes.Canceled), got)
 	}
 }
 
@@ -2939,9 +2954,13 @@ func TestServerHandler_SetHeaderAfterSendHeader(t *testing.T) {
 	if result == nil {
 		t.Fatalf("expected non-nil")
 	}
-	// With inprocgrpc, SetHeader after SendHeader may or may not error.
-	// The test still exercises the code path.
-	t.Logf("result=%v, setHeaderError=%v", result, env.runtime.Get("setHeaderError"))
+	if got := result.String(); got != "threw" {
+		t.Fatalf("handler result = %q, want setHeader failure", got)
+	}
+	setHeaderError := env.runtime.Get("setHeaderError")
+	if setHeaderError == nil || isGojaUndefined(setHeaderError) || setHeaderError.String() == "" {
+		t.Fatal("setHeader after sendHeader did not expose its terminal error")
+	}
 }
 
 // ============================================================================
@@ -3145,19 +3164,21 @@ func TestClientStreamHandler_ThrowsSyncError(t *testing.T) {
 
 		var client = grpc.createClient('testgrpc.TestService');
 		var error;
-		client.clientStream().then(function(call) {
-			call.closeSend().then(function() {
-				return call.response;
-			}).then(function(resp) {
-				error = { unexpected: true };
-				__done();
-			}).catch(function(err) {
-				error = { code: err.code, message: err.message };
-				__done();
-			});
-		}).catch(function(err) {
+		var finished = false;
+		function finish(err) {
+			if (finished) return;
+			finished = true;
 			error = { code: err.code, message: err.message };
 			__done();
+		}
+		client.clientStream().then(function(call) {
+			call.response.then(function(resp) {
+				error = { unexpected: true };
+				__done();
+			}).catch(finish);
+			call.closeSend().catch(finish);
+		}).catch(function(err) {
+			finish(err);
 		});
 	`, defaultTimeout)
 
@@ -3200,18 +3221,20 @@ func TestClientStreamHandler_AsyncReturnsNull(t *testing.T) {
 		var client = grpc.createClient('testgrpc.TestService');
 		var error;
 		client.clientStream().then(function(call) {
-			call.closeSend().then(function() {
-				return call.response;
-			}).then(function(resp) {
-				error = { unexpected: true };
-				__done();
-			}).catch(function(err) {
+			var finished = false;
+			function finish(err) {
+				if (finished) return;
+				finished = true;
 				error = { code: err.code, message: err.message };
 				__done();
-			});
+			}
+			call.response.then(function(resp) {
+				error = { unexpected: true };
+				__done();
+			}).catch(finish);
+			call.closeSend().catch(finish);
 		}).catch(function(err) {
-			error = { code: err.code, message: err.message };
-			__done();
+			finish(err);
 		});
 	`, defaultTimeout)
 

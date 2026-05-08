@@ -1,6 +1,8 @@
 package promisetournament_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -10,7 +12,9 @@ import (
 	"github.com/joeycumines/go-eventloop/internal/promisealtfive"
 	"github.com/joeycumines/go-eventloop/internal/promisealtfour"
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
+	"github.com/joeycumines/go-eventloop/internal/promisealtthree"
 	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
+	"github.com/joeycumines/go-eventloop/internal/tournamenttest"
 )
 
 // Stats tracks tournament results
@@ -52,7 +56,15 @@ func BenchmarkTournament(b *testing.B) {
 		})
 	})
 
-	// Challenger 3: PromiseAltFour (Baseline)
+	// Challenger 3: PromiseAltThree (Pooled Lock-Free)
+	b.Run("PromiseAltThree", func(b *testing.B) {
+		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
+			p, res, _ := promisealtthree.New(js)
+			return &p3Wrapper{p, res}, func(v any) { res(v) }
+		})
+	})
+
+	// Challenger 4: PromiseAltFour (Baseline)
 	b.Run("PromiseAltFour", func(b *testing.B) {
 		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealtfour.New(js)
@@ -60,7 +72,7 @@ func BenchmarkTournament(b *testing.B) {
 		})
 	})
 
-	// Challenger 4: PromiseAltFive (Original ChainedPromise snapshot)
+	// Challenger 5: PromiseAltFive (Original ChainedPromise snapshot)
 	b.Run("PromiseAltFive", func(b *testing.B) {
 		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
 			p, res, _ := promisealtfive.New(js)
@@ -101,6 +113,16 @@ func (w *p2Wrapper) Then(s, f func(any) any) genericPromise {
 }
 func (w *p2Wrapper) Resolve(v any) { w.resolve(v) }
 
+type p3Wrapper struct {
+	p       *promisealtthree.Promise
+	resolve promisealtthree.ResolveFunc
+}
+
+func (w *p3Wrapper) Then(s, f func(any) any) genericPromise {
+	return &p3Wrapper{p: w.p.Then(s, f)}
+}
+func (w *p3Wrapper) Resolve(v any) { w.resolve(v) }
+
 type p4Wrapper struct {
 	p       *promisealtfour.Promise
 	resolve promisealtfour.ResolveFunc
@@ -123,44 +145,80 @@ func (w *p5Wrapper) Resolve(v any) { w.resolve(v) }
 
 func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(any))) {
 	b.ReportAllocs()
-	loop, err := eventloop.New()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() { _ = loop.Close() })
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		b.Fatal(err)
-	}
+	js := startPromiseTournamentLoop(b)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		var wg sync.WaitGroup
-		wg.Add(1)
-
+	for range b.N {
 		// Create promise
 		p, resolve := factory(js)
+		done := make(chan struct{}, 1)
 
 		// Chain
 		p.Then(func(v any) any {
 			return v.(int) + 1
 		}, nil).Then(func(v any) any {
-			wg.Done()
+			done <- struct{}{}
 			return nil
 		}, nil)
 
 		// Resolve
 		resolve(1)
-
-		// Note: we are NOT running the loop here for BenchmarkTournament because
-		// we want to measure the HEAD allocation and structure overhead, not the scheduler.
-		// However, QueueMicrotask will allocate.
-		// The throughput measured is "construction and scheduling throughput".
+		waitPromiseTournamentDeadline(b, done, deadline.C)
 	}
 }
 
-// Better Benchmark: Chain Depth
+func startPromiseTournamentLoop(b *testing.B) *eventloop.JS {
+	b.Helper()
+	loop := eventloop.New()
+	js := eventloop.NewJS(loop)
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	var cleanupOnce sync.Once
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			result := tournamenttest.Terminate(loop, runDone, 5*time.Second)
+			if result.ShutdownErr != nil && !errors.Is(result.ShutdownErr, eventloop.ErrLoopTerminated) {
+				b.Errorf("Shutdown: %v", result.ShutdownErr)
+			}
+			if result.CloseErr != nil && !errors.Is(result.CloseErr, eventloop.ErrLoopTerminated) {
+				b.Errorf("fallback Close: %v", result.CloseErr)
+			}
+			if result.RunErr != nil {
+				b.Errorf("Run: %v", result.RunErr)
+			}
+		})
+	}
+	b.Cleanup(cleanup)
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		b.Fatal(err)
+	}
+	waitPromiseTournamentSignal(b, ready)
+	return js
+}
+
+func waitPromiseTournamentSignal(b *testing.B, signal <-chan struct{}) {
+	b.Helper()
+	select {
+	case <-signal:
+	case <-time.After(5 * time.Second):
+		b.Fatal("promise tournament synchronization timed out")
+	}
+}
+
+func waitPromiseTournamentDeadline(b *testing.B, signal <-chan struct{}, deadline <-chan time.Time) {
+	b.Helper()
+	select {
+	case <-signal:
+	case <-deadline:
+		b.Fatal("promise tournament synchronization timed out")
+	}
+}
+
+// BenchmarkChainDepth measures complete promise-chain settlement at two depths.
 func BenchmarkChainDepth(b *testing.B) {
 	depths := []int{10, 100}
 
@@ -168,21 +226,12 @@ func BenchmarkChainDepth(b *testing.B) {
 		for _, d := range depths {
 			b.Run(fmt.Sprintf("%s/Depth=%d", name, d), func(b *testing.B) {
 				b.ReportAllocs()
+				js := startPromiseTournamentLoop(b)
+				deadline := time.NewTimer(30 * time.Minute)
+				defer deadline.Stop()
 
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					// Stop timer for setup
-					b.StopTimer()
-					l, err := eventloop.New()
-					if err != nil {
-						b.Fatal(err)
-					}
-					js, err := eventloop.NewJS(l)
-					if err != nil {
-						b.Fatal(err)
-					}
-					b.StartTimer()
-
+				for range b.N {
 					p, resolve := factory(js)
 					curr := p
 					for range d {
@@ -190,17 +239,14 @@ func BenchmarkChainDepth(b *testing.B) {
 							return v
 						}, nil)
 					}
+					done := make(chan struct{}, 1)
+					curr.Then(func(v any) any {
+						done <- struct{}{}
+						return v
+					}, nil)
 
-					// Resolve root
 					resolve(1)
-
-					// We just measure construction/scheduling speed here too.
-					// Actually running the loop is flawed in microbench because of Startup/Shutdown costs.
-
-					// Stop timer for cleanup to avoid measuring teardown
-					b.StopTimer()
-					_ = l.Close()
-					b.StartTimer()
+					waitPromiseTournamentDeadline(b, done, deadline.C)
 				}
 			})
 		}
@@ -219,6 +265,11 @@ func BenchmarkChainDepth(b *testing.B) {
 	run("PromiseAltTwo", func(js *eventloop.JS) (genericPromise, func(any)) {
 		p, res, _ := promisealttwo.New(js)
 		return &p2Wrapper{p, res}, func(v any) { res(v) }
+	})
+
+	run("PromiseAltThree", func(js *eventloop.JS) (genericPromise, func(any)) {
+		p, res, _ := promisealtthree.New(js)
+		return &p3Wrapper{p, res}, func(v any) { res(v) }
 	})
 
 	run("PromiseAltFour", func(js *eventloop.JS) (genericPromise, func(any)) {

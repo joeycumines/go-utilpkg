@@ -14,12 +14,14 @@ import (
 
 // CallOptions holds the processed gRPC call options.
 type CallOptions struct {
-	Creds    credentials.PerRPCCredentials
-	Headers  []*metadata.MD
-	Trailers []*metadata.MD
-	Peer     []*peer.Peer
-	MaxRecv  int
-	MaxSend  int
+	Creds      credentials.PerRPCCredentials
+	Headers    []*metadata.MD
+	Trailers   []*metadata.MD
+	Peer       []*peer.Peer
+	MaxRecv    int
+	MaxSend    int
+	MaxRecvSet bool
+	MaxSendSet bool
 }
 
 // GetCallOptions extracts structured call options from the given gRPC options.
@@ -37,8 +39,10 @@ func GetCallOptions(opts []grpc.CallOption) *CallOptions {
 			co.Creds = v.Creds
 		case grpc.MaxRecvMsgSizeCallOption:
 			co.MaxRecv = v.MaxRecvMsgSize
+			co.MaxRecvSet = true
 		case grpc.MaxSendMsgSizeCallOption:
 			co.MaxSend = v.MaxSendMsgSize
+			co.MaxSendSet = true
 		}
 	}
 	return &co
@@ -47,21 +51,35 @@ func GetCallOptions(opts []grpc.CallOption) *CallOptions {
 // SetHeaders sets the response headers on all registered header addresses.
 func (co *CallOptions) SetHeaders(md metadata.MD) {
 	for _, h := range co.Headers {
-		*h = md
+		if h != nil {
+			if md == nil {
+				*h = nil
+			} else {
+				*h = md.Copy()
+			}
+		}
 	}
 }
 
 // SetTrailers sets the response trailers on all registered trailer addresses.
 func (co *CallOptions) SetTrailers(md metadata.MD) {
 	for _, t := range co.Trailers {
-		*t = md
+		if t != nil {
+			if md == nil {
+				*t = nil
+			} else {
+				*t = md.Copy()
+			}
+		}
 	}
 }
 
 // SetPeer sets the peer info on all registered peer addresses.
 func (co *CallOptions) SetPeer(p *peer.Peer) {
 	for _, pp := range co.Peer {
-		*pp = *p
+		if pp != nil {
+			*pp = *p
+		}
 	}
 }
 
@@ -76,7 +94,10 @@ func ApplyPerRPCCreds(ctx context.Context, copts *CallOptions, uri string, isCha
 	}
 	md, err := copts.Creds.GetRequestMetadata(ctx, uri)
 	if err != nil {
-		return ctx, status.Errorf(codes.Unauthenticated, "getting request metadata: %v", err)
+		return ctx, status.Error(
+			codes.Unauthenticated,
+			"getting request metadata: "+err.Error(),
+		)
 	}
 	if len(md) > 0 {
 		pairs := make([]string, 0, len(md)*2)

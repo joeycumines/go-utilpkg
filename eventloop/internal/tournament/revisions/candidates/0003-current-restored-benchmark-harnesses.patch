@@ -1,0 +1,1000 @@
+diff --git a/eventloop/internal/promisetournament/promise_tournament_test.go b/eventloop/internal/promisetournament/promise_tournament_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..2bb107c956267e498da9e3bf6bdb10b6ad991fef
+--- /dev/null
++++ b/eventloop/internal/promisetournament/promise_tournament_test.go
+@@ -0,0 +1,287 @@
++package promisetournament_test
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/joeycumines/go-eventloop"
++	"github.com/joeycumines/go-eventloop/internal/promisealtfive"
++	"github.com/joeycumines/go-eventloop/internal/promisealtfour"
++	"github.com/joeycumines/go-eventloop/internal/promisealtone"
++	"github.com/joeycumines/go-eventloop/internal/promisealtthree"
++	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
++	"github.com/joeycumines/go-eventloop/internal/tournamenttest"
++)
++
++// Stats tracks tournament results
++type Stats struct {
++	Name       string
++	Duration   time.Duration
++	Allocs     uint64
++	Bytes      uint64
++	Operations int
++}
++
++// Generic interface to simplify test code
++type genericPromise interface {
++	Then(func(any) any, func(any) any) genericPromise
++}
++
++func BenchmarkTournament(b *testing.B) {
++	// Baseline: ChainedPromise
++	b.Run("ChainedPromise", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := js.NewChainedPromise()
++			return &cpWrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++
++	// Challenger 1: PromiseAltOne
++	b.Run("PromiseAltOne", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := promisealtone.New(js)
++			return &p1Wrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++
++	// Challenger 2: PromiseAltTwo (Lock-Free)
++	b.Run("PromiseAltTwo", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := promisealttwo.New(js)
++			return &p2Wrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++
++	// Challenger 3: PromiseAltThree (Pooled Lock-Free)
++	b.Run("PromiseAltThree", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := promisealtthree.New(js)
++			return &p3Wrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++
++	// Challenger 4: PromiseAltFour (Baseline)
++	b.Run("PromiseAltFour", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := promisealtfour.New(js)
++			return &p4Wrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++
++	// Challenger 5: PromiseAltFive (Original ChainedPromise snapshot)
++	b.Run("PromiseAltFive", func(b *testing.B) {
++		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
++			p, res, _ := promisealtfive.New(js)
++			return &p5Wrapper{p, res}, func(v any) { res(v) }
++		})
++	})
++}
++
++// Wrappers to normalize the interface for the test harness
++
++type cpWrapper struct {
++	p       *eventloop.ChainedPromise
++	resolve eventloop.ResolveFunc
++}
++
++func (w *cpWrapper) Then(s, f func(any) any) genericPromise {
++	return &cpWrapper{p: w.p.Then(s, f)}
++}
++func (w *cpWrapper) Resolve(v any) { w.resolve(v) }
++
++type p1Wrapper struct {
++	p       *promisealtone.Promise
++	resolve promisealtone.ResolveFunc
++}
++
++func (w *p1Wrapper) Then(s, f func(any) any) genericPromise {
++	return &p1Wrapper{p: w.p.Then(s, f)}
++}
++func (w *p1Wrapper) Resolve(v any) { w.resolve(v) }
++
++type p2Wrapper struct {
++	p       *promisealttwo.Promise
++	resolve promisealttwo.ResolveFunc
++}
++
++func (w *p2Wrapper) Then(s, f func(any) any) genericPromise {
++	return &p2Wrapper{p: w.p.Then(s, f)}
++}
++func (w *p2Wrapper) Resolve(v any) { w.resolve(v) }
++
++type p3Wrapper struct {
++	p       *promisealtthree.Promise
++	resolve promisealtthree.ResolveFunc
++}
++
++func (w *p3Wrapper) Then(s, f func(any) any) genericPromise {
++	return &p3Wrapper{p: w.p.Then(s, f)}
++}
++func (w *p3Wrapper) Resolve(v any) { w.resolve(v) }
++
++type p4Wrapper struct {
++	p       *promisealtfour.Promise
++	resolve promisealtfour.ResolveFunc
++}
++
++func (w *p4Wrapper) Then(s, f func(any) any) genericPromise {
++	return &p4Wrapper{p: w.p.Then(s, f)}
++}
++func (w *p4Wrapper) Resolve(v any) { w.resolve(v) }
++
++type p5Wrapper struct {
++	p       *promisealtfive.Promise
++	resolve promisealtfive.ResolveFunc
++}
++
++func (w *p5Wrapper) Then(s, f func(any) any) genericPromise {
++	return &p5Wrapper{p: w.p.Then(s, f)}
++}
++func (w *p5Wrapper) Resolve(v any) { w.resolve(v) }
++
++func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise, func(any))) {
++	b.ReportAllocs()
++	js := startPromiseTournamentLoop(b)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	b.ResetTimer()
++
++	for range b.N {
++		// Create promise
++		p, resolve := factory(js)
++		done := make(chan struct{}, 1)
++
++		// Chain
++		p.Then(func(v any) any {
++			return v.(int) + 1
++		}, nil).Then(func(v any) any {
++			done <- struct{}{}
++			return nil
++		}, nil)
++
++		// Resolve
++		resolve(1)
++		waitPromiseTournamentDeadline(b, done, deadline.C)
++	}
++}
++
++func startPromiseTournamentLoop(b *testing.B) *eventloop.JS {
++	b.Helper()
++	loop, err := eventloop.New()
++	if err != nil {
++		b.Fatal(err)
++	}
++	js := eventloop.NewJS(loop)
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	var cleanupOnce sync.Once
++	cleanup := func() {
++		cleanupOnce.Do(func() {
++			result := tournamenttest.Terminate(loop, runDone, 5*time.Second)
++			if result.ShutdownErr != nil && !errors.Is(result.ShutdownErr, eventloop.ErrLoopTerminated) {
++				b.Errorf("Shutdown: %v", result.ShutdownErr)
++			}
++			if result.CloseErr != nil && !errors.Is(result.CloseErr, eventloop.ErrLoopTerminated) {
++				b.Errorf("fallback Close: %v", result.CloseErr)
++			}
++			if result.RunErr != nil {
++				b.Errorf("Run: %v", result.RunErr)
++			}
++		})
++	}
++	b.Cleanup(cleanup)
++	ready := make(chan struct{})
++	if err := loop.Submit(func() { close(ready) }); err != nil {
++		b.Fatal(err)
++	}
++	waitPromiseTournamentSignal(b, ready)
++	return js
++}
++
++func waitPromiseTournamentSignal(b *testing.B, signal <-chan struct{}) {
++	b.Helper()
++	select {
++	case <-signal:
++	case <-time.After(5 * time.Second):
++		b.Fatal("promise tournament synchronization timed out")
++	}
++}
++
++func waitPromiseTournamentDeadline(b *testing.B, signal <-chan struct{}, deadline <-chan time.Time) {
++	b.Helper()
++	select {
++	case <-signal:
++	case <-deadline:
++		b.Fatal("promise tournament synchronization timed out")
++	}
++}
++
++// BenchmarkChainDepth measures complete promise-chain settlement at two depths.
++func BenchmarkChainDepth(b *testing.B) {
++	depths := []int{10, 100}
++
++	run := func(name string, factory func(*eventloop.JS) (genericPromise, func(any))) {
++		for _, d := range depths {
++			b.Run(fmt.Sprintf("%s/Depth=%d", name, d), func(b *testing.B) {
++				b.ReportAllocs()
++				js := startPromiseTournamentLoop(b)
++				deadline := time.NewTimer(30 * time.Minute)
++				defer deadline.Stop()
++
++				b.ResetTimer()
++				for range b.N {
++					p, resolve := factory(js)
++					curr := p
++					for range d {
++						curr = curr.Then(func(v any) any {
++							return v
++						}, nil)
++					}
++					done := make(chan struct{}, 1)
++					curr.Then(func(v any) any {
++						done <- struct{}{}
++						return v
++					}, nil)
++
++					resolve(1)
++					waitPromiseTournamentDeadline(b, done, deadline.C)
++				}
++			})
++		}
++	}
++
++	run("ChainedPromise", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := js.NewChainedPromise()
++		return &cpWrapper{p, res}, func(v any) { res(v) }
++	})
++
++	run("PromiseAltOne", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := promisealtone.New(js)
++		return &p1Wrapper{p, res}, func(v any) { res(v) }
++	})
++
++	run("PromiseAltTwo", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := promisealttwo.New(js)
++		return &p2Wrapper{p, res}, func(v any) { res(v) }
++	})
++
++	run("PromiseAltThree", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := promisealtthree.New(js)
++		return &p3Wrapper{p, res}, func(v any) { res(v) }
++	})
++
++	run("PromiseAltFour", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := promisealtfour.New(js)
++		return &p4Wrapper{p, res}, func(v any) { res(v) }
++	})
++
++	run("PromiseAltFive", func(js *eventloop.JS) (genericPromise, func(any)) {
++		p, res, _ := promisealtfive.New(js)
++		return &p5Wrapper{p, res}, func(v any) { res(v) }
++	})
++}
+diff --git a/eventloop/internal/tournament/bench_multiproducer_test.go b/eventloop/internal/tournament/bench_multiproducer_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..df6f1545cd6f67b8ff2e760df52f6a8dd895e9d6
+--- /dev/null
++++ b/eventloop/internal/tournament/bench_multiproducer_test.go
+@@ -0,0 +1,229 @@
++package tournament
++
++import (
++	"sort"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++// BenchmarkMultiProducer measures throughput with 10 producers submitting 1M total tasks.
++// This is T4: Performance - Multi-Producer Stress Benchmark
++func BenchmarkMultiProducer(b *testing.B) {
++	for _, impl := range Implementations() {
++		b.Run(impl.Name, func(b *testing.B) {
++			benchmarkMultiProducer(b, impl)
++		})
++	}
++}
++
++func benchmarkMultiProducer(b *testing.B, impl Implementation) {
++	const numProducers = 10
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	producers := newBenchmarkProducerGroup(b, numProducers)
++	tasks := newBenchmarkBarrier(b.N)
++	submitErrors := make(chan error, 1)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	b.ResetTimer()
++
++	for producer := range numProducers {
++		taskCount := b.N / numProducers
++		if producer < b.N%numProducers {
++			taskCount++
++		}
++		producers.Go(func(stop <-chan struct{}) {
++			for range taskCount {
++				select {
++				case <-stop:
++					return
++				default:
++				}
++				err := loop.Submit(tasks.Done)
++				if err != nil {
++					tasks.Done()
++					select {
++					case submitErrors <- err:
++					default:
++					}
++				}
++			}
++		})
++	}
++
++	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "multi-producer exit")
++	waitBenchmarkBarrier(b, tasks, deadline.C, "multi-producer callback drain")
++
++	b.StopTimer()
++	select {
++	case err := <-submitErrors:
++		b.Fatalf("Submit: %v", err)
++	default:
++	}
++
++}
++
++// TestMultiProducerStress is a test variant that measures latency distribution.
++func TestMultiProducerStress(t *testing.T) {
++	if testing.Short() {
++		t.Skip("Skipping stress test in short mode")
++	}
++
++	for _, impl := range Implementations() {
++		t.Run(impl.Name, func(t *testing.T) {
++			testMultiProducerStress(t, impl)
++		})
++	}
++}
++
++func testMultiProducerStress(t *testing.T, impl Implementation) {
++	const numProducers = 10
++	const totalTasks = 100000 // 100K for test mode
++	const tasksPerProducer = totalTasks / numProducers
++
++	loop, cleanup := startTournamentTestLoop(t, impl)
++
++	producerDone := make(chan struct{}, numProducers)
++	tasks := newTournamentTestBarrier(totalTasks)
++	var counter atomic.Int64
++	var rejected atomic.Int64
++	submitErrors := make(chan error, 1)
++
++	// Track latencies (approximate P99)
++	latencies := make([]time.Duration, 0, 1000) // Sample
++	var latMu sync.Mutex
++	sampleRate := totalTasks / 1000
++	start := time.Now()
++
++	for p := range numProducers {
++		go func(pid int) {
++			defer func() { producerDone <- struct{}{} }()
++			for i := range tasksPerProducer {
++				submitTime := time.Now()
++				taskID := pid*tasksPerProducer + i
++
++				err := loop.Submit(func() {
++					defer tasks.Done()
++					counter.Add(1)
++					if taskID%sampleRate == 0 {
++						lat := time.Since(submitTime)
++						latMu.Lock()
++						latencies = append(latencies, lat)
++						latMu.Unlock()
++					}
++				})
++				if err != nil {
++					tasks.Done()
++					rejected.Add(1)
++					select {
++					case submitErrors <- err:
++					default:
++					}
++				}
++			}
++		}(p)
++	}
++
++	waitTournamentCount(t, producerDone, numProducers, "multi-producer exit")
++	waitTournamentSignal(t, tasks.done, "multi-producer callback drain")
++	duration := time.Since(start)
++	cleanup()
++	exec := counter.Load()
++	rej := rejected.Load()
++	throughput := float64(exec) / duration.Seconds()
++
++	// Calculate the sampled P99 latency.
++	var p99 time.Duration
++	if len(latencies) > 0 {
++		sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
++		p99 = latencies[percentileIndex(len(latencies), 99)]
++	}
++
++	result := TestResult{
++		TestName:       "MultiProducerStress",
++		VariantID:      impl.VariantID,
++		Implementation: impl.Name,
++		Passed:         exec == totalTasks && rej == 0,
++		Duration:       duration,
++		Metrics: map[string]any{
++			"total_tasks":      totalTasks,
++			"executed":         exec,
++			"rejected":         rej,
++			"throughput_ops_s": throughput,
++			"p99_latency_us":   float64(p99.Microseconds()),
++			"sample_count":     len(latencies),
++		},
++	}
++	GetResults().RecordTest(result)
++	select {
++	case err := <-submitErrors:
++		t.Errorf("Submit: %v", err)
++	default:
++	}
++
++	t.Logf("%s: Throughput=%.0f ops/s, Executed=%d, Rejected=%d, P99≈%v",
++		impl.Name, throughput, exec, rej, p99)
++}
++
++// BenchmarkMultiProducerContention measures performance under high contention.
++func BenchmarkMultiProducerContention(b *testing.B) {
++	const numProducers = 100 // High contention
++
++	for _, impl := range Implementations() {
++		b.Run(impl.Name, func(b *testing.B) {
++			benchmarkMultiProducerContention(b, impl, numProducers)
++		})
++	}
++}
++
++func benchmarkMultiProducerContention(b *testing.B, impl Implementation, numProducers int) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	producers := newBenchmarkProducerGroup(b, numProducers)
++	tasks := newBenchmarkBarrier(b.N)
++	submitErrors := make(chan error, 1)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	b.ResetTimer()
++
++	for producer := range numProducers {
++		taskCount := b.N / numProducers
++		if producer < b.N%numProducers {
++			taskCount++
++		}
++		producers.Go(func(stop <-chan struct{}) {
++			for range taskCount {
++				select {
++				case <-stop:
++					return
++				default:
++				}
++				err := loop.Submit(tasks.Done)
++				if err != nil {
++					tasks.Done()
++					select {
++					case submitErrors <- err:
++					default:
++					}
++				}
++			}
++		})
++	}
++
++	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "contention producer exit")
++	waitBenchmarkBarrier(b, tasks, deadline.C, "contention callback drain")
++
++	b.StopTimer()
++	select {
++	case err := <-submitErrors:
++		b.Fatalf("Submit: %v", err)
++	default:
++	}
++
++}
+diff --git a/eventloop/internal/tournament/micro_batch_test.go b/eventloop/internal/tournament/micro_batch_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..d7b3ce2317828e128ceacb0bb1af56916d6c8dd1
+--- /dev/null
++++ b/eventloop/internal/tournament/micro_batch_test.go
+@@ -0,0 +1,174 @@
++package tournament
++
++import (
++	"fmt"
++	"testing"
++	"time"
++)
++
++var batchSizes = []int{64, 128, 256, 512, 1024, 2048, 4096}
++
++// BenchmarkMicroBatchBudget_Throughput measures admission throughput for
++// sustained fixed-size batches. Accepted callback drain is verified untimed.
++func BenchmarkMicroBatchBudget_Throughput(b *testing.B) {
++	for _, impl := range Implementations() {
++		for _, batchSize := range batchSizes {
++			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
++				benchmarkBatchThroughput(b, impl, batchSize)
++			})
++		}
++	}
++}
++
++func benchmarkBatchThroughput(b *testing.B, impl Implementation, batchSize int) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	tasks := newBenchmarkBarrier(b.N * batchSize)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++	b.ReportAllocs()
++	b.ReportMetric(float64(batchSize), "tasks/op")
++	b.ResetTimer()
++	for range b.N {
++		for range batchSize {
++			if err := loop.Submit(tasks.Done); err != nil {
++				tasks.Done()
++				b.Fatalf("Submit: %v", err)
++			}
++		}
++	}
++	b.StopTimer()
++	waitBenchmarkBarrier(b, tasks, deadline.C, "batch-throughput callback drain")
++}
++
++// BenchmarkMicroBatchBudget_Latency measures complete fixed-size batch
++// admission and execution. Each reported operation is one entire batch.
++func BenchmarkMicroBatchBudget_Latency(b *testing.B) {
++	for _, impl := range Implementations() {
++		for _, batchSize := range batchSizes {
++			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
++				benchmarkBatchLatency(b, impl, batchSize)
++			})
++		}
++	}
++}
++
++func benchmarkBatchLatency(b *testing.B, impl Implementation, batchSize int) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	b.ReportAllocs()
++	b.ReportMetric(float64(batchSize), "tasks/op")
++	b.ResetTimer()
++	for range b.N {
++		tasks := newBenchmarkBarrier(batchSize)
++		for range batchSize {
++			if err := loop.Submit(tasks.Done); err != nil {
++				tasks.Done()
++				b.Fatalf("Submit: %v", err)
++			}
++		}
++		waitBenchmarkBarrier(b, tasks, deadline.C, "batch-latency callback drain")
++	}
++}
++
++// BenchmarkMicroBatchBudget_Continuous measures exact end-to-end throughput
++// with four concurrent producers and no timing guesses or polling loops.
++func BenchmarkMicroBatchBudget_Continuous(b *testing.B) {
++	for _, impl := range Implementations() {
++		b.Run(impl.Name, func(b *testing.B) {
++			benchmarkContinuousSubmission(b, impl)
++		})
++	}
++}
++
++func benchmarkContinuousSubmission(b *testing.B, impl Implementation) {
++	const producerCount = 4
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	producers := newBenchmarkProducerGroup(b, producerCount)
++	tasks := newBenchmarkBarrier(b.N)
++	submitErrors := make(chan error, 1)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++	b.ReportAllocs()
++	b.ResetTimer()
++	for producer := range producerCount {
++		taskCount := b.N / producerCount
++		if producer < b.N%producerCount {
++			taskCount++
++		}
++		producers.Go(func(stop <-chan struct{}) {
++			for range taskCount {
++				select {
++				case <-stop:
++					return
++				default:
++				}
++				if err := loop.Submit(tasks.Done); err != nil {
++					tasks.Done()
++					select {
++					case submitErrors <- err:
++					default:
++					}
++				}
++			}
++		})
++	}
++	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "continuous producer exit")
++	waitBenchmarkBarrier(b, tasks, deadline.C, "continuous callback drain")
++	b.StopTimer()
++	select {
++	case err := <-submitErrors:
++		b.Fatalf("Submit: %v", err)
++	default:
++	}
++}
++
++// BenchmarkMicroBatchBudget_Mixed measures an equal mix of queued burst work
++// and sequential round trips. One operation contains batchSize total tasks.
++func BenchmarkMicroBatchBudget_Mixed(b *testing.B) {
++	mixedSizes := []int{100, 500, 1000, 2000, 5000}
++	for _, impl := range Implementations() {
++		for _, batchSize := range mixedSizes {
++			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
++				benchmarkMixedWorkload(b, impl, batchSize)
++			})
++		}
++	}
++}
++
++func benchmarkMixedWorkload(b *testing.B, impl Implementation, batchSize int) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++	timer := time.NewTimer(30 * time.Minute)
++	defer timer.Stop()
++
++	burstCount := batchSize / 2
++	steadyCount := batchSize - burstCount
++	b.ReportAllocs()
++	b.ReportMetric(float64(batchSize), "tasks/op")
++	b.ResetTimer()
++	for range b.N {
++		burst := newBenchmarkBarrier(burstCount)
++		for range burstCount {
++			if err := loop.Submit(burst.Done); err != nil {
++				burst.Done()
++				b.Fatalf("burst Submit: %v", err)
++			}
++		}
++		waitBenchmarkBarrier(b, burst, timer.C, "mixed burst callback drain")
++
++		for range steadyCount {
++			done := make(chan struct{})
++			if err := loop.Submit(func() { close(done) }); err != nil {
++				b.Fatalf("steady Submit: %v", err)
++			}
++			waitBenchmarkDeadline(b, done, timer.C, "mixed steady callback")
++		}
++	}
++}
+diff --git a/eventloop/internal/tournament/micro_cas_test.go b/eventloop/internal/tournament/micro_cas_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3be732b79ec2b64c64eb1c52f122864a081c2fd
+--- /dev/null
++++ b/eventloop/internal/tournament/micro_cas_test.go
+@@ -0,0 +1,112 @@
++package tournament
++
++import (
++	"fmt"
++	"sort"
++	"testing"
++	"time"
++)
++
++// BenchmarkMicroCASContention measures exact submission cost as producer count
++// increases. Callback drain is verified after timing so a scheduler cannot look
++// fast by rejecting or losing accepted work.
++func BenchmarkMicroCASContention(b *testing.B) {
++	producerCounts := []int{1, 2, 4, 8, 16, 32}
++	for _, impl := range Implementations() {
++		for _, producerCount := range producerCounts {
++			b.Run(fmt.Sprintf("%s/N=%02d", impl.Name, producerCount), func(b *testing.B) {
++				benchmarkCASContention(b, impl, producerCount)
++			})
++		}
++	}
++}
++
++func benchmarkCASContention(b *testing.B, impl Implementation, producerCount int) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	producers := newBenchmarkProducerGroup(b, producerCount)
++	tasks := newBenchmarkBarrier(b.N)
++	submitErrors := make(chan error, 1)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++	b.ReportAllocs()
++	b.ResetTimer()
++	for producer := range producerCount {
++		taskCount := b.N / producerCount
++		if producer < b.N%producerCount {
++			taskCount++
++		}
++		producers.Go(func(stop <-chan struct{}) {
++			for range taskCount {
++				select {
++				case <-stop:
++					return
++				default:
++				}
++				if err := loop.Submit(tasks.Done); err != nil {
++					tasks.Done()
++					select {
++					case submitErrors <- err:
++					default:
++					}
++				}
++			}
++		})
++	}
++	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "CAS-contention producer exit")
++	b.StopTimer()
++	waitBenchmarkBarrier(b, tasks, deadline.C, "CAS-contention callback drain")
++	select {
++	case err := <-submitErrors:
++		b.Fatalf("Submit: %v", err)
++	default:
++	}
++}
++
++// BenchmarkMicroCASContention_Latency measures end-to-end task latency and
++// reports sorted percentile observations for every scheduler variant.
++func BenchmarkMicroCASContention_Latency(b *testing.B) {
++	for _, impl := range Implementations() {
++		b.Run(impl.Name, func(b *testing.B) {
++			benchmarkCASLatency(b, impl)
++		})
++	}
++}
++
++func benchmarkCASLatency(b *testing.B, impl Implementation) {
++	loop, cleanup := startBenchmarkEventLoop(b, impl)
++	defer cleanup()
++
++	latencies := make([]time.Duration, 0, b.N)
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		started := time.Now()
++		done := make(chan struct{})
++		if err := loop.Submit(func() { close(done) }); err != nil {
++			b.Fatalf("Submit: %v", err)
++		}
++		waitBenchmarkDeadline(b, done, deadline.C, "CAS-latency callback")
++		latencies = append(latencies, time.Since(started))
++	}
++	b.StopTimer()
++
++	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
++	if len(latencies) == 0 {
++		return
++	}
++	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 50)].Nanoseconds()), "p50_ns")
++	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 95)].Nanoseconds()), "p95_ns")
++	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 99)].Nanoseconds()), "p99_ns")
++}
++
++func percentileIndex(length, percentile int) int {
++	if length <= 0 {
++		return 0
++	}
++	index := (length*percentile+99)/100 - 1
++	return min(max(index, 0), length-1)
++}
+diff --git a/eventloop/internal/tournament/promise_corrected_bench_test.go b/eventloop/internal/tournament/promise_corrected_bench_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc514b35e00ceb5e1270fd661022d4657b46bc77
+--- /dev/null
++++ b/eventloop/internal/tournament/promise_corrected_bench_test.go
+@@ -0,0 +1,168 @@
++package tournament
++
++import (
++	"context"
++	"runtime"
++	"testing"
++	"time"
++
++	"github.com/joeycumines/go-eventloop"
++)
++
++// BenchmarkPromisesV2 measures bounded, synchronized workloads. Every measured
++// operation starts with fresh promise state, and every scheduled reaction is
++// observed before the next operation begins.
++func BenchmarkPromisesV2(b *testing.B) {
++	for _, impl := range PromiseImplementations() {
++		b.Run(impl.Name, func(b *testing.B) {
++			b.Run("ChainDepth100EndToEnd", func(b *testing.B) {
++				_, js, cleanup := startPromiseBenchmarkLoop(b)
++				defer cleanup()
++				deadline := time.NewTimer(30 * time.Minute)
++				defer deadline.Stop()
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					root, resolve, _ := impl.Factory(js)
++					current := root
++					for range 100 {
++						current = current.Then(identityPromiseValue, nil)
++					}
++					done := make(chan struct{}, 1)
++					tail := current.Then(func(value any) any {
++						done <- struct{}{}
++						return value
++					}, nil)
++					resolve(1)
++					waitPromiseBenchmarkDeadline(b, done, deadline.C)
++					waitPromiseBenchmarkBarrier(b, js, deadline.C)
++					runtime.KeepAlive(tail)
++				}
++			})
++
++			b.Run("ResolvedHandlerEndToEnd", func(b *testing.B) {
++				_, js, cleanup := startPromiseBenchmarkLoop(b)
++				defer cleanup()
++				deadline := time.NewTimer(30 * time.Minute)
++				defer deadline.Stop()
++				promise, resolve, _ := impl.Factory(js)
++				resolve(1)
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					done := make(chan struct{}, 1)
++					child := promise.Then(func(value any) any {
++						done <- struct{}{}
++						return value
++					}, nil)
++					waitPromiseBenchmarkDeadline(b, done, deadline.C)
++					waitPromiseBenchmarkBarrier(b, js, deadline.C)
++					runtime.KeepAlive(child)
++				}
++			})
++
++			b.Run("FanOut100EndToEnd", func(b *testing.B) {
++				_, js, cleanup := startPromiseBenchmarkLoop(b)
++				defer cleanup()
++				deadline := time.NewTimer(30 * time.Minute)
++				defer deadline.Stop()
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					promise, resolve, _ := impl.Factory(js)
++					done := make(chan struct{}, 100)
++					var children [100]Promise
++					for index := range children {
++						children[index] = promise.Then(func(value any) any {
++							done <- struct{}{}
++							return value
++						}, nil)
++					}
++					resolve(1)
++					for range 100 {
++						waitPromiseBenchmarkDeadline(b, done, deadline.C)
++					}
++					waitPromiseBenchmarkBarrier(b, js, deadline.C)
++					runtime.KeepAlive(children)
++				}
++			})
++
++			b.Run("Race100EndToEnd", func(b *testing.B) {
++				if impl.Race == nil {
++					b.Skipf("%s has no historical Race combinator", impl.VariantID)
++				}
++				_, js, cleanup := startPromiseBenchmarkLoop(b)
++				defer cleanup()
++				deadline := time.NewTimer(30 * time.Minute)
++				defer deadline.Stop()
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					promise, settle := impl.Race(js, 100)
++					done := make(chan struct{}, 1)
++					child := promise.Then(func(value any) any {
++						done <- struct{}{}
++						return value
++					}, nil)
++					drained, err := settle()
++					if err != nil {
++						b.Fatalf("settle race inputs: %v", err)
++					}
++					waitPromiseBenchmarkDeadline(b, drained, deadline.C)
++					waitPromiseBenchmarkDeadline(b, done, deadline.C)
++					waitPromiseBenchmarkBarrier(b, js, deadline.C)
++					runtime.KeepAlive(child)
++				}
++			})
++		})
++	}
++}
++
++func identityPromiseValue(value any) any {
++	return value
++}
++
++func startPromiseBenchmarkLoop(b *testing.B) (*eventloop.Loop, *eventloop.JS, func()) {
++	b.Helper()
++	loop, err := eventloop.New()
++	if err != nil {
++		b.Fatal(err)
++	}
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	cleanup := benchmarkLoopCleanup(b, loop, runDone, "promise benchmark")
++	b.Cleanup(cleanup)
++	ready := make(chan struct{})
++	if err := loop.Submit(func() { close(ready) }); err != nil {
++		b.Fatal(err)
++	}
++	waitPromiseBenchmarkSignal(b, ready)
++	return loop, eventloop.NewJS(loop), cleanup
++}
++
++func waitPromiseBenchmarkSignal(b *testing.B, signal <-chan struct{}) {
++	b.Helper()
++	select {
++	case <-signal:
++	case <-time.After(5 * time.Second):
++		b.Fatal("promise benchmark synchronization timed out")
++	}
++}
++
++func waitPromiseBenchmarkDeadline(t testing.TB, signal <-chan struct{}, deadline <-chan time.Time) {
++	t.Helper()
++	select {
++	case <-signal:
++	case <-deadline:
++		t.Fatal("promise benchmark synchronization timed out")
++	}
++}
++
++func waitPromiseBenchmarkBarrier(b *testing.B, js *eventloop.JS, deadline <-chan time.Time) {
++	b.Helper()
++	drained := make(chan struct{})
++	if err := js.QueueMicrotask(func() { close(drained) }); err != nil {
++		b.Fatalf("queue benchmark barrier: %v", err)
++	}
++	waitPromiseBenchmarkDeadline(b, drained, deadline)
++}

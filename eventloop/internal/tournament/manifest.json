@@ -1,0 +1,2024 @@
+{
+  "schema_version": 4,
+  "source_history": {
+    "path": "source_history.json",
+    "schema_version": 2,
+    "sha256": "0638cb2b64a2c9f5a7d2b1a46310d2c345ecf45919945df28219414318357d60",
+    "floor": {
+      "path": "historyfloors/000002.json",
+      "schema_version": 1,
+      "sequence": 2,
+      "sha256": "116e70f0d993e5b0033874109bc3ee961b869e779ceef74f2f0529d9f9dfd707",
+      "cumulative_record_set_sha256": "04c4cfe87d6b527ceda6ff18e24a0cb614652f0cb86bba891ff5bf85e2c9cdeb"
+    }
+  },
+  "lineage": {
+    "path": "lineage.json",
+    "schema_version": 2,
+    "sha256": "f69586930dd0fb993be2d58709a3029d49dde5a2214fae4cf6e951c718777d6c",
+    "floor": {
+      "path": "lineagefloors/000003.json",
+      "schema_version": 1,
+      "sequence": 3,
+      "sha256": "0f428e302885daf3273a352a57e420d27e54554db5970fde0f5d8cf4d50706b5",
+      "cumulative_record_set_sha256": "e85f6a46344c7311d4d6fe8cb9f89b3bcb0551f7529513039284b0e12d415865"
+    }
+  },
+  "source_authority": {
+    "schema_version": 1,
+    "policy": "manifest-build-cells-v1",
+    "physical_policy": {
+      "id": "physical-runtime-union-v1",
+      "root_controls": [
+        ".gitignore",
+        "Makefile",
+        "go.mod",
+        "go.sum",
+        "go.work",
+        "go.work.sum",
+        "project.mk"
+      ],
+      "trees": [
+        "eventloop",
+        "goja-eventloop"
+      ],
+      "runtime_assets": [
+        "eventloop/docs/tournament/2026-01-18/ANALYSIS_ALTERNATETHREE_LINUX_INVESTIGATION.md",
+        "eventloop/docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+        "eventloop/docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md"
+      ]
+    },
+    "modules": [
+      {
+        "id": "eventloop",
+        "root": "eventloop",
+        "module_path": "github.com/joeycumines/go-eventloop",
+        "buildable": true
+      },
+      {
+        "id": "goja-eventloop",
+        "root": "goja-eventloop",
+        "module_path": "github.com/joeycumines/goja-eventloop",
+        "buildable": true
+      },
+      {
+        "id": "gojabaseline",
+        "root": "eventloop/internal/gojabaseline",
+        "module_path": "github.com/joeycumines/go-eventloop/internal/gojabaseline",
+        "buildable": true
+      },
+      {
+        "id": "root-control",
+        "root": ".",
+        "module_path": "github.com/joeycumines/go-utilpkg",
+        "buildable": false
+      },
+      {
+        "id": "tournament",
+        "root": "eventloop/internal/tournament",
+        "module_path": "github.com/joeycumines/go-eventloop/internal/tournament",
+        "buildable": true
+      }
+    ],
+    "build_cells": [
+      {
+        "id": "eventloop.darwin-amd64",
+        "module_id": "eventloop",
+        "goos": "darwin",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.darwin-amd64-libuv",
+        "module_id": "eventloop",
+        "goos": "darwin",
+        "goarch": "amd64",
+        "cgo_enabled": true,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [
+          "libuv"
+        ],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./internal/libuvbaseline"
+        ]
+      },
+      {
+        "id": "eventloop.darwin-arm64",
+        "module_id": "eventloop",
+        "goos": "darwin",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.darwin-arm64-libuv",
+        "module_id": "eventloop",
+        "goos": "darwin",
+        "goarch": "arm64",
+        "cgo_enabled": true,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [
+          "libuv"
+        ],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./internal/libuvbaseline"
+        ]
+      },
+      {
+        "id": "eventloop.js-wasm",
+        "module_id": "eventloop",
+        "goos": "js",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.linux-amd64",
+        "module_id": "eventloop",
+        "goos": "linux",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.linux-amd64-libuv",
+        "module_id": "eventloop",
+        "goos": "linux",
+        "goarch": "amd64",
+        "cgo_enabled": true,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [
+          "libuv"
+        ],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./internal/libuvbaseline"
+        ]
+      },
+      {
+        "id": "eventloop.linux-arm64",
+        "module_id": "eventloop",
+        "goos": "linux",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.linux-arm64-libuv",
+        "module_id": "eventloop",
+        "goos": "linux",
+        "goarch": "arm64",
+        "cgo_enabled": true,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [
+          "libuv"
+        ],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./internal/libuvbaseline"
+        ]
+      },
+      {
+        "id": "eventloop.plan9-amd64",
+        "module_id": "eventloop",
+        "goos": "plan9",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.wasip1-wasm",
+        "module_id": "eventloop",
+        "goos": "wasip1",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.windows-amd64",
+        "module_id": "eventloop",
+        "goos": "windows",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "eventloop.windows-arm64",
+        "module_id": "eventloop",
+        "goos": "windows",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.darwin-amd64",
+        "module_id": "goja-eventloop",
+        "goos": "darwin",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.darwin-arm64",
+        "module_id": "goja-eventloop",
+        "goos": "darwin",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.js-wasm",
+        "module_id": "goja-eventloop",
+        "goos": "js",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.linux-amd64",
+        "module_id": "goja-eventloop",
+        "goos": "linux",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.linux-arm64",
+        "module_id": "goja-eventloop",
+        "goos": "linux",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.plan9-amd64",
+        "module_id": "goja-eventloop",
+        "goos": "plan9",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.wasip1-wasm",
+        "module_id": "goja-eventloop",
+        "goos": "wasip1",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.windows-amd64",
+        "module_id": "goja-eventloop",
+        "goos": "windows",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "goja-eventloop.windows-arm64",
+        "module_id": "goja-eventloop",
+        "goos": "windows",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.darwin-amd64",
+        "module_id": "gojabaseline",
+        "goos": "darwin",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.darwin-arm64",
+        "module_id": "gojabaseline",
+        "goos": "darwin",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.js-wasm",
+        "module_id": "gojabaseline",
+        "goos": "js",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.linux-amd64",
+        "module_id": "gojabaseline",
+        "goos": "linux",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.linux-arm64",
+        "module_id": "gojabaseline",
+        "goos": "linux",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.plan9-amd64",
+        "module_id": "gojabaseline",
+        "goos": "plan9",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.wasip1-wasm",
+        "module_id": "gojabaseline",
+        "goos": "wasip1",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.windows-amd64",
+        "module_id": "gojabaseline",
+        "goos": "windows",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "gojabaseline.windows-arm64",
+        "module_id": "gojabaseline",
+        "goos": "windows",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.darwin-amd64",
+        "module_id": "tournament",
+        "goos": "darwin",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.darwin-arm64",
+        "module_id": "tournament",
+        "goos": "darwin",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.js-wasm",
+        "module_id": "tournament",
+        "goos": "js",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.linux-amd64",
+        "module_id": "tournament",
+        "goos": "linux",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.linux-arm64",
+        "module_id": "tournament",
+        "goos": "linux",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.plan9-amd64",
+        "module_id": "tournament",
+        "goos": "plan9",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.wasip1-wasm",
+        "module_id": "tournament",
+        "goos": "wasip1",
+        "goarch": "wasm",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOWASM",
+          "value": "satconv,signext"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.windows-amd64",
+        "module_id": "tournament",
+        "goos": "windows",
+        "goarch": "amd64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOAMD64",
+          "value": "v1"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      },
+      {
+        "id": "tournament.windows-arm64",
+        "module_id": "tournament",
+        "goos": "windows",
+        "goarch": "arm64",
+        "cgo_enabled": false,
+        "architecture_feature": {
+          "name": "GOARM64",
+          "value": "v8.0"
+        },
+        "build_tags": [],
+        "selection_flags": [
+          "-deps",
+          "-test"
+        ],
+        "package_patterns": [
+          "./..."
+        ]
+      }
+    ]
+  },
+  "variants": [
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.auto",
+      "name": "Main",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": [
+        "Main"
+      ],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": [
+        "microtask",
+        "readiness",
+        "internal-submit",
+        "graceful-drain"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.forced",
+      "name": "MainFastPathForced",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": [
+        "MainFastPathForced"
+      ],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": [
+        "microtask",
+        "internal-submit",
+        "graceful-drain"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.disabled",
+      "name": "MainFastPathDisabled",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": [
+        "MainFastPathDisabled"
+      ],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": [
+        "microtask",
+        "readiness",
+        "internal-submit",
+        "graceful-drain"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-one.max-safety",
+      "name": "AlternateOne",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternateone",
+      "aliases": [
+        "AlternateOne"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "capabilities": [
+        "microtask",
+        "readiness",
+        "internal-submit",
+        "graceful-drain"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-two.max-performance",
+      "name": "AlternateTwo",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternatetwo",
+      "aliases": [
+        "AlternateTwo"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "capabilities": [
+        "microtask",
+        "readiness",
+        "internal-submit"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-three.original-main",
+      "name": "AlternateThree",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternatethree",
+      "aliases": [
+        "AlternateThree"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "735bd94545f70aede5d543f4a89dea314ba2e655",
+      "capabilities": [
+        "readiness",
+        "internal-submit",
+        "graceful-drain"
+      ]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.goja-nodejs.baseline",
+      "name": "Baseline",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/gojabaseline",
+      "aliases": [
+        "Baseline"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "capabilities": []
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.libuv.native",
+      "name": "libuv",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline",
+      "aliases": [],
+      "origin_commit": "system-library",
+      "origin_tree": "system-library",
+      "capabilities": [
+        "native-external-baseline"
+      ]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.main.chained",
+      "name": "ChainedPromise",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": [
+        "ChainedPromise"
+      ],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": [
+        "race"
+      ]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-one.embedded-first-handler",
+      "name": "PromiseAltOne",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtone",
+      "aliases": [
+        "PromiseAltOne"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "capabilities": [
+        "race"
+      ]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-two.treiber",
+      "name": "PromiseAltTwo",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealttwo",
+      "aliases": [
+        "PromiseAltTwo"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "capabilities": []
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-three.pooled-treiber",
+      "name": "PromiseAltThree",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtthree",
+      "aliases": [
+        "PromiseAltThree"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "capabilities": []
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-four.main-snapshot",
+      "name": "PromiseAltFour",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtfour",
+      "aliases": [
+        "PromiseAltFour",
+        "promise.alt-four.main-snapshot-2026-01"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "capabilities": [
+        "race"
+      ]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-five.original-chained",
+      "name": "PromiseAltFive",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtfive",
+      "aliases": [
+        "PromiseAltFive",
+        "promise.alt-five.original-chained-snapshot"
+      ],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "16618a665a99a47a678630cb94381a9db47745f4",
+      "capabilities": []
+    }
+  ],
+  "variant_groups": {
+    "scheduler-go": [
+      "scheduler.main.auto",
+      "scheduler.main.forced",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance",
+      "scheduler.alternate-three.original-main",
+      "scheduler.goja-nodejs.baseline"
+    ],
+    "scheduler-microtask": [
+      "scheduler.main.auto",
+      "scheduler.main.forced",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance"
+    ],
+    "scheduler-readiness": [
+      "scheduler.main.auto",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance",
+      "scheduler.alternate-three.original-main"
+    ],
+    "promise": [
+      "promise.main.chained",
+      "promise.alt-one.embedded-first-handler",
+      "promise.alt-two.treiber",
+      "promise.alt-three.pooled-treiber",
+      "promise.alt-four.main-snapshot",
+      "promise.alt-five.original-chained"
+    ],
+    "libuv": [
+      "scheduler.libuv.native"
+    ]
+  },
+  "lanes": [
+    {
+      "id": "product",
+      "package": "github.com/joeycumines/go-eventloop",
+      "required": true,
+      "benchmarks": [
+        "BenchmarkAutoExitImmediate",
+        "BenchmarkConcurrentSubmissionWakeIntegration",
+        "BenchmarkEventTargetDispatchEmptyReusedEvent",
+        "BenchmarkEventTargetDispatchFreshEvent",
+        "BenchmarkEventTargetDispatchParallelDistinctEvents",
+        "BenchmarkEventTargetDispatchParallelDistinctEventsControl",
+        "BenchmarkEventTargetDispatchReusedEvent",
+        "BenchmarkEventTargetListenerConstruction",
+        "BenchmarkEventTargetListenerRegistrationWithLiveSet",
+        "BenchmarkFDReadinessDispatchHighCount",
+        "BenchmarkFDReadinessDispatchSingle",
+        "BenchmarkIdleWakeRecoveryTurnCost",
+        "BenchmarkLargeDeadlineList",
+        "BenchmarkMetricsCollection",
+        "BenchmarkMetricsHotPath",
+        "BenchmarkMetricsHotPathSnapshot",
+        "BenchmarkMicrotaskLatency",
+        "BenchmarkMicrotaskScheduleExternal",
+        "BenchmarkMicrotaskScheduleLoopThread",
+        "BenchmarkMixedWorkload",
+        "BenchmarkNextTickRecursiveDrain",
+        "BenchmarkNextTickScheduleExternal",
+        "BenchmarkNextTickScheduleLoopThread",
+        "BenchmarkNoMetrics",
+        "BenchmarkPromiseAllFixedArityEndToEnd",
+        "BenchmarkPromiseCreation",
+        "BenchmarkPromiseDepthThreeEndToEnd",
+        "BenchmarkPromiseReactionEndToEnd",
+        "BenchmarkPromiseSettleNoHandler",
+        "BenchmarkPromisifyCompletionEndToEnd",
+        "BenchmarkSchedulerInternalExternalBurst",
+        "BenchmarkSchedulerPriorityLatency",
+        "BenchmarkSetImmediateBurst",
+        "BenchmarkSetIntervalSteadyTicks",
+        "BenchmarkSparseFDRegistration",
+        "BenchmarkSubmitInternalChainHandoff",
+        "BenchmarkSubmitLatency",
+        "BenchmarkTimerCancelScale",
+        "BenchmarkTimerLatency",
+        "BenchmarkTimerScheduleRandomDeadlines",
+        "BenchmarkTimerScheduleSameDeadline100K"
+      ],
+      "benchmark_goos": {
+        "BenchmarkFDReadinessDispatchHighCount": [
+          "darwin",
+          "linux"
+        ],
+        "BenchmarkFDReadinessDispatchSingle": [
+          "darwin",
+          "linux"
+        ],
+        "BenchmarkIdleWakeRecoveryTurnCost": [
+          "darwin",
+          "linux"
+        ],
+        "BenchmarkSparseFDRegistration": [
+          "darwin",
+          "linux"
+        ]
+      },
+      "benchmark_leaves": {
+        "BenchmarkEventTargetListenerConstruction": [
+          "100",
+          "1000",
+          "5000",
+          "10000"
+        ],
+        "BenchmarkEventTargetListenerRegistrationWithLiveSet": [
+          "0",
+          "100",
+          "1000",
+          "10000"
+        ],
+        "BenchmarkIdleWakeRecoveryTurnCost": [
+          "empty-fast-channel-probe",
+          "empty-native-poll-turn"
+        ]
+      },
+      "variant_ids": [],
+      "go_diagnostic_timeout_ns": 3300000000000,
+      "runner_watchdog_timeout_ns": 3600000000000,
+      "orchestration_watchdog_timeout_ns": 4200000000000,
+      "workload_definitions": {
+        "BenchmarkAutoExitImmediate": {
+          "id": "workload.product.auto-exit-immediate.v1",
+          "harness_files": [
+            "autoexit_bench_test.go"
+          ],
+          "harness_sha256": "4a6d67d0d6b9f786375ac8126dedac168846293df4b72157ee850a9ac54d4a07"
+        },
+        "BenchmarkConcurrentSubmissionWakeIntegration": {
+          "id": "workload.product.concurrent-submission-wake-integration.v1",
+          "harness_files": [
+            "wakeup_dedup_test.go"
+          ],
+          "harness_sha256": "26a626161e738b2b61fb409aba8c2e1b8cf2a24684b961dd3446655ea96c75b1"
+        },
+        "BenchmarkEventTargetDispatchEmptyReusedEvent": {
+          "id": "workload.product.event-target-dispatch-empty-reused-event.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetDispatchFreshEvent": {
+          "id": "workload.product.event-target-dispatch-fresh-event.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetDispatchParallelDistinctEvents": {
+          "id": "workload.product.event-target-dispatch-parallel-distinct-events.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetDispatchParallelDistinctEventsControl": {
+          "id": "workload.product.event-target-dispatch-parallel-distinct-events-control.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetDispatchReusedEvent": {
+          "id": "workload.product.event-target-dispatch-reused-event.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetListenerConstruction": {
+          "id": "workload.product.event-target-listener-construction.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkEventTargetListenerRegistrationWithLiveSet": {
+          "id": "workload.product.event-target-listener-registration-with-live-set.v1",
+          "harness_files": [
+            "eventtargetbenchmark_test.go"
+          ],
+          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+        },
+        "BenchmarkFDReadinessDispatchHighCount": {
+          "id": "workload.product.fd-readiness-dispatch-high-count.v1",
+          "harness_files": [
+            "fd_bench_unix_test.go"
+          ],
+          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+        },
+        "BenchmarkFDReadinessDispatchSingle": {
+          "id": "workload.product.fd-readiness-dispatch-single.v1",
+          "harness_files": [
+            "fd_bench_unix_test.go"
+          ],
+          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+        },
+        "BenchmarkIdleWakeRecoveryTurnCost": {
+          "id": "workload.product.idle-wake-recovery-turn-cost.v1",
+          "harness_files": [
+            "wake_bench_unix_test.go"
+          ],
+          "harness_sha256": "ce3ff5a5e77c96812696a4d86bdc1825b28d0efcb27f863b125404886ad866af"
+        },
+        "BenchmarkLargeDeadlineList": {
+          "id": "workload.product.large-deadline-list.v1",
+          "harness_files": [
+            "scheduler_runtime_bench_test.go"
+          ],
+          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+        },
+        "BenchmarkMetricsCollection": {
+          "id": "workload.product.metrics-collection.v1",
+          "harness_files": [
+            "metrics_test.go"
+          ],
+          "harness_sha256": "34988e315a13e22704f9792921f851718666c888564dc973478665348d47623f"
+        },
+        "BenchmarkMetricsHotPath": {
+          "id": "workload.product.metrics-hot-path.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkMetricsHotPathSnapshot": {
+          "id": "workload.product.metrics-hot-path-snapshot.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkMicrotaskLatency": {
+          "id": "workload.product.microtask-latency.v1",
+          "harness_files": [
+            "scheduler_runtime_bench_test.go"
+          ],
+          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+        },
+        "BenchmarkMicrotaskScheduleExternal": {
+          "id": "workload.product.microtask-schedule-external.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkMicrotaskScheduleLoopThread": {
+          "id": "workload.product.microtask-schedule-loop-thread.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkMixedWorkload": {
+          "id": "workload.product.mixed-workload.v1",
+          "harness_files": [
+            "scheduler_runtime_bench_test.go"
+          ],
+          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+        },
+        "BenchmarkNextTickRecursiveDrain": {
+          "id": "workload.product.next-tick-recursive-drain.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkNextTickScheduleExternal": {
+          "id": "workload.product.next-tick-schedule-external.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkNextTickScheduleLoopThread": {
+          "id": "workload.product.next-tick-schedule-loop-thread.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkNoMetrics": {
+          "id": "workload.product.no-metrics.v1",
+          "harness_files": [
+            "metrics_test.go"
+          ],
+          "harness_sha256": "34988e315a13e22704f9792921f851718666c888564dc973478665348d47623f"
+        },
+        "BenchmarkPromiseAllFixedArityEndToEnd": {
+          "id": "workload.product.promise-all-fixed-arity-end-to-end.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkPromiseCreation": {
+          "id": "workload.product.promise-creation.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkPromiseDepthThreeEndToEnd": {
+          "id": "workload.product.promise-depth-three-end-to-end.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkPromiseReactionEndToEnd": {
+          "id": "workload.product.promise-reaction-end-to-end.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkPromiseSettleNoHandler": {
+          "id": "workload.product.promise-settle-no-handler.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkPromisifyCompletionEndToEnd": {
+          "id": "workload.product.promisify-completion-end-to-end.v1",
+          "harness_files": [
+            "promise_bench_test.go"
+          ],
+          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+        },
+        "BenchmarkSchedulerInternalExternalBurst": {
+          "id": "workload.product.scheduler-internal-external-burst.v1",
+          "harness_files": [
+            "scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+        },
+        "BenchmarkSchedulerPriorityLatency": {
+          "id": "workload.product.scheduler-priority-latency.v1",
+          "harness_files": [
+            "scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+        },
+        "BenchmarkSetImmediateBurst": {
+          "id": "workload.product.set-immediate-burst.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkSetIntervalSteadyTicks": {
+          "id": "workload.product.set-interval-steady-ticks.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkSparseFDRegistration": {
+          "id": "workload.product.sparse-fd-registration.v1",
+          "harness_files": [
+            "fd_bench_unix_test.go"
+          ],
+          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+        },
+        "BenchmarkSubmitInternalChainHandoff": {
+          "id": "workload.product.submit-internal-chain-handoff.v1",
+          "harness_files": [
+            "scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+        },
+        "BenchmarkSubmitLatency": {
+          "id": "workload.product.submit-latency.v1",
+          "harness_files": [
+            "scheduler_runtime_bench_test.go"
+          ],
+          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+        },
+        "BenchmarkTimerCancelScale": {
+          "id": "workload.product.timer-cancel-scale.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkTimerLatency": {
+          "id": "workload.product.timer-latency.v1",
+          "harness_files": [
+            "scheduler_runtime_bench_test.go"
+          ],
+          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+        },
+        "BenchmarkTimerScheduleRandomDeadlines": {
+          "id": "workload.product.timer-schedule-random-deadlines.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        },
+        "BenchmarkTimerScheduleSameDeadline100K": {
+          "id": "workload.product.timer-schedule-same-deadline100-k.v1",
+          "harness_files": [
+            "scheduler_topology_bench_test.go"
+          ],
+          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+        }
+      }
+    },
+    {
+      "id": "scheduler",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament",
+      "required": true,
+      "benchmarks": [
+        "BenchmarkGCPressure",
+        "BenchmarkGCPressure_Allocations",
+        "BenchmarkMultiProducer",
+        "BenchmarkMultiProducerContention",
+        "BenchmarkPingPong",
+        "BenchmarkPingPongLatency",
+        "BenchmarkBurstSubmit",
+        "BenchmarkMicroBatchBudget_Throughput",
+        "BenchmarkMicroBatchBudget_Latency",
+        "BenchmarkMicroBatchBudget_Continuous",
+        "BenchmarkMicroBatchBudget_Mixed",
+        "BenchmarkMicroCASContention",
+        "BenchmarkMicroCASContention_Latency",
+        "BenchmarkMicrotaskRoundTrip",
+        "BenchmarkMicroWakeupSyscall_Running",
+        "BenchmarkMicroWakeupSyscall_Sleeping",
+        "BenchmarkMicroWakeupSyscall_Burst",
+        "BenchmarkMicroWakeupSyscall_RapidSubmit",
+        "BenchmarkPromisesV2",
+        "BenchmarkReadinessRoundTrip",
+        "BenchmarkSchedulerPriorityLatency",
+        "BenchmarkSubmitInternalChainHandoff",
+        "BenchmarkSchedulerInternalExternalBurst"
+      ],
+      "benchmark_variant_groups": {
+        "BenchmarkGCPressure": "scheduler-go",
+        "BenchmarkGCPressure_Allocations": "scheduler-go",
+        "BenchmarkMultiProducer": "scheduler-go",
+        "BenchmarkMultiProducerContention": "scheduler-go",
+        "BenchmarkPingPong": "scheduler-go",
+        "BenchmarkPingPongLatency": "scheduler-go",
+        "BenchmarkBurstSubmit": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Throughput": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Latency": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Continuous": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Mixed": "scheduler-go",
+        "BenchmarkMicroCASContention": "scheduler-go",
+        "BenchmarkMicroCASContention_Latency": "scheduler-go",
+        "BenchmarkMicrotaskRoundTrip": "scheduler-microtask",
+        "BenchmarkMicroWakeupSyscall_Running": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_Sleeping": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_Burst": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_RapidSubmit": "scheduler-go",
+        "BenchmarkPromisesV2": "promise",
+        "BenchmarkReadinessRoundTrip": "scheduler-readiness",
+        "BenchmarkSchedulerPriorityLatency": "scheduler-go",
+        "BenchmarkSubmitInternalChainHandoff": "scheduler-go",
+        "BenchmarkSchedulerInternalExternalBurst": "scheduler-go"
+      },
+      "benchmark_leaves": {
+        "BenchmarkMicroBatchBudget_Throughput": [
+          "Burst=64",
+          "Burst=128",
+          "Burst=256",
+          "Burst=512",
+          "Burst=1024",
+          "Burst=2048",
+          "Burst=4096"
+        ],
+        "BenchmarkMicroBatchBudget_Latency": [
+          "Burst=64",
+          "Burst=128",
+          "Burst=256",
+          "Burst=512",
+          "Burst=1024",
+          "Burst=2048",
+          "Burst=4096"
+        ],
+        "BenchmarkMicroBatchBudget_Mixed": [
+          "Burst=100",
+          "Burst=500",
+          "Burst=1000",
+          "Burst=2000",
+          "Burst=5000"
+        ],
+        "BenchmarkMicroCASContention": [
+          "N=01",
+          "N=02",
+          "N=04",
+          "N=08",
+          "N=16",
+          "N=32"
+        ],
+        "BenchmarkPromisesV2": [
+          "ChainDepth100EndToEnd",
+          "ResolvedHandlerEndToEnd",
+          "FanOut100EndToEnd"
+        ]
+      },
+      "benchmark_variant_extra_leaves": {
+        "BenchmarkPromisesV2": {
+          "promise.main.chained": [
+            "Race100EndToEnd"
+          ],
+          "promise.alt-one.embedded-first-handler": [
+            "Race100EndToEnd"
+          ],
+          "promise.alt-four.main-snapshot": [
+            "Race100EndToEnd"
+          ]
+        }
+      },
+      "benchmark_goos": {
+        "BenchmarkReadinessRoundTrip": [
+          "darwin",
+          "linux"
+        ]
+      },
+      "variant_ids": [
+        "scheduler.main.auto",
+        "scheduler.main.forced",
+        "scheduler.main.disabled",
+        "scheduler.alternate-one.max-safety",
+        "scheduler.alternate-two.max-performance",
+        "scheduler.alternate-three.original-main",
+        "scheduler.goja-nodejs.baseline",
+        "promise.main.chained",
+        "promise.alt-one.embedded-first-handler",
+        "promise.alt-two.treiber",
+        "promise.alt-three.pooled-treiber",
+        "promise.alt-four.main-snapshot",
+        "promise.alt-five.original-chained"
+      ],
+      "go_diagnostic_timeout_ns": 10500000000000,
+      "runner_watchdog_timeout_ns": 10800000000000,
+      "orchestration_watchdog_timeout_ns": 11400000000000,
+      "workload_definitions": {
+        "BenchmarkGCPressure": {
+          "id": "workload.scheduler.gc-pressure.v1",
+          "harness_files": [
+            "internal/tournament/bench_gc_pressure_test.go"
+          ],
+          "harness_sha256": "606711aaad31bbbdc4953c58a1a6a56f887df133540b0f7eff1bd868e3d41890"
+        },
+        "BenchmarkGCPressure_Allocations": {
+          "id": "workload.scheduler.gc-pressure-allocations.v1",
+          "harness_files": [
+            "internal/tournament/bench_gc_pressure_test.go"
+          ],
+          "harness_sha256": "606711aaad31bbbdc4953c58a1a6a56f887df133540b0f7eff1bd868e3d41890"
+        },
+        "BenchmarkMultiProducer": {
+          "id": "workload.scheduler.multi-producer.v1",
+          "harness_files": [
+            "internal/tournament/bench_multiproducer_test.go"
+          ],
+          "harness_sha256": "f39a6db636704345f0ab3a458d7db4a3c965e52586c9e9254bd7bc9efdb8cafa"
+        },
+        "BenchmarkMultiProducerContention": {
+          "id": "workload.scheduler.multi-producer-contention.v1",
+          "harness_files": [
+            "internal/tournament/bench_multiproducer_test.go"
+          ],
+          "harness_sha256": "f39a6db636704345f0ab3a458d7db4a3c965e52586c9e9254bd7bc9efdb8cafa"
+        },
+        "BenchmarkPingPong": {
+          "id": "workload.scheduler.ping-pong.v1",
+          "harness_files": [
+            "internal/tournament/bench_pingpong_test.go"
+          ],
+          "harness_sha256": "6e643291d477a70ad54d6bdc2784cb298ef11f38a9ad8b435576afc5d02600f1"
+        },
+        "BenchmarkPingPongLatency": {
+          "id": "workload.scheduler.ping-pong-latency.v1",
+          "harness_files": [
+            "internal/tournament/bench_pingpong_test.go"
+          ],
+          "harness_sha256": "6e643291d477a70ad54d6bdc2784cb298ef11f38a9ad8b435576afc5d02600f1"
+        },
+        "BenchmarkBurstSubmit": {
+          "id": "workload.scheduler.burst-submit.v1",
+          "harness_files": [
+            "internal/tournament/bench_pingpong_test.go"
+          ],
+          "harness_sha256": "6e643291d477a70ad54d6bdc2784cb298ef11f38a9ad8b435576afc5d02600f1"
+        },
+        "BenchmarkMicroBatchBudget_Throughput": {
+          "id": "workload.scheduler.micro-batch-budget-throughput.v1",
+          "harness_files": [
+            "internal/tournament/micro_batch_test.go"
+          ],
+          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+        },
+        "BenchmarkMicroBatchBudget_Latency": {
+          "id": "workload.scheduler.micro-batch-budget-latency.v1",
+          "harness_files": [
+            "internal/tournament/micro_batch_test.go"
+          ],
+          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+        },
+        "BenchmarkMicroBatchBudget_Continuous": {
+          "id": "workload.scheduler.micro-batch-budget-continuous.v1",
+          "harness_files": [
+            "internal/tournament/micro_batch_test.go"
+          ],
+          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+        },
+        "BenchmarkMicroBatchBudget_Mixed": {
+          "id": "workload.scheduler.micro-batch-budget-mixed.v1",
+          "harness_files": [
+            "internal/tournament/micro_batch_test.go"
+          ],
+          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+        },
+        "BenchmarkMicroCASContention": {
+          "id": "workload.scheduler.micro-cas-contention.v1",
+          "harness_files": [
+            "internal/tournament/micro_cas_test.go"
+          ],
+          "harness_sha256": "92dcd5c7ca78c4220166f088f4aab8e5779159a0156f473391c625aa133e2cc1"
+        },
+        "BenchmarkMicroCASContention_Latency": {
+          "id": "workload.scheduler.micro-cas-contention-latency.v1",
+          "harness_files": [
+            "internal/tournament/micro_cas_test.go"
+          ],
+          "harness_sha256": "92dcd5c7ca78c4220166f088f4aab8e5779159a0156f473391c625aa133e2cc1"
+        },
+        "BenchmarkMicrotaskRoundTrip": {
+          "id": "workload.scheduler.microtask-round-trip.v1",
+          "harness_files": [
+            "internal/tournament/microtask_capability_test.go"
+          ],
+          "harness_sha256": "eb33a3857e3409a5c6c4d78c879c41ab3dc532ca83d1edbb8eaffb1741db1964"
+        },
+        "BenchmarkMicroWakeupSyscall_Running": {
+          "id": "workload.scheduler.micro-wakeup-syscall-running.v1",
+          "harness_files": [
+            "internal/tournament/micro_wakeup_test.go"
+          ],
+          "harness_sha256": "366078aa73b597340b97338b50c7857a4b10f86c1f4f07558d0b600da9850da9"
+        },
+        "BenchmarkMicroWakeupSyscall_Sleeping": {
+          "id": "workload.scheduler.micro-wakeup-syscall-sleeping.v1",
+          "harness_files": [
+            "internal/tournament/micro_wakeup_test.go"
+          ],
+          "harness_sha256": "366078aa73b597340b97338b50c7857a4b10f86c1f4f07558d0b600da9850da9"
+        },
+        "BenchmarkMicroWakeupSyscall_Burst": {
+          "id": "workload.scheduler.micro-wakeup-syscall-burst.v1",
+          "harness_files": [
+            "internal/tournament/micro_wakeup_test.go"
+          ],
+          "harness_sha256": "366078aa73b597340b97338b50c7857a4b10f86c1f4f07558d0b600da9850da9"
+        },
+        "BenchmarkMicroWakeupSyscall_RapidSubmit": {
+          "id": "workload.scheduler.micro-wakeup-syscall-rapid-submit.v1",
+          "harness_files": [
+            "internal/tournament/micro_wakeup_test.go"
+          ],
+          "harness_sha256": "366078aa73b597340b97338b50c7857a4b10f86c1f4f07558d0b600da9850da9"
+        },
+        "BenchmarkPromisesV2": {
+          "id": "workload.scheduler.promises-v2.v1",
+          "harness_files": [
+            "internal/tournament/promise_corrected_bench_test.go"
+          ],
+          "harness_sha256": "f26cbef21e7eff9ca1cb5d48d44876308d46390a42893adfc8fe7c66f06cb7c6"
+        },
+        "BenchmarkReadinessRoundTrip": {
+          "id": "workload.scheduler.readiness-round-trip.v1",
+          "harness_files": [
+            "internal/tournament/readiness_capability_unix_test.go"
+          ],
+          "harness_sha256": "3c93110ecc6af4bc9ee4cb30fd17654e9353ddb74aca1b480cb6d63f95148d40"
+        },
+        "BenchmarkSchedulerPriorityLatency": {
+          "id": "workload.scheduler.scheduler-priority-latency.v1",
+          "harness_files": [
+            "internal/tournament/scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "1dda9b5fa5aaae5df75e6610ba0d797dd8deef7ea33e740ac6622426e8bc1ca8"
+        },
+        "BenchmarkSubmitInternalChainHandoff": {
+          "id": "workload.scheduler.submit-internal-chain-handoff.v1",
+          "harness_files": [
+            "internal/tournament/scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "1dda9b5fa5aaae5df75e6610ba0d797dd8deef7ea33e740ac6622426e8bc1ca8"
+        },
+        "BenchmarkSchedulerInternalExternalBurst": {
+          "id": "workload.scheduler.scheduler-internal-external-burst.v1",
+          "harness_files": [
+            "internal/tournament/scheduler_priority_bench_test.go"
+          ],
+          "harness_sha256": "1dda9b5fa5aaae5df75e6610ba0d797dd8deef7ea33e740ac6622426e8bc1ca8"
+        }
+      }
+    },
+    {
+      "id": "promise",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisetournament",
+      "required": true,
+      "benchmarks": [
+        "BenchmarkTournament",
+        "BenchmarkChainDepth"
+      ],
+      "benchmark_variant_groups": {
+        "BenchmarkTournament": "promise",
+        "BenchmarkChainDepth": "promise"
+      },
+      "benchmark_leaves": {
+        "BenchmarkChainDepth": [
+          "Depth=10",
+          "Depth=100"
+        ]
+      },
+      "variant_ids": [
+        "promise.main.chained",
+        "promise.alt-one.embedded-first-handler",
+        "promise.alt-two.treiber",
+        "promise.alt-three.pooled-treiber",
+        "promise.alt-four.main-snapshot",
+        "promise.alt-five.original-chained"
+      ],
+      "go_diagnostic_timeout_ns": 3300000000000,
+      "runner_watchdog_timeout_ns": 3600000000000,
+      "orchestration_watchdog_timeout_ns": 4200000000000,
+      "workload_definitions": {
+        "BenchmarkTournament": {
+          "id": "workload.promise.tournament.v1",
+          "harness_files": [
+            "internal/promisetournament/promise_tournament_test.go"
+          ],
+          "harness_sha256": "877e7a03f5c53e5ad3dad96a7cc7165789298285016f83bc407935410a283813"
+        },
+        "BenchmarkChainDepth": {
+          "id": "workload.promise.chain-depth.v1",
+          "harness_files": [
+            "internal/promisetournament/promise_tournament_test.go"
+          ],
+          "harness_sha256": "877e7a03f5c53e5ad3dad96a7cc7165789298285016f83bc407935410a283813"
+        }
+      }
+    },
+    {
+      "id": "libuv",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline",
+      "required": false,
+      "benchmarks": [
+        "BenchmarkLibuv_AsyncSend",
+        "BenchmarkLibuv_TimerScheduleAndFire",
+        "BenchmarkLibuv_TimerRepeat",
+        "BenchmarkLibuv_TimerCrossThread"
+      ],
+      "benchmark_variant_groups": {
+        "BenchmarkLibuv_AsyncSend": "libuv",
+        "BenchmarkLibuv_TimerScheduleAndFire": "libuv",
+        "BenchmarkLibuv_TimerRepeat": "libuv",
+        "BenchmarkLibuv_TimerCrossThread": "libuv"
+      },
+      "variant_ids": [
+        "scheduler.libuv.native"
+      ],
+      "default_variant_id": "scheduler.libuv.native",
+      "go_diagnostic_timeout_ns": 1500000000000,
+      "runner_watchdog_timeout_ns": 1800000000000,
+      "orchestration_watchdog_timeout_ns": 2400000000000,
+      "workload_definitions": {
+        "BenchmarkLibuv_AsyncSend": {
+          "id": "workload.libuv.libuv-async-send.v1",
+          "harness_files": [
+            "internal/libuvbaseline/libuv_bench_test.go"
+          ],
+          "harness_sha256": "d2eaaa65f46681aa9b560af9ca36f45a6aeb6a748fa554bba23801ddbaa1dca5"
+        },
+        "BenchmarkLibuv_TimerScheduleAndFire": {
+          "id": "workload.libuv.libuv-timer-schedule-and-fire.v1",
+          "harness_files": [
+            "internal/libuvbaseline/libuv_bench_test.go"
+          ],
+          "harness_sha256": "d2eaaa65f46681aa9b560af9ca36f45a6aeb6a748fa554bba23801ddbaa1dca5"
+        },
+        "BenchmarkLibuv_TimerRepeat": {
+          "id": "workload.libuv.libuv-timer-repeat.v1",
+          "harness_files": [
+            "internal/libuvbaseline/libuv_bench_test.go"
+          ],
+          "harness_sha256": "d2eaaa65f46681aa9b560af9ca36f45a6aeb6a748fa554bba23801ddbaa1dca5"
+        },
+        "BenchmarkLibuv_TimerCrossThread": {
+          "id": "workload.libuv.libuv-timer-cross-thread.v1",
+          "harness_files": [
+            "internal/libuvbaseline/libuv_bench_test.go"
+          ],
+          "harness_sha256": "d2eaaa65f46681aa9b560af9ca36f45a6aeb6a748fa554bba23801ddbaa1dca5"
+        }
+      }
+    }
+  ],
+  "concepts": [
+    {
+      "id": "scheduler.alternate-two-plus.dual-wake",
+      "name": "AlternateTwo-Plus",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "disposition": "A projected lock-free TaskArena scheduler with channel and poller wake modes; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-two-plus.mini-fast-path",
+      "name": "AlternateTwo-Plus mini fast path",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "disposition": "A documented interim single-mode fast-path proposal; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-three.fast-path",
+      "name": "AlternateThree with fast path",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETHREE_LINUX_INVESTIGATION.md",
+      "disposition": "A channel fast-path proposal for the original Main snapshot; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.main.task-arena.conservative",
+      "name": "Main with optional TaskArena",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "disposition": "The documented conservative optional-TaskArena proposal was not implemented."
+    },
+    {
+      "id": "scheduler.main.task-arena.hybrid",
+      "name": "Main with hybrid TaskArena fallback",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "disposition": "The documented bounded-arena plus chunk-fallback proposal was not implemented."
+    },
+    {
+      "id": "scheduler.main.chunked-ingress.optimized",
+      "name": "Optimized Main without TaskArena",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "disposition": "The documented minimal-change proposal combined partial chunk clearing, cache-line padding, and further wakeup deduplication without a TaskArena. No distinct Go implementation of that bundle exists in repository history; the later product removed the referenced chunked-ingress topology, so this proposal remains non-benchmarkable historical evidence."
+    }
+  ],
+  "revision_variants": [
+    {
+      "id": "scheduler.revision.initial-go-native",
+      "commit": "506d6643cc1d45b1da156096870991ecb30b8847",
+      "name": "Initial Go-native eventloop"
+    },
+    {
+      "id": "scheduler.revision.auto-exit-liveness",
+      "commit": "cc005d72b329fd91eee03aac62ba7188df7c91b9",
+      "name": "Auto-exit and liveness architecture"
+    },
+    {
+      "id": "scheduler.revision.unconditional-microtask-drain",
+      "commit": "3302f879a6cc3f52774a3d6ebf442b80e24a660b",
+      "name": "Unconditional microtask draining"
+    },
+    {
+      "id": "scheduler.revision.per-task-microtask-drain",
+      "commit": "8d3b3687e6e0110a2a34fc46229abedd358ecac4",
+      "name": "Per-task microtask draining"
+    },
+    {
+      "id": "scheduler.revision.inter-phase-microtask-drain",
+      "commit": "d90b40eceb9e503c245895a83c40905b8d0d9c05",
+      "name": "Inter-phase microtask draining"
+    },
+    {
+      "id": "scheduler.revision.exhaustive-microtask-drain",
+      "commit": "4ce34ac562bdbcbba477c299fe50139c4535ce8d",
+      "name": "Exhaustive microtask draining"
+    },
+    {
+      "id": "scheduler.revision.internal-queue-tick-budget",
+      "commit": "9a051f4ca05b6a6bd59d36c4f8abb5dc04d30b86",
+      "name": "Per-tick internal queue budget"
+    },
+    {
+      "id": "scheduler.revision.batched-microtask-drain",
+      "commit": "3f3384cc538f333032e73ca45c9b53bb46e2ef82",
+      "name": "Node-style batched microtask draining"
+    },
+    {
+      "id": "scheduler.revision.node26-refactor",
+      "commit": "0def02e2ff987be01a38d237a5d84dae256a85ac",
+      "name": "Node.js 26 compliance refactor"
+    },
+    {
+      "id": "scheduler.revision.tournament-snapshot",
+      "commit": "27b93ec32938ca838e1519bc8e17b6852d7df449",
+      "name": "Historical tournament snapshot"
+    },
+    {
+      "id": "scheduler.revision.unix-poller-hardened",
+      "commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "name": "Unix poller lifecycle hardened"
+    },
+    {
+      "id": "scheduler.revision.current-candidate",
+      "commit": "current",
+      "name": "Current governed candidate"
+    }
+  ],
+  "revision_checkpoints": [
+    "506d6643cc1d45b1da156096870991ecb30b8847",
+    "cc005d72b329fd91eee03aac62ba7188df7c91b9",
+    "3302f879a6cc3f52774a3d6ebf442b80e24a660b",
+    "8d3b3687e6e0110a2a34fc46229abedd358ecac4",
+    "d90b40eceb9e503c245895a83c40905b8d0d9c05",
+    "4ce34ac562bdbcbba477c299fe50139c4535ce8d",
+    "9a051f4ca05b6a6bd59d36c4f8abb5dc04d30b86",
+    "3f3384cc538f333032e73ca45c9b53bb46e2ef82",
+    "0def02e2ff987be01a38d237a5d84dae256a85ac",
+    "27b93ec32938ca838e1519bc8e17b6852d7df449",
+    "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+    "current"
+  ],
+  "measurement": {
+    "sample_count": 5,
+    "benchmark_time": {
+      "mode": "duration",
+      "value": 1000000000
+    },
+    "benchmem": true,
+    "go_flags": [
+      "-buildvcs=false"
+    ],
+    "cpu_cardinality": 1,
+    "package_parallelism": 1,
+    "environment": {
+      "CGO_ENABLED": "1",
+      "GODEBUG": "",
+      "GOENV": "off",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "-buildvcs=false",
+      "GOGC": "100",
+      "GOMEMLIMIT": "off",
+      "GOMAXPROCS": "benchmark-cpu-flag",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local",
+      "GOWORK": "off",
+      "LANG": "C",
+      "LC_ALL": "C",
+      "TZ": "UTC"
+    }
+  }
+}

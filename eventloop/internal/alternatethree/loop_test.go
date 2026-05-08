@@ -2,7 +2,6 @@ package alternatethree
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,34 +14,8 @@ func TestLoop_BasicRunShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Run in background
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
-
-	// Shutdown
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	if err := loop.Shutdown(shutdownCtx); err != nil {
-		t.Errorf("Shutdown() failed: %v", err)
-	}
-
-	// Wait for Run to return
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Errorf("Run() returned error: %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Run() did not return after Shutdown()")
-	}
+	harness := startAlternateThreeTestLoop(t, loop)
+	harness.shutdown(t)
 }
 
 // TestLoop_Submit tests basic task submission.
@@ -52,41 +25,26 @@ func TestLoop_Submit(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var executed atomic.Bool
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
+	done := make(chan struct{})
 
 	// Submit task
 	err = loop.Submit(func() {
 		executed.Store(true)
+		close(done)
 	})
 	if err != nil {
 		t.Errorf("Submit() failed: %v", err)
 	}
 
-	// Wait for execution
-	deadline := time.Now().Add(time.Second)
-	for !executed.Load() && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
+	waitAlternateThreeSignal(t, done, "submitted task")
 
 	if !executed.Load() {
 		t.Error("Task was not executed")
 	}
 
-	// Cleanup
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	harness.shutdown(t)
 }
 
 // TestLoop_SubmitInternal tests internal task submission.
@@ -96,41 +54,26 @@ func TestLoop_SubmitInternal(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var executed atomic.Bool
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
+	done := make(chan struct{})
 
 	// Submit internal task
 	err = loop.SubmitInternal(Task{Runnable: func() {
 		executed.Store(true)
+		close(done)
 	}})
 	if err != nil {
 		t.Errorf("SubmitInternal() failed: %v", err)
 	}
 
-	// Wait for execution
-	deadline := time.Now().Add(time.Second)
-	for !executed.Load() && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
+	waitAlternateThreeSignal(t, done, "internal task")
 
 	if !executed.Load() {
 		t.Error("Internal task was not executed")
 	}
 
-	// Cleanup
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	harness.shutdown(t)
 }
 
 // TestLoop_Close tests immediate close.
@@ -140,29 +83,16 @@ func TestLoop_Close(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Run in background
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
 
 	// Close immediately
 	if err := loop.Close(); err != nil {
 		t.Errorf("Close() failed: %v", err)
 	}
 
-	// Wait for Run to return
-	select {
-	case <-errCh:
-		// Success
-	case <-time.After(10 * time.Second):
-		t.Fatal("Run() did not return after Close()")
+	harness.wait(t)
+	if state := LoopState(loop.state.Load()); state != StateTerminated {
+		t.Errorf("state = %v, want StateTerminated", state)
 	}
 }
 
@@ -173,45 +103,42 @@ func TestLoop_ConcurrentSubmit(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	const numTasks = 1000
 	var counter atomic.Int64
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
+	results := make(chan error, numTasks)
+	callbacks := make(chan struct{}, numTasks)
 
 	// Submit tasks concurrently
-	var wg sync.WaitGroup
 	for range numTasks {
-		wg.Go(func() {
-			_ = loop.Submit(func() {
+		go func() {
+			results <- loop.Submit(func() {
 				counter.Add(1)
+				callbacks <- struct{}{}
 			})
-		})
+		}()
 	}
-	wg.Wait()
-
-	// Wait for all tasks to execute
-	deadline := time.Now().Add(5 * time.Second)
-	for counter.Load() < numTasks && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
+	deadline := time.NewTimer(alternateThreeTestTimeout)
+	defer deadline.Stop()
+	for range numTasks {
+		select {
+		case submitErr := <-results:
+			if submitErr != nil {
+				t.Fatalf("concurrent Submit() failed: %v", submitErr)
+			}
+		case <-deadline.C:
+			t.Fatalf("only %d/%d submissions returned", counter.Load(), numTasks)
+		}
+	}
+	for range numTasks {
+		waitAlternateThreeSignal(t, callbacks, "concurrent callback")
 	}
 
 	if counter.Load() != numTasks {
 		t.Errorf("Expected %d tasks executed, got %d", numTasks, counter.Load())
 	}
 
-	// Cleanup
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	harness.shutdown(t)
 }
 
 // TestLoop_ShutdownIdempotent tests that Shutdown is idempotent.
@@ -221,27 +148,31 @@ func TestLoop_ShutdownIdempotent(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
 
 	// Multiple concurrent shutdown calls
-	var wg sync.WaitGroup
+	results := make(chan error, 10)
+	start := make(chan struct{})
 	for range 10 {
-		wg.Go(func() {
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
+		go func() {
+			<-start
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
 			defer shutdownCancel()
-			_ = loop.Shutdown(shutdownCtx)
-		})
+			results <- loop.Shutdown(shutdownCtx)
+		}()
 	}
-	wg.Wait()
+	close(start)
+	for range 10 {
+		select {
+		case shutdownErr := <-results:
+			if shutdownErr != nil {
+				t.Errorf("concurrent Shutdown() returned %v, want nil", shutdownErr)
+			}
+		case <-time.After(alternateThreeTestTimeout):
+			t.Fatal("concurrent Shutdown() calls did not return")
+		}
+	}
+	harness.wait(t)
 }
 
 // TestLoop_ErrLoopAlreadyRunning tests that Run returns error if already running.
@@ -251,27 +182,15 @@ func TestLoop_ErrLoopAlreadyRunning(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
 
 	// Try to run again
-	err = loop.Run(ctx)
+	err = loop.Run(context.Background())
 	if err != ErrLoopAlreadyRunning {
 		t.Errorf("Expected ErrLoopAlreadyRunning, got: %v", err)
 	}
 
-	// Cleanup
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	harness.shutdown(t)
 }
 
 // TestLoop_ScheduleTimer tests timer scheduling.
@@ -281,36 +200,24 @@ func TestLoop_ScheduleTimer(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	var executed atomic.Bool
-
-	// Run in background
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
+	done := make(chan struct{})
 
 	// Schedule timer
 	err = loop.ScheduleTimer(50*time.Millisecond, func() {
 		executed.Store(true)
+		close(done)
 	})
 	if err != nil {
 		t.Errorf("ScheduleTimer() failed: %v", err)
 	}
 
-	// Wait for execution (with margin)
-	time.Sleep(200 * time.Millisecond)
+	waitAlternateThreeSignal(t, done, "scheduled timer")
 
 	if !executed.Load() {
 		t.Error("Timer task was not executed")
 	}
 
-	// Cleanup
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	harness.shutdown(t)
 }

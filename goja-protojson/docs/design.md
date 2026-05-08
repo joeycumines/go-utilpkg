@@ -57,29 +57,33 @@ func WithProtobuf(pb *gojaprotobuf.Module) Option
 func Require(opts ...Option) func(runtime *goja.Runtime, module *goja.Object)
 
 // SetupExports wires the module's JS API onto the given exports object.
-func (m *Module) SetupExports(exports *goja.Object)
+func (m *Module) SetupExports(exports *goja.Object) error
 ```
 
 ## Implementation Strategy
 
 ### marshal
-1. Extract `*dynamicpb.Message` from goja wrapper via `protobuf.UnwrapMessage(val)`
+1. Extract the canonical `proto.Message` from the private wrapper identity
 2. Configure `protojson.MarshalOptions` from JS options object
 3. Call `protojson.MarshalOptions.Marshal(msg)` → `[]byte`
 4. Return string to JS
 
 ### unmarshal
 1. Get message type name (string) and JSON string from JS args
-2. Resolve message descriptor via protobuf module: `protobuf.FindDescriptor(name)`
-3. Create `dynamicpb.NewMessage(descriptor)`
+2. Resolve the canonical message type through the protobuf module's shared type resolver
+3. Create the resolved generated or dynamic message type
 4. Configure `protojson.UnmarshalOptions` from JS options object
 5. Call `protojson.UnmarshalOptions.Unmarshal([]byte(jsonStr), msg)`
 6. Return wrapped message via `protobuf.WrapMessage(msg)`
+
+Construction rejects a protobuf module owned by another runtime. Direct and
+`require()` construction reuse one runtime-scoped protojson state, and export
+installation is atomic and idempotent.
 
 ### format
 Sugar for `marshal(msg, {indent: '  '})`.
 
 ## Dependencies
-- `github.com/dop251/goja`
+- `github.com/joeycumines/goja`
 - `github.com/joeycumines/goja-protobuf` — for message wrapping and type resolution
 - `google.golang.org/protobuf/encoding/protojson`

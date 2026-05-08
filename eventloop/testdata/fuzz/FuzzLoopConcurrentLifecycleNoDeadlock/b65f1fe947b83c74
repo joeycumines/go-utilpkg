@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("=BX008&\"(z7#20B2b08zC9z20+7")

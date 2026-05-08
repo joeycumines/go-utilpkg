@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$7Y120192100X0&722BC\r$Cx1bZ")

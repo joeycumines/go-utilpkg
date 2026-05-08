@@ -1,24 +1,17 @@
 package eventloop
 
-import (
-	"context"
-	"testing"
-	"time"
+import "testing"
 
-	"github.com/joeycumines/logiface"
-)
+func captureLoopOptionPanic(fn func()) (value any) {
+	defer func() { value = recover() }()
+	fn()
+	return nil
+}
 
 // Test 1.2.6: Test default options
 func TestDefaultOptions(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer l.Shutdown(context.Background())
-
-	if l.strictMicrotaskOrdering {
-		t.Error("Default strictMicrotaskOrdering should be false, got true")
-	}
+	l := New()
+	registerLoopCleanupT(t, l)
 
 	// FastPathMode should be Auto (0) by default
 	mode := FastPathMode(l.fastPathMode.Load())
@@ -29,32 +22,10 @@ func TestDefaultOptions(t *testing.T) {
 
 // Test 1.2.7: Test custom options
 func TestCustomOptions(t *testing.T) {
-	// Create loop with strict microtask ordering enabled
-	l, err := New(WithStrictMicrotaskOrdering(true))
-	if err != nil {
-		t.Fatalf("New() with StrictMicrotaskOrdering failed: %v", err)
-	}
-	defer l.Shutdown(context.Background())
+	l := New(WithFastPathMode(FastPathForced))
+	registerLoopCleanupT(t, l)
 
-	if !l.strictMicrotaskOrdering {
-		t.Error("strictMicrotaskOrdering should be true after WithStrictMicrotaskOrdering(true)")
-	}
-
-	// Create another loop with forced fast path mode
-	l2, err := New(
-		WithStrictMicrotaskOrdering(false),
-		WithFastPathMode(FastPathForced),
-	)
-	if err != nil {
-		t.Fatalf("New() with multiple options failed: %v", err)
-	}
-	defer l2.Shutdown(context.Background())
-
-	if l2.strictMicrotaskOrdering {
-		t.Error("strictMicrotaskOrdering should be false after WithStrictMicrotaskOrdering(false)")
-	}
-
-	mode := FastPathMode(l2.fastPathMode.Load())
+	mode := FastPathMode(l.fastPathMode.Load())
 	if mode != FastPathForced {
 		t.Errorf("FastPathMode should be Forced (%d), got %d", FastPathForced, mode)
 	}
@@ -62,37 +33,23 @@ func TestCustomOptions(t *testing.T) {
 
 // Test: Multiple options in any order
 func TestMultipleOptions(t *testing.T) {
-	// Test that options can be specified in any order
-	l1, err := New(
+	l1 := New(
 		WithFastPathMode(FastPathDisabled),
-		WithStrictMicrotaskOrdering(true),
+		WithMetrics(true),
 	)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer l1.Shutdown(context.Background())
+	registerLoopCleanupT(t, l1)
 
-	if !l1.strictMicrotaskOrdering {
-		t.Error("Option order 1: strictMicrotaskOrdering should be true")
-	}
 	mode := FastPathMode(l1.fastPathMode.Load())
 	if mode != FastPathDisabled {
 		t.Errorf("Option order 1: FastPathMode should be Disabled (%d), got %d", FastPathDisabled, mode)
 	}
 
-	// Test reverse order
-	l2, err := New(
-		WithStrictMicrotaskOrdering(false),
+	l2 := New(
+		WithMetrics(false),
 		WithFastPathMode(FastPathForced),
 	)
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer l2.Shutdown(context.Background())
+	registerLoopCleanupT(t, l2)
 
-	if l2.strictMicrotaskOrdering {
-		t.Error("Option order 2: strictMicrotaskOrdering should be false")
-	}
 	mode = FastPathMode(l2.fastPathMode.Load())
 	if mode != FastPathForced {
 		t.Errorf("Option order 2: FastPathMode should be Forced (%d), got %d", FastPathForced, mode)
@@ -101,84 +58,117 @@ func TestMultipleOptions(t *testing.T) {
 
 // Test: Nil option handling
 func TestNilOption(t *testing.T) {
-	// Test that nil options are handled gracefully
-	l, err := New(nil)
-	if err != nil {
-		t.Fatalf("New() with nil option failed: %v", err)
-	}
-	defer l.Shutdown(context.Background())
-
-	// Loop should still work with default values
-	if l.strictMicrotaskOrdering {
-		t.Error("Default with nil option should have strictMicrotaskOrdering=false")
-	}
-	mode := FastPathMode(l.fastPathMode.Load())
-	if mode != FastPathAuto {
-		t.Errorf("Default with nil option should have FastPathMode=Auto (%d), got %d", FastPathAuto, mode)
+	if got := captureLoopOptionPanic(func() { _ = New(nil) }); got == nil {
+		t.Fatal("New accepted a nil LoopOption")
 	}
 }
 
-// TestWithLogger verifies that WithLogger option properly attaches
-// a logger to the event loop.
-func TestWithLogger(t *testing.T) {
-	// Create a simple logger using logiface.New
-	// We use io.Discard to ignore output for this test
-	logger := logiface.New[logiface.Event](
-		logiface.WithWriter[logiface.Event](logiface.NewWriterFunc(func(event logiface.Event) error {
-			// Discard events for this test
-			return nil
-		})),
-	)
-
-	opts := []LoopOption{
-		WithLogger(logger),
+func TestTypedNilBuiltInOptionsPanic(t *testing.T) {
+	tests := []struct {
+		name   string
+		option LoopOption
+	}{
+		{name: "fast path mode", option: (*FastPathModeOption)(nil)},
+		{name: "metrics", option: (*MetricsOption)(nil)},
+		{name: "logger", option: (*LoggerOption)(nil)},
+		{name: "debug mode", option: (*DebugModeOption)(nil)},
+		{name: "auto exit", option: (*AutoExitOption)(nil)},
+		{name: "queue pressure handler", option: (*QueuePressureHandlerOption)(nil)},
 	}
-
-	loop, err := New(opts...)
-	if err != nil {
-		t.Fatal("New failed:", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := captureLoopOptionPanic(func() { _ = New(test.option) }); got == nil {
+				t.Fatal("New accepted a typed-nil built-in option")
+			}
+		})
 	}
-	defer loop.Shutdown(context.Background())
-
-	// Verify loop is created with logger (logger field should be non-nil)
-	// Note: We can't directly access loop.logger as it's not exported,
-	// but we can verify the loop was created successfully with logger option
-	t.Log("Loop created successfully with WithLogger option")
 }
 
-// TestWithLogger_PanicRecovery verifies that logger properly captures
-// panics during runtime operations.
-func TestWithLogger_PanicRecovery(t *testing.T) {
-	// Create a simple logger for panic capture
-	logger := logiface.New[logiface.Event](
-		logiface.WithWriter[logiface.Event](logiface.NewWriterFunc(func(event logiface.Event) error {
-			// Discard events for this test
-			return nil
-		})),
-	)
+func TestNewJSStaticContracts(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	opts := []LoopOption{
-		WithLogger(logger),
+	options := []struct {
+		name   string
+		option JSOption
+	}{
+		{name: "nil", option: nil},
+		{name: "typed nil rejection handler", option: (*UnhandledRejectionOption)(nil)},
+		{name: "typed nil fallback", option: (*UnhandledRejectionFallbackOption)(nil)},
+		{name: "nil rejection handler", option: WithUnhandledRejection(nil)},
+		{name: "invalid fallback", option: WithUnhandledRejectionFallback(UnhandledRejectionFallbackMode(99))},
+	}
+	for _, test := range options {
+		t.Run(test.name, func(t *testing.T) {
+			if err := ValidateJSOptions(test.option); err == nil {
+				t.Fatal("ValidateJSOptions accepted an invalid option")
+			}
+			if got := captureLoopOptionPanic(func() { NewJS(loop, test.option) }); got == nil {
+				t.Fatal("NewJS accepted an invalid option")
+			}
+		})
+	}
+	if err := ValidateJSOptions(
+		WithUnhandledRejection(func(any) {}),
+		WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled),
+	); err != nil {
+		t.Fatalf("ValidateJSOptions rejected valid options: %v", err)
+	}
+	for _, test := range []struct {
+		name string
+		loop *Loop
+	}{
+		{name: "nil loop"},
+		{name: "zero loop", loop: &Loop{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := captureLoopOptionPanic(func() { NewJS(test.loop) }); got == nil {
+				t.Fatal("NewJS accepted a Loop not created by New")
+			}
+		})
 	}
 
-	loop, err := New(opts...)
-	if err != nil {
-		t.Fatal("New failed:", err)
+	js := NewJS(loop)
+	if js.Loop() != loop {
+		t.Fatal("NewJS did not retain the configured Loop")
 	}
-	defer loop.Shutdown(context.Background())
+	if js.unhandledFallback != UnhandledRejectionFallbackDisabled {
+		t.Fatalf("default unhandled fallback = %v, want disabled", js.unhandledFallback)
+	}
+}
 
-	// Trigger panic in Submit
-	loop.Submit(func() {
-		panic("test panic in Submit")
-	})
+func TestWithQueuePressureHandlerRejectsNil(t *testing.T) {
+	if got := captureLoopOptionPanic(func() { _ = New(WithQueuePressureHandler(nil)) }); got == nil {
+		t.Fatal("New accepted a nil queue-pressure handler")
+	}
+}
 
-	// Run loop to process and recover
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
-	go loop.Run(ctx)
-	time.Sleep(100 * time.Millisecond)
-	cancel()
+func TestFastPathModeRejectsInvalidValues(t *testing.T) {
+	invalid := FastPathMode(99)
+	if got := captureLoopOptionPanic(func() { _ = New(WithFastPathMode(invalid)) }); got == nil {
+		t.Fatal("New accepted an invalid fast-path mode")
+	}
 
-	// If we reach here, panic recovery worked
-	t.Log("Panic recovery test completed successfully")
+	loop := New()
+	registerLoopCleanupT(t, loop)
+	if got := captureLoopOptionPanic(func() { _ = loop.SetFastPathMode(invalid) }); got == nil {
+		t.Fatal("SetFastPathMode accepted an invalid fast-path mode")
+	}
+	if got := FastPathMode(loop.fastPathMode.Load()); got != FastPathAuto {
+		t.Fatalf("mode after rejected update = %v, want %v", got, FastPathAuto)
+	}
+}
+
+func TestSetFastPathModeTransitions(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
+
+	for _, mode := range []FastPathMode{FastPathDisabled, FastPathForced, FastPathAuto} {
+		if err := loop.SetFastPathMode(mode); err != nil {
+			t.Fatalf("SetFastPathMode(%v): %v", mode, err)
+		}
+		if got := FastPathMode(loop.fastPathMode.Load()); got != mode {
+			t.Fatalf("mode after SetFastPathMode(%v) = %v", mode, got)
+		}
+	}
 }

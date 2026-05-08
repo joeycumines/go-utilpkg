@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$a%\x00%\"\x82y'\xe2\xb78b(8\x9a\x88x")

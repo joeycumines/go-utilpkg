@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"unsafe"
@@ -9,16 +8,10 @@ import (
 
 // TestPromisePointerIdentity_UsedAsMapKey verifies pointer identity works for map keys.
 func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	js := NewJS(loop)
 
 	p1, _, _ := js.NewChainedPromise()
 	p2, _, _ := js.NewChainedPromise()
@@ -40,19 +33,13 @@ func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
 
 // TestPromisePointerIdentity_AllocatesOnReject verifies rejection tracking uses pointer.
 func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
 	var tracked bool
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		tracked = true
 	}))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	p, _, reject := js.NewChainedPromise()
 
@@ -71,33 +58,22 @@ func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
 	}
 }
 
-// TestPromisePointerIdentity_AllocatesOnHandler verifies handler tracking uses pointer.
+// TestPromisePointerIdentity_AllocatesOnHandler verifies handled tracking uses pointer-owned state.
 func TestPromisePointerIdentity_AllocatesOnHandler(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer loop.Shutdown(context.Background())
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	js := NewJS(loop)
 
 	p, resolve, _ := js.NewChainedPromise()
 
-	// Attach handler (triggers tracking via pointer identity)
+	// Attach handler (marks the source promise handled without retaining it in a side map).
 	p.Catch(func(r any) any {
 		return nil
 	})
 
-	// Promise pointer should be in promiseHandlers map
-	js.promiseHandlersMu.RLock()
-	_, exists := js.promiseHandlers[p]
-	js.promiseHandlersMu.RUnlock()
-
-	if !exists {
-		t.Error("Expected promise pointer to be in promiseHandlers map after handler attachment")
+	if !p.rejectionHandled.Load() {
+		t.Error("Expected promise handled bit after handler attachment")
 	}
 
 	resolve("value")
@@ -121,10 +97,13 @@ func TestPromisePointerIdentity_StandaloneNotTracked(t *testing.T) {
 	}
 }
 
-// TestChainedPromiseSize verifies the struct is exactly 64 bytes.
+const chainedPromiseExpectedSize = 16 + 6*unsafe.Sizeof(uintptr(0))
+
+var _ [chainedPromiseExpectedSize]byte = [unsafe.Sizeof(ChainedPromise{})]byte{}
+
+// TestChainedPromiseSize verifies the architecture-specific compact layout.
 func TestChainedPromiseSize(t *testing.T) {
-	size := unsafe.Sizeof(ChainedPromise{})
-	if size != 64 {
-		t.Errorf("Expected ChainedPromise to be 64 bytes, got %d", size)
+	if size := unsafe.Sizeof(ChainedPromise{}); size != chainedPromiseExpectedSize {
+		t.Errorf("ChainedPromise size = %d, want %d", size, chainedPromiseExpectedSize)
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ===============================================
@@ -17,10 +17,7 @@ import (
 // so they don't need loop.Run().
 func newBoundCryptoTestAdapter(t *testing.T) (*goeventloop.Loop, *goja.Runtime) {
 	t.Helper()
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New loop failed: %v", err)
-	}
+	loop := goeventloop.New()
 	t.Cleanup(func() { loop.Shutdown(context.Background()) })
 
 	runtime := goja.New()

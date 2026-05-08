@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "sequence": 2,
+  "previous_floor": {
+    "sequence": 1,
+    "path": "lineagefloors/000001.json",
+    "sha256": "6324ea0dd2d95e6e02ed5bd128ddec7a0d0fa3457afae85fe9dd4eb739c21ab4",
+    "cumulative_record_set_sha256": "c20ff0be0fe24165d19a4cb65225b4b3cf11f8c9a4da4729a73207ca43e3613b"
+  },
+  "lineage_schema_version": 2,
+  "record_digest_algorithm": "sha256-domain-length-framed-v1",
+  "source_history_floor": {
+    "path": "historyfloors/000001.json",
+    "schema_version": 1,
+    "sequence": 1,
+    "sha256": "d5490bb0364abe898b3be1066281c4cdb24ad07d03d1a8500ecc71f55e0a8fbf",
+    "cumulative_record_set_sha256": "699124f31d4dfb12558b3e486d3d0730c5dafef44d57cc5861995a587fa7d8f9"
+  },
+  "additions": [
+    {
+      "kind": "raw-root",
+      "id": "raw-root.goja.try-extract-wrapped-promise",
+      "record_sha256": "67855b9813885962d996874f2acb673d5eae23261ba34b52c7679103b8bc9fb5"
+    },
+    {
+      "kind": "raw-root",
+      "id": "raw-root.promise.alt-one.all-historical",
+      "record_sha256": "9127125f740c60e39e0dbcf6f8bdaa18e2bf5fc8fcbb4d6b415b1dc422100225"
+    },
+    {
+      "kind": "raw-root",
+      "id": "raw-root.promise.alt-one.chain-historical",
+      "record_sha256": "84092ffdebe255134f9c110b183a5fd67e695a1d241538f17313ea9bba6e8068"
+    },
+    {
+      "kind": "raw-root",
+      "id": "raw-root.scheduler.alternate-two.lock-free-ingress-push",
+      "record_sha256": "ec601e2749c09bfdf999906957bd79f61249b834cd58ea2a82af997d943054ce"
+    }
+  ],
+  "cumulative_counts": [
+    {
+      "kind": "alias",
+      "count": 7
+    },
+    {
+      "kind": "concept",
+      "count": 12
+    },
+    {
+      "kind": "disposition",
+      "count": 42
+    },
+    {
+      "kind": "implementation",
+      "count": 25
+    },
+    {
+      "kind": "introduction",
+      "count": 25
+    },
+    {
+      "kind": "raw-root",
+      "count": 4
+    },
+    {
+      "kind": "snapshot",
+      "count": 37
+    }
+  ],
+  "cumulative_record_set_sha256": "2d33e11c85dde0d2c843dd5016af24dd7b035ae139f09a1694b7b82e8931b440"
+}

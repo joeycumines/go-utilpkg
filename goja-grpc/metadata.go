@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -33,22 +33,34 @@ func (m *Module) metadataObject() *goja.Object {
 // newMetadataWrapper wraps a Go [metadata.MD] as a JavaScript object
 // with set, get, getAll, delete, forEach, and toObject methods.
 func (m *Module) newMetadataWrapper(md metadata.MD) *goja.Object {
+	return m.newMetadataWrapperMode(md.Copy(), false)
+}
+
+// newReadonlyMetadataWrapper returns an isolated view without mutation
+// methods. It is used for inbound request metadata.
+func (m *Module) newReadonlyMetadataWrapper(md metadata.MD) *goja.Object {
+	return m.newMetadataWrapperMode(md.Copy(), true)
+}
+
+func (m *Module) newMetadataWrapperMode(md metadata.MD, readonly bool) *goja.Object {
 	obj := m.runtime.NewObject()
 
 	// set(key, ...values) — sets the key to the given values,
 	// replacing any existing values.
-	_ = obj.Set("set", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panic(m.runtime.NewTypeError("metadata.set requires at least 2 arguments"))
-		}
-		key := strings.ToLower(call.Argument(0).String())
-		values := make([]string, 0, len(call.Arguments)-1)
-		for i := 1; i < len(call.Arguments); i++ {
-			values = append(values, call.Argument(i).String())
-		}
-		md.Set(key, values...)
-		return goja.Undefined()
-	}))
+	if !readonly {
+		_ = obj.Set("set", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			if len(call.Arguments) < 2 {
+				panic(m.runtime.NewTypeError("metadata.set requires at least 2 arguments"))
+			}
+			key := strings.ToLower(call.Argument(0).String())
+			values := make([]string, 0, len(call.Arguments)-1)
+			for i := 1; i < len(call.Arguments); i++ {
+				values = append(values, call.Argument(i).String())
+			}
+			md.Set(key, values...)
+			return goja.Undefined()
+		}))
+	}
 
 	// get(key) → string — returns the first value for the key,
 	// or undefined if not set.
@@ -73,11 +85,13 @@ func (m *Module) newMetadataWrapper(md metadata.MD) *goja.Object {
 	}))
 
 	// delete(key) — removes all values for the key.
-	_ = obj.Set("delete", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		key := strings.ToLower(call.Argument(0).String())
-		delete(md, key)
-		return goja.Undefined()
-	}))
+	if !readonly {
+		_ = obj.Set("delete", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			key := strings.ToLower(call.Argument(0).String())
+			delete(md, key)
+			return goja.Undefined()
+		}))
+	}
 
 	// forEach(fn) — calls fn(value, key) for each key-value pair.
 	// For keys with multiple values, fn is called once per value.
@@ -88,10 +102,12 @@ func (m *Module) newMetadataWrapper(md metadata.MD) *goja.Object {
 		}
 		for key, vals := range md {
 			for _, val := range vals {
-				_, _ = fn(goja.Undefined(),
+				if _, err := fn(goja.Undefined(),
 					m.runtime.ToValue(val),
 					m.runtime.ToValue(key),
-				)
+				); err != nil {
+					panic(err)
+				}
 			}
 		}
 		return goja.Undefined()
@@ -139,7 +155,7 @@ func (m *Module) metadataToGo(val goja.Value) metadata.MD {
 
 	result, err := toObjectFn(obj)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
 	// Convert the plain object to metadata.MD.
@@ -172,7 +188,7 @@ func (m *Module) metadataToGo(val goja.Value) metadata.MD {
 		}
 	}
 
-	return md
+	return md.Copy()
 }
 
 // metadataFromGo wraps a Go [metadata.MD] as a JavaScript metadata

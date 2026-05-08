@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$b7*)21Y$%\x1bKyB7A0C8\"1A9 Y,79790C0909")

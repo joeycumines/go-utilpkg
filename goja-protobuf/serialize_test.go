@@ -61,6 +61,29 @@ func TestToJSON_FromJSON_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestFromJSON_StrictUnknownField(t *testing.T) {
+	env := newTestEnv(t)
+	env.run(t, `var SM = pb.messageType("test.SimpleMessage")`)
+	env.mustFail(t, `pb.fromJSON(SM, {name: "ok", bogusField: true})`)
+}
+
+func TestFromJSON_StrictUnknownEnumName(t *testing.T) {
+	env := newTestEnv(t)
+	env.run(t, `var AT = pb.messageType("test.AllTypes")`)
+	env.mustFail(t, `pb.fromJSON(AT, {enumVal: "MISSING"})`)
+}
+
+func TestFromJSON_PreservesUnknownNumericEnum(t *testing.T) {
+	env := newTestEnv(t)
+	value := env.run(t, `
+		var AT = pb.messageType("test.AllTypes");
+		pb.fromJSON(AT, {enumVal: 123}).get("enum_val");
+	`)
+	if got := value.ToInteger(); got != 123 {
+		t.Fatalf("enum value = %d, want 123", got)
+	}
+}
+
 func TestToJSON_FieldTypes(t *testing.T) {
 	env := newTestEnv(t)
 	v := env.run(t, `var AT = pb.messageType('test.AllTypes'); var msg = new AT(); msg.set('int32_val', 42); msg.set('string_val', 'hello'); msg.set('bool_val', true); msg.set('double_val', 3.14); msg.set('enum_val', 'FIRST'); var json = pb.toJSON(msg); json.int32Val === 42 && json.stringVal === 'hello' && json.boolVal === true && typeof json.doubleVal === 'number' && json.enumVal === 'FIRST'`)
@@ -71,7 +94,7 @@ func TestToJSON_FieldTypes(t *testing.T) {
 
 func TestToJSON_Int64AsString(t *testing.T) {
 	env := newTestEnv(t)
-	v := env.run(t, `var AT = pb.messageType('test.AllTypes'); var msg = new AT(); msg.set('int64_val', 9007199254740993); var json = pb.toJSON(msg); typeof json.int64Val === 'string'`)
+	v := env.run(t, `var AT = pb.messageType('test.AllTypes'); var msg = new AT(); msg.set('int64_val', 9007199254740993n); var json = pb.toJSON(msg); json.int64Val === '9007199254740993'`)
 	if !v.ToBoolean() {
 		t.Error("expected true")
 	}

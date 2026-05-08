@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "sequence": 2,
+  "previous_floor": {
+    "sequence": 1,
+    "path": "historyfloors/000001.json",
+    "sha256": "d5490bb0364abe898b3be1066281c4cdb24ad07d03d1a8500ecc71f55e0a8fbf",
+    "cumulative_record_set_sha256": "699124f31d4dfb12558b3e486d3d0730c5dafef44d57cc5861995a587fa7d8f9"
+  },
+  "source_history_schema_version": 2,
+  "record_digest_algorithm": "sha256-domain-length-framed-v1",
+  "additions": [
+    {
+      "kind": "commit_archive",
+      "id": "source.commit-archive.sha1.1396868d29689c659ff7782760e89423aa478cf4",
+      "record_sha256": "e19cf9596bb3a544cf5f9fda0091e3119972364223ea3382987a42f194be8ff5"
+    },
+    {
+      "kind": "commit_archive",
+      "id": "source.commit-archive.sha1.53e2f662adc245c9b63e06bb64977b0751dcff82",
+      "record_sha256": "b1a232eefb51c7fba9762bb56cbd3118a8dabbe50626da9b76fd436edfb81416"
+    },
+    {
+      "kind": "source_occurrence",
+      "id": "source.commit.sha1.1396868d29689c659ff7782760e89423aa478cf4",
+      "record_sha256": "7ca36c21f461e455c9f415628c6324f51ce190aafccb3a087dbc7684995463dd"
+    },
+    {
+      "kind": "source_occurrence",
+      "id": "source.commit.sha1.53e2f662adc245c9b63e06bb64977b0751dcff82",
+      "record_sha256": "53cd33136a30c97b69edec915cb0b4a0d611221e66fa267ec395d102925684ff"
+    }
+  ],
+  "cumulative_counts": {
+    "ancestry_segments": 1,
+    "source_snapshots": 81,
+    "source_occurrences": 148,
+    "source_transitions": 82,
+    "commit_archives": 13,
+    "tree_patch_archives": 5
+  },
+  "cumulative_record_set_sha256": "04c4cfe87d6b527ceda6ff18e24a0cb614652f0cb86bba891ff5bf85e2c9cdeb"
+}

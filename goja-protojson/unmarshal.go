@@ -1,10 +1,9 @@
 package gojaprotojson
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 // jsUnmarshal implements protojson.unmarshal(typeName, jsonStr, opts?).
@@ -22,24 +21,28 @@ func (m *Module) jsUnmarshal(call goja.FunctionCall) goja.Value {
 	}
 	jsonStr := jsonArg.String()
 
-	desc, err := m.protobuf.FindDescriptor(protoreflect.FullName(typeName))
+	messageType, err := m.protobuf.TypeResolver().FindMessageByName(protoreflect.FullName(typeName))
 	if err != nil {
+		if descriptor, descriptorErr := m.protobuf.FindDescriptor(protoreflect.FullName(typeName)); descriptorErr == nil {
+			if _, ok := descriptor.(protoreflect.MessageDescriptor); !ok {
+				panic(m.runtime.NewTypeError("unmarshal: %q is not a message type", typeName))
+			}
+		}
 		panic(m.runtime.NewTypeError("unmarshal: unknown type %q: %s", typeName, err))
-	}
-
-	msgDesc, ok := desc.(protoreflect.MessageDescriptor)
-	if !ok {
-		panic(m.runtime.NewTypeError("unmarshal: %q is not a message type", typeName))
 	}
 
 	opts := m.parseUnmarshalOptions(call.Argument(2))
 
-	msg := dynamicpb.NewMessage(msgDesc)
+	msg := messageType.New().Interface()
 	if err := opts.Unmarshal([]byte(jsonStr), msg); err != nil {
 		panic(m.runtime.NewTypeError("unmarshal: %s", err))
 	}
 
-	return m.protobuf.WrapMessage(msg)
+	wrapped, err := m.protobuf.WrapMessage(msg)
+	if err != nil {
+		panic(m.runtime.NewTypeError("unmarshal: %s", err))
+	}
+	return wrapped
 }
 
 // parseUnmarshalOptions extracts UnmarshalOptions from a JS options object.

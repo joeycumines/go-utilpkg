@@ -3,7 +3,7 @@ package gojaprotobuf
 import (
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
@@ -29,19 +29,25 @@ func TestNew_Default(t *testing.T) {
 	if m == nil {
 		t.Fatal("expected non-nil module")
 	}
-	if m.Runtime() != rt {
-		t.Errorf("got %v, want %v", m.Runtime(), rt)
+	if !m.OwnsRuntime(rt) {
+		t.Error("module should own its construction runtime")
 	}
-	if m.resolver != protoregistry.GlobalTypes {
-		t.Errorf("got %v, want %v", m.resolver, protoregistry.GlobalTypes)
+	if m.state.typesIdentity != protoregistry.GlobalTypes {
+		t.Errorf("type identity = %v, want global registry", m.state.typesIdentity)
 	}
-	if m.files != protoregistry.GlobalFiles {
-		t.Errorf("got %v, want %v", m.files, protoregistry.GlobalFiles)
+	if m.state.filesIdentity != protoregistry.GlobalFiles {
+		t.Errorf("file identity = %v, want global registry", m.state.filesIdentity)
 	}
-	if m.localTypes == nil {
+	if m.state.baseTypes == protoregistry.GlobalTypes {
+		t.Error("base type registry was not snapshotted")
+	}
+	if m.state.baseFiles == protoregistry.GlobalFiles {
+		t.Error("base file registry was not snapshotted")
+	}
+	if m.state.localTypes == nil {
 		t.Error("expected non-nil localTypes")
 	}
-	if m.localFiles == nil {
+	if m.state.localFiles == nil {
 		t.Error("expected non-nil localFiles")
 	}
 }
@@ -55,21 +61,27 @@ func TestNew_WithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if m.resolver != r {
-		t.Errorf("got %v, want %v", m.resolver, r)
+	if m.state.typesIdentity != r {
+		t.Errorf("type identity = %v, want %v", m.state.typesIdentity, r)
 	}
-	if m.files != f {
-		t.Errorf("got %v, want %v", m.files, f)
+	if m.state.filesIdentity != f {
+		t.Errorf("file identity = %v, want %v", m.state.filesIdentity, f)
+	}
+	if m.state.baseTypes == r || m.state.baseFiles == f {
+		t.Error("configured registries were retained as live resolver state")
 	}
 }
 
-func TestRuntime_Accessor(t *testing.T) {
+func TestOwnsRuntime(t *testing.T) {
 	rt := goja.New()
 	m, err := New(rt)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if m.Runtime() != rt {
-		t.Error("Runtime() did not return the same runtime pointer")
+	if !m.OwnsRuntime(rt) {
+		t.Error("OwnsRuntime did not recognize the construction runtime")
+	}
+	if m.OwnsRuntime(goja.New()) || m.OwnsRuntime(nil) {
+		t.Error("OwnsRuntime accepted a foreign or nil runtime")
 	}
 }

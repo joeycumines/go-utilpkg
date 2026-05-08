@@ -46,14 +46,44 @@ func (r *registry) NewPromise() (uint64, *promise) {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.data == nil {
+		r.data = make(map[uint64]weak.Pointer[promise])
+	}
 
-	id := r.nextID
-	r.nextID++
+	id := r.allocatePromiseIDLocked()
 
 	r.data[id] = wp
 	r.ring = append(r.ring, id)
 
 	return id, p
+}
+
+// allocatePromiseIDLocked returns an unused nonzero registry ID.
+// The caller must hold r.mu for writing.
+func (r *registry) allocatePromiseIDLocked() uint64 {
+	candidate := r.nextID
+	if candidate == 0 {
+		candidate = 1
+	}
+	first := candidate
+
+	for {
+		if _, exists := r.data[candidate]; !exists {
+			r.nextID = candidate + 1
+			if r.nextID == 0 {
+				r.nextID = 1
+			}
+			return candidate
+		}
+
+		candidate++
+		if candidate == 0 {
+			candidate = 1
+		}
+		if candidate == first {
+			panic("eventloop: promise registry IDs exhausted")
+		}
+	}
 }
 
 // Scavenge performs a partial cleanup of dead promises.
@@ -168,18 +198,22 @@ func (r *registry) Scavenge(batchSize int) {
 // RejectAll rejects all pending promises with the given error.
 // Called during shutdown to ensure no promises hang indefinitely.
 func (r *registry) RejectAll(err error) {
+	r.scavengeMu.Lock()
+	defer r.scavengeMu.Unlock()
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	for id, wp := range r.data {
 		p := wp.Value()
 		if p != nil && p.State() == Pending {
-			p.Reject(err)
+			p.reject(err)
 		}
 		delete(r.data, id)
 	}
 
-	r.ring = r.ring[:0]
+	r.data = nil
+	r.ring = nil
 	r.head = 0
 }
 

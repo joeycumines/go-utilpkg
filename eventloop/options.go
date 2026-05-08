@@ -1,51 +1,30 @@
 package eventloop
 
-import "github.com/joeycumines/logiface"
+import (
+	"errors"
+	"fmt"
 
-// loopOptions holds configuration options for Loop creation.
-// Fields are ordered for optimal struct alignment (larger types first).
-type loopOptions struct {
-	logger                  *logiface.Logger[logiface.Event] // 8 bytes
-	ingressChunkSize        int                              // 8 bytes - Configurable chunk size for ChunkedIngress
-	fastPathMode            FastPathMode                     // 4 bytes
-	strictMicrotaskOrdering bool                             // 1 byte
-	metricsEnabled          bool                             // 1 byte
-	debugMode               bool                             // 1 byte - Enable debug features like stack trace capture
-	autoExit                bool                             // 1 byte - Exit Run() when Alive() returns false
+	"github.com/joeycumines/logiface"
+)
+
+// loopConfig holds resolved configuration for Loop creation.
+// Fields group pointers before scalar configuration to keep the pointer scan
+// prefix and alignment explicit.
+type loopConfig struct {
+	logger               *logiface.Logger[logiface.Event] // 8 bytes
+	queuePressureHandler func()                           // 8 bytes
+	fastPathMode         FastPathMode                     // 4 bytes
+	metricsEnabled       bool                             // 1 byte
+	debugMode            bool                             // 1 byte - Enable debug features like stack trace capture
+	autoExit             bool                             // 1 byte - Exit Run() when Alive() returns false
 }
-
-// Default chunk size for ingress queue.
-const defaultIngressChunkSize = 64
 
 // --- Loop Options ---
 
 // LoopOption configures a Loop instance.
 type LoopOption interface {
-	applyLoop(*loopOptions) error
+	applyLoopOption(*loopConfig) error
 }
-
-// --- StrictMicrotaskOrderingOption ---
-
-// StrictMicrotaskOrderingOption controls whether microtasks should be drained
-// after each task execution for strict ordering.
-type StrictMicrotaskOrderingOption struct {
-	enabled bool
-}
-
-// WithStrictMicrotaskOrdering sets whether microtasks should be drained
-// after each task execution for strict ordering.
-// When enabled, microtasks are guaranteed to run after every task.
-// When disabled (default), microtasks are drained in batches for better performance.
-func WithStrictMicrotaskOrdering(enabled bool) *StrictMicrotaskOrderingOption {
-	return &StrictMicrotaskOrderingOption{enabled: enabled}
-}
-
-func (o *StrictMicrotaskOrderingOption) applyLoop(opts *loopOptions) error {
-	opts.strictMicrotaskOrdering = o.enabled
-	return nil
-}
-
-var _ LoopOption = (*StrictMicrotaskOrderingOption)(nil)
 
 // --- FastPathModeOption ---
 
@@ -60,8 +39,14 @@ func WithFastPathMode(mode FastPathMode) *FastPathModeOption {
 	return &FastPathModeOption{mode: mode}
 }
 
-func (o *FastPathModeOption) applyLoop(opts *loopOptions) error {
-	opts.fastPathMode = o.mode
+func (o *FastPathModeOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil fast path mode option")
+	}
+	if err := validateFastPathMode(o.mode); err != nil {
+		return err
+	}
+	cfg.fastPathMode = o.mode
 	return nil
 }
 
@@ -76,14 +61,18 @@ type MetricsOption struct {
 
 // WithMetrics enables runtime metrics collection on the Loop.
 // When enabled, metrics can be accessed via Loop.Metrics().
-// This adds minimal overhead (e.g., record latency after each task, update queue depths).
+// This adds minimal overhead (e.g., record execution duration after each
+// callback and update queue depths).
 // For zero-allocation hot paths, disable metrics in production.
 func WithMetrics(enabled bool) *MetricsOption {
 	return &MetricsOption{enabled: enabled}
 }
 
-func (o *MetricsOption) applyLoop(opts *loopOptions) error {
-	opts.metricsEnabled = o.enabled
+func (o *MetricsOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil metrics option")
+	}
+	cfg.metricsEnabled = o.enabled
 	return nil
 }
 
@@ -97,64 +86,31 @@ type LoggerOption struct {
 }
 
 // WithLogger sets the structured logger for the Loop.
-// The logger is optional; if nil, logging is disabled.
+// The logger may be nil. Loop diagnostics still call its nil-safe [logiface.Logger.Log]
+// method, which reports disabled logging without invoking a backend.
+//
+// Loop-emitted diagnostic delivery is synchronous, but its complete logger
+// operation runs on an isolated internal goroutine so a configured factory,
+// modifier, event, writer, or releaser cannot terminate loop control flow with
+// a panic or runtime.Goexit. The isolated call retains the logical caller's
+// loop and lifecycle capabilities. Writers must return; use an asynchronous
+// writer when delivery must not apply backpressure. A writer that recursively
+// causes this Loop to emit another diagnostic has that nested diagnostic
+// dropped. Adapter integrations should emit through [Loop.Log] to retain this
+// isolation and the caller's logical lifecycle role.
 func WithLogger(logger *logiface.Logger[logiface.Event]) *LoggerOption {
 	return &LoggerOption{logger: logger}
 }
 
-func (o *LoggerOption) applyLoop(opts *loopOptions) error {
-	opts.logger = o.logger
+func (o *LoggerOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil logger option")
+	}
+	cfg.logger = o.logger
 	return nil
 }
 
 var _ LoopOption = (*LoggerOption)(nil)
-
-// --- IngressChunkSizeOption ---
-
-// IngressChunkSizeOption sets the chunk size for the ChunkedIngress queue.
-type IngressChunkSizeOption struct {
-	size int
-}
-
-// WithIngressChunkSize sets the chunk size for the ChunkedIngress queue.
-//
-// The chunk size controls how many tasks are stored per chunk node in
-// the ingress linked-list. Larger sizes improve throughput at the cost of memory,
-// smaller sizes reduce memory but increase allocation frequency.
-//
-// The size must be a power of 2 between 16 and 4096 (inclusive). If the provided
-// size is outside this range, it will be clamped. If the size is not a power of 2,
-// it will be rounded down to the nearest power of 2.
-//
-// Default is 64 tasks per chunk (~512 bytes per chunk on 64-bit systems).
-//
-// Guidance:
-//   - 16-32: Low-memory environments, infrequent task submission
-//   - 64 (default): Balanced for typical workloads
-//   - 128-256: High-throughput scenarios with many concurrent submitters
-//   - 512-4096: Extreme throughput, batch processing
-func WithIngressChunkSize(size int) *IngressChunkSizeOption {
-	return &IngressChunkSizeOption{size: size}
-}
-
-func (o *IngressChunkSizeOption) applyLoop(opts *loopOptions) error {
-	size := o.size
-
-	// Clamp to valid range [16, 4096]
-	if size < 16 {
-		size = 16
-	} else if size > 4096 {
-		size = 4096
-	}
-
-	// Round down to nearest power of 2
-	size = roundDownToPowerOf2(size)
-
-	opts.ingressChunkSize = size
-	return nil
-}
-
-var _ LoopOption = (*IngressChunkSizeOption)(nil)
 
 // --- DebugModeOption ---
 
@@ -174,11 +130,8 @@ type DebugModeOption struct {
 //
 // Example:
 //
-//	loop, err := eventloop.New(eventloop.WithDebugMode(true))
-//	if err != nil {
-//	    return err
-//	}
-//	js, _ := eventloop.NewJS(loop)
+//	loop := eventloop.New(eventloop.WithDebugMode(true))
+//	js := eventloop.NewJS(loop)
 //	// Promises now capture creation stack traces
 //	p, _, _ := js.NewChainedPromise()
 //	fmt.Println(p.CreationStackTrace()) // Prints where the promise was created
@@ -186,8 +139,11 @@ func WithDebugMode(enabled bool) *DebugModeOption {
 	return &DebugModeOption{enabled: enabled}
 }
 
-func (o *DebugModeOption) applyLoop(opts *loopOptions) error {
-	opts.debugMode = o.enabled
+func (o *DebugModeOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil debug mode option")
+	}
+	cfg.debugMode = o.enabled
 	return nil
 }
 
@@ -208,17 +164,18 @@ type AutoExitOption struct {
 // Shutdown(), or Close() is called. This preserves the pre-aliveness behavior
 // and is appropriate for long-lived server event loops.
 //
-// When enabled, Run() returns nil when Alive() becomes false — no ref'd timers
-// pending, all queues empty, no in-flight Promisify goroutines, and no registered
-// I/O FDs. This is analogous to libuv's UV_RUN_DEFAULT mode and is appropriate
-// for script-style workloads where the loop should exit once all work completes.
+// When enabled, Run() returns nil when Alive() becomes false and clean auto-exit
+// commits: no referenced or queued work, in-flight Promisify goroutines, or
+// registered I/O FDs keep the loop alive. Context cancellation already visible
+// at final terminal admission wins instead and is included in Run's result.
+// Unref'd timers and check callbacks do not keep the loop alive and may be
+// discarded during terminal cleanup. Terminal-result publication may briefly
+// follow Run's owner exit. This is analogous to libuv's UV_RUN_DEFAULT mode and
+// is appropriate for script-style workloads.
 //
 // Example:
 //
-//	loop, err := eventloop.New(eventloop.WithAutoExit(true))
-//	if err != nil {
-//	    return err
-//	}
+//	loop := eventloop.New(eventloop.WithAutoExit(true))
 //	loop.Submit(func() {
 //	    // This work will execute, then the loop exits when done.
 //	    fmt.Println("done")
@@ -230,44 +187,59 @@ func WithAutoExit(enabled bool) *AutoExitOption {
 	return &AutoExitOption{enabled: enabled}
 }
 
-func (o *AutoExitOption) applyLoop(opts *loopOptions) error {
-	opts.autoExit = o.enabled
+func (o *AutoExitOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil auto exit option")
+	}
+	cfg.autoExit = o.enabled
 	return nil
 }
 
 var _ LoopOption = (*AutoExitOption)(nil)
 
-// --- Helpers ---
-
-// roundDownToPowerOf2 rounds n down to the nearest power of 2.
-// Assumes n >= 1.
-func roundDownToPowerOf2(n int) int {
-	if n <= 0 {
-		return 1
-	}
-	// Clear all bits except the most significant set bit
-	n |= n >> 1
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	n |= n >> 32
-	return (n + 1) >> 1
+// QueuePressureHandlerOption configures the callback invoked when external
+// producers add work beyond the current phase snapshot.
+type QueuePressureHandlerOption struct {
+	handler func()
 }
 
-// resolveLoopOptions applies LoopOption instances to loopOptions.
-func resolveLoopOptions(opts []LoopOption) (*loopOptions, error) {
-	cfg := &loopOptions{
-		fastPathMode:     FastPathAuto,            // default
-		ingressChunkSize: defaultIngressChunkSize, // default 64
+// WithQueuePressureHandler configures an immutable queue-pressure callback.
+// The callback runs on the logical loop owner after an external phase that
+// processed work observes additional external work waiting for a later turn.
+// It may schedule loop work. Panics and runtime.Goexit are contained like other
+// loop callbacks.
+//
+// New panics if handler is nil.
+func WithQueuePressureHandler(handler func()) *QueuePressureHandlerOption {
+	return &QueuePressureHandlerOption{handler: handler}
+}
+
+func (o *QueuePressureHandlerOption) applyLoopOption(cfg *loopConfig) error {
+	if o == nil {
+		return errors.New("nil queue pressure handler option")
 	}
-	for _, opt := range opts {
+	if o.handler == nil {
+		return errors.New("queue pressure handler must not be nil")
+	}
+	cfg.queuePressureHandler = o.handler
+	return nil
+}
+
+var _ LoopOption = (*QueuePressureHandlerOption)(nil)
+
+// resolveLoopOptions applies LoopOption instances to a fresh loopConfig.
+// Static option contract failures panic at the factory boundary per ADR-002.
+func resolveLoopOptions(opts []LoopOption) *loopConfig {
+	cfg := &loopConfig{
+		fastPathMode: FastPathAuto,
+	}
+	for index, opt := range opts {
 		if opt == nil {
-			continue // Skip nil options gracefully
+			panic(fmt.Errorf("eventloop: loop option %d is nil", index))
 		}
-		if err := opt.applyLoop(cfg); err != nil {
-			return nil, err
+		if err := opt.applyLoopOption(cfg); err != nil {
+			panic(fmt.Errorf("eventloop: loop option %d: %w", index, err))
 		}
 	}
-	return cfg, nil
+	return cfg
 }

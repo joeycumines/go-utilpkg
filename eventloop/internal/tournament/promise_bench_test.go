@@ -9,7 +9,8 @@ import (
 )
 
 // BenchmarkPromises runs standard benchmarks on all promise implementations.
-func BenchmarkPromises(b *testing.B) {
+func BenchmarkPromisesLegacyInvalid(b *testing.B) {
+	b.Skip("legacy workload retained for provenance only: it accumulates pending handlers and emits unsupported Race rows; use BenchmarkPromisesV2")
 	impls := PromiseImplementations()
 
 	for _, impl := range impls {
@@ -18,8 +19,8 @@ func BenchmarkPromises(b *testing.B) {
 			// Sub-benchmark: Chain Creation (struct overhead)
 			b.Run("ChainCreation_Depth100", func(b *testing.B) {
 				// We don't run the loop here, just measure structure creation
-				l, _ := eventloop.New()
-				js, _ := eventloop.NewJS(l)
+				l := eventloop.New()
+				js := eventloop.NewJS(l)
 
 				b.ResetTimer()
 				b.ReportAllocs()
@@ -37,8 +38,8 @@ func BenchmarkPromises(b *testing.B) {
 			b.Run("CheckResolved_Overhead", func(b *testing.B) {
 				// This benchmarks adding a handler to an ALREADY RESOLVED promise.
 				// This is the "fast path" for many implementations.
-				l, _ := eventloop.New()
-				js, _ := eventloop.NewJS(l)
+				l := eventloop.New()
+				js := eventloop.NewJS(l)
 
 				// Create a resolved promise
 				p, resolve, _ := impl.Factory(js)
@@ -55,8 +56,8 @@ func BenchmarkPromises(b *testing.B) {
 			// Sub-benchmark: FanOut (Simulates Promise.All or multiple subcribers)
 			b.Run("FanOut_100", func(b *testing.B) {
 				// Simulates Promise.All or multiple subscribers
-				l, _ := eventloop.New()
-				js, _ := eventloop.NewJS(l)
+				l := eventloop.New()
+				js := eventloop.NewJS(l)
 
 				p, _, _ := impl.Factory(js)
 
@@ -74,8 +75,8 @@ func BenchmarkPromises(b *testing.B) {
 			// Sub-benchmark: Race (Combinator optimization check)
 			b.Run("Race_100", func(b *testing.B) {
 				// Simulates Promise.Race([100 promises])
-				l, _ := eventloop.New()
-				js, _ := eventloop.NewJS(l)
+				l := eventloop.New()
+				js := eventloop.NewJS(l)
 
 				// We need access to the Race function?
 				// The generic interface doesn't expose Race.

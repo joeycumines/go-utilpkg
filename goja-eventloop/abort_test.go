@@ -2,11 +2,12 @@ package gojaeventloop
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ===============================================
@@ -15,10 +16,7 @@ import (
 
 // TestAbortController_Basic tests basic AbortController functionality from JavaScript.
 func TestAbortController_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -47,10 +45,7 @@ func TestAbortController_Basic(t *testing.T) {
 
 // TestAbortController_Abort tests abort functionality from JavaScript.
 func TestAbortController_Abort(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -77,10 +72,7 @@ func TestAbortController_Abort(t *testing.T) {
 
 // TestAbortController_OnAbort tests onabort handler from JavaScript.
 func TestAbortController_OnAbort(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -111,10 +103,7 @@ func TestAbortController_OnAbort(t *testing.T) {
 
 // TestAbortController_AddEventListener tests addEventListener from JavaScript.
 func TestAbortController_AddEventListener(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -148,10 +137,7 @@ func TestAbortController_AddEventListener(t *testing.T) {
 
 // TestAbortController_ThrowIfAborted tests throwIfAborted from JavaScript.
 func TestAbortController_ThrowIfAborted(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -193,10 +179,7 @@ func TestAbortController_ThrowIfAborted(t *testing.T) {
 
 // TestAbortSignal_CannotConstruct tests that AbortSignal cannot be constructed directly.
 func TestAbortSignal_CannotConstruct(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -231,10 +214,7 @@ func TestAbortSignal_CannotConstruct(t *testing.T) {
 
 // TestPerformance_Now tests performance.now() from JavaScript.
 func TestPerformance_Now(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -269,10 +249,7 @@ func TestPerformance_Now(t *testing.T) {
 
 // TestPerformance_TimeOrigin tests performance.timeOrigin from JavaScript.
 func TestPerformance_TimeOrigin(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -299,521 +276,98 @@ func TestPerformance_TimeOrigin(t *testing.T) {
 	}
 }
 
-// TestPerformance_Mark tests performance.mark() from JavaScript.
-func TestPerformance_Mark(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
+func TestPerformance_RetainedPrototypeAndBrand(t *testing.T) {
+	loop := goeventloop.New()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
-
 	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
+		t.Fatalf("Bind performance: %v", err)
 	}
 
-	// Test performance.mark()
 	_, err = runtime.RunString(`
-		const entry = performance.mark("test-mark");
-		if (!entry) {
-			throw new Error("mark() should return entry");
+		if (!(performance instanceof Performance)) throw new Error("missing Performance brand");
+		if (!(performance instanceof EventTarget)) throw new Error("missing EventTarget inheritance");
+		if (Object.getPrototypeOf(performance) !== Performance.prototype) throw new Error("wrong prototype");
+		if (Object.getPrototypeOf(Performance.prototype) !== EventTarget.prototype) throw new Error("wrong prototype inheritance");
+		if (Object.keys(performance).length !== 0) throw new Error("performance has own enumerable properties");
+		if (Object.prototype.toString.call(performance) !== "[object Performance]") throw new Error("wrong toStringTag");
+		for (const name of ["mark", "measure", "getEntries", "getEntriesByType", "getEntriesByName", "clearMarks", "clearMeasures", "clearResourceTimings"]) {
+			if (name in performance) throw new Error(name + " must not be installed");
 		}
-		if (entry.name !== "test-mark") {
-			throw new Error("entry name should be 'test-mark'");
-		}
-		if (entry.entryType !== "mark") {
-			throw new Error("entry type should be 'mark'");
-		}
-		if (entry.duration !== 0) {
-			throw new Error("mark duration should be 0");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.mark() test failed: %v", err)
-	}
-}
-
-// TestPerformance_MarkWithOptions tests performance.mark() with options from JavaScript.
-func TestPerformance_MarkWithOptions(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.mark() with options
-	_, err = runtime.RunString(`
-		const entry = performance.mark("detailed-mark", { detail: { key: "value" } });
-		if (!entry) {
-			throw new Error("mark() should return entry");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.mark() with options test failed: %v", err)
-	}
-}
-
-// TestPerformance_Measure tests performance.measure() from JavaScript.
-func TestPerformance_Measure(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.measure()
-	_, err = runtime.RunString(`
-		performance.mark("start");
-		performance.mark("end");
-
-		const entry = performance.measure("test-measure", "start", "end");
-		if (!entry) {
-			throw new Error("measure() should return entry");
-		}
-		if (entry.name !== "test-measure") {
-			throw new Error("entry name should be 'test-measure'");
-		}
-		if (entry.entryType !== "measure") {
-			throw new Error("entry type should be 'measure'");
-		}
-		if (typeof entry.duration !== "number") {
-			throw new Error("entry should have duration");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.measure() test failed: %v", err)
-	}
-}
-
-// TestPerformance_MeasureFromOrigin tests performance.measure() from origin.
-func TestPerformance_MeasureFromOrigin(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.measure() from origin
-	_, err = runtime.RunString(`
-		performance.mark("end");
-		const entry = performance.measure("from-origin", undefined, "end");
-		if (entry.startTime !== 0) {
-			throw new Error("startTime should be 0 when measuring from origin");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.measure() from origin test failed: %v", err)
-	}
-}
-
-// TestPerformance_MeasureToNow tests performance.measure() to current time.
-func TestPerformance_MeasureToNow(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.measure() to now
-	_, err = runtime.RunString(`
-		performance.mark("start");
-		const entry = performance.measure("to-now", "start", undefined);
-		if (entry.duration < 0) {
-			throw new Error("duration should be non-negative");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.measure() to now test failed: %v", err)
-	}
-}
-
-// TestPerformance_GetEntries tests performance.getEntries() from JavaScript.
-func TestPerformance_GetEntries(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.getEntries()
-	_, err = runtime.RunString(`
-		performance.mark("mark1");
-		performance.mark("mark2");
-
-		const entries = performance.getEntries();
-		if (!Array.isArray(entries)) {
-			throw new Error("getEntries() should return an array");
-		}
-		if (entries.length !== 2) {
-			throw new Error("should have 2 entries, got " + entries.length);
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.getEntries() test failed: %v", err)
-	}
-}
-
-// TestPerformance_GetEntriesByType tests performance.getEntriesByType() from JavaScript.
-func TestPerformance_GetEntriesByType(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.getEntriesByType()
-	_, err = runtime.RunString(`
-		performance.mark("mark1");
-		performance.mark("mark2");
-		performance.measure("measure1", "mark1", "mark2");
-
-		const marks = performance.getEntriesByType("mark");
-		if (marks.length !== 2) {
-			throw new Error("should have 2 marks");
-		}
-
-		const measures = performance.getEntriesByType("measure");
-		if (measures.length !== 1) {
-			throw new Error("should have 1 measure");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.getEntriesByType() test failed: %v", err)
-	}
-}
-
-// TestPerformance_GetEntriesByName tests performance.getEntriesByName() from JavaScript.
-func TestPerformance_GetEntriesByName(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.getEntriesByName()
-	_, err = runtime.RunString(`
-		performance.mark("target");
-		performance.mark("other");
-		performance.mark("target");
-
-		const entries = performance.getEntriesByName("target");
-		if (entries.length !== 2) {
-			throw new Error("should have 2 entries named 'target'");
-		}
-
-		// With type filter
-		const marks = performance.getEntriesByName("target", "mark");
-		if (marks.length !== 2) {
-			throw new Error("should have 2 marks named 'target'");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.getEntriesByName() test failed: %v", err)
-	}
-}
-
-// TestPerformance_ClearMarks tests performance.clearMarks() from JavaScript.
-func TestPerformance_ClearMarks(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.clearMarks()
-	_, err = runtime.RunString(`
-		performance.mark("keep");
-		performance.mark("remove");
-
-		performance.clearMarks("remove");
-
-		const entries = performance.getEntriesByType("mark");
-		if (entries.length !== 1) {
-			throw new Error("should have 1 mark after clear");
-		}
-		if (entries[0].name !== "keep") {
-			throw new Error("wrong mark remaining");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.clearMarks() test failed: %v", err)
-	}
-}
-
-// TestPerformance_ClearAllMarks tests performance.clearMarks() without name.
-func TestPerformance_ClearAllMarks(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.clearMarks() without name
-	_, err = runtime.RunString(`
-		performance.mark("mark1");
-		performance.mark("mark2");
-
-		performance.clearMarks();
-
-		const entries = performance.getEntriesByType("mark");
-		if (entries.length !== 0) {
-			throw new Error("should have 0 marks after clear all, got " + entries.length);
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.clearMarks() all test failed: %v", err)
-	}
-}
-
-// TestPerformance_ClearMeasures tests performance.clearMeasures() from JavaScript.
-func TestPerformance_ClearMeasures(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.clearMeasures()
-	_, err = runtime.RunString(`
-		performance.mark("start");
-		performance.mark("end");
-		performance.measure("keep", "start", "end");
-		performance.measure("remove", "start", "end");
-
-		performance.clearMeasures("remove");
-
-		const measures = performance.getEntriesByType("measure");
-		if (measures.length !== 1) {
-			throw new Error("should have 1 measure after clear");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.clearMeasures() test failed: %v", err)
-	}
-}
-
-// TestPerformance_ToJSON tests performance.toJSON() from JavaScript.
-func TestPerformance_ToJSON(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.toJSON()
-	_, err = runtime.RunString(`
+		if (Performance.name !== "Performance" || Performance.length !== 0) throw new Error("constructor metadata");
+		const now = Object.getOwnPropertyDescriptor(Performance.prototype, "now");
+		if (!now || typeof now.value !== "function" || now.value.name !== "now" || now.value.length !== 0 || !now.writable || !now.enumerable || !now.configurable) throw new Error("now descriptor");
+		const origin = Object.getOwnPropertyDescriptor(Performance.prototype, "timeOrigin");
+		if (!origin || typeof origin.get !== "function" || origin.get.name !== "get timeOrigin" || origin.get.length !== 0 || origin.set !== undefined || !origin.enumerable || !origin.configurable) throw new Error("timeOrigin descriptor");
+		const toJSON = Object.getOwnPropertyDescriptor(Performance.prototype, "toJSON");
+		if (!toJSON || toJSON.value.name !== "toJSON" || toJSON.value.length !== 0 || !toJSON.writable || !toJSON.enumerable || !toJSON.configurable) throw new Error("toJSON descriptor");
 		const json = performance.toJSON();
-		if (typeof json !== 'object') {
-			throw new Error("toJSON() should return an object");
+		if (Object.getPrototypeOf(json) !== Object.prototype || Reflect.ownKeys(json).join() !== "timeOrigin" || json.timeOrigin !== performance.timeOrigin) {
+			throw new Error("toJSON result");
 		}
-		if (typeof json.timeOrigin !== 'number') {
-			throw new Error("toJSON() should include timeOrigin");
+		function observe(call) {
+			try { call(); return "missing"; }
+			catch (error) { return [error.name, String(error.code), error.message].join(":"); }
 		}
+		const receiver = 'TypeError:undefined:Value of "this" must be of type Performance';
+		for (const call of [
+			() => Reflect.apply(Performance.prototype.now, {}, []),
+			() => Reflect.apply(origin.get, {}, []),
+			() => Reflect.apply(toJSON.value, {}, []),
+		]) if (observe(call) !== receiver) throw new Error("receiver check: " + observe(call));
+		if (observe(() => new Performance()) !== "TypeError:undefined:Illegal constructor") throw new Error("constructor check");
 	`)
 	if err != nil {
-		t.Fatalf("performance.toJSON() test failed: %v", err)
+		t.Fatalf("performance retained profile: %v", err)
 	}
 }
 
-// TestPerformance_MeasureError tests performance.measure() with invalid marks.
-func TestPerformance_MeasureError(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
+func TestPerformance_ForeignPairPreservationAndPartialRejection(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		initializer string
+		wantError   bool
+	}{
+		{name: "full pair", initializer: `globalThis.Performance = function ForeignPerformance() {}; globalThis.performance = Object.create(Performance.prototype);`},
+		{name: "constructor only", initializer: `globalThis.Performance = function ForeignPerformance() {};`, wantError: true},
+		{name: "singleton only", initializer: `globalThis.performance = { sentinel: true };`, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime := goja.New()
+			if _, err := runtime.RunString(test.initializer); err != nil {
+				t.Fatalf("install foreign performance state: %v", err)
+			}
+			constructor := runtime.Get("Performance")
+			singleton := runtime.Get("performance")
+			_, preserved, err := coherentHostSingleton(runtime, "performance", "Performance")
+			if test.wantError {
+				if err == nil || !strings.Contains(err.Error(), "is partial") {
+					t.Fatalf("coherent performance error = %v, want partial-pair error", err)
+				}
+			} else if err != nil {
+				t.Fatalf("coherent performance: %v", err)
+			} else if !preserved {
+				t.Fatal("foreign performance pair was not recognized")
+			}
+			sameValue := func(left, right goja.Value) bool {
+				if left == nil || right == nil {
+					return left == nil && right == nil
+				}
+				return left.SameAs(right)
+			}
+			if !sameValue(runtime.Get("Performance"), constructor) || !sameValue(runtime.Get("performance"), singleton) {
+				t.Fatal("pair inspection changed foreign globals")
+			}
+		})
 	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	// Test performance.measure() with invalid mark
-	_, err = runtime.RunString(`
-		let didThrow = false;
-		try {
-			performance.measure("test", "nonexistent", undefined);
-		} catch (e) {
-			didThrow = true;
-		}
-		if (!didThrow) {
-			throw new Error("measure() should throw for nonexistent start mark");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("performance.measure() error test failed: %v", err)
-	}
-}
-
-// TestPerformance_Integration tests a realistic performance measurement scenario.
-func TestPerformance_Integration(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	runtime := goja.New()
-	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
-
-	if err := adapter.Bind(); err != nil {
-		t.Fatalf("Failed to bind: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	// Start the loop
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
-	// Test realistic performance measurement
-	_, err = runtime.RunString(`
-		// Simulate async operation with performance measurement
-		performance.mark("operation-start");
-
-		// ... simulate some work ...
-
-		performance.mark("operation-end");
-		performance.measure("operation-duration", "operation-start", "operation-end");
-
-		// Get results
-		const measures = performance.getEntriesByType("measure");
-		if (measures.length !== 1) {
-			throw new Error("should have 1 measure");
-		}
-
-		const duration = measures[0].duration;
-		if (duration < 0) {
-			throw new Error("duration should be non-negative");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("Performance integration test failed: %v", err)
-	}
-
-	// Shutdown
-	_ = loop.Shutdown(context.Background())
-	<-done
 }
 
 // TestAbortController_WithFetch tests AbortController with a simulated fetch-like operation.
 func TestAbortController_WithFetch(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -876,10 +430,7 @@ func TestAbortController_WithFetch(t *testing.T) {
 
 // TestAbortSignal_Any_Basic tests AbortSignal.any() with multiple signals.
 func TestAbortSignal_Any_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -916,10 +467,7 @@ func TestAbortSignal_Any_Basic(t *testing.T) {
 
 // TestAbortSignal_Any_AlreadyAborted tests AbortSignal.any() with pre-aborted signal.
 func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -952,10 +500,7 @@ func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
 
 // TestAbortSignal_Any_Empty tests AbortSignal.any() with empty array.
 func TestAbortSignal_Any_Empty(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -982,10 +527,7 @@ func TestAbortSignal_Any_Empty(t *testing.T) {
 
 // TestAbortSignal_Any_OnAbort tests AbortSignal.any() with onabort handler.
 func TestAbortSignal_Any_OnAbort(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -1038,10 +580,7 @@ func TestAbortSignal_Any_OnAbort(t *testing.T) {
 
 // TestAbortSignal_Timeout_Basic tests AbortSignal.timeout() basic functionality.
 func TestAbortSignal_Timeout_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -1053,6 +592,17 @@ func TestAbortSignal_Timeout_Basic(t *testing.T) {
 		t.Fatalf("Failed to bind: %v", err)
 	}
 
+	_, err = runtime.RunString(`
+		globalThis.timeoutSignal = AbortSignal.timeout(50);
+
+		if (timeoutSignal.aborted) {
+			throw new Error("signal should not be aborted immediately");
+		}
+	`)
+	if err != nil {
+		t.Fatalf("AbortSignal.timeout basic test failed: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -1061,41 +611,24 @@ func TestAbortSignal_Timeout_Basic(t *testing.T) {
 		done <- loop.Run(ctx)
 	}()
 
-	time.Sleep(10 * time.Millisecond)
-
-	_, err = runtime.RunString(`
-		const signal = AbortSignal.timeout(50);
-
-		if (signal.aborted) {
-			throw new Error("signal should not be aborted immediately");
-		}
-	`)
-	if err != nil {
-		t.Fatalf("AbortSignal.timeout basic test failed: %v", err)
-	}
-
 	// Wait for timeout to fire
 	time.Sleep(100 * time.Millisecond)
+	_ = loop.Shutdown(context.Background())
+	<-done
 
 	_, err = runtime.RunString(`
-		// The signal should now be aborted
-		// Note: We can't easily check this in the same script since
-		// the timeout fires asynchronously
+		if (!timeoutSignal.aborted) {
+			throw new Error("signal should be aborted after timeout");
+		}
 	`)
 	if err != nil {
 		t.Fatalf("AbortSignal.timeout continuation failed: %v", err)
 	}
-
-	_ = loop.Shutdown(context.Background())
-	<-done
 }
 
 // TestAbortSignal_Timeout_Fires tests that AbortSignal.timeout() actually aborts.
 func TestAbortSignal_Timeout_Fires(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -1143,10 +676,7 @@ func TestAbortSignal_Timeout_Fires(t *testing.T) {
 
 // TestAbortSignal_Timeout_Zero tests AbortSignal.timeout(0).
 func TestAbortSignal_Timeout_Zero(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -1157,16 +687,6 @@ func TestAbortSignal_Timeout_Zero(t *testing.T) {
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- loop.Run(ctx)
-	}()
-
-	time.Sleep(10 * time.Millisecond)
 
 	_, err = runtime.RunString(`
 		const signal = AbortSignal.timeout(0);
@@ -1179,6 +699,14 @@ func TestAbortSignal_Timeout_Zero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AbortSignal.timeout(0) test failed: %v", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- loop.Run(ctx)
+	}()
 
 	_ = loop.Shutdown(context.Background())
 	<-done

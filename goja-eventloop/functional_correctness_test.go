@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestFunctionalCorrectness_PromiseRejectIdentity verifies Promise.reject(promise)
@@ -18,10 +18,7 @@ func TestFunctionalCorrectness_PromiseRejectIdentity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -70,10 +67,7 @@ func TestFunctionalCorrectness_TimerIDIsolation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -123,10 +117,7 @@ func TestFunctionalCorrectness_IntervalCleanup_Regression(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

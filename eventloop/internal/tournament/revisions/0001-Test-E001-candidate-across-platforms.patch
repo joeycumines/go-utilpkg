@@ -1,0 +1,2116 @@
+From f7ef4c86843e1790bf0528975ab2c92ba3351702 Mon Sep 17 00:00:00 2001
+From: Joseph Cumines <joeycumines@gmail.com>
+Date: Wed, 15 Jul 2026 17:39:21 +1000
+Subject: [PATCH] Test E001 candidate across platforms
+
+Carries the frozen E001 tree solely for the required three-platform CI gate. This disposable commit is not qualification or product history.
+---
+ eventloop/CHANGELOG.md                        |  15 +-
+ eventloop/README.md                           |  13 +-
+ eventloop/abort.go                            | 106 ++--
+ eventloop/abort_contract_test.go              | 541 +++++++++++++++++-
+ eventloop/abort_integration_test.go           | 233 ++------
+ eventloop/abort_test.go                       |  10 +-
+ eventloop/docs/architecture.md                |  20 +-
+ eventloop/eventtarget.go                      |  73 ++-
+ eventloop/eventtarget_contract_test.go        | 392 +++++++++++++
+ eventloop/fuzz_test.go                        |  77 ++-
+ eventloop/loop.go                             |   2 +
+ eventloop/poll_wait_unix.go                   |  10 +-
+ eventloop/structured_logging_extra_test.go    |  12 +-
+ .../692fa6804d06d741                          |   2 +
+ 14 files changed, 1192 insertions(+), 314 deletions(-)
+ create mode 100644 eventloop/testdata/fuzz/FuzzAbortSignalGraphModel/692fa6804d06d741
+
+diff --git a/eventloop/CHANGELOG.md b/eventloop/CHANGELOG.md
+index 201595171ba59760001d5f79faf6f0ee0e5756b4..8242f5a2a86749bfb43b1e552c5f4ce9b0d251dc 100644
+--- a/eventloop/CHANGELOG.md
++++ b/eventloop/CHANGELOG.md
+@@ -24,7 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+   panics before re-raising the first panic. `AbortAny` deduplicates sources and
+   detaches losing links. `AbortTimeout` uses `TimeoutError`, validates nil,
+   negative, and overflowing inputs, and cancels its referenced timer after a
+-  manual winning abort; terminal timer discard also releases its Loop reference.
++  manual winning abort. The timer or first manual call claims settlement; every
++  later manual call that loses joins stable reason publication, whether the
++  winner is the timer or another manual call, without waiting for cleanup or
++  handler delivery. Terminal timer discard also releases its Loop reference.
+   `AbortSignal.AddEventListener` now ignores event types other than the supported
+   `"abort"` value instead of registering them as abort callbacks.
+   Timeout-triggered handlers run through a delegated-owner boundary so
+@@ -32,9 +35,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+   lifecycle and scheduling calls retain owner behavior.
+   `EventTarget` now observes listener removal until the
+   callback-start claim, atomically claims once listeners before invocation, and
+-  releases removed callback storage. Reused events start with fresh dispatch
+-  state; recursive dispatch of the same event panics. Documentation now labels
+-  these APIs as Go-native rather than claiming DOM conformance.
++  releases removed callback storage. Reused events clear completed dispatch
++  state, and dispatching a copied event establishes an independent weak identity
++  without retaining the original graph. Listener IDs are unique among live
++  registrations and may reuse released values after a full counter wrap, with
++  documented stale-ID ABA implications. Recursive dispatch of the same event
++  panics. Documentation now labels these APIs as Go-native rather than claiming
++  DOM conformance.
+ 
+ - **Unix FD poller lifecycle and readiness** — Darwin kqueue and Linux epoll
+   registrations now carry monotonic identity through native events, preventing
+diff --git a/eventloop/README.md b/eventloop/README.md
+index ddc69adfbd27dcc8678e759a73117d318fef3e03..93feb05978d8768ed73908c6a1727b64b9431aed 100644
+--- a/eventloop/README.md
++++ b/eventloop/README.md
+@@ -202,8 +202,11 @@ promise.Catch(func(r any) any {
+ `AbortController` publishes one stable reason. `ThrowIfAborted` returns an error
+ reason by identity and wraps a non-error reason once. `AbortAny` removes its
+ source links when one source wins. `AbortTimeout` uses a referenced loop timer;
+-a manual winning abort cancels that timer. A nil loop, negative millisecond
+-delay, or duration overflow is a programming error and panics.
++a manual winning abort cancels that timer. The timer or first `Abort` call claims
++settlement; any later `Abort` that loses waits only until the winner publishes
++the signal's stable reason, whether that winner is the timer or another manual
++call. A nil loop, negative millisecond delay, or duration overflow is a
++programming error and panics.
+ Terminal loop cleanup releases a pending timeout's loop reference even though
+ discarding the timer does not itself abort the signal.
+ Timeout-triggered handlers execute on a delegated-owner goroutine while the loop
+@@ -215,7 +218,11 @@ successful removal suppresses a listener that has not crossed its callback-start
+ claim. Once listeners are claimed before invocation, so concurrent or recursive
+ dispatch cannot invoke one twice. Listener panics propagate. The same `Event`
+ may be reused after dispatch returns, but recursively dispatching that value
+-panics.
++panics. Dispatching a copied `Event` establishes an independent identity at
++entry without retaining the original event graph. Listener IDs are unique among
++live registrations; successful removal or once claim invalidates an ID. After a
++full counter wrap, a released value may be reused, so a stale same-type ID can
++theoretically exhibit ABA behavior.
+ 
+ These are Go APIs inspired by familiar browser names, not DOM implementations.
+ The separate `goja-eventloop` module owns JavaScript-visible behavior.
+diff --git a/eventloop/abort.go b/eventloop/abort.go
+index 301ba106566aafea0af81b4f0dc5c5582b5552ba..28d1b17e636e5ac59e0ff76a4ec835ffcb586c9a 100644
+--- a/eventloop/abort.go
++++ b/eventloop/abort.go
+@@ -286,9 +286,9 @@ func (d *abortDispatch) abandon() {
+ 	d.completed = true
+ }
+ 
+-func (s *AbortSignal) addAbortHandler(handler func(reason any)) func() {
++func (s *AbortSignal) addAbortHandler(handler func(reason any)) {
+ 	if handler == nil {
+-		return nil
++		return
+ 	}
+ 
+ 	entry := &abortHandler{handler: handler}
+@@ -298,7 +298,7 @@ func (s *AbortSignal) addAbortHandler(handler func(reason any)) func() {
+ 	if !s.aborted || s.dispatching {
+ 		s.handlers = append(s.handlers, entry)
+ 		s.mu.Unlock()
+-		return func() { s.removeAbortHandler(entry) }
++		return
+ 	}
+ 	reason := s.reason
+ 	s.mu.Unlock()
+@@ -306,29 +306,6 @@ func (s *AbortSignal) addAbortHandler(handler func(reason any)) func() {
+ 	if entry.active.CompareAndSwap(true, false) {
+ 		handler(reason)
+ 	}
+-	return nil
+-}
+-
+-func (s *AbortSignal) removeAbortHandler(target *abortHandler) {
+-	if target == nil || !target.active.Swap(false) {
+-		return
+-	}
+-
+-	s.mu.Lock()
+-	defer s.mu.Unlock()
+-	for i, entry := range s.handlers {
+-		if entry != target {
+-			continue
+-		}
+-		copy(s.handlers[i:], s.handlers[i+1:])
+-		last := len(s.handlers) - 1
+-		s.handlers[last] = nil
+-		s.handlers = s.handlers[:last]
+-		if len(s.handlers) == 0 {
+-			s.handlers = nil
+-		}
+-		return
+-	}
+ }
+ 
+ func (s *AbortSignal) addAbortAlgorithm(claim func(reason any) *abortDispatch) func() {
+@@ -447,20 +424,30 @@ func (c *AbortController) Signal() *AbortSignal {
+ // Calling Abort() multiple times has no additional effect; the signal
+ // remains in its aborted state with the original reason.
+ //
++// For a controller returned by [AbortTimeout], the timer or first Abort call
++// claims settlement. A later Abort that loses to either kind of winner waits
++// until the winner publishes the signal's stable reason before returning. It
++// does not wait for timer cleanup or handler delivery.
++//
+ // Thread Safety: Safe to call concurrently from any goroutine.
+ func (c *AbortController) Abort(reason any) {
+ 	// If no reason provided, use a default AbortError
+ 	if reason == nil {
+ 		reason = &AbortError{Reason: "Aborted"}
+ 	}
+-	var cleanup func()
+-	if c.timeoutState != nil {
+-		if !c.timeoutState.claimManual() {
++	if state := c.timeoutState; state != nil {
++		if !state.claimManual() {
++			state.waitPublished()
+ 			return
+ 		}
+-		cleanup = c.timeoutState.cancel
++		dispatch, ok := c.signal.beginAbort(reason, state.cancel)
++		state.publish()
++		if ok {
++			runAbortDispatch(dispatch)
++		}
++		return
+ 	}
+-	c.signal.abort(reason, cleanup)
++	c.signal.abort(reason, nil)
+ }
+ 
+ // AbortError wraps a non-error Go abort reason or supplies the default reason.
+@@ -504,10 +491,13 @@ func (e *AbortError) Unwrap() error {
+ // AbortTimeout creates an AbortController that aborts after delayMs milliseconds.
+ //
+ // Timeout settlement stores one *[TimeoutError], which [AbortSignal.Reason] and
+-// [AbortSignal.ThrowIfAborted] return by identity. A manual abort that wins first
+-// queues cancellation of the referenced timer so it no longer keeps the loop
+-// alive or retains its callback. Loop termination retires the timer and releases
+-// the controller's loop reference without aborting the signal.
++// [AbortSignal.ThrowIfAborted] return by identity. The timer or first manual
++// Abort claims settlement. A manual Abort that wins queues cancellation of the
++// referenced timer so it no longer keeps the loop alive or retains its callback.
++// Any later Abort that loses, whether to the timer or another Abort, joins signal
++// publication before returning without waiting for cleanup or handler delivery.
++// Loop termination retires an unclaimed timer and releases the controller's loop
++// reference without aborting the signal.
+ //
+ // Timeout handlers run on an isolated delegated-owner goroutine while the loop
+ // waits. Loop APIs treat that goroutine as the owner, preserving callback-local
+@@ -539,7 +529,10 @@ func AbortTimeout(loop *Loop, delayMs int) (*AbortController, error) {
+ 	}
+ 
+ 	controller := NewAbortController()
+-	state := &abortTimeoutState{loop: loop}
++	state := &abortTimeoutState{
++		loop:      loop,
++		published: make(chan struct{}),
++	}
+ 	timerID, err := loop.scheduleTimerRetire(time.Duration(delayMs)*time.Millisecond, func() {
+ 		if !state.claimTimeout() {
+ 			return
+@@ -577,7 +570,11 @@ func dispatchAbortTimeout(loop *Loop, signal *AbortSignal, state *abortTimeoutSt
+ 				panicked:   !completed && panicValue != nil,
+ 			}
+ 		}()
+-		signal.abort(&TimeoutError{}, state.release)
++		dispatch, ok := signal.beginAbort(&TimeoutError{}, state.release)
++		state.publish()
++		if ok {
++			runAbortDispatch(dispatch)
++		}
+ 		completed = true
+ 	}()
+ 	outcome := <-result
+@@ -587,10 +584,12 @@ func dispatchAbortTimeout(loop *Loop, signal *AbortSignal, state *abortTimeoutSt
+ }
+ 
+ type abortTimeoutState struct {
+-	loop    *Loop
+-	timerID TimerID
+-	mu      sync.Mutex
+-	winner  atomic.Uint32
++	loop        *Loop
++	published   chan struct{}
++	timerID     TimerID
++	mu          sync.Mutex
++	publishOnce sync.Once
++	winner      atomic.Uint32
+ }
+ 
+ const (
+@@ -606,7 +605,16 @@ func (s *abortTimeoutState) setTimerID(timerID TimerID) {
+ }
+ 
+ func (s *abortTimeoutState) claimManual() bool {
+-	return s.winner.CompareAndSwap(abortTimeoutPending, abortTimeoutManual)
++	if !s.winner.CompareAndSwap(abortTimeoutPending, abortTimeoutManual) {
++		return false
++	}
++	s.mu.Lock()
++	loop := s.loop
++	s.mu.Unlock()
++	if loop != nil && loop.testHooks != nil && loop.testHooks.AfterAbortTimeoutManualClaim != nil {
++		loop.testHooks.AfterAbortTimeoutManualClaim()
++	}
++	return true
+ }
+ 
+ func (s *abortTimeoutState) claimTimeout() bool {
+@@ -619,6 +627,20 @@ func (s *abortTimeoutState) claimTimeout() bool {
+ 	return s.winner.CompareAndSwap(abortTimeoutPending, abortTimeoutTimer)
+ }
+ 
++func (s *abortTimeoutState) publish() {
++	s.publishOnce.Do(func() { close(s.published) })
++}
++
++func (s *abortTimeoutState) waitPublished() {
++	s.mu.Lock()
++	loop := s.loop
++	s.mu.Unlock()
++	if loop != nil && loop.testHooks != nil && loop.testHooks.BeforeAbortTimeoutPublicationWait != nil {
++		loop.testHooks.BeforeAbortTimeoutPublicationWait()
++	}
++	<-s.published
++}
++
+ func (s *abortTimeoutState) cancel() {
+ 	s.mu.Lock()
+ 	loop := s.loop
+diff --git a/eventloop/abort_contract_test.go b/eventloop/abort_contract_test.go
+index f4a3e33c0b9772b4b874b902ccb6c1dcf0f5d302..295ee467aa389e8004bfe49a621d652d55f967ac 100644
+--- a/eventloop/abort_contract_test.go
++++ b/eventloop/abort_contract_test.go
+@@ -5,14 +5,18 @@ import (
+ 	"reflect"
+ 	"runtime"
+ 	"strconv"
++	"sync"
+ 	"sync/atomic"
+ 	"testing"
+ 	"time"
+ 	"weak"
++
++	"github.com/joeycumines/logiface"
+ )
+ 
+ type contractRetentionPayload struct {
+ 	value int
++	_     [32]byte
+ }
+ 
+ func TestAbortSignalThrowIfAbortedPreservesErrorIdentity(t *testing.T) {
+@@ -57,24 +61,29 @@ func TestAbortSignalThrowIfAbortedReturnsDefaultReason(t *testing.T) {
+ func TestAbortSignalSettlementRunsFIFOAndReraisesFirstPanic(t *testing.T) {
+ 	controller := NewAbortController()
+ 	signal := controller.Signal()
+-	marker := errors.New("handler panic")
+-	order := make([]int, 0, 3)
++	firstMarker := errors.New("first handler panic")
++	secondMarker := errors.New("second handler panic")
++	order := make([]int, 0, 4)
+ 
+ 	signal.OnAbort(func(any) {
+ 		order = append(order, 1)
+ 		signal.OnAbort(func(any) {
+ 			order = append(order, 3)
+ 		})
+-		panic(marker)
++		panic(firstMarker)
+ 	})
+ 	signal.OnAbort(func(any) {
+ 		order = append(order, 2)
++		panic(secondMarker)
++	})
++	signal.OnAbort(func(any) {
++		order = append(order, 4)
+ 	})
+ 
+-	if got := abortEventCapturePanic(func() { controller.Abort("stop") }); got != marker {
+-		t.Fatalf("panic = %#v, want %#v", got, marker)
++	if got := abortEventCapturePanic(func() { controller.Abort("stop") }); got != firstMarker {
++		t.Fatalf("panic = %#v, want first panic %#v", got, firstMarker)
+ 	}
+-	if want := []int{1, 2, 3}; !reflect.DeepEqual(order, want) {
++	if want := []int{1, 2, 4, 3}; !reflect.DeepEqual(order, want) {
+ 		t.Fatalf("handler order = %v, want %v", order, want)
+ 	}
+ 	if got := len(signal.handlers); got != 0 {
+@@ -82,6 +91,67 @@ func TestAbortSignalSettlementRunsFIFOAndReraisesFirstPanic(t *testing.T) {
+ 	}
+ }
+ 
++func TestAbortSignalCleanupPanicStillDeliversHandlers(t *testing.T) {
++	signal := newAbortSignal()
++	marker := errors.New("cleanup panic")
++	var calls atomic.Int32
++	signal.OnAbort(func(any) { calls.Add(1) })
++	signal.OnAbort(func(any) { calls.Add(1) })
++	dispatch, ok := signal.beginAbort("stop", func() { panic(marker) })
++	if !ok {
++		t.Fatal("beginAbort did not claim an unsettled signal")
++	}
++	if got := abortEventCapturePanic(func() { runAbortDispatch(dispatch) }); got != marker {
++		t.Fatalf("panic = %#v, want cleanup panic %#v", got, marker)
++	}
++	if got := calls.Load(); got != 2 {
++		t.Fatalf("handler calls = %d, want 2 after cleanup panic", got)
++	}
++	if signal.dispatching {
++		t.Fatal("signal remained dispatching after cleanup panic")
++	}
++}
++
++func TestAbortDispatchDefensiveCleanup(t *testing.T) {
++	t.Run("nil flatten", func(t *testing.T) {
++		marker := &abortDispatch{}
++		got := appendAbortDispatches([]*abortDispatch{marker}, nil)
++		if len(got) != 1 || got[0] != marker {
++			t.Fatalf("appendAbortDispatches with nil = %#v, want unchanged marker", got)
++		}
++	})
++
++	t.Run("abandon", func(t *testing.T) {
++		signal := newAbortSignal()
++		current := &abortHandler{handler: func(any) {}}
++		queued := &abortHandler{handler: func(any) {}}
++		current.active.Store(true)
++		queued.active.Store(true)
++		signal.handlers = []*abortHandler{queued}
++		signal.dispatching = true
++		dispatch := &abortDispatch{
++			signal:   signal,
++			cleanup:  func() {},
++			handlers: []*abortHandler{current},
++		}
++
++		dispatch.abandon()
++
++		if !dispatch.completed || dispatch.cleanup != nil || dispatch.handlers != nil {
++			t.Fatalf("abandoned dispatch = %#v, want completed with released callbacks", dispatch)
++		}
++		if signal.dispatching || signal.handlers != nil {
++			t.Fatalf("abandoned signal state = dispatching %v, handlers %#v", signal.dispatching, signal.handlers)
++		}
++		if current.active.Load() || queued.active.Load() {
++			t.Fatal("abandon left a current or queued handler active")
++		}
++		dispatch.abandon()
++		var nilDispatch *abortDispatch
++		nilDispatch.abandon()
++	})
++}
++
+ func TestAbortSignalGoexitStillReleasesDispatchState(t *testing.T) {
+ 	controller := NewAbortController()
+ 	signal := controller.Signal()
+@@ -168,6 +238,62 @@ func TestAbortAnyPreAbortedSourceSkipsLaterRegistration(t *testing.T) {
+ 	}
+ }
+ 
++func TestAbortAnyStateDefensiveTransitions(t *testing.T) {
++	t.Run("nil algorithm", func(t *testing.T) {
++		signal := newAbortSignal()
++		if remove := signal.addAbortAlgorithm(nil); remove != nil {
++			t.Fatalf("nil algorithm removal = %p, want nil", remove)
++		}
++		if len(signal.algorithms) != 0 {
++			t.Fatalf("nil algorithm registered %d entries", len(signal.algorithms))
++		}
++	})
++
++	t.Run("late removal", func(t *testing.T) {
++		state := &abortAnyState{settled: true}
++		var calls atomic.Int32
++		if state.addRemoval(func() { calls.Add(1) }) {
++			t.Fatal("settled state accepted a late removal")
++		}
++		if got := calls.Load(); got != 1 {
++			t.Fatalf("late removal calls = %d, want 1", got)
++		}
++	})
++
++	t.Run("duplicate claim", func(t *testing.T) {
++		state := &abortAnyState{signal: newAbortSignal()}
++		dispatch := state.claim("first")
++		if dispatch == nil {
++			t.Fatal("first claim returned nil")
++		}
++		runAbortDispatch(dispatch)
++		if got := state.claim("second"); got != nil {
++			t.Fatalf("duplicate claim = %#v, want nil", got)
++		}
++	})
++
++	t.Run("already aborted composite", func(t *testing.T) {
++		signal := newAbortSignal()
++		if !signal.abort("existing", nil) {
++			t.Fatal("failed to pre-abort composite signal")
++		}
++		var removals atomic.Int32
++		state := &abortAnyState{
++			signal: signal,
++			removals: []func(){
++				func() { removals.Add(1) },
++				func() { removals.Add(1) },
++			},
++		}
++		if got := state.claim("later"); got != nil {
++			t.Fatalf("claim on an aborted composite = %#v, want nil", got)
++		}
++		if got := removals.Load(); got != 2 {
++			t.Fatalf("failed-claim removal calls = %d, want 2", got)
++		}
++	})
++}
++
+ func TestAbortAnySourceSettlementPrecedesSourceHandlers(t *testing.T) {
+ 	first := NewAbortController()
+ 	second := NewAbortController()
+@@ -193,6 +319,31 @@ func TestAbortAnySourceSettlementPrecedesSourceHandlers(t *testing.T) {
+ 	<-firstDone
+ }
+ 
++func TestAbortAnyNestedPropagationPrecedesSourceHandlers(t *testing.T) {
++	first := NewAbortController()
++	second := NewAbortController()
++	third := NewAbortController()
++	child := AbortAny([]*AbortSignal{first.Signal(), second.Signal()})
++	grandchild := AbortAny([]*AbortSignal{child, third.Signal()})
++
++	first.Signal().OnAbort(func(reason any) {
++		if got := child.Reason(); got != reason {
++			t.Fatalf("child reason observed by source handler = %#v, want %#v", got, reason)
++		}
++		if got := grandchild.Reason(); got != reason {
++			t.Fatalf("grandchild reason observed by source handler = %#v, want %#v", got, reason)
++		}
++		if got := len(second.Signal().algorithms); got != 0 {
++			t.Fatalf("child losing source retained %d algorithms", got)
++		}
++		if got := len(third.Signal().algorithms); got != 0 {
++			t.Fatalf("grandchild losing source retained %d algorithms", got)
++		}
++	})
++
++	first.Abort("winner")
++}
++
+ func TestAbortAnySourcePropagationSurvivesSourceGoexit(t *testing.T) {
+ 	first := NewAbortController()
+ 	first.Signal().OnAbort(func(any) {
+@@ -311,7 +462,7 @@ func TestAbortTimeoutManualClaimSuppressesDetachedTimer(t *testing.T) {
+ 	}
+ }
+ 
+-func TestAbortTimeoutTimerClaimSuppressesManualAbort(t *testing.T) {
++func TestAbortTimeoutTimerClaimPublishesBeforeManualAbortReturns(t *testing.T) {
+ 	loop, err := New(WithAutoExit(true))
+ 	if err != nil {
+ 		t.Fatal(err)
+@@ -323,28 +474,118 @@ func TestAbortTimeoutTimerClaimSuppressesManualAbort(t *testing.T) {
+ 	}
+ 	timerClaimed := make(chan struct{})
+ 	releaseTimer := make(chan struct{})
+-	loop.testHooks = &loopTestHooks{AfterAbortTimeoutClaim: func() {
+-		close(timerClaimed)
+-		<-releaseTimer
+-	}}
++	releaseTimerNow := abortContractRelease(t, releaseTimer)
++	manualWaiting := make(chan struct{})
++	loop.testHooks = &loopTestHooks{
++		AfterAbortTimeoutClaim: func() {
++			close(timerClaimed)
++			<-releaseTimer
++		},
++		BeforeAbortTimeoutPublicationWait: func() { close(manualWaiting) },
++	}
++	var handlerCalls atomic.Int32
++	controller.Signal().OnAbort(func(any) {
++		handlerCalls.Add(1)
++	})
+ 
+ 	done := make(chan error, 1)
+ 	go func() { done <- loop.Run(t.Context()) }()
+-	<-timerClaimed
+-	controller.Abort("manual")
++	waitAbortContractSignal(t, timerClaimed, "timer claim")
++	manualReturned := make(chan struct{})
++	go func() {
++		controller.Abort("manual")
++		close(manualReturned)
++	}()
++	waitAbortContractSignal(t, manualWaiting, "losing manual publication wait")
++	select {
++	case <-manualReturned:
++		t.Fatal("manual Abort returned from a confirmed publication wait before publication")
++	default:
++	}
+ 	if got := controller.timeoutState.winner.Load(); got != abortTimeoutTimer {
+ 		t.Fatalf("timeout winner = %d, want timer claim %d", got, abortTimeoutTimer)
+ 	}
+ 	if controller.Signal().Aborted() {
+ 		t.Fatal("timeout signal published before the timer claim was released")
+ 	}
+-	close(releaseTimer)
+-	if err := <-done; err != nil {
++	releaseTimerNow()
++	waitAbortContractSignal(t, manualReturned, "manual Abort after timeout publication")
++	if err := waitAbortContractValue(t, done, "Run after timeout publication"); err != nil {
+ 		t.Fatalf("Run: %v", err)
+ 	}
+ 	if _, ok := controller.Signal().Reason().(*TimeoutError); !ok {
+ 		t.Fatalf("reason = %T, want *TimeoutError", controller.Signal().Reason())
+ 	}
++	if got := handlerCalls.Load(); got != 1 {
++		t.Fatalf("handler calls = %d, want exactly 1", got)
++	}
++}
++
++func TestAbortTimeoutManualClaimPublishesBeforeLosingManualReturns(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
++	if err != nil {
++		t.Fatal(err)
++	}
++	firstClaimed := make(chan struct{})
++	releaseFirst := make(chan struct{})
++	releaseFirstNow := abortContractRelease(t, releaseFirst)
++	secondWaiting := make(chan struct{})
++	loop.testHooks = &loopTestHooks{
++		AfterAbortTimeoutManualClaim: func() {
++			close(firstClaimed)
++			<-releaseFirst
++		},
++		BeforeAbortTimeoutPublicationWait: func() { close(secondWaiting) },
++	}
++	winnerReason := errors.New("first manual winner")
++	loserReason := errors.New("second manual loser")
++	handlerStarted := make(chan struct{})
++	releaseHandler := make(chan struct{})
++	releaseHandlerNow := abortContractRelease(t, releaseHandler)
++	var handlerCalls atomic.Int32
++	controller.Signal().OnAbort(func(any) {
++		handlerCalls.Add(1)
++		close(handlerStarted)
++		<-releaseHandler
++	})
++	firstDone := make(chan struct{})
++	go func() {
++		controller.Abort(winnerReason)
++		close(firstDone)
++	}()
++	waitAbortContractSignal(t, firstClaimed, "first manual claim")
++	secondDone := make(chan struct{})
++	go func() {
++		controller.Abort(loserReason)
++		close(secondDone)
++	}()
++	waitAbortContractSignal(t, secondWaiting, "second manual publication wait")
++	select {
++	case <-secondDone:
++		t.Fatal("losing manual Abort returned before the winner published")
++	default:
++	}
++	releaseFirstNow()
++	waitAbortContractSignal(t, handlerStarted, "winning manual handler")
++	waitAbortContractSignal(t, secondDone, "losing manual return after publication")
++	select {
++	case <-firstDone:
++		t.Fatal("winning manual Abort returned before its handler completed")
++	default:
++	}
++	if got := controller.Signal().Reason(); got != winnerReason {
++		t.Fatalf("reason = %#v, want exact first manual reason %#v", got, winnerReason)
++	}
++	if got := handlerCalls.Load(); got != 1 {
++		t.Fatalf("handler calls = %d, want exactly 1", got)
++	}
++	releaseHandlerNow()
++	waitAbortContractSignal(t, firstDone, "winning manual return")
+ }
+ 
+ func TestAbortTimeoutSettlementReleasesLoopReference(t *testing.T) {
+@@ -361,15 +602,152 @@ func TestAbortTimeoutSettlementReleasesLoopReference(t *testing.T) {
+ }
+ 
+ func TestAbortTimeoutTerminalDiscardReleasesLoopReference(t *testing.T) {
+-	for _, running := range []bool{false, true} {
+-		name := "pre-run"
+-		if running {
+-			name = "running"
++	for _, graceful := range []bool{false, true} {
++		terminalName := "close"
++		if graceful {
++			terminalName = "shutdown"
+ 		}
+-		t.Run(name, func(t *testing.T) {
+-			controller, pointer := newTerminalTimeoutLoop(t, running)
+-			waitContractCollected(t, pointer, controller)
+-		})
++		for _, running := range []bool{false, true} {
++			runName := "pre-run"
++			if running {
++				runName = "running"
++			}
++			t.Run(terminalName+"/"+runName, func(t *testing.T) {
++				controller, pointer := newTerminalTimeoutLoop(t, running, graceful)
++				if controller.Signal().Aborted() {
++					t.Fatalf("terminal discard aborted signal with reason %#v", controller.Signal().Reason())
++				}
++				if got := controller.Signal().Reason(); got != nil {
++					t.Fatalf("terminal discard reason = %#v, want nil", got)
++				}
++				waitContractCollected(t, pointer, controller)
++			})
++		}
++	}
++}
++
++func TestAbortTimeoutClaimLinearizesBeforeConcurrentClose(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	controller, err := AbortTimeout(loop, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	timerClaimed := make(chan struct{})
++	releaseTimer := make(chan struct{})
++	releaseTimerNow := abortContractRelease(t, releaseTimer)
++	closeOwned := make(chan struct{})
++	loop.testHooks = &loopTestHooks{
++		AfterAbortTimeoutClaim: func() {
++			close(timerClaimed)
++			<-releaseTimer
++		},
++		BeforeClosePromiseRejection: func() { close(closeOwned) },
++	}
++	var handlerCalls atomic.Int32
++	controller.Signal().OnAbort(func(any) { handlerCalls.Add(1) })
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(t.Context()) }()
++	waitAbortContractSignal(t, timerClaimed, "timer claim")
++	closeDone := make(chan error, 1)
++	go func() { closeDone <- loop.Close() }()
++	waitAbortContractSignal(t, closeOwned, "Close terminal ownership")
++	releaseTimerNow()
++	if err := waitAbortContractValue(t, closeDone, "Close after claimed timeout"); err != nil {
++		t.Fatalf("Close: %v", err)
++	}
++	if err := waitAbortContractValue(t, runDone, "Run after claimed timeout"); err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++	if _, ok := controller.Signal().Reason().(*TimeoutError); !ok {
++		t.Fatalf("reason = %T, want winning *TimeoutError", controller.Signal().Reason())
++	}
++	if got := handlerCalls.Load(); got != 1 {
++		t.Fatalf("handler calls = %d, want exactly 1", got)
++	}
++}
++
++func TestAbortTimeoutClaimLinearizesBeforeConcurrentShutdown(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	controller, err := AbortTimeout(loop, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	timerClaimed := make(chan struct{})
++	releaseTimer := make(chan struct{})
++	releaseTimerNow := abortContractRelease(t, releaseTimer)
++	shutdownOwned := make(chan struct{})
++	loop.testHooks = &loopTestHooks{
++		AfterAbortTimeoutClaim: func() {
++			close(timerClaimed)
++			<-releaseTimer
++		},
++		AfterShutdownStateTerminating: func() { close(shutdownOwned) },
++	}
++	var handlerCalls atomic.Int32
++	controller.Signal().OnAbort(func(any) { handlerCalls.Add(1) })
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(t.Context()) }()
++	waitAbortContractSignal(t, timerClaimed, "timer claim")
++	shutdownDone := make(chan error, 1)
++	go func() { shutdownDone <- loop.Shutdown(t.Context()) }()
++	waitAbortContractSignal(t, shutdownOwned, "Shutdown terminal ownership")
++	releaseTimerNow()
++	if err := waitAbortContractValue(t, shutdownDone, "Shutdown after claimed timeout"); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := waitAbortContractValue(t, runDone, "Run after claimed timeout Shutdown"); err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++	if _, ok := controller.Signal().Reason().(*TimeoutError); !ok {
++		t.Fatalf("reason = %T, want winning *TimeoutError", controller.Signal().Reason())
++	}
++	if got := handlerCalls.Load(); got != 1 {
++		t.Fatalf("handler calls = %d, want exactly 1", got)
++	}
++}
++
++func TestAbortTimeoutManualCancellationReleasesSignalWhileLoopLives(t *testing.T) {
++	loop, err := New(WithAutoExit(true))
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	keepAliveID, err := loop.ScheduleTimer(time.Hour, func() {})
++	if err != nil {
++		t.Fatal(err)
++	}
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(t.Context()) }()
++	ownerReady := make(chan struct{})
++	if err := loop.Submit(func() { close(ownerReady) }); err != nil {
++		t.Fatalf("Submit owner barrier: %v", err)
++	}
++	waitAbortContractSignal(t, ownerReady, "live loop owner barrier")
++	pointer := newManuallyCanceledTimeoutPointer(t, loop)
++	probeID, err := loop.ScheduleTimer(time.Hour, func() {})
++	if err != nil {
++		t.Fatalf("ScheduleTimer probe: %v", err)
++	}
++	if err := loop.CancelTimer(probeID); err != nil {
++		t.Fatalf("CancelTimer probe after timeout cancellation: %v", err)
++	}
++	waitContractCollected(t, pointer, loop)
++	if state := LoopState(loop.state.Load()); state == StateTerminating || state == StateTerminated {
++		t.Fatalf("loop terminated before live-loop retention proof: %v", state)
++	}
++	if err := loop.CancelTimer(keepAliveID); err != nil {
++		t.Fatalf("CancelTimer keepalive: %v", err)
++	}
++	if err := waitAbortContractValue(t, runDone, "auto-exit after live-loop retention proof"); err != nil {
++		t.Fatalf("Run: %v", err)
+ 	}
+ }
+ 
+@@ -442,6 +820,70 @@ func TestAbortTimeoutHandlerRetainsLoopOwnerSemantics(t *testing.T) {
+ 	}
+ }
+ 
++func TestAbortTimeoutHandlerSchedulesOwnerLocalWorkAndRelaysPanic(t *testing.T) {
++	panicValues := make(chan any, 1)
++	typedLogger := logiface.New[*testEvent](
++		logiface.WithEventFactory[*testEvent](&testEventFactory{}),
++		logiface.WithWriter[*testEvent](logiface.NewWriterFunc(func(event *testEvent) error {
++			if value, ok := event.fields["panic"]; ok {
++				panicValues <- value
++			}
++			return nil
++		})),
++	)
++	loop, err := New(WithAutoExit(true), WithLogger(typedLogger.Logger()))
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	controller, err := AbortTimeout(loop, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	marker := errors.New("timeout handler panic")
++	order := make(chan string, 3)
++	controller.Signal().OnAbort(func(any) {
++		if !loop.ownsLocalQueues() {
++			t.Error("timeout handler did not own loop-local queues")
++		}
++		if err := loop.ScheduleMicrotask(func() { order <- "microtask" }); err != nil {
++			t.Errorf("ScheduleMicrotask: %v", err)
++		}
++		if err := loop.ScheduleNextTick(func() { order <- "nextTick" }); err != nil {
++			t.Errorf("ScheduleNextTick: %v", err)
++		}
++		if got := loop.commands.Len(); got != 0 {
++			t.Errorf("owner-local scheduling used %d command-ingress entries", got)
++		}
++		if _, err := loop.ScheduleTimer(0, func() {
++			if !loop.ownsLocalQueues() {
++				t.Error("physical owner was not restored after delegated panic")
++			}
++			order <- "timer"
++		}); err != nil {
++			t.Errorf("ScheduleTimer: %v", err)
++		}
++		if got := loop.commands.Len(); got != 0 {
++			t.Errorf("owner-local timer scheduling used %d command-ingress entries", got)
++		}
++		panic(marker)
++	})
++	if err := runAutoExitLoop(t, loop); err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++	close(order)
++	var got []string
++	for value := range order {
++		got = append(got, value)
++	}
++	if want := []string{"nextTick", "microtask", "timer"}; !reflect.DeepEqual(got, want) {
++		t.Fatalf("scheduled order after relayed panic = %v, want %v", got, want)
++	}
++	if got := waitAbortContractValue(t, panicValues, "relayed panic log event"); got != marker {
++		t.Fatalf("safeExecute panic = %#v, want exact marker %#v", got, marker)
++	}
++}
++
+ func TestAbortTimeoutRejectsStaticContractViolations(t *testing.T) {
+ 	t.Run("nil loop", func(t *testing.T) {
+ 		if got := abortEventCapturePanic(func() { _, _ = AbortTimeout(nil, 1) }); got == nil {
+@@ -525,6 +967,12 @@ func newSettledTimeoutLoop(t *testing.T, manual bool) (*AbortController, weak.Po
+ 	}
+ 	if manual {
+ 		controller.Abort("manual")
++		controller.timeoutState.mu.Lock()
++		retainedLoop := controller.timeoutState.loop
++		controller.timeoutState.mu.Unlock()
++		if retainedLoop != nil {
++			t.Fatal("manual timeout settlement retained its loop before terminal cleanup")
++		}
+ 	}
+ 	if err := runAutoExitLoop(t, loop); err != nil {
+ 		t.Fatalf("Run: %v", err)
+@@ -534,7 +982,7 @@ func newSettledTimeoutLoop(t *testing.T, manual bool) (*AbortController, weak.Po
+ 	return controller, pointer
+ }
+ 
+-func newTerminalTimeoutLoop(t *testing.T, running bool) (*AbortController, weak.Pointer[Loop]) {
++func newTerminalTimeoutLoop(t *testing.T, running, graceful bool) (*AbortController, weak.Pointer[Loop]) {
+ 	t.Helper()
+ 	loop, err := New()
+ 	if err != nil {
+@@ -559,7 +1007,11 @@ func newTerminalTimeoutLoop(t *testing.T, running bool) (*AbortController, weak.
+ 			t.Fatal("owner callback did not run after timer commit")
+ 		}
+ 	}
+-	if err := loop.Close(); err != nil {
++	if graceful {
++		if err := loop.Shutdown(t.Context()); err != nil {
++			t.Fatalf("Shutdown: %v", err)
++		}
++	} else if err := loop.Close(); err != nil {
+ 		t.Fatalf("Close: %v", err)
+ 	}
+ 	if running {
+@@ -571,6 +1023,20 @@ func newTerminalTimeoutLoop(t *testing.T, running bool) (*AbortController, weak.
+ 	return controller, pointer
+ }
+ 
++func newManuallyCanceledTimeoutPointer(t *testing.T, loop *Loop) weak.Pointer[AbortSignal] {
++	t.Helper()
++	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
++	if err != nil {
++		t.Fatal(err)
++	}
++	signal := controller.Signal()
++	pointer := weak.Make(signal)
++	controller.Abort("manual")
++	runtime.KeepAlive(signal)
++	runtime.KeepAlive(controller)
++	return pointer
++}
++
+ func waitContractCollected[T any](t *testing.T, pointer weak.Pointer[T], keepAlive any) {
+ 	t.Helper()
+ 	deadline := time.Now().Add(5 * time.Second)
+@@ -587,3 +1053,28 @@ func waitContractCollected[T any](t *testing.T, pointer weak.Pointer[T], keepAli
+ 		runtime.Gosched()
+ 	}
+ }
++
++func waitAbortContractSignal(t *testing.T, signal <-chan struct{}, operation string) {
++	t.Helper()
++	waitAbortContractValue(t, signal, operation)
++}
++
++func abortContractRelease(t *testing.T, signal chan struct{}) func() {
++	t.Helper()
++	var once sync.Once
++	release := func() { once.Do(func() { close(signal) }) }
++	t.Cleanup(release)
++	return release
++}
++
++func waitAbortContractValue[T any](t *testing.T, values <-chan T, operation string) T {
++	t.Helper()
++	select {
++	case value := <-values:
++		return value
++	case <-time.After(5 * time.Second):
++		t.Fatalf("timed out waiting for %s", operation)
++		var zero T
++		return zero
++	}
++}
+diff --git a/eventloop/abort_integration_test.go b/eventloop/abort_integration_test.go
+index 18edb2f684e1c4047333703d2d127e9a2aad6d7b..d09a51b9414fd227065efc6170ef94e68e57471f 100644
+--- a/eventloop/abort_integration_test.go
++++ b/eventloop/abort_integration_test.go
+@@ -3,7 +3,6 @@ package eventloop
+ import (
+ 	"context"
+ 	"errors"
+-	"runtime"
+ 	"sync"
+ 	"sync/atomic"
+ 	"testing"
+@@ -353,73 +352,11 @@ func TestAbortIntegration_SignalPropagationThroughPromiseChain(t *testing.T) {
+ 	}
+ }
+ 
+-// TestAbortIntegration_MemoryCleanupAfterAbort verifies handler removal and
+-// signal collection after abort.
++// TestAbortIntegration_MemoryCleanupAfterAbort verifies that settled handler
++// captures are collectible while the settled signal remains reachable.
+ func TestAbortIntegration_MemoryCleanupAfterAbort(t *testing.T) {
+-	loop, err := New()
+-	if err != nil {
+-		t.Fatalf("Failed to create loop: %v", err)
+-	}
+-
+-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+-	defer cancel()
+-
+-	// Run loop
+-	done := make(chan error, 1)
+-	go func() {
+-		done <- loop.Run(ctx)
+-	}()
+-
+-	// Allow loop to start
+-	time.Sleep(20 * time.Millisecond)
+-
+-	// Create many controllers with handlers
+-	const numControllers = 100
+-	controllers := make([]*AbortController, numControllers)
+-	handlerCallCounts := make([]atomic.Int32, numControllers)
+-
+-	for i := range numControllers {
+-		controllers[i] = NewAbortController()
+-		idx := i
+-
+-		// Add multiple handlers
+-		for range 10 {
+-			controllers[i].Signal().OnAbort(func(reason any) {
+-				handlerCallCounts[idx].Add(1)
+-			})
+-		}
+-	}
+-
+-	// Abort all controllers
+-	for i := range numControllers {
+-		controllers[i].Abort("cleanup test")
+-	}
+-
+-	// Verify all handlers were called
+-	for i := range numControllers {
+-		if handlerCallCounts[i].Load() != 10 {
+-			t.Errorf("Controller %d: expected 10 handler calls, got %d",
+-				i, handlerCallCounts[i].Load())
+-		}
+-	}
+-
+-	// Clear references and force GC
+-	controllers = nil
+-	runtime.GC()
+-	runtime.GC()
+-
+-	// Verify no memory leaks by creating more controllers
+-	// (if handlers weren't cleaned up, this would accumulate memory)
+-	for range numControllers {
+-		c := NewAbortController()
+-		c.Signal().OnAbort(func(reason any) {})
+-		c.Abort("gc test")
+-	}
+-
+-	runtime.GC()
+-
+-	_ = loop.Shutdown(context.Background())
+-	<-done
++	signal, pointer := newSettledSignalPayload()
++	waitContractCollected(t, pointer, signal)
+ }
+ 
+ // TestAbortIntegration_AbortSignalAnyMultipleOperations tests AbortAny with
+@@ -524,120 +461,47 @@ func TestAbortIntegration_AbortSignalAnyMultipleOperations(t *testing.T) {
+ 	}
+ }
+ 
+-// TestAbortIntegration_TimeoutRacingWithManualAbort tests AbortTimeout racing
+-// with manual abort.
++// TestAbortIntegration_TimeoutRacingWithManualAbort verifies the allowed
++// relation when manual cancellation races the same timeout controller.
+ func TestAbortIntegration_TimeoutRacingWithManualAbort(t *testing.T) {
+-	loop, err := New()
+-	if err != nil {
+-		t.Fatalf("Failed to create loop: %v", err)
+-	}
+-
+-	js, err := NewJS(loop)
+-	if err != nil {
+-		t.Fatalf("Failed to create JS: %v", err)
+-	}
+-
+-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+-	defer cancel()
+-
+-	// Run loop
+-	done := make(chan error, 1)
+-	go func() {
+-		done <- loop.Run(ctx)
+-	}()
+-
+-	// Allow loop to start
+-	time.Sleep(20 * time.Millisecond)
+-
+-	// Test 1: Manual abort wins
+-	t.Run("ManualAbortWins", func(t *testing.T) {
+-		// Create timeout controller (500ms)
+-		timeoutController, err := AbortTimeout(loop, 500)
++	for range 50 {
++		loop, err := New(WithAutoExit(true))
+ 		if err != nil {
+-			t.Fatalf("AbortTimeout failed: %v", err)
++			t.Fatal(err)
+ 		}
+-
+-		// Create manual controller
+-		manualController := NewAbortController()
+-
+-		// Composite signal
+-		composite := AbortAny([]*AbortSignal{
+-			timeoutController.Signal(),
+-			manualController.Signal(),
+-		})
+-
+-		p, _, reject := js.NewChainedPromise()
+-
++		controller, err := AbortTimeout(loop, 0)
++		if err != nil {
++			t.Fatal(err)
++		}
++		var handlerCalls atomic.Int32
++		controller.Signal().OnAbort(func(any) { handlerCalls.Add(1) })
++		manualDone := make(chan struct{})
+ 		go func() {
+-			for !composite.Aborted() {
+-				time.Sleep(10 * time.Millisecond)
+-			}
+-			reject(&AbortError{Reason: composite.Reason()})
++			controller.Abort("manual")
++			close(manualDone)
+ 		}()
+-
+-		// Manual abort after 50ms (before 500ms timeout)
+-		time.Sleep(50 * time.Millisecond)
+-		manualController.Abort("manual abort")
+-
+-		// Wait for propagation
+-		time.Sleep(50 * time.Millisecond)
+-
+-		if !composite.Aborted() {
+-			t.Error("Composite should be aborted")
++		if err := runAutoExitLoop(t, loop); err != nil {
++			t.Fatalf("Run: %v", err)
+ 		}
+-
+-		if composite.Reason() != "manual abort" {
+-			t.Errorf("Manual abort should win, got reason: %v", composite.Reason())
++		select {
++		case <-manualDone:
++		case <-time.After(5 * time.Second):
++			t.Fatal("manual Abort did not join timeout publication")
+ 		}
+-
+-		_ = p
+-	})
+-
+-	// Test 2: Timeout wins
+-	t.Run("TimeoutWins", func(t *testing.T) {
+-		// Create timeout controller (50ms)
+-		timeoutController, err := AbortTimeout(loop, 50)
+-		if err != nil {
+-			t.Fatalf("AbortTimeout failed: %v", err)
++		if got := handlerCalls.Load(); got != 1 {
++			t.Fatalf("handler calls = %d, want exactly 1", got)
+ 		}
+-
+-		// Create manual controller (won't be used in time)
+-		manualController := NewAbortController()
+-
+-		// Composite signal
+-		composite := AbortAny([]*AbortSignal{
+-			timeoutController.Signal(),
+-			manualController.Signal(),
+-		})
+-
+-		var abortReason atomic.Value
+-		p, _, reject := js.NewChainedPromise()
+-
+-		go func() {
+-			for !composite.Aborted() {
+-				time.Sleep(10 * time.Millisecond)
++		switch reason := controller.Signal().Reason().(type) {
++		case string:
++			if reason != "manual" {
++				t.Fatalf("manual reason = %q, want manual", reason)
+ 			}
+-			abortReason.Store(composite.Reason())
+-			reject(&AbortError{Reason: composite.Reason()})
+-		}()
+-
+-		// Wait for timeout
+-		time.Sleep(150 * time.Millisecond)
+-
+-		if !composite.Aborted() {
+-			t.Error("Composite should be aborted by timeout")
++		case *TimeoutError:
++		default:
++			t.Fatalf("racing reason = %T, want manual string or *TimeoutError", reason)
+ 		}
+-
+-		reason := abortReason.Load()
+-		if _, ok := reason.(*TimeoutError); !ok {
+-			t.Errorf("Expected *TimeoutError, got %T", reason)
+-		}
+-
+-		_ = p
+-	})
+-
+-	_ = loop.Shutdown(context.Background())
+-	<-done
++		_ = loop.Close()
++	}
+ }
+ 
+ // TestAbortIntegration_ConcurrentAbortFromMultipleGoroutines tests concurrent
+@@ -888,9 +752,9 @@ func TestAbortIntegration_AbortErrorIs(t *testing.T) {
+ 	_ = wrapped // Just to ensure AbortError can be embedded
+ }
+ 
+-// TestAbortIntegration_HandlerPanicDoesNotCrash tests that handler panics
+-// propagate (matching JS semantics).
+-func TestAbortIntegration_HandlerPanicDoesNotCrash(t *testing.T) {
++// TestAbortIntegrationHandlerPanicPropagatesAfterLaterHandlers verifies the
++// Go-native cleanup-and-repanic contract.
++func TestAbortIntegrationHandlerPanicPropagatesAfterLaterHandlers(t *testing.T) {
+ 	controller := NewAbortController()
+ 	signal := controller.Signal()
+ 
+@@ -904,21 +768,12 @@ func TestAbortIntegration_HandlerPanicDoesNotCrash(t *testing.T) {
+ 		handler2Called.Store(true)
+ 	})
+ 
+-	// Abort should cause panic to propagate
+-	defer func() {
+-		r := recover()
+-		if r == nil {
+-			t.Error("Expected panic to propagate from abort handler")
+-		}
+-		if r != "handler panic" {
+-			t.Errorf("Expected 'handler panic', got %v", r)
+-		}
+-	}()
+-
+-	controller.Abort("trigger panic")
+-
+-	// If we get here, panic didn't propagate
+-	t.Error("Should not reach here - panic should propagate")
++	if got := abortEventCapturePanic(func() { controller.Abort("trigger panic") }); got != "handler panic" {
++		t.Fatalf("panic = %#v, want %q", got, "handler panic")
++	}
++	if !handler2Called.Load() {
++		t.Fatal("later handler did not run before panic propagation")
++	}
+ }
+ 
+ // TestAbortIntegration_ThrowIfAbortedPattern tests the ThrowIfAborted pattern.
+diff --git a/eventloop/abort_test.go b/eventloop/abort_test.go
+index 602833dc7ecd2e3b5f6728e86373281faff927f9..c6455da7901c8a478bce4889718bf71e06a3c70b 100644
+--- a/eventloop/abort_test.go
++++ b/eventloop/abort_test.go
+@@ -532,6 +532,9 @@ func TestAbortSignal_HandlerExecutionOrder(t *testing.T) {
+ 	controller.Abort("test")
+ 
+ 	// Verify FIFO order
++	if len(order) != 5 {
++		t.Fatalf("handler count = %d, want 5", len(order))
++	}
+ 	for i, v := range order {
+ 		if v != i {
+ 			t.Errorf("Handler %d executed at position %d", v, i)
+@@ -539,16 +542,13 @@ func TestAbortSignal_HandlerExecutionOrder(t *testing.T) {
+ 	}
+ }
+ 
+-// TestAbortSignal_RemoveEventListener tests remove functionality.
+-func TestAbortSignal_RemoveEventListener(t *testing.T) {
++// TestAbortSignalHandlerRunsOnce verifies ordinary handler delivery.
++func TestAbortSignalHandlerRunsOnce(t *testing.T) {
+ 	controller := NewAbortController()
+ 	signal := controller.Signal()
+ 
+ 	var calls int
+ 
+-	// Note: Due to Go function comparison semantics, this is a limited test
+-	// RemoveEventListener compares by pointer, which is tricky in Go
+-
+ 	signal.OnAbort(func(reason any) {
+ 		calls++
+ 	})
+diff --git a/eventloop/docs/architecture.md b/eventloop/docs/architecture.md
+index 06d60e9f8c094f97d1c0a46b48b23f3c97541721..c185a1b6f9bb400b92a429aea9615e92af983dbb 100644
+--- a/eventloop/docs/architecture.md
++++ b/eventloop/docs/architecture.md
+@@ -250,8 +250,11 @@ One normal `tick()` performs these phases:
+   before composite callbacks run. `AbortTimeout` validates static arguments,
+   stores a `TimeoutError`, and arbitrates manual and detached-timer settlement
+   through one claim gate before queueing cancellation. Both settlement paths
+-  release the controller's loop reference. Timer retirement also releases that
+-  reference when terminal cleanup discards a timeout without settling its signal.
++  release the controller's loop reference. The timer or first manual Abort owns
++  settlement; any later Abort that loses to either kind of winner joins stable
++  reason publication before returning, but does not join cleanup or handler
++  delivery. Timer retirement also releases the loop reference when terminal
++  cleanup discards an unclaimed timeout without settling its signal.
+   Timeout delivery uses an isolated delegated-owner goroutine while the physical
+   loop owner waits. The delegated goroutine temporarily owns callback-local Loop
+   operations; its panic is relayed to `safeExecute`, while `runtime.Goexit`
+@@ -259,14 +262,19 @@ One normal `tick()` performs these phases:
+ - **GO EXTENSION**: `EventTarget` snapshots listener membership, then claims each
+   shared entry immediately before callback start. Removal remains visible until
+   that claim. Once entries are removed as part of the claim, so panic, recursion,
+-  and concurrent dispatch cannot make them eligible again. User callbacks run
+-  outside the target lock.
++  and concurrent dispatch cannot make them eligible again. Listener IDs are
++  unique only among live registrations and become invalid after successful
++  removal or once claim. Following a full counter wrap, released values are
++  reusable and a stale same-type ID can theoretically exhibit ABA behavior.
++  User callbacks run outside the target lock.
+ - **GO EXTENSION**: `Event` is reusable but not concurrently safe. Every dispatch
+   resets cancellation and propagation state. Its entry Type selects routing and
+   is restored between listeners and at return; a running listener may still
+   mutate and observe the public field. Recursive dispatch of the same value
+-  panics. `Bubbles` and propagation flags are metadata; core EventTarget has no
+-  parent tree, capture phase, or bubbling engine.
++  panics. Dispatch entry gives a copied Event an independent weak identity,
++  including a copy made during an active dispatch, without retaining its source.
++  `Bubbles` and propagation flags are metadata; core EventTarget has no parent
++  tree, capture phase, or bubbling engine.
+ 
+ ## Timer model
+ 
+diff --git a/eventloop/eventtarget.go b/eventloop/eventtarget.go
+index 3936531fac3205dbe687798604b8ce47a76e70cd..bbaadd30e0efa9216d4c7e04177c8ae84610516c 100644
+--- a/eventloop/eventtarget.go
++++ b/eventloop/eventtarget.go
+@@ -2,15 +2,20 @@ package eventloop
+ 
+ import (
+ 	"sync"
++	"weak"
+ )
+ 
+ // EventListenerFunc is a callback function for [EventTarget.AddEventListener].
+ // The callback receives the dispatched [Event] and can inspect/modify its state.
+ type EventListenerFunc func(event *Event)
+ 
+-// ListenerID uniquely identifies an event listener for removal purposes.
+-// In Go, functions cannot be reliably compared for equality, so we generate
+-// a unique ID for each registered listener.
++// ListenerID identifies a currently registered event listener for removal.
++// Values are unique among live registrations on one EventTarget. A value is
++// invalid after successful removal or once-listener claim. If the allocation
++// counter completes a full uint64 cycle, a released value may be reused; a
++// stale same-type ID can then exhibit ABA behavior and name a later listener.
++// In Go, functions cannot be reliably compared for equality, so registration
++// returns an ID instead of accepting a function value for removal.
+ type ListenerID uint64
+ 
+ // listenerEntry pairs a listener with its unique ID for removal.
+@@ -57,7 +62,8 @@ type EventTarget struct {
+ // Event is not safe for concurrent use. It may be reused after DispatchEvent
+ // returns; each dispatch resets Target, DefaultPrevented, and propagation state.
+ // Dispatching the same Event pointer recursively is a programming error and
+-// panics. A copied Event is a distinct value and may be dispatched separately.
++// panics. Dispatching a copied Event establishes an independent identity at
++// entry, even when the copy was made during another dispatch.
+ type Event struct { //nolint:govet // betteralign:ignore
+ 	// Type is the name of the event (e.g., "click", "abort", "load").
+ 	Type string
+@@ -74,9 +80,9 @@ type Event struct { //nolint:govet // betteralign:ignore
+ 	// immediatePropagationStopped is true if StopImmediatePropagation() was called.
+ 	immediatePropagationStopped bool
+ 
+-	// dispatchOwner identifies this exact Event address during dispatch. A copied
+-	// Event carries the old pointer and establishes its own identity on use.
+-	dispatchOwner *Event
++	// dispatchOwner is a persistent, non-owning identity for this Event address.
++	// A copy normalizes this field at dispatch entry without retaining its source.
++	dispatchOwner weak.Pointer[Event]
+ 
+ 	// dispatching prevents recursive dispatch of the same Event address.
+ 	dispatching bool
+@@ -107,10 +113,13 @@ func NewEventTarget() *EventTarget {
+ //   - listener: The callback function to invoke when the event is dispatched
+ //
+ // Returns:
+-//   - ListenerID: A unique identifier that can be used to remove the listener
++//   - ListenerID: An identifier unique among this target's live registrations
+ //
+ // Thread Safety: Safe to call concurrently.
+ //
++// AddEventListener panics only if every non-zero ListenerID is simultaneously
++// in use and no unique identifier can be allocated.
++//
+ // The shape is inspired by addEventListener, with Go-specific behavior:
+ //   - No options object (capture, once, passive, signal)
+ //   - Returns an ID for reliable removal (Go functions can't be compared)
+@@ -124,6 +133,9 @@ func (et *EventTarget) AddEventListener(eventType string, listener EventListener
+ // and recursive dispatches. A callback panic does not restore it.
+ //
+ // Thread Safety: Safe to call concurrently.
++//
++// AddEventListenerOnce panics only if every non-zero ListenerID is simultaneously
++// in use and no unique identifier can be allocated.
+ func (et *EventTarget) AddEventListenerOnce(eventType string, listener EventListenerFunc) ListenerID {
+ 	return et.addListenerInternal(eventType, listener, true)
+ }
+@@ -142,12 +154,7 @@ func (et *EventTarget) addListenerInternal(eventType string, listener EventListe
+ 			et.nextListenerID = 1
+ 		}
+ 	}
+-	if et.nextListenerID == 0 {
+-		panic("eventloop: EventTarget listener IDs exhausted")
+-	}
+-
+-	id := et.nextListenerID
+-	et.nextListenerID++
++	id := et.allocateListenerIDLocked()
+ 
+ 	entry := &listenerEntry{
+ 		id:       id,
+@@ -160,6 +167,40 @@ func (et *EventTarget) addListenerInternal(eventType string, listener EventListe
+ 	return id
+ }
+ 
++func (et *EventTarget) allocateListenerIDLocked() ListenerID {
++	// Before the first actual uint64 wrap, nextListenerID has never been used,
++	// so allocation is O(1) and requires no scan under the target lock.
++	if id := et.nextListenerID; id != 0 {
++		et.nextListenerID++
++		return id
++	}
++
++	// Zero is the permanent wrapped-mode sentinel. Search released IDs globally
++	// and leave the sentinel intact so a reused value can never re-enter the
++	// monotonic path and collide with another live registration.
++	return et.allocateWrappedListenerIDLocked(1)
++}
++
++func (et *EventTarget) allocateWrappedListenerIDLocked(first ListenerID) ListenerID {
++	for id := first; id != 0; id++ {
++		if !et.listenerIDUsedLocked(id) {
++			return id
++		}
++	}
++	panic("eventloop: EventTarget listener IDs exhausted")
++}
++
++func (et *EventTarget) listenerIDUsedLocked(id ListenerID) bool {
++	for _, entries := range et.listeners {
++		for _, entry := range entries {
++			if entry != nil && entry.id == id {
++				return true
++			}
++		}
++	}
++	return false
++}
++
+ // RemoveEventListenerByID removes a listener by its ID.
+ //
+ // This is the recommended way to remove listeners in Go since function
+@@ -213,8 +254,8 @@ func (et *EventTarget) DispatchEvent(event *Event) bool {
+ 		return true
+ 	}
+ 
+-	if event.dispatchOwner != event {
+-		event.dispatchOwner = event
++	if event.dispatchOwner.Value() != event {
++		event.dispatchOwner = weak.Make(event)
+ 		event.dispatching = false
+ 	}
+ 	if event.dispatching {
+diff --git a/eventloop/eventtarget_contract_test.go b/eventloop/eventtarget_contract_test.go
+index eed0b63e1f1cdc1d22c52f5101caa0b5da18cb0b..5e5c0a6e7e3c7efdfb3de06b844cf26a1da155fe 100644
+--- a/eventloop/eventtarget_contract_test.go
++++ b/eventloop/eventtarget_contract_test.go
+@@ -3,8 +3,10 @@ package eventloop
+ import (
+ 	"errors"
+ 	"runtime"
++	"strconv"
+ 	"sync/atomic"
+ 	"testing"
++	"time"
+ 	"weak"
+ )
+ 
+@@ -64,6 +66,33 @@ func TestEventTargetRemoveAllSuppressesUnclaimedListeners(t *testing.T) {
+ 	}
+ }
+ 
++func TestEventTargetRemovalAfterClaimAllowsCurrentCallbackOnly(t *testing.T) {
++	target := NewEventTarget()
++	started := make(chan struct{})
++	release := make(chan struct{})
++	done := make(chan struct{})
++	var calls atomic.Int32
++	id := target.AddEventListener("event", func(*Event) {
++		calls.Add(1)
++		close(started)
++		<-release
++	})
++	go func() {
++		defer close(done)
++		target.DispatchEvent(NewEvent("event"))
++	}()
++	<-started
++	if !target.RemoveEventListenerByID("event", id) {
++		t.Fatal("RemoveEventListenerByID did not remove claimed listener")
++	}
++	close(release)
++	<-done
++	target.DispatchEvent(NewEvent("event"))
++	if got := calls.Load(); got != 1 {
++		t.Fatalf("listener calls = %d, want current claimed callback only", got)
++	}
++}
++
+ func TestEventTargetOnceClaimIsConcurrent(t *testing.T) {
+ 	target := NewEventTarget()
+ 	invoked := make(chan struct{}, 2)
+@@ -135,6 +164,31 @@ func TestEventTargetOnceCleanupSurvivesPanic(t *testing.T) {
+ 	}
+ }
+ 
++func TestEventTargetOnceGoexitRestoresDispatchState(t *testing.T) {
++	target := NewEventTarget()
++	event := NewEvent("event")
++	target.AddEventListenerOnce("event", func(*Event) {
++		runtime.Goexit()
++	})
++	done := make(chan struct{})
++	go func() {
++		defer close(done)
++		target.DispatchEvent(event)
++	}()
++	<-done
++	if event.dispatching {
++		t.Fatal("event remained dispatching after listener Goexit")
++	}
++	called := false
++	target.AddEventListenerOnce("event", func(*Event) { called = true })
++	if !target.DispatchEvent(event) {
++		t.Fatal("reused event was canceled after Goexit")
++	}
++	if !called {
++		t.Fatal("reused event did not reach a later listener after Goexit")
++	}
++}
++
+ func TestEventTargetDispatchReusesEventWithFreshState(t *testing.T) {
+ 	target := NewEventTarget()
+ 	regularCalls := 0
+@@ -206,6 +260,103 @@ func TestEventTargetAllowsCopiedEventDuringDispatch(t *testing.T) {
+ 	}
+ }
+ 
++func TestEventTargetCompletedDispatchCopyEstablishesIndependentIdentity(t *testing.T) {
++	target := NewEventTarget()
++	original := NewEvent("event")
++	if !target.DispatchEvent(original) {
++		t.Fatal("original Event dispatch was canceled")
++	}
++	copied := *original
++	calls := 0
++	target.AddEventListener("event", func(got *Event) {
++		calls++
++		if got != &copied {
++			t.Fatalf("listener Event = %p, want copied value %p", got, &copied)
++		}
++	})
++	if !target.DispatchEvent(&copied) {
++		t.Fatal("completed Event copy dispatch was canceled")
++	}
++	if calls != 1 {
++		t.Fatalf("completed Event copy calls = %d, want 1", calls)
++	}
++}
++
++func TestEventTargetActiveCopyRejectsRecursiveSameCopy(t *testing.T) {
++	target := NewEventTarget()
++	var recursivePanic any
++	calls := 0
++	target.AddEventListener("event", func(event *Event) {
++		calls++
++		if calls == 1 {
++			copied := *event
++			target.DispatchEvent(&copied)
++			return
++		}
++		recursivePanic = abortEventCapturePanic(func() { target.DispatchEvent(event) })
++	})
++	if !target.DispatchEvent(NewEvent("event")) {
++		t.Fatal("outer Event dispatch was canceled")
++	}
++	if calls != 2 {
++		t.Fatalf("listener calls = %d, want original and copied Event", calls)
++	}
++	if recursivePanic == nil {
++		t.Fatal("recursive dispatch of the active copied Event did not panic")
++	}
++}
++
++func TestEventTargetCompletedDispatchCopyDoesNotRetainOriginalGraph(t *testing.T) {
++	copy, original, laterTarget := newCompletedDispatchCopyPointers()
++	assertEventCopyReleasesGraph(t, copy, original, laterTarget)
++}
++
++func TestEventTargetActiveDispatchCopyDoesNotRetainOriginalGraph(t *testing.T) {
++	copy, original, laterTarget := newActiveDispatchCopyPointers()
++	assertEventCopyReleasesGraph(t, copy, original, laterTarget)
++}
++
++func assertEventCopyReleasesGraph(
++	t *testing.T,
++	copy Event,
++	original weak.Pointer[Event],
++	laterTarget weak.Pointer[EventTarget],
++) {
++	t.Helper()
++	deadline := time.Now().Add(5 * time.Second)
++	for original.Value() != nil || laterTarget.Value() != nil {
++		runtime.GC()
++		runtime.KeepAlive(copy)
++		if time.Now().After(deadline) {
++			t.Fatalf("event copy retained graph: original=%v laterTarget=%v", original.Value() != nil, laterTarget.Value() != nil)
++		}
++		runtime.Gosched()
++	}
++	runtime.KeepAlive(copy)
++}
++
++func BenchmarkEventTargetDispatchReusedEvent(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {})
++	event := NewEvent("event")
++	target.DispatchEvent(event)
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		target.DispatchEvent(event)
++	}
++}
++
++func BenchmarkEventTargetDispatchFreshEvent(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {})
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		target.DispatchEvent(NewEvent("event"))
++	}
++}
++
+ func TestEventTargetDispatchKeepsInitialTypeStable(t *testing.T) {
+ 	target := NewEventTarget()
+ 	observed := ""
+@@ -235,6 +386,196 @@ func TestEventTargetOnceClaimReleasesListenerCapture(t *testing.T) {
+ 	waitContractCollected(t, pointer, target)
+ }
+ 
++func TestEventTargetRemoveAllReleasesListenerCaptures(t *testing.T) {
++	for _, eventType := range []string{"event", ""} {
++		name := "typed"
++		if eventType == "" {
++			name = "global"
++		}
++		t.Run(name, func(t *testing.T) {
++			target, pointer := newRemoveAllListenerPayload(eventType)
++			waitContractCollected(t, pointer, target)
++		})
++	}
++}
++
++func TestEventTargetListenerIDWrapReusesReleasedID(t *testing.T) {
++	for _, once := range []bool{false, true} {
++		name := "ordinary"
++		if once {
++			name = "once"
++		}
++		t.Run(name, func(t *testing.T) {
++			target := NewEventTarget()
++			id := target.AddEventListener("event", func(*Event) {})
++			if !target.RemoveEventListenerByID("event", id) {
++				t.Fatal("failed to release initial listener ID")
++			}
++			target.nextListenerID = 0
++			var got ListenerID
++			if once {
++				got = target.AddEventListenerOnce("event", func(*Event) {})
++			} else {
++				got = target.AddEventListener("event", func(*Event) {})
++			}
++			if got != id {
++				t.Fatalf("listener ID after wrap = %d, want released ID %d", got, id)
++			}
++		})
++	}
++}
++
++func TestEventTargetListenerIDWrapSkipsLiveIDsAcrossTypes(t *testing.T) {
++	target := NewEventTarget()
++	firstID := target.AddEventListener("first", func(*Event) {})
++	secondID := target.AddEventListener("second", func(*Event) {})
++	thirdID := target.AddEventListener("third", func(*Event) {})
++	if !target.RemoveEventListenerByID("second", secondID) {
++		t.Fatal("failed to release the second listener ID")
++	}
++	target.nextListenerID = 0
++	reusedID := target.AddEventListener("fourth", func(*Event) {})
++	if reusedID != secondID {
++		t.Fatalf("wrapped listener ID = %d, want released ID %d", reusedID, secondID)
++	}
++	nextID := target.AddEventListener("fifth", func(*Event) {})
++	if nextID == firstID || nextID == reusedID || nextID == thirdID {
++		t.Fatalf("wrapped allocation collided with live IDs: first=%d reused=%d third=%d next=%d", firstID, reusedID, thirdID, nextID)
++	}
++}
++
++func TestEventTargetListenerIDMaxUint64Transition(t *testing.T) {
++	target := NewEventTarget()
++	maxID := ^ListenerID(0)
++	target.nextListenerID = maxID
++	if got := target.AddEventListener("maximum", func(*Event) {}); got != maxID {
++		t.Fatalf("maximum listener ID = %d, want %d", got, maxID)
++	}
++	if got := target.AddEventListener("wrapped", func(*Event) {}); got != 1 {
++		t.Fatalf("listener ID after MaxUint64 = %d, want 1", got)
++	}
++}
++
++func TestEventTargetWrappedListenerIDExhaustionPanics(t *testing.T) {
++	maxID := ^ListenerID(0)
++	target := NewEventTarget()
++	target.listeners["live"] = []*listenerEntry{{id: maxID, active: true}}
++	if got := abortEventCapturePanic(func() {
++		target.allocateWrappedListenerIDLocked(maxID)
++	}); got != "eventloop: EventTarget listener IDs exhausted" {
++		t.Fatalf("exhaustion panic = %#v, want exact exhaustion marker", got)
++	}
++}
++
++func TestEventTargetClaimListenerDefensiveInputs(t *testing.T) {
++	target := NewEventTarget()
++	if got := target.claimListener("event", nil); got != nil {
++		t.Fatalf("nil listener claim = %p, want nil", got)
++	}
++
++	entry := &listenerEntry{
++		id:       1,
++		listener: func(*Event) {},
++		once:     true,
++		active:   true,
++	}
++	if got := target.claimListener("event", entry); got != nil {
++		t.Fatalf("detached once-listener claim = %p, want nil", got)
++	}
++	if entry.active || entry.listener != nil {
++		t.Fatal("detached once-listener fallback did not deactivate and release the callback")
++	}
++}
++
++func TestEventTargetListenerIDWrapReusesOnceClaim(t *testing.T) {
++	target := NewEventTarget()
++	target.AddEventListener("live", func(*Event) {})
++	onceID := target.AddEventListenerOnce("once", func(*Event) {})
++	target.DispatchEvent(NewEvent("once"))
++	target.nextListenerID = 0
++	if got := target.AddEventListener("reused", func(*Event) {}); got != onceID {
++		t.Fatalf("wrapped listener ID = %d, want claimed once ID %d", got, onceID)
++	}
++}
++
++func TestEventTargetListenerIDsRemainDistinctAfterWrap(t *testing.T) {
++	target := NewEventTarget()
++	live := make(map[ListenerID]struct{}, 1000)
++	for i := range 1000 {
++		id := target.AddEventListener("live-"+strconv.Itoa(i%7), func(*Event) {})
++		if _, exists := live[id]; exists {
++			t.Fatalf("duplicate monotonic listener ID %d", id)
++		}
++		live[id] = struct{}{}
++	}
++	for id := ListenerID(2); id <= 1000; id += 2 {
++		eventType := "live-" + strconv.Itoa((int(id)-1)%7)
++		if !target.RemoveEventListenerByID(eventType, id) {
++			t.Fatalf("failed to release listener ID %d", id)
++		}
++		delete(live, id)
++	}
++	target.nextListenerID = 0
++	for range 500 {
++		id := target.AddEventListener("wrapped", func(*Event) {})
++		if _, exists := live[id]; exists {
++			t.Fatalf("wrapped allocation reused live listener ID %d", id)
++		}
++		live[id] = struct{}{}
++	}
++	if len(live) != 1000 {
++		t.Fatalf("simultaneously live listener IDs = %d, want 1000", len(live))
++	}
++}
++
++var benchmarkEventTargetSink *EventTarget
++
++var benchmarkEventTargetTypes = [...]string{
++	"live-0",
++	"live-1",
++	"live-2",
++	"live-3",
++	"live-4",
++	"live-5",
++	"live-6",
++}
++
++func BenchmarkEventTargetListenerRegistrationWithLiveSet(b *testing.B) {
++	for _, liveCount := range []int{0, 100, 1000, 10000} {
++		b.Run(strconv.Itoa(liveCount), func(b *testing.B) {
++			target := NewEventTarget()
++			for i := range liveCount {
++				target.AddEventListener(benchmarkEventTargetTypes[i%len(benchmarkEventTargetTypes)], func(*Event) {})
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for b.Loop() {
++				id := target.AddEventListener("temporary", func(*Event) {})
++				if !target.RemoveEventListenerByID("temporary", id) {
++					b.Fatal("failed to remove temporary listener")
++				}
++			}
++			benchmarkEventTargetSink = target
++		})
++	}
++}
++
++func BenchmarkEventTargetListenerConstruction(b *testing.B) {
++	for _, listenerCount := range []int{100, 1000, 5000, 10000} {
++		b.Run(strconv.Itoa(listenerCount), func(b *testing.B) {
++			b.ReportAllocs()
++			b.ReportMetric(float64(listenerCount), "listeners/op")
++			for b.Loop() {
++				target := NewEventTarget()
++				for i := range listenerCount {
++					target.AddEventListener(benchmarkEventTargetTypes[i%len(benchmarkEventTargetTypes)], func(*Event) {})
++				}
++				benchmarkEventTargetSink = target
++			}
++		})
++	}
++}
++
+ func TestEventTargetZeroValueIsUsable(t *testing.T) {
+ 	var target EventTarget
+ 	target.RemoveAllEventListeners("")
+@@ -274,3 +615,54 @@ func newOnceListenerPayload() (*EventTarget, weak.Pointer[contractRetentionPaylo
+ 	runtime.KeepAlive(payload)
+ 	return target, pointer
+ }
++
++func newRemoveAllListenerPayload(eventType string) (*EventTarget, weak.Pointer[contractRetentionPayload]) {
++	payload := &contractRetentionPayload{value: 1}
++	pointer := weak.Make(payload)
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {
++		payload.value++
++	})
++	target.RemoveAllEventListeners(eventType)
++	runtime.KeepAlive(payload)
++	return target, pointer
++}
++
++func newCompletedDispatchCopyPointers() (
++	Event,
++	weak.Pointer[Event],
++	weak.Pointer[EventTarget],
++) {
++	original := NewEvent("event")
++	firstTarget := NewEventTarget()
++	firstTarget.DispatchEvent(original)
++	copy := *original
++	laterTarget := NewEventTarget()
++	laterTarget.DispatchEvent(original)
++	originalPointer := weak.Make(original)
++	targetPointer := weak.Make(laterTarget)
++	runtime.KeepAlive(original)
++	runtime.KeepAlive(laterTarget)
++	return copy, originalPointer, targetPointer
++}
++
++func newActiveDispatchCopyPointers() (
++	Event,
++	weak.Pointer[Event],
++	weak.Pointer[EventTarget],
++) {
++	original := NewEvent("event")
++	firstTarget := NewEventTarget()
++	var copy Event
++	firstTarget.AddEventListenerOnce("event", func(event *Event) {
++		copy = *event
++	})
++	firstTarget.DispatchEvent(original)
++	laterTarget := NewEventTarget()
++	laterTarget.DispatchEvent(original)
++	originalPointer := weak.Make(original)
++	targetPointer := weak.Make(laterTarget)
++	runtime.KeepAlive(original)
++	runtime.KeepAlive(laterTarget)
++	return copy, originalPointer, targetPointer
++}
+diff --git a/eventloop/fuzz_test.go b/eventloop/fuzz_test.go
+index d59a9b14acae5394a0bbc2132ed702fad4598907..8c040846223efc5f290c041284e97151827710fe 100644
+--- a/eventloop/fuzz_test.go
++++ b/eventloop/fuzz_test.go
+@@ -6,6 +6,7 @@ import (
+ 	"fmt"
+ 	"math"
+ 	"reflect"
++	"sort"
+ 	"strings"
+ 	"sync"
+ 	"sync/atomic"
+@@ -329,9 +330,6 @@ func FuzzEventTargetDispatchModel(f *testing.F) {
+ 		listeners := make(map[ListenerID]fuzzEventListenerModel)
+ 		byType := make(map[string][]ListenerID)
+ 		types := []string{"", "abort", "click", "message", "load"}
+-		nextSyntheticID := ListenerID(1)
+-		_ = nextSyntheticID
+-
+ 		ops := 1 + min(len(data)*3, 1024)
+ 		for range ops {
+ 			eventType := types[r.intn(len(types))]
+@@ -488,6 +486,7 @@ func listenerIDs(m map[ListenerID]fuzzEventListenerModel) []ListenerID {
+ 	for id := range m {
+ 		ids = append(ids, id)
+ 	}
++	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+ 	return ids
+ }
+ 
+@@ -591,12 +590,23 @@ func FuzzAbortSignalGraphModel(f *testing.F) {
+ 				if r.byte()%7 == 0 {
+ 					reason = nil
+ 				}
++				wasAborted := models[modelIdx].aborted
++				previousReason := models[modelIdx].reason
+ 				controllers[controllerIdx].Abort(reason)
+-				modelReason := reason
+-				if modelReason == nil {
+-					modelReason = &AbortError{Reason: "Aborted"}
++				actualReason := controllers[controllerIdx].Signal().Reason()
++				if wasAborted {
++					if !abortReasonEquivalent(actualReason, previousReason) {
++						t.Fatalf("repeated Abort changed source reason: got %#v want %#v", actualReason, previousReason)
++					}
++				} else if reason == nil {
++					defaultReason, ok := actualReason.(*AbortError)
++					if !ok || defaultReason.Reason != "Aborted" {
++						t.Fatalf("nil Abort source reason = %#v, want *AbortError{Reason: %q}", actualReason, "Aborted")
++					}
++				} else if actualReason != reason {
++					t.Fatalf("Abort changed source reason identity: got %#v want %#v", actualReason, reason)
+ 				}
+-				propagateAbort(modelIdx, modelReason)
++				propagateAbort(modelIdx, actualReason)
+ 
+ 			case 2:
+ 				if len(models) == 0 {
+@@ -715,21 +725,26 @@ func FuzzAbortSignalGraphModel(f *testing.F) {
+ }
+ 
+ func abortReasonEquivalent(got, want any) bool {
+-	if reflect.DeepEqual(got, want) {
+-		return true
+-	}
+-	gotAbort, gotOK := got.(*AbortError)
+-	wantAbort, wantOK := want.(*AbortError)
+-	if gotOK && wantOK {
+-		return reflect.DeepEqual(gotAbort.Reason, wantAbort.Reason)
++	gotError, gotIsError := got.(error)
++	wantError, wantIsError := want.(error)
++	if gotIsError || wantIsError {
++		if !gotIsError || !wantIsError {
++			return false
++		}
++		errorType := reflect.TypeOf(gotError)
++		if errorType != reflect.TypeOf(wantError) || !errorType.Comparable() {
++			return false
++		}
++		return gotError == wantError
+ 	}
+-	return false
++	return reflect.DeepEqual(got, want)
+ }
+ 
+ func FuzzAbortTimeoutReasonStability(f *testing.F) {
+ 	f.Add([]byte{})
+ 	f.Add([]byte{1, 2, 3, 4})
+ 	f.Add([]byte("manual-before-timeout"))
++	f.Add([]byte("manual-races-timeout-publication"))
+ 
+ 	f.Fuzz(func(t *testing.T, data []byte) {
+ 		r := newFuzzReader(data)
+@@ -742,30 +757,54 @@ func FuzzAbortTimeoutReasonStability(f *testing.F) {
+ 			t.Fatalf("AbortTimeout: %v", err)
+ 		}
+ 		signal := controller.Signal()
+-		manual := r.bool()
++		mode := r.byte() % 3
+ 		manualReason := any("manual")
+ 		if r.bool() {
+ 			manualReason = errors.New("manual abort")
+ 		}
+-		if manual {
++		if mode == 1 {
+ 			controller.Abort(manualReason)
+ 		}
++		manualDone := make(chan struct{})
++		if mode == 2 {
++			go func() {
++				controller.Abort(manualReason)
++				close(manualDone)
++			}()
++		} else {
++			close(manualDone)
++		}
+ 
+ 		if err := runAutoExitLoop(t, loop); err != nil {
+ 			t.Fatalf("Run: %v", err)
+ 		}
++		select {
++		case <-manualDone:
++		case <-time.After(fuzzLoopRunTimeout):
++			t.Fatal("concurrent manual abort did not join timeout publication")
++		}
+ 		if !signal.Aborted() {
+ 			t.Fatalf("timeout signal was not aborted")
+ 		}
+-		if manual {
++		if reasonErr, ok := signal.Reason().(error); ok {
++			if got := signal.ThrowIfAborted(); got != reasonErr {
++				t.Fatalf("ThrowIfAborted = %#v, want exact stored error %#v", got, reasonErr)
++			}
++		}
++		if mode == 1 {
+ 			if !abortReasonEquivalent(signal.Reason(), manualReason) {
+ 				t.Fatalf("manual abort reason changed after timeout: got %#v want %#v", signal.Reason(), manualReason)
+ 			}
+-		} else {
++		} else if mode == 0 {
+ 			var timeoutErr *TimeoutError
+ 			if !errors.As(signal.ThrowIfAborted(), &timeoutErr) {
+ 				t.Fatalf("timeout ThrowIfAborted did not return TimeoutError")
+ 			}
++		} else if !abortReasonEquivalent(signal.Reason(), manualReason) {
++			var timeoutErr *TimeoutError
++			if !errors.As(signal.ThrowIfAborted(), &timeoutErr) {
++				t.Fatalf("racing result = %#v, want manual identity or TimeoutError", signal.Reason())
++			}
+ 		}
+ 	})
+ }
+diff --git a/eventloop/loop.go b/eventloop/loop.go
+index 51bd5698a6c7a05e1df6e73505a8463b2c497a9e..4542d8ada8c031ad1960fd779e4db929dd0c5c4d 100644
+--- a/eventloop/loop.go
++++ b/eventloop/loop.go
+@@ -148,6 +148,8 @@ type loopTestHooks struct {
+ 	BeforeScheduleTimerCommit            func()                                // Called after ScheduleTimer prepares a timer, before external liveness commit
+ 	BeforeAbortTimeoutClaim              func()                                // Called from a due AbortTimeout callback before manual/timer settlement arbitration
+ 	AfterAbortTimeoutClaim               func()                                // Called after a due AbortTimeout callback wins settlement, before signal publication
++	AfterAbortTimeoutManualClaim         func()                                // Called after a manual Abort wins timeout settlement, before signal publication
++	BeforeAbortTimeoutPublicationWait    func()                                // Called after an Abort loses timeout settlement, immediately before waiting for publication
+ 	BeforeTimerRefCommit                 func()                                // Called after RefTimer gates liveness, before external ref commit
+ 	BeforeRegisterFDRollbackCheck        func()                                // Called after RegisterFD poller registration, before pre-count rollback check
+ 	BeforeRegisterFDCommit               func()                                // Called after RegisterFD poller registration/recheck, before count commit
+diff --git a/eventloop/poll_wait_unix.go b/eventloop/poll_wait_unix.go
+index 19af74a111d65f41dddff9e6d060acd0c8252f2a..4eea066f3741b0944cf34a37d7eaebbb182a80b5 100644
+--- a/eventloop/poll_wait_unix.go
++++ b/eventloop/poll_wait_unix.go
+@@ -57,7 +57,10 @@ func waitPoll(
+ 	chunkLoop:
+ 		for {
+ 			beforeAttempt := now()
+-			elapsed := max(beforeAttempt.Sub(chunkStarted), 0)
++			elapsed := beforeAttempt.Sub(chunkStarted)
++			if elapsed < 0 {
++				elapsed = 0
++			}
+ 			if elapsed >= chunkTotal {
+ 				overrun = elapsed - chunkTotal
+ 				sampledAt = beforeAttempt
+@@ -76,7 +79,10 @@ func waitPoll(
+ 
+ 			afterAttempt := now()
+ 			sampledAt = afterAttempt
+-			elapsed = max(afterAttempt.Sub(chunkStarted), 0)
++			elapsed = afterAttempt.Sub(chunkStarted)
++			if elapsed < 0 {
++				elapsed = 0
++			}
+ 			if err == nil && attempt == chunkRemaining {
+ 				if elapsed > chunkTotal {
+ 					overrun = elapsed - chunkTotal
+diff --git a/eventloop/structured_logging_extra_test.go b/eventloop/structured_logging_extra_test.go
+index 773255867e25893a1b13a3deeed11b0dfac6fce6..f0dd1687f011e68ab3664d2a1c833a01777ba253 100644
+--- a/eventloop/structured_logging_extra_test.go
++++ b/eventloop/structured_logging_extra_test.go
+@@ -13,11 +13,17 @@ import (
+ // structured logging paths (logCritical, logError).
+ type testEvent struct {
+ 	logiface.UnimplementedEvent
+-	level logiface.Level
++	level  logiface.Level
++	fields map[string]any
+ }
+ 
+-func (e *testEvent) Level() logiface.Level        { return e.level }
+-func (e *testEvent) AddField(key string, val any) {}
++func (e *testEvent) Level() logiface.Level { return e.level }
++func (e *testEvent) AddField(key string, val any) {
++	if e.fields == nil {
++		e.fields = make(map[string]any)
++	}
++	e.fields[key] = val
++}
+ 
+ // testEventFactory creates testEvent instances.
+ type testEventFactory struct {
+diff --git a/eventloop/testdata/fuzz/FuzzAbortSignalGraphModel/692fa6804d06d741 b/eventloop/testdata/fuzz/FuzzAbortSignalGraphModel/692fa6804d06d741
+new file mode 100644
+index 0000000000000000000000000000000000000000..6c54e948857b564fe3cc4e1346a782534edadd87
+--- /dev/null
++++ b/eventloop/testdata/fuzz/FuzzAbortSignalGraphModel/692fa6804d06d741
+@@ -0,0 +1,2 @@
++go test fuzz v1
++[]byte("BA121")

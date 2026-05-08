@@ -1,9 +1,8 @@
 package gojaprotobuf
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 // jsEquals is the JS-facing implementation of pb.equals(msg1, msg2).
@@ -34,7 +33,7 @@ func (m *Module) jsClone(call goja.FunctionCall) goja.Value {
 		panic(m.runtime.NewTypeError("clone: %s", err))
 	}
 
-	cloned := proto.Clone(msg).(*dynamicpb.Message)
+	cloned := proto.Clone(msg)
 	return m.wrapMessage(cloned)
 }
 
@@ -54,7 +53,7 @@ func (m *Module) jsIsMessage(call goja.FunctionCall) goja.Value {
 	typeArg := call.Argument(1)
 	if typeArg != nil && !goja.IsUndefined(typeArg) && !goja.IsNull(typeArg) {
 		wantName := typeArg.String()
-		gotName := string(msg.Descriptor().FullName())
+		gotName := string(msg.ProtoReflect().Descriptor().FullName())
 		return m.runtime.ToValue(gotName == wantName)
 	}
 
@@ -72,8 +71,9 @@ func (m *Module) jsIsFieldSet(call goja.FunctionCall) goja.Value {
 	}
 
 	name := call.Argument(1).String()
-	fd := m.resolveField(msg.Descriptor(), name)
-	return m.runtime.ToValue(msg.Has(fd))
+	reflected := msg.ProtoReflect()
+	fd := m.resolveField(reflected.Descriptor(), name)
+	return m.runtime.ToValue(reflected.Has(fd))
 }
 
 // jsClearField is the JS-facing implementation of
@@ -87,7 +87,8 @@ func (m *Module) jsClearField(call goja.FunctionCall) goja.Value {
 	}
 
 	name := call.Argument(1).String()
-	fd := m.resolveField(msg.Descriptor(), name)
-	msg.Clear(fd)
+	reflected := msg.ProtoReflect()
+	fd := m.resolveField(reflected.Descriptor(), name)
+	reflected.Clear(fd)
 	return goja.Undefined()
 }

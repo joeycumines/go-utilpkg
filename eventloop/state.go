@@ -13,13 +13,13 @@ import (
 //	StateRunning (4) → StateTerminating (5) [Shutdown()]
 //	StateSleeping (2) → StateRunning (4)   [poll() wake via CAS]
 //	StateSleeping (2) → StateTerminating (5) [Shutdown()]
-//	StateTerminating (5) → StateTerminated (1) [shutdown complete]
+//	StateTerminating (5) → StateTerminated (1) [terminal admission closed]
 //	StateTerminated (1) → (terminal)
 //
 // State Transition Rules:
 //   - Use TryTransition() (CAS) for temporary states (Running, Sleeping)
 //   - Use Store() for irreversible states (Terminated)
-//   - Using Store(Running) or Store(Sleeping) is a BUG (breaks CAS logic)
+//   - Using Store(Running) or Store(Sleeping) breaks CAS logic
 //
 // Note: State values (0, 1, 2, 4, 5) are deliberately non-sequential to preserve
 // stable serialization. Do not renumber.
@@ -28,7 +28,8 @@ type LoopState uint64
 const (
 	// StateAwake is the initial state before [Loop.Run] is called.
 	StateAwake LoopState = 0
-	// StateTerminated is the terminal state after shutdown is complete.
+	// StateTerminated is the irreversible state after terminal admission closes.
+	// Cleanup completion is published separately by the loop's terminal barrier.
 	StateTerminated LoopState = 1
 	// StateSleeping indicates the loop is blocked in I/O poll, waiting for events.
 	StateSleeping LoopState = 2

@@ -2,11 +2,98 @@ package alternateone
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/go-eventloop/internal/tournamenttest"
 )
+
+const alternateOneTestTimeout = 5 * time.Second
+
+type alternateOneTestLoop struct {
+	loop        *Loop
+	runDone     chan error
+	cleanupOnce sync.Once
+}
+
+func startAlternateOneTestLoop(t testing.TB, loop *Loop) *alternateOneTestLoop {
+	t.Helper()
+	loop.SetShutdownLogger(nil)
+	harness := &alternateOneTestLoop{
+		loop:    loop,
+		runDone: make(chan error, 1),
+	}
+	go func() { harness.runDone <- loop.Run(context.Background()) }()
+	t.Cleanup(func() { harness.cleanup(t) })
+
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		t.Fatalf("Submit(start barrier) failed: %v", err)
+	}
+	waitAlternateOneSignal(t, ready, "start barrier")
+	return harness
+}
+
+func (h *alternateOneTestLoop) cleanup(t testing.TB) {
+	t.Helper()
+	h.cleanupOnce.Do(func() {
+		result := tournamenttest.Terminate(h.loop, h.runDone, alternateOneTestTimeout)
+		if result.ShutdownErr != nil && !errors.Is(result.ShutdownErr, ErrLoopTerminated) {
+			t.Errorf("cleanup Shutdown failed: %v", result.ShutdownErr)
+		}
+		if result.CloseErr != nil && !errors.Is(result.CloseErr, ErrLoopTerminated) {
+			t.Errorf("cleanup Close failed: %v", result.CloseErr)
+		}
+		if result.RunErr != nil {
+			t.Errorf("Run() failed: %v", result.RunErr)
+		}
+	})
+}
+
+func (h *alternateOneTestLoop) shutdown(t testing.TB) {
+	t.Helper()
+	h.cleanupOnce.Do(func() {
+		result := tournamenttest.Terminate(h.loop, h.runDone, alternateOneTestTimeout)
+		if result.ShutdownErr != nil {
+			t.Fatalf("Shutdown() failed: %v", result.ShutdownErr)
+		}
+		if result.CloseErr != nil && !errors.Is(result.CloseErr, ErrLoopTerminated) {
+			t.Fatalf("fallback Close() failed: %v", result.CloseErr)
+		}
+		if result.RunErr != nil {
+			t.Fatalf("Run() failed: %v", result.RunErr)
+		}
+	})
+}
+
+func (h *alternateOneTestLoop) wait(t testing.TB) {
+	t.Helper()
+	timer := time.NewTimer(alternateOneTestTimeout)
+	defer timer.Stop()
+	select {
+	case err := <-h.runDone:
+		h.runDone <- err
+		if err != nil {
+			t.Errorf("Run() failed: %v", err)
+		}
+	case <-timer.C:
+		t.Fatalf("Run() did not return within %v", alternateOneTestTimeout)
+	}
+}
+
+func waitAlternateOneSignal(t testing.TB, signal <-chan struct{}, description string) {
+	t.Helper()
+	timer := time.NewTimer(alternateOneTestTimeout)
+	defer timer.Stop()
+	select {
+	case <-signal:
+	case <-timer.C:
+		t.Fatalf("timed out waiting for %s", description)
+	}
+}
 
 // TestNew verifies basic loop creation.
 func TestNew(t *testing.T) {
@@ -20,10 +107,11 @@ func TestNew(t *testing.T) {
 	if loop.State() != StateAwake {
 		t.Errorf("Initial state = %v, want StateAwake", loop.State())
 	}
-	// Clean up
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), alternateOneTestTimeout)
 	defer cancel()
-	_ = loop.Shutdown(ctx)
+	if err := loop.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown() failed: %v", err)
+	}
 }
 
 // TestRunShutdown verifies basic run/shutdown cycle.
@@ -33,34 +121,14 @@ func TestRunShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
-	// Verify running
-	time.Sleep(10 * time.Millisecond)
 	state := loop.State()
 	if state != StateRunning && state != StateSleeping {
 		t.Errorf("State after Run = %v, want Running or Sleeping", state)
 	}
 
-	// Shutdown
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	if err := loop.Shutdown(shutdownCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	// Cancel run context
-	cancel()
-
-	// Wait for Run() to return
-	if err := <-runDone; err != nil && err != context.Canceled {
-		t.Logf("Run() returned error (expected): %v", err)
-	}
+	harness.shutdown(t)
 
 	// Verify terminated
 	if loop.State() != StateTerminated {
@@ -75,12 +143,7 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -92,23 +155,13 @@ func TestSubmit(t *testing.T) {
 	}
 
 	// Wait for execution
-	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Task not executed within timeout")
-	}
+	waitAlternateOneSignal(t, done, "submitted task")
 
 	if !executed.Load() {
 		t.Error("Task was not executed")
 	}
 
-	// Clean up
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-	cancel()
-	<-runDone
+	harness.shutdown(t)
 }
 
 // TestSubmitInternal verifies internal priority queue.
@@ -118,12 +171,7 @@ func TestSubmitInternal(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -135,23 +183,13 @@ func TestSubmitInternal(t *testing.T) {
 	}
 
 	// Wait for execution
-	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Internal task not executed within timeout")
-	}
+	waitAlternateOneSignal(t, done, "internal task")
 
 	if !executed.Load() {
 		t.Error("Internal task was not executed")
 	}
 
-	// Clean up
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-	cancel()
-	<-runDone
+	harness.shutdown(t)
 }
 
 // TestScheduleTimer verifies timer scheduling.
@@ -161,12 +199,7 @@ func TestScheduleTimer(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -179,26 +212,17 @@ func TestScheduleTimer(t *testing.T) {
 	}
 
 	// Wait for execution
-	select {
-	case <-done:
-		elapsed := time.Since(start)
-		if elapsed < 40*time.Millisecond {
-			t.Errorf("Timer executed too early: %v", elapsed)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Timer not executed within timeout")
+	waitAlternateOneSignal(t, done, "scheduled timer")
+	elapsed := time.Since(start)
+	if elapsed < 40*time.Millisecond {
+		t.Errorf("Timer executed too early: %v", elapsed)
 	}
 
 	if !executed.Load() {
 		t.Error("Timer was not executed")
 	}
 
-	// Clean up
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-	cancel()
-	<-runDone
+	harness.shutdown(t)
 }
 
 // TestMultipleSubmits verifies multiple concurrent submissions.
@@ -208,50 +232,28 @@ func TestMultipleSubmits(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	const numTasks = 100
 	var counter atomic.Int32
-	var wg sync.WaitGroup
-	wg.Add(numTasks)
 	for range numTasks {
 		if err := loop.Submit(func() {
 			counter.Add(1)
-			wg.Done()
 		}); err != nil {
 			t.Fatalf("Submit() failed: %v", err)
 		}
 	}
-
-	// Wait with timeout
 	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// OK
-	case <-time.After(5 * time.Second):
-		t.Fatalf("Only %d/%d tasks executed", counter.Load(), numTasks)
+	if err := loop.Submit(func() { close(done) }); err != nil {
+		t.Fatalf("Submit(drain barrier) failed: %v", err)
 	}
+	waitAlternateOneSignal(t, done, "submitted task drain")
 
 	if counter.Load() != numTasks {
 		t.Errorf("Executed %d tasks, want %d", counter.Load(), numTasks)
 	}
 
-	// Clean up
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-	cancel()
-	<-runDone
+	harness.shutdown(t)
 }
 
 // TestStateTransitionValidation verifies strict state validation.
@@ -295,22 +297,8 @@ func TestSubmitAfterShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	// Shutdown
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	if err := loop.Shutdown(shutdownCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	cancel()
-	<-runDone
+	harness := startAlternateOneTestLoop(t, loop)
+	harness.shutdown(t)
 
 	// Submit should fail
 	err = loop.Submit(func() {})
@@ -326,29 +314,32 @@ func TestShutdownIdempotence(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	// Multiple Shutdown calls
-	var wg sync.WaitGroup
 	const numShutdowns = 10
-	wg.Add(numShutdowns)
+	results := make(chan error, numShutdowns)
+	start := make(chan struct{})
 	for range numShutdowns {
 		go func() {
-			defer wg.Done()
-			shutdownCtx, cancelCtx := context.WithTimeout(context.Background(), time.Second)
+			<-start
+			shutdownCtx, cancelCtx := context.WithTimeout(context.Background(), alternateOneTestTimeout)
 			defer cancelCtx()
-			_ = loop.Shutdown(shutdownCtx)
+			results <- loop.Shutdown(shutdownCtx)
 		}()
 	}
-	wg.Wait()
-
-	cancel()
-	<-runDone
+	close(start)
+	for range numShutdowns {
+		select {
+		case err := <-results:
+			if err != nil {
+				t.Errorf("concurrent Shutdown() returned %v, want nil", err)
+			}
+		case <-time.After(alternateOneTestTimeout):
+			t.Fatal("concurrent Shutdown() calls did not all return")
+		}
+	}
+	harness.wait(t)
 
 	// Should be terminated
 	if loop.State() != StateTerminated {
@@ -382,45 +373,34 @@ func TestPanicRecovery(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
 	var executedAfterPanic atomic.Bool
 	done := make(chan struct{})
 
 	// Submit panicking task
-	_ = loop.Submit(func() {
+	if err := loop.Submit(func() {
 		panic("test panic")
-	})
+	}); err != nil {
+		t.Fatalf("Submit(panic) failed: %v", err)
+	}
 
 	// Submit task after panic
-	_ = loop.Submit(func() {
+	if err := loop.Submit(func() {
 		executedAfterPanic.Store(true)
 		close(done)
-	})
+	}); err != nil {
+		t.Fatalf("Submit(post-panic) failed: %v", err)
+	}
 
 	// Wait for execution
-	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Task after panic not executed")
-	}
+	waitAlternateOneSignal(t, done, "post-panic task")
 
 	if !executedAfterPanic.Load() {
 		t.Error("Task after panic was not executed")
 	}
 
-	// Clean up
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-	cancel()
-	<-runDone
+	harness.shutdown(t)
 }
 
 // TestSafeIngressInvariants verifies queue invariants.
@@ -428,7 +408,9 @@ func TestSafeIngressInvariants(t *testing.T) {
 	q := NewSafeIngress()
 	// Push and pop
 	for range 1000 {
-		_ = q.Push(func() {}, LaneExternal)
+		if err := q.Push(func() {}, LaneExternal); err != nil {
+			t.Fatalf("Push() failed: %v", err)
+		}
 	}
 	for i := range 1000 {
 		_, ok := q.PopExternal()
@@ -483,28 +465,20 @@ func TestStateObserver(t *testing.T) {
 		t.Fatalf("NewWithObserver() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	_ = loop.Shutdown(shutdownCtx)
-
-	cancel()
-	<-runDone
+	harness := startAlternateOneTestLoop(t, loop)
+	harness.shutdown(t)
 	mu.Lock()
 	defer mu.Unlock()
 	if len(transitions) == 0 {
-		t.Error("No state transitions observed")
+		t.Fatal("No state transitions observed")
 	}
 	// First transition should be Awake -> Running
-	if len(transitions) > 0 && transitions[0].from != StateAwake {
-		t.Errorf("First transition from = %v, want StateAwake", transitions[0].from)
+	if len(transitions) > 0 && (transitions[0].from != StateAwake || transitions[0].to != StateRunning) {
+		t.Errorf("First transition = %v -> %v, want StateAwake -> StateRunning", transitions[0].from, transitions[0].to)
+	}
+	last := transitions[len(transitions)-1]
+	if last.from != StateTerminating || last.to != StateTerminated {
+		t.Errorf("Last transition = %v -> %v, want StateTerminating -> StateTerminated", last.from, last.to)
 	}
 }
 
@@ -522,42 +496,41 @@ func TestClose(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
+	harness := startAlternateOneTestLoop(t, loop)
 
-	// Submit a task
+	// Hold an already-entered callback. Immediate Close must publish termination
+	// without waiting for the callback to return.
 	var executed atomic.Bool
-	_ = loop.Submit(func() {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseCallback := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseCallback)
+	if err := loop.Submit(func() {
 		executed.Store(true)
-	})
-
-	time.Sleep(100 * time.Millisecond)
-
-	// Close immediately (should terminate loop within a few ticks)
-	if err := loop.Close(); err != nil {
-		t.Fatalf("Close() failed: %v", err)
+		close(entered)
+		<-release
+	}); err != nil {
+		t.Fatalf("Submit() failed: %v", err)
 	}
+	waitAlternateOneSignal(t, entered, "callback entry before Close")
 
-	// Task may or may not have executed (Close is immediate, not graceful)
-	t.Logf("Task executed: %v", executed.Load())
-
-	// Cancel context to help Run() exit
-	cancel()
-
-	// Wait for Run() to return with longer timeout
-	// Close guarantees termination, but may need to finish current tick
+	closeResult := make(chan error, 1)
+	go func() { closeResult <- loop.Close() }()
 	select {
-	case err := <-runDone:
-		if err != nil && err != context.Canceled {
-			t.Logf("Run() returned error: %v", err)
+	case err := <-closeResult:
+		if err != nil {
+			t.Fatalf("Close() failed: %v", err)
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Run() did not return after Close within 3s")
+	case <-time.After(alternateOneTestTimeout):
+		t.Fatal("Close() waited for an already-entered callback")
 	}
+	releaseCallback()
+
+	if !executed.Load() {
+		t.Error("held callback did not enter")
+	}
+	harness.wait(t)
 
 	// Should be terminated
 	if loop.State() != StateTerminated {
@@ -599,78 +572,30 @@ func TestRunBlocks(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	runDone := make(chan error, 1)
-	started := make(chan struct{})
-	go func() {
-		close(started)
-		runDone <- loop.Run(ctx)
-	}()
-
-	<-started
-	time.Sleep(50 * time.Millisecond)
+	harness := startAlternateOneTestLoop(t, loop)
 
 	// Run should still be blocking
 	select {
-	case err := <-runDone:
+	case err := <-harness.runDone:
+		harness.runDone <- err
 		t.Fatalf("Run() returned early with error: %v", err)
 	default:
 		// OK - still blocking
 	}
 
 	// Shutdown to unblock
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	if err := loop.Shutdown(shutdownCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	cancel()
-
-	// Now Run should return
-	select {
-	case err := <-runDone:
-		if err != nil && err != context.Canceled {
-			t.Logf("Run() returned error (expected): %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("Run() did not return after Shutdown")
-	}
+	harness.shutdown(t)
 }
 
-// TestConcurrentShutdownClose verifies concurrent Shutdown/Close is safe.
-func TestConcurrentShutdownClose(t *testing.T) {
+// TestCloseAfterShutdown verifies the historical terminal follow-up result.
+func TestCloseAfterShutdown(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := t.Context()
-
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	// Call Shutdown gracefully
-	shutdownCtx, cancel2 := context.WithTimeout(context.Background(), time.Second)
-	defer cancel2()
-	if err := loop.Shutdown(shutdownCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	// Run should return after Shutdown
-	select {
-	case err := <-runDone:
-		if err != nil && err != context.Canceled {
-			t.Logf("Run() returned error: %v", err)
-		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("Run() did not return after Shutdown")
-	}
+	harness := startAlternateOneTestLoop(t, loop)
+	harness.shutdown(t)
 
 	// Should be terminated
 	if loop.State() != StateTerminated {

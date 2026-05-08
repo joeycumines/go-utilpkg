@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$918X\x1080)y%0bIY7\"0700080ZZ170%8\x018z)$")

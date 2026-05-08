@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ===============================================
@@ -20,10 +20,7 @@ import (
 // ===============================================
 
 func TestEncodeURIComponent_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -61,10 +58,7 @@ func TestEncodeURIComponent_Basic(t *testing.T) {
 }
 
 func TestDecodeURIComponent_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -101,10 +95,7 @@ func TestDecodeURIComponent_Basic(t *testing.T) {
 }
 
 func TestEncodeURIComponent_Unicode(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -139,10 +130,7 @@ func TestEncodeURIComponent_Unicode(t *testing.T) {
 }
 
 func TestEncodeURI_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -177,10 +165,7 @@ func TestEncodeURI_Basic(t *testing.T) {
 }
 
 func TestDecodeURI_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -214,10 +199,7 @@ func TestDecodeURI_Basic(t *testing.T) {
 }
 
 func TestEscape_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -252,10 +234,7 @@ func TestEscape_Basic(t *testing.T) {
 }
 
 func TestUnescape_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -288,10 +267,7 @@ func TestUnescape_Basic(t *testing.T) {
 }
 
 func TestURIComponent_InvalidSequence(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -319,10 +295,7 @@ func TestURIComponent_InvalidSequence(t *testing.T) {
 // ===============================================
 
 func TestParseInt_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -363,10 +336,7 @@ func TestParseInt_Basic(t *testing.T) {
 }
 
 func TestParseInt_NaN(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -399,10 +369,7 @@ func TestParseInt_NaN(t *testing.T) {
 }
 
 func TestParseFloat_Basic(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -451,10 +418,7 @@ func TestParseFloat_Basic(t *testing.T) {
 }
 
 func TestParseFloat_NaN(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -496,10 +460,7 @@ func TestParseFloat_NaN(t *testing.T) {
 // ===============================================
 
 func TestIsNaN_Global(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -544,10 +505,7 @@ func TestIsNaN_Global(t *testing.T) {
 }
 
 func TestIsFinite_Global(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -590,10 +548,7 @@ func TestIsFinite_Global(t *testing.T) {
 }
 
 func TestNumberIsNaN(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -636,10 +591,7 @@ func TestNumberIsNaN(t *testing.T) {
 }
 
 func TestNumberIsFinite(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -684,10 +636,7 @@ func TestNumberIsFinite(t *testing.T) {
 }
 
 func TestGlobalVsNumberVersions(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -724,10 +673,7 @@ func TestGlobalVsNumberVersions(t *testing.T) {
 // ===============================================
 
 func TestNumberIsInteger(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -770,10 +716,7 @@ func TestNumberIsInteger(t *testing.T) {
 }
 
 func TestNumberIsSafeInteger(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -816,10 +759,7 @@ func TestNumberIsSafeInteger(t *testing.T) {
 }
 
 func TestNumberConstants(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -860,10 +800,7 @@ func TestNumberConstants(t *testing.T) {
 // ===============================================
 
 func TestBuiltinFunctionsExist(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -908,10 +845,7 @@ func TestBuiltinFunctionsExist(t *testing.T) {
 }
 
 func TestNumberParseIntParseFloat(t *testing.T) {
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("New failed: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

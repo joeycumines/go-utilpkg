@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/joeycumines/goja-protobuf.svg)](https://pkg.go.dev/github.com/joeycumines/goja-protobuf)
 
-Protocol Buffers support for the [goja](https://github.com/dop251/goja) JavaScript runtime. Create, manipulate, serialize, and deserialize protobuf messages from JavaScript running in Go.
+Protocol Buffers support for the [goja](https://github.com/joeycumines/goja) JavaScript runtime. Create, manipulate, serialize, and deserialize protobuf messages from JavaScript running in Go.
 
 ## Features
 
@@ -10,8 +10,9 @@ Protocol Buffers support for the [goja](https://github.com/dop251/goja) JavaScri
 - **Binary serialization**: Encode/decode protobuf wire format via `Uint8Array`
 - **JSON serialization**: Proto3 canonical JSON including well-known type formats (Timestamp, Duration, Any, etc.)
 - **Dynamic descriptors**: Load `.proto` definitions at runtime from serialized `FileDescriptorSet` or `FileDescriptorProto`
+- **One runtime identity**: Generated and dynamic messages, files, types, and extensions share one runtime-scoped registry graph
 - **Type-safe wrappers**: JavaScript message objects with get/set/has/clear methods
-- **BigInt support**: 64-bit integers outside the safe integer range automatically use BigInt
+- **Lossless integers**: 64-bit values use safe numbers or BigInt; setters also accept exact decimal strings
 - **require() integration**: Standard goja module loading via `require('protobuf')`
 
 ## Installation
@@ -28,8 +29,8 @@ package main
 import (
     "os"
 
-    "github.com/dop251/goja"
-    "github.com/dop251/goja_nodejs/require"
+    "github.com/joeycumines/goja"
+    "github.com/joeycumines/goja_nodejs/require"
     gojaprotobuf "github.com/joeycumines/goja-protobuf"
 )
 
@@ -83,6 +84,10 @@ pb.loadDescriptorSet(uint8ArrayOrArrayBuffer);
 pb.loadFileDescriptorProto(uint8ArrayOrArrayBuffer);
 ```
 
+Descriptor-set installation is an atomic, order-independent transaction.
+Reloading byte-equivalent files is idempotent; conflicting paths or symbols
+fail without changing the active registry snapshot.
+
 ### Message Types
 
 ```javascript
@@ -101,7 +106,7 @@ msg.whichOneof('oneof_name');  // returns field name or undefined
 msg.clearOneof('oneof_name');
 
 // Type information
-msg.get('$type');  // fully-qualified type name
+msg.$type;  // fully-qualified type name
 ```
 
 ### Enum Types
@@ -135,8 +140,9 @@ map.get('key');        // lookup
 map.set('key', value); // insert/update
 map.has('key');        // boolean
 map.delete('key');     // remove
-map.forEach((key, value) => { ... });
-map.entries();         // iterator
+map.forEach((value, key) => { ... });
+map.entries();         // iterable iterator
+Array.from(map);       // [key, value] pairs
 
 // Set from object or Map
 msg.set('labels', { key1: 'val1', key2: 'val2' });
@@ -160,9 +166,9 @@ const msg3 = pb.fromJSON(MyMsg, json);
 | Protobuf Type | JavaScript Type |
 |---|---|
 | int32, sint32, sfixed32 | number |
-| int64, sint64, sfixed64 | number (BigInt if outside safe range) |
+| int64, sint64, sfixed64 | safe number or BigInt |
 | uint32, fixed32 | number |
-| uint64, fixed64 | number (BigInt if outside safe range) |
+| uint64, fixed64 | safe number or BigInt |
 | float, double | number |
 | bool | boolean |
 | string | string |
@@ -186,12 +192,27 @@ if err != nil {
 names, err := mod.LoadDescriptorSetBytes(data)
 
 // Wrap/unwrap messages for Go↔JS interop
-jsObj := mod.WrapMessage(dynamicMsg)
+jsObj, err := mod.WrapMessage(dynamicMsg)
 goMsg, err := mod.UnwrapMessage(jsValue)
+
+// Install the direct-Go API atomically.
+err = mod.SetupExports(exports)
 
 // Find descriptors
 desc, err := mod.FindDescriptor("mypackage.MyMessage")
 ```
+
+`WrapMessage` preserves the supplied generated or dynamic message instance and
+rejects messages whose descriptor is not the exact descriptor owned by this
+runtime. All module and JavaScript operations must run on the owning Goja
+goroutine. `OwnsRuntime` is the non-exposing ownership predicate for composed
+modules.
+
+The first module created for a runtime snapshots the current membership of the
+configured type and file registries (or the global registries by default).
+Later caller registrations are intentionally invisible; use
+`LoadDescriptorSetBytes` for atomic additions to the runtime's live shared
+graph. Registry mutation must not race construction.
 
 ## License
 

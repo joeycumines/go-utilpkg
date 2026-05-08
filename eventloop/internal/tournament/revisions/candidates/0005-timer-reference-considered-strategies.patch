@@ -1,0 +1,907 @@
+diff --git a/eventloop/internal/tournament/component/timerrefalwayssubmit/core.go b/eventloop/internal/tournament/component/timerrefalwayssubmit/core.go
+new file mode 100644
+index 0000000..0bbfd85
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefalwayssubmit/core.go
+@@ -0,0 +1,92 @@
++// Package timerrefalwayssubmit materializes the considered strategy that
++// always submits timer reference changes as closures, including on the owner.
++package timerrefalwayssubmit
++
++import (
++	"sync"
++	"sync/atomic"
++)
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++// Core isolates unconditional closure submission from lifecycle and wake
++// policy. Seed, Drain, and Snapshot are untimed owner operations.
++type Core struct {
++	entries  map[ID]*entry
++	refed    atomic.Int32
++	queueMu  sync.Mutex
++	queue    []func()
++	consumed []func()
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++	Queued     int
++}
++
++func New() *Core {
++	return &Core{entries: make(map[ID]*entry)}
++}
++
++func (c *Core) Seed(id ID, refed bool) bool {
++	if _, exists := c.entries[id]; exists {
++		return false
++	}
++	value := new(entry)
++	value.refed.Store(refed)
++	c.entries[id] = value
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++// Apply always enqueues one closure and returns before owner application.
++func (c *Core) Apply(id ID, refed bool) {
++	c.queueMu.Lock()
++	c.queue = append(c.queue, func() {
++		c.apply(id, refed)
++	})
++	c.queueMu.Unlock()
++}
++
++func (c *Core) apply(id ID, refed bool) {
++	value, exists := c.entries[id]
++	if !exists {
++		return
++	}
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++func (c *Core) Drain() int {
++	c.queueMu.Lock()
++	batch := c.queue
++	c.queue = c.consumed[:0]
++	c.consumed = batch[:0]
++	c.queueMu.Unlock()
++	for _, task := range batch {
++		task()
++	}
++	return len(batch)
++}
++
++func (c *Core) Snapshot(id ID) Snapshot {
++	value, exists := c.entries[id]
++	c.queueMu.Lock()
++	queued := len(c.queue)
++	c.queueMu.Unlock()
++	return Snapshot{Present: exists, Refed: exists && value.refed.Load(), RefedCount: int64(c.refed.Load()), Queued: queued}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefalwayssubmit/core_test.go b/eventloop/internal/tournament/component/timerrefalwayssubmit/core_test.go
+new file mode 100644
+index 0000000..f6ab5d3
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefalwayssubmit/core_test.go
+@@ -0,0 +1,57 @@
++package timerrefalwayssubmit
++
++import (
++	"sync"
++	"testing"
++)
++
++func TestCoreAlwaysQueues(t *testing.T) {
++	core := New()
++	if !core.Seed(0, true) || core.Seed(0, false) {
++		t.Fatal("zero-ID seed acceptance differs")
++	}
++	core.Apply(0, false)
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, Refed: true, RefedCount: 1, Queued: 1}) {
++		t.Fatalf("return snapshot = %+v", got)
++	}
++	if got := core.Drain(); got != 1 {
++		t.Fatalf("drained = %d, want 1", got)
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true}) {
++		t.Fatalf("apply snapshot = %+v", got)
++	}
++	core.Apply(99, true)
++	if got := core.Drain(); got != 1 {
++		t.Fatalf("missing drain = %d, want 1", got)
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true}) {
++		t.Fatalf("missing application changed state: %+v", got)
++	}
++}
++
++func TestCoreConcurrentQueue(t *testing.T) {
++	core := New()
++	if !core.Seed(1, false) {
++		t.Fatal("seed failed")
++	}
++	const workers = 32
++	var wait sync.WaitGroup
++	wait.Add(workers)
++	for index := range workers {
++		go func() {
++			defer wait.Done()
++			core.Apply(1, index%2 == 0)
++		}()
++	}
++	wait.Wait()
++	if got := core.Snapshot(1).Queued; got != workers {
++		t.Fatalf("queued = %d, want %d", got, workers)
++	}
++	if got := core.Drain(); got != workers {
++		t.Fatalf("drained = %d, want %d", got, workers)
++	}
++	snapshot := core.Snapshot(1)
++	if !snapshot.Present || snapshot.RefedCount < 0 || snapshot.RefedCount > 1 || snapshot.Refed != (snapshot.RefedCount == 1) {
++		t.Fatalf("incoherent final snapshot = %+v", snapshot)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefalwayssubmit/layout64_test.go b/eventloop/internal/tournament/component/timerrefalwayssubmit/layout64_test.go
+new file mode 100644
+index 0000000..b14fe77
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefalwayssubmit/layout64_test.go
+@@ -0,0 +1,17 @@
++//go:build amd64 || arm64
++
++package timerrefalwayssubmit
++
++import (
++	"testing"
++	"unsafe"
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 72 {
++		t.Fatalf("core size = %d, want 72", got)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefownersubmit/core.go b/eventloop/internal/tournament/component/timerrefownersubmit/core.go
+new file mode 100644
+index 0000000..bad855f
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefownersubmit/core.go
+@@ -0,0 +1,127 @@
++// Package timerrefownersubmit materializes the considered owner-test strategy
++// that applies timer reference changes directly on the owner and submits a
++// closure from external goroutines.
++package timerrefownersubmit
++
++import (
++	"sync"
++	"sync/atomic"
++
++	"github.com/joeycumines/goroutineid"
++)
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++// Core isolates the considered owner-test plus submitted-closure topology.
++// Queue draining and state inspection are untimed qualification operations.
++type Core struct {
++	entries  map[ID]*entry
++	refed    atomic.Int32
++	ownerID  atomic.Int64
++	queueMu  sync.Mutex
++	queue    []func()
++	consumed []func()
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++	Queued     int
++}
++
++func New() *Core {
++	return &Core{entries: make(map[ID]*entry)}
++}
++
++// BindOwner binds the calling goroutine as the sole map owner.
++func (c *Core) BindOwner() bool {
++	id := goroutineid.Get()
++	if id == 0 {
++		return false
++	}
++	return c.ownerID.CompareAndSwap(0, id) || c.ownerID.Load() == id
++}
++
++func (c *Core) isOwner() bool {
++	owner := c.ownerID.Load()
++	return owner != 0 && goroutineid.Get() == owner
++}
++
++// Seed is an untimed owner-only qualification operation.
++func (c *Core) Seed(id ID, refed bool) bool {
++	if !c.isOwner() {
++		return false
++	}
++	if _, exists := c.entries[id]; exists {
++		return false
++	}
++	value := new(entry)
++	value.refed.Store(refed)
++	c.entries[id] = value
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++// Apply preserves the considered branch: direct owner application, otherwise
++// enqueue one closure. It excludes terminal admission, epoch, and wake policy.
++func (c *Core) Apply(id ID, refed bool) {
++	if c.isOwner() {
++		c.apply(id, refed)
++		return
++	}
++	c.queueMu.Lock()
++	c.queue = append(c.queue, func() {
++		c.apply(id, refed)
++	})
++	c.queueMu.Unlock()
++}
++
++func (c *Core) apply(id ID, refed bool) {
++	value, exists := c.entries[id]
++	if !exists {
++		return
++	}
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++// Drain applies one detached queue batch on the owner.
++func (c *Core) Drain() int {
++	if !c.isOwner() {
++		return 0
++	}
++	c.queueMu.Lock()
++	batch := c.queue
++	c.queue = c.consumed[:0]
++	c.consumed = batch[:0]
++	c.queueMu.Unlock()
++	for _, task := range batch {
++		task()
++	}
++	return len(batch)
++}
++
++// Snapshot is an untimed owner-only qualification operation.
++func (c *Core) Snapshot(id ID) Snapshot {
++	if !c.isOwner() {
++		return Snapshot{}
++	}
++	value, exists := c.entries[id]
++	c.queueMu.Lock()
++	queued := len(c.queue)
++	c.queueMu.Unlock()
++	return Snapshot{Present: exists, Refed: exists && value.refed.Load(), RefedCount: int64(c.refed.Load()), Queued: queued}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefownersubmit/core_test.go b/eventloop/internal/tournament/component/timerrefownersubmit/core_test.go
+new file mode 100644
+index 0000000..554d3ba
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefownersubmit/core_test.go
+@@ -0,0 +1,77 @@
++package timerrefownersubmit
++
++import (
++	"sync"
++	"testing"
++)
++
++func TestCoreOwnerAndExternalPaths(t *testing.T) {
++	core := New()
++	if !core.BindOwner() || !core.Seed(0, true) || core.Seed(0, false) {
++		t.Fatal("owner binding or zero-ID seed failed")
++	}
++	core.Apply(0, false)
++	if got := core.Snapshot(0); got != (Snapshot{Present: true}) {
++		t.Fatalf("owner-direct snapshot = %+v", got)
++	}
++
++	returned := make(chan struct{})
++	go func() {
++		core.Apply(0, true)
++		close(returned)
++	}()
++	<-returned
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, Queued: 1}) {
++		t.Fatalf("external-return snapshot = %+v", got)
++	}
++	if got := core.Drain(); got != 1 {
++		t.Fatalf("drained = %d, want 1", got)
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("external-apply snapshot = %+v", got)
++	}
++	if got := core.Drain(); got != 0 {
++		t.Fatalf("empty drain = %d", got)
++	}
++}
++
++func TestCoreConcurrentExternalQueue(t *testing.T) {
++	core := New()
++	if !core.BindOwner() || !core.Seed(1, false) {
++		t.Fatal("setup failed")
++	}
++	const workers = 32
++	var wait sync.WaitGroup
++	wait.Add(workers)
++	for index := range workers {
++		go func() {
++			defer wait.Done()
++			core.Apply(1, index%2 == 0)
++		}()
++	}
++	wait.Wait()
++	if got := core.Snapshot(1).Queued; got != workers {
++		t.Fatalf("queued = %d, want %d", got, workers)
++	}
++	if got := core.Drain(); got != workers {
++		t.Fatalf("drained = %d, want %d", got, workers)
++	}
++	snapshot := core.Snapshot(1)
++	if !snapshot.Present || snapshot.RefedCount < 0 || snapshot.RefedCount > 1 || snapshot.Refed != (snapshot.RefedCount == 1) {
++		t.Fatalf("incoherent final snapshot = %+v", snapshot)
++	}
++}
++
++func TestCoreRejectsNonOwnerQualification(t *testing.T) {
++	core := New()
++	if !core.BindOwner() {
++		t.Fatal("bind owner failed")
++	}
++	result := make(chan bool, 1)
++	go func() {
++		result <- core.BindOwner() || core.Seed(1, true) || core.Drain() != 0 || core.Snapshot(1) != (Snapshot{})
++	}()
++	if <-result {
++		t.Fatal("non-owner qualification was accepted")
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefownersubmit/layout64_test.go b/eventloop/internal/tournament/component/timerrefownersubmit/layout64_test.go
+new file mode 100644
+index 0000000..b64595a
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefownersubmit/layout64_test.go
+@@ -0,0 +1,17 @@
++//go:build amd64 || arm64
++
++package timerrefownersubmit
++
++import (
++	"testing"
++	"unsafe"
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 80 {
++		t.Fatalf("core size = %d, want 80", got)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefrwmutex/core.go b/eventloop/internal/tournament/component/timerrefrwmutex/core.go
+new file mode 100644
+index 0000000..b035cf7
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefrwmutex/core.go
+@@ -0,0 +1,103 @@
++// Package timerrefrwmutex materializes the considered RWMutex-protected map
++// lookup strategy retained by the 802436f7 and 986e2378 benchmark sources.
++package timerrefrwmutex
++
++import (
++	"sync"
++	"sync/atomic"
++)
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++// Core requires Seal before timed Apply calls. The seal is the explicit
++// registration/quiescence barrier missing from the historical benchmark body;
++// it prevents concurrent map mutation from invalidating its RLock-only lookup.
++type Core struct {
++	entries map[ID]*entry
++	mu      sync.RWMutex
++	refed   atomic.Int32
++	sealed  atomic.Bool
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++	Sealed     bool
++}
++
++func New() *Core {
++	return &Core{entries: make(map[ID]*entry)}
++}
++
++func (c *Core) Seed(id ID, refed bool) bool {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	if c.sealed.Load() {
++		return false
++	}
++	if _, exists := c.entries[id]; exists {
++		return false
++	}
++	value := new(entry)
++	value.refed.Store(refed)
++	c.entries[id] = value
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++func (c *Core) Remove(id ID) bool {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	if c.sealed.Load() {
++		return false
++	}
++	value, exists := c.entries[id]
++	if !exists {
++		return false
++	}
++	delete(c.entries, id)
++	if value.refed.Load() {
++		c.refed.Add(-1)
++	}
++	return true
++}
++
++// Seal establishes the registration/quiescence barrier required before Apply.
++func (c *Core) Seal() bool {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return c.sealed.CompareAndSwap(false, true)
++}
++
++// Apply preserves RLock lookup, atomic reference swap, and conditional Int32
++// aggregate update. Callers must establish Seal outside the timed region.
++func (c *Core) Apply(id ID, refed bool) {
++	c.mu.RLock()
++	value, exists := c.entries[id]
++	c.mu.RUnlock()
++	if !exists {
++		return
++	}
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++func (c *Core) Snapshot(id ID) Snapshot {
++	c.mu.RLock()
++	value, exists := c.entries[id]
++	c.mu.RUnlock()
++	return Snapshot{Present: exists, Refed: exists && value.refed.Load(), RefedCount: int64(c.refed.Load()), Sealed: c.sealed.Load()}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefrwmutex/core_test.go b/eventloop/internal/tournament/component/timerrefrwmutex/core_test.go
+new file mode 100644
+index 0000000..e63e367
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefrwmutex/core_test.go
+@@ -0,0 +1,124 @@
++package timerrefrwmutex
++
++import (
++	"sync"
++	"testing"
++)
++
++func TestCoreQualificationBarrierAndTransitions(t *testing.T) {
++	missing := New()
++	if !missing.Seal() {
++		t.Fatal("missing-core seal failed")
++	}
++	missing.Apply(1, true)
++	if got := missing.Snapshot(1); got != (Snapshot{Sealed: true}) {
++		t.Fatalf("missing snapshot = %+v", got)
++	}
++
++	core := New()
++	if !core.Seed(0, true) || core.Seed(0, false) || !core.Seed(1, false) {
++		t.Fatal("seed acceptance differs")
++	}
++	if !core.Remove(0) || core.Remove(0) {
++		t.Fatal("pre-seal remove acceptance differs")
++	}
++	if !core.Seal() || core.Seal() || core.Seed(2, true) || core.Remove(1) {
++		t.Fatal("registration barrier acceptance differs")
++	}
++	core.Apply(1, true)
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: 1, Sealed: true}) {
++		t.Fatalf("referenced snapshot = %+v", got)
++	}
++	core.Apply(1, false)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Sealed: true}) {
++		t.Fatalf("unreferenced snapshot = %+v", got)
++	}
++}
++
++func TestCoreConcurrentApplyAfterBarrier(t *testing.T) {
++	core := New()
++	const entries = 32
++	for id := range entries {
++		if !core.Seed(ID(id), false) {
++			t.Fatalf("seed %d failed", id)
++		}
++	}
++	if !core.Seal() {
++		t.Fatal("seal failed")
++	}
++	var wait sync.WaitGroup
++	wait.Add(entries)
++	for id := range entries {
++		go func() {
++			defer wait.Done()
++			for range 100 {
++				core.Apply(ID(id), true)
++				core.Apply(ID(id), false)
++			}
++		}()
++	}
++	wait.Wait()
++	for id := range entries {
++		if got := core.Snapshot(ID(id)); got != (Snapshot{Present: true, Sealed: true}) {
++			t.Fatalf("snapshot %d = %+v", id, got)
++		}
++	}
++}
++
++func FuzzCoreTraceBeforeBarrier(f *testing.F) {
++	f.Add([]byte{0, 1, 2, 3, 4, 5})
++	f.Fuzz(func(t *testing.T, operations []byte) {
++		core := New()
++		model := make(map[ID]bool)
++		for _, operation := range operations {
++			id := ID(operation % 8)
++			switch operation % 3 {
++			case 0, 1:
++				refed := operation%2 == 0
++				accepted := core.Seed(id, refed)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = refed
++				}
++			default:
++				removed := core.Remove(id)
++				_, exists := model[id]
++				if removed != exists {
++					t.Fatalf("Remove(%d) = %v, existed %v", id, removed, exists)
++				}
++				delete(model, id)
++			}
++			assertModel(t, core, model, false)
++		}
++		if !core.Seal() {
++			t.Fatal("seal failed")
++		}
++		for id, refed := range model {
++			core.Apply(id, !refed)
++			model[id] = !refed
++		}
++		assertModel(t, core, model, true)
++	})
++}
++
++func assertModel(t *testing.T, core *Core, model map[ID]bool, sealed bool) {
++	t.Helper()
++	wantCount := int64(0)
++	for _, refed := range model {
++		if refed {
++			wantCount++
++		}
++	}
++	for id, refed := range model {
++		if got := core.Snapshot(id); got != (Snapshot{Present: true, Refed: refed, RefedCount: wantCount, Sealed: sealed}) {
++			t.Fatalf("Snapshot(%d) = %+v", id, got)
++		}
++	}
++	if got := core.Snapshot(ID(^uint64(0))); got.RefedCount != wantCount || got.Sealed != sealed {
++		t.Fatalf("aggregate snapshot = %+v, want count %d sealed %v", got, wantCount, sealed)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefrwmutex/layout64_test.go b/eventloop/internal/tournament/component/timerrefrwmutex/layout64_test.go
+new file mode 100644
+index 0000000..d21cfe8
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefrwmutex/layout64_test.go
+@@ -0,0 +1,17 @@
++//go:build amd64 || arm64
++
++package timerrefrwmutex
++
++import (
++	"testing"
++	"unsafe"
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 40 {
++		t.Fatalf("core size = %d, want 40", got)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefsyncmap/core.go b/eventloop/internal/tournament/component/timerrefsyncmap/core.go
+new file mode 100644
+index 0000000..55c6fe6
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefsyncmap/core.go
+@@ -0,0 +1,73 @@
++// Package timerrefsyncmap materializes the considered sync.Map timer-reference
++// strategy retained by the 802436f7 and 986e2378 benchmark sources.
++package timerrefsyncmap
++
++import (
++	"sync"
++	"sync/atomic"
++)
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++type Core struct {
++	entries sync.Map
++	refed   atomic.Int32
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++}
++
++func New() *Core { return new(Core) }
++
++func (c *Core) Seed(id ID, refed bool) bool {
++	value := new(entry)
++	value.refed.Store(refed)
++	if _, loaded := c.entries.LoadOrStore(uint64(id), value); loaded {
++		return false
++	}
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++func (c *Core) Remove(id ID) bool {
++	loaded, exists := c.entries.LoadAndDelete(uint64(id))
++	if !exists {
++		return false
++	}
++	if loaded.(*entry).refed.Load() {
++		c.refed.Add(-1)
++	}
++	return true
++}
++
++// Apply preserves sync.Map lookup, concrete entry assertion, atomic reference
++// swap, and conditional Int32 aggregate update as the complete timed core.
++func (c *Core) Apply(id ID, refed bool) {
++	loaded, exists := c.entries.Load(uint64(id))
++	if !exists {
++		return
++	}
++	value := loaded.(*entry)
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++func (c *Core) Snapshot(id ID) Snapshot {
++	loaded, exists := c.entries.Load(uint64(id))
++	return Snapshot{Present: exists, Refed: exists && loaded.(*entry).refed.Load(), RefedCount: int64(c.refed.Load())}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefsyncmap/core_test.go b/eventloop/internal/tournament/component/timerrefsyncmap/core_test.go
+new file mode 100644
+index 0000000..4bd5e97
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefsyncmap/core_test.go
+@@ -0,0 +1,114 @@
++package timerrefsyncmap
++
++import (
++	"sync"
++	"testing"
++)
++
++func TestCoreTransitions(t *testing.T) {
++	core := New()
++	core.Apply(1, true)
++	if !core.Seed(0, true) || core.Seed(0, false) || !core.Seed(1, false) {
++		t.Fatal("seed acceptance differs")
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("zero-ID snapshot = %+v", got)
++	}
++	core.Apply(1, true)
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: 2}) {
++		t.Fatalf("referenced snapshot = %+v", got)
++	}
++	core.Apply(0, false)
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, RefedCount: 1}) {
++		t.Fatalf("unreferenced snapshot = %+v", got)
++	}
++	if !core.Remove(1) || core.Remove(1) {
++		t.Fatal("remove acceptance differs")
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true}) {
++		t.Fatalf("final snapshot = %+v", got)
++	}
++}
++
++func TestCoreConcurrentApply(t *testing.T) {
++	core := New()
++	const entries = 32
++	for id := range entries {
++		if !core.Seed(ID(id), false) {
++			t.Fatalf("seed %d failed", id)
++		}
++	}
++	var wait sync.WaitGroup
++	wait.Add(entries)
++	for id := range entries {
++		go func() {
++			defer wait.Done()
++			for range 100 {
++				core.Apply(ID(id), true)
++				core.Apply(ID(id), false)
++			}
++		}()
++	}
++	wait.Wait()
++	for id := range entries {
++		if got := core.Snapshot(ID(id)); got != (Snapshot{Present: true}) {
++			t.Fatalf("snapshot %d = %+v", id, got)
++		}
++	}
++}
++
++func FuzzCoreTrace(f *testing.F) {
++	f.Add([]byte{0, 1, 2, 3, 4, 5})
++	f.Fuzz(func(t *testing.T, operations []byte) {
++		core := New()
++		model := make(map[ID]bool)
++		for _, operation := range operations {
++			id := ID(operation % 8)
++			switch operation % 5 {
++			case 0, 1:
++				refed := operation%2 == 0
++				accepted := core.Seed(id, refed)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = refed
++				}
++			case 2, 3:
++				refed := operation%2 == 0
++				core.Apply(id, refed)
++				if _, exists := model[id]; exists {
++					model[id] = refed
++				}
++			default:
++				removed := core.Remove(id)
++				_, exists := model[id]
++				if removed != exists {
++					t.Fatalf("Remove(%d) = %v, existed %v", id, removed, exists)
++				}
++				delete(model, id)
++			}
++			assertModel(t, core, model)
++		}
++	})
++}
++
++func assertModel(t *testing.T, core *Core, model map[ID]bool) {
++	t.Helper()
++	wantCount := int64(0)
++	for _, refed := range model {
++		if refed {
++			wantCount++
++		}
++	}
++	for id, refed := range model {
++		if got := core.Snapshot(id); got != (Snapshot{Present: true, Refed: refed, RefedCount: wantCount}) {
++			t.Fatalf("Snapshot(%d) = %+v", id, got)
++		}
++	}
++	if got := core.Snapshot(ID(^uint64(0))).RefedCount; got != wantCount {
++		t.Fatalf("aggregate = %d, want %d", got, wantCount)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefsyncmap/layout64_test.go b/eventloop/internal/tournament/component/timerrefsyncmap/layout64_test.go
+new file mode 100644
+index 0000000..013f9ac
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefsyncmap/layout64_test.go
+@@ -0,0 +1,17 @@
++//go:build amd64 || arm64
++
++package timerrefsyncmap
++
++import (
++	"testing"
++	"unsafe"
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 56 {
++		t.Fatalf("core size = %d, want 56", got)
++	}
++}

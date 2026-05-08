@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8(10\x00Z\x02*y80y'yY0yX00B#Y18Y1(XC002X19")

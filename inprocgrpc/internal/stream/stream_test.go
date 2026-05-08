@@ -3,7 +3,9 @@ package stream
 import (
 	"errors"
 	"io"
+	"runtime"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -254,6 +256,106 @@ func TestHalfStream_WaitDrainsBufferBeforeError(t *testing.T) {
 	}
 }
 
+func TestRPCStateDetachPostDonePreservesAcceptedResponses(t *testing.T) {
+	state := NewRPCState("/test.Service/Call", 3)
+	state.ResponseHeaders = metadata.Pairs("header", "value")
+	state.ResponseTrailers = metadata.Pairs("trailer", "value")
+	state.ResponseHeadersPublished = true
+	state.ResponseTerminalPublished = true
+	if err := state.Responses.TrySend("first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Responses.TrySend("second"); err != nil {
+		t.Fatal(err)
+	}
+	state.Responses.Close(nil)
+
+	snapshot := state.DetachPostDone(true)
+	if len(snapshot.ResponseMessages) != 2 ||
+		snapshot.ResponseMessages[0] != "first" ||
+		snapshot.ResponseMessages[1] != "second" {
+		t.Fatalf("responses = %v", snapshot.ResponseMessages)
+	}
+	if snapshot.ResponseHeaders.Get("header")[0] != "value" ||
+		snapshot.ResponseTrailers.Get("trailer")[0] != "value" {
+		t.Fatalf("metadata = %v, %v",
+			snapshot.ResponseHeaders,
+			snapshot.ResponseTrailers,
+		)
+	}
+	if state.ResponseHeaders != nil || state.ResponseTrailers != nil ||
+		!state.Responses.Drained() {
+		t.Fatalf("state retained post-Done data: %+v", state)
+	}
+}
+
+func TestRPCStateDetachPostDoneAbandonsTrackedWaiter(t *testing.T) {
+	state := NewRPCState("/test.Service/Call", 1)
+	called := false
+	state.Responses.RecvTracked(41, func(any, error) { called = true })
+	snapshot := state.DetachPostDone(false)
+	if called {
+		t.Fatal("detachment invoked waiter")
+	}
+	if len(snapshot.AbandonedDeliveries) != 1 ||
+		snapshot.AbandonedDeliveries[0] != 41 {
+		t.Fatalf("abandoned deliveries = %v", snapshot.AbandonedDeliveries)
+	}
+}
+
+func TestRPCStateDetachPostDoneTransfersPendingProducer(t *testing.T) {
+	state := NewRPCState("/test.Service/Call", 1)
+	if err := state.Requests.TrySend("buffered"); err != nil {
+		t.Fatal(err)
+	}
+	var (
+		calls int
+		got   error
+	)
+	state.Requests.SendWait("pending", func(err error) {
+		calls++
+		got = err
+	})
+	snapshot := state.DetachPostDone(false)
+	if calls != 0 {
+		t.Fatal("detachment invoked pending producer")
+	}
+	if len(snapshot.AbandonedProducers) != 1 {
+		t.Fatalf("producers = %d", len(snapshot.AbandonedProducers))
+	}
+	terminalErr := errors.New("terminal")
+	snapshot.AbandonedProducers[0].Acknowledge(terminalErr)
+	snapshot.AbandonedProducers[0].Acknowledge(errors.New("late"))
+	if calls != 1 || got != terminalErr {
+		t.Fatalf("producer acknowledgement = %d, %v", calls, got)
+	}
+}
+
+func TestPostDoneProducerContainsAbnormalExit(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		done func(error)
+	}{
+		{name: "panic", done: func(error) { panic("boom") }},
+		{name: "Goexit", done: func(error) { runtime.Goexit() }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			producer := &PostDoneProducer{done: test.done}
+			returned := make(chan struct{})
+			go func() {
+				producer.Acknowledge(errors.New("terminal"))
+				close(returned)
+			}()
+			select {
+			case <-returned:
+			case <-time.After(time.Second):
+				t.Fatal("abnormal producer callback blocked recovery")
+			}
+			producer.Acknowledge(errors.New("late"))
+		})
+	}
+}
+
 func TestHalfStream_DuplicateWaiterPanics(t *testing.T) {
 	var h HalfStream
 	h.Recv(func(any, error) {}) // first waiter - saved
@@ -303,6 +405,93 @@ func TestHalfStream_ReentrantCloseDuringWaitCallback(t *testing.T) {
 	}
 	if err := h.Send("after"); err != io.EOF {
 		t.Fatalf("Send after close = %v, want io.EOF", err)
+	}
+}
+
+func TestHalfStream_BoundedCredit(t *testing.T) {
+	h := NewHalfStream(1)
+	if err := h.TrySend("buffered"); err != nil {
+		t.Fatalf("initial TrySend: %v", err)
+	}
+	if err := h.TrySend("overflow"); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("overflow TrySend = %v, want ResourceExhausted", err)
+	}
+
+	sendDone := make(chan error, 1)
+	h.SendWait("pending", func(err error) { sendDone <- err })
+	select {
+	case err := <-sendDone:
+		t.Fatalf("pending SendWait completed without credit: %v", err)
+	default:
+	}
+
+	var first any
+	h.Recv(func(msg any, err error) {
+		if err != nil {
+			t.Fatalf("first Recv: %v", err)
+		}
+		first = msg
+	})
+	if first != "buffered" {
+		t.Fatalf("first Recv = %v, want buffered", first)
+	}
+	if err := <-sendDone; err != nil {
+		t.Fatalf("pending SendWait completion: %v", err)
+	}
+
+	var second any
+	h.Recv(func(msg any, err error) {
+		if err != nil {
+			t.Fatalf("second Recv: %v", err)
+		}
+		second = msg
+	})
+	if second != "pending" {
+		t.Fatalf("second Recv = %v, want pending", second)
+	}
+}
+
+func TestHalfStream_AbortReleasesPendingState(t *testing.T) {
+	h := NewHalfStream(1)
+	buffered := new(int)
+	pending := new(int)
+	if err := h.TrySend(buffered); err != nil {
+		t.Fatal(err)
+	}
+	sendDone := make(chan error, 1)
+	h.SendWait(pending, func(err error) { sendDone <- err })
+
+	abortErr := status.Error(codes.Aborted, "abort")
+	h.Abort(abortErr)
+	if err := <-sendDone; err != abortErr {
+		t.Fatalf("pending send error = %v, want %v", err, abortErr)
+	}
+	if h.buf != nil || h.pending != nil || h.waiter != nil {
+		t.Fatalf(
+			"Abort retained state: buf=%v pending=%v waiterPresent=%t",
+			h.buf,
+			h.pending,
+			h.waiter != nil,
+		)
+	}
+	var recvErr error
+	h.Recv(func(_ any, err error) { recvErr = err })
+	if recvErr != abortErr {
+		t.Fatalf("Recv after Abort = %v, want %v", recvErr, abortErr)
+	}
+}
+
+func TestHalfStream_CloseSettlesPendingProducer(t *testing.T) {
+	h := NewHalfStream(1)
+	if err := h.TrySend("buffered"); err != nil {
+		t.Fatal(err)
+	}
+	sendDone := make(chan error, 1)
+	h.SendWait("pending", func(err error) { sendDone <- err })
+	closeErr := status.Error(codes.Canceled, "closed")
+	h.Close(closeErr)
+	if err := <-sendDone; err != closeErr {
+		t.Fatalf("pending send error = %v, want %v", err, closeErr)
 	}
 }
 
@@ -414,7 +603,7 @@ func TestRPCState_SetTrailers_MergesValues(t *testing.T) {
 	}
 }
 
-func TestRPCState_FinishWithTrailers_Success(t *testing.T) {
+func TestRPCState_Complete_Success(t *testing.T) {
 	var r RPCState
 	_ = r.SetHeaders(metadata.MD{"h": {"hv"}})
 
@@ -425,7 +614,7 @@ func TestRPCState_FinishWithTrailers_Success(t *testing.T) {
 		gotErr = err
 	}
 
-	r.FinishWithTrailers(nil)
+	r.Complete(nil)
 
 	if !r.HeadersSent {
 		t.Fatal("HeadersSent should be true")
@@ -444,7 +633,7 @@ func TestRPCState_FinishWithTrailers_Success(t *testing.T) {
 	}
 }
 
-func TestRPCState_FinishWithTrailers_ErrorBeforeHeaders(t *testing.T) {
+func TestRPCState_Complete_ErrorBeforeHeaders(t *testing.T) {
 	var r RPCState
 	myErr := status.Error(codes.NotFound, "not found")
 
@@ -455,7 +644,7 @@ func TestRPCState_FinishWithTrailers_ErrorBeforeHeaders(t *testing.T) {
 		gotErr = err
 	}
 
-	r.FinishWithTrailers(myErr)
+	r.Complete(myErr)
 
 	if !r.HeadersSent {
 		t.Fatal("HeadersSent should be true")
@@ -474,12 +663,12 @@ func TestRPCState_FinishWithTrailers_ErrorBeforeHeaders(t *testing.T) {
 	}
 }
 
-func TestRPCState_FinishWithTrailers_ErrorAfterHeaders(t *testing.T) {
+func TestRPCState_Complete_ErrorAfterHeaders(t *testing.T) {
 	var r RPCState
 	r.SendHeaders()
 
 	myErr := status.Error(codes.Internal, "fail")
-	r.FinishWithTrailers(myErr)
+	r.Complete(myErr)
 
 	if !r.Responses.Closed() {
 		t.Fatal("Responses should be closed")
@@ -489,9 +678,9 @@ func TestRPCState_FinishWithTrailers_ErrorAfterHeaders(t *testing.T) {
 	}
 }
 
-func TestRPCState_FinishWithTrailers_NoHeaderWaiter(t *testing.T) {
+func TestRPCState_Complete_NoHeaderWaiter(t *testing.T) {
 	var r RPCState
-	r.FinishWithTrailers(nil)
+	r.Complete(nil)
 	if !r.HeadersSent {
 		t.Fatal("HeadersSent should be true")
 	}
@@ -556,7 +745,7 @@ func TestRPCState_FullFlow(t *testing.T) {
 
 	// Set trailers and finish.
 	r.SetTrailers(metadata.MD{"status-detail": {"ok"}})
-	r.FinishWithTrailers(nil)
+	r.Complete(nil)
 
 	if !r.Responses.Closed() {
 		t.Fatal("Responses should be closed")
@@ -575,7 +764,7 @@ func TestRPCState_FullFlow(t *testing.T) {
 
 func TestRPCState_SetHeaders_AfterFinish(t *testing.T) {
 	var r RPCState
-	r.FinishWithTrailers(nil)
+	r.Complete(nil)
 
 	err := r.SetHeaders(metadata.MD{"k": {"v"}})
 	if err == nil {
@@ -583,10 +772,10 @@ func TestRPCState_SetHeaders_AfterFinish(t *testing.T) {
 	}
 }
 
-func TestRPCState_FinishWithTrailers_ErrorNoWaiter(t *testing.T) {
+func TestRPCState_Complete_ErrorNoWaiter(t *testing.T) {
 	var r RPCState
 	myErr := errors.New("handler failed")
-	r.FinishWithTrailers(myErr)
+	r.Complete(myErr)
 
 	if !r.HeadersSent {
 		t.Fatal("HeadersSent should be true")
@@ -603,5 +792,22 @@ func TestRPCState_MethodField(t *testing.T) {
 	r := RPCState{Method: "/pkg.Svc/Foo"}
 	if r.Method != "/pkg.Svc/Foo" {
 		t.Fatalf("Method = %q", r.Method)
+	}
+}
+
+func TestRPCState_FirstTerminalResultWins(t *testing.T) {
+	state := NewRPCState("/pkg.Svc/Foo", 1)
+	first := status.Error(codes.NotFound, "first")
+	if !state.Complete(first) {
+		t.Fatal("first Complete did not win")
+	}
+	if state.Complete(status.Error(codes.Internal, "second")) {
+		t.Fatal("second Complete won")
+	}
+	if state.Abort(status.Error(codes.Aborted, "third")) {
+		t.Fatal("Abort won after Complete")
+	}
+	if state.Responses.Err() != first {
+		t.Fatalf("terminal error = %v, want %v", state.Responses.Err(), first)
 	}
 }

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("1Y &(\x06\x06\x068070C787B $aaz#108Z1")

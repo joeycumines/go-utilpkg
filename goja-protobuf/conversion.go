@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 const (
@@ -64,19 +64,7 @@ func (m *Module) protoValueToGoja(val protoreflect.Value, fd protoreflect.FieldD
 
 // protoMessageToGoja wraps a [protoreflect.Message] as a JS object.
 func (m *Module) protoMessageToGoja(msg protoreflect.Message) goja.Value {
-	dm, ok := msg.Interface().(*dynamicpb.Message)
-	if ok {
-		return m.wrapMessage(dm)
-	}
-
-	// Non-dynamic message: copy into a dynamicpb.Message so we have a
-	// uniform wrapper.
-	dm = dynamicpb.NewMessage(msg.Descriptor())
-	msg.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		dm.Set(fd, v)
-		return true
-	})
-	return m.wrapMessage(dm)
+	return m.wrapMessage(msg.Interface())
 }
 
 // int64ToGoja converts an int64 to a JS value. Values within the safe
@@ -182,14 +170,31 @@ func (m *Module) gojaToInt64(val goja.Value) (int64, error) {
 	exported := val.Export()
 	switch v := exported.(type) {
 	case int64:
+		if v < minSafeInteger || v > maxSafeInteger {
+			return 0, fmt.Errorf("number %d is outside the safe integer range; use BigInt or a decimal string", v)
+		}
 		return v, nil
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v {
+			return 0, fmt.Errorf("number %v is not a finite integer", v)
+		}
+		if v < float64(minSafeInteger) || v > float64(maxSafeInteger) {
+			return 0, fmt.Errorf("number %.0f is outside the safe integer range; use BigInt or a decimal string", v)
+		}
+		return int64(v), nil
 	case *big.Int:
 		if !v.IsInt64() {
 			return 0, fmt.Errorf("BigInt value %s overflows int64", v.String())
 		}
 		return v.Int64(), nil
+	case string:
+		parsed, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid int64 decimal string %q: %w", v, err)
+		}
+		return parsed, nil
 	default:
-		return val.ToInteger(), nil
+		return 0, fmt.Errorf("expected an integer Number, BigInt, or decimal string, got %T", exported)
 	}
 }
 
@@ -201,6 +206,20 @@ func (m *Module) gojaToUint64(val goja.Value) (uint64, error) {
 		if v < 0 {
 			return 0, fmt.Errorf("negative value %d for unsigned field", v)
 		}
+		if v > maxSafeInteger {
+			return 0, fmt.Errorf("number %d is outside the safe integer range; use BigInt or a decimal string", v)
+		}
+		return uint64(v), nil
+	case float64:
+		if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v {
+			return 0, fmt.Errorf("number %v is not a finite integer", v)
+		}
+		if v < 0 {
+			return 0, fmt.Errorf("negative value %.0f for unsigned field", v)
+		}
+		if v > float64(maxSafeInteger) {
+			return 0, fmt.Errorf("number %.0f is outside the safe integer range; use BigInt or a decimal string", v)
+		}
 		return uint64(v), nil
 	case *big.Int:
 		if v.Sign() < 0 {
@@ -210,12 +229,14 @@ func (m *Module) gojaToUint64(val goja.Value) (uint64, error) {
 			return 0, fmt.Errorf("BigInt value %s overflows uint64", v.String())
 		}
 		return v.Uint64(), nil
-	default:
-		i := val.ToInteger()
-		if i < 0 {
-			return 0, fmt.Errorf("negative value %d for unsigned field", i)
+	case string:
+		parsed, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid uint64 decimal string %q: %w", v, err)
 		}
-		return uint64(i), nil
+		return parsed, nil
+	default:
+		return 0, fmt.Errorf("expected an integer Number, BigInt, or decimal string, got %T", exported)
 	}
 }
 
@@ -254,12 +275,12 @@ func (m *Module) gojaToProtoMessage(val goja.Value, fd protoreflect.FieldDescrip
 
 	// Check for wrapped message.
 	if wrapper, err := m.unwrapMessage(val); err == nil {
-		got := wrapper.ProtoReflect().Descriptor().FullName()
-		want := fd.Message().FullName()
+		got := wrapper.ProtoReflect().Descriptor()
+		want := fd.Message()
 		if got != want {
 			return protoreflect.Value{}, fmt.Errorf(
 				"message type mismatch for field %s: expected %s, got %s",
-				fd.Name(), want, got)
+				fd.Name(), want.FullName(), got.FullName())
 		}
 		return protoreflect.ValueOfMessage(wrapper.ProtoReflect()), nil
 	}
@@ -275,14 +296,18 @@ func (m *Module) gojaToProtoMessage(val goja.Value, fd protoreflect.FieldDescrip
 	if err != nil {
 		return protoreflect.Value{}, err
 	}
-	return protoreflect.ValueOfMessage(msg.ProtoReflect()), nil
+	return protoreflect.ValueOfMessage(msg), nil
 }
 
-// jsObjectToMessage converts a plain JS object to a [dynamicpb.Message]
+// jsObjectToMessage converts a plain JS object to the canonical message type
 // by iterating the message descriptor's fields and extracting matching
 // properties from the JS object.
-func (m *Module) jsObjectToMessage(obj *goja.Object, msgDesc protoreflect.MessageDescriptor) (*dynamicpb.Message, error) {
-	msg := dynamicpb.NewMessage(msgDesc)
+func (m *Module) jsObjectToMessage(obj *goja.Object, msgDesc protoreflect.MessageDescriptor) (protoreflect.Message, error) {
+	messageType, err := m.typeResolver().FindMessageByName(msgDesc.FullName())
+	if err != nil {
+		return nil, fmt.Errorf("resolve message type %s: %w", msgDesc.FullName(), err)
+	}
+	msg := messageType.New()
 	fields := msgDesc.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		fd := fields.Get(i)
@@ -318,9 +343,16 @@ func (m *Module) gojaToProtoMapKey(val goja.Value, fd protoreflect.FieldDescript
 		// strings ("true"/"false"). JS truthiness would convert
 		// "false" → true, so we must parse string values explicitly.
 		if s, ok := val.Export().(string); ok {
-			return protoreflect.ValueOfBool(s == "true").MapKey(), nil
+			parsed, err := strconv.ParseBool(s)
+			if err != nil || (s != "true" && s != "false") {
+				return protoreflect.MapKey{}, fmt.Errorf("invalid boolean map key %q", s)
+			}
+			return protoreflect.ValueOfBool(parsed).MapKey(), nil
 		}
-		return protoreflect.ValueOfBool(val.ToBoolean()).MapKey(), nil
+		if boolean, ok := val.Export().(bool); ok {
+			return protoreflect.ValueOfBool(boolean).MapKey(), nil
+		}
+		return protoreflect.MapKey{}, fmt.Errorf("expected boolean map key")
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
 		v, err := m.gojaToInt64(val)
 		if err != nil {
@@ -359,7 +391,7 @@ func (m *Module) gojaToProtoMapKey(val goja.Value, fd protoreflect.FieldDescript
 }
 
 // setRepeatedFromGoja sets a repeated field on msg from a JS array value.
-func (m *Module) setRepeatedFromGoja(msg *dynamicpb.Message, fd protoreflect.FieldDescriptor, val goja.Value) error {
+func (m *Module) setRepeatedFromGoja(msg protoreflect.Message, fd protoreflect.FieldDescriptor, val goja.Value) error {
 	obj := val.ToObject(m.runtime)
 	if obj == nil {
 		return fmt.Errorf("expected array for repeated field %s", fd.Name())
@@ -370,12 +402,21 @@ func (m *Module) setRepeatedFromGoja(msg *dynamicpb.Message, fd protoreflect.Fie
 		return fmt.Errorf("expected array for repeated field %s", fd.Name())
 	}
 
-	length := int(lenVal.ToInteger())
-	list := msg.Mutable(fd).List()
+	length64 := lenVal.ToInteger()
+	if length64 < 0 || uint64(length64) > uint64(^uint(0)>>1) {
+		return fmt.Errorf("invalid array length %d for repeated field %s", length64, fd.Name())
+	}
+	length := int(length64)
+	staged := msg.NewField(fd)
+	list := staged.List()
 	for i := range length {
 		elem := obj.Get(fmt.Sprintf("%d", i))
 		if elem == nil || goja.IsUndefined(elem) || goja.IsNull(elem) {
-			continue
+			return fmt.Errorf(
+				"repeated field %s[%d]: null/undefined values are not allowed",
+				fd.Name(),
+				i,
+			)
 		}
 		pv, err := m.gojaToProtoValue(elem, fd)
 		if err != nil {
@@ -384,11 +425,12 @@ func (m *Module) setRepeatedFromGoja(msg *dynamicpb.Message, fd protoreflect.Fie
 		list.Append(pv)
 	}
 
+	msg.Set(fd, staged)
 	return nil
 }
 
 // setMapFromGoja sets a map field on msg from a JS object or Map.
-func (m *Module) setMapFromGoja(msg *dynamicpb.Message, fd protoreflect.FieldDescriptor, val goja.Value) error {
+func (m *Module) setMapFromGoja(msg protoreflect.Message, fd protoreflect.FieldDescriptor, val goja.Value) error {
 	obj := val.ToObject(m.runtime)
 	if obj == nil {
 		return fmt.Errorf("expected object for map field %s", fd.Name())
@@ -396,60 +438,83 @@ func (m *Module) setMapFromGoja(msg *dynamicpb.Message, fd protoreflect.FieldDes
 
 	keyDesc := fd.MapKey()
 	valueDesc := fd.MapValue()
-	protoMap := msg.Mutable(fd).Map()
+	staged := msg.NewField(fd)
+	protoMap := staged.Map()
 
-	// Check whether the value is a JS Map with an entries() method.
-	entriesVal := obj.Get("entries")
-	if entriesVal != nil && !goja.IsUndefined(entriesVal) {
-		if entriesFn, ok := goja.AssertFunction(entriesVal); ok {
-			iterVal, callErr := entriesFn(obj)
-			if callErr == nil {
-				iterObj := iterVal.ToObject(m.runtime)
-				if nextFn, nextOk := goja.AssertFunction(iterObj.Get("next")); nextOk {
-					for {
-						result, err := nextFn(iterObj)
-						if err != nil {
-							return fmt.Errorf("map field %s iterator: %w", fd.Name(), err)
-						}
-						resObj := result.ToObject(m.runtime)
-						if resObj.Get("done").ToBoolean() {
-							break
-						}
-						entry := resObj.Get("value").ToObject(m.runtime)
-						k := entry.Get("0")
-						v := entry.Get("1")
-
-						// Skip null/undefined values.
-						if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-							continue
-						}
-
-						mk, err := m.gojaToProtoMapKey(k, keyDesc)
-						if err != nil {
-							return fmt.Errorf("map field %s key: %w", fd.Name(), err)
-						}
-						mv, err := m.gojaToProtoValue(v, valueDesc)
-						if err != nil {
-							return fmt.Errorf("map field %s value: %w", fd.Name(), err)
-						}
-						protoMap.Set(mk, mv)
-					}
-					return nil
-				}
-			}
+	// A real Map (or another map-entry iterable) advertises Symbol.iterator.
+	// Merely owning a string property named "entries" still denotes a normal
+	// protobuf map key and must not change conversion mode.
+	iteratorVal := obj.GetSymbol(goja.SymIterator)
+	if iteratorVal != nil && !goja.IsUndefined(iteratorVal) {
+		iteratorFn, ok := goja.AssertFunction(iteratorVal)
+		if !ok {
+			return fmt.Errorf("map field %s Symbol.iterator is not callable", fd.Name())
 		}
+		iterVal, callErr := iteratorFn(obj)
+		if callErr != nil {
+			return fmt.Errorf("map field %s iterator: %w", fd.Name(), callErr)
+		}
+		iterObj, ok := iterVal.(*goja.Object)
+		if !ok {
+			return fmt.Errorf("map field %s Symbol.iterator did not return an object", fd.Name())
+		}
+		nextFn, nextOK := goja.AssertFunction(iterObj.Get("next"))
+		if !nextOK {
+			return fmt.Errorf("map field %s iterator has no callable next", fd.Name())
+		}
+		for {
+			result, err := nextFn(iterObj)
+			if err != nil {
+				return fmt.Errorf("map field %s iterator: %w", fd.Name(), err)
+			}
+			resObj, ok := result.(*goja.Object)
+			if !ok {
+				return fmt.Errorf("map field %s iterator next did not return an object", fd.Name())
+			}
+			if resObj.Get("done").ToBoolean() {
+				break
+			}
+			entry, ok := resObj.Get("value").(*goja.Object)
+			if !ok {
+				return fmt.Errorf("map field %s iterator value is not an entry object", fd.Name())
+			}
+			k := entry.Get("0")
+			v := entry.Get("1")
+
+			mk, err := m.gojaToProtoMapKey(k, keyDesc)
+			if err != nil {
+				return fmt.Errorf("map field %s key: %w", fd.Name(), err)
+			}
+			if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+				return fmt.Errorf(
+					"map field %s value: null/undefined values are not allowed",
+					fd.Name(),
+				)
+			}
+			mv, err := m.gojaToProtoValue(v, valueDesc)
+			if err != nil {
+				return fmt.Errorf("map field %s value: %w", fd.Name(), err)
+			}
+			protoMap.Set(mk, mv)
+		}
+		msg.Set(fd, staged)
+		return nil
 	}
 
 	// Fall back to plain object: iterate own property keys.
 	keys := obj.Keys()
 	for _, key := range keys {
-		v := obj.Get(key)
-		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-			continue
-		}
 		mk, err := m.gojaToProtoMapKey(m.runtime.ToValue(key), keyDesc)
 		if err != nil {
 			return fmt.Errorf("map field %s key %q: %w", fd.Name(), key, err)
+		}
+		v := obj.Get(key)
+		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
+			return fmt.Errorf(
+				"map field %s value for key %q: null/undefined values are not allowed",
+				fd.Name(),
+				key,
+			)
 		}
 		mv, err := m.gojaToProtoValue(v, valueDesc)
 		if err != nil {
@@ -458,6 +523,7 @@ func (m *Module) setMapFromGoja(msg *dynamicpb.Message, fd protoreflect.FieldDes
 		protoMap.Set(mk, mv)
 	}
 
+	msg.Set(fd, staged)
 	return nil
 }
 

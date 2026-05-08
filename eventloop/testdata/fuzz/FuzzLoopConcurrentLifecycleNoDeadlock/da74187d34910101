@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Yx0!0\"b 881*2001X88!y01 %08X0$(8Z$x")

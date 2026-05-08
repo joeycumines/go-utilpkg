@@ -1,7 +1,9 @@
 package gojagrpc
 
 import (
-	"github.com/dop251/goja"
+	"sync"
+
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -10,8 +12,52 @@ import (
 // It is stored as a native Go object on the JS channel wrapper and
 // extracted by [Module.parseChannelOpt] when passed to createClient.
 type dialConn struct {
+	module  *Module
+	control *dialControl
+	rootID  supervisorChildID
+}
+
+type dialControl struct {
+	err    error
 	conn   *grpc.ClientConn
 	target string
+	done   chan struct{}
+	once   sync.Once
+}
+
+func (d *dialControl) close() error {
+	if d == nil {
+		return nil
+	}
+	d.once.Do(func() {
+		defer func() {
+			if d.done != nil {
+				close(d.done)
+			}
+		}()
+		if d.conn != nil {
+			d.err = d.conn.Close()
+		}
+	})
+	return d.err
+}
+
+func (d *dialControl) stop(error) { _ = d.close() }
+
+func (d *dialControl) wait() <-chan struct{} {
+	if d == nil || d.done == nil {
+		closed := make(chan struct{})
+		close(closed)
+		return closed
+	}
+	return d.done
+}
+
+func (d *dialControl) result() error {
+	if d == nil {
+		return nil
+	}
+	return d.err
 }
 
 // jsDial implements the JS-facing grpc.dial(target, opts?) function.
@@ -29,6 +75,7 @@ type dialConn struct {
 // The returned channel can be passed to createClient via the
 // { channel: ch } option.
 func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
+	m.mustOpen("dial")
 	target := call.Argument(0).String()
 	if target == "" {
 		panic(m.runtime.NewTypeError("dial: target must be a non-empty string"))
@@ -54,26 +101,68 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 		}
 	}
 
+	control := &dialControl{target: target, done: make(chan struct{})}
+	dc := &dialConn{module: m, control: control}
+	rootID, err := m.control.reserve(supervisorConnection)
+	if err != nil {
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
+	dc.rootID = rootID
+	if err := m.ensureOwnerRoot(rootID); err != nil {
+		m.control.abandon(rootID)
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
+	published := false
+	defer func() {
+		if !published {
+			m.disposeOwnerRootOwner(rootID, errModuleUnavailable)
+			m.control.abandon(rootID)
+		}
+	}()
+
 	conn, err := grpc.NewClient(target, dialOpts...)
 	if err != nil {
 		panic(m.runtime.NewTypeError("dial: %s", err))
 	}
-
-	dc := &dialConn{conn: conn, target: target}
+	control.conn = conn
 
 	// Build JS channel wrapper object.
 	obj := m.runtime.NewObject()
 	_ = obj.Set("close", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		if closeErr := dc.conn.Close(); closeErr != nil {
+		delete(m.dialObjects, obj)
+		if closeErr := control.close(); closeErr != nil {
 			panic(m.runtime.NewTypeError("close: %s", closeErr))
 		}
+		m.disposeOwnerRootOwner(rootID, errModuleUnavailable)
 		return goja.Undefined()
 	}))
 	_ = obj.Set("target", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
-		return m.runtime.ToValue(dc.target)
+		return m.runtime.ToValue(control.target)
 	}))
-	// Store native connection for createClient extraction.
-	_ = obj.Set("_conn", m.runtime.ToValue(dc))
+	if err := m.addOwnerRootDisposer(rootID, func(error) {
+		delete(m.dialObjects, obj)
+	}); err != nil {
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
+
+	if err := m.executor.install(rootID, control); err != nil {
+		_ = control.close()
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
+	if err := m.control.activate(rootID); err != nil {
+		published = true
+		_ = control.close()
+		m.disposeOwnerRootOwner(rootID, errModuleUnavailable)
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
+	m.activateOwnerRoot(rootID)
+	published = true
+	m.dialObjects[obj] = dc
+	if !m.control.open() {
+		delete(m.dialObjects, obj)
+		_ = control.close()
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
 
 	return obj
 }
@@ -82,7 +171,7 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 // createClient options object. If no channel option is present, the
 // module's default in-process channel is returned.
 //
-// Must be called on the event loop goroutine.
+// Must be called by the current logical adapter callback owner.
 func (m *Module) parseChannelOpt(optsObj *goja.Object) grpc.ClientConnInterface {
 	val := optsObj.Get("channel")
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
@@ -94,15 +183,10 @@ func (m *Module) parseChannelOpt(optsObj *goja.Object) grpc.ClientConnInterface 
 		panic(m.runtime.NewTypeError("channel must be a dial() result"))
 	}
 
-	connVal := chObj.Get("_conn")
-	if connVal == nil || goja.IsUndefined(connVal) {
+	dc, ok := m.dialObjects[chObj]
+	if !ok || dc == nil {
 		panic(m.runtime.NewTypeError("channel must be a dial() result"))
 	}
 
-	dc, ok := connVal.Export().(*dialConn)
-	if !ok {
-		panic(m.runtime.NewTypeError("channel must be a dial() result"))
-	}
-
-	return dc.conn
+	return dc.control.conn
 }

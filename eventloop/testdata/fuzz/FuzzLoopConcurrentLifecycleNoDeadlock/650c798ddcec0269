@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("x19(11.00\xa6710000Xz")

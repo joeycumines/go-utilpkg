@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("C!B a7\"!0a7C\"C &\xea#$baA08*9a89AA\"")

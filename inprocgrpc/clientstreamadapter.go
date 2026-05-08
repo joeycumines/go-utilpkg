@@ -3,331 +3,854 @@ package inprocgrpc
 import (
 	"context"
 	"io"
-	"runtime"
 	"sync"
+	"sync/atomic"
 
+	"github.com/joeycumines/go-inprocgrpc/internal/callopts"
+	"github.com/joeycumines/go-inprocgrpc/internal/stream"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-
-	"github.com/joeycumines/go-inprocgrpc/internal/callopts"
-	"github.com/joeycumines/go-inprocgrpc/internal/grpcutil"
-	"github.com/joeycumines/go-inprocgrpc/internal/stream"
 )
 
-// clientStreamAdapter implements [grpc.ClientStream] by wrapping the
-// callback-based [stream.RPCState]. Each method submits a task to the
-// event loop and blocks until the result is available.
-//
-// Used by the caller of [Channel.NewStream].
+// clientStreamAdapter bridges gRPC's blocking stream API to owner-thread stream
+// state. One concurrent sender and one concurrent receiver are supported, as
+// required by grpc.ClientStream.
 type clientStreamAdapter struct {
-	ctx              context.Context
-	loop             Loop
-	cloner           Cloner
-	cancel           context.CancelFunc
-	state            *stream.RPCState
-	copts            *callopts.CallOptions
-	stats            *statsHandlerHelper
-	method           string
-	sendMu           sync.Mutex
-	recvMu           sync.Mutex
-	cloneDisabled    bool
-	responseStream   bool
-	sendClosed       bool
-	ended            bool
-	headersRetrieved bool
+	ctx       context.Context
+	callerCtx context.Context
+	loop      Loop
+	cloner    Cloner
+	cancel    context.CancelFunc
+	life      *rpcLifecycle
+	state     *stream.RPCState
+	copts     *callopts.CallOptions
+	stats     *rpcStats
+
+	headers  metadata.MD
+	trailers metadata.MD
+	method   string
+
+	sendCount int
+	recvCount int
+
+	sendMu sync.Mutex
+	recvMu sync.Mutex
+	metaMu sync.Mutex
+
+	cloneDisabled     bool
+	clientStreams     bool
+	serverStreams     bool
+	sendClosed        bool
+	headersRetrieved  bool
+	trailersRetrieved bool
+	recvTerminal      bool
+	recvTerminalErr   error
 }
 
 var _ grpc.ClientStream = (*clientStreamAdapter)(nil)
 
-// Header blocks until response headers are available and returns them.
+type metadataResult struct {
+	headers          metadata.MD
+	trailers         metadata.MD
+	err              error
+	headerPublished  bool
+	trailerPublished bool
+}
+
 func (s *clientStreamAdapter) Header() (metadata.MD, error) {
-	type headerResult struct {
-		md  metadata.MD
-		err error
+	s.metaMu.Lock()
+	if s.headersRetrieved {
+		headers := cloneMetadata(s.headers)
+		s.metaMu.Unlock()
+		return headers, nil
 	}
-	ch := make(chan headerResult, 1)
-
-	if err := s.loop.Submit(func() {
-		s.headersRetrieved = true
-		if s.state.HeadersSent {
-			ch <- headerResult{md: s.state.ResponseHeaders}
-			return
+	s.metaMu.Unlock()
+	if s.life != nil {
+		_, terminal, _ := s.life.terminalResult()
+		if terminal {
+			if _, active := s.life.currentActiveOwner(); !active {
+				return s.recoverHeaderResult()
+			}
 		}
-		// Register a header waiter.
-		s.state.HeaderWaiter = func(md metadata.MD, err error) {
-			s.headersRetrieved = true
-			ch <- headerResult{md: md, err: err}
-		}
-	}); err != nil {
-		return nil, status.Error(codes.Unavailable, "event loop not running")
 	}
 
+	ch := make(chan metadataResult, 1)
+	handle := func(result metadataResult) (metadata.MD, error) {
+		if result.err != nil {
+			return nil, normalizeRPCError(result.err)
+		}
+		if result.headerPublished {
+			if err := s.storeHeaders(result.headers); err != nil {
+				s.life.clientFailure(err)
+				return nil, err
+			}
+		}
+		s.metaMu.Lock()
+		headers := cloneMetadata(s.headers)
+		s.metaMu.Unlock()
+		return headers, nil
+	}
+	if !s.life.submitExternalOwner(
+		"client Header",
+		func(rpcOwnerCapability) {
+			if terminal, ok := s.life.ownerTerminalResult(); ok {
+				terminalErr := terminal.err
+				if terminal.header {
+					terminalErr = nil
+				}
+				ch <- metadataResult{
+					headers:         terminal.headers,
+					err:             terminalErr,
+					headerPublished: terminal.header,
+				}
+				return
+			}
+			if s.state.HeadersSent {
+				if s.state.ResponseHeadersPublished {
+					ch <- metadataResult{
+						headers:         cloneMetadata(s.state.ResponseHeaders),
+						headerPublished: true,
+					}
+					return
+				}
+				ch <- metadataResult{err: s.state.Responses.Err()}
+				return
+			}
+			if s.state.HeaderWaiter != nil {
+				ch <- metadataResult{err: status.Error(codes.Internal, "concurrent Header calls")}
+				return
+			}
+			s.state.HeaderWaiter = func(md metadata.MD, err error) {
+				ch <- metadataResult{
+					headers:         cloneMetadata(md),
+					err:             err,
+					headerPublished: err == nil,
+				}
+			}
+		},
+	) {
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return s.recoverHeaderResult()
+		}
+		return nil, s.life.schedulerError()
+	}
 	select {
-	case r := <-ch:
-		if r.err != nil {
-			return nil, grpcutil.TranslateContextError(r.err)
-		}
-		s.copts.SetHeaders(r.md)
-		if s.stats != nil {
-			s.stats.inHeader(s.ctx, r.md, s.method)
-		}
-		return r.md, nil
+	case result := <-ch:
+		return handle(result)
 	case <-s.ctx.Done():
-		return nil, grpcutil.TranslateContextError(s.ctx.Err())
+		select {
+		case result := <-ch:
+			return handle(result)
+		default:
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			s.life.callerCancel(err)
+		}
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return s.waitHeaderResult(ch, handle)
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			return nil, normalizeRPCError(err)
+		}
+		if err := s.life.clientError(); err != nil {
+			return nil, err
+		}
+		return nil, s.life.schedulerError()
+	case <-s.loop.Done():
+		select {
+		case result := <-ch:
+			return handle(result)
+		default:
+		}
+		return s.waitHeaderResult(ch, handle)
 	}
 }
 
-// Trailer returns the trailer metadata from the server.
+func (s *clientStreamAdapter) waitHeaderResult(
+	ch <-chan metadataResult,
+	handle func(metadataResult) (metadata.MD, error),
+) (metadata.MD, error) {
+	select {
+	case result := <-ch:
+		if result.err != nil {
+			select {
+			case <-s.loop.Done():
+				return s.recoverHeaderResult()
+			default:
+			}
+		}
+		return handle(result)
+	case <-s.loop.Done():
+		select {
+		case result := <-ch:
+			if result.err == nil {
+				return handle(result)
+			}
+		default:
+		}
+		return s.recoverHeaderResult()
+	}
+}
+
+func (s *clientStreamAdapter) recoverHeaderResult() (metadata.MD, error) {
+	result, final := s.life.resolveTerminalMaterial()
+	if result.header {
+		if err := s.storeHeaders(result.headers); err != nil {
+			s.life.clientFailure(err)
+			return nil, err
+		}
+		s.metaMu.Lock()
+		headers := cloneMetadata(s.headers)
+		s.metaMu.Unlock()
+		return headers, nil
+	}
+	if !final {
+		result = s.life.resolveScheduler()
+	}
+	s.metaMu.Lock()
+	headers := cloneMetadata(s.headers)
+	s.metaMu.Unlock()
+	if result.clean {
+		return headers, nil
+	}
+	return nil, result.err
+}
+
 func (s *clientStreamAdapter) Trailer() metadata.MD {
-	type trResult struct {
-		md metadata.MD
+	s.metaMu.Lock()
+	if s.trailersRetrieved {
+		trailers := cloneMetadata(s.trailers)
+		s.metaMu.Unlock()
+		return trailers
 	}
-	ch := make(chan trResult, 1)
-
-	if err := s.loop.Submit(func() {
-		ch <- trResult{md: s.state.ResponseTrailers}
-	}); err != nil {
-		return nil
-	}
-
-	select {
-	case r := <-ch:
-		s.copts.SetTrailers(r.md)
-		if s.stats != nil && r.md != nil {
-			s.stats.inTrailer(s.ctx, r.md)
+	s.metaMu.Unlock()
+	ch := make(chan metadataResult, 1)
+	handle := func(result metadataResult) metadata.MD {
+		if result.headerPublished {
+			if err := s.storeHeaders(result.headers); err != nil {
+				s.life.clientFailure(err)
+			}
 		}
-		return r.md
-	case <-s.ctx.Done():
+		if result.trailerPublished {
+			if err := s.storeTrailers(result.trailers); err != nil {
+				s.life.clientFailure(err)
+			}
+		}
+		s.metaMu.Lock()
+		trailers := cloneMetadata(s.trailers)
+		s.metaMu.Unlock()
+		return trailers
+	}
+	recoverResult := func() metadata.MD {
+		result := s.life.resolveScheduler()
+		return handle(metadataResult{
+			headers:          result.headers,
+			trailers:         result.trailers,
+			headerPublished:  result.header,
+			trailerPublished: result.trailer,
+		})
+	}
+	if _, terminal, _ := s.life.terminalResult(); terminal {
+		if _, active := s.life.currentActiveOwner(); !active {
+			return recoverResult()
+		}
+	}
+	if !s.life.submitExternalOwner(
+		"client Trailer",
+		func(rpcOwnerCapability) {
+			snapshot := s.life.ownerMetadata()
+			ch <- metadataResult{
+				headers:          snapshot.headers,
+				trailers:         snapshot.trailers,
+				headerPublished:  snapshot.header,
+				trailerPublished: snapshot.trailer,
+			}
+		},
+	) {
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return recoverResult()
+		}
 		return nil
+	}
+	select {
+	case result := <-ch:
+		return handle(result)
+	case <-s.ctx.Done():
+		select {
+		case result := <-ch:
+			return handle(result)
+		default:
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			s.life.callerCancel(err)
+		}
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return recoverResult()
+		}
+		s.metaMu.Lock()
+		trailers := cloneMetadata(s.trailers)
+		s.metaMu.Unlock()
+		return trailers
+	case <-s.loop.Done():
+		select {
+		case result := <-ch:
+			return handle(result)
+		default:
+		}
+		return recoverResult()
 	}
 }
 
-// CloseSend closes the request stream, signaling to the server that no more
-// messages will be sent.
 func (s *clientStreamAdapter) CloseSend() error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-
 	if s.sendClosed {
 		return nil
 	}
 	s.sendClosed = true
-
-	errCh := make(chan error, 1)
-	if err := s.loop.Submit(func() {
-		s.state.Requests.Close(nil)
-		errCh <- nil
-	}); err != nil {
-		return nil // CloseSend doesn't return errors per gRPC convention
+	if _, terminal, _ := s.life.terminalResult(); terminal {
+		return nil
 	}
-
+	ack := make(chan struct{}, 1)
+	if !s.life.submitPreterminalExternalOwner(
+		"client CloseSend",
+		func(rpcOwnerCapability) {
+			defer func() { ack <- struct{}{} }()
+			s.state.Requests.Close(nil)
+		},
+	) {
+		return nil
+	}
 	select {
-	case <-errCh:
-		return nil
+	case <-ack:
 	case <-s.ctx.Done():
-		return nil
+	case <-s.loop.Done():
 	}
+	return nil
 }
 
-// Context returns the client-side context.
-func (s *clientStreamAdapter) Context() context.Context {
-	return s.ctx
+func (s *clientStreamAdapter) Context() context.Context { return s.ctx }
+
+// TerminalDone closes when the immutable first terminal outcome is stable.
+// It may close before Done while accepted deliveries or stats callbacks remain.
+func (s *clientStreamAdapter) TerminalDone() <-chan struct{} {
+	return s.life.control.stable
 }
 
-// SendMsg clones and sends a message to the server via the event loop.
-func (s *clientStreamAdapter) SendMsg(m any) error {
+// TerminalResult returns the immutable first terminal outcome. It waits for a
+// selected prepared outcome to become stable. A nil error with true is clean
+// completion.
+func (s *clientStreamAdapter) TerminalResult() (error, bool) {
+	return s.life.terminalSelection()
+}
+
+// Done closes after all accepted RPC work and retained data have been released.
+func (s *clientStreamAdapter) Done() <-chan struct{} {
+	return s.life.control.released
+}
+
+func (s *clientStreamAdapter) SendMsg(message any) (err error) {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
-
+	if callerErr := s.callerCtx.Err(); callerErr != nil {
+		if _, terminal, _ := s.life.terminalResult(); !terminal {
+			s.life.callerCancel(callerErr)
+		}
+		return s.sendTerminalError()
+	}
 	if s.sendClosed {
 		return status.Error(codes.Internal, "send on closed stream")
 	}
-	if isNil(m) {
+	if isNil(message) {
 		return status.Error(codes.Internal, "message is nil")
 	}
+	if !s.clientStreams && s.sendCount != 0 {
+		return cardinalityError("method accepts exactly one request message")
+	}
+	if err := containRPCOperation("send message validation", func() error {
+		return checkSendSize(message, s.copts.MaxSend, s.copts.MaxSendSet)
+	}); err != nil {
+		s.life.clientFailure(err)
+		return err
+	}
 
-	// Clone on caller goroutine (off-loop).
-	var cloned any
-	var err error
-	if s.cloneDisabled {
-		cloned = m
-	} else {
-		cloned, err = s.cloner.Clone(m)
-		if err != nil {
-			return err
+	cloned, err := s.cloneMessage(message)
+	if err != nil {
+		s.life.clientFailure(err)
+		return err
+	}
+	s.sendCount++
+	closeAfter := !s.clientStreams
+	if closeAfter {
+		s.sendClosed = true
+	}
+
+	ack := make(chan error, 1)
+	if !s.life.submitPreterminalExternalOwner(
+		"client SendMsg",
+		func(rpcOwnerCapability) {
+			s.state.Requests.SendWait(cloned, func(sendErr error) {
+				if sendErr != nil {
+					ack <- sendErr
+					return
+				}
+				if closeAfter {
+					s.state.Requests.Close(nil)
+				}
+				obligation, err := s.life.beginStatsObligation()
+				if err != nil {
+					s.stats.quarantine()
+					ack <- nil
+					return
+				}
+				call, callPrepared := s.stats.prepareOutPayload(message)
+				go func() {
+					defer obligation.complete()
+					if callPrepared {
+						_ = call.execute()
+					}
+					ack <- nil
+				}()
+			})
+		},
+	) {
+		return s.sendTerminalError()
+	}
+	sendErr, accepted := s.waitSend(ack)
+	if accepted {
+		return nil
+	}
+	return sendErr
+}
+
+func (s *clientStreamAdapter) RecvMsg(message any) (err error) {
+	s.recvMu.Lock()
+	var (
+		result           receiveResult
+		terminal         receiveResult
+		terminalConsumer bool
+	)
+	defer func() {
+		if terminal.recoveryDelivery != nil {
+			s.life.endRecoveryDelivery(terminal.recoveryDelivery)
+		}
+		if terminal.deliveryID != 0 {
+			s.life.endClientDelivery(terminal.deliveryID)
+		}
+		if result.recoveryDelivery != nil {
+			s.life.endRecoveryDelivery(result.recoveryDelivery)
+		}
+		if result.deliveryID != 0 {
+			s.life.endClientDelivery(result.deliveryID)
+		}
+		if terminalConsumer {
+			s.life.endTerminalConsumer()
+		}
+		s.recvMu.Unlock()
+	}()
+	if isNil(message) {
+		return status.Error(codes.Internal, "message is nil")
+	}
+	if s.recvTerminal {
+		return s.recvTerminalErr
+	}
+	terminalConsumer = s.life.beginTerminalConsumer()
+	if !terminalConsumer {
+		result := s.terminalDiscardResult()
+		return s.finishReceive(result.err, result)
+	}
+	result = s.receive()
+	if result.err != nil {
+		if result.admissionFailed {
+			s.life.clientFailure(result.err)
+		}
+		return s.finishReceive(result.err, result)
+	}
+	if result.headerPublished {
+		if err := s.storeHeaders(result.headers); err != nil {
+			s.life.clientFailure(err)
+			return s.finishReceive(err, result)
 		}
 	}
-
-	if s.stats != nil {
-		s.stats.outPayload(s.ctx, m)
-	}
-
-	errCh := make(chan error, 1)
-	if err := s.loop.Submit(func() {
-		errCh <- s.state.Requests.Send(cloned)
+	if err := containRPCOperation("receive message validation", func() error {
+		return checkReceiveSize(
+			result.msg,
+			s.copts.MaxRecv,
+			s.copts.MaxRecvSet,
+		)
 	}); err != nil {
-		return io.EOF
+		s.life.clientFailure(err)
+		return s.finishReceive(err, result)
+	}
+	s.recvCount++
+	if !s.serverStreams && s.recvCount > 1 {
+		err := cardinalityError("method returned more than one response message")
+		s.life.clientFailure(err)
+		return s.finishReceive(err, result)
+	}
+	if err := s.copyMessage(message, result.msg); err != nil {
+		s.life.clientFailure(err)
+		return s.finishReceive(err, result)
+	}
+	_ = s.stats.inPayload(message)
+	if s.serverStreams {
+		return nil
 	}
 
-	select {
-	case err := <-errCh:
+	terminal = s.receive()
+	if terminal.err == nil {
+		err := cardinalityError("method returned more than one response message")
+		s.life.clientFailure(err)
+		return s.finishReceive(err, terminal)
+	}
+	if terminal.err != io.EOF {
+		return s.finishReceive(terminal.err, terminal)
+	}
+	if err := s.finishReceive(io.EOF, terminal); err != io.EOF {
 		return err
+	}
+	return nil
+}
+
+type receiveResult struct {
+	msg              any
+	err              error
+	headers          metadata.MD
+	trailers         metadata.MD
+	headerPublished  bool
+	trailerPublished bool
+	deliveryID       uint64
+	recoveryDelivery *rpcRecoveryDelivery
+	admissionFailed  bool
+}
+
+const (
+	receivePending uint32 = iota
+	receivePublished
+	receiveAbandoned
+)
+
+type receiveHandoff struct {
+	state atomic.Uint32
+}
+
+func (h *receiveHandoff) abandon(ch <-chan receiveResult) (receiveResult, bool) {
+	if h.state.CompareAndSwap(receivePending, receiveAbandoned) {
+		return receiveResult{}, false
+	}
+	return <-ch, true
+}
+
+func (s *clientStreamAdapter) receive() receiveResult {
+	ch := make(chan receiveResult, 1)
+	handoff := new(receiveHandoff)
+	if !s.life.submitExternalOwner(
+		"client receive",
+		func(capability rpcOwnerCapability) {
+			deliveryID := s.life.control.deliveryBegin(capability)
+			if deliveryID == 0 {
+				ch <- receiveResult{
+					err: status.Error(
+						codes.Internal,
+						"client delivery admission failed",
+					),
+					admissionFailed: true,
+				}
+				return
+			}
+			s.life.trackClientDelivery(deliveryID)
+			s.state.Responses.RecvTracked(deliveryID, func(msg any, recvErr error) {
+				snapshot := s.life.ownerMetadata()
+				result := receiveResult{
+					msg:        msg,
+					err:        recvErr,
+					deliveryID: deliveryID,
+				}
+				if snapshot.header {
+					result.headers = snapshot.headers
+					result.headerPublished = true
+				}
+				if snapshot.trailer {
+					result.trailers = snapshot.trailers
+					result.trailerPublished = true
+				}
+				if !handoff.state.CompareAndSwap(
+					receivePending,
+					receivePublished,
+				) {
+					s.life.endClientDelivery(deliveryID)
+					return
+				}
+				ch <- result
+			})
+		},
+	) {
+		if result, ok := handoff.abandon(ch); ok {
+			return result
+		}
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return s.terminalReceiveResult()
+		}
+		return s.schedulerReceiveResult()
+	}
+	select {
+	case result := <-ch:
+		return result
 	case <-s.ctx.Done():
-		return grpcutil.TranslateContextError(s.ctx.Err())
+		select {
+		case result := <-ch:
+			return result
+		default:
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			if s.life.callerCancel(err) {
+				if result, ok := handoff.abandon(ch); ok {
+					return result
+				}
+				return receiveResult{err: normalizeRPCError(err)}
+			}
+		}
+		if err := s.life.clientError(); err != nil {
+			if result, ok := handoff.abandon(ch); ok {
+				return result
+			}
+			return receiveResult{err: err}
+		}
+		if _, terminal, _ := s.life.terminalResult(); terminal {
+			return s.waitSelectedReceive(ch)
+		}
+		if result, ok := handoff.abandon(ch); ok {
+			return result
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			return receiveResult{err: normalizeRPCError(err)}
+		}
+		if err := s.life.clientError(); err != nil {
+			return receiveResult{err: err}
+		}
+		return receiveResult{err: s.life.schedulerError()}
+	case <-s.loop.Done():
+		if result, ok := handoff.abandon(ch); ok {
+			return result
+		}
+		return s.schedulerReceiveResult()
 	}
 }
 
-// RecvMsg reads a message from the server via the event loop.
-func (s *clientStreamAdapter) RecvMsg(m any) error {
-	s.recvMu.Lock()
-	err := s.recvMsgLocked(m)
-	s.recvMu.Unlock()
-
-	if err != nil {
-		s.doEnd(err)
+func (s *clientStreamAdapter) waitSelectedReceive(
+	ch <-chan receiveResult,
+) receiveResult {
+	select {
+	case result := <-ch:
+		return result
+	case <-s.loop.Done():
+		select {
+		case result := <-ch:
+			return result
+		default:
+		}
+		return s.schedulerReceiveResult()
 	}
+}
+
+func (s *clientStreamAdapter) schedulerReceiveResult() receiveResult {
+	if _, terminal, _ := s.life.terminalResult(); !terminal {
+		select {
+		case <-s.loop.Done():
+		case <-s.callerCtx.Done():
+			if _, terminal, _ := s.life.terminalResult(); !terminal {
+				s.life.callerCancel(s.callerCtx.Err())
+			}
+		}
+	}
+	<-s.loop.Done()
+	return s.terminalReceiveResult()
+}
+
+func (s *clientStreamAdapter) terminalReceiveResult() receiveResult {
+	result := s.life.resolveScheduler()
+	if clientErr := s.life.clientError(); clientErr != nil {
+		return receiveResult{
+			err:              clientErr,
+			headers:          result.headers,
+			trailers:         result.trailers,
+			headerPublished:  result.header,
+			trailerPublished: result.trailer,
+		}
+	}
+	if s.life.control.usesRecovery() {
+		if message, ok := s.life.takeRecoveryMessage(); ok {
+			return receiveResult{
+				msg:              message.message,
+				headers:          result.headers,
+				trailers:         result.trailers,
+				headerPublished:  result.header,
+				trailerPublished: result.trailer,
+				recoveryDelivery: message.delivery,
+			}
+		}
+	}
+	if result.clean {
+		return receiveResult{
+			err:              io.EOF,
+			headers:          result.headers,
+			trailers:         result.trailers,
+			headerPublished:  result.header,
+			trailerPublished: result.trailer,
+		}
+	}
+	return receiveResult{
+		err:              result.err,
+		headers:          result.headers,
+		trailers:         result.trailers,
+		headerPublished:  result.header,
+		trailerPublished: result.trailer,
+	}
+}
+
+func (s *clientStreamAdapter) terminalDiscardResult() receiveResult {
+	result := s.life.resolveScheduler()
+	recvErr := result.err
+	if clientErr := s.life.clientError(); clientErr != nil {
+		recvErr = clientErr
+	} else if recvErr == nil {
+		recvErr = s.life.abandonmentError()
+	}
+	if recvErr == nil && result.clean {
+		recvErr = io.EOF
+	}
+	return receiveResult{
+		err:              recvErr,
+		headers:          result.headers,
+		trailers:         result.trailers,
+		headerPublished:  result.header,
+		trailerPublished: result.trailer,
+	}
+}
+
+func (s *clientStreamAdapter) finishReceive(err error, result receiveResult) error {
+	var metadataErr error
+	if result.headerPublished {
+		metadataErr = s.storeHeaders(result.headers)
+	}
+	if result.trailerPublished {
+		if trailerErr := s.storeTrailers(result.trailers); metadataErr == nil {
+			metadataErr = trailerErr
+		}
+	}
+	if metadataErr != nil {
+		s.life.clientFailure(metadataErr)
+		err = metadataErr
+	}
+
+	if err == io.EOF {
+		if s.recvCount == 0 && !s.serverStreams {
+			err = cardinalityError("method returned no response message")
+			s.life.clientFailure(err)
+		} else {
+			s.recvTerminal = true
+			s.recvTerminalErr = io.EOF
+			s.life.finishClientObservation(nil)
+			return io.EOF
+		}
+	}
+	err = normalizeRPCError(err)
+	s.recvTerminal = true
+	s.recvTerminalErr = err
+	s.life.finishClientObservation(err)
 	return err
 }
 
-// recvMsgLocked reads the next response message.
-func (s *clientStreamAdapter) recvMsgLocked(m any) error {
-	type recvResult struct {
-		msg any
-		err error
-	}
-	ch := make(chan recvResult, 1)
-
-	if err := s.loop.Submit(func() {
-		s.state.Responses.Recv(func(msg any, err error) {
-			ch <- recvResult{msg, err}
-		})
-	}); err != nil {
-		return io.EOF
-	}
-
+func (s *clientStreamAdapter) waitSend(ack <-chan error) (error, bool) {
 	select {
-	case r := <-ch:
-		if r.err != nil {
-			if r.err == io.EOF {
-				// Retrieve trailers before returning EOF.
-				s.fetchTrailersOnLoop()
+	case err := <-ack:
+		return s.mapSendResult(err)
+	case <-s.callerCtx.Done():
+		select {
+		case err := <-ack:
+			return s.mapSendResult(err)
+		default:
+		}
+		s.life.callerCancel(s.callerCtx.Err())
+		return s.waitSelectedSend(ack)
+	case <-s.ctx.Done():
+		select {
+		case err := <-ack:
+			return s.mapSendResult(err)
+		default:
+		}
+		if err := s.callerCtx.Err(); err != nil {
+			s.life.callerCancel(err)
+		}
+		return s.waitSelectedSend(ack)
+	case <-s.loop.Done():
+		select {
+		case err := <-ack:
+			return s.mapSendResult(err)
+		default:
+		}
+		s.life.schedulerStopped()
+		return s.sendTerminalError(), false
+	}
+}
+
+func (s *clientStreamAdapter) waitSelectedSend(
+	ack <-chan error,
+) (error, bool) {
+	select {
+	case err := <-ack:
+		return s.mapSendResult(err)
+	case <-s.loop.Done():
+		select {
+		case err := <-ack:
+			return s.mapSendResult(err)
+		default:
+		}
+		return s.sendTerminalError(), false
+	}
+}
+
+func (s *clientStreamAdapter) mapSendResult(err error) (error, bool) {
+	if err == nil {
+		return nil, true
+	}
+	return s.sendTerminalError(), false
+}
+
+func (s *clientStreamAdapter) sendTerminalError() error {
+	_, origin, terminal, err := s.life.terminalSelectionDetail()
+	if terminal {
+		switch origin {
+		case terminalCaller:
+			if callerErr := s.callerCtx.Err(); callerErr != nil {
+				return normalizeRPCError(callerErr)
+			}
+			if err != nil {
+				return err
+			}
+			return status.Error(codes.Canceled, "RPC canceled")
+		case terminalClient:
+			if clientErr := s.life.clientError(); clientErr != nil {
+				return clientErr
+			}
+			if err != nil {
+				return err
+			}
+			return status.Error(codes.Canceled, "RPC client failed")
+		case terminalServer, terminalScheduler:
+			if s.clientStreams {
 				return io.EOF
 			}
-			s.fetchTrailersOnLoop()
-			return grpcutil.TranslateContextError(r.err)
+			return nil
 		}
-		if s.stats != nil {
-			s.stats.inPayload(s.ctx, r.msg)
-		}
-		if s.cloneDisabled {
-			shallowCopy(m, r.msg)
-		} else if err := s.cloner.Copy(m, r.msg); err != nil {
-			return err
-		}
-		// For unary-response streams, validate exactly one response.
-		if !s.responseStream {
-			return s.ensureNoMoreLocked()
-		}
-		return nil
-	case <-s.ctx.Done():
-		return grpcutil.TranslateContextError(s.ctx.Err())
 	}
-}
-
-// fetchTrailersOnLoop retrieves headers (if not yet retrieved) and
-// trailers from the loop synchronously.
-func (s *clientStreamAdapter) fetchTrailersOnLoop() {
-	type metaResult struct {
-		headers  metadata.MD
-		trailers metadata.MD
-		hasHdrs  bool
+	if err := s.callerCtx.Err(); err != nil {
+		return normalizeRPCError(err)
 	}
-	ch := make(chan metaResult, 1)
-	if err := s.loop.Submit(func() {
-		r := metaResult{trailers: s.state.ResponseTrailers}
-		if !s.headersRetrieved && s.state.HeadersSent {
-			r.headers = s.state.ResponseHeaders
-			r.hasHdrs = true
-			s.headersRetrieved = true
-		}
-		ch <- r
-	}); err != nil {
-		return
+	if s.clientStreams {
+		return io.EOF
 	}
-	select {
-	case r := <-ch:
-		if r.hasHdrs {
-			s.copts.SetHeaders(r.headers)
-			if s.stats != nil {
-				s.stats.inHeader(s.ctx, r.headers, s.method)
-			}
-		}
-		if r.trailers != nil {
-			s.copts.SetTrailers(r.trailers)
-			if s.stats != nil {
-				s.stats.inTrailer(s.ctx, r.trailers)
-			}
-		}
-	case <-s.ctx.Done():
-	}
-}
-
-// ensureNoMoreLocked validates that the server sent exactly one response
-// for a unary-response stream.
-func (s *clientStreamAdapter) ensureNoMoreLocked() error {
-	type recvResult struct {
-		msg any
-		err error
-	}
-	ch := make(chan recvResult, 1)
-
-	if err := s.loop.Submit(func() {
-		s.state.Responses.Recv(func(msg any, err error) {
-			ch <- recvResult{msg, err}
-		})
-	}); err != nil {
-		return nil // Can't verify; accept the response.
-	}
-
-	select {
-	case r := <-ch:
-		if r.err != nil {
-			if r.err == io.EOF {
-				return nil // Clean end - exactly one message.
-			}
-			return grpcutil.TranslateContextError(r.err)
-		}
-		// Server sent more than one response - protocol error.
-		return status.Error(codes.Internal,
-			"method should return 1 response message but server sent >1")
-	case <-s.ctx.Done():
-		return grpcutil.TranslateContextError(s.ctx.Err())
-	}
-}
-
-// doEnd calls the stats handler End if not already called.
-func (s *clientStreamAdapter) doEnd(err error) {
-	s.recvMu.Lock()
-	if s.ended || s.stats == nil {
-		s.recvMu.Unlock()
-		return
-	}
-	s.ended = true
-	s.recvMu.Unlock()
-
-	var endErr error
-	if err != io.EOF {
-		endErr = err
-	}
-	s.stats.end(s.ctx, endErr)
-}
-
-// setFinalizer registers a finalizer that cancels the context when the
-// client stream is garbage collected.
-func (s *clientStreamAdapter) setFinalizer() {
-	runtime.SetFinalizer(s, func(cs *clientStreamAdapter) {
-		cs.cancel()
-	})
+	return nil
 }

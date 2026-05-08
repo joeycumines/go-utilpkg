@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("CC+9c(1AY$C&")

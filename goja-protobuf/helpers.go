@@ -3,17 +3,18 @@ package gojaprotobuf
 import (
 	"fmt"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// combinedFileResolver resolves file descriptors by checking the local
-// registry first, then falling back to the configured global registry.
+// combinedFileResolver resolves file descriptors through staged local
+// membership, the immutable base registry, and reachable base graph files.
 // It implements [protodesc.Resolver].
 type combinedFileResolver struct {
 	local  *protoregistry.Files
 	global *protoregistry.Files
+	graph  *descriptorGraph
 }
 
 func (r *combinedFileResolver) FindFileByPath(path string) (protoreflect.FileDescriptor, error) {
@@ -21,7 +22,15 @@ func (r *combinedFileResolver) FindFileByPath(path string) (protoreflect.FileDes
 	if err == nil {
 		return fd, nil
 	}
-	return r.global.FindFileByPath(path)
+	if fd, err = r.global.FindFileByPath(path); err == nil {
+		return fd, nil
+	}
+	if r.graph != nil {
+		if fd, ok := r.graph.files[path]; ok {
+			return fd, nil
+		}
+	}
+	return nil, protoregistry.NotFound
 }
 
 func (r *combinedFileResolver) FindDescriptorByName(name protoreflect.FullName) (protoreflect.Descriptor, error) {
@@ -29,7 +38,15 @@ func (r *combinedFileResolver) FindDescriptorByName(name protoreflect.FullName) 
 	if err == nil {
 		return d, nil
 	}
-	return r.global.FindDescriptorByName(name)
+	if d, err = r.global.FindDescriptorByName(name); err == nil {
+		return d, nil
+	}
+	if r.graph != nil {
+		if d, ok := r.graph.symbols[name]; ok {
+			return d, nil
+		}
+	}
+	return nil, protoregistry.NotFound
 }
 
 // combinedTypeResolver resolves message and extension types by checking
@@ -118,17 +135,18 @@ func (m *Module) newUint8Array(data []byte) goja.Value {
 	return result
 }
 
-// messageDescHolder wraps a [protoreflect.MessageDescriptor] for storage
-// in a goja object property. This ensures the descriptor survives the
-// Export/import cycle through the goja runtime.
-type messageDescHolder struct {
-	desc protoreflect.MessageDescriptor
+type messageTypeHolder struct {
+	state       *runtimeState
+	messageType protoreflect.MessageType
 }
 
-// extractMessageDesc extracts a [protoreflect.MessageDescriptor] from a
-// constructor value. The constructor must have been created by
-// [Module.jsMessageType].
-func (m *Module) extractMessageDesc(val goja.Value) (protoreflect.MessageDescriptor, error) {
+// messageDescHolder is retained as an unexported source-compatibility alias for
+// package tests and does not participate in constructor authentication.
+type messageDescHolder = messageTypeHolder
+
+// extractMessageType extracts the privately branded canonical message type
+// from a constructor created by this runtime's protobuf state.
+func (m *Module) extractMessageType(val goja.Value) (protoreflect.MessageType, error) {
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		return nil, fmt.Errorf("expected message type constructor, got null/undefined")
 	}
@@ -138,33 +156,34 @@ func (m *Module) extractMessageDesc(val goja.Value) (protoreflect.MessageDescrip
 		return nil, fmt.Errorf("expected message type constructor, got non-object")
 	}
 
-	holderVal := obj.Get("_pbMsgDesc")
-	if holderVal == nil || goja.IsUndefined(holderVal) {
+	holderVal, found, err := m.state.constructors.load(obj)
+	if err != nil {
+		return nil, fmt.Errorf("message type constructor runtime mismatch: %w", err)
+	}
+	if !found {
 		return nil, fmt.Errorf("not a protobuf message type constructor")
 	}
 
-	holder, ok := holderVal.Export().(*messageDescHolder)
-	if !ok || holder == nil {
+	holder, ok := holderVal.Export().(*messageTypeHolder)
+	if !ok || holder == nil || holder.state != m.state || holder.messageType == nil {
 		return nil, fmt.Errorf("not a protobuf message type constructor")
 	}
 
-	return holder.desc, nil
+	return holder.messageType, nil
 }
 
-// typeResolver returns a combined type resolver that checks local types
-// first, then falls back to the module's configured resolver.
-func (m *Module) typeResolver() *combinedTypeResolver {
-	return &combinedTypeResolver{
-		local:  m.localTypes,
-		global: m.resolver,
+func (m *Module) extractMessageDesc(val goja.Value) (protoreflect.MessageDescriptor, error) {
+	messageType, err := m.extractMessageType(val)
+	if err != nil {
+		return nil, err
 	}
+	return messageType.Descriptor(), nil
 }
 
-// fileResolver returns a combined file resolver that checks local files
-// first, then falls back to the module's configured files.
-func (m *Module) fileResolver() *combinedFileResolver {
-	return &combinedFileResolver{
-		local:  m.localFiles,
-		global: m.files,
-	}
+func (m *Module) typeResolver() stateTypeResolver {
+	return stateTypeResolver{state: m.state}
+}
+
+func (m *Module) fileResolver() stateFileResolver {
+	return stateFileResolver{state: m.state}
 }

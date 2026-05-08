@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("100(1\x18\xf0Țй(")

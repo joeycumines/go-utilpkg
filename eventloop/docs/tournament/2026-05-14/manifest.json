@@ -1,0 +1,451 @@
+{
+  "schema_version": 1,
+  "sample_count": 5,
+  "variants": [
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.auto",
+      "name": "Main",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": ["Main"],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": ["microtask", "readiness", "internal-submit", "graceful-drain"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.forced",
+      "name": "MainFastPathForced",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": ["MainFastPathForced"],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": ["microtask", "internal-submit", "graceful-drain"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.main.disabled",
+      "name": "MainFastPathDisabled",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": ["MainFastPathDisabled"],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": ["microtask", "readiness", "internal-submit", "graceful-drain"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-one.max-safety",
+      "name": "AlternateOne",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternateone",
+      "aliases": ["AlternateOne"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "capabilities": ["microtask", "readiness", "internal-submit", "graceful-drain"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-two.max-performance",
+      "name": "AlternateTwo",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternatetwo",
+      "aliases": ["AlternateTwo"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "capabilities": ["microtask", "readiness", "internal-submit"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.alternate-three.original-main",
+      "name": "AlternateThree",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/alternatethree",
+      "aliases": ["AlternateThree"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "735bd94545f70aede5d543f4a89dea314ba2e655",
+      "capabilities": ["readiness", "internal-submit", "graceful-drain"]
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.goja-nodejs.baseline",
+      "name": "Baseline",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/gojabaseline",
+      "aliases": ["Baseline"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "capabilities": []
+    },
+    {
+      "kind": "scheduler",
+      "id": "scheduler.libuv.native",
+      "name": "libuv",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline",
+      "aliases": [],
+      "origin_commit": "system-library",
+      "origin_tree": "system-library",
+      "capabilities": ["native-external-baseline"]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.main.chained",
+      "name": "ChainedPromise",
+      "source_package": "github.com/joeycumines/go-eventloop",
+      "aliases": ["ChainedPromise"],
+      "origin_commit": "current",
+      "origin_tree": "current",
+      "capabilities": ["race"]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-one.embedded-first-handler",
+      "name": "PromiseAltOne",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtone",
+      "aliases": ["PromiseAltOne"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "capabilities": ["race"]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-two.treiber",
+      "name": "PromiseAltTwo",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealttwo",
+      "aliases": ["PromiseAltTwo"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "capabilities": []
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-three.pooled-treiber",
+      "name": "PromiseAltThree",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtthree",
+      "aliases": ["PromiseAltThree"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "capabilities": []
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-four.main-snapshot-2026-01",
+      "name": "PromiseAltFour",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtfour",
+      "aliases": ["PromiseAltFour"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "capabilities": ["race"]
+    },
+    {
+      "kind": "promise",
+      "id": "promise.alt-five.original-chained-snapshot",
+      "name": "PromiseAltFive",
+      "source_package": "github.com/joeycumines/go-eventloop/internal/promisealtfive",
+      "aliases": ["PromiseAltFive"],
+      "origin_commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "origin_tree": "16618a665a99a47a678630cb94381a9db47745f4",
+      "capabilities": []
+    }
+  ],
+  "variant_groups": {
+    "scheduler-go": [
+      "scheduler.main.auto",
+      "scheduler.main.forced",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance",
+      "scheduler.alternate-three.original-main",
+      "scheduler.goja-nodejs.baseline"
+    ],
+    "scheduler-microtask": [
+      "scheduler.main.auto",
+      "scheduler.main.forced",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance"
+    ],
+    "scheduler-readiness": [
+      "scheduler.main.auto",
+      "scheduler.main.disabled",
+      "scheduler.alternate-one.max-safety",
+      "scheduler.alternate-two.max-performance",
+      "scheduler.alternate-three.original-main"
+    ],
+    "promise": [
+      "promise.main.chained",
+      "promise.alt-one.embedded-first-handler",
+      "promise.alt-two.treiber",
+      "promise.alt-three.pooled-treiber",
+      "promise.alt-four.main-snapshot-2026-01",
+      "promise.alt-five.original-chained-snapshot"
+    ],
+    "libuv": ["scheduler.libuv.native"]
+  },
+  "lanes": [
+    {
+      "id": "product",
+      "package": "github.com/joeycumines/go-eventloop",
+      "required": true,
+      "benchmarks": [
+        "BenchmarkAutoExitImmediate",
+        "BenchmarkConcurrentSubmissionWakeIntegration",
+        "BenchmarkEventTargetDispatchEmptyReusedEvent",
+        "BenchmarkEventTargetDispatchFreshEvent",
+        "BenchmarkEventTargetDispatchParallelDistinctEvents",
+        "BenchmarkEventTargetDispatchParallelDistinctEventsControl",
+        "BenchmarkEventTargetDispatchReusedEvent",
+        "BenchmarkEventTargetListenerConstruction",
+        "BenchmarkEventTargetListenerRegistrationWithLiveSet",
+        "BenchmarkFDReadinessDispatchHighCount",
+        "BenchmarkFDReadinessDispatchSingle",
+        "BenchmarkIdleWakeRecoveryTurnCost",
+        "BenchmarkLargeDeadlineList",
+        "BenchmarkMetricsCollection",
+        "BenchmarkMetricsHotPath",
+        "BenchmarkMetricsHotPathSnapshot",
+        "BenchmarkMicrotaskLatency",
+        "BenchmarkMicrotaskScheduleExternal",
+        "BenchmarkMicrotaskScheduleLoopThread",
+        "BenchmarkMixedWorkload",
+        "BenchmarkNextTickRecursiveDrain",
+        "BenchmarkNextTickScheduleExternal",
+        "BenchmarkNextTickScheduleLoopThread",
+        "BenchmarkNoMetrics",
+        "BenchmarkPromiseAllFixedArityEndToEnd",
+        "BenchmarkPromiseCreation",
+        "BenchmarkPromiseDepthThreeEndToEnd",
+        "BenchmarkPromiseReactionEndToEnd",
+        "BenchmarkPromiseSettleNoHandler",
+        "BenchmarkPromisifyCompletionEndToEnd",
+        "BenchmarkSchedulerInternalExternalBurst",
+        "BenchmarkSchedulerPriorityLatency",
+        "BenchmarkSetImmediateBurst",
+        "BenchmarkSetIntervalSteadyTicks",
+        "BenchmarkSparseFDRegistration",
+        "BenchmarkSubmitInternalChainHandoff",
+        "BenchmarkSubmitLatency",
+        "BenchmarkTimerCancelScale",
+        "BenchmarkTimerLatency",
+        "BenchmarkTimerScheduleRandomDeadlines",
+        "BenchmarkTimerScheduleSameDeadline100K"
+      ],
+      "benchmark_goos": {
+        "BenchmarkFDReadinessDispatchHighCount": ["darwin", "linux"],
+        "BenchmarkFDReadinessDispatchSingle": ["darwin", "linux"],
+        "BenchmarkIdleWakeRecoveryTurnCost": ["darwin", "linux"],
+        "BenchmarkSparseFDRegistration": ["darwin", "linux"]
+      },
+      "benchmark_leaves": {
+        "BenchmarkEventTargetListenerConstruction": ["100", "1000", "5000", "10000"],
+        "BenchmarkEventTargetListenerRegistrationWithLiveSet": ["0", "100", "1000", "10000"],
+        "BenchmarkIdleWakeRecoveryTurnCost": ["empty-fast-channel-probe", "empty-native-poll-turn"]
+      },
+      "variant_ids": []
+    },
+    {
+      "id": "scheduler",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament",
+      "required": true,
+      "benchmarks": [
+        "BenchmarkGCPressure",
+        "BenchmarkGCPressure_Allocations",
+        "BenchmarkMultiProducer",
+        "BenchmarkMultiProducerContention",
+        "BenchmarkPingPong",
+        "BenchmarkPingPongLatency",
+        "BenchmarkBurstSubmit",
+        "BenchmarkMicroBatchBudget_Throughput",
+        "BenchmarkMicroBatchBudget_Latency",
+        "BenchmarkMicroBatchBudget_Continuous",
+        "BenchmarkMicroBatchBudget_Mixed",
+        "BenchmarkMicroCASContention",
+        "BenchmarkMicroCASContention_Latency",
+        "BenchmarkMicrotaskRoundTrip",
+        "BenchmarkMicroWakeupSyscall_Running",
+        "BenchmarkMicroWakeupSyscall_Sleeping",
+        "BenchmarkMicroWakeupSyscall_Burst",
+        "BenchmarkMicroWakeupSyscall_RapidSubmit",
+        "BenchmarkPromisesV2",
+        "BenchmarkReadinessRoundTrip",
+        "BenchmarkSchedulerPriorityLatency",
+        "BenchmarkSubmitInternalChainHandoff",
+        "BenchmarkSchedulerInternalExternalBurst"
+      ],
+      "benchmark_variant_groups": {
+        "BenchmarkGCPressure": "scheduler-go",
+        "BenchmarkGCPressure_Allocations": "scheduler-go",
+        "BenchmarkMultiProducer": "scheduler-go",
+        "BenchmarkMultiProducerContention": "scheduler-go",
+        "BenchmarkPingPong": "scheduler-go",
+        "BenchmarkPingPongLatency": "scheduler-go",
+        "BenchmarkBurstSubmit": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Throughput": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Latency": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Continuous": "scheduler-go",
+        "BenchmarkMicroBatchBudget_Mixed": "scheduler-go",
+        "BenchmarkMicroCASContention": "scheduler-go",
+        "BenchmarkMicroCASContention_Latency": "scheduler-go",
+        "BenchmarkMicrotaskRoundTrip": "scheduler-microtask",
+        "BenchmarkMicroWakeupSyscall_Running": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_Sleeping": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_Burst": "scheduler-go",
+        "BenchmarkMicroWakeupSyscall_RapidSubmit": "scheduler-go",
+        "BenchmarkPromisesV2": "promise",
+        "BenchmarkReadinessRoundTrip": "scheduler-readiness",
+        "BenchmarkSchedulerPriorityLatency": "scheduler-go",
+        "BenchmarkSubmitInternalChainHandoff": "scheduler-go",
+        "BenchmarkSchedulerInternalExternalBurst": "scheduler-go"
+      },
+      "benchmark_leaves": {
+        "BenchmarkMicroBatchBudget_Throughput": ["Burst=64", "Burst=128", "Burst=256", "Burst=512", "Burst=1024", "Burst=2048", "Burst=4096"],
+        "BenchmarkMicroBatchBudget_Latency": ["Burst=64", "Burst=128", "Burst=256", "Burst=512", "Burst=1024", "Burst=2048", "Burst=4096"],
+        "BenchmarkMicroBatchBudget_Mixed": ["Burst=100", "Burst=500", "Burst=1000", "Burst=2000", "Burst=5000"],
+        "BenchmarkMicroCASContention": ["N=01", "N=02", "N=04", "N=08", "N=16", "N=32"],
+        "BenchmarkPromisesV2": ["ChainDepth100EndToEnd", "ResolvedHandlerEndToEnd", "FanOut100EndToEnd"]
+      },
+      "benchmark_variant_extra_leaves": {
+        "BenchmarkPromisesV2": {
+          "promise.main.chained": ["Race100EndToEnd"],
+          "promise.alt-one.embedded-first-handler": ["Race100EndToEnd"],
+          "promise.alt-four.main-snapshot-2026-01": ["Race100EndToEnd"]
+        }
+      },
+      "benchmark_goos": {
+        "BenchmarkReadinessRoundTrip": ["darwin", "linux"]
+      },
+      "variant_ids": [
+        "scheduler.main.auto",
+        "scheduler.main.forced",
+        "scheduler.main.disabled",
+        "scheduler.alternate-one.max-safety",
+        "scheduler.alternate-two.max-performance",
+        "scheduler.alternate-three.original-main",
+        "scheduler.goja-nodejs.baseline",
+        "promise.main.chained",
+        "promise.alt-one.embedded-first-handler",
+        "promise.alt-two.treiber",
+        "promise.alt-three.pooled-treiber",
+        "promise.alt-four.main-snapshot-2026-01",
+        "promise.alt-five.original-chained-snapshot"
+      ]
+    },
+    {
+      "id": "promise",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisetournament",
+      "required": true,
+      "benchmarks": ["BenchmarkTournament", "BenchmarkChainDepth"],
+      "benchmark_variant_groups": {
+        "BenchmarkTournament": "promise",
+        "BenchmarkChainDepth": "promise"
+      },
+      "benchmark_leaves": {
+        "BenchmarkChainDepth": ["Depth=10", "Depth=100"]
+      },
+      "variant_ids": [
+        "promise.main.chained",
+        "promise.alt-one.embedded-first-handler",
+        "promise.alt-two.treiber",
+        "promise.alt-three.pooled-treiber",
+        "promise.alt-four.main-snapshot-2026-01",
+        "promise.alt-five.original-chained-snapshot"
+      ]
+    },
+    {
+      "id": "libuv",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline",
+      "required": false,
+      "benchmarks": [
+        "BenchmarkLibuv_AsyncSend",
+        "BenchmarkLibuv_TimerScheduleAndFire",
+        "BenchmarkLibuv_TimerRepeat",
+        "BenchmarkLibuv_TimerCrossThread"
+      ],
+      "benchmark_variant_groups": {
+        "BenchmarkLibuv_AsyncSend": "libuv",
+        "BenchmarkLibuv_TimerScheduleAndFire": "libuv",
+        "BenchmarkLibuv_TimerRepeat": "libuv",
+        "BenchmarkLibuv_TimerCrossThread": "libuv"
+      },
+      "variant_ids": ["scheduler.libuv.native"],
+      "default_variant_id": "scheduler.libuv.native"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "scheduler.alternate-two-plus.dual-wake",
+      "name": "AlternateTwo-Plus",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "disposition": "A projected lock-free TaskArena scheduler with channel and poller wake modes; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-two-plus.mini-fast-path",
+      "name": "AlternateTwo-Plus mini fast path",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "disposition": "A documented interim single-mode fast-path proposal; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-three.fast-path",
+      "name": "AlternateThree with fast path",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_ALTERNATETHREE_LINUX_INVESTIGATION.md",
+      "disposition": "A channel fast-path proposal for the original Main snapshot; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.main.task-arena.conservative",
+      "name": "Main with optional TaskArena",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "disposition": "The documented conservative optional-TaskArena proposal was not implemented."
+    },
+    {
+      "id": "scheduler.main.task-arena.hybrid",
+      "name": "Main with hybrid TaskArena fallback",
+      "status": "concept-only",
+      "benchmarkable": false,
+      "source_document": "docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "disposition": "The documented bounded-arena plus chunk-fallback proposal was not implemented."
+    }
+  ],
+  "revision_variants": [
+    {
+      "id": "scheduler.revision.initial-go-native",
+      "commit": "506d6643cc1d45b1da156096870991ecb30b8847",
+      "name": "Initial Go-native eventloop"
+    },
+    {
+      "id": "scheduler.revision.auto-exit-liveness",
+      "commit": "cc005d72b329fd91eee03aac62ba7188df7c91b9",
+      "name": "Auto-exit and liveness architecture"
+    },
+    {
+      "id": "scheduler.revision.node26-refactor",
+      "commit": "0def02e2ff987be01a38d237a5d84dae256a85ac",
+      "name": "Node.js 26 compliance refactor"
+    },
+    {
+      "id": "scheduler.revision.tournament-snapshot",
+      "commit": "27b93ec32938ca838e1519bc8e17b6852d7df449",
+      "name": "Historical tournament snapshot"
+    },
+    {
+      "id": "scheduler.revision.unix-poller-hardened",
+      "commit": "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "name": "Unix poller lifecycle hardened"
+    },
+    {
+      "id": "scheduler.revision.current-candidate",
+      "commit": "current",
+      "name": "Current governed candidate"
+    }
+  ],
+  "revision_checkpoints": [
+    "506d6643cc1d45b1da156096870991ecb30b8847",
+    "cc005d72b329fd91eee03aac62ba7188df7c91b9",
+    "0def02e2ff987be01a38d237a5d84dae256a85ac",
+    "27b93ec32938ca838e1519bc8e17b6852d7df449",
+    "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+    "current"
+  ]
+}

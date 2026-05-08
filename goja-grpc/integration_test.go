@@ -566,20 +566,23 @@ func TestClientStreamRPC_ServerError(t *testing.T) {
 		var Item = pb.messageType('testgrpc.Item');
 		var error;
 		client.clientStream().then(function(call) {
+			var finished = false;
+			function finish(err) {
+				if (finished) return;
+				finished = true;
+				error = { name: err.name, code: err.code, message: err.message };
+				__done();
+			}
+			call.response.then(function(resp) {
+				error = { unexpected: true };
+				__done();
+			}).catch(finish);
 			var item = new Item();
 			item.set('id', '1');
 			item.set('name', 'test');
 			call.send(item).then(function() {
 				return call.closeSend();
-			}).then(function() {
-				return call.response;
-			}).then(function(resp) {
-				error = { unexpected: true };
-				__done();
-			}).catch(function(err) {
-				error = { name: err.name, code: err.code, message: err.message };
-				__done();
-			});
+			}).catch(finish);
 		}).catch(function(err) {
 			error = { name: err.name, code: err.code };
 			__done();

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" 00999v^0(\xe8\x03r(A\x01ϣ%vvvvv^0(")

@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "domain": "go-utilpkg/eventloop/tournament/timer-parameters/v1",
+  "framing_vectors": [
+    {
+      "name": "unicode-empty-nul",
+      "domain": "go-utilpkg/eventloop/tournament/framing-test/v1",
+      "fields": [
+        "",
+        "µs",
+        "\u0000"
+      ],
+      "sha256": "0ceaaf652191d10ddc89f590aeaaacd65ae595634bdc176564fbf9e205704103"
+    },
+    {
+      "name": "concatenation-a-bc",
+      "domain": "a",
+      "fields": [
+        "bc"
+      ],
+      "sha256": "3fafa1cf2f19a7c1129beb20cf0983f73a489a221fc0dd2f16d1be292d089205"
+    },
+    {
+      "name": "concatenation-ab-c",
+      "domain": "ab",
+      "fields": [
+        "c"
+      ],
+      "sha256": "601d5476e2ccfe2c87a2bba7a322659734a05749d5b5aa781f513e4912db0d5f"
+    }
+  ],
+  "workload_vectors": [
+    {
+      "kind": "storage",
+      "id": "timer.storage.init.v1",
+      "parameter_type": "tournament.timerStorageInitParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000}",
+      "sha256": "3e3ffbe7b2f4bf89b73a820135e17606a91a5a60f38aab82d8a70df242ec335a"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.distinct-deadline-drain-3.v1",
+      "parameter_type": "tournament.timerStorageDrainParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[1000000,2000000,3000000],\"DrainOffsetNS\":3000000}",
+      "sha256": "beed774709832f14de08f97a2c5c3c5ba11dd9f08af97829990384b054ffd135"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.equal-deadline-drain-3.v1",
+      "parameter_type": "tournament.timerStorageEqualParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineNS\":1000000,\"Count\":3,\"DrainOffsetNS\":1000000}",
+      "sha256": "582fba6559148e543bff96ee3b2f730ef12a4e85f27399bf247fe940e3f69909"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.same-millisecond-order-3.v1",
+      "parameter_type": "tournament.timerStorageDrainParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[100000,200000,300000],\"DrainOffsetNS\":300000}",
+      "sha256": "077d4dd405369298ffc6d20a5c9d2a5439ec550308eb1d0202d36939148ed01b"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.cancel-one.v1",
+      "parameter_type": "tournament.timerStorageCancelParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineNS\":3600000000000}",
+      "sha256": "9993144e79711b2d0d84d26d7cf3eefe76212bf8e00fa7e1653fc5b569d99d96"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.mixed-steady-4.v1",
+      "parameter_type": "tournament.timerStorageMixedParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[0,1000000,2000000,3000000],\"DrainOffsets\":[0,3000000],\"Executed\":[1,3]}",
+      "sha256": "77f2d89349adf984e9b638a41feac2300886cad946a9565fa0e2eff67352eae5"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.eligibility-bypass-2.v1",
+      "parameter_type": "tournament.timerStorageEligibilityParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsets\":[0,1000],\"EarliestTicks\":[2,1],\"ScheduledTicks\":[1,0],\"DeferTicks\":[true,false],\"DrainOffsetNS\":1000000,\"Tick\":1}",
+      "sha256": "7480b980478b29365d135e899326bea486f984a38253f3b8fca36652ee70a5ad"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.repeat-once.v1",
+      "parameter_type": "tournament.timerStorageRepeatParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"DrainOffsetNS\":0,\"RepeatNowNS\":0,\"IntervalNS\":1000000,\"Tick\":1}",
+      "sha256": "c25f6a4b03323e4fbb92313701da1843b587daf4dcc57ed86217012a98b6bbac"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.retire-drain-once.v2",
+      "parameter_type": "tournament.timerStorageEpochOperationParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"DrainOffsetNS\":0}",
+      "sha256": "660167ec150e38099b0659bfde677e46dd76431b9a71a165025f4a2787978c0c"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.publication-ready-drain.v2",
+      "parameter_type": "tournament.timerStorageEpochOperationParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"DrainOffsetNS\":0}",
+      "sha256": "2a5b48bbc906a2774df400f289e5f1d30303f174f4d0b4cbe39468c261642ec7"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.reentrant-replacement-self-cancel.v2",
+      "parameter_type": "tournament.timerStorageReentrantParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"ReplacementOffsetNS\":3600000000000,\"DrainOffsetNS\":0}",
+      "sha256": "e85b2fa248e7826a16c4d7935ac31b039c880fcefa750bd69c04dffcee6eced1"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.callback-panic-continue.v1",
+      "parameter_type": "tournament.timerStoragePanicParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[0,1000],\"DrainOffsetNS\":1000}",
+      "sha256": "254864ffe308df96ca86e953d711ec20eb47a6cd3dadc804ef2ed4ea39aedbf6"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.cancel-sequence-equal-64.v1",
+      "parameter_type": "tournament.timerStorageCancelSequenceParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000,3600000000000],\"Order\":[0,32,16,48,8,40,24,56,4,36,20,52,12,44,28,60,2,34,18,50,10,42,26,58,6,38,22,54,14,46,30,62,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63]}",
+      "sha256": "20bd42537066f099298bc478f1a20442daaccd83226a5b539f9ae86ddb498bd3"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.cancel-sequence-distinct-64.v1",
+      "parameter_type": "tournament.timerStorageCancelSequenceParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[3600000000000,3600000001000,3600000002000,3600000003000,3600000004000,3600000005000,3600000006000,3600000007000,3600000008000,3600000009000,3600000010000,3600000011000,3600000012000,3600000013000,3600000014000,3600000015000,3600000016000,3600000017000,3600000018000,3600000019000,3600000020000,3600000021000,3600000022000,3600000023000,3600000024000,3600000025000,3600000026000,3600000027000,3600000028000,3600000029000,3600000030000,3600000031000,3600000032000,3600000033000,3600000034000,3600000035000,3600000036000,3600000037000,3600000038000,3600000039000,3600000040000,3600000041000,3600000042000,3600000043000,3600000044000,3600000045000,3600000046000,3600000047000,3600000048000,3600000049000,3600000050000,3600000051000,3600000052000,3600000053000,3600000054000,3600000055000,3600000056000,3600000057000,3600000058000,3600000059000,3600000060000,3600000061000,3600000062000,3600000063000],\"Order\":[0,32,16,48,8,40,24,56,4,36,20,52,12,44,28,60,2,34,18,50,10,42,26,58,6,38,22,54,14,46,30,62,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63]}",
+      "sha256": "70b4fafbd2385d2a5431a82a7dabf4f18e04d07e0fced093d9211a0d02f9bda2"
+    },
+    {
+      "kind": "storage",
+      "id": "timer.storage.nested-repeat-clamp-positive.v2",
+      "parameter_type": "tournament.timerStorageClampParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"DrainOffsetNS\":0,\"RepeatNowOffsetNS\":0,\"IntervalNS\":1000000,\"ScheduledNesting\":5,\"DrainNesting\":6,\"Tick\":1}",
+      "sha256": "7a37c80f9fd6cb590d54a144a1b5ce833dba7de07392c75df84b2a824eeb7568"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.drain-retention.v2",
+      "parameter_type": "tournament.timerQualificationDrainRetentionParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineNS\":3600000000000,\"DrainOffsetNS\":3600000000000}",
+      "sha256": "b6caa5053b8f2860b331d86b7a5c778ab47f561c38c629edd10ceaaf74ea326d"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.cleanup-retention.v1",
+      "parameter_type": "tournament.timerQualificationRetentionParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineNS\":3600000000000}",
+      "sha256": "024f873c9458c3a9a9c2abac919a0a4e2822025ee2b9ecbee18b682d9add6ccb"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.nested-repeat-clamp-negative.v2",
+      "parameter_type": "tournament.timerQualificationClampParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":-1000000,\"DrainOffsetNS\":0,\"RepeatNowOffsetNS\":0,\"IntervalNS\":-1000000,\"ScheduledNesting\":5,\"DrainNesting\":6,\"Tick\":1}",
+      "sha256": "16cd67c735b32ac9de4aed3f54e43d144575c7611b3f664f62fac365398b3f33"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.detached-sibling-tail-cancel.v2",
+      "parameter_type": "tournament.timerQualificationDetachedParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineOffsetNS\":0,\"DrainOffsetNS\":0,\"Tick\":1,\"Count\":3,\"CancelIndex\":2}",
+      "sha256": "204a5cc69964504806b94eeb6ff32f88652b0427bbc8c6cfbfc4878ba934ad66"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.panic-release.v2",
+      "parameter_type": "tournament.timerQualificationPanicParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"OffsetsNS\":[0,1000],\"DrainOffsetNS\":1000}",
+      "sha256": "4c8ca1e0aac8f45578fd2e1a17023277f321a55e5cff5dc83538ee5ec213c13f"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.cancel-release.v1",
+      "parameter_type": "tournament.timerQualificationRetentionParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeadlineNS\":3600000000000}",
+      "sha256": "bc1596b477bdd1dc4a6965a1eb3fec77d9f64aa9ba4e5040738a146d0788b9d5"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.id-maxsafe-boundary.v1",
+      "parameter_type": "tournament.timerQualificationIdentityParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"Seed\":9007199254740990,\"Attempts\":3}",
+      "sha256": "e46cb9680b4a394747b01ba01e16942146d6005c526b328acb8208941b9a1e50"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.id-uint64-sticky-boundary.v1",
+      "parameter_type": "tournament.timerQualificationIdentityParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"Seed\":18446744073709551614,\"Attempts\":3}",
+      "sha256": "bcf1b58674a21b36d3dd8ad63dbb9c8cf0bb0d8bd83eea1a8dd86a02f3643492"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.id-wrap-collision.v1",
+      "parameter_type": "tournament.timerQualificationIdentityParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"Seed\":18446744073709551615,\"Attempts\":2}",
+      "sha256": "d21f8c7c02ecabf661ecfd32a4b2164567d07a6a2487bb6d6758b8d5de0ba465"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.deferred-reentrant-due-order.v2",
+      "parameter_type": "tournament.timerQualificationDeferredParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeferredDeadlineOffsetNS\":0,\"TriggerDeadlineOffsetNS\":1000,\"ReentrantDeadlineOffsetNS\":0,\"FirstDrainOffsetNS\":1000,\"SecondDrainOffsetNS\":1000,\"DeferredTick\":2,\"TriggerTick\":1,\"ReentrantTick\":2,\"FirstTick\":1,\"SecondTick\":2,\"ExpectedOrder\":[2,1,3],\"FirstResult\":[1,2]}",
+      "sha256": "a35e2b24fadecb0fa70a2b973eb193e2ca20814ab4e6e70ad49af091ac9d6fc2"
+    },
+    {
+      "kind": "qualification",
+      "id": "timer.qual.bucket-floor-reentrant-order.v1",
+      "parameter_type": "tournament.timerQualificationDeferredParameters",
+      "parameter_json": "{\"EpochUnixNano\":1700000000000000000,\"DeferredDeadlineOffsetNS\":500000,\"TriggerDeadlineOffsetNS\":100000,\"ReentrantDeadlineOffsetNS\":500000,\"FirstDrainOffsetNS\":100000,\"SecondDrainOffsetNS\":500000,\"DeferredTick\":2,\"TriggerTick\":1,\"ReentrantTick\":2,\"FirstTick\":1,\"SecondTick\":2,\"ExpectedOrder\":[2,3,1],\"FirstResult\":[1,1]}",
+      "sha256": "d921734d9415a420b30ef81ff4ba4417ba55c722f829ae13fc24cbc7fc8fe518"
+    }
+  ]
+}

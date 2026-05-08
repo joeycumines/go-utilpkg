@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!(1011000\xec\xa49\x91\x0fR*10000000")

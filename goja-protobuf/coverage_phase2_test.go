@@ -3,7 +3,7 @@ package gojaprotobuf
 import (
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -115,14 +115,11 @@ func TestLoadDescriptorSetBytes_RegisterFileNameConflict(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// The second file's RegisterFile fails (name conflict), but the
-	// function treats it as non-fatal and continues.
-	names, err := m.loadDescriptorSetBytes(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if _, err := m.loadDescriptorSetBytes(data); err == nil {
+		t.Fatal("expected conflicting symbols to reject the descriptor set")
 	}
-	if !sliceContains(names, "phase2conflict.DupMsg") {
-		t.Errorf("expected names to contain phase2conflict.DupMsg, got %v", names)
+	if _, err := m.findMessageDescriptor("phase2conflict.DupMsg"); err == nil {
+		t.Error("failed descriptor transaction mutated the registry")
 	}
 }
 
@@ -185,13 +182,8 @@ func TestLoadFileDescriptorProtoBytes_RegisterFileNameConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	names2, err := m.loadFileDescriptorProtoBytes(data2)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// RegisterFile fails → returns nil, nil (no names registered).
-	if names2 != nil {
-		t.Errorf("expected nil, got %v", names2)
+	if _, err := m.loadFileDescriptorProtoBytes(data2); err == nil {
+		t.Fatal("expected conflicting symbol registration to fail")
 	}
 }
 

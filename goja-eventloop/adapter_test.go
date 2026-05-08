@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestNewAdapter tests basic adapter creation
@@ -18,10 +18,7 @@ func TestNewAdapter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(ctx)
 
 	runtime := goja.New()
@@ -30,14 +27,23 @@ func TestNewAdapter(t *testing.T) {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
-	if adapter.Loop() != loop {
-		t.Error("adapter.Loop() should return the same loop")
+	if adapter.loop != loop {
+		t.Error("adapter.loop should return the same loop")
 	}
-	if adapter.Runtime() != runtime {
-		t.Error("adapter.Runtime() should return the same runtime")
+	if adapter.runtime != runtime {
+		t.Error("adapter.runtime should return the same runtime")
 	}
-	if adapter.JS() == nil {
-		t.Error("adapter.JS() should return a non-nil JS adapter")
+	if adapter.js != nil {
+		t.Error("construction registered JS before Bind")
+	}
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	if !adapter.OwnsLoop(loop) || !adapter.OwnsRuntime(runtime) {
+		t.Error("bound adapter did not retain its exact ownership identity")
+	}
+	if adapter.js == nil {
+		t.Error("Bind did not create the private JS adapter")
 	}
 }
 
@@ -47,10 +53,7 @@ func TestSetTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -98,10 +101,7 @@ func TestClearTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -166,10 +166,7 @@ func TestSetInterval(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -218,10 +215,7 @@ func TestClearInterval(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -269,10 +263,7 @@ func TestQueueMicrotask(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -320,10 +311,7 @@ func TestPromiseThen(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -367,10 +355,7 @@ func TestPromiseChain(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -471,10 +456,7 @@ func TestMixedTimersAndPromises(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -570,10 +552,7 @@ func TestMixedTimersAndPromises(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	// Test 2.3.9: Test Context cancellation
 	ctx, cancel := context.WithCancel(context.Background())
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -624,10 +603,7 @@ func TestConcurrentJSOperations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -684,10 +660,7 @@ func TestSetImmediate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -743,10 +716,7 @@ func TestClearImmediate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

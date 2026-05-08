@@ -6,65 +6,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Runtime-sensitive work now composes through the exact bound
+  `goja-eventloop.Adapter`: worker goroutines retain Go-only transport data,
+  while Goja value creation and Promise settlement run under the logical
+  adapter owner.
+- Construction now rejects a protobuf module owned by another Goja runtime and
+  an in-process channel dispatched by another event loop, before any exports or
+  handlers can be mutated.
+- Client requests are cloned and descriptor-validated on-owner before transport
+  workers start. Streaming sends and receives use bounded, serialized
+  coordinators with deterministic post-terminal behavior.
+- Reflection operations now accept `timeoutMs` and `AbortSignal` options.
+- Module shutdown is idempotent, cancels active operations, and closes only
+  connections created by the module. Event-loop terminal cleanup triggers the
+  same release path, and all behavior admissions reject after closure.
+- Export installation is atomic; direct Go installation reports errors and
+  `require` publishes only a fully constructed export object.
+- Protobuf messages retain exact runtime registry identity across transport,
+  including generated message types and unknown fields. Status-detail branding
+  uses private weak identity and rejects invalid details without omission.
+
+### Removed
+
+- The raw `Module.Runtime()` accessor. Construction validates the supplied
+  runtime against the bound adapter without exposing ownership-sensitive
+  internals afterward.
+
 ### Added
 
-- **Initial release** — JavaScript gRPC client/server for the Goja runtime, modeled after
-  [connect-es](https://github.com/connectrpc/connect-es) and using `inprocgrpc.Channel`
-  for event-loop-native transport.
-
-- **Client API** — `grpc.createClient(serviceName, [options])` returns a client with methods
-  matching the service definition:
+- **Initial release** — JavaScript gRPC clients and in-process servers for the
+  Goja runtime, using `inprocgrpc.Channel` as the default transport.
+- **Client API** — `grpc.createClient(serviceName, options?)` returns a client
+  with methods matching the service definition:
   - Unary RPCs return `Promise<Message>`
-  - Server-streaming RPCs return async-iterable stream objects
-  - Client-streaming RPCs return writable streams with `send(msg)` and `close()`
-  - Bidirectional streaming RPCs return full-duplex stream objects
-  - Optional `{ channel: dialChannel }` for external connections
-
-- **Server API** — `grpc.createServer()` → `server.addService(name, handlers)` →
-  `server.start()`. Handlers:
+  - Server-streaming RPCs expose `recv()`
+  - Client-streaming RPCs expose `send()`, `closeSend()`, and `response`
+  - Bidirectional RPCs expose `send()`, `recv()`, and `closeSend()`
+  - A `{ channel: grpc.dial(...) }` option selects an external connection
+- **Server API** — `grpc.createServer()`, `server.addService(name, handlers)`,
+  and `server.start()` provide all four RPC shapes:
   - Unary: `function(request, call) → message|Promise<message>`
   - Server-stream: `function(request, call)` with `call.send(msg)`
-  - Client-stream: `function(call)` with async iteration
-  - Bidi-stream: `function(call)` with send/receive
-
-- **`grpc.dial(target, options)`** — Connect to external gRPC servers:
+  - Client-stream: `function(call)` with `call.recv()`
+  - Bidi-stream: `function(call)` with `call.send()` and `call.recv()`
+- **`grpc.dial(target, options?)`** — Creates an external gRPC client
+  connection:
   - `target`: host:port address
   - `options.insecure`: use plaintext (no TLS)
   - `options.authority`: override `:authority` header
   - Returns channel object with `close()` and `target()` methods
-  - Use with `grpc.createClient(service, { channel: ch })`
-
-- **Client interceptors** — `grpc.setClientInterceptor(fn)` for request/response
-  transformation. Interceptors receive `(method, request, next)` and can modify or
-  observe RPC flow.
-
-- **Server interceptors** — `server.setInterceptor(fn)` for server-side middleware.
-  Chainable. Receives `(call, next)`.
-
+- **Client interceptors** — Unary clients accept an `interceptors` array of
+  connect-es-style factories through `createClient` options.
+- **Server interceptors** — `server.addInterceptor(factory)` adds
+  connect-es-style middleware.
 - **Metadata support** —
-  - Client: `call.setRequestHeader(key, value)`, `call.getResponseHeader(key)`,
-    `call.getResponseTrailer(key)`
+  - Client call options accept `metadata`, `onHeader`, and `onTrailer`
   - Server: `call.requestHeader.get(key)`, `call.setHeader(metadata)`,
     `call.sendHeader()`, `call.setTrailer(metadata)`
   - Full round-trip header/trailer propagation
-
 - **Error handling** —
   - `grpc.status.createError(code, message)` for structured gRPC errors
-  - `grpc.status.codes` enum (OK, CANCELLED, UNKNOWN, etc.)
+  - Direct status constants (OK, CANCELLED, UNKNOWN, etc.)
   - Error detail support via `error.details`
   - Proper error propagation between JS and Go
-
-- **AbortSignal support** — All client RPCs accept `{ signal: abortController.signal }`:
+- **AbortSignal support** — Client RPCs accept
+  `{ signal: abortController.signal }`:
   - Pre-aborted signals reject immediately
   - Mid-RPC abort cancels in-flight operations
   - Works with all four RPC types
-
-- **gRPC reflection** — `grpc.getServiceMethods(serviceName)` for runtime service
-  introspection. Includes method names, types (unary/stream), and descriptors.
+- **gRPC reflection** — `grpc.enableReflection()` registers the in-process
+  reflection service. `grpc.createReflectionClient()` returns
+  `listServices()`, `describeService(name)`, and `describeType(name)` methods.
+- **Lifecycle control** — `grpc.close()` cancels module-owned operations and
+  closes module-created dial connections.
 
 ### Technical Notes
 
-- All JS APIs run on the event loop goroutine (single-threaded JS semantics)
-- Uses `dynamicpb.Message` internally — no code generation required
+- All JS APIs run under the bound adapter's serialized logical callback owner;
+  the event loop may transfer that role between physical goroutines
+- Shares the runtime-bound protobuf module identity across generated and dynamic
+  messages
 - Compatible with both `inprocgrpc.Channel` and `grpc.ClientConn` via
   `grpc.ClientConnInterface`

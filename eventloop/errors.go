@@ -1,5 +1,22 @@
 package eventloop
 
+import "reflect"
+
+func nonNilError(value any) error {
+	err, ok := value.(error)
+	if !ok || err == nil {
+		return nil
+	}
+	reflected := reflect.ValueOf(err)
+	switch reflected.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		if reflected.IsNil() {
+			return nil
+		}
+	}
+	return err
+}
+
 // Unwrap returns the underlying error if the panic value is an error type.
 // This enables use with [errors.Is] and [errors.As] for error matching
 // through the cause chain.
@@ -17,10 +34,7 @@ package eventloop
 //	    // This will match
 //	}
 func (e PanicError) Unwrap() error {
-	if err, ok := e.Value.(error); ok {
-		return err
-	}
-	return nil
+	return nonNilError(e.Value)
 }
 
 // Is implements custom error matching for PanicError.
@@ -29,21 +43,10 @@ func (e PanicError) Is(target error) bool {
 	_, ok := target.(PanicError)
 	if !ok {
 		// Also match pointer form
-		_, ok = target.(*PanicError)
+		pointer, pointerOK := target.(*PanicError)
+		ok = pointerOK && pointer != nil
 	}
 	return ok
-}
-
-// Cause returns the first error in the Errors slice, if any.
-// This is provided for ES2022 .cause compatibility where you might want
-// to access a primary underlying cause.
-//
-// Returns nil if Errors is empty.
-func (e *AggregateError) Cause() error {
-	if len(e.Errors) > 0 {
-		return e.Errors[0]
-	}
-	return nil
 }
 
 // Unwrap returns the errors slice for multi-error unwrapping (Go 1.20+).
@@ -53,83 +56,41 @@ func (e *AggregateError) Cause() error {
 // Example:
 //
 //	aggErr := &AggregateError{
-//	    Errors: []error{io.EOF, io.ErrUnexpectedEOF},
+//	    Errors: []any{io.EOF, io.ErrUnexpectedEOF},
 //	}
 //
 //	// Both of these will return true:
 //	errors.Is(aggErr, io.EOF)
 //	errors.Is(aggErr, io.ErrUnexpectedEOF)
 func (e *AggregateError) Unwrap() []error {
-	return e.Errors
+	if e == nil {
+		return nil
+	}
+	errs := make([]error, 0, len(e.Errors))
+	for _, err := range e.Errors {
+		if err := nonNilError(err); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
 }
 
 // Is implements custom error matching for AggregateError.
 // Returns true if target is an *AggregateError (regardless of contents).
 func (e *AggregateError) Is(target error) bool {
-	_, ok := target.(*AggregateError)
-	return ok
+	match, ok := target.(*AggregateError)
+	return ok && match != nil
 }
 
-// TypeError represents a type error, similar to JavaScript's TypeError.
-// This is used when a value is not of the expected type.
-type TypeError struct {
-	// Cause is the underlying error that triggered this type error, if any.
-	Cause error
-	// Message describes the type error. If empty, defaults to "type error".
-	Message string
+// Is implements custom error matching for NilPromiseError.
+// Returns true if target is a *NilPromiseError, regardless of input index.
+func (e *NilPromiseError) Is(target error) bool {
+	match, ok := target.(*NilPromiseError)
+	return ok && match != nil
 }
 
-// Error implements the error interface.
-func (e *TypeError) Error() string {
-	if e.Message == "" {
-		return "type error"
-	}
-	return e.Message
-}
-
-// Unwrap returns the underlying cause for use with [errors.Is] and [errors.As].
-func (e *TypeError) Unwrap() error {
-	return e.Cause
-}
-
-// Is implements custom error matching for TypeError.
-// Returns true if target is a *TypeError (regardless of message or cause).
-func (e *TypeError) Is(target error) bool {
-	_, ok := target.(*TypeError)
-	return ok
-}
-
-// RangeError represents a range error, similar to JavaScript's RangeError.
-// This is used when a value is not within the expected range.
-type RangeError struct {
-	// Cause is the underlying error that triggered this range error, if any.
-	Cause error
-	// Message describes the range error. If empty, defaults to "range error".
-	Message string
-}
-
-// Error implements the error interface.
-func (e *RangeError) Error() string {
-	if e.Message == "" {
-		return "range error"
-	}
-	return e.Message
-}
-
-// Unwrap returns the underlying cause for use with [errors.Is] and [errors.As].
-func (e *RangeError) Unwrap() error {
-	return e.Cause
-}
-
-// Is implements custom error matching for RangeError.
-// Returns true if target is a *RangeError (regardless of message or cause).
-func (e *RangeError) Is(target error) bool {
-	_, ok := target.(*RangeError)
-	return ok
-}
-
-// TimeoutError represents a timeout error for promise timeouts.
-// This is used when an operation times out.
+// TimeoutError represents an operation timeout. It is used by promise timeout
+// helpers and as the exact reason published by [AbortTimeout].
 type TimeoutError struct {
 	// Cause is the underlying error that triggered this timeout, if any.
 	Cause error
@@ -139,7 +100,7 @@ type TimeoutError struct {
 
 // Error implements the error interface.
 func (e *TimeoutError) Error() string {
-	if e.Message == "" {
+	if e == nil || e.Message == "" {
 		return "operation timed out"
 	}
 	return e.Message
@@ -147,12 +108,15 @@ func (e *TimeoutError) Error() string {
 
 // Unwrap returns the underlying cause for use with [errors.Is] and [errors.As].
 func (e *TimeoutError) Unwrap() error {
-	return e.Cause
+	if e == nil {
+		return nil
+	}
+	return nonNilError(e.Cause)
 }
 
 // Is implements custom error matching for TimeoutError.
 // Returns true if target is a *TimeoutError (regardless of message or cause).
 func (e *TimeoutError) Is(target error) bool {
-	_, ok := target.(*TimeoutError)
-	return ok
+	match, ok := target.(*TimeoutError)
+	return ok && match != nil
 }

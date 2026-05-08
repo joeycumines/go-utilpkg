@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$ B9\x00B+.1BxB2")

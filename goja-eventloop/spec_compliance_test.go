@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestPromiseRejectPreservesPromiseIdentity verifies that Promise.reject(promise)
@@ -15,10 +15,7 @@ func TestPromiseRejectPreservesPromiseIdentity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
@@ -90,10 +87,7 @@ func TestPromiseRejectPreservesErrorProperties(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()

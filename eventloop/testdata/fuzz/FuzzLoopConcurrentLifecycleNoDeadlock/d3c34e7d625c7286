@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B00CZ+Y)'\"11Y,82%A7000$9y&!A 00a29)Z")

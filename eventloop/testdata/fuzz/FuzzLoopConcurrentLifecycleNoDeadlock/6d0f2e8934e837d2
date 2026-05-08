@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Xa\"!A9\xd3\xd3\xd3\xd38#1(000")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("submct-mXcr't\x80\x00k-timertdown-xlose- im!")

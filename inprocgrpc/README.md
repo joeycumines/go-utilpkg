@@ -7,10 +7,19 @@ function calls - no network I/O, no serialization overhead.
 
 ## Features
 
-- **Event-loop-driven**: All stream state managed by [go-eventloop](https://github.com/joeycumines/go-eventloop); no mutexes on the fast path
+- **Event-loop-driven**: Ordinary stream data and metadata publication is
+  owned by [go-eventloop](https://github.com/joeycumines/go-eventloop), with a
+  synchronized terminal arbiter for cancellation and scheduler loss
 - **Zero I/O**: No sockets, no HTTP/2 transport, no syscalls
 - **Zero encoding**: Messages cloned in-memory, not serialized to bytes
-- **Full gRPC semantics**: Deadlines, cancellation, metadata, trailers, status codes
+- **gRPC-compatible call surface**: Deadlines, cancellation, metadata,
+  trailers, status codes, stats handlers, and interceptors for the supported
+  in-process transport profile
+- **Bounded streaming**: Finite per-direction queues apply backpressure instead of
+  retaining an unrestricted burst
+- **Deterministic completion**: One first-terminal-wins claim per RPC;
+  terminal observation is stable before final resource release, and scheduler
+  loss recovers exclusively owned accepted data without leaking waiters
 - **Context isolation**: Server handlers cannot access client-side context values
 - **Stats handlers**: Client and server stats handler support
 - **Interceptors**: Server-side unary and stream interceptors
@@ -40,10 +49,7 @@ import (
 
 func main() {
 	// Create and start an event loop
-	loop, err := eventloop.New()
-	if err != nil {
-		log.Fatal(err)
-	}
+	loop := eventloop.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)
@@ -76,6 +82,7 @@ ch := inprocgrpc.NewChannel(
     inprocgrpc.WithServerStreamInterceptor(myStreamInterceptor),
     inprocgrpc.WithClientStatsHandler(myStatsHandler),
     inprocgrpc.WithCloner(myCloner),
+    inprocgrpc.WithStreamBuffer(16),
 )
 ```
 
@@ -101,8 +108,18 @@ ch.RegisterStreamHandler("/mypackage.MyService/MyMethod",
     func(ctx context.Context, stream *inprocgrpc.RPCStream) {
         // Runs ON the event loop goroutine - no blocking allowed
         stream.Recv().Recv(func(msg any, err error) {
-            // Process request, send response
-            stream.Send().Send(&pb.Response{Result: "ok"})
+            if err != nil {
+                if err == io.EOF {
+                    stream.Finish(nil)
+                } else {
+                    stream.Abort(err)
+                }
+                return
+            }
+            if err := stream.Send().Send(&pb.Response{Result: "ok"}); err != nil {
+                stream.Abort(err)
+                return
+            }
             stream.Finish(nil)
         })
     },
@@ -112,10 +129,19 @@ ch.RegisterStreamHandler("/mypackage.MyService/MyMethod",
 ## Architecture
 
 All RPC communication is coordinated by an [eventloop.Loop](https://github.com/joeycumines/go-eventloop).
-The channel uses a callback-based internal stream core where every state
-transition (message send/receive, headers, trailers, close) is a task on
-the event loop goroutine. Standard gRPC handler goroutines use blocking
-adapters wrapping this callback core.
+The channel uses a callback-based internal stream core where ordinary message
+and metadata transitions are tasks on the event loop goroutine. A synchronized
+first-terminal-wins arbiter admits handler results, cancellation, and scheduler
+loss from their originating goroutines. Standard gRPC handler goroutines use
+blocking adapters around the callback core. Blocking sends wait for finite
+queue credit; callback sends are non-blocking and return `ResourceExhausted`
+when credit is unavailable. After the loop's terminal `Done` signal proves
+owner callbacks cannot execute, recovery takes exclusive ownership of the
+state. It preserves already accepted buffered responses and transferred
+prepared unary material for client draining, and releases inaccessible
+requests and waiters without invoking callbacks off-owner. The RPC's stable
+terminal signal identifies the immutable winner; its full `Done` signal waits
+for accepted deliveries, stats callbacks, and final resource release.
 
 See [docs/design.md](docs/design.md) for the full design.
 

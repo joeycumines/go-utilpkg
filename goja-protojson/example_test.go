@@ -3,7 +3,7 @@ package gojaprotojson_test
 import (
 	"fmt"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 	"google.golang.org/protobuf/proto"
@@ -33,11 +33,15 @@ func Example() {
 	data, _ := proto.Marshal(fds)
 	_, _ = pb.LoadDescriptorSetBytes(data)
 	pbObj := rt.NewObject()
-	pb.SetupExports(pbObj)
+	if err := pb.SetupExports(pbObj); err != nil {
+		panic(err)
+	}
 	_ = rt.Set("pb", pbObj)
 	pj, _ := gojaprotojson.New(rt, gojaprotojson.WithProtobuf(pb))
 	pjObj := rt.NewObject()
-	pj.SetupExports(pjObj)
+	if err := pj.SetupExports(pjObj); err != nil {
+		panic(err)
+	}
 	_ = rt.Set("protojson", pjObj)
 
 	v, _ := rt.RunString(`

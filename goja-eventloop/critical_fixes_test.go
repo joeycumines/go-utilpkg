@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestCriticalFixes_Verification verifies Promise identity and reject semantics.
@@ -16,10 +16,7 @@ func TestCriticalFixes_Verification(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(ctx)
 
 	runtime := goja.New()
@@ -31,13 +28,11 @@ func TestCriticalFixes_Verification(t *testing.T) {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
 
-	// Promise identity preservation (no double-wrapping)
+	// Promise.resolve preserves native Promise identity.
 	val1, err := runtime.RunString(`
-		(async () => {
+		(() => {
 			const p1 = Promise.resolve(1);
-			const p2 = Promise.all([p1]);
-			const results = await p2;
-			return results[0] === p1;
+			return Promise.resolve(p1) === p1;
 		})()
 	`)
 	if err != nil {
@@ -62,9 +57,7 @@ func TestCriticalFixes_Verification(t *testing.T) {
 				caughtValue = reason;
 			}
 
-			return caughtValue !== null &&
-				typeof caughtValue === 'object' &&
-				'_internalPromise' in caughtValue;
+			return caughtValue === p1;
 		})()
 	`)
 	if err != nil {

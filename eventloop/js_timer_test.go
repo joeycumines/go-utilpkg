@@ -2,525 +2,392 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-// Test 1.4.6: SetTimeout executes
-func TestJSSetTimeoutExecutes(t *testing.T) {
-	ctx := t.Context()
+func TestJSClearIntervalCancelsTimeoutID(t *testing.T) {
+	loop := New()
 
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	registerActiveLoopCleanupT(t, loop, runDone)
+	waitLoopOwnerTurnT(t, loop)
 
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	// Wait for loop to initialize
-	time.Sleep(10 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSSetTimeoutExecutes: NewJS() failed: %v", err)
-	}
-
-	doneChan := make(chan struct{}, 1)
-	var execTime atomic.Value
-
-	start := time.Now()
-	_, err = js.SetTimeout(func() {
-		execTime.Store(time.Now())
-		close(doneChan)
-	}, 10)
-	if err != nil {
-		t.Fatalf("SetTimeout failed: %v", err)
-	}
-
-	// Wait for callback to run using channel (deterministic)
-	select {
-	case <-doneChan:
-		// Callback ran
-	case <-time.After(5 * time.Second):
-		t.Fatal("SetTimeout callback did not run within timeout")
-	}
-
-	execTimeVal, ok := execTime.Load().(time.Time)
-	if !ok {
-		t.Fatal("Failed to load execution time")
-	}
-
-	elapsed := execTimeVal.Sub(start)
-	t.Logf("SetTimeout elapsed: %v", elapsed)
-
-	// Verify callback ran (timing verification removed - see JS_TIMING_NOTE.md)
-	// The monotonic clock design means timers scheduled from external goroutines
-	// may execute faster than wall-clock delay. This is correct behavior.
-	// See: timer_cancel_test.go:TestScheduleTimerCancelBeforeExpiration
-	// for how other tests handle this without timing assertions.
-
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
-	}
-}
-
-// Test 1.4.7: ClearTimeout prevents execution
-func TestJSClearTimeoutPreventsExecution(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSClearTimeoutPreventsExecution: NewJS() failed: %v", err)
-	}
+	js := NewJS(loop)
 
 	var callbackRan atomic.Bool
-
-	id, err := js.SetTimeout(func() {
-		callbackRan.Store(true)
-	}, 100)
+	id, err := js.SetTimeout(func() { callbackRan.Store(true) }, 60_000)
 	if err != nil {
 		t.Fatalf("SetTimeout failed: %v", err)
 	}
 
-	// Cancel immediately
-	if err := js.ClearTimeout(id); err != nil {
-		t.Fatalf("ClearTimeout failed: %v", err)
-	}
-
-	// Wait long enough for timer to fire if not canceled
-	time.Sleep(200 * time.Millisecond)
-
-	if callbackRan.Load() {
-		t.Error("SetTimeout callback ran after ClearTimeout")
-	}
-
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
-	}
-}
-
-// Test 1.4.8: SetInterval fires multiple times
-func TestJSSetIntervalFiresMultiple(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSSetIntervalFiresMultiple: NewJS() failed: %v", err)
-	}
-
-	var counter atomic.Int32
-
-	id, err := js.SetInterval(func() {
-		counter.Add(1)
-	}, 20)
-	if err != nil {
-		t.Fatalf("SetInterval failed: %v", err)
-	}
-
-	// Wait for multiple fires
-	time.Sleep(70 * time.Millisecond) // Should fire ~3 times
-
-	count := counter.Load()
-	if count < 2 {
-		t.Errorf("SetInterval should have fired at least 2 times, got %d", count)
-	}
-	if count > 5 {
-		t.Errorf("SetInterval fired too many times: %d (expected ~3)", count)
-	}
-
-	// Clean up
-	initialClearCount := counter.Load()
-	js.ClearInterval(id)
-	time.Sleep(100 * time.Millisecond) // Longer wait to verify it stops
-
-	finalCount := counter.Load()
-	if finalCount == initialClearCount {
-		t.Log("SetInterval stopped after ClearInterval")
-	} else if finalCount > initialClearCount {
-		// Allow at most 1 extra fire due to timing (already scheduled before ClearInterval)
-		if finalCount-initialClearCount <= 1 {
-			t.Logf("SetInterval stopped after ClearInterval (1 extra fire due to timing): %d -> %d", initialClearCount, finalCount)
-		} else {
-			t.Errorf("SetInterval continued after ClearInterval: %d -> %d", initialClearCount, finalCount)
-		}
-	}
-
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
-	}
-}
-
-// Test 1.4.9: ClearInterval stops firing
-func TestJSClearIntervalStopsFiring(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	time.Sleep(10 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSClearIntervalStopsFiring: NewJS() failed: %v", err)
-	}
-
-	var counter atomic.Int32
-	triggerChan := make(chan struct{}, 10) // Buffer for multiple fires
-
-	id, err := js.SetInterval(func() {
-		n := counter.Add(1)
-		if n <= 5 { // Send signal for first 5 fires only
-			triggerChan <- struct{}{}
-		}
-	}, 10)
-	if err != nil {
-		t.Fatalf("SetInterval failed: %v", err)
-	}
-
-	// Wait for at least 2 fires using channel
-	fireCount := 0
-	for range 2 {
-		select {
-		case <-triggerChan:
-			fireCount++
-		case <-time.After(5 * time.Second):
-			t.Fatalf("SetInterval did not fire within timeout (got %d fires)", fireCount)
-		}
-	}
-
-	if fireCount < 2 {
-		t.Errorf("SetInterval should have fired at least 2 times, got %d", fireCount)
-	}
-
-	// Clear interval
 	if err := js.ClearInterval(id); err != nil {
-		t.Fatalf("ClearInterval failed: %v", err)
+		t.Fatalf("ClearInterval(timeoutID) failed: %v", err)
 	}
 
-	initialCount := counter.Load()
-
-	// Wait to ensure no more fires
-	select {
-	case <-triggerChan:
-		t.Errorf("SetInterval continued after ClearInterval: %d -> %d", initialCount, counter.Load())
-	case <-time.After(200 * time.Millisecond):
-		// No more fires - success
+	js.timeoutsMu.RLock()
+	_, timeoutExists := js.timeouts[id]
+	js.timeoutsMu.RUnlock()
+	if timeoutExists {
+		t.Fatal("timeout ID remained in timeout registry after ClearInterval")
 	}
-
-	finalCount := counter.Load()
-	t.Logf("SetInterval fired %d times, cleared at %d", finalCount, initialCount)
-
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
+	if callbackRan.Load() {
+		t.Fatal("timeout callback ran after ClearInterval(timeoutID)")
 	}
 }
 
-// Test 1.4.10: Timer re-entrancy
-func TestJSTimerReEntrancy(t *testing.T) {
-	ctx := t.Context()
+func TestJSClearTimeoutCancelsIntervalID(t *testing.T) {
+	loop := New()
 
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	registerActiveLoopCleanupT(t, loop, runDone)
+	waitLoopOwnerTurnT(t, loop)
 
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSTimerReEntrancy: NewJS() failed: %v", err)
-	}
-
-	var order []string
-	var mu sync.Mutex
-
-	firstTimer := func() {
-		mu.Lock()
-		order = append(order, "first")
-		mu.Unlock()
-
-		// Schedule second timer from within first timer
-		js.SetTimeout(func() {
-			mu.Lock()
-			order = append(order, "second")
-			mu.Unlock()
-		}, 5)
-	}
-
-	_, err = js.SetTimeout(firstTimer, 10)
-	if err != nil {
-		t.Fatalf("SetTimeout failed: %v", err)
-	}
-
-	time.Sleep(50 * time.Millisecond)
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	if len(order) != 2 {
-		t.Errorf("Expected 2 timers to fire, got %d", len(order))
-	}
-	if order[0] != "first" {
-		t.Errorf("First timer should have fired first, got %s", order[0])
-	}
-	if order[1] != "second" {
-		t.Errorf("Second timer should have fired second, got %s", order[1])
-	}
-
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
-	}
-}
-
-// Test 1.5.3: Microtask executes
-func TestJSQueueMicrotaskExecutes(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-
-	errChan := make(chan error, 1)
-	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSQueueMicrotaskExecutes: NewJS() failed: %v", err)
-	}
+	js := NewJS(loop)
 
 	var callbackRan atomic.Bool
-
-	err = js.QueueMicrotask(func() {
-		callbackRan.Store(true)
-	})
+	id, err := js.SetInterval(func() { callbackRan.Store(true) }, 60_000)
 	if err != nil {
-		t.Fatalf("QueueMicrotask failed: %v", err)
+		t.Fatalf("SetInterval failed: %v", err)
 	}
 
-	// Wait for microtask to run
-	time.Sleep(50 * time.Millisecond)
-
-	if !callbackRan.Load() {
-		t.Error("QueueMicrotask callback did not run")
+	if err := js.ClearTimeout(id); err != nil {
+		t.Fatalf("ClearTimeout(intervalID) failed: %v", err)
 	}
 
-	loop.Shutdown(context.Background())
-
-	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
-	default:
+	js.intervalsMu.RLock()
+	_, intervalExists := js.intervals[id]
+	js.intervalsMu.RUnlock()
+	if intervalExists {
+		t.Fatal("interval ID remained in interval registry after ClearTimeout")
+	}
+	if callbackRan.Load() {
+		t.Fatal("interval callback ran after ClearTimeout(intervalID)")
 	}
 }
 
-// Test 1.5.4: Microtask ordering
-func TestJSQueueMicrotaskOrdering(t *testing.T) {
-	ctx := t.Context()
+func TestJSSetTimeoutPublicationPrecedesCallback(t *testing.T) {
+	loop := New()
 
-	loop, err := New(WithStrictMicrotaskOrdering(true))
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
+	hookEntered := make(chan struct{})
+	callbackWaiting := make(chan struct{})
+	releaseHook := make(chan struct{})
+	var releaseHookOnce sync.Once
+	defer releaseHookOnce.Do(func() { close(releaseHook) })
+	loop.testHooks = &loopTestHooks{
+		BeforeJSTimeoutRegistryPublish: func(uint64) {
+			close(hookEntered)
+			<-releaseHook
+		},
+		BeforeJSTimeoutPublicationWait: func() { close(callbackWaiting) },
 	}
 
-	errChan := make(chan error, 1)
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	registerActiveLoopCleanupT(t, loop, runDone)
+	waitLoopOwnerTurnT(t, loop)
+
+	js := NewJS(loop)
+
+	callbackRan := make(chan struct{})
+	setTimeoutDone := make(chan struct {
+		id  uint64
+		err error
+	}, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
+		id, err := js.SetTimeout(func() { close(callbackRan) }, 0)
+		setTimeoutDone <- struct {
+			id  uint64
+			err error
+		}{id: id, err: err}
 	}()
 
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSQueueMicrotaskOrdering: NewJS() failed: %v", err)
-	}
-
-	var order []int
-	var mu sync.Mutex
-
-	// Queue 3 microtasks
-	for i := range 3 {
-		err := js.QueueMicrotask(func() {
-			mu.Lock()
-			order = append(order, i)
-			mu.Unlock()
-		})
-		if err != nil {
-			t.Fatalf("QueueMicrotask %d failed: %v", i, err)
-		}
-	}
-
-	// Wait for microtasks to run
-	time.Sleep(50 * time.Millisecond)
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	if len(order) != 3 {
-		t.Errorf("Expected 3 microtasks to run, got %d", len(order))
-	}
-	for i, v := range order {
-		if v != i {
-			t.Errorf("Microtask %d should have run in order, got order: %v", i, order)
-		}
-	}
-
-	loop.Shutdown(context.Background())
-
 	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
+	case <-hookEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetTimeout did not reach pre-publication hook")
+	}
+	select {
+	case <-callbackWaiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("native timeout callback did not reach its publication wait")
+	}
+	select {
+	case <-callbackRan:
+		t.Fatal("timeout callback entered before SetTimeout published its adapter handle")
 	default:
+	}
+
+	releaseHookOnce.Do(func() { close(releaseHook) })
+
+	var result struct {
+		id  uint64
+		err error
+	}
+	select {
+	case result = <-setTimeoutDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetTimeout did not return after pre-publication hook release")
+	}
+	if result.err != nil {
+		t.Fatalf("SetTimeout failed: %v", result.err)
+	}
+	select {
+	case <-callbackRan:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout callback did not run after SetTimeout published its adapter handle")
+	}
+
+	js.timeoutsMu.RLock()
+	_, exists := js.timeouts[result.id]
+	js.timeoutsMu.RUnlock()
+	if exists {
+		t.Fatal("fired timeout ID remained in timeout registry after callback-before-publication interleaving")
+	}
+	if err := js.ClearTimeout(result.id); !errors.Is(err, ErrTimerNotFound) {
+		t.Fatalf("ClearTimeout(fired ID) = %v, want ErrTimerNotFound", err)
 	}
 }
 
-// Test 1.5.5: Microtask before timer
-func TestJSMicrotaskBeforeTimer(t *testing.T) {
-	ctx := t.Context()
+func TestJSSetIntervalPublicationPrecedesCallback(t *testing.T) {
+	loop := New()
 
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
+	hookEntered := make(chan struct{})
+	callbackWaiting := make(chan struct{})
+	releaseHook := make(chan struct{})
+	var releaseHookOnce sync.Once
+	defer releaseHookOnce.Do(func() { close(releaseHook) })
+	hookState := make(chan struct {
+		id      uint64
+		state   *intervalState
+		initial TimerID
+	}, 1)
+	var callbackWaitOnce sync.Once
+	loop.testHooks = &loopTestHooks{
+		BeforeJSIntervalTimerIDPublish: func(id uint64, state *intervalState, initial TimerID) {
+			hookState <- struct {
+				id      uint64
+				state   *intervalState
+				initial TimerID
+			}{id: id, state: state, initial: initial}
+			close(hookEntered)
+			<-releaseHook
+		},
+		BeforeJSIntervalPublicationWait: func() {
+			callbackWaitOnce.Do(func() { close(callbackWaiting) })
+		},
 	}
 
-	errChan := make(chan error, 1)
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	registerActiveLoopCleanupT(t, loop, runDone)
+	waitLoopOwnerTurnT(t, loop)
+
+	js := NewJS(loop)
+
+	callbackEntered := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	var releaseCallbackOnce sync.Once
+	defer releaseCallbackOnce.Do(func() { close(releaseCallback) })
+	var fireCount atomic.Int32
+	setIntervalDone := make(chan struct {
+		id  uint64
+		err error
+	}, 1)
 	go func() {
-		if err := loop.Run(ctx); err != nil {
-			errChan <- err
-		}
+		id, err := js.SetInterval(func() {
+			if fireCount.Add(1) == 1 {
+				close(callbackEntered)
+				<-releaseCallback
+			}
+		}, 0)
+		setIntervalDone <- struct {
+			id  uint64
+			err error
+		}{id: id, err: err}
 	}()
 
-	time.Sleep(50 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatalf("TestJSMicrotaskBeforeTimer: NewJS() failed: %v", err)
+	select {
+	case <-hookEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetInterval did not reach pre-publication hook")
+	}
+	var publication struct {
+		id      uint64
+		state   *intervalState
+		initial TimerID
+	}
+	select {
+	case publication = <-hookState:
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetInterval hook did not expose publication state")
+	}
+	select {
+	case <-callbackWaiting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("native interval callback did not reach its publication wait")
+	}
+	select {
+	case <-callbackEntered:
+		t.Fatal("interval callback entered before SetInterval published its adapter handle")
+	default:
 	}
 
-	var order []string
-	var mu sync.Mutex
-	var tick atomic.Int32
+	releaseHookOnce.Do(func() { close(releaseHook) })
 
-	// Schedule timer with 0 delay
-	js.SetTimeout(func() {
-		mu.Lock()
-		order = append(order, "timer")
-		mu.Unlock()
+	var result struct {
+		id  uint64
+		err error
+	}
+	select {
+	case result = <-setIntervalDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("SetInterval did not return after pre-publication hook release")
+	}
+	if result.err != nil {
+		t.Fatalf("SetInterval failed: %v", result.err)
+	}
+	if result.id != publication.id {
+		t.Fatalf("SetInterval returned id %d, hook observed id %d", result.id, publication.id)
+	}
+	select {
+	case <-callbackEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("interval callback did not enter after SetInterval published its adapter handle")
+	}
+
+	if got := TimerID(publication.state.currentLoopTimerID.Load()); got != publication.initial {
+		t.Fatalf("native interval timer ID = %d, want initial repeating timer ID %d", got, publication.initial)
+	}
+
+	releaseCallbackOnce.Do(func() { close(releaseCallback) })
+	if err := js.ClearInterval(result.id); err != nil {
+		t.Fatalf("ClearInterval after pre-publication first fire failed: %v", err)
+	}
+
+}
+
+func TestJSSetIntervalExternalCancelWhileCallbackBlockedCancelsNativeTimer(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
+	js := NewJS(loop)
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+
+	var fireCount atomic.Int32
+	entered := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	releaseCallbackFn := releaseSignalT(t, releaseCallback)
+	var enteredOnce sync.Once
+	id, err := js.SetInterval(func() {
+		if fireCount.Add(1) != 1 {
+			return
+		}
+		enteredOnce.Do(func() { close(entered) })
+		<-releaseCallback
+	}, 1)
+	if err != nil {
+		t.Fatalf("SetInterval: %v", err)
+	}
+	js.intervalsMu.RLock()
+	interval := js.intervals[id]
+	js.intervalsMu.RUnlock()
+	if interval == nil {
+		t.Fatal("SetInterval did not publish adapter state")
+	}
+	nativeID := TimerID(interval.currentLoopTimerID.Load())
+	if nativeID == 0 {
+		t.Fatal("SetInterval did not publish native timer ID")
+	}
+
+	waitContractSignal(t, entered, "blocked interval callback entry")
+	clearDone := make(chan error, 1)
+	go func() { clearDone <- js.ClearInterval(id) }()
+	if err := waitContractValue(t, clearDone, "external ClearInterval admission"); err != nil {
+		t.Fatalf("ClearInterval: %v", err)
+	}
+
+	type cleanupState struct {
+		adapterPresent bool
+		nativePresent  bool
+		refedTimers    int64
+		fireCount      int32
+	}
+	cleanupObserved := make(chan cleanupState, 1)
+	if err := loop.SubmitInternal(func() {
+		js.intervalsMu.RLock()
+		_, adapterPresent := js.intervals[id]
+		js.intervalsMu.RUnlock()
+		_, nativePresent := loop.timerMap[nativeID]
+		cleanupObserved <- cleanupState{
+			adapterPresent: adapterPresent,
+			nativePresent:  nativePresent,
+			refedTimers:    loop.refedTimerCount.Load(),
+			fireCount:      fireCount.Load(),
+		}
+	}); err != nil {
+		t.Fatalf("cleanup observation admission: %v", err)
+	}
+	releaseCallbackFn()
+	state := waitContractValue(t, cleanupObserved, "post-cancellation owner barrier")
+	if state.adapterPresent || state.nativePresent || state.refedTimers != 0 || state.fireCount != 1 {
+		t.Fatalf("interval after external clear = (adapter=%v, native=%v, refs=%d, fires=%d), want (false, false, 0, 1)", state.adapterPresent, state.nativePresent, state.refedTimers, state.fireCount)
+	}
+	if err := loop.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if err := waitContractValue(t, runDone, "externally canceled interval Run completion"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestJSTimerReEntrancy(t *testing.T) {
+	loop := New(WithAutoExit(true))
+	registerLoopCleanupT(t, loop)
+	js := NewJS(loop)
+
+	order := make(chan string, 2)
+	scheduleErr := make(chan error, 1)
+	_, err := js.SetTimeout(func() {
+		order <- "first"
+		if _, err := js.SetTimeout(func() { order <- "second" }, 0); err != nil {
+			select {
+			case scheduleErr <- err:
+			default:
+			}
+		}
 	}, 0)
-
-	// Queue microtask
-	js.QueueMicrotask(func() {
-		mu.Lock()
-		order = append(order, "microtask")
-		mu.Unlock()
-		tick.Store(1)
-	})
-
-	// Wait for both to run
-	time.Sleep(50 * time.Millisecond)
-
-	if tick.Load() != 1 {
-		t.Error("Microtask did not run")
+	if err != nil {
+		t.Fatalf("SetTimeout: %v", err)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
 
-	// Microtask should run before timer
-	if len(order) < 2 {
-		t.Fatalf("Expected both microtask and timer to run, got: %v", order)
+	want := []string{"first", "second"}
+	for i, expected := range want {
+		select {
+		case got := <-order:
+			if got != expected {
+				t.Fatalf("timer %d fired as %q, want %q", i, got, expected)
+			}
+		case err := <-scheduleErr:
+			t.Fatalf("nested SetTimeout failed: %v", err)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timer %d did not fire", i)
+		}
 	}
-	if order[0] != "microtask" {
-		t.Errorf("Microtask should have run before timer, order: %v", order)
+	if err := waitContractValue(t, runDone, "nested zero-delay timer auto-exit"); err != nil {
+		t.Fatalf("Run: %v", err)
 	}
-	if order[1] != "timer" {
-		t.Errorf("Timer should have run after microtask, order: %v", order)
-	}
-
-	loop.Shutdown(context.Background())
-
 	select {
-	case err := <-errChan:
-		t.Fatalf("Run() error: %v", err)
+	case err := <-scheduleErr:
+		t.Fatalf("nested SetTimeout failed: %v", err)
 	default:
 	}
 }

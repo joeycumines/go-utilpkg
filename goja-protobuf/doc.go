@@ -2,16 +2,16 @@
 // JavaScript runtime, enabling JavaScript code to create, manipulate,
 // serialize, and deserialize protobuf messages.
 //
-// # Why Dynamic Protobuf?
+// # Generated and Dynamic Protobuf
 //
-// This package uses dynamicpb.Message and dynamic descriptor loading to enable
-// JavaScript code to operate on protobuf types without requiring Go code
-// regeneration. When evaluating external JavaScript code, the protobuf types
-// used by that code may not be known at Go compile-time. By loading descriptors
-// at runtime from serialized FileDescriptorSet bytes, JavaScript can construct
-// and manipulate protobuf messages without requiring the Go module to be
-// recompiled with updated generated stubs. This provides the same flexibility
-// that protobuf-es brings to JavaScript environments.
+// A runtime has one canonical file, message, enum, and extension identity.
+// Generated messages retain their concrete Go type and instance. Descriptor
+// sets add dynamic types through an atomic, order-independent transaction, so
+// JavaScript can also use schemas that were not known when the Go program was
+// compiled. Conflicting schemas are rejected without changing the active
+// registry snapshot. The first module for a runtime snapshots configured base
+// registry membership; later module-owned descriptor loads remain live and
+// shared by every module bound to that runtime.
 //
 // # Overview
 //
@@ -69,9 +69,9 @@
 //
 // Scalar protobuf types are mapped to JavaScript types:
 //   - int32, sint32, sfixed32 → number
-//   - int64, sint64, sfixed64 → number (or BigInt for large values)
+//   - int64, sint64, sfixed64 → safe number or BigInt
 //   - uint32, fixed32 → number
-//   - uint64, fixed64 → number (or BigInt for large values)
+//   - uint64, fixed64 → safe number or BigInt
 //   - float, double → number
 //   - bool → boolean
 //   - string → string
@@ -80,18 +80,27 @@
 // Repeated fields are exposed as array-like objects. Map fields are exposed
 // as ES6 Map-like objects.
 //
+// Setters accept 64-bit integers as safe integer numbers, BigInt values, or
+// exact decimal strings. Unsafe, fractional, or non-finite numbers are rejected.
+// All operations that touch JavaScript values must execute on the owning Goja
+// goroutine.
+//
 // # Usage
 //
 //	registry := require.NewRegistry()
 //	registry.RegisterNativeModule("protobuf", gojaprotobuf.Require())
 //
-//	loop, _ := eventloop.New()
-//	defer loop.Close()
+//	loop := eventloop.New()
+//	runDone := make(chan error, 1)
+//	go func() {
+//	    runDone <- loop.Run(context.Background())
+//	}()
 //	rt := goja.New()
 //	registry.Enable(rt)
 //
-//	loop.Submit(func() {
-//	    rt.RunString(`
+//	result := make(chan error, 1)
+//	if err := loop.Submit(func() {
+//	    _, err := rt.RunString(`
 //	        const pb = require('protobuf');
 //	        pb.loadDescriptorSet(descriptorBytes);
 //	        const MyMsg = pb.messageType('my.package.MyMessage');
@@ -99,8 +108,20 @@
 //	        msg.set('name', 'hello');
 //	        const encoded = pb.encode(msg);
 //	    `)
-//	})
+//	    result <- err
+//	}); err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := <-result; err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := loop.Close(); err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := <-runDone; err != nil {
+//	    log.Fatal(err)
+//	}
 //
-// [goja]: github.com/dop251/goja
-// [goja_nodejs/require]: github.com/dop251/goja_nodejs/require
+// [goja]: github.com/joeycumines/goja
+// [goja_nodejs/require]: github.com/joeycumines/goja_nodejs/require
 package gojaprotobuf

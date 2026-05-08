@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("+' m811_1$\xd1b\t'{19 Y1zYcY'0YX8")

@@ -105,146 +105,6 @@ func TestWrapEvent_PreventDefault(t *testing.T) {
 	}
 }
 
-// --- exportGojaValue coverage (42.9% → higher) ---
-
-func TestExportGojaValue_NilValue(t *testing.T) {
-	val, ok := exportGojaValue(nil)
-	if ok || val != nil {
-		t.Errorf("Expected (nil, false) for nil input, got (%v, %v)", val, ok)
-	}
-}
-
-func TestExportGojaValue_UndefinedValue(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	undef := adapter.runtime.GlobalObject().Get("undefined")
-	val, ok := exportGojaValue(undef)
-	if ok || val != nil {
-		t.Errorf("Expected (nil, false) for undefined, got (%v, %v)", val, ok)
-	}
-}
-
-func TestExportGojaValue_NullValue(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	null := adapter.runtime.ToValue(nil)
-	val, ok := exportGojaValue(null)
-	if ok || val != nil {
-		t.Errorf("Expected (nil, false) for null, got (%v, %v)", val, ok)
-	}
-}
-
-func TestExportGojaValue_ErrorObject(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	errObj, err := adapter.runtime.RunString(`new Error("test error")`)
-	if err != nil {
-		t.Fatalf("RunString failed: %v", err)
-	}
-
-	val, ok := exportGojaValue(errObj)
-	if !ok {
-		t.Error("Expected ok=true for Error object")
-	}
-	if val == nil {
-		t.Error("Expected non-nil value for Error object")
-	}
-}
-
-func TestExportGojaValue_TypeError(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	errObj, err := adapter.runtime.RunString(`new TypeError("type error")`)
-	if err != nil {
-		t.Fatalf("RunString failed: %v", err)
-	}
-
-	val, ok := exportGojaValue(errObj)
-	if !ok {
-		t.Error("Expected ok=true for TypeError")
-	}
-	if val == nil {
-		t.Error("Expected non-nil value for TypeError")
-	}
-}
-
-func TestExportGojaValue_RangeError(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	errObj, err := adapter.runtime.RunString(`new RangeError("range error")`)
-	if err != nil {
-		t.Fatalf("RunString failed: %v", err)
-	}
-
-	val, ok := exportGojaValue(errObj)
-	if !ok {
-		t.Error("Expected ok=true for RangeError")
-	}
-	if val == nil {
-		t.Error("Expected non-nil value for RangeError")
-	}
-}
-
-func TestExportGojaValue_ReferenceError(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	errObj, err := adapter.runtime.RunString(`new ReferenceError("ref error")`)
-	if err != nil {
-		t.Fatalf("RunString failed: %v", err)
-	}
-
-	val, ok := exportGojaValue(errObj)
-	if !ok {
-		t.Error("Expected ok=true for ReferenceError")
-	}
-	if val == nil {
-		t.Error("Expected non-nil value for ReferenceError")
-	}
-}
-
-func TestExportGojaValue_PlainObject(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	obj, err := adapter.runtime.RunString(`({name: "not an error"})`)
-	if err != nil {
-		t.Fatalf("RunString failed: %v", err)
-	}
-
-	_, ok := exportGojaValue(obj)
-	if ok {
-		t.Error("Expected ok=false for plain object with 'name' property that isn't an error type")
-	}
-}
-
-func TestExportGojaValue_PrimitiveString(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	str := adapter.runtime.ToValue("hello")
-	_, ok := exportGojaValue(str)
-	if ok {
-		t.Error("Expected ok=false for primitive string")
-	}
-}
-
-func TestExportGojaValue_PrimitiveNumber(t *testing.T) {
-	adapter, cleanup := testSetup(t)
-	defer cleanup()
-
-	num := adapter.runtime.ToValue(42)
-	_, ok := exportGojaValue(num)
-	if ok {
-		t.Error("Expected ok=false for primitive number")
-	}
-}
-
 // --- formatCellValue coverage (exercising nested objects and edge cases) ---
 
 func TestFormatCellValue_EdgeCases(t *testing.T) {
@@ -362,27 +222,22 @@ func TestIsErrorObject_ViaStructuredClone(t *testing.T) {
 	adapter, cleanup := testSetup(t)
 	defer cleanup()
 
-	// isErrorObject is exercised via structuredClone — Error objects cannot be cloned
-	// per spec, and cloneObject checks isErrorObject before throwing TypeError.
+	// isErrorObject is exercised via structuredClone — Error objects are cloned
+	// with name/message preserved.
 	for _, errorType := range []string{"Error", "TypeError", "RangeError", "ReferenceError"} {
 		result, err := adapter.runtime.RunString(`
 			(function() {
-				try {
-					structuredClone(new ` + errorType + `("test"));
-					return "no error";
-				} catch (e) {
-					return e.message;
-				}
+				var original = new ` + errorType + `("test");
+				var cloned = structuredClone(original);
+				return cloned !== original && cloned.name === original.name && cloned.message === "test";
 			})()
 		`)
 		if err != nil {
 			t.Fatalf("RunString failed for %s: %v", errorType, err)
 		}
-		// Should throw a TypeError about not being able to clone Error objects
-		if result.String() == "no error" {
-			t.Errorf("Expected structuredClone(%s) to throw, but it didn't", errorType)
+		if !result.ToBoolean() {
+			t.Errorf("Expected structuredClone(%s) to preserve Error details", errorType)
 		}
-		t.Logf("structuredClone(%s) threw: %s", errorType, result.String())
 	}
 }
 

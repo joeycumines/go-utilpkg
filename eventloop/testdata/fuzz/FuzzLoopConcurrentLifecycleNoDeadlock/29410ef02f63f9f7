@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("y.8*2C19c777217291.71aa$%")

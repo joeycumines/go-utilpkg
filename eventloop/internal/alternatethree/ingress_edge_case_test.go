@@ -1,277 +1,169 @@
 package alternatethree
 
 import (
+	"slices"
 	"sync"
 	"testing"
 )
 
-// TestIngressPop_MultiChunkEdgeCases tests the multi-chunk scenarios where
-// chunks are returned to pool and head advances.
-func TestIngressPop_MultiChunkEdgeCases(t *testing.T) {
-	// t.Parallel() // Cannot parallel: modifies shared loop fields
+type lockedIngressQueue struct {
+	mu    sync.Mutex
+	queue IngressQueue
+}
 
-	// Create a loop to access ingress queue
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
+func (q *lockedIngressQueue) push(task Task) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.queue.Push(task)
+}
+
+func (q *lockedIngressQueue) pop() (Task, bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.queue.popLocked()
+}
+
+func (q *lockedIngressQueue) length() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.queue.Length()
+}
+
+func TestIngressPop_MultiChunkFIFO(t *testing.T) {
+	var queue lockedIngressQueue
+	const taskCount = 256
+	got := make([]int, 0, taskCount)
+	for value := range taskCount {
+		queue.push(Task{Runnable: func() { got = append(got, value) }})
 	}
-	defer loop.closeFDs()
-
-	// Test 1: Push enough tasks to force multiple chunks
-	// Chunk size is 128 tasks
-	numTasks := 256 // Force at least 2 chunks
-	for i := range numTasks {
-		val := i
-		loop.Submit(func() {
-			// Task will verify we received correct value
-			t.Logf("Task %d executed from multi-chunk queue", val)
-		})
+	if length := queue.length(); length != taskCount {
+		t.Fatalf("queue length = %d, want %d", length, taskCount)
 	}
-
-	loop.internalMu.Lock()
-	initialLength := loop.ingress.Length()
-	loop.internalMu.Unlock()
-
-	if initialLength != numTasks {
-		t.Errorf("Expected queue length %d, got %d", numTasks, initialLength)
-	}
-
-	// Drain the queue and verify all tasks are executed
-	executed := 0
-	for i := range numTasks {
-		loop.internalMu.Lock()
-		task, ok := loop.ingress.popLocked()
-		loop.internalMu.Unlock()
-
-		if !ok {
-			t.Errorf("popLocked() failed at index %d", i)
-			break
+	for index := range taskCount {
+		task, ok := queue.pop()
+		if !ok || task.Runnable == nil {
+			t.Fatalf("pop %d failed", index)
 		}
-
 		task.Runnable()
-		executed++
 	}
-
-	if executed != numTasks {
-		t.Errorf("Expected %d executed tasks, got %d", numTasks, executed)
+	want := make([]int, taskCount)
+	for index := range want {
+		want[index] = index
 	}
-
-	// After draining, queue should be empty
-	loop.internalMu.Lock()
-	finalLength := loop.ingress.Length()
-	loop.internalMu.Unlock()
-
-	if finalLength != 0 {
-		t.Errorf("Expected empty queue after draining, got length %d", finalLength)
+	if !slices.Equal(got, want) {
+		t.Errorf("execution order = %v, want FIFO sequence", got)
+	}
+	if length := queue.length(); length != 0 {
+		t.Errorf("queue length after drain = %d, want 0", length)
 	}
 }
 
-// TestIngressPop_ResetCursorsOnEmpty tests that cursors are reset when queue becomes empty.
 func TestIngressPop_ResetCursorsOnEmpty(t *testing.T) {
-	// t.Parallel() // Cannot parallel: modifies shared loop fields
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer loop.closeFDs()
-
-	// Push and pop exactly one task - should reset cursors
+	var queue lockedIngressQueue
 	executed := false
-
-	loop.Submit(func() {
-		executed = true
-	})
-
-	loop.internalMu.Lock()
-	task, ok := loop.ingress.popLocked()
-	loop.internalMu.Unlock()
-
-	if !ok {
-		t.Fatal("popLocked() failed for single task")
+	queue.push(Task{Runnable: func() { executed = true }})
+	task, ok := queue.pop()
+	if !ok || task.Runnable == nil {
+		t.Fatal("single-task pop failed")
 	}
-
 	task.Runnable()
-
 	if !executed {
-		t.Error("Task was not executed")
+		t.Error("task did not execute")
 	}
-
-	// Verify queue is empty and has reusable chunk (not nil)
-	loop.internalMu.Lock()
-	isEmpty := loop.ingress.Length() == 0
-	hasChunk := loop.ingress.head != nil && loop.ingress.tail != nil
-	loop.internalMu.Unlock()
-
-	if !isEmpty {
-		t.Error("Queue should be empty after popping all tasks")
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
+	if queue.queue.length != 0 || queue.queue.head == nil || queue.queue.head != queue.queue.tail {
+		t.Errorf("empty topology = length %d, head %p, tail %p; want one reusable empty chunk", queue.queue.length, queue.queue.head, queue.queue.tail)
 	}
-
-	if !hasChunk {
-		t.Error("Queue should retain a reusable chunk when empty")
+	if queue.queue.head.readPos != 0 || queue.queue.head.pos != 0 {
+		t.Errorf("empty cursors = (%d, %d), want (0, 0)", queue.queue.head.readPos, queue.queue.head.pos)
 	}
 }
 
-// TestIngressPop_DoubleCheckEdgeCase tests the double-check scenario after chunk advancement.
-// This covers the path at ingress.go:129-131 where we check readPos >= pos again.
-func TestIngressPop_DoubleCheckEdgeCase(t *testing.T) {
-	// t.Parallel() // Cannot parallel: modifies shared loop fields
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
+func TestIngressPop_ThreeChunkFIFO(t *testing.T) {
+	var queue lockedIngressQueue
+	const taskCount = 300
+	got := make([]int, 0, taskCount)
+	for value := range taskCount {
+		queue.push(Task{Runnable: func() { got = append(got, value) }})
 	}
-	defer loop.closeFDs()
-
-	// This test simulates the edge case where:
-	// 1. We have multiple chunks
-	// 2. Second chunk becomes exhausted
-	// 3. We advance to third chunk but need to double-check
-
-	// Push enough tasks to create 3 chunks
-	numTasks := 300 // 128 + 128 + 44 tasks
-	for i := range numTasks {
-		val := i
-		loop.Submit(func() {
-			t.Logf("Executing task %d", val)
-		})
-	}
-
-	// Now drain all tasks, exercising the double-check path
-	executedCount := 0
-	for executedCount < numTasks {
-		loop.internalMu.Lock()
-		task, ok := loop.ingress.popLocked()
-		loop.internalMu.Unlock()
-
-		if !ok {
-			t.Errorf("popLocked() failed prematurely at count %d", executedCount)
-			break
+	for index := range taskCount {
+		task, ok := queue.pop()
+		if !ok || task.Runnable == nil {
+			t.Fatalf("pop %d failed", index)
 		}
-
 		task.Runnable()
-		executedCount++
 	}
-
-	if executedCount != numTasks {
-		t.Errorf("Expected %d executed tasks, got %d", numTasks, executedCount)
+	for index, value := range got {
+		if value != index {
+			t.Fatalf("execution[%d] = %d, want %d", index, value, index)
+		}
 	}
 }
 
-// TestIngressPop_ChunkReturnToPool tests that exhausted chunks are properly returned to pool.
-func TestIngressPop_ChunkReturnToPool(t *testing.T) {
-	// t.Parallel() // Cannot parallel: accesses shared chunkPool
-
-	// Get initial pool stats - we can't directly get them, but we can observe behavior
-	// by forcing chunk churn
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer loop.closeFDs()
-
-	// Create scenarios that will cause chunks to be returned to pool
-	batchSize := 256 // 2 chunks
-	numBatches := 2
-
-	for batch := range numBatches {
-		// Push a batch of tasks
-		for i := range batchSize {
-			val := i
-			loop.Submit(func() {
-				// Process task
-				_ = val
-			})
+func TestIngressPop_ChunkAdvancementAndTailReuse(t *testing.T) {
+	var queue lockedIngressQueue
+	const (
+		batchCount = 2
+		batchSize  = 256
+	)
+	for batch := range batchCount {
+		var executed int
+		for range batchSize {
+			queue.push(Task{Runnable: func() { executed++ }})
 		}
-
-		// Drain the batch - should return chunks to pool
-		for i := range batchSize {
-			loop.internalMu.Lock()
-			task, ok := loop.ingress.popLocked()
-			loop.internalMu.Unlock()
-
-			if !ok {
-				t.Fatalf("popLocked() failed at batch %d, index %d", batch, i)
+		for index := range batchSize {
+			task, ok := queue.pop()
+			if !ok || task.Runnable == nil {
+				t.Fatalf("batch %d pop %d failed", batch, index)
 			}
 			task.Runnable()
 		}
-
-		// Queue should be empty but have a reusable chunk
-		loop.internalMu.Lock()
-		length := loop.ingress.Length()
-		hasChunk := loop.ingress.head != nil
-		loop.internalMu.Unlock()
-
-		if length != 0 {
-			t.Errorf("Expected empty queue after batch %d, got length %d", batch, length)
+		if executed != batchSize {
+			t.Errorf("batch %d executions = %d, want %d", batch, executed, batchSize)
 		}
-
-		if !hasChunk {
-			t.Errorf("Expected queue to have reusable chunk after batch %d", batch)
+		queue.mu.Lock()
+		if queue.queue.length != 0 || queue.queue.head == nil || queue.queue.head != queue.queue.tail || queue.queue.head.pos != 0 || queue.queue.head.readPos != 0 {
+			t.Errorf("batch %d did not leave one reusable empty tail", batch)
 		}
+		queue.mu.Unlock()
 	}
 }
 
-// TestIngressPop_ConcurrentSafeWithExternalLock tests that popLocked is safe
-// when used with external mutex (as the loop does).
 func TestIngressPop_ConcurrentSafeWithExternalLock(t *testing.T) {
-	// t.Parallel() // Cannot parallel: modifies shared loop fields
-
-	loop, err := New()
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	defer loop.closeFDs()
-
-	numProducers := 4
-	numTasks := 64
-	var wg sync.WaitGroup
-
-	// Producer goroutines pushing tasks
-	for i := range numProducers {
-		wg.Add(1)
-		go func(producerID int) {
-			defer wg.Done()
-			for j := range numTasks {
-				val := producerID*numTasks + j
-				loop.Submit(func() {
-					// Task
-					_ = val
-				})
+	var queue lockedIngressQueue
+	const (
+		producerCount    = 4
+		tasksPerProducer = 64
+		total            = producerCount * tasksPerProducer
+	)
+	seen := make([]bool, total)
+	producerDone := make(chan struct{}, producerCount)
+	for producer := range producerCount {
+		go func() {
+			for offset := range tasksPerProducer {
+				value := producer*tasksPerProducer + offset
+				queue.push(Task{Runnable: func() { seen[value] = true }})
 			}
-		}(i)
+			producerDone <- struct{}{}
+		}()
 	}
-
-	wg.Wait()
-
-	// Consumer goroutine popping tasks
-	receivedCount := 0
-	for receivedCount < numProducers*numTasks {
-		loop.internalMu.Lock()
-		task, ok := loop.ingress.popLocked()
-		loop.internalMu.Unlock()
-
-		if !ok {
-			t.Errorf("popLocked() failed prematurely at count %d", receivedCount)
-			break
+	for range producerCount {
+		waitAlternateThreeSignal(t, producerDone, "ingress producer")
+	}
+	for index := range total {
+		task, ok := queue.pop()
+		if !ok || task.Runnable == nil {
+			t.Fatalf("pop %d failed", index)
 		}
-
 		task.Runnable()
-		receivedCount++
 	}
-
-	expectedTotal := numProducers * numTasks
-	if receivedCount != expectedTotal {
-		t.Errorf("Expected %d received tasks, got %d", expectedTotal, receivedCount)
+	for value, observed := range seen {
+		if !observed {
+			t.Errorf("task value %d did not execute", value)
+		}
 	}
-
-	// Queue should be empty
-	loop.internalMu.Lock()
-	finalLength := loop.ingress.Length()
-	loop.internalMu.Unlock()
-
-	if finalLength != 0 {
-		t.Errorf("Expected empty queue after complete drain, got length %d", finalLength)
+	if length := queue.length(); length != 0 {
+		t.Errorf("queue length after concurrent drain = %d, want 0", length)
 	}
 }

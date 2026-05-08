@@ -1,11 +1,9 @@
 package eventloop
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 // EventTarget Tests
@@ -15,8 +13,8 @@ func TestEventTarget_NewEventTarget(t *testing.T) {
 	if target == nil {
 		t.Fatal("NewEventTarget returned nil")
 	}
-	if target.listeners == nil {
-		t.Error("listeners map should be initialized")
+	if target.listeners != nil {
+		t.Error("listeners map should remain lazy until first use")
 	}
 	if target.nextListenerID != 1 {
 		t.Errorf("nextListenerID should be 1, got %d", target.nextListenerID)
@@ -296,28 +294,57 @@ func TestEventTarget_AddEventListenerOnce(t *testing.T) {
 
 func TestEventTarget_ConcurrentAccess(t *testing.T) {
 	target := NewEventTarget()
-	var wg sync.WaitGroup
-	var count atomic.Int32
+	start := make(chan struct{})
+	startNow := contractRelease(t, start)
+	ready := make(chan struct{}, 10)
+	listenerIDs := make(chan ListenerID, 10)
+	var (
+		workers sync.WaitGroup
+		count   atomic.Int32
+	)
 
-	// Add listeners concurrently
 	for range 10 {
-		wg.Go(func() {
-			target.AddEventListener("test", func(e *Event) {
+		workers.Go(func() {
+			ready <- struct{}{}
+			<-start
+			listenerIDs <- target.AddEventListener("test", func(*Event) {
 				count.Add(1)
 			})
 		})
 	}
-	wg.Wait()
+	for range 10 {
+		waitContractSignal(t, ready, "concurrent EventTarget registrar readiness")
+	}
+	startNow()
+	workersDone := make(chan struct{})
+	go func() {
+		workers.Wait()
+		close(workersDone)
+	}()
+	waitContractSignal(t, workersDone, "concurrent EventTarget registration")
 
-	if target.ListenerCount("test") != 10 {
-		t.Errorf("Expected 10 listeners, got %d", target.ListenerCount("test"))
+	seen := make(map[ListenerID]struct{}, 10)
+	for range 10 {
+		id := waitContractValue(t, listenerIDs, "concurrent EventTarget listener ID")
+		if id == 0 {
+			t.Fatal("concurrent AddEventListener returned zero ID")
+		}
+		if _, duplicate := seen[id]; duplicate {
+			t.Fatalf("concurrent AddEventListener returned duplicate ID %d", id)
+		}
+		seen[id] = struct{}{}
 	}
 
-	// Dispatch event
-	target.DispatchEvent(&Event{Type: "test"})
+	if got := target.ListenerCount("test"); got != 10 {
+		t.Fatalf("ListenerCount after concurrent registration = %d, want 10", got)
+	}
 
-	if count.Load() != 10 {
-		t.Errorf("Expected all 10 listeners called, got %d", count.Load())
+	if !target.DispatchEvent(&Event{Type: "test"}) {
+		t.Fatal("DispatchEvent reported cancellation without PreventDefault")
+	}
+
+	if got := count.Load(); got != 10 {
+		t.Fatalf("listener calls after concurrent registration = %d, want 10", got)
 	}
 }
 
@@ -595,94 +622,5 @@ func TestCustomEvent_AccessViaEventDetail(t *testing.T) {
 	}
 	if receivedEvent.Detail() != "custom data" {
 		t.Error("Detail should be accessible via Event pointer")
-	}
-}
-
-// ============================================================================
-// Integration Tests
-// ============================================================================
-
-func TestEventTarget_WithLoop(t *testing.T) {
-	ctx := context.Background()
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	target := NewEventTarget()
-	done := make(chan bool, 1)
-	var receivedType string
-
-	target.AddEventListener("message", func(e *Event) {
-		receivedType = e.Type
-		done <- true
-	})
-
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-	defer loop.Shutdown(ctx)
-
-	// Dispatch event from loop
-	err = loop.Submit(func() {
-		target.DispatchEvent(&Event{Type: "message"})
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for event with proper timeout
-	select {
-	case <-done:
-		if receivedType != "message" {
-			t.Errorf("Expected type 'message', got '%s'", receivedType)
-		}
-	case <-time.After(5 * time.Second):
-		t.Error("Event not received")
-	}
-}
-
-func TestCustomEvent_WithLoop(t *testing.T) {
-	ctx := context.Background()
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	target := NewEventTarget()
-	done := make(chan bool, 1)
-	var receivedDetail any
-
-	target.AddEventListener("data", func(e *Event) {
-		receivedDetail = e.Detail()
-		done <- true
-	})
-
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-	defer loop.Shutdown(ctx)
-
-	// Dispatch custom event from loop
-	err = loop.Submit(func() {
-		event := NewCustomEvent("data", map[string]int{"value": 42})
-		target.DispatchEvent(event.EventPtr())
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for event with proper timeout
-	select {
-	case <-done:
-		detail, ok := receivedDetail.(map[string]int)
-		if !ok {
-			t.Fatal("Detail should be map[string]int")
-		}
-		if detail["value"] != 42 {
-			t.Errorf("Expected value 42, got %d", detail["value"])
-		}
-	case <-time.After(5 * time.Second):
-		t.Error("CustomEvent not received")
 	}
 }

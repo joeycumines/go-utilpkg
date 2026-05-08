@@ -20,19 +20,52 @@ type serviceEntry struct {
 	handler any
 }
 
+func validateService(desc *grpc.ServiceDesc, impl any) error {
+	if desc == nil {
+		return fmt.Errorf("service descriptor must not be nil")
+	}
+	if desc.ServiceName == "" {
+		return fmt.Errorf("service name must not be empty")
+	}
+	if desc.HandlerType == nil {
+		return nil
+	}
+	handlerType := reflect.TypeOf(desc.HandlerType)
+	if handlerType.Kind() != reflect.Pointer ||
+		handlerType.Elem().Kind() != reflect.Interface {
+		return fmt.Errorf(
+			"service %q HandlerType must point to an interface",
+			desc.ServiceName,
+		)
+	}
+	implementationType := reflect.TypeOf(impl)
+	if implementationType == nil ||
+		!implementationType.Implements(handlerType.Elem()) {
+		return fmt.Errorf(
+			"handler of type %v does not satisfy %v",
+			implementationType,
+			handlerType.Elem(),
+		)
+	}
+	return nil
+}
+
 // registerService registers a service handler. Panics if the handler does not
 // implement the service's HandlerType, or if a handler is already registered
 // for the service.
 func (m *handlerMap) registerService(desc *grpc.ServiceDesc, impl any) {
-	if desc.HandlerType != nil {
-		ht := reflect.TypeOf(desc.HandlerType).Elem()
-		st := reflect.TypeOf(impl)
-		if !st.Implements(ht) {
-			panic(fmt.Sprintf("inprocgrpc: handler of type %v does not satisfy %v", st, ht))
-		}
+	if err := validateService(desc, impl); err != nil {
+		panic(fmt.Sprintf("inprocgrpc: %v", err))
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.registerServiceLocked(desc, impl)
+}
+
+func (m *handlerMap) registerServiceLocked(
+	desc *grpc.ServiceDesc,
+	impl any,
+) {
 	if m.services == nil {
 		m.services = make(map[string]serviceEntry)
 	}

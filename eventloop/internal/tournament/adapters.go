@@ -2,6 +2,7 @@ package tournament
 
 import (
 	"context"
+	"time"
 
 	eventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-eventloop/internal/alternateone"
@@ -10,6 +11,8 @@ import (
 	"github.com/joeycumines/go-eventloop/internal/gojabaseline"
 )
 
+const eventloopPackage = "github.com/joeycumines/go-eventloop"
+
 // MainLoopAdapter adapts the main eventloop.Loop to the EventLoop interface.
 type MainLoopAdapter struct {
 	loop *eventloop.Loop
@@ -17,13 +20,20 @@ type MainLoopAdapter struct {
 
 // NewMainLoop creates a new main event loop.
 func NewMainLoop() (EventLoop, error) {
-	loop, err := eventloop.New()
-	if err != nil {
-		return nil, err
-	}
-	// Fast path is automatic (FastPathAuto default). For strict forcing use SetFastPathMode(FastPathForced).
-	// (No explicit enable required.)
+	return newMainLoop(eventloop.FastPathAuto)
+}
+
+func newMainLoop(mode eventloop.FastPathMode) (EventLoop, error) {
+	loop := eventloop.New(eventloop.WithFastPathMode(mode))
 	return &MainLoopAdapter{loop: loop}, nil
+}
+
+func newMainLoopForced() (EventLoop, error) {
+	return newMainLoop(eventloop.FastPathForced)
+}
+
+func newMainLoopDisabled() (EventLoop, error) {
+	return newMainLoop(eventloop.FastPathDisabled)
 }
 
 func (a *MainLoopAdapter) Run(ctx context.Context) error {
@@ -46,6 +56,23 @@ func (a *MainLoopAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
 }
 
+func (a *MainLoopAdapter) ScheduleMicrotask(fn func()) error {
+	return a.loop.ScheduleMicrotask(fn)
+}
+
+func (a *MainLoopAdapter) ScheduleTimer(delay time.Duration, fn func()) error {
+	_, err := a.loop.ScheduleTimer(delay, fn)
+	return err
+}
+
+func (a *MainLoopAdapter) RegisterReadable(fd int, fn func()) error {
+	return a.loop.RegisterFD(fd, eventloop.EventRead, func(eventloop.IOEvents) { fn() })
+}
+
+func (a *MainLoopAdapter) UnregisterReadiness(fd int) error {
+	return a.loop.UnregisterFD(fd)
+}
+
 // AlternateOneAdapter adapts the alternateone.Loop to the EventLoop interface.
 type AlternateOneAdapter struct {
 	loop *alternateone.Loop
@@ -57,6 +84,10 @@ func NewAlternateOneLoop() (EventLoop, error) {
 	if err != nil {
 		return nil, err
 	}
+	// AlternateOne emits shutdown phase diagnostics by default. Tournament
+	// benchmark output is parser input, so disable those diagnostics here to keep
+	// benchmark result records on one line.
+	loop.SetShutdownLogger(nil)
 	return &AlternateOneAdapter{loop: loop}, nil
 }
 
@@ -78,6 +109,22 @@ func (a *AlternateOneAdapter) Submit(fn func()) error {
 
 func (a *AlternateOneAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
+}
+
+func (a *AlternateOneAdapter) ScheduleMicrotask(fn func()) error {
+	return a.loop.ScheduleMicrotask(fn)
+}
+
+func (a *AlternateOneAdapter) ScheduleTimer(delay time.Duration, fn func()) error {
+	return a.loop.ScheduleTimer(delay, fn)
+}
+
+func (a *AlternateOneAdapter) RegisterReadable(fd int, fn func()) error {
+	return a.loop.RegisterFD(fd, alternateone.EventRead, func(alternateone.IOEvents) { fn() })
+}
+
+func (a *AlternateOneAdapter) UnregisterReadiness(fd int) error {
+	return a.loop.UnregisterFD(fd)
 }
 
 // AlternateTwoAdapter adapts the alternatetwo.Loop to the EventLoop interface.
@@ -114,6 +161,18 @@ func (a *AlternateTwoAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
 }
 
+func (a *AlternateTwoAdapter) ScheduleMicrotask(fn func()) error {
+	return a.loop.ScheduleMicrotask(fn)
+}
+
+func (a *AlternateTwoAdapter) RegisterReadable(fd int, fn func()) error {
+	return a.loop.RegisterFD(fd, alternatetwo.EventRead, func(alternatetwo.IOEvents) { fn() })
+}
+
+func (a *AlternateTwoAdapter) UnregisterReadiness(fd int) error {
+	return a.loop.UnregisterFD(fd)
+}
+
 // BaselineAdapter adapts the gojabaseline.Loop to the EventLoop interface.
 // This serves as the reference implementation from goja_nodejs.
 type BaselineAdapter struct {
@@ -147,6 +206,10 @@ func (a *BaselineAdapter) Submit(fn func()) error {
 
 func (a *BaselineAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(fn)
+}
+
+func (a *BaselineAdapter) ScheduleTimer(delay time.Duration, fn func()) error {
+	return a.loop.ScheduleTimer(delay, fn)
 }
 
 // AlternateThreeAdapter adapts the alternatethree.Loop to the EventLoop interface.
@@ -185,13 +248,82 @@ func (a *AlternateThreeAdapter) SubmitInternal(fn func()) error {
 	return a.loop.SubmitInternal(alternatethree.Task{Runnable: fn})
 }
 
+func (a *AlternateThreeAdapter) ScheduleTimer(delay time.Duration, fn func()) error {
+	return a.loop.ScheduleTimer(delay, fn)
+}
+
+func (a *AlternateThreeAdapter) RegisterReadable(fd int, fn func()) error {
+	return a.loop.RegisterFD(fd, alternatethree.EventRead, func(alternatethree.IOEvents) { fn() })
+}
+
+func (a *AlternateThreeAdapter) UnregisterReadiness(fd int) error {
+	return a.loop.UnregisterFD(fd)
+}
+
 // Implementations returns all available implementations for tournament testing.
 func Implementations() []Implementation {
 	return []Implementation{
-		{Name: "Main", Factory: NewMainLoop},
-		{Name: "AlternateOne", Factory: NewAlternateOneLoop},
-		{Name: "AlternateTwo", Factory: NewAlternateTwoLoop},
-		{Name: "AlternateThree", Factory: NewAlternateThreeLoop},
-		{Name: "Baseline", Factory: NewBaselineLoop},
+		{
+			Name:          "Main",
+			VariantID:     "scheduler.main.auto",
+			SourcePackage: eventloopPackage,
+			OriginCommit:  "current",
+			OriginTree:    "current",
+			Capabilities:  []string{CapabilityMicrotask, CapabilityReadiness, CapabilityInternalSubmit, CapabilityGracefulDrain},
+			Factory:       NewMainLoop,
+		},
+		{
+			Name:          "MainFastPathForced",
+			VariantID:     "scheduler.main.forced",
+			SourcePackage: eventloopPackage,
+			OriginCommit:  "current",
+			OriginTree:    "current",
+			Capabilities:  []string{CapabilityMicrotask, CapabilityInternalSubmit, CapabilityGracefulDrain},
+			Factory:       newMainLoopForced,
+		},
+		{
+			Name:          "MainFastPathDisabled",
+			VariantID:     "scheduler.main.disabled",
+			SourcePackage: eventloopPackage,
+			OriginCommit:  "current",
+			OriginTree:    "current",
+			Capabilities:  []string{CapabilityMicrotask, CapabilityReadiness, CapabilityInternalSubmit, CapabilityGracefulDrain},
+			Factory:       newMainLoopDisabled,
+		},
+		{
+			Name:          "AlternateOne",
+			VariantID:     "scheduler.alternate-one.max-safety",
+			SourcePackage: eventloopPackage + "/internal/alternateone",
+			OriginCommit:  "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+			OriginTree:    "c7ba8255af6135c491e51020f4ea49c9498beb14",
+			Capabilities:  []string{CapabilityMicrotask, CapabilityReadiness, CapabilityInternalSubmit, CapabilityGracefulDrain},
+			Factory:       NewAlternateOneLoop,
+		},
+		{
+			Name:          "AlternateTwo",
+			VariantID:     "scheduler.alternate-two.max-performance",
+			SourcePackage: eventloopPackage + "/internal/alternatetwo",
+			OriginCommit:  "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+			OriginTree:    "a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+			Capabilities:  []string{CapabilityMicrotask, CapabilityReadiness, CapabilityInternalSubmit},
+			Factory:       NewAlternateTwoLoop,
+		},
+		{
+			Name:          "AlternateThree",
+			VariantID:     "scheduler.alternate-three.original-main",
+			SourcePackage: eventloopPackage + "/internal/alternatethree",
+			OriginCommit:  "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+			OriginTree:    "735bd94545f70aede5d543f4a89dea314ba2e655",
+			Capabilities:  []string{CapabilityReadiness, CapabilityInternalSubmit, CapabilityGracefulDrain},
+			Factory:       NewAlternateThreeLoop,
+		},
+		{
+			Name:          "Baseline",
+			VariantID:     "scheduler.goja-nodejs.baseline",
+			SourcePackage: eventloopPackage + "/internal/gojabaseline",
+			OriginCommit:  "986e2378c1484aa917a1bb0fd13aef914bdce50f",
+			OriginTree:    "bcb06de927695c6a51ed416d0abdfe67753984f1",
+			Factory:       NewBaselineLoop,
+		},
 	}
 }

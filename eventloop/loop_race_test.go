@@ -2,479 +2,96 @@ package eventloop
 
 import (
 	"context"
-	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/joeycumines/goroutineid"
 )
 
-// TestPollStateOverwrite_PreSleep tests the race condition where poll()
-// uses Store() to set StateSleeping, which can overwrite StateTerminating
-// set by Stop(), causing shutdown to hang indefinitely.
-//
-// NOTE: This test requires test hooks (loopTestHooks) to be implemented
-// in the Loop struct to pause execution at critical points. The hooks should
-// include:
-//
-//	type loopTestHooks struct {
-//	    PrePollSleep func()  // Called before state.Store(StateSleeping)
-//	    PrePollAwake func()  // Called before state.Store(StateAwake/Running)
-//	}
-//
-// Without these hooks, this test can only probabilistically catch the race.
-func TestPollStateOverwrite_PreSleep(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
+func TestSubmitInternalPreservesOwnerAffinity(t *testing.T) {
+	tests := []struct {
+		name string
+		mode FastPathMode
+	}{
+		{name: "fast path", mode: FastPathForced},
+		{name: "native poll path", mode: FastPathDisabled},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			loop := New(WithFastPathMode(test.mode))
+			registerLoopCleanupT(t, loop)
 
-	var wg sync.WaitGroup
-	pollReached := make(chan struct{})
-	proceedWithPoll := make(chan struct{})
+			runDone := make(chan error, 1)
+			go func() { runDone <- loop.Run(context.Background()) }()
+			waitLoopOwnerTurnT(t, loop)
 
-	// NOTE: If testHooks field doesn't exist, this test documents the expected
-	// behavior but cannot deterministically trigger the race.
-	// Uncomment when hooks are implemented:
-	//
-	// l.testHooks = &loopTestHooks{
-	// 	PrePollSleep: func() {
-	// 		select {
-	// 		case <-pollReached:
-	// 		default:
-	// 			close(pollReached)
-	// 		}
-	// 		<-proceedWithPoll
-	// 	},
-	// }
-
-	ctx := t.Context()
-
-	runDone := make(chan struct{})
-	errChan := make(chan error, 1)
-	go func() {
-		if err := l.Run(ctx); err != nil {
-			errChan <- err
-			return
-		}
-		close(runDone)
-	}()
-
-	// Without hooks, we try to catch the race probabilistically
-	// Wait for loop to likely be in poll/sleeping state
-	time.Sleep(50 * time.Millisecond)
-
-	// Signal we've "reached" poll (simulated without hooks)
-	select {
-	case <-pollReached:
-	default:
-		close(pollReached)
-	}
-
-	stopDone := make(chan error, 1)
-	wg.Go(func() {
-		stopCtx, stopCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-		defer stopCancel()
-		stopDone <- l.Shutdown(stopCtx)
-	})
-
-	time.Sleep(10 * time.Millisecond)
-
-	state := LoopState(l.state.Load())
-	// During shutdown, state should be Terminating or Terminated
-	if state != StateTerminating && state != StateTerminated && state != StateSleeping {
-		t.Logf("State during Stop: %v (expected Terminating, Terminated, or Sleeping)", state)
-	}
-
-	close(proceedWithPoll)
-
-	err = <-stopDone
-
-	if err == context.DeadlineExceeded {
-		t.Log("BUG CONFIRMED: poll() likely overwrote StateTerminating, causing shutdown hang")
-		// Force cleanup for test hygiene
-		l.state.Store(StateTerminating)
-		l.submitWakeup()
-		// Give it a moment to clean up
-		time.Sleep(50 * time.Millisecond)
-		<-runDone
-		select {
-		case err := <-errChan:
-			t.Logf("Loop error: %v", err)
-		default:
-		}
-	} else if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	} else {
-		// Clean shutdown - wait for runDone
-		select {
-		case <-runDone:
-		case err := <-errChan:
-			t.Fatalf("Loop Run() failed: %v", err)
-		}
-	}
-
-	wg.Wait()
-}
-
-// TestLoop_StrictThreadAffinity verifies that the fast path optimization
-// in SubmitInternal() maintains thread affinity by only executing tasks
-// on the event loop goroutine.
-//
-// CRITICAL BUGFIX #1: Before the fix, the fast path would execute tasks
-// on the caller's goroutine, violating reactor pattern guarantees and
-// causing potential data races.
-//
-// This test ensures that:
-// 1. Tasks submitted via SubmitInternal() run on the loop goroutine
-// 2. Fast path does NOT execute on external goroutines
-// 3. Thread affinity is enforced via isLoopThread() check
-func TestLoop_StrictThreadAffinity(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Force fast path to test the optimization
-	if err := l.SetFastPathMode(FastPathForced); err != nil {
-		t.Fatal(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	runDone := make(chan struct{})
-	go func() {
-		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			t.Errorf("Loop Run() error: %v", err)
-		}
-		close(runDone)
-	}()
-
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	var loopGoroutineID, taskGoroutineID int64
-	var wg sync.WaitGroup
-
-	// Capture the loop's goroutine ID via a task
-	wg.Add(1)
-	l.Submit(func() {
-		loopGoroutineID = goroutineid.Get()
-		wg.Done()
-	})
-
-	wg.Wait()
-
-	// Verify we captured the loop goroutine ID
-	if loopGoroutineID == 0 {
-		t.Fatal("Failed to capture loop goroutine ID")
-	}
-
-	// Submit a task via SubmitInternal from an external goroutine
-	// With the fix, this should NOT take the fast path (because we're
-	// not on the loop thread) and should execute on the loop goroutine
-	wg.Add(1)
-	go func() {
-		// This submission is from a different goroutine
-		err := l.SubmitInternal(func() {
-			taskGoroutineID = goroutineid.Get()
-			wg.Done()
-		})
-
-		if err != nil {
-			t.Errorf("SubmitInternal failed: %v", err)
-		}
-	}()
-
-	wg.Wait()
-
-	// CRITICAL ASSERTION: The task MUST run on the loop goroutine
-	if taskGoroutineID != loopGoroutineID {
-		t.Fatalf(
-			"CRITICAL BUG: Thread Affinity Violated!\n"+
-				"  Loop goroutine ID: %d\n"+
-				"  Task goroutine ID: %d\n"+
-				"  The fast path executed on the wrong goroutine!",
-			loopGoroutineID, taskGoroutineID,
-		)
-	}
-
-	// Cleanup
-	cancel()
-	l.Shutdown(context.Background())
-	<-runDone
-}
-
-// TestLoop_StrictThreadAffinity_DisabledFastPath verifies that even with
-// fast path disabled, tasks still execute on the loop goroutine.
-func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Disable fast path
-	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
-		t.Fatal(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	runDone := make(chan struct{})
-	go func() {
-		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			t.Errorf("Loop Run() error: %v", err)
-		}
-		close(runDone)
-	}()
-
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	var loopGoroutineID, taskGoroutineID int64
-	var wg sync.WaitGroup
-
-	// Capture loop goroutine ID
-	wg.Add(1)
-	l.Submit(func() {
-		loopGoroutineID = goroutineid.Get()
-		wg.Done()
-	})
-
-	wg.Wait()
-
-	if loopGoroutineID == 0 {
-		t.Fatal("Failed to capture loop goroutine ID")
-	}
-
-	// Submit from external goroutine - should go through queue
-	wg.Add(1)
-	go func() {
-		err := l.SubmitInternal(func() {
-			taskGoroutineID = goroutineid.Get()
-			wg.Done()
-		})
-
-		if err != nil {
-			t.Errorf("SubmitInternal failed: %v", err)
-		}
-	}()
-
-	wg.Wait()
-
-	if taskGoroutineID != loopGoroutineID {
-		t.Fatalf(
-			"Thread Affinity Violated (fast path disabled)!\n"+
-				"  Loop goroutine ID: %d\n"+
-				"  Task goroutine ID: %d",
-			loopGoroutineID, taskGoroutineID,
-		)
-	}
-
-	cancel()
-	l.Shutdown(context.Background())
-	<-runDone
-}
-
-// TestLoop_TickAnchor_DataRace verifies the fix for the data race on
-// l.tickAnchor discovered in review.md.
-//
-// Bug: tick() was reading l.tickAnchor without lock, but SetTickAnchor()
-// writes it with lock. This is a data race detectable by go test -race.
-//
-// Fix: tick() now reads tickAnchor under RLock, consistent with
-// CurrentTickTime() and TickAnchor().
-//
-// This test spawns a goroutine that repeatedly calls SetTickAnchor()
-// while the loop is running, which would trigger a race warning if the
-// bug were still present.
-func TestLoop_TickAnchor_DataRace(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Start the loop
-	ctx, cancel := context.WithCancel(context.Background())
-	runDone := make(chan struct{})
-	go func() {
-		defer close(runDone)
-		_ = l.Run(ctx)
-	}()
-
-	// Wait for loop to start (check for both Running and Sleeping states,
-	// since the loop may quickly transition to Sleeping after starting)
-	for {
-		state := l.state.Load()
-		if state == StateRunning || state == StateSleeping {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
-
-	// Concurrently modify tickAnchor while loop is running
-	// This would trigger a race warning if tick() didn't use proper locking.
-	var wg sync.WaitGroup
-	const concurrentWriters = 4
-	const writesPerWriter = 100
-
-	for i := range concurrentWriters {
-		wg.Add(1)
-		go func(writerID int) {
-			defer wg.Done()
-			for j := range writesPerWriter {
-				// Simulate external SetTickAnchor call (e.g., for testing)
-				l.SetTickAnchor(time.Now().Add(time.Duration(writerID*1000+j) * time.Millisecond))
-				// Small sleep to increase interleaving chances
-				time.Sleep(time.Microsecond * 10)
+			admission := make(chan error, 1)
+			affinity := make(chan bool, 1)
+			go func() {
+				admission <- loop.SubmitInternal(func() { affinity <- loop.isLoopThread() })
+			}()
+			if err := waitContractValue(t, admission, "external SubmitInternal admission"); err != nil {
+				t.Fatalf("SubmitInternal: %v", err)
 			}
-		}(i)
-	}
+			if !waitContractValue(t, affinity, "SubmitInternal owner-affinity observation") {
+				t.Fatal("SubmitInternal callback ran outside the loop owner")
+			}
 
-	// Also submit tasks to trigger tick() calls
-	const tasksToSubmit = 200
-	for range tasksToSubmit {
-		_ = l.Submit(func() {
-			// Trigger some tick processing
-			_ = l.CurrentTickTime()
+			if err := loop.Shutdown(context.Background()); err != nil {
+				t.Fatalf("Shutdown: %v", err)
+			}
+			if err := waitContractValue(t, runDone, "owner-affinity Run completion"); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
 		})
-		time.Sleep(time.Microsecond * 50)
-	}
-
-	wg.Wait()
-
-	// If we reach here without race detector warnings, the fix is working.
-	// The race detector would have flagged concurrent read/write on tickAnchor.
-
-	cancel()
-	l.Shutdown(context.Background())
-	<-runDone
-
-	t.Log("TickAnchor data race test passed: no race warnings with concurrent SetTickAnchor/tick()")
-}
-
-// TestLoop_CancelTimer_ConcurrentWithClose verifies that CancelTimer called
-// concurrently with Close() does not deadlock. The dual-select pattern
-// (<-result, <-loopDone) provides a guaranteed escape hatch.
-func TestLoop_CancelTimer_ConcurrentWithClose(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
-	}
-
-	const iterations = 30
-
-	for i := range iterations {
-		loop, err := New()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		go func() {
-			loop.Run(ctx)
-		}()
-
-		waitLoopState(t, loop, StateRunning, 2*time.Second)
-
-		timerIDs := make([]TimerID, 10)
-		for j := range timerIDs {
-			timerIDs[j], err = loop.ScheduleTimer(1*time.Hour, func() {})
-			if err != nil {
-				t.Fatalf("iteration %d, timer %d: ScheduleTimer: %v", i, j, err)
-			}
-		}
-
-		var wg sync.WaitGroup
-		wg.Add(1 + len(timerIDs))
-
-		go func() {
-			defer wg.Done()
-			time.Sleep(time.Millisecond)
-			loop.Close()
-		}()
-
-		for _, id := range timerIDs {
-			go func(timerID TimerID) {
-				defer wg.Done()
-				_ = loop.CancelTimer(timerID)
-			}(id)
-		}
-
-		done := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			t.Fatalf("iteration %d: deadlock — CancelTimer blocked during Close()", i)
-		}
 	}
 }
 
-// TestLoop_CancelTimers_ConcurrentWithClose verifies the batch variant of
-// CancelTimer concurrent with Close() does not deadlock.
-func TestLoop_CancelTimers_ConcurrentWithClose(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping stress test in short mode")
-	}
+func TestTickAnchorSynchronization(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	const iterations = 20
-
-	for i := range iterations {
-		loop, err := New()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		go func() {
-			loop.Run(ctx)
-		}()
-
-		waitLoopState(t, loop, StateRunning, 2*time.Second)
-
-		timerIDs := make([]TimerID, 20)
-		for j := range timerIDs {
-			timerIDs[j], err = loop.ScheduleTimer(1*time.Hour, func() {})
-			if err != nil {
-				t.Fatalf("iteration %d, timer %d: ScheduleTimer: %v", i, j, err)
+	start := make(chan struct{})
+	startNow := contractRelease(t, start)
+	ready := make(chan struct{}, 8)
+	var (
+		workers      sync.WaitGroup
+		zeroTickTime atomic.Bool
+	)
+	for writerID := range 4 {
+		workers.Go(func() {
+			ready <- struct{}{}
+			<-start
+			for offset := range 100 {
+				loop.setTickAnchor(time.Now().Add(time.Duration(writerID*1000+offset) * time.Millisecond))
 			}
-		}
-
-		var wg sync.WaitGroup
-		wg.Add(2)
-
-		go func() {
-			defer wg.Done()
-			time.Sleep(time.Millisecond)
-			loop.Close()
-		}()
-
-		go func() {
-			defer wg.Done()
-			loop.CancelTimers(timerIDs)
-		}()
-
-		done := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			t.Fatalf("iteration %d: deadlock — CancelTimers blocked during Close()", i)
-		}
+		})
+	}
+	for range 4 {
+		workers.Go(func() {
+			ready <- struct{}{}
+			<-start
+			for range 200 {
+				if loop.CurrentTickTime().IsZero() {
+					zeroTickTime.Store(true)
+				}
+			}
+		})
+	}
+	for range 8 {
+		waitContractSignal(t, ready, "concurrent tick-anchor worker readiness")
+	}
+	startNow()
+	workersDone := make(chan struct{})
+	go func() {
+		workers.Wait()
+		close(workersDone)
+	}()
+	waitContractSignal(t, workersDone, "concurrent tick-anchor operations")
+	if zeroTickTime.Load() {
+		t.Fatal("CurrentTickTime returned the zero time during concurrent anchor updates")
+	}
+	if loop.tickAnchorTime().IsZero() {
+		t.Fatal("concurrent anchor writers left a zero tick anchor")
 	}
 }

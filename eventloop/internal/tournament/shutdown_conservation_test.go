@@ -2,167 +2,100 @@ package tournament
 
 import (
 	"context"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
 
-// TestShutdownConservation verifies that all submitted tasks are either
-// executed or explicitly rejected during shutdown. Zero data loss allowed.
-//
-// This is T1: Correctness - Shutdown Conservation Test
-// NOTE: Baseline (goja_nodejs) is skipped because its Stop() semantics don't
-// guarantee that queued tasks will complete - RunOnLoop() returns true when
-// queued, but Stop() may discard pending tasks.
-// NOTE: AlternateTwo is skipped because it trades correctness for performance -
-// it may lose tasks under shutdown stress as a documented design trade-off.
-func TestShutdownConservation(t *testing.T) {
+// TestShutdownPreacceptedConservation verifies whether each historical variant
+// drains work accepted before graceful shutdown. Variants without
+// CapabilityGracefulDrain still run and publish an explicit unsupported result;
+// they are never omitted from the tournament matrix.
+func TestShutdownPreacceptedConservation(t *testing.T) {
 	for _, impl := range Implementations() {
 		t.Run(impl.Name, func(t *testing.T) {
-			if impl.Name == "Baseline" {
-				t.Skip("Baseline (goja_nodejs) Stop() doesn't guarantee task completion (library limitation)")
-			}
-			if impl.Name == "AlternateTwo" {
-				t.Skip("AlternateTwo may lose tasks under shutdown stress (documented trade-off)")
-			}
-			t.Parallel()
-			testShutdownConservation(t, impl)
+			testShutdownPreacceptedConservation(t, impl, 10_000, "ShutdownPreacceptedConservation")
 		})
 	}
 }
 
-func testShutdownConservation(t *testing.T, impl Implementation) {
-	const N = 10000 // Number of tasks to submit
-	const numProducers = 4
-
+func testShutdownPreacceptedConservation(t *testing.T, impl Implementation, taskCount int, testName string) {
+	t.Helper()
 	start := time.Now()
+	loop, cleanup := startTournamentTestLoop(t, impl)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	if err := loop.Submit(func() {
+		close(entered)
+		<-release
+	}); err != nil {
+		t.Fatalf("Submit owner barrier: %v", err)
+	}
+	waitTournamentSignal(t, entered, "shutdown-conservation owner entry")
 
-	loop, err := impl.Factory()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
+	executed := make(chan struct{}, taskCount)
+	for task := range taskCount {
+		if err := loop.Submit(func() { executed <- struct{}{} }); err != nil {
+			close(release)
+			t.Fatalf("Submit task %d before Shutdown: %v", task, err)
+		}
 	}
 
-	ctx := context.Background()
-	var runErr error
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		runErr = loop.Run(ctx)
-	})
+	shutdownResult := make(chan error, 1)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	go func() { shutdownResult <- loop.Shutdown(shutdownCtx) }()
+	close(release)
 
-	// Ensure the event loop is running before starting producers.
-	// Without this, on constrained systems (e.g. Docker containers),
-	// Run() may not be scheduled before Shutdown() is called.
-	ready := make(chan struct{})
-	if err := loop.Submit(func() { close(ready) }); err != nil {
-		t.Fatalf("Failed to submit ready sentinel: %v", err)
-	}
+	var shutdownErr error
 	select {
-	case <-ready:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Event loop failed to start processing within 5s")
+	case shutdownErr = <-shutdownResult:
+	case <-shutdownCtx.Done():
+		t.Fatalf("Shutdown: %v", shutdownCtx.Err())
 	}
-
-	var executed atomic.Int64
-	var rejected atomic.Int64
-	var submitted atomic.Int64
-	var wg sync.WaitGroup
-
-	// Start producers
-	for range numProducers {
-		wg.Go(func() {
-			for range N / numProducers {
-				err := loop.Submit(func() {
-					executed.Add(1)
-				})
-				if err != nil {
-					rejected.Add(1)
-				} else {
-					submitted.Add(1)
-				}
-			}
-		})
+	cleanup()
+	executedCount := len(executed)
+	gracefulDrain := impl.HasCapability(CapabilityGracefulDrain)
+	passed := gracefulDrain && shutdownErr == nil && executedCount == taskCount
+	status := TestStatusUnsupported
+	if gracefulDrain {
+		status = TestStatusPassed
+		if !passed {
+			status = TestStatusFailed
+			t.Errorf("Shutdown conservation: executed %d of %d; error %v", executedCount, taskCount, shutdownErr)
+		}
 	}
-
-	// Let some tasks execute
-	time.Sleep(10 * time.Millisecond)
-
-	// Initiate shutdown
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	stopErr := loop.Shutdown(stopCtx)
-	wg.Wait()
-	runWg.Wait()
-
-	if runErr != nil && runErr != context.Canceled {
-		t.Logf("Run() failed: %v", runErr)
-	}
-
-	if stopErr != nil && stopErr != context.DeadlineExceeded {
-		t.Logf("Stop returned: %v", stopErr)
-	}
-
-	// Verify conservation: submitted = executed + rejected is NOT the invariant
-	// The invariant is: every submitted task was either executed OR rejected
-	// Tasks submitted successfully must be executed
-	exec := executed.Load()
-	rej := rejected.Load()
-	sub := submitted.Load()
-
-	// The key invariant: submitted == executed (for successful submissions)
-	// Rejected tasks were never accepted, so they don't count
-	if exec != sub {
-		t.Errorf("%s: Conservation violated! Submitted: %d, Executed: %d, Lost: %d",
-			impl.Name, sub, exec, sub-exec)
-	}
-
-	result := TestResult{
-		TestName:       "ShutdownConservation",
+	GetResults().RecordTest(TestResult{
+		TestName:       testName,
+		VariantID:      impl.VariantID,
 		Implementation: impl.Name,
-		Passed:         exec == sub,
+		Status:         status,
+		Passed:         passed,
 		Duration:       time.Since(start),
 		Metrics: map[string]any{
-			"submitted": sub,
-			"executed":  exec,
-			"rejected":  rej,
+			"accepted":               taskCount,
+			"executed":               executedCount,
+			"graceful_drain_capable": gracefulDrain,
+			"shutdown_error":         errorString(shutdownErr),
 		},
-	}
-	if exec != sub {
-		result.Error = "task conservation violated"
-	}
-	GetResults().RecordTest(result)
-
-	t.Logf("%s: Submitted=%d, Executed=%d, Rejected=%d", impl.Name, sub, exec, rej)
+	})
 }
 
-// TestShutdownConservation_Stress runs the conservation test under heavy load.
-// NOTE: AlternateTwo is skipped because it trades correctness for performance -
-// it may lose tasks under extreme shutdown stress as a documented design trade-off.
-// NOTE: Baseline (goja_nodejs) is skipped because its semantics are fundamentally
-// different - RunOnLoop() returns true when queued, but Stop() doesn't wait for
-// queued tasks to complete. This is a limitation of the third-party library.
-func TestShutdownConservation_Stress(t *testing.T) {
+// TestShutdownPreacceptedConservationStress repeats the same exact contract at
+// a larger scale without multiplying pass-count samples.
+func TestShutdownPreacceptedConservationStress(t *testing.T) {
 	if testing.Short() {
-		t.Skip("Skipping stress test in short mode")
+		t.Skip("skipping shutdown conservation stress in short mode")
 	}
-
 	for _, impl := range Implementations() {
 		t.Run(impl.Name, func(t *testing.T) {
-			// AlternateTwo trades task conservation for performance - skip stress test
-			if impl.Name == "AlternateTwo" {
-				t.Skip("AlternateTwo may lose tasks under shutdown stress (documented trade-off)")
-			}
-			// Baseline (goja_nodejs) has different shutdown semantics - RunOnLoop returns
-			// true when the task is queued, but Stop() doesn't drain the queue.
-			if impl.Name == "Baseline" {
-				t.Skip("Baseline (goja_nodejs) Stop() doesn't guarantee task completion (library limitation)")
-			}
-			for range 10 {
-				t.Run("Iteration", func(t *testing.T) {
-					testShutdownConservation(t, impl)
-				})
-			}
+			testShutdownPreacceptedConservation(t, impl, 100_000, "ShutdownPreacceptedConservationStress")
 		})
 	}
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

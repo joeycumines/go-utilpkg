@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("CaC\xd8\xd8\xd8 \x93.Z\x93\xc9\xd8*78y)\xd8\xd8ؒ,\a\b8")

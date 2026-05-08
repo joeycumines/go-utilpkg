@@ -136,6 +136,11 @@ func NewWithObserver(observer StateObserver) (*Loop, error) {
 	return loop, nil
 }
 
+// SetShutdownLogger sets the logger used for shutdown phase diagnostics.
+func (l *Loop) SetShutdownLogger(logger func(format string, args ...any)) {
+	l.shutdownMgr.SetLogger(logger)
+}
+
 // Run begins running the event loop and blocks until the loop is fully stopped.
 //
 // Run returns only when:

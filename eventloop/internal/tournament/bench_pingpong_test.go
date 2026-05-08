@@ -1,8 +1,6 @@
 package tournament
 
 import (
-	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,51 +17,31 @@ func BenchmarkPingPong(b *testing.B) {
 }
 
 func benchmarkPingPong(b *testing.B, impl Implementation) {
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
+	tasks := newBenchmarkBarrier(b.N)
 	var counter atomic.Int64
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		wg.Add(1)
-		err := loop.Submit(func() {
+		if err := loop.Submit(func() {
 			counter.Add(1)
-			wg.Done()
-		})
-		if err != nil {
-			wg.Done()
-			continue
+			tasks.Done()
+		}); err != nil {
+			tasks.Done()
+			b.Fatalf("Submit: %v", err)
 		}
 	}
 
-	wg.Wait()
+	waitBenchmarkBarrier(b, tasks, deadline.C, "ping-pong callback drain")
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	// Record benchmark result
-	result := BenchmarkResult{
-		BenchmarkName:  "PingPong",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
+	if got := counter.Load(); got != int64(b.N) {
+		b.Fatalf("executed callbacks = %d, want %d", got, b.N)
 	}
-	GetResults().RecordBenchmark(result)
 }
 
 // BenchmarkPingPongLatency measures end-to-end latency for single tasks.
@@ -76,45 +54,23 @@ func BenchmarkPingPongLatency(b *testing.B) {
 }
 
 func benchmarkPingPongLatency(b *testing.B, impl Implementation) {
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
-		_ = loop.Submit(func() { close(done) })
-		<-done
+		if err := loop.Submit(func() { close(done) }); err != nil {
+			b.Fatalf("Submit: %v", err)
+		}
+		waitBenchmarkDeadline(b, done, deadline.C, "ping-pong completion")
 	}
 
 	b.StopTimer()
 
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  "PingPongLatency",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
 }
 
 // BenchmarkBurstSubmit measures throughput when submitting in bursts.
@@ -129,55 +85,35 @@ func BenchmarkBurstSubmit(b *testing.B) {
 }
 
 func benchmarkBurstSubmit(b *testing.B, impl Implementation, burstSize int) {
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 	var counter atomic.Int64
+	b.ReportMetric(float64(burstSize), "max_tasks/burst")
 
 	b.ResetTimer()
 
-	bursts := b.N / burstSize
-	if bursts == 0 {
-		bursts = 1
-	}
-
-	for burst := 0; burst < bursts; burst++ {
-		wg.Add(burstSize)
-		for range burstSize {
-			err := loop.Submit(func() {
+	remaining := b.N
+	for remaining > 0 {
+		count := min(remaining, burstSize)
+		tasks := newBenchmarkBarrier(count)
+		for range count {
+			if err := loop.Submit(func() {
 				counter.Add(1)
-				wg.Done()
-			})
-			if err != nil {
-				wg.Done()
+				tasks.Done()
+			}); err != nil {
+				tasks.Done()
+				b.Fatalf("Submit: %v", err)
 			}
 		}
-		wg.Wait()
+		waitBenchmarkBarrier(b, tasks, deadline.C, "burst callback drain")
+		remaining -= count
 	}
 
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	totalOps := bursts * burstSize
-	result := BenchmarkResult{
-		BenchmarkName:  "BurstSubmit",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(totalOps),
-		Iterations:     totalOps,
-		Duration:       b.Elapsed(),
+	if got := counter.Load(); got != int64(b.N) {
+		b.Fatalf("executed callbacks = %d, want %d", got, b.N)
 	}
-	GetResults().RecordBenchmark(result)
 }

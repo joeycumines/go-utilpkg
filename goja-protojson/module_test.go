@@ -2,10 +2,11 @@ package gojaprotojson_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -516,25 +517,39 @@ func TestNew_NilRuntime(t *testing.T) {
 }
 
 func TestNew_MissingProtobuf(t *testing.T) {
-	rt := goja.New()
-	_, err := gojaprotojson.New(rt)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "protobuf module is required") {
-		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module is required")
+	recovered := requirePanic(t, func() {
+		_, _ = gojaprotojson.New(goja.New())
+	})
+	if got := fmt.Sprint(recovered); !strings.Contains(
+		got,
+		"protobuf module is required",
+	) {
+		t.Errorf("panic %q does not contain required contract", got)
 	}
 }
 
 func TestWithProtobuf_Nil(t *testing.T) {
-	rt := goja.New()
-	_, err := gojaprotojson.New(rt, gojaprotojson.WithProtobuf(nil))
-	if err == nil {
-		t.Fatal("expected error")
+	recovered := requirePanic(t, func() {
+		_, _ = gojaprotojson.New(
+			goja.New(),
+			gojaprotojson.WithProtobuf(nil),
+		)
+	})
+	if got := fmt.Sprint(recovered); !strings.Contains(got, "must not be nil") {
+		t.Errorf("panic %q does not contain nil contract", got)
 	}
-	if !strings.Contains(err.Error(), "must not be nil") {
-		t.Errorf("expected %q to contain %q", err.Error(), "must not be nil")
-	}
+}
+
+func requirePanic(t *testing.T, run func()) (recovered any) {
+	t.Helper()
+	defer func() {
+		recovered = recover()
+		if recovered == nil {
+			t.Fatal("expected panic")
+		}
+	}()
+	run()
+	return nil
 }
 
 func TestRequire(t *testing.T) {
@@ -556,7 +571,9 @@ func TestRequire(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	pbObj := rt.NewObject()
-	pb.SetupExports(pbObj)
+	if err := pb.SetupExports(pbObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if err := rt.Set("pb", pbObj); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -575,17 +592,15 @@ func TestRequire(t *testing.T) {
 }
 
 func TestRequire_PanicsOnBadOptions(t *testing.T) {
-	rt := goja.New()
-	module := rt.NewObject()
-	exports := rt.NewObject()
-	_ = module.Set("exports", exports)
-	loader := gojaprotojson.Require()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic")
-		}
-	}()
-	loader(rt, module)
+	recovered := requirePanic(t, func() {
+		_ = gojaprotojson.Require()
+	})
+	if got := fmt.Sprint(recovered); !strings.Contains(
+		got,
+		"protobuf module is required",
+	) {
+		t.Fatalf("Require panic = %q", got)
+	}
 }
 
 func TestRoundTrip_MarshalUnmarshal(t *testing.T) {
@@ -651,13 +666,16 @@ func TestMarshal_MarshalError(t *testing.T) {
 	msg.Set(tsDesc.Fields().ByName("nanos"), protoreflect.ValueOfInt32(0))
 
 	// Wrap and inject into JS.
-	wrapped := env.pb.WrapMessage(msg)
+	wrapped, err := env.pb.WrapMessage(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := env.rt.Set("badTimestamp", wrapped); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Attempting to marshal should trigger protojson.Marshal error.
-	err := env.mustFail(`protojson.marshal(badTimestamp);`)
+	err = env.mustFail(`protojson.marshal(badTimestamp);`)
 	if !strings.Contains(err.Error(), "marshal:") {
 		t.Errorf("expected %q to contain %q", err.Error(), "marshal:")
 	}
@@ -673,12 +691,15 @@ func TestFormat_MarshalError(t *testing.T) {
 	msg.Set(tsDesc.Fields().ByName("seconds"), protoreflect.ValueOfInt64(999999999999999))
 	msg.Set(tsDesc.Fields().ByName("nanos"), protoreflect.ValueOfInt32(0))
 
-	wrapped := env.pb.WrapMessage(msg)
+	wrapped, err := env.pb.WrapMessage(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := env.rt.Set("badTimestamp", wrapped); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	err := env.mustFail(`protojson.format(badTimestamp);`)
+	err = env.mustFail(`protojson.format(badTimestamp);`)
 	if !strings.Contains(err.Error(), "format:") {
 		t.Errorf("expected %q to contain %q", err.Error(), "format:")
 	}

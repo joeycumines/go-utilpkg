@@ -3,7 +3,7 @@ package gojaprotojson_test
 import (
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 	"google.golang.org/protobuf/proto"
@@ -29,7 +29,9 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	pbObj := rt.NewObject()
-	pb.SetupExports(pbObj)
+	if err := pb.SetupExports(pbObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if err := rt.Set("pb", pbObj); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,7 +40,9 @@ func newTestEnv(t *testing.T) *testEnv {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	pjObj := rt.NewObject()
-	pj.SetupExports(pjObj)
+	if err := pj.SetupExports(pjObj); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if err := rt.Set("protojson", pjObj); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

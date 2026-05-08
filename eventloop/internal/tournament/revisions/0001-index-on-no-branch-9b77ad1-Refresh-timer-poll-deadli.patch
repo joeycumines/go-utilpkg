@@ -1,0 +1,2437 @@
+From 3249ec949f50e3743b34cdaf831728ec86e8796b Mon Sep 17 00:00:00 2001
+From: Joseph Cumines <joeycumines@gmail.com>
+Date: Sun, 12 Jul 2026 06:27:59 +1000
+Subject: [PATCH] index on (no branch): 9b77ad1 Refresh timer poll deadlines
+
+---
+ eventloop/fuzz_test.go                        |    5 +-
+ eventloop/integration_extra_test.go           |   14 +-
+ eventloop/loop.go                             |    4 +-
+ eventloop/promise.go                          |  506 +++++--
+ eventloop/promise_break_test.go               |   23 +-
+ eventloop/promise_combinator_test.go          |    4 +-
+ eventloop/promise_combinators_test.go         |   22 +-
+ eventloop/promise_reaction_bench_test.go      |   10 +-
+ .../promise_settlement_linearization_test.go  | 1291 +++++++++++++++++
+ 9 files changed, 1693 insertions(+), 186 deletions(-)
+ create mode 100644 eventloop/promise_settlement_linearization_test.go
+
+diff --git a/eventloop/fuzz_test.go b/eventloop/fuzz_test.go
+index 2e159df8bc2fdc8d39397031295e69881724258b..2e5e140f47faf03d9fbd9158ebcde6ab40b3ab77 100644
+--- a/eventloop/fuzz_test.go
++++ b/eventloop/fuzz_test.go
+@@ -1122,6 +1122,7 @@ func FuzzPromiseCombinators(f *testing.F) {
+ 	f.Add([]byte{})
+ 	f.Add([]byte{0, 1, 2, 3, 4, 5, 6})
+ 	f.Add([]byte("all-race-any-allsettled"))
++	f.Add([]byte{0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0})
+ 
+ 	f.Fuzz(func(t *testing.T, data []byte) {
+ 		r := newFuzzReader(data)
+@@ -1283,8 +1284,8 @@ func assertPromiseCombinatorResult(t *testing.T, kind int, result *ChainedPromis
+ 		if !ok || !errors.As(reason, &agg) {
+ 			t.Fatalf("Any all-rejected reason = %T %#v, want AggregateError", result.Reason(), result.Reason())
+ 		}
+-		if len(agg.Errors) != max(1, len(values)) {
+-			t.Fatalf("AggregateError length = %d, want %d", len(agg.Errors), max(1, len(values)))
++		if len(agg.Errors) != len(values) {
++			t.Fatalf("AggregateError length = %d, want %d", len(agg.Errors), len(values))
+ 		}
+ 		if len(values) > 0 {
+ 			for i, err := range agg.Errors {
+diff --git a/eventloop/integration_extra_test.go b/eventloop/integration_extra_test.go
+index 0885174ddea7a63da5b8630ce5e81b2aa2a446ea..9347506a0aa603be9b554fd3d3830a674e67ca79 100644
+--- a/eventloop/integration_extra_test.go
++++ b/eventloop/integration_extra_test.go
+@@ -826,8 +826,11 @@ func TestPhase5_Promise_Any_Empty(t *testing.T) {
+ 		if !ok {
+ 			t.Fatalf("expected AggregateError, got %T", v)
+ 		}
+-		if aggErr.Cause() == nil {
+-			t.Error("Cause should return first error")
++		if aggErr.Cause() != nil {
++			t.Errorf("Cause = %v, want nil for zero inputs", aggErr.Cause())
++		}
++		if len(aggErr.Errors) != 0 {
++			t.Errorf("Errors length = %d, want 0", len(aggErr.Errors))
+ 		}
+ 	case <-time.After(5 * time.Second):
+ 		t.Fatal("timeout")
+@@ -1434,13 +1437,6 @@ func TestPhase5_ErrorWrapper(t *testing.T) {
+ 	}
+ }
+ 
+-func TestPhase5_ErrNoPromiseResolved(t *testing.T) {
+-	e := &errNoPromiseResolved{}
+-	if e.Error() != "No promises were provided" {
+-		t.Errorf("errNoPromiseResolved.Error: %q", e.Error())
+-	}
+-}
+-
+ // --- state.go ---
+ 
+ func TestPhase5_LoopState_String(t *testing.T) {
+diff --git a/eventloop/loop.go b/eventloop/loop.go
+index 977d03f5404dae777a783b4a61b08129e0d80730..4ecbe3f4869eb5bb8dc03e011f417200b3b2cb2a 100644
+--- a/eventloop/loop.go
++++ b/eventloop/loop.go
+@@ -117,7 +117,8 @@ type loopTestHooks struct {
+ 	BeforePromiseHandlerRegister         func()                                // Called after a pending rejection handler is stored, before handled registration
+ 	BeforePromiseRejectLock              func()                                // Called immediately before reject attempts to acquire the promise lock
+ 	AfterPromiseRejectionRecorded        func()                                // Called after a rejected promise is recorded, before Rejected is published
+-	AfterPromiseRejectedStateStore       func()                                // Called after Rejected is published, before reject unlocks/schedules check
++	AfterPromiseRejectedStateStore       func()                                // Called after Rejected is published and unlocked, before scheduling its check
++	AfterPromiseHandlerScheduled         func()                                // Called after a promise reaction is queued
+ 	BeforeAutoExitCommit                 func()                                // Called during auto-exit quiescing before the final Alive recheck
+ 	AfterAutoExitFinalAliveCheck         func()                                // Called after auto-exit's last Alive recheck, before terminal admission is closed
+ 	BeforeAutoExitTerminalDrainCommit    func()                                // Called while final auto-exit admission locks are held, immediately before terminal drain commits
+@@ -134,6 +135,7 @@ type loopTestHooks struct {
+ 	AfterReadyEventDispatchClaim         func(int)                             // Called with fd after dispatch claims a pending start, before callback admission
+ 	BeforeCheckPredicateAdmission        func()                                // Called before a dynamic check/immediate liveness predicate enters callback admission
+ 	BeforeUnhandledRejectionCallback     func()                                // Called before an unhandled-rejection user callback enters its selected admission path
++	BeforeUnhandledRejectionRecordCheck  func(*ChainedPromise)                 // Called before a snapshotted rejection record is evaluated
+ 	AfterUnhandledRejectionCheckClear    func()                                // Called after an active rejection checker clears its scheduled flag
+ 	BeforeUnhandledRejectionRerunRequest func()                                // Called after detecting an active checker, before synchronizing rerun publication
+ 	AfterUnhandledRejectionFallbackRerun func()                                // Called after terminal fallback collides with an active normal checker
+diff --git a/eventloop/promise.go b/eventloop/promise.go
+index b4e017a274aa8af46c0efc499b9e65c1260caf5f..c930bdb7d78946d0e97c1e73c195f45e965e9baf 100644
+--- a/eventloop/promise.go
++++ b/eventloop/promise.go
+@@ -29,6 +29,29 @@ const (
+ 	Rejected
+ )
+ 
++const (
++	promiseSettlementClaimed   int32 = -1
++	promiseFulfilledPublishing int32 = -2
++	promiseRejectedPublishing  int32 = -3
++)
++
++func promiseState(value int32) PromiseState {
++	switch value {
++	case promiseSettlementClaimed:
++		return Pending
++	case promiseFulfilledPublishing:
++		return Fulfilled
++	case promiseRejectedPublishing:
++		return Rejected
++	default:
++		return PromiseState(value)
++	}
++}
++
++func promisePending(value int32) bool {
++	return value == int32(Pending) || value == promiseSettlementClaimed
++}
++
+ const (
+ 	// Fulfilled is an alias for [Resolved], matching the Promise/A+ specification.
+ 	Fulfilled = Resolved
+@@ -184,6 +207,11 @@ func (p *promise) fanOut() {
+ // possible during terminal paths, nil-handler pass-through may settle child
+ // promises synchronously to preserve the parent settlement.
+ //
++// Resolving with another ChainedPromise adopts that source irrevocably. Sources
++// owned by a different JS adapter settle the target through the source owner and
++// enqueue target reactions through the target adapter. Indirect native-promise
++// cycles are deliberately left pending; only direct self-resolution is rejected.
++//
+ // Performance Characteristics:
+ //   - ToChannel() uses JS.toChannels side table for direct notification without microtasks
+ //   - Debug stack traces stored in JS side table, only captured when debug mode is enabled
+@@ -205,12 +233,54 @@ type ChainedPromise struct {
+ 
+ 	// Atomic state (requires 8-byte alignment)
+ 	state            atomic.Int32
+-	rejectionHandled atomic.Bool
++	rejectionHandled rejectionStatus
+ 
+ 	// Non-pointer synchronization primitives
+ 	mu sync.Mutex
+ }
+ 
++const (
++	rejectionStatusHandled uint32 = 1 << iota
++	rejectionStatusReported
++)
++
++type rejectionStatus struct {
++	value atomic.Uint32
++}
++
++func (s *rejectionStatus) Load() bool {
++	return s.value.Load()&rejectionStatusHandled != 0
++}
++
++func (s *rejectionStatus) Store(handled bool) {
++	if handled {
++		s.value.Or(rejectionStatusHandled)
++		return
++	}
++	for {
++		current := s.value.Load()
++		if s.value.CompareAndSwap(current, current&^rejectionStatusHandled) {
++			return
++		}
++	}
++}
++
++func (s *rejectionStatus) markReported() {
++	s.value.Or(rejectionStatusReported)
++}
++
++func (s *rejectionStatus) reported() bool {
++	return s.value.Load()&rejectionStatusReported != 0
++}
++
++type rejectionReportOwner uint8
++
++const (
++	rejectionReportUnowned rejectionReportOwner = iota
++	rejectionReportPropagation
++	rejectionReportChecker
++)
++
+ // handler represents a reaction to promise settlement.
+ type handler struct {
+ 	onFulfilled func(any) any
+@@ -223,6 +293,7 @@ type handlerScheduleFailure struct {
+ 	result      any
+ 	target      *ChainedPromise
+ 	state       int32
++	reportOwner rejectionReportOwner
+ 	passThrough bool
+ }
+ 
+@@ -297,14 +368,14 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
+ // State returns the current [PromiseState] of this promise.
+ // Thread-safe and can be called from any goroutine.
+ func (p *ChainedPromise) State() PromiseState {
+-	return PromiseState(p.state.Load())
++	return promiseState(p.state.Load())
+ }
+ 
+ // Value returns the fulfillment value if the promise is fulfilled.
+ // Returns nil if the promise is pending or rejected.
+ // Thread-safe and can be called from any goroutine.
+ func (p *ChainedPromise) Value() any {
+-	if p.state.Load() == int32(Fulfilled) {
++	if promiseState(p.state.Load()) == Fulfilled {
+ 		return p.result
+ 	}
+ 	return nil
+@@ -314,7 +385,7 @@ func (p *ChainedPromise) Value() any {
+ // Returns nil if the promise is pending or fulfilled.
+ // Thread-safe and can be called from any goroutine.
+ func (p *ChainedPromise) Reason() any {
+-	if p.state.Load() == int32(Rejected) {
++	if promiseState(p.state.Load()) == Rejected {
+ 		return p.result
+ 	}
+ 	return nil
+@@ -384,27 +455,30 @@ func (p *ChainedPromise) CreationStackTrace() string {
+ // holding p.mu so a concurrent reject cannot observe the stored handler before
+ // promiseHandlers records that the rejection is handled.
+ //
+-// This method uses an optimistic lock-free check for the common case where
+-// the promise is already settled, avoiding lock acquisition entirely.
++// Handler registration always synchronizes through p.mu. Settlement publishes
++// state before queuing the preexisting snapshot while retaining that lock, so a
++// concurrent late handler cannot overtake earlier registrations.
+ func (p *ChainedPromise) addHandler(h handler, handlesRejection bool) handlerScheduleFailure {
+-	// Optimistic check: if already settled, schedule immediately without lock.
++	// Stable final states need no promise lock: result is immutable after the
++	// release-store that publishes the stable state. Publishing sentinels take
++	// the locked path so a late handler cannot overtake the preexisting snapshot.
+ 	currentState := p.state.Load()
+-	if currentState != int32(Pending) {
++	if currentState == int32(Fulfilled) || currentState == int32(Rejected) {
+ 		if handlesRejection && p.js != nil {
+ 			p.registerRejectionHandler(p.js)
+ 		}
++		if currentState == int32(Rejected) && h.target != nil && h.onRejected == nil {
++			return p.scheduleRejectionHandler(h, p.result, p.markPropagatedRejection())
++		}
+ 		return p.scheduleHandler(h, currentState, p.result)
+ 	}
+ 
+ 	p.mu.Lock()
+-	// Re-check state under lock to avoid race
+ 	currentState = p.state.Load()
+-	if currentState != int32(Pending) {
++	if !promisePending(currentState) {
++		result := p.result
+ 		p.mu.Unlock()
+-		if handlesRejection && p.js != nil {
+-			p.registerRejectionHandler(p.js)
+-		}
+-		return p.scheduleHandler(h, currentState, p.result)
++		return p.scheduleSettledHandler(h, handlesRejection, int32(promiseState(currentState)), result)
+ 	}
+ 
+ 	// h0 slot is unused when target is nil (no child promise chained).
+@@ -431,6 +505,16 @@ func (p *ChainedPromise) addHandler(h handler, handlesRejection bool) handlerSch
+ 	return handlerScheduleFailure{}
+ }
+ 
++func (p *ChainedPromise) scheduleSettledHandler(h handler, handlesRejection bool, state int32, result any) handlerScheduleFailure {
++	if handlesRejection && p.js != nil {
++		p.registerRejectionHandler(p.js)
++	}
++	if state == int32(Rejected) && h.target != nil && h.onRejected == nil {
++		return p.scheduleRejectionHandler(h, result, p.markPropagatedRejection())
++	}
++	return p.scheduleHandler(h, state, result)
++}
++
+ // scheduleHandler enqueues a handler for execution via microtask.
+ // If no JS adapter is available, executes synchronously. When scheduling fails,
+ // it returns the failure for the caller to handle after any parent promise lock
+@@ -461,9 +545,32 @@ func (p *ChainedPromise) scheduleHandler(h handler, state int32, result any) han
+ 		}
+ 		return failure
+ 	}
++	if p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.AfterPromiseHandlerScheduled != nil {
++		p.js.loop.testHooks.AfterPromiseHandlerScheduled()
++	}
+ 	return handlerScheduleFailure{}
+ }
+ 
++func (p *ChainedPromise) scheduleRejectionHandler(h handler, reason any, reportOwner rejectionReportOwner) handlerScheduleFailure {
++	if h.target == nil || h.onRejected != nil {
++		return p.scheduleHandler(h, int32(Rejected), reason)
++	}
++	target := h.target
++	h.onRejected = func(value any) any {
++		p.propagateRejectionOwned(target, value, reportOwner)
++		return nil
++	}
++	failure := p.scheduleHandler(h, int32(Rejected), reason)
++	if failure.err != nil {
++		failure.target = target
++		failure.state = int32(Rejected)
++		failure.result = reason
++		failure.reportOwner = reportOwner
++		failure.passThrough = true
++	}
++	return failure
++}
++
+ func (p *ChainedPromise) handleHandlerScheduleFailure(failure handlerScheduleFailure) {
+ 	if failure.err == nil {
+ 		return
+@@ -471,9 +578,17 @@ func (p *ChainedPromise) handleHandlerScheduleFailure(failure handlerScheduleFai
+ 	if failure.target != nil {
+ 		if failure.passThrough {
+ 			if failure.state == int32(Fulfilled) {
+-				failure.target.resolve(failure.result)
++				if failure.target.state.Load() == promiseSettlementClaimed {
++					failure.target.resolveClaimed(failure.result)
++				} else {
++					failure.target.resolve(failure.result)
++				}
+ 			} else {
+-				p.propagateRejection(failure.target, failure.result)
++				if failure.reportOwner == rejectionReportUnowned {
++					p.propagateRejection(failure.target, failure.result)
++				} else {
++					p.propagateRejectionOwned(failure.target, failure.result, failure.reportOwner)
++				}
+ 			}
+ 			return
+ 		}
+@@ -500,7 +615,11 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
+ 			return
+ 		}
+ 		if state == int32(Fulfilled) {
+-			h.target.resolve(result)
++			if h.target.state.Load() == promiseSettlementClaimed {
++				h.target.resolveClaimed(result)
++			} else {
++				h.target.resolve(result)
++			}
+ 		} else {
+ 			p.propagateRejection(h.target, result)
+ 		}
+@@ -523,24 +642,35 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
+ }
+ 
+ func (p *ChainedPromise) resolve(value any) {
++	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
++		return
++	}
++	p.resolveClaimed(value)
++}
++
++func (p *ChainedPromise) resolveClaimed(value any) {
+ 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
+ 	if pr, ok := value.(*ChainedPromise); ok && pr == p {
+-		p.reject(fmt.Errorf("TypeError: Chaining cycle detected for promise %p", p))
++		p.rejectClaimed(fmt.Errorf("TypeError: Chaining cycle detected for promise %p", p))
+ 		return
+ 	}
+ 
+ 	// Spec 2.3.2: If x is a promise, adopt its state.
+ 	// Use addHandler for zero-closure adoption (PromiseAltOne optimization).
+ 	if pr, ok := value.(*ChainedPromise); ok {
++		if pr == nil {
++			p.rejectClaimed(fmt.Errorf("TypeError: cannot adopt a nil promise"))
++			return
++		}
+ 		// The adoption reaction observes the source rejection, so the source promise
+ 		// is handled even though the adopting target must still carry any rejected
+ 		// state and be reported if nobody handles the adopter.
+-		p.handleHandlerScheduleFailure(pr.addHandler(handler{target: p}, true))
++		pr.handleHandlerScheduleFailure(pr.addHandler(handler{target: p}, true))
+ 		return
+ 	}
+ 
+ 	p.mu.Lock()
+-	if p.state.Load() != int32(Pending) {
++	if p.state.Load() != promiseSettlementClaimed {
+ 		p.mu.Unlock()
+ 		return
+ 	}
+@@ -554,19 +684,14 @@ func (p *ChainedPromise) resolve(value any) {
+ 	if useH0 && p.result != nil {
+ 		handlers = p.result.([]handler)
+ 	}
+-
+ 	p.h0 = handler{} // Clears h0
+ 	p.result = value
++	p.state.Store(promiseFulfilledPublishing)
+ 
+ 	if p.js != nil {
+-		// JS-backed: schedule handlers BEFORE setting state.
+-		// addHandler's optimistic lock-free path reads p.state without holding p.mu.
+-		// If state is set before handlers are scheduled, a concurrent Then() call
+-		// can schedule its handler BEFORE the pre-existing handlers, violating
+-		// Promise/A+ §2.2.6 ("callbacks must execute in the order of their
+-		// originating calls to then"). By scheduling first, any concurrent
+-		// addHandler that sees the settled state will append to the loop-owned
+-		// microtask queue AFTER the pre-existing handlers are already queued.
++		// Publish result and state before any queued reaction can execute. addHandler
++		// takes p.mu, so concurrent late handlers cannot enqueue ahead of this
++		// pre-settlement snapshot while the lock is held.
+ 		if useH0 {
+ 			if failure := p.scheduleHandler(h0, int32(Fulfilled), value); failure.err != nil {
+ 				scheduleFailures = append(scheduleFailures, failure)
+@@ -577,17 +702,18 @@ func (p *ChainedPromise) resolve(value any) {
+ 				scheduleFailures = append(scheduleFailures, failure)
+ 			}
+ 		}
+-		// Set state AFTER scheduling so the optimistic path only fires
+-		// once pre-existing handlers are already in the loop-owned microtask queue.
+-		p.state.Store(int32(Fulfilled))
+ 	} else {
+-		// Standalone (p.js == nil): scheduleHandler runs executeHandler
+-		// SYNCHRONOUSLY inside this lock. If a handler calls Then() on the
+-		// same promise, addHandler would see Pending and try to acquire
+-		// p.mu → deadlock. Set state BEFORE scheduling to avoid this.
+-		// Standalone promises are explicitly non-Promise/A+ compliant
+-		// (see thenStandalone comment), so FIFO ordering is not guaranteed.
+-		p.state.Store(int32(Fulfilled))
++		// Standalone handlers execute synchronously below after p.mu is released.
++		// This permits reentrant Then calls without sacrificing state publication.
++	}
++
++	if p.js != nil {
++		p.js.notifyToChannels(p, value)
++	}
++	p.state.Store(int32(Fulfilled))
++	p.mu.Unlock()
++
++	if p.js == nil {
+ 		if useH0 {
+ 			p.handleHandlerScheduleFailure(p.scheduleHandler(h0, int32(Fulfilled), value))
+ 		}
+@@ -596,13 +722,6 @@ func (p *ChainedPromise) resolve(value any) {
+ 		}
+ 	}
+ 
+-	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
+-	// This ensures ToChannel works even when the event loop is not running.
+-	if p.js != nil {
+-		p.js.notifyToChannels(p, value)
+-	}
+-	p.mu.Unlock()
+-
+ 	// CLEANUP: Prevent leak on success
+ 	if p.js != nil {
+ 		p.js.promiseHandlersMu.Lock()
+@@ -616,11 +735,18 @@ func (p *ChainedPromise) resolve(value any) {
+ 
+ // reject transitions the promise to rejected state if it's still pending.
+ func (p *ChainedPromise) reject(reason any) {
++	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
++		return
++	}
++	p.rejectClaimed(reason)
++}
++
++func (p *ChainedPromise) rejectClaimed(reason any) {
+ 	if p.js != nil && p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.BeforePromiseRejectLock != nil {
+ 		p.js.loop.testHooks.BeforePromiseRejectLock()
+ 	}
+ 	p.mu.Lock()
+-	if p.state.Load() != int32(Pending) {
++	if p.state.Load() != promiseSettlementClaimed {
+ 		p.mu.Unlock()
+ 		return
+ 	}
+@@ -631,64 +757,72 @@ func (p *ChainedPromise) reject(reason any) {
+ 	var handlers []handler
+ 	var scheduleFailures []handlerScheduleFailure
+ 	rejectionRecorded := false
++	reportOwner := rejectionReportUnowned
+ 
+ 	if useH0 && p.result != nil {
+ 		handlers = p.result.([]handler)
+ 	}
++	propagationPending := useH0 && h0.onRejected == nil
++	if !propagationPending {
++		for _, h := range handlers {
++			if h.target != nil && h.onRejected == nil {
++				propagationPending = true
++				break
++			}
++		}
++	}
+ 
+ 	p.h0 = handler{} // Clears h0
+ 	p.result = reason
+ 
+ 	if p.js != nil {
+-		// JS-backed: schedule handlers BEFORE setting state (same as resolve).
+-		// See resolve() for the full rationale on Promise/A+ §2.2.6 ordering.
+-		// CRITICAL: Handler microtasks must also run before
+-		// checkUnhandledRejections. This is preserved because trackRejection
+-		// is called after mu.Unlock, which is after both scheduling and state.Store.
+-		if useH0 {
+-			if failure := p.scheduleHandler(h0, int32(Rejected), reason); failure.err != nil {
+-				scheduleFailures = append(scheduleFailures, failure)
+-			}
+-		}
+-		for _, h := range handlers {
+-			if failure := p.scheduleHandler(h, int32(Rejected), reason); failure.err != nil {
+-				scheduleFailures = append(scheduleFailures, failure)
+-			}
+-		}
++		// Record rejection bookkeeping and publish state before any reaction can
++		// execute. Holding p.mu through existing-handler scheduling preserves FIFO
++		// against concurrent late handler registration.
+ 		p.js.recordRejection(p, reason)
+ 		rejectionRecorded = true
++		if propagationPending {
++			// A queued pass-through will transfer this rejection to its child.
++			// Publish that intent before Rejected becomes visible so an already
++			// active checker cannot report both parent and child.
++			reportOwner = p.markPropagatedRejection()
++		}
+ 		if p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.AfterPromiseRejectionRecorded != nil {
+ 			p.js.loop.testHooks.AfterPromiseRejectionRecorded()
+ 		}
+-		// Set state AFTER scheduling so the optimistic path only fires
+-		// once pre-existing handlers are already in the loop-owned microtask queue. The
+-		// rejection is recorded before the state is published so concurrent late
+-		// Catch/Then registration that observes Rejected cannot mistake the
+-		// not-yet-scheduled diagnostic for an already-processed rejection.
+-		p.state.Store(int32(Rejected))
+-		if p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.AfterPromiseRejectedStateStore != nil {
+-			p.js.loop.testHooks.AfterPromiseRejectedStateStore()
+-		}
+-	} else {
+-		// Standalone (p.js == nil): set state BEFORE scheduling to avoid
+-		// deadlock (see resolve() for explanation). Standalone promises
+-		// are non-Promise/A+ compliant, so FIFO ordering is not guaranteed.
+-		p.state.Store(int32(Rejected))
++		p.state.Store(promiseRejectedPublishing)
+ 		if useH0 {
+-			p.handleHandlerScheduleFailure(p.scheduleHandler(h0, int32(Rejected), reason))
++			if failure := p.scheduleRejectionHandler(h0, reason, reportOwner); failure.err != nil {
++				scheduleFailures = append(scheduleFailures, failure)
++			}
+ 		}
+ 		for _, h := range handlers {
+-			p.handleHandlerScheduleFailure(p.scheduleHandler(h, int32(Rejected), reason))
++			if failure := p.scheduleRejectionHandler(h, reason, reportOwner); failure.err != nil {
++				scheduleFailures = append(scheduleFailures, failure)
++			}
+ 		}
++	} else {
++		p.state.Store(promiseRejectedPublishing)
+ 	}
+ 
+-	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
+-	// This ensures ToChannel works even when the event loop is not running.
+ 	if p.js != nil {
+ 		p.js.notifyToChannels(p, reason)
+ 	}
+-
++	p.state.Store(int32(Rejected))
+ 	p.mu.Unlock()
++	if p.js != nil && p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.AfterPromiseRejectedStateStore != nil {
++		p.js.loop.testHooks.AfterPromiseRejectedStateStore()
++	}
++
++	if p.js == nil {
++		if useH0 {
++			p.handleHandlerScheduleFailure(p.scheduleRejectionHandler(h0, reason, rejectionReportUnowned))
++		}
++		for _, h := range handlers {
++			p.handleHandlerScheduleFailure(p.scheduleRejectionHandler(h, reason, rejectionReportUnowned))
++		}
++	}
++
+ 	for _, failure := range scheduleFailures {
+ 		p.handleHandlerScheduleFailure(failure)
+ 	}
+@@ -743,40 +877,76 @@ func (p *ChainedPromise) Then(onFulfilled, onRejected func(any) any) *ChainedPro
+ }
+ 
+ func (p *ChainedPromise) propagateRejection(target *ChainedPromise, reason any) {
+-	p.markPropagatedRejection()
+-	target.reject(reason)
+-	p.clearPropagatedRejection()
++	p.propagateRejectionOwned(target, reason, p.markPropagatedRejection())
++}
++
++func (p *ChainedPromise) propagateRejectionOwned(target *ChainedPromise, reason any, reportOwner rejectionReportOwner) {
++	if reportOwner == rejectionReportPropagation {
++		reportOwner = p.claimPropagatedRejection()
++	}
++	targetClaimed := target.state.Load() == promiseSettlementClaimed
++	if reportOwner == rejectionReportChecker && p.js != nil {
++		// The parent checker already owns reporting. Suppress the derived child so
++		// the same rejection does not produce both parent and child diagnostics.
++		target.rejectionHandled.Store(true)
++		target.rejectionHandled.markReported()
++	}
++	if targetClaimed {
++		target.rejectClaimed(reason)
++	} else {
++		target.reject(reason)
++	}
+ }
+ 
+-func (p *ChainedPromise) markPropagatedRejection() {
++func (p *ChainedPromise) markPropagatedRejection() rejectionReportOwner {
+ 	js := p.js
+ 	if js == nil {
+-		return
++		return rejectionReportUnowned
+ 	}
++	owner := rejectionReportUnowned
+ 	js.rejectionsMu.Lock()
+ 	if info := js.unhandledRejections[p]; info != nil {
+-		info.propagated.Store(true)
++		info.propagationPending.Add(1)
++		owner = rejectionReportPropagation
+ 	}
+ 	js.rejectionsMu.Unlock()
++	if owner == rejectionReportUnowned && p.rejectionHandled.reported() {
++		return rejectionReportChecker
++	}
++	return owner
+ }
+ 
+-func (p *ChainedPromise) clearPropagatedRejection() {
++func (p *ChainedPromise) claimPropagatedRejection() rejectionReportOwner {
+ 	js := p.js
+ 	if js == nil {
+-		return
++		return rejectionReportUnowned
+ 	}
++	owned := false
+ 	js.rejectionsMu.Lock()
+-	if info := js.unhandledRejections[p]; info != nil {
+-		info.propagated.Store(true)
++	if !p.rejectionHandled.reported() {
++		if info := js.unhandledRejections[p]; info != nil {
++			info.propagated.Store(true)
++			delete(js.unhandledRejections, p)
++			owned = true
++		}
+ 	}
+-	delete(js.unhandledRejections, p)
+ 	js.rejectionsMu.Unlock()
++	if !owned {
++		if p.rejectionHandled.reported() {
++			return rejectionReportChecker
++		}
++		// Another propagation branch may already have consumed the parent record.
++		// That transfers only its own descendant; this sibling must retain normal
++		// unhandled-rejection ownership rather than impersonating the checker.
++		return rejectionReportUnowned
++	}
+ 	js.handlerReadyMu.Lock()
+ 	delete(js.handlerReadyChans, p)
+ 	js.handlerReadyMu.Unlock()
+ 	js.promiseHandlersMu.Lock()
+ 	delete(js.promiseHandlers, p)
+ 	js.promiseHandlersMu.Unlock()
++	return rejectionReportPropagation
+ }
+ 
+ // registerRejectionHandler tracks that a rejection handler has been attached
+@@ -785,7 +955,7 @@ func (p *ChainedPromise) clearPropagatedRejection() {
+ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
+ 	p.rejectionHandled.Store(true)
+ 
+-	currentState := PromiseState(p.state.Load())
++	currentState := promiseState(p.state.Load())
+ 
+ 	switch {
+ 	case currentState == Fulfilled:
+@@ -966,7 +1136,7 @@ func (p *ChainedPromise) ToChannel() <-chan any {
+ 
+ 	// Fast path: already settled (lock-free)
+ 	currentState := p.state.Load()
+-	if currentState != int32(Pending) {
++	if !promisePending(currentState) {
+ 		ch <- p.result
+ 		close(ch)
+ 		return ch
+@@ -985,7 +1155,7 @@ func (p *ChainedPromise) ToChannel() <-chan any {
+ 	// Double-check state under lock to handle the race where resolve/reject
+ 	// ran between the fast-path check and lock acquisition.
+ 	currentState = p.state.Load()
+-	if currentState != int32(Pending) {
++	if !promisePending(currentState) {
+ 		p.mu.Unlock()
+ 		ch <- p.result
+ 		close(ch)
+@@ -1139,7 +1309,8 @@ func (js *JS) hasReportableUnhandledRejections() bool {
+ 	defer js.rejectionsMu.RUnlock()
+ 
+ 	for p, info := range js.unhandledRejections {
+-		if PromiseState(p.state.Load()) != Pending && !info.propagated.Load() {
++		terminal := js.loop != nil && js.loop.state.Load() == StateTerminated
++		if promiseState(p.state.Load()) != Pending && !info.propagated.Load() && (terminal || info.propagationPending.Load() == 0) {
+ 			return true
+ 		}
+ 	}
+@@ -1239,7 +1410,10 @@ func (js *JS) logAndClearUnhandledRejections() {
+ 
+ 	for _, info := range snapshot {
+ 		p := info.promise
+-		if PromiseState(p.state.Load()) == Pending {
++		if js.loop != nil && js.loop.testHooks != nil && js.loop.testHooks.BeforeUnhandledRejectionRecordCheck != nil {
++			js.loop.testHooks.BeforeUnhandledRejectionRecordCheck(p)
++		}
++		if promiseState(p.state.Load()) == Pending {
+ 			continue
+ 		}
+ 
+@@ -1252,6 +1426,15 @@ func (js *JS) logAndClearUnhandledRejections() {
+ 		}
+ 
+ 		js.rejectionsMu.Lock()
++		currentInfo, exists := js.unhandledRejections[p]
++		handled = handled || p.rejectionHandled.Load() || info.propagated.Load()
++		if !exists || currentInfo != info {
++			js.rejectionsMu.Unlock()
++			continue
++		}
++		if !handled {
++			p.rejectionHandled.markReported()
++		}
+ 		delete(js.unhandledRejections, p)
+ 		js.rejectionsMu.Unlock()
+ 		js.handlerReadyMu.Lock()
+@@ -1493,7 +1676,10 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 	// Process snapshot
+ 	for _, info := range snapshot {
+ 		p := info.promise
+-		if PromiseState(p.state.Load()) == Pending {
++		if js.loop != nil && js.loop.testHooks != nil && js.loop.testHooks.BeforeUnhandledRejectionRecordCheck != nil {
++			js.loop.testHooks.BeforeUnhandledRejectionRecordCheck(p)
++		}
++		if promiseState(p.state.Load()) == Pending {
+ 			continue
+ 		}
+ 
+@@ -1505,12 +1691,36 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 			js.promiseHandlersMu.Unlock()
+ 		}
+ 
+-		// If a handler exists, clean up tracking now (handled rejection)
+-		if handled {
+-			// Remove from unhandled rejections but DON'T report it
+-			js.rejectionsMu.Lock()
+-			delete(js.unhandledRejections, p)
++		terminalFallback := info.terminalFallback.Load()
++		if terminalFallback && !allowTerminalFallback {
++			continue
++		}
++		if !allowTerminalFallback && info.propagationPending.Load() > 0 {
++			continue
++		}
++
++		// Linearize late handler/propagation publication against the reporting
++		// decision. Both publication paths take rejectionsMu before changing the
++		// record, so the checker either observes them or owns the report first.
++		js.rejectionsMu.Lock()
++		currentInfo, exists := js.unhandledRejections[p]
++		handled = handled || p.rejectionHandled.Load() || info.propagated.Load()
++		if !exists || currentInfo != info {
++			js.rejectionsMu.Unlock()
++			continue
++		}
++		if !allowTerminalFallback && info.propagationPending.Load() > 0 {
+ 			js.rejectionsMu.Unlock()
++			continue
++		}
++		if !handled {
++			p.rejectionHandled.markReported()
++		}
++		delete(js.unhandledRejections, p)
++		js.rejectionsMu.Unlock()
++
++		if handled {
++			// Remove from auxiliary tracking but do not report it.
+ 			js.handlerReadyMu.Lock()
+ 			delete(js.handlerReadyChans, p)
+ 			js.handlerReadyMu.Unlock()
+@@ -1519,10 +1729,6 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 			js.promiseHandlersMu.Unlock()
+ 			continue
+ 		}
+-		terminalFallback := info.terminalFallback.Load()
+-		if terminalFallback && !allowTerminalFallback {
+-			continue
+-		}
+ 
+ 		// No handler found - report unhandled rejection
+ 		if callback != nil && !(terminalFallback && js.unhandledFallback == UnhandledRejectionFallbackDisabled) {
+@@ -1554,6 +1760,11 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 					// disabled terminal-fallback handoff instead of silently deleting
+ 					// an unexecuted diagnostic.
+ 					info.terminalFallback.Store(true)
++					js.rejectionsMu.Lock()
++					if _, exists := js.unhandledRejections[p]; !exists {
++						js.unhandledRejections[p] = info
++					}
++					js.rejectionsMu.Unlock()
+ 					js.checkRejectionFallbackRerun.Store(true)
+ 					continue
+ 				}
+@@ -1562,10 +1773,7 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 			js.loop.logError("eventloop: unhandled rejection after loop termination (fallback callback disabled)", info.reason)
+ 		}
+ 
+-		// Clean up tracking for unhandled rejection
+-		js.rejectionsMu.Lock()
+-		delete(js.unhandledRejections, p)
+-		js.rejectionsMu.Unlock()
++		// The rejection map entry was claimed before callback execution.
+ 		js.handlerReadyMu.Lock()
+ 		delete(js.handlerReadyChans, p)
+ 		js.handlerReadyMu.Unlock()
+@@ -1587,12 +1795,13 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
+ 
+ // rejectionInfo holds information about a rejected promise.
+ type rejectionInfo struct {
+-	promise          *ChainedPromise // 8B pointer
+-	reason           any             // 16B interface (two pointers)
+-	creationStack    []uintptr       // 24B slice (data pointer + len + cap)
+-	timestamp        int64           // 8B non-pointer
+-	propagated       atomic.Bool
+-	terminalFallback atomic.Bool
++	promise            *ChainedPromise // 8B pointer
++	reason             any             // 16B interface (two pointers)
++	creationStack      []uintptr       // 24B slice (data pointer + len + cap)
++	timestamp          int64           // 8B non-pointer
++	propagationPending atomic.Int32
++	propagated         atomic.Bool
++	terminalFallback   atomic.Bool
+ }
+ 
+ // UnhandledRejectionDebugInfo is passed to [RejectionHandler] when debug mode is enabled
+@@ -1678,6 +1887,7 @@ func formatCreationStack(pcs []uintptr) string {
+ //   - If promises is empty, resolves immediately with an empty slice
+ //   - Resolves with a slice of values in the same order as the input promises
+ //   - Rejects immediately when any promise rejects, with that promise's reason
++//   - Rejects with [NilPromiseError] before attachment if an input is nil
+ //
+ // Example:
+ //
+@@ -1697,6 +1907,10 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
+ 		resolve(make([]any, 0))
+ 		return result
+ 	}
++	if err := validatePromiseInputs(promises); err != nil {
++		reject(err)
++		return result
++	}
+ 
+ 	// Track completion
+ 	var mu sync.Mutex
+@@ -1740,6 +1954,7 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
+ //   - If promises is empty, the returned promise never settles (remains pending)
+ //   - Settles with the value/reason of the first promise to settle
+ //   - Ignores subsequent settlements from other promises
++//   - Rejects with [NilPromiseError] before attachment if an input is nil
+ //
+ // Use Race for timeout patterns:
+ //
+@@ -1756,6 +1971,10 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
+ 	if len(promises) == 0 {
+ 		return result
+ 	}
++	if err := validatePromiseInputs(promises); err != nil {
++		reject(err)
++		return result
++	}
+ 
+ 	var settled atomic.Bool
+ 
+@@ -1782,7 +2001,8 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
+ 
+ // AllSettled returns a promise that resolves when all input promises have settled.
+ //
+-// Unlike [JS.All], this never rejects - it waits for all promises to complete.
++// Unlike [JS.All], this waits for every valid promise to complete. A nil input
++// rejects the returned promise before any source handlers are attached.
+ // The promise fulfills with a slice of outcome objects:
+ //
+ //	// For fulfilled promises:
+@@ -1793,21 +2013,19 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
+ //
+ // Behavior:
+ //   - If promises is empty, resolves immediately with an empty slice
+-//   - Always resolves (never rejects)
++//   - Resolves for every valid input; a nil input rejects before attachment
+ //   - Results are in the same order as the input promises
+ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
+-	// Handle empty array - create resolved promise directly
++	result, resolve, reject := js.NewChainedPromise()
++
+ 	if len(promises) == 0 {
+-		// Create a ChainedPromise in resolved state
+-		p := &ChainedPromise{
+-			js: js,
+-		}
+-		p.state.Store(int32(Fulfilled))
+-		p.result = make([]any, 0)
+-		return p
++		resolve(make([]any, 0))
++		return result
++	}
++	if err := validatePromiseInputs(promises); err != nil {
++		reject(err)
++		return result
+ 	}
+-
+-	result, resolve, _ := js.NewChainedPromise()
+ 
+ 	// Track completion
+ 	var mu sync.Mutex
+@@ -1857,6 +2075,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
+ //   - If promises is empty, rejects immediately with [AggregateError]
+ //   - Resolves with the value of the first promise to resolve
+ //   - Rejects with [AggregateError] only if ALL promises reject
++//   - Rejects with [NilPromiseError] before attachment if an input is nil
+ //
+ // Use Any when you need at least one success:
+ //
+@@ -1868,10 +2087,15 @@ func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
+ 	// Handle empty array - reject immediately
+ 	if len(promises) == 0 {
+ 		reject(&AggregateError{
+-			Errors: []error{&errNoPromiseResolved{}},
++			Errors:  make([]error, 0),
++			Message: "All promises were rejected",
+ 		})
+ 		return result
+ 	}
++	if err := validatePromiseInputs(promises); err != nil {
++		reject(err)
++		return result
++	}
+ 
+ 	var mu sync.Mutex
+ 	var rejected atomic.Int32
+@@ -1957,12 +2181,24 @@ func (e *AggregateError) Error() string {
+ 	return "All promises were rejected"
+ }
+ 
+-// errNoPromiseResolved indicates that [JS.Any] was called with an empty array.
+-type errNoPromiseResolved struct{}
++// NilPromiseError reports a nil promise in a combinator input.
++type NilPromiseError struct {
++	// Index identifies the zero-based input position.
++	Index int
++}
+ 
+-// Error implements the error interface.
+-func (e *errNoPromiseResolved) Error() string {
+-	return "No promises were provided"
++// Error implements error.
++func (e *NilPromiseError) Error() string {
++	return fmt.Sprintf("eventloop: nil promise at index %d", e.Index)
++}
++
++func validatePromiseInputs(promises []*ChainedPromise) error {
++	for index, promise := range promises {
++		if promise == nil {
++			return &NilPromiseError{Index: index}
++		}
++	}
++	return nil
+ }
+ 
+ // errorWrapper wraps a non-error value as an error for [AggregateError] compatibility.
+diff --git a/eventloop/promise_break_test.go b/eventloop/promise_break_test.go
+index 0be86586225f2f2145d97620374ea8aacfdbc161..f008af2bca27639fd81826764f4cf9d7867a4320 100644
+--- a/eventloop/promise_break_test.go
++++ b/eventloop/promise_break_test.go
+@@ -134,15 +134,9 @@ func TestFIFO_ConcurrentResolveAndThen(t *testing.T) {
+ 	}
+ }
+ 
+-// TestFIFO_StandaloneNoDeadlock guards against a regression where the FIFO
+-// fix (scheduling handlers before state.Store) is applied to standalone
+-// promises (p.js == nil). For standalone promises, scheduleHandler runs
+-// executeHandler synchronously inside resolve()'s held lock. If a handler
+-// calls Then() on the same promise, addHandler would see Pending and block
+-// on p.mu → deadlock.
+-//
+-// This test passes on both original and fixed code. Its value is catching
+-// a future refactor that removes the p.js branch from resolve().
++// TestFIFO_StandaloneNoDeadlock verifies that standalone handlers execute only
++// after settlement releases p.mu. A handler may therefore attach another
++// handler to the same promise without reentering the settlement lock.
+ func TestFIFO_StandaloneNoDeadlock(t *testing.T) {
+ 	p := &ChainedPromise{}
+ 	p.state.Store(int32(Pending))
+@@ -169,8 +163,8 @@ func TestFIFO_StandaloneNoDeadlock(t *testing.T) {
+ // from outside the loop goroutine, a concurrent Then(nil, handler) call
+ // cannot schedule its rejection handler before pre-existing rejection
+ // handlers (Promise/A+ §2.2.6). This mirrors TestFIFO_ConcurrentResolveAndThen
+-// but exercises the reject() path, which uses the same
+-// schedule-before-state.Store pattern for JS-backed promises.
++// but exercises the reject() path. Settlement publishes state while holding the
++// registration lock, then queues the preexisting snapshot before releasing it.
+ func TestFIFO_ConcurrentRejectAndThen(t *testing.T) {
+ 	loop, err := New()
+ 	if err != nil {
+@@ -283,10 +277,9 @@ func TestFIFO_ConcurrentRejectAndThen(t *testing.T) {
+ // all N pre-attached handlers run in attach order 0..N-1, none dropped/reordered.
+ //
+ // This is ORTHOGONAL coverage to the Promise/A+ §2.2.6 concurrent-Then race,
+-// which is guarded by TestFIFO_ConcurrentResolveAndThen (the schedule-before-
+-// state.Store fix). Pre-attached handlers are scheduled in attach order
+-// regardless of the store-vs-schedule ordering (this test passes even if that
+-// fix is reverted), so it does NOT discriminate that fix. It only verifies the
++// which is guarded by TestFIFO_ConcurrentResolveAndThen (the settlement-lock
++// publication protocol). Pre-attached handlers are scheduled in attach order
++// by that same protocol; this test specifically verifies the external-goroutine
+ // off-loop resolution path drains the pre-attached handlers in attach order.
+ func TestFIFO_OffLoopResolveOrdering(t *testing.T) {
+ 	loop, err := New()
+diff --git a/eventloop/promise_combinator_test.go b/eventloop/promise_combinator_test.go
+index e288c4f1e9fb205edafd3e16e6c0fd898389741e..04a765b98bd25fd3c4de036b68d963407b627eea 100644
+--- a/eventloop/promise_combinator_test.go
++++ b/eventloop/promise_combinator_test.go
+@@ -607,8 +607,8 @@ func TestPromiseAny_EmptyArray_Combinator(t *testing.T) {
+ 	if !ok {
+ 		t.Fatalf("Expected *AggregateError, got %T: %v", reason, reason)
+ 	}
+-	if len(aggErr.Errors) == 0 {
+-		t.Fatal("Expected at least one error in AggregateError")
++	if len(aggErr.Errors) != 0 {
++		t.Fatalf("Expected zero input errors, got %d", len(aggErr.Errors))
+ 	}
+ 
+ 	t.Log("Promise.Any([]) rejects with AggregateError")
+diff --git a/eventloop/promise_combinators_test.go b/eventloop/promise_combinators_test.go
+index bfd5ea1e9a2743d46e612f2ee5e955af16cfc54f..855fc9783d47f78e8c2cdc89ca343e62a039033e 100644
+--- a/eventloop/promise_combinators_test.go
++++ b/eventloop/promise_combinators_test.go
+@@ -789,28 +789,25 @@ func TestPromiseAny_EmptyArray_RejectsWithAggregateError(t *testing.T) {
+ 
+ 	result := js.Any([]*ChainedPromise{})
+ 
+-	rejectionReason := ""
++	rejected := false
+ 	result.Catch(func(r any) any {
++		rejected = true
+ 		aggErr, ok := r.(*AggregateError)
+ 		if !ok {
+ 			t.Errorf("Expected *AggregateError, got %T", r)
+ 			return nil
+ 		}
+-		// For empty array, check the inner error in Errors[0]
+-		if len(aggErr.Errors) == 1 {
+-			rejectionReason = aggErr.Errors[0].Error()
++		if len(aggErr.Errors) != 0 {
++			t.Errorf("Expected zero input errors, got %d", len(aggErr.Errors))
+ 		}
+ 		return nil
+ 	})
+ 
+ 	loop.tick()
+ 
+-	if rejectionReason == "" {
++	if !rejected {
+ 		t.Error("Promise.any with empty array should reject with AggregateError")
+ 	}
+-	if rejectionReason != "No promises were provided" {
+-		t.Errorf("Expected 'No promises were provided', got '%s'", rejectionReason)
+-	}
+ }
+ 
+ func TestPromiseAny_SingleValue(t *testing.T) {
+@@ -1672,15 +1669,6 @@ func TestAggregateError_ErrorMessages(t *testing.T) {
+ 	})
+ }
+ 
+-// Test errNoPromiseResolved type - covers promise.go:1065
+-func Test_errNoPromiseResolved_Error(t *testing.T) {
+-	err := errNoPromiseResolved{}
+-	msg := err.Error()
+-	if msg != "No promises were provided" {
+-		t.Errorf("Expected 'No promises were provided', got: %s", msg)
+-	}
+-}
+-
+ // Test errorWrapper with various types - covers promise.go:1076
+ func Test_errorWrapper_VariousTypes(t *testing.T) {
+ 	tests := []struct {
+diff --git a/eventloop/promise_reaction_bench_test.go b/eventloop/promise_reaction_bench_test.go
+index b111b1fb22bcc56f609d0c14ef81950af409e5a9..d4485b84bb89c2d2a40fe32e77cc981805dd652e 100644
+--- a/eventloop/promise_reaction_bench_test.go
++++ b/eventloop/promise_reaction_bench_test.go
+@@ -12,7 +12,7 @@ import (
+ // These benchmarks measure the throughput and allocation profile of the
+ // promise reaction scheduling paths (resolve, reject, Then on settled,
+ // Then on pending). They are used to quantify the performance impact of
+-// the FIFO ordering fix (scheduling handlers before state.Store).
++// state-before-reaction FIFO publication protocol.
+ //
+ // Run: go test -bench=BenchmarkReaction -benchmem -count=5 -run=^$ ./eventloop/
+ 
+@@ -65,8 +65,8 @@ func BenchmarkReaction_Resolve_NoHandler(b *testing.B) {
+ }
+ 
+ // BenchmarkReaction_Resolve_1Handler measures resolve() with one pre-attached
+-// handler (the most common case). This is the path most affected by the fix:
+-// handler scheduling moves before state.Store.
++// handler (the most common case). This exercises state publication and
++// preexisting-handler scheduling under the settlement lock.
+ func BenchmarkReaction_Resolve_1Handler(b *testing.B) {
+ 	_, js, cleanup := setupBenchLoop(b)
+ 	defer cleanup()
+@@ -160,12 +160,12 @@ func BenchmarkReaction_Reject_10Handlers(b *testing.B) {
+ func BenchmarkReaction_ThenOnSettled(b *testing.B) {
+ 	_, js, cleanup := setupBenchLoop(b)
+ 	defer cleanup()
++	p := js.Resolve(0)
+ 
+ 	b.ReportAllocs()
+ 	b.ResetTimer()
+ 
+-	for i := 0; i < b.N; i++ {
+-		p := js.Resolve(i)
++	for range b.N {
+ 		p.Then(noopHandler, nil)
+ 	}
+ }
+diff --git a/eventloop/promise_settlement_linearization_test.go b/eventloop/promise_settlement_linearization_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..18118dbeedff33d369c93a26f1327451710711d0
+--- /dev/null
++++ b/eventloop/promise_settlement_linearization_test.go
+@@ -0,0 +1,1291 @@
++package eventloop
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"runtime"
++	"sync"
++	"testing"
++	"time"
++)
++
++func TestChainedPromiseAdoptionClaimsResolver(t *testing.T) {
++	sourceA := &ChainedPromise{}
++	sourceA.state.Store(int32(Pending))
++	sourceB := &ChainedPromise{}
++	sourceB.state.Store(int32(Pending))
++	target := &ChainedPromise{}
++	target.state.Store(int32(Pending))
++
++	target.resolve(sourceA)
++	target.reject("late rejection")
++	target.resolve(sourceB)
++	sourceB.resolve("wrong source")
++	if state := target.State(); state != Pending {
++		t.Fatalf("target state before adopted source settlement = %v, want Pending", state)
++	}
++	sourceA.resolve("adopted value")
++
++	select {
++	case got := <-target.ToChannel():
++		if got != "adopted value" {
++			t.Fatalf("target result = %#v, want adopted value", got)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("adopted promise did not settle")
++	}
++	if state := target.State(); state != Fulfilled {
++		t.Fatalf("target state = %v, want Fulfilled", state)
++	}
++}
++
++func TestChainedPromiseTypedNilAdoptionRejects(t *testing.T) {
++	target := &ChainedPromise{}
++	target.state.Store(int32(Pending))
++	var source *ChainedPromise
++	target.resolve(source)
++
++	if state := target.State(); state != Rejected {
++		t.Fatalf("target state = %v, want Rejected", state)
++	}
++	var nilInput *NilPromiseError
++	if errors.As(reasonError(target.Reason()), &nilInput) {
++		t.Fatal("typed-nil adoption used combinator input error")
++	}
++	if got := target.Reason(); got == nil {
++		t.Fatal("typed-nil adoption has nil rejection reason")
++	}
++}
++
++func TestChainedPromiseCrossAdapterAdoptionUsesTargetOwner(t *testing.T) {
++	sourceLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, sourceLoop)
++	targetLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, targetLoop)
++	sourceJS, err := NewJS(sourceLoop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	targetJS, err := NewJS(targetLoop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, resolveSource, _ := sourceJS.NewChainedPromise()
++	target, resolveTarget, _ := targetJS.NewChainedPromise()
++	observed := make(chan bool, 1)
++	target.Then(func(any) any {
++		observed <- targetLoop.isLoopThread() && !sourceLoop.isLoopThread()
++		return nil
++	}, nil)
++	sourceRun := make(chan error, 1)
++	targetRun := make(chan error, 1)
++	go func() { sourceRun <- sourceLoop.Run(context.Background()) }()
++	go func() { targetRun <- targetLoop.Run(context.Background()) }()
++
++	resolveTarget(source)
++	resolveSource("cross-owner")
++	select {
++	case correctOwner := <-observed:
++		if !correctOwner {
++			t.Fatal("adopted reaction did not execute on the target owner")
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("cross-adapter adoption did not settle")
++	}
++	if err := sourceLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("source Shutdown: %v", err)
++	}
++	if err := targetLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("target Shutdown: %v", err)
++	}
++	if err := <-sourceRun; err != nil {
++		t.Fatalf("source Run: %v", err)
++	}
++	if err := <-targetRun; err != nil {
++		t.Fatalf("target Run: %v", err)
++	}
++}
++
++func TestChainedPromiseCrossAdapterRejectionUsesTargetOwner(t *testing.T) {
++	sourceLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, sourceLoop)
++	targetLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, targetLoop)
++	reported := make(chan any, 2)
++	sourceJS, err := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	targetJS, err := NewJS(targetLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, _, rejectSource := sourceJS.NewChainedPromise()
++	target, resolveTarget, _ := targetJS.NewChainedPromise()
++	observed := make(chan struct {
++		onTarget bool
++		state    PromiseState
++		reason   any
++	}, 1)
++	child := target.Catch(func(reason any) any {
++		observed <- struct {
++			onTarget bool
++			state    PromiseState
++			reason   any
++		}{
++			onTarget: targetLoop.isLoopThread() && !sourceLoop.isLoopThread(),
++			state:    target.State(),
++			reason:   target.Reason(),
++		}
++		return reason
++	})
++	sourceRun := make(chan error, 1)
++	targetRun := make(chan error, 1)
++	go func() { sourceRun <- sourceLoop.Run(context.Background()) }()
++	go func() { targetRun <- targetLoop.Run(context.Background()) }()
++
++	resolveTarget(source)
++	rejectSource("cross-owner rejection")
++	select {
++	case got := <-observed:
++		if !got.onTarget {
++			t.Fatal("adopted rejection reaction did not execute on the target owner")
++		}
++		if got.state != Rejected || got.reason != "cross-owner rejection" {
++			t.Fatalf("reaction observed state=%v reason=%#v", got.state, got.reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("cross-adapter rejection did not settle")
++	}
++	select {
++	case value := <-child.ToChannel():
++		if value != "cross-owner rejection" {
++			t.Fatalf("catch child value = %#v, want rejection reason", value)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("cross-adapter catch child did not settle")
++	}
++	if err := sourceLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("source Shutdown: %v", err)
++	}
++	if err := targetLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("target Shutdown: %v", err)
++	}
++	if err := <-sourceRun; err != nil {
++		t.Fatalf("source Run: %v", err)
++	}
++	if err := <-targetRun; err != nil {
++		t.Fatalf("target Run: %v", err)
++	}
++	waitUnhandledRejectionTrackingDrained(t, sourceJS)
++	waitUnhandledRejectionTrackingDrained(t, targetJS)
++	select {
++	case reason := <-reported:
++		t.Fatalf("handled cross-adapter rejection was reported: %#v", reason)
++	default:
++	}
++}
++
++func TestChainedPromiseAdoptionAfterSourceTermination(t *testing.T) {
++	sourceLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, sourceLoop)
++	targetLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, targetLoop)
++	sourceReported := make(chan any, 1)
++	sourceJS, err := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { sourceReported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	targetJS, err := NewJS(targetLoop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, _, rejectSource := sourceJS.NewChainedPromise()
++	target, resolveTarget, _ := targetJS.NewChainedPromise()
++	resolveTarget(source)
++	child := target.Catch(func(reason any) any { return reason })
++	if err := sourceLoop.Close(); err != nil {
++		t.Fatalf("source Close: %v", err)
++	}
++	targetRun := make(chan error, 1)
++	go func() { targetRun <- targetLoop.Run(context.Background()) }()
++	waitForLoopRunning(t, targetLoop, 5*time.Second)
++
++	rejectSource("source terminated")
++	select {
++	case reason := <-target.ToChannel():
++		if reason != "source terminated" {
++			t.Fatalf("target reason = %#v, want source terminated", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("source-terminal adoption did not settle target")
++	}
++	if target.State() != Rejected || target.Reason() != "source terminated" {
++		t.Fatalf("target state=%v reason=%#v", target.State(), target.Reason())
++	}
++	select {
++	case value := <-child.ToChannel():
++		if value != "source terminated" {
++			t.Fatalf("catch child value = %#v, want source terminated", value)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("source-terminal catch child did not settle")
++	}
++	waitUnhandledRejectionTrackingDrained(t, sourceJS)
++	select {
++	case reason := <-sourceReported:
++		t.Fatalf("handled source-terminal rejection was reported: %#v", reason)
++	default:
++	}
++	if err := targetLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("target Shutdown: %v", err)
++	}
++	if err := <-targetRun; err != nil {
++		t.Fatalf("target Run: %v", err)
++	}
++}
++
++func TestChainedPromiseAdoptionAfterTargetTermination(t *testing.T) {
++	sourceLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, sourceLoop)
++	targetLoop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, targetLoop)
++	sourceJS, err := NewJS(sourceLoop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	targetJS, err := NewJS(targetLoop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, resolveSource, _ := sourceJS.NewChainedPromise()
++	target, resolveTarget, _ := targetJS.NewChainedPromise()
++	resolveTarget(source)
++	if err := targetLoop.Close(); err != nil {
++		t.Fatalf("target Close: %v", err)
++	}
++	sourceRun := make(chan error, 1)
++	go func() { sourceRun <- sourceLoop.Run(context.Background()) }()
++
++	resolveSource("target terminated")
++	deadline := time.Now().Add(5 * time.Second)
++	for target.State() == Pending {
++		if time.Now().After(deadline) {
++			t.Fatal("target-terminal adoption did not settle target")
++		}
++		runtime.Gosched()
++	}
++	if target.State() != Fulfilled || target.Value() != "target terminated" {
++		t.Fatalf("target state=%v value=%#v", target.State(), target.Value())
++	}
++	if err := sourceLoop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("source Shutdown: %v", err)
++	}
++	if err := <-sourceRun; err != nil {
++		t.Fatalf("source Run: %v", err)
++	}
++}
++
++func TestChainedPromiseIndirectNativeCycleRemainsPending(t *testing.T) {
++	first := &ChainedPromise{}
++	first.state.Store(int32(Pending))
++	second := &ChainedPromise{}
++	second.state.Store(int32(Pending))
++	first.resolve(second)
++	second.resolve(first)
++
++	if first.State() != Pending || second.State() != Pending {
++		t.Fatalf("cycle states = (%v, %v), want both Pending", first.State(), second.State())
++	}
++	select {
++	case result := <-first.ToChannel():
++		t.Fatalf("indirect cycle unexpectedly settled with %#v", result)
++	default:
++	}
++}
++
++func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 2)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, _, rejectParent := js.NewChainedPromise()
++	child := parent.Then(nil, nil)
++	rejectionRecorded := make(chan struct{})
++	releasePublication := make(chan struct{})
++	releaseRecord := releaseSignalT(t, releasePublication)
++	checkerAtParent := make(chan *ChainedPromise, 1)
++	releaseChecker := make(chan struct{})
++	releaseCheck := releaseSignalT(t, releaseChecker)
++	var recordOnce sync.Once
++	loop.testHooks = &loopTestHooks{
++		AfterPromiseRejectionRecorded: func() {
++			recordOnce.Do(func() {
++				close(rejectionRecorded)
++				<-releasePublication
++			})
++		},
++		BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
++			select {
++			case checkerAtParent <- promise:
++			default:
++			}
++			if promise == parent {
++				<-releaseChecker
++			}
++		},
++	}
++	rejectDone := make(chan struct{})
++	go func() {
++		rejectParent("propagated")
++		close(rejectDone)
++	}()
++	select {
++	case <-rejectionRecorded:
++	case <-time.After(5 * time.Second):
++		t.Fatal("parent rejection was not recorded")
++	}
++	js.rejectionsMu.RLock()
++	parentInfo := js.unhandledRejections[parent]
++	js.rejectionsMu.RUnlock()
++	if parentInfo == nil {
++		t.Fatal("parent rejection record disappeared before the checker snapshot")
++	}
++	checkerDone := make(chan struct{})
++	go func() {
++		js.checkUnhandledRejections()
++		close(checkerDone)
++	}()
++	select {
++	case checked := <-checkerAtParent:
++		if checked != parent {
++			t.Fatalf("checker evaluated %p, want parent %p", checked, parent)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("active checker did not snapshot the parent")
++	}
++	releaseRecord()
++	select {
++	case <-rejectDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("parent rejection did not publish")
++	}
++	releaseCheck()
++	select {
++	case <-checkerDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("active rejection checker did not return")
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("pass-through parent was reported before propagation: %#v", reason)
++	default:
++	}
++
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	select {
++	case reason := <-reported:
++		if reason != "propagated" {
++			t.Fatalf("reported reason = %#v, want propagated", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("propagated child rejection was not reported")
++	}
++	if child.State() != Rejected {
++		t.Fatalf("child state = %v, want Rejected", child.State())
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("duplicate unhandled rejection report: %#v", reason)
++	default:
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestChainedPromiseLatePassThroughLinearizesWithActiveChecker(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 2)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, _, rejectParent := js.NewChainedPromise()
++	rejectParent("late propagation")
++	checkerAtParent := make(chan struct{})
++	releaseChecker := make(chan struct{})
++	release := releaseSignalT(t, releaseChecker)
++	loop.testHooks = &loopTestHooks{
++		BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
++			if promise != parent {
++				return
++			}
++			select {
++			case <-checkerAtParent:
++			default:
++				close(checkerAtParent)
++			}
++			<-releaseChecker
++		},
++	}
++	checkerDone := make(chan struct{})
++	go func() {
++		js.checkUnhandledRejections()
++		close(checkerDone)
++	}()
++	select {
++	case <-checkerAtParent:
++	case <-time.After(5 * time.Second):
++		t.Fatal("active checker did not reach the rejected parent")
++	}
++	child := parent.Then(nil, nil)
++	release()
++	select {
++	case <-checkerDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("active checker did not finish")
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("parent was reported despite linearized pass-through: %#v", reason)
++	default:
++	}
++
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	select {
++	case reason := <-reported:
++		if reason != "late propagation" {
++			t.Fatalf("reported reason = %#v, want late propagation", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("late pass-through child was not reported")
++	}
++	if child.State() != Rejected {
++		t.Fatalf("child state = %v, want Rejected", child.State())
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("duplicate parent/child report: %#v", reason)
++	default:
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestChainedPromiseLatePassThroughCheckerWinSuppressesChildReport(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 2)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, _, rejectParent := js.NewChainedPromise()
++	rejectParent("checker owns")
++	checkerClaimed := make(chan struct{})
++	releaseCallback := make(chan struct{})
++	release := releaseSignalT(t, releaseCallback)
++	loop.testHooks = &loopTestHooks{
++		BeforeUnhandledRejectionCallback: func() {
++			close(checkerClaimed)
++			<-releaseCallback
++		},
++	}
++	checkerDone := make(chan struct{})
++	go func() {
++		js.checkUnhandledRejections()
++		close(checkerDone)
++	}()
++	select {
++	case <-checkerClaimed:
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker did not claim the parent report")
++	}
++	child := parent.Then(nil, nil)
++	grandchild := child.Then(nil, nil)
++	release()
++	select {
++	case <-checkerDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker did not finish parent reporting")
++	}
++	select {
++	case reason := <-reported:
++		if reason != "checker owns" {
++			t.Fatalf("parent reason = %#v, want checker owns", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker-owned parent was not reported")
++	}
++
++	grandchildDone := grandchild.ToChannel()
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	select {
++	case <-grandchildDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker-owned pass-through chain did not settle")
++	}
++	if child.State() != Rejected {
++		t.Fatalf("child state = %v, want Rejected", child.State())
++	}
++	if grandchild.State() != Rejected {
++		t.Fatalf("grandchild state = %v, want Rejected", grandchild.State())
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("checker-owned propagation reported child too: %#v", reason)
++	default:
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestChainedPromiseLatePassThroughAfterHandledCleanupReportsChild(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 1)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, _, rejectParent := js.NewChainedPromise()
++	handled := make(chan struct{}, 1)
++	parent.Catch(func(any) any {
++		handled <- struct{}{}
++		return nil
++	})
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	rejectParent("handled parent")
++	select {
++	case <-handled:
++	case <-time.After(5 * time.Second):
++		t.Fatal("parent rejection handler did not run")
++	}
++	deadline := time.Now().Add(5 * time.Second)
++	for {
++		js.rejectionsMu.RLock()
++		_, exists := js.unhandledRejections[parent]
++		js.rejectionsMu.RUnlock()
++		if !exists {
++			break
++		}
++		if time.Now().After(deadline) {
++			t.Fatal("handled parent rejection record was not cleaned")
++		}
++		runtime.Gosched()
++	}
++
++	child := parent.Then(nil, nil)
++	select {
++	case reason := <-reported:
++		if reason != "handled parent" {
++			t.Fatalf("child reason = %#v, want handled parent", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("late pass-through child was incorrectly suppressed")
++	}
++	if child.State() != Rejected {
++		t.Fatalf("child state = %v, want Rejected", child.State())
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestChainedPromiseDiscardedPassThroughReportsParent(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 2)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	parent, _, rejectParent := js.NewChainedPromise()
++	child := parent.Then(nil, nil)
++	rejectParent("discarded propagation")
++	if err := loop.Close(); err != nil {
++		t.Fatalf("Close: %v", err)
++	}
++	select {
++	case reason := <-reported:
++		if reason != "discarded propagation" {
++			t.Fatalf("reported reason = %#v, want discarded propagation", reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("discarded propagation suppressed the parent diagnostic")
++	}
++	if child.State() != Pending {
++		t.Fatalf("discarded pass-through child state = %v, want Pending", child.State())
++	}
++	select {
++	case reason := <-reported:
++		t.Fatalf("discarded propagation produced duplicate report: %#v", reason)
++	default:
++	}
++}
++
++func TestChainedPromiseTerminalScheduleFailureTransfersReportBeforeChildReject(t *testing.T) {
++	for _, mode := range []UnhandledRejectionFallbackMode{
++		UnhandledRejectionFallbackIsolated,
++		UnhandledRejectionFallbackDisabled,
++	} {
++		t.Run(fmt.Sprint(mode), func(t *testing.T) {
++			loop, err := New()
++			if err != nil {
++				t.Fatal(err)
++			}
++			registerLoopCleanupT(t, loop)
++			reported := make(chan any, 2)
++			js, err := NewJS(loop,
++				WithUnhandledRejection(func(reason any) { reported <- reason }),
++				WithUnhandledRejectionFallback(mode),
++			)
++			if err != nil {
++				t.Fatal(err)
++			}
++			parent, _, rejectParent := js.NewChainedPromise()
++			child := parent.Then(nil, nil)
++			if err := loop.Close(); err != nil {
++				t.Fatalf("Close: %v", err)
++			}
++			rejectParent("terminal transfer")
++			if child.State() != Rejected {
++				t.Fatalf("child state = %v, want Rejected", child.State())
++			}
++			js.rejectionsMu.RLock()
++			_, parentTracked := js.unhandledRejections[parent]
++			js.rejectionsMu.RUnlock()
++			if parentTracked {
++				t.Fatal("parent remained tracked after report ownership transferred")
++			}
++			if mode == UnhandledRejectionFallbackIsolated {
++				select {
++				case reason := <-reported:
++					if reason != "terminal transfer" {
++						t.Fatalf("reported reason = %#v, want terminal transfer", reason)
++					}
++				case <-time.After(5 * time.Second):
++					t.Fatal("terminal child rejection was not reported")
++				}
++				select {
++				case reason := <-reported:
++					t.Fatalf("terminal parent and child were both reported: %#v", reason)
++				default:
++				}
++			}
++		})
++	}
++}
++
++func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
++	tests := []struct {
++		name         string
++		adopters     bool
++		terminal     bool
++		handledFirst bool
++	}{
++		{name: "branches-first-handled", handledFirst: true},
++		{name: "branches-second-handled"},
++		{name: "adopters-first-handled", adopters: true, handledFirst: true},
++		{name: "adopters-second-handled", adopters: true},
++		{name: "terminal-first-handled", terminal: true, handledFirst: true},
++		{name: "terminal-second-handled", terminal: true},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			loop, err := New()
++			if err != nil {
++				t.Fatal(err)
++			}
++			registerLoopCleanupT(t, loop)
++			reported := make(chan any, 4)
++			js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++			if err != nil {
++				t.Fatal(err)
++			}
++			reason := "fanout " + test.name
++			source, _, rejectSource := js.NewChainedPromise()
++			var first, second *ChainedPromise
++			if test.adopters {
++				var resolveFirst, resolveSecond ResolveFunc
++				first, resolveFirst, _ = js.NewChainedPromise()
++				second, resolveSecond, _ = js.NewChainedPromise()
++				resolveFirst(source)
++				resolveSecond(source)
++			} else {
++				first = source.Then(nil, nil)
++				second = source.Then(nil, nil)
++			}
++
++			handled := second
++			if test.handledFirst {
++				handled = first
++			}
++			unhandled := first
++			if test.handledFirst {
++				unhandled = second
++			}
++			handledDone := make(chan struct{}, 1)
++			if test.terminal {
++				// A user handler cannot run after terminal scheduling closes. Mark the
++				// selected sibling directly so this case isolates propagation ownership
++				// without creating a Catch child that must reject on schedule failure.
++				handled.rejectionHandled.Store(true)
++				if err := loop.Close(); err != nil {
++					t.Fatalf("Close: %v", err)
++				}
++			} else {
++				handled.Catch(func(any) any {
++					handledDone <- struct{}{}
++					return nil
++				})
++			}
++
++			var runDone chan error
++			if !test.terminal {
++				runDone = make(chan error, 1)
++				go func() { runDone <- loop.Run(context.Background()) }()
++				waitForLoopRunning(t, loop, 5*time.Second)
++			}
++			rejectSource(reason)
++
++			for index, promise := range []*ChainedPromise{first, second} {
++				select {
++				case got := <-promise.ToChannel():
++					if got != reason {
++						t.Fatalf("sibling %d reason = %#v, want %q", index, got, reason)
++					}
++				case <-time.After(5 * time.Second):
++					t.Fatalf("sibling %d did not settle", index)
++				}
++				if promise.State() != Rejected {
++					t.Fatalf("sibling %d state = %v, want Rejected", index, promise.State())
++				}
++			}
++			if !test.terminal {
++				select {
++				case <-handledDone:
++				case <-time.After(5 * time.Second):
++					t.Fatal("handled sibling callback did not run")
++				}
++			}
++			select {
++			case got := <-reported:
++				if got != reason {
++					t.Fatalf("reported reason = %#v, want %q", got, reason)
++				}
++			case <-time.After(5 * time.Second):
++				t.Fatal("unhandled sibling rejection was not reported")
++			}
++
++			if !test.terminal {
++				if err := loop.Shutdown(context.Background()); err != nil {
++					t.Fatalf("Shutdown: %v", err)
++				}
++				if err := <-runDone; err != nil {
++					t.Fatalf("Run: %v", err)
++				}
++			}
++			waitUnhandledRejectionTrackingDrained(t, js)
++			if source.rejectionHandled.reported() {
++				t.Fatal("source owned the report instead of a fanout descendant")
++			}
++			if !unhandled.rejectionHandled.reported() {
++				t.Fatal("unhandled sibling did not own the report")
++			}
++			if handled.rejectionHandled.reported() {
++				t.Fatal("handled sibling was marked reported")
++			}
++			select {
++			case duplicate := <-reported:
++				t.Fatalf("duplicate fanout report: %#v", duplicate)
++			default:
++			}
++		})
++	}
++}
++
++func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
++	tests := []struct {
++		name         string
++		adopters     bool
++		handledFirst bool
++	}{
++		{name: "branches-first-handled", handledFirst: true},
++		{name: "branches-second-handled"},
++		{name: "adopters-first-handled", adopters: true, handledFirst: true},
++		{name: "adopters-second-handled", adopters: true},
++	}
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			loop, err := New()
++			if err != nil {
++				t.Fatal(err)
++			}
++			registerLoopCleanupT(t, loop)
++			reported := make(chan any, 4)
++			js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++			if err != nil {
++				t.Fatal(err)
++			}
++			reason := "checker race " + test.name
++			source, _, rejectSource := js.NewChainedPromise()
++			rejectSource(reason)
++
++			checkerAtSource := make(chan struct{})
++			releaseChecker := make(chan struct{})
++			release := releaseSignalT(t, releaseChecker)
++			loop.testHooks = &loopTestHooks{
++				BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
++					if promise != source {
++						return
++					}
++					select {
++					case <-checkerAtSource:
++					default:
++						close(checkerAtSource)
++					}
++					<-releaseChecker
++				},
++			}
++			checkerDone := make(chan struct{})
++			go func() {
++				js.checkUnhandledRejections()
++				close(checkerDone)
++			}()
++			select {
++			case <-checkerAtSource:
++			case <-time.After(5 * time.Second):
++				t.Fatal("checker did not snapshot source")
++			}
++
++			var first, second *ChainedPromise
++			if test.adopters {
++				var resolveFirst, resolveSecond ResolveFunc
++				first, resolveFirst, _ = js.NewChainedPromise()
++				second, resolveSecond, _ = js.NewChainedPromise()
++				resolveFirst(source)
++				resolveSecond(source)
++			} else {
++				first = source.Then(nil, nil)
++				second = source.Then(nil, nil)
++			}
++			handled, unhandled := second, first
++			if test.handledFirst {
++				handled, unhandled = first, second
++			}
++			handledDone := make(chan struct{}, 1)
++			handled.Catch(func(any) any {
++				handledDone <- struct{}{}
++				return nil
++			})
++
++			release()
++			select {
++			case <-checkerDone:
++			case <-time.After(5 * time.Second):
++				t.Fatal("checker did not yield to propagation")
++			}
++			select {
++			case premature := <-reported:
++				t.Fatalf("checker reported source before propagation: %#v", premature)
++			default:
++			}
++
++			runDone := make(chan error, 1)
++			go func() { runDone <- loop.Run(context.Background()) }()
++			for index, promise := range []*ChainedPromise{first, second} {
++				select {
++				case got := <-promise.ToChannel():
++					if got != reason {
++						t.Fatalf("sibling %d reason = %#v, want %q", index, got, reason)
++					}
++				case <-time.After(5 * time.Second):
++					t.Fatalf("sibling %d did not settle", index)
++				}
++			}
++			select {
++			case <-handledDone:
++			case <-time.After(5 * time.Second):
++				t.Fatal("handled sibling callback did not run")
++			}
++			select {
++			case got := <-reported:
++				if got != reason {
++					t.Fatalf("reported reason = %#v, want %q", got, reason)
++				}
++			case <-time.After(5 * time.Second):
++				t.Fatal("unhandled sibling rejection was not reported")
++			}
++			if err := loop.Shutdown(context.Background()); err != nil {
++				t.Fatalf("Shutdown: %v", err)
++			}
++			if err := <-runDone; err != nil {
++				t.Fatalf("Run: %v", err)
++			}
++			waitUnhandledRejectionTrackingDrained(t, js)
++			if source.rejectionHandled.reported() {
++				t.Fatal("source checker won despite published propagation")
++			}
++			if !unhandled.rejectionHandled.reported() {
++				t.Fatal("unhandled sibling did not own the report")
++			}
++			if handled.rejectionHandled.reported() {
++				t.Fatal("handled sibling was marked reported")
++			}
++			select {
++			case duplicate := <-reported:
++				t.Fatalf("duplicate checker-race report: %#v", duplicate)
++			default:
++			}
++		})
++	}
++}
++
++func TestChainedPromiseFanoutCheckerWinsBeforeLateBranches(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	reported := make(chan any, 4)
++	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, _, rejectSource := js.NewChainedPromise()
++	rejectSource("checker owns fanout")
++	checkerClaimed := make(chan struct{})
++	releaseCallback := make(chan struct{})
++	release := releaseSignalT(t, releaseCallback)
++	loop.testHooks = &loopTestHooks{
++		BeforeUnhandledRejectionCallback: func() {
++			select {
++			case <-checkerClaimed:
++			default:
++				close(checkerClaimed)
++			}
++			<-releaseCallback
++		},
++	}
++	checkerDone := make(chan struct{})
++	go func() {
++		js.checkUnhandledRejections()
++		close(checkerDone)
++	}()
++	select {
++	case <-checkerClaimed:
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker did not claim source report")
++	}
++	first := source.Then(nil, nil)
++	second := source.Then(nil, nil)
++	release()
++	select {
++	case <-checkerDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("checker did not finish source report")
++	}
++	select {
++	case got := <-reported:
++		if got != "checker owns fanout" {
++			t.Fatalf("source report = %#v", got)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("source report missing")
++	}
++
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	for index, promise := range []*ChainedPromise{first, second} {
++		select {
++		case got := <-promise.ToChannel():
++			if got != "checker owns fanout" {
++				t.Fatalf("sibling %d reason = %#v", index, got)
++			}
++		case <-time.After(5 * time.Second):
++			t.Fatalf("sibling %d did not settle", index)
++		}
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++	waitUnhandledRejectionTrackingDrained(t, js)
++	if !source.rejectionHandled.reported() {
++		t.Fatal("source was not marked reported by checker")
++	}
++	if !first.rejectionHandled.reported() || !second.rejectionHandled.reported() {
++		t.Fatal("checker-owned descendants were not suppressed")
++	}
++	select {
++	case duplicate := <-reported:
++		t.Fatalf("checker-owned descendants produced report: %#v", duplicate)
++	default:
++	}
++}
++
++func TestChainedPromiseReactionObservesPublishedFulfillment(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	js, err := NewJS(loop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	promise, resolve, _ := js.NewChainedPromise()
++	observed := make(chan struct {
++		state PromiseState
++		value any
++	}, 1)
++	promise.Then(func(value any) any {
++		observed <- struct {
++			state PromiseState
++			value any
++		}{state: promise.State(), value: promise.Value()}
++		return value
++	}, nil)
++
++	handlerQueued := make(chan struct{})
++	releaseResolver := make(chan struct{})
++	release := releaseSignalT(t, releaseResolver)
++	var once sync.Once
++	loop.testHooks = &loopTestHooks{
++		AfterPromiseHandlerScheduled: func() {
++			once.Do(func() {
++				close(handlerQueued)
++				<-releaseResolver
++			})
++		},
++	}
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	resolveDone := make(chan struct{})
++	go func() {
++		resolve("published")
++		close(resolveDone)
++	}()
++
++	select {
++	case <-handlerQueued:
++	case <-time.After(5 * time.Second):
++		t.Fatal("resolver did not queue the reaction")
++	}
++	select {
++	case got := <-observed:
++		if got.state != Fulfilled || got.value != "published" {
++			t.Fatalf("reaction observed state=%v value=%#v", got.state, got.value)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("reaction did not execute while resolver was paused")
++	}
++	release()
++	select {
++	case <-resolveDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("resolver did not return")
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestChainedPromiseReactionObservesPublishedRejection(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	js, err := NewJS(loop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	promise, _, reject := js.NewChainedPromise()
++	observed := make(chan struct {
++		state  PromiseState
++		reason any
++	}, 1)
++	promise.Catch(func(reason any) any {
++		observed <- struct {
++			state  PromiseState
++			reason any
++		}{state: promise.State(), reason: promise.Reason()}
++		return reason
++	})
++
++	handlerQueued := make(chan struct{})
++	releaseRejecter := make(chan struct{})
++	release := releaseSignalT(t, releaseRejecter)
++	var once sync.Once
++	loop.testHooks = &loopTestHooks{
++		AfterPromiseHandlerScheduled: func() {
++			once.Do(func() {
++				close(handlerQueued)
++				<-releaseRejecter
++			})
++		},
++	}
++	runDone := make(chan error, 1)
++	go func() { runDone <- loop.Run(context.Background()) }()
++	rejectDone := make(chan struct{})
++	go func() {
++		reject("published rejection")
++		close(rejectDone)
++	}()
++
++	select {
++	case <-handlerQueued:
++	case <-time.After(5 * time.Second):
++		t.Fatal("rejecter did not queue the reaction")
++	}
++	select {
++	case got := <-observed:
++		if got.state != Rejected || got.reason != "published rejection" {
++			t.Fatalf("reaction observed state=%v reason=%#v", got.state, got.reason)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("rejection reaction did not execute while rejecter was paused")
++	}
++	release()
++	select {
++	case <-rejectDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("rejecter did not return")
++	}
++	if err := loop.Shutdown(context.Background()); err != nil {
++		t.Fatalf("Shutdown: %v", err)
++	}
++	if err := <-runDone; err != nil {
++		t.Fatalf("Run: %v", err)
++	}
++}
++
++func TestPromiseCombinatorsRejectNilWithoutPartialAttachment(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	js, err := NewJS(loop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	source, _, _ := js.NewChainedPromise()
++
++	combinators := map[string]func([]*ChainedPromise) *ChainedPromise{
++		"all":        js.All,
++		"race":       js.Race,
++		"allSettled": js.AllSettled,
++		"any":        js.Any,
++	}
++	for name, combinator := range combinators {
++		t.Run(name, func(t *testing.T) {
++			result := combinator([]*ChainedPromise{source, nil})
++			if state := result.State(); state != Rejected {
++				t.Fatalf("state = %v, want Rejected", state)
++			}
++			var nilInput *NilPromiseError
++			if !errors.As(reasonError(result.Reason()), &nilInput) || nilInput.Index != 1 {
++				t.Fatalf("reason = %#v, want nil input at index 1", result.Reason())
++			}
++			if source.rejectionHandled.Load() {
++				t.Fatal("valid source was marked handled before nil input validation")
++			}
++		})
++	}
++}
++
++func TestPromiseAnyEmptyHasZeroReasons(t *testing.T) {
++	loop, err := New()
++	if err != nil {
++		t.Fatal(err)
++	}
++	registerLoopCleanupT(t, loop)
++	js, err := NewJS(loop)
++	if err != nil {
++		t.Fatal(err)
++	}
++	result := js.Any(nil)
++	aggregate, ok := result.Reason().(*AggregateError)
++	if !ok {
++		t.Fatalf("reason = %T, want *AggregateError", result.Reason())
++	}
++	if len(aggregate.Errors) != 0 {
++		t.Fatalf("empty Any reasons = %d, want 0", len(aggregate.Errors))
++	}
++}
++
++func reasonError(reason any) error {
++	err, _ := reason.(error)
++	return err
++}

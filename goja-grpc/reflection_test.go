@@ -606,7 +606,9 @@ func TestReflection_EnableFromGo(t *testing.T) {
 	defer env.shutdown()
 
 	// Enable reflection from Go before the JS runs.
-	env.grpcMod.EnableReflection()
+	if err := env.grpcMod.EnableReflection(); err != nil {
+		t.Fatal(err)
+	}
 
 	env.runOnLoop(t, `
 		var server = grpc.createServer();

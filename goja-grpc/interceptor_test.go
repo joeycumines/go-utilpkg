@@ -153,6 +153,230 @@ func TestInterceptor_InspectResponse(t *testing.T) {
 	}
 }
 
+func TestInterceptor_AsyncDelayedNextWithSignal(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	env.runOnLoop(t, echoServerJS+`
+		function delayedNext(next) {
+			return function(req) {
+				return new Promise(function(resolve) {
+					setTimeout(function() {
+						resolve(next(req));
+					}, 1);
+				});
+			};
+		}
+
+		var client = grpc.createClient('testgrpc.TestService', {
+			interceptors: [delayedNext]
+		});
+		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
+		var req = new EchoRequest();
+		req.set('message', 'delayed-next');
+		var controller = new AbortController();
+		var addCount = 0;
+		var removeCount = 0;
+		var originalAdd = controller.signal.addEventListener;
+		var originalRemove = controller.signal.removeEventListener;
+		controller.signal.addEventListener = function(type, listener, options) {
+			addCount++;
+			return originalAdd.call(this, type, listener, options);
+		};
+		controller.signal.removeEventListener = function(type, listener, options) {
+			removeCount++;
+			return originalRemove.call(this, type, listener, options);
+		};
+
+		var result;
+		client.echo(req, { signal: controller.signal }).then(function(resp) {
+			result = {
+				message: resp.get('message'),
+				addCount: addCount,
+				removeCount: removeCount
+			};
+			__done();
+		}).catch(function(err) {
+			result = { error: String(err && (err.message || err.code) || err) };
+			__done();
+		});
+	`, defaultTimeout)
+
+	result := env.runtime.Get("result")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	exported := result.Export().(map[string]any)
+	if err, ok := exported["error"]; ok {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(exported["message"].(string), "msg=delayed-next") {
+		t.Errorf("expected %q to contain %q", exported["message"], "msg=delayed-next")
+	}
+	if got := exported["addCount"]; got != int64(0) {
+		t.Errorf("addEventListener count = %v, want 0", got)
+	}
+	if got := exported["removeCount"]; got != int64(0) {
+		t.Errorf("removeEventListener count = %v, want 0", got)
+	}
+}
+
+func TestInterceptor_DelayedNextUsesCallEntrySignalSnapshot(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	env.runOnLoop(t, echoServerJS+`
+		function delayedNext(next) {
+			return function(req) {
+				return new Promise(function(resolve) {
+					setTimeout(function() {
+						resolve(next(req));
+					}, 1);
+				});
+			};
+		}
+
+		var client = grpc.createClient('testgrpc.TestService', {
+			interceptors: [delayedNext]
+		});
+		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
+		var req = new EchoRequest();
+		req.set('message', 'signal-snapshot');
+		var original = new AbortController();
+		var replacement = new AbortController();
+		var opts = { signal: original.signal };
+		var result;
+
+		client.echo(req, opts).then(function(resp) {
+			result = { unexpected: resp.get('message') };
+			__done();
+		}).catch(function(err) {
+			result = { name: err.name, code: err.code };
+			__done();
+		});
+		opts.signal = replacement.signal;
+		original.abort();
+	`, defaultTimeout)
+
+	result := env.runtime.Get("result")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	exported := result.Export().(map[string]any)
+	if unexpected, ok := exported["unexpected"]; ok {
+		t.Fatalf("RPC unexpectedly succeeded with %v", unexpected)
+	}
+	if got := exported["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := exported["code"]; got != int64(1) {
+		t.Errorf("expected %v, got %v", int64(1), got)
+	}
+}
+
+func TestInterceptor_DelayedNextTimeoutCountsFromCallEntry(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	env.runOnLoop(t, echoServerJS+`
+		function delayedNext(next) {
+			return function(req) {
+				return new Promise(function(resolve) {
+					setTimeout(function() {
+						resolve(next(req));
+					}, 20);
+				});
+			};
+		}
+
+		var client = grpc.createClient('testgrpc.TestService', {
+			interceptors: [delayedNext]
+		});
+		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
+		var req = new EchoRequest();
+		req.set('message', 'timeout-snapshot');
+		var opts = { timeoutMs: 1 };
+		var result;
+
+		client.echo(req, opts).then(function(resp) {
+			result = { unexpected: resp.get('message') };
+			__done();
+		}).catch(function(err) {
+			result = { name: err.name, code: err.code };
+			__done();
+		});
+		opts.timeoutMs = 60000;
+	`, defaultTimeout)
+
+	result := env.runtime.Get("result")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	exported := result.Export().(map[string]any)
+	if unexpected, ok := exported["unexpected"]; ok {
+		t.Fatalf("RPC unexpectedly succeeded with %v", unexpected)
+	}
+	if got := exported["name"]; got != "GrpcError" {
+		t.Errorf("expected %v, got %v", "GrpcError", got)
+	}
+	if got := exported["code"]; got != int64(4) {
+		t.Errorf("expected %v, got %v", int64(4), got)
+	}
+}
+
+func TestInterceptor_NextRejectsSecondInvocation(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	env.runOnLoop(t, echoServerJS+`
+		function doubleNext(next) {
+			return function(req) {
+				var first = next(req);
+				var secondError;
+				try {
+					next(req);
+				} catch (e) {
+					secondError = e.name + ': ' + e.message;
+				}
+				return first.then(function(resp) {
+					return { message: resp.get('message'), secondError: secondError };
+				});
+			};
+		}
+
+		var client = grpc.createClient('testgrpc.TestService', {
+			interceptors: [doubleNext]
+		});
+		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
+		var req = new EchoRequest();
+		req.set('message', 'single-next');
+		var result;
+
+		client.echo(req).then(function(value) {
+			result = value;
+			__done();
+		}).catch(function(err) {
+			result = { error: String(err && (err.message || err)) };
+			__done();
+		});
+	`, defaultTimeout)
+
+	result := env.runtime.Get("result")
+	if result == nil {
+		t.Fatalf("expected non-nil")
+	}
+	exported := result.Export().(map[string]any)
+	if err, ok := exported["error"]; ok {
+		t.Fatalf("unexpected interceptor error: %v", err)
+	}
+	if !strings.Contains(exported["message"].(string), "msg=single-next") {
+		t.Errorf("expected %q to contain %q", exported["message"], "msg=single-next")
+	}
+	if got := exported["secondError"]; got == nil || !strings.Contains(got.(string), "interceptor next called multiple times") {
+		t.Fatalf("second next error = %v, want multiple-next TypeError", got)
+	}
+}
+
 func TestInterceptor_TransformResponse(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()

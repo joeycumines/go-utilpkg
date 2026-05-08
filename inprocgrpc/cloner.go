@@ -14,9 +14,10 @@ import (
 // the unreachable-in-normal-operation fallback error paths.
 var getCodecV2 = encoding.GetCodecV2
 
-// Cloner is used to copy messages between client and server within the
-// in-process channel. Because both sides share the same address space,
-// messages must be isolated to prevent concurrent mutation.
+// Cloner is used concurrently across Channel RPCs and by the permitted sender
+// and receiver of each stream. Implementations must be concurrency-safe.
+// Because both sides share the same address space, messages must be isolated
+// to prevent concurrent mutation.
 type Cloner interface {
 	// Copy copies the contents of in into out. Both must be the same
 	// concrete type (typically a pointer to a proto message).
@@ -24,6 +25,64 @@ type Cloner interface {
 
 	// Clone creates a deep copy of the given message.
 	Clone(any) (any, error)
+}
+
+type cloneCallResult struct {
+	value any
+	err   error
+}
+
+func cloneMessageSafe(
+	operation string,
+	cloner Cloner,
+	message any,
+) cloneCallResult {
+	result := make(chan cloneCallResult, 1)
+	go func() {
+		returned := false
+		output := cloneCallResult{}
+		defer func() {
+			_ = recover()
+			if !returned {
+				output = cloneCallResult{
+					err: internalFailureError(operation),
+				}
+			}
+			result <- output
+		}()
+		output.value, output.err = cloner.Clone(message)
+		if output.err != nil {
+			output.err = cloneError(operation, output.err)
+		}
+		returned = true
+	}()
+	return <-result
+}
+
+func copyMessageSafe(
+	operation string,
+	cloner Cloner,
+	target any,
+	source any,
+) error {
+	result := make(chan error, 1)
+	go func() {
+		returned := false
+		var err error
+		defer func() {
+			_ = recover()
+			if !returned {
+				err = internalFailureError(operation)
+			}
+			result <- err
+		}()
+		err = cloner.Copy(target, source)
+		if err != nil {
+			err = cloneError(operation, err)
+		}
+		returned = true
+	}()
+	return <-result
 }
 
 // ProtoCloner is the default Cloner that handles proto.Message instances.
@@ -64,15 +123,38 @@ func (ProtoCloner) Clone(in any) (any, error) {
 
 // CloneFunc creates a Cloner from a clone function.
 // Copy is implemented by cloning, then shallow-copying via reflection.
+// Derived Copy requires non-nil pointers with the same element type.
+// CloneFunc panics if fn is nil.
 func CloneFunc(fn func(any) (any, error)) Cloner {
+	if fn == nil {
+		panic("inprocgrpc: clone function must not be nil")
+	}
 	return funcCloner{
 		cloneFn: fn,
 		copyFn: func(out, in any) error {
+			outValue, outType, err := clonePointer(out, "copy output")
+			if err != nil {
+				return err
+			}
 			cloned, err := fn(in)
 			if err != nil {
 				return err
 			}
-			reflect.ValueOf(out).Elem().Set(reflect.ValueOf(cloned).Elem())
+			clonedValue, clonedType, err := clonePointer(
+				cloned,
+				"clone result",
+			)
+			if err != nil {
+				return err
+			}
+			if clonedType != outType {
+				return fmt.Errorf(
+					"inprocgrpc: clone result element type %s does not match copy output %s",
+					clonedType,
+					outType,
+				)
+			}
+			outValue.Set(clonedValue)
 			return nil
 		},
 	}
@@ -80,10 +162,19 @@ func CloneFunc(fn func(any) (any, error)) Cloner {
 
 // CopyFunc creates a Cloner from a copy function.
 // Clone is implemented by creating a new zero value and copying into it.
+// Derived Clone requires a non-nil pointer input.
+// CopyFunc panics if fn is nil.
 func CopyFunc(fn func(out, in any) error) Cloner {
+	if fn == nil {
+		panic("inprocgrpc: copy function must not be nil")
+	}
 	return funcCloner{
 		cloneFn: func(in any) (any, error) {
-			out := reflect.New(reflect.TypeOf(in).Elem()).Interface()
+			_, elementType, err := clonePointer(in, "clone input")
+			if err != nil {
+				return nil, err
+			}
+			out := reflect.New(elementType).Interface()
 			if err := fn(out, in); err != nil {
 				return nil, err
 			}
@@ -95,13 +186,21 @@ func CopyFunc(fn func(out, in any) error) Cloner {
 
 // CodecCloner creates a Cloner that uses a gRPC codec (v1) for cloning.
 // Messages are marshaled and then unmarshaled - a full roundtrip.
+// CodecCloner panics if codec is nil, including a typed nil.
 func CodecCloner(codec encoding.Codec) Cloner {
+	if isNil(codec) {
+		panic("inprocgrpc: codec must not be nil")
+	}
 	return codecClonerV1{codec: codec}
 }
 
 // CodecClonerV2 creates a Cloner that uses a gRPC CodecV2 for cloning.
 // Messages are marshaled and then unmarshaled - a full roundtrip.
+// CodecClonerV2 panics if codec is nil, including a typed nil.
 func CodecClonerV2(codec encoding.CodecV2) Cloner {
+	if isNil(codec) {
+		panic("inprocgrpc: codec must not be nil")
+	}
 	return codecClonerV2{codec: codec}
 }
 
@@ -126,7 +225,11 @@ func (c codecClonerV1) Copy(out, in any) error {
 }
 
 func (c codecClonerV1) Clone(in any) (any, error) {
-	out := reflect.New(reflect.TypeOf(in).Elem()).Interface()
+	_, elementType, err := clonePointer(in, "clone input")
+	if err != nil {
+		return nil, err
+	}
+	out := reflect.New(elementType).Interface()
 	if err := c.Copy(out, in); err != nil {
 		return nil, err
 	}
@@ -146,9 +249,29 @@ func (c codecClonerV2) Copy(out, in any) error {
 }
 
 func (c codecClonerV2) Clone(in any) (any, error) {
-	out := reflect.New(reflect.TypeOf(in).Elem()).Interface()
+	_, elementType, err := clonePointer(in, "clone input")
+	if err != nil {
+		return nil, err
+	}
+	out := reflect.New(elementType).Interface()
 	if err := c.Copy(out, in); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+func clonePointer(
+	value any,
+	subject string,
+) (reflect.Value, reflect.Type, error) {
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() ||
+		reflected.Kind() != reflect.Pointer ||
+		reflected.IsNil() {
+		return reflect.Value{}, nil, fmt.Errorf(
+			"inprocgrpc: %s must be a non-nil pointer",
+			subject,
+		)
+	}
+	return reflected.Elem(), reflected.Type().Elem(), nil
 }

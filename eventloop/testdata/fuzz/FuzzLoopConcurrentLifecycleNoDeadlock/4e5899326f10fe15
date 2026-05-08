@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BBBBBBBBBBBBBB\x85BBB@B\xffBBB\x7f\xff\xff\xffBBBBBBBBBBBBBBBBBBBBB")

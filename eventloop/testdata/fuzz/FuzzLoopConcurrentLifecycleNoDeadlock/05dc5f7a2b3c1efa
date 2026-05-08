@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xf6\xf6\xf6\xf62\xf6z2727x72z+8\xf6,Z8Z\xf6777\"!y7Z( Z")

@@ -1,227 +1,112 @@
 package tournament
 
 import (
-	"context"
-	"sync"
-	"sync/atomic"
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 )
 
-// This microbenchmark tests Hypothesis #1: CS contention on Main's lock-free queue
-// causes throughput degradation under high producer counts.
-//
-// Hypothesis:
-// - Lock-free ingress (CAS-based) wins at low contention (1-4 producers)
-// - Mutex-based batching (AlternateThree) wins at high contention (>8 producers)
-// - CAS failures increase exponentially with producer count
-//
-// Expected Pattern:
-// - Main throughput degrades as producers increase due to CAS contention
-// - AlternateThree maintains better scaling with mutex protection
-// - Crossover point where mutex beats CAS should be visible
-
-// BenchmarkMicroCASContention measures CAS contention effects on ingress queue submission.
-// Tests 1, 2, 4, 8, 16, 32 concurrent producers.
+// BenchmarkMicroCASContention measures exact submission cost as producer count
+// increases. Callback drain is verified after timing so a scheduler cannot look
+// fast by rejecting or losing accepted work.
 func BenchmarkMicroCASContention(b *testing.B) {
 	producerCounts := []int{1, 2, 4, 8, 16, 32}
-
-	// Test Main (CAS-based ingress)
-	for _, numProducers := range producerCounts {
-		b.Run("Main/N="+fmtProducers(numProducers), func(b *testing.B) {
-			benchmarkCASContention(b, "Main", numProducers)
-		})
-	}
-
-	// Test AlternateThree (mutex-based ingress)
-	for _, numProducers := range producerCounts {
-		b.Run("AlternateThree/N="+fmtProducers(numProducers), func(b *testing.B) {
-			benchmarkCASContention(b, "AlternateThree", numProducers)
-		})
-	}
-
-	// Test Baseline for comparison (no queue, direct execution)
-	for _, numProducers := range producerCounts {
-		b.Run("Baseline/N="+fmtProducers(numProducers), func(b *testing.B) {
-			benchmarkCASContention(b, "Baseline", numProducers)
-		})
-	}
-}
-
-func fmtProducers(n int) string {
-	if n < 10 {
-		return "0" + string(rune('0'+n))
-	}
-	return string(rune('0'+n/10)) + string(rune('0'+n%10))
-}
-
-func benchmarkCASContention(b *testing.B, implName string, numProducers int) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
+	for _, impl := range Implementations() {
+		for _, producerCount := range producerCounts {
+			b.Run(fmt.Sprintf("%s/N=%02d", impl.Name, producerCount), func(b *testing.B) {
+				benchmarkCASContention(b, impl, producerCount)
+			})
 		}
 	}
+}
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
+func benchmarkCASContention(b *testing.B, impl Implementation, producerCount int) {
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
-
-	// Pure submission benchmark - measure just the submission cost
+	producers := newBenchmarkProducerGroup(b, producerCount)
+	tasks := newBenchmarkBarrier(b.N)
+	submitErrors := make(chan error, 1)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
+	b.ReportAllocs()
 	b.ResetTimer()
-
-	// Distribute N operations across numProducers goroutines
-	tasksPerProducer := max(b.N/numProducers, 1)
-
-	var wg sync.WaitGroup
-	var counter atomic.Int64
-
-	for range numProducers {
-		wg.Go(func() {
-			for range tasksPerProducer {
-				err := loop.Submit(func() {
-					counter.Add(1)
-				})
-				if err != nil {
-					// Handle errors gracefully during shutdown
+	for producer := range producerCount {
+		taskCount := b.N / producerCount
+		if producer < b.N%producerCount {
+			taskCount++
+		}
+		producers.Go(func(stop <-chan struct{}) {
+			for range taskCount {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				if err := loop.Submit(tasks.Done); err != nil {
+					tasks.Done()
+					select {
+					case submitErrors <- err:
+					default:
+					}
 				}
 			}
 		})
 	}
-
-	wg.Wait()
-
+	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "CAS-contention producer exit")
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	// Record result
-	result := BenchmarkResult{
-		BenchmarkName:  "MicroCASContention/Np=" + fmtProducers(numProducers),
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
+	waitBenchmarkBarrier(b, tasks, deadline.C, "CAS-contention callback drain")
+	select {
+	case err := <-submitErrors:
+		b.Fatalf("Submit: %v", err)
+	default:
 	}
-	GetResults().RecordBenchmark(result)
 }
 
-// BenchmarkMicroCASContention_Latency measures latency distribution under contention.
-// Collects P50, P95, P99 by measuring single task completion time.
+// BenchmarkMicroCASContention_Latency measures end-to-end task latency and
+// reports sorted percentile observations for every scheduler variant.
 func BenchmarkMicroCASContention_Latency(b *testing.B) {
-	for _, implName := range []string{"Main", "AlternateThree", "Baseline"} {
-		b.Run(implName, func(b *testing.B) {
-			benchmarkCASLatency(b, implName)
+	for _, impl := range Implementations() {
+		b.Run(impl.Name, func(b *testing.B) {
+			benchmarkCASLatency(b, impl)
 		})
 	}
 }
 
-func benchmarkCASLatency(b *testing.B, implName string) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
-		}
-	}
+func benchmarkCASLatency(b *testing.B, impl Implementation) {
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
-
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	warmupDone := make(chan struct{})
-	_ = loop.Submit(func() { close(warmupDone) })
-	<-warmupDone
-
-	// Measure single task latency
+	latencies := make([]time.Duration, 0, b.N)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
+	b.ReportAllocs()
 	b.ResetTimer()
-
-	var latencies []time.Duration
-	latencies = make([]time.Duration, 0, b.N)
-
-	for i := 0; i < b.N; i++ {
-		start := time.Now()
+	for range b.N {
+		started := time.Now()
 		done := make(chan struct{})
-		_ = loop.Submit(func() { close(done) })
-		<-done
-		latency := time.Since(start)
-		latencies = append(latencies, latency)
+		if err := loop.Submit(func() { close(done) }); err != nil {
+			b.Fatalf("Submit: %v", err)
+		}
+		waitBenchmarkDeadline(b, done, deadline.C, "CAS-latency callback")
+		latencies = append(latencies, time.Since(started))
 	}
-
 	b.StopTimer()
 
-	// Calculate percentiles
-	if len(latencies) > 0 {
-		// Sort latencies for percentile calculation
-		sorted := make([]time.Duration, len(latencies))
-		copy(sorted, latencies)
-		// Note: In production, proper sorting would be added here
-
-		// P50 (median)
-		p50 := sorted[len(sorted)/2]
-
-		// P95
-		p95Idx := len(sorted) * 95 / 100
-		if p95Idx >= len(sorted) {
-			p95Idx = len(sorted) - 1
-		}
-		p95 := sorted[p95Idx]
-
-		// P99
-		p99Idx := len(sorted) * 99 / 100
-		if p99Idx >= len(sorted) {
-			p99Idx = len(sorted) - 1
-		}
-		p99 := sorted[p99Idx]
-
-		b.ReportMetric(float64(p50.Nanoseconds()), "p50_ns")
-		b.ReportMetric(float64(p95.Nanoseconds()), "p95_ns")
-		b.ReportMetric(float64(p99.Nanoseconds()), "p99_ns")
+	slices.Sort(latencies)
+	if len(latencies) == 0 {
+		return
 	}
+	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 50)].Nanoseconds()), "p50_ns")
+	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 95)].Nanoseconds()), "p95_ns")
+	b.ReportMetric(float64(latencies[percentileIndex(len(latencies), 99)].Nanoseconds()), "p99_ns")
+}
 
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  "MicroCASContention_Latency",
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
+func percentileIndex(length, percentile int) int {
+	if length <= 0 {
+		return 0
 	}
-	GetResults().RecordBenchmark(result)
+	index := (length*percentile+99)/100 - 1
+	return min(max(index, 0), length-1)
 }

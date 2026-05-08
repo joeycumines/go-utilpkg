@@ -2,253 +2,399 @@ package eventloop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 )
 
-// TestPromisify_SlowOperation_ShutdownWaits verifies that Shutdown waits for
-// all Promisify goroutines to complete, even if they take longer than any
-// previous timeout. This test validates the fix for CRITICAL-5 where a 100ms
-// hard-coded timeout caused data corruption and goroutine leaks.
-func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
-	const numGoroutines = 10
-	const slowDelay = 200 * time.Millisecond // Longer than the old 100ms timeout
+var errShutdownCompletionWaitObserved = errors.New("shutdown completion wait observed")
 
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		if err := loop.Run(ctx); err != nil && err != ErrLoopTerminated {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-		close(runDone)
-	}()
-
-	// Wait for loop to be running (transition from StateAwake to StateRunning)
-	// This ensures Shutdown will go through proper shutdown() path with promisifyWg.Wait()
-	time.Sleep(20 * time.Millisecond)
-
-	// Optional: Submit a dummy task to ensure loop is processing
-	_ = loop.Submit(func() {})
-
-	// Track how many goroutines complete their submission
-	var completedSubmissions atomic.Int32
-
-	// Start multiple slow Promisify operations that take longer than the old timeout
-	for i := range numGoroutines {
-		go func(idx int) {
-			p := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
-				// Simulate slow operation BEFORE submitting result
-				time.Sleep(slowDelay)
-
-				// SubmitInternal happens AFTER the sleep
-				// This is the critical path: we want SubmitInternal to be blocked
-				// if the loop has already terminated
-
-				completedSubmissions.Add(1)
-				return fmt.Sprintf("result-%d", idx), nil
-			})
-
-			// Try to await result (may fail if loopShutdown started)
-			ch := p.ToChannel()
-			select {
-			case result := <-ch:
-				// Success - promise resolved
-				t.Logf("Promise %d resolved successfully: %v", idx, result)
-			case <-time.After(time.Second):
-				// Timeout - loop may have shut down before resolution
-				t.Logf("Promise %d timed out (expected if shutdown occurred)", idx)
-			}
-		}(i)
-	}
-
-	// Ensure all Promisify goroutines have started and called Promisify()
-	time.Sleep(50 * time.Millisecond)
-
-	// Record goroutine count before shutdown
-	runtime.GC()
-	routinesBefore := runtime.NumGoroutine()
-
-	// Shutdown should wait for ALL Promisify goroutines
-	// This will take > slowDelay (200ms)
-	shutdownStarted := time.Now()
-	err = loop.Shutdown(context.Background())
-	shutdownDuration := time.Since(shutdownStarted)
-
-	if err != nil {
-		t.Fatalf("Shutdown failed: %v", err)
-	}
-
-	<-runDone
-
-	// NOTE: Shutdown returns early due to T28 bug (StateAwake early return)
-	// The T29 fix ensures Promisify goroutines complete, but T28 causes early return
-	// So we verify T29 fix by checking that Promises resolved (not timing)
-	// The key validation: ALL Promisify calls completed without being abandoned
-
-	// Verify all submissions completed (key validation for T29 fix)
-	completed := completedSubmissions.Load()
-	if completed != numGoroutines {
-		t.Fatalf("Expected %d Promisify submissions, but only %d completed (data corruption occurred - T29 BUG NOT FIXED)",
-			numGoroutines, completed)
-	}
-
-	// Verify no goroutine leaks
-	runtime.GC()
-	routinesAfter := runtime.NumGoroutine()
-	difference := routinesAfter - routinesBefore
-
-	// Allow some tolerance for test infrastructure
-	if difference > 2 {
-		t.Fatalf("Goroutine leak detected! Before shutdown: %d, after shutdown: %d (diff: %d)",
-			routinesBefore, routinesAfter, difference)
-	}
-
-	t.Logf("SUCCESS: Shutdown waited %v for %d Promisify goroutines, all completed, no goroutine leak",
-		shutdownDuration, numGoroutines)
+type shutdownCompletionProbeContext struct {
+	done     chan struct{}
+	observed chan struct{}
+	once     sync.Once
 }
 
-// TestPromisify_VerySlowOperation_ShutdownStillWaits verifies that Shutdown
-// can handle Promisify operations that take arbitrarily long. This validates
-// that the fix doesn't use any timeout at all (fully blocks).
-func TestPromisify_VerySlowOperation_ShutdownStillWaits(t *testing.T) {
-	const verySlowDelay = 1 * time.Second // Much longer than any reasonable timeout
-
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
+func newShutdownCompletionProbeContext() *shutdownCompletionProbeContext {
+	return &shutdownCompletionProbeContext{
+		done:     make(chan struct{}),
+		observed: make(chan struct{}),
 	}
+}
 
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		if err := loop.Run(ctx); err != nil && err != ErrLoopTerminated {
-			t.Errorf("Run() unexpected error: %v", err)
+func (*shutdownCompletionProbeContext) Deadline() (time.Time, bool) { return time.Time{}, false }
+
+func (c *shutdownCompletionProbeContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.observed) })
+	return c.done
+}
+
+func (c *shutdownCompletionProbeContext) Err() error {
+	select {
+	case <-c.done:
+		return errShutdownCompletionWaitObserved
+	default:
+		return nil
+	}
+}
+
+func (*shutdownCompletionProbeContext) Value(any) any { return nil }
+
+func (c *shutdownCompletionProbeContext) release() {
+	select {
+	case <-c.done:
+	default:
+		close(c.done)
+	}
+}
+
+func TestPromisifyWorkerWinningShutdownDoesNotJoinSelf(t *testing.T) {
+	for _, running := range []bool{false, true} {
+		t.Run(map[bool]string{false: "pre-run", true: "running"}[running], func(t *testing.T) {
+			loop := New()
+			registerLoopCleanupT(t, loop)
+
+			var runDone chan error
+			if running {
+				runDone = make(chan error, 1)
+				go func() { runDone <- loop.Run(context.Background()) }()
+				waitLoopOwnerTurnT(t, loop)
+			}
+
+			probe := newShutdownCompletionProbeContext()
+			shutdownResult := make(chan error, 1)
+			promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
+				shutdownResult <- loop.Shutdown(probe)
+				return "worker-returned", nil
+			})
+
+			select {
+			case err := <-shutdownResult:
+				if err != nil {
+					t.Fatalf("worker-winning Shutdown = %v, want nil request acknowledgement", err)
+				}
+			case <-probe.observed:
+				probe.release()
+				err := <-shutdownResult
+				t.Fatalf("worker-winning Shutdown joined terminal completion: %v", err)
+			case <-time.After(5 * time.Second):
+				probe.release()
+				t.Fatal("worker-winning Shutdown neither returned nor observed its completion context")
+			}
+
+			select {
+			case <-loop.terminalDone:
+			case <-time.After(5 * time.Second):
+				t.Fatal("terminal cleanup did not complete after the winning worker returned")
+			}
+			select {
+			case result := <-promise.ToChannel():
+				if result != "worker-returned" {
+					t.Fatalf("Promisify result = %v, want worker-returned", result)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("Promisify promise did not settle")
+			}
+			if running {
+				select {
+				case err := <-runDone:
+					if err != nil {
+						t.Fatalf("Run = %v, want nil", err)
+					}
+				case <-time.After(5 * time.Second):
+					t.Fatal("Run did not return after worker-requested Shutdown")
+				}
+			}
+		})
+	}
+}
+
+// TestPromisify_SlowOperation_ShutdownWaits verifies that Shutdown waits for
+// all Promisify goroutines to complete while they remain behind an explicit
+// release barrier. This validates the fix for CRITICAL-5 without relying on the
+// old 100ms timeout or sleep-based goroutine-lifetime assumptions.
+func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
+	const numGoroutines = 10
+
+	loop := New()
+	registerLoopCleanupT(t, loop)
+
+	release := make(chan struct{})
+	releaseFn := releaseSignalT(t, release)
+
+	transitioned := make(chan struct{})
+	loop.testHooks = &loopTestHooks{
+		AfterShutdownStateTerminating: func() { close(transitioned) },
+	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	waitLoopOwnerTurnT(t, loop)
+
+	started := make(chan int, numGoroutines)
+	completed := make(chan int, numGoroutines)
+	promises := make([]Promise, numGoroutines)
+	for i := range numGoroutines {
+		idx := i
+		promises[i] = loop.Promisify(context.Background(), func(context.Context) (any, error) {
+			started <- idx
+			<-release
+			completed <- idx
+			return fmt.Sprintf("result-%d", idx), nil
+		})
+	}
+	for range numGoroutines {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Promisify worker did not start")
 		}
-		close(runDone)
-	}()
-
-	promiseSubmitted := make(chan struct{})
-	promise := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
-		// Block for a very long time
-		time.Sleep(verySlowDelay)
-		return "slow-result", nil
-	})
-	close(promiseSubmitted)
-
-	<-promiseSubmitted
-
-	// Shutdown should block, but T28 bug causes early return
-	// Key validation is: SubmitInternal succeeded, no data corruption
-	shutdownStarted := time.Now()
-	err = loop.Shutdown(context.Background())
-	shutdownDuration := time.Since(shutdownStarted)
-
-	if err != nil {
-		t.Fatalf("Shutdown failed: %v", err)
 	}
 
-	<-runDone
+	// Shutdown should wait for ALL Promisify goroutines
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- loop.Shutdown(context.Background()) }()
+	select {
+	case <-transitioned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not commit StateTerminating")
+	}
+	select {
+	case err := <-shutdownDone:
+		t.Fatalf("Shutdown returned before Promisify workers were released: %v", err)
+	default:
+	}
 
-	// NOTE: T28 bug causes early return, but T29 fix ensures SubmitInternal succeeds
-	// The key validation: Promisify goroutine completed without being abandoned
-
-	// Sleep to ensure Promisify goroutine had time to complete
-	time.Sleep(verySlowDelay)
-
-	// The key validation for T29: no race, no deadlock, no corruption
-	// (Even with T28 early return, the Promisify operation completes cleanly)
-	_ = promise // Promise used for testing
-	t.Logf("Shutdown duration: %v (T28 early return), but Promisify completed without data corruption", shutdownDuration)
+	releaseFn()
+	for range numGoroutines {
+		select {
+		case <-completed:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Promisify worker did not complete after release")
+		}
+	}
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("Shutdown failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not return after every Promisify worker completed")
+	}
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after Shutdown completed")
+	}
+	for i, promise := range promises {
+		select {
+		case result := <-promise.ToChannel():
+			want := fmt.Sprintf("result-%d", i)
+			if result != want {
+				t.Fatalf("promise %d result = %v, want %q", i, result, want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("promise %d did not settle", i)
+		}
+	}
 }
 
 // TestPromisify_MultipleShutdowns verifies that multiple concurrent Shutdown calls
 // all work correctly and wait for Promisify goroutines.
 func TestPromisify_MultipleShutdowns(t *testing.T) {
-	const slowDelay = 150 * time.Millisecond
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		if err := loop.Run(ctx); err != nil && err != ErrLoopTerminated {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-		close(runDone)
-	}()
-
-	// Ensure the loop goroutine is scheduled and running before proceeding.
-	// Without this, on Windows the Shutdown goroutines can win the scheduling
-	// race and terminate the loop before Run() even starts.
-	time.Sleep(20 * time.Millisecond)
-
-	// Start a slow Promisify operation
+	release := make(chan struct{})
+	releaseFn := releaseSignalT(t, release)
+	started := make(chan struct{})
 	completed := make(chan struct{})
-	loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
-		time.Sleep(slowDelay)
+	promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
+		close(started)
+		<-release
 		close(completed)
 		return "done", nil
 	})
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify worker did not start")
+	}
 
-	// Start multiple concurrent Shutdown calls
 	const numShutdowns = 5
+	var transitionedOnce sync.Once
+	transitioned := make(chan struct{})
+	terminalJoined := make(chan struct{}, numShutdowns-1)
+	loop.testHooks = &loopTestHooks{
+		AfterShutdownStateTerminating: func() {
+			transitionedOnce.Do(func() { close(transitioned) })
+		},
+		BeforeTerminalJoin: func() { terminalJoined <- struct{}{} },
+	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	waitLoopOwnerTurnT(t, loop)
+
+	startShutdowns := make(chan struct{})
+	startShutdownsFn := releaseSignalT(t, startShutdowns)
 	shutdownErrors := make(chan error, numShutdowns)
+	for range numShutdowns {
+		go func() {
+			<-startShutdowns
+			shutdownErrors <- loop.Shutdown(context.Background())
+		}()
+	}
+	startShutdownsFn()
 
-	for i := range numShutdowns {
-		go func(idx int) {
-			err := loop.Shutdown(context.Background())
-			t.Logf("Shutdown %d completed with err=%v", idx, err)
-			shutdownErrors <- err
-		}(i)
+	select {
+	case <-transitioned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no Shutdown caller committed StateTerminating")
+	}
+	for i := range numShutdowns - 1 {
+		waitContractSignal(t, terminalJoined, fmt.Sprintf("concurrent Shutdown join %d", i))
+	}
+	select {
+	case err := <-shutdownErrors:
+		t.Fatalf("Shutdown returned before worker release: %v", err)
+	default:
 	}
 
-	// Wait for all Shutdown calls to complete
-	var shutdownResults []error
-	for i := range numShutdowns {
-		select {
-		case err := <-shutdownErrors:
-			shutdownResults = append(shutdownResults, err)
-		case <-time.After(slowDelay * 10):
-			t.Fatalf("Timeout waiting for Shutdown %d/%d to complete", i+1, numShutdowns)
-		}
-	}
-
-	// Verify Promisify goroutine completed before we started checking shutdowns
+	releaseFn()
 	select {
 	case <-completed:
-		t.Log("Promisify goroutine completed (good)")
-	case <-time.After(slowDelay * 2):
-		t.Fatal("Promisify goroutine did not complete in time")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify worker did not complete after release")
 	}
-
-	// Analyze shutdown results
-	numSuccesses := 0
-	numAlreadyTerminated := 0
-	for _, err := range shutdownResults {
-		if err == nil {
-			numSuccesses++
-		} else if err == ErrLoopTerminated {
-			numAlreadyTerminated++
-		} else {
-			t.Fatalf("Shutdown returned unexpected error: %v", err)
+	for i := range numShutdowns {
+		if err := waitContractValue(t, shutdownErrors, fmt.Sprintf("concurrent Shutdown completion %d", i)); err != nil {
+			t.Fatalf("Shutdown %d = %v, want nil", i, err)
 		}
 	}
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after concurrent Shutdowns")
+	}
+	select {
+	case result := <-promise.ToChannel():
+		if result != "done" {
+			t.Fatalf("Promisify result = %v, want done", result)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify promise did not settle")
+	}
+}
 
-	// At least one shutdown should succeed
-	if numSuccesses == 0 {
-		t.Fatalf("No Shutdown calls succeeded - all returned ErrLoopTerminated: %+v", shutdownResults)
+func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
+	returnedError := errors.New("Promisify worker error")
+	panicValue := &struct{ label string }{label: "Promisify worker panic"}
+	tests := []struct {
+		name                 string
+		cancelBeforeRelease  bool
+		outcome              func(context.Context) (any, error)
+		assertPromiseOutcome func(*testing.T, Promise)
+	}{
+		{
+			name:    "returned error",
+			outcome: func(context.Context) (any, error) { return nil, returnedError },
+			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+				assertPromisifyExactRejection(t, promise, returnedError)
+			},
+		},
+		{
+			name:    "panic",
+			outcome: func(context.Context) (any, error) { panic(panicValue) },
+			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+				t.Helper()
+				if state := promise.State(); state != Rejected {
+					t.Fatalf("Promisify state = %v, want Rejected", state)
+				}
+				panicError, ok := promise.Result().(PanicError)
+				if !ok || panicError.Value != panicValue {
+					t.Fatalf("Promisify result = %T %#v, want PanicError with value identity %p", promise.Result(), promise.Result(), panicValue)
+				}
+			},
+		},
+		{
+			name: "runtime Goexit",
+			outcome: func(context.Context) (any, error) {
+				runtime.Goexit()
+				return nil, errors.New("unreachable after runtime.Goexit")
+			},
+			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+				assertPromisifyExactRejection(t, promise, ErrGoexit)
+			},
+		},
+		{
+			name:                "context cancellation",
+			cancelBeforeRelease: true,
+			outcome: func(ctx context.Context) (any, error) {
+				return nil, ctx.Err()
+			},
+			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+				assertPromisifyExactRejection(t, promise, context.Canceled)
+			},
+		},
 	}
 
-	t.Logf("Got %d successful shutdowns and %d ErrLoopTerminated errors", numSuccesses, numAlreadyTerminated)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			loop := New()
+			registerLoopCleanupT(t, loop)
+
+			var workerContext context.Context = context.Background()
+			cancelWorker := func() {}
+			if test.cancelBeforeRelease {
+				workerContext, cancelWorker = context.WithCancel(context.Background())
+				t.Cleanup(cancelWorker)
+			}
+			workerStarted := make(chan struct{})
+			releaseWorker := make(chan struct{})
+			releaseWorkerFn := releaseSignalT(t, releaseWorker)
+			promise := loop.Promisify(workerContext, func(ctx context.Context) (any, error) {
+				close(workerStarted)
+				<-releaseWorker
+				return test.outcome(ctx)
+			})
+			waitContractSignal(t, workerStarted, "Promisify worker entry")
+
+			transitioned := make(chan struct{})
+			loop.testHooks = &loopTestHooks{
+				AfterShutdownStateTerminating: func() { close(transitioned) },
+			}
+			runDone := make(chan error, 1)
+			go func() { runDone <- loop.Run(context.Background()) }()
+			waitLoopOwnerTurnT(t, loop)
+			shutdownDone := make(chan error, 1)
+			go func() { shutdownDone <- loop.Shutdown(context.Background()) }()
+			waitContractSignal(t, transitioned, "graceful Shutdown transition")
+			select {
+			case err := <-shutdownDone:
+				t.Fatalf("Shutdown returned before Promisify worker release: %v", err)
+			default:
+			}
+
+			cancelWorker()
+			releaseWorkerFn()
+			if err := waitContractValue(t, shutdownDone, "graceful Shutdown completion"); err != nil {
+				t.Fatalf("Shutdown: %v", err)
+			}
+			if err := waitContractValue(t, runDone, "graceful Shutdown Run completion"); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := loop.promisifyCount.Load(); got != 0 {
+				t.Fatalf("promisifyCount = %d, want 0", got)
+			}
+			test.assertPromiseOutcome(t, promise)
+		})
+	}
 }

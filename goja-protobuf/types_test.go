@@ -44,7 +44,7 @@ func TestMessageType_HasDescriptor(t *testing.T) {
 	env := newTestEnv(t)
 	v := env.run(t, `
 		var SM = pb.messageType('test.SimpleMessage');
-		SM._pbMsgDesc !== undefined && SM._pbMsgDesc !== null
+		SM._pbMsgDesc === undefined && new SM().$type === 'test.SimpleMessage'
 	`)
 	if !v.ToBoolean() {
 		t.Error("expected true")

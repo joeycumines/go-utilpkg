@@ -25,9 +25,11 @@ func newGrpcProtojsonTestEnv(t *testing.T) *grpcProtojsonTestEnv {
 	}
 
 	pjExports := env.runtime.NewObject()
-	pjMod.SetupExports(pjExports)
-	if env.runtime.Set("protojson", pjExports) != nil {
-		t.Fatalf("unexpected error: %v", env.runtime.Set("protojson", pjExports))
+	if err := pjMod.SetupExports(pjExports); err != nil {
+		t.Fatalf("setup protojson exports: %v", err)
+	}
+	if err := env.runtime.Set("protojson", pjExports); err != nil {
+		t.Fatalf("install protojson exports: %v", err)
 	}
 
 	return &grpcProtojsonTestEnv{grpcTestEnv: env, pjMod: pjMod}

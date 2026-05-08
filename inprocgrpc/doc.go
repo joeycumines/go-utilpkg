@@ -1,6 +1,8 @@
 // Package inprocgrpc provides an in-process gRPC channel implementation
 // driven by an [eventloop.Loop]. RPCs are effectively in-process function
-// calls with all stream state managed on the event loop goroutine.
+// calls. Ordinary stream data and metadata publication is owner-confined;
+// synchronized terminal claims and post-[eventloop.Loop.Done] recovery cover
+// cancellation and scheduler loss.
 //
 // A [Channel] serves as both a [grpc.ClientConnInterface] and a
 // [grpc.ServiceRegistrar]. Create one with [NewChannel], register

@@ -40,19 +40,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Descriptor loading** — `pb.loadDescriptorSet(bytes)` and
   `pb.loadFileDescriptorProto(bytes)` for runtime descriptor registration.
 
-- **`FileResolver()` API** — Exported method returning a resolver that checks the module's
-  local file registries first, then falls back to configured global registries. Essential for
-  cross-module descriptor resolution (e.g., Go clients sending `dynamicpb.Message` to JS servers).
+- **`FileResolver()` API** — Exported method returning the runtime's canonical
+  local and immutable base descriptor graph. Essential for cross-module
+  descriptor resolution and gRPC reflection.
 
 - **Interface-based options** — `WithResolver(*protoregistry.Types)` for custom type resolution.
 
-- **`TypeResolver()` API** — Exported method returning a composite interface implementing
-  `protoregistry.MessageTypeResolver` and `protoregistry.ExtensionTypeResolver`. Checks
-  local types first, then falls back to global registries. Used by `goja-protojson` for
-  `protojson.MarshalOptions.Resolver` and `protojson.UnmarshalOptions.Resolver`.
+- **`TypeResolver()` API** — Exported composite message and extension resolver,
+  including extension enumeration. It checks live runtime-local types before
+  the immutable construction snapshot and composes with `goja-protojson` and
+  gRPC reflection.
 
 ### Fixed
 
+- **Canonical runtime identity** — Direct construction and `require()` now share
+  one runtime-scoped file/type/extension graph. Generated messages retain their
+  concrete identity, while foreign same-name descriptors and forged wrappers or
+  constructors are rejected.
+- **Immutable base registry ownership** — The first module for a runtime
+  snapshots configured registry membership. Later caller mutation cannot
+  introduce unvalidated shadows; runtime descriptor transactions remain live
+  and shared.
+- **Atomic descriptor loading** — Descriptor sets are order-independent,
+  register nested and top-level extensions, swap as one transaction, treat
+  exact duplicates as idempotent, and reject divergent paths or symbols without
+  partial registration.
+- **Lossless conversion** — Unsafe, fractional, and non-finite JavaScript
+  numbers no longer silently corrupt 64-bit values or map keys. BigInt and exact
+  decimal strings cover the full signed and unsigned ranges.
+- **Transactional collections** — Repeated and map replacements validate into
+  temporary values before mutation. Map wrappers now implement the iterable
+  protocol without reserving the valid plain-object key `entries`.
+- **Owner-truthful Go API** — `OwnsRuntime` replaces raw runtime exposure;
+  `WrapMessage` validates descriptor identity and returns dynamic errors;
+  `SetupExports` performs atomic, idempotent installation and returns errors.
 - **`timestampFromMs` negative nanos** — Sub-second negative milliseconds (e.g., -500ms)
   now produce valid proto Timestamps with properly normalized nanos in [0, 999999999].
   Previously produced invalid negative nanos values.

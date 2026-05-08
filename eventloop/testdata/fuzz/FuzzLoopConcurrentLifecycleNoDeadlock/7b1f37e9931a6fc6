@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("y.8*2C19c77721729@\x00\x00\x00\"\x8b\xb87\xff72$%")

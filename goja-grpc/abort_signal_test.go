@@ -1,8 +1,235 @@
 package gojagrpc
 
 import (
+	"context"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/joeycumines/goja"
 )
+
+func TestCallOptsCleanupSignalConcurrent(t *testing.T) {
+	var calls atomic.Int32
+	co := &callOpts{signalCleanup: func() { calls.Add(1) }}
+
+	const goroutines = 64
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for range goroutines {
+		go func() {
+			defer wg.Done()
+			co.cleanupSignal()
+		}()
+	}
+	wg.Wait()
+	co.cleanupSignal()
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("cleanup calls = %d, want 1", got)
+	}
+}
+
+func TestCallOptsInterceptorParseDefersTimeoutUntilNext(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	opts := env.runtime.NewObject()
+	if err := opts.Set("timeoutMs", 5000); err != nil {
+		t.Fatalf("set timeoutMs: %v", err)
+	}
+	call := goja.FunctionCall{Arguments: []goja.Value{goja.Undefined(), opts}}
+
+	outer := env.grpcMod.parseCallOptsDeferred(call, 1)
+	defer outer.cancel()
+	if _, ok := outer.ctx.Deadline(); ok {
+		t.Fatal("interceptor pre-parse allocated a timeout before next(req)")
+	}
+
+	inner := &callOpts{ctx: outer.ctx, cancel: outer.cancel}
+	env.grpcMod.applySnapshot(env.grpcMod.snapshotCallOptions(opts), inner)
+	defer inner.cancel()
+	if _, ok := inner.ctx.Deadline(); !ok {
+		t.Fatal("timeoutMs was not applied when interceptor next(req) constructed the RPC call")
+	}
+}
+
+func TestCallOptsInterceptorParseDefersSignalUntilNext(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	value, err := env.runtime.RunString(`
+		globalThis.__deferredSignalController = new AbortController();
+		({ signal: __deferredSignalController.signal });
+	`)
+	if err != nil {
+		t.Fatalf("RunString: %v", err)
+	}
+	opts, ok := value.(*goja.Object)
+	if !ok || opts == nil {
+		t.Fatal("options value was not an object")
+	}
+	call := goja.FunctionCall{Arguments: []goja.Value{goja.Undefined(), opts}}
+
+	outer := env.grpcMod.parseCallOptsDeferred(call, 1)
+	defer outer.cancel()
+	if _, err := env.runtime.RunString(`__deferredSignalController.abort();`); err != nil {
+		t.Fatalf("abort deferred signal: %v", err)
+	}
+	select {
+	case <-outer.ctx.Done():
+		t.Fatal("interceptor pre-parse installed an AbortSignal cancellation resource before next(req)")
+	default:
+	}
+
+	inner := &callOpts{ctx: outer.ctx, cancel: outer.cancel}
+	env.grpcMod.applySnapshot(env.grpcMod.snapshotCallOptions(opts), inner)
+	select {
+	case <-inner.ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("deferred AbortSignal snapshot did not cancel when applied at next(req)")
+	}
+}
+
+func TestCallOptsDeferredSnapshotIgnoresLaterTimeoutMutation(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	opts := env.runtime.NewObject()
+	if err := opts.Set("timeoutMs", 5000); err != nil {
+		t.Fatalf("set timeoutMs: %v", err)
+	}
+	snap := env.grpcMod.snapshotCallOptions(opts)
+	if err := opts.Set("timeoutMs", 0); err != nil {
+		t.Fatalf("mutate timeoutMs: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	co := &callOpts{ctx: ctx, cancel: cancel}
+	env.grpcMod.applySnapshot(snap, co)
+	defer co.cancel()
+	if _, ok := co.ctx.Deadline(); !ok {
+		t.Fatal("deferred timeout snapshot was lost after options mutation")
+	}
+
+	snap.timeoutStart = time.Now().Add(-2 * snap.timeout)
+	expiredCtx, expiredCancel := context.WithCancel(context.Background())
+	defer expiredCancel()
+	expired := &callOpts{ctx: expiredCtx, cancel: expiredCancel}
+	env.grpcMod.applySnapshot(snap, expired)
+	defer expired.cancel()
+	select {
+	case <-expired.ctx.Done():
+		if err := expired.ctx.Err(); err != context.DeadlineExceeded {
+			t.Fatalf("expired snapshot ctx err = %v, want %v", err, context.DeadlineExceeded)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expired deferred timeout snapshot did not cancel context")
+	}
+}
+
+func TestCallOptsDeferredSnapshotIgnoresLaterSignalMutation(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	value, err := env.runtime.RunString(`
+		globalThis.__snapshotOriginal = new AbortController();
+		globalThis.__snapshotReplacement = new AbortController();
+		globalThis.__snapshotOptions = { signal: __snapshotOriginal.signal };
+		__snapshotOptions;
+	`)
+	if err != nil {
+		t.Fatalf("RunString: %v", err)
+	}
+	opts, ok := value.(*goja.Object)
+	if !ok || opts == nil {
+		t.Fatal("snapshot options value was not an object")
+	}
+
+	snap := env.grpcMod.snapshotCallOptions(opts)
+	if _, err := env.runtime.RunString(`
+		__snapshotOptions.signal = __snapshotReplacement.signal;
+		__snapshotReplacement.abort();
+	`); err != nil {
+		t.Fatalf("mutate/abort replacement: %v", err)
+	}
+
+	var cancels atomic.Int32
+	co := &callOpts{ctx: context.Background(), cancel: func() { cancels.Add(1) }}
+	env.grpcMod.applySnapshot(snap, co)
+	if got := cancels.Load(); got != 0 {
+		t.Fatalf("cancel after replacement abort = %d, want 0", got)
+	}
+	if _, err := env.runtime.RunString(`__snapshotOriginal.abort();`); err != nil {
+		t.Fatalf("abort original: %v", err)
+	}
+	if got := cancels.Load(); got != 1 {
+		t.Fatalf("cancel after original abort = %d, want 1", got)
+	}
+	co.cleanupSignal()
+}
+
+func TestAbort_ApplySignalCleanupRemovesListener(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	value, err := env.runtime.RunString(`
+		globalThis.__cleanupController = new AbortController();
+		({ signal: __cleanupController.signal });
+	`)
+	if err != nil {
+		t.Fatalf("RunString: %v", err)
+	}
+	opts, ok := value.(*goja.Object)
+	if !ok || opts == nil {
+		t.Fatal("options value was not an object")
+	}
+
+	var cancels atomic.Int32
+	co := &callOpts{ctx: context.Background(), cancel: func() { cancels.Add(1) }}
+	env.grpcMod.applySignal(opts, co)
+	co.cleanupSignal()
+	if _, err := env.runtime.RunString(`__cleanupController.abort();`); err != nil {
+		t.Fatalf("abort: %v", err)
+	}
+	if got := cancels.Load(); got != 0 {
+		t.Fatalf("cancel calls after cleaned-up signal abort = %d, want 0", got)
+	}
+}
+
+func TestAbort_ApplySignalIgnoresStopImmediatePropagation(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	value, err := env.runtime.RunString(`
+		globalThis.__hostileController = new AbortController();
+		__hostileController.signal.addEventListener('abort', function(event) {
+			event.stopImmediatePropagation();
+		});
+		({ signal: __hostileController.signal });
+	`)
+	if err != nil {
+		t.Fatalf("RunString: %v", err)
+	}
+	opts, ok := value.(*goja.Object)
+	if !ok || opts == nil {
+		t.Fatal("options value was not an object")
+	}
+
+	var cancels atomic.Int32
+	co := &callOpts{ctx: context.Background(), cancel: func() { cancels.Add(1) }}
+	env.grpcMod.applySignal(opts, co)
+	if _, err := env.runtime.RunString(`__hostileController.abort();`); err != nil {
+		t.Fatalf("abort: %v", err)
+	}
+	if got := cancels.Load(); got != 1 {
+		t.Fatalf("cancel calls after hostile abort = %d, want 1", got)
+	}
+	co.cleanupSignal()
+}
 
 // ============================================================================
 // T222: AbortSignal exhaustive: abort before RPC starts
@@ -374,7 +601,7 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 							echo.set('id', r.value.get('id'));
 							echo.set('name', 'echo-' + r.value.get('name'));
 							call.send(echo).then(pump).catch(reject);
-						}).catch(function(err) { resolve(); });
+						}).catch(reject);
 					}
 					pump();
 				});
@@ -737,11 +964,28 @@ func TestAbort_CleanupAfterRPC(t *testing.T) {
 		var controller = new AbortController();
 		var result;
 		var abortedAfter = false;
+		var addCount = 0;
+		var removeCount = 0;
+		var originalAdd = controller.signal.addEventListener;
+		var originalRemove = controller.signal.removeEventListener;
+		controller.signal.addEventListener = function(type, listener, options) {
+			addCount++;
+			return originalAdd.call(this, type, listener, options);
+		};
+		controller.signal.removeEventListener = function(type, listener, options) {
+			removeCount++;
+			return originalRemove.call(this, type, listener, options);
+		};
 
 		client.echo(req, { signal: controller.signal }).then(function(resp) {
-			result = resp.get('message');
+			result = {
+				message: resp.get('message'),
+				addCount: addCount,
+				removeBeforeAbort: removeCount
+			};
 			// Abort AFTER the RPC has completed.
 			controller.abort();
+			result.removeAfterAbort = removeCount;
 			abortedAfter = true;
 			__done();
 		}).catch(function(err) {
@@ -754,8 +998,18 @@ func TestAbort_CleanupAfterRPC(t *testing.T) {
 	if r == nil {
 		t.Fatalf("expected non-nil")
 	}
-	if got := r.String(); got != "done" {
+	resultObj := r.Export().(map[string]any)
+	if got := resultObj["message"]; got != "done" {
 		t.Errorf("expected %v, got %v", "done", got)
+	}
+	if got := resultObj["addCount"]; got != int64(0) {
+		t.Errorf("addEventListener count = %v, want 0", got)
+	}
+	if got := resultObj["removeBeforeAbort"]; got != int64(0) {
+		t.Errorf("removeEventListener count before post-RPC abort = %v, want 0", got)
+	}
+	if got := resultObj["removeAfterAbort"]; got != int64(0) {
+		t.Errorf("removeEventListener count after post-RPC abort = %v, want 0", got)
 	}
 
 	aborted := env.runtime.Get("abortedAfter")
@@ -764,6 +1018,95 @@ func TestAbort_CleanupAfterRPC(t *testing.T) {
 	}
 	if !(aborted.ToBoolean()) {
 		t.Errorf("expected true")
+	}
+}
+
+func TestAbort_CleanupOnUnarySubmitFailure(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	if err := env.loop.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	var order []string
+	env.grpcMod.submitOrRejectDirectCleanup(func(any) {
+		order = append(order, "reject")
+	}, func() {
+		order = append(order, "cleanup")
+	}, func() {
+		order = append(order, "submitted")
+	})
+	if got, want := strings.Join(order, ","), "cleanup,reject"; got != want {
+		t.Fatalf("Submit-failure cleanup order = %q, want %q", got, want)
+	}
+}
+
+func TestAbort_InterceptorShortCircuitDoesNotInstallSignalListener(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	env.runOnLoop(t, `
+		var server = grpc.createServer();
+		server.addService('testgrpc.TestService', {
+			echo: function(request, call) { throw new Error('server should not be called'); },
+			serverStream: function(request, call) {},
+			clientStream: function(call) { return null; },
+			bidiStream: function(call) {}
+		});
+		server.start();
+
+		function shortCircuit(next) {
+			return function(req) {
+				var EchoResponse = pb.messageType('testgrpc.EchoResponse');
+				var resp = new EchoResponse();
+				resp.set('message', 'cached');
+				return Promise.resolve(resp);
+			};
+		}
+		var client = grpc.createClient('testgrpc.TestService', { interceptors: [shortCircuit] });
+		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
+		var req = new EchoRequest();
+		req.set('message', 'short-circuit');
+		var controller = new AbortController();
+		var addCount = 0;
+		var removeCount = 0;
+		var originalAdd = controller.signal.addEventListener;
+		var originalRemove = controller.signal.removeEventListener;
+		controller.signal.addEventListener = function(type, listener, options) {
+			addCount++;
+			return originalAdd.call(this, type, listener, options);
+		};
+		controller.signal.removeEventListener = function(type, listener, options) {
+			removeCount++;
+			return originalRemove.call(this, type, listener, options);
+		};
+
+		var result;
+		client.echo(req, { signal: controller.signal }).then(function(resp) {
+			result = { message: resp.get('message'), addCount: addCount, removeCount: removeCount };
+			controller.abort();
+			result.removeAfterAbort = removeCount;
+			__done();
+		}).catch(function(err) {
+			result = { error: String(err && err.message || err) };
+			__done();
+		});
+	`, defaultTimeout)
+
+	r := env.runtime.Get("result")
+	if r == nil {
+		t.Fatalf("expected non-nil")
+	}
+	resultObj := r.Export().(map[string]any)
+	if got := resultObj["message"]; got != "cached" {
+		t.Fatalf("message = %v, want cached (result=%v)", got, resultObj)
+	}
+	if got := resultObj["addCount"]; got != int64(0) {
+		t.Errorf("addEventListener count = %v, want 0", got)
+	}
+	if got := resultObj["removeCount"]; got != int64(0) {
+		t.Errorf("removeEventListener count = %v, want 0", got)
+	}
+	if got := resultObj["removeAfterAbort"]; got != int64(0) {
+		t.Errorf("removeEventListener count after abort = %v, want 0", got)
 	}
 }
 

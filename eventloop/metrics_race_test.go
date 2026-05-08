@@ -1,127 +1,37 @@
 package eventloop
 
 import (
-	"sync"
 	"testing"
 	"time"
 )
 
-// Test_tpsCounter_ConcurrentRotation tests TPS counter under high contention.
-// Verify: lastRotation race condition is fixed (issue 7.E.2.1)
-func Test_tpsCounter_ConcurrentRotation(t *testing.T) {
-	tps := newTPSCounter(10*time.Second, 100*time.Millisecond)
-
-	// High contention test to trigger rotate() race condition
-	var wg sync.WaitGroup
-	for i := range 100 {
-		wg.Add(2)
-
-		go func(i int) {
-			defer wg.Done()
-			tps.Increment()
-			time.Sleep(time.Microsecond * time.Duration(i%5))
-		}(i)
-
+func TestTPSCounterConcurrentIncrementConservation(t *testing.T) {
+	anchor := time.Unix(1_700_000_000, 0)
+	counter := newTPSCounterAt(time.Second, 100*time.Millisecond, anchor)
+	const producers = 128
+	ready := make(chan struct{}, producers)
+	start := make(chan struct{})
+	done := make(chan struct{}, producers)
+	for range producers {
 		go func() {
-			defer wg.Done()
-			time.Sleep(time.Microsecond * time.Duration(i%3))
-			_ = tps.TPS() // Triggers rotate
+			ready <- struct{}{}
+			<-start
+			counter.IncrementAt(anchor)
+			done <- struct{}{}
 		}()
 	}
-	wg.Wait()
-
-	// Verify TPS is non-negative and reasonable (sanity bound)
-	recorded := tps.TPS()
-	if recorded < 0 {
-		t.Errorf("TPS should be non-negative, got: %.2f", recorded)
+	for range producers {
+		waitContractSignal(t, ready, "TPS producer readiness")
 	}
-	if recorded > 1_000_000 {
-		t.Errorf("TPS suspiciously high: %.2f (possible bug)", recorded)
+	close(start)
+	for range producers {
+		waitContractSignal(t, done, "TPS producer completion")
 	}
 
-	t.Logf("Concurrent rotation test passed, final TPS: %.2f", recorded)
-}
-
-// TestLatencyMetrics_MeanAccuracy tests mean calculation across buffer wraps.
-// Verify: Sum accumulation bug is fixed (issue 7.E.2.3)
-func TestLatencyMetrics_MeanAccuracy(t *testing.T) {
-	var metrics LatencyMetrics
-
-	// Submit exactly 1000 samples to fill buffer
-	targetLatency := 50 * time.Microsecond
-	for range 1000 {
-		metrics.Record(targetLatency)
+	if got := counter.tpsAt(anchor); got != producers {
+		t.Fatalf("concurrent TPS = %v, want %d", got, producers)
 	}
-
-	// Sample to compute mean
-	metrics.Sample()
-
-	// Mean should be very close to targetLatency (within 1% tolerance)
-	reportedMean := metrics.Mean
-	tolerance := targetLatency / 100 // 1% tolerance
-
-	if reportedMean < targetLatency-tolerance || reportedMean > targetLatency+tolerance {
-		t.Errorf("Mean latency %v outside expected range [%v-%v] (expected %v)",
-			reportedMean, targetLatency-tolerance, targetLatency+tolerance, targetLatency)
+	if got := counter.buckets[0].Load(); got != producers {
+		t.Fatalf("concurrent bucket count = %d, want %d", got, producers)
 	}
-
-	// Verify Sum is correct
-	expectedSum := targetLatency * 1000
-	if metrics.Sum != expectedSum {
-		t.Errorf("Sum %v incorrect (expected %v)", metrics.Sum, expectedSum)
-	}
-
-	// Submit 1000 more samples with different latency (causes buffer wrap)
-	newLatency := 100 * time.Microsecond
-	for range 1000 {
-		metrics.Record(newLatency)
-	}
-
-	metrics.Sample()
-	reportedMean = metrics.Mean
-	// Circular buffer replaced all 50µs samples, so mean is now 100µs
-	targetMean := newLatency // 100µs
-	tolerance = targetMean / 100
-
-	if reportedMean < targetMean-tolerance || reportedMean > targetMean+tolerance {
-		t.Errorf("Mean latency after wrap %v outside expected range [%v-%v] (expected %v)",
-			reportedMean, targetMean-tolerance, targetMean+tolerance, targetMean)
-	}
-
-	// Sum should reflect exactly current buffer contents (all 100µs samples)
-	expectedSum = newLatency * 1000
-	if metrics.Sum != expectedSum {
-		t.Errorf("Sum after wrap %v incorrect (expected %v)", metrics.Sum, expectedSum)
-	}
-
-	t.Logf("Mean accuracy test passed: final %v (circular buffer works)", reportedMean)
-}
-
-// TestMetrics_ThreadSafety verifies Metrics() returns safe copies.
-// Verify: No race conditions when reading metrics (issue 7.E.2.2)
-func TestMetrics_ThreadSafety(t *testing.T) {
-	loop, err := New(WithMetrics(true))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx := t.Context()
-
-	go func() {
-		_ = loop.Run(ctx)
-	}()
-
-	time.Sleep(10 * time.Millisecond)
-
-	// Single Metrics() call to verify snapshot works without races
-	metrics := loop.Metrics()
-	if metrics == nil {
-		t.Fatal("Metrics should not be nil")
-	}
-
-	if metrics.TPS < 0 {
-		t.Errorf("Thread safety test: invalid TPS %v", metrics.TPS)
-	}
-
-	t.Logf("Thread safety test passed: TPS=%.2f, P99=%v", metrics.TPS, metrics.Latency.P99)
 }

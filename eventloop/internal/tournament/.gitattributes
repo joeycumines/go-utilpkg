@@ -1,0 +1,2 @@
+revisions/candidates/*.patch -text
+component/**/*.go text eol=lf

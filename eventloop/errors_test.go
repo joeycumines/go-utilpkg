@@ -37,6 +37,39 @@ func TestPanicError_Unwrap(t *testing.T) {
 	if got := nilPanic.Unwrap(); got != nil {
 		t.Errorf("Unwrap() with nil = %v, want nil", got)
 	}
+
+	var typedNil *customTestError
+	typedNilPanic := PanicError{Value: typedNil}
+	if got := typedNilPanic.Unwrap(); got != nil {
+		t.Errorf("Unwrap() with typed nil = %v, want nil", got)
+	}
+}
+
+func TestPanicErrorError(t *testing.T) {
+	tests := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "string", value: "test message", want: "eventloop: promise callback panicked: test message"},
+		{name: "integer", value: 42, want: "eventloop: promise callback panicked: 42"},
+		{name: "nil", value: nil, want: "eventloop: promise callback panicked: <nil>"},
+		{name: "error", value: errors.New("inner error"), want: "eventloop: promise callback panicked: inner error"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := (PanicError{Value: test.value}).Error(); got != test.want {
+				t.Fatalf("PanicError.Error() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestErrGoexitError(t *testing.T) {
+	const want = "eventloop: promise callback exited via runtime.Goexit"
+	if got := ErrGoexit.Error(); got != want {
+		t.Fatalf("ErrGoexit.Error() = %q, want %q", got, want)
+	}
 }
 
 // TestPanicError_ErrorsIs tests errors.Is with PanicError.
@@ -77,12 +110,12 @@ func TestAggregateError_Unwrap(t *testing.T) {
 	err2 := io.ErrUnexpectedEOF
 
 	aggErr := &AggregateError{
-		Errors: []error{err1, err2},
+		Errors: []any{err1, err2},
 	}
 
 	unwrapped := aggErr.Unwrap()
 	if len(unwrapped) != 2 {
-		t.Errorf("len(Unwrap()) = %d, want 2", len(unwrapped))
+		t.Fatalf("len(Unwrap()) = %d, want 2", len(unwrapped))
 	}
 
 	if unwrapped[0] != err1 || unwrapped[1] != err2 {
@@ -90,10 +123,28 @@ func TestAggregateError_Unwrap(t *testing.T) {
 	}
 }
 
+func TestAggregateErrorError(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{name: "default", want: "All promises were rejected"},
+		{name: "custom", message: "custom aggregate message", want: "custom aggregate message"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := &AggregateError{Message: test.message, Errors: []any{io.EOF}}
+			if got := err.Error(); got != test.want {
+				t.Fatalf("AggregateError.Error() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 // TestAggregateError_ErrorsIs tests errors.Is with AggregateError.
 func TestAggregateError_ErrorsIs(t *testing.T) {
 	aggErr := &AggregateError{
-		Errors: []error{io.EOF, io.ErrUnexpectedEOF, io.ErrClosedPipe},
+		Errors: []any{io.EOF, io.ErrUnexpectedEOF, io.ErrClosedPipe},
 	}
 
 	// Should find all contained errors
@@ -115,21 +166,23 @@ func TestAggregateError_ErrorsIs(t *testing.T) {
 	}
 }
 
-// TestAggregateError_Cause tests the Cause helper.
-func TestAggregateError_Cause(t *testing.T) {
-	// With errors
-	aggErr := &AggregateError{
-		Errors: []error{io.EOF, io.ErrUnexpectedEOF},
+func TestNilPromiseError(t *testing.T) {
+	err := &NilPromiseError{Index: 3}
+	if got := err.Error(); got != "eventloop: nil promise at index 3" {
+		t.Fatalf("Error() = %q, want %q", got, "eventloop: nil promise at index 3")
 	}
-	cause := aggErr.Cause()
-	if cause != io.EOF {
-		t.Errorf("Cause() = %v, want %v", cause, io.EOF)
+	if !errors.Is(err, &NilPromiseError{Index: 99}) {
+		t.Fatal("errors.Is with NilPromiseError target = false, want true")
 	}
-
-	// Empty errors
-	emptyAgg := &AggregateError{}
-	if got := emptyAgg.Cause(); got != nil {
-		t.Errorf("Cause() with empty = %v, want nil", got)
+	if errors.Is(err, io.EOF) {
+		t.Fatal("errors.Is with unrelated target = true, want false")
+	}
+	var target *NilPromiseError
+	if !errors.As(err, &target) {
+		t.Fatal("errors.As failed to find NilPromiseError")
+	}
+	if target.Index != 3 {
+		t.Fatalf("errors.As target Index = %d, want 3", target.Index)
 	}
 }
 
@@ -154,6 +207,13 @@ func TestAbortError(t *testing.T) {
 		err := &AbortError{Reason: cause}
 		if got := err.Error(); got != "AbortError: EOF" {
 			t.Errorf("Error() = %q, want %q", got, "AbortError: EOF")
+		}
+	})
+
+	t.Run("Default message with other reason type", func(t *testing.T) {
+		err := &AbortError{Reason: 42}
+		if got := err.Error(); got != "AbortError: The operation was aborted" {
+			t.Errorf("Error() = %q, want %q", got, "AbortError: The operation was aborted")
 		}
 	})
 
@@ -182,56 +242,11 @@ func TestAbortError(t *testing.T) {
 			t.Error("Is(target) = false, want true for AbortError")
 		}
 	})
-}
 
-// TestTypeError tests TypeError functionality.
-func TestTypeError(t *testing.T) {
-	t.Run("Error message", func(t *testing.T) {
-		err := &TypeError{Message: "expected string, got number"}
-		if got := err.Error(); got != "expected string, got number" {
-			t.Errorf("Error() = %q, want %q", got, "expected string, got number")
-		}
-	})
-
-	t.Run("Default message", func(t *testing.T) {
-		err := &TypeError{}
-		if got := err.Error(); got != "type error" {
-			t.Errorf("Error() = %q, want %q", got, "type error")
-		}
-	})
-
-	t.Run("With cause", func(t *testing.T) {
-		cause := io.EOF
-		err := &TypeError{Message: "invalid type", Cause: cause}
-
-		if !errors.Is(err, io.EOF) {
-			t.Error("errors.Is(err, io.EOF) = false, want true")
-		}
-	})
-}
-
-// TestRangeError tests RangeError functionality.
-func TestRangeError(t *testing.T) {
-	t.Run("Error message", func(t *testing.T) {
-		err := &RangeError{Message: "index out of bounds"}
-		if got := err.Error(); got != "index out of bounds" {
-			t.Errorf("Error() = %q, want %q", got, "index out of bounds")
-		}
-	})
-
-	t.Run("Default message", func(t *testing.T) {
-		err := &RangeError{}
-		if got := err.Error(); got != "range error" {
-			t.Errorf("Error() = %q, want %q", got, "range error")
-		}
-	})
-
-	t.Run("With cause", func(t *testing.T) {
-		cause := io.EOF
-		err := &RangeError{Message: "out of range", Cause: cause}
-
-		if !errors.Is(err, io.EOF) {
-			t.Error("errors.Is(err, io.EOF) = false, want true")
+	t.Run("Is with unrelated target", func(t *testing.T) {
+		err := &AbortError{Reason: "test"}
+		if err.Is(io.EOF) {
+			t.Fatal("Is(io.EOF) = true, want false")
 		}
 	})
 }
@@ -262,11 +277,115 @@ func TestTimeoutError(t *testing.T) {
 	})
 }
 
+func TestUnhandledRejectionDebugInfoReason(t *testing.T) {
+	reason := errors.New("test error")
+	tests := []struct {
+		name       string
+		reason     any
+		want       string
+		wantUnwrap error
+	}{
+		{name: "error", reason: reason, want: reason.Error(), wantUnwrap: reason},
+		{name: "non-error", reason: "string reason", want: "string reason"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			info := &UnhandledRejectionDebugInfo{Reason: test.reason}
+			if got := info.Error(); got != test.want {
+				t.Fatalf("Error = %q, want %q", got, test.want)
+			}
+			if got := info.Unwrap(); got != test.wantUnwrap {
+				t.Fatalf("Unwrap = %v, want %v", got, test.wantUnwrap)
+			}
+		})
+	}
+}
+
+func TestRetainedErrorNilContracts(t *testing.T) {
+	var typedNil *customTestError
+	rollbackErr := &FDRegistrationRollbackError{
+		cause:      typedNil,
+		rollback:   typedNil,
+		registered: true,
+	}
+	if got := rollbackErr.Unwrap(); len(got) != 0 {
+		t.Fatalf("FDRegistrationRollbackError typed-nil unwrap = %#v, want empty", got)
+	}
+	if !rollbackErr.Registered() {
+		t.Fatal("FDRegistrationRollbackError Registered = false, want true")
+	}
+	unregisterErr := &FDUnregisterError{cause: typedNil, released: true}
+	if got := unregisterErr.Unwrap(); got != nil {
+		t.Fatalf("FDUnregisterError typed-nil unwrap = %#v, want nil", got)
+	}
+	if !unregisterErr.Released() {
+		t.Fatal("FDUnregisterError Released = false, want true")
+	}
+
+	timeoutErr := &TimeoutError{Cause: typedNil}
+	if got := timeoutErr.Unwrap(); got != nil {
+		t.Fatalf("TimeoutError typed-nil cause unwrap = %v, want nil", got)
+	}
+	abortErr := &AbortError{Reason: typedNil}
+	if got := abortErr.Unwrap(); got != nil {
+		t.Fatalf("AbortError typed-nil reason unwrap = %v, want nil", got)
+	}
+	if got, want := abortErr.Error(), "AbortError: The operation was aborted"; got != want {
+		t.Fatalf("AbortError typed-nil reason = %q, want %q", got, want)
+	}
+
+	aggregateErr := &AggregateError{Errors: []any{typedNil, io.EOF}}
+	if got := aggregateErr.Unwrap(); len(got) != 1 || got[0] != io.EOF {
+		t.Fatalf("AggregateError typed-nil filtering = %#v, want [io.EOF]", got)
+	}
+
+	var nilTimeout *TimeoutError
+	if got, want := nilTimeout.Error(), "operation timed out"; got != want || nilTimeout.Unwrap() != nil {
+		t.Fatalf("nil TimeoutError = %q, %v; want %q, nil", got, nilTimeout.Unwrap(), want)
+	}
+	var nilAbort *AbortError
+	if got, want := nilAbort.Error(), "AbortError: The operation was aborted"; got != want || nilAbort.Unwrap() != nil {
+		t.Fatalf("nil AbortError = %q, %v; want %q, nil", got, nilAbort.Unwrap(), want)
+	}
+	var nilAggregate *AggregateError
+	if got, want := nilAggregate.Error(), "All promises were rejected"; got != want || nilAggregate.Unwrap() != nil {
+		t.Fatalf("nil AggregateError = %q, %#v; want %q, nil", got, nilAggregate.Unwrap(), want)
+	}
+	var nilPromise *NilPromiseError
+	if got, want := nilPromise.Error(), "eventloop: nil promise"; got != want {
+		t.Fatalf("nil NilPromiseError = %q, want %q", got, want)
+	}
+	var nilPanic *PanicError
+	if errors.Is(PanicError{}, nilPanic) ||
+		errors.Is(&AggregateError{}, nilAggregate) ||
+		errors.Is(&NilPromiseError{}, nilPromise) ||
+		errors.Is(&TimeoutError{}, nilTimeout) ||
+		errors.Is(&AbortError{}, nilAbort) {
+		t.Fatal("a non-nil category error matched a typed-nil target")
+	}
+
+	controller := NewAbortController()
+	controller.Abort(typedNil)
+	throwErr := controller.Signal().ThrowIfAborted()
+	var wrappedTypedNil *AbortError
+	if !errors.As(throwErr, &wrappedTypedNil) || wrappedTypedNil.Reason != typedNil {
+		t.Fatalf("ThrowIfAborted typed-nil reason = %T %#v, want *AbortError retaining input", throwErr, throwErr)
+	}
+	debugInfo := &UnhandledRejectionDebugInfo{Reason: typedNil}
+	if got, want := debugInfo.Error(), "<nil>"; got != want || debugInfo.Unwrap() != nil {
+		t.Fatalf("typed-nil UnhandledRejectionDebugInfo = %q, %v; want %q, nil", got, debugInfo.Unwrap(), want)
+	}
+	var nilDebugInfo *UnhandledRejectionDebugInfo
+	if got, want := nilDebugInfo.Error(), "<nil>"; got != want || nilDebugInfo.Unwrap() != nil {
+		t.Fatalf("nil UnhandledRejectionDebugInfo = %q, %v; want %q, nil", got, nilDebugInfo.Unwrap(), want)
+	}
+}
+
 // TestAggregateError_Is tests the Is method of AggregateError.
 func TestAggregateError_Is(t *testing.T) {
 	aggErr := &AggregateError{
 		Message: "all failed",
-		Errors:  []error{io.EOF},
+		Errors:  []any{io.EOF},
 	}
 
 	// Should match another AggregateError
@@ -298,46 +417,6 @@ func TestPanicError_Is(t *testing.T) {
 	// Should not match unrelated error
 	if errors.Is(panicErr, io.ErrClosedPipe) {
 		t.Error("errors.Is(panicErr, io.ErrClosedPipe) = true, want false")
-	}
-}
-
-// TestTypeError_Is tests the Is method of TypeError.
-func TestTypeError_Is(t *testing.T) {
-	typeErr := &TypeError{Message: "expected string"}
-
-	// Should match another TypeError
-	if !errors.Is(typeErr, &TypeError{}) {
-		t.Error("errors.Is(typeErr, &TypeError{}) = false, want true")
-	}
-
-	// Should not match unrelated error
-	if errors.Is(typeErr, io.EOF) {
-		t.Error("errors.Is(typeErr, io.EOF) = true, want false")
-	}
-
-	// Should not match different error types
-	if errors.Is(typeErr, &RangeError{}) {
-		t.Error("errors.Is(typeErr, &RangeError{}) = true, want false")
-	}
-}
-
-// TestRangeError_Is tests the Is method of RangeError.
-func TestRangeError_Is(t *testing.T) {
-	rangeErr := &RangeError{Message: "out of bounds"}
-
-	// Should match another RangeError
-	if !errors.Is(rangeErr, &RangeError{}) {
-		t.Error("errors.Is(rangeErr, &RangeError{}) = false, want true")
-	}
-
-	// Should not match unrelated error
-	if errors.Is(rangeErr, io.EOF) {
-		t.Error("errors.Is(rangeErr, io.EOF) = true, want false")
-	}
-
-	// Should not match different error types
-	if errors.Is(rangeErr, &TypeError{}) {
-		t.Error("errors.Is(rangeErr, &TypeError{}) = true, want false")
 	}
 }
 

@@ -2,26 +2,24 @@ package eventloop
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 	"time"
 )
 
-// Performance provides high-resolution timing APIs following the W3C
-// Performance Timeline and User Timing specifications.
-//
-// This implementation follows:
-//   - Performance Timeline Level 2: https://www.w3.org/TR/performance-timeline/
-//   - User Timing Level 2: https://www.w3.org/TR/user-timing/
-//   - High Resolution Time Level 2: https://www.w3.org/TR/hr-time/
+// Performance provides Go-native high-resolution timing and timeline storage.
+// Its terminology mirrors the W3C High Resolution Time, Performance Timeline,
+// and User Timing APIs, while JavaScript-visible policy and standards
+// conformance belong to the goja-eventloop adapter.
 //
 // The performance.now() method returns high-resolution timestamps measured from
-// a monotonic clock origin established when the Performance object is created.
-// This provides sub-millisecond precision for performance measurements.
+// the Performance object's selected monotonic clock origin. This provides
+// sub-millisecond precision for performance measurements.
 //
 // Thread Safety:
-// Performance is safe for concurrent access from multiple goroutines.
-// All state mutations are protected by an internal mutex.
+// Performance is safe for concurrent access from multiple goroutines, and its
+// zero value is ready to use. A Performance must not be copied after first use.
 //
 // Usage:
 //
@@ -39,17 +37,19 @@ import (
 //	perf.Mark("operation-end")
 //	perf.Measure("operation-duration", "operation-start", "operation-end")
 type Performance struct { //nolint:govet // betteralign:ignore
-	entries []PerformanceEntry
-	marks   map[string][]float64
-	origin  time.Time // Monotonic clock origin
-	mu      sync.RWMutex
+	entries    []PerformanceEntry
+	marks      map[string][]float64
+	origin     time.Time // Monotonic clock origin
+	mu         sync.RWMutex
+	originOnce sync.Once
 }
 
 // PerformanceEntry represents a single performance metric.
 //
-// This follows the PerformanceEntry interface from the Performance Timeline spec.
+// Its fields mirror the PerformanceEntry interface from Performance Timeline.
 type PerformanceEntry struct {
-	// Detail contains optional additional data for the entry.
+	// Detail contains optional caller-owned Go data for the entry. Reference
+	// values are retained and returned by reference.
 	Detail any
 
 	// Name is the identifier for this entry (e.g., mark name, measure name).
@@ -82,15 +82,28 @@ type PerformanceEntry struct {
 //	t2 := perf.Now()
 //	elapsed := t2 - t1 // Elapsed time in milliseconds
 func NewPerformance() *Performance {
+	return newPerformance(time.Now())
+}
+
+func newPerformance(origin time.Time) *Performance {
 	return &Performance{
-		origin:  time.Now(),
+		origin:  origin,
 		marks:   make(map[string][]float64),
 		entries: make([]PerformanceEntry, 0),
 	}
 }
 
+func (p *Performance) clockOrigin() time.Time {
+	p.originOnce.Do(func() {
+		if p.origin.IsZero() {
+			p.origin = time.Now()
+		}
+	})
+	return p.origin
+}
+
 // Now returns a high-resolution timestamp in milliseconds measured from the
-// performance origin (when the Performance object was created).
+// selected performance origin.
 //
 // The returned value has sub-millisecond precision and is monotonically
 // increasing. It is safe to use for accurate elapsed time measurements.
@@ -108,18 +121,20 @@ func NewPerformance() *Performance {
 func (p *Performance) Now() float64 {
 	// time.Since uses monotonic clock internally, so this is accurate
 	// even if the system clock is adjusted
-	elapsed := time.Since(p.origin)
+	elapsed := time.Since(p.clockOrigin())
 	return float64(elapsed.Nanoseconds()) / 1e6 // Convert to milliseconds
 }
 
 // TimeOrigin returns the time origin as a Unix timestamp in milliseconds.
 //
-// This follows the performance.timeOrigin property from the High Resolution Time spec.
-// The value represents when the Performance object was created.
+// This follows the performance.timeOrigin property from the High Resolution
+// Time spec. [NewPerformance] selects its creation time;
+// [NewLoopPerformance] selects the loop tick anchor when available and its own
+// construction time otherwise.
 //
 // Thread Safety: Safe to call concurrently.
 func (p *Performance) TimeOrigin() float64 {
-	return float64(p.origin.UnixNano()) / 1e6
+	return float64(p.clockOrigin().UnixNano()) / 1e6
 }
 
 // Mark creates a named timestamp (mark) in the performance timeline.
@@ -131,7 +146,7 @@ func (p *Performance) TimeOrigin() float64 {
 //   - name: A unique identifier for the mark. If the same name is used multiple
 //     times, each call creates a new mark entry (all are preserved).
 //
-// This follows the performance.mark() method from the User Timing spec.
+// This corresponds to performance.mark() from User Timing.
 //
 // Thread Safety: Safe to call concurrently.
 //
@@ -144,10 +159,8 @@ func (p *Performance) Mark(name string) {
 	p.MarkWithDetail(name, nil)
 }
 
-// MarkWithDetail creates a named timestamp with optional detail data.
-//
-// This is an extension that follows the PerformanceMarkOptions interface
-// from the User Timing Level 2 spec.
+// MarkWithDetail creates a named timestamp with optional caller-owned Go data.
+// Reference values are retained by reference; no structured clone is made.
 //
 // Parameters:
 //   - name: A unique identifier for the mark
@@ -155,10 +168,13 @@ func (p *Performance) Mark(name string) {
 //
 // Thread Safety: Safe to call concurrently.
 func (p *Performance) MarkWithDetail(name string, detail any) {
-	now := p.Now()
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	now := p.Now()
+	if p.marks == nil {
+		p.marks = make(map[string][]float64)
+	}
 
 	// Store mark timestamp
 	p.marks[name] = append(p.marks[name], now)
@@ -183,7 +199,7 @@ func (p *Performance) MarkWithDetail(name string, detail any) {
 //
 // Returns an error if the specified marks are not found.
 //
-// This follows the performance.measure() method from the User Timing spec.
+// This corresponds to performance.measure() from User Timing.
 //
 // Thread Safety: Safe to call concurrently.
 //
@@ -200,10 +216,9 @@ func (p *Performance) Measure(name, startMark, endMark string) error {
 	return p.MeasureWithDetail(name, startMark, endMark, nil)
 }
 
-// MeasureWithDetail creates a performance measure with optional detail data.
-//
-// This is an extension that follows the PerformanceMeasureOptions interface
-// from the User Timing Level 2 spec.
+// MeasureWithDetail creates a performance measure with optional caller-owned Go
+// data. Reference values are retained by reference; no structured clone is
+// made.
 //
 // Parameters:
 //   - name: A unique identifier for the measure
@@ -215,10 +230,10 @@ func (p *Performance) Measure(name, startMark, endMark string) error {
 //
 // Thread Safety: Safe to call concurrently.
 func (p *Performance) MeasureWithDetail(name, startMark, endMark string, detail any) error {
-	now := p.Now()
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	now := p.Now()
 
 	// Determine start time
 	var startTime float64
@@ -264,18 +279,21 @@ func (p *Performance) MeasureWithDetail(name, startMark, endMark string, detail 
 
 // GetEntries returns all performance entries.
 //
-// The entries are returned in chronological order (by StartTime).
+// Entries are returned in stable chronological order by StartTime. Entries
+// with equal start times retain their recording order.
 //
 // This follows the performance.getEntries() method from the Performance Timeline spec.
 //
-// Thread Safety: Safe to call concurrently. Returns a copy of the entries.
+// Thread Safety: Safe to call concurrently. The returned slice and entries are
+// copies. Detail values are retained by reference because arbitrary Go values
+// cannot be cloned generically.
 func (p *Performance) GetEntries() []PerformanceEntry {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	// Return a copy to prevent mutation
 	result := make([]PerformanceEntry, len(p.entries))
 	copy(result, p.entries)
+	p.mu.RUnlock()
+
+	sortPerformanceEntries(result)
 	return result
 }
 
@@ -286,17 +304,21 @@ func (p *Performance) GetEntries() []PerformanceEntry {
 //
 // This follows the performance.getEntriesByType() method from the Performance Timeline spec.
 //
-// Thread Safety: Safe to call concurrently. Returns a copy of the entries.
+// Results use the same stable chronological ordering and copy semantics as
+// GetEntries.
+//
+// Thread Safety: Safe to call concurrently.
 func (p *Performance) GetEntriesByType(entryType string) []PerformanceEntry {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-
 	var result []PerformanceEntry
 	for _, entry := range p.entries {
 		if entry.EntryType == entryType {
 			result = append(result, entry)
 		}
 	}
+	p.mu.RUnlock()
+
+	sortPerformanceEntries(result)
 	return result
 }
 
@@ -305,31 +327,40 @@ func (p *Performance) GetEntriesByType(entryType string) []PerformanceEntry {
 // Parameters:
 //   - name: The name of the entries to return
 //
-// Optionally filter by entry type:
-//   - If entryType is empty, returns all entries with the specified name
-//   - Otherwise, returns only entries matching both name and type
+// entryTypes optionally restricts results to any of the specified entry types.
+// With no entry types, all entries with the specified name are returned.
 //
 // This follows the performance.getEntriesByName() method from the Performance Timeline spec.
 //
-// Thread Safety: Safe to call concurrently. Returns a copy of the entries.
-func (p *Performance) GetEntriesByName(name string, entryType ...string) []PerformanceEntry {
+// Results use the same stable chronological ordering and copy semantics as
+// GetEntries.
+//
+// Thread Safety: Safe to call concurrently.
+func (p *Performance) GetEntriesByName(name string, entryTypes ...string) []PerformanceEntry {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	typeFilter := ""
-	if len(entryType) > 0 {
-		typeFilter = entryType[0]
-	}
-
 	var result []PerformanceEntry
 	for _, entry := range p.entries {
-		if entry.Name == name {
-			if typeFilter == "" || entry.EntryType == typeFilter {
-				result = append(result, entry)
-			}
+		if entry.Name == name && matchesEntryType(entry.EntryType, entryTypes) {
+			result = append(result, entry)
 		}
 	}
+	p.mu.RUnlock()
+
+	sortPerformanceEntries(result)
 	return result
+}
+
+func matchesEntryType(entryType string, entryTypes []string) bool {
+	if len(entryTypes) == 0 {
+		return true
+	}
+	return slices.Contains(entryTypes, entryType)
+}
+
+func sortPerformanceEntries(entries []PerformanceEntry) {
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].StartTime < entries[j].StartTime
+	})
 }
 
 // ClearMarks removes all marks, or marks with the specified name.
@@ -435,128 +466,20 @@ func (p *Performance) ToJSON() map[string]any {
 	}
 }
 
-// performanceObserver observes performance entries and invokes callbacks.
-//
-// This implementation follows the PerformanceObserver interface from the
-// Performance Timeline Level 2 spec.
-type performanceObserver struct { //nolint:govet // betteralign:ignore
-	buffered   []PerformanceEntry
-	callback   performanceObserverCallback
-	entryTypes map[string]bool
-	perf       *Performance
-	mu         sync.Mutex
-}
-
-// performanceObserverCallback is invoked when new performance entries are recorded.
-type performanceObserverCallback func(entries []PerformanceEntry, observer *performanceObserver)
-
-// performanceObserverOptions specifies which entry types to observe.
-type performanceObserverOptions struct {
-	// EntryTypes is a list of entry types to observe (e.g., ["mark", "measure"]).
-	EntryTypes []string
-
-	// Buffered, if true, delivers buffered entries of matching types.
-	Buffered bool
-}
-
-// newPerformanceObserver creates a new performanceObserver.
-//
-// Parameters:
-//   - perf: The Performance object to observe
-//   - callback: Function to call when new entries are recorded
-func newPerformanceObserver(perf *Performance, callback performanceObserverCallback) *performanceObserver {
-	return &performanceObserver{
-		perf:       perf,
-		callback:   callback,
-		entryTypes: make(map[string]bool),
-	}
-}
-
-// Observe starts observing performance entries matching the specified options.
-//
-// Parameters:
-//   - options: Specifies which entry types to observe
-func (o *performanceObserver) Observe(options performanceObserverOptions) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	for _, t := range options.EntryTypes {
-		o.entryTypes[t] = true
-	}
-
-	if options.Buffered {
-		// Get existing buffered entries
-		o.perf.mu.RLock()
-		for _, entry := range o.perf.entries {
-			if o.entryTypes[entry.EntryType] {
-				o.buffered = append(o.buffered, entry)
-			}
-		}
-		o.perf.mu.RUnlock()
-
-		// Deliver buffered entries
-		if len(o.buffered) > 0 {
-			entries := o.buffered
-			o.buffered = nil
-			o.callback(entries, o)
-		}
-	}
-}
-
-// Disconnect stops observing performance entries.
-func (o *performanceObserver) Disconnect() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	o.entryTypes = make(map[string]bool)
-	o.buffered = nil
-}
-
-// TakeRecords returns all recorded entries and clears the buffer.
-func (o *performanceObserver) TakeRecords() []PerformanceEntry {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	entries := o.buffered
-	o.buffered = nil
-	return entries
-}
-
-// ------ Performance for Loop ------
-
-// LoopPerformance wraps Performance with additional event loop-specific methods.
-type LoopPerformance struct {
-	*Performance
-	loop *Loop
-}
-
-// NewLoopPerformance creates a Performance object tied to an event loop.
+// NewLoopPerformance creates a Performance whose origin snapshots an event
+// loop's clock.
 //
 // The origin is set to the loop's tick anchor if available, otherwise
-// the current time.
-func NewLoopPerformance(loop *Loop) *LoopPerformance {
-	origin := loop.TickAnchor()
+// the current time. The returned Performance does not retain loop.
+// NewLoopPerformance panics if loop is nil.
+func NewLoopPerformance(loop *Loop) *Performance {
+	if loop == nil {
+		panic("eventloop: nil Loop")
+	}
+	origin := loop.tickAnchorTime()
 	if origin.IsZero() {
 		origin = time.Now()
 	}
 
-	return &LoopPerformance{
-		Performance: &Performance{
-			origin:  origin,
-			marks:   make(map[string][]float64),
-			entries: make([]PerformanceEntry, 0),
-		},
-		loop: loop,
-	}
-}
-
-// ------ Sorted Entry Retrieval ------
-
-// GetEntriesSorted returns all entries sorted by start time.
-func (p *Performance) GetEntriesSorted() []PerformanceEntry {
-	entries := p.GetEntries()
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].StartTime < entries[j].StartTime
-	})
-	return entries
+	return newPerformance(origin)
 }

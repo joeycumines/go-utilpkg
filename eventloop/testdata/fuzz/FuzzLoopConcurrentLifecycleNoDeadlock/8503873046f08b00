@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$rrrYr.8.1C")

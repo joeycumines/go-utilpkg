@@ -1,12 +1,16 @@
 package gojaprotobuf
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -15,16 +19,166 @@ import (
 
 // Well-known type descriptors (resolved once).
 var (
-	timestampDesc = timestamppb.File_google_protobuf_timestamp_proto.Messages().ByName("Timestamp")
-	durationDesc  = durationpb.File_google_protobuf_duration_proto.Messages().ByName("Duration")
-	anyDesc       = anypb.File_google_protobuf_any_proto.Messages().ByName("Any")
+	timestampType = (&timestamppb.Timestamp{}).ProtoReflect().Type()
+	durationType  = (&durationpb.Duration{}).ProtoReflect().Type()
+	anyType       = (&anypb.Any{}).ProtoReflect().Type()
+	timestampDesc = timestampType.Descriptor()
+	durationDesc  = durationType.Descriptor()
+	anyDesc       = anyType.Descriptor()
 )
+
+func seedWellKnownState(state *runtimeState) error {
+	var err error
+	state.timestampType, err = seedWellKnownMessage(state, timestampType)
+	if err != nil {
+		return fmt.Errorf("configure %s: %w", timestampDesc.FullName(), err)
+	}
+	state.durationType, err = seedWellKnownMessage(state, durationType)
+	if err != nil {
+		return fmt.Errorf("configure %s: %w", durationDesc.FullName(), err)
+	}
+	state.anyType, err = seedWellKnownMessage(state, anyType)
+	if err != nil {
+		return fmt.Errorf("configure %s: %w", anyDesc.FullName(), err)
+	}
+	return nil
+}
+
+func seedWellKnownMessage(
+	state *runtimeState,
+	generated protoreflect.MessageType,
+) (protoreflect.MessageType, error) {
+	name := generated.Descriptor().FullName()
+	baseType, typeFound, err := baseWellKnownType(state.baseTypes, name)
+	if err != nil {
+		return nil, err
+	}
+	baseDescriptor, fileFound, err := baseWellKnownDescriptor(state, name)
+	if err != nil {
+		return nil, err
+	}
+	if typeFound {
+		if err := validateWellKnownDescriptor(baseType.Descriptor(), generated.Descriptor()); err != nil {
+			return nil, fmt.Errorf("base type registry: %w", err)
+		}
+	}
+	if fileFound {
+		if err := validateWellKnownDescriptor(baseDescriptor, generated.Descriptor()); err != nil {
+			return nil, fmt.Errorf("base file registry: %w", err)
+		}
+	}
+	if typeFound && fileFound {
+		if baseType.Descriptor() != baseDescriptor {
+			return nil, fmt.Errorf("base registries disagree on symbol %q", name)
+		}
+		return baseType, nil
+	}
+	if typeFound {
+		if err := registerWellKnownFile(state, baseType.Descriptor().ParentFile()); err != nil {
+			return nil, err
+		}
+		return baseType, nil
+	}
+	if fileFound {
+		messageType := dynamicpb.NewMessageType(baseDescriptor)
+		if err := state.localTypes.RegisterMessage(messageType); err != nil {
+			return nil, fmt.Errorf("register canonical message type: %w", err)
+		}
+		return messageType, nil
+	}
+	if err := registerWellKnownFile(state, generated.Descriptor().ParentFile()); err != nil {
+		return nil, err
+	}
+	if err := state.localTypes.RegisterMessage(generated); err != nil {
+		return nil, fmt.Errorf("register generated message type: %w", err)
+	}
+	return generated, nil
+}
+
+func baseWellKnownType(
+	types *protoregistry.Types,
+	name protoreflect.FullName,
+) (protoreflect.MessageType, bool, error) {
+	if values := registeredEnumValues(types, name); len(values) != 0 {
+		return nil, false, fmt.Errorf("symbol %q conflicts with a base enum value", name)
+	}
+	messageType, err := types.FindMessageByName(name)
+	if errors.Is(err, protoregistry.NotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("base type symbol %q is not a message: %w", name, err)
+	}
+	return messageType, true, nil
+}
+
+func baseWellKnownDescriptor(
+	state *runtimeState,
+	name protoreflect.FullName,
+) (protoreflect.MessageDescriptor, bool, error) {
+	descriptor, err := state.baseFiles.FindDescriptorByName(name)
+	if errors.Is(err, protoregistry.NotFound) {
+		var ok bool
+		descriptor, ok = state.baseGraph.symbols[name]
+		if !ok {
+			return nil, false, nil
+		}
+		err = nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve base file symbol %q: %w", name, err)
+	}
+	messageDescriptor, ok := descriptor.(protoreflect.MessageDescriptor)
+	if !ok {
+		return nil, false, fmt.Errorf("base file symbol %q is not a message", name)
+	}
+	return messageDescriptor, true, nil
+}
+
+func validateWellKnownDescriptor(
+	descriptor protoreflect.MessageDescriptor,
+	generated protoreflect.MessageDescriptor,
+) error {
+	if descriptor.FullName() != generated.FullName() ||
+		!proto.Equal(
+			protodesc.ToFileDescriptorProto(descriptor.ParentFile()),
+			protodesc.ToFileDescriptorProto(generated.ParentFile()),
+		) {
+		return fmt.Errorf("symbol %q does not match the standard schema", generated.FullName())
+	}
+	return nil
+}
+
+func registerWellKnownFile(state *runtimeState, file protoreflect.FileDescriptor) error {
+	if existing, ok := state.baseGraph.files[file.Path()]; ok && existing != file {
+		return fmt.Errorf(
+			"file %q conflicts with the base descriptor graph",
+			file.Path(),
+		)
+	}
+	fileGraph, err := descriptorFileGraph(file)
+	if err != nil {
+		return fmt.Errorf("validate canonical file %q: %w", file.Path(), err)
+	}
+	if err := state.baseGraph.compatible(fileGraph); err != nil {
+		return err
+	}
+	if err := state.localFiles.RegisterFile(file); err != nil {
+		return fmt.Errorf("register canonical file %q: %w", file.Path(), err)
+	}
+	state.localProtos[file.Path()] = protodesc.ToFileDescriptorProto(file)
+	return nil
+}
 
 // jsTimestampNow is the JS-facing implementation of pb.timestampNow().
 // It creates a google.protobuf.Timestamp for the current time.
 func (m *Module) jsTimestampNow(call goja.FunctionCall) goja.Value {
 	now := time.Now()
-	return m.wrapMessage(timestampFromTime(now))
+	message := timestampMessage(m.state.timestampType, now.Unix(), int32(now.Nanosecond()))
+	if err := validateTimestampDescriptor(message, m.state.timestampType.Descriptor()); err != nil {
+		panic(m.runtime.NewGoError(fmt.Errorf("timestampNow: %w", err)))
+	}
+	return m.wrapMessage(message)
 }
 
 // jsTimestampFromDate is the JS-facing implementation of
@@ -36,7 +190,11 @@ func (m *Module) jsTimestampFromDate(call goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(m.runtime.NewTypeError("timestampFromDate: %s", err))
 	}
-	return m.wrapMessage(timestampFromMs(ms))
+	message := timestampMillis(m.state.timestampType, ms)
+	if err := validateTimestampDescriptor(message, m.state.timestampType.Descriptor()); err != nil {
+		panic(m.runtime.NewTypeError("timestampFromDate: %s", err))
+	}
+	return m.wrapMessage(message)
 }
 
 // jsTimestampDate is the JS-facing implementation of
@@ -47,7 +205,10 @@ func (m *Module) jsTimestampDate(call goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(m.runtime.NewTypeError("timestampDate: %s", err))
 	}
-	ms := timestampToMs(msg)
+	ms, err := checkedTimestampDescriptor(msg, m.state.timestampType.Descriptor())
+	if err != nil {
+		panic(m.runtime.NewTypeError("timestampDate: %s", err))
+	}
 	return m.newDate(ms)
 }
 
@@ -55,8 +216,15 @@ func (m *Module) jsTimestampDate(call goja.FunctionCall) goja.Value {
 // pb.timestampFromMs(ms). It creates a google.protobuf.Timestamp from
 // milliseconds since the Unix epoch.
 func (m *Module) jsTimestampFromMs(call goja.FunctionCall) goja.Value {
-	ms := call.Argument(0).ToInteger()
-	return m.wrapMessage(timestampFromMs(ms))
+	ms, err := m.gojaToInt64(call.Argument(0))
+	if err != nil {
+		panic(m.runtime.NewTypeError("timestampFromMs: %s", err))
+	}
+	message := timestampMillis(m.state.timestampType, ms)
+	if err := validateTimestampDescriptor(message, m.state.timestampType.Descriptor()); err != nil {
+		panic(m.runtime.NewTypeError("timestampFromMs: %s", err))
+	}
+	return m.wrapMessage(message)
 }
 
 // jsTimestampMs is the JS-facing implementation of pb.timestampMs(ts).
@@ -66,15 +234,26 @@ func (m *Module) jsTimestampMs(call goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(m.runtime.NewTypeError("timestampMs: %s", err))
 	}
-	return m.runtime.ToValue(timestampToMs(msg))
+	ms, err := checkedTimestampDescriptor(msg, m.state.timestampType.Descriptor())
+	if err != nil {
+		panic(m.runtime.NewTypeError("timestampMs: %s", err))
+	}
+	return m.int64ToGoja(ms)
 }
 
 // jsDurationFromMs is the JS-facing implementation of
 // pb.durationFromMs(ms). It creates a google.protobuf.Duration from
 // a value in milliseconds.
 func (m *Module) jsDurationFromMs(call goja.FunctionCall) goja.Value {
-	ms := call.Argument(0).ToInteger()
-	return m.wrapMessage(durationFromMs(ms))
+	ms, err := m.gojaToInt64(call.Argument(0))
+	if err != nil {
+		panic(m.runtime.NewTypeError("durationFromMs: %s", err))
+	}
+	message := durationMillis(m.state.durationType, ms)
+	if err := validateDurationDescriptor(message, m.state.durationType.Descriptor()); err != nil {
+		panic(m.runtime.NewTypeError("durationFromMs: %s", err))
+	}
+	return m.wrapMessage(message)
 }
 
 // jsDurationMs is the JS-facing implementation of pb.durationMs(dur).
@@ -84,14 +263,18 @@ func (m *Module) jsDurationMs(call goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(m.runtime.NewTypeError("durationMs: %s", err))
 	}
-	return m.runtime.ToValue(durationToMs(msg))
+	ms, err := checkedDurationDescriptor(msg, m.state.durationType.Descriptor())
+	if err != nil {
+		panic(m.runtime.NewTypeError("durationMs: %s", err))
+	}
+	return m.int64ToGoja(ms)
 }
 
 // jsAnyPack is the JS-facing implementation of pb.anyPack(msgType, msg).
 // It wraps a protobuf message into a google.protobuf.Any.
 func (m *Module) jsAnyPack(call goja.FunctionCall) goja.Value {
 	msgTypeVal := call.Argument(0)
-	msgDesc, err := m.extractMessageDesc(msgTypeVal)
+	messageType, err := m.extractMessageType(msgTypeVal)
 	if err != nil {
 		panic(m.runtime.NewTypeError("anyPack: first argument: %s", err))
 	}
@@ -102,22 +285,28 @@ func (m *Module) jsAnyPack(call goja.FunctionCall) goja.Value {
 	}
 
 	// Verify message type matches.
-	if msg.Descriptor().FullName() != msgDesc.FullName() {
+	reflected := msg.ProtoReflect()
+	messageDesc := messageType.Descriptor()
+	if reflected.Descriptor() != messageDesc {
 		panic(m.runtime.NewTypeError("anyPack: message type %q does not match schema %q",
-			msg.Descriptor().FullName(), msgDesc.FullName()))
+			reflected.Descriptor().FullName(), messageDesc.FullName()))
 	}
 
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		panic(m.runtime.NewGoError(fmt.Errorf("anyPack: marshal: %w", err)))
 	}
-
-	anyMsg := dynamicpb.NewMessage(anyDesc)
-	typeURL := "type.googleapis.com/" + string(msgDesc.FullName())
-	anyMsg.Set(anyDesc.Fields().ByName("type_url"), protoreflect.ValueOfString(typeURL))
-	anyMsg.Set(anyDesc.Fields().ByName("value"), protoreflect.ValueOfBytes(data))
-
-	return m.wrapMessage(anyMsg)
+	anyDescriptor := m.state.anyType.Descriptor()
+	packed := m.state.anyType.New()
+	packed.Set(
+		anyDescriptor.Fields().ByName("type_url"),
+		protoreflect.ValueOfString("type.googleapis.com/"+string(messageDesc.FullName())),
+	)
+	packed.Set(
+		anyDescriptor.Fields().ByName("value"),
+		protoreflect.ValueOfBytes(data),
+	)
+	return m.wrapMessage(packed.Interface())
 }
 
 // jsAnyUnpack is the JS-facing implementation of
@@ -129,17 +318,24 @@ func (m *Module) jsAnyUnpack(call goja.FunctionCall) goja.Value {
 		panic(m.runtime.NewTypeError("anyUnpack: first argument: %s", err))
 	}
 
-	msgDesc, err := m.extractMessageDesc(call.Argument(1))
+	messageType, err := m.extractMessageType(call.Argument(1))
 	if err != nil {
 		panic(m.runtime.NewTypeError("anyUnpack: second argument: %s", err))
 	}
 
-	// Extract value bytes.
-	valueField := anyDesc.Fields().ByName("value")
-	data := anyMsg.Get(valueField).Bytes()
-
-	msg := dynamicpb.NewMessage(msgDesc)
-	if err := proto.Unmarshal(data, msg); err != nil {
+	anyDescriptor := m.state.anyType.Descriptor()
+	reflected, err := requireMessage(anyMsg, anyDescriptor)
+	if err != nil {
+		panic(m.runtime.NewTypeError("anyUnpack: first argument: %s", err))
+	}
+	typeURL := reflected.Get(anyDescriptor.Fields().ByName("type_url")).String()
+	wantName := string(messageType.Descriptor().FullName())
+	if !typeURLMatches(typeURL, wantName) {
+		panic(m.runtime.NewTypeError("anyUnpack: type URL %q does not identify %q", typeURL, wantName))
+	}
+	data := reflected.Get(anyDescriptor.Fields().ByName("value")).Bytes()
+	msg := messageType.New().Interface()
+	if err := (proto.UnmarshalOptions{Resolver: m.typeResolver()}).Unmarshal(data, msg); err != nil {
 		panic(m.runtime.NewGoError(fmt.Errorf("anyUnpack: unmarshal: %w", err)))
 	}
 
@@ -156,16 +352,12 @@ func (m *Module) jsAnyIs(call goja.FunctionCall) goja.Value {
 		panic(m.runtime.NewTypeError("anyIs: first argument: %s", err))
 	}
 
-	typeURLField := anyDesc.Fields().ByName("type_url")
-	typeURL := anyMsg.Get(typeURLField).String()
-
-	// Extract the type name from the URL (after last /).
-	var gotName string
-	if idx := lastSlash(typeURL); idx >= 0 {
-		gotName = typeURL[idx+1:]
-	} else {
-		gotName = typeURL
+	anyDescriptor := m.state.anyType.Descriptor()
+	reflected, err := requireMessage(anyMsg, anyDescriptor)
+	if err != nil {
+		panic(m.runtime.NewTypeError("anyIs: first argument: %s", err))
 	}
+	typeURL := reflected.Get(anyDescriptor.Fields().ByName("type_url")).String()
 
 	// Second argument: string type name or message type constructor.
 	typeArg := call.Argument(1)
@@ -174,16 +366,39 @@ func (m *Module) jsAnyIs(call goja.FunctionCall) goja.Value {
 	}
 
 	// Try as message type constructor first.
-	if desc, descErr := m.extractMessageDesc(typeArg); descErr == nil {
-		return m.runtime.ToValue(gotName == string(desc.FullName()))
+	if messageType, typeErr := m.extractMessageType(typeArg); typeErr == nil {
+		return m.runtime.ToValue(typeURLMatches(typeURL, string(messageType.Descriptor().FullName())))
 	}
 
 	// Fall back to string comparison.
 	wantName := typeArg.String()
-	return m.runtime.ToValue(gotName == wantName)
+	return m.runtime.ToValue(typeURLMatches(typeURL, wantName))
 }
 
 // ---------- Internal helpers ----------
+
+func timestampMessage(messageType protoreflect.MessageType, seconds int64, nanos int32) proto.Message {
+	message := messageType.New()
+	descriptor := messageType.Descriptor()
+	message.Set(descriptor.Fields().ByName("seconds"), protoreflect.ValueOfInt64(seconds))
+	message.Set(descriptor.Fields().ByName("nanos"), protoreflect.ValueOfInt32(nanos))
+	return message.Interface()
+}
+
+func timestampMillis(messageType protoreflect.MessageType, ms int64) proto.Message {
+	seconds, nanos := timestampParts(ms)
+	return timestampMessage(messageType, seconds, nanos)
+}
+
+func timestampParts(ms int64) (int64, int32) {
+	seconds := ms / 1000
+	nanos := (ms % 1000) * 1_000_000
+	if nanos < 0 {
+		seconds--
+		nanos += 1_000_000_000
+	}
+	return seconds, int32(nanos)
+}
 
 // timestampFromTime creates a Timestamp dynamicpb.Message from a time.Time.
 func timestampFromTime(t time.Time) *dynamicpb.Message {
@@ -197,25 +412,55 @@ func timestampFromTime(t time.Time) *dynamicpb.Message {
 // Per the proto spec, nanos must be in [0, 999999999].
 func timestampFromMs(ms int64) *dynamicpb.Message {
 	msg := dynamicpb.NewMessage(timestampDesc)
-	seconds := ms / 1000
-	nanos := (ms % 1000) * 1_000_000
-	// Normalize: Go's % truncates toward zero, but proto Timestamp
-	// requires nanos in [0, 999999999]. For negative sub-second values,
-	// adjust seconds down and nanos up.
-	if nanos < 0 {
-		seconds--
-		nanos += 1_000_000_000
-	}
+	seconds, nanos := timestampParts(ms)
 	msg.Set(timestampDesc.Fields().ByName("seconds"), protoreflect.ValueOfInt64(seconds))
-	msg.Set(timestampDesc.Fields().ByName("nanos"), protoreflect.ValueOfInt32(int32(nanos)))
+	msg.Set(timestampDesc.Fields().ByName("nanos"), protoreflect.ValueOfInt32(nanos))
 	return msg
 }
 
 // timestampToMs extracts epoch milliseconds from a Timestamp message.
-func timestampToMs(msg *dynamicpb.Message) int64 {
-	seconds := msg.Get(timestampDesc.Fields().ByName("seconds")).Int()
-	nanos := msg.Get(timestampDesc.Fields().ByName("nanos")).Int()
-	return seconds*1000 + nanos/1_000_000
+func checkedTimestampToMs(msg proto.Message) (int64, error) {
+	return checkedTimestampDescriptor(msg, timestampDesc)
+}
+
+func checkedTimestampDescriptor(
+	msg proto.Message,
+	descriptor protoreflect.MessageDescriptor,
+) (int64, error) {
+	reflected, err := requireMessage(msg, descriptor)
+	if err != nil {
+		return 0, err
+	}
+	seconds := reflected.Get(descriptor.Fields().ByName("seconds")).Int()
+	nanos := reflected.Get(descriptor.Fields().ByName("nanos")).Int()
+	if err := (&timestamppb.Timestamp{Seconds: seconds, Nanos: int32(nanos)}).CheckValid(); err != nil {
+		return 0, err
+	}
+	return seconds*1000 + nanos/1_000_000, nil
+}
+
+func timestampToMs(msg proto.Message) int64 {
+	value, err := checkedTimestampToMs(msg)
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+
+func durationMessage(messageType protoreflect.MessageType, seconds int64, nanos int32) proto.Message {
+	message := messageType.New()
+	descriptor := messageType.Descriptor()
+	message.Set(descriptor.Fields().ByName("seconds"), protoreflect.ValueOfInt64(seconds))
+	message.Set(descriptor.Fields().ByName("nanos"), protoreflect.ValueOfInt32(nanos))
+	return message.Interface()
+}
+
+func durationMillis(messageType protoreflect.MessageType, ms int64) proto.Message {
+	return durationMessage(
+		messageType,
+		ms/1000,
+		int32((ms%1000)*1_000_000),
+	)
 }
 
 // durationFromMs creates a Duration dynamicpb.Message from millis.
@@ -234,10 +479,61 @@ func durationFromMs(ms int64) *dynamicpb.Message {
 }
 
 // durationToMs extracts milliseconds from a Duration message.
-func durationToMs(msg *dynamicpb.Message) int64 {
-	seconds := msg.Get(durationDesc.Fields().ByName("seconds")).Int()
-	nanos := msg.Get(durationDesc.Fields().ByName("nanos")).Int()
-	return seconds*1000 + nanos/1_000_000
+func checkedDurationToMs(msg proto.Message) (int64, error) {
+	return checkedDurationDescriptor(msg, durationDesc)
+}
+
+func checkedDurationDescriptor(
+	msg proto.Message,
+	descriptor protoreflect.MessageDescriptor,
+) (int64, error) {
+	reflected, err := requireMessage(msg, descriptor)
+	if err != nil {
+		return 0, err
+	}
+	seconds := reflected.Get(descriptor.Fields().ByName("seconds")).Int()
+	nanos := reflected.Get(descriptor.Fields().ByName("nanos")).Int()
+	if err := (&durationpb.Duration{Seconds: seconds, Nanos: int32(nanos)}).CheckValid(); err != nil {
+		return 0, err
+	}
+	return seconds*1000 + nanos/1_000_000, nil
+}
+
+func durationToMs(msg proto.Message) int64 {
+	value, err := checkedDurationToMs(msg)
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+
+func validateTimestampDescriptor(msg proto.Message, descriptor protoreflect.MessageDescriptor) error {
+	_, err := checkedTimestampDescriptor(msg, descriptor)
+	return err
+}
+
+func validateDurationDescriptor(msg proto.Message, descriptor protoreflect.MessageDescriptor) error {
+	_, err := checkedDurationDescriptor(msg, descriptor)
+	return err
+}
+
+func requireMessage(msg proto.Message, descriptor protoreflect.MessageDescriptor) (protoreflect.Message, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("expected %s, got nil", descriptor.FullName())
+	}
+	reflected := msg.ProtoReflect()
+	if reflected.Descriptor() != descriptor {
+		return nil, fmt.Errorf("expected %s, got %s", descriptor.FullName(), reflected.Descriptor().FullName())
+	}
+	return reflected, nil
+}
+
+func typeURLMatches(typeURL, fullName string) bool {
+	slash := strings.LastIndexByte(typeURL, '/')
+	if slash < 0 {
+		return typeURL == fullName
+	}
+	return slash != len(typeURL)-1 && typeURL[slash+1:] == fullName
 }
 
 // extractDateMs extracts milliseconds since epoch from a JS Date object
@@ -256,12 +552,12 @@ func (m *Module) extractDateMs(val goja.Value) (int64, error) {
 			if err != nil {
 				return 0, fmt.Errorf("getTime() failed: %w", err)
 			}
-			return result.ToInteger(), nil
+			return m.gojaToInt64(result)
 		}
 	}
 
 	// Fall back to numeric value.
-	return val.ToInteger(), nil
+	return m.gojaToInt64(val)
 }
 
 // newDate creates a JavaScript Date from epoch milliseconds.

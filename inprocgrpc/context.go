@@ -32,11 +32,18 @@ func (inprocessAddr) AuthType() string { return "inproc" }
 func makeServerContext(ctx context.Context) context.Context {
 	newCtx := context.Context(noValuesContext{ctx})
 	if meta, ok := metadata.FromOutgoingContext(ctx); ok {
-		newCtx = metadata.NewIncomingContext(newCtx, meta)
+		newCtx = metadata.NewIncomingContext(newCtx, cloneMetadata(meta))
 	}
 	newCtx = peer.NewContext(newCtx, &inprocessPeer)
 	newCtx = context.WithValue(newCtx, &clientContextKey, ctx)
 	return newCtx
+}
+
+func cloneMetadata(md metadata.MD) metadata.MD {
+	if md == nil {
+		return nil
+	}
+	return md.Copy()
 }
 
 // ClientContext returns the original client context from a server context

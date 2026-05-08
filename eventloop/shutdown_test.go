@@ -6,287 +6,508 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/joeycumines/goroutineid"
 )
 
-// TestShutdown_PendingPromisesRejected verifies that:
-// 1. Shutdown() correctly waits for promisify goroutines to complete
-// 2. Promises created before shutdown settle correctly even when SubmitInternal may fail
+// TestShutdownRace verifies that multiple concurrent Shutdown callers all
+// return without hanging.
 //
-// This test verifies the fallback behavior in promisify.go (lines 84-91) that ensures
-// promises always settle, preserving the actual operation outcome even when the
-// infrastructure (SubmitInternal) fails during shutdown race conditions.
-func TestShutdown_PendingPromisesRejected(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
+// External callers that overlap the winning Shutdown join the terminal-done
+// publication and receive the stable graceful result without sharing the
+// winner's context. A callback-local caller cannot join that barrier because
+// its own callback may be part of the terminal worker drain; it acknowledges
+// the already-committed graceful shutdown without blocking.
+func TestShutdown_ReentrantFromLoopCallbackDuringExternalShutdown(t *testing.T) {
+	loop := New()
+
+	callbackStarted := make(chan struct{})
+	callbackMayShutdown := make(chan struct{})
+	var releaseOnce sync.Once
+	loop.testHooks = &loopTestHooks{
+		AfterShutdownStateTerminating: func() {
+			releaseOnce.Do(func() { close(callbackMayShutdown) })
+		},
 	}
 
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-		close(runDone)
-	}()
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
 
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	// Use channels to synchronize blocking
-	blockCh := make(chan struct{})
-	goroutineStarted := make(chan struct{})
-
-	// Create Promisify goroutine that blocks on a manual channel
-	// This creates a promisify goroutine that is still in-flight during shutdown
-	promise := loop.Promisify(context.Background(), func(ctx context.Context) (any, error) {
-		close(goroutineStarted)
-		// Block on channel to simulate a long-running operation
-		<-blockCh
-		// Return success - if SubmitInternal fails during shutdown race,
-		// the fallback will preserve this successful result
-		return "result", nil
-	})
-
-	ch := promise.ToChannel()
-
-	// Wait for promisify goroutine to start and be blocked
-	<-goroutineStarted
-	time.Sleep(10 * time.Millisecond)
-
-	// Shutdown in a separate goroutine so we can unblock the goroutine
-	shutdownComplete := make(chan error)
-	go func() {
-		shutdownComplete <- loop.Shutdown(context.Background())
-	}()
-
-	// Verify Shutdown() is waiting for promisify goroutine by checking
-	// that shutdownComplete hasn't fired yet
-	select {
-	case <-shutdownComplete:
-		// This shouldn't happen immediately - Shutdown should be blocked
-		t.Fatal("Shutdown completed immediately before goroutine finished - race condition test invalid")
-	case <-time.After(50 * time.Millisecond):
-		// Good - Shutdown is waiting for the promisify goroutine
+	callbackDone := make(chan error, 1)
+	if err := loop.Submit(func() {
+		close(callbackStarted)
+		<-callbackMayShutdown
+		callbackDone <- loop.Shutdown(context.Background())
+	}); err != nil {
+		t.Fatalf("Submit callback: %v", err)
 	}
-
-	// Unblock the goroutine so it can complete
-	// At this point:
-	// 1. The goroutine will no longer be blocked
-	// 2. Shutdown() can proceed once promisifyWg.Done() is called
-	// 3. Depending on timing, SubmitInternal might succeed or fail during
-	//    the shutdown transition
-	close(blockCh)
-
-	// Wait for Shutdown() to complete
-	if err := <-shutdownComplete; err != nil && !errors.Is(err, ErrLoopTerminated) {
-		t.Fatalf("Shutdown failed: %v", err)
-	}
-
-	// Wait for loop termination
-	<-runDone
-
-	// Verify that the promise settles correctly regardless of SubmitInternal
-	// outcome. The fallback logic ensures the promise reflects the actual
-	// user operation outcome ("result"), not infrastructure failures.
-	select {
-	case result := <-ch:
-		if result != "result" {
-			t.Fatalf("Expected 'result', got: %v", result)
-		}
-		t.Log("SUCCESS: Promise settled correctly (fallback preserved result)")
-	case <-time.After(10 * time.Second):
-		t.Fatal("ZOMBIE PROMISE: Never settled after shutdown")
-	}
-}
-
-// TestShutdown_PromisifyResolution_Race verifies that Promisify operations that
-// complete during shutdown (StateTerminating) are properly resolved, not rejected.
-// This tests bug C4: SubmitInternal rejects during StateTerminating.
-func TestShutdown_PromisifyResolution_Race(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-	go func() {
-		if err := l.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-	}()
-
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	started := make(chan struct{})
-	p := l.Promisify(context.Background(), func(ctx context.Context) (any, error) {
-		close(started)
-		time.Sleep(50 * time.Millisecond)
-		return "success", nil
-	})
-
-	<-started
-	l.Shutdown(context.Background())
-
-	if p.State() != Resolved {
-		t.Errorf("FATAL: Expected Resolved, got %v", p.State())
-		if p.State() == Rejected {
-			t.Errorf("Reason: %v", p.Result())
-		}
-	} else if p.Result() != "success" {
-		t.Errorf("FATAL: Expected 'success', got %v", p.Result())
-	}
-}
-
-// TestShutdown_IngressResolvesInternal verifies that ingress tasks submitted
-// before shutdown can still resolve promises during the shutdown drain phase.
-func TestShutdown_IngressResolvesInternal(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		if err := l.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-		close(runDone)
-	}()
-
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	_, p := l.registry.NewPromise()
-
-	l.Submit(func() {
-		time.Sleep(10 * time.Millisecond)
-		p.Resolve("manual_success")
-	})
-
-	// Wait for task to be submitted and possibly started
-	time.Sleep(20 * time.Millisecond)
-
-	l.Shutdown(context.Background())
-	<-runDone
-
-	if p.State() != Resolved {
-		t.Errorf("FATAL: Ingress task failed to resolve promise. State: %v", p.State())
-	}
-}
-
-// TestLoop_StopWakesSleepingLoop verifies that Stop() properly wakes a loop
-// that is sleeping in poll(), preventing indefinite hangs.
-func TestLoop_ShutdownWakesSleepingLoop(t *testing.T) {
-	l, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Ensure we're in poll (sleep) mode for this test
-	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
-		t.Fatal(err)
-	}
-	go func() {
-		if err := l.Run(context.Background()); err != nil {
-			t.Errorf("Run() unexpected error: %v", err)
-		}
-	}()
-
-	start := time.Now()
-	for {
-		if LoopState(l.state.Load()) == StateSleeping {
-			break
-		}
-		if time.Since(start) > 1*time.Second {
-			t.Fatal("Loop never went to sleep")
-		}
-		time.Sleep(1 * time.Millisecond)
-	}
-
-	done := make(chan error)
-	go func() {
-		done <- l.Shutdown(context.Background())
-	}()
 
 	select {
-	case err := <-done:
+	case <-callbackStarted:
+	case <-time.After(time.Second):
+		t.Fatal("callback did not start")
+	}
+
+	externalDone := make(chan error, 1)
+	go func() { externalDone <- loop.Shutdown(context.Background()) }()
+
+	select {
+	case err := <-callbackDone:
 		if err != nil {
-			t.Fatalf("Shutdown failed: %v", err)
+			t.Fatalf("callback-local Shutdown = %v, want nil", err)
 		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Shutdown() timed out - loop stuck in poll")
+	case <-time.After(time.Second):
+		t.Fatal("callback-local Shutdown blocked behind external Shutdown")
+	}
+
+	select {
+	case err := <-externalDone:
+		if err != nil {
+			t.Fatalf("external Shutdown = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("external Shutdown did not complete")
+	}
+
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Run did not exit after Shutdown")
 	}
 }
 
-// TestStopRace verifies that multiple concurrent Stop() callers all return
-// without hanging. This tests the stopOnce sync.Once fix.
-//
-// Failure Mode WITHOUT Fix:
-//   - Multiple goroutines call Stop() concurrently
-//   - All pass the CAS loop and reach the select
-//   - First caller receives from done, returns nil
-//   - Second+ callers block FOREVER on done (goroutine leak)
-//
-// Success Mode WITH Fix:
-//   - sync.Once ensures only first caller executes stopImpl()
-//   - Subsequent callers wait via stopOnce.Do() and return immediately
-//   - NO goroutine leaks, NO hangs
-func TestShutdownRace(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
+func TestShutdown_ReentrantFromLoopOwnedTerminalDrain(t *testing.T) {
+	loop := New()
+
+	blockingStarted := make(chan struct{})
+	releaseBlocking := make(chan struct{})
+	if err := loop.Submit(func() {
+		close(blockingStarted)
+		<-releaseBlocking
+	}); err != nil {
+		t.Fatalf("Submit blocking callback: %v", err)
 	}
-	ctx := context.Background()
-	runDone := make(chan struct{})
-	go func() {
-		// Use an error channel instead of t.Errorf to avoid calling t.Errorf after test completes
-		if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, ErrLoopTerminated) {
-			// Don't call t.Errorf - test may already be done
+
+	type callbackResult struct {
+		state    LoopState
+		draining bool
+		err      error
+	}
+	callbackDone := make(chan callbackResult, 1)
+
+	transitioned := make(chan struct{})
+	loop.testHooks = &loopTestHooks{
+		AfterShutdownStateTerminating: func() { close(transitioned) },
+	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	select {
+	case <-blockingStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("blocking callback did not start")
+	}
+	if err := loop.Submit(func() {
+		callbackDone <- callbackResult{
+			state:    loop.state.Load(),
+			draining: loop.terminalDraining.Load(),
+			err:      loop.Shutdown(context.Background()),
 		}
-		close(runDone)
-	}()
-
-	// Wait for loop to be running
-	time.Sleep(10 * time.Millisecond)
-
-	var wg sync.WaitGroup
-	wg.Add(10)
-
-	// 10 goroutines calling Shutdown() concurrently - ALL must return, not hang
-	results := make([]error, 10)
-	for i := range 10 {
-		go func(id int) {
-			defer wg.Done()
-			results[id] = loop.Shutdown(context.Background())
-		}(i)
+	}); err != nil {
+		close(releaseBlocking)
+		t.Fatalf("Submit terminal-drain callback: %v", err)
 	}
 
-	// Wait for ALL or timeout
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	externalDone := make(chan error, 1)
+	go func() { externalDone <- loop.Shutdown(context.Background()) }()
+	select {
+	case <-transitioned:
+	case <-time.After(5 * time.Second):
+		close(releaseBlocking)
+		t.Fatal("external Shutdown did not commit StateTerminating")
+	}
+	close(releaseBlocking)
 
 	select {
-	case <-done:
-		// SUCCESS: All goroutines returned - wait for Run() goroutine to finish
-		<-runDone
-		for i, err := range results {
-			if err != nil && i != 0 { // First might be nil, others should be ErrLoopTerminated
-				t.Logf("Goroutine %d: %v", i, err)
-			}
+	case result := <-callbackDone:
+		if result.state != StateTerminated || !result.draining {
+			t.Fatalf("callback lifecycle state = (%v, draining=%v), want (Terminated, true)", result.state, result.draining)
+		}
+		if result.err != nil {
+			t.Fatalf("terminal-drain callback Shutdown = %v, want nil", result.err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("RACE CONDITION: Multiple Shutdown() calls caused hang. %d/10 goroutines returned.",
-			10-countReturned(results))
+		t.Fatal("terminal-drain callback did not complete")
+	}
+
+	select {
+	case err := <-externalDone:
+		if err != nil {
+			t.Fatalf("external Shutdown: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("external Shutdown did not complete")
+	}
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not complete")
 	}
 }
 
-func countReturned(results []error) int {
-	count := 0
-	for range results {
-		// Any result (nil or error) counts as a successful return
-		count++
+func TestShutdown_LoopCallbackDuringCloseReturnsTerminated(t *testing.T) {
+	loop := New()
+
+	callbackStarted := make(chan struct{})
+	callShutdown := make(chan struct{})
+	callbackDone := make(chan error, 1)
+	if err := loop.Submit(func() {
+		close(callbackStarted)
+		<-callShutdown
+		callbackDone <- loop.Shutdown(context.Background())
+	}); err != nil {
+		t.Fatalf("Submit callback: %v", err)
 	}
-	return count
+
+	closeTransitioned := make(chan struct{})
+	releaseClose := make(chan struct{})
+	loop.testHooks = &loopTestHooks{
+		AfterCloseStateTerminating: func() {
+			close(closeTransitioned)
+			<-releaseClose
+		},
+	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	select {
+	case <-callbackStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("callback did not start")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- loop.Close() }()
+	select {
+	case <-closeTransitioned:
+	case <-time.After(5 * time.Second):
+		close(callShutdown)
+		close(releaseClose)
+		t.Fatal("Close did not commit StateTerminating")
+	}
+	close(callShutdown)
+
+	select {
+	case err := <-callbackDone:
+		if !errors.Is(err, ErrLoopTerminated) {
+			close(releaseClose)
+			t.Fatalf("callback-local Shutdown during Close = %v, want ErrLoopTerminated", err)
+		}
+	case <-time.After(5 * time.Second):
+		close(releaseClose)
+		t.Fatal("callback-local Shutdown blocked during Close")
+	}
+	close(releaseClose)
+
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close did not complete")
+	}
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not complete")
+	}
+}
+
+func TestShutdown_ReentrantDuringPreRunTerminalDrain(t *testing.T) {
+	loop := New()
+
+	callbackDone := make(chan error, 1)
+	if err := loop.Submit(func() {
+		callbackDone <- loop.Shutdown(context.Background())
+	}); err != nil {
+		t.Fatalf("Submit pre-run callback: %v", err)
+	}
+
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- loop.Shutdown(context.Background()) }()
+
+	select {
+	case err := <-callbackDone:
+		if err != nil {
+			t.Fatalf("recursive pre-run Shutdown = %v, want nil request acknowledgement", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("recursive pre-run Shutdown deadlocked during terminal drain")
+	}
+
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("outer pre-run Shutdown = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("outer pre-run Shutdown did not complete")
+	}
+}
+
+func TestShutdown_PreRunDrainsPromisifyDependencyBeforeWorkerWait(t *testing.T) {
+	loop := New()
+
+	callbackRan := make(chan struct{})
+	submission := make(chan error, 1)
+	workerDone := make(chan struct{})
+	promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
+		err := loop.Submit(func() { close(callbackRan) })
+		submission <- err
+		if err != nil {
+			return nil, err
+		}
+		<-callbackRan
+		close(workerDone)
+		return "dependency-complete", nil
+	})
+
+	select {
+	case err := <-submission:
+		if err != nil {
+			t.Fatalf("Submit from Promisify worker: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify worker did not submit its dependency")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := loop.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	select {
+	case <-workerDone:
+	default:
+		t.Fatal("Shutdown returned before the dependency-bound Promisify worker completed")
+	}
+	if promise.State() != Fulfilled {
+		t.Fatalf("Promisify promise state = %v, want Fulfilled", promise.State())
+	}
+	if got := promise.Result(); got != "dependency-complete" {
+		t.Fatalf("Promisify promise result = %v, want dependency-complete", got)
+	}
+	select {
+	case <-loop.loopDone:
+	default:
+		t.Fatal("loopDone remained open after pre-Run Shutdown completed")
+	}
+	select {
+	case <-loop.terminalDone:
+	default:
+		t.Fatal("terminalDone remained open after pre-Run Shutdown completed")
+	}
+}
+
+func TestShutdown_PreRunDrainUsesDedicatedGoroutine(t *testing.T) {
+	loop := New()
+
+	callerID := goroutineid.Get()
+	callbackID := make(chan int64, 1)
+	if err := loop.Submit(func() { callbackID <- goroutineid.Get() }); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if err := loop.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	select {
+	case got := <-callbackID:
+		if got == callerID {
+			t.Fatalf("pre-Run callback goroutine = caller goroutine %d, want dedicated terminal finisher", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("pre-Run terminal callback did not run")
+	}
+}
+
+func TestShutdown_PreRunContextBoundsWorkerWaitAndCleanupContinues(t *testing.T) {
+	loop := New()
+
+	workerStarted := make(chan struct{})
+	releaseWorker := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseWorker) }) }
+	t.Cleanup(func() {
+		release()
+		select {
+		case <-loop.terminalDone:
+		case <-time.After(5 * time.Second):
+			t.Error("pre-Run cleanup did not finish after worker release")
+		}
+	})
+
+	loop.Promisify(context.Background(), func(context.Context) (any, error) {
+		close(workerStarted)
+		<-releaseWorker
+		return "released", nil
+	})
+	select {
+	case <-workerStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify worker did not start")
+	}
+
+	transitioned := make(chan struct{})
+	requestOwnedDrain := make(chan bool, 1)
+	loop.testHooks = &loopTestHooks{
+		AfterShutdownStateTerminating: func() {
+			requestOwnedDrain <- loop.isTerminalDrainOwner()
+			close(transitioned)
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- loop.Shutdown(ctx) }()
+	select {
+	case <-transitioned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not commit StateTerminating")
+	}
+	if owned := <-requestOwnedDrain; owned {
+		t.Fatal("public Shutdown caller retained terminal-drain admission ownership")
+	}
+
+	// A concurrent external caller joins the independent terminal completion
+	// with its own context bound, never the winning caller's context.
+	concurrentCtx, cancelConcurrent := context.WithCancel(context.Background())
+	cancelConcurrent()
+	concurrentDone := make(chan error, 1)
+	go func() { concurrentDone <- loop.Shutdown(concurrentCtx) }()
+	select {
+	case err := <-concurrentDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("concurrent Shutdown = %v, want context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent Shutdown ignored its own canceled context")
+	}
+
+	cancel()
+	select {
+	case err := <-shutdownDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("winning Shutdown = %v, want context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("pre-Run Shutdown ignored caller cancellation while waiting for worker")
+	}
+	select {
+	case <-loop.terminalDone:
+		t.Fatal("terminalDone closed while Promisify worker remained blocked")
+	default:
+	}
+
+	release()
+	select {
+	case <-loop.terminalDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("terminal cleanup did not continue after canceled Shutdown returned")
+	}
+	select {
+	case <-loop.loopDone:
+	default:
+		t.Fatal("loopDone remained open after independent pre-Run cleanup")
+	}
+}
+
+func TestShutdown_ContextBoundsPromisifyWaitAfterLoopExit(t *testing.T) {
+	loop := New()
+
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	waitLoopOwnerTurnT(t, loop)
+
+	workerStarted := make(chan struct{})
+	releaseWorker := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseWorker) }) }
+	t.Cleanup(func() {
+		release()
+		select {
+		case <-loop.terminalDone:
+		case <-time.After(5 * time.Second):
+			t.Error("running-loop cleanup did not finish after worker release")
+		}
+	})
+	loop.Promisify(context.Background(), func(context.Context) (any, error) {
+		close(workerStarted)
+		<-releaseWorker
+		return "released", nil
+	})
+	select {
+	case <-workerStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Promisify worker did not start")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- loop.Shutdown(ctx) }()
+	select {
+	case <-loop.loopDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("loop did not exit after Shutdown transition")
+	}
+	select {
+	case <-loop.terminalDone:
+		t.Fatal("terminalDone closed before the blocked Promisify worker finished")
+	default:
+	}
+
+	cancel()
+	select {
+	case err := <-shutdownDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Shutdown after loopDone = %v, want context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown ignored caller cancellation after loopDone")
+	}
+
+	release()
+	select {
+	case <-loop.terminalDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("terminal cleanup did not finish after releasing Promisify worker")
+	}
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	default:
+		t.Fatal("Run result was not published after loopDone closed")
+	}
+}
+
+func TestWaitShutdownCompletion_PrefersCompletedCleanupOverCanceledContext(t *testing.T) {
+	loop := New()
+	loop.closeTerminalDone()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := loop.waitShutdownCompletion(ctx); err != nil {
+		t.Fatalf("waitShutdownCompletion with both signals ready = %v, want nil", err)
+	}
 }

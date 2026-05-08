@@ -4,36 +4,26 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 )
 
-// TestLoop_New_PollerInitFailure tests error handling when poller initialization fails.
-func TestLoop_New_PollerInitFailure(t *testing.T) {
-	// t.Parallel() // Cannot parallel: may affect other tests that use poller
-
-	// This is difficult to test directly because initPoller uses system calls
-	// However, we can test the error handling path by ensuring proper cleanup
-	// when New() fails.
-
-	// The most reliable test is to verify that if initPoller fails,
-	// the wakeFD is properly closed.
-
-	// We can't easily simulate initPoller failure without modifying the code,
-	// but we can verify the error path exists by checking the error handling
-	// in the code review. The coverage report shows line 144 (error return path)
-	// needs coverage.
-
-	// Alternative: Test that multiple Create/Close cycles work correctly
-	// which exercises the cleanup code even if we don't fail on init
+// TestLoop_New_RepeatedUnstartedShutdown covers repeated construction and
+// checked unstarted teardown. Poller initialization failure has no injection
+// seam in this historical implementation and is not claimed here.
+func TestLoop_New_RepeatedUnstartedShutdown(t *testing.T) {
 	for i := range 3 {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New() iteration %d failed: %v", i, err)
 		}
-
-		// Close immediately without running
-		loop.closeFDs()
+		ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+		err = loop.Shutdown(ctx)
+		cancel()
+		if err != nil {
+			t.Fatalf("Shutdown() iteration %d failed: %v", i, err)
+		}
 	}
 }
 
@@ -46,9 +36,7 @@ func TestLoop_Shutdown_Unstarted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
 	defer cancel()
 
 	// Shutdown should succeed for unstarted loop
@@ -71,47 +59,18 @@ func TestLoop_Shutdown_Unstarted(t *testing.T) {
 
 // TestLoop_Shutdown_Idempotent tests that Shutdown can be called multiple times.
 func TestLoop_Shutdown_Idempotent(t *testing.T) {
-	// t.Parallel() // Cannot parallel: tests loop lifecycle
-
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
-
-	// Start the loop
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	// Wait a bit for loop to start
-	time.Sleep(50 * time.Millisecond)
-
-	// First Shutdown
-	err = loop.Shutdown(ctx)
-	if err != nil {
-		t.Fatalf("First Shutdown() failed: %v", err)
-	}
-
-	// Wait for Run() to complete
-	select {
-	case err := <-runDone:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Errorf("Run() returned unexpected error: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run() did not complete after shutdown")
-	}
+	harness := startAlternateThreeTestLoop(t, loop)
+	harness.shutdown(t)
 
 	// Second Shutdown should succeed (idempotent)
+	ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+	defer cancel()
 	err = loop.Shutdown(ctx)
-	if err == nil {
-		// Expected: returns nil because loop is already terminated
-	} else {
+	if err != nil {
 		t.Errorf("Second Shutdown() should succeed, got error: %v", err)
 	}
 
@@ -123,100 +82,89 @@ func TestLoop_Shutdown_Idempotent(t *testing.T) {
 
 // TestLoop_Shutdown_ContextCanceled tests shutdown with context cancellation.
 func TestLoop_Shutdown_ContextCanceled(t *testing.T) {
-	// t.Parallel() // Cannot parallel: tests loop lifecycle
-
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
-
-	// Start the loop
-	runCtx, runCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer runCancel()
-
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(runCtx)
-	}()
-
-	// Wait for loop to start
-	time.Sleep(50 * time.Millisecond)
-
-	// Submit a blocking task to prevent immediate termination
-	blocked := make(chan struct{})
-	loop.Submit(func() {
-		<-blocked // Block until we release
-	})
-
-	// Shutdown with a short timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer shutdownCancel()
-
-	err = loop.Shutdown(shutdownCtx)
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Errorf("Expected context.DeadlineExceeded, got: %v", err)
+	harness := startAlternateThreeTestLoop(t, loop)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseCallback := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseCallback)
+	if err := loop.Submit(func() {
+		close(entered)
+		<-release
+	}); err != nil {
+		t.Fatalf("Submit(blocking callback) failed: %v", err)
 	}
+	waitAlternateThreeSignal(t, entered, "blocking callback entry")
 
-	// Release the blocked task
-	close(blocked)
-
-	// Wait for Run() to complete
+	baseCtx, cancel := context.WithCancel(context.Background())
+	shutdownCtx := newObservedContext(baseCtx)
+	shutdownResult := make(chan error, 1)
+	go func() { shutdownResult <- loop.Shutdown(shutdownCtx) }()
+	waitAlternateThreeSignal(t, shutdownCtx.observed, "Shutdown context observation")
+	cancel()
 	select {
-	case <-runDone:
-		// Loop should have terminated
-	case <-time.After(2 * time.Second):
-		t.Fatal("Run() did not complete in time")
+	case err := <-shutdownResult:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("Shutdown() returned %v, want context.Canceled", err)
+		}
+	case <-time.After(alternateThreeTestTimeout):
+		t.Fatal("canceled Shutdown() did not return")
 	}
+	releaseCallback()
+	harness.wait(t)
 
-	// Final shutdown should complete without error
-	finalCtx, finalCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	finalCtx, finalCancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
 	defer finalCancel()
-
 	err = loop.Shutdown(finalCtx)
 	if err != nil {
 		t.Errorf("Final Shutdown() failed: %v", err)
 	}
 }
 
-// TestLoop_Shutdown_SleepingLoop tests waking up a sleeping loop during shutdown.
-func TestLoop_Shutdown_SleepingLoop(t *testing.T) {
-	// t.Parallel() // Cannot parallel: tests loop lifecycle
-
+// TestLoop_Shutdown_LogicalSleepingState tests termination while the loop is
+// held at its deterministic post-poll StateSleeping boundary. It does not
+// claim to prove a wake from a kernel-blocked poll.
+func TestLoop_Shutdown_LogicalSleepingState(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	runDone := make(chan struct{})
-	go func() {
-		loop.Run(ctx)
-		close(runDone)
-	}()
-
-	// Wait for loop to enter sleeping state (no work, should sleep)
-	// This is probabilistic but should work reasonably often
-	time.Sleep(100 * time.Millisecond)
-
-	// Shutdown should wake the loop and terminate it
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer shutdownCancel()
-
-	err = loop.Shutdown(shutdownCtx)
-	if err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
+	loop.forceNonBlockingPoll = true
+	pollReturned := make(chan struct{})
+	releasePoll := make(chan struct{})
+	var pollOnce sync.Once
+	loop.testHooks = &loopTestHooks{PrePollAwake: func() {
+		pollOnce.Do(func() { close(pollReturned) })
+		<-releasePoll
+	}}
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releasePoll) }) }
+	t.Cleanup(release)
+	harness := startAlternateThreeTestLoop(t, loop)
+	waitAlternateThreeSignal(t, pollReturned, "post-poll sleeping boundary")
+	if state := LoopState(loop.state.Load()); state != StateSleeping {
+		t.Fatalf("state at post-poll hook = %v, want StateSleeping", state)
 	}
 
-	// Wait for run to complete
+	baseCtx := t.Context()
+	shutdownCtx := newObservedContext(baseCtx)
+	shutdownResult := make(chan error, 1)
+	go func() { shutdownResult <- loop.Shutdown(shutdownCtx) }()
+	waitAlternateThreeSignal(t, shutdownCtx.observed, "Shutdown context observation")
+	release()
 	select {
-	case <-runDone:
-	case <-time.After(2 * time.Second):
-		t.Fatal("Run() did not complete after shutdown")
+	case err := <-shutdownResult:
+		if err != nil {
+			t.Fatalf("Shutdown() failed: %v", err)
+		}
+	case <-time.After(alternateThreeTestTimeout):
+		t.Fatal("Shutdown() did not complete")
 	}
+	harness.wait(t)
 
 	// Verify terminated state
 	if LoopState(loop.state.Load()) != StateTerminated {
@@ -226,106 +174,72 @@ func TestLoop_Shutdown_SleepingLoop(t *testing.T) {
 
 // TestLoop_Shutdown_TerminatingStateDoubleCall tests calling Shutdown when already terminating.
 func TestLoop_Shutdown_TerminatingStateDoubleCall(t *testing.T) {
-	// t.Parallel() // Cannot parallel: tests loop lifecycle
-
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
+	harness := startAlternateThreeTestLoop(t, loop)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseCallback := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseCallback)
+	if err := loop.Submit(func() {
+		close(entered)
+		<-release
+	}); err != nil {
+		t.Fatalf("Submit(blocking callback) failed: %v", err)
+	}
+	waitAlternateThreeSignal(t, entered, "blocking callback entry")
 
-	// Start the loop
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	// Start first shutdown (non-blocking, will transition to Terminating)
-	shutdownCtx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel1()
-
-	shutdownErr1 := make(chan error, 1)
-	go func() {
-		shutdownErr1 <- loop.Shutdown(shutdownCtx1)
-	}()
-
-	// Wait a bit for first shutdown to start
-	time.Sleep(10 * time.Millisecond)
-
-	// Call second shutdown while first is in progress
-	shutdownCtx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel2()
-
-	err = loop.Shutdown(shutdownCtx2)
-	// Second call should either succeed (if already terminated) or return ErrLoopTerminated
-	if err != nil && !errors.Is(err, ErrLoopTerminated) {
-		t.Logf("Second Shutdown() returned: %v (may be ok)", err)
+	baseCtx, cancel := context.WithCancel(context.Background())
+	ownerCtx := newObservedContext(baseCtx)
+	ownerResult := make(chan error, 1)
+	go func() { ownerResult <- loop.Shutdown(ownerCtx) }()
+	waitAlternateThreeSignal(t, ownerCtx.observed, "owner Shutdown context observation")
+	cancel()
+	select {
+	case err := <-ownerResult:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("owner Shutdown() returned %v, want context.Canceled", err)
+		}
+	case <-time.After(alternateThreeTestTimeout):
+		t.Fatal("owner Shutdown() did not return after cancellation")
 	}
 
-	// First shutdown should complete
-	select {
-	case err := <-shutdownErr1:
-		if err != nil {
-			t.Logf("First Shutdown() returned: %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Log("First Shutdown() did not complete quickly (may be ok)")
+	secondCtx, secondCancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+	defer secondCancel()
+	if err := loop.Shutdown(secondCtx); !errors.Is(err, ErrLoopTerminated) {
+		t.Errorf("nonwinning Shutdown() returned %v, want ErrLoopTerminated", err)
 	}
-
-	// Wait for run to complete
-	select {
-	case err := <-runDone:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Logf("Run() returned error: %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Log("Run() did not complete quickly (may be ok)")
+	releaseCallback()
+	harness.wait(t)
+	finalCtx, finalCancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+	defer finalCancel()
+	if err := loop.Shutdown(finalCtx); err != nil {
+		t.Errorf("post-termination Shutdown() returned %v, want nil", err)
 	}
 }
 
-// TestLoop_FileDescriptorAllocationLimit tests behavior when FDs might be exhausted.
-// This is a stress test that may fail on systems with high FD limits.
-func TestLoop_FileDescriptorAllocationLimit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping FD limit test in short mode")
-	}
-
-	// t.Parallel() // Cannot parallel: allocates many FDs
-
-	// Create multiple loops to stress FD allocation
-	numLoops := 10
-	loops := make([]*Loop, numLoops)
-	var createErr error
-
-	// Try to create multiple loops - on systems with low FD limits this might fail
-	for i := range numLoops {
-		loops[i], createErr = New()
-		if createErr != nil {
-			// FD limit reached or other error
-			t.Logf("Failed to create loop %d: %v (FD limit likely)", i, createErr)
-			break
+// TestLoop_New_MultipleLiveInstances verifies independent descriptor ownership
+// for a small deterministic group. It does not claim to exhaust the host limit.
+func TestLoop_New_MultipleLiveInstances(t *testing.T) {
+	const loopCount = 10
+	loops := make([]*Loop, loopCount)
+	for index := range loops {
+		loop, err := New()
+		if err != nil {
+			t.Fatalf("New() instance %d failed: %v", index, err)
 		}
+		loops[index] = loop
 	}
-
-	// Clean up all loops we successfully created
-	for i, loop := range loops {
-		if loop != nil {
-			loop.closeFDs()
-		} else {
-			// Loop creation failed before this point
-			break
+	for index, loop := range loops {
+		ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+		err := loop.Shutdown(ctx)
+		cancel()
+		if err != nil {
+			t.Errorf("Shutdown() instance %d failed: %v", index, err)
 		}
-		_ = i // Use i for clarity
-	}
-
-	// If we created at least one loop, test passes
-	if loops[0] == nil {
-		t.Skip("Could not create any loops (system FD limit too low)")
 	}
 }
 
@@ -343,7 +257,13 @@ func TestLoop_New_EventFD_Linux(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+		defer cancel()
+		if err := loop.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown() failed: %v", err)
+		}
+	})
 
 	// On Linux, wakeFd and wakePipeWrite should be the same (eventfd)
 	if loop.wakePipe != loop.wakePipeWrite {
@@ -360,8 +280,8 @@ func TestLoop_New_EventFD_Linux(t *testing.T) {
 func TestLoop_New_SelfPipe_Darwin(t *testing.T) {
 	// t.Parallel() // Cannot parallel: platform-specific
 
-	if runtime.GOOS == "windows" {
-		t.Skip("Self-pipe not used on Windows (IOCP wakeup)")
+	if runtime.GOOS != "darwin" {
+		t.Skip("self-pipe identity is Darwin-specific")
 	}
 
 	// On Darwin (and on Linux as fallback), should create a self-pipe
@@ -369,18 +289,21 @@ func TestLoop_New_SelfPipe_Darwin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.closeFDs()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), alternateThreeTestTimeout)
+		defer cancel()
+		if err := loop.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown() failed: %v", err)
+		}
+	})
 
 	// Verify file descriptors are valid
 	if loop.wakePipe < 0 || loop.wakePipeWrite < 0 {
 		t.Error("File descriptors should be non-negative")
 	}
 
-	// The read and write fds should be different for self-pipe
-	// (they might be the same for eventfd on Linux)
-	// Just verify they're usable
-	if loop.wakePipe == 0 || loop.wakePipeWrite == 0 {
-		t.Error("File descriptors should not be 0 (stdin)")
+	if loop.wakePipe == loop.wakePipeWrite {
+		t.Error("Darwin self-pipe read and write descriptors must differ")
 	}
 }
 
@@ -394,16 +317,17 @@ func TestLoop_CloseFDs_ErrorHandling(t *testing.T) {
 	}
 
 	// Close the file descriptors manually to simulate an invalid FD
-	_ = closeFD(loop.wakePipe)
+	if err := closeFD(loop.wakePipe); err != nil {
+		t.Fatalf("closeFD(read) failed: %v", err)
+	}
 	if loop.wakePipe != loop.wakePipeWrite {
-		_ = closeFD(loop.wakePipeWrite)
+		if err := closeFD(loop.wakePipeWrite); err != nil {
+			t.Fatalf("closeFD(write) failed: %v", err)
+		}
 	}
 
 	// closeFDs should not panic even with invalid FDs
 	loop.closeFDs()
-
-	// Verify state is set to appropriate value
-	// (closeFDs is internal, but we can verify it doesn't crash)
 }
 
 // TestLoop_Run_ErrAlreadyRunning tests calling Run() multiple times.
@@ -414,41 +338,13 @@ func TestLoop_Run_ErrAlreadyRunning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer loop.Shutdown(context.Background())
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Start first Run
-	runDone := make(chan error, 1)
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	// Wait for loop to start
-	time.Sleep(100 * time.Millisecond)
+	harness := startAlternateThreeTestLoop(t, loop)
 
 	// Try to start second Run - should fail
-	err = loop.Run(ctx)
+	err = loop.Run(context.Background())
 	if err != ErrLoopAlreadyRunning {
 		t.Errorf("Expected ErrLoopAlreadyRunning, got: %v", err)
 	}
 
-	// Shutdown to stop the loop properly (instead of just cancel)
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer shutdownCancel()
-	shutdownErr := loop.Shutdown(shutdownCtx)
-	if shutdownErr != nil {
-		t.Logf("Shutdown() returned: %v", shutdownErr)
-	}
-
-	// Wait for first Run to complete
-	select {
-	case err := <-runDone:
-		if err != nil && !errors.Is(err, context.Canceled) {
-			t.Logf("Run() returned error: %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Log("Run() did not complete quickly (may be ok)")
-	}
+	harness.shutdown(t)
 }

@@ -2,25 +2,44 @@ package gojaprotobuf
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// wrapMessage creates a JS object wrapping a [dynamicpb.Message] with
+type messageHolder struct {
+	state   *runtimeState
+	message proto.Message
+}
+
+// wrapMessage creates a JS object wrapping a [proto.Message] with
 // get/set/has/clear/whichOneof/clearOneof methods and a $type
 // read-only property.
-func (m *Module) wrapMessage(msg *dynamicpb.Message) *goja.Object {
-	obj := m.runtime.NewObject()
-	msgDesc := msg.Descriptor()
+func (m *Module) wrapMessage(msg proto.Message) *goja.Object {
+	if _, err := m.canonicalMessage(msg); err != nil {
+		panic(m.runtime.NewGoError(err))
+	}
+	return m.wrapCanonicalMessage(msg)
+}
 
-	// Store the underlying proto message.
-	_ = obj.Set("_pbMsg", msg)
+func (m *Module) wrapCanonicalMessage(msg proto.Message) *goja.Object {
+	reflected := msg.ProtoReflect()
+	obj := m.runtime.NewObject()
+	msgDesc := reflected.Descriptor()
+	if err := m.state.messages.storeValue(
+		obj,
+		m.runtime.ToValue(&messageHolder{state: m.state, message: msg}),
+	); err != nil {
+		panic(m.runtime.NewGoError(fmt.Errorf("brand protobuf message: %w", err)))
+	}
 
 	// $type — read-only accessor returning the fully-qualified name.
 	_ = obj.DefineAccessorProperty("$type",
-		m.runtime.ToValue(func(goja.FunctionCall) goja.Value {
+		m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			m.messageReceiver(call.This, msgDesc)
 			return m.runtime.ToValue(string(msgDesc.FullName()))
 		}),
 		nil,
@@ -30,46 +49,45 @@ func (m *Module) wrapMessage(msg *dynamicpb.Message) *goja.Object {
 
 	// get(fieldName) — retrieve a field value.
 	_ = obj.Set("get", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		name := call.Argument(0).String()
 		fd := m.resolveField(msgDesc, name)
 
 		if fd.IsList() {
-			return m.wrapRepeatedField(msg, fd)
+			return m.wrapRepeatedField(reflected, fd)
 		}
 		if fd.IsMap() {
-			return m.wrapMapField(msg, fd)
+			return m.wrapMapField(reflected, fd)
 		}
 		if fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind {
-			if !msg.Has(fd) {
+			if !reflected.Has(fd) {
 				return goja.Null()
 			}
 		}
-		return m.protoValueToGoja(msg.Get(fd), fd)
+		return m.protoValueToGoja(reflected.Get(fd), fd)
 	}))
 
 	// set(fieldName, value) — set a field value.
 	_ = obj.Set("set", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		name := call.Argument(0).String()
 		val := call.Argument(1)
 		fd := m.resolveField(msgDesc, name)
 
 		// null/undefined → clear the field.
 		if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
-			msg.Clear(fd)
+			reflected.Clear(fd)
 			return goja.Undefined()
 		}
 
 		if fd.IsList() {
-			// Clear existing, then populate from array.
-			msg.Clear(fd)
-			if err := m.setRepeatedFromGoja(msg, fd, val); err != nil {
+			if err := m.setRepeatedFromGoja(reflected, fd, val); err != nil {
 				panic(m.runtime.NewTypeError(err.Error()))
 			}
 			return goja.Undefined()
 		}
 		if fd.IsMap() {
-			msg.Clear(fd)
-			if err := m.setMapFromGoja(msg, fd, val); err != nil {
+			if err := m.setMapFromGoja(reflected, fd, val); err != nil {
 				panic(m.runtime.NewTypeError(err.Error()))
 			}
 			return goja.Undefined()
@@ -79,33 +97,36 @@ func (m *Module) wrapMessage(msg *dynamicpb.Message) *goja.Object {
 		if err != nil {
 			panic(m.runtime.NewTypeError(err.Error()))
 		}
-		msg.Set(fd, pv)
+		reflected.Set(fd, pv)
 		return goja.Undefined()
 	}))
 
 	// has(fieldName) — check whether a field has been set.
 	_ = obj.Set("has", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		name := call.Argument(0).String()
 		fd := m.resolveField(msgDesc, name)
-		return m.runtime.ToValue(msg.Has(fd))
+		return m.runtime.ToValue(reflected.Has(fd))
 	}))
 
 	// clear(fieldName) — clear a field to its default.
 	_ = obj.Set("clear", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		name := call.Argument(0).String()
 		fd := m.resolveField(msgDesc, name)
-		msg.Clear(fd)
+		reflected.Clear(fd)
 		return goja.Undefined()
 	}))
 
 	// whichOneof(oneofName) — return the name of the set oneof field, or undefined.
 	_ = obj.Set("whichOneof", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		oneofName := call.Argument(0).String()
 		od := msgDesc.Oneofs().ByName(protoreflect.Name(oneofName))
 		if od == nil {
 			panic(m.runtime.NewTypeError("oneof %q not found on message %q", oneofName, msgDesc.FullName()))
 		}
-		fd := msg.WhichOneof(od)
+		fd := reflected.WhichOneof(od)
 		if fd == nil {
 			return goja.Undefined()
 		}
@@ -114,14 +135,15 @@ func (m *Module) wrapMessage(msg *dynamicpb.Message) *goja.Object {
 
 	// clearOneof(oneofName) — clear whichever field is set in a oneof group.
 	_ = obj.Set("clearOneof", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		reflected := m.messageReceiver(call.This, msgDesc)
 		oneofName := call.Argument(0).String()
 		od := msgDesc.Oneofs().ByName(protoreflect.Name(oneofName))
 		if od == nil {
 			panic(m.runtime.NewTypeError("oneof %q not found on message %q", oneofName, msgDesc.FullName()))
 		}
-		fd := msg.WhichOneof(od)
+		fd := reflected.WhichOneof(od)
 		if fd != nil {
-			msg.Clear(fd)
+			reflected.Clear(fd)
 		}
 		return goja.Undefined()
 	}))
@@ -129,9 +151,51 @@ func (m *Module) wrapMessage(msg *dynamicpb.Message) *goja.Object {
 	return obj
 }
 
-// unwrapMessage extracts a [dynamicpb.Message] from a JS value that was
+func (m *Module) canonicalMessage(msg proto.Message) (protoreflect.Message, error) {
+	if m == nil || m.state == nil {
+		return nil, fmt.Errorf("gojaprotobuf: module is nil")
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("gojaprotobuf: message is nil")
+	}
+	value := reflect.ValueOf(msg)
+	if (value.Kind() == reflect.Pointer || value.Kind() == reflect.Interface) && value.IsNil() {
+		return nil, fmt.Errorf("gojaprotobuf: message is typed nil")
+	}
+	reflected := msg.ProtoReflect()
+	if reflected == nil || !reflected.IsValid() {
+		return nil, fmt.Errorf("gojaprotobuf: message is invalid")
+	}
+	descriptor := reflected.Descriptor()
+	messageType, err := m.typeResolver().FindMessageByName(descriptor.FullName())
+	if err != nil {
+		return nil, fmt.Errorf("gojaprotobuf: resolve canonical message type %s: %w", descriptor.FullName(), err)
+	}
+	if messageType.Descriptor() != descriptor {
+		return nil, fmt.Errorf("gojaprotobuf: message %s uses a foreign descriptor", descriptor.FullName())
+	}
+	return reflected, nil
+}
+
+func (m *Module) messageReceiver(value goja.Value, expected protoreflect.MessageDescriptor) protoreflect.Message {
+	message, err := m.unwrapMessage(value)
+	if err != nil {
+		panic(m.runtime.NewTypeError("incompatible protobuf message receiver: %s", err))
+	}
+	reflected := message.ProtoReflect()
+	if reflected.Descriptor() != expected {
+		panic(m.runtime.NewTypeError(
+			"incompatible protobuf message receiver: expected %s, got %s",
+			expected.FullName(),
+			reflected.Descriptor().FullName(),
+		))
+	}
+	return reflected
+}
+
+// unwrapMessage extracts a [proto.Message] from a JS value that was
 // created by [Module.wrapMessage].
-func (m *Module) unwrapMessage(val goja.Value) (*dynamicpb.Message, error) {
+func (m *Module) unwrapMessage(val goja.Value) (proto.Message, error) {
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		return nil, fmt.Errorf("expected protobuf message, got null/undefined")
 	}
@@ -140,22 +204,37 @@ func (m *Module) unwrapMessage(val goja.Value) (*dynamicpb.Message, error) {
 		return nil, fmt.Errorf("expected protobuf message object")
 	}
 
-	msgVal := obj.Get("_pbMsg")
-	if msgVal == nil || goja.IsUndefined(msgVal) {
+	msgVal, found, err := m.state.messages.load(obj)
+	if err != nil {
+		return nil, fmt.Errorf("protobuf message runtime mismatch: %w", err)
+	}
+	if !found {
 		return nil, fmt.Errorf("not a protobuf message wrapper")
 	}
 
-	msg, ok := msgVal.Export().(*dynamicpb.Message)
-	if !ok || msg == nil {
+	holder, ok := msgVal.Export().(*messageHolder)
+	if !ok || holder == nil || holder.state != m.state || holder.message == nil {
 		return nil, fmt.Errorf("not a protobuf message wrapper")
 	}
-	return msg, nil
+	return holder.message, nil
 }
 
 // resolveField looks up a field descriptor by proto field name. Panics
 // with a JS TypeError if the field is not found.
 func (m *Module) resolveField(msgDesc protoreflect.MessageDescriptor, name string) protoreflect.FieldDescriptor {
 	fd := msgDesc.Fields().ByName(protoreflect.Name(name))
+	if fd == nil {
+		fd = msgDesc.Fields().ByJSONName(name)
+	}
+	if fd == nil {
+		extensionName := strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")
+		if extensionType, err := m.typeResolver().FindExtensionByName(protoreflect.FullName(extensionName)); err == nil {
+			extension := extensionType.TypeDescriptor()
+			if extension.ContainingMessage().FullName() == msgDesc.FullName() {
+				fd = extension
+			}
+		}
+	}
 	if fd == nil {
 		panic(m.runtime.NewTypeError("field %q not found on message %q", name, msgDesc.FullName()))
 	}
@@ -166,7 +245,7 @@ func (m *Module) resolveField(msgDesc protoreflect.MessageDescriptor, name strin
 
 // wrapRepeatedField creates a JS object with array-like methods that
 // operates on a repeated protobuf field.
-func (m *Module) wrapRepeatedField(msg *dynamicpb.Message, fd protoreflect.FieldDescriptor) *goja.Object {
+func (m *Module) wrapRepeatedField(msg protoreflect.Message, fd protoreflect.FieldDescriptor) *goja.Object {
 	obj := m.runtime.NewObject()
 
 	// length — read-only dynamic accessor.
@@ -252,7 +331,7 @@ func (m *Module) wrapRepeatedField(msg *dynamicpb.Message, fd protoreflect.Field
 
 // wrapMapField creates a JS object with Map-like methods that operates
 // on a map protobuf field.
-func (m *Module) wrapMapField(msg *dynamicpb.Message, fd protoreflect.FieldDescriptor) *goja.Object {
+func (m *Module) wrapMapField(msg protoreflect.Message, fd protoreflect.FieldDescriptor) *goja.Object {
 	obj := m.runtime.NewObject()
 	keyDesc := fd.MapKey()
 	valueDesc := fd.MapValue()
@@ -290,8 +369,8 @@ func (m *Module) wrapMapField(msg *dynamicpb.Message, fd protoreflect.FieldDescr
 		if err != nil {
 			panic(m.runtime.NewTypeError(err.Error()))
 		}
-		// Null/undefined value means "delete this key" — consistent
-		// with setMapFromGoja which skips null/undefined values.
+		// Imperative map mutation treats null/undefined as deletion. Whole-map
+		// replacement is stricter and rejects either value atomically.
 		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
 			msg.Mutable(fd).Map().Clear(mk)
 			return goja.Undefined()
@@ -343,8 +422,8 @@ func (m *Module) wrapMapField(msg *dynamicpb.Message, fd protoreflect.FieldDescr
 		return goja.Undefined()
 	}))
 
-	// entries() — return an iterator of [key, value] pairs.
-	_ = obj.Set("entries", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+	// entries() — return an iterable iterator of [key, value] pairs.
+	entries := m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		var pairs []goja.Value
 		protoMap := msg.Get(fd).Map()
 		protoMap.Range(func(mk protoreflect.MapKey, v protoreflect.Value) bool {
@@ -370,8 +449,17 @@ func (m *Module) wrapMapField(msg *dynamicpb.Message, fd protoreflect.FieldDescr
 			}
 			return result
 		}))
+		if err := iter.SetSymbol(goja.SymIterator, func(call goja.FunctionCall) goja.Value {
+			return call.This
+		}); err != nil {
+			panic(m.runtime.NewGoError(err))
+		}
 		return iter
-	}))
+	})
+	_ = obj.Set("entries", entries)
+	if err := obj.SetSymbol(goja.SymIterator, entries); err != nil {
+		panic(m.runtime.NewGoError(err))
+	}
 
 	return obj
 }

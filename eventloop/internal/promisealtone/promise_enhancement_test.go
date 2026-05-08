@@ -2,27 +2,22 @@ package promisealtone_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-eventloop/internal/promisealtone"
 )
 
 func TestPromise_String(t *testing.T) {
-	loop, _ := eventloop.New()
-	js, _ := eventloop.NewJS(loop)
-
 	t.Run("Pending", func(t *testing.T) {
-		p, _, _ := promisealtone.New(js)
+		p, _, _ := promisealtone.New(nil)
 		if s := p.String(); s != "Promise<Pending>" {
 			t.Errorf("expected Promise<Pending>, got %q", s)
 		}
 	})
 
 	t.Run("Fulfilled", func(t *testing.T) {
-		p, resolve, _ := promisealtone.New(js)
+		p, resolve, _ := promisealtone.New(nil)
 		resolve(123)
 		if s := p.String(); s != "Promise<Fulfilled: 123>" {
 			t.Errorf("expected Promise<Fulfilled: 123>, got %q", s)
@@ -30,7 +25,7 @@ func TestPromise_String(t *testing.T) {
 	})
 
 	t.Run("Rejected", func(t *testing.T) {
-		p, _, reject := promisealtone.New(js)
+		p, _, reject := promisealtone.New(nil)
 		reject("error")
 		if s := p.String(); s != "Promise<Rejected: error>" {
 			t.Errorf("expected Promise<Rejected: error>, got %q", s)
@@ -40,26 +35,13 @@ func TestPromise_String(t *testing.T) {
 
 func TestPromise_Await(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		loop, _ := eventloop.New()
-		js, _ := eventloop.NewJS(loop)
-
-		p, resolve, _ := promisealtone.New(js)
+		p, resolve, _ := promisealtone.New(nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		go func() {
-			// Simulating async work
-			time.Sleep(10 * time.Millisecond)
 			resolve(42)
-		}()
-
-		loopCtx := t.Context()
-
-		go func() {
-			if err := loop.Run(loopCtx); err != nil && err != context.Canceled {
-				fmt.Printf("Loop exited with error: %v\n", err)
-			}
 		}()
 
 		res, err := p.Await(ctx)
@@ -72,20 +54,14 @@ func TestPromise_Await(t *testing.T) {
 	})
 
 	t.Run("Failure", func(t *testing.T) {
-		loop, _ := eventloop.New()
-		js, _ := eventloop.NewJS(loop)
-
-		p, _, reject := promisealtone.New(js)
-
-		loopCtx := t.Context()
-		go loop.Run(loopCtx)
+		p, _, reject := promisealtone.New(nil)
 
 		go func() {
-			time.Sleep(10 * time.Millisecond)
 			reject("fail")
 		}()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		_, err := p.Await(ctx)
 		if err == nil {
 			t.Error("expected error, got nil")
@@ -96,10 +72,7 @@ func TestPromise_Await(t *testing.T) {
 	})
 
 	t.Run("ContextCancel", func(t *testing.T) {
-		loop, _ := eventloop.New()
-		js, _ := eventloop.NewJS(loop)
-
-		p, _, _ := promisealtone.New(js)
+		p, _, _ := promisealtone.New(nil)
 
 		// No resolve/reject
 
@@ -118,13 +91,11 @@ func TestPromise_Await(t *testing.T) {
 	})
 
 	t.Run("AlreadyResolved", func(t *testing.T) {
-		loop, _ := eventloop.New()
-		js, _ := eventloop.NewJS(loop)
-
-		p, resolve, _ := promisealtone.New(js)
+		p, resolve, _ := promisealtone.New(nil)
 		resolve("fast")
 
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		res, err := p.Await(ctx)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)

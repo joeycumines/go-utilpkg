@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!0B\xf6$$B\xf6$\xf6")

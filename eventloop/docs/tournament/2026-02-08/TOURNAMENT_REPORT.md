@@ -178,6 +178,12 @@ The BenchmarkChainDepth benchmark in the combined macOS tournament run failed wi
 
 AlternateThree remains a viable throughput-focused alternative for macOS and Windows deployments, but its 5–11× Linux collapse makes it unsuitable as a universal default. AlternateTwo's narrow GC advantage does not offset its consistent underperformance in throughput and latency. AlternateOne and PromiseAltFour offer no compelling advantage in any category and are candidates for retirement from active tournament rotation.
 
+Historical note: that proposed rotation retirement is superseded. Product
+unsuitability does not authorize deleting longitudinal tournament evidence;
+these implementations, adapters, and stable identities remain in the permanent
+comparison surface. This dated report otherwise preserves its original methods
+and conclusions and is not the current execution guide.
+
 ---
 
 ## 9. Document Index

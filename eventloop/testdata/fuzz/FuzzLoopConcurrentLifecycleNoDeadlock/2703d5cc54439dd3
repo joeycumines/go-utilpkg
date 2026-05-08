@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$*2K\xb3\xb31\xb3\xb301\xb3\xb3\xb3\xb3\x97Y11110")

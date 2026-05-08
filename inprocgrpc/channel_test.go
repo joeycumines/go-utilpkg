@@ -172,22 +172,9 @@ func (s *errorServer) Unary(_ context.Context, _ *wrapperspb.StringValue) (*wrap
 // --- Tests ---
 
 func TestNewChannel_NilLoop(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected panic for nil loop")
-		}
-		s, ok := r.(string)
-		if !ok {
-			t.Fatalf("unexpected panic type: %T", r)
-		}
-		// The panic message includes "inprocgrpc:" prefix from the panic formatting
-		if s != "inprocgrpc: inprocgrpc: loop must be provided via WithLoop" &&
-			s != "inprocgrpc: loop must be provided via WithLoop" {
-			t.Fatalf("unexpected panic message: %q", s)
-		}
-	}()
-	inprocgrpc.NewChannel()
+	requirePanicContains(t, "loop must be provided", func() {
+		inprocgrpc.NewChannel()
+	})
 }
 
 func TestChannel_Invoke_Unary(t *testing.T) {

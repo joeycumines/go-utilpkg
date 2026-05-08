@@ -1,182 +1,146 @@
 package eventloop
 
 import (
+	"errors"
 	"runtime"
 	"testing"
 )
 
-func TestScavengerPruning(t *testing.T) {
-	// Task 5.3: Prune Settled and GC'd
+func TestRegistryScavengeBatchesSettlement(t *testing.T) {
 	r := newRegistry()
+	ids := make([]uint64, 6)
+	promises := make([]*promise, len(ids))
+	for i := range ids {
+		ids[i], promises[i] = r.NewPromise()
+	}
+	promises[1].resolve("fulfilled first batch")
+	promises[2].reject(errors.New("rejected first batch"))
+	promises[4].resolve("fulfilled second batch")
 
-	// 1. Pending (Should Keep)
-	idPending, _ := r.NewPromise()
+	r.Scavenge(3)
 
-	// 2. Resolved (Should Remove)
-	idResolved, pResolved := r.NewPromise()
-	pResolved.Resolve("done")
+	r.mu.RLock()
+	firstData := make(map[uint64]bool, len(r.data))
+	for id := range r.data {
+		firstData[id] = true
+	}
+	firstRing := append([]uint64(nil), r.ring...)
+	firstHead := r.head
+	r.mu.RUnlock()
 
-	// 3. Rejected (Should Remove)
-	idRejected, pRejected := r.NewPromise()
-	pRejected.Reject(nil)
+	if firstHead != 3 {
+		t.Fatalf("head after first batch = %d, want 3", firstHead)
+	}
+	if len(firstData) != 4 || !firstData[ids[0]] || !firstData[ids[3]] || !firstData[ids[4]] || !firstData[ids[5]] {
+		t.Fatalf("data IDs after first batch = %v, want pending or unvisited IDs %v", firstData, []uint64{ids[0], ids[3], ids[4], ids[5]})
+	}
+	if len(firstRing) != 6 || firstRing[0] != ids[0] || firstRing[1] != 0 || firstRing[2] != 0 {
+		t.Fatalf("ring after first batch = %v, want first ID followed by two null markers", firstRing)
+	}
 
-	// Scavenge
+	r.Scavenge(3)
+
+	r.mu.RLock()
+	secondData := make(map[uint64]bool, len(r.data))
+	for id := range r.data {
+		secondData[id] = true
+	}
+	secondRing := append([]uint64(nil), r.ring...)
+	secondHead := r.head
+	r.mu.RUnlock()
+
+	if secondHead != 0 {
+		t.Fatalf("head after complete cycle = %d, want 0", secondHead)
+	}
+	if len(secondData) != 3 || !secondData[ids[0]] || !secondData[ids[3]] || !secondData[ids[5]] {
+		t.Fatalf("data IDs after complete cycle = %v, want pending IDs %v", secondData, []uint64{ids[0], ids[3], ids[5]})
+	}
+	if len(secondRing) != 6 || secondRing[0] != ids[0] || secondRing[1] != 0 || secondRing[2] != 0 || secondRing[3] != ids[3] || secondRing[4] != 0 || secondRing[5] != ids[5] {
+		t.Fatalf("ring after complete cycle = %v, want exact settled markers", secondRing)
+	}
+	runtime.KeepAlive(promises)
+}
+
+func TestRegistryScavengeNonPositiveBatchDoesNotAdvance(t *testing.T) {
+	r := newRegistry()
+	id, promise := r.NewPromise()
+
+	r.Scavenge(0)
+	r.Scavenge(-1)
+
+	r.mu.RLock()
+	registered := r.data[id].Value()
+	ring := append([]uint64(nil), r.ring...)
+	head := r.head
+	r.mu.RUnlock()
+	if registered != promise || len(ring) != 1 || ring[0] != id || head != 0 {
+		t.Fatalf("registry after non-positive batches = (promise %p, ring %v, head %d), want (%p, [%d], 0)", registered, ring, head, promise, id)
+	}
+}
+
+func TestRegistryScavengeEmptyDoesNotMutate(t *testing.T) {
+	r := newRegistry()
 	r.Scavenge(100)
 
 	r.mu.RLock()
-	_, okPending := r.data[idPending]
-	_, okResolved := r.data[idResolved]
-	_, okRejected := r.data[idRejected]
-	r.mu.RUnlock()
-
-	if !okPending {
-		t.Error("Pending promise was removed")
-	}
-	if okResolved {
-		t.Error("Resolved promise was NOT removed")
-	}
-	if okRejected {
-		t.Error("Rejected promise was NOT removed")
-	}
-}
-
-func TestLoadFactorCompaction(t *testing.T) {
-	// Task 5.2: Compact when load factor < 25% (D20)
-	// D20: Compaction triggers when capacity > 256 && load factor < 25%
-	r := newRegistry()
-
-	// Create 300 items to exceed the 256 threshold. Keep 30 (10%).
-	// Load Factor 0.1 -> Should Compact
-	keepIDs := make([]uint64, 0, 30)
-	for i := range 300 {
-		id, p := r.NewPromise()
-		if i < 30 {
-			keepIDs = append(keepIDs, id)
-		} else {
-			p.Resolve(nil) // Mark for removal
-		}
-	}
-
-	// Scavenge all - need a full cycle to trigger compaction
-	r.Scavenge(300)
-
-	r.mu.RLock()
+	dataLen := len(r.data)
 	ringLen := len(r.ring)
-	// Verify kept IDs still exist
-	for _, id := range keepIDs {
-		if _, ok := r.data[id]; !ok {
-			t.Errorf("Expected to keep ID %d but it was removed", id)
-		}
-	}
-	r.mu.RUnlock()
-
-	// Should contain exactly 30 items after compaction
-	if ringLen != 30 {
-		t.Errorf("Ring length should be 30 after compaction, got %d", ringLen)
-	}
-}
-
-func TestNoCompactionWhenLoadHigh(t *testing.T) {
-	// Verify it DOESNT compact if load factor is high
-	r := newRegistry()
-
-	// Create 100 items. Keep 50 (50%).
-	// Load Factor 0.5 -> No Compact
-	for i := range 100 {
-		_, p := r.NewPromise()
-		if i >= 50 {
-			p.Resolve(nil)
-		}
-	}
-
-	r.Scavenge(120)
-
-	r.mu.RLock()
-	ringLen := len(r.ring)
-	r.mu.RUnlock()
-
-	// Ring length should still be 100 (null markers present, but not compacted)
-	// Wait, standard Compact implementation rebuilds slice.
-	// My implementation:
-	// if float64(active)/float64(capacity) < 0.125 { r.compact() }
-	// Active = 50. Capacity = 100. 0.5 >= 0.125.
-	// So NO compaction.
-	// Ring length stays 100.
-
-	if ringLen != 100 {
-		t.Errorf("Ring should NOT compact (len=100), got %d", ringLen)
-	}
-}
-
-func TestDeterministicDiscovery(t *testing.T) {
-	// Task 5.1
-	r := newRegistry()
-
-	// Create items, settle some, ensure iteration works
-	// We verify by Scavenging in small batches
-
-	for i := range 10 {
-		_, p := r.NewPromise()
-		if i%2 == 0 {
-			p.Resolve(nil)
-		}
-	}
-	// 5 active, 5 dead.
-
-	// Scavenge batch 1 -> finds item 0 (dead). Removes it.
-	r.Scavenge(1)
-
-	r.mu.RLock()
 	head := r.head
+	nextID := r.nextID
 	r.mu.RUnlock()
-
-	if head != 1 {
-		t.Errorf("Head should move to 1, got %d", head)
+	if dataLen != 0 || ringLen != 0 || head != 0 || nextID != 1 {
+		t.Fatalf("empty registry after scavenge = (data %d, ring %d, head %d, next ID %d), want (0, 0, 0, 1)", dataLen, ringLen, head, nextID)
 	}
 }
 
-// TestRegistry_BucketReclaim verifies that memory is properly reclaimed after
-// promises are released. This catches the "Bucket Ghost" bug where map buckets
-// are never released.
-func TestRegistry_BucketReclaim(t *testing.T) {
-	runtime.GC()
-	var ms1 runtime.MemStats
-	runtime.ReadMemStats(&ms1)
+func TestRegistryScavengeConcurrentExactState(t *testing.T) {
+	const (
+		promiseCount = 1000
+		workerCount  = 8
+		passes       = 25
+		batchSize    = 5
+	)
 
 	r := newRegistry()
-	const count = 1_000_000
-
-	strongRefs := make([]*promise, count)
-
-	for i := range count {
-		_, p := r.NewPromise()
-		strongRefs[i] = p
+	settledIDs := make([]uint64, 0, promiseCount/2)
+	pending := make(map[uint64]*promise, promiseCount/2)
+	for i := range promiseCount {
+		id, promise := r.NewPromise()
+		if i%2 == 0 {
+			promise.resolve(nil)
+			settledIDs = append(settledIDs, id)
+		} else {
+			pending[id] = promise
+		}
 	}
 
-	runtime.GC()
-	var ms2 runtime.MemStats
-	runtime.ReadMemStats(&ms2)
-	t.Logf("Peak Alloc: %d MB", ms2.HeapAlloc/1024/1024)
-
-	strongRefs = nil
-	runtime.GC()
-
-	for range (count / 100) + 10 {
-		r.Scavenge(1000)
+	done := make(chan struct{}, workerCount)
+	for range workerCount {
+		go func() {
+			for range passes {
+				r.Scavenge(batchSize)
+			}
+			done <- struct{}{}
+		}()
+	}
+	for range workerCount {
+		waitContractSignal(t, done, "concurrent registry scavenge")
 	}
 
-	runtime.GC()
-	runtime.GC()
-
-	var ms3 runtime.MemStats
-	runtime.ReadMemStats(&ms3)
-	t.Logf("Final Alloc: %d MB", ms3.HeapAlloc/1024/1024)
-
-	usageDiff := int64(ms3.HeapAlloc) - int64(ms1.HeapAlloc)
-	peakDiff := int64(ms2.HeapAlloc) - int64(ms1.HeapAlloc)
-
-	if usageDiff > peakDiff/5 {
-		t.Errorf("Memory Leak Detected: Retaining too much memory. \nBaseline: %d\nPeak: %d\nFinal: %d\nretained: %d%%",
-			ms1.HeapAlloc, ms2.HeapAlloc, ms3.HeapAlloc, (usageDiff*100)/peakDiff)
+	r.mu.RLock()
+	if len(r.data) != len(pending) || len(r.ring) != promiseCount || r.head != 0 {
+		t.Fatalf("registry after concurrent full cycle = (data %d, ring %d, head %d), want (%d, %d, 0)", len(r.data), len(r.ring), r.head, len(pending), promiseCount)
 	}
+	for id, promise := range pending {
+		if got := r.data[id].Value(); got != promise {
+			t.Errorf("pending registry ID %d points to %p, want %p", id, got, promise)
+		}
+	}
+	for _, id := range settledIDs {
+		if _, exists := r.data[id]; exists {
+			t.Errorf("settled registry ID %d survived concurrent scavenge", id)
+		}
+	}
+	r.mu.RUnlock()
+	runtime.KeepAlive(pending)
 }

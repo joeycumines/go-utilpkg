@@ -1,7 +1,7 @@
 package gojaprotojson
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 

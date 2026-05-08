@@ -1,60 +1,90 @@
 package gojaprotobuf
 
 import (
+	"errors"
+	"fmt"
+
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// moduleOptions holds configuration for a [Module] instance.
-type moduleOptions struct {
+type moduleConfig struct {
 	resolver *protoregistry.Types
 	files    *protoregistry.Files
 }
 
-// Option configures a [Module] instance. Options are applied during
-// module construction.
-type Option interface {
-	applyOption(*moduleOptions) error
+// ModuleOption configures a [Module]. [New] panics when an option is nil or
+// invalid. Implementations are returned by the With* constructors.
+type ModuleOption interface {
+	applyModuleOption(*moduleConfig) error
 }
 
-// optionFunc implements [Option] via a closure.
-type optionFunc struct {
-	fn func(*moduleOptions) error
+// ResolverOption configures the immutable base type-registry snapshot.
+type ResolverOption struct {
+	resolver *protoregistry.Types
 }
 
-func (o *optionFunc) applyOption(opts *moduleOptions) error {
-	return o.fn(opts)
+// WithResolver configures the [protoregistry.Types] whose current membership
+// is snapshotted by the first [New] call for a runtime. Later caller mutations
+// are not observed. The caller must not mutate the registry concurrently with
+// construction. If omitted, [protoregistry.GlobalTypes] is snapshotted.
+func WithResolver(resolver *protoregistry.Types) *ResolverOption {
+	return &ResolverOption{resolver: resolver}
 }
 
-// WithResolver configures the [protoregistry.Types] used to resolve
-// message and enum types by fully-qualified name. If not set,
-// [protoregistry.GlobalTypes] is used by default.
-func WithResolver(resolver *protoregistry.Types) Option {
-	return &optionFunc{fn: func(opts *moduleOptions) error {
-		opts.resolver = resolver
-		return nil
-	}}
+func (o *ResolverOption) applyModuleOption(cfg *moduleConfig) error {
+	if o == nil {
+		return errors.New("resolver option is nil")
+	}
+	if o.resolver == nil {
+		return errors.New("resolver must not be nil")
+	}
+	cfg.resolver = o.resolver
+	return nil
 }
 
-// WithFiles configures the [protoregistry.Files] used to resolve
-// file descriptors. If not set, [protoregistry.GlobalFiles] is used
-// by default.
-func WithFiles(files *protoregistry.Files) Option {
-	return &optionFunc{fn: func(opts *moduleOptions) error {
-		opts.files = files
-		return nil
-	}}
+var _ ModuleOption = (*ResolverOption)(nil)
+
+// FilesOption configures the immutable base file-registry snapshot.
+type FilesOption struct {
+	files *protoregistry.Files
 }
 
-// resolveOptions applies the given options to a default [moduleOptions].
-func resolveOptions(opts []Option) (*moduleOptions, error) {
-	cfg := &moduleOptions{}
-	for _, opt := range opts {
+// WithFiles configures the [protoregistry.Files] whose current membership is
+// snapshotted by the first [New] call for a runtime. Later caller mutations
+// are not observed. The caller must not mutate the registry concurrently with
+// construction. If omitted, [protoregistry.GlobalFiles] is snapshotted.
+func WithFiles(files *protoregistry.Files) *FilesOption {
+	return &FilesOption{files: files}
+}
+
+func (o *FilesOption) applyModuleOption(cfg *moduleConfig) error {
+	if o == nil {
+		return errors.New("files option is nil")
+	}
+	if o.files == nil {
+		return errors.New("files registry must not be nil")
+	}
+	cfg.files = o.files
+	return nil
+}
+
+var _ ModuleOption = (*FilesOption)(nil)
+
+func resolveOptions(opts []ModuleOption) (*moduleConfig, error) {
+	cfg := &moduleConfig{}
+	for index, opt := range opts {
 		if opt == nil {
-			continue
+			return nil, fmt.Errorf("module option %d is nil", index)
 		}
-		if err := opt.applyOption(cfg); err != nil {
-			return nil, err
+		if err := opt.applyModuleOption(cfg); err != nil {
+			return nil, fmt.Errorf("module option %d: %w", index, err)
 		}
+	}
+	if cfg.resolver == nil {
+		cfg.resolver = protoregistry.GlobalTypes
+	}
+	if cfg.files == nil {
+		cfg.files = protoregistry.GlobalFiles
 	}
 	return cfg, nil
 }

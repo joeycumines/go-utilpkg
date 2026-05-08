@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ============================================================================
@@ -28,7 +28,7 @@ import (
 
 // TestPromiseResolve_WithValue tests Promise.resolve() with a plain value.
 func TestPromiseResolve_WithValue(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestPromiseResolve_WithValue(t *testing.T) {
 
 // TestPromiseResolve_WithString tests Promise.resolve() with a string value.
 func TestPromiseResolve_WithString(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestPromiseResolve_WithString(t *testing.T) {
 
 // TestPromiseResolve_WithThenable tests Promise.resolve() with a thenable object.
 func TestPromiseResolve_WithThenable(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestPromiseResolve_WithThenable(t *testing.T) {
 
 // TestPromiseResolve_WithPromise tests Promise.resolve() with another promise.
 func TestPromiseResolve_WithPromise(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestPromiseResolve_WithPromise(t *testing.T) {
 
 // TestPromiseResolve_NoArgument tests Promise.resolve() with no argument.
 func TestPromiseResolve_NoArgument(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -238,7 +238,7 @@ func TestPromiseResolve_NoArgument(t *testing.T) {
 
 // TestPromiseReject_Basic tests basic Promise.reject() usage.
 func TestPromiseReject_Basic(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -276,7 +276,7 @@ func TestPromiseReject_Basic(t *testing.T) {
 
 // TestPromiseReject_WithError tests Promise.reject() with an Error object.
 func TestPromiseReject_WithError(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -319,7 +319,7 @@ func TestPromiseReject_WithError(t *testing.T) {
 
 // TestPromiseReject_NoArgument tests Promise.reject() with no argument.
 func TestPromiseReject_NoArgument(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -369,7 +369,7 @@ func TestPromiseReject_NoArgument(t *testing.T) {
 
 // TestPromiseAll_EmptyArray tests Promise.all with an empty array.
 func TestPromiseAll_EmptyArray(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -416,7 +416,7 @@ func TestPromiseAll_EmptyArray(t *testing.T) {
 
 // TestPromiseRace_EmptyArray tests Promise.race with an empty array (never settles).
 func TestPromiseRace_EmptyArray(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -466,7 +466,7 @@ func TestPromiseRace_EmptyArray(t *testing.T) {
 
 // TestPromiseAllSettled_EmptyArray tests Promise.allSettled with an empty array.
 func TestPromiseAllSettled_EmptyArray(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -513,7 +513,7 @@ func TestPromiseAllSettled_EmptyArray(t *testing.T) {
 
 // TestPromiseAny_EmptyArray tests Promise.any with an empty array.
 func TestPromiseAny_EmptyArray(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -577,7 +577,7 @@ func TestPromiseAny_EmptyArray(t *testing.T) {
 
 // TestPromiseAll_AlreadySettledResolved tests Promise.all with already resolved promises.
 func TestPromiseAll_AlreadySettledResolved(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -626,7 +626,7 @@ func TestPromiseAll_AlreadySettledResolved(t *testing.T) {
 
 // TestPromiseAll_AlreadySettledRejected tests Promise.all with one already rejected.
 func TestPromiseAll_AlreadySettledRejected(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -667,7 +667,7 @@ func TestPromiseAll_AlreadySettledRejected(t *testing.T) {
 
 // TestPromiseRace_AlreadySettled tests Promise.race with already settled promises.
 func TestPromiseRace_AlreadySettled(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -708,7 +708,7 @@ func TestPromiseRace_AlreadySettled(t *testing.T) {
 
 // TestPromiseAny_AlreadySettled tests Promise.any with already settled promises.
 func TestPromiseAny_AlreadySettled(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -749,7 +749,7 @@ func TestPromiseAny_AlreadySettled(t *testing.T) {
 
 // TestPromiseAllSettled_AlreadySettled tests Promise.allSettled with already settled.
 func TestPromiseAllSettled_AlreadySettled(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -797,7 +797,7 @@ func TestPromiseAllSettled_AlreadySettled(t *testing.T) {
 
 // TestPromiseResolve_WithNull tests Promise.resolve() with null.
 func TestPromiseResolve_WithNull(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
@@ -835,7 +835,7 @@ func TestPromiseResolve_WithNull(t *testing.T) {
 
 // TestPromiseResolve_WithObject tests Promise.resolve() with a plain object.
 func TestPromiseResolve_WithObject(t *testing.T) {
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {

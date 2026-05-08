@@ -24,7 +24,7 @@ type PromiseState = eventloop.PromiseState
 
 const (
 	Pending   = eventloop.Pending
-	Resolved  = eventloop.Resolved
+	Resolved  = eventloop.Fulfilled
 	Fulfilled = eventloop.Fulfilled
 	Rejected  = eventloop.Rejected
 )

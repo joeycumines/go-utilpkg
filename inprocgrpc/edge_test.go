@@ -121,6 +121,9 @@ func TestChannel_Stream_SetHeaderAfterSend(t *testing.T) {
 		{
 			StreamName: "ServerStream",
 			Handler: func(srv any, stream grpc.ServerStream) error {
+				if err := stream.RecvMsg(new(wrapperspb.StringValue)); err != nil {
+					return err
+				}
 				// Send a message first (implicitly sends headers)
 				if err := stream.SendMsg(&wrapperspb.StringValue{Value: "first"}); err != nil {
 					return err

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/require"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
+	"github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
@@ -84,7 +84,9 @@ func ExampleModule_WrapMessage() {
 	_, _ = mod.LoadDescriptorSetBytes(exampleDescBytes())
 
 	pb := rt.NewObject()
-	mod.SetupExports(pb)
+	if err := mod.SetupExports(pb); err != nil {
+		panic(err)
+	}
 	_ = rt.Set("pb", pb)
 
 	// Create a message in JS and get it in Go
@@ -103,7 +105,10 @@ func ExampleModule_WrapMessage() {
 	fmt.Println(msg.ProtoReflect().Descriptor().FullName())
 
 	// Wrap it back for JS
-	wrapped := mod.WrapMessage(msg)
+	wrapped, err := mod.WrapMessage(msg)
+	if err != nil {
+		panic(err)
+	}
 	_ = rt.Set("wrapped", wrapped)
 	result, _ := rt.RunString(`wrapped.get('name')`)
 	fmt.Println(result.String())
@@ -125,7 +130,9 @@ func newExampleRuntime() (*goja.Runtime, func(string) string) {
 		panic(err)
 	}
 	pb := rt.NewObject()
-	mod.SetupExports(pb)
+	if err := mod.SetupExports(pb); err != nil {
+		panic(err)
+	}
 	_ = rt.Set("pb", pb)
 
 	run := func(code string) string {

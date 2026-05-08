@@ -1,7 +1,6 @@
 package gojagrpc
 
 import (
-	"strings"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -254,81 +253,49 @@ func TestNew_NilRuntime_Panics(t *testing.T) {
 func TestNew_MissingChannel(t *testing.T) {
 	rt := newGrpcTestEnv(t)
 	defer rt.shutdown()
-	_, err := New(rt.runtime)
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "channel is required") {
-		t.Errorf("expected %q to contain %q", err.Error(), "channel is required")
-	}
+	requirePanicContains(t, "channel is required", func() {
+		New(rt.runtime)
+	})
 }
 
 func TestNew_MissingProtobuf(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	_, err := New(env.runtime, WithChannel(env.channel))
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "protobuf module is required") {
-		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module is required")
-	}
+	requirePanicContains(t, "protobuf module is required", func() {
+		New(env.runtime, WithChannel(env.channel))
+	})
 }
 
 func TestNew_MissingAdapter(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod))
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "adapter is required") {
-		t.Errorf("expected %q to contain %q", err.Error(), "adapter is required")
-	}
+	requirePanicContains(t, "adapter is required", func() {
+		New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod))
+	})
 }
 
 func TestNew_NilChannel(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	_, err := New(env.runtime, WithChannel(nil), WithProtobuf(env.pbMod), WithAdapter(env.adapter))
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "channel must not be nil") {
-		t.Errorf("expected %q to contain %q", err.Error(), "channel must not be nil")
-	}
+	requirePanicContains(t, "channel must not be nil", func() {
+		New(env.runtime, WithChannel(nil), WithProtobuf(env.pbMod), WithAdapter(env.adapter))
+	})
 }
 
 func TestNew_NilProtobuf(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(nil), WithAdapter(env.adapter))
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "protobuf module must not be nil") {
-		t.Errorf("expected %q to contain %q", err.Error(), "protobuf module must not be nil")
-	}
+	requirePanicContains(t, "protobuf module must not be nil", func() {
+		New(env.runtime, WithChannel(env.channel), WithProtobuf(nil), WithAdapter(env.adapter))
+	})
 }
 
 func TestNew_NilAdapter(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
-	_, err := New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod), WithAdapter(nil))
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "adapter must not be nil") {
-		t.Errorf("expected %q to contain %q", err.Error(), "adapter must not be nil")
-	}
-}
-
-func TestRuntime_Accessor(t *testing.T) {
-	env := newGrpcTestEnv(t)
-	defer env.shutdown()
-	if env.runtime != env.grpcMod.Runtime() {
-		t.Errorf("expected same pointer, got different")
-	}
+	requirePanicContains(t, "adapter must not be nil", func() {
+		New(env.runtime, WithChannel(env.channel), WithProtobuf(env.pbMod), WithAdapter(nil))
+	})
 }
 
 func TestSetupExports_Accessible(t *testing.T) {

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("(\xcaB\xca\xca8001z0%Ab1\xce\xce\xcc!(7\xcc\xcc\xcc)Xy")

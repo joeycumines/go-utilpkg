@@ -1,169 +1,150 @@
 package eventloop
 
 import (
+	"context"
 	"runtime"
 	"testing"
 	"time"
+	"weak"
 )
 
-// TestPromiseMemoryLeak_ResolvedChainsGCd verifies that resolved promise chains
-// become eligible for garbage collection. This is the primary memory leak test
-// for the promise system after the addHandler/scheduleHandler rewrite.
-func TestPromiseMemoryLeak_ResolvedChainsGCd(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
+func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
+	loop := New()
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		t.Fatalf("warmup Submit: %v", err)
 	}
-	go func() { _ = loop.Run(ctx) }()
-	defer loop.Shutdown(ctx)
-
-	time.Sleep(10 * time.Millisecond)
-
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Force GC and establish baseline
-	runtime.GC()
-	runtime.GC()
-	var baseline runtime.MemStats
-	runtime.ReadMemStats(&baseline)
-
-	// Phase 1: Create and resolve many promise chains
-	const numChains = 5000
-	const chainDepth = 5
-	for i := range numChains {
-		p, resolve, _ := js.NewChainedPromise()
-		current := p
-		for range chainDepth {
-			current = current.Then(func(v any) any { return v }, nil)
+	waitContractSignal(t, ready, "promise-retention loop warmup")
+	t.Cleanup(func() {
+		if err := loop.Close(); err != nil {
+			t.Errorf("Close: %v", err)
 		}
-		// Resolve — all handlers should fire and be cleaned up
-		resolve(i)
-	}
-
-	// Let microtasks drain
-	time.Sleep(100 * time.Millisecond)
-
-	// Force GC multiple times to ensure cleanup
-	for range 4 {
-		runtime.GC()
-	}
-	time.Sleep(10 * time.Millisecond)
-	runtime.GC()
-
-	var afterCreation runtime.MemStats
-	runtime.ReadMemStats(&afterCreation)
-
-	// Phase 2: Create another batch (should reuse memory if no leak)
-	for i := range numChains {
-		p, resolve, _ := js.NewChainedPromise()
-		current := p
-		for range chainDepth {
-			current = current.Then(func(v any) any { return v }, nil)
+		if err := waitContractValue(t, runDone, "promise-retention loop completion"); err != nil {
+			t.Errorf("Run: %v", err)
 		}
-		resolve(i + numChains)
+	})
+	js := NewJS(loop)
+
+	const chainCount = 32
+	references := make([]weak.Pointer[ChainedPromise], 0, chainCount*6)
+	for value := range chainCount {
+		references = append(references, settledPromiseChainReferences(t, js, value)...)
 	}
 
-	time.Sleep(100 * time.Millisecond)
-	for range 4 {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
 		runtime.GC()
-	}
-	time.Sleep(10 * time.Millisecond)
-	runtime.GC()
-
-	var afterSecondBatch runtime.MemStats
-	runtime.ReadMemStats(&afterSecondBatch)
-
-	// The key metric: HeapInuse should NOT grow proportionally with batches.
-	// If there's a leak, the second batch would add to HeapInuse rather than
-	// reuse the freed memory from the first batch.
-	growth := int64(afterSecondBatch.HeapInuse) - int64(afterCreation.HeapInuse)
-	firstBatchUsage := int64(afterCreation.HeapInuse) - int64(baseline.HeapInuse)
-
-	t.Logf("Memory Analysis:")
-	t.Logf("  Baseline HeapInuse:      %d bytes", baseline.HeapInuse)
-	t.Logf("  After first batch:       %d bytes (+%d)", afterCreation.HeapInuse, firstBatchUsage)
-	t.Logf("  After second batch:      %d bytes (+%d from first batch)", afterSecondBatch.HeapInuse, growth)
-	t.Logf("  Promises per batch:      %d (chain depth %d)", numChains, chainDepth)
-	t.Logf("  Total promises created:  %d", numChains*2*(chainDepth+1))
-
-	// Detect leaks using an absolute threshold to avoid false positives from
-	// GC non-determinism. Each batch creates numChains*(chainDepth+1) = 30,000
-	// promises at ~64 bytes each ≈ 1.9 MB. A true leak would show growth
-	// proportional to that. We use 4 MB as the threshold — generous enough to
-	// accommodate race detector overhead and GC page-level noise, but catches
-	// real leaks where promises aren't being collected.
-	const maxGrowthBytes = 4 << 20 // 4 MB
-	if growth > maxGrowthBytes {
-		t.Errorf("Potential memory leak: heap grew by %d bytes between batches (threshold %d bytes). "+
-			"First batch used %d bytes.", growth, maxGrowthBytes, firstBatchUsage)
+		alive := 0
+		for _, reference := range references {
+			if reference.Value() != nil {
+				alive++
+			}
+		}
+		if alive == 0 {
+			runtime.KeepAlive(js)
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("settled promise chains retained %d/%d promises", alive, len(references))
+		}
+		runtime.Gosched()
 	}
 }
 
-// TestPromiseMemoryLeak_RejectionTrackingCleanup verifies that the rejection
-// tracking maps (unhandledRejections, promiseHandlers, handlerReadyChans) are
-// properly cleaned up after promises settle.
-func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
-	ctx := t.Context()
-
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
+func settledPromiseChainReferences(t *testing.T, js *JS, value int) []weak.Pointer[ChainedPromise] {
+	t.Helper()
+	const chainDepth = 5
+	source, resolve, _ := js.NewChainedPromise()
+	current := source
+	references := make([]weak.Pointer[ChainedPromise], 0, chainDepth+1)
+	references = append(references, weak.Make(source))
+	for range chainDepth {
+		current = current.Then(func(value any) any { return value }, nil)
+		references = append(references, weak.Make(current))
 	}
-	go func() { _ = loop.Run(ctx) }()
-	defer loop.Shutdown(ctx)
+	result := current.ToChannel()
+	resolve(value)
+	if got := waitContractValue(t, result, "settled promise chain"); got != value {
+		t.Fatalf("settled promise chain result = %#v, want %d", got, value)
+	}
+	runtime.KeepAlive(source)
+	runtime.KeepAlive(current)
+	return references
+}
 
-	time.Sleep(10 * time.Millisecond)
-
-	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
-		// Suppress warnings
+func TestRejectionTrackingCleanupUsesCheckpointBarrier(t *testing.T) {
+	loop := New()
+	runDone := make(chan error, 1)
+	go func() { runDone <- loop.Run(context.Background()) }()
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		t.Fatalf("warmup Submit: %v", err)
+	}
+	waitContractSignal(t, ready, "rejection-cleanup loop warmup")
+	t.Cleanup(func() {
+		if err := loop.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+		if err := waitContractValue(t, runDone, "rejection-cleanup loop completion"); err != nil {
+			t.Errorf("Run: %v", err)
+		}
+	})
+	reported := make(chan any, 1)
+	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+		reported <- reason
 	}))
-	if err != nil {
-		t.Fatal(err)
+
+	const promiseCount = 1000
+	setupDone := make(chan struct{})
+	if err := loop.Submit(func() {
+		defer close(setupDone)
+		for range promiseCount {
+			p, _, reject := js.NewChainedPromise()
+			reject("error")
+			p.Then(nil, func(v any) any { return nil })
+		}
+	}); err != nil {
+		t.Fatalf("Submit rejection setup: %v", err)
 	}
+	waitContractSignal(t, setupDone, "same-turn rejection handler setup")
 
-	// Create and reject many promises, then attach handlers
-	const N = 1000
-	for range N {
-		p, _, reject := js.NewChainedPromise()
-		reject("error")
-		// Attach handler after rejection (should clean up tracking)
-		p.Then(nil, func(v any) any { return nil })
+	type trackingState struct {
+		rejections    int
+		handlerReady  int
+		scheduled     bool
+		running       bool
+		rerun         bool
+		fallbackRerun bool
 	}
-
-	// Let rejection tracking microtasks drain
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify maps are empty
-	js.rejectionsMu.RLock()
-	unhandledCount := len(js.unhandledRejections)
-	js.rejectionsMu.RUnlock()
-
-	js.promiseHandlersMu.Lock()
-	handlerCount := len(js.promiseHandlers)
-	js.promiseHandlersMu.Unlock()
-
-	js.handlerReadyMu.Lock()
-	readyCount := len(js.handlerReadyChans)
-	js.handlerReadyMu.Unlock()
-
-	t.Logf("Rejection Tracking Cleanup (after %d reject+then):", N)
-	t.Logf("  unhandledRejections: %d entries", unhandledCount)
-	t.Logf("  promiseHandlers:     %d entries", handlerCount)
-	t.Logf("  handlerReadyChans:   %d entries", readyCount)
-
-	if unhandledCount > 0 {
-		t.Errorf("unhandledRejections should be empty, has %d entries (leak)", unhandledCount)
+	observed := make(chan trackingState, 1)
+	if err := loop.scheduleMicrotaskCheckpoint(func() {
+		js.rejectionsMu.RLock()
+		rejections := len(js.unhandledRejections)
+		js.rejectionsMu.RUnlock()
+		js.handlerReadyMu.Lock()
+		handlerReady := len(js.handlerReadyChans)
+		js.handlerReadyMu.Unlock()
+		observed <- trackingState{
+			rejections:    rejections,
+			handlerReady:  handlerReady,
+			scheduled:     js.checkRejectionScheduled.Load(),
+			running:       js.checkRejectionRunning.Load(),
+			rerun:         js.checkRejectionRerun.Load(),
+			fallbackRerun: js.checkRejectionFallbackRerun.Load(),
+		}
+	}); err != nil {
+		t.Fatalf("schedule cleanup checkpoint barrier: %v", err)
 	}
-	if handlerCount > 0 {
-		t.Errorf("promiseHandlers should be empty, has %d entries (leak)", handlerCount)
+	state := waitContractValue(t, observed, "rejection cleanup checkpoint barrier")
+	if state != (trackingState{}) {
+		t.Fatalf("rejection tracking after checkpoint barrier = %+v, want zero state", state)
 	}
-	if readyCount > 0 {
-		t.Errorf("handlerReadyChans should be empty, has %d entries (leak)", readyCount)
+	select {
+	case reason := <-reported:
+		t.Fatalf("handled rejection was reported with reason %#v", reason)
+	default:
 	}
 }
 
@@ -171,17 +152,10 @@ func TestPromiseMemoryLeak_RejectionTrackingCleanup(t *testing.T) {
 // the handler fields (h0, result-as-handlers) are properly zeroed,
 // releasing closure references for garbage collection.
 func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := t.Context()
-	defer loop.Shutdown(ctx)
+	loop := New()
+	registerLoopCleanupT(t, loop)
 
-	js, err := NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
-	}
+	js := NewJS(loop)
 
 	// Test 1: After resolve, h0 should be cleared (target becomes nil)
 	p, resolve, _ := js.NewChainedPromise()

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" \x01\x92\x92\x92\x92\x92\x92x\x92\x92!\x92Y!%2\bc1#zaC\a0")

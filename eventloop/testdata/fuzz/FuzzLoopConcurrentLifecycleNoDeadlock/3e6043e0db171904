@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("z81*0$.9'z8Y70.B,bZ0! z0 \x1b$")

@@ -316,7 +316,7 @@ func BenchmarkUnaryRPC_PayloadSize(b *testing.B) {
 			}
 
 			loop := newTestLoop(b)
-			pch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+			pch := mustNewChannel(b, inprocgrpc.WithLoop(loop))
 			pch.RegisterService(&payloadDesc, &payloadServer{})
 
 			b.ResetTimer()

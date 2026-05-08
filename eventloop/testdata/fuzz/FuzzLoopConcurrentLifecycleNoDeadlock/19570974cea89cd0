@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("By\"yX2y ))11)a0).ay&1")

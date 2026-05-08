@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("72 a~\xb1Xb87a2\xc4xBA\xce\xf3X\x1f87a\xb2\xc4x\xc4\xc4\xc4=")

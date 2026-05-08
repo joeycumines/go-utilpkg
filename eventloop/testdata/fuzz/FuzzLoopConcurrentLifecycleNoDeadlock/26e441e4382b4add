@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$!y.\x00'*%01C!(B011C")

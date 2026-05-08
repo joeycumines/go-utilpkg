@@ -7,20 +7,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dop251/goja"
-	gojarequire "github.com/dop251/goja_nodejs/require"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
+	gojarequire "github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// nonDynamicMsg wraps a *dynamicpb.Message but is NOT a
-// *dynamicpb.Message type, forcing the slow path in toWrappedMessage.
+// nonDynamicMsg verifies that wrapper identity is descriptor-based rather than
+// coupled to the concrete dynamicpb.Message type.
 type nonDynamicMsg struct {
 	*dynamicpb.Message
 }
@@ -35,10 +35,7 @@ var errSentinel = errors.New("sentinel error for testing")
 // --- Require() via require.Registry ---
 
 func TestRequire_ViaRegistry(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 
 	runtime := goja.New()
 
@@ -50,7 +47,7 @@ func TestRequire_ViaRegistry(t *testing.T) {
 		t.Fatalf("unexpected error: %v", adapter.Bind())
 	}
 
-	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	channel := mustNewInprocChannel(t, inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	if err != nil {
@@ -89,7 +86,9 @@ func TestSetupExports_PublicWrapper(t *testing.T) {
 	defer env.shutdown()
 
 	exports := env.runtime.NewObject()
-	env.grpcMod.SetupExports(exports)
+	if err := env.grpcMod.SetupExports(exports); err != nil {
+		t.Fatalf("setup exports: %v", err)
+	}
 
 	if exports.Get("createClient") == nil {
 		t.Errorf("expected non-nil")
@@ -453,7 +452,7 @@ func TestApplySignal_NonObject(t *testing.T) {
 	}
 }
 
-// --- applySignal: signal._signal is missing ---
+// --- applySignal: non-adapter signal object is ignored ---
 
 func TestApplySignal_MissingNativeSignal(t *testing.T) {
 	env := newGrpcTestEnv(t)
@@ -480,7 +479,7 @@ func TestApplySignal_MissingNativeSignal(t *testing.T) {
 		var req = new EchoRequest();
 		req.set('message', 'test');
 		var result;
-		// Pass an object without _signal
+		// Pass an object without adapter AbortSignal hidden state.
 		client.echo(req, { signal: { aborted: false } }).then(function(resp) {
 			result = resp.get('message');
 			__done();
@@ -499,7 +498,7 @@ func TestApplySignal_MissingNativeSignal(t *testing.T) {
 	}
 }
 
-// --- applySignal: _signal is not an AbortSignal ---
+// --- applySignal: legacy-looking signal object is ignored ---
 
 func TestApplySignal_WrongNativeType(t *testing.T) {
 	env := newGrpcTestEnv(t)
@@ -526,8 +525,8 @@ func TestApplySignal_WrongNativeType(t *testing.T) {
 		var req = new EchoRequest();
 		req.set('message', 'test');
 		var result;
-		// Pass an object with _signal that's not an AbortSignal
-		client.echo(req, { signal: { _signal: 42 } }).then(function(resp) {
+		// Pass an object with a legacy-looking public field that's not an AbortSignal.
+		client.echo(req, { signal: { legacySignal: 42 } }).then(function(resp) {
 			result = resp.get('message');
 			__done();
 		}).catch(function(err) {
@@ -819,15 +818,11 @@ func TestIsThenable_NilAndPrimitive(t *testing.T) {
 func TestResolveOptions_BadOption(t *testing.T) {
 	runtime := goja.New()
 
-	_, err := New(runtime,
-		WithChannel(nil), // nil channel should error
-	)
-	if err == nil {
-		t.Fatalf("expected an error")
-	}
-	if !strings.Contains(err.Error(), "channel") {
-		t.Errorf("expected %q to contain %q", err.Error(), "channel")
-	}
+	requirePanicContains(t, "channel", func() {
+		New(runtime,
+			WithChannel(nil),
+		)
+	})
 }
 
 // --- Metadata.toObject for metadataToGo with non-wrapper ---
@@ -1288,20 +1283,13 @@ func TestJsValueToGRPCError_Direct_ObjectNoMessage(t *testing.T) {
 // --- Require error path (83.3% → 100%) ---
 
 func TestRequire_ErrorFromOptions(t *testing.T) {
-	rt := goja.New()
-	loader := Require() // no options → missing channel, protobuf, adapter
-
-	module := rt.NewObject()
-	exports := rt.NewObject()
-	_ = module.Set("exports", exports)
-
 	func() {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Fatalf("expected panic")
 			}
 		}()
-		loader(rt, module)
+		_ = Require()
 	}()
 }
 
@@ -1311,15 +1299,14 @@ func TestResolveOptions_NilOption(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	_, err := New(env.runtime,
-		nil, // nil option should be skipped
-		WithChannel(env.channel),
-		WithProtobuf(env.pbMod),
-		WithAdapter(env.adapter),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	requirePanicContains(t, "module option 0 is nil", func() {
+		New(env.runtime,
+			nil,
+			WithChannel(env.channel),
+			WithProtobuf(env.pbMod),
+			WithAdapter(env.adapter),
+		)
+	})
 }
 
 // --- metadataToGo edge cases (82.9% → 100%) ---
@@ -1345,8 +1332,14 @@ func TestMetadataToGo_Direct_ToObjectThrows(t *testing.T) {
 	if jsErr != nil {
 		t.Fatalf("unexpected error: %v", jsErr)
 	}
-	if env.grpcMod.metadataToGo(val) != nil {
-		t.Errorf("expected nil, got %v", env.grpcMod.metadataToGo(val))
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		env.grpcMod.metadataToGo(val)
+	}()
+	recoveredErr, ok := recovered.(error)
+	if !ok || !strings.Contains(recoveredErr.Error(), "boom") {
+		t.Fatalf("metadata conversion panic = %v, want callback failure", recovered)
 	}
 }
 
@@ -1569,9 +1562,9 @@ func TestServerStreamHandler_AsyncReject(t *testing.T) {
 // T125 (batch 2): Additional coverage tests for remaining gaps
 // ============================================================================
 
-// --- toWrappedMessage slow path: non-dynamicpb proto.Message ---
+// --- toWrappedMessage exact descriptor identity for alternate Go wrappers ---
 
-func TestToWrappedMessage_Direct_SlowPath(t *testing.T) {
+func TestToWrappedMessageDirectAcceptsExactDescriptorWrapper(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
@@ -1581,9 +1574,10 @@ func TestToWrappedMessage_Direct_SlowPath(t *testing.T) {
 	}
 	msgDesc := desc.(protoreflect.MessageDescriptor)
 
-	// Create a dynamicpb message and wrap in nonDynamicMsg to force slow path.
+	// Wrap a canonical dynamic message in another Go proto.Message type while
+	// preserving the exact descriptor.
 	inner := dynamicpb.NewMessage(msgDesc)
-	inner.Set(msgDesc.Fields().ByName("message"), protoreflect.ValueOfString("slow-path"))
+	inner.Set(msgDesc.Fields().ByName("message"), protoreflect.ValueOfString("exact-descriptor"))
 	wrapped := &nonDynamicMsg{Message: inner}
 
 	obj, convErr := env.grpcMod.toWrappedMessage(wrapped, msgDesc)
@@ -1603,8 +1597,8 @@ func TestToWrappedMessage_Direct_SlowPath(t *testing.T) {
 	if callErr != nil {
 		t.Fatalf("unexpected error: %v", callErr)
 	}
-	if got := val.String(); got != "slow-path" {
-		t.Errorf("expected %v, got %v", "slow-path", got)
+	if got := val.String(); got != "exact-descriptor" {
+		t.Errorf("expected %v, got %v", "exact-descriptor", got)
 	}
 }
 
@@ -2826,7 +2820,7 @@ func TestApplySignal_NonObjectSignal(t *testing.T) {
 	}
 }
 
-// --- applySignal: signal without _signal property (fake signal) ---
+// --- applySignal: fake signal object is ignored ---
 
 func TestApplySignal_FakeSignalObject(t *testing.T) {
 	env := newGrpcTestEnv(t)
@@ -2852,7 +2846,7 @@ func TestApplySignal_FakeSignalObject(t *testing.T) {
 		var req = new EchoRequest();
 		req.set('message', 'test');
 		var result;
-		// Pass an object that looks like a signal but has no _signal.
+		// Pass an object that looks like a signal but has no adapter AbortSignal hidden state.
 		client.echo(req, { signal: {} }).then(function(resp) {
 			result = resp.get('message');
 			__done();
@@ -3044,10 +3038,7 @@ func TestServerStreamHandler_MultipleItems(t *testing.T) {
 // --- submitOrRejectDirect: loop stopped (failure path) ---
 
 func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 
 	runtime := goja.New()
 
@@ -3059,7 +3050,7 @@ func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
 		t.Fatalf("unexpected error: %v", adapter.Bind())
 	}
 
-	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	channel := mustNewInprocChannel(t, inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	if err != nil {

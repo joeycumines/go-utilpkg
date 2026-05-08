@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8$$7A17$!BG0080(7y877XC0\x03 1")

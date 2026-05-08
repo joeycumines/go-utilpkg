@@ -9,23 +9,34 @@ import (
 )
 
 func changeLoop(t *testing.T) (*eventloop.Loop, *eventloop.JS) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
+	loop := eventloop.New(eventloop.WithAutoExit(true))
+	return loop, eventloop.NewJS(loop)
+}
+
+func runChangedLoop(t *testing.T, loop *eventloop.Loop) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := loop.Run(ctx); err != nil {
+		t.Fatalf("Run() failed: %v", err)
 	}
-	js, err := eventloop.NewJS(loop)
-	if err != nil {
-		t.Fatal(err)
+}
+
+func receiveChangedLoop[T any](t *testing.T, values <-chan T, description string) T {
+	t.Helper()
+	select {
+	case value := <-values:
+		return value
+	default:
+		t.Fatalf("%s did not complete before auto-exit", description)
+		var zero T
+		return zero
 	}
-	// Start loop in background
-	go loop.Run(context.Background())
-	return loop, js
 }
 
 // TestPromiseBasicResolveThen verifies basic promise resolution.
 func TestPromiseBasicResolveThen(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, resolve, _ := New(js)
 
@@ -37,28 +48,19 @@ func TestPromiseBasicResolveThen(t *testing.T) {
 	}, nil)
 
 	resolve(1)
-
-	select {
-	case res := <-done:
-		if res != 1 {
-			t.Errorf("Expected result 1, got %d", res)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Timeout")
+	runChangedLoop(t, loop)
+	if result := receiveChangedLoop(t, done, "resolve handler"); result != 1 {
+		t.Errorf("Expected result 1, got %d", result)
 	}
 }
 
 // TestPromiseThenAfterResolve verifies Then called after resolve works.
 func TestPromiseThenAfterResolve(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, resolve, _ := New(js)
 
 	resolve(2)
-
-	// Wait a bit to ensure settled (though strictly not required for thread safety)
-	time.Sleep(10 * time.Millisecond)
 
 	done := make(chan int, 1)
 
@@ -67,20 +69,15 @@ func TestPromiseThenAfterResolve(t *testing.T) {
 		return v
 	}, nil)
 
-	select {
-	case res := <-done:
-		if res != 2 {
-			t.Errorf("Expected result 2, got %d", res)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Timeout")
+	runChangedLoop(t, loop)
+	if result := receiveChangedLoop(t, done, "late Then handler"); result != 2 {
+		t.Errorf("Expected result 2, got %d", result)
 	}
 }
 
 // TestPromiseMultipleThen verifies multiple Then handlers.
 func TestPromiseMultipleThen(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, resolve, _ := New(js)
 	count := 0
@@ -97,14 +94,10 @@ func TestPromiseMultipleThen(t *testing.T) {
 	}, nil)
 
 	resolve(1)
-
+	runChangedLoop(t, loop)
 	for range 2 {
-		select {
-		case <-mu:
-			count++
-		case <-time.After(time.Millisecond * 100):
-			t.Error("Timeout waiting for handlers")
-		}
+		receiveChangedLoop(t, mu, "multiple Then handler")
+		count++
 	}
 
 	if count != 2 {
@@ -115,10 +108,9 @@ func TestPromiseMultipleThen(t *testing.T) {
 // TestPromiseFinallyAfterResolve verifies Finally runs after resolution.
 func TestPromiseFinallyAfterResolve(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, resolve, _ := New(js)
-	done := make(chan bool)
+	done := make(chan bool, 1)
 
 	p.Then(func(v any) any {
 		return v
@@ -127,22 +119,18 @@ func TestPromiseFinallyAfterResolve(t *testing.T) {
 	})
 
 	resolve(1)
-
-	select {
-	case <-done:
-		// success
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Finally was not called")
+	runChangedLoop(t, loop)
+	if !receiveChangedLoop(t, done, "Finally handler") {
+		t.Error("Finally handler returned false")
 	}
 }
 
 // TestPromiseBasicRejectCatch verifies basic rejection and catching.
 func TestPromiseBasicRejectCatch(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, _, reject := New(js)
-	done := make(chan string)
+	done := make(chan string, 1)
 
 	p.Catch(func(v any) any {
 		done <- v.(string)
@@ -150,21 +138,15 @@ func TestPromiseBasicRejectCatch(t *testing.T) {
 	})
 
 	reject("test error")
-
-	select {
-	case res := <-done:
-		if res != "test error" {
-			t.Errorf("Expected 'test error', got '%s'", res)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Catch was not called")
+	runChangedLoop(t, loop)
+	if result := receiveChangedLoop(t, done, "Catch handler"); result != "test error" {
+		t.Errorf("Expected 'test error', got '%s'", result)
 	}
 }
 
 // TestPromiseThreeLevelChaining verifies 3-level promise chaining.
 func TestPromiseThreeLevelChaining(t *testing.T) {
 	loop, js := changeLoop(t)
-	defer loop.Shutdown(context.Background())
 
 	p, resolve, _ := New(js)
 	results := make([]int, 3)
@@ -185,14 +167,9 @@ func TestPromiseThreeLevelChaining(t *testing.T) {
 	}, nil)
 
 	resolve(1)
-
-	// Wait for all handlers
+	runChangedLoop(t, loop)
 	for range 3 {
-		select {
-		case <-mu:
-		case <-time.After(time.Millisecond * 100):
-			t.Fatal("Timeout waiting for handlers")
-		}
+		receiveChangedLoop(t, mu, "chain handler")
 	}
 
 	// Verify results: 1 -> 2 -> 3
@@ -211,35 +188,28 @@ func TestPromiseThreeLevelChaining(t *testing.T) {
 func TestPromiseErrorPropagation(t *testing.T) {
 	t.Run("CatchRecoversFromRejection", func(t *testing.T) {
 		loop, js := changeLoop(t)
-		defer loop.Shutdown(context.Background())
 
 		p, _, reject := New(js)
-		done := make(chan string)
+		done := make(chan string, 1)
 
 		// Catch should be called when promise rejects
 		p.Catch(func(v any) any {
-			if v.(string) != "original error" {
-				t.Errorf("Expected 'original error', got '%s'", v)
-			}
-			done <- "recovery complete"
+			done <- v.(string)
 			return "recovery complete"
 		})
 
 		reject("original error")
-
-		select {
-		case <-done:
-		case <-time.After(100 * time.Millisecond):
-			t.Error("Catch was not called")
+		runChangedLoop(t, loop)
+		if reason := receiveChangedLoop(t, done, "Catch recovery"); reason != "original error" {
+			t.Errorf("Expected 'original error', got '%s'", reason)
 		}
 	})
 
 	t.Run("ThenAfterCatchReceivesRecovery", func(t *testing.T) {
 		loop, js := changeLoop(t)
-		defer loop.Shutdown(context.Background())
 
 		p, _, reject := New(js)
-		done := make(chan string)
+		done := make(chan string, 1)
 
 		// Catch recovers, then receives recovery value
 		p.Catch(func(v any) any {
@@ -251,14 +221,9 @@ func TestPromiseErrorPropagation(t *testing.T) {
 		}, nil)
 
 		reject("original error")
-
-		select {
-		case res := <-done:
-			if res != "recovery complete" {
-				t.Errorf("Expected 'recovery complete', got '%s'", res)
-			}
-		case <-time.After(100 * time.Millisecond):
-			t.Error("Timeout")
+		runChangedLoop(t, loop)
+		if result := receiveChangedLoop(t, done, "post-Catch Then"); result != "recovery complete" {
+			t.Errorf("Expected 'recovery complete', got '%s'", result)
 		}
 	})
 }

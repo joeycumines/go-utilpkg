@@ -1,0 +1,507 @@
+diff --git a/eventloop/internal/tournament/component/timerrefint32/core.go b/eventloop/internal/tournament/component/timerrefint32/core.go
+new file mode 100644
+index 0000000..ce9c164
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint32/core.go
+@@ -0,0 +1,86 @@
++// Package timerrefint32 materializes the historical owner-local timer
++// reference transition introduced at cc005d72.
++package timerrefint32
++
++import "sync/atomic"
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++// Core preserves the historical map lookup, atomic reference bit, and Int32
++// aggregate. Its map is owner-local and is not safe for concurrent mutation.
++type Core struct {
++	entries map[ID]*entry
++	refed   atomic.Int32
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++}
++
++func New() *Core {
++	return &Core{entries: make(map[ID]*entry)}
++}
++
++// Seed is an untimed qualification operation.
++func (c *Core) Seed(id ID, refed bool) bool {
++	if c.entries == nil {
++		c.entries = make(map[ID]*entry)
++	}
++	if _, exists := c.entries[id]; exists {
++		return false
++	}
++	value := new(entry)
++	value.refed.Store(refed)
++	c.entries[id] = value
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++// Remove is an untimed qualification operation modeling fire or cancellation.
++func (c *Core) Remove(id ID) bool {
++	value, exists := c.entries[id]
++	if !exists {
++		return false
++	}
++	delete(c.entries, id)
++	if value.refed.Load() {
++		c.refed.Add(-1)
++	}
++	return true
++}
++
++// Apply is the exact owner-local timed transition core. Missing IDs are
++// ignored, and the aggregate changes only when the reference bit changes.
++func (c *Core) Apply(id ID, refed bool) {
++	value, exists := c.entries[id]
++	if !exists {
++		return
++	}
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++// Snapshot is an untimed qualification operation. It normalizes the historical
++// aggregate width to Int64 without changing its Int32 wrap behavior.
++func (c *Core) Snapshot(id ID) Snapshot {
++	value, exists := c.entries[id]
++	return Snapshot{
++		Present:    exists,
++		Refed:      exists && value.refed.Load(),
++		RefedCount: int64(c.refed.Load()),
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefint32/core_test.go b/eventloop/internal/tournament/component/timerrefint32/core_test.go
+new file mode 100644
+index 0000000..eed83fb
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint32/core_test.go
+@@ -0,0 +1,124 @@
++package timerrefint32
++
++import (
++	"math"
++	"testing"
++)
++
++func TestCoreTransitions(t *testing.T) {
++	core := New()
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{}) {
++		t.Fatalf("missing snapshot = %+v", got)
++	}
++	if !core.Seed(0, true) || core.Seed(0, false) {
++		t.Fatal("historical zero ID seed acceptance differs")
++	}
++	if got := core.Snapshot(0); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("zero ID snapshot = %+v", got)
++	}
++	if !core.Remove(0) {
++		t.Fatal("historical zero ID removal failed")
++	}
++	if !core.Seed(1, true) || core.Seed(1, false) || !core.Seed(2, false) {
++		t.Fatal("seed acceptance differs")
++	}
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("initial snapshot = %+v", got)
++	}
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got.RefedCount != 1 {
++		t.Fatalf("idempotent ref count = %d", got.RefedCount)
++	}
++	core.Apply(1, false)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: false}) {
++		t.Fatalf("unref snapshot = %+v", got)
++	}
++	core.Apply(1, false)
++	core.Apply(2, true)
++	if got := core.Snapshot(2); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("ref snapshot = %+v", got)
++	}
++	if !core.Remove(2) || core.Remove(2) {
++		t.Fatal("remove acceptance differs")
++	}
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: false}) {
++		t.Fatalf("final snapshot = %+v", got)
++	}
++}
++
++func TestCoreInt32BoundaryIsHistorical(t *testing.T) {
++	core := New()
++	if !core.Seed(1, false) {
++		t.Fatal("seed failed")
++	}
++	core.refed.Store(math.MaxInt32)
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: math.MinInt32}) {
++		t.Fatalf("wrapped snapshot = %+v", got)
++	}
++}
++
++func FuzzCoreTrace(f *testing.F) {
++	f.Add([]byte{1, 1, 2, 3, 4, 5, 6})
++	f.Add([]byte{2, 4, 4, 3, 6, 1, 5})
++	f.Fuzz(func(t *testing.T, operations []byte) {
++		core := New()
++		model := make(map[ID]bool)
++		for _, operation := range operations {
++			id := ID(operation % 8)
++			switch operation % 6 {
++			case 0:
++				accepted := core.Seed(id, false)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = false
++				}
++			case 1:
++				accepted := core.Seed(id, true)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = true
++				}
++			case 2, 3:
++				target := operation%2 == 0
++				core.Apply(id, target)
++				if _, exists := model[id]; exists {
++					model[id] = target
++				}
++			default:
++				removed := core.Remove(id)
++				_, exists := model[id]
++				if removed != exists {
++					t.Fatalf("Remove(%d) = %v, existed %v", id, removed, exists)
++				}
++				delete(model, id)
++			}
++			assertModel(t, core, model)
++		}
++	})
++}
++
++func assertModel(t *testing.T, core *Core, model map[ID]bool) {
++	t.Helper()
++	count := int64(0)
++	for id, refed := range model {
++		if refed {
++			count++
++		}
++		if got := core.Snapshot(id); got != (Snapshot{Present: true, Refed: refed, RefedCount: countSnapshot(core)}) {
++			t.Fatalf("Snapshot(%d) = %+v", id, got)
++		}
++	}
++	if got := countSnapshot(core); got != count {
++		t.Fatalf("aggregate = %d, want %d", got, count)
++	}
++}
++
++func countSnapshot(core *Core) int64 { return core.Snapshot(0).RefedCount }
+diff --git a/eventloop/internal/tournament/component/timerrefint32/layout64_test.go b/eventloop/internal/tournament/component/timerrefint32/layout64_test.go
+new file mode 100644
+index 0000000..493531f
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint32/layout64_test.go
+@@ -0,0 +1,29 @@
++//go:build amd64 || arm64
++
++package timerrefint32
++
++import (
++	"testing"
++	"unsafe"
++)
++
++var (
++	_ [4 - unsafe.Sizeof(entry{})]byte
++	_ [unsafe.Sizeof(entry{}) - 4]byte
++	_ [16 - unsafe.Sizeof(Core{})]byte
++	_ [unsafe.Sizeof(Core{}) - 16]byte
++	_ [8 - unsafe.Offsetof(Core{}.refed)]byte
++	_ [unsafe.Offsetof(Core{}.refed) - 8]byte
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 16 {
++		t.Fatalf("core size = %d, want 16", got)
++	}
++	if got := unsafe.Offsetof(Core{}.refed); got != 8 {
++		t.Fatalf("core.refed offset = %d, want 8", got)
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefint64/core.go b/eventloop/internal/tournament/component/timerrefint64/core.go
+new file mode 100644
+index 0000000..94a0ee8
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint64/core.go
+@@ -0,0 +1,88 @@
++// Package timerrefint64 materializes the current owner-local timer reference
++// transition with its widened aggregate.
++package timerrefint64
++
++import "sync/atomic"
++
++type ID uint64
++
++type entry struct {
++	refed atomic.Bool
++}
++
++// Core preserves the current map lookup, atomic reference bit, and Int64
++// aggregate. Its map is owner-local and is not safe for concurrent mutation.
++type Core struct {
++	entries map[ID]*entry
++	refed   atomic.Int64
++}
++
++type Snapshot struct {
++	Present    bool
++	Refed      bool
++	RefedCount int64
++}
++
++func New() *Core {
++	return &Core{entries: make(map[ID]*entry)}
++}
++
++// Seed is an untimed qualification operation.
++func (c *Core) Seed(id ID, refed bool) bool {
++	if id == 0 {
++		return false
++	}
++	if c.entries == nil {
++		c.entries = make(map[ID]*entry)
++	}
++	if _, exists := c.entries[id]; exists {
++		return false
++	}
++	value := new(entry)
++	value.refed.Store(refed)
++	c.entries[id] = value
++	if refed {
++		c.refed.Add(1)
++	}
++	return true
++}
++
++// Remove is an untimed qualification operation modeling fire or cancellation.
++func (c *Core) Remove(id ID) bool {
++	value, exists := c.entries[id]
++	if !exists {
++		return false
++	}
++	delete(c.entries, id)
++	if value.refed.Load() {
++		c.refed.Add(-1)
++	}
++	return true
++}
++
++// Apply is the exact owner-local timed transition core. Missing IDs are
++// ignored, and the aggregate changes only when the reference bit changes.
++func (c *Core) Apply(id ID, refed bool) {
++	value, exists := c.entries[id]
++	if !exists {
++		return
++	}
++	old := value.refed.Swap(refed)
++	if old != refed {
++		if refed {
++			c.refed.Add(1)
++		} else {
++			c.refed.Add(-1)
++		}
++	}
++}
++
++// Snapshot is an untimed qualification operation.
++func (c *Core) Snapshot(id ID) Snapshot {
++	value, exists := c.entries[id]
++	return Snapshot{
++		Present:    exists,
++		Refed:      exists && value.refed.Load(),
++		RefedCount: c.refed.Load(),
++	}
++}
+diff --git a/eventloop/internal/tournament/component/timerrefint64/core_test.go b/eventloop/internal/tournament/component/timerrefint64/core_test.go
+new file mode 100644
+index 0000000..a28ee19
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint64/core_test.go
+@@ -0,0 +1,115 @@
++package timerrefint64
++
++import (
++	"math"
++	"testing"
++)
++
++func TestCoreTransitions(t *testing.T) {
++	core := New()
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{}) {
++		t.Fatalf("missing snapshot = %+v", got)
++	}
++	if core.Seed(0, true) || !core.Seed(1, true) || core.Seed(1, false) || !core.Seed(2, false) {
++		t.Fatal("seed acceptance differs")
++	}
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("initial snapshot = %+v", got)
++	}
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got.RefedCount != 1 {
++		t.Fatalf("idempotent ref count = %d", got.RefedCount)
++	}
++	core.Apply(1, false)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: false}) {
++		t.Fatalf("unref snapshot = %+v", got)
++	}
++	core.Apply(1, false)
++	core.Apply(2, true)
++	if got := core.Snapshot(2); got != (Snapshot{Present: true, Refed: true, RefedCount: 1}) {
++		t.Fatalf("ref snapshot = %+v", got)
++	}
++	if !core.Remove(2) || core.Remove(2) {
++		t.Fatal("remove acceptance differs")
++	}
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: false}) {
++		t.Fatalf("final snapshot = %+v", got)
++	}
++}
++
++func TestCoreInt64CrossesInt32Boundary(t *testing.T) {
++	core := New()
++	if !core.Seed(1, false) {
++		t.Fatal("seed failed")
++	}
++	core.refed.Store(math.MaxInt32)
++	core.Apply(1, true)
++	if got := core.Snapshot(1); got != (Snapshot{Present: true, Refed: true, RefedCount: int64(math.MaxInt32) + 1}) {
++		t.Fatalf("widened snapshot = %+v", got)
++	}
++}
++
++func FuzzCoreTrace(f *testing.F) {
++	f.Add([]byte{1, 1, 2, 3, 4, 5, 6})
++	f.Add([]byte{2, 4, 4, 3, 6, 1, 5})
++	f.Fuzz(func(t *testing.T, operations []byte) {
++		core := New()
++		model := make(map[ID]bool)
++		for _, operation := range operations {
++			id := ID(operation%8 + 1)
++			switch operation % 6 {
++			case 0:
++				accepted := core.Seed(id, false)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = false
++				}
++			case 1:
++				accepted := core.Seed(id, true)
++				_, exists := model[id]
++				if accepted != !exists {
++					t.Fatalf("Seed(%d) = %v, existed %v", id, accepted, exists)
++				}
++				if accepted {
++					model[id] = true
++				}
++			case 2, 3:
++				target := operation%2 == 0
++				core.Apply(id, target)
++				if _, exists := model[id]; exists {
++					model[id] = target
++				}
++			default:
++				removed := core.Remove(id)
++				_, exists := model[id]
++				if removed != exists {
++					t.Fatalf("Remove(%d) = %v, existed %v", id, removed, exists)
++				}
++				delete(model, id)
++			}
++			assertModel(t, core, model)
++		}
++	})
++}
++
++func assertModel(t *testing.T, core *Core, model map[ID]bool) {
++	t.Helper()
++	count := int64(0)
++	for id, refed := range model {
++		if refed {
++			count++
++		}
++		if got := core.Snapshot(id); got != (Snapshot{Present: true, Refed: refed, RefedCount: countSnapshot(core)}) {
++			t.Fatalf("Snapshot(%d) = %+v", id, got)
++		}
++	}
++	if got := countSnapshot(core); got != count {
++		t.Fatalf("aggregate = %d, want %d", got, count)
++	}
++}
++
++func countSnapshot(core *Core) int64 { return core.Snapshot(0).RefedCount }
+diff --git a/eventloop/internal/tournament/component/timerrefint64/layout64_test.go b/eventloop/internal/tournament/component/timerrefint64/layout64_test.go
+new file mode 100644
+index 0000000..e221c78
+--- /dev/null
++++ b/eventloop/internal/tournament/component/timerrefint64/layout64_test.go
+@@ -0,0 +1,29 @@
++//go:build amd64 || arm64
++
++package timerrefint64
++
++import (
++	"testing"
++	"unsafe"
++)
++
++var (
++	_ [4 - unsafe.Sizeof(entry{})]byte
++	_ [unsafe.Sizeof(entry{}) - 4]byte
++	_ [16 - unsafe.Sizeof(Core{})]byte
++	_ [unsafe.Sizeof(Core{}) - 16]byte
++	_ [8 - unsafe.Offsetof(Core{}.refed)]byte
++	_ [unsafe.Offsetof(Core{}.refed) - 8]byte
++)
++
++func TestNativeLayout64(t *testing.T) {
++	if got := unsafe.Sizeof(entry{}); got != 4 {
++		t.Fatalf("entry size = %d, want 4", got)
++	}
++	if got := unsafe.Sizeof(Core{}); got != 16 {
++		t.Fatalf("core size = %d, want 16", got)
++	}
++	if got := unsafe.Offsetof(Core{}.refed); got != 8 {
++		t.Fatalf("core.refed offset = %d, want 8", got)
++	}
++}

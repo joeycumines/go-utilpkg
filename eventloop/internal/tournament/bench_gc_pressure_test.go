@@ -1,7 +1,6 @@
 package tournament
 
 import (
-	"context"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -20,34 +19,26 @@ func BenchmarkGCPressure(b *testing.B) {
 }
 
 func benchmarkGCPressure(b *testing.B, impl Implementation) {
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	var wg sync.WaitGroup
+	tasks := newBenchmarkBarrier(b.N)
 	var counter atomic.Int64
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
-	// Force aggressive GC during benchmark
-	originalGOGC := runtime.GOMAXPROCS(0)
+	// Establish a collected starting point before the timed workload.
 	runtime.GC()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		wg.Add(1)
-		err := loop.Submit(func() {
+		if err := loop.Submit(func() {
 			counter.Add(1)
-			wg.Done()
-		})
-		if err != nil {
-			wg.Done()
+			tasks.Done()
+		}); err != nil {
+			tasks.Done()
+			b.Fatalf("Submit: %v", err)
 		}
 
 		// Trigger GC periodically
@@ -56,25 +47,8 @@ func benchmarkGCPressure(b *testing.B, impl Implementation) {
 		}
 	}
 
-	wg.Wait()
+	waitBenchmarkBarrier(b, tasks, deadline.C, "GC-pressure callback drain")
 	b.StopTimer()
-
-	// Restore
-	runtime.GOMAXPROCS(originalGOGC)
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  "GCPressure",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
 }
 
 // TestGCPressure_Correctness tests correctness under GC pressure.
@@ -95,74 +69,59 @@ func testGCPressureCorrectness(t *testing.T, impl Implementation) {
 
 	start := time.Now()
 
-	loop, err := impl.Factory()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
+	loop, _ := startTournamentTestLoop(t, impl)
 
 	var executed atomic.Int64
 	var rejected atomic.Int64
-	var wg sync.WaitGroup
+	tasks := newTournamentTestBarrier(numTasks)
 
 	// Aggressive GC goroutine
 	gcStop := make(chan struct{})
+	gcDone := make(chan struct{})
+	var gcStopOnce sync.Once
+	stopGC := func() {
+		gcStopOnce.Do(func() {
+			close(gcStop)
+			waitTournamentSignal(t, gcDone, "GC worker exit")
+		})
+	}
+	t.Cleanup(stopGC)
 	go func() {
+		defer close(gcDone)
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-gcStop:
 				return
-			default:
+			case <-ticker.C:
 				runtime.GC()
-				time.Sleep(1 * time.Millisecond)
 			}
 		}
 	}()
 
 	// Submit tasks
 	for range numTasks {
-		wg.Add(1)
 		err := loop.Submit(func() {
 			executed.Add(1)
-			wg.Done()
+			tasks.Done()
 		})
 		if err != nil {
 			rejected.Add(1)
-			wg.Done()
+			tasks.Done()
 		}
 	}
 
-	// Wait with timeout
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(30 * time.Second):
-		t.Error("Timeout waiting for tasks under GC pressure")
-	}
-
-	close(gcStop)
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
+	waitTournamentSignal(t, tasks.done, "tasks under GC pressure")
+	stopGC()
 
 	exec := executed.Load()
 	rej := rejected.Load()
-	passed := exec+rej == numTasks
+	passed := exec == numTasks && rej == 0
 
 	result := TestResult{
 		TestName:       "GCPressure_Correctness",
+		VariantID:      impl.VariantID,
 		Implementation: impl.Name,
 		Passed:         passed,
 		Duration:       time.Since(start),
@@ -193,72 +152,50 @@ func BenchmarkGCPressure_Allocations(b *testing.B) {
 }
 
 func benchmarkGCPressureAllocations(b *testing.B, impl Implementation) {
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	warmupDone := make(chan struct{})
-	_ = loop.Submit(func() { close(warmupDone) })
-	<-warmupDone
-
-	var wg sync.WaitGroup
+	tasks := newBenchmarkBarrier(b.N)
 	var counter atomic.Int64
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		wg.Add(1)
-		err := loop.Submit(func() {
+		if err := loop.Submit(func() {
 			counter.Add(1)
-			wg.Done()
-		})
-		if err != nil {
-			wg.Done()
+			tasks.Done()
+		}); err != nil {
+			tasks.Done()
+			b.Fatalf("Submit: %v", err)
+		}
+		if i%1000 == 0 {
+			runtime.GC()
 		}
 	}
 
-	wg.Wait()
+	waitBenchmarkBarrier(b, tasks, deadline.C, "allocation callback drain")
 	b.StopTimer()
 
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	// Note: ReportAllocs will show allocs/op in benchmark output
-	result := BenchmarkResult{
-		BenchmarkName:  "GCPressure_Allocations",
-		Implementation: impl.Name,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
 }
 
-// TestMemoryLeak tests for memory leaks under sustained load.
-func TestMemoryLeak(t *testing.T) {
+// TestHeapGrowthDiagnostic records process heap samples after repeated loop
+// workloads. Runtime-wide MemStats are diagnostic evidence, not a leak oracle.
+func TestHeapGrowthDiagnostic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping memory leak test in short mode")
 	}
 
 	for _, impl := range Implementations() {
 		t.Run(impl.Name, func(t *testing.T) {
-			testMemoryLeak(t, impl)
+			testHeapGrowthDiagnostic(t, impl)
 		})
 	}
 }
 
-func testMemoryLeak(t *testing.T, impl Implementation) {
+func testHeapGrowthDiagnostic(t *testing.T, impl Implementation) {
 	const iterations = 3
 	const tasksPerIteration = 10000
 
@@ -267,30 +204,26 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 	var memStats []uint64
 
 	for range iterations {
-		loop, err := impl.Factory()
-		if err != nil {
-			t.Fatalf("Failed to create loop: %v", err)
-		}
+		loop, cleanup := startTournamentTestLoop(t, impl)
 
-		ctx := context.Background()
-		var runWg sync.WaitGroup
-		runWg.Go(func() {
-			loop.Run(ctx)
-		})
-
-		var wg sync.WaitGroup
+		tasks := newTournamentTestBarrier(tasksPerIteration)
+		submitErrors := make(chan error, 1)
 		for range tasksPerIteration {
-			wg.Add(1)
-			_ = loop.Submit(func() {
-				wg.Done()
-			})
+			if err := loop.Submit(tasks.Done); err != nil {
+				tasks.Done()
+				select {
+				case submitErrors <- err:
+				default:
+				}
+			}
 		}
-		wg.Wait()
-
-		stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		_ = loop.Shutdown(stopCtx)
-		runWg.Wait()
-		cancel()
+		waitTournamentSignal(t, tasks.done, "heap-growth iteration callback drain")
+		select {
+		case err := <-submitErrors:
+			t.Fatalf("Submit: %v", err)
+		default:
+		}
+		cleanup()
 
 		// Force GC and measure memory
 		runtime.GC()
@@ -300,29 +233,16 @@ func testMemoryLeak(t *testing.T, impl Implementation) {
 		memStats = append(memStats, m.Alloc)
 	}
 
-	// Check for memory growth
-	// Allow for some variance, but growth should be bounded
-	passed := true
-	if len(memStats) >= 2 {
-		growth := float64(memStats[len(memStats)-1]) / float64(memStats[0])
-		if growth > 2.0 {
-			// More than 2x growth indicates potential leak
-			passed = false
-		}
-	}
-
 	result := TestResult{
-		TestName:       "MemoryLeak",
+		TestName:       "HeapGrowthDiagnostic",
+		VariantID:      impl.VariantID,
 		Implementation: impl.Name,
-		Passed:         passed,
+		Status:         TestStatusDiagnostic,
 		Duration:       time.Since(start),
 		Metrics: map[string]any{
-			"iterations": iterations,
-			"memory_kb":  memStats,
+			"iterations":   iterations,
+			"memory_bytes": memStats,
 		},
-	}
-	if !passed {
-		result.Error = "potential memory leak detected"
 	}
 	GetResults().RecordTest(result)
 

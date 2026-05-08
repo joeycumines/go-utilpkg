@@ -2,15 +2,44 @@ package gojagrpc
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+type statusDetailHolder struct {
+	details []*anypb.Any
+}
+
+func newStatusDetailStore(runtime *goja.Runtime) (*goja.Object, goja.Callable, goja.Callable, error) {
+	constructor, ok := runtime.Intrinsic(goja.IntrinsicWeakMapConstructor)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: WeakMap intrinsic is unavailable")
+	}
+	getValue, ok := runtime.Intrinsic(goja.IntrinsicWeakMapGet)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: WeakMap.prototype.get intrinsic is unavailable")
+	}
+	get, ok := goja.AssertFunction(getValue)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: WeakMap.prototype.get intrinsic is not callable")
+	}
+	setValue, ok := runtime.Intrinsic(goja.IntrinsicWeakMapSet)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: WeakMap.prototype.set intrinsic is unavailable")
+	}
+	set, ok := goja.AssertFunction(setValue)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: WeakMap.prototype.set intrinsic is not callable")
+	}
+	store, err := runtime.New(constructor)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("gojagrpc: initialize status detail store: %w", err)
+	}
+	return store, get, set, nil
+}
 
 // statusObject returns a goja.Object exposing all gRPC status codes
 // and a createError factory function.
@@ -55,13 +84,13 @@ func (m *Module) statusObject() *goja.Object {
 		}
 
 		arrObj, ok := detailsArg.(*goja.Object)
-		if !ok {
-			return m.newGrpcError(codes.Code(code), message)
+		if !ok || arrObj.ClassName() != "Array" {
+			panic(m.runtime.NewTypeError("status details must be an array"))
 		}
 
 		lenVal := arrObj.Get("length")
 		if lenVal == nil || goja.IsUndefined(lenVal) {
-			return m.newGrpcError(codes.Code(code), message)
+			panic(m.runtime.NewTypeError("status details must be an array"))
 		}
 
 		length := int(lenVal.ToInteger())
@@ -71,10 +100,7 @@ func (m *Module) statusObject() *goja.Object {
 
 		details := make([]goja.Value, 0, length)
 		for i := range length {
-			elemVal := arrObj.Get(fmt.Sprintf("%d", i))
-			if elemVal != nil && !goja.IsUndefined(elemVal) {
-				details = append(details, elemVal)
-			}
+			details = append(details, arrObj.Get(fmt.Sprintf("%d", i)))
 		}
 
 		return m.newGrpcErrorWithDetails(codes.Code(code), message, details)
@@ -99,13 +125,6 @@ func (m *Module) newGrpcError(code codes.Code, message string) *goja.Object {
 	return obj
 }
 
-// goDetailsHolder wraps []*anypb.Any for storage on a GrpcError
-// object. Using a struct prevents goja from converting the slice
-// into a JS array during set/get.
-type goDetailsHolder struct {
-	details []*anypb.Any
-}
-
 // newGrpcErrorWithDetails creates a GrpcError with attached details.
 // The details are stored both as a JS array (for script access) and
 // as a pre-converted []*anypb.Any (for Go-side status conversion).
@@ -124,67 +143,73 @@ func (m *Module) newGrpcErrorWithDetails(code codes.Code, message string, detail
 	for _, d := range details {
 		msg, err := m.protobuf.UnwrapMessage(d)
 		if err != nil {
-			continue
+			panic(m.runtime.NewTypeError("status detail: %s", err))
 		}
 		a, err := anypb.New(msg)
 		if err != nil {
-			continue
+			panic(m.runtime.NewTypeError("status detail: %s", err))
 		}
 		anyDetails = append(anyDetails, a)
 	}
 
-	_ = obj.Set("_goDetails", &goDetailsHolder{details: anyDetails})
+	if err := m.storeStatusDetails(obj, anyDetails); err != nil {
+		panic(m.runtime.NewGoError(err))
+	}
 
 	return obj
 }
 
-// extractGoDetails extracts pre-converted detail protos from a
-// GrpcError object (stored by newGrpcErrorWithDetails). Returns nil
-// if no details are present.
-func (m *Module) extractGoDetails(obj *goja.Object) []*anypb.Any {
-	goDetailsVal := obj.Get("_goDetails")
-	if goDetailsVal == nil || goja.IsUndefined(goDetailsVal) || goja.IsNull(goDetailsVal) {
-		return nil
+func (m *Module) storeStatusDetails(object *goja.Object, details []*anypb.Any) error {
+	cloned := make([]*anypb.Any, 0, len(details))
+	for _, detail := range details {
+		if detail != nil {
+			cloned = append(cloned, proto.Clone(detail).(*anypb.Any))
+		}
 	}
+	holder := m.runtime.ToValue(&statusDetailHolder{details: cloned})
+	if _, err := m.statusDetailSet(m.statusDetailStore, object, holder); err != nil {
+		return fmt.Errorf("gojagrpc: store private status details: %w", err)
+	}
+	return nil
+}
 
-	holder, ok := goDetailsVal.Export().(*goDetailsHolder)
-	if !ok {
+// extractGoDetails returns private, cloned detail protos.
+func (m *Module) extractGoDetails(obj *goja.Object) []*anypb.Any {
+	value, err := m.statusDetailGet(m.statusDetailStore, obj)
+	if err != nil {
+		panic(m.runtime.NewGoError(fmt.Errorf("gojagrpc: load private status details: %w", err)))
+	}
+	if value == nil || goja.IsUndefined(value) {
 		return nil
 	}
-	return holder.details
+	holder, ok := value.Export().(*statusDetailHolder)
+	if !ok || holder == nil {
+		panic(m.runtime.NewGoError(fmt.Errorf("gojagrpc: invalid private status detail identity")))
+	}
+	cloned := make([]*anypb.Any, 0, len(holder.details))
+	for _, detail := range holder.details {
+		cloned = append(cloned, proto.Clone(detail).(*anypb.Any))
+	}
+	return cloned
 }
 
 // wrapStatusDetails converts a slice of *anypb.Any detail messages
-// into a JS array of wrapped protobuf messages. Types that cannot be
-// resolved are silently skipped.
+// into a JS array of wrapped protobuf messages. Unknown details remain
+// available losslessly as google.protobuf.Any wrappers.
 func (m *Module) wrapStatusDetails(details []*anypb.Any) *goja.Object {
 	arr := m.runtime.NewArray()
-	idx := 0
-	for _, any := range details {
-		typeURL := any.GetTypeUrl()
-		// Strip "type.googleapis.com/" prefix.
-		fullName := typeURL
-		if i := strings.LastIndex(typeURL, "/"); i >= 0 {
-			fullName = typeURL[i+1:]
-		}
-
-		desc, err := m.protobuf.FindDescriptor(protoreflect.FullName(fullName))
+	for index, detail := range details {
+		message, err := anypb.UnmarshalNew(detail, proto.UnmarshalOptions{
+			Resolver: m.protobuf.TypeResolver(),
+		})
 		if err != nil {
-			continue // Unknown type — skip.
+			message = proto.Clone(detail)
 		}
-
-		md, ok := desc.(protoreflect.MessageDescriptor)
-		if !ok {
-			continue
+		value, wrapErr := m.wrapMessage(message, message.ProtoReflect().Descriptor())
+		if wrapErr != nil {
+			panic(wrapErr)
 		}
-
-		dynMsg := dynamicpb.NewMessage(md)
-		if err := anypb.UnmarshalTo(any, dynMsg, proto.UnmarshalOptions{}); err != nil {
-			continue
-		}
-
-		_ = arr.Set(fmt.Sprintf("%d", idx), m.protobuf.WrapMessage(dynMsg))
-		idx++
+		_ = arr.Set(fmt.Sprintf("%d", index), value)
 	}
 	return arr
 }

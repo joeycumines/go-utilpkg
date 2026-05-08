@@ -2,7 +2,6 @@ package alternatetwo
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,11 +12,13 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), alternateTwoTestTimeout)
 		defer cancel()
-		_ = loop.Shutdown(ctx)
-	}()
+		if err := loop.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown() failed: %v", err)
+		}
+	})
 
 	if loop.State() != StateAwake {
 		t.Errorf("Expected state Awake, got %v", loop.State())
@@ -30,31 +31,14 @@ func TestRunShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Run Loop in a goroutine since Run() is blocking
-	runDone := make(chan error, 1)
-	ctx := context.Background()
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	state := loop.State()
 	if state != StateRunning && state != StateSleeping {
 		t.Errorf("Expected Running or Sleeping, got %v", state)
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	if err := loop.Shutdown(stopCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	// Wait for Run() to return
-	if err := <-runDone; err != nil && err != context.Canceled {
-		t.Fatalf("Run() returned error: %v", err)
-	}
+	harness.shutdown(t)
 
 	if loop.State() != StateTerminated {
 		t.Errorf("Expected state Terminated, got %v", loop.State())
@@ -67,8 +51,7 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -81,20 +64,13 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("Submit() failed: %v", err)
 	}
 
-	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Task not executed within timeout")
-	}
+	waitAlternateTwoSignal(t, done, "submitted task")
 
 	if !executed.Load() {
 		t.Error("Task was not executed")
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness.shutdown(t)
 }
 
 func TestSubmitInternal(t *testing.T) {
@@ -103,8 +79,7 @@ func TestSubmitInternal(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
@@ -117,20 +92,13 @@ func TestSubmitInternal(t *testing.T) {
 		t.Fatalf("SubmitInternal() failed: %v", err)
 	}
 
-	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Internal task not executed within timeout")
-	}
+	waitAlternateTwoSignal(t, done, "internal task")
 
 	if !executed.Load() {
 		t.Error("Internal task was not executed")
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness.shutdown(t)
 }
 
 func TestMicrotask(t *testing.T) {
@@ -139,15 +107,15 @@ func TestMicrotask(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	var executed atomic.Bool
 	done := make(chan struct{})
 
 	// Schedule a microtask from within the loop
+	scheduleResult := make(chan error, 1)
 	err = loop.Submit(func() {
-		_ = loop.ScheduleMicrotask(func() {
+		scheduleResult <- loop.ScheduleMicrotask(func() {
 			executed.Store(true)
 			close(done)
 		})
@@ -157,19 +125,20 @@ func TestMicrotask(t *testing.T) {
 	}
 
 	select {
-	case <-done:
-		// OK
-	case <-time.After(time.Second):
-		t.Fatal("Microtask not executed within timeout")
+	case scheduleErr := <-scheduleResult:
+		if scheduleErr != nil {
+			t.Fatalf("ScheduleMicrotask() failed: %v", scheduleErr)
+		}
+	case <-time.After(alternateTwoTestTimeout):
+		t.Fatal("ScheduleMicrotask() did not return")
 	}
+	waitAlternateTwoSignal(t, done, "microtask")
 
 	if !executed.Load() {
 		t.Error("Microtask was not executed")
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness.shutdown(t)
 }
 
 func TestConcurrentSubmit(t *testing.T) {
@@ -178,46 +147,42 @@ func TestConcurrentSubmit(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	const numTasks = 1000
 	var executed atomic.Int64
-	var wg sync.WaitGroup
-	wg.Add(numTasks)
+	results := make(chan error, numTasks)
+	callbacks := make(chan struct{}, numTasks)
 
 	for range numTasks {
 		go func() {
-			err := loop.Submit(func() {
+			results <- loop.Submit(func() {
 				executed.Add(1)
-				wg.Done()
+				callbacks <- struct{}{}
 			})
-			if err != nil {
-				wg.Done() // Count as done even if failed
-			}
 		}()
 	}
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// OK
-	case <-time.After(5 * time.Second):
-		t.Fatalf("Only %d/%d tasks executed within timeout", executed.Load(), numTasks)
+	deadline := time.NewTimer(alternateTwoTestTimeout)
+	defer deadline.Stop()
+	for range numTasks {
+		select {
+		case submitErr := <-results:
+			if submitErr != nil {
+				t.Fatalf("concurrent Submit() failed: %v", submitErr)
+			}
+		case <-deadline.C:
+			t.Fatalf("only %d/%d submissions returned", executed.Load(), numTasks)
+		}
+	}
+	for range numTasks {
+		waitAlternateTwoSignal(t, callbacks, "concurrent callback")
 	}
 
 	if executed.Load() != numTasks {
 		t.Errorf("Expected %d tasks executed, got %d", numTasks, executed.Load())
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness.shutdown(t)
 }
 
 func TestDoubleStart(t *testing.T) {
@@ -226,21 +191,15 @@ func TestDoubleStart(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	// Second start attempt (from different goroutine) should fail with ErrLoopAlreadyRunning
-	err = loop.Run(ctx)
+	err = loop.Run(context.Background())
 	if err != ErrLoopAlreadyRunning {
 		t.Errorf("Expected ErrLoopAlreadyRunning, got %v", err)
 	}
 
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness.shutdown(t)
 }
 
 func TestDoubleShutdown(t *testing.T) {
@@ -249,19 +208,14 @@ func TestDoubleShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
-
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
-	if err := loop.Shutdown(stopCtx); err != nil {
-		t.Fatalf("First Shutdown() failed: %v", err)
-	}
+	harness := startAlternateTwoTestLoop(t, loop)
+	harness.shutdown(t)
 
 	// Second shutdown should not error (idempotent via sync.Once)
-	if err := loop.Shutdown(stopCtx); err != nil && err != ErrLoopTerminated {
-		t.Errorf("Second Shutdown() failed unexpectedly: %v", err)
+	stopCtx, cancel := context.WithTimeout(context.Background(), alternateTwoTestTimeout)
+	defer cancel()
+	if err := loop.Shutdown(stopCtx); err != nil {
+		t.Errorf("Second Shutdown() returned %v, want nil", err)
 	}
 }
 
@@ -271,12 +225,8 @@ func TestSubmitAfterShutdown(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
-
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	harness := startAlternateTwoTestLoop(t, loop)
+	harness.shutdown(t)
 
 	// Submit after shutdown should fail
 	err = loop.Submit(func() {})
@@ -324,8 +274,8 @@ func TestLockFreeIngress(t *testing.T) {
 
 	// Pop all tasks
 	for i := range 100 {
-		_, ok := q.Pop()
-		if !ok {
+		task, ok := q.Pop()
+		if !ok || task.Fn == nil {
 			t.Errorf("Pop failed at iteration %d", i)
 		}
 	}
@@ -398,41 +348,19 @@ func TestBlockingRun(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	// Test that Run blocks until terminated
-	runDone := make(chan error, 1)
-	ctx := context.Background()
-
-	go func() {
-		runDone <- loop.Run(ctx)
-	}()
-
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	harness := startAlternateTwoTestLoop(t, loop)
 
 	// Run should not have returned yet
 	select {
-	case <-runDone:
-		t.Fatal("Run() returned early, should be blocking")
+	case err := <-harness.runDone:
+		harness.runDone <- err
+		t.Fatalf("Run() returned early: %v", err)
 	default:
 		// OK - Run is still blocking
 	}
 
 	// Shutdown the loop
-	stopCtx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	if err := loop.Shutdown(stopCtx); err != nil {
-		t.Fatalf("Shutdown() failed: %v", err)
-	}
-
-	// Now Run should have returned
-	select {
-	case err := <-runDone:
-		if err != nil && err != context.Canceled {
-			t.Errorf("Run() returned unexpected error: %v", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Run() did not return after Shutdown")
-	}
+	harness.shutdown(t)
 }
 
 func TestCloseImmediate(t *testing.T) {
@@ -471,8 +399,11 @@ func TestRunWithContextCancel(t *testing.T) {
 		runDone <- loop.Run(ctx)
 	}()
 
-	// Give loop time to start
-	time.Sleep(10 * time.Millisecond)
+	ready := make(chan struct{})
+	if err := loop.Submit(func() { close(ready) }); err != nil {
+		t.Fatalf("Submit(start barrier) failed: %v", err)
+	}
+	waitAlternateTwoSignal(t, ready, "context-cancel loop start")
 
 	// Cancel the context
 	cancel()
@@ -480,19 +411,20 @@ func TestRunWithContextCancel(t *testing.T) {
 	// Run should exit
 	select {
 	case err := <-runDone:
-		if err != nil && err != context.Canceled {
-			t.Logf("Run() returned: %v (expected context.Canceled or nil)", err)
+		if err != context.Canceled {
+			t.Errorf("Run() returned %v, want context.Canceled", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(alternateTwoTestTimeout):
 		t.Fatal("Run() did not exit after context cancel")
 	}
 
 	// State should be Terminating or Terminated after context cancel
 	// Since Run() returns early on context cancel, state may not be Terminated yet
 	state := loop.State()
-	if state != StateTerminated && state != StateTerminating {
-		t.Errorf("Expected state Terminating or Terminated, got %v", state)
+	if state != StateTerminating {
+		t.Errorf("Expected state Terminating, got %v", state)
 	}
+	loop.closeFDs()
 }
 
 func BenchmarkSubmit(b *testing.B) {
@@ -501,28 +433,60 @@ func BenchmarkSubmit(b *testing.B) {
 		b.Fatalf("New() failed: %v", err)
 	}
 
-	ctx := context.Background()
-	go loop.Run(ctx)
+	harness := startAlternateTwoTestLoop(b, loop)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = loop.Submit(func() {})
+		if err := loop.Submit(func() {}); err != nil {
+			b.Fatalf("Submit() failed: %v", err)
+		}
 	}
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
+	drained := make(chan struct{})
+	if err := loop.Submit(func() { close(drained) }); err != nil {
+		b.Fatalf("Submit(drain barrier) failed: %v", err)
+	}
+	waitAlternateTwoSignal(b, drained, "benchmark drain")
+	harness.shutdown(b)
 }
 
 func BenchmarkLockFreeIngress_Push(b *testing.B) {
 	q := NewLockFreeIngress()
 	fn := func() {}
 
+	// Retained exactly as the original longitudinal diagnostic. Queue length
+	// grows with b.N, so this root is nonstationary and not comparison-valid.
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		q.Push(fn)
 	}
+}
+
+func BenchmarkLockFreeIngress_PushBounded(b *testing.B) {
+	const batchSize = 1024
+	q := NewLockFreeIngress()
+	fn := func() {}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for completed := 0; completed < b.N; {
+		count := min(batchSize, b.N-completed)
+		for range count {
+			q.Push(fn)
+		}
+		b.StopTimer()
+		for range count {
+			if popped, ok := q.Pop(); !ok || popped.Fn == nil {
+				b.Fatal("Pop() failed while bounding the ingress queue")
+			}
+		}
+		if length := q.Length(); length != 0 {
+			b.Fatalf("bounded ingress queue length = %d, want 0", length)
+		}
+		completed += count
+		b.StartTimer()
+	}
+	b.StopTimer()
 }
 
 func BenchmarkLockFreeIngress_PushPop(b *testing.B) {
@@ -532,7 +496,9 @@ func BenchmarkLockFreeIngress_PushPop(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		q.Push(fn)
-		q.Pop()
+		if popped, ok := q.Pop(); !ok || popped.Fn == nil {
+			b.Fatal("Pop() failed")
+		}
 	}
 }
 
@@ -542,7 +508,11 @@ func BenchmarkMicrotaskRing_PushPop(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		r.Push(fn)
-		r.Pop()
+		if !r.Push(fn) {
+			b.Fatal("Push() failed")
+		}
+		if popped := r.Pop(); popped == nil {
+			b.Fatal("Pop() failed")
+		}
 	}
 }

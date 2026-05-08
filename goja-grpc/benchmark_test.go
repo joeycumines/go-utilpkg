@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	"google.golang.org/grpc"
@@ -21,10 +21,7 @@ import (
 // benchEnv creates a test environment for benchmarks.
 func benchEnv(b *testing.B) *grpcTestEnv {
 	b.Helper()
-	loop, err := eventloop.New()
-	if err != nil {
-		b.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 	runtime := goja.New()
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
@@ -33,7 +30,7 @@ func benchEnv(b *testing.B) *grpcTestEnv {
 	if err := adapter.Bind(); err != nil {
 		b.Fatalf("unexpected error: %v", err)
 	}
-	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	channel := mustNewInprocChannel(b, inprocgrpc.WithLoop(loop))
 	pbMod, err := gojaprotobuf.New(runtime)
 	if err != nil {
 		b.Fatalf("unexpected error: %v", err)
@@ -51,11 +48,19 @@ func benchEnv(b *testing.B) *grpcTestEnv {
 		b.Fatalf("unexpected error: %v", err)
 	}
 	pbExports := runtime.NewObject()
-	pbMod.SetupExports(pbExports)
-	_ = runtime.Set("pb", pbExports)
+	if err := pbMod.SetupExports(pbExports); err != nil {
+		b.Fatalf("setup protobuf exports: %v", err)
+	}
+	if err := runtime.Set("pb", pbExports); err != nil {
+		b.Fatalf("install protobuf exports: %v", err)
+	}
 	grpcExports := runtime.NewObject()
-	grpcMod.setupExports(grpcExports)
-	_ = runtime.Set("grpc", grpcExports)
+	if err := grpcMod.setupExports(grpcExports); err != nil {
+		b.Fatalf("setup grpc exports: %v", err)
+	}
+	if err := runtime.Set("grpc", grpcExports); err != nil {
+		b.Fatalf("install grpc exports: %v", err)
+	}
 	return &grpcTestEnv{
 		loop:    loop,
 		runtime: runtime,
@@ -177,15 +182,12 @@ func BenchmarkMetadataCreate(b *testing.B) {
 // This baseline isolates the JS bridge overhead when compared with
 // BenchmarkUnaryRPC.
 func BenchmarkGoDirectUnaryRPC(b *testing.B) {
-	loop, err := eventloop.New()
-	if err != nil {
-		b.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)
 
-	ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	ch := mustNewInprocChannel(b, inprocgrpc.WithLoop(loop))
 
 	// Parse the test descriptor set to get message descriptors.
 	var fds descriptorpb.FileDescriptorSet

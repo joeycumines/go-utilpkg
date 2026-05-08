@@ -1,396 +1,174 @@
 package tournament
 
 import (
-	"context"
 	"fmt"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
 
-// This microbenchmark tests Hypothesis #3: Batch budget of 1024 in processExternal()
-// is suboptimal for certain workloads.
-//
-// Hypothesis:
-// - Too large (2048+) increases latency due to single-threaded processing
-// - Too small (256) reduces throughput due to frequent PopBatch calls
-// - Optimal balance point exists around 512-1024 for typical workloads
-// - Steady-state vs bursty workloads favor different budget sizes
-//
-// Expected Pattern:
-// - Throughput peaks at 512-1024 tasks per batch
-// - P99 latency increases linearly with budget size
-// - Small budgets (256) better for bursty workloads
-// - Large budgets (2048+) better for steady-state high throughput
+var batchSizes = []int{64, 128, 256, 512, 1024, 2048, 4096}
 
-// BenchmarkMicroBatchBudget_Throughput measures throughput impact of effective batching.
-// Since we can't change the hardcoded budget=1024 in Main loop, we simulate
-// this by submitting in bursts of different sizes to trigger actual processing in batches.
+// BenchmarkMicroBatchBudget_Throughput measures admission throughput for
+// sustained fixed-size batches. Accepted callback drain is verified untimed.
 func BenchmarkMicroBatchBudget_Throughput(b *testing.B) {
-	burstSizes := []int{64, 128, 256, 512, 1024, 2048, 4096}
-
-	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree"} {
-		for _, burstSize := range burstSizes {
-			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
-				benchmarkBatchThroughput(b, implName, burstSize)
+	for _, impl := range Implementations() {
+		for _, batchSize := range batchSizes {
+			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
+				benchmarkBatchThroughput(b, impl, batchSize)
 			})
 		}
 	}
-
-	// Baseline for comparison (no batching overhead)
-	b.Run("Baseline/Burst=1024", func(b *testing.B) {
-		benchmarkBatchThroughput(b, "Baseline", 1024)
-	})
 }
 
-func benchmarkBatchThroughput(b *testing.B, implName string, burstSize int) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
-		}
-	}
+func benchmarkBatchThroughput(b *testing.B, impl Implementation, batchSize int) {
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
-
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
-
+	tasks := newBenchmarkBarrier(b.N * batchSize)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
+	b.ReportAllocs()
+	b.ReportMetric(float64(batchSize), "tasks/op")
 	b.ResetTimer()
-
-	// Submit in bursts to trigger batch processing
-	numBursts := max(b.N/burstSize, 1)
-
-	var wg sync.WaitGroup
-	var counter atomic.Int64
-
-	for i := range numBursts {
-		// Submit burst of tasks
-		for range burstSize {
-			wg.Add(1)
-			err := loop.Submit(func() {
-				counter.Add(1)
-				wg.Done()
-			})
-			if err != nil {
-				wg.Done()
+	for range b.N {
+		for range batchSize {
+			if err := loop.Submit(tasks.Done); err != nil {
+				tasks.Done()
+				b.Fatalf("Submit: %v", err)
 			}
 		}
-
-		// Small gap to allow loop to drain and potentially enter sleep
-		// This tests whether batch budget affects steady-state vs bursty behavior
-		if i < numBursts-1 {
-			time.Sleep(10 * time.Microsecond)
-		}
 	}
-
-	wg.Wait()
-
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	// Record result
-	result := BenchmarkResult{
-		BenchmarkName:  fmt.Sprintf("MicroBatchBudget/Burst=%d", burstSize),
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
+	waitBenchmarkBarrier(b, tasks, deadline.C, "batch-throughput callback drain")
 }
 
-// BenchmarkMicroBatchBudget_Latency measures latency impact of batch processing.
-// Collects P50, P95, P99 for different burst submission patterns.
+// BenchmarkMicroBatchBudget_Latency measures complete fixed-size batch
+// admission and execution. Each reported operation is one entire batch.
 func BenchmarkMicroBatchBudget_Latency(b *testing.B) {
-	burstSizes := []int{64, 128, 256, 512, 1024, 2048, 4096}
-
-	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		for _, burstSize := range burstSizes {
-			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
-				benchmarkBatchLatency(b, implName, burstSize)
+	for _, impl := range Implementations() {
+		for _, batchSize := range batchSizes {
+			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
+				benchmarkBatchLatency(b, impl, batchSize)
 			})
 		}
 	}
 }
 
-func benchmarkBatchLatency(b *testing.B, implName string, burstSize int) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
-		}
-	}
+func benchmarkBatchLatency(b *testing.B, impl Implementation, batchSize int) {
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
-
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
-
+	b.ReportAllocs()
+	b.ReportMetric(float64(batchSize), "tasks/op")
 	b.ResetTimer()
-
-	// Measure burst completion latency
-	numBursts := max(b.N/burstSize, 1)
-
-	for range numBursts {
-		_ = time.Now() // burstStart - placeholder for future latency metrics
-
-		var wg sync.WaitGroup
-		for range burstSize {
-			wg.Add(1)
-			_ = loop.Submit(func() {
-				wg.Done()
-			})
+	for range b.N {
+		tasks := newBenchmarkBarrier(batchSize)
+		for range batchSize {
+			if err := loop.Submit(tasks.Done); err != nil {
+				tasks.Done()
+				b.Fatalf("Submit: %v", err)
+			}
 		}
-		wg.Wait()
-
-		// Note: In production, we'd collect and report percentile metrics here
+		waitBenchmarkBarrier(b, tasks, deadline.C, "batch-latency callback drain")
 	}
-
-	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  fmt.Sprintf("MicroBatchBudget_Latency/Burst=%d", burstSize),
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
 }
 
-// BenchmarkMicroBatchBudget_Continuous measures steady-state throughput with continuous submission.
-// Tests if batch budget hurts steady-state high-throughput scenarios.
+// BenchmarkMicroBatchBudget_Continuous measures exact end-to-end throughput
+// with four concurrent producers and no timing guesses or polling loops.
 func BenchmarkMicroBatchBudget_Continuous(b *testing.B) {
-	for _, implName := range []string{"Main", "AlternateOne", "AlternateTwo", "AlternateThree", "Baseline"} {
-		b.Run(implName, func(b *testing.B) {
-			benchmarkContinuousSubmission(b, implName)
+	for _, impl := range Implementations() {
+		b.Run(impl.Name, func(b *testing.B) {
+			benchmarkContinuousSubmission(b, impl)
 		})
 	}
 }
 
-func benchmarkContinuousSubmission(b *testing.B, implName string) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
-		}
-	}
+func benchmarkContinuousSubmission(b *testing.B, impl Implementation) {
+	const producerCount = 4
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
-
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
-
+	producers := newBenchmarkProducerGroup(b, producerCount)
+	tasks := newBenchmarkBarrier(b.N)
+	submitErrors := make(chan error, 1)
+	deadline := time.NewTimer(30 * time.Minute)
+	defer deadline.Stop()
+	b.ReportAllocs()
 	b.ResetTimer()
-
-	// Continuous submission to saturate the loop
-	var wg sync.WaitGroup
-	var submitWg sync.WaitGroup
-	var counter atomic.Int64
-	stopCh := make(chan struct{})
-
-	// Start multiple producers to create continuous load
-	numProducers := 4
-	for range numProducers {
-		wg.Add(1)
-		submitWg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer submitWg.Done()
-			for {
+	for producer := range producerCount {
+		taskCount := b.N / producerCount
+		if producer < b.N%producerCount {
+			taskCount++
+		}
+		producers.Go(func(stop <-chan struct{}) {
+			for range taskCount {
 				select {
-				case <-stopCh:
+				case <-stop:
 					return
 				default:
-					wg.Add(1)
-					_ = loop.Submit(func() {
-						counter.Add(1)
-						wg.Done()
-					})
+				}
+				if err := loop.Submit(tasks.Done); err != nil {
+					tasks.Done()
+					select {
+					case submitErrors <- err:
+					default:
+					}
 				}
 			}
-		}()
+		})
 	}
-
-	// Run for b.N total operations
-	targetOps := b.N
-	for counter.Load() < int64(targetOps) {
-		time.Sleep(100 * time.Microsecond)
-	}
-
-	close(stopCh)
-	wg.Wait()
-	submitWg.Wait()
-
+	waitBenchmarkDeadline(b, producers.Done(), deadline.C, "continuous producer exit")
+	waitBenchmarkBarrier(b, tasks, deadline.C, "continuous callback drain")
 	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  "MicroBatchBudget_Continuous",
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
+	select {
+	case err := <-submitErrors:
+		b.Fatalf("Submit: %v", err)
+	default:
 	}
-	GetResults().RecordBenchmark(result)
 }
 
-// BenchmarkMicroBatchBudget_Mixed measures behavior under mixed burst/steady workloads.
-// Simulates production-like mixed traffic patterns.
+// BenchmarkMicroBatchBudget_Mixed measures an equal mix of queued burst work
+// and sequential round trips. One operation contains batchSize total tasks.
 func BenchmarkMicroBatchBudget_Mixed(b *testing.B) {
-	burstSizes := []int{100, 500, 1000, 2000, 5000}
-
-	for _, implName := range []string{"Main", "AlternateThree", "Baseline"} {
-		for _, burstSize := range burstSizes {
-			b.Run(fmt.Sprintf("%s/Burst=%d", implName, burstSize), func(b *testing.B) {
-				benchmarkMixedWorkload(b, implName, burstSize)
+	mixedSizes := []int{100, 500, 1000, 2000, 5000}
+	for _, impl := range Implementations() {
+		for _, batchSize := range mixedSizes {
+			b.Run(fmt.Sprintf("%s/Burst=%d", impl.Name, batchSize), func(b *testing.B) {
+				benchmarkMixedWorkload(b, impl, batchSize)
 			})
 		}
 	}
 }
 
-func benchmarkMixedWorkload(b *testing.B, implName string, burstSize int) {
-	var impl Implementation
-	for _, i := range Implementations() {
-		if i.Name == implName {
-			impl = i
-			break
-		}
-	}
+func benchmarkMixedWorkload(b *testing.B, impl Implementation, batchSize int) {
+	loop, cleanup := startBenchmarkEventLoop(b, impl)
+	defer cleanup()
+	timer := time.NewTimer(30 * time.Minute)
+	defer timer.Stop()
 
-	if impl.Name == "" {
-		b.Skipf("Implementation %s not found", implName)
-	}
-
-	loop, err := impl.Factory()
-	if err != nil {
-		b.Fatalf("Failed to create loop: %v", err)
-	}
-
-	ctx := context.Background()
-	var runWg sync.WaitGroup
-	runWg.Go(func() {
-		loop.Run(ctx)
-	})
-
-	// Warm up
-	done := make(chan struct{})
-	_ = loop.Submit(func() { close(done) })
-	<-done
-
+	burstCount := batchSize / 2
+	steadyCount := batchSize - burstCount
+	b.ReportAllocs()
+	b.ReportMetric(float64(batchSize), "tasks/op")
 	b.ResetTimer()
-
-	// Mixed pattern: 50% bursty, 50% steady
-	const steadyRatio = 0.5
-	numBursts := int(float64(b.N/burstSize) * steadyRatio)
-
-	var wg sync.WaitGroup
-	var counter atomic.Int64
-
-	// Submit bursts
-	for range numBursts {
-		for range burstSize {
-			wg.Add(1)
-			err := loop.Submit(func() {
-				counter.Add(1)
-				wg.Done()
-			})
-			if err != nil {
-				wg.Done()
+	for range b.N {
+		burst := newBenchmarkBarrier(burstCount)
+		for range burstCount {
+			if err := loop.Submit(burst.Done); err != nil {
+				burst.Done()
+				b.Fatalf("burst Submit: %v", err)
 			}
 		}
-		// Small gap between bursts
-		time.Sleep(10 * time.Microsecond)
+		waitBenchmarkBarrier(b, burst, timer.C, "mixed burst callback drain")
+
+		for range steadyCount {
+			done := make(chan struct{})
+			if err := loop.Submit(func() { close(done) }); err != nil {
+				b.Fatalf("steady Submit: %v", err)
+			}
+			waitBenchmarkDeadline(b, done, timer.C, "mixed steady callback")
+		}
 	}
-
-	// Submit steady stream
-	for i := counter.Load(); i < int64(b.N); i++ {
-		wg.Add(1)
-		_ = loop.Submit(func() {
-			counter.Add(1)
-			wg.Done()
-		})
-		time.Sleep(1 * time.Microsecond)
-	}
-
-	wg.Wait()
-
-	b.StopTimer()
-
-	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_ = loop.Shutdown(stopCtx)
-	runWg.Wait()
-
-	result := BenchmarkResult{
-		BenchmarkName:  fmt.Sprintf("MicroBatchBudget_Mixed/Burst=%d", burstSize),
-		Implementation: implName,
-		NsPerOp:        float64(b.Elapsed().Nanoseconds()) / float64(b.N),
-		Iterations:     b.N,
-		Duration:       b.Elapsed(),
-	}
-	GetResults().RecordBenchmark(result)
 }

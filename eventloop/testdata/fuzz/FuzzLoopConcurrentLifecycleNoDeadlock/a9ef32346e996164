@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xcd\xffX\xcd7\xcd2o\xcd\xcd%.\xcd2(\xcd1*#12")

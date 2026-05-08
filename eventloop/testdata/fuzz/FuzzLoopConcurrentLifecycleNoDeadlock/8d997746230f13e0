@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("tY',1(\x89\x89)\x89&&b8\"d1aZC00&000Z")

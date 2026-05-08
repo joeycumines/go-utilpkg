@@ -1,0 +1,1437 @@
+{
+  "schema_version": 2,
+  "source_history_sha256": "0638cb2b64a2c9f5a7d2b1a46310d2c345ecf45919945df28219414318357d60",
+  "introductions": [
+    {
+      "id": "introduction.future.basic.channel-fanout",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/promise.go",
+      "source_identity_kind": "git-blob-sha1",
+      "source_identity": "c0f1445e93de858993d5d4e6056516025391b783"
+    },
+    {
+      "id": "introduction.goja.promise-job.exit-gated-closure",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.0def02e2ff987be01a38d237a5d84dae256a85ac",
+      "source_path": "goja-eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "bfe5ab0f69f400a043073b217b68fa0c0fb1a8c5"
+    },
+    {
+      "id": "introduction.goja.promise-job.native-internal-queue",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.7b63d41b627eba2e338c578f8aacd3101635ef79",
+      "source_path": "goja-eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "71c9aa506aa3320ab495753861987fe134d5b5c9"
+    },
+    {
+      "id": "introduction.goja.promise-job.observed-ungated-closure",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.0def02e2ff987be01a38d237a5d84dae256a85ac",
+      "source_path": "goja-eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "bfe5ab0f69f400a043073b217b68fa0c0fb1a8c5"
+    },
+    {
+      "id": "introduction.goja.promise-job.unobserved-per-job-closure",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.cbd2d87785f42735e46cde226fb425926462583d",
+      "source_path": "goja-eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "e03244bc0c7adcd67b1cfa59dfa50d0a9e2b9be3"
+    },
+    {
+      "id": "introduction.promise.alt-five.original-chained",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/promisealtfive",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "5cf63d9121921a2a35bfb6a72e25c551ad6654bf"
+    },
+    {
+      "id": "introduction.promise.alt-four.main-snapshot",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/promisealtfour",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "37075a793cc58b48d553c445526d405e74786982"
+    },
+    {
+      "id": "introduction.promise.alt-one.embedded-first-handler",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/promisealtone",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "5dc1c4be0eaa568782caf4574a9666e281871a04"
+    },
+    {
+      "id": "introduction.promise.alt-three.pooled-treiber",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/promisealtthree",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "6d3eb9c9b9576ce8e79323b6a9a0a40145cb2157"
+    },
+    {
+      "id": "introduction.promise.alt-two.treiber",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/promisealttwo",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "8438728bc64ab6e56892b33309ed905a406b6f3a"
+    },
+    {
+      "id": "introduction.promise.main.chained",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/promise.go",
+      "source_identity_kind": "git-blob-sha1",
+      "source_identity": "c0f1445e93de858993d5d4e6056516025391b783"
+    },
+    {
+      "id": "introduction.scheduler.alternate-one.max-safety",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/alternateone",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "dc1e9d338af84db6189b401f8350aea457506c61"
+    },
+    {
+      "id": "introduction.scheduler.alternate-three.original-main",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/alternatethree",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "66fc3ad9159672d29970f7fc5dd419ce653d654e"
+    },
+    {
+      "id": "introduction.scheduler.alternate-two.max-performance",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/alternatetwo",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "213099baf11851837a3cdb8626a87e477a4b70c0"
+    },
+    {
+      "id": "introduction.scheduler.e001.disposable-branch",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.f7ef4c86843e1790bf0528975ab2c92ba3351702",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "6eec43e57bfc858888a804e206b0d97335ba6d89"
+    },
+    {
+      "id": "introduction.scheduler.goja-nodejs.baseline",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop/internal/gojabaseline",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "762048e69e946e904d5536acec3da8cf948f6510"
+    },
+    {
+      "id": "introduction.scheduler.libuv.native",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.cc005d72b329fd91eee03aac62ba7188df7c91b9",
+      "source_path": "eventloop/internal/libuvbaseline",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "03904c928aa3fa766cbd129488710330de386525"
+    },
+    {
+      "id": "introduction.scheduler.main",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.506d6643cc1d45b1da156096870991ecb30b8847",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "78d92966a42c3dfaad780519305361f79d7e693e"
+    },
+    {
+      "id": "introduction.scheduler.topology.command-ingress-owner-local",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.27b93ec32938ca838e1519bc8e17b6852d7df449",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "06febbdeed652d323a31f339fb9f7e519ed6abd8"
+    },
+    {
+      "id": "introduction.scheduler.topology.node-phase-owner",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.0bc4ad0ae702ce2205615c31dcf37992d67ff9c8",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "576e09f69ad71015814a2bf868cf30847b6c57c9"
+    },
+    {
+      "id": "introduction.scheduler.topology.ring-terminal-linearized",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.802436f7fa69ff99842a58f5583d24b75c4b753e",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "d834874f1c3355ed55e53c61a980c8089e9dfd30"
+    },
+    {
+      "id": "introduction.wake.fd-polling-capability",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.819ee003aa8ff73d51e5a43dd35169db784f3111",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "35d7e1cfa4dc7d7485a13b39d7c55ad7fcffae83"
+    },
+    {
+      "id": "introduction.wake.linearized-lifecycle",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.fa68be1139e0fac25349b3e7644ffd73a22d6616",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "f469508f1f36e367dcca66fdf510ae8e5921f6a6"
+    },
+    {
+      "id": "introduction.wake.platform-selected-dedup",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.60f89427c8b36ecb2b1c495309ac91187c26fd06",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "57b88dedc97ec680e4915cbf7b0181f3def008b7"
+    },
+    {
+      "id": "introduction.wake.windows-native",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.81caf61f96167e7b7f5ecf497af9110890ff6e03",
+      "source_path": "eventloop",
+      "source_identity_kind": "git-tree-sha1",
+      "source_identity": "115d23747d2fe938c88b440e822c9bb40e2f61fe"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": "snapshot.file.sha256.18a4e6f6cbab7d80ff33a1d9c290ca9854e140caef150f0e1e2dba0c0f506cbc",
+      "source_kind": "file-history",
+      "source_id": "file.eventloop.future",
+      "source_path": "eventloop/future.go",
+      "identity_kind": "sha256",
+      "identity": "18a4e6f6cbab7d80ff33a1d9c290ca9854e140caef150f0e1e2dba0c0f506cbc",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.package.sha1.16618a665a99a47a678630cb94381a9db47745f4",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/promisealtfive",
+      "identity_kind": "git-tree-sha1",
+      "identity": "16618a665a99a47a678630cb94381a9db47745f4",
+      "adaptations": [
+        "resolved-to-fulfilled-compatibility-spelling"
+      ]
+    },
+    {
+      "id": "snapshot.package.sha1.735bd94545f70aede5d543f4a89dea314ba2e655",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/alternatethree",
+      "identity_kind": "git-tree-sha1",
+      "identity": "735bd94545f70aede5d543f4a89dea314ba2e655",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/alternatetwo",
+      "identity_kind": "git-tree-sha1",
+      "identity": "a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.package.sha1.bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/gojabaseline",
+      "identity_kind": "git-tree-sha1",
+      "identity": "bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.package.sha1.c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/promisealtthree",
+      "identity_kind": "git-tree-sha1",
+      "identity": "c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "adaptations": [
+        "resolved-to-fulfilled-compatibility-spelling"
+      ]
+    },
+    {
+      "id": "snapshot.package.sha1.c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/alternateone",
+      "identity_kind": "git-tree-sha1",
+      "identity": "c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/promisealtone",
+      "identity_kind": "git-tree-sha1",
+      "identity": "d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "adaptations": [
+        "resolved-to-fulfilled-compatibility-spelling"
+      ]
+    },
+    {
+      "id": "snapshot.package.sha1.e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/promisealttwo",
+      "identity_kind": "git-tree-sha1",
+      "identity": "e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "adaptations": [
+        "resolved-to-fulfilled-compatibility-spelling"
+      ]
+    },
+    {
+      "id": "snapshot.package.sha1.fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": "eventloop/internal/promisealtfour",
+      "identity_kind": "git-tree-sha1",
+      "identity": "fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "adaptations": [
+        "resolved-to-fulfilled-compatibility-spelling"
+      ]
+    },
+    {
+      "id": "snapshot.repository.sha1.0547823694710f9729fa03f2c65c1f35143e07d7",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.7664099be65ca908fbcc4501ec1681b75490b7c7",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "0547823694710f9729fa03f2c65c1f35143e07d7",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.1201de4256093874571b11d6c0a6e660b0458923",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.05fe1eaac3bc6708c99c1aa96d0bf009e13ae231",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "1201de4256093874571b11d6c0a6e660b0458923",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.1c2bd2252053d019b3efdc84fde7467d1d22a0d6",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.802436f7fa69ff99842a58f5583d24b75c4b753e",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "1c2bd2252053d019b3efdc84fde7467d1d22a0d6",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.1fae99ac360b3f789cd5d09a8431aa585276af83",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.bb2c0982aaefc7462fdab092a7cd4a63ba61b433",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "1fae99ac360b3f789cd5d09a8431aa585276af83",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.26836bce0d21a1df2533ffacd31af4bd78e376bb",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.9b77ad1d20f093759da7e0ff4a85fa50b5cf6f15",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "26836bce0d21a1df2533ffacd31af4bd78e376bb",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.2c491b68403a7090cdf8d73ae21b4063b34e8d72",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.e51dedd75efb24cee0a7f0d1e209196db223f111",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "2c491b68403a7090cdf8d73ae21b4063b34e8d72",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.32858e3a645f413bffcb0119b0ee47e79585f2dd",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.4d857975e679ca147a16b96d7ed63d93e2e33989",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "32858e3a645f413bffcb0119b0ee47e79585f2dd",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.39ba91cab378e9902a48effbaea729d383028e43",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.a43a861a882871c72f7577e6352f342cc374c9fe",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "39ba91cab378e9902a48effbaea729d383028e43",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.3af31f0bdc3dc8356428114a0701d7140720a10b",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.7b63d41b627eba2e338c578f8aacd3101635ef79",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "3af31f0bdc3dc8356428114a0701d7140720a10b",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.3cb6b5477853ca931eda96bcecac5d8af4d0c036",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.986e2378c1484aa917a1bb0fd13aef914bdce50f",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "3cb6b5477853ca931eda96bcecac5d8af4d0c036",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.3cc86fecd730de644ffea1c31d0097c7b64eed4f",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.cd6a53322588420c9e2b5e19e5791b7b0696117f",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "3cc86fecd730de644ffea1c31d0097c7b64eed4f",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.47c24581eae3434df6bc4773ede2461326b7d8b9",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.f97b5f73b6b4d94933028d4b5bd0f5a96d71a49f",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "47c24581eae3434df6bc4773ede2461326b7d8b9",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.fa68be1139e0fac25349b3e7644ffd73a22d6616",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.6a7564954f23eeeca5a3d13279f581fcc49b8482",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.a2888f65cf005815c4052a90889a5d742ae35006",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "6a7564954f23eeeca5a3d13279f581fcc49b8482",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.7328ba8bdf18a3262a61761a2c13265e791659f4",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.3249ec949f50e3743b34cdaf831728ec86e8796b",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "7328ba8bdf18a3262a61761a2c13265e791659f4",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.7d387838addad98726792c47e30d4e3b7f824e88",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.81caf61f96167e7b7f5ecf497af9110890ff6e03",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "7d387838addad98726792c47e30d4e3b7f824e88",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.7d99eec56bf840cb4b832c29d1072b355a707910",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.60f89427c8b36ecb2b1c495309ac91187c26fd06",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "7d99eec56bf840cb4b832c29d1072b355a707910",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.8fa52148ad078ea7d90f32fcfbab8118ae3d40a7",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.bb053ccc43a06856dd2a48fa9ca3b97d1bcfd444",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "8fa52148ad078ea7d90f32fcfbab8118ae3d40a7",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.93f2b311557b83249ca59b5f9646f9a2677a3944",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.819ee003aa8ff73d51e5a43dd35169db784f3111",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "93f2b311557b83249ca59b5f9646f9a2677a3944",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.955e4f445c5d7be00f40e660f24535885e6055b1",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.0def02e2ff987be01a38d237a5d84dae256a85ac",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "955e4f445c5d7be00f40e660f24535885e6055b1",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.aa927814894917928cf3d466cc4ac8d3b1a42612",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.27b93ec32938ca838e1519bc8e17b6852d7df449",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "aa927814894917928cf3d466cc4ac8d3b1a42612",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.c0ffe240836047a721fa1b585330a06c305e33aa",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.3029f45686c4f439020cb70888aa3eb6bdd49adf",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "c0ffe240836047a721fa1b585330a06c305e33aa",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.c28e4b2a8cc0acf2f7795f3c82666273ec5dd6ec",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.f7ef4c86843e1790bf0528975ab2c92ba3351702",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "c28e4b2a8cc0acf2f7795f3c82666273ec5dd6ec",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.0bc4ad0ae702ce2205615c31dcf37992d67ff9c8",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.d99b0f6d5e3b59fe4820ad629accc950e8366b69",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.778cd5e2f4bfccb264592a81e88cc6b4676bc41d",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "d99b0f6d5e3b59fe4820ad629accc950e8366b69",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.db7241c3ae79cb83af26ec0e6ccd8caa068c984c",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.363c38616f1643b9d06ee602cdcb505ea099ed3c",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "db7241c3ae79cb83af26ec0e6ccd8caa068c984c",
+      "adaptations": []
+    },
+    {
+      "id": "snapshot.repository.sha1.ddb4780270dbf160c9d7f2d4ebd5ce650e57e13a",
+      "source_kind": "source-occurrence",
+      "source_id": "source.commit.sha1.cbd2d87785f42735e46cde226fb425926462583d",
+      "source_path": ".",
+      "identity_kind": "git-tree-sha1",
+      "identity": "ddb4780270dbf160c9d7f2d4ebd5ce650e57e13a",
+      "adaptations": []
+    }
+  ],
+  "implementations": [
+    {
+      "id": "future.basic.channel-fanout",
+      "kind": "future",
+      "name": "Basic channel-fanout Future",
+      "introduction_id": "introduction.future.basic.channel-fanout"
+    },
+    {
+      "id": "goja.promise-job.exit-gated-closure",
+      "kind": "goja-promise-job",
+      "name": "Error-observed exit-gated per-job closure",
+      "introduction_id": "introduction.goja.promise-job.exit-gated-closure"
+    },
+    {
+      "id": "goja.promise-job.native-internal-queue",
+      "kind": "goja-promise-job",
+      "name": "Goja native internal Promise job queue",
+      "introduction_id": "introduction.goja.promise-job.native-internal-queue"
+    },
+    {
+      "id": "goja.promise-job.observed-ungated-closure",
+      "kind": "goja-promise-job",
+      "name": "Error-observed ungated per-job closure",
+      "introduction_id": "introduction.goja.promise-job.observed-ungated-closure"
+    },
+    {
+      "id": "goja.promise-job.unobserved-per-job-closure",
+      "kind": "goja-promise-job",
+      "name": "Error-unobserved per-job microtask closure",
+      "introduction_id": "introduction.goja.promise-job.unobserved-per-job-closure"
+    },
+    {
+      "id": "promise.alt-five.original-chained",
+      "kind": "promise",
+      "name": "Original chained Promise snapshot",
+      "introduction_id": "introduction.promise.alt-five.original-chained"
+    },
+    {
+      "id": "promise.alt-four.main-snapshot",
+      "kind": "promise",
+      "name": "Main Promise snapshot",
+      "introduction_id": "introduction.promise.alt-four.main-snapshot"
+    },
+    {
+      "id": "promise.alt-one.embedded-first-handler",
+      "kind": "promise",
+      "name": "Embedded first-handler Promise",
+      "introduction_id": "introduction.promise.alt-one.embedded-first-handler"
+    },
+    {
+      "id": "promise.alt-three.pooled-treiber",
+      "kind": "promise",
+      "name": "Pooled Treiber-stack Promise",
+      "introduction_id": "introduction.promise.alt-three.pooled-treiber"
+    },
+    {
+      "id": "promise.alt-two.treiber",
+      "kind": "promise",
+      "name": "Treiber-stack Promise",
+      "introduction_id": "introduction.promise.alt-two.treiber"
+    },
+    {
+      "id": "promise.main.chained",
+      "kind": "promise",
+      "name": "Current chained Promise family",
+      "introduction_id": "introduction.promise.main.chained"
+    },
+    {
+      "id": "scheduler.alternate-one.max-safety",
+      "kind": "scheduler",
+      "name": "Maximum-safety scheduler",
+      "introduction_id": "introduction.scheduler.alternate-one.max-safety"
+    },
+    {
+      "id": "scheduler.alternate-three.original-main",
+      "kind": "scheduler",
+      "name": "Original Main scheduler snapshot",
+      "introduction_id": "introduction.scheduler.alternate-three.original-main"
+    },
+    {
+      "id": "scheduler.alternate-two.max-performance",
+      "kind": "scheduler",
+      "name": "Maximum-performance scheduler",
+      "introduction_id": "introduction.scheduler.alternate-two.max-performance"
+    },
+    {
+      "id": "scheduler.e001.disposable-branch",
+      "kind": "scheduler",
+      "name": "Disposable E001 branch scheduler",
+      "introduction_id": "introduction.scheduler.e001.disposable-branch"
+    },
+    {
+      "id": "scheduler.goja-nodejs.baseline",
+      "kind": "scheduler",
+      "name": "Goja Node.js baseline scheduler",
+      "introduction_id": "introduction.scheduler.goja-nodejs.baseline"
+    },
+    {
+      "id": "scheduler.libuv.native",
+      "kind": "external",
+      "name": "Native libuv scheduler baseline",
+      "introduction_id": "introduction.scheduler.libuv.native"
+    },
+    {
+      "id": "scheduler.main",
+      "kind": "scheduler",
+      "name": "Main event loop scheduler",
+      "introduction_id": "introduction.scheduler.main"
+    },
+    {
+      "id": "scheduler.topology.command-ingress-owner-local",
+      "kind": "scheduler",
+      "name": "Command-ingress owner-local scheduler topology",
+      "introduction_id": "introduction.scheduler.topology.command-ingress-owner-local"
+    },
+    {
+      "id": "scheduler.topology.node-phase-owner",
+      "kind": "scheduler",
+      "name": "Node phase-owner scheduler topology",
+      "introduction_id": "introduction.scheduler.topology.node-phase-owner"
+    },
+    {
+      "id": "scheduler.topology.ring-terminal-linearized",
+      "kind": "scheduler",
+      "name": "Ring-ingress terminal-linearized scheduler topology",
+      "introduction_id": "introduction.scheduler.topology.ring-terminal-linearized"
+    },
+    {
+      "id": "wake.fd-polling-capability",
+      "kind": "wake",
+      "name": "FD-polling capability wake policy",
+      "introduction_id": "introduction.wake.fd-polling-capability"
+    },
+    {
+      "id": "wake.linearized-lifecycle",
+      "kind": "wake",
+      "name": "Linearized physical-wake lifecycle",
+      "introduction_id": "introduction.wake.linearized-lifecycle"
+    },
+    {
+      "id": "wake.platform-selected-dedup",
+      "kind": "wake",
+      "name": "Platform-selected physical-wake deduplication",
+      "introduction_id": "introduction.wake.platform-selected-dedup"
+    },
+    {
+      "id": "wake.windows-native",
+      "kind": "wake",
+      "name": "Windows native physical wake",
+      "introduction_id": "introduction.wake.windows-native"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "goja.promise-job.secondary-fifo-drain-one",
+      "name": "Secondary FIFO drain-one Promise-job handover",
+      "source_path": "goja-eventloop/promise_handover_bench_test.go",
+      "source_sha256": "b137054ca86f58856bf29f1b63790690ecf55d6fdb668a6bc290cb23f5434290",
+      "status": "rejected-reconstructible",
+      "disposition": "Rejected because a secondary FIFO is architecturally inconsistent; reconstructible only as a counterfactual and never eligible for an original winner claim."
+    },
+    {
+      "id": "scheduler.alternate-three.fast-path",
+      "name": "AlternateThree with fast path",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_ALTERNATETHREE_LINUX_INVESTIGATION.md",
+      "source_sha256": "1f6ae88a8568069bc6192dceab0d014909e3d722db110c2a85bdeb185dfee6a1",
+      "status": "concept-only",
+      "disposition": "A channel fast-path proposal for the original Main snapshot; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-two-plus.dual-wake",
+      "name": "AlternateTwo-Plus",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "source_sha256": "875389ecfc7d722e0d28c000fb62e20ce0fb1c83805b1eae77c71676036c10d7",
+      "status": "concept-only",
+      "disposition": "A projected lock-free TaskArena scheduler with channel and poller wake modes; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.alternate-two-plus.mini-fast-path",
+      "name": "AlternateTwo-Plus mini fast path",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_ALTERNATETWO_HYBRID.md",
+      "source_sha256": "875389ecfc7d722e0d28c000fb62e20ce0fb1c83805b1eae77c71676036c10d7",
+      "status": "concept-only",
+      "disposition": "A documented interim single-mode fast-path proposal; no Go implementation exists in repository history."
+    },
+    {
+      "id": "scheduler.concept.hierarchical-timer-wheel",
+      "name": "Hierarchical timer wheel",
+      "source_path": "eventloop/docs/tournament/2026-02-03/ARCHITECTURE_REVIEW.md",
+      "source_sha256": "52f417a00fe93e64ef08ae3866871aa3029b049c31cde9ff3c030db038d734a4",
+      "status": "concept-only",
+      "disposition": "Documented architecture proposal with no exact executable implementation."
+    },
+    {
+      "id": "scheduler.concept.multi-loop-work-stealing",
+      "name": "Multi-loop work stealing",
+      "source_path": "eventloop/docs/tournament/2026-02-03/ARCHITECTURE_REVIEW.md",
+      "source_sha256": "52f417a00fe93e64ef08ae3866871aa3029b049c31cde9ff3c030db038d734a4",
+      "status": "concept-only",
+      "disposition": "Documented architecture proposal with no exact executable implementation."
+    },
+    {
+      "id": "scheduler.concept.slot-fd-allocator",
+      "name": "Slot-based file-descriptor allocator",
+      "source_path": "eventloop/docs/tournament/2026-02-03/ARCHITECTURE_REVIEW.md",
+      "source_sha256": "52f417a00fe93e64ef08ae3866871aa3029b049c31cde9ff3c030db038d734a4",
+      "status": "concept-only",
+      "disposition": "Documented architecture proposal with no exact executable implementation."
+    },
+    {
+      "id": "scheduler.concept.t-digest-percentiles",
+      "name": "T-digest percentile estimator",
+      "source_path": "eventloop/docs/tournament/2026-02-03/ARCHITECTURE_REVIEW.md",
+      "source_sha256": "52f417a00fe93e64ef08ae3866871aa3029b049c31cde9ff3c030db038d734a4",
+      "status": "concept-only",
+      "disposition": "Documented architecture proposal with no exact executable implementation."
+    },
+    {
+      "id": "scheduler.concept.timer-priority-tiers",
+      "name": "Timer priority tiers",
+      "source_path": "eventloop/docs/tournament/2026-02-03/ARCHITECTURE_REVIEW.md",
+      "source_sha256": "52f417a00fe93e64ef08ae3866871aa3029b049c31cde9ff3c030db038d734a4",
+      "status": "concept-only",
+      "disposition": "Documented architecture proposal with no exact executable implementation."
+    },
+    {
+      "id": "scheduler.main.chunked-ingress.optimized",
+      "name": "Optimized Main without TaskArena",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "source_sha256": "7eb86674903c00ea069d8a9103170979d9e56076149e1312489efaaf51027728",
+      "status": "concept-only",
+      "disposition": "The documented bundle has no distinct Go implementation and the referenced chunked-ingress topology was later removed."
+    },
+    {
+      "id": "scheduler.main.task-arena.conservative",
+      "name": "Main with optional TaskArena",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "source_sha256": "7eb86674903c00ea069d8a9103170979d9e56076149e1312489efaaf51027728",
+      "status": "concept-only",
+      "disposition": "The documented conservative optional-TaskArena proposal was not implemented."
+    },
+    {
+      "id": "scheduler.main.task-arena.hybrid",
+      "name": "Main with hybrid TaskArena fallback",
+      "source_path": "eventloop/docs/tournament/2026-01-18/ANALYSIS_GC_PRESSURE_INVESTIGATION.md",
+      "source_sha256": "7eb86674903c00ea069d8a9103170979d9e56076149e1312489efaaf51027728",
+      "status": "concept-only",
+      "disposition": "The documented bounded-arena plus chunk-fallback proposal was not implemented."
+    }
+  ],
+  "raw_roots": [
+    {
+      "id": "raw-root.goja.try-extract-wrapped-promise",
+      "module_id": "goja-eventloop",
+      "package": "github.com/joeycumines/goja-eventloop",
+      "benchmarks": [
+        "BenchmarkTryExtractWrappedPromise"
+      ],
+      "source_path": "goja-eventloop/adapter_promise_check_test.go",
+      "identity_kind": "sha256",
+      "identity": "f599986934deef1e3269d1fe52dee2286855acf8cb04ee781c1ebc6e2ce1f01c",
+      "snapshot_id": "snapshot.repository.sha1.3cb6b5477853ca931eda96bcecac5d8af4d0c036"
+    },
+    {
+      "id": "raw-root.promise.alt-one.all-historical",
+      "module_id": "eventloop",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone",
+      "benchmarks": [
+        "BenchmarkPromiseAltOne_All",
+        "BenchmarkStandardPromise_All"
+      ],
+      "source_path": "eventloop/internal/promisealtone/promise_extra_test.go",
+      "identity_kind": "sha256",
+      "identity": "565b538edb1439b6f2ea2c354bf496cbf01fe233b8c90cd47b73b8e40357c54a",
+      "snapshot_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b"
+    },
+    {
+      "id": "raw-root.promise.alt-one.chain-historical",
+      "module_id": "eventloop",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone",
+      "benchmarks": [
+        "BenchmarkPromiseAltOne_Chain",
+        "BenchmarkStandardPromise_Chain"
+      ],
+      "source_path": "eventloop/internal/promisealtone/promise_test.go",
+      "identity_kind": "sha256",
+      "identity": "07453db4254f1e94d480c486ca0417729a988019245746484be524ad12cbedbd",
+      "snapshot_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b"
+    },
+    {
+      "id": "raw-root.scheduler.alternate-two.lock-free-ingress-push",
+      "module_id": "eventloop",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo",
+      "benchmarks": [
+        "BenchmarkLockFreeIngress_Push"
+      ],
+      "source_path": "eventloop/internal/alternatetwo/loop_test.go",
+      "identity_kind": "sha256",
+      "identity": "7c00ab629795780a72b725c0fcfd1a56c6ff21975e1072e084bd9bc721207e74",
+      "snapshot_id": "snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40"
+    }
+  ],
+  "harnesses": [],
+  "workloads": [],
+  "bindings": [],
+  "aliases": [
+    {
+      "id": "alias.promise.alt-five.resolved-fulfilled",
+      "kind": "compatibility-spelling",
+      "alias_subject_id": "spelling.promise.alt-five.resolved",
+      "canonical_subject_id": "promise.alt-five.original-chained",
+      "reason": "The restored adapter preserves a numerically identical Resolved-to-Fulfilled state spelling change.",
+      "rerun": false
+    },
+    {
+      "id": "alias.promise.alt-four.resolved-fulfilled",
+      "kind": "compatibility-spelling",
+      "alias_subject_id": "spelling.promise.alt-four.resolved",
+      "canonical_subject_id": "promise.alt-four.main-snapshot",
+      "reason": "The restored adapter preserves a numerically identical Resolved-to-Fulfilled state spelling change.",
+      "rerun": false
+    },
+    {
+      "id": "alias.promise.alt-one.resolved-fulfilled",
+      "kind": "compatibility-spelling",
+      "alias_subject_id": "spelling.promise.alt-one.resolved",
+      "canonical_subject_id": "promise.alt-one.embedded-first-handler",
+      "reason": "The restored adapter preserves a numerically identical Resolved-to-Fulfilled state spelling change.",
+      "rerun": false
+    },
+    {
+      "id": "alias.promise.alt-three.resolved-fulfilled",
+      "kind": "compatibility-spelling",
+      "alias_subject_id": "spelling.promise.alt-three.resolved",
+      "canonical_subject_id": "promise.alt-three.pooled-treiber",
+      "reason": "The restored adapter preserves a numerically identical Resolved-to-Fulfilled state spelling change.",
+      "rerun": false
+    },
+    {
+      "id": "alias.promise.alt-two.resolved-fulfilled",
+      "kind": "compatibility-spelling",
+      "alias_subject_id": "spelling.promise.alt-two.resolved",
+      "canonical_subject_id": "promise.alt-two.treiber",
+      "reason": "The restored adapter preserves a numerically identical Resolved-to-Fulfilled state spelling change.",
+      "rerun": false
+    },
+    {
+      "id": "alias.source.1396868d.0bc4ad0a",
+      "kind": "exact-source",
+      "alias_subject_id": "stash.commit.sha1.1396868d29689c659ff7782760e89423aa478cf4",
+      "canonical_subject_id": "snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "reason": "The stash commit has the exact governed root and component identities of the canonical snapshot.",
+      "rerun": false
+    },
+    {
+      "id": "alias.source.53e2f662.0bc4ad0a",
+      "kind": "exact-source",
+      "alias_subject_id": "source.commit.sha1.53e2f662adc245c9b63e06bb64977b0751dcff82",
+      "canonical_subject_id": "snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "reason": "The source occurrence has the exact governed root and component identities of the canonical snapshot.",
+      "rerun": false
+    },
+    {
+      "id": "alias.source.5f691abe.fa68be11",
+      "kind": "exact-source",
+      "alias_subject_id": "source.commit.sha1.5f691abe5d4557c13eb7c16d42f60f203df24336",
+      "canonical_subject_id": "snapshot.repository.sha1.5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "reason": "The source occurrence has the exact governed root and component identities of the canonical snapshot.",
+      "rerun": false
+    },
+    {
+      "id": "alias.source.f97fc084.0def02e2",
+      "kind": "exact-source",
+      "alias_subject_id": "source.commit.sha1.f97fc084bb6a796dac41461a01f059a5845fbe47",
+      "canonical_subject_id": "snapshot.repository.sha1.955e4f445c5d7be00f40e660f24535885e6055b1",
+      "reason": "The source occurrence has the exact governed root and component identities of the canonical snapshot.",
+      "rerun": false
+    }
+  ],
+  "reconstructions": [],
+  "dispositions": [
+    {
+      "id": "disposition.concept.goja.secondary-fifo",
+      "subject_kind": "concept",
+      "subject_id": "goja.promise-job.secondary-fifo-drain-one",
+      "snapshot_id": "none",
+      "platform": "all",
+      "build_status": "not-applicable",
+      "correctness_status": "not-applicable",
+      "comparability_status": "reconstructible-only",
+      "evidence_status": "evidence-complete",
+      "reason": "Only a rejected, reconstructible concept exists; no exact output bytes exist and original winner claims are forbidden."
+    },
+    {
+      "id": "disposition.raw-root.goja.try-extract-wrapped-promise",
+      "subject_kind": "raw-root",
+      "subject_id": "raw-root.goja.try-extract-wrapped-promise",
+      "snapshot_id": "none",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-invalid",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "The harness leaks an unstarted loop and poller and discards extraction correctness; it is invalid until repaired under a new harness identity."
+    },
+    {
+      "id": "disposition.raw-root.promise.alt-one.all-historical",
+      "subject_kind": "raw-root",
+      "subject_id": "raw-root.promise.alt-one.all-historical",
+      "snapshot_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "The historical All harness rebuilt or reused inputs asymmetrically and is retained only as a noncomparable diagnostic."
+    },
+    {
+      "id": "disposition.raw-root.promise.alt-one.chain-historical",
+      "subject_kind": "raw-root",
+      "subject_id": "raw-root.promise.alt-one.chain-historical",
+      "snapshot_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-invalid",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "The historical Chain harness did not run the event loop and is retained only as a noncomparable diagnostic."
+    },
+    {
+      "id": "disposition.raw-root.scheduler.alternate-two.push",
+      "subject_kind": "raw-root",
+      "subject_id": "raw-root.scheduler.alternate-two.lock-free-ingress-push",
+      "snapshot_id": "snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "The benchmark retains b.N nodes, so queue growth is nonstationary; its bytes remain diagnostic and cannot receive canonical comparison credit."
+    },
+    {
+      "id": "disposition.snapshot.file.sha256.18a4e6f6cbab7d80ff33a1d9c290ca9854e140caef150f0e1e2dba0c0f506cbc",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.file.sha256.18a4e6f6cbab7d80ff33a1d9c290ca9854e140caef150f0e1e2dba0c0f506cbc",
+      "snapshot_id": "snapshot.file.sha256.18a4e6f6cbab7d80ff33a1d9c290ca9854e140caef150f0e1e2dba0c0f506cbc",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.16618a665a99a47a678630cb94381a9db47745f4",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.16618a665a99a47a678630cb94381a9db47745f4",
+      "snapshot_id": "snapshot.package.sha1.16618a665a99a47a678630cb94381a9db47745f4",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.735bd94545f70aede5d543f4a89dea314ba2e655",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.735bd94545f70aede5d543f4a89dea314ba2e655",
+      "snapshot_id": "snapshot.package.sha1.735bd94545f70aede5d543f4a89dea314ba2e655",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "snapshot_id": "snapshot.package.sha1.a5c1c9e9efd8ec2fd4f7ce92ca8808a7b3fc8a40",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "snapshot_id": "snapshot.package.sha1.bcb06de927695c6a51ed416d0abdfe67753984f1",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "snapshot_id": "snapshot.package.sha1.c6870653742d65e6b19a4c5d53713577c8c7be53",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "snapshot_id": "snapshot.package.sha1.c7ba8255af6135c491e51020f4ea49c9498beb14",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "snapshot_id": "snapshot.package.sha1.d21aa3b30d6bb98d0c217b12a69916e3bbcbd45b",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "snapshot_id": "snapshot.package.sha1.e4d94e7fe925fcbdef676f60a291736921b678b3",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.package.sha1.fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.package.sha1.fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "snapshot_id": "snapshot.package.sha1.fd0ff142948d28aac4c9f5dc9248ba1314fc5ba6",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Exact historical bytes are retained; independent build, correctness, and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.0547823694710f9729fa03f2c65c1f35143e07d7",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.0547823694710f9729fa03f2c65c1f35143e07d7",
+      "snapshot_id": "snapshot.repository.sha1.0547823694710f9729fa03f2c65c1f35143e07d7",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Timeout lifecycle product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.1201de4256093874571b11d6c0a6e660b0458923",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.1201de4256093874571b11d6c0a6e660b0458923",
+      "snapshot_id": "snapshot.repository.sha1.1201de4256093874571b11d6c0a6e660b0458923",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Promise rejection FIFO publication snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.1c2bd2252053d019b3efdc84fde7467d1d22a0d6",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.1c2bd2252053d019b3efdc84fde7467d1d22a0d6",
+      "snapshot_id": "snapshot.repository.sha1.1c2bd2252053d019b3efdc84fde7467d1d22a0d6",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Ring topology with terminal-admission linearization; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.1fae99ac360b3f789cd5d09a8431aa585276af83",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.1fae99ac360b3f789cd5d09a8431aa585276af83",
+      "snapshot_id": "snapshot.repository.sha1.1fae99ac360b3f789cd5d09a8431aa585276af83",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Promise reaction FIFO publication snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.26836bce0d21a1df2533ffacd31af4bd78e376bb",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.26836bce0d21a1df2533ffacd31af4bd78e376bb",
+      "snapshot_id": "snapshot.repository.sha1.26836bce0d21a1df2533ffacd31af4bd78e376bb",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Timer deadline refresh product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.2c491b68403a7090cdf8d73ae21b4063b34e8d72",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.2c491b68403a7090cdf8d73ae21b4063b34e8d72",
+      "snapshot_id": "snapshot.repository.sha1.2c491b68403a7090cdf8d73ae21b4063b34e8d72",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Error-unobserved closure and pre-FIFO Promise publication snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.32858e3a645f413bffcb0119b0ee47e79585f2dd",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.32858e3a645f413bffcb0119b0ee47e79585f2dd",
+      "snapshot_id": "snapshot.repository.sha1.32858e3a645f413bffcb0119b0ee47e79585f2dd",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Interval reference lifecycle product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.39ba91cab378e9902a48effbaea729d383028e43",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.39ba91cab378e9902a48effbaea729d383028e43",
+      "snapshot_id": "snapshot.repository.sha1.39ba91cab378e9902a48effbaea729d383028e43",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Error-unobserved per-job closure revision; independent correctness and comparison qualification remain pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.3af31f0bdc3dc8356428114a0701d7140720a10b",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.3af31f0bdc3dc8356428114a0701d7140720a10b",
+      "snapshot_id": "snapshot.repository.sha1.3af31f0bdc3dc8356428114a0701d7140720a10b",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-invalid",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Native Goja Promise jobs use the internal queue and are correctness-invalid for event-loop handover."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.3cb6b5477853ca931eda96bcecac5d8af4d0c036",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.3cb6b5477853ca931eda96bcecac5d8af4d0c036",
+      "snapshot_id": "snapshot.repository.sha1.3cb6b5477853ca931eda96bcecac5d8af4d0c036",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Unix poller-hardened product snapshot and restored package source; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.3cc86fecd730de644ffea1c31d0097c7b64eed4f",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.3cc86fecd730de644ffea1c31d0097c7b64eed4f",
+      "snapshot_id": "snapshot.repository.sha1.3cc86fecd730de644ffea1c31d0097c7b64eed4f",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Detached-phase liveness product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.47c24581eae3434df6bc4773ede2461326b7d8b9",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.47c24581eae3434df6bc4773ede2461326b7d8b9",
+      "snapshot_id": "snapshot.repository.sha1.47c24581eae3434df6bc4773ede2461326b7d8b9",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "EINTR preservation product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "snapshot_id": "snapshot.repository.sha1.5ed66e7c28709affe707eb87a71e190e6822a2ef",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Linearized physical-wake lifecycle snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.6a7564954f23eeeca5a3d13279f581fcc49b8482",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.6a7564954f23eeeca5a3d13279f581fcc49b8482",
+      "snapshot_id": "snapshot.repository.sha1.6a7564954f23eeeca5a3d13279f581fcc49b8482",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Promisify waiting product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.7328ba8bdf18a3262a61761a2c13265e791659f4",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.7328ba8bdf18a3262a61761a2c13265e791659f4",
+      "snapshot_id": "snapshot.repository.sha1.7328ba8bdf18a3262a61761a2c13265e791659f4",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Archived early settlement and adoption tree-patch snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.7d387838addad98726792c47e30d4e3b7f824e88",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.7d387838addad98726792c47e30d4e3b7f824e88",
+      "snapshot_id": "snapshot.repository.sha1.7d387838addad98726792c47e30d4e3b7f824e88",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Windows native-wake snapshot; Windows host qualification is unavailable."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.7d99eec56bf840cb4b832c29d1072b355a707910",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.7d99eec56bf840cb4b832c29d1072b355a707910",
+      "snapshot_id": "snapshot.repository.sha1.7d99eec56bf840cb4b832c29d1072b355a707910",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Platform-selected physical-wake deduplication snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.8fa52148ad078ea7d90f32fcfbab8118ae3d40a7",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.8fa52148ad078ea7d90f32fcfbab8118ae3d40a7",
+      "snapshot_id": "snapshot.repository.sha1.8fa52148ad078ea7d90f32fcfbab8118ae3d40a7",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Immediate Close gating product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.93f2b311557b83249ca59b5f9646f9a2677a3944",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.93f2b311557b83249ca59b5f9646f9a2677a3944",
+      "snapshot_id": "snapshot.repository.sha1.93f2b311557b83249ca59b5f9646f9a2677a3944",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "FD-polling capability wake snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.955e4f445c5d7be00f40e660f24535885e6055b1",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.955e4f445c5d7be00f40e660f24535885e6055b1",
+      "snapshot_id": "snapshot.repository.sha1.955e4f445c5d7be00f40e660f24535885e6055b1",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Error-observed ungated and exit-gated closure introduction; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.aa927814894917928cf3d466cc4ac8d3b1a42612",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.aa927814894917928cf3d466cc4ac8d3b1a42612",
+      "snapshot_id": "snapshot.repository.sha1.aa927814894917928cf3d466cc4ac8d3b1a42612",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Command ingress and owner-local queue tournament snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.c0ffe240836047a721fa1b585330a06c305e33aa",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.c0ffe240836047a721fa1b585330a06c305e33aa",
+      "snapshot_id": "snapshot.repository.sha1.c0ffe240836047a721fa1b585330a06c305e33aa",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Completed adoption and publication snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.c28e4b2a8cc0acf2f7795f3c82666273ec5dd6ec",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.c28e4b2a8cc0acf2f7795f3c82666273ec5dd6ec",
+      "snapshot_id": "snapshot.repository.sha1.c28e4b2a8cc0acf2f7795f3c82666273ec5dd6ec",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "noncomparable",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Disposable E001 branch-only snapshot; it is non-product and not comparable to an original winner."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "snapshot_id": "snapshot.repository.sha1.c340b184f83c231eea7a57b8ada87e31ebf64aaa",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Node phase ownership and exit-gated handover snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.d99b0f6d5e3b59fe4820ad629accc950e8366b69",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.d99b0f6d5e3b59fe4820ad629accc950e8366b69",
+      "snapshot_id": "snapshot.repository.sha1.d99b0f6d5e3b59fe4820ad629accc950e8366b69",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Timer-Promise settlement product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.db7241c3ae79cb83af26ec0e6ccd8caa068c984c",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.db7241c3ae79cb83af26ec0e6ccd8caa068c984c",
+      "snapshot_id": "snapshot.repository.sha1.db7241c3ae79cb83af26ec0e6ccd8caa068c984c",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "unassessed",
+      "evidence_status": "evidence-incomplete",
+      "reason": "Graceful completion product snapshot; independent qualification remains pending."
+    },
+    {
+      "id": "disposition.snapshot.repository.sha1.ddb4780270dbf160c9d7f2d4ebd5ce650e57e13a",
+      "subject_kind": "snapshot",
+      "subject_id": "snapshot.repository.sha1.ddb4780270dbf160c9d7f2d4ebd5ce650e57e13a",
+      "snapshot_id": "snapshot.repository.sha1.ddb4780270dbf160c9d7f2d4ebd5ce650e57e13a",
+      "platform": "all",
+      "build_status": "build-unassessed",
+      "correctness_status": "correctness-unassessed",
+      "comparability_status": "noncomparable",
+      "evidence_status": "provenance-incomplete",
+      "reason": "First error-unobserved per-job closure; the required sibling Goja checkout is missing, so provenance is incomplete."
+    }
+  ]
+}

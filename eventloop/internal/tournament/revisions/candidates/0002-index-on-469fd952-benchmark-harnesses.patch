@@ -1,0 +1,851 @@
+diff --git a/eventloop/eventtargetbenchmark_test.go b/eventloop/eventtargetbenchmark_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..559a868ec9a726e7f4e0fb144053a0d92180f64a
+--- /dev/null
++++ b/eventloop/eventtargetbenchmark_test.go
+@@ -0,0 +1,131 @@
++package eventloop
++
++import (
++	"strconv"
++	"testing"
++)
++
++func BenchmarkEventTargetDispatchReusedEvent(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {})
++	event := NewEvent("event")
++	if !target.DispatchEvent(event) {
++		b.Fatal("warmup dispatch was canceled")
++	}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		if !target.DispatchEvent(event) {
++			b.Fatal("dispatch was canceled")
++		}
++	}
++}
++
++func BenchmarkEventTargetDispatchFreshEvent(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {})
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		if !target.DispatchEvent(NewEvent("event")) {
++			b.Fatal("dispatch was canceled")
++		}
++	}
++}
++
++func BenchmarkEventTargetDispatchEmptyReusedEvent(b *testing.B) {
++	target := NewEventTarget()
++	event := NewEvent("event")
++	if !target.DispatchEvent(event) {
++		b.Fatal("warmup dispatch was canceled")
++	}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		if !target.DispatchEvent(event) {
++			b.Fatal("dispatch was canceled")
++		}
++	}
++}
++
++func BenchmarkEventTargetDispatchParallelDistinctEvents(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(*Event) {})
++	b.ReportAllocs()
++	b.RunParallel(func(parallel *testing.PB) {
++		event := NewEvent("event")
++		for parallel.Next() {
++			if !target.DispatchEvent(event) {
++				panic("eventloop: benchmark dispatch was canceled")
++			}
++		}
++	})
++}
++
++func BenchmarkEventTargetDispatchParallelDistinctEventsControl(b *testing.B) {
++	target := NewEventTarget()
++	target.AddEventListener("event", func(event *Event) {
++		event.PreventDefault()
++		event.StopImmediatePropagation()
++		if !event.PropagationStopped() || !event.ImmediatePropagationStopped() {
++			panic("eventloop: benchmark control state was not observable")
++		}
++	})
++	b.ReportAllocs()
++	b.RunParallel(func(parallel *testing.PB) {
++		event := &Event{Type: "event", Cancelable: true}
++		for parallel.Next() {
++			if target.DispatchEvent(event) {
++				panic("eventloop: benchmark cancelable dispatch was not canceled")
++			}
++		}
++	})
++}
++
++var benchmarkEventTargetSink *EventTarget
++
++var benchmarkEventTargetTypes = [...]string{
++	"live-0",
++	"live-1",
++	"live-2",
++	"live-3",
++	"live-4",
++	"live-5",
++	"live-6",
++}
++
++func BenchmarkEventTargetListenerRegistrationWithLiveSet(b *testing.B) {
++	for _, liveCount := range []int{0, 100, 1000, 10000} {
++		b.Run(strconv.Itoa(liveCount), func(b *testing.B) {
++			target := NewEventTarget()
++			for i := range liveCount {
++				target.AddEventListener(benchmarkEventTargetTypes[i%len(benchmarkEventTargetTypes)], func(*Event) {})
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for b.Loop() {
++				id := target.AddEventListener("temporary", func(*Event) {})
++				if !target.RemoveEventListenerByID("temporary", id) {
++					b.Fatal("failed to remove temporary listener")
++				}
++			}
++			benchmarkEventTargetSink = target
++		})
++	}
++}
++
++func BenchmarkEventTargetListenerConstruction(b *testing.B) {
++	for _, listenerCount := range []int{100, 1000, 5000, 10000} {
++		b.Run(strconv.Itoa(listenerCount), func(b *testing.B) {
++			b.ReportAllocs()
++			b.ReportMetric(float64(listenerCount), "listeners/op")
++			for b.Loop() {
++				target := NewEventTarget()
++				for i := range listenerCount {
++					target.AddEventListener(benchmarkEventTargetTypes[i%len(benchmarkEventTargetTypes)], func(*Event) {})
++				}
++				benchmarkEventTargetSink = target
++			}
++		})
++	}
++}
+diff --git a/eventloop/fd_bench_unix_test.go b/eventloop/fd_bench_unix_test.go
+index a3d01ce682544690d7d8d69378f0611d03d3400c..198b0104ea9600cd8d3f4cb9d89c60b99bcf31c0 100644
+--- a/eventloop/fd_bench_unix_test.go
++++ b/eventloop/fd_bench_unix_test.go
+@@ -3,7 +3,6 @@
+ package eventloop
+ 
+ import (
+-	"context"
+ 	"fmt"
+ 	"os"
+ 	"testing"
+@@ -14,35 +13,32 @@ import (
+ 
+ func startFDBenchmarkLoop(b *testing.B) (*Loop, func()) {
+ 	b.Helper()
+-	loop, err := New(WithFastPathMode(FastPathDisabled))
+-	if err != nil {
+-		b.Fatalf("New: %v", err)
++	return startBenchmarkLoop(b, WithFastPathMode(FastPathDisabled))
++}
++
++func TestFastPollerPollIOAllocations(t *testing.T) {
++	var poller fastPoller
++	if err := poller.Init(); err != nil {
++		t.Fatal(err)
+ 	}
+-	runDone := make(chan error, 1)
+-	go func() { runDone <- loop.Run(context.Background()) }()
+-	ready := make(chan struct{})
+-	if err := loop.Submit(func() { close(ready) }); err != nil {
+-		b.Fatalf("warmup Submit: %v", err)
++	t.Cleanup(func() {
++		if err := poller.Close(); err != nil {
++			t.Errorf("Close: %v", err)
++		}
++	})
++	if _, err := poller.PollIO(0); err != nil {
++		t.Fatalf("warm PollIO: %v", err)
+ 	}
+-	select {
+-	case <-ready:
+-	case <-time.After(5 * time.Second):
+-		b.Fatal("loop warmup timed out")
++
++	var pollErr error
++	allocs := testing.AllocsPerRun(1000, func() {
++		_, pollErr = poller.PollIO(0)
++	})
++	if pollErr != nil {
++		t.Fatalf("PollIO: %v", pollErr)
+ 	}
+-	return loop, func() {
+-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+-		defer cancel()
+-		if err := loop.Shutdown(ctx); err != nil {
+-			b.Fatalf("Shutdown: %v", err)
+-		}
+-		select {
+-		case err := <-runDone:
+-			if err != nil {
+-				b.Fatalf("Run: %v", err)
+-			}
+-		case <-time.After(5 * time.Second):
+-			b.Fatal("Run did not return")
+-		}
++	if allocs != 0 {
++		t.Fatalf("PollIO allocations = %f, want 0", allocs)
+ 	}
+ }
+ 
+@@ -76,8 +72,8 @@ func BenchmarkFDReadinessDispatchSingle(b *testing.B) {
+ 	}); err != nil {
+ 		b.Fatalf("RegisterFD: %v", err)
+ 	}
+-	watchdog := time.AfterFunc(30*time.Second, func() { panic("BenchmarkFDReadinessDispatchSingle timed out") })
+-	defer watchdog.Stop()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
+ 
+ 	b.ReportAllocs()
+ 	b.ResetTimer()
+@@ -85,8 +81,13 @@ func BenchmarkFDReadinessDispatchSingle(b *testing.B) {
+ 		if _, err := w.Write([]byte{1}); err != nil {
+ 			b.Fatalf("write pipe: %v", err)
+ 		}
+-		if err := <-events; err != nil {
+-			b.Fatalf("FD readiness callback: %v", err)
++		select {
++		case err := <-events:
++			if err != nil {
++				b.Fatalf("FD readiness callback: %v", err)
++			}
++		case <-deadline.C:
++			b.Fatal("timed out waiting for single-FD readiness callback")
+ 		}
+ 	}
+ 	b.StopTimer()
+@@ -182,8 +183,8 @@ func BenchmarkFDReadinessDispatchHighCount(b *testing.B) {
+ 		}
+ 		pipes[i].registered = true
+ 	}
+-	watchdog := time.AfterFunc(30*time.Second, func() { panic("BenchmarkFDReadinessDispatchHighCount timed out") })
+-	defer watchdog.Stop()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
+ 	seen := make([]uint64, fdCount)
+ 	epoch := uint64(1)
+ 
+@@ -197,7 +198,12 @@ func BenchmarkFDReadinessDispatchHighCount(b *testing.B) {
+ 			}
+ 		}
+ 		for range fdCount {
+-			event := <-events
++			var event fdEvent
++			select {
++			case event = <-events:
++			case <-deadline.C:
++				b.Fatal("timed out waiting for high-count FD readiness callbacks")
++			}
+ 			if event.err != nil {
+ 				b.Fatalf("FD readiness callback: %v", event.err)
+ 			}
+@@ -237,14 +243,23 @@ func BenchmarkSparseFDRegistration(b *testing.B) {
+ 	if err != nil {
+ 		b.Fatalf("New: %v", err)
+ 	}
+-	defer loop.closeFDs()
++	loopClosed := false
++	b.Cleanup(func() {
++		if !loopClosed {
++			if err := loop.Close(); err != nil {
++				b.Errorf("Close: %v", err)
++			}
++		}
++	})
+ 
+ 	var pipeFDs [2]int
+ 	if err := unix.Pipe(pipeFDs[:]); err != nil {
+ 		b.Fatalf("Pipe: %v", err)
+ 	}
++	registerTestFDCleanupT(b, &pipeFDs[0], &pipeFDs[1])
+ 
+ 	highFD := duplicateSparseBenchmarkFD(b, pipeFDs[1])
++	registerTestFDCleanupT(b, &highFD)
+ 
+ 	b.ReportAllocs()
+ 	b.ResetTimer()
+@@ -260,12 +275,19 @@ func BenchmarkSparseFDRegistration(b *testing.B) {
+ 	if err := unix.Close(highFD); err != nil {
+ 		b.Fatalf("Close sparse fd %d: %v", highFD, err)
+ 	}
++	highFD = -1
+ 	if err := unix.Close(pipeFDs[0]); err != nil {
+ 		b.Fatalf("Close pipe read fd %d: %v", pipeFDs[0], err)
+ 	}
++	pipeFDs[0] = -1
+ 	if err := unix.Close(pipeFDs[1]); err != nil {
+ 		b.Fatalf("Close pipe write fd %d: %v", pipeFDs[1], err)
+ 	}
++	pipeFDs[1] = -1
++	if err := loop.Close(); err != nil {
++		b.Fatalf("Close: %v", err)
++	}
++	loopClosed = true
+ }
+ 
+ func duplicateSparseBenchmarkFD(b *testing.B, fd int) int {
+@@ -275,8 +297,9 @@ func duplicateSparseBenchmarkFD(b *testing.B, fd int) int {
+ 		b.Skipf("cannot allocate sparse benchmark fd above dense table: %v", err)
+ 	}
+ 	if dup < maxFDs {
+-		_ = unix.Close(dup)
+-		b.Fatalf("F_DUPFD returned fd %d below dense threshold %d", dup, maxFDs)
++		invalidFD := dup
++		closeTestFDT(b, &dup)
++		b.Fatalf("F_DUPFD returned fd %d below dense threshold %d", invalidFD, maxFDs)
+ 	}
+ 	return dup
+ }
+diff --git a/eventloop/promise_bench_test.go b/eventloop/promise_bench_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d4f5f2a124925740498057c05b0d3f247cf13ee
+--- /dev/null
++++ b/eventloop/promise_bench_test.go
+@@ -0,0 +1,261 @@
++package eventloop
++
++import (
++	"context"
++	"testing"
++	"time"
++)
++
++const promiseBenchmarkTimeout = 30 * time.Minute
++
++var promiseBenchmarkIdentity = func(value any) any { return value }
++
++type promiseBenchmarkToken struct {
++	index int
++}
++
++var (
++	promiseBenchmarkTokens = [...]any{
++		&promiseBenchmarkToken{index: 0},
++		&promiseBenchmarkToken{index: 1},
++		&promiseBenchmarkToken{index: 2},
++		&promiseBenchmarkToken{index: 3},
++	}
++	promiseBenchmarkPromiseSink *ChainedPromise
++	promiseBenchmarkResolveSink ResolveFunc
++	promiseBenchmarkRejectSink  RejectFunc
++)
++
++func promiseBenchmarkPromisify(context.Context) (any, error) {
++	return promiseBenchmarkTokens[0], nil
++}
++
++func receivePromiseBenchmarkResult(b *testing.B, result <-chan any, deadline <-chan time.Time) any {
++	b.Helper()
++
++	var (
++		value any
++		ok    bool
++	)
++	select {
++	case value, ok = <-result:
++	case <-deadline:
++		b.Fatal("timed out waiting for promise result")
++	}
++	if !ok {
++		b.Fatal("promise result channel closed without a value")
++	}
++	select {
++	case _, ok = <-result:
++	case <-deadline:
++		b.Fatal("timed out waiting for promise result channel closure")
++	}
++	if ok {
++		b.Fatal("promise result channel produced more than one value")
++	}
++	return value
++}
++
++func BenchmarkPromiseCreation(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	js := NewJS(loop)
++
++	var (
++		promise *ChainedPromise
++		resolve ResolveFunc
++		reject  RejectFunc
++	)
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promise, resolve, reject = js.NewChainedPromise()
++		if state := promise.State(); state != Pending {
++			b.Fatalf("new promise state = %v, want %v", state, Pending)
++		}
++		if value := promise.Value(); value != nil {
++			b.Fatalf("new promise value = %v, want nil", value)
++		}
++		if reason := promise.Reason(); reason != nil {
++			b.Fatalf("new promise reason = %v, want nil", reason)
++		}
++	}
++	b.StopTimer()
++	promiseBenchmarkPromiseSink = promise
++	promiseBenchmarkResolveSink = resolve
++	promiseBenchmarkRejectSink = reject
++}
++
++func BenchmarkPromiseSettleNoHandler(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	js := NewJS(loop)
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promise, resolve, _ := js.NewChainedPromise()
++		resolve(promiseBenchmarkTokens[0])
++		if state := promise.State(); state != Fulfilled {
++			b.Fatalf("settled promise state = %v, want %v", state, Fulfilled)
++		}
++		if value := promise.Value(); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("settled promise value = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if reason := promise.Reason(); reason != nil {
++			b.Fatalf("settled promise reason = %v, want nil", reason)
++		}
++	}
++}
++
++func BenchmarkPromiseReactionEndToEnd(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	js := NewJS(loop)
++	deadline := time.NewTimer(promiseBenchmarkTimeout)
++	defer deadline.Stop()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promise, resolve, _ := js.NewChainedPromise()
++		child := promise.Then(promiseBenchmarkIdentity, nil)
++		result := child.ToChannel()
++		resolve(promiseBenchmarkTokens[0])
++		if value := receivePromiseBenchmarkResult(b, result, deadline.C); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("reaction result = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if state := child.State(); state != Fulfilled {
++			b.Fatalf("reaction state = %v, want %v", state, Fulfilled)
++		}
++		if value := child.Value(); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("reaction stored value = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if reason := child.Reason(); reason != nil {
++			b.Fatalf("reaction reason = %v, want nil", reason)
++		}
++	}
++}
++
++func BenchmarkPromiseDepthThreeEndToEnd(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	js := NewJS(loop)
++	deadline := time.NewTimer(promiseBenchmarkTimeout)
++	defer deadline.Stop()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promise, resolve, _ := js.NewChainedPromise()
++		child := promise.Then(promiseBenchmarkIdentity, nil).
++			Then(promiseBenchmarkIdentity, nil).
++			Then(promiseBenchmarkIdentity, nil)
++		result := child.ToChannel()
++		resolve(promiseBenchmarkTokens[0])
++		if value := receivePromiseBenchmarkResult(b, result, deadline.C); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("depth-three result = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if state := child.State(); state != Fulfilled {
++			b.Fatalf("depth-three state = %v, want %v", state, Fulfilled)
++		}
++		if value := child.Value(); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("depth-three stored value = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if reason := child.Reason(); reason != nil {
++			b.Fatalf("depth-three reason = %v, want nil", reason)
++		}
++	}
++}
++
++func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	js := NewJS(loop)
++	deadline := time.NewTimer(promiseBenchmarkTimeout)
++	defer deadline.Stop()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promises := make([]*ChainedPromise, 4)
++		resolvers := make([]ResolveFunc, len(promises))
++		for index := range promises {
++			promises[index], resolvers[index], _ = js.NewChainedPromise()
++		}
++		child := js.All(promises).Then(promiseBenchmarkIdentity, nil)
++		result := child.ToChannel()
++		for index := len(resolvers) - 1; index >= 0; index-- {
++			resolvers[index](promiseBenchmarkTokens[index])
++		}
++
++		rawValues := receivePromiseBenchmarkResult(b, result, deadline.C)
++		values, ok := rawValues.([]any)
++		if !ok {
++			b.Fatalf("Promise.all result type = %T, want []any", rawValues)
++		}
++		if len(values) != len(promises) {
++			b.Fatalf("Promise.all result length = %d, want %d", len(values), len(promises))
++		}
++		for index, value := range values {
++			if value != promiseBenchmarkTokens[index] {
++				b.Fatalf("Promise.all result[%d] = %v, want %v", index, value, promiseBenchmarkTokens[index])
++			}
++		}
++		if state := child.State(); state != Fulfilled {
++			b.Fatalf("Promise.all observer state = %v, want %v", state, Fulfilled)
++		}
++		if reason := child.Reason(); reason != nil {
++			b.Fatalf("Promise.all observer reason = %v, want nil", reason)
++		}
++	}
++}
++
++func BenchmarkPromisifyCompletionEndToEnd(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	deadline := time.NewTimer(promiseBenchmarkTimeout)
++	defer deadline.Stop()
++	waitRequests := make(chan struct{})
++	waitResults := make(chan struct{}, 1)
++	waiterDone := make(chan struct{})
++	go func() {
++		defer close(waiterDone)
++		for range waitRequests {
++			loop.promisifyWg.Wait()
++			waitResults <- struct{}{}
++		}
++	}()
++	defer func() {
++		close(waitRequests)
++		select {
++		case <-waiterDone:
++		case <-time.After(5 * time.Second):
++			b.Error("timed out waiting for Promisify benchmark waiter cleanup")
++		}
++	}()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		promise := loop.Promisify(context.Background(), promiseBenchmarkPromisify)
++		if value := receivePromiseBenchmarkResult(b, promise.ToChannel(), deadline.C); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("Promisify result = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		select {
++		case waitRequests <- struct{}{}:
++		case <-deadline.C:
++			b.Fatal("timed out requesting Promisify worker completion")
++		}
++		waitBenchmarkSignalDeadline(b, waitResults, deadline.C, "Promisify worker completion")
++		if state := promise.State(); state != Fulfilled {
++			b.Fatalf("Promisify state = %v, want %v", state, Fulfilled)
++		}
++		if value := promise.Result(); value != promiseBenchmarkTokens[0] {
++			b.Fatalf("Promisify stored result = %v, want %v", value, promiseBenchmarkTokens[0])
++		}
++		if count := loop.promisifyCount.Load(); count != 0 {
++			b.Fatalf("Promisify worker count = %d, want 0", count)
++		}
++	}
++}
+diff --git a/eventloop/scheduler_priority_bench_test.go b/eventloop/scheduler_priority_bench_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..a93e21366055ae02d605a29e64e9f6b9bb7ac953
+--- /dev/null
++++ b/eventloop/scheduler_priority_bench_test.go
+@@ -0,0 +1,141 @@
++package eventloop
++
++import (
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++const schedulerPriorityExternalBacklog = 64
++
++// BenchmarkSchedulerPriorityLatency measures final-Loop internal priority end to end.
++func BenchmarkSchedulerPriorityLatency(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	var totalExternalBeforeInternal int64
++	var totalPriorityLatency time.Duration
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		started := make(chan struct{})
++		release := make(chan struct{})
++		internalDone := make(chan time.Duration, 1)
++		externalDone := make(chan struct{}, schedulerPriorityExternalBacklog)
++		var externalBeforeInternal atomic.Int64
++
++		if err := loop.Submit(func() {
++			close(started)
++			<-release
++		}); err != nil {
++			b.Fatalf("blocking Submit: %v", err)
++		}
++		waitBenchmarkSignalDeadline(b, started, deadline.C, "priority blocker entry")
++		for range schedulerPriorityExternalBacklog {
++			if err := loop.Submit(func() {
++				externalBeforeInternal.Add(1)
++				externalDone <- struct{}{}
++			}); err != nil {
++				b.Fatalf("queued external Submit: %v", err)
++			}
++		}
++		admitted := time.Now()
++		if err := loop.SubmitInternal(func() {
++			totalExternalBeforeInternal += externalBeforeInternal.Load()
++			latency := time.Since(admitted)
++			totalPriorityLatency += latency
++			internalDone <- latency
++		}); err != nil {
++			b.Fatalf("queued SubmitInternal: %v", err)
++		}
++		close(release)
++		select {
++		case <-internalDone:
++		case <-deadline.C:
++			b.Fatal("timed out waiting for priority callback")
++		}
++		for range schedulerPriorityExternalBacklog {
++			waitBenchmarkSignalDeadline(b, externalDone, deadline.C, "external backlog callback")
++		}
++	}
++	b.StopTimer()
++	if b.N > 0 {
++		b.ReportMetric(float64(totalExternalBeforeInternal)/float64(b.N), "externals_before_internal/op")
++		b.ReportMetric(float64(totalPriorityLatency.Nanoseconds())/float64(b.N), "priority_latency_ns/op")
++	}
++}
++
++// BenchmarkSubmitInternalChainHandoff measures a completed internal handoff chain.
++func BenchmarkSubmitInternalChainHandoff(b *testing.B) {
++	const chainDepth = 32
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	done := make(chan struct{}, 1)
++	errs := make(chan error, 1)
++	var submitNext func(int)
++	submitNext = func(depth int) {
++		if depth >= chainDepth {
++			done <- struct{}{}
++			return
++		}
++		if err := loop.SubmitInternal(func() { submitNext(depth + 1) }); err != nil {
++			select {
++			case errs <- err:
++			default:
++			}
++		}
++	}
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		if err := loop.Submit(func() { submitNext(0) }); err != nil {
++			b.Fatalf("Submit chain root: %v", err)
++		}
++		select {
++		case <-done:
++		case err := <-errs:
++			b.Fatalf("SubmitInternal chain handoff: %v", err)
++		case <-deadline.C:
++			b.Fatal("timed out waiting for internal chain handoff")
++		}
++	}
++	b.StopTimer()
++	b.ReportMetric(chainDepth, "handoffs/op")
++}
++
++// BenchmarkSchedulerInternalExternalBurst measures paired callback completion.
++func BenchmarkSchedulerInternalExternalBurst(b *testing.B) {
++	loop, cleanup := startBenchmarkLoop(b)
++	defer cleanup()
++	deadline := time.NewTimer(30 * time.Minute)
++	defer deadline.Stop()
++
++	completed := make(chan struct{}, 2)
++	b.ReportAllocs()
++	b.ResetTimer()
++	for range b.N {
++		if err := loop.Submit(func() { completed <- struct{}{} }); err != nil {
++			b.Fatalf("Submit: %v", err)
++		}
++		if err := loop.SubmitInternal(func() { completed <- struct{}{} }); err != nil {
++			b.Fatalf("SubmitInternal: %v", err)
++		}
++		waitBenchmarkSignalDeadline(b, completed, deadline.C, "first burst callback")
++		waitBenchmarkSignalDeadline(b, completed, deadline.C, "second burst callback")
++	}
++}
++
++func waitBenchmarkSignalDeadline(b *testing.B, signal <-chan struct{}, deadline <-chan time.Time, label string) {
++	b.Helper()
++	select {
++	case <-signal:
++	case <-deadline:
++		b.Fatalf("timed out waiting for %s", label)
++	}
++}
+diff --git a/eventloop/wakeup_dedup_test.go b/eventloop/wakeup_dedup_test.go
+index 2a78d4611bafc06097a5fcb4e097b14ad2a619d2..e487b452863620e24774126c27c85202a4f994d5 100644
+--- a/eventloop/wakeup_dedup_test.go
++++ b/eventloop/wakeup_dedup_test.go
+@@ -21,7 +21,9 @@ func TestConcurrentSubmissionWakeIntegration(t *testing.T) {
+ 	runDone := make(chan error, 1)
+ 	go func() { runDone <- loop.Run(context.Background()) }()
+ 	t.Cleanup(func() {
+-		_ = loop.Close()
++		if err := loop.Close(); err != nil {
++			t.Errorf("Close: %v", err)
++		}
+ 		select {
+ 		case err := <-runDone:
+ 			if err != nil {
+@@ -53,7 +55,16 @@ func TestConcurrentSubmissionWakeIntegration(t *testing.T) {
+ 		}()
+ 	}
+ 	close(start)
+-	submitted.Wait()
++	submittedDone := make(chan struct{})
++	go func() {
++		submitted.Wait()
++		close(submittedDone)
++	}()
++	select {
++	case <-submittedDone:
++	case <-time.After(5 * time.Second):
++		t.Fatal("concurrent submissions did not all return")
++	}
+ 	done := make(chan struct{})
+ 	go func() {
+ 		executed.Wait()
+@@ -73,30 +84,72 @@ func TestConcurrentSubmissionWakeIntegration(t *testing.T) {
+ // submission path. Exact physical-write deduplication is tested with injected
+ // counters inside package eventloop rather than inferred from this benchmark.
+ func BenchmarkConcurrentSubmissionWakeIntegration(b *testing.B) {
++	loop, cleanup := startConcurrentSubmissionBenchmarkLoop(b)
++	defer cleanup()
++
++	var executed atomic.Int64
++	watchdog := time.AfterFunc(30*time.Minute, func() {
++		panic("BenchmarkConcurrentSubmissionWakeIntegration timed out")
++	})
++	defer watchdog.Stop()
++
++	b.ReportAllocs()
++	b.ResetTimer()
++	b.RunParallel(func(pb *testing.PB) {
++		for pb.Next() {
++			if err := loop.Submit(func() { executed.Add(1) }); err != nil {
++				b.Errorf("Submit: %v", err)
++			}
++		}
++	})
++	b.StopTimer()
++
++	drained := make(chan struct{})
++	if err := loop.Submit(func() { close(drained) }); err != nil {
++		b.Fatalf("Submit drain barrier: %v", err)
++	}
++	select {
++	case <-drained:
++	case <-time.After(5 * time.Second):
++		b.Fatal("accepted callbacks did not drain")
++	}
++	if got := executed.Load(); got != int64(b.N) {
++		b.Fatalf("executed callbacks = %d, want %d", got, b.N)
++	}
++}
++
++func startConcurrentSubmissionBenchmarkLoop(b *testing.B) (*eventloop.Loop, func()) {
++	b.Helper()
+ 	loop, err := eventloop.New()
+ 	if err != nil {
+ 		b.Fatal(err)
+ 	}
+ 	runDone := make(chan error, 1)
+ 	go func() { runDone <- loop.Run(context.Background()) }()
+-	b.Cleanup(func() {
+-		_ = loop.Close()
++	ready := make(chan struct{})
++	if err := loop.Submit(func() { close(ready) }); err != nil {
++		b.Fatalf("warmup Submit: %v", err)
++	}
++	select {
++	case <-ready:
++	case <-time.After(5 * time.Second):
++		b.Fatal("loop warmup timed out")
++	}
++
++	cleanup := func() {
++		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++		defer cancel()
++		if err := loop.Shutdown(ctx); err != nil {
++			b.Fatalf("Shutdown: %v", err)
++		}
+ 		select {
+ 		case err := <-runDone:
+ 			if err != nil {
+-				b.Errorf("Run: %v", err)
++				b.Fatalf("Run: %v", err)
+ 			}
+ 		case <-time.After(5 * time.Second):
+-			b.Error("Run did not return during cleanup")
++			b.Fatal("Run did not return during cleanup")
+ 		}
+-	})
+-
+-	b.ResetTimer()
+-	b.RunParallel(func(pb *testing.PB) {
+-		for pb.Next() {
+-			if err := loop.Submit(func() {}); err != nil {
+-				b.Errorf("Submit: %v", err)
+-			}
+-		}
+-	})
++	}
++	return loop, cleanup
+ }

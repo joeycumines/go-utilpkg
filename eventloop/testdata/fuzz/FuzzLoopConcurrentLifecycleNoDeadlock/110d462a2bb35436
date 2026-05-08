@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("cBcA(Y.AY.\xc4\xc4%B0YZ007Y.y0BBc \x00\x00b\x00 0")

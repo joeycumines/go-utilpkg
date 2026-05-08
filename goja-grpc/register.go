@@ -1,8 +1,11 @@
 package gojagrpc
 
 import (
-	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/require"
+	"errors"
+	"fmt"
+
+	"github.com/joeycumines/goja"
+	"github.com/joeycumines/goja_nodejs/require"
 )
 
 // Require returns a [require.ModuleLoader] that initialises the gRPC
@@ -23,13 +26,67 @@ import (
 //
 // The provided options are captured and applied each time a new
 // runtime calls require for this module.
-func Require(opts ...Option) require.ModuleLoader {
+func Require(opts ...ModuleOption) require.ModuleLoader {
+	cfg, err := resolveOptions(opts)
+	if err != nil {
+		panic(fmt.Errorf("gojagrpc: %w", err))
+	}
+	captured := *cfg
 	return func(runtime *goja.Runtime, module *goja.Object) {
-		m, err := New(runtime, opts...)
+		if err := authenticateRuntimeObject(runtime, module); err != nil {
+			panic(runtime.NewGoError(fmt.Errorf(
+				"gojagrpc: module runtime mismatch: %w",
+				err,
+			)))
+		}
+		var currentExports goja.Value
+		if exception := runtime.Try(func() {
+			currentExports = module.Get("exports")
+		}); exception != nil {
+			panic(exception)
+		}
+		if exports, ok := currentExports.(*goja.Object); !ok || exports == nil {
+			panic(runtime.NewTypeError(
+				"gojagrpc: module.exports must be an object",
+			))
+		}
+		m, err := constructRequiredModule(runtime, &captured)
 		if err != nil {
 			panic(runtime.NewGoError(err))
 		}
-		exports := module.Get("exports").(*goja.Object)
-		m.setupExports(exports)
+		exports := runtime.NewObject()
+		if err := m.SetupExports(exports); err != nil {
+			panic(runtime.NewGoError(errors.Join(err, m.Close())))
+		}
+		if err := m.publishExports(
+			module,
+			exports,
+			currentExports,
+		); err != nil {
+			panic(runtime.NewGoError(errors.Join(
+				err,
+				m.Close(),
+			)))
+		}
 	}
+}
+
+func constructRequiredModule(
+	runtime *goja.Runtime,
+	cfg *moduleConfig,
+) (module *Module, err error) {
+	defer func() {
+		reason := recover()
+		if reason == nil {
+			return
+		}
+		if _, ok := reason.(goja.Value); ok {
+			panic(reason)
+		}
+		if constructionErr, ok := reason.(error); ok {
+			panic(runtime.NewGoError(constructionErr))
+		}
+		panic(reason)
+	}()
+	return newModule(runtime, cfg)
 }

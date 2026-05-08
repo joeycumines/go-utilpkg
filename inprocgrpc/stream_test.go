@@ -416,17 +416,17 @@ func TestStreamSender_CloseAndClosed(t *testing.T) {
 		if sender.Closed() {
 			t.Error("sender should not be closed initially")
 		}
-		sender.Close(nil)
+		sender.Close(status.Error(codes.Aborted, "closed by handler"))
 		senderClosed.Store(sender.Closed())
-		s.Finish(status.Error(codes.OK, ""))
+		s.Finish(nil)
 	})
 
 	req := &wrapperspb.StringValue{Value: "x"}
 	resp := new(wrapperspb.StringValue)
 	err := ch.Invoke(context.Background(), "/test.Svc/CloseTest", req, resp)
-	// The handler closes responses early and then calls Finish - the
-	// client gets an EOF (translated into nil by Invoke for unary).
-	_ = err
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("Invoke = %v, want Aborted", err)
+	}
 	if !senderClosed.Load() {
 		t.Fatal("sender.Closed() should be true after Close")
 	}
@@ -654,10 +654,7 @@ func TestStreamHandler_StreamContextCancellation(t *testing.T) {
 // TestStreamHandler_InvokeLoopStopped covers the submitErr path in
 // invokeStreamHandler when the event loop has been stopped.
 func TestStreamHandler_InvokeLoopStopped(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop := eventloop.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -665,7 +662,7 @@ func TestStreamHandler_InvokeLoopStopped(t *testing.T) {
 		_ = loop.Run(ctx)
 	}()
 
-	ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	ch := mustNewChannel(t, inprocgrpc.WithLoop(loop))
 	ch.RegisterStreamHandler("/test.Svc/Echo", func(_ context.Context, s *inprocgrpc.RPCStream) {
 		s.Recv().Recv(func(msg any, recvErr error) {
 			if recvErr != nil {
@@ -700,10 +697,7 @@ func TestStreamHandler_InvokeLoopStopped(t *testing.T) {
 // TestStreamHandler_NewStreamLoopStopped covers the submitErr path in
 // newStreamWithHandler when the event loop has been stopped.
 func TestStreamHandler_NewStreamLoopStopped(t *testing.T) {
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop := eventloop.New()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -711,7 +705,7 @@ func TestStreamHandler_NewStreamLoopStopped(t *testing.T) {
 		_ = loop.Run(ctx)
 	}()
 
-	ch := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	ch := mustNewChannel(t, inprocgrpc.WithLoop(loop))
 	ch.RegisterStreamHandler("/test.Svc/Echo", func(_ context.Context, s *inprocgrpc.RPCStream) {
 		s.Recv().Recv(func(msg any, recvErr error) {
 			if recvErr != nil {

@@ -3,7 +3,7 @@ package gojaprotobuf
 import (
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -163,13 +163,13 @@ func TestJsClone_BasicClone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clonedMsg.Set(desc.Fields().ByName("value"), protoreflect.ValueOfString("modified"))
+	clonedMsg.ProtoReflect().Set(desc.Fields().ByName("value"), protoreflect.ValueOfString("modified"))
 
 	origMsg, err := m.unwrapMessage(wrapped)
 	if err != nil {
 		t.Fatal(err)
 	}
-	origVal := origMsg.Get(desc.Fields().ByName("value")).String()
+	origVal := origMsg.ProtoReflect().Get(desc.Fields().ByName("value")).String()
 	if origVal != "original" {
 		t.Fatalf("original should be unchanged, got %q", origVal)
 	}

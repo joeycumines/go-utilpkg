@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8b7018020aB(01 100887\"cxa!09!%1(%0Y7")

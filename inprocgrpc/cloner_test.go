@@ -5,9 +5,22 @@ import (
 
 	"google.golang.org/grpc/encoding"
 	grpcproto "google.golang.org/grpc/encoding/proto"
+	"google.golang.org/grpc/mem"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
+
+type nilCodecV1 struct{}
+
+func (*nilCodecV1) Marshal(any) ([]byte, error) { panic("unexpected call") }
+func (*nilCodecV1) Unmarshal([]byte, any) error { panic("unexpected call") }
+func (*nilCodecV1) Name() string                { panic("unexpected call") }
+
+type nilCodecV2 struct{}
+
+func (*nilCodecV2) Marshal(any) (mem.BufferSlice, error) { panic("unexpected call") }
+func (*nilCodecV2) Unmarshal(mem.BufferSlice, any) error { panic("unexpected call") }
+func (*nilCodecV2) Name() string                         { panic("unexpected call") }
 
 func TestProtoCloner_Clone(t *testing.T) {
 	c := ProtoCloner{}
@@ -114,14 +127,46 @@ func TestCopyFunc(t *testing.T) {
 	}
 }
 
-func TestIsNil(t *testing.T) {
-	if !isNil(nil) {
-		t.Error("nil should be nil")
+func TestClonerConstructorsRejectNil(t *testing.T) {
+	var (
+		codecV1 *nilCodecV1
+		codecV2 *nilCodecV2
+	)
+	tests := []struct {
+		name string
+		fn   func()
+	}{
+		{name: "clone function", fn: func() { CloneFunc(nil) }},
+		{name: "copy function", fn: func() { CopyFunc(nil) }},
+		{name: "codec v1", fn: func() { CodecCloner(codecV1) }},
+		{name: "codec v2", fn: func() { CodecClonerV2(codecV2) }},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assertPanicContains(t, "must not be nil", test.fn)
+		})
+	}
+}
 
+func TestIsNil(t *testing.T) {
 	var p *wrapperspb.StringValue
-	if !isNil(p) {
-		t.Error("typed nil should be nil")
+	var channel chan struct{}
+	var function func()
+	var values map[string]string
+	var bytes []byte
+	for name, value := range map[string]any{
+		"nil":      nil,
+		"pointer":  p,
+		"channel":  channel,
+		"function": function,
+		"map":      values,
+		"slice":    bytes,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !isNil(value) {
+				t.Fatal("typed nil value was not recognized")
+			}
+		})
 	}
 
 	if isNil(&wrapperspb.StringValue{}) {

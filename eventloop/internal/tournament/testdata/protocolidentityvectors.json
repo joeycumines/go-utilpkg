@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "algorithm": "sha256-domain-length-framed-v1",
+  "domains": {
+    "comparison": "go-utilpkg/eventloop/tournament/comparison/v1",
+    "unit": "go-utilpkg/eventloop/tournament/unit/v1",
+    "selection_plan": "go-utilpkg/eventloop/tournament/selection-plan/v1",
+    "execution": "go-utilpkg/eventloop/tournament/execution/v1"
+  },
+  "framing_vectors": [
+    {
+      "name": "unicode-empty-nul",
+      "domain": "go-utilpkg/eventloop/tournament/framing-test/v1",
+      "fields": [
+        "",
+        "µs",
+        "\u0000"
+      ],
+      "sha256": "0ceaaf652191d10ddc89f590aeaaacd65ae595634bdc176564fbf9e205704103"
+    },
+    {
+      "name": "concatenation-a-bc",
+      "domain": "a",
+      "fields": [
+        "bc"
+      ],
+      "sha256": "3fafa1cf2f19a7c1129beb20cf0983f73a489a221fc0dd2f16d1be292d089205"
+    },
+    {
+      "name": "concatenation-ab-c",
+      "domain": "ab",
+      "fields": [
+        "c"
+      ],
+      "sha256": "601d5476e2ccfe2c87a2bba7a322659734a05749d5b5aa781f513e4912db0d5f"
+    }
+  ],
+  "comparison": {
+    "input": {
+      "implementation_id": "implementation.scheduler.main.auto",
+      "workload_id": "workload.scheduler.roundtrip.v2",
+      "configuration": [
+        {
+          "key": "fast_path",
+          "value": "auto"
+        },
+        {
+          "key": "producers",
+          "value": "1"
+        }
+      ],
+      "semantic_harness_id": "semantic-harness.scheduler.roundtrip.v2",
+      "measurement_contract_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stable_leaf": "Scheduler/Main/Auto"
+    },
+    "sha256": "bf637ed6afe35e6ad9c113852a9af53a2881ddebde375deaec2baa898449e44d"
+  },
+  "unit": {
+    "input": {
+      "lane_id": "lane.scheduler",
+      "build_cell_id": "build-cell.eventloop.linux-arm64-cgo0",
+      "module_id": "eventloop",
+      "package": "internal/tournament",
+      "raw_root_id": "raw-root.scheduler.roundtrip",
+      "harness_id": "harness.scheduler.roundtrip.linux-arm64-cgo0",
+      "applicability": "executable",
+      "measurement_contract_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bindings": [
+        {
+          "binding_id": "binding.scheduler.main.auto.linux-arm64",
+          "benchmark": "BenchmarkSchedulerRoundTrip",
+          "implementation_id": "implementation.scheduler.main.auto",
+          "snapshot_ids": [
+            "snapshot.scheduler.main.current"
+          ],
+          "workload_id": "workload.scheduler.roundtrip.v2",
+          "configuration": [
+            {
+              "key": "fast_path",
+              "value": "auto"
+            },
+            {
+              "key": "producers",
+              "value": "1"
+            }
+          ],
+          "semantic_harness_id": "semantic-harness.scheduler.roundtrip.v2",
+          "results": [
+            {
+              "emitted_leaf": "Scheduler/Main/Auto",
+              "stable_leaf": "Scheduler/Main/Auto",
+              "comparison_id": "bf637ed6afe35e6ad9c113852a9af53a2881ddebde375deaec2baa898449e44d"
+            }
+          ]
+        }
+      ]
+    },
+    "sha256": "b7c9b555a313db13fc95ee8aab27b68f7bba7d55e461e7817e6252f893bec403"
+  },
+  "selection_plan": {
+    "input": {
+      "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lineage_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "lineage_floor_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "shared_source_id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_capture_id": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "host_authority_id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "measurement_contract_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "build_cell_ids": [
+        "build-cell.eventloop.linux-arm64-cgo0"
+      ],
+      "unit_ids": [
+        "b7c9b555a313db13fc95ee8aab27b68f7bba7d55e461e7817e6252f893bec403"
+      ],
+      "dispositions": [
+        {
+          "kind": "alias-only",
+          "subject_id": "binding.scheduler.handoff.alias",
+          "authority_id": "alias.scheduler.handoff"
+        }
+      ]
+    },
+    "sha256": "9dd456f8d10a3e9dae2d2226d7b1d707fb4c32118a8a05921352a4fe0cbc52d1"
+  },
+  "execution": {
+    "input": {
+      "plan_id": "9dd456f8d10a3e9dae2d2226d7b1d707fb4c32118a8a05921352a4fe0cbc52d1",
+      "unit_id": "b7c9b555a313db13fc95ee8aab27b68f7bba7d55e461e7817e6252f893bec403",
+      "shared_source_id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_capture_id": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "binary_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "toolchain_authority_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "module_graph_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "native_authority_sha256": "none",
+      "host_authority_id": "1111111111111111111111111111111111111111111111111111111111111111",
+      "measurement_profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "execution_profile_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "argv": [
+        "/frozen/bin/scheduler.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkSchedulerRoundTrip$"
+      ],
+      "environment": [
+        "GOARCH=arm64",
+        "GOMAXPROCS=1",
+        "GOOS=linux"
+      ]
+    },
+    "sha256": "6d6ed3d0bff1f7bbe11ba067a7e71412c094de955a638bc64d33ff51844a97d4"
+  }
+}

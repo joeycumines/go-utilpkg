@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	"google.golang.org/grpc"
@@ -48,23 +48,30 @@ import (
 type phase3MockStream struct {
 	grpc.ClientStream // satisfy the full interface via embedding
 	sendMsgErr        error
+	sendMsgFn         func(any) error
 	closeSendFn       func() error
 	recvMsgFn         func(m any) error
 	headerFn          func() (grpcmetadata.MD, error)
+	trailerFn         func() grpcmetadata.MD
 	trailerMD         grpcmetadata.MD
 	ctx               context.Context
 }
 
-func (s *phase3MockStream) SendMsg(any) error { return s.sendMsgErr }
+func (s *phase3MockStream) SendMsg(message any) error {
+	if s.sendMsgFn != nil {
+		return s.sendMsgFn(message)
+	}
+	return s.sendMsgErr
+}
 func (s *phase3MockStream) CloseSend() error {
 	if s.closeSendFn != nil {
 		return s.closeSendFn()
 	}
 	return nil
 }
-func (s *phase3MockStream) RecvMsg(any) error {
+func (s *phase3MockStream) RecvMsg(message any) error {
 	if s.recvMsgFn != nil {
-		return s.recvMsgFn(nil)
+		return s.recvMsgFn(message)
 	}
 	return io.EOF
 }
@@ -74,7 +81,12 @@ func (s *phase3MockStream) Header() (grpcmetadata.MD, error) {
 	}
 	return nil, nil
 }
-func (s *phase3MockStream) Trailer() grpcmetadata.MD { return s.trailerMD }
+func (s *phase3MockStream) Trailer() grpcmetadata.MD {
+	if s.trailerFn != nil {
+		return s.trailerFn()
+	}
+	return s.trailerMD
+}
 func (s *phase3MockStream) Context() context.Context {
 	if s.ctx != nil {
 		return s.ctx
@@ -85,6 +97,7 @@ func (s *phase3MockStream) Context() context.Context {
 // phase3MockCC implements grpc.ClientConnInterface.
 type phase3MockCC struct {
 	newStreamFn func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
+	invokeFn    func(ctx context.Context, method string, req, reply any, opts ...grpc.CallOption) error
 }
 
 func (c *phase3MockCC) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
@@ -93,7 +106,10 @@ func (c *phase3MockCC) NewStream(ctx context.Context, desc *grpc.StreamDesc, met
 	}
 	return nil, fmt.Errorf("phase3MockCC: no mock")
 }
-func (c *phase3MockCC) Invoke(context.Context, string, any, any, ...grpc.CallOption) error {
+func (c *phase3MockCC) Invoke(ctx context.Context, method string, req, reply any, opts ...grpc.CallOption) error {
+	if c.invokeFn != nil {
+		return c.invokeFn(ctx, method, req, reply, opts...)
+	}
 	return fmt.Errorf("phase3MockCC: Invoke not mocked")
 }
 
@@ -136,10 +152,7 @@ func phase3FindMsgDesc(t *testing.T, env *grpcTestEnv, name string) protoreflect
 func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	t.Helper()
 
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 
 	runtime := goja.New()
 
@@ -147,11 +160,11 @@ func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if adapter.Bind() != nil {
-		t.Fatalf("unexpected error: %v", adapter.Bind())
+	if err := adapter.Bind(); err != nil {
+		t.Fatalf("Bind adapter: %v", err)
 	}
 
-	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop), inprocgrpc.WithCloner(&phase3NonProtoCloner{}))
+	channel := mustNewInprocChannel(t, inprocgrpc.WithLoop(loop), inprocgrpc.WithCloner(&phase3NonProtoCloner{}))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	if err != nil {
@@ -172,12 +185,20 @@ func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	}
 
 	pbExports := runtime.NewObject()
-	pbMod.SetupExports(pbExports)
-	_ = runtime.Set("pb", pbExports)
+	if err := pbMod.SetupExports(pbExports); err != nil {
+		t.Fatalf("setup protobuf exports: %v", err)
+	}
+	if err := runtime.Set("pb", pbExports); err != nil {
+		t.Fatalf("install protobuf exports: %v", err)
+	}
 
 	grpcExports := runtime.NewObject()
-	grpcMod.setupExports(grpcExports)
-	_ = runtime.Set("grpc", grpcExports)
+	if err := grpcMod.setupExports(grpcExports); err != nil {
+		t.Fatalf("setup grpc exports: %v", err)
+	}
+	if err := runtime.Set("grpc", grpcExports); err != nil {
+		t.Fatalf("install grpc exports: %v", err)
+	}
 
 	return &grpcTestEnv{
 		loop:    loop,
@@ -197,7 +218,7 @@ func phase3SetupBrokenServer(t *testing.T, env *grpcTestEnv) context.CancelFunc 
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	setupDone := make(chan struct{})
+	setupDone := make(chan struct{}, 1)
 	_ = env.loop.Submit(func() {
 		_ = env.runtime.Set("__p3BrkReady", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
 			close(setupDone)
@@ -233,39 +254,25 @@ func phase3SetupBrokenServer(t *testing.T, env *grpcTestEnv) context.CancelFunc 
 }
 
 // ============================================================================
-// Test: status.go:130-131 — newGrpcErrorWithDetails UnwrapMessage error skip
-//
-// Passes non-protobuf goja values as details. UnwrapMessage fails for each,
-// and the continue statement is executed.
+// Invalid status details fail atomically instead of being silently omitted.
 // ============================================================================
 
 func TestPhase3_NewGrpcErrorWithDetails_UnwrapError(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
-	// Plain JS values: not protobuf messages → UnwrapMessage fails → continue
 	details := []goja.Value{
 		env.runtime.ToValue("plain string"),
 		env.runtime.ToValue(42),
-		env.runtime.NewObject(), // plain object, not protobuf wrapper
+		env.runtime.NewObject(),
 	}
 
-	obj := env.grpcMod.newGrpcErrorWithDetails(codes.Internal, "test error", details)
-	if obj == nil {
-		t.Fatalf("expected non-nil")
-	}
-
-	name := obj.Get("name").String()
-	if got := name; got != "GrpcError" {
-		t.Errorf("expected %v, got %v", "GrpcError", got)
-	}
-	if got := obj.Get("code").ToInteger(); got != int64(codes.Internal) {
-		t.Errorf("expected %v, got %v", int64(codes.Internal), got)
-	}
-
-	// _goDetails should be nil or empty: all details failed UnwrapMessage
-	goDetails := env.grpcMod.extractGoDetails(obj)
-	if len(goDetails) != 0 {
-		t.Errorf("expected empty, got len %d", len(goDetails))
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		env.grpcMod.newGrpcErrorWithDetails(codes.Internal, "test error", details)
+	}()
+	if recovered == nil || !strings.Contains(fmt.Sprint(recovered), "status detail") {
+		t.Fatalf("invalid status details panic = %v, want status-detail failure", recovered)
 	}
 }
 
@@ -407,6 +414,7 @@ func TestPhase3_ServerStream_SubmitFailure(t *testing.T) {
 func TestPhase3_ClientStream_SubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
+	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.EchoResponse")
 
 	newStreamReached := make(chan struct{})
@@ -425,7 +433,7 @@ func TestPhase3_ClientStream_SubmitFailure(t *testing.T) {
 	var setupWg sync.WaitGroup
 	setupWg.Add(1)
 	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", outputDesc)
+		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p3CsSubFn", fn)
 		setupWg.Done()
 	})
@@ -458,6 +466,7 @@ func TestPhase3_ClientStream_SubmitFailure(t *testing.T) {
 func TestPhase3_BidiStream_SubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
+	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 
 	headerReached := make(chan struct{})
@@ -481,7 +490,7 @@ func TestPhase3_BidiStream_SubmitFailure(t *testing.T) {
 	var setupWg sync.WaitGroup
 	setupWg.Add(1)
 	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", outputDesc)
+		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p3BsSubFn", fn)
 		setupWg.Done()
 	})
@@ -515,6 +524,7 @@ func TestPhase3_BidiStream_SubmitFailure(t *testing.T) {
 func TestPhase3_ClientStreamSender_SubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
+	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.EchoResponse")
 
 	mockCC := &phase3MockCC{
@@ -527,7 +537,7 @@ func TestPhase3_ClientStreamSender_SubmitFailure(t *testing.T) {
 
 	callReady := make(chan struct{})
 	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", outputDesc)
+		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p3CsSenderFn", fn)
 		_ = env.runtime.Set("__p3CsSenderOK", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
 			close(callReady)
@@ -568,6 +578,7 @@ func TestPhase3_ClientStreamSender_SubmitFailure(t *testing.T) {
 func TestPhase3_BidiStreamSender_SubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
 
+	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 
 	mockCC := &phase3MockCC{
@@ -580,7 +591,7 @@ func TestPhase3_BidiStreamSender_SubmitFailure(t *testing.T) {
 
 	streamReady := make(chan struct{})
 	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", outputDesc)
+		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", inputDesc, outputDesc)
 		_ = env.runtime.Set("__p3BsSenderFn", fn)
 		_ = env.runtime.Set("__p3BsSenderOK", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
 			close(streamReady)
@@ -663,11 +674,14 @@ func TestPhase3_ServerStreamHandler_ConvError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cs.SendMsg(reqMsg) != nil {
-		t.Fatalf("unexpected error: %v", cs.SendMsg(reqMsg))
+	if err := cs.SendMsg(reqMsg); err != nil {
+		t.Fatalf("SendMsg: %v", err)
 	}
-	if cs.CloseSend() != nil {
-		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	if err := cs.CloseSend(); err != nil {
+		if status.Code(err) != codes.Internal || !strings.Contains(err.Error(), "request conversion") {
+			t.Fatalf("CloseSend terminal error = %v, want Internal request-conversion failure", err)
+		}
+		return
 	}
 
 	itemDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
@@ -705,11 +719,14 @@ func TestPhase3_ClientStreamRecv_ConvError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cs.SendMsg(reqMsg) != nil {
-		t.Fatalf("unexpected error: %v", cs.SendMsg(reqMsg))
+	if err := cs.SendMsg(reqMsg); err != nil {
+		t.Fatalf("SendMsg: %v", err)
 	}
-	if cs.CloseSend() != nil {
-		t.Fatalf("unexpected error: %v", cs.CloseSend())
+	if err := cs.CloseSend(); err != nil {
+		if status.Code(err) != codes.Internal || !strings.Contains(err.Error(), "recv conversion") {
+			t.Fatalf("CloseSend terminal error = %v, want Internal recv-conversion failure", err)
+		}
+		return
 	}
 
 	echoRespDesc := phase3FindMsgDesc(t, env, "testgrpc.EchoResponse")

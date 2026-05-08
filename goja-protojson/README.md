@@ -1,6 +1,6 @@
 # goja-protojson
 
-Protocol Buffers JSON encoding and decoding for [Goja](https://github.com/dop251/goja) JavaScript engine.
+Protocol Buffers JSON encoding and decoding for [Goja](https://github.com/joeycumines/goja) JavaScript engine.
 
 This module wraps Go's standard
 [`protojson`](https://pkg.go.dev/google.golang.org/protobuf/encoding/protojson)
@@ -32,7 +32,7 @@ go get github.com/joeycumines/goja-protojson
 
 ```go
 import (
-    "github.com/dop251/goja"
+    "github.com/joeycumines/goja"
     gojaprotobuf "github.com/joeycumines/goja-protobuf"
     gojaprotojson "github.com/joeycumines/goja-protojson"
 )
@@ -41,20 +41,30 @@ rt := goja.New()
 
 // Create protobuf module and load descriptors
 pb, _ := gojaprotobuf.New(rt)
-pb.LoadDescriptorSetBytes(descriptorBytes)
+if _, err := pb.LoadDescriptorSetBytes(descriptorBytes); err != nil {
+    return err
+}
 
 // Create protojson module
 pj, _ := gojaprotojson.New(rt, gojaprotojson.WithProtobuf(pb))
 
 // Wire exports
 pbObj := rt.NewObject()
-pb.SetupExports(pbObj)
+if err := pb.SetupExports(pbObj); err != nil {
+    return err
+}
 rt.Set("pb", pbObj)
 
 pjObj := rt.NewObject()
-pj.SetupExports(pjObj)
+if err := pj.SetupExports(pjObj); err != nil {
+    return err
+}
 rt.Set("protojson", pjObj)
 ```
+
+The protobuf module must own `rt`. Protojson reuses that runtime's canonical
+generated/dynamic type and extension graph; a module from another runtime is
+rejected before exports are installed.
 
 Or use the `require()` pattern:
 

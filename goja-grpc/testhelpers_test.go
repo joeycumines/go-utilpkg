@@ -2,17 +2,49 @@ package gojagrpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
+
+func requirePanicContains(t testing.TB, want string, fn func()) {
+	t.Helper()
+	defer func() {
+		reason := recover()
+		if reason == nil {
+			t.Fatalf("expected panic containing %q", want)
+		}
+		if message := fmt.Sprint(reason); !strings.Contains(message, want) {
+			t.Fatalf("panic = %q, want substring %q", message, want)
+		}
+	}()
+	fn()
+}
+
+func requirePanicErrorIs(t testing.TB, want error, fn func()) {
+	t.Helper()
+	defer func() {
+		reason := recover()
+		if reason == nil {
+			t.Fatalf("expected panic matching %v", want)
+		}
+		err, ok := reason.(error)
+		if !ok || !errors.Is(err, want) {
+			t.Fatalf("panic = %#v, want error matching %v", reason, want)
+		}
+	}()
+	fn()
+}
 
 // grpcTestEnv provides a fully wired test environment with event loop,
 // goja runtime, protobuf module (with loaded test descriptors), and
@@ -33,10 +65,7 @@ type grpcTestEnv struct {
 func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 	t.Helper()
 
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	loop := eventloop.New()
 
 	runtime := goja.New()
 
@@ -48,7 +77,7 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
+	channel := mustNewInprocChannel(t, inprocgrpc.WithLoop(loop))
 
 	pbMod, err := gojaprotobuf.New(runtime)
 	if err != nil {
@@ -72,12 +101,20 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 
 	// Wire JS exports.
 	pbExports := runtime.NewObject()
-	pbMod.SetupExports(pbExports)
-	_ = runtime.Set("pb", pbExports)
+	if err := pbMod.SetupExports(pbExports); err != nil {
+		t.Fatalf("setup protobuf exports: %v", err)
+	}
+	if err := runtime.Set("pb", pbExports); err != nil {
+		t.Fatalf("install protobuf exports: %v", err)
+	}
 
 	grpcExports := runtime.NewObject()
-	grpcMod.setupExports(grpcExports)
-	_ = runtime.Set("grpc", grpcExports)
+	if err := grpcMod.setupExports(grpcExports); err != nil {
+		t.Fatalf("setup grpc exports: %v", err)
+	}
+	if err := runtime.Set("grpc", grpcExports); err != nil {
+		t.Fatalf("install grpc exports: %v", err)
+	}
 
 	return &grpcTestEnv{
 		loop:    loop,
@@ -87,6 +124,14 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 		pbMod:   pbMod,
 		grpcMod: grpcMod,
 	}
+}
+
+func mustNewInprocChannel(
+	t testing.TB,
+	options ...inprocgrpc.ChannelOption,
+) *inprocgrpc.Channel {
+	t.Helper()
+	return inprocgrpc.NewChannel(options...)
 }
 
 // run executes JS code synchronously on the runtime (no event loop).

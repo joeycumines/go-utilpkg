@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("RA$12\xa3+\xea9A!18$110000010Z")

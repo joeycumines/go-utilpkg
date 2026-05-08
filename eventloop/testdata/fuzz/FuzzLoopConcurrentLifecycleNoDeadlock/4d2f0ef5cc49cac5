@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B00(Z+Y)'\"1*Y\"820A20C0*9Y&!A %0a29)Z")

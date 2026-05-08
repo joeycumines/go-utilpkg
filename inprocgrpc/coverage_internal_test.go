@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	eventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/go-inprocgrpc/internal/callopts"
@@ -14,7 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding"
 	grpcproto "google.golang.org/grpc/encoding/proto"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -22,9 +22,11 @@ import (
 
 // mockStatsHandler records all stats events for verification.
 type mockStatsHandler struct {
-	mu     sync.Mutex
-	events []stats.RPCStats
-	tags   []*stats.RPCTagInfo
+	mu        sync.Mutex
+	events    []stats.RPCStats
+	tags      []*stats.RPCTagInfo
+	end       chan struct{}
+	endPosted bool
 }
 
 func (m *mockStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
@@ -38,6 +40,12 @@ func (m *mockStatsHandler) HandleRPC(_ context.Context, s stats.RPCStats) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.events = append(m.events, s)
+	if _, ok := s.(*stats.End); ok && !m.endPosted {
+		m.endPosted = true
+		if m.end != nil {
+			close(m.end)
+		}
+	}
 }
 
 func (m *mockStatsHandler) TagConn(ctx context.Context, _ *stats.ConnTagInfo) context.Context {
@@ -48,206 +56,27 @@ func (m *mockStatsHandler) HandleConn(context.Context, stats.ConnStats) {}
 
 var _ stats.Handler = (*mockStatsHandler)(nil)
 
-// --- stats.go coverage: nil vs non-nil statsHandlerHelper ---
-
-func TestStatsHandlerHelper_NilReceiver(t *testing.T) {
-	// All 9 methods on a nil *statsHandlerHelper should be safe no-ops.
-	var sh *statsHandlerHelper
-	ctx := context.Background()
-
-	// tagRPC should return ctx unchanged
-	got := sh.tagRPC(ctx, "/test/Method")
-	if got != ctx {
-		t.Error("tagRPC on nil should return ctx unchanged")
+func (m *mockStatsHandler) endSignal() <-chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.end == nil {
+		m.end = make(chan struct{})
+		if m.endPosted {
+			close(m.end)
+		}
 	}
-
-	// The remaining 8 void methods should not panic
-	sh.begin(ctx, false, false)
-	sh.begin(ctx, true, true)
-	sh.end(ctx, nil)
-	sh.end(ctx, errors.New("some error"))
-	sh.inHeader(ctx, metadata.Pairs("k", "v"), "/m")
-	sh.inPayload(ctx, "payload")
-	sh.inTrailer(ctx, metadata.Pairs("t", "tv"))
-	sh.outHeader(ctx, metadata.Pairs("h", "hv"))
-	sh.outPayload(ctx, "payload")
-	sh.outTrailer(ctx, metadata.Pairs("t", "tv"))
+	return m.end
 }
 
-func TestStatsHandlerHelper_NonNil_AllMethods(t *testing.T) {
-	mock := &mockStatsHandler{}
-	sh := &statsHandlerHelper{handler: mock, isClient: true}
-	ctx := context.Background()
-
-	// tagRPC - should call handler.TagRPC and return the modified context
-	ctx2 := sh.tagRPC(ctx, "/svc/Method")
-	if ctx2 == ctx {
-		t.Error("tagRPC should return a new context")
-	}
-	mock.mu.Lock()
-	if len(mock.tags) != 1 {
-		t.Errorf("expected 1 tag, got %d", len(mock.tags))
-	} else if mock.tags[0].FullMethodName != "/svc/Method" {
-		t.Errorf("tag method: %q", mock.tags[0].FullMethodName)
-	}
-	mock.mu.Unlock()
-
-	// begin
-	sh.begin(ctx2, true, false)
-	assertLastEvent[*stats.Begin](t, mock, func(ev *stats.Begin) {
-		if !ev.Client {
-			t.Error("begin: Client should be true")
-		}
-		if !ev.IsClientStream {
-			t.Error("begin: IsClientStream should be true")
-		}
-		if ev.IsServerStream {
-			t.Error("begin: IsServerStream should be false")
-		}
-	})
-
-	// end with error
-	testErr := errors.New("test-err")
-	sh.end(ctx2, testErr)
-	assertLastEvent[*stats.End](t, mock, func(ev *stats.End) {
-		if !ev.Client {
-			t.Error("end: Client should be true")
-		}
-		if ev.Error != testErr {
-			t.Errorf("end: Error = %v, want %v", ev.Error, testErr)
-		}
-	})
-
-	// end without error
-	sh.end(ctx2, nil)
-	assertLastEvent[*stats.End](t, mock, func(ev *stats.End) {
-		if ev.Error != nil {
-			t.Errorf("end: Error should be nil, got %v", ev.Error)
-		}
-	})
-
-	// inHeader
-	hdr := metadata.Pairs("h", "v")
-	sh.inHeader(ctx2, hdr, "/svc/Method")
-	assertLastEvent[*stats.InHeader](t, mock, func(ev *stats.InHeader) {
-		if !ev.Client {
-			t.Error("inHeader: Client should be true")
-		}
-		if ev.FullMethod != "/svc/Method" {
-			t.Errorf("inHeader: FullMethod = %q", ev.FullMethod)
-		}
-		if len(ev.Header.Get("h")) == 0 {
-			t.Error("inHeader: missing header")
-		}
-	})
-
-	// inPayload
-	sh.inPayload(ctx2, "my-payload")
-	assertLastEvent[*stats.InPayload](t, mock, func(ev *stats.InPayload) {
-		if !ev.Client {
-			t.Error("inPayload: Client should be true")
-		}
-		if ev.Payload != "my-payload" {
-			t.Errorf("inPayload: Payload = %v", ev.Payload)
-		}
-	})
-
-	// inTrailer
-	tlr := metadata.Pairs("t", "tv")
-	sh.inTrailer(ctx2, tlr)
-	assertLastEvent[*stats.InTrailer](t, mock, func(ev *stats.InTrailer) {
-		if !ev.Client {
-			t.Error("inTrailer: Client should be true")
-		}
-		if len(ev.Trailer.Get("t")) == 0 {
-			t.Error("inTrailer: missing trailer")
-		}
-	})
-
-	// outHeader
-	sh.outHeader(ctx2, hdr)
-	assertLastEvent[*stats.OutHeader](t, mock, func(ev *stats.OutHeader) {
-		if !ev.Client {
-			t.Error("outHeader: Client should be true")
-		}
-	})
-
-	// outPayload
-	sh.outPayload(ctx2, "out-payload")
-	assertLastEvent[*stats.OutPayload](t, mock, func(ev *stats.OutPayload) {
-		if !ev.Client {
-			t.Error("outPayload: Client should be true")
-		}
-		if ev.Payload != "out-payload" {
-			t.Errorf("outPayload: Payload = %v", ev.Payload)
-		}
-	})
-
-	// outTrailer
-	sh.outTrailer(ctx2, tlr)
-	assertLastEvent[*stats.OutTrailer](t, mock, func(ev *stats.OutTrailer) {
-		if !ev.Client {
-			t.Error("outTrailer: Client should be true")
-		}
-	})
-}
-
-func TestStatsHandlerHelper_NonNil_ServerSide(t *testing.T) {
-	// Verify isClient=false propagation
-	mock := &mockStatsHandler{}
-	sh := &statsHandlerHelper{handler: mock, isClient: false}
-	ctx := context.Background()
-
-	sh.begin(ctx, false, true)
-	assertLastEvent[*stats.Begin](t, mock, func(ev *stats.Begin) {
-		if ev.Client {
-			t.Error("begin: Client should be false for server")
-		}
-		if ev.IsClientStream {
-			t.Error("begin: IsClientStream should be false")
-		}
-		if !ev.IsServerStream {
-			t.Error("begin: IsServerStream should be true")
-		}
-	})
-
-	sh.end(ctx, nil)
-	assertLastEvent[*stats.End](t, mock, func(ev *stats.End) {
-		if ev.Client {
-			t.Error("end: Client should be false for server")
-		}
-	})
-
-	sh.inPayload(ctx, "x")
-	assertLastEvent[*stats.InPayload](t, mock, func(ev *stats.InPayload) {
-		if ev.Client {
-			t.Error("inPayload: Client should be false for server")
-		}
-	})
-
-	sh.outPayload(ctx, "y")
-	assertLastEvent[*stats.OutPayload](t, mock, func(ev *stats.OutPayload) {
-		if ev.Client {
-			t.Error("outPayload: Client should be false for server")
-		}
-	})
-}
-
-// assertLastEvent checks that the last recorded event in the mock is of type T
-// and runs fn on it for additional verification.
-func assertLastEvent[T stats.RPCStats](t *testing.T, mock *mockStatsHandler, fn func(T)) {
+func waitMockStatsEnd(t *testing.T, handler *mockStatsHandler) {
 	t.Helper()
-	mock.mu.Lock()
-	defer mock.mu.Unlock()
-	if len(mock.events) == 0 {
-		t.Fatal("no events recorded")
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-handler.endSignal():
+	case <-timer.C:
+		t.Fatal("stats End was not published")
 	}
-	last := mock.events[len(mock.events)-1]
-	ev, ok := last.(T)
-	if !ok {
-		t.Fatalf("last event is %T, want %T", last, *new(T))
-	}
-	fn(ev)
 }
 
 // --- ProtoCloner non-proto fallback paths ---
@@ -520,88 +349,13 @@ func TestProtoCloner_Copy_NonProto_NoCodec(t *testing.T) {
 	}
 }
 
-// --- fetchTrailersOnLoop: Submit failure (loop stopped) ---
-
-func TestFetchTrailersOnLoop_SubmitFailure(t *testing.T) {
-	// Create and stop a loop.
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = loop.Run(ctx)
-	}()
-	cancel()
-	<-done // loop is now stopped
-
-	// Create a clientStreamAdapter with the stopped loop.
-	adapter := &clientStreamAdapter{
-		ctx:   context.Background(),
-		loop:  loop,
-		state: &stream.RPCState{},
-		copts: callopts.GetCallOptions(nil),
-	}
-
-	// fetchTrailersOnLoop's Submit fails → just returns.
-	adapter.fetchTrailersOnLoop() // should not panic
-}
-
-// --- fetchTrailersOnLoop: ctx.Done path ---
-
-func TestFetchTrailersOnLoop_ContextDone(t *testing.T) {
-	// Create a running loop but block it, so the Submit callback is queued.
-	// Cancel the adapter's context so the select hits ctx.Done.
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	loopCtx := t.Context()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = loop.Run(loopCtx)
-	}()
-
-	// Block the loop.
-	blocker := make(chan struct{})
-	if err := loop.Submit(func() {
-		<-blocker
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create adapter with a cancelled context.
-	adapterCtx, adapterCancel := context.WithCancel(context.Background())
-	adapterCancel() // cancel immediately
-
-	adapter := &clientStreamAdapter{
-		ctx:   adapterCtx,
-		loop:  loop,
-		state: &stream.RPCState{},
-		copts: callopts.GetCallOptions(nil),
-	}
-
-	// fetchTrailersOnLoop: Submit succeeds (queued behind blocker), but
-	// ctx.Done is ready in the select → goes through the ctx.Done case.
-	adapter.fetchTrailersOnLoop()
-
-	// Unblock the loop for cleanup.
-	close(blocker)
-}
-
 // --- Header() error-from-waiter path (clientstreamadapter.go) ---
 
 func TestClientStreamAdapter_Header_ErrorFromWaiter(t *testing.T) {
 	// Covers the r.err != nil branch in clientStreamAdapter.Header().
 	// Uses internal access to state.HeaderWaiter for deterministic
 	// ordering - no timing dependency.
-	loop, err := eventloop.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+	loop := eventloop.New()
 	loopCtx, loopCancel := context.WithCancel(context.Background())
 	defer loopCancel()
 	loopDone := make(chan struct{})
@@ -610,12 +364,14 @@ func TestClientStreamAdapter_Header_ErrorFromWaiter(t *testing.T) {
 		_ = loop.Run(loopCtx)
 	}()
 
-	state := &stream.RPCState{Method: "/test/Method"}
+	state := stream.NewRPCState("/test/Method", 1)
 	adapter := &clientStreamAdapter{
-		ctx:   context.Background(),
-		loop:  loop,
-		state: state,
-		copts: callopts.GetCallOptions(nil),
+		ctx:       context.Background(),
+		callerCtx: context.Background(),
+		loop:      loop,
+		life:      newRPCLifecycle(loop, state, nil),
+		state:     state,
+		copts:     callopts.GetCallOptions(nil),
 	}
 
 	// Start Header() - it will Submit to the loop to register HeaderWaiter.
@@ -627,18 +383,18 @@ func TestClientStreamAdapter_Header_ErrorFromWaiter(t *testing.T) {
 	}()
 
 	// Poll on the loop until HeaderWaiter is registered, then call
-	// FinishWithTrailers with an error. This is deterministic because
+	// Complete with an error. This is deterministic because
 	// each poll callback runs on the loop goroutine, and once the
 	// Header goroutine's Submit callback registers HeaderWaiter, the
 	// next poll sees it and delivers the error synchronously - no race.
 	// The HeadersSent guard ensures previously-queued polls stop after
-	// FinishWithTrailers has already fired.
+	// Complete has already fired.
 	var poll func()
 	poll = func() {
 		if err := loop.Submit(func() {
 			if state.HeaderWaiter != nil {
 				// Waiter is registered - deliver the error.
-				state.FinishWithTrailers(status.Error(codes.Internal, "no headers for you"))
+				state.Complete(status.Error(codes.Internal, "no headers for you"))
 				return
 			}
 			if state.HeadersSent {

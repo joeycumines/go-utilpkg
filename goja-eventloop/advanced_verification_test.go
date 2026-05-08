@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestAdvancedVerification_ExecutionOrder verifies microtasks execute before
@@ -19,7 +19,7 @@ func TestAdvancedVerification_ExecutionOrder(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()
@@ -80,7 +80,7 @@ func TestAdvancedVerification_GCProof(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()
@@ -195,7 +195,7 @@ func TestAdvancedVerification_DeadlockFree(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop, _ := goeventloop.New()
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()

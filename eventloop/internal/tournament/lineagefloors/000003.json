@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "sequence": 3,
+  "previous_floor": {
+    "sequence": 2,
+    "path": "lineagefloors/000002.json",
+    "sha256": "d35a2d7443e185089986df497a48ceb2c56f61f3ad2224d04e7508a587eaf237",
+    "cumulative_record_set_sha256": "2d33e11c85dde0d2c843dd5016af24dd7b035ae139f09a1694b7b82e8931b440"
+  },
+  "lineage_schema_version": 2,
+  "record_digest_algorithm": "sha256-domain-length-framed-v1",
+  "source_history_floor": {
+    "path": "historyfloors/000002.json",
+    "schema_version": 1,
+    "sequence": 2,
+    "sha256": "116e70f0d993e5b0033874109bc3ee961b869e779ceef74f2f0529d9f9dfd707",
+    "cumulative_record_set_sha256": "04c4cfe87d6b527ceda6ff18e24a0cb614652f0cb86bba891ff5bf85e2c9cdeb"
+  },
+  "additions": [
+    {
+      "kind": "alias",
+      "id": "alias.source.53e2f662.0bc4ad0a",
+      "record_sha256": "d6d0747886d4bf898efeb4dc94c18ef9a25b3e124087b3462e4a5df0e9b7e4cf"
+    },
+    {
+      "kind": "alias",
+      "id": "alias.source.f97fc084.0def02e2",
+      "record_sha256": "f0a6f639403a7180d3b54d9c4972b6284a6b9e4cbd159709c756a03329bc13ea"
+    }
+  ],
+  "cumulative_counts": [
+    {
+      "kind": "alias",
+      "count": 9
+    },
+    {
+      "kind": "concept",
+      "count": 12
+    },
+    {
+      "kind": "disposition",
+      "count": 42
+    },
+    {
+      "kind": "implementation",
+      "count": 25
+    },
+    {
+      "kind": "introduction",
+      "count": 25
+    },
+    {
+      "kind": "raw-root",
+      "count": 4
+    },
+    {
+      "kind": "snapshot",
+      "count": 37
+    }
+  ],
+  "cumulative_record_set_sha256": "e85f6a46344c7311d4d6fe8cb9f89b3bcb0551f7529513039284b0e12d415865"
+}

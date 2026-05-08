@@ -12,7 +12,8 @@
 //
 // All RPC types are supported: unary, server-streaming,
 // client-streaming, and bidirectional streaming. Client calls return
-// promises. Server handlers run on the event loop.
+// promises. Server handlers run through the bound adapter's serialized logical
+// callback owner.
 //
 // # JavaScript API
 //
@@ -20,6 +21,9 @@
 //
 //	grpc.createClient(serviceName, opts?) — creates a client proxy
 //	grpc.createServer()                  — creates a server builder
+//	grpc.createReflectionClient()        — creates a reflection client
+//	grpc.enableReflection()              — enables the in-process reflection service
+//	grpc.dial(target, opts?)             — creates an external client channel
 //	grpc.status                          — status codes and error factory
 //	grpc.metadata                        — metadata creation utilities
 //
@@ -49,17 +53,17 @@
 // Client-streaming:
 //
 //	const call = await client.upload(opts?);
-//	call.send(msg1);
-//	call.send(msg2);
-//	call.closeSend();
+//	await call.send(msg1);
+//	await call.send(msg2);
+//	await call.closeSend();
 //	const response = await call.response;
 //
 // Bidi-streaming:
 //
 //	const stream = await client.chat(opts?);
-//	stream.send(msg1);
-//	stream.send(msg2);
-//	stream.closeSend();
+//	await stream.send(msg1);
+//	await stream.send(msg2);
+//	await stream.closeSend();
 //	while (true) {
 //	    const { value, done } = await stream.recv();
 //	    if (done) break;
@@ -80,6 +84,12 @@
 // The signal field accepts an AbortSignal from the eventloop package.
 // When the signal is aborted, the RPC context is cancelled and the
 // promise is rejected with a CANCELLED status error.
+// Reflection listServices(opts?), describeService(name, opts?), and
+// describeType(name, opts?) accept the same signal and timeoutMs options.
+//
+// Streaming send admission is bounded and never blocks the JavaScript owner.
+// Callers should await each send to apply backpressure. Only one recv may be
+// outstanding for a stream; a concurrent recv rejects with FAILED_PRECONDITION.
 //
 // # Client Interceptors
 //
@@ -216,8 +226,11 @@
 //	    err.details[0].get('field');  // 'value'
 //	});
 //
-// Details are serialized as google.protobuf.Any in the gRPC status
-// proto, enabling interop with standard gRPC error details.
+// Details are serialized as google.protobuf.Any in the gRPC status proto,
+// enabling interop with standard gRPC error details. Every detail must be a
+// canonical wrapper from the configured protobuf runtime; invalid values fail
+// instead of being omitted. Private identity is retained in a weak store rather
+// than a mutable JavaScript property or a Go map that pins error objects.
 //
 // # Metadata
 //
@@ -228,51 +241,112 @@
 //	md.get('key');     // 'value'
 //	md.getAll('key');  // ['value']
 //	md.delete('key');
-//	md.forEach((key, values) => { ... });
+//	md.forEach((value, key) => { ... });
 //	md.toObject();     // { key: ['value'] }
 //
 // Metadata can be passed as a call option for outgoing requests.
+// Incoming call.requestHeader values are isolated, read-only wrappers.
+//
+// # Resource Ownership
+//
+// [Module.Close] is idempotent. It cancels active client calls, active
+// JavaScript server calls, and reflection requests, and closes external
+// connections created through grpc.dial.
+// Independently supplied Go connections remain caller-owned. The JavaScript
+// export grpc.close() invokes the same shutdown operation; event-loop terminal
+// cleanup invokes it automatically. Each dial result also provides an
+// idempotent close() method. After shutdown, new client, server, reflection,
+// dial, and export-installation admissions fail; repeated Close calls remain
+// harmless.
+//
+// # Runtime Ownership
+//
+// Goja runtimes are not goroutine-safe. This module performs all Goja work
+// under the exact bound adapter's serialized logical callback-owner role. The
+// underlying event loop may temporarily transfer that role to an isolated
+// callback worker, so physical goroutine identity is not part of the contract.
+// Initial setup may access Goja directly only while the caller has exclusive
+// ownership before the loop starts. After callbacks may execute, external
+// callers must use [gojaeventloop.Adapter.Submit] and must never access the
+// runtime or Goja values concurrently. [gojaeventloop.Adapter.NewPromise] is
+// owner-only; its settler may be called from another goroutine, while the result
+// callback and native settlement execute under the logical owner.
 //
 // # Architecture
 //
-// The module uses [inprocgrpc.Channel] as its transport layer. All RPC
-// communication is in-process with no network I/O. Server handlers are
-// dispatched on the event loop via [eventloop.Loop.Submit], ensuring
-// thread safety with the goja runtime. Client calls spawn goroutines
-// for the blocking transport operations and submit results back to the
-// event loop for promise resolution.
+// JavaScript servers and the default client channel use [inprocgrpc.Channel]. A
+// client may instead use the channel returned by grpc.dial for external network
+// I/O. In-process handlers execute directly on the channel's event loop, whose
+// identity is authenticated against the adapter during construction. Client
+// calls use goroutines only for blocking Go transport work; Goja values,
+// callbacks, and Promise settlement are created under that same logical owner.
 //
 // # Usage
 //
-//	registry := require.NewRegistry()
-//	registry.RegisterNativeModule("protobuf", gojaprotobuf.Require())
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
 //
-//	loop, _ := eventloop.New()
+//	registry := require.NewRegistry()
+//	loop := eventloop.New()
 //	defer loop.Close()
 //	rt := goja.New()
-//	adapter := gojaeventloop.NewAdapter(loop, rt)
-//	registry.Enable(rt)
-//
+//	if err := rt.Set("__done", cancel); err != nil {
+//	    log.Fatal(err)
+//	}
+//	adapter, err := gojaeventloop.New(loop, rt)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := adapter.Bind(); err != nil {
+//	    log.Fatal(err)
+//	}
 //	channel := inprocgrpc.NewChannel(inprocgrpc.WithLoop(loop))
-//	pbMod, _ := gojaprotobuf.New(rt)
+//	pbMod, err := gojaprotobuf.New(rt)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	descriptorBytes, err := os.ReadFile("api.protoset")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	if _, err := pbMod.LoadDescriptorSetBytes(descriptorBytes); err != nil {
+//	    log.Fatal(err)
+//	}
+//	pbExports := rt.NewObject()
+//	if err := pbMod.SetupExports(pbExports); err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := rt.Set("pb", pbExports); err != nil {
+//	    log.Fatal(err)
+//	}
 //
 //	registry.RegisterNativeModule("grpc", gojagrpc.Require(
 //	    gojagrpc.WithChannel(channel),
 //	    gojagrpc.WithProtobuf(pbMod),
 //	    gojagrpc.WithAdapter(adapter),
 //	))
+//	registry.Enable(rt)
 //
-//	loop.Submit(func() {
-//	    rt.RunString(`
+//	if err := adapter.Submit(func(owner *goja.Runtime) {
+//	    if _, err := owner.RunString(`
 //	        const grpc = require('grpc');
-//	        const client = grpc.createClient('my.package.MyService');
-//	        const resp = await client.echo(req);
-//	    `)
-//	})
+//	        if (typeof grpc.createClient !== 'function') {
+//	            throw new Error('grpc module installation failed');
+//	        }
+//	        __done();
+//	    `); err != nil {
+//	        panic(err)
+//	    }
+//	}); err != nil {
+//	    log.Fatal(err)
+//	}
+//	if err := loop.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+//	    log.Fatal(err)
+//	}
 //
-// [goja]: github.com/dop251/goja
-// [goja_nodejs/require]: github.com/dop251/goja_nodejs/require
+// [goja]: github.com/joeycumines/goja
+// [goja_nodejs/require]: github.com/joeycumines/goja_nodejs/require
 // [gojaprotobuf]: github.com/joeycumines/goja-protobuf
 // [inprocgrpc]: github.com/joeycumines/go-inprocgrpc
-// [eventloop.Loop.Submit]: github.com/joeycumines/go-eventloop
+// [gojaeventloop.Adapter.Submit]: github.com/joeycumines/goja-eventloop
 package gojagrpc

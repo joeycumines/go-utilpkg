@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!ZZ*A\xf0z2*B")

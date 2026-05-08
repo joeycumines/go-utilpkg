@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8 \x7f\"09C9a(8)%271\r\r\r\r\r0781b+")

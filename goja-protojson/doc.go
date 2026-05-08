@@ -3,7 +3,7 @@
 //
 // It wraps the standard [google.golang.org/protobuf/encoding/protojson]
 // package and exposes marshal, unmarshal, and format functions to JS
-// code running in [github.com/dop251/goja].
+// code running in [github.com/joeycumines/goja].
 //
 // This module operates on JSON strings for wire-format serialization,
 // as opposed to [github.com/joeycumines/goja-protobuf]'s toJSON/fromJSON
@@ -11,7 +11,7 @@
 //
 // # Usage
 //
-// Use [Require] to create a [github.com/dop251/goja_nodejs/require.ModuleLoader],
+// Use [Require] to create a [github.com/joeycumines/goja_nodejs/require.ModuleLoader],
 // or create a [Module] directly with [New].
 //
 //	registry := require.NewRegistry()

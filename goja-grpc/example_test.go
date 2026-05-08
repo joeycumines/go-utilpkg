@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/require"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojagrpc "github.com/joeycumines/goja-grpc"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
+	"github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
@@ -53,10 +53,8 @@ func exampleGrpcDescBytes() []byte {
 
 func Example() {
 	// Create event loop and goja runtime.
-	loop, err := eventloop.New()
-	if err != nil {
-		panic(err)
-	}
+	loop := eventloop.New()
+	defer loop.Close()
 
 	rt := goja.New()
 	adapter, err := gojaeventloop.New(loop, rt)
@@ -81,7 +79,6 @@ func Example() {
 
 	// Register gRPC module via require().
 	registry := require.NewRegistry()
-	registry.RegisterNativeModule("protobuf", gojaprotobuf.Require())
 	registry.RegisterNativeModule("grpc", gojagrpc.Require(
 		gojagrpc.WithChannel(channel),
 		gojagrpc.WithProtobuf(pbMod),
@@ -91,8 +88,12 @@ func Example() {
 
 	// Make protobuf available to JS.
 	pbExports := rt.NewObject()
-	pbMod.SetupExports(pbExports)
-	_ = rt.Set("pb", pbExports)
+	if err := pbMod.SetupExports(pbExports); err != nil {
+		panic(fmt.Sprintf("setup protobuf exports: %v", err))
+	}
+	if err := rt.Set("pb", pbExports); err != nil {
+		panic(fmt.Sprintf("install protobuf exports: %v", err))
+	}
 
 	// Set up done signal.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -105,8 +106,8 @@ func Example() {
 	}))
 
 	// Run JavaScript: register server, create client, make RPC.
-	_ = loop.Submit(func() {
-		_, jsErr := rt.RunString(`
+	if err := adapter.Submit(func(owner *goja.Runtime) {
+		_, jsErr := owner.RunString(`
 			const grpc = require('grpc');
 
 			// Register echo server.
@@ -134,7 +135,9 @@ func Example() {
 		if jsErr != nil {
 			panic(jsErr)
 		}
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	// Run event loop in background.
 	loopDone := make(chan error, 1)

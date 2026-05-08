@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BF\x111Y\x80cY$Y,(")

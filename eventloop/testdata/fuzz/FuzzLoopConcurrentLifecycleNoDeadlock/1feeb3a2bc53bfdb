@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("*cA,BZ811###aY###+\x00Y")

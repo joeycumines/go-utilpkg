@@ -5,63 +5,81 @@ import (
 	"time"
 )
 
-func TestPollTimeoutMath(t *testing.T) {
-	l, _ := New()
-
-	// Case 1: No timers -> Default 10s
-	// (Note: Default is 10s = 10000ms)
-	timeout := l.calculateTimeout()
-	// Allow for small delays if time.Now() moves, but with no timers it should be maxBlockTime (10s)
-	// Actually maxBlockTime is 10s.
-	if timeout != 10000 {
-		t.Errorf("Expected 10000ms default, got %d", timeout)
-	}
-
-	// Case 2: Sub-millisecond rounding (Task 3.1)
-	// Add timer for 0.5ms from now
-	// We construct it carefully to ensure delta is > 0 and < 1ms
-	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, &timer{when: time.Now().Add(500 * time.Microsecond)})
-
-	timeout = l.calculateTimeout()
-	if timeout != 1 {
-		t.Errorf("Expected 1ms (rounded up from 0.5ms), got %d", timeout)
-	}
-
-	// Case 3: Tiny delta (0.5ms) - must be enough to not expire between setup and calculation
-	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, &timer{when: time.Now().Add(500 * time.Microsecond)})
-	timeout = l.calculateTimeout()
-	// Either rounds up to 1ms (correct) or expired to 0 (acceptable for fast machines)
-	if timeout != 1 && timeout != 0 {
-		t.Errorf("Expected 1ms (rounded up from 0.5ms) or 0 (expired), got %d", timeout)
-	}
-
-	// Case 4: Zero or Negative (Expired)
-	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, &timer{when: time.Now().Add(-1 * time.Second)})
-	timeout = l.calculateTimeout()
-	if timeout != 0 {
-		t.Errorf("Expected 0ms for expired timer, got %d", timeout)
+func TestCalculateTimeoutWithoutDeadlineUsesIndefiniteSentinel(t *testing.T) {
+	loop := New()
+	registerLoopCleanupT(t, loop)
+	if got := loop.calculateTimeout(); got != -1 {
+		t.Fatalf("calculateTimeout without timer = %d, want -1", got)
 	}
 }
 
-func TestOversleepPrevention(t *testing.T) {
-	// Task 3.2: Verify timeout is capped by next timer
-	l, _ := New()
-
-	targetDelay := 50 * time.Millisecond
-	l.timers = make(timerHeap, 0)
-	l.timers = append(l.timers, &timer{when: time.Now().Add(targetDelay)})
-
-	timeout := l.calculateTimeout()
-
-	// Should be close to 50ms (e.g., 40-50ms depending on execution speed)
-	// But definitively NOT 10000ms (default)
-	if timeout > 60 {
-		t.Errorf("Timeout %dms is too long (expected ~50ms). Oversleep risk!", timeout)
+func TestPollTimeoutMillis(t *testing.T) {
+	tests := []struct {
+		name  string
+		delay time.Duration
+		want  int
+	}{
+		{name: "expired", delay: -time.Second, want: 0},
+		{name: "zero", want: 0},
+		{name: "nanosecond", delay: time.Nanosecond, want: 1},
+		{name: "half millisecond", delay: 500 * time.Microsecond, want: 1},
+		{name: "millisecond", delay: time.Millisecond, want: 1},
+		{name: "fifty milliseconds", delay: 50 * time.Millisecond, want: 50},
+		{name: "finite cap", delay: time.Duration(maxFinitePollTimeoutMs+1) * time.Millisecond, want: maxFinitePollTimeoutMs},
 	}
-	if timeout < 0 {
-		t.Errorf("Timeout %dms cannot be negative", timeout)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := pollTimeoutMillis(test.delay); got != test.want {
+				t.Fatalf("pollTimeoutMillis(%v) = %d, want %d", test.delay, got, test.want)
+			}
+		})
+	}
+}
+
+func TestCalculateTimeoutRefreshesStaleLoopClock(t *testing.T) {
+	l := New()
+	t.Cleanup(l.closeFDs)
+
+	anchor := time.Now().Add(-time.Hour)
+	l.setTickAnchor(anchor)
+	l.tickNow = anchor
+	l.state.Store(StateRunning)
+	resetTestTimerLists(l)
+	pushTestTimer(l, &timer{when: anchor.Add(500 * time.Microsecond)})
+
+	if got := l.calculateTimeout(); got != 0 {
+		t.Fatalf("calculateTimeout with expired stale clock = %dms, want 0ms", got)
+	}
+	if !l.tickNow.After(anchor) {
+		t.Fatalf("calculateTimeout left stale tick time %v at anchor %v", l.tickNow, anchor)
+	}
+}
+
+func TestRunTimersRefreshesCachedClockAtEntry(t *testing.T) {
+	l := New()
+	t.Cleanup(l.closeFDs)
+
+	anchor := time.Now().Add(-time.Hour)
+	l.setTickAnchor(anchor)
+	l.tickNow = anchor
+	l.state.Store(StateRunning)
+	l.tickCount = 1
+	resetTestTimerLists(l)
+
+	fired := false
+	tm := &timer{
+		id:        1,
+		when:      time.Now().Add(-time.Millisecond),
+		heapIndex: -1,
+		task:      func() { fired = true },
+	}
+	tm.refed.Store(true)
+	l.timerMap[tm.id] = tm
+	l.refedTimerCount.Add(1)
+	pushTestTimer(l, tm)
+
+	l.runTimers()
+	if !fired {
+		t.Fatal("runTimers did not refresh the cached loop clock before testing due timers")
 	}
 }

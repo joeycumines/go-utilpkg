@@ -1,4 +1,4 @@
-// Tests for Promise combinators (All, Race, AllSettled, Any)
+// Lower-level eventloop JS dependency smoke tests for Promise combinators.
 
 package gojaeventloop
 
@@ -15,20 +15,14 @@ import (
 // ============================================================================
 
 // Test 3.1.5: All with all resolved
-func TestAdapterAllWithAllResolved(t *testing.T) {
+func TestCoreJSAllWithAllResolved(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	// Create test promises
 	p1, r1, _ := jsAdapter.NewChainedPromise()
@@ -67,20 +61,14 @@ func TestAdapterAllWithAllResolved(t *testing.T) {
 }
 
 // Test 3.1.2: Handle empty array
-func TestAdapterAllWithEmptyArray(t *testing.T) {
+func TestCoreJSAllWithEmptyArray(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	promises := []*goeventloop.ChainedPromise{}
 	resultPromise := jsAdapter.All(promises)
@@ -109,20 +97,14 @@ func TestAdapterAllWithEmptyArray(t *testing.T) {
 }
 
 // Test 3.1.6: All with one rejected
-func TestAdapterAllWithOneRejected(t *testing.T) {
+func TestCoreJSAllWithOneRejected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()
@@ -165,20 +147,14 @@ func TestAdapterAllWithOneRejected(t *testing.T) {
 // ============================================================================
 
 // Test 3.2.5: Race timing
-func TestAdapterRaceTiming(t *testing.T) {
+func TestCoreJSRaceTiming(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, _ := jsAdapter.NewChainedPromise()
@@ -212,20 +188,14 @@ func TestAdapterRaceTiming(t *testing.T) {
 }
 
 // Test 3.2.4: First rejected wins
-func TestAdapterRaceFirstRejectedWins(t *testing.T) {
+func TestCoreJSRaceFirstRejectedWins(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, r2, _ := jsAdapter.NewChainedPromise()
@@ -264,20 +234,14 @@ func TestAdapterRaceFirstRejectedWins(t *testing.T) {
 // ============================================================================
 
 // Test 3.3.3: Mixed results
-func TestAdapterAllSettledMixedResults(t *testing.T) {
+func TestCoreJSAllSettledMixedResults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()
@@ -321,20 +285,14 @@ func TestAdapterAllSettledMixedResults(t *testing.T) {
 // ============================================================================
 
 // Test 3.4.3: First resolved wins
-func TestAdapterAnyFirstResolvedWins(t *testing.T) {
+func TestCoreJSAnyFirstResolvedWins(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, r2, _ := jsAdapter.NewChainedPromise()
@@ -368,20 +326,14 @@ func TestAdapterAnyFirstResolvedWins(t *testing.T) {
 }
 
 // Test 3.4.4: All rejected
-func TestAdapterAnyAllRejected(t *testing.T) {
+func TestCoreJSAnyAllRejected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop, err := goeventloop.New()
-	if err != nil {
-		t.Fatalf("Failed to create loop: %v", err)
-	}
+	loop := goeventloop.New()
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter, err := goeventloop.NewJS(loop)
-	if err != nil {
-		t.Fatalf("Failed to create JS adapter: %v", err)
-	}
+	jsAdapter := goeventloop.NewJS(loop)
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()
