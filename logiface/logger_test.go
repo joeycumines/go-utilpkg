@@ -594,6 +594,21 @@ func TestLogger_Logger_nilShared(t *testing.T) {
 	}
 }
 
+func TestLogger_Log_nilReceiver(t *testing.T) {
+	called := false
+	var logger *Logger[*mockEvent]
+	err := logger.Log(LevelError, ModifierFunc[*mockEvent](func(*mockEvent) error {
+		called = true
+		return nil
+	}))
+	if err != ErrDisabled {
+		t.Fatalf("Log error = %v, want %v", err, ErrDisabled)
+	}
+	if called {
+		t.Fatal("nil Logger invoked modifier")
+	}
+}
+
 // An example of how to use the non-fluent Log method.
 func ExampleLogger_Log() {
 	l := newSimpleLogger(os.Stdout, false).Logger()

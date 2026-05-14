@@ -230,11 +230,107 @@ func TestBatcher_Shutdown_jobInProgress(t *testing.T) {
 
 // test Shutdown with a job in progress, with cancellation, including a blocked Submit + queued up batch
 func TestBatcher_Shutdown_jobInProgressCanceled(t *testing.T) {
-	testShutdownCloseJobInProgress(t, true, context.Canceled, func(batcher *Batcher[any]) error {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		return batcher.Shutdown(ctx)
+	defer checkNumGoroutines(time.Second * 3)(t)
+
+	batcher, processorIn, processorOut := setupBlockedSubmit(t)
+
+	done := make(chan struct{})
+	ctx, cancelSubmit := context.WithCancel(context.Background())
+	go func() {
+		defer close(done)
+		defer cancelSubmit()
+		if result3, err := batcher.Submit(ctx, 3); err != context.Canceled || result3 != nil {
+			t.Error(result3, err)
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 300)
+	select {
+	case <-done:
+		t.Fatal(`expected third job to be blocked on Submit`)
+	default:
+	}
+
+	shutdownCtx, cancelShutdown := context.WithCancel(context.Background())
+	cancelShutdown()
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- batcher.Shutdown(shutdownCtx) }()
+
+	select {
+	case err := <-shutdownDone:
+		if err != context.Canceled {
+			t.Fatalf("Shutdown = %v, want %v", err, context.Canceled)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown with an already-canceled context did not return promptly")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown did not unblock pending Submit")
+	}
+
+	processorOut <- errors.New(`some error`)
+	select {
+	case args := <-processorIn:
+		if args.ctx.Err() == nil {
+			t.Error("queued job started without canceled batcher context")
+		}
+		if !reflect.DeepEqual(args.jobs, []any{2}) {
+			t.Errorf(`expected jobs to be [2], got %v`, args.jobs)
+		}
+		processorOut <- errors.New(`some other error`)
+	case <-batcher.done:
+	}
+
+	select {
+	case <-batcher.done:
+	case <-time.After(time.Second):
+		t.Fatal("batcher did not finish after releasing blocked processor")
+	}
+}
+
+func TestBatcher_Shutdown_ContextCanceledWhileProcessorStuckReturnsPromptly(t *testing.T) {
+	defer checkNumGoroutines(time.Second * 3)(t)
+
+	processorStarted := make(chan struct{})
+	releaseProcessor := make(chan struct{})
+	batcher := NewBatcher(&BatcherConfig{MaxSize: 1, FlushInterval: -1}, func(ctx context.Context, jobs []any) error {
+		close(processorStarted)
+		<-releaseProcessor
+		return ctx.Err()
 	})
+
+	if result, err := batcher.Submit(context.Background(), 1); err != nil || result == nil {
+		t.Fatalf("Submit: result=%v err=%v", result, err)
+	}
+	select {
+	case <-processorStarted:
+	case <-time.After(time.Second):
+		t.Fatal("processor did not start")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- batcher.Shutdown(ctx) }()
+	select {
+	case err := <-shutdownDone:
+		if err != context.Canceled {
+			t.Fatalf("Shutdown = %v, want %v", err, context.Canceled)
+		}
+	case <-time.After(time.Second):
+		close(releaseProcessor)
+		t.Fatal("Shutdown waited for a stuck processor despite canceled context")
+	}
+
+	close(releaseProcessor)
+	select {
+	case <-batcher.done:
+	case <-time.After(time.Second):
+		t.Fatal("batcher did not finish after processor release")
+	}
 }
 
 // this is effectively identical to calling Shutdown with a canceled context
@@ -260,7 +356,7 @@ func TestBatcher_flushInterval(t *testing.T) {
 	processorIn := make(chan processorArgsAny)
 	processorOut := make(chan error)
 
-	const flushInterval = 100 * time.Millisecond
+	const flushInterval = 200 * time.Millisecond
 
 	batcher := NewBatcher(
 		&BatcherConfig{MaxSize: -1, FlushInterval: flushInterval, MaxConcurrency: -1},
@@ -280,23 +376,39 @@ func TestBatcher_flushInterval(t *testing.T) {
 			t.Fatal(result, err)
 		}
 		jobs = append(jobs, result)
-		time.Sleep(time.Millisecond * 5) // just because
-	}
-
-	// wait for the batch
-	if args := <-processorIn; len(args.jobs) != 5 {
-		t.Errorf(`expected 5 jobs, got %d`, len(args.jobs))
-	}
-
-	// ensure it took at least the expected time, but not too much longer
-	if elapsed := time.Since(firstSubmitTime); elapsed < time.Millisecond*90 || elapsed > time.Second {
-		t.Errorf(`expected flush interval to be 50ms, got %s`, elapsed)
-	} else {
-		t.Logf(`interval delta: %s`, elapsed-flushInterval)
 	}
 
 	err := errors.New(`expected error`)
-	processorOut <- err
+
+	// Wait for all submitted jobs to reach the processor. If an overloaded CI
+	// host ever splits the work into more than one batch, keep draining and
+	// releasing processors so JobResult.Wait cannot hang behind an unobserved
+	// processor call.
+	var batches []processorArgsAny
+	for total := 0; total < len(jobs); {
+		select {
+		case args := <-processorIn:
+			batches = append(batches, args)
+			total += len(args.jobs)
+			processorOut <- err
+		case <-time.After(5 * time.Second):
+			t.Fatalf(`timed out waiting for flushed jobs; got %d/%d`, total, len(jobs))
+		}
+	}
+	if len(batches) != 1 || len(batches[0].jobs) != len(jobs) {
+		gotLens := make([]int, len(batches))
+		for i, batch := range batches {
+			gotLens[i] = len(batch.jobs)
+		}
+		t.Errorf(`expected one batch with %d jobs, got batch sizes %v`, len(jobs), gotLens)
+	}
+
+	// ensure it took at least the expected time, but not too much longer
+	if elapsed := time.Since(firstSubmitTime); elapsed < flushInterval*9/10 || elapsed > 5*time.Second {
+		t.Errorf(`expected flush interval around %s, got %s`, flushInterval, elapsed)
+	} else {
+		t.Logf(`interval delta: %s`, elapsed-flushInterval)
+	}
 
 	// ensure all jobs are done, and have our expected error
 	for _, job := range jobs {

@@ -131,12 +131,21 @@ func NewBatcher[Job any](config *BatcherConfig, processor BatchProcessor[Job]) *
 }
 
 // Shutdown will immediately prevent further jobs via Submit, then wait for
-// all already running or scheduled jobs to complete. An error will be returned
-// if ctx is canceled prior to this, causing a forced Close.
+// all already running or scheduled jobs to complete while ctx remains live. If
+// ctx is already canceled or becomes canceled while waiting, Shutdown cancels
+// the batcher context and returns ctx.Err() without waiting for processors that
+// may be ignoring cancellation.
 //
 // This method is unsafe to call from within a job or BatchProcessor.
 func (x *Batcher[Job]) Shutdown(ctx context.Context) (err error) {
 	x.stop()
+
+	if err := ctx.Err(); err != nil {
+		if x.ctx.Err() == nil {
+			x.cancel()
+		}
+		return err
+	}
 
 	select {
 	case <-ctx.Done():
@@ -144,7 +153,6 @@ func (x *Batcher[Job]) Shutdown(ctx context.Context) (err error) {
 			err = ctx.Err() // indicating we forcibly closed
 		}
 		x.cancel()
-		<-x.done
 	case <-x.done:
 	}
 

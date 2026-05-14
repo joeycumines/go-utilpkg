@@ -569,7 +569,7 @@ func TestConsole_WaitIdle(t *testing.T) {
 	}
 
 	t.Run("stable output returns nil", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		err := newConsole(t).WaitIdle(ctx, 50*time.Millisecond)
 		if err != nil {

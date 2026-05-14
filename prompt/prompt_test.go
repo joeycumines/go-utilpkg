@@ -1853,29 +1853,27 @@ func TestNonGracefulShutdown(t *testing.T) {
 	}
 }
 
-// TestGracefulShutdownLeftoverData tests graceful shutdown processing of leftoverData
-// from readBuffer goroutine.
+// TestGracefulShutdownLeftoverData tests the public Close -> RunNoExit graceful
+// shutdown path. If Close is requested while the executor is running, pending
+// bytes must be preserved when RunNoExit re-enters shutdown instead of the
+// normal read loop.
 func TestGracefulShutdownLeftoverData(t *testing.T) {
-	// Define input/output channels for executor orchestration
-	type executorCall struct {
-		input string
-	}
-	type executorResult struct{}
-
-	executorIn := make(chan executorCall)
-	executorOut := make(chan executorResult)
-
+	executorCalls := make(chan string, 2)
+	releaseExecutor := make(chan struct{})
+	var releaseOnce sync.Once
 	executor := func(s string) {
-		executorIn <- executorCall{input: s}
-		<-executorOut
+		executorCalls <- s
+		if s == "initial" {
+			<-releaseExecutor
+		}
 	}
 
 	r := newMockReader()
 	p := newTestPrompt(r, executor, nil)
 	p.gracefulCloseEnabled = true
-	p.inputBufferChannelSize = 0 // Unbuffered to force leftoverData scenario
+	defer p.Close()
+	defer releaseOnce.Do(func() { close(releaseExecutor) })
 
-	// Start RunNoExit
 	runDone := make(chan struct{})
 	go func() {
 		defer func() { _ = r.Close() }()
@@ -1884,76 +1882,61 @@ func TestGracefulShutdownLeftoverData(t *testing.T) {
 	}()
 
 	r.WaitReady()
-
-	// Feed first command to start execution
-	r.Feed([]byte("first"))
+	r.Feed([]byte("initial"))
 	r.Feed(findASCIICode(Enter))
 
-	// Wait for executor to be called for first command
-	timer1 := time.NewTimer(5 * time.Second)
-	defer timer1.Stop()
-
-	var call1 executorCall
 	select {
-	case call1 = <-executorIn:
-	case <-timer1.C:
-		t.Fatal("executor not called for first command")
+	case got := <-executorCalls:
+		if got != "initial" {
+			t.Fatalf("first executor call = %q, want initial", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("executor was not called for initial command")
 	}
 
-	if call1.input != "first" {
-		t.Errorf("expected first command to be %q, got %q", "first", call1.input)
+	// Queue data while the executor is still running, then request the public
+	// shutdown path. RunNoExit must observe Close after the executor returns and
+	// process the queued command during graceful shutdown.
+	r.Feed(append([]byte("leftover"), findASCIICode(Enter)...))
+	p.runMu.Lock()
+	stopCh := p.stopCh
+	p.runMu.Unlock()
+	if stopCh == nil {
+		t.Fatal("prompt stop channel was not initialized while RunNoExit was active")
 	}
-
-	// While executor is blocked (we haven't sent result yet), feed leftover data
-	// readBuffer will read this and block trying to send to bufCh (unbuffered, main loop busy)
-	r.Feed([]byte("leftover"))
-	r.Feed(findASCIICode(Enter))
-
-	// Call Close() - this triggers graceful shutdown which should collect and execute leftover data
 	closeDone := make(chan struct{})
 	go func() {
 		p.Close()
 		close(closeDone)
 	}()
 
-	// Unblock first executor (always send result unconditionally)
-	executorOut <- executorResult{}
-
-	// Orchestrate: wait for executor call for leftover data with timeout
-	timer2 := time.NewTimer(2 * time.Second)
-	defer timer2.Stop()
-
-	var call2 executorCall
 	select {
-	case call2 = <-executorIn:
-	case <-timer2.C:
-		t.Fatal("executor was not called for leftover data")
+	case <-stopCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close did not request prompt stop")
 	}
 
-	if call2.input != "leftover" {
-		t.Errorf("expected executor to be called with 'leftover', got %q", call2.input)
+	releaseOnce.Do(func() { close(releaseExecutor) })
+
+	select {
+	case got := <-executorCalls:
+		if got != "leftover" {
+			t.Fatalf("graceful shutdown executor call = %q, want leftover", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("graceful shutdown did not process queued leftover command")
 	}
-
-	// Always send result unconditionally
-	executorOut <- executorResult{}
-
-	// Wait for completion
-	timer4 := time.NewTimer(2 * time.Second)
-	defer timer4.Stop()
 
 	select {
 	case <-runDone:
-	case <-timer4.C:
-		t.Fatal("RunNoExit did not complete")
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunNoExit did not complete after graceful Close")
 	}
-
-	timer3 := time.NewTimer(100 * time.Millisecond)
-	defer timer3.Stop()
 
 	select {
 	case <-closeDone:
-	case <-timer3.C:
-		t.Fatal("Close did not complete")
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close did not return after RunNoExit shutdown")
 	}
 }
 

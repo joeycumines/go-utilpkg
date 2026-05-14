@@ -292,6 +292,8 @@ func (x *Logger[E]) Logger() (logger *Logger[Event]) {
 }
 
 // Log directly performs a Log operation, without the "fluent builder" pattern.
+// A nil Logger receiver is disabled: Log returns [ErrDisabled] without invoking
+// modifier.
 func (x *Logger[E]) Log(level Level, modifier Modifier[E]) error {
 	if !x.canLog(level) {
 		return ErrDisabled
