@@ -8,6 +8,8 @@ use (
 	./eventloop/internal/tournament
 	./fangrpcstream
 	./floater
+	./goja
+	./goja_nodejs
 	./goja-eventloop
 	./goja-grpc
 	./goja-protobuf
@@ -29,5 +31,4 @@ use (
 	./smartpoll
 	./sql
 	./sql/export/mysql
-	../../../goja
 )

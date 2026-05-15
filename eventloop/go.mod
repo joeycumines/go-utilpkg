@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/joeycumines/goroutineid v1.1.0
 	github.com/joeycumines/logiface v0.5.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.44.0
 )
 
 require (

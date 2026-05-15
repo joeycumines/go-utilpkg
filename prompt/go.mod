@@ -11,7 +11,7 @@ require (
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.7
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.44.0
 )
 
 require (
@@ -20,9 +20,9 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/yuin/goldmark v1.8.4 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/mod v0.38.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/tools v0.48.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/tools v0.45.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
 	honnef.co/go/tools v0.7.0 // indirect
