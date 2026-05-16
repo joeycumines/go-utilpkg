@@ -1,0 +1,272 @@
+name: Sync upstream
+
+# Keeps joeycumines/goja:main in sync with dop251/goja:master.
+#
+# Strategy: merge upstream/master into main, then validate the merged tree
+# (vet + build + full test incl. tc39 test262). If the merge is clean AND
+# validation passes, push directly to main. In every other case (conflicts,
+# validation failure, or a rejected push) open a descriptive PR against main so
+# a human can take over.
+#
+# Why inline validation: pushes made with the auto GITHUB_TOKEN do not fire
+# downstream `on: push` workflows, so this workflow is itself the gate that
+# proves a sync is green before it lands on main.
+#
+# First-party only: actions/checkout + actions/setup-go for setup; git for the
+# merge; the gh CLI (GitHub's own tool) for PR creation. No labels are applied
+# (label management needs permissions the default token does not grant, and we
+# never want PR creation to depend on a side-effect that can fail).
+
+on:
+  schedule:
+    - cron: '23 6 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      UPSTREAM_REMOTE: https://github.com/dop251/goja.git
+      UPSTREAM_BRANCH: master
+      TARGET_BRANCH: main
+    steps:
+      - name: Checkout fork (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ env.TARGET_BRANCH }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Read pinned test262 commit
+        id: test262
+        run: |
+          sha="$(grep -E '^sha=' .tc39_test262_checkout.sh | head -1 | cut -d= -f2- | tr -d '[:space:]')"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_REMOTE"
+          git fetch upstream "$UPSTREAM_BRANCH" --tags --no-recurse-submodules
+
+      - name: Check if sync is needed
+        id: needed
+        run: |
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+            echo "sync=false" >> "$GITHUB_OUTPUT"
+            echo "Already in sync with upstream/$UPSTREAM_BRANCH; nothing to do."
+          else
+            echo "sync=true" >> "$GITHUB_OUTPUT"
+            echo "Upstream has new commits; proceeding with sync."
+          fi
+
+      - name: Compute sync branch id
+        if: steps.needed.outputs.sync == 'true'
+        id: id
+        run: |
+          short="$(git rev-parse --short=12 "upstream/$UPSTREAM_BRANCH")"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "branch=sync/upstream-$short" >> "$GITHUB_OUTPUT"
+
+      - name: Attempt merge
+        if: steps.needed.outputs.sync == 'true'
+        id: merge
+        run: |
+          set +e
+          # --no-ff forces a merge commit even when a fast-forward is possible,
+          # so HEAD~1 is always the pre-merge main tip and HEAD~1..upstream/master
+          # always lists exactly the incoming commits (used in PR bodies).
+          git merge "upstream/$UPSTREAM_BRANCH" --no-edit --no-ff > /tmp/merge.log 2>&1
+          rc=$?
+          echo "exitcode=$rc" >> "$GITHUB_OUTPUT"
+          cat /tmp/merge.log
+          if [ "$rc" -ne 0 ]; then
+            # Capture conflicted paths to a file (NOT an interpolated output)
+            # so they can be reported safely later.
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt
+            echo "Conflicted files:"
+            cat /tmp/conflicts.txt
+          fi
+          exit 0
+
+      # --- Conflict path: finalize a pushable merge commit (with markers) and
+      #     open a PR. Never push conflicted state to main. ---
+      - name: Open PR for conflicts
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode != '0'
+        env:
+          SYNC_BRANCH: ${{ steps.id.outputs.branch }}
+        run: |
+          # Complete the in-progress merge with the conflict markers in place so
+          # the result is committable/pushable; the PR diff then shows humans
+          # exactly where to resolve.
+          git add -A
+          git commit --no-edit --no-verify
+          # Disposable sync branch: force-push so re-runs against the same
+          # upstream commit refresh it instead of failing on a stale tip.
+          git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
+
+          {
+            echo "Automatic upstream sync from \`dop251/goja:master\` produced **conflicts** that need manual resolution."
+            echo
+            echo "**Conflicted files:**"
+            echo
+            while IFS= read -r f; do [ -n "$f" ] && echo "- \`$f\`"; done < /tmp/conflicts.txt
+            echo
+            echo "**Incoming commits:**"
+            echo
+            echo '```'
+            git log --oneline HEAD~1.."upstream/$UPSTREAM_BRANCH"
+            echo '```'
+            echo
+            echo "This branch contains a merge commit with conflict markers. Resolve the markers, commit, then merge this PR."
+          } > /tmp/pr-body.md
+
+          existing="$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Open PR #$existing already exists; refreshing it."
+            gh pr edit "$existing" --title "sync: upstream master → main (conflicts)" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --base "$TARGET_BRANCH" \
+              --head "$SYNC_BRANCH" \
+              --title "sync: upstream master → main (conflicts)" \
+              --body-file /tmp/pr-body.md
+          fi
+
+      # --- Clean-merge path: validate before any push to main. ---
+      - name: Cache tc39 test262
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0'
+        id: test262-cache
+        uses: actions/cache@v6
+        with:
+          path: testdata/test262
+          key: test262-${{ steps.test262.outputs.sha }}
+
+      - name: Checkout tc39 tests
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0' && steps.test262-cache.outputs.cache-hit != 'true'
+        run: ./.tc39_test262_checkout.sh
+
+      - name: Validate merged tree (vet + build + full test + race)
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0'
+        id: validate
+        run: |
+          set +e
+          go vet ./... > /tmp/vet.log 2>&1; vet_rc=$?
+          go build ./... > /tmp/build.log 2>&1; build_rc=$?
+          # Full functional suite (incl. tc39 test262), no race.
+          go test -vet=off -timeout 15m ./... > /tmp/test.log 2>&1; test_rc=$?
+          # Race detector with tc39 skipped (-short): the full test262 suite
+          # under -race blows the Go test timeout. The dedicated concurrency
+          # tests still run under -race and exercise the promise-job machinery.
+          # Mirrors ci.yml's race step so a sync never lands a race regression
+          # the GITHUB_TOKEN push would not re-trigger.
+          go test -race -short -vet=off ./... > /tmp/race.log 2>&1; race_rc=$?
+          {
+            echo "### go vet (exit $vet_rc)"; echo; cat /tmp/vet.log; echo;
+            echo "### go build (exit $build_rc)"; echo; cat /tmp/build.log; echo;
+            echo "### go test (exit $test_rc)"; echo; cat /tmp/test.log; echo;
+            echo "### go test -race -short (exit $race_rc)"; echo; cat /tmp/race.log; echo;
+          } > /tmp/validate.log
+          echo "vet=$vet_rc build=$build_rc test=$test_rc race=$race_rc"
+          if [ "$vet_rc" -eq 0 ] && [ "$build_rc" -eq 0 ] && [ "$test_rc" -eq 0 ] && [ "$race_rc" -eq 0 ]; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+            echo "Validation passed."
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            echo "Validation FAILED:"
+            cat /tmp/validate.log
+          fi
+          exit 0
+
+      - name: Push to main
+        id: push
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0' && steps.validate.outputs.result == 'pass'
+        run: |
+          set +e
+          git push origin "$TARGET_BRANCH" > /tmp/push.log 2>&1; push_rc=$?
+          echo "push_rc=$push_rc"
+          if [ "$push_rc" -eq 0 ]; then
+            echo "result=ok" >> "$GITHUB_OUTPUT"
+            echo "Pushed synced main."
+            git log --oneline -5 "$TARGET_BRANCH"
+          else
+            echo "result=failed" >> "$GITHUB_OUTPUT"
+            echo "Direct push to main failed:"
+            cat /tmp/push.log
+          fi
+          exit 0
+
+      - name: Open PR (validation failed or push rejected)
+        if: >
+          steps.needed.outputs.sync == 'true'
+          && steps.merge.outputs.exitcode == '0'
+          && (steps.validate.outputs.result == 'fail'
+              || steps.push.outputs.result == 'failed')
+        env:
+          SYNC_BRANCH: ${{ steps.id.outputs.branch }}
+          VALIDATE_RESULT: ${{ steps.validate.outputs.result }}
+        run: |
+          # Push the cleanly-merged tree to a branch and let a human review.
+          # Force-push: disposable sync branch, refreshes on re-runs.
+          git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
+
+          if [ "$VALIDATE_RESULT" = "fail" ]; then
+            title="sync: upstream master → main (tests failing)"
+            header="Upstream merged cleanly, but **validation failed** on the merged tree."
+            detail="$(cat /tmp/validate.log)"
+          else
+            title="sync: upstream master → main (push rejected)"
+            header="Upstream merged and validated cleanly, but the direct push to main was **rejected** (e.g. branch protection)."
+            detail="$(cat /tmp/push.log)"
+          fi
+
+          {
+            echo "$header"
+            echo
+            echo "**Incoming commits:**"
+            echo
+            echo '```'
+            git log --oneline HEAD~1.."upstream/$UPSTREAM_BRANCH"
+            echo '```'
+            echo
+            echo '<details><summary>Details</summary>'
+            echo
+            echo '```'
+            echo "$detail"
+            echo '```'
+            echo
+            echo '</details>'
+          } > /tmp/pr-body.md
+
+          existing="$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Open PR #$existing already exists; refreshing it."
+            gh pr edit "$existing" --title "$title" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --base "$TARGET_BRANCH" \
+              --head "$SYNC_BRANCH" \
+              --title "$title" \
+              --body-file /tmp/pr-body.md
+          fi
