@@ -10,7 +10,10 @@ import (
 )
 
 func TestCleanupTimersClearsHeapAndListReferences(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	when := time.Now().Add(time.Hour)
@@ -48,7 +51,10 @@ func TestCleanupTimersClearsHeapAndListReferences(t *testing.T) {
 }
 
 func TestTimerTurnDeferralSurvivesTickCounterWrap(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.tickCount = math.MaxUint64
@@ -75,7 +81,10 @@ func TestTimerTurnDeferralSurvivesTickCounterWrap(t *testing.T) {
 }
 
 func TestTimerQueuedBeforeTurnRunsInThatTurn(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fired := false
@@ -89,7 +98,10 @@ func TestTimerQueuedBeforeTurnRunsInThatTurn(t *testing.T) {
 }
 
 func TestStartupTimerPhaseDefersNestedTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var order []string
@@ -118,7 +130,10 @@ func TestStartupTimerPhaseDefersNestedTimer(t *testing.T) {
 }
 
 func TestStartupMicrotaskTimerRemainsStartupEligible(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var order []string
@@ -147,7 +162,10 @@ func TestStartupMicrotaskTimerRemainsStartupEligible(t *testing.T) {
 }
 
 func TestRefedTimerCountExceedsInt32(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	timer := &timer{id: 1, heapIndex: -1}
@@ -167,9 +185,15 @@ func TestJSTimerDelayOverflowPanicsBeforeAdmission(t *testing.T) {
 	if strconv.IntSize < 64 {
 		t.Skip("int cannot represent an overflowing millisecond delay")
 	}
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	overflowMilliseconds := int64(math.MaxInt64/int64(time.Millisecond) + 1)
 	overflow := int(overflowMilliseconds)

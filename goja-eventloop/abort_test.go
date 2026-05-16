@@ -16,10 +16,16 @@ import (
 
 // TestAbortController_Basic tests basic AbortController functionality from JavaScript.
 func TestAbortController_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -45,10 +51,16 @@ func TestAbortController_Basic(t *testing.T) {
 
 // TestAbortController_Abort tests abort functionality from JavaScript.
 func TestAbortController_Abort(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -72,10 +84,16 @@ func TestAbortController_Abort(t *testing.T) {
 
 // TestAbortController_OnAbort tests onabort handler from JavaScript.
 func TestAbortController_OnAbort(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -103,10 +121,16 @@ func TestAbortController_OnAbort(t *testing.T) {
 
 // TestAbortController_AddEventListener tests addEventListener from JavaScript.
 func TestAbortController_AddEventListener(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -137,10 +161,16 @@ func TestAbortController_AddEventListener(t *testing.T) {
 
 // TestAbortController_ThrowIfAborted tests throwIfAborted from JavaScript.
 func TestAbortController_ThrowIfAborted(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -179,10 +209,16 @@ func TestAbortController_ThrowIfAborted(t *testing.T) {
 
 // TestAbortSignal_CannotConstruct tests that AbortSignal cannot be constructed directly.
 func TestAbortSignal_CannotConstruct(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -214,10 +250,16 @@ func TestAbortSignal_CannotConstruct(t *testing.T) {
 
 // TestPerformance_Now tests performance.now() from JavaScript.
 func TestPerformance_Now(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -249,10 +291,16 @@ func TestPerformance_Now(t *testing.T) {
 
 // TestPerformance_TimeOrigin tests performance.timeOrigin from JavaScript.
 func TestPerformance_TimeOrigin(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -277,9 +325,15 @@ func TestPerformance_TimeOrigin(t *testing.T) {
 }
 
 func TestPerformance_RetainedPrototypeAndBrand(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -367,10 +421,16 @@ func TestPerformance_ForeignPairPreservationAndPartialRejection(t *testing.T) {
 
 // TestAbortController_WithFetch tests AbortController with a simulated fetch-like operation.
 func TestAbortController_WithFetch(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -430,11 +490,17 @@ func TestAbortController_WithFetch(t *testing.T) {
 
 // TestAbortSignal_Any_Basic tests AbortSignal.any() with multiple signals.
 func TestAbortSignal_Any_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -467,11 +533,17 @@ func TestAbortSignal_Any_Basic(t *testing.T) {
 
 // TestAbortSignal_Any_AlreadyAborted tests AbortSignal.any() with pre-aborted signal.
 func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -500,11 +572,17 @@ func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
 
 // TestAbortSignal_Any_Empty tests AbortSignal.any() with empty array.
 func TestAbortSignal_Any_Empty(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -527,10 +605,16 @@ func TestAbortSignal_Any_Empty(t *testing.T) {
 
 // TestAbortSignal_Any_OnAbort tests AbortSignal.any() with onabort handler.
 func TestAbortSignal_Any_OnAbort(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -580,10 +664,16 @@ func TestAbortSignal_Any_OnAbort(t *testing.T) {
 
 // TestAbortSignal_Timeout_Basic tests AbortSignal.timeout() basic functionality.
 func TestAbortSignal_Timeout_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -628,10 +718,16 @@ func TestAbortSignal_Timeout_Basic(t *testing.T) {
 
 // TestAbortSignal_Timeout_Fires tests that AbortSignal.timeout() actually aborts.
 func TestAbortSignal_Timeout_Fires(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -676,10 +772,16 @@ func TestAbortSignal_Timeout_Fires(t *testing.T) {
 
 // TestAbortSignal_Timeout_Zero tests AbortSignal.timeout(0).
 func TestAbortSignal_Timeout_Zero(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

@@ -707,7 +707,7 @@ type rejectionInfo struct {
 // Users can type-assert the reason in their [RejectionHandler] callback to access
 // the debug information:
 //
-//	js := eventloop.NewJS(loop, eventloop.WithUnhandledRejection(func(r any) {
+//	js, err := eventloop.NewJS(loop, eventloop.WithUnhandledRejection(func(r any) {
 //	    if debug, ok := r.(*eventloop.UnhandledRejectionDebugInfo); ok {
 //	        log.Printf("Unhandled rejection: %v\\nCreated at:\\n%s",
 //	            debug.Reason, debug.CreationStackTrace)
@@ -715,6 +715,9 @@ type rejectionInfo struct {
 //	        log.Printf("Unhandled rejection: %v", r)
 //	    }
 //	}))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //
 // If debug mode is not enabled or the promise has no creation stack,
 // the callback receives the raw rejection reason without wrapping.

@@ -12,7 +12,10 @@ type terminalTestError string
 func (e terminalTestError) Error() string { return string(e) }
 
 func TestTerminalErrorStoresHeterogeneousErrorTypes(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -31,7 +34,10 @@ func TestTerminalErrorStoresHeterogeneousErrorTypes(t *testing.T) {
 }
 
 func TestCalculateTimeoutCapsLongFiniteDeadlines(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	pushTestTimer(loop, &timer{when: time.Now().Add(time.Duration(maxFinitePollTimeoutMs+60_000) * time.Millisecond)})
 	if got := loop.calculateTimeout(); got != maxFinitePollTimeoutMs {
@@ -40,7 +46,10 @@ func TestCalculateTimeoutCapsLongFiniteDeadlines(t *testing.T) {
 }
 
 func TestCalculateTimeoutCapsBeforeIntConversion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	pushTestTimer(loop, &timer{when: time.Now().Add(time.Duration(math.MaxInt32+1) * time.Millisecond)})
 	if got := loop.calculateTimeout(); got != maxFinitePollTimeoutMs {
@@ -69,12 +78,15 @@ func TestBoundedPhysicalPollTimeout(t *testing.T) {
 }
 
 func TestProcessExternalSkipsQueuePressureAfterHardAbort(t *testing.T) {
-	loop := New(
+	loop, err := New(
 		WithFastPathMode(FastPathDisabled),
 		WithQueuePressureHandler(func() {
 			t.Fatal("queue-pressure handler ran after hard abort")
 		}),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	loop.pushOwnerExternal(func() {
 		loop.state.Store(StateTerminated)

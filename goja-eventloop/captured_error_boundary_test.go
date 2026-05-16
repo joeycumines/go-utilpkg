@@ -47,7 +47,10 @@ func newCapturedErrorBoundaryAdapter(t *testing.T, loop *goeventloop.Loop) (*Ada
 }
 
 func TestRuntimePrimordialsPreserveGlobalErrorReplacement(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	_, runtime := newCapturedErrorBoundaryAdapter(t, loop)
 	value, err := runtime.RunString(`
@@ -128,7 +131,10 @@ func TestAdapterSubmitJavaScriptExceptionUsesAdapterBoundary(t *testing.T) {
 }
 
 func TestProcessExitThrowingExitingSetterPreservesExactException(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, runtime := newCapturedErrorBoundaryAdapter(t, loop)
 	value, err := runtime.RunString(`
 		capturedErrorThrows = true;

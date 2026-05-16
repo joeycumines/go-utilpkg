@@ -44,7 +44,10 @@ func observeAliveT(t *testing.T, loop *Loop) bool {
 }
 
 func TestIOMode_RefUnrefFromExternalGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)
@@ -88,7 +91,10 @@ func TestIOMode_RefUnrefFromExternalGoroutine(t *testing.T) {
 }
 
 func TestIOMode_AliveWithUnrefdTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)
@@ -132,7 +138,10 @@ func TestIOMode_AliveWithUnrefdTimer(t *testing.T) {
 }
 
 func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)
@@ -144,7 +153,6 @@ func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
 	const timerCount = 12
 	const contenders = 6
 	ids := make([]TimerID, timerCount)
-	var err error
 	for index := range ids {
 		ids[index], err = loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
@@ -195,7 +203,10 @@ func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
 }
 
 func TestSubmitTimerRefChange_TerminatedState(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	timerID, err := loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
@@ -212,7 +223,10 @@ func TestSubmitTimerRefChange_TerminatedState(t *testing.T) {
 }
 
 func TestSubmitTimerRefChange_OnLoopGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	stop := startCancelableLoopT(t, loop)
 	timerID, err := loop.ScheduleTimer(time.Hour, func() {})
@@ -243,7 +257,10 @@ func TestSubmitTimerRefChange_OnLoopGoroutine(t *testing.T) {
 }
 
 func TestAlive_MicrotaskPath(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	stop := startCancelableLoopT(t, loop)
 	type result struct {
@@ -275,7 +292,10 @@ func TestAlive_MicrotaskPath(t *testing.T) {
 }
 
 func TestAlive_NextTickPath(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	stop := startCancelableLoopT(t, loop)
 	type result struct {
@@ -307,7 +327,10 @@ func TestAlive_NextTickPath(t *testing.T) {
 }
 
 func TestAlive_UserIOFDOnly(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)

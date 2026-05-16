@@ -34,9 +34,15 @@ func (w *reentrantConsoleWriter) Write(p []byte) (int, error) {
 
 // TestConsoleGroup_Basic tests basic console.group() usage.
 func TestConsoleGroup_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -68,9 +74,15 @@ func TestConsoleGroup_Basic(t *testing.T) {
 }
 
 func TestConsoleOutputWriterMayReenterConfiguration(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +113,15 @@ func TestConsoleOutputWriterMayReenterConfiguration(t *testing.T) {
 }
 
 func TestConsoleOutputConcurrentConfigurationAndWarning(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,9 +157,15 @@ func TestConsoleOutputConcurrentConfigurationAndWarning(t *testing.T) {
 
 // TestConsoleGroup_DefaultLabel tests console.group() without label.
 func TestConsoleGroup_DefaultLabel(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -170,9 +194,15 @@ func TestConsoleGroup_DefaultLabel(t *testing.T) {
 
 // TestConsoleGroupCollapsed tests console.groupCollapsed().
 func TestConsoleGroupCollapsed(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -205,9 +235,15 @@ func TestConsoleGroupCollapsed(t *testing.T) {
 
 // TestConsoleGroupEnd tests console.groupEnd().
 func TestConsoleGroupEnd(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -236,9 +272,15 @@ func TestConsoleGroupEnd(t *testing.T) {
 
 // TestConsoleGroupEnd_NoGroup tests console.groupEnd() without active group.
 func TestConsoleGroupEnd_NoGroup(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -264,9 +306,15 @@ func TestConsoleGroupEnd_NoGroup(t *testing.T) {
 
 // TestConsoleTrace_Basic tests basic console.trace() usage.
 func TestConsoleTrace_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -302,9 +350,15 @@ func TestConsoleTrace_Basic(t *testing.T) {
 
 // TestConsoleTrace_NoMessage tests console.trace() without message.
 func TestConsoleTrace_NoMessage(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -333,9 +387,15 @@ func TestConsoleTrace_NoMessage(t *testing.T) {
 
 // TestConsoleTrace_NilOutput tests nil output handling.
 func TestConsoleTrace_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -359,9 +419,15 @@ func TestConsoleTrace_NilOutput(t *testing.T) {
 
 // TestConsoleClear_Basic tests console.clear().
 func TestConsoleClear_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -391,9 +457,15 @@ func TestConsoleClear_Basic(t *testing.T) {
 
 // TestConsoleClear_NilOutput tests nil output handling.
 func TestConsoleClear_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -417,9 +489,15 @@ func TestConsoleClear_NilOutput(t *testing.T) {
 
 // TestConsoleDir_Object tests console.dir() with an object.
 func TestConsoleDir_Object(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -457,9 +535,15 @@ func TestConsoleDir_Object(t *testing.T) {
 
 // TestConsoleDir_Array tests console.dir() with an array.
 func TestConsoleDir_Array(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -494,9 +578,15 @@ func TestConsoleDir_Array(t *testing.T) {
 
 // TestConsoleDir_Primitive tests console.dir() with primitives.
 func TestConsoleDir_Primitive(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -533,9 +623,15 @@ func TestConsoleDir_Primitive(t *testing.T) {
 
 // TestConsoleDir_NullUndefined tests console.dir() with null/undefined.
 func TestConsoleDir_NullUndefined(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -569,9 +665,15 @@ func TestConsoleDir_NullUndefined(t *testing.T) {
 
 // TestConsoleDir_NilOutput tests nil output handling.
 func TestConsoleDir_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -595,9 +697,15 @@ func TestConsoleDir_NilOutput(t *testing.T) {
 
 // TestConsoleGroup_Indentation tests that group/groupEnd affects indentation.
 func TestConsoleGroup_Indentation(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}

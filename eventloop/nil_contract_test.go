@@ -61,7 +61,10 @@ func TestPromisifyNilContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			runDone := make(chan error, 1)
 			go func() { runDone <- loop.Run(context.Background()) }()
@@ -102,7 +105,10 @@ func TestPromisifyNilContext(t *testing.T) {
 }
 
 func TestPromisifyRecoversContextDonePanic(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
@@ -133,7 +139,10 @@ func TestPromisifyRecoversContextDonePanic(t *testing.T) {
 }
 
 func TestPromisifyRecoversContextErrPanic(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()

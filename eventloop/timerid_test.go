@@ -55,7 +55,10 @@ func TestAllocateIDConcurrentExhaustionSaturates(t *testing.T) {
 }
 
 func TestScheduleTimerIDIncrement(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const timerCount = 100
@@ -73,7 +76,10 @@ func TestScheduleTimerIDIncrement(t *testing.T) {
 }
 
 func TestScheduleTimerIDExhaustion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.nextTimerID.Store(math.MaxUint64 - 1)
 

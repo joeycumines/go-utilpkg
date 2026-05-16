@@ -2,6 +2,7 @@ package gojaeventloop
 
 import (
 	"sync"
+	"weak"
 
 	"github.com/joeycumines/goja"
 )
@@ -9,7 +10,7 @@ import (
 type abortSignalState struct {
 	reason             goja.Value
 	target             *eventTargetWrapper
-	object             *goja.Object
+	object             weak.Pointer[goja.Object]
 	onabort            *eventTargetListenerInfo
 	timeout            *abortTimeoutRef
 	algorithms         []*abortAlgorithm

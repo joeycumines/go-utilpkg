@@ -20,11 +20,17 @@ import (
 // ===============================================
 
 func TestEncodeURIComponent_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -58,11 +64,17 @@ func TestEncodeURIComponent_Basic(t *testing.T) {
 }
 
 func TestDecodeURIComponent_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -95,11 +107,17 @@ func TestDecodeURIComponent_Basic(t *testing.T) {
 }
 
 func TestEncodeURIComponent_Unicode(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -130,11 +148,17 @@ func TestEncodeURIComponent_Unicode(t *testing.T) {
 }
 
 func TestEncodeURI_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -165,11 +189,17 @@ func TestEncodeURI_Basic(t *testing.T) {
 }
 
 func TestDecodeURI_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -199,11 +229,17 @@ func TestDecodeURI_Basic(t *testing.T) {
 }
 
 func TestEscape_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -234,11 +270,17 @@ func TestEscape_Basic(t *testing.T) {
 }
 
 func TestUnescape_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -267,11 +309,17 @@ func TestUnescape_Basic(t *testing.T) {
 }
 
 func TestURIComponent_InvalidSequence(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -295,11 +343,17 @@ func TestURIComponent_InvalidSequence(t *testing.T) {
 // ===============================================
 
 func TestParseInt_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -336,11 +390,17 @@ func TestParseInt_Basic(t *testing.T) {
 }
 
 func TestParseInt_NaN(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -369,11 +429,17 @@ func TestParseInt_NaN(t *testing.T) {
 }
 
 func TestParseFloat_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -418,11 +484,17 @@ func TestParseFloat_Basic(t *testing.T) {
 }
 
 func TestParseFloat_NaN(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -460,11 +532,17 @@ func TestParseFloat_NaN(t *testing.T) {
 // ===============================================
 
 func TestIsNaN_Global(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -505,11 +583,17 @@ func TestIsNaN_Global(t *testing.T) {
 }
 
 func TestIsFinite_Global(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -548,11 +632,17 @@ func TestIsFinite_Global(t *testing.T) {
 }
 
 func TestNumberIsNaN(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -591,11 +681,17 @@ func TestNumberIsNaN(t *testing.T) {
 }
 
 func TestNumberIsFinite(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -636,11 +732,17 @@ func TestNumberIsFinite(t *testing.T) {
 }
 
 func TestGlobalVsNumberVersions(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -673,11 +775,17 @@ func TestGlobalVsNumberVersions(t *testing.T) {
 // ===============================================
 
 func TestNumberIsInteger(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -716,11 +824,17 @@ func TestNumberIsInteger(t *testing.T) {
 }
 
 func TestNumberIsSafeInteger(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -759,11 +873,17 @@ func TestNumberIsSafeInteger(t *testing.T) {
 }
 
 func TestNumberConstants(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -800,11 +920,17 @@ func TestNumberConstants(t *testing.T) {
 // ===============================================
 
 func TestBuiltinFunctionsExist(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -845,11 +971,17 @@ func TestBuiltinFunctionsExist(t *testing.T) {
 }
 
 func TestNumberParseIntParseFloat(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}

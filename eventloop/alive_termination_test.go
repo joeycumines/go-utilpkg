@@ -11,14 +11,17 @@ import (
 // timer liveness so Alive() reports false after termination even when a timer
 // would otherwise still be pending far in the future.
 func TestAlive_ShutdownClearsPendingTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	waitLoopOwnerTurnT(t, loop)
 
-	_, err := loop.ScheduleTimer(time.Hour, func() {})
+	_, err = loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
 		t.Fatalf("ScheduleTimer: %v", err)
 	}
@@ -55,7 +58,10 @@ func TestAlive_ShutdownClearsPendingTimer(t *testing.T) {
 // remaining liveness signals for the running-loop path, including pending
 // timers and registered user I/O FDs.
 func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)
@@ -68,7 +74,7 @@ func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	_, err := loop.ScheduleTimer(time.Hour, func() {})
+	_, err = loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
 		t.Fatalf("ScheduleTimer: %v", err)
 	}
@@ -103,7 +109,10 @@ func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
 }
 
 func TestAliveContextCancellationClearsRegisteredFD(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	fd, fdCleanup := testCreateIOFD(t)
 	t.Cleanup(fdCleanup)
 	registerLoopCleanupT(t, loop)
@@ -141,7 +150,10 @@ func TestAliveContextCancellationClearsRegisteredFD(t *testing.T) {
 // TestAlive_CloseBeforeRunClearsQueuedWork verifies that Close on a loop that
 // never started still clears queued work so Alive() becomes false immediately.
 func TestAlive_CloseBeforeRunClearsQueuedWork(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := loop.ScheduleTimer(time.Hour, func() {}); err != nil {
 		t.Fatalf("ScheduleTimer before Run: %v", err)

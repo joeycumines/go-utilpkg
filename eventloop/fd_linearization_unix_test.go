@@ -15,7 +15,10 @@ func TestRegisterFDUnregisterFDLinearization(t *testing.T) {
 
 	for _, boundary := range boundaries {
 		t.Run(boundary.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			fd, cleanup := testCreateIOFD(t)

@@ -24,10 +24,17 @@ func benchmarkJSAdapterRegistrationLiveSet(b *testing.B, liveSet int) {
 	b.StopTimer()
 	for completed := 0; completed < b.N; {
 		count := min(liveSet, b.N-completed)
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			b.Fatal(err)
+		}
 		b.StartTimer()
 		for index := range count {
-			adapters[index] = NewJS(loop)
+			var err error
+			adapters[index], err = NewJS(loop)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 		b.StopTimer()
 		runtime.KeepAlive(adapters[:count])

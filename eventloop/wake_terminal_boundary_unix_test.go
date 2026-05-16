@@ -18,7 +18,10 @@ func TestTerminalWinnerAtFinalPollBoundarySkipsPollIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &pipeFDs[0], &pipeFDs[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.RegisterFD(pipeFDs[0], EventRead, func(IOEvents) {}); err != nil {
 		t.Fatal(err)
@@ -88,7 +91,10 @@ func TestTerminatingWinnerAtFinalPollBoundarySkipsPollIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &pipeFDs[0], &pipeFDs[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.RegisterFD(pipeFDs[0], EventRead, func(IOEvents) {}); err != nil {
 		t.Fatal(err)

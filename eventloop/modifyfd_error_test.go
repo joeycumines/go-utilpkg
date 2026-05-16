@@ -367,7 +367,10 @@ func TestModifyFD_SuccessPath_NoChange(t *testing.T) {
 
 // TestModifyFD_Integration_WithLoop tests ModifyFD through Loop's RegisterFD
 func TestModifyFD_Integration_WithLoop(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// Create a pipe
@@ -379,7 +382,7 @@ func TestModifyFD_Integration_WithLoop(t *testing.T) {
 	unix.SetNonblock(fds[0], true)
 
 	// Register using Loop's RegisterFD
-	err := loop.RegisterFD(fds[0], EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fds[0], EventRead, func(IOEvents) {})
 	if err != nil {
 		t.Fatalf("RegisterFD failed: %v", err)
 	}

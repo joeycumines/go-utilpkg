@@ -16,13 +16,19 @@ import (
 // TestIntegration_ErrorPropagation_JSToGo tests that JavaScript errors are properly
 // propagated to Go-side promise rejection handlers.
 func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -75,13 +81,19 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 // TestIntegration_ThenableUnwrapping tests that thenable objects are properly
 // unwrapped when resolved.
 func TestIntegration_ThenableUnwrapping(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -138,7 +150,10 @@ func TestIntegration_ThenableUnwrapping(t *testing.T) {
 
 // TestIntegration_NestedPromiseChaining tests deeply nested promise chains.
 func TestIntegration_NestedPromiseChaining(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -146,6 +161,9 @@ func TestIntegration_NestedPromiseChaining(t *testing.T) {
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -213,13 +231,19 @@ func TestIntegration_NestedPromiseChaining(t *testing.T) {
 
 // TestIntegration_IteratorConsumption tests that iterables are properly consumed.
 func TestIntegration_IteratorConsumption(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -275,13 +299,19 @@ func TestIntegration_IteratorConsumption(t *testing.T) {
 
 // TestIntegration_PromiseFinally tests finally handler behavior.
 func TestIntegration_PromiseFinally(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -355,13 +385,19 @@ func TestIntegration_PromiseFinally(t *testing.T) {
 
 // TestIntegration_WithResolvers tests Promise.withResolvers() ES2024 API.
 func TestIntegration_WithResolvers(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -410,13 +446,19 @@ func TestIntegration_WithResolvers(t *testing.T) {
 
 // TestIntegration_AbortController tests AbortController/AbortSignal integration.
 func TestIntegration_AbortController(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -470,13 +512,19 @@ func TestIntegration_AbortController(t *testing.T) {
 
 // TestIntegration_Timers tests setTimeout/setInterval integration.
 func TestIntegration_Timers(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -527,13 +575,19 @@ func TestIntegration_Timers(t *testing.T) {
 
 // TestIntegration_QueueMicrotask tests queueMicrotask integration.
 func TestIntegration_QueueMicrotask(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	gojaRT := goja.New()
 	adapter, err := New(loop, gojaRT)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -614,13 +668,19 @@ func TestIntegration_LargePromiseChain(t *testing.T) {
 		t.Skip("Skipping chain test in short mode")
 	}
 
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	gojaRuntime := goja.New()
 	adapter, err := New(loop, gojaRuntime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

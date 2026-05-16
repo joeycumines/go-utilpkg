@@ -318,10 +318,16 @@ func TestPhase2_Crypto_GetRandomValues_Int8Array(t *testing.T) {
 // TestPhase2_Crypto_PreExisting verifies foreign crypto state is preserved.
 func TestPhase2_Crypto_PreExisting(t *testing.T) {
 	// Create adapter manually, setting crypto before Bind()
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { loop.Shutdown(context.Background()) })
 
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := rt.RunString(`
 		function Crypto() { throw new TypeError("Illegal constructor"); }
 		Crypto.prototype.getRandomValues = function getRandomValues(data) { return data; };

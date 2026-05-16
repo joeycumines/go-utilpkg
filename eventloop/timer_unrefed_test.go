@@ -8,7 +8,10 @@ import (
 )
 
 func TestScheduleTimerUnrefedPublishesWithoutLiveness(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var ran atomic.Bool
 	if _, err := loop.ScheduleTimerUnrefed(time.Hour, func() { ran.Store(true) }); err != nil {
 		t.Fatalf("ScheduleTimerUnrefed: %v", err)
@@ -28,8 +31,14 @@ func TestScheduleTimerUnrefedPublishesWithoutLiveness(t *testing.T) {
 }
 
 func TestJSSetTimeoutUnrefedPublishesWithoutLiveness(t *testing.T) {
-	loop := New(WithAutoExit(true))
-	js := NewJS(loop)
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var ran atomic.Bool
 	if _, err := js.SetTimeoutUnrefed(func() { ran.Store(true) }, int(time.Hour/time.Millisecond)); err != nil {
 		t.Fatalf("SetTimeoutUnrefed: %v", err)
@@ -63,7 +72,11 @@ func TestInitiallyUnrefedTimersRunWithReferencedWork(t *testing.T) {
 		{
 			name: "JS",
 			schedule: func(loop *Loop, callback func()) error {
-				_, err := NewJS(loop).SetTimeoutUnrefed(callback, 0)
+				js, err := NewJS(loop)
+				if err != nil {
+					return err
+				}
+				_, err = js.SetTimeoutUnrefed(callback, 0)
 				return err
 			},
 		},
@@ -76,7 +89,10 @@ func TestInitiallyUnrefedTimersRunWithReferencedWork(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			var unrefedRan atomic.Bool
 			if err := test.schedule(loop, func() { unrefedRan.Store(true) }); err != nil {
 				t.Fatalf("schedule unrefed timer: %v", err)
@@ -95,7 +111,10 @@ func TestInitiallyUnrefedTimersRunWithReferencedWork(t *testing.T) {
 }
 
 func TestControlTimerExcludesUserCallbackMetrics(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var controlRan atomic.Bool
 	var userRan atomic.Bool
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -127,7 +146,10 @@ func TestControlTimerExcludesUserCallbackMetrics(t *testing.T) {
 
 func TestPendingTimerRefTransitionsFoldIntoLiveness(t *testing.T) {
 	t.Run("Loop", func(t *testing.T) {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			t.Fatal(err)
+		}
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer: %v", err)
@@ -156,8 +178,14 @@ func TestPendingTimerRefTransitionsFoldIntoLiveness(t *testing.T) {
 	})
 
 	t.Run("JS", func(t *testing.T) {
-		loop := New(WithAutoExit(true))
-		js := NewJS(loop)
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		js, err := NewJS(loop)
+		if err != nil {
+			t.Fatal(err)
+		}
 		id, err := js.SetTimeout(func() {}, int(time.Hour/time.Millisecond))
 		if err != nil {
 			t.Fatalf("SetTimeout: %v", err)

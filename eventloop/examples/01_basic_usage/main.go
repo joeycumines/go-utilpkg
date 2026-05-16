@@ -15,8 +15,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
 
 	if err := loop.Submit(func() { fmt.Println("external task") }); err != nil {
 		panic(err)

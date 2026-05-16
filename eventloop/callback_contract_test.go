@@ -175,7 +175,11 @@ func TestSafeExecuteFallbackPropagatesLifecycleDependencyRoles(t *testing.T) {
 					return nil
 				})),
 			)
-			loop = New(WithLogger(logger.Logger()))
+			var err error
+			loop, err = New(WithLogger(logger.Logger()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			loop.state.Store(StateTerminating)
 			var terminalJoins atomic.Int32
 			loop.testHooks = &loopTestHooks{
@@ -396,7 +400,10 @@ func newCallbackContractLoop(t *testing.T, options ...LoopOption) (*Loop, <-chan
 			return nil
 		})),
 	)
-	loop := New(append(options, WithLogger(logger.Logger()))...)
+	loop, err := New(append(options, WithLogger(logger.Logger()))...)
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	return loop, logged
 }

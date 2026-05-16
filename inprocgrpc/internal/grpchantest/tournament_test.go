@@ -32,7 +32,10 @@ import (
 // setupOurChannel creates our event-loop-based inprocgrpc channel.
 func setupOurChannel(b *testing.B) grpc.ClientConnInterface {
 	b.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go loop.Run(ctx)
 	b.Cleanup(cancel)

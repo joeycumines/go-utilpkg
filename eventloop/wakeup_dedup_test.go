@@ -16,7 +16,10 @@ import (
 // physical-epoch tests at the public API boundary. Every accepted callback must
 // execute even when many producers race to publish a coalesced wake.
 func TestConcurrentSubmissionWakeIntegration(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	t.Cleanup(func() {
@@ -118,7 +121,10 @@ func BenchmarkConcurrentSubmissionWakeIntegration(b *testing.B) {
 
 func startConcurrentSubmissionBenchmarkLoop(b *testing.B) (*eventloop.Loop, func()) {
 	b.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	var cleanupOnce sync.Once
 	cleanup := func() {

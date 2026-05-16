@@ -127,7 +127,10 @@ func TestTimerListHeapLargeRandomDeadlines(t *testing.T) {
 // TestDeadlineListLoopIntegrationFiresTimerOrder verifies the public scheduler
 // still fires timers in deadline order after switching to deadline buckets.
 func TestDeadlineListLoopIntegrationFiresTimerOrder(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fired := make(chan int, 3)
 	for _, item := range []struct {
@@ -156,7 +159,10 @@ func TestDeadlineListLoopIntegrationFiresTimerOrder(t *testing.T) {
 }
 
 func TestTimerListReuseClearsDetachedState(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now()
 	timer := &timer{id: 1, when: now, task: func() {}, heapIndex: -1}
 	loop.pushTimerNode(timer)

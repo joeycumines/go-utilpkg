@@ -8,13 +8,20 @@ import (
 
 func newPromiseResolversT(t *testing.T) (*Loop, *PromiseWithResolvers) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if err := loop.Shutdown(context.Background()); err != nil {
 			t.Errorf("Shutdown: %v", err)
 		}
 	})
-	return loop, NewJS(loop, WithUnhandledRejection(func(any) {})).WithResolvers()
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loop, js.WithResolvers()
 }
 
 func TestWithResolvers_Basic(t *testing.T) {
@@ -165,7 +172,10 @@ func TestWithResolvers_AsyncFromGoroutine(t *testing.T) {
 
 func TestWithResolvers_MultiplePromises(t *testing.T) {
 	loop, first := newPromiseResolversT(t)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	second := js.WithResolvers()
 	third := js.WithResolvers()
 	if first.Promise == second.Promise || second.Promise == third.Promise || first.Promise == third.Promise {

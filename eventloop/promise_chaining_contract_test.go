@@ -6,10 +6,16 @@ import (
 )
 
 func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Long chain of Thens", func(t *testing.T) {
 		p := js.Resolve("start")
@@ -60,10 +66,16 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 
 // Test Then returns new promise (identity)
 func TestChainedPromise_ThenReturnsNewPromise(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, resolve, _ := js.NewChainedPromise()
 	p2 := p1.Then(func(v any) any {
@@ -91,10 +103,16 @@ func TestChainedPromise_ThenReturnsNewPromise(t *testing.T) {
 
 // Test Promise value transformations
 func TestChainedPromise_ValueTransformations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Transform string to int", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()

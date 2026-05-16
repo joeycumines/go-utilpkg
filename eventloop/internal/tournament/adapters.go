@@ -24,7 +24,10 @@ func NewMainLoop() (EventLoop, error) {
 }
 
 func newMainLoop(mode eventloop.FastPathMode) (EventLoop, error) {
-	loop := eventloop.New(eventloop.WithFastPathMode(mode))
+	loop, err := eventloop.New(eventloop.WithFastPathMode(mode))
+	if err != nil {
+		panic(err)
+	}
 	return &MainLoopAdapter{loop: loop}, nil
 }
 

@@ -26,7 +26,10 @@ func TestLifecycleExternalCloseJoinsAfterLifecycleRace(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			sentinel := errors.New("injected terminal failure")
 			loop.storeTerminalError(sentinel)
@@ -90,7 +93,10 @@ func TestLifecycleExternalCloseJoinsAfterLifecycleRace(t *testing.T) {
 }
 
 func TestLifecycleExternalCloseRetainsOpenProbeAfterCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	sentinel := errors.New("injected terminal failure")
 	loop.storeTerminalError(sentinel)
@@ -142,7 +148,10 @@ func TestLifecycleExternalShutdownJoinsAfterLifecycleRace(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			sentinel := errors.New("injected terminal failure")
 			loop.storeTerminalError(sentinel)
@@ -206,7 +215,10 @@ func TestLifecycleExternalShutdownJoinsAfterLifecycleRace(t *testing.T) {
 }
 
 func TestLifecycleJoinedShutdownAfterLifecycleRaceRetainsContextBound(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loserBeforeLifecycleLock := make(chan struct{})
@@ -258,7 +270,10 @@ func TestLifecycleJoinedShutdownAfterLifecycleRaceRetainsContextBound(t *testing
 }
 
 func TestLifecycleJoinedShutdownAfterLifecycleRacePrefersPublishedTerminalResult(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	sentinel := errors.New("injected terminal failure")
 	loop.storeTerminalError(sentinel)
@@ -295,7 +310,10 @@ func TestLifecycleJoinedShutdownAfterLifecycleRacePrefersPublishedTerminalResult
 }
 
 func TestLifecycleJoinedShutdownContextBoundaryPrefersPublishedTerminalResult(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	sentinel := errors.New("injected terminal failure")
 	loop.storeTerminalError(sentinel)

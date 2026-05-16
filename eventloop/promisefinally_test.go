@@ -19,10 +19,16 @@ import (
 
 // TestPromiseFinally_FulfilledPromisePreservesValue verifies value is preserved (not transformed).
 func TestPromiseFinally_FulfilledPromisePreservesValue(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -51,10 +57,16 @@ func TestPromiseFinally_FulfilledPromisePreservesValue(t *testing.T) {
 
 // TestPromiseFinally_RejectedPromisePreservesReason verifies rejection reason is preserved.
 func TestPromiseFinally_RejectedPromisePreservesReason(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 
@@ -83,10 +95,16 @@ func TestPromiseFinally_RejectedPromisePreservesReason(t *testing.T) {
 
 // TestPromiseFinally_NilHandlerOnFulfilled tests nil onFinally on fulfilled promise.
 func TestPromiseFinally_NilHandlerOnFulfilled(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -107,10 +125,16 @@ func TestPromiseFinally_NilHandlerOnFulfilled(t *testing.T) {
 
 // TestPromiseFinally_NilHandlerOnRejected tests nil onFinally on rejected promise.
 func TestPromiseFinally_NilHandlerOnRejected(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 
@@ -131,10 +155,16 @@ func TestPromiseFinally_NilHandlerOnRejected(t *testing.T) {
 
 // TestPromiseFinally_ConcurrentMultiple tests multiple concurrent Finally calls.
 func TestPromiseFinally_ConcurrentMultiple(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -174,10 +204,16 @@ func TestPromiseFinally_ConcurrentMultiple(t *testing.T) {
 
 // TestPromiseFinally_AlreadyFulfilled tests Finally on already-settled fulfilled promise.
 func TestPromiseFinally_AlreadyFulfilled(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 	resolve("pre-resolved")
@@ -214,10 +250,16 @@ func TestPromiseFinally_AlreadyFulfilled(t *testing.T) {
 
 // TestPromiseFinally_AlreadyRejected tests Finally on already-settled rejected promise.
 func TestPromiseFinally_AlreadyRejected(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 	originalErr := errors.New("pre-rejected")
@@ -254,10 +296,16 @@ func TestPromiseFinally_AlreadyRejected(t *testing.T) {
 
 // TestPromiseFinally_ChainedWithThen tests Finally in a Then chain.
 func TestPromiseFinally_ChainedWithThen(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -305,10 +353,16 @@ func TestPromiseFinally_ChainedWithThen(t *testing.T) {
 
 // TestPromiseFinally_WithNilValue tests Finally with nil resolved value.
 func TestPromiseFinally_WithNilValue(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -335,10 +389,16 @@ func TestPromiseFinally_WithNilValue(t *testing.T) {
 
 // TestPromiseFinally_WithNilRejection tests Finally with nil rejection reason.
 func TestPromiseFinally_WithNilRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 
@@ -390,10 +450,16 @@ func TestPromiseFinally_Standalone(t *testing.T) {
 
 // TestPromiseFinally_OrderOfExecution tests execution order with multiple handlers.
 func TestPromiseFinally_OrderOfExecution(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 

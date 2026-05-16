@@ -6,11 +6,17 @@ import (
 )
 
 func TestJSTimerFacadesRejectTerminatedLoopWithoutResidue(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
 	}
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if id, err := js.SetTimeout(func() { t.Fatal("terminated SetTimeout callback ran") }, 0); id != 0 || !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("SetTimeout = (%d, %v), want (0, ErrLoopTerminated)", id, err)
@@ -34,11 +40,17 @@ func TestJSTimerFacadesRejectTerminatedLoopWithoutResidue(t *testing.T) {
 }
 
 func TestJSQueueMicrotaskRejectsTerminatedLoop(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
 	}
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := js.QueueMicrotask(func() { t.Fatal("terminated QueueMicrotask callback ran") }); !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("QueueMicrotask error = %v, want ErrLoopTerminated", err)
 	}

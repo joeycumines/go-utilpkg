@@ -65,9 +65,15 @@ type grpcTestEnv struct {
 func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 	t.Helper()
 
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {

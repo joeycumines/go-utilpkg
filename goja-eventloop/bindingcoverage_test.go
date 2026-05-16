@@ -12,11 +12,17 @@ import (
 // Unlike testSetup, this does NOT start the loop (for sync-only tests).
 func coverSetup(t *testing.T) *Adapter {
 	t.Helper()
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { loop.Shutdown(context.Background()) })
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -42,9 +48,15 @@ func TestFetchIsOmitted(t *testing.T) {
 }
 
 func TestBindPreservesHostFetch(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := runtime.Set("fetch", func(goja.FunctionCall) goja.Value { return runtime.ToValue("host-fetch") }); err != nil {
 		t.Fatalf("set host fetch: %v", err)
 	}
@@ -65,9 +77,15 @@ func TestBindPreservesHostFetch(t *testing.T) {
 }
 
 func TestBindPreservesNativeSymbolRegistry(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	symbol := runtime.Get("Symbol")
 	symbolObject := symbol.ToObject(runtime)
 	registryLookup := symbolObject.Get("for")

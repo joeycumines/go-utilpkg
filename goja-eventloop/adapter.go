@@ -442,19 +442,19 @@ func newStructuredCloneIntrinsics(runtime *goja.Runtime) (*structuredCloneIntrin
 // jsOptions are forwarded to [goeventloop.BindJS] for the underlying JavaScript
 // timer/promise adapter. Use these to configure options provided by this
 // module's declared go-eventloop dependency before binding the Goja runtime.
-// New panics if loop or runtime is nil or a forwarded JS option violates its
-// static contract. Dynamic ownership and runtime-initialization failures are
-// returned as errors.
+// New returns an error if loop or runtime is nil or a forwarded JS option
+// violates its documented contract. Dynamic ownership and
+// runtime-initialization failures are also returned as errors.
 func New(loop *goeventloop.Loop, runtime *goja.Runtime, jsOptions ...goeventloop.JSOption) (*Adapter, error) {
 	if loop == nil {
-		panic("goja-eventloop: loop must not be nil")
+		return nil, errors.New("goja-eventloop: loop must not be nil")
 	}
 	if runtime == nil {
-		panic("goja-eventloop: runtime must not be nil")
+		return nil, errors.New("goja-eventloop: runtime must not be nil")
 	}
 	gojaSafeOptions := append([]goeventloop.JSOption{goeventloop.WithUnhandledRejectionFallback(goeventloop.UnhandledRejectionFallbackDisabled)}, jsOptions...)
 	if err := goeventloop.ValidateJSOptions(gojaSafeOptions...); err != nil {
-		panic(fmt.Errorf("goja-eventloop: validate JS options: %w", err))
+		return nil, fmt.Errorf("goja-eventloop: validate JS options: %w", err)
 	}
 
 	adapter := &Adapter{

@@ -8,9 +8,8 @@ When designing APIs, a clear distinction must be made between invariants that sh
 
 - **Panic** when the invariant is a simple contract around the API call, clearly documented, and represents a programming error that should be fixed by the caller. Examples include:
     - Nil parameters where non-nil is required.
-    - Invalid configuration options that violate documented constraints.
     - Violations of preconditions that are static properties of the API contract.
-- **Error** when the condition depends on external system state or may change in ways not apparent from the calling code.
+- **Error** when the condition depends on external system state or may change in ways not apparent from the calling code. Option validation in an options-accepting constructor is always an error per ADR-007, because the option set is forward-compatible with new validation.
 
 ## Rationale
 
@@ -28,15 +27,17 @@ The distinction between panics and errors allows for simplified (omitted) explic
 package example
 
 // Panic - static contract violation (document this clearly).
-func NewClient(loop *eventloop.Loop, opts ...Option) *Client {
+func NewClient(loop *eventloop.Loop, opts ...Option) (*Client, error) {
 	if loop == nil {
 		panic("loop parameter is required")
 	}
 	client := &Client{loop: loop}
 	for _, opt := range opts {
-		opt.apply(client)
+		if err := opt.apply(client); err != nil {
+			return nil, err
+		}
 	}
-	return client
+	return client, nil
 }
 
 // Error - dependent on external state

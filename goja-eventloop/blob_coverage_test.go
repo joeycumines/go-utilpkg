@@ -11,11 +11,17 @@ import (
 // Coverage for console.table, inspectValue, formatCellValue edge cases
 
 func TestConsoleTable_WithObject(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -33,11 +39,17 @@ func TestConsoleTable_WithObject(t *testing.T) {
 }
 
 func TestConsoleTable_WithColumnFilter(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -54,11 +66,17 @@ func TestConsoleTable_WithColumnFilter(t *testing.T) {
 }
 
 func TestConsoleTable_NonArrayNonObject(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -77,11 +95,17 @@ func TestConsoleTable_NonArrayNonObject(t *testing.T) {
 }
 
 func TestConsoleTable_NestedObjectsCoverage(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}

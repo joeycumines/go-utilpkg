@@ -8,10 +8,16 @@ import (
 )
 
 func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent, _, rejectParent := js.NewChainedPromise()
 	child := parent.Then(nil, nil)
 	rejectionRecorded := make(chan struct{})
@@ -112,10 +118,16 @@ func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing
 }
 
 func TestChainedPromiseLatePassThroughLinearizesWithActiveChecker(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent, _, rejectParent := js.NewChainedPromise()
 	rejectParent("late propagation")
 	checkerAtParent := make(chan struct{})
@@ -184,10 +196,16 @@ func TestChainedPromiseLatePassThroughLinearizesWithActiveChecker(t *testing.T) 
 }
 
 func TestChainedPromiseLatePassThroughCheckerWinSuppressesChildReport(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent, _, rejectParent := js.NewChainedPromise()
 	rejectParent("checker owns")
 	checkerClaimed := make(chan struct{})
@@ -252,10 +270,16 @@ func TestChainedPromiseLatePassThroughCheckerWinSuppressesChildReport(t *testing
 }
 
 func TestChainedPromiseLatePassThroughAfterHandledCleanupReportsChild(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent, _, rejectParent := js.NewChainedPromise()
 	handled := make(chan struct{}, 1)
 	parent.Catch(func(any) any {
@@ -300,13 +324,19 @@ func TestChainedPromiseLatePassThroughAfterHandledCleanupReportsChild(t *testing
 }
 
 func TestChainedPromiseTerminalPassThroughSettlesChildOnce(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent, _, rejectParent := js.NewChainedPromise()
 	child := parent.Then(nil, nil)
 	childResult := child.ToChannel()

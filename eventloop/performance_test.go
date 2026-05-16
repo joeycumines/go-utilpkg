@@ -650,7 +650,10 @@ func TestPerformance_MeasureUsesLatestMark(t *testing.T) {
 }
 
 func TestNewLoopPerformance(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	anchor := time.Unix(1_234_567_890, 123_456_789)
 	loop.setTickAnchor(anchor)

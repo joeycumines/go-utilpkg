@@ -251,7 +251,10 @@ func skipIfBenchmarkFDLimitBelow(b *testing.B, needed int) {
 }
 
 func BenchmarkSparseFDRegistration(b *testing.B) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		b.Fatal(err)
+	}
 	loopClosed := false
 	b.Cleanup(func() {
 		if !loopClosed {

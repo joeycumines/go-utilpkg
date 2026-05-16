@@ -24,8 +24,14 @@ func (o *nilUnsafeLoopOwner) OwnsLoop(candidate *goeventloop.Loop) bool {
 }
 
 func TestChannelSharesLoop(t *testing.T) {
-	loop := goeventloop.New()
-	foreign := goeventloop.New()
+	loop, err := goeventloop.New()
+	foreign, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	channel := mustNewChannel(t, inprocgrpc.WithLoop(loop))
 
 	if !channel.SharesLoop(&channelLoopOwner{loop: loop}) {

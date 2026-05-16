@@ -15,7 +15,10 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	workDone := make(chan struct{})
 	if err := loop.Submit(func() {
 		fmt.Println("work complete")

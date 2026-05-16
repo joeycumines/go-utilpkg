@@ -11,7 +11,10 @@ import (
 )
 
 func TestTerminalDrain_AutoExitCallbackCanScheduleNextTickAndMicrotask(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	enteredTermination := make(chan struct{})
 	releaseTermination := make(chan struct{})
@@ -71,7 +74,10 @@ func TestTerminalDrain_AutoExitCallbackCanScheduleNextTickAndMicrotask(t *testin
 }
 
 func TestTerminalDrain_GracefulBacklogUsesTickNonTimerOrder(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runEntered := make(chan struct{})
 	releaseRun := make(chan struct{})
@@ -154,7 +160,10 @@ func TestTerminalDrain_GracefulBacklogUsesTickNonTimerOrder(t *testing.T) {
 }
 
 func TestTerminalDrain_FinishRejectsDiagnosticsAfterEmptySnapshot(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hookEntered := make(chan struct{})
 	scheduleResult := make(chan bool, 1)
@@ -189,7 +198,10 @@ func TestTerminalDrain_FinishRejectsDiagnosticsAfterEmptySnapshot(t *testing.T) 
 }
 
 func TestTerminalDrain_PreRunCallbackCloseIsReentrant(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	closeErr := make(chan error, 1)
 	if err := loop.Submit(func() {
@@ -221,7 +233,10 @@ func TestTerminalDrain_PreRunCallbackCloseIsReentrant(t *testing.T) {
 }
 
 func TestTerminalDrain_AdmissionWaitsForDrainPublication(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	loop.state.Store(StateRunning)
 	loop.terminalDrainMu.Lock()
@@ -264,7 +279,10 @@ func TestTerminalDrain_AdmissionWaitsForDrainPublication(t *testing.T) {
 }
 
 func TestTerminalDrain_ContextCancelCallbackCanScheduleNextTickAndMicrotask(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	enteredTermination := make(chan struct{})
 	releaseTermination := make(chan struct{})
@@ -318,7 +336,10 @@ func TestTerminalDrain_ContextCancelCallbackCanScheduleNextTickAndMicrotask(t *t
 }
 
 func TestTerminalDrain_PublicShutdownCallbackCanScheduleNextTickAndMicrotask(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	terminating := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
 		AfterShutdownStateTerminating: func() { close(terminating) },
@@ -400,7 +421,10 @@ func TestTerminalDrain_PublicShutdownCallbackCanScheduleNextTickAndMicrotask(t *
 }
 
 func TestTerminalDrain_PublicShutdownQueuedCallbackRunsOnLoopGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	terminating := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
 		AfterShutdownStateTerminating: func() { close(terminating) },
@@ -478,7 +502,10 @@ func TestTerminalDrain_PublicShutdownQueuedCallbackRunsOnLoopGoroutine(t *testin
 }
 
 func TestTerminalDrain_PublicShutdownOwnerAllowsOnlyMicrotaskContinuations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	terminating := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
 		AfterShutdownStateTerminating: func() { close(terminating) },
@@ -583,7 +610,10 @@ func TestTerminalDrain_PublicShutdownOwnerAllowsOnlyMicrotaskContinuations(t *te
 }
 
 func TestTerminalDrain_PublicShutdownRunningCallbackCanScheduleContinuationAfterTerminating(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stateTerminating := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
@@ -661,7 +691,10 @@ func TestTerminalDrain_PublicShutdownRunningCallbackCanScheduleContinuationAfter
 }
 
 func TestTerminalDrain_ShutdownDrainCallbackCanScheduleNextTickAndMicrotask(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	order, record := terminalDrainRecorder()
@@ -694,7 +727,10 @@ func TestTerminalDrain_ShutdownDrainCallbackCanScheduleNextTickAndMicrotask(t *t
 }
 
 func TestTerminalDrain_PublicShutdownContextCancelDoesNotOverwriteOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stateTerminating := make(chan struct{})
 	releaseShutdownHook := make(chan struct{})
@@ -783,7 +819,10 @@ func TestTerminalDrain_PublicShutdownContextCancelDoesNotOverwriteOwner(t *testi
 }
 
 func TestTerminalDrain_ShutdownTimeoutDoesNotEndLoopOwnedTerminalDrain(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	runCtx := t.Context()

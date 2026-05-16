@@ -23,7 +23,10 @@ func pushTestTimer(l *Loop, t *timer) {
 }
 
 func TestDeadlineListSameBucketCancelAndFIFO(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.state.Store(StateRunning)
 	loop.tickCount = 1
 
@@ -63,7 +66,10 @@ func TestDeadlineListSameBucketCancelAndFIFO(t *testing.T) {
 }
 
 func TestDeadlineListSameDeadlineDrainsMicrotaskBetweenCallbacks(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.state.Store(StateRunning)
 	loop.tickCount = 1
 	loop.loopGoroutineID.Store(goroutineid.Get())
@@ -104,7 +110,10 @@ func TestDeadlineListSameDeadlineDrainsMicrotaskBetweenCallbacks(t *testing.T) {
 }
 
 func TestDeadlineListSameBucketOrdersExactDeadlines(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	resetTestTimerLists(loop)
 	loop.state.Store(StateRunning)
 	loop.tickCount = 1
@@ -141,7 +150,10 @@ func TestDeadlineListSameBucketOrdersExactDeadlines(t *testing.T) {
 }
 
 func TestDeadlineListCancelDetachedPendingTimerRemovesLiveness(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	resetTestTimerLists(loop)
 	loop.state.Store(StateRunning)
 	loop.tickCount = 1
@@ -190,7 +202,10 @@ func TestDeadlineListCancelDetachedPendingTimerRemovesLiveness(t *testing.T) {
 }
 
 func TestDeadlineListExecutingTimerSelfCancellation(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(loop.stopCallbackWorker)
 	resetTestTimerLists(loop)
 	loop.state.Store(StateRunning)
@@ -247,7 +262,10 @@ func TestDeadlineListExecutingTimerSelfCancellation(t *testing.T) {
 }
 
 func TestRepeatingTimerReschedulesFromCallbackStart(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	resetTestTimerLists(loop)
 	loop.tickActive = true
 	loop.tickCount = 17
@@ -271,7 +289,10 @@ func TestRepeatingTimerReschedulesFromCallbackStart(t *testing.T) {
 }
 
 func TestNativeIntervalStableTimerIDAndUnrefAcrossTicks(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	runDone := make(chan error, 1)
@@ -289,7 +310,10 @@ func TestNativeIntervalStableTimerIDAndUnrefAcrossTicks(t *testing.T) {
 		}
 	})
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var intervalID atomic.Uint64
 	timerIDs := make(chan TimerID, 4)
@@ -340,7 +364,10 @@ func TestNativeIntervalStableTimerIDAndUnrefAcrossTicks(t *testing.T) {
 }
 
 func TestNativeIntervalZeroDelayDoesNotRepeatSameTick(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	runDone := make(chan error, 1)
@@ -358,7 +385,10 @@ func TestNativeIntervalZeroDelayDoesNotRepeatSameTick(t *testing.T) {
 		}
 	})
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ticks := make(chan uint64, 3)
 	clearResult := make(chan error, 1)

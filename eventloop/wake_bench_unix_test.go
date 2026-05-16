@@ -5,7 +5,10 @@ package eventloop
 import "testing"
 
 func BenchmarkIdleWakeRecoveryTurnCost(b *testing.B) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		b.Fatal(err)
 	}

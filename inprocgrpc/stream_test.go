@@ -654,7 +654,10 @@ func TestStreamHandler_StreamContextCancellation(t *testing.T) {
 // TestStreamHandler_InvokeLoopStopped covers the submitErr path in
 // invokeStreamHandler when the event loop has been stopped.
 func TestStreamHandler_InvokeLoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -697,7 +700,10 @@ func TestStreamHandler_InvokeLoopStopped(t *testing.T) {
 // TestStreamHandler_NewStreamLoopStopped covers the submitErr path in
 // newStreamWithHandler when the event loop has been stopped.
 func TestStreamHandler_NewStreamLoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

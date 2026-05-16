@@ -10,7 +10,10 @@ import (
 )
 
 func TestPhysicalPendingWakeStillExecutesScheduledMicrotask(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	pipeReader, pipeWriter, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)

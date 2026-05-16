@@ -16,7 +16,10 @@ func TestLinuxPeerHalfCloseReportsHangup(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &sockets[0], &sockets[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	events := make(chan IOEvents, 1)
 	if err := loop.RegisterFD(sockets[0], EventRead, func(ready IOEvents) {
 		select {

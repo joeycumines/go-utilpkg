@@ -7,7 +7,10 @@ import (
 )
 
 func TestAliveEpochValidationObservesConcurrentPromisifyCommit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	validationReached := make(chan struct{})

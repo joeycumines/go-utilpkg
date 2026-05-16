@@ -8,7 +8,10 @@ import (
 )
 
 func TestQuiescenceHandlerCancellationWinsBeforeAutoExitCommit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -23,7 +26,10 @@ func TestQuiescenceHandlerCancellationWinsBeforeAutoExitCommit(t *testing.T) {
 }
 
 func TestAbortedAutoExitCommitClearsQuiescingBeforeNextHandler(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var (
@@ -76,7 +82,10 @@ func TestAbortedAutoExitCommitClearsQuiescingBeforeNextHandler(t *testing.T) {
 }
 
 func TestContextCancellationWinsAtFinalAutoExitAdmission(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -97,7 +106,10 @@ func TestContextCancellationWinsAtFinalAutoExitAdmission(t *testing.T) {
 }
 
 func TestContextCancellationAfterAutoExitAdmissionKeepsCleanCompletion(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())

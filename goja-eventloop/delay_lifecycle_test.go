@@ -16,10 +16,16 @@ func newBoundDelayAdapter(
 	options ...goeventloop.LoopOption,
 ) (*goeventloop.Loop, *goja.Runtime, *Adapter) {
 	t.Helper()
-	loop := goeventloop.New(options...)
+	loop, err := goeventloop.New(options...)
+	if err != nil {
+		panic(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		panic(err)
+	}
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

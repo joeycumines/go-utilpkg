@@ -10,14 +10,20 @@ import (
 )
 
 func TestJSClearIntervalCancelsTimeoutID(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	registerActiveLoopCleanupT(t, loop, runDone)
 	waitLoopOwnerTurnT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var callbackRan atomic.Bool
 	id, err := js.SetTimeout(func() { callbackRan.Store(true) }, 60_000)
@@ -41,14 +47,20 @@ func TestJSClearIntervalCancelsTimeoutID(t *testing.T) {
 }
 
 func TestJSClearTimeoutCancelsIntervalID(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	registerActiveLoopCleanupT(t, loop, runDone)
 	waitLoopOwnerTurnT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var callbackRan atomic.Bool
 	id, err := js.SetInterval(func() { callbackRan.Store(true) }, 60_000)
@@ -72,7 +84,10 @@ func TestJSClearTimeoutCancelsIntervalID(t *testing.T) {
 }
 
 func TestJSSetTimeoutPublicationPrecedesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hookEntered := make(chan struct{})
 	callbackWaiting := make(chan struct{})
@@ -92,7 +107,10 @@ func TestJSSetTimeoutPublicationPrecedesCallback(t *testing.T) {
 	registerActiveLoopCleanupT(t, loop, runDone)
 	waitLoopOwnerTurnT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackRan := make(chan struct{})
 	setTimeoutDone := make(chan struct {
@@ -155,7 +173,10 @@ func TestJSSetTimeoutPublicationPrecedesCallback(t *testing.T) {
 }
 
 func TestJSSetIntervalPublicationPrecedesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hookEntered := make(chan struct{})
 	callbackWaiting := make(chan struct{})
@@ -188,7 +209,10 @@ func TestJSSetIntervalPublicationPrecedesCallback(t *testing.T) {
 	registerActiveLoopCleanupT(t, loop, runDone)
 	waitLoopOwnerTurnT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackEntered := make(chan struct{})
 	releaseCallback := make(chan struct{})
@@ -273,9 +297,15 @@ func TestJSSetIntervalPublicationPrecedesCallback(t *testing.T) {
 }
 
 func TestJSSetIntervalExternalCancelWhileCallbackBlockedCancelsNativeTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 
@@ -347,13 +377,19 @@ func TestJSSetIntervalExternalCancelWhileCallbackBlockedCancelsNativeTimer(t *te
 }
 
 func TestJSTimerReEntrancy(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	order := make(chan string, 2)
 	scheduleErr := make(chan error, 1)
-	_, err := js.SetTimeout(func() {
+	_, err = js.SetTimeout(func() {
 		order <- "first"
 		if _, err := js.SetTimeout(func() { order <- "second" }, 0); err != nil {
 			select {

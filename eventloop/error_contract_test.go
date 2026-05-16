@@ -66,8 +66,14 @@ func TestPromiseReactionGoexitSettlement(t *testing.T) {
 }
 
 func TestUnhandledRejectionGoexitReleasesAuxiliaryState(t *testing.T) {
-	loop := New()
-	js := NewJS(loop, WithUnhandledRejection(func(any) { runtime.Goexit() }))
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) { runtime.Goexit() }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	promise := js.Reject("reason")
@@ -97,19 +103,25 @@ func TestShutdownUnhandledRejectionGoexitReschedulesNestedRejection(t *testing.T
 
 func testUnhandledRejectionGoexitReschedulesNestedRejection(t *testing.T, shutdown bool) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	reported := make(chan any, 2)
 	var calls atomic.Int32
 	var js *JS
-	js = NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err = NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 		if calls.Add(1) == 1 {
 			js.Reject("nested")
 		}
 		runtime.Goexit()
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	js.Reject("initial")
 
 	if shutdown {
@@ -141,7 +153,10 @@ func TestCloseUnhandledRejectionGoexitHandsNestedRejectionToFallback(t *testing.
 			return nil
 		})),
 	).Logger()
-	loop := New(WithLogger(logger))
+	loop, err := New(WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	initialStarted := make(chan struct{})
@@ -153,7 +168,7 @@ func TestCloseUnhandledRejectionGoexitHandsNestedRejectionToFallback(t *testing.
 		AfterCloseStateTerminating: func() { close(closeTransitioned) },
 	}
 	var js *JS
-	js = NewJS(loop,
+	js, err = NewJS(loop,
 		WithUnhandledRejection(func(reason any) {
 			reported <- reason
 			if reason == "initial" {
@@ -165,6 +180,9 @@ func TestCloseUnhandledRejectionGoexitHandsNestedRejectionToFallback(t *testing.
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	js.Reject("initial")
 
 	runDone := make(chan error, 1)
@@ -219,7 +237,10 @@ func TestRunJoinsPollFailureWithConcurrentContextCancellation(t *testing.T) {
 			return nil
 		})),
 	).Logger()
-	loop := New(WithFastPathMode(FastPathDisabled), WithLogger(logger))
+	loop, err := New(WithFastPathMode(FastPathDisabled), WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.testHooks = &loopTestHooks{
 		PollIO: func(int) (int, error) { return 0, nil },
@@ -231,7 +252,7 @@ func TestRunJoinsPollFailureWithConcurrentContextCancellation(t *testing.T) {
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(ctx) }()
-	err := waitContractValue(t, runDone, "poll-error Run completion")
+	err = waitContractValue(t, runDone, "poll-error Run completion")
 	if !errors.Is(err, context.Canceled) || !errors.Is(err, sentinel) {
 		t.Fatalf("Run error = %v, want context.Canceled joined with sentinel", err)
 	}
@@ -257,7 +278,10 @@ func TestRunJoinsPollFailureWithConcurrentContextCancellation(t *testing.T) {
 }
 
 func TestInternalPollGoexitDoesNotEscape(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.executePollInternal(func() { runtime.Goexit() })
@@ -348,8 +372,14 @@ func TestPromiseResolutionErrorIdentities(t *testing.T) {
 
 func newErrorContractJS(t *testing.T) (*Loop, *JS) {
 	t.Helper()
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	return loop, js
 }

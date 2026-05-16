@@ -6,7 +6,10 @@ import (
 )
 
 func TestRunTimersRecoversPanickingCallbacks(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const timerCount = 10

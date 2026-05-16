@@ -14,7 +14,10 @@ func TestLoopMetricsConfiguration(t *testing.T) {
 		if option != nil {
 			options = append(options, option)
 		}
-		loop := New(options...)
+		loop, err := New(options...)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if got := loop.Metrics(); got != nil {
 			t.Fatalf("disabled Metrics = %+v, want nil", got)
 		}
@@ -23,7 +26,10 @@ func TestLoopMetricsConfiguration(t *testing.T) {
 		}
 	}
 
-	loop := New(WithMetrics(true))
+	loop, err := New(WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if got := loop.Metrics(); got == nil || *got != (Metrics{}) {
 		t.Fatalf("enabled initial Metrics = %+v, want zero snapshot", got)
@@ -113,7 +119,10 @@ func TestRuntimeLatencyNegativeDurationClamps(t *testing.T) {
 }
 
 func TestRuntimeLatencySamplerPreservesAllObservationMax(t *testing.T) {
-	loop := New(WithMetrics(true))
+	loop, err := New(WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const slow = 10 * time.Second
@@ -210,7 +219,10 @@ func TestRuntimeLatencySamplerUsesExactFiveObservationPercentiles(t *testing.T) 
 }
 
 func TestRuntimeMetricsIncludeFastPathQueuesAndMicrotasks(t *testing.T) {
-	loop := New(WithMetrics(true), WithAutoExit(true))
+	loop, err := New(WithMetrics(true), WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for range 3 {
 		if err := loop.Submit(func() {}); err != nil {
 			t.Fatal(err)
@@ -238,7 +250,10 @@ func TestRuntimeMetricsIncludeFastPathQueuesAndMicrotasks(t *testing.T) {
 }
 
 func TestRuntimeMetricsIncludeMaterializedPhaseQueues(t *testing.T) {
-	loop := New(WithMetrics(true), WithAutoExit(true))
+	loop, err := New(WithMetrics(true), WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for range 2 {
 		if err := loop.ScheduleImmediate(func() {}); err != nil {
 			t.Fatalf("ScheduleImmediate: %v", err)
@@ -263,7 +278,10 @@ func TestRuntimeMetricsIncludeMaterializedPhaseQueues(t *testing.T) {
 }
 
 func TestRuntimeMetricsExcludeAbnormalCallbacksFromTPS(t *testing.T) {
-	loop := New(WithMetrics(true), WithAutoExit(true))
+	loop, err := New(WithMetrics(true), WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, callback := range []func(){
 		func() { panic("metric panic") },
 		runtime.Goexit,
@@ -287,7 +305,10 @@ func TestRuntimeMetricsExcludeAbnormalCallbacksFromTPS(t *testing.T) {
 }
 
 func TestLoopMetricsReturnsDetachedSnapshots(t *testing.T) {
-	loop := New(WithMetrics(true))
+	loop, err := New(WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.metrics.recordQueueDepths(3, 2, 1)
 	loop.metrics.recordCallback(time.Millisecond, time.Now(), true)
@@ -303,7 +324,10 @@ func TestLoopMetricsReturnsDetachedSnapshots(t *testing.T) {
 }
 
 func TestRuntimeTPSRecordsCompletionTime(t *testing.T) {
-	loop := New(WithMetrics(true))
+	loop, err := New(WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var (

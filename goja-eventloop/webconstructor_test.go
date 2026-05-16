@@ -59,9 +59,15 @@ func TestWebConstructorsRequireNewAndPreserveSubclassing(t *testing.T) {
 }
 
 func TestWebConstructorGlobalsRollbackAfterLateBindFailure(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 
 	names := []string{"AbortController", "EventTarget", "Event", "CustomEvent", "DOMException"}

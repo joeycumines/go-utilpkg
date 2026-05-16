@@ -38,25 +38,32 @@ func FuzzErrorTypesAndOptions(f *testing.F) {
 		mode := FastPathMode(raw)
 		validFastPathMode := mode == FastPathAuto || mode == FastPathForced || mode == FastPathDisabled
 		if validFastPathMode {
-			loop := New(WithFastPathMode(mode))
+			loop, err := New(WithFastPathMode(mode))
+			if err != nil {
+				panic(err)
+			}
 			if closeErr := loop.Close(); closeErr != nil && !errors.Is(closeErr, ErrLoopTerminated) {
 				t.Fatalf("Close after option fuzzing: %v", closeErr)
 			}
-		} else if got := captureLoopOptionPanic(func() { _ = New(WithFastPathMode(mode)) }); got == nil {
-			t.Fatalf("invalid fast path mode %d did not panic", raw)
+		} else if _, err := New(WithFastPathMode(mode)); err == nil {
+			t.Fatalf("invalid fast path mode %d did not return an error", raw)
 		}
 
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			panic(err)
+		}
 		fallbackMode := UnhandledRejectionFallbackMode(raw)
 		validMode := fallbackMode == UnhandledRejectionFallbackIsolated || fallbackMode == UnhandledRejectionFallbackDisabled
 		if validMode {
-			js := NewJS(loop, WithUnhandledRejectionFallback(fallbackMode))
+			js, err := NewJS(loop, WithUnhandledRejectionFallback(fallbackMode))
+			if err != nil {
+				panic(err)
+			}
 			if js.unhandledFallback != fallbackMode {
 				t.Fatalf("fallback mode = %v, want %v", js.unhandledFallback, fallbackMode)
 			}
-		} else if got := captureLoopOptionPanic(func() {
-			NewJS(loop, WithUnhandledRejectionFallback(fallbackMode))
-		}); got == nil {
+		} else if _, err := NewJS(loop, WithUnhandledRejectionFallback(fallbackMode)); err == nil {
 			t.Fatalf("invalid unhandled rejection fallback mode %d accepted", raw)
 		}
 		if err := loop.Close(); err != nil {

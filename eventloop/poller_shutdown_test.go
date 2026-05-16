@@ -9,7 +9,10 @@ import (
 )
 
 func TestCloseWakesPollSleepingLoopWithRegisteredFD(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fd, cleanupFD := testCreateIOFD(t)
 	defer cleanupFD()
@@ -50,7 +53,10 @@ func TestCloseWakesPollSleepingLoopWithRegisteredFD(t *testing.T) {
 }
 
 func TestHandlePollErrorDoesNotWaitPromisifyOnLoopGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releasePromisify := make(chan struct{})

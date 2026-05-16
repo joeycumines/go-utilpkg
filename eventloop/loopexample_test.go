@@ -46,7 +46,10 @@ func exampleStop(loop *eventloop.Loop, ctx context.Context, runDone <-chan error
 func Example_basicUsage() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	completed := make(chan struct{}, 2)
 	for i := 1; i <= 2; i++ {
 		number := i
@@ -79,7 +82,10 @@ func Example_basicUsage() {
 func Example_scheduleTimer() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	fired := make(chan struct{})
 	if _, err := loop.ScheduleTimer(time.Millisecond, func() {
 		fmt.Println("Timer fired")
@@ -115,7 +121,10 @@ func Example_scheduleTimer() {
 func Example_promisify() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	runDone := exampleStart(loop, ctx)
 	promise := loop.Promisify(ctx, func(context.Context) (any, error) { return 42, nil })
 	result, ok := exampleWait(ctx, promise.ToChannel())
@@ -135,7 +144,10 @@ func Example_promisify() {
 func Example_autoExit() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	if err := loop.Submit(func() { fmt.Println("Task running") }); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
 		return
@@ -155,7 +167,10 @@ func Example_autoExit() {
 func Example_submitInternal() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	completed := make(chan struct{}, 3)
 	if err := loop.Submit(func() { fmt.Println("External task"); completed <- struct{}{} }); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
@@ -189,7 +204,10 @@ func Example_submitInternal() {
 func Example_metrics() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithMetrics(true))
+	loop, err := eventloop.New(eventloop.WithMetrics(true))
+	if err != nil {
+		panic(err)
+	}
 	completed := make(chan struct{}, 3)
 	for range 3 {
 		if err := loop.Submit(func() { completed <- struct{}{} }); err != nil {
@@ -229,7 +247,10 @@ func Example_fastPathMode() {
 	// Auto uses the tight task-only path when no user FD requires polling.
 	// Forced requires zero user FDs. Disabled selects native polling on readiness
 	// targets; targets without readiness polling retain channel waiting.
-	loop := eventloop.New(eventloop.WithFastPathMode(eventloop.FastPathAuto))
+	loop, err := eventloop.New(eventloop.WithFastPathMode(eventloop.FastPathAuto))
+	if err != nil {
+		panic(err)
+	}
 	done := make(chan struct{})
 	if err := loop.Submit(func() { fmt.Println("Auto mode task executed"); close(done) }); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
@@ -251,7 +272,10 @@ func Example_fastPathMode() {
 func Example_alive() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	if err := loop.Submit(func() { fmt.Println("Task executing") }); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
 		return
@@ -275,7 +299,10 @@ func Example_alive() {
 func Example_refTimer() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	timerID, err := loop.ScheduleTimer(time.Hour, func() { fmt.Println("unexpected timer") })
 	if err != nil {
 		fmt.Printf("ScheduleTimer error: %v\n", err)
@@ -310,7 +337,10 @@ func Example_refTimer() {
 func Example_scheduleMicrotask() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	done := make(chan struct{})
 	if err := loop.ScheduleMicrotask(func() { fmt.Println("Microtask callback") }); err != nil {
 		fmt.Printf("ScheduleMicrotask error: %v\n", err)
@@ -342,7 +372,10 @@ func Example_scheduleMicrotask() {
 func Example_errorHandling() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	if err := loop.Submit(func() {}); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
 		return
@@ -351,7 +384,7 @@ func Example_errorHandling() {
 		fmt.Printf("Run error: %v\n", err)
 		return
 	}
-	_, err := loop.ScheduleTimer(time.Second, func() {})
+	_, err = loop.ScheduleTimer(time.Second, func() {})
 	fmt.Printf("Timer error: %v\n", errors.Is(err, eventloop.ErrLoopTerminated))
 	err = loop.Submit(func() {})
 	fmt.Printf("Submit error: %v\n", errors.Is(err, eventloop.ErrLoopTerminated))
@@ -368,7 +401,10 @@ func Example_errorHandling() {
 func Example_scheduleTimerRepeating() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	count := 0
 	var schedule func() error
 	schedule = func() error {
@@ -404,7 +440,10 @@ func Example_scheduleTimerRepeating() {
 func Example_shutdownTimeout() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	started := make(chan struct{})
 	if err := loop.Submit(func() { close(started) }); err != nil {
 		fmt.Printf("Submit error: %v\n", err)
@@ -427,7 +466,10 @@ func Example_shutdownTimeout() {
 func Example_cancelTimers() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	id1, err := loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
 		fmt.Printf("ScheduleTimer error: %v\n", err)
@@ -457,7 +499,10 @@ func Example_cancelTimers() {
 func Example_promisifyError() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	runDone := exampleStart(loop, ctx)
 	promise := loop.Promisify(ctx, func(context.Context) (any, error) {
 		return nil, errors.New("operation failed")
@@ -479,7 +524,10 @@ func Example_promisifyError() {
 func Example_promisifyPanic() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	runDone := exampleStart(loop, ctx)
 	promise := loop.Promisify(ctx, func(context.Context) (any, error) {
 		panic("something went very wrong")
@@ -505,7 +553,10 @@ func Example_promisifyPanic() {
 func Example_currentTickTime() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	done := make(chan struct{})
 	if err := loop.Submit(func() {
 		fmt.Printf("Tick time available: %v\n", !loop.CurrentTickTime().IsZero())

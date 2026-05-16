@@ -8,15 +8,21 @@ import (
 )
 
 func TestUnhandledRejectionFallbackRunsOffCallerGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackGID := make(chan int64, 1)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) {
 			callbackGID <- goroutineid.Get()
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := loop.Close(); err != nil {
 		t.Fatalf("close loop before rejection: %v", err)

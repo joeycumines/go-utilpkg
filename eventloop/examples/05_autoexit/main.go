@@ -20,7 +20,10 @@ func defaultLifecycle() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	workDone := make(chan struct{})
 	if err := loop.Submit(func() {
 		fmt.Println("default: work complete")
@@ -53,7 +56,10 @@ func automaticExit() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	if err := loop.Submit(func() { fmt.Println("auto-exit: work complete") }); err != nil {
 		panic(err)
 	}

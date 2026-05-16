@@ -21,7 +21,10 @@ type ownerTimerCancelResult struct {
 }
 
 func TestIOModeOwnerScheduleThenUnref(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanupFD := testCreateIOFD(t)
 	t.Cleanup(cleanupFD)
@@ -50,7 +53,10 @@ func TestIOModeOwnerScheduleThenUnref(t *testing.T) {
 }
 
 func TestIOModeOwnerScheduleThenCancel(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanupFD := testCreateIOFD(t)
 	t.Cleanup(cleanupFD)
@@ -80,7 +86,10 @@ func TestIOModeOwnerScheduleThenCancel(t *testing.T) {
 }
 
 func TestCancelOwnerUnrefedTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanupFD := testCreateIOFD(t)
 	t.Cleanup(cleanupFD)

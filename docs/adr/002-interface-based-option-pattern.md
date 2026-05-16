@@ -6,7 +6,7 @@ Configurable components within a package need an extensible initialization patte
 
 ## Decision
 
-Use interface-based options where option functions return concrete types that implement one or more option interfaces. When factory functions (`New`, `NewChannel`, etc.) encounter option errors, they panic.
+Use interface-based options where option functions return concrete types that implement one or more option interfaces. Option validation failures are returned as errors from the constructor per ADR-007; constructors that accept options must not panic on option errors.
 
 ## Rationale
 
@@ -16,7 +16,7 @@ The interface-based option pattern provides significant flexibility within a sin
 
 - **Ungrouped top-level functions**: Instead of grouping options by target (e.g., `HandlerOption()`, `ServerOption()`), options can be defined as standalone functions. The concrete type they return determines which interfaces they satisfy, making the API more flexible and the code organization more natural.
 
-- **Clear error semantics**: Configuration errors are always programming errors — invalid options represent a contract violation at setup time. Panicking in factory functions on option errors provides immediate, clear feedback at the call site with a full stack trace, rather than propagating errors that must be handled by every caller.
+- **Clear error semantics**: Option validation errors are returned to the caller (see ADR-007), preserving the option set as a forward-compatible extensibility seam. Static contract violations that are not option validation may still panic per ADR-003.
 
 ## Implementation Example
 
@@ -55,11 +55,11 @@ func (o TimeoutOption) applyToServer(c *serverConfig) error {
 
 // Both implementations can accept the same option
 func NewHandler(opts ...HandlerOption) (*Handler, error) {
-	// ...apply options, panic on errors
+	// ...apply options, return any validation error
 }
 
 func NewServer(opts ...ServerOption) (*Server, error) {
-	// ...apply options, panic on errors
+	// ...apply options, return any validation error
 }
 ```
 

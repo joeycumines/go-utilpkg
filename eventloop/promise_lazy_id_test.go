@@ -8,10 +8,16 @@ import (
 
 // TestPromisePointerIdentity_UsedAsMapKey verifies pointer identity works for map keys.
 func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, _, _ := js.NewChainedPromise()
 	p2, _, _ := js.NewChainedPromise()
@@ -33,13 +39,19 @@ func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
 
 // TestPromisePointerIdentity_AllocatesOnReject verifies rejection tracking uses pointer.
 func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var tracked bool
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		tracked = true
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 
@@ -60,10 +72,16 @@ func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
 
 // TestPromisePointerIdentity_AllocatesOnHandler verifies handled tracking uses pointer-owned state.
 func TestPromisePointerIdentity_AllocatesOnHandler(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 

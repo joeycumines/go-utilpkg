@@ -9,7 +9,10 @@ import (
 )
 
 func TestDrain_BoundedRecursiveNextTickMicrotaskOppositeQueues(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	done := make(chan error, 1)
@@ -31,7 +34,10 @@ func TestDrain_BoundedRecursiveNextTickMicrotaskOppositeQueues(t *testing.T) {
 }
 
 func TestTerminalDrain_BoundedRecursiveNextTickMicrotaskOppositeQueues(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	terminating := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
@@ -101,9 +107,15 @@ func TestRun_CooperativeHostControlCheckpoint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop)
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 

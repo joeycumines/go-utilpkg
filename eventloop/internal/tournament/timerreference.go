@@ -89,9 +89,9 @@ func timerReferenceDescriptors() []timerReferenceDescriptor {
 			ImplementationRevision: "archive-2d6ae645.map-swap-int64",
 			SourceStorageID:        "timer.bucket-phase-v2",
 			Sources: []componentSourceIdentity{
-				{ProvenanceKind: "archived-index-candidate", Path: "timercancel.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "065971859d43a3d775ad9a95b1cbc008cfd075b8", SHA256: "10abb483e6817c0fb48ff602e5213daaddd284d186d4486358399fc5ce6be955"},
-				{ProvenanceKind: "archived-index-candidate", Path: "timer.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "919a22141f9511158c981abc519063e3c07e05bd", SHA256: "9a7e41d739c47259533738401ccd201320b37fea8cd9e66cad5cddb2bc57ef8f"},
-				{ProvenanceKind: "archived-index-candidate", Path: "loop.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "5c316e52dc7d0bf39c402b433e8c356cfe6ef58d", SHA256: "18cc725d1755b0d641be17344fe77a6198b5aa02bdf87b4855c6e3b8956751ba"},
+				{ProvenanceKind: "archived-index-candidate", Path: "timercancel.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "ba2badbeb9c639711e8198d45295313eb9ff3a94", SHA256: "9c27dfa9fe87733cad58065a682083df8b4c2ba7802cea56daaf41e13c6e8a45"},
+				{ProvenanceKind: "archived-index-candidate", Path: "timer.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "8e0d5b33b787a21b93e5b7b886b487336793d60c", SHA256: "7c0d7599ed36367642717fe18cd957cb93edf357844620b4e65c9b4282b9c319"},
+				{ProvenanceKind: "archived-index-candidate", Path: "loop.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "dde521223ab2db1a812404a864033a2b286ba8cc", SHA256: "ef116776fd7036a2390b45fe97b376d04c674ee5ed5cc036747cfaf749bfb1be"},
 			},
 			MaterializationSources: []componentSourceIdentity{
 				{ProvenanceKind: "index-candidate-materialization", Path: "internal/tournament/component/timerrefint64/core.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "94a0ee8300fb6d672eb23a5b4f0ddab4e9d312d0", SHA256: "77de06b7ce9759c0642dd72cbd234fce4ca2e362b985360a9eb8f5a00eb20dad"},

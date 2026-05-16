@@ -11,7 +11,10 @@ import (
 )
 
 func TestTerminalDrain_NonOwnerExternalEphemeralWorkRejected(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	stateTerminating := make(chan struct{})
@@ -84,7 +87,10 @@ func TestTerminalDrain_NonOwnerExternalEphemeralWorkRejected(t *testing.T) {
 }
 
 func TestTerminalDrain_CloseBypassesDrainAndRejectsCallbackContinuation(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	terminalVisible := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
 		BeforeClosePromiseRejection: func() { close(terminalVisible) },
@@ -152,7 +158,10 @@ func TestTerminalDrain_CloseBypassesDrainAndRejectsCallbackContinuation(t *testi
 }
 
 func TestTerminalDrain_CloseSkipsQueuedSubmitInternalAfterCurrentCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	releaseOuter := make(chan struct{})
 	closeDone := make(chan error, 1)
@@ -212,14 +221,20 @@ func TestTerminalDrain_CloseSkipsQueuedSubmitInternalAfterCurrentCallback(t *tes
 }
 
 func TestTerminalDrain_EndFunctionIdempotent(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	end := loop.beginTerminalDrain()
 	end()
 	end()
 }
 
 func TestTerminalDrain_TryBeginCASFailureDoesNotRejectTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.state.Store(StateRunning)
 	end, ok := loop.tryBeginTerminalDrainTransition(StateSleeping, StateTerminating)
 	if ok {
@@ -241,7 +256,10 @@ func TestTerminalDrain_TryBeginCASFailureDoesNotRejectTimer(t *testing.T) {
 func TestTerminalDrain_AutoExitModeChangesOnlyAfterSuccessfulTransition(t *testing.T) {
 	newPendingImmediate := func(t *testing.T) (*Loop, *atomic.Bool, *atomic.Bool) {
 		t.Helper()
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerFDResourceCleanupT(t, loop)
 		refed := new(atomic.Bool)
 		ran := new(atomic.Bool)

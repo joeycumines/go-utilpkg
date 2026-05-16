@@ -35,10 +35,16 @@ func TestDrainMicrotasksSafetyThresholdDiagnostic(t *testing.T) {
 			return nil
 		})),
 	).Logger()
-	loop := New(WithLogger(logger))
+	loop, err := New(WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -116,10 +122,16 @@ func TestDrainMicrotasksSafetyThresholdDiagnostic(t *testing.T) {
 // (inner loop is unbounded), and (2) nextTick-1 is deferred to the next
 // nextTick batch rather than preempting microtask-2.
 func TestDrain_ComplexInterleaving(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

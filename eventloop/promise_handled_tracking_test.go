@@ -3,10 +3,16 @@ package eventloop
 import "testing"
 
 func TestThenWithoutRejectionHandlerDoesNotMarkSourceHandled(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, _ := js.NewChainedPromise()
 
@@ -20,10 +26,16 @@ func TestThenWithoutRejectionHandlerDoesNotMarkSourceHandled(t *testing.T) {
 }
 
 func TestThenWithRejectionHandlerMarksSourceHandled(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, _ := js.NewChainedPromise()
 
@@ -37,13 +49,19 @@ func TestThenWithRejectionHandlerMarksSourceHandled(t *testing.T) {
 }
 
 func TestThenWithoutRejectionHandlerReportsPropagatedChildOnce(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var reasons []any
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reasons = append(reasons, reason)
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 	child := p.Then(func(v any) any { return v }, nil)
@@ -64,13 +82,19 @@ func TestThenWithoutRejectionHandlerReportsPropagatedChildOnce(t *testing.T) {
 }
 
 func TestThenWithoutRejectionHandlerChildCatchSuppressesPropagatedUnhandled(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var reasons []any
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reasons = append(reasons, reason)
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 	child := p.Then(func(v any) any { return v }, nil)
@@ -96,12 +120,18 @@ func TestThenWithoutRejectionHandlerChildCatchSuppressesPropagatedUnhandled(t *t
 }
 
 func TestUnhandledRejectionHandledBranchCleansRecord(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		t.Fatalf("handled rejection was reported as unhandled: %v", reason)
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p := &ChainedPromise{js: js}
 	p.state.Store(int32(Rejected))

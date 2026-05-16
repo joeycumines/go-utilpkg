@@ -8,7 +8,10 @@ import (
 )
 
 func TestPollSkipsNativeWaitForPendingNextTick(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	nextTickAdmission := make(chan error, 1)

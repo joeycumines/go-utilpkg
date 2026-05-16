@@ -8,7 +8,10 @@ import (
 )
 
 func TestCloseStateTerminatingSkipsCurrentPhaseRemainder(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	outerStarted := make(chan struct{})
@@ -72,7 +75,10 @@ func TestCloseStateTerminatingSkipsCurrentPhaseRemainder(t *testing.T) {
 }
 
 func TestCloseSkipsMicrotaskPausedDuringIngressTransfer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	transferStarted := make(chan struct{})
@@ -132,7 +138,10 @@ func TestCloseSkipsMicrotaskPausedDuringIngressTransfer(t *testing.T) {
 }
 
 func TestCloseSkipsMicrotaskPausedBeforeCallbackAdmission(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackReached := make(chan struct{})
@@ -190,7 +199,10 @@ func TestCloseSkipsMicrotaskPausedBeforeCallbackAdmission(t *testing.T) {
 }
 
 func TestCloseClaimedCallbackCannotClaimNestedCallbackAfterAdmissionCloses(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	outerStarted := make(chan struct{})
@@ -246,7 +258,10 @@ func TestCloseClaimedCallbackCannotClaimNestedCallbackAfterAdmissionCloses(t *te
 }
 
 func TestCloseSkipsCheckPredicatePausedBeforeAdmission(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	predicateStarted := make(chan struct{})

@@ -19,10 +19,16 @@ func TestCoreJSAllWithAllResolved(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create test promises
 	p1, r1, _ := jsAdapter.NewChainedPromise()
@@ -65,10 +71,16 @@ func TestCoreJSAllWithEmptyArray(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	promises := []*goeventloop.ChainedPromise{}
 	resultPromise := jsAdapter.All(promises)
@@ -101,10 +113,16 @@ func TestCoreJSAllWithOneRejected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()
@@ -151,10 +169,16 @@ func TestCoreJSRaceTiming(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, _ := jsAdapter.NewChainedPromise()
@@ -192,10 +216,16 @@ func TestCoreJSRaceFirstRejectedWins(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, r2, _ := jsAdapter.NewChainedPromise()
@@ -238,10 +268,16 @@ func TestCoreJSAllSettledMixedResults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, r1, _ := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()
@@ -289,10 +325,16 @@ func TestCoreJSAnyFirstResolvedWins(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, r2, _ := jsAdapter.NewChainedPromise()
@@ -330,10 +372,16 @@ func TestCoreJSAnyAllRejected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	jsAdapter := goeventloop.NewJS(loop)
+	jsAdapter, err := goeventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p1, _, rej1 := jsAdapter.NewChainedPromise()
 	p2, _, rej2 := jsAdapter.NewChainedPromise()

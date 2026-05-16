@@ -6,7 +6,10 @@ import (
 )
 
 func TestCalculateTimeoutWithoutDeadlineUsesIndefiniteSentinel(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if got := loop.calculateTimeout(); got != -1 {
 		t.Fatalf("calculateTimeout without timer = %d, want -1", got)
@@ -37,7 +40,10 @@ func TestPollTimeoutMillis(t *testing.T) {
 }
 
 func TestCalculateTimeoutRefreshesStaleLoopClock(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(l.closeFDs)
 
 	anchor := time.Now().Add(-time.Hour)
@@ -56,7 +62,10 @@ func TestCalculateTimeoutRefreshesStaleLoopClock(t *testing.T) {
 }
 
 func TestRunTimersRefreshesCachedClockAtEntry(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(l.closeFDs)
 
 	anchor := time.Now().Add(-time.Hour)

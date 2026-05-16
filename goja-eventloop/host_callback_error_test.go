@@ -12,8 +12,14 @@ import (
 )
 
 func TestNewForwardsJSOptions(t *testing.T) {
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	reported := make(chan any, 1)
 	adapter, err := New(loop, runtime, goeventloop.WithUnhandledRejection(func(reason any) {
 		reported <- reason
@@ -43,10 +49,16 @@ func TestNewForwardsJSOptions(t *testing.T) {
 }
 
 func TestHostCallbackErrorsEmitProcessUncaughtException(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,9 +151,15 @@ func TestDefaultFatalHostCallbackStopsLaterJSCallbacks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,6 +214,9 @@ func TestAbortSignalDefaultFatalStopsLaterCallbacksAndLogsFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -242,9 +263,15 @@ func TestAbortSignalDefaultFatalStopsLaterCallbacksAndLogsFirst(t *testing.T) {
 }
 
 func TestPromiseFinallyCallbackErrorRejectsDerivedPromise(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,6 +332,9 @@ func TestEventTargetCallbackErrorUsesLoopLogger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -350,6 +380,9 @@ func TestProcessListenerDiagnosticDoesNotCoerceThrownValue(t *testing.T) {
 	loop, records := newAdapterDiagnosticLoggedLoop(t)
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,6 +437,9 @@ func TestEventTargetThrownDiagnosticDoesNotCoerceReason(t *testing.T) {
 	loop, records := newAdapterDiagnosticLoggedLoop(t)
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

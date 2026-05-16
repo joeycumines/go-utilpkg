@@ -67,7 +67,10 @@ func requireLoopLiveness(t *testing.T, scope string, got livenessObservation) {
 
 func exerciseBatchLiveness(t *testing.T, test livenessBatchCase, terminal bool) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	firstEntered := make(chan struct{})
@@ -142,7 +145,10 @@ func TestTerminalExternalRemainderLivenessRemainsVisibleUntilCompletion(t *testi
 }
 
 func TestGracefulShutdownKeepsDetachedPhaseLivenessVisible(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	firstEntered := make(chan struct{})
@@ -193,7 +199,10 @@ func TestGracefulShutdownKeepsDetachedPhaseLivenessVisible(t *testing.T) {
 }
 
 func TestImmediateCloseInvalidatesDetachedPhaseLiveness(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	firstEntered := make(chan struct{})
@@ -240,7 +249,10 @@ func TestImmediateCloseInvalidatesDetachedPhaseLiveness(t *testing.T) {
 }
 
 func TestImmediatePredicateFinalFalseLinearizesAutoExit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var (

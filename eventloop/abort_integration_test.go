@@ -8,8 +8,14 @@ import (
 )
 
 func TestAbortIntegrationSignalObservedAcrossPromiseChain(t *testing.T) {
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	controller := NewAbortController()
 	signal := controller.Signal()
@@ -58,7 +64,10 @@ func TestAbortIntegrationSignalObservedAcrossPromiseChain(t *testing.T) {
 }
 
 func TestAbortIntegrationWithPromisify(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	running := make(chan struct{})
 	if err := loop.Submit(func() { close(running) }); err != nil {

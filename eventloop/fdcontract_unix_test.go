@@ -14,7 +14,10 @@ import (
 )
 
 func TestAutoExitTerminalAdmissionRejectsRegisterFD(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	admissionClosed := make(chan struct{})
 	releaseTermination := make(chan struct{})
@@ -180,7 +183,10 @@ func TestLoopUnregisterClosedFDReleasesLiveness(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &pipeFDs[0], &pipeFDs[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	registeredFD := pipeFDs[0]
 	if err := loop.RegisterFD(registeredFD, EventRead, func(IOEvents) {}); err != nil {
@@ -199,7 +205,10 @@ func TestLoopUnregisterClosedFDReleasesLiveness(t *testing.T) {
 }
 
 func TestLoopDuplicateRegisterPreservesSentinelIdentity(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -267,7 +276,10 @@ func TestLoopRegisterFDRejectsInvalidContractWithoutResources(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			panicValue := captureErrorContractPanic(func() {
 				_ = loop.RegisterFD(0, test.events, test.callback)
@@ -290,7 +302,10 @@ func TestLoopRegisterFDRejectsInvalidContractWithoutResources(t *testing.T) {
 }
 
 func TestLoopRegisterFDRejectedOwnershipCannotDispatchCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
@@ -372,7 +387,10 @@ func TestModifyFDValidationContract(t *testing.T) {
 }
 
 func TestLoopPublicFDMutationCannotTargetInternalWake(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var pipeFDs [2]int
@@ -406,7 +424,10 @@ func TestLoopPublicFDMutationCannotTargetInternalWake(t *testing.T) {
 }
 
 func TestRegisterFDRollbackFailureRetainsLifecycleOwnership(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)
@@ -416,7 +437,7 @@ func TestRegisterFDRollbackFailureRetainsLifecycleOwnership(t *testing.T) {
 		RegisterFDRollback:            func(int) error { return rollbackErr },
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	var partial *FDRegistrationRollbackError
 	if !errors.As(err, &partial) || !partial.Registered() {
 		t.Fatalf("RegisterFD error = %#v, want retained FDRegistrationRollbackError", err)
@@ -440,7 +461,10 @@ func TestRegisterFDRollbackFailureRetainsLifecycleOwnership(t *testing.T) {
 }
 
 func TestRegisterFDRollbackFailureForcesPollingMode(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)
@@ -450,7 +474,7 @@ func TestRegisterFDRollbackFailureForcesPollingMode(t *testing.T) {
 		RegisterFDRollback:     func(int) error { return rollbackErr },
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	var partial *FDRegistrationRollbackError
 	if !errors.As(err, &partial) || !partial.Registered() {
 		t.Fatalf("RegisterFD error = %#v, want retained FDRegistrationRollbackError", err)
@@ -478,7 +502,10 @@ func TestRegisterFDRollbackFailureForcesPollingMode(t *testing.T) {
 
 func TestLoopModifyUnregisterForcedLinearization(t *testing.T) {
 	t.Run("modify first", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 		fd, cleanup := testCreateIOFD(t)
 		t.Cleanup(cleanup)
@@ -504,7 +531,10 @@ func TestLoopModifyUnregisterForcedLinearization(t *testing.T) {
 	})
 
 	t.Run("unregister first", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 		fd, cleanup := testCreateIOFD(t)
 		t.Cleanup(cleanup)

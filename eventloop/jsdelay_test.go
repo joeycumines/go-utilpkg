@@ -37,9 +37,15 @@ func TestJSTimerPromisePositiveExpiry(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			if err != nil {
+				t.Fatal(err)
+			}
 			started := time.Now()
 			promise := test.create(js)
 			settlement := promise.ToChannel()
@@ -65,9 +71,15 @@ func TestJSTimerPromisePositiveExpiry(t *testing.T) {
 
 func TestJSTimeoutRacePendingPromise(t *testing.T) {
 	const delay = 10 * time.Millisecond
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	pending, _, _ := js.NewChainedPromise()
 	timeout := js.Timeout(delay)
 	result := js.Race([]*ChainedPromise{pending, timeout})

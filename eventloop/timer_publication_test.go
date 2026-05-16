@@ -8,7 +8,10 @@ import (
 )
 
 func TestScheduleTimerPublicationPrecedesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	returnHookEntered := make(chan TimerID, 1)
 	callbackWaiting := make(chan TimerID, 1)
 	releaseReturnHook := make(chan struct{})

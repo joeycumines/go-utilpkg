@@ -27,7 +27,10 @@ func TestLoopRequestsLifecycleChildDoesNotJoinCallback(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			releaseCallback := make(chan struct{})
 			release := contractRelease(t, releaseCallback)
@@ -77,7 +80,10 @@ func TestLoopRequestsLifecycleChildDoesNotJoinCallback(t *testing.T) {
 }
 
 func TestLoopRequestsCloseAllowedInsideCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	type results struct {
 		closeErr   error
@@ -128,7 +134,10 @@ func TestLoopRequestsLifecycleModeMatrix(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			releaseCallback := make(chan struct{})
 			release := contractRelease(t, releaseCallback)
@@ -217,7 +226,10 @@ func TestLoopRequestsLifecycleResultAfterLifecycleRace(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			requestBeforeLifecycleLock := make(chan struct{})
@@ -262,7 +274,7 @@ func TestLoopRequestsLifecycleResultAfterLifecycleRace(t *testing.T) {
 			go func() { winnerDone <- test.winner(loop) }()
 			waitContractSignal(t, winnerPublished, "winning terminal publication")
 			releaseRequestLifecycleLockFn()
-			err := waitContractValue(t, requestDone, "request locked-recheck lifecycle result")
+			err = waitContractValue(t, requestDone, "request locked-recheck lifecycle result")
 			if test.want == nil {
 				if err != nil {
 					t.Fatalf("request lifecycle result = %v, want nil", err)
@@ -296,7 +308,10 @@ func TestLoopRequestsLifecycleBeforeRun(t *testing.T) {
 		{name: "close", request: func(requests LoopRequests) error { return requests.Close() }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := test.request(loop.Requests()); err != nil {
 				t.Fatalf("request: %v", err)
 			}
@@ -309,7 +324,10 @@ func TestLoopRequestsLifecycleBeforeRun(t *testing.T) {
 }
 
 func TestLoopRequestsPromisifyChildDoesNotJoinWorker(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	releaseWorker := make(chan struct{})
 	release := contractRelease(t, releaseWorker)
@@ -363,7 +381,10 @@ func TestLoopRequestsPromisifyChildDoesNotJoinWorker(t *testing.T) {
 }
 
 func TestLoopRequestsAcknowledgementDoesNotPublishTerminalError(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	sentinel := errors.New("injected terminal failure")
 	loop.storeTerminalError(sentinel)
@@ -494,7 +515,10 @@ func TestLoopRequestsTimerMutationsDoNotJoinOwner(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			ids := test.prepare(t, loop)
 			releaseCallback := make(chan struct{})
@@ -544,7 +568,10 @@ func TestLoopRequestsTimerMutationsDoNotJoinOwner(t *testing.T) {
 }
 
 func TestLoopRequestsEmptyBatchSucceedsAfterTermination(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	requests := loop.Requests()
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
@@ -555,7 +582,10 @@ func TestLoopRequestsEmptyBatchSucceedsAfterTermination(t *testing.T) {
 }
 
 func TestLoopRequestsCancelBeforeRunPreservesFIFO(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var fired atomic.Bool
 	id, err := loop.ScheduleTimer(0, func() { fired.Store(true) })

@@ -8,13 +8,16 @@ import (
 )
 
 func TestCloseHandsRejectedNormalRejectionHandlerToTerminalFallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	handlerStarted := make(chan any, 1)
 	handlerDone := make(chan struct{})
 	closeReturned := make(chan struct{})
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) {
 			handlerStarted <- reason
 			<-closeReturned
@@ -22,6 +25,9 @@ func TestCloseHandsRejectedNormalRejectionHandlerToTerminalFallback(t *testing.T
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	handlerAdmissionReached := make(chan struct{})
 	releaseAdmission := make(chan struct{})
@@ -92,14 +98,17 @@ func TestCloseHandsRejectedNormalRejectionHandlerToTerminalFallback(t *testing.T
 }
 
 func TestCloseTerminalFallbackUpgradesActiveNormalRejectionCheck(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	reasons := make(chan any, 2)
 	terminalHandlerStarted := make(chan struct{})
 	terminalHandlerDone := make(chan struct{})
 	closeReturned := make(chan struct{})
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) {
 			reasons <- reason
 			if reason == "late-terminal" {
@@ -110,6 +119,9 @@ func TestCloseTerminalFallbackUpgradesActiveNormalRejectionCheck(t *testing.T) {
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checkCleared := make(chan struct{})
 	fallbackRerun := make(chan struct{})
@@ -223,15 +235,21 @@ func TestTerminalFallbackTakesOwnershipAfterNormalCheckerExit(t *testing.T) {
 
 func testTerminalFallbackTakesOwnershipAfterNormalCheckerExit(t *testing.T, fallbackMode UnhandledRejectionFallbackMode, wantLateCallback bool) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	reasons := make(chan any, 2)
-	js := NewJS(
+	js, err := NewJS(
 		loop,
 		WithUnhandledRejection(func(reason any) { reasons <- reason }),
 		WithUnhandledRejectionFallback(fallbackMode),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checkCleared := make(chan struct{})
 	releaseCheck := make(chan struct{})

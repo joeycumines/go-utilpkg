@@ -274,9 +274,15 @@ func runFatalProcessScript(t *testing.T, script string) *Adapter {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}

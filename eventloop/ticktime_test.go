@@ -6,7 +6,10 @@ import (
 )
 
 func TestCurrentTickTimeMonotonicAndZeroAllocations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	anchor := time.Now()

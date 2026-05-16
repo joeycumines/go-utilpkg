@@ -32,7 +32,10 @@ func TestFDGenerationExhaustionPreventsIdentityReuse(t *testing.T) {
 }
 
 func TestLoopFDGenerationExhaustionRollsBackLazyPoller(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {

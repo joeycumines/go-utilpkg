@@ -8,13 +8,16 @@ import (
 // TestAlive_AfterAllTimersFire exercises the refedTimerCount check (line 1455)
 // transitioning from >0 to 0 after timers fire.
 func TestAlive_AfterAllTimersFire(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(t.Context()) }()
 	waitLoopOwnerTurnT(t, loop)
 
 	fired := make(chan struct{})
-	_, err := loop.ScheduleTimer(0, func() { close(fired) })
+	_, err = loop.ScheduleTimer(0, func() { close(fired) })
 	if err != nil {
 		t.Fatalf("ScheduleTimer: %v", err)
 	}
@@ -38,7 +41,10 @@ func TestAlive_AfterAllTimersFire(t *testing.T) {
 // TestAlive_PromisifyDuringExecution exercises Alive() from within a Promisify
 // callback (line 1473: promisifyCount > 0). Verifies no deadlock and returns true.
 func TestAlive_PromisifyDuringExecution(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	waitLoopOwnerTurnT(t, loop)

@@ -7,7 +7,10 @@ import (
 )
 
 func TestPromisifyPreCanceledContextSkipsUserFunction(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	taskContext, cancel := context.WithCancel(context.Background())
@@ -36,7 +39,10 @@ func TestPromisifyPreCanceledContextSkipsUserFunction(t *testing.T) {
 }
 
 func TestPromisifyActiveContextCancellation(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	taskContext, cancel := context.WithCancel(context.Background())
@@ -68,7 +74,10 @@ func TestPromisifyActiveContextCancellation(t *testing.T) {
 }
 
 func TestPromisifyDeadlineExceeded(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	taskContext, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
@@ -102,7 +111,10 @@ func TestPromisifyLivenessControlsAutoExit(t *testing.T) {
 	if !fdPollingSupported {
 		t.Skip("deterministic native-poll boundary is unavailable")
 	}
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	workerStarted := make(chan struct{})

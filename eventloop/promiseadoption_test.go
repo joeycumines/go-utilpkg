@@ -39,12 +39,24 @@ func TestChainedPromiseAdoptionClaimsResolver(t *testing.T) {
 	}
 }
 func TestChainedPromiseCrossAdapterAdoptionUsesTargetOwner(t *testing.T) {
-	sourceLoop := New()
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, sourceLoop)
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
-	sourceJS := NewJS(sourceLoop)
-	targetJS := NewJS(targetLoop)
+	sourceJS, err := NewJS(sourceLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetJS, err := NewJS(targetLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, resolveSource, _ := sourceJS.NewChainedPromise()
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	observed := make(chan bool, 1)
@@ -88,13 +100,25 @@ func TestChainedPromiseCrossAdapterAdoptionUsesTargetOwner(t *testing.T) {
 }
 
 func TestChainedPromiseCrossAdapterRejectionUsesTargetOwner(t *testing.T) {
-	sourceLoop := New()
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, sourceLoop)
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
 	reported := make(chan any, 2)
-	sourceJS := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
-	targetJS := NewJS(targetLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	sourceJS, err := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetJS, err := NewJS(targetLoop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, _, rejectSource := sourceJS.NewChainedPromise()
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	observed := make(chan struct {
@@ -168,13 +192,25 @@ func TestChainedPromiseCrossAdapterRejectionUsesTargetOwner(t *testing.T) {
 }
 
 func TestChainedPromiseAdoptionAfterSourceTermination(t *testing.T) {
-	sourceLoop := New()
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, sourceLoop)
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
 	sourceReported := make(chan any, 1)
-	sourceJS := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { sourceReported <- reason }))
-	targetJS := NewJS(targetLoop)
+	sourceJS, err := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { sourceReported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetJS, err := NewJS(targetLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, _, rejectSource := sourceJS.NewChainedPromise()
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	resolveTarget(source)
@@ -221,12 +257,24 @@ func TestChainedPromiseAdoptionAfterSourceTermination(t *testing.T) {
 }
 
 func TestChainedPromiseAdoptionAfterTargetTermination(t *testing.T) {
-	sourceLoop := New()
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, sourceLoop)
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
-	sourceJS := NewJS(sourceLoop)
-	targetJS := NewJS(targetLoop)
+	sourceJS, err := NewJS(sourceLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetJS, err := NewJS(targetLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, resolveSource, _ := sourceJS.NewChainedPromise()
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	resolveTarget(source)
@@ -275,13 +323,19 @@ func TestChainedPromiseAcceptedAdoptionSurvivesImmediateClose(t *testing.T) {
 		UnhandledRejectionFallbackDisabled,
 	} {
 		t.Run(fmt.Sprint(mode), func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 2)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(mode),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 			source, _, rejectSource := js.NewChainedPromise()
 			adopter, resolveAdopter, _ := js.NewChainedPromise()
 			resolveAdopter(source)
@@ -340,9 +394,15 @@ func TestChainedPromiseAcceptedAdoptionSurvivesImmediateClose(t *testing.T) {
 }
 
 func TestChainedPromiseAcceptedFulfillmentAdoptionSurvivesImmediateClose(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, resolveSource, _ := js.NewChainedPromise()
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
 	resolveAdopter(source)
@@ -404,9 +464,15 @@ func TestTerminalTransitionSettlesAcceptedAdoptionNeededByRunningCallback(t *tes
 	for _, terminationCase := range terminationCases {
 		for _, settlementCase := range settlementCases {
 			t.Run(terminationCase.name+"/"+settlementCase.name, func(t *testing.T) {
-				loop := New()
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
 				registerLoopCleanupT(t, loop)
-				js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				if err != nil {
+					t.Fatal(err)
+				}
 				callbackStarted := make(chan struct{})
 				callbackResult := make(chan any, 1)
 				releaseCallback := make(chan struct{})
@@ -456,9 +522,15 @@ func TestTerminalTransitionSettlesAcceptedAdoptionNeededByRunningCallback(t *tes
 }
 
 func TestChainedPromisePendingAdoptionDoesNotRetainAbandonedPromises(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	const total = 256
 	sourceRefs := make([]weak.Pointer[ChainedPromise], total)
@@ -505,9 +577,15 @@ func abandonPendingAdoption(js *JS) (weak.Pointer[ChainedPromise], weak.Pointer[
 }
 
 func TestChainedPromiseCrossAdapterPendingAdoptionDoesNotRetainSourceOwner(t *testing.T) {
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
-	targetJS := NewJS(targetLoop)
+	targetJS, err := NewJS(targetLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	target, sourceRef, sourceJSRef, sourceLoopRef := abandonCrossAdapterPendingAdoption(t, targetJS)
 	deadline := time.Now().Add(5 * time.Second)
@@ -539,8 +617,14 @@ func abandonCrossAdapterPendingAdoption(
 	targetJS *JS,
 ) (*ChainedPromise, weak.Pointer[ChainedPromise], weak.Pointer[JS], weak.Pointer[Loop]) {
 	t.Helper()
-	sourceLoop := New()
-	sourceJS := NewJS(sourceLoop)
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceJS, err := NewJS(sourceLoop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, _, _ := sourceJS.NewChainedPromise()
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	resolveTarget(source)
@@ -557,14 +641,26 @@ func abandonCrossAdapterPendingAdoption(
 }
 
 func TestChainedPromiseCrossAdapterAcceptedAdoptionSurvivesSourceClose(t *testing.T) {
-	sourceLoop := New()
+	sourceLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, sourceLoop)
-	targetLoop := New()
+	targetLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, targetLoop)
 	sourceReported := make(chan any, 1)
 	targetReported := make(chan any, 2)
-	sourceJS := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { sourceReported <- reason }))
-	targetJS := NewJS(targetLoop, WithUnhandledRejection(func(reason any) { targetReported <- reason }))
+	sourceJS, err := NewJS(sourceLoop, WithUnhandledRejection(func(reason any) { sourceReported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetJS, err := NewJS(targetLoop, WithUnhandledRejection(func(reason any) { targetReported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, _, rejectSource := sourceJS.NewChainedPromise()
 	adopter, resolveAdopter, _ := targetJS.NewChainedPromise()
 	resolveAdopter(source)

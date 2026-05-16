@@ -38,7 +38,10 @@ type benchEnv struct {
 func newBenchEnv(tb testing.TB) *benchEnv {
 	tb.Helper()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	env := &benchEnv{
 		loop:         loop,
 		runDone:      make(chan error, 1),
@@ -48,6 +51,9 @@ func newBenchEnv(tb testing.TB) *benchEnv {
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		panic(err)
+	}
 	if err != nil {
 		tb.Fatalf("failed to create adapter: %v", err)
 	}

@@ -114,7 +114,10 @@ func TestLogCritical_WithEnabledLogger(t *testing.T) {
 	// Convert to the generic Logger[Event] that Loop requires
 	genericLogger := typedLogger.Logger()
 
-	loop := New(WithLogger(genericLogger))
+	loop, err := New(WithLogger(genericLogger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.logCritical("test critical message", expected)
@@ -153,7 +156,10 @@ func TestLogCritical_WithPanickingLogger(t *testing.T) {
 	)
 	genericLogger := typedLogger.Logger()
 
-	loop := New(WithLogger(genericLogger))
+	loop, err := New(WithLogger(genericLogger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// A panicking configured logger must not escape into loop control flow.
@@ -173,7 +179,10 @@ func TestLogCritical_WithGoexitLogger(t *testing.T) {
 			return nil
 		})),
 	)
-	loop := New(WithLogger(typedLogger.Logger()))
+	loop, err := New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	returned := make(chan struct{})
@@ -187,7 +196,10 @@ func TestLogCritical_WithGoexitLogger(t *testing.T) {
 
 func TestLoopDiagnosticsAcceptNilLoggerReceiver(t *testing.T) {
 	var logger *logiface.Logger[logiface.Event]
-	loop := New(WithLogger(logger))
+	loop, err := New(WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.Log(logiface.LevelError, nil)
@@ -205,7 +217,10 @@ func TestLoggerGoexitInsideCallbackDoesNotTerminateOwner(t *testing.T) {
 			return nil
 		})),
 	)
-	loop := New(WithLogger(typedLogger.Logger()))
+	loop, err := New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackReturned := make(chan struct{})
@@ -239,7 +254,11 @@ func TestLoggerCallbackRetainsActiveOwner(t *testing.T) {
 			return nil
 		})),
 	)
-	loop = New(WithLogger(typedLogger.Logger()))
+	var err error
+	loop, err = New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackReturned := make(chan struct{})
@@ -294,8 +313,15 @@ func TestImmediateTerminalDependencyLoggerRetainsCompletionOwner(t *testing.T) {
 					return nil
 				})),
 			)
-			loop = New(WithLogger(logger.Logger()))
-			js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			var err error
+			loop, err = New(WithLogger(logger.Logger()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			if err != nil {
+				t.Fatal(err)
+			}
 			result := js.Timeout(time.Hour).ToChannel()
 			callbackStarted := make(chan struct{})
 			if err := loop.Submit(func() {
@@ -340,7 +366,11 @@ func TestLoggerDropsRecursiveDiagnostics(t *testing.T) {
 			return nil
 		})),
 	)
-	loop = New(WithLogger(typedLogger.Logger()))
+	var err error
+	loop, err = New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	returned := make(chan struct{})
@@ -390,7 +420,10 @@ func TestLoggerGoexitStagesDoNotTerminateCaller(t *testing.T) {
 			}
 
 			logger := logiface.New[*testEvent](options...)
-			loop := New(WithLogger(logger.Logger()))
+			loop, err := New(WithLogger(logger.Logger()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			returned := make(chan struct{})
 			go func() {
@@ -436,7 +469,10 @@ func TestLoggerEventAbnormalExitDoesNotTerminateCaller(t *testing.T) {
 						return nil
 					})),
 				)
-				loop := New(WithLogger(logger.Logger()))
+				loop, err := New(WithLogger(logger.Logger()))
+				if err != nil {
+					t.Fatal(err)
+				}
 				registerLoopCleanupT(t, loop)
 
 				type callResult struct {
@@ -483,7 +519,10 @@ func TestLoggerModifierErrorDoesNotReenterLogger(t *testing.T) {
 			return nil
 		})),
 	)
-	loop := New(WithLogger(logger.Logger()))
+	loop, err := New(WithLogger(logger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	returned := make(chan struct{})
 	go func() {
@@ -517,7 +556,10 @@ func TestLogCallbackErrorWithEnabledLogger(t *testing.T) {
 	)
 	genericLogger := typedLogger.Logger()
 
-	loop := New(WithLogger(genericLogger))
+	loop, err := New(WithLogger(genericLogger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.logCallbackError("test error message", panicValue)
@@ -550,7 +592,10 @@ func TestLogUsesConfiguredLogger(t *testing.T) {
 		})),
 	)
 
-	loop := New(WithLogger(typedLogger.Logger()))
+	loop, err := New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.Log(logiface.LevelWarning, logiface.ModifierFunc[logiface.Event](func(event logiface.Event) error {
@@ -593,7 +638,10 @@ func TestLogCallbackErrorWithPanickingLogger(t *testing.T) {
 	)
 	genericLogger := typedLogger.Logger()
 
-	loop := New(WithLogger(genericLogger))
+	loop, err := New(WithLogger(genericLogger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// A panicking configured logger must not escape into loop control flow.
@@ -612,7 +660,10 @@ func TestPromiseScheduleFailureUsesInstanceLogger(t *testing.T) {
 			return nil
 		})),
 	).Logger()
-	loop := New(WithLogger(logger))
+	loop, err := New(WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	expected := errors.New("schedule failed")
@@ -645,12 +696,18 @@ func TestUnhandledRejectionDiagnosticUsesReasonField(t *testing.T) {
 			return nil
 		})),
 	).Logger()
-	loop := New(WithLogger(logger))
+	loop, err := New(WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}

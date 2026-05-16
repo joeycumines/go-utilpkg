@@ -63,7 +63,10 @@ func TestTaskOnlyUnsupportedFDErrorsAreStable(t *testing.T) {
 }
 
 func TestTaskOnlyFDUnsupportedDoesNotAdjustLiveness(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	if err := loop.RegisterFD(1, EventRead, func(IOEvents) {}); !errors.Is(err, ErrReadinessUnsupported) {

@@ -24,9 +24,15 @@ func TestChainedPromiseConcurrentRegistrationOrder(t *testing.T) {
 }
 
 func testChainedPromiseConcurrentRegistrationOrder(t *testing.T, rejected, registrationFirst bool) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	promise, resolve, reject := js.NewChainedPromise()
 	observed := make(chan promiseReactionObservation, 2)

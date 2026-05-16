@@ -6,10 +6,16 @@ import (
 )
 
 func TestJS_ConvenienceHelpers(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("js.Resolve() returns already fulfilled promise", func(t *testing.T) {
 		p := js.Resolve("immediate value")

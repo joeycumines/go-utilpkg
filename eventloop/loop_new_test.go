@@ -27,28 +27,30 @@ var _ LoopOption = (*testTrackLoopOption)(nil)
 // Tests for: New(), resolveLoopOptions(), lazy poller/wake initialization,
 //            and poller.Init() cleanup behavior.
 
-// TestNew_ResolveLoopOptions_ErrorPath tests that New panics when a LoopOption
-// reports a static configuration error.
+// TestNew_ResolveLoopOptions_ErrorPath tests that New returns an error when a
+// LoopOption reports a configuration error.
 func TestNew_ResolveLoopOptions_ErrorPath(t *testing.T) {
 	expectedErr := errors.New("intentional option error for testing")
 	badOption := &testTrackLoopOption{err: expectedErr}
-	got := captureLoopOptionPanic(func() { _ = New(badOption) })
-	err, ok := got.(error)
-	if !ok || !errors.Is(err, expectedErr) {
-		t.Fatalf("New panic = %#v, want error wrapping %v", got, expectedErr)
+	_, err := New(badOption)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("New error = %#v, want error wrapping %v", err, expectedErr)
 	}
 }
 
-// TestNew_ResolveLoopOptions_NilOption tests that nil options panic.
+// TestNew_ResolveLoopOptions_NilOption tests that nil options return an error.
 func TestNew_ResolveLoopOptions_NilOption(t *testing.T) {
-	if got := captureLoopOptionPanic(func() { _ = New(WithMetrics(true), nil) }); got == nil {
+	if _, err := New(WithMetrics(true), nil); err == nil {
 		t.Fatal("New accepted a nil LoopOption")
 	}
 }
 
 // TestNew_ResolveLoopOptions_EmptyOptions tests that New() works with no options.
 func TestNew_ResolveLoopOptions_EmptyOptions(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	mode := FastPathMode(loop.fastPathMode.Load())
@@ -72,7 +74,10 @@ func TestNew_ResolveLoopOptions_ChainedOptions(t *testing.T) {
 	opt2 := &testTrackLoopOption{id: 2, order: &order}
 	opt3 := &testTrackLoopOption{id: 3, order: &order}
 
-	loop := New(opt1, opt2, opt3)
+	loop, err := New(opt1, opt2, opt3)
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// Verify order of application (populated by applyLoop during New())
@@ -92,10 +97,9 @@ func TestNew_ResolveLoopOptions_ErrorAtMiddle(t *testing.T) {
 	opt2 := &testTrackLoopOption{id: 2, err: expectedErr, order: &applied}
 	opt3 := &testTrackLoopOption{id: 3, order: &applied}
 
-	got := captureLoopOptionPanic(func() { _ = New(opt1, opt2, opt3) })
-	err, ok := got.(error)
-	if !ok || !errors.Is(err, expectedErr) {
-		t.Fatalf("New panic = %#v, want error wrapping %v", got, expectedErr)
+	_, err := New(opt1, opt2, opt3)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("New error = %#v, want error wrapping %v", err, expectedErr)
 	}
 
 	// Only first two options should have been applied (opt2 errors, opt3 never reached)
@@ -106,11 +110,14 @@ func TestNew_ResolveLoopOptions_ErrorAtMiddle(t *testing.T) {
 
 // TestNew_AllValidOptions tests that all supported options work correctly.
 func TestNew_AllValidOptions(t *testing.T) {
-	loop := New(
+	loop, err := New(
 		WithFastPathMode(FastPathForced),
 		WithMetrics(true),
 		WithLogger(nil), // nil logger should be accepted
 	)
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	mode := FastPathMode(loop.fastPathMode.Load())
@@ -136,7 +143,10 @@ func TestNew_WithFastPathModes(t *testing.T) {
 
 	for _, tc := range modes {
 		t.Run(tc.name, func(t *testing.T) {
-			loop := New(WithFastPathMode(tc.mode))
+			loop, err := New(WithFastPathMode(tc.mode))
+			if err != nil {
+				t.Fatalf("New error: %v", err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			actual := FastPathMode(loop.fastPathMode.Load())
@@ -153,7 +163,10 @@ func TestNew_WithFastPathModes(t *testing.T) {
 // TestNew_WithMetrics tests metrics initialization.
 func TestNew_WithMetrics(t *testing.T) {
 	// Without metrics
-	loop1 := New(WithMetrics(false))
+	loop1, err := New(WithMetrics(false))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop1)
 
 	if loop1.metrics != nil {
@@ -165,7 +178,10 @@ func TestNew_WithMetrics(t *testing.T) {
 	}
 
 	// With metrics
-	loop2 := New(WithMetrics(true))
+	loop2, err := New(WithMetrics(true))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop2)
 
 	if loop2.metrics == nil {
@@ -179,10 +195,16 @@ func TestNew_WithMetrics(t *testing.T) {
 
 // TestNew_LoopIDIncrement verifies unique loop IDs are generated.
 func TestNew_LoopIDIncrement(t *testing.T) {
-	loop1 := New()
+	loop1, err := New()
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop1)
 
-	loop2 := New()
+	loop2, err := New()
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop2)
 
 	if loop1.id >= loop2.id {

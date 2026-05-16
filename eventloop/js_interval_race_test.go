@@ -8,15 +8,21 @@ import (
 )
 
 func TestJSSetIntervalRecoversCallbackPanicAndRepeats(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	published := make(chan struct{})
 	done := make(chan struct{})
 	var count atomic.Int32
 	var intervalID uint64
-	intervalID, err := js.SetInterval(func() {
+	intervalID, err = js.SetInterval(func() {
 		<-published
 		switch count.Add(1) {
 		case 1:
@@ -47,9 +53,15 @@ func TestJSSetIntervalRecoversCallbackPanicAndRepeats(t *testing.T) {
 }
 
 func TestJSSetIntervalConcurrentClearHasOneWinner(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fired := make(chan struct{}, 1)
 	id, err := js.SetInterval(func() { fired <- struct{}{} }, 3_600_000)

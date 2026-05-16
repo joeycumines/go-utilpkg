@@ -1186,91 +1186,91 @@
           "harness_files": [
             "autoexit_bench_test.go"
           ],
-          "harness_sha256": "4a6d67d0d6b9f786375ac8126dedac168846293df4b72157ee850a9ac54d4a07"
+          "harness_sha256": "2bb6f624f5e85e628848eec8663e7085520df0ad319f08a24beb851f347b2900"
         },
         "BenchmarkConcurrentSubmissionWakeIntegration": {
           "id": "workload.product.concurrent-submission-wake-integration.v1",
           "harness_files": [
             "wakeup_dedup_test.go"
           ],
-          "harness_sha256": "26a626161e738b2b61fb409aba8c2e1b8cf2a24684b961dd3446655ea96c75b1"
+          "harness_sha256": "5d8f2aebc7bda845457883e33d425da5a15cd94f9a4fe595767522cee9241caa"
         },
         "BenchmarkEventTargetDispatchEmptyReusedEvent": {
           "id": "workload.product.event-target-dispatch-empty-reused-event.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetDispatchFreshEvent": {
           "id": "workload.product.event-target-dispatch-fresh-event.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetDispatchParallelDistinctEvents": {
           "id": "workload.product.event-target-dispatch-parallel-distinct-events.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetDispatchParallelDistinctEventsControl": {
           "id": "workload.product.event-target-dispatch-parallel-distinct-events-control.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetDispatchReusedEvent": {
           "id": "workload.product.event-target-dispatch-reused-event.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetListenerConstruction": {
           "id": "workload.product.event-target-listener-construction.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkEventTargetListenerRegistrationWithLiveSet": {
           "id": "workload.product.event-target-listener-registration-with-live-set.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "7d4bc566aaa5ac20ec457e5f5a1efc0bfe6299bcbff9e7d38d0f2d9c29aec35a"
+          "harness_sha256": "450020bcbf2791cab48c23491754e0d826fd162824bde6facc165f5ee819b6f5"
         },
         "BenchmarkFDReadinessDispatchHighCount": {
           "id": "workload.product.fd-readiness-dispatch-high-count.v1",
           "harness_files": [
             "fd_bench_unix_test.go"
           ],
-          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+          "harness_sha256": "00ecdc2225eec94a50a2cc8741e210ebec4b1d86687638872f5478877eda7a7b"
         },
         "BenchmarkFDReadinessDispatchSingle": {
           "id": "workload.product.fd-readiness-dispatch-single.v1",
           "harness_files": [
             "fd_bench_unix_test.go"
           ],
-          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+          "harness_sha256": "00ecdc2225eec94a50a2cc8741e210ebec4b1d86687638872f5478877eda7a7b"
         },
         "BenchmarkIdleWakeRecoveryTurnCost": {
           "id": "workload.product.idle-wake-recovery-turn-cost.v1",
           "harness_files": [
             "wake_bench_unix_test.go"
           ],
-          "harness_sha256": "ce3ff5a5e77c96812696a4d86bdc1825b28d0efcb27f863b125404886ad866af"
+          "harness_sha256": "0d3fee4c53ed6ffa91ba359cc8f58e9bfbc0a1fd1dcb38edc706674c62292e87"
         },
         "BenchmarkLargeDeadlineList": {
           "id": "workload.product.large-deadline-list.v1",
           "harness_files": [
             "scheduler_runtime_bench_test.go"
           ],
-          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+          "harness_sha256": "0478e190865c14f6c7ef2752862ada912f45bdd65fa2f5f84b5f0eb245f2b594"
         },
         "BenchmarkMetricsCollection": {
           "id": "workload.product.metrics-collection.v1",
@@ -1284,63 +1284,63 @@
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkMetricsHotPathSnapshot": {
           "id": "workload.product.metrics-hot-path-snapshot.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkMicrotaskLatency": {
           "id": "workload.product.microtask-latency.v1",
           "harness_files": [
             "scheduler_runtime_bench_test.go"
           ],
-          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+          "harness_sha256": "0478e190865c14f6c7ef2752862ada912f45bdd65fa2f5f84b5f0eb245f2b594"
         },
         "BenchmarkMicrotaskScheduleExternal": {
           "id": "workload.product.microtask-schedule-external.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkMicrotaskScheduleLoopThread": {
           "id": "workload.product.microtask-schedule-loop-thread.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkMixedWorkload": {
           "id": "workload.product.mixed-workload.v1",
           "harness_files": [
             "scheduler_runtime_bench_test.go"
           ],
-          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+          "harness_sha256": "0478e190865c14f6c7ef2752862ada912f45bdd65fa2f5f84b5f0eb245f2b594"
         },
         "BenchmarkNextTickRecursiveDrain": {
           "id": "workload.product.next-tick-recursive-drain.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkNextTickScheduleExternal": {
           "id": "workload.product.next-tick-schedule-external.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkNextTickScheduleLoopThread": {
           "id": "workload.product.next-tick-schedule-loop-thread.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkNoMetrics": {
           "id": "workload.product.no-metrics.v1",
@@ -1354,119 +1354,119 @@
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkPromiseCreation": {
           "id": "workload.product.promise-creation.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkPromiseDepthThreeEndToEnd": {
           "id": "workload.product.promise-depth-three-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkPromiseReactionEndToEnd": {
           "id": "workload.product.promise-reaction-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkPromiseSettleNoHandler": {
           "id": "workload.product.promise-settle-no-handler.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkPromisifyCompletionEndToEnd": {
           "id": "workload.product.promisify-completion-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "a124c302780e234df9be234c4d9b2dd7def2c10051263caff69b63b1b549caf4"
+          "harness_sha256": "fff1879e79a65aea485e75676fd9d4654c8c54dab49cd34c2894b251774a231c"
         },
         "BenchmarkSchedulerInternalExternalBurst": {
           "id": "workload.product.scheduler-internal-external-burst.v1",
           "harness_files": [
             "scheduler_priority_bench_test.go"
           ],
-          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+          "harness_sha256": "56f92e1dd1d0c463561e6c286b9801a007d10b3027380a6d461a21ab72996ee6"
         },
         "BenchmarkSchedulerPriorityLatency": {
           "id": "workload.product.scheduler-priority-latency.v1",
           "harness_files": [
             "scheduler_priority_bench_test.go"
           ],
-          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+          "harness_sha256": "56f92e1dd1d0c463561e6c286b9801a007d10b3027380a6d461a21ab72996ee6"
         },
         "BenchmarkSetImmediateBurst": {
           "id": "workload.product.set-immediate-burst.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkSetIntervalSteadyTicks": {
           "id": "workload.product.set-interval-steady-ticks.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkSparseFDRegistration": {
           "id": "workload.product.sparse-fd-registration.v1",
           "harness_files": [
             "fd_bench_unix_test.go"
           ],
-          "harness_sha256": "598c98f3505336a631ea2358ec8dc79edde835152bb57f5cabf4c545d0a490c4"
+          "harness_sha256": "00ecdc2225eec94a50a2cc8741e210ebec4b1d86687638872f5478877eda7a7b"
         },
         "BenchmarkSubmitInternalChainHandoff": {
           "id": "workload.product.submit-internal-chain-handoff.v1",
           "harness_files": [
             "scheduler_priority_bench_test.go"
           ],
-          "harness_sha256": "e724e69f6a94a3e88dcadb7db384dd03aeb2e4b41ceea4d9de0fdfddda7d6928"
+          "harness_sha256": "56f92e1dd1d0c463561e6c286b9801a007d10b3027380a6d461a21ab72996ee6"
         },
         "BenchmarkSubmitLatency": {
           "id": "workload.product.submit-latency.v1",
           "harness_files": [
             "scheduler_runtime_bench_test.go"
           ],
-          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+          "harness_sha256": "0478e190865c14f6c7ef2752862ada912f45bdd65fa2f5f84b5f0eb245f2b594"
         },
         "BenchmarkTimerCancelScale": {
           "id": "workload.product.timer-cancel-scale.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkTimerLatency": {
           "id": "workload.product.timer-latency.v1",
           "harness_files": [
             "scheduler_runtime_bench_test.go"
           ],
-          "harness_sha256": "0861765f59775cfc4a72ad7ef256b7785ce67c77ee13dd184b89667e20e3bc20"
+          "harness_sha256": "0478e190865c14f6c7ef2752862ada912f45bdd65fa2f5f84b5f0eb245f2b594"
         },
         "BenchmarkTimerScheduleRandomDeadlines": {
           "id": "workload.product.timer-schedule-random-deadlines.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         },
         "BenchmarkTimerScheduleSameDeadline100K": {
           "id": "workload.product.timer-schedule-same-deadline100-k.v1",
           "harness_files": [
             "scheduler_topology_bench_test.go"
           ],
-          "harness_sha256": "2650338f866a576bf943162b251b9733e6a7c44a2c766e5e7a7e577a01babec2"
+          "harness_sha256": "b2dfeabdcd07665d8d8464c62a97d03ff2fcaa1a499d63637ab7465df8111c16"
         }
       }
     },
@@ -1621,14 +1621,14 @@
           "harness_files": [
             "internal/tournament/bench_multiproducer_test.go"
           ],
-          "harness_sha256": "f39a6db636704345f0ab3a458d7db4a3c965e52586c9e9254bd7bc9efdb8cafa"
+          "harness_sha256": "1119bfee9224e101fc1eb7676dd1e018fbe0c73da138754f505d54e2dab58775"
         },
         "BenchmarkMultiProducerContention": {
           "id": "workload.scheduler.multi-producer-contention.v1",
           "harness_files": [
             "internal/tournament/bench_multiproducer_test.go"
           ],
-          "harness_sha256": "f39a6db636704345f0ab3a458d7db4a3c965e52586c9e9254bd7bc9efdb8cafa"
+          "harness_sha256": "1119bfee9224e101fc1eb7676dd1e018fbe0c73da138754f505d54e2dab58775"
         },
         "BenchmarkPingPong": {
           "id": "workload.scheduler.ping-pong.v1",
@@ -1656,42 +1656,42 @@
           "harness_files": [
             "internal/tournament/micro_batch_test.go"
           ],
-          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+          "harness_sha256": "47118b95bdad083464ad0c89b37a02eeb322916e0efd6a8ab2cc9f8633284e95"
         },
         "BenchmarkMicroBatchBudget_Latency": {
           "id": "workload.scheduler.micro-batch-budget-latency.v1",
           "harness_files": [
             "internal/tournament/micro_batch_test.go"
           ],
-          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+          "harness_sha256": "47118b95bdad083464ad0c89b37a02eeb322916e0efd6a8ab2cc9f8633284e95"
         },
         "BenchmarkMicroBatchBudget_Continuous": {
           "id": "workload.scheduler.micro-batch-budget-continuous.v1",
           "harness_files": [
             "internal/tournament/micro_batch_test.go"
           ],
-          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+          "harness_sha256": "47118b95bdad083464ad0c89b37a02eeb322916e0efd6a8ab2cc9f8633284e95"
         },
         "BenchmarkMicroBatchBudget_Mixed": {
           "id": "workload.scheduler.micro-batch-budget-mixed.v1",
           "harness_files": [
             "internal/tournament/micro_batch_test.go"
           ],
-          "harness_sha256": "69b186b7747f97ce8322ea8658053ea15c126be0bd85ab7b3b8fdc67e4eea605"
+          "harness_sha256": "47118b95bdad083464ad0c89b37a02eeb322916e0efd6a8ab2cc9f8633284e95"
         },
         "BenchmarkMicroCASContention": {
           "id": "workload.scheduler.micro-cas-contention.v1",
           "harness_files": [
             "internal/tournament/micro_cas_test.go"
           ],
-          "harness_sha256": "92dcd5c7ca78c4220166f088f4aab8e5779159a0156f473391c625aa133e2cc1"
+          "harness_sha256": "ffa4c007b5e5429facd38e351720df449cdd58ad3ed7ec84cbdaefd6038d0d82"
         },
         "BenchmarkMicroCASContention_Latency": {
           "id": "workload.scheduler.micro-cas-contention-latency.v1",
           "harness_files": [
             "internal/tournament/micro_cas_test.go"
           ],
-          "harness_sha256": "92dcd5c7ca78c4220166f088f4aab8e5779159a0156f473391c625aa133e2cc1"
+          "harness_sha256": "ffa4c007b5e5429facd38e351720df449cdd58ad3ed7ec84cbdaefd6038d0d82"
         },
         "BenchmarkMicrotaskRoundTrip": {
           "id": "workload.scheduler.microtask-round-trip.v1",
@@ -1733,7 +1733,7 @@
           "harness_files": [
             "internal/tournament/promise_corrected_bench_test.go"
           ],
-          "harness_sha256": "f26cbef21e7eff9ca1cb5d48d44876308d46390a42893adfc8fe7c66f06cb7c6"
+          "harness_sha256": "e5086ae245af3191019fd6ca18872c670ef728804b3adbb156a08edf16a5dbde"
         },
         "BenchmarkReadinessRoundTrip": {
           "id": "workload.scheduler.readiness-round-trip.v1",
@@ -1800,14 +1800,14 @@
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "877e7a03f5c53e5ad3dad96a7cc7165789298285016f83bc407935410a283813"
+          "harness_sha256": "3c8b7098250947f63e23c4c955c57def5572a92c3260d6919e96bfe90bad0881"
         },
         "BenchmarkChainDepth": {
           "id": "workload.promise.chain-depth.v1",
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "877e7a03f5c53e5ad3dad96a7cc7165789298285016f83bc407935410a283813"
+          "harness_sha256": "3c8b7098250947f63e23c4c955c57def5572a92c3260d6919e96bfe90bad0881"
         }
       }
     },
@@ -2020,5 +2020,292 @@
       "LC_ALL": "C",
       "TZ": "UTC"
     }
-  }
+  },
+  "root_dispositions": [
+    {
+      "benchmark": "BenchmarkAbortAnyEmpty",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkAbortAnyPendingSettlement",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkAbortAnyPreSettled",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkAliveLoopThreadNoIngress",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkAutoExitImmediateCancelableContext",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkCommandIngressEmptyDrain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureRawCreate",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureRegisteredCreate",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureResult",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureSettleFanOut",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureSettleNoSubscriber",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureState",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureSubscribePending",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkFutureSubscribeSettled",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkHasMacrotaskWorkLoopThreadNoIngress",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkJSAdapterRegistrationLiveSet",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAllSettledFixedArityEndToEnd",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAnyFixedArityEndToEnd",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseRaceFixedArityEndToEnd",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkRetentionBoundary",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkRetentionPostBurstSteady",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkRetentionPublicSubmissionTerminal",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkRetentionWarmedSteady",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkLockFreeIngress_Push",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo"
+    },
+    {
+      "benchmark": "BenchmarkLockFreeIngress_PushBounded",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo"
+    },
+    {
+      "benchmark": "BenchmarkLockFreeIngress_PushPop",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo"
+    },
+    {
+      "benchmark": "BenchmarkMicrotaskRing_PushPop",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo"
+    },
+    {
+      "benchmark": "BenchmarkSubmit",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/alternatetwo"
+    },
+    {
+      "benchmark": "BenchmarkLibuv_AsyncSendV2",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline"
+    },
+    {
+      "benchmark": "BenchmarkLibuv_TimerBatchOneShot100V2",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline"
+    },
+    {
+      "benchmark": "BenchmarkLibuv_TimerCrossThreadV2",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline"
+    },
+    {
+      "benchmark": "BenchmarkLibuv_TimerScheduleAndFireV2",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/libuvbaseline"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAltOne_All",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAltOne_Chain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAltOne_DeepChain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkStandardPromise_All",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkStandardPromise_Chain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkStandardPromise_DeepChain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/promisealtone"
+    },
+    {
+      "benchmark": "BenchmarkPromiseAll100OrderedEndToEndV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromiseChainEndToEndV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromiseFanOut100EndToEndV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromiseFreshChain100ConstructionV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromiseRace100UniqueWinnerEndToEndV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromiseResolvedReactionEndToEndV3",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkPromisesLegacyInvalid",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/go-eventloop/internal/tournament"
+    },
+    {
+      "benchmark": "BenchmarkAdapterAsyncAwaitResolve",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkAdapterPromiseThenChain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkNativeAsyncAwaitResolve",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkNativePromiseThenChain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkProcessBeforeExitSchedulesTimer",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkProcessBeforeExitTimerEndToEnd",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseJobEnqueuerOverhead",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseJobHandoverAdapterAsyncAwaitResolve",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseJobHandoverEnqueuerOverhead",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseJobHandoverNativeAsyncAwaitResolve",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkPromiseJobHandoverNativePromiseThenChain",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    },
+    {
+      "benchmark": "BenchmarkScheduleMicrotaskBaseline",
+      "disposition_id": "disposed",
+      "package": "github.com/joeycumines/goja-eventloop"
+    }
+  ]
 }

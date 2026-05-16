@@ -43,7 +43,10 @@ func TestTerminalCompletionOwnerLifecycleReentry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			ownerObserved := make(chan bool, 1)
 			reentryResult := make(chan error, 1)
@@ -91,7 +94,10 @@ func TestTerminalCompletionOwnerLifecycleReentry(t *testing.T) {
 }
 
 func TestLifecycleAutoExitPublishesLoopDoneBeforeTerminalDone(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	publicationChecked := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
 		AfterTerminalDoneClose: func() {
@@ -110,7 +116,10 @@ func TestLifecycleAutoExitPublishesLoopDoneBeforeTerminalDone(t *testing.T) {
 }
 
 func TestLifecycleClosePublishesAggregateTerminalError(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	sentinel := errors.New("injected terminal failure")
 	loop.storeTerminalError(sentinel)
@@ -145,7 +154,10 @@ func TestLifecycleClosePublishesAggregateTerminalError(t *testing.T) {
 }
 
 func TestLifecycleCloseWaitsForRunOwnerPublishedBeforeRunStarted(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	runTransitioned := make(chan struct{})

@@ -56,8 +56,11 @@ func TestShutdownFromLoopCallbacksDoesNotDeadlock(t *testing.T) {
 		{
 			name: "setImmediate",
 			setup: func(loop *Loop, shutdownErr chan<- error) error {
-				js := NewJS(loop)
-				_, err := js.SetImmediate(func() {
+				js, err := NewJS(loop)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = js.SetImmediate(func() {
 					shutdownErr <- loop.Shutdown(context.Background())
 				})
 				return err
@@ -67,7 +70,10 @@ func TestShutdownFromLoopCallbacksDoesNotDeadlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			shutdownErr := make(chan error, 1)
 			if err := tt.setup(loop, shutdownErr); err != nil {
@@ -99,7 +105,10 @@ func TestShutdownFromLoopCallbacksDoesNotDeadlock(t *testing.T) {
 }
 
 func TestCloseFromLoopCallbackRejectedWithoutDeadlock(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	closeErr := make(chan error, 1)
 	shutdownErr := make(chan error, 1)
@@ -142,7 +151,10 @@ func TestCloseFromLoopCallbackRejectedWithoutDeadlock(t *testing.T) {
 }
 
 func TestShutdownFromLoopCallbackRunsTerminationCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	timerErr := make(chan error, 1)
 	shutdownErr := make(chan error, 1)
@@ -191,7 +203,10 @@ func TestShutdownFromLoopCallbackRunsTerminationCleanup(t *testing.T) {
 }
 
 func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
@@ -270,7 +285,10 @@ func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
 }
 
 func TestShutdownFromLoopCallbackThenContextCancelRunsCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	timerErr := make(chan error, 1)
@@ -325,7 +343,10 @@ func TestShutdownFromLoopCallbackThenContextCancelRunsCleanup(t *testing.T) {
 }
 
 func TestTimedOutShutdownThenContextCancelRunsCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	callbackStarted := make(chan struct{})

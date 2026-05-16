@@ -9,7 +9,10 @@ import (
 )
 
 func TestLifecycle_LivenessAddingAPIsRejectDuringPublicTerminating(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stateTerminating := make(chan struct{})
 	releaseShutdownHook := make(chan struct{})
@@ -120,7 +123,10 @@ func TestLifecycle_LivenessAddingAPIsRejectDuringPublicTerminating(t *testing.T)
 }
 
 func TestLifecycle_FDOperationsRejectAfterCloseCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fd, cleanup := testCreateIOFD(t)
 	defer cleanup()
@@ -143,7 +149,10 @@ func TestLifecycle_FDOperationsRejectAfterCloseCleanup(t *testing.T) {
 }
 
 func TestLifecycle_FDStateTerminatingAdmissionClasses(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 
 	fd, cleanup := testCreateIOFD(t)
@@ -165,7 +174,10 @@ func TestLifecycle_FDStateTerminatingAdmissionClasses(t *testing.T) {
 }
 
 func TestLifecycle_TerminateCleanupLinearizesConcurrentUnregister(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 
 	fd, cleanup := testCreateIOFD(t)
@@ -204,7 +216,10 @@ func TestLifecycle_TerminateCleanupLinearizesConcurrentUnregister(t *testing.T) 
 }
 
 func TestLifecycle_ScheduleTimerRejectsWhenShutdownWinsBeforeCommit(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stateTerminating := make(chan struct{})
 	releaseShutdownHook := make(chan struct{})
@@ -262,7 +277,10 @@ func TestLifecycle_ScheduleTimerRejectsWhenShutdownWinsBeforeCommit(t *testing.T
 
 func TestLifecycle_LivenessCommitsBlockShutdownTransition(t *testing.T) {
 	t.Run("RefTimer", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		runDone := make(chan error, 1)
 		shutdownStarted := make(chan struct{})
 		shutdownErr := make(chan error, 1)
@@ -315,7 +333,10 @@ func TestLifecycle_LivenessCommitsBlockShutdownTransition(t *testing.T) {
 	})
 
 	t.Run("RegisterFD", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		runDone := make(chan error, 1)
 		shutdownStarted := make(chan struct{})
 		shutdownErr := make(chan error, 1)
@@ -362,7 +383,10 @@ func TestLifecycle_LivenessCommitsBlockShutdownTransition(t *testing.T) {
 	})
 
 	t.Run("Promisify", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		runDone := make(chan error, 1)
 		shutdownStarted := make(chan struct{})
 		shutdownErr := make(chan error, 1)
@@ -424,7 +448,10 @@ func TestCloseRunningReleasesPollerResources(t *testing.T) {
 	if !fdPollingSupported {
 		t.Skip("native poller resources are unavailable on task-only targets")
 	}
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if loop.pollerReady.Load() {
 		t.Fatal("FastPathDisabled constructor eagerly initialized poller resources")

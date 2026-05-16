@@ -28,7 +28,10 @@ func TestKqueueRegisterInterestsStopsAfterFirstFailure(t *testing.T) {
 }
 
 func TestKqueuePartialRegistrationHonorsTerminalWinner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
@@ -55,7 +58,7 @@ func TestKqueuePartialRegistrationHonorsTerminalWinner(t *testing.T) {
 		}
 	}
 
-	err := loop.RegisterFD(pipeFDs[0], EventRead|EventWrite, func(IOEvents) {})
+	err = loop.RegisterFD(pipeFDs[0], EventRead|EventWrite, func(IOEvents) {})
 	if !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("RegisterFD error = %v, want ErrLoopTerminated", err)
 	}
@@ -78,7 +81,10 @@ func TestKqueuePartialRegistrationHonorsTerminalWinner(t *testing.T) {
 }
 
 func TestKqueuePartialRegistrationRetainsOwnedNativeFilter(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
@@ -108,7 +114,7 @@ func TestKqueuePartialRegistrationRetainsOwnedNativeFilter(t *testing.T) {
 			return err
 		}
 	}
-	err := loop.RegisterFD(pipeFDs[0], EventRead|EventWrite, func(IOEvents) {})
+	err = loop.RegisterFD(pipeFDs[0], EventRead|EventWrite, func(IOEvents) {})
 	var partial *FDRegistrationRollbackError
 	if !errors.As(err, &partial) || !partial.Registered() {
 		t.Fatalf("RegisterFD error = %#v, want retained partial ownership", err)

@@ -10,7 +10,10 @@ import (
 )
 
 func TestIngressSleepBoundarySkipsNativeWait(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	sleepBoundary := make(chan struct{})
@@ -72,7 +75,10 @@ func TestIngressPostAdmissionWakePollWaiters(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerFDResourceCleanupT(t, loop)
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatalf("ensurePoller: %v", err)
@@ -96,7 +102,10 @@ func TestIngressPostAdmissionWakePollWaiters(t *testing.T) {
 }
 
 func TestIngressDuringLazyPollerInitializationSkipsNativeWait(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	initReached := make(chan struct{})
 	releaseInit := make(chan struct{})

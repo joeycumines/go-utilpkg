@@ -8,7 +8,10 @@ import (
 )
 
 func TestYieldMicrotasksRequiresCallbackOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.YieldMicrotasks(); err != ErrCallbackOwner {
 		t.Fatalf("YieldMicrotasks error = %v, want %v", err, ErrCallbackOwner)
 	}
@@ -25,7 +28,10 @@ func TestYieldMicrotasksNilReceiverPanics(t *testing.T) {
 }
 
 func TestYieldMicrotasksRejectsTerminalLoop(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -35,7 +41,10 @@ func TestYieldMicrotasksRejectsTerminalLoop(t *testing.T) {
 }
 
 func TestYieldMicrotasksResumesAtTaskBoundary(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	if err := loop.ScheduleNextTick(func() {
 		events = append(events, "tick1")
@@ -65,7 +74,10 @@ func TestYieldMicrotasksResumesAtTaskBoundary(t *testing.T) {
 }
 
 func TestYieldMicrotasksRepeatedRequestIsIdempotent(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ScheduleNextTick(func() {
 		before := loop.submissionEpoch.Load()
 		if err := loop.YieldMicrotasks(); err != nil {
@@ -91,7 +103,10 @@ func TestYieldMicrotasksRepeatedRequestIsIdempotent(t *testing.T) {
 }
 
 func TestYieldMicrotasksResumesAtEmptyCheckBoundary(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	if err := loop.ScheduleNextTick(func() {
 		events = append(events, "tick1")
@@ -115,7 +130,10 @@ func TestYieldMicrotasksResumesAtEmptyCheckBoundary(t *testing.T) {
 }
 
 func TestYieldMicrotasksResumesBeforeFutureTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	timerID, err := loop.ScheduleTimer(time.Minute, func() { events = append(events, "timer") })
 	if err != nil {
@@ -156,7 +174,10 @@ func TestYieldMicrotasksResumesBeforeFutureTimer(t *testing.T) {
 }
 
 func TestYieldMicrotasksDoesNotRetainUnrefedTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	timerID, err := loop.ScheduleTimer(time.Minute, func() { events = append(events, "timer") })
 	if err != nil {
@@ -195,7 +216,10 @@ func TestYieldMicrotasksDoesNotRetainUnrefedTimer(t *testing.T) {
 }
 
 func TestRunMicrotaskCheckpointRequiresCallbackOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.RunMicrotaskCheckpoint(); err != ErrCallbackOwner {
 		t.Fatalf("RunMicrotaskCheckpoint error = %v, want %v", err, ErrCallbackOwner)
 	}
@@ -212,7 +236,10 @@ func TestRunMicrotaskCheckpointNilReceiverPanics(t *testing.T) {
 }
 
 func TestRunMicrotaskCheckpointDrainsWithoutSyntheticMetric(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	var checkpointErr error
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -243,7 +270,10 @@ func TestRunMicrotaskCheckpointDrainsWithoutSyntheticMetric(t *testing.T) {
 }
 
 func TestRunMicrotaskCheckpointPreservesYield(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	var checkpointErr error
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -274,7 +304,10 @@ func TestRunMicrotaskCheckpointPreservesYield(t *testing.T) {
 }
 
 func TestAdvanceMicrotaskCheckpointRequiresCallbackOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.AdvanceMicrotaskCheckpoint(); err != ErrCallbackOwner {
 		t.Fatalf("AdvanceMicrotaskCheckpoint error = %v, want %v", err, ErrCallbackOwner)
 	}
@@ -291,7 +324,10 @@ func TestAdvanceMicrotaskCheckpointNilReceiverPanics(t *testing.T) {
 }
 
 func TestAdvanceMicrotaskCheckpointConsumesOneYieldWithoutSyntheticMetric(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	var firstErr, secondErr error
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -327,7 +363,10 @@ func TestAdvanceMicrotaskCheckpointConsumesOneYieldWithoutSyntheticMetric(t *tes
 }
 
 func TestAdvanceMicrotaskCheckpointClearsYieldRaisedWhileDraining(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	var checkpointErrs [3]error
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -372,7 +411,10 @@ func TestAdvanceMicrotaskCheckpointClearsYieldRaisedWhileDraining(t *testing.T) 
 }
 
 func TestResumeMicrotaskCheckpointRequiresCallbackOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ResumeMicrotaskCheckpoint(); err != ErrCallbackOwner {
 		t.Fatalf("ResumeMicrotaskCheckpoint error = %v, want %v", err, ErrCallbackOwner)
 	}
@@ -389,7 +431,10 @@ func TestResumeMicrotaskCheckpointNilReceiverPanics(t *testing.T) {
 }
 
 func TestResumeMicrotaskCheckpointForcesYieldWithoutSyntheticMetric(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var events []string
 	var checkpointErr error
 	if _, err := loop.ScheduleControlTimer(0, func() {

@@ -355,7 +355,10 @@ func TestClientStreamAdapter_Header_ErrorFromWaiter(t *testing.T) {
 	// Covers the r.err != nil branch in clientStreamAdapter.Header().
 	// Uses internal access to state.HeaderWaiter for deterministic
 	// ordering - no timing dependency.
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loopCtx, loopCancel := context.WithCancel(context.Background())
 	defer loopCancel()
 	loopDone := make(chan struct{})

@@ -19,7 +19,10 @@ func pollerNativeFD(p *fastPoller) int { return int(p.epfd) }
 func pollerCreateNative() (int, error) { return unix.EpollCreate1(unix.EPOLL_CLOEXEC) }
 
 func TestLinuxUnregisterFailureRetainsOwnership(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -36,7 +39,7 @@ func TestLinuxUnregisterFailureRetainsOwnership(t *testing.T) {
 		}
 		return unix.EpollCtl(epfd, operation, fd, event)
 	}
-	err := loop.UnregisterFD(pipeFDs[0])
+	err = loop.UnregisterFD(pipeFDs[0])
 	var unregisterErr *FDUnregisterError
 	if !errors.As(err, &unregisterErr) || unregisterErr.Released() || !errors.Is(err, sentinel) {
 		t.Fatalf("UnregisterFD error = %v, want retained ownership failure", err)

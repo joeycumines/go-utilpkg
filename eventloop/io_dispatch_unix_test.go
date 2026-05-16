@@ -17,7 +17,10 @@ func TestIOCallbackObservesRunningState(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
@@ -66,7 +69,10 @@ func TestIOCallbackSkippedWhenShutdownWinsPollWake(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -128,7 +134,10 @@ func TestModifyFDZeroSuppressesConvertedReadiness(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	claimed := make(chan struct{})
 	release := make(chan struct{})
 	var hookOnce sync.Once
@@ -205,7 +214,10 @@ func TestIOCallbackMicrotaskCheckpointPrecedesNextReadyFD(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	r1, w1, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe 1: %v", err)
@@ -305,7 +317,10 @@ func TestIOCallbackMicrotaskCheckpointPrecedesNextReadyFD(t *testing.T) {
 }
 
 func TestStaleReadyEventSkippedAfterFDUnregisterAndReregister(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
@@ -341,7 +356,10 @@ func TestStaleReadyEventSkippedAfterFDUnregisterAndReregister(t *testing.T) {
 }
 
 func TestUnregisterFDWaitsForClaimedReadyEventDispatchStart(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
@@ -381,7 +399,10 @@ func TestUnregisterFDWaitsForClaimedReadyEventDispatchStart(t *testing.T) {
 }
 
 func TestCloseUnregisterPendingDispatchDoesNotDeadlock(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
@@ -494,7 +515,10 @@ func TestIOCallbackPanicRecoveryKeepsLoopAlive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
@@ -555,7 +579,10 @@ func TestInternalPollPanicLoggerCannotEscape(t *testing.T) {
 			panic("injected log writer panic")
 		})),
 	)
-	loop := New(WithLogger(panicLogger.Logger()))
+	loop, err := New(WithLogger(panicLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.executePollInternal(func() { panic("injected internal callback panic") })
 	if got := writes.Load(); got != 1 {
@@ -564,7 +591,10 @@ func TestInternalPollPanicLoggerCannotEscape(t *testing.T) {
 }
 
 func TestInternalWakeDispatchExcludedFromUserMetrics(t *testing.T) {
-	loop := New(WithMetrics(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithMetrics(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatalf("initialize native poller: %v", err)

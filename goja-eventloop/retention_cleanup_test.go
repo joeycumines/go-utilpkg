@@ -15,7 +15,10 @@ import (
 
 func newRetentionCleanupAdapter(t *testing.T) *Adapter {
 	t.Helper()
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
@@ -573,10 +576,16 @@ func TestAdapterTerminalCleanupScrubsDetachedImmediateBatch(t *testing.T) {
 }
 
 func TestAdapterTerminalCleanupClearsRootsAfterThrowingTimerLink(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -627,10 +636,16 @@ func TestAdapterTerminalCleanupReleasesDynamicState(t *testing.T) {
 		{name: "auto-exit", terminate: func(loop *goeventloop.Loop) error { return loop.Run(context.Background()) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := goeventloop.New(goeventloop.WithAutoExit(true))
+			loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
 			adapter, err := New(loop, runtime)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err != nil {
 				t.Fatalf("New adapter: %v", err)
 			}

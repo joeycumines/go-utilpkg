@@ -55,7 +55,11 @@ func TestTerminalAdoptionCleanupReleasesLivenessBeforeLoggerReentry(t *testing.T
 			return nil
 		})),
 	)
-	loop = New(WithLogger(logger.Logger()))
+	var err error
+	loop, err = New(WithLogger(logger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var result cleanupLoggerTimerResult
 	runTerminalAdoptionCleanupRaceT(t, loop, func() {
@@ -74,7 +78,10 @@ func TestTerminalAdoptionCleanupReleasesLivenessBeforeLoggerReentry(t *testing.T
 }
 
 func TestTerminalAdoptionCleanupNilLoggerRetiresCallbackWorker(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runTerminalAdoptionCleanupRaceT(t, loop, func() {})
 
@@ -86,7 +93,10 @@ func TestTerminalAdoptionCleanupNilLoggerRetiresCallbackWorker(t *testing.T) {
 func runTerminalAdoptionCleanupRaceT(t *testing.T, loop *Loop, observeCleanup func()) {
 	t.Helper()
 
-	js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, _, rejectSource := js.NewChainedPromise()
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
 	resolveAdopter(source)

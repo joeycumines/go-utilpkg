@@ -48,10 +48,16 @@ func TestCoerceNodeTimerDelay(t *testing.T) {
 }
 
 func TestNodeTimerIdleTimeoutPreservesNodeCoercion(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -80,10 +86,16 @@ func TestNodeTimerIdleTimeoutPreservesNodeCoercion(t *testing.T) {
 }
 
 func TestNodeTimerDelayUsesArithmeticCoercion(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -144,10 +156,16 @@ func TestNodeTimerIdleTimeoutRefreshAndClearSemantics(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -261,10 +279,16 @@ func TestNodeTimerIdleTimeoutCallbackClearSemantics(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -341,10 +365,16 @@ func TestNodeTimerDelayWarnings(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}

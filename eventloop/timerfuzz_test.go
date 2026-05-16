@@ -14,7 +14,10 @@ func FuzzLoopPreRunTimerLifecycle(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 
 		type timerModel struct {
 			id       TimerID
@@ -143,8 +146,14 @@ func FuzzJSPreRunTimerNamespaceInterop(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
-		js := NewJS(loop)
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
+		js, err := NewJS(loop)
+		if err != nil {
+			panic(err)
+		}
 
 		type jsTimerModel struct {
 			id       uint64

@@ -13,7 +13,10 @@ import (
 )
 
 func TestAbortTimeoutReasonAndThrowIdentity(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	controller, err := AbortTimeout(loop, 0)
@@ -34,7 +37,10 @@ func TestAbortTimeoutReasonAndThrowIdentity(t *testing.T) {
 }
 
 func TestAbortTimeoutManualAbortReleasesTimerLiveness(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
@@ -59,7 +65,10 @@ func TestAbortTimeoutManualAbortReleasesTimerLiveness(t *testing.T) {
 }
 
 func TestAbortTimeoutManualClaimSuppressesDetachedTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -96,7 +105,10 @@ func TestAbortTimeoutManualClaimSuppressesDetachedTimer(t *testing.T) {
 }
 
 func TestAbortTimeoutTimerClaimPublishesBeforeManualAbortReturns(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -152,7 +164,10 @@ func TestAbortTimeoutTimerClaimPublishesBeforeManualAbortReturns(t *testing.T) {
 }
 
 func TestAbortTimeoutTimerPublicationDoesNotWaitForHandler(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -203,7 +218,10 @@ func TestAbortTimeoutTimerPublicationDoesNotWaitForHandler(t *testing.T) {
 }
 
 func TestAbortTimeoutManualClaimPublishesBeforeLosingManualReturns(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
 	if err != nil {
@@ -267,7 +285,10 @@ func TestAbortTimeoutManualClaimPublishesBeforeLosingManualReturns(t *testing.T)
 }
 
 func TestAbortTimeoutManualPublicationReleasesEveryLoser(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
 	if err != nil {
@@ -388,7 +409,10 @@ func TestAbortTimeoutTerminalDiscardReleasesLoopReference(t *testing.T) {
 }
 
 func TestAbortTimeoutClaimLinearizesBeforeConcurrentClose(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -429,7 +453,10 @@ func TestAbortTimeoutClaimLinearizesBeforeConcurrentClose(t *testing.T) {
 }
 
 func TestAbortTimeoutClaimLinearizesBeforeConcurrentShutdown(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -470,7 +497,10 @@ func TestAbortTimeoutClaimLinearizesBeforeConcurrentShutdown(t *testing.T) {
 }
 
 func TestAbortTimeoutManualCancellationReleasesSignalWhileLoopLives(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	keepAliveID, err := loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
@@ -504,7 +534,10 @@ func TestAbortTimeoutManualCancellationReleasesSignalWhileLoopLives(t *testing.T
 }
 
 func TestAbortTimeoutHandlerGoexitDoesNotStrandLoop(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -540,7 +573,10 @@ func TestAbortTimeoutHandlerExitPublishesToWaitingLoser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			controller, err := AbortTimeout(loop, 0)
 			if err != nil {
@@ -580,7 +616,10 @@ func TestAbortTimeoutHandlerExitPublishesToWaitingLoser(t *testing.T) {
 }
 
 func TestAbortTimeoutHandlerRetainsLoopOwnerSemantics(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -626,7 +665,10 @@ func TestAbortTimeoutHandlerSchedulesOwnerLocalWorkAndRelaysPanic(t *testing.T) 
 			return nil
 		})),
 	)
-	loop := New(WithAutoExit(true), WithLogger(typedLogger.Logger()))
+	loop, err := New(WithAutoExit(true), WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {
@@ -693,7 +735,10 @@ func TestAbortTimeoutRejectsStaticContractViolations(t *testing.T) {
 	}
 
 	t.Run("negative delay", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 		if got := abortEventCapturePanic(func() { _, _ = AbortTimeout(loop, -1) }); got == nil {
 			t.Fatal("AbortTimeout(loop, -1) did not panic")
@@ -702,7 +747,10 @@ func TestAbortTimeoutRejectsStaticContractViolations(t *testing.T) {
 
 	if strconv.IntSize == 64 {
 		t.Run("duration overflow", func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			maxDelayMillis := int64((1<<63 - 1) / int64(time.Millisecond))
 			if got := abortEventCapturePanic(func() {
@@ -715,7 +763,10 @@ func TestAbortTimeoutRejectsStaticContractViolations(t *testing.T) {
 }
 
 func TestAbortTimeoutTerminatedLoopReturnsLifecycleError(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}

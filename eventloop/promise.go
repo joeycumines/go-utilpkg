@@ -238,8 +238,14 @@ func (p *ChainedPromise) Reason() any {
 //
 // Example:
 //
-//	loop := eventloop.New(eventloop.WithDebugMode(true))
-//	js := eventloop.NewJS(loop)
+//	loop, err := eventloop.New(eventloop.WithDebugMode(true))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	js, err := eventloop.NewJS(loop)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	promise, _, _ := js.NewChainedPromise()
 //
 //	fmt.Println(promise.CreationStackTrace())

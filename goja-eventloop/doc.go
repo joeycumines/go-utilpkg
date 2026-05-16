@@ -89,7 +89,10 @@
 //
 // # Usage
 //
-//	loop := eventloop.New(eventloop.WithAutoExit(true))
+//	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	defer func() {
 //	    if err := loop.Close(); err != nil && !errors.Is(err, eventloop.ErrLoopTerminated) {
 //	        log.Printf("close event loop: %v", err)

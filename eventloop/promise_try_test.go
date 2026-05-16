@@ -21,9 +21,15 @@ func TestTrySynchronousSettlement(t *testing.T) {
 		{name: "error panic", callback: func() any { panic(panicError) }, wantState: Rejected, wantValue: panicError},
 	}
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

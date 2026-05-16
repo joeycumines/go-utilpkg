@@ -9,8 +9,15 @@ import (
 )
 
 func changeLoop(t *testing.T) (*eventloop.Loop, *eventloop.JS) {
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	return loop, eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loop, js
 }
 
 func runChangedLoop(t *testing.T, loop *eventloop.Loop) {

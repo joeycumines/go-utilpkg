@@ -25,9 +25,15 @@ func bindProcessTestSurface(t *testing.T, adapter *Adapter) {
 }
 
 func TestProcessEmitListenerThrowPropagatesSynchronously(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -55,9 +61,15 @@ func TestProcessEmitListenerThrowPropagatesSynchronously(t *testing.T) {
 }
 
 func TestProcessOnceListenerSurvivesEarlierThrow(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -88,9 +100,15 @@ func TestProcessOnceListenerSurvivesEarlierThrow(t *testing.T) {
 }
 
 func TestProcessEventEmitterNodeListenerSemantics(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -165,10 +183,16 @@ func TestProcessEventEmitterTransparentProxySharesRegistry(t *testing.T) {
 }
 
 func TestProcessEventEmitterCoreCapturedAtConstruction(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -667,9 +691,15 @@ func TestProcessHostEmissionUsesVisibleEmitterState(t *testing.T) {
 }
 
 func TestProcessMethodMetadataEventNamesAndReceivers(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -766,9 +796,15 @@ func TestProcessMethodMetadataEventNamesAndReceivers(t *testing.T) {
 }
 
 func TestProcessEventEmitterMetaEventsAndOffValidation(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}

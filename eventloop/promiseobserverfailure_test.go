@@ -79,12 +79,18 @@ func TestPromiseObserverFailureRejectsAggregateJSBacked(t *testing.T) {
 				}
 				t.Run(name, func(t *testing.T) {
 					reported := make(chan any, 2)
-					loop := New(WithLogger(nil))
+					loop, err := New(WithLogger(nil))
+					if err != nil {
+						t.Fatal(err)
+					}
 					registerLoopCleanupT(t, loop)
-					js := NewJS(loop,
+					js, err := NewJS(loop,
 						WithUnhandledRejection(func(reason any) { reported <- reason }),
 						WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 					)
+					if err != nil {
+						t.Fatal(err)
+					}
 					source, resolveSource, rejectSource := js.NewChainedPromise()
 					aggregate, _, _ := js.NewChainedPromise()
 					aggregateResult := aggregate.ToChannel()

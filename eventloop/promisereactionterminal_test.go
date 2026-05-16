@@ -20,12 +20,18 @@ func pendingPromiseReactionCount(loop *Loop) int {
 
 func TestPromiseReactionDequeuedImmediateCloseCleanerWinsClaim(t *testing.T) {
 	reported := make(chan any, 2)
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dequeued := make(chan struct{})
 	releaseClaim := make(chan struct{})
@@ -103,12 +109,18 @@ func TestPromiseReactionTerminalCleanerWinsBeforeSchedule(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			reported := make(chan any, 2)
-			loop := New(WithLogger(nil))
+			loop, err := New(WithLogger(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			registered := make(chan struct{})
 			releaseSchedule := make(chan struct{})
@@ -176,12 +188,18 @@ func TestPromiseReactionTerminalCleanerWinsBeforeSchedule(t *testing.T) {
 
 func TestPromiseReactionAcceptedNotDequeuedImmediateClose(t *testing.T) {
 	reported := make(chan any, 2)
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, resolveSource, _ := js.NewChainedPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
@@ -216,10 +234,16 @@ func TestPromiseReactionAcceptedNotDequeuedImmediateClose(t *testing.T) {
 }
 
 func TestPromiseReactionGracefulShutdownDrainsAccepted(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	source, resolveSource, _ := js.NewChainedPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
@@ -255,9 +279,15 @@ func TestPromiseReactionGracefulShutdownDrainsAccepted(t *testing.T) {
 }
 
 func TestPromiseReactionOverflowHighWaterIsBounded(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	children := make([]*ChainedPromise, pendingReactionOverflowRetainLimit+2)
 	for index := range children {
 		source, resolveSource, _ := js.NewChainedPromise()
@@ -283,7 +313,10 @@ func TestPromiseReactionOverflowHighWaterIsBounded(t *testing.T) {
 }
 
 func TestPendingPromiseReactionTerminalSnapshotRegistrationOrder(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	const count = 8
 	sources := make([]*ChainedPromise, count)
@@ -319,12 +352,18 @@ func TestPendingPromiseReactionTerminalSnapshotRegistrationOrder(t *testing.T) {
 
 func TestPromiseReactionAcceptedBeforeCloseRejectsChild(t *testing.T) {
 	reported := make(chan any, 2)
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	admissionEntered := make(chan struct{})
 	releaseAdmission := make(chan struct{})

@@ -32,9 +32,15 @@ func assertPromiseChannelResult(t *testing.T, result <-chan any, want any) {
 }
 
 func TestPromiseToChannel_PendingPromise(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, resolve, _ := js.NewChainedPromise()
 	result := promise.ToChannel()
 	js.toChannelsMu.Lock()
@@ -53,9 +59,15 @@ func TestPromiseToChannel_PendingPromise(t *testing.T) {
 }
 
 func TestPromiseToChannel_PendingRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, _, reject := js.NewChainedPromise()
 	result := promise.ToChannel()
 	js.toChannelsMu.Lock()
@@ -84,9 +96,15 @@ func TestPromiseToChannel_StandalonePendingRejection(t *testing.T) {
 }
 
 func TestPromiseToChannel_AlreadySettledValues(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fulfilled := js.Resolve(nil)
 	assertPromiseChannelResult(t, fulfilled.ToChannel(), nil)
@@ -102,9 +120,15 @@ func TestPromiseToChannel_AlreadySettledValues(t *testing.T) {
 }
 
 func TestPromiseToChannel_MultiplePendingSubscribers(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, resolve, _ := js.NewChainedPromise()
 
 	const count = 8
@@ -158,9 +182,15 @@ func TestPromiseToChannel_DoubleCheckReject(t *testing.T) {
 
 func testPromiseToChannelDoubleCheck(t *testing.T, reject bool) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, resolve, rejectPromise := js.NewChainedPromise()
 
 	stateChecked := make(chan struct{})

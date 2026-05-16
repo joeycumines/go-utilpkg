@@ -15,11 +15,17 @@ import (
 // ===============================================
 
 func TestProcessNextTick_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -66,11 +72,17 @@ func TestProcessNextTick_Basic(t *testing.T) {
 }
 
 func TestProcessNextTick_RunsBeforePromise(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -131,11 +143,17 @@ func TestProcessNextTick_RunsBeforePromise(t *testing.T) {
 }
 
 func TestProcessNextTick_Multiple(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -187,11 +205,17 @@ func TestProcessNextTick_Multiple(t *testing.T) {
 }
 
 func TestProcessNextTick_NoArgumentError(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -218,11 +242,17 @@ func TestProcessNextTick_NoArgumentError(t *testing.T) {
 // ===============================================
 
 func TestDelay_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -274,11 +304,17 @@ func TestDelay_Basic(t *testing.T) {
 }
 
 func TestDelay_ZeroMs(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -314,11 +350,17 @@ func TestDelay_ZeroMs(t *testing.T) {
 }
 
 func TestDelay_Chaining(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -375,11 +417,17 @@ func TestDelay_Chaining(t *testing.T) {
 }
 
 func TestDelay_ReturnsPromise(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -402,11 +450,17 @@ func TestDelay_ReturnsPromise(t *testing.T) {
 }
 
 func TestDelay_NegativeValueTreatedAsZero(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}

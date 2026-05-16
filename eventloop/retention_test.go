@@ -143,7 +143,10 @@ func TestPhaseBuffersReleaseLargeHighWater(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			for index := range retainedCheckJobCapacity + 1 {
 				test.append(loop, checkJob{fn: func() {}, seq: uint64(index + 1)})
 			}
@@ -220,7 +223,10 @@ func TestRetentionPostBurstWarmedSteadyAllocations(t *testing.T) {
 		t.Fatalf("post-burst check queue = %.2f allocations, want 0", allocations)
 	}
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for range retainedCheckJobCapacity + 1 {
 		loop.pushOwnerCheck(job)
 		loop.checkJobs = append(loop.checkJobs, job)
@@ -275,8 +281,14 @@ func TestJSHandleRegistriesRebuildAtLowWater(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
-			js := NewJS(loop)
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 			set, clearHandle, snapshot := test.setup(js)
 			ids := make([]uint64, retainedRegistryHighWater+1)
 			for index := range ids {
@@ -317,8 +329,14 @@ func TestJSHandleRegistriesRebuildAtLowWater(t *testing.T) {
 }
 
 func TestJSClearHandlesScrubUnclaimedCallbacks(t *testing.T) {
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if err := loop.Close(); err != nil {
 			t.Errorf("Close: %v", err)
@@ -387,8 +405,14 @@ func TestJSClearHandlesScrubUnclaimedCallbacks(t *testing.T) {
 }
 
 func TestJSClearIntervalPreservesClaimedCallback(t *testing.T) {
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	claimed := make(chan struct{})
 	releaseClaim := make(chan struct{})
 	releaseClaimFn := releaseSignalT(t, releaseClaim)
@@ -441,7 +465,10 @@ func TestJSClearIntervalPreservesClaimedCallback(t *testing.T) {
 }
 
 func TestTimerStorageRebuildPreservesLiveSentinel(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	const timerStep = 10 * time.Millisecond
 	timerCount := max(retainedTimerHeapCapacity, retainedRegistryHighWater) + 1
 	ids := make([]TimerID, timerCount)
@@ -524,8 +551,14 @@ func TestTimerStorageRebuildPreservesLiveSentinel(t *testing.T) {
 }
 
 func TestTerminalCleanupDiscardsSchedulerStorage(t *testing.T) {
-	loop := New(WithLogger(nil))
-	js := NewJS(loop)
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.ownerExternal.Push(func() {})
 	loop.ownerInternal.Push(func() {})
 	loop.ownerMicro.Push(microtaskJob{fn: func() {}})

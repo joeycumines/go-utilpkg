@@ -12,7 +12,10 @@ import (
 )
 
 func TestCallerCancellationAfterServerAbortKeepsServerStatus(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runCtx, stop := context.WithCancel(context.Background())
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(runCtx) }()
@@ -37,7 +40,7 @@ func TestCallerCancellationAfterServerAbortKeepsServerStatus(t *testing.T) {
 		},
 	)
 
-	err := channel.Invoke(
+	err = channel.Invoke(
 		callCtx,
 		"/test.Service/Unary",
 		&wrapperspb.StringValue{Value: "request"},

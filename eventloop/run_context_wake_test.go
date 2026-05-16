@@ -17,7 +17,10 @@ func TestRunContextCancellationExitsIdleModes(t *testing.T) {
 		{name: "disabled", mode: FastPathDisabled},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := New(WithFastPathMode(tt.mode))
+			loop, err := New(WithFastPathMode(tt.mode))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			fastPathEntered := make(chan struct{}, 1)
 			hooks, disabledWaitReached := newIdleWaitBoundaryHooks()
@@ -70,7 +73,10 @@ func TestRunContextCancellationExitsIdleModes(t *testing.T) {
 }
 
 func TestRunContextCancellationBeforePollBlockIsNotLost(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	pollReached := make(chan struct{})
 	releasePoll := make(chan struct{})

@@ -22,14 +22,20 @@ func TestMixedIngressOwnerCallbackFIFO(t *testing.T) {
 		{
 			name: "JS microtask",
 			bind: func(loop *Loop) func(func()) error {
-				js := NewJS(loop)
+				js, err := NewJS(loop)
+				if err != nil {
+					t.Fatal(err)
+				}
 				return func(fn func()) error { return js.QueueMicrotask(fn) }
 			},
 		},
 		{
 			name: "JS next tick",
 			bind: func(loop *Loop) func(func()) error {
-				js := NewJS(loop)
+				js, err := NewJS(loop)
+				if err != nil {
+					t.Fatal(err)
+				}
 				return js.NextTick
 			},
 		},
@@ -46,7 +52,10 @@ func TestMixedIngressOwnerCallbackFIFO(t *testing.T) {
 	for _, test := range tests {
 		for _, direction := range directions {
 			t.Run(test.name+"/"+direction.name, func(t *testing.T) {
-				loop := New(WithAutoExit(true))
+				loop, err := New(WithAutoExit(true))
+				if err != nil {
+					t.Fatal(err)
+				}
 				registerLoopCleanupT(t, loop)
 				schedule := test.bind(loop)
 
@@ -104,7 +113,10 @@ func TestMixedIngressOwnerCallbackFIFO(t *testing.T) {
 }
 
 func TestMixedIngressOwnerFalsePathPrecedesPausedPublication(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	producerPaused := make(chan struct{})
@@ -222,7 +234,10 @@ func TestSynchronousTimerCommandPreservesPublishedOrder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			id, err := loop.ScheduleTimer(time.Hour, func() {})
@@ -335,7 +350,10 @@ func TestSynchronousTimerCommandPreservesOwnerFirstOrder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			id, err := loop.ScheduleTimer(time.Hour, func() {})
 			if err != nil {
@@ -384,7 +402,10 @@ func TestSynchronousTimerCommandPreservesOwnerFirstOrder(t *testing.T) {
 
 func TestCommandIngressPendingLifecycle(t *testing.T) {
 	t.Run("materialization", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 		if loop.commandIngressPending.Load() {
 			t.Fatal("new loop reports pending command ingress")
@@ -420,7 +441,10 @@ func TestCommandIngressPendingLifecycle(t *testing.T) {
 	})
 
 	t.Run("terminal discard", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		if err := loop.Submit(func() {}); err != nil {
 			t.Fatalf("Submit: %v", err)
 		}
@@ -437,7 +461,10 @@ func TestCommandIngressPendingLifecycle(t *testing.T) {
 }
 
 func TestPromisifySettlementPrecedesOwnerInternalObservation(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	settlementPublished := make(chan struct{})
@@ -484,9 +511,15 @@ func TestPromisifySettlementPrecedesOwnerInternalObservation(t *testing.T) {
 }
 
 func TestPromiseSettlementPreservesEarlierIngressReaction(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	root, resolve, _ := js.NewChainedPromise()
 	var order []string
@@ -547,7 +580,10 @@ func TestOwnerTimerMutationObservesEarlierIngressAdd(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			var callbackErrs fuzzErrs
@@ -673,7 +709,10 @@ func TestOwnerTimerMutationPreservesEarlierRequest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			id, err := loop.ScheduleTimer(time.Hour, func() {})
@@ -778,7 +817,10 @@ func TestOwnerLivenessObservationMaterializesEarlierTimerRequest(t *testing.T) {
 	for _, test := range tests {
 		for _, observer := range observers {
 			t.Run(test.name+"/"+observer.name, func(t *testing.T) {
-				loop := New(WithAutoExit(true))
+				loop, err := New(WithAutoExit(true))
+				if err != nil {
+					t.Fatal(err)
+				}
 				registerLoopCleanupT(t, loop)
 				var id TimerID
 				if test.withTimer {

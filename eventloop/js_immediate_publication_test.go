@@ -8,7 +8,10 @@ import (
 )
 
 func TestJSSetImmediatePublicationPrecedesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	returnHookEntered := make(chan uint64, 1)
 	callbackWaiting := make(chan struct{})
 	releaseReturnHook := make(chan struct{})
@@ -22,7 +25,10 @@ func TestJSSetImmediatePublicationPrecedesCallback(t *testing.T) {
 		BeforeJSImmediatePublicationWait: func() { close(callbackWaiting) },
 	}
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	registerActiveLoopCleanupT(t, loop, runDone)
@@ -83,8 +89,14 @@ func TestJSSetImmediatePublicationPrecedesCallback(t *testing.T) {
 }
 
 func TestJSSetImmediateRejectsPublicationAfterClose(t *testing.T) {
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	publicationReached := make(chan struct{})
 	releasePublication := make(chan struct{})

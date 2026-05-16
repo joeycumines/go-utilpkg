@@ -10,7 +10,10 @@ import (
 )
 
 func TestSubmitToQueueAllowsPlainWorkDuringCurrentQuiescing(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	loop.beginQuiescing()
@@ -33,7 +36,10 @@ func TestSubmitToQueueAllowsPlainWorkDuringCurrentQuiescing(t *testing.T) {
 }
 
 func TestAutoExitTerminalAdmissionRejectsNonOwnerWork(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	triggerID, err := loop.ScheduleTimer(time.Hour, func() {})
@@ -106,7 +112,10 @@ func TestAutoExitTerminalAdmissionRejectsNonOwnerWork(t *testing.T) {
 }
 
 func TestAutoExitFinalRecheckAcceptsEphemeralWorkAndAbortsTermination(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var hookErr error
@@ -171,7 +180,10 @@ func TestAutoExitFinalRecheckAcceptsEphemeralWorkAndAbortsTermination(t *testing
 }
 
 func TestAutoExitPostFinalAliveIngressAbortsBeforeTerminalAdmission(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var hookErr error
@@ -236,7 +248,10 @@ func TestAutoExitPostFinalAliveIngressAbortsBeforeTerminalAdmission(t *testing.T
 }
 
 func TestAutoExitAbortsWhenShutdownOwnsTerminalDrainBeforeCommit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	shutdownDone := make(chan error, 1)
@@ -295,7 +310,10 @@ func TestAutoExitAbortsWhenShutdownOwnsTerminalDrainBeforeCommit(t *testing.T) {
 }
 
 func TestLoopRejectAllPendingPromisesRunsOnce(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	errFirst := errors.New("first terminal rejection")
 	errSecond := errors.New("second terminal rejection")
@@ -317,7 +335,10 @@ func TestLoopRejectAllPendingPromisesRunsOnce(t *testing.T) {
 }
 
 func TestAutoExitTerminalDiagnosticCanUseLivenessAPIWithoutDeadlock(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	diagnosticDone := make(chan error, 1)
@@ -351,7 +372,10 @@ func TestAutoExitTerminalDiagnosticCanUseLivenessAPIWithoutDeadlock(t *testing.T
 }
 
 func TestStateAwakeShutdownExternalCloseJoinsCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackStarted := make(chan struct{})
@@ -442,7 +466,10 @@ func TestStateAwakeShutdownExternalCloseJoinsCompletion(t *testing.T) {
 }
 
 func TestStateTerminatingRejectsNonOwnerEphemeralWork(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	started := make(chan struct{})

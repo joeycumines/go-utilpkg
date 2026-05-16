@@ -11,9 +11,15 @@ import (
 )
 
 func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -37,13 +43,14 @@ func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
 	if preBindCopy.OwnsLoop(loop) || preBindCopy.OwnsRuntime(runtime) {
 		t.Fatal("copied pre-Bind adapter reported ownership")
 	}
+	foreignLoop, _ := goeventloop.New()
 	for name, candidate := range map[string]struct {
 		loop    *goeventloop.Loop
 		runtime *goja.Runtime
 	}{
 		"same pair":    {loop: loop, runtime: runtime},
 		"same loop":    {loop: loop, runtime: goja.New()},
-		"same runtime": {loop: goeventloop.New(), runtime: runtime},
+		"same runtime": {loop: foreignLoop, runtime: runtime},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := New(candidate.loop, candidate.runtime)
@@ -61,7 +68,8 @@ func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
 	if adapter.OwnsLoop(nil) || adapter.OwnsRuntime(nil) {
 		t.Fatal("bound adapter reported nil ownership")
 	}
-	if adapter.OwnsLoop(goeventloop.New()) || adapter.OwnsRuntime(goja.New()) {
+	otherLoop, _ := goeventloop.New()
+	if adapter.OwnsLoop(otherLoop) || adapter.OwnsRuntime(goja.New()) {
 		t.Fatal("bound adapter reported foreign ownership")
 	}
 	if adapter.domExceptionStateStore == nil {
@@ -103,8 +111,14 @@ func copyAdapterValue(adapter *Adapter) *Adapter {
 }
 
 func TestAdapterDoneForwardsExactTerminalSignal(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -128,9 +142,15 @@ func TestAdapterDoneForwardsExactTerminalSignal(t *testing.T) {
 }
 
 func TestAdapterDoneRejectsInvalidReceivers(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -168,14 +188,18 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 		defer assertAdapterPanic(t, "nil Adapter Submit")
 		_ = nilAdapter.Submit(func(*goja.Runtime) {})
 	}()
-	if zero.OwnsLoop(goeventloop.New()) || zero.OwnsRuntime(goja.New()) {
+	foreignLoop, _ := goeventloop.New()
+	if zero.OwnsLoop(foreignLoop) || zero.OwnsRuntime(goja.New()) {
 		t.Fatal("zero adapter reported ownership")
 	}
-	if nilAdapter.OwnsLoop(goeventloop.New()) || nilAdapter.OwnsRuntime(goja.New()) {
+	if nilAdapter.OwnsLoop(foreignLoop) || nilAdapter.OwnsRuntime(goja.New()) {
 		t.Fatal("nil adapter reported ownership")
 	}
 
-	terminalLoop := goeventloop.New(goeventloop.WithAutoExit(true))
+	terminalLoop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := terminalLoop.Run(context.Background()); err != nil {
 		t.Fatalf("terminate loop: %v", err)
 	}
@@ -183,8 +207,14 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 		t.Fatalf("New terminal loop = %v, want %v", err, ErrLoopState)
 	}
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -202,7 +232,8 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 	if adapter.OwnsRuntime(runtime) || !errors.Is(adapter.Submit(func(*goja.Runtime) {}), ErrAdapterFailed) {
 		t.Fatal("failed adapter retained usable ownership")
 	}
-	replacement, err := New(goeventloop.New(), runtime)
+	replacementLoop, _ := goeventloop.New()
+	replacement, err := New(replacementLoop, runtime)
 	if err != nil {
 		t.Fatalf("claim after failed Bind: %v", err)
 	}
@@ -210,9 +241,15 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 }
 
 func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -231,7 +268,8 @@ func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
 	if adapter.OwnsRuntime(runtime) || !errors.Is(adapter.Submit(func(*goja.Runtime) {}), ErrAdapterFailed) {
 		t.Fatal("failed adapter retained usable ownership")
 	}
-	replacement, err := New(goeventloop.New(), runtime)
+	replacementLoop, _ := goeventloop.New()
+	replacement, err := New(replacementLoop, runtime)
 	if err != nil {
 		t.Fatalf("claim runtime after lifecycle conflict: %v", err)
 	}
@@ -239,8 +277,14 @@ func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
 }
 
 func TestAdapterConstructionFailureReleasesClaims(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	symbol := runtime.Get("Symbol").ToObject(runtime)
 	if err := symbol.DefineDataProperty(
 		"dispose",
@@ -267,9 +311,15 @@ func TestAdapterConstructionFailureReleasesClaims(t *testing.T) {
 func TestAdapterConstructionUsesRuntimePrimordials(t *testing.T) {
 	for _, mutationTime := range []string{"before New", "before Bind"} {
 		t.Run(mutationTime, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			installConformingHostSingletons(t, runtime)
 			prototypeTargets := []struct {
 				object *goja.Object
@@ -392,13 +442,15 @@ func TestAdapterConstructionUsesRuntimePrimordials(t *testing.T) {
 }
 
 func TestAdapterInvalidJSOptionsDoNotClaim(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
 	var invalid goeventloop.JSOption
-	func() {
-		defer assertAdapterPanic(t, "invalid JS option")
-		_, _ = New(loop, runtime, invalid)
-	}()
+	if _, err := New(loop, runtime, invalid); err == nil {
+		t.Fatal("invalid JS option did not return an error")
+	}
 	replacement, err := New(loop, runtime)
 	if err != nil {
 		t.Fatalf("New after invalid JS option: %v", err)
@@ -413,7 +465,8 @@ func TestAdapterSetConsoleOutputRejectsInvalidReceivers(t *testing.T) {
 		zero.SetConsoleOutput(nil)
 	}()
 
-	adapter, err := New(goeventloop.New(), goja.New())
+	newLoop, _ := goeventloop.New()
+	adapter, err := New(newLoop, goja.New())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,10 +489,16 @@ func TestAdapterOwnerOnlyHelperPreconditions(t *testing.T) {
 		zero.TrackAbortSignal(goja.Undefined(), func() {})
 	}()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

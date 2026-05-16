@@ -12,7 +12,10 @@ import (
 )
 
 func TestLoopPollerInitRetriesRetainedKernelTagCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		_ = loop.Close()
 		_ = loop.Shutdown(context.Background())
@@ -61,7 +64,10 @@ func TestLoopPollerInitRetriesRetainedKernelTagCleanup(t *testing.T) {
 }
 
 func TestLoopTerminalCallRetriesRetainedKernelTagCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		_ = loop.Close()
 		_ = loop.Shutdown(context.Background())

@@ -30,7 +30,7 @@ func (a *Adapter) bindAbortControllerPrototype(constructor *goja.Object) error {
 		return fmt.Errorf("abortController prototype not found")
 	}
 	if err := defineWebAccessor(a.runtime, prototype, "signal", true, func(call goja.FunctionCall) goja.Value {
-		return a.abortControllerThis(call.This).signal.object
+		return a.abortControllerThis(call.This).signal.object.Value()
 	}, nil); err != nil {
 		return fmt.Errorf("bind AbortController.prototype.signal: %w", err)
 	}
@@ -77,7 +77,7 @@ func (a *Adapter) newAbortSignal() *abortSignalState {
 		}
 	}
 	wrapper := a.initEventTargetObject(obj)
-	state := &abortSignalState{target: wrapper, object: obj, reason: goja.Undefined()}
+	state := &abortSignalState{target: wrapper, object: weak.Make(obj), reason: goja.Undefined()}
 	wrapper.abortSignal = state
 
 	a.setHiddenState(a.abortSignalStateStore, obj, state)
@@ -157,7 +157,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 	if err := defineWebMethod(a.runtime, abortSignalObj, "abort", 0, true, func(call goja.FunctionCall) goja.Value {
 		state := a.newAbortSignal()
 		markAbortSignal(state, a.abortReason(call.Argument(0)))
-		return state.object
+		return state.object.Value()
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.abort: %w", err)
 	}
@@ -171,7 +171,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 		for _, sig := range signals {
 			if sig.aborted {
 				markAbortSignal(composite, sig.reason)
-				return composite.object
+				return composite.object.Value()
 			}
 		}
 		composite.dependent = true
@@ -186,7 +186,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 			}
 		}
 		runtime.KeepAlive(composite)
-		return composite.object
+		return composite.object.Value()
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.any: %w", err)
 	}
@@ -225,7 +225,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 		stateRef.cleanupSet = true
 		stateRef.mu.Unlock()
 		runtime.KeepAlive(state)
-		return state.object
+		return state.object.Value()
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.timeout: %w", err)
 	}

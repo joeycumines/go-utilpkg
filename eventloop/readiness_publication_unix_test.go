@@ -13,7 +13,10 @@ import (
 )
 
 func TestRegisterFDPublicationPrecedesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
 		t.Fatal(err)
@@ -99,7 +102,10 @@ func TestRegisterFDPublicationPrecedesCallback(t *testing.T) {
 }
 
 func TestUnregisterFDWhileRegistrationUnpublishedSuppressesCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
 		t.Fatal(err)
@@ -189,7 +195,10 @@ func TestUnregisterFDWhileRegistrationUnpublishedSuppressesCallback(t *testing.T
 }
 
 func TestRetainedRegisterFDErrorPublishesBeforeCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
 		t.Fatal(err)

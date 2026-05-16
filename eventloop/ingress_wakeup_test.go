@@ -18,7 +18,10 @@ func TestIngressPostAdmissionWakeFastPathWaiters(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerFDResourceCleanupT(t, loop)
 			loop.state.Store(StateRunning)
 			loop.userIOFDCount.Store(0)
@@ -37,7 +40,10 @@ func TestIngressPostAdmissionWakeFastPathWaiters(t *testing.T) {
 }
 
 func TestCanUseFastPathFallsBackWhenForcedInvariantBroken(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 
 	loop.userIOFDCount.Store(1)

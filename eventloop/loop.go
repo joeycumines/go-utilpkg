@@ -272,12 +272,15 @@ var loopIDCounter atomic.Uint64
 
 // New creates a new event loop with optional configuration.
 //
-// New panics if an option is nil or violates its documented static contract.
-// Runtime poller resources remain lazy; failures are returned by the operation
-// that first requires them.
-func New(opts ...LoopOption) *Loop {
+// New returns an error if an option is nil or violates its documented
+// validation. Runtime poller resources remain lazy; failures are returned by
+// the operation that first requires them.
+func New(opts ...LoopOption) (*Loop, error) {
 	// Apply options
-	options := resolveLoopOptions(opts)
+	options, err := resolveLoopOptions(opts)
+	if err != nil {
+		return nil, err
+	}
 
 	loop := &Loop{
 		id:               loopIDCounter.Add(1),
@@ -319,5 +322,5 @@ func New(opts ...LoopOption) *Loop {
 		loop.metrics = newRuntimeMetrics()
 	}
 
-	return loop
+	return loop, nil
 }

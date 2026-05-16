@@ -24,7 +24,10 @@ func TestWakeSubmitsOnlySelectedNativeWait(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatal(err)
 			}
@@ -65,7 +68,10 @@ func TestWakePreservesPhysicalSubmissionError(t *testing.T) {
 		{name: "sleeping", state: StateSleeping},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatal(err)
 			}
@@ -108,7 +114,10 @@ func TestWakePreservesPhysicalSubmissionError(t *testing.T) {
 }
 
 func TestWakeBeforeSleepingCommitSubmitsSelectedNativeSignal(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +185,10 @@ func TestWakeCrossingTerminalCommitRemainsNoOp(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithFastPathMode(FastPathDisabled))
+			loop, err := New(WithFastPathMode(FastPathDisabled))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatal(err)
 			}

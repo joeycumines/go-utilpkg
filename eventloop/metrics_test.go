@@ -18,7 +18,10 @@ func benchmarkCallbackMetrics(b *testing.B, enabled bool) {
 	if enabled {
 		options = append(options, WithMetrics(true))
 	}
-	loop := New(options...)
+	loop, err := New(options...)
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.Cleanup(func() {
 		if err := loop.Close(); err != nil {
 			b.Errorf("Close: %v", err)

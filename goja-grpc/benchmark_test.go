@@ -21,9 +21,15 @@ import (
 // benchEnv creates a test environment for benchmarks.
 func benchEnv(b *testing.B) *grpcTestEnv {
 	b.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	adapter, err := gojaeventloop.New(loop, runtime)
+	if err != nil {
+		b.Fatal(err)
+	}
 	if err != nil {
 		b.Fatalf("unexpected error: %v", err)
 	}
@@ -182,7 +188,10 @@ func BenchmarkMetadataCreate(b *testing.B) {
 // This baseline isolates the JS bridge overhead when compared with
 // BenchmarkUnaryRPC.
 func BenchmarkGoDirectUnaryRPC(b *testing.B) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go loop.Run(ctx)

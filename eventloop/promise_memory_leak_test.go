@@ -9,7 +9,10 @@ import (
 )
 
 func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	ready := make(chan struct{})
@@ -25,7 +28,10 @@ func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
 			t.Errorf("Run: %v", err)
 		}
 	})
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	const chainCount = 32
 	references := make([]weak.Pointer[ChainedPromise], 0, chainCount*6)
@@ -75,7 +81,10 @@ func settledPromiseChainReferences(t *testing.T, js *JS, value int) []weak.Point
 }
 
 func TestRejectionTrackingCleanupUsesCheckpointBarrier(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	ready := make(chan struct{})
@@ -92,9 +101,12 @@ func TestRejectionTrackingCleanupUsesCheckpointBarrier(t *testing.T) {
 		}
 	})
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	const promiseCount = 1000
 	setupDone := make(chan struct{})
@@ -152,10 +164,16 @@ func TestRejectionTrackingCleanupUsesCheckpointBarrier(t *testing.T) {
 // the handler fields (h0, result-as-handlers) are properly zeroed,
 // releasing closure references for garbage collection.
 func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Test 1: After resolve, h0 should be cleared (target becomes nil)
 	p, resolve, _ := js.NewChainedPromise()

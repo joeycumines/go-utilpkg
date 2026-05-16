@@ -9,16 +9,22 @@ import (
 )
 
 func TestUnhandledRejectionPendingRecordDoesNotSpinCheckpoint(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var firstReportedOnce sync.Once
 	firstReported := make(chan struct{})
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		if fmt.Sprint(reason) == "first" {
 			firstReportedOnce.Do(func() { close(firstReported) })
 		}
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, rejectFirst := js.NewChainedPromise()
 	rejectFirst("first")

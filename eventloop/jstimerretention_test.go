@@ -22,7 +22,10 @@ type intervalRetentionState struct {
 }
 
 func TestSelfCancelingIntervalReleasesHandleAndCapture(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	ready := make(chan struct{})
@@ -38,7 +41,10 @@ func TestSelfCancelingIntervalReleasesHandleAndCapture(t *testing.T) {
 			t.Errorf("Run: %v", err)
 		}
 	})
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	pointer := selfCancelingIntervalPointer(t, loop, js)
 	waitContractCollected(t, pointer, js)

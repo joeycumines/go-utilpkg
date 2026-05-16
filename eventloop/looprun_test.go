@@ -29,7 +29,10 @@ func runAutoExitLoop(t *testing.T, loop *Loop) error {
 }
 
 func TestSecondRunDoesNotCloseOwnerCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackEntered := make(chan struct{})
@@ -72,7 +75,10 @@ func TestSecondRunDoesNotCloseOwnerCompletion(t *testing.T) {
 }
 
 func TestRunOnTerminatedLoop(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}

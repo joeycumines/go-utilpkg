@@ -6,10 +6,16 @@ import "testing"
 // ErrImmediateIDExhausted when the immediate ID counter exceeds
 // JavaScript's MAX_SAFE_INTEGER (2^53 - 1).
 func TestSetImmediate_IDExhaustion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Set the immediate ID to allow one more successful allocation (MAX_SAFE_INTEGER is the last valid ID)
 	js.nextImmediateID.Store(maxSafeInteger - 1)
@@ -38,10 +44,16 @@ func TestSetImmediate_IDExhaustion(t *testing.T) {
 // ErrTimerIDExhausted when the shared timer ID namespace reaches
 // JavaScript's MAX_SAFE_INTEGER (2^53 - 1).
 func TestSetInterval_IDExhaustion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Set the interval ID to allow one more successful allocation (MAX_SAFE_INTEGER is the last valid ID)
 	js.nextTimerID.Store(maxSafeInteger - 1)
@@ -73,10 +85,16 @@ func TestSetInterval_IDExhaustion(t *testing.T) {
 // when the timer ID counter exceeds JavaScript's MAX_SAFE_INTEGER (2^53 - 1).
 // The actual validation happens in loop.ScheduleTimer which returns ErrTimerIDExhausted.
 func TestSetTimeout_IDExhaustion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Set the JavaScript timer handle ID to allow one more successful allocation
 	// (MAX_SAFE_INTEGER is the last valid ID). JS timeouts and intervals share

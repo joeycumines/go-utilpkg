@@ -13,10 +13,16 @@ func TestProcessBeforeExitCanExtendAutoExitAndExitIsTerminal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -97,10 +103,16 @@ func TestProcessBeforeExitMicrotasksDoNotRepeatBeforeExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -147,10 +159,16 @@ func TestProcessBeforeExitMicrotaskMacrotaskRepeatsBeforeExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -197,9 +215,15 @@ func TestProcessBeforeExitMicrotaskMacrotaskRepeatsBeforeExit(t *testing.T) {
 }
 
 func TestProcessExitSuppressesAsyncExitWorkAndStopsScript(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -247,9 +271,15 @@ func TestProcessExitExplicitNullishClearsExitCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			adapter, err := New(loop, runtime)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err != nil {
 				t.Fatalf("New adapter: %v", err)
 			}
@@ -278,9 +308,15 @@ func TestProcessExitExplicitNullishClearsExitCode(t *testing.T) {
 }
 
 func TestProcessExitNoArgumentClearsNullExitCode(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -382,9 +418,15 @@ func TestProcessExitFromBeforeExitIsClean(t *testing.T) {
 }
 
 func TestProcessExitCodeRejectsInvalidValues(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -450,9 +492,15 @@ func TestProcessExitCodeRejectsInvalidValues(t *testing.T) {
 }
 
 func TestProcessExitWrapsLargeIntegerCode(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -481,9 +529,15 @@ func TestProcessExitWrapsLargeIntegerCode(t *testing.T) {
 }
 
 func TestProcessExitAcceptsNodeNumericStrings(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -511,9 +565,15 @@ func TestProcessExitAcceptsNodeNumericStrings(t *testing.T) {
 }
 
 func TestProcessExitCodeErrorsIgnoreMutableGlobals(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -565,9 +625,15 @@ func runAutoExitProcessScript(t *testing.T, script string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}

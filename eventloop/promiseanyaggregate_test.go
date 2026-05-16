@@ -6,9 +6,15 @@ import (
 )
 
 func TestPromiseAny_NonErrorRejections(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	first, _, rejectFirst := js.NewChainedPromise()
 	second, _, rejectSecond := js.NewChainedPromise()

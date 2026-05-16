@@ -15,7 +15,10 @@ func FuzzLoopConcurrentLifecycleNoDeadlock(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			panic(err)
+		}
 		registerLoopCleanupT(t, loop)
 
 		ctx, cancel := context.WithCancel(context.Background())

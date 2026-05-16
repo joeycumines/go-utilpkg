@@ -351,7 +351,10 @@ func FuzzAbortTimeoutReasonStability(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 		controller, err := AbortTimeout(loop, 0)
 		if err != nil {
 			t.Fatalf("AbortTimeout: %v", err)

@@ -27,7 +27,10 @@ func holdFirstFastPathEntryT(t *testing.T, hooks *loopTestHooks) (<-chan struct{
 }
 
 func TestFastPathInitialTurnDrainsMicrotasksBeforeSubmittedWork(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var mu sync.Mutex
@@ -65,7 +68,10 @@ func TestFastPathInitialMicrotaskTimerDoesNotSleepForever(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	timerDone := make(chan struct{})
 	if err := loop.ScheduleMicrotask(func() {
@@ -96,7 +102,10 @@ func TestFastPathInitialMicrotaskTimerDoesNotSleepForever(t *testing.T) {
 }
 
 func TestFastPathDrainsInternalBeforeExternalWithoutPollTick(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// Hold the owner before its first ready-work check. An internal callback is
@@ -154,10 +163,13 @@ func TestFastPathDrainsInternalBeforeExternalWithoutPollTick(t *testing.T) {
 
 func TestFastPathContinuesReentrantExternalSnapshotsWithoutPollTick(t *testing.T) {
 	var pressure atomic.Bool
-	loop := New(
+	loop, err := New(
 		WithFastPathMode(FastPathForced),
 		WithQueuePressureHandler(func() { pressure.Store(true) }),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var pollEntered atomic.Bool
@@ -212,7 +224,10 @@ func TestFastPathContinuesReentrantExternalSnapshotsWithoutPollTick(t *testing.T
 }
 
 func TestFastPathContinuesInternalSnapshotsWithoutPollTick(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fastPathEntered := make(chan struct{})
@@ -256,7 +271,10 @@ func TestFastPathContinuesInternalSnapshotsWithoutPollTick(t *testing.T) {
 }
 
 func TestFastPathRunsCheckAndCloseBeforeExternalWithoutPollTick(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	// Hold the owner before check, close, or external work can enter a phase
@@ -314,7 +332,10 @@ func TestFastPathRunsCheckAndCloseBeforeExternalWithoutPollTick(t *testing.T) {
 }
 
 func TestFastPathTimerCancelCommandPrecedesDueTimer(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -358,7 +379,10 @@ func TestFastPathTimerUnrefCommandPrecedesDueTimerAutoExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithFastPathMode(FastPathForced), WithAutoExit(true))
+	loop, err := New(WithFastPathMode(FastPathForced), WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackEntered := make(chan struct{})
 	releaseCallback := make(chan struct{})
@@ -403,7 +427,10 @@ func TestFastPathTimerUnrefCommandPrecedesDueTimerAutoExit(t *testing.T) {
 }
 
 func TestFastPathRunAuxAutoExitSkipsUnrefImmediateAfterMicrotask(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced), WithAutoExit(true))
+	loop, err := New(WithFastPathMode(FastPathForced), WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 	loop.loopGoroutineID.Store(goroutineid.Get())
@@ -431,7 +458,10 @@ func TestRunFastPathReturnsAfterContextCancelWithContinuousReadyWork(t *testing.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	started := make(chan struct{})
@@ -474,7 +504,10 @@ func TestNormalTickTimerUnrefCommandPrecedesDueTimerAutoExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var fired atomic.Bool
 	var timerID TimerID
@@ -529,7 +562,10 @@ func TestNormalTimerPhaseDrainsAcceptedLifecycleCommandAtEntry(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var fired atomic.Bool
 	var timerID TimerID
@@ -586,7 +622,10 @@ func TestNormalTimerPhaseDrainsAcceptedLifecycleCommandAtEntry(t *testing.T) {
 }
 
 func TestLoopThreadImmediateAndCloseUseOwnerLocalQueues(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -639,7 +678,10 @@ func TestMixedExternalAndOwnerCloseFIFO(t *testing.T) {
 
 func testMixedImmediateFIFO(t *testing.T, externalFirst bool, want []string) {
 	t.Helper()
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -705,7 +747,10 @@ func testMixedImmediateFIFO(t *testing.T, externalFirst bool, want []string) {
 
 func testMixedCloseFIFO(t *testing.T, externalFirst bool, want []string) {
 	t.Helper()
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	ctx, cancel := context.WithCancel(context.Background())

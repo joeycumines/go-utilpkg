@@ -414,7 +414,10 @@ func TestCoverage_Stream_EnsureNoMore_SubmitFailure(t *testing.T) {
 	// Submit (which succeeds) and ensureNoMore's Submit.
 	// Strategy: use a custom cloner whose Copy method stops the loop on the
 	// correct call (the client's RecvMsg Copy, not earlier calls).
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

@@ -10,7 +10,10 @@ import (
 )
 
 func TestExternalQueuePhaseSnapshotDefersReentrantSubmit(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 
@@ -36,7 +39,10 @@ func TestExternalQueuePhaseSnapshotDefersReentrantSubmit(t *testing.T) {
 }
 
 func TestInternalQueuePhaseSnapshotDefersReentrantSubmitInternal(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 
@@ -62,7 +68,10 @@ func TestInternalQueuePhaseSnapshotDefersReentrantSubmitInternal(t *testing.T) {
 }
 
 func TestAuxQueuePhaseSnapshotDefersReentrantSubmit(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 
@@ -88,7 +97,10 @@ func TestAuxQueuePhaseSnapshotDefersReentrantSubmit(t *testing.T) {
 }
 
 func TestCheckAndClosePhasesDrainAcceptedIngressBeforeSnapshot(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 
@@ -152,7 +164,10 @@ func TestPhaseBufferRotationPreservesOwnerAndIngressCallbacks(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(loop.stopCallbackWorker)
 			loop.state.Store(StateRunning)
 
@@ -196,7 +211,10 @@ func TestPhaseOrderingSurvivesSequenceWrap(t *testing.T) {
 				{name: "foreign first", want: []string{"foreign", "owner"}},
 			} {
 				t.Run(direction.name, func(t *testing.T) {
-					loop := New()
+					loop, err := New()
+					if err != nil {
+						t.Fatal(err)
+					}
 					loop.state.Store(StateRunning)
 					loop.phaseSeq.Store(math.MaxUint64 - 1)
 					ownerID := goroutineid.Get()
@@ -233,10 +251,13 @@ func TestPhaseOrderingSurvivesSequenceWrap(t *testing.T) {
 
 func TestProcessExternalHasNoNumericCallbackCap(t *testing.T) {
 	var pressureCalled atomic.Bool
-	loop := New(
+	loop, err := New(
 		WithFastPathMode(FastPathDisabled),
 		WithQueuePressureHandler(func() { pressureCalled.Store(true) }),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 
 	const taskCount = 2000
@@ -258,10 +279,13 @@ func TestProcessExternalHasNoNumericCallbackCap(t *testing.T) {
 
 func TestProcessExternalQueuePressureIgnoresNonExternalCommandIngress(t *testing.T) {
 	var pressureCalled atomic.Bool
-	loop := New(
+	loop, err := New(
 		WithFastPathMode(FastPathDisabled),
 		WithQueuePressureHandler(func() { pressureCalled.Store(true) }),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 

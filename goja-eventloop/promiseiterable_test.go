@@ -17,11 +17,17 @@ func TestAdapter_Iterator_NullIterable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -64,11 +70,17 @@ func TestAdapter_Iterator_NonIterable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -110,10 +122,16 @@ func TestNodePromiseCombinatorIterableErrors(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -183,10 +201,16 @@ func TestNodePromiseCombinatorIterableErrors(t *testing.T) {
 }
 
 func TestNodePromiseCombinatorCapabilitiesUseCapturedTypeError(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -251,11 +275,17 @@ func TestAdapter_Iterator_ArrayFastPath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -298,11 +328,17 @@ func TestAdapter_consumeIterable_Set(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -346,11 +382,17 @@ func TestAdapter_consumeIterable_Generator(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

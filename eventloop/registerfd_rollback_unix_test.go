@@ -8,7 +8,10 @@ import (
 )
 
 func TestRegisterFDPreCountRollbackPollerCloseReleasesOwnership(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fd, cleanupFD := testCreateIOFD(t)
@@ -24,7 +27,7 @@ func TestRegisterFDPreCountRollbackPollerCloseReleasesOwnership(t *testing.T) {
 		},
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	if !pollerCloseCalled || pollerCloseErr != nil {
 		t.Fatalf("rollback hook poller Close = (called=%t, err=%v), want (true, nil)", pollerCloseCalled, pollerCloseErr)
 	}
@@ -51,7 +54,10 @@ func TestRegisterFDPreCountRollbackPollerCloseReleasesOwnership(t *testing.T) {
 }
 
 func TestRegisterFDPreCountRollbackNotRegisteredIsNotOwned(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fd, cleanupFD := testCreateIOFD(t)
@@ -66,7 +72,7 @@ func TestRegisterFDPreCountRollbackNotRegisteredIsNotOwned(t *testing.T) {
 		},
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	if !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("RegisterFD error = %v, want ErrLoopTerminated", err)
 	}
@@ -80,7 +86,10 @@ func TestRegisterFDPreCountRollbackNotRegisteredIsNotOwned(t *testing.T) {
 }
 
 func TestRegisterFDRollbackPollerClosePreservesForcedMode(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fd, cleanupFD := testCreateIOFD(t)
@@ -96,7 +105,7 @@ func TestRegisterFDRollbackPollerClosePreservesForcedMode(t *testing.T) {
 		},
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	if !pollerCloseCalled || pollerCloseErr != nil {
 		t.Fatalf("commit hook poller Close = (called=%t, err=%v), want (true, nil)", pollerCloseCalled, pollerCloseErr)
 	}
@@ -126,7 +135,10 @@ func TestRegisterFDRollbackPollerClosePreservesForcedMode(t *testing.T) {
 }
 
 func TestRegisterFDSuccessfulForcedModeRollbackPreservesMode(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fd, cleanupFD := testCreateIOFD(t)
@@ -138,7 +150,7 @@ func TestRegisterFDSuccessfulForcedModeRollbackPreservesMode(t *testing.T) {
 		},
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	if !errors.Is(err, ErrFastPathIncompatible) {
 		t.Fatalf("RegisterFD error = %v, want ErrFastPathIncompatible", err)
 	}

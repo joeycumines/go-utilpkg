@@ -14,8 +14,14 @@ func Example() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	loop := eventloop.New(eventloop.WithAutoExit(true))
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
 	runtime := goja.New()
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	if err := runtime.Set("record", func(value string) { fmt.Println(value) }); err != nil {
 		panic(err)
 	}

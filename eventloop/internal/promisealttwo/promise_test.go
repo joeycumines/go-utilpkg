@@ -146,8 +146,10 @@ func TestStateConstants(t *testing.T) {
 
 // TestPromiseWithJS tests promise with JS adapter
 func TestPromiseWithJS(t *testing.T) {
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil { t.Fatal(err) }
+	js, err := eventloop.NewJS(loop)
+	if err != nil { t.Fatal(err) }
 	p, resolve, _ := New(js)
 
 	if p.State() != Pending {

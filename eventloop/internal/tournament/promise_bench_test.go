@@ -19,8 +19,14 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 			// Sub-benchmark: Chain Creation (struct overhead)
 			b.Run("ChainCreation_Depth100", func(b *testing.B) {
 				// We don't run the loop here, just measure structure creation
-				l := eventloop.New()
-				js := eventloop.NewJS(l)
+				l, err := eventloop.New()
+				if err != nil {
+					b.Fatal(err)
+				}
+				js, err := eventloop.NewJS(l)
+				if err != nil {
+					b.Fatal(err)
+				}
 
 				b.ResetTimer()
 				b.ReportAllocs()
@@ -38,8 +44,14 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 			b.Run("CheckResolved_Overhead", func(b *testing.B) {
 				// This benchmarks adding a handler to an ALREADY RESOLVED promise.
 				// This is the "fast path" for many implementations.
-				l := eventloop.New()
-				js := eventloop.NewJS(l)
+				l, err := eventloop.New()
+				if err != nil {
+					b.Fatal(err)
+				}
+				js, err := eventloop.NewJS(l)
+				if err != nil {
+					b.Fatal(err)
+				}
 
 				// Create a resolved promise
 				p, resolve, _ := impl.Factory(js)
@@ -56,8 +68,14 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 			// Sub-benchmark: FanOut (Simulates Promise.All or multiple subcribers)
 			b.Run("FanOut_100", func(b *testing.B) {
 				// Simulates Promise.All or multiple subscribers
-				l := eventloop.New()
-				js := eventloop.NewJS(l)
+				l, err := eventloop.New()
+				if err != nil {
+					b.Fatal(err)
+				}
+				js, err := eventloop.NewJS(l)
+				if err != nil {
+					b.Fatal(err)
+				}
 
 				p, _, _ := impl.Factory(js)
 
@@ -75,8 +93,14 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 			// Sub-benchmark: Race (Combinator optimization check)
 			b.Run("Race_100", func(b *testing.B) {
 				// Simulates Promise.Race([100 promises])
-				l := eventloop.New()
-				js := eventloop.NewJS(l)
+				l, err := eventloop.New()
+				if err != nil {
+					b.Fatal(err)
+				}
+				js, err := eventloop.NewJS(l)
+				if err != nil {
+					b.Fatal(err)
+				}
 
 				// We need access to the Race function?
 				// The generic interface doesn't expose Race.

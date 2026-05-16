@@ -7,9 +7,15 @@ import (
 )
 
 func TestChainedPromiseReactionObservesPublishedFulfillment(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, resolve, _ := js.NewChainedPromise()
 	observed := make(chan struct {
 		state PromiseState
@@ -59,9 +65,15 @@ func TestChainedPromiseReactionObservesPublishedFulfillment(t *testing.T) {
 }
 
 func TestChainedPromisePublishingReactionReentersThenAfterUnlock(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, resolve, _ := js.NewChainedPromise()
 	observed := make(chan string, 2)
 	nestedChild := make(chan *ChainedPromise, 1)
@@ -136,9 +148,15 @@ func TestChainedPromisePublishingReactionReentersThenAfterUnlock(t *testing.T) {
 }
 
 func TestChainedPromiseReactionObservesPublishedRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promise, _, reject := js.NewChainedPromise()
 	observed := make(chan struct {
 		state  PromiseState

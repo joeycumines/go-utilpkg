@@ -7,13 +7,19 @@ import (
 )
 
 func TestPromiseCreationStackDebugMode(t *testing.T) {
-	loop := New(WithDebugMode(true))
+	loop, err := New(WithDebugMode(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if err := loop.Close(); err != nil {
 			t.Errorf("Close: %v", err)
 		}
 	})
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	first := debugPromiseFirst(js)
 	second := debugPromiseSecond(js)
@@ -44,13 +50,20 @@ func TestPromiseCreationStackDebugMode(t *testing.T) {
 		{name: "explicit false", options: []LoopOption{WithDebugMode(false)}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(test.options...)
+			loop, err := New(test.options...)
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() {
 				if err := loop.Close(); err != nil {
 					t.Errorf("Close: %v", err)
 				}
 			})
-			promise, _, _ := NewJS(loop).NewChainedPromise()
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
+			promise, _, _ := js.NewChainedPromise()
 			if stack := promise.CreationStackTrace(); stack != "" {
 				t.Fatalf("disabled debug creation stack = %q, want empty", stack)
 			}
@@ -59,14 +72,20 @@ func TestPromiseCreationStackDebugMode(t *testing.T) {
 }
 
 func TestDebugModeUnhandledRejectionIncludesCreationStack(t *testing.T) {
-	loop := New(WithDebugMode(true))
+	loop, err := New(WithDebugMode(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if err := loop.Close(); err != nil {
 			t.Errorf("Close: %v", err)
 		}
 	})
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	promise, reject := debugUnhandledPromise(js)
 	reason := errors.New("test rejection")

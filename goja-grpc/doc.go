@@ -287,7 +287,10 @@
 //	defer cancel()
 //
 //	registry := require.NewRegistry()
-//	loop := eventloop.New()
+//	loop, err := eventloop.New()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	defer loop.Close()
 //	rt := goja.New()
 //	if err := rt.Set("__done", cancel); err != nil {

@@ -52,7 +52,10 @@ func FuzzLoopMicrotaskNextTickOrdering(f *testing.F) {
 		}
 
 		want := simulateMicrotaskTrace(initial, specs)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 		var got []int
 		var callbackErrs fuzzErrs
 		var scheduleJob func(microtaskChild)

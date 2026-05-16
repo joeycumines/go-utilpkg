@@ -15,13 +15,23 @@ const promiseAltOneTestTimeout = 5 * time.Second
 
 func newPromiseAltOneAutoLoop(t testing.TB) (*eventloop.Loop, *eventloop.JS) {
 	t.Helper()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	return loop, eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	return loop, js
 }
 
 func newPromiseAltOneUnstartedLoop(t testing.TB) (*eventloop.Loop, *eventloop.JS) {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), promiseAltOneTestTimeout)
 		defer cancel()
@@ -29,7 +39,11 @@ func newPromiseAltOneUnstartedLoop(t testing.TB) (*eventloop.Loop, *eventloop.JS
 			t.Errorf("Shutdown() failed: %v", err)
 		}
 	})
-	return loop, eventloop.NewJS(loop)
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	return loop, js
 }
 
 func runPromiseAltOneAutoLoop(t testing.TB, loop *eventloop.Loop) {
@@ -50,7 +64,8 @@ type promiseAltOneRunningLoop struct {
 
 func startPromiseAltOneRunningLoop(t testing.TB) (*promiseAltOneRunningLoop, *eventloop.JS) {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil { panic(err) }
 	harness := &promiseAltOneRunningLoop{
 		loop:     loop,
 		runDone:  make(chan error, 1),
@@ -63,7 +78,11 @@ func startPromiseAltOneRunningLoop(t testing.TB) (*promiseAltOneRunningLoop, *ev
 		t.Fatalf("Submit(start barrier) failed: %v", err)
 	}
 	waitPromiseAltOneSignal(t, ready, "loop start")
-	return harness, eventloop.NewJS(loop)
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	return harness, js
 }
 
 func (h *promiseAltOneRunningLoop) wait(t testing.TB, signal <-chan struct{}, description string) {

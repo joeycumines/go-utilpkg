@@ -7,7 +7,10 @@ import (
 )
 
 func TestRunRejectsReentrantOwnerCall(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	reentrantDone := make(chan error, 1)

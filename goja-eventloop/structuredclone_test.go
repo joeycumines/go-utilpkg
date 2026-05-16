@@ -12,10 +12,16 @@ import (
 func testSetup(t *testing.T) (*Adapter, func()) {
 	t.Helper()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}

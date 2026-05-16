@@ -5,9 +5,15 @@ import (
 )
 
 func TestPromiseRace_LateHandlerObservesWinner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	source, resolve, _ := js.NewChainedPromise()
 	result := js.Race([]*ChainedPromise{source})
@@ -25,9 +31,15 @@ func TestPromiseRace_LateHandlerObservesWinner(t *testing.T) {
 }
 
 func TestPromiseRace_AlreadySettledUsesInputSchedulingOrder(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	first := js.Resolve("first")
 	second := js.Reject("second")

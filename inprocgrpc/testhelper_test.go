@@ -28,7 +28,10 @@ func requirePanicContains(t testing.TB, want string, fn func()) {
 // newTestLoop creates a new event loop, starts it, and registers cleanup.
 func newTestLoop(t testing.TB) *eventloop.Loop {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	started := make(chan error, 1)
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})

@@ -9,7 +9,10 @@ import (
 )
 
 func TestLifecycleExternalCloseJoinsGracefulCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseWorker := make(chan struct{})
@@ -76,7 +79,10 @@ func TestLifecycleExternalCloseJoinsGracefulCompletion(t *testing.T) {
 }
 
 func TestLifecycleExternalShutdownJoinsImmediateCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	terminalPublished := make(chan struct{})
@@ -155,7 +161,10 @@ func TestLifecycleStateTerminatingModePublicationBarrier(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			sentinel := errors.New("injected terminal failure")
 			loop.storeTerminalError(sentinel)
@@ -253,7 +262,10 @@ func TestLifecycleStateTerminatingModePublicationBarrier(t *testing.T) {
 }
 
 func TestLifecycleJoinedShutdownRetainsContextBound(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	terminalPublished := make(chan struct{})
@@ -315,7 +327,10 @@ func TestLifecycleExternalCallJoinsTerminatedOpenBarrier(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			sentinel := errors.New("injected terminal failure")
 			loop.storeTerminalError(sentinel)
@@ -386,8 +401,14 @@ func TestLifecycleExternalCallJoinsInternalTermination(t *testing.T) {
 		skip         func() bool
 	}{
 		{
-			name:    "auto_exit",
-			newLoop: func() *Loop { return New(WithAutoExit(true)) },
+			name: "auto_exit",
+			newLoop: func() *Loop {
+				loop, err := New(WithAutoExit(true))
+				if err != nil {
+					panic(err)
+				}
+				return loop
+			},
 			start: func(_ *testing.T, loop *Loop) <-chan error {
 				done := make(chan error, 1)
 				go func() { done <- loop.Run(context.Background()) }()
@@ -395,8 +416,14 @@ func TestLifecycleExternalCallJoinsInternalTermination(t *testing.T) {
 			},
 		},
 		{
-			name:    "context_cancellation",
-			newLoop: func() *Loop { return New() },
+			name: "context_cancellation",
+			newLoop: func() *Loop {
+				loop, err := New()
+				if err != nil {
+					panic(err)
+				}
+				return loop
+			},
 			start: func(t *testing.T, loop *Loop) <-chan error {
 				ctx, cancel := context.WithCancel(context.Background())
 				done := make(chan error, 1)
@@ -408,8 +435,14 @@ func TestLifecycleExternalCallJoinsInternalTermination(t *testing.T) {
 			wantRun: context.Canceled,
 		},
 		{
-			name:    "poll_failure",
-			newLoop: func() *Loop { return New(WithFastPathMode(FastPathDisabled)) },
+			name: "poll_failure",
+			newLoop: func() *Loop {
+				loop, err := New(WithFastPathMode(FastPathDisabled))
+				if err != nil {
+					panic(err)
+				}
+				return loop
+			},
 			start: func(_ *testing.T, loop *Loop) <-chan error {
 				loop.testHooks.PollIO = func(int) (int, error) { return 0, pollFailure }
 				done := make(chan error, 1)

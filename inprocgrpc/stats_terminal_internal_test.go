@@ -213,7 +213,10 @@ func newInternalTestChannel(
 	options ...ChannelOption,
 ) *Channel {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	started := make(chan error, 1)
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})

@@ -3,7 +3,10 @@ package eventloop
 import "testing"
 
 func TestExternalCallbacksRunMicrotaskCheckpoints(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var order []string
 	loop.pushOwnerExternal(func() {

@@ -44,13 +44,12 @@ func TestFDTableComponentRegistry(t *testing.T) {
 			{ProvenanceKind: "commit", Path: "poller_linux.go", OriginCommit: "986e2378c1484aa917a1bb0fd13aef914bdce50f", OriginBlob: "d491ef03496571a7dd69cb1a6259f5263165018c", SHA256: "e2ae80547a1d458ac32b3e0c6f46009f0e80963019df65a3367a706bb1a6eb65"},
 			{ProvenanceKind: "commit", Path: "poller_windows.go", OriginCommit: "986e2378c1484aa917a1bb0fd13aef914bdce50f", OriginBlob: "ca13453cf505652a2d16884fa948d9339d5531be", SHA256: "86849e47deee908c230be42655e5b59ccbdbe2b3844f360672a1c6f0b6ea8a1b"},
 		},
-		"poller.bounded-dense-sparse-token-v3": {
-			{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "4459db136700471c2e3f028f146ee9ce2bc86b78", SHA256: "7db7d7f5d8f77d1e0bb093279d146ee24b05f76795f1e3a9a5c159000791ceb7"},
-			{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "3c7abf6589523e1549a4c9f479bd14d9a05e7b49", SHA256: "6753f5e2f961a4236264a8705aab2481ea2a86d5472e313fa65b1731732fcad9"},
-			{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "1a0319cbcd2087a2c73132cf346afb9ba1aa4c5d", SHA256: "581e51bec5396f36840095a0e1a8ac23b1b4bb832c9d0b4a4f238146bbfa39db"},
-			{ProvenanceKind: "index-candidate", Path: "poller_darwin.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "49d01c1bfd23813b455b9ddec60d5d3348ddcc35", SHA256: "dbe6ffed23c6ec17d8bcb546ce2c010c8ce18c019643c78d72242a8836763937"},
-			{ProvenanceKind: "index-candidate", Path: "poller_linux.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "d1aa5a3e5e7e68f828eb9351ec8160d30d8d58a1", SHA256: "1346b859643656b3d209aa070047b81b1ad720a1a512eff0d07d74a41d5957b1"},
-		},
+	"poller.bounded-dense-sparse-token-v3": {
+		{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "3d4fb6e0cf8f292638db78d2361dfc09bdf6f5df", SHA256: "dd5f8932625a66f9248dcf779dc98bb76b3e4c698ec32a91cd550d219d9f857a"},
+		{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "98f65bdb30264a8dbe073a221f7c839c19d7bf00", SHA256: "499f531fc372d133c9375b801893186fad512fde1a6b613b924c3f73450eaa6f"},
+		{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "1a0319cbcd2087a2c73132cf346afb9ba1aa4c5d", SHA256: "581e51bec5396f36840095a0e1a8ac23b1b4bb832c9d0b4a4f238146bbfa39db"},
+		{ProvenanceKind: "index-candidate", Path: "poller_linux.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9fbd45632a3c5221ab474dea37953bcbf1459f02", SHA256: "60b5b6246161c76fe6973ebedb2e768a9ff6dad97acb2419222d88209ab4ed83"},
+	},
 	}
 	wantMetadata := map[string]struct {
 		family              string
@@ -145,7 +144,7 @@ func TestFDTableComponentRegistry(t *testing.T) {
 		},
 		"poller.bounded-dense-sparse-token-v3": {
 			family:       "poller.bounded-dense-sparse",
-			revision:     "index-4459db1.nonwrapping-token",
+			revision:     "index-3d4fb6e.nonwrapping-token",
 			capabilities: []fdTableCapability{fdCapabilityDiagnostics, fdCapabilityGeneration, fdCapabilityToken, fdCapabilityIdentityExhaustion},
 			nativeDriver: fdNativePollerBounded,
 			policy: newFDTablePolicy(

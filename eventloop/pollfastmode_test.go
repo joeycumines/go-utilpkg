@@ -5,7 +5,10 @@ import (
 )
 
 func TestPollFastModeReusesFiniteSleepTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		loop.stopFastSleepTimer()
 		closeFDResourcesT(t, loop)
@@ -26,7 +29,10 @@ func TestPollFastModeReusesFiniteSleepTimer(t *testing.T) {
 }
 
 func TestPollFastModeFastWakePreservesPhysicalPending(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 
 	loop.state.Store(StateSleeping)
@@ -49,7 +55,10 @@ func TestPollFastModeBlockingFastWakePreservesPhysicalPending(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerFDResourceCleanupT(t, loop)
 			loop.state.Store(StateSleeping)
 			loop.wakeUpSignalPending.Store(wakeSignalPending)

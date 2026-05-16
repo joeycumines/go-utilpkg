@@ -23,7 +23,10 @@ func benchmarkAutoExitImmediate(b *testing.B, ctx context.Context) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			b.Fatal(err)
+		}
 		if err := loop.Run(ctx); err != nil {
 			b.Fatalf("Run: %v", err)
 		}

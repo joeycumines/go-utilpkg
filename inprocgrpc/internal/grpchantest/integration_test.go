@@ -9,7 +9,10 @@ import (
 )
 
 func TestRunChannelTestCases(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx := t.Context()
 	go loop.Run(ctx)
 

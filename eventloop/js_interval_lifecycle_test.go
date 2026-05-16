@@ -19,9 +19,15 @@ func TestJSIntervalRefOperationDoesNotWaitForCallback(t *testing.T) {
 
 	for _, operation := range operations {
 		t.Run(operation.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop)
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			callbackEntered := make(chan struct{})
 			releaseCallback := make(chan struct{})
@@ -63,9 +69,15 @@ func TestJSIntervalRefOperationDoesNotWaitForCallback(t *testing.T) {
 }
 
 func TestJSIntervalRefOperationsPreservePreRunFIFO(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	id, err := js.SetInterval(func() {}, int(time.Hour/time.Millisecond))
 	if err != nil {
 		t.Fatal(err)
@@ -171,9 +183,15 @@ func TestJSIntervalRefOperationsPreserveExternalOwnerFIFO(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop)
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			callbackEntered := make(chan struct{})
 			releaseCallback := make(chan struct{})
@@ -182,7 +200,7 @@ func TestJSIntervalRefOperationsPreserveExternalOwnerFIFO(t *testing.T) {
 			defer releaseOnce.Do(func() { close(releaseCallback) })
 			ownerDone := make(chan error, 1)
 			var intervalID uint64
-			intervalID, err := js.SetInterval(func() {
+			intervalID, err = js.SetInterval(func() {
 				callbackOnce.Do(func() {
 					close(callbackEntered)
 					<-releaseCallback
@@ -249,9 +267,15 @@ func TestJSIntervalRefOperationDoesNotWaitDuringPreRunTermination(t *testing.T) 
 
 	for _, operation := range operations {
 		t.Run(operation.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop)
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 			id, err := js.SetInterval(func() {}, int(time.Hour/time.Millisecond))
 			if err != nil {
 				t.Fatal(err)

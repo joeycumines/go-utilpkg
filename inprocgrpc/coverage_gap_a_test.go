@@ -150,7 +150,10 @@ func stoppedLoopChannel(
 	opts ...inprocgrpc.ChannelOption,
 ) *inprocgrpc.Channel {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -231,7 +234,10 @@ func TestCoverage_Invoke_InnerSubmitFailure(t *testing.T) {
 	// The handler goroutine runs, then tries to Submit its completion back
 	// to the loop. If the loop stops between the outer Submit and the inner
 	// Submit, the inner Submit fails and resCh gets an Unavailable error.
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -291,7 +297,10 @@ func TestCoverage_NewStream_InnerSubmitFailure(t *testing.T) {
 	// The handler goroutine runs, then tries to Submit its completion.
 	// If the loop stops, the inner Submit fails and cleans up directly.
 	// The client already has the stream, so it will see errors on subsequent calls.
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -401,7 +410,10 @@ func TestCoverage_Stream_FetchTrailers_ContextCancel(t *testing.T) {
 // --- Coverage gap: CloseSend with stopped loop ---
 
 func TestCoverage_Stream_CloseSend_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -435,7 +447,10 @@ func TestCoverage_Stream_CloseSend_LoopStopped(t *testing.T) {
 // --- Coverage gap: SendMsg with stopped loop ---
 
 func TestCoverage_Stream_SendMsg_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -468,7 +483,10 @@ func TestCoverage_Stream_SendMsg_LoopStopped(t *testing.T) {
 // --- Coverage gap: RecvMsg with stopped loop ---
 
 func TestCoverage_Stream_RecvMsg_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -502,7 +520,10 @@ func TestCoverage_Stream_RecvMsg_LoopStopped(t *testing.T) {
 // --- Coverage gap: Header with stopped loop ---
 
 func TestCoverage_Stream_Header_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -539,7 +560,10 @@ func TestCoverage_Stream_Header_LoopStopped(t *testing.T) {
 // --- Coverage gap: Trailer with stopped loop ---
 
 func TestCoverage_Stream_Trailer_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -575,7 +599,10 @@ func TestCoverage_ServerAdapter_SetHeader_LoopStopped(t *testing.T) {
 	// Server handler calls SetHeader after loop stops.
 	// SubmitInternal fails, returns Internal error.
 	svrErr := make(chan error, 1)
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -602,7 +629,7 @@ func TestCoverage_ServerAdapter_SetHeader_LoopStopped(t *testing.T) {
 	}})
 	ch.RegisterService(&desc, &echoServer{})
 
-	_, err := ch.NewStream(context.Background(), &grpc.StreamDesc{
+	_, err = ch.NewStream(context.Background(), &grpc.StreamDesc{
 		ServerStreams: true,
 		ClientStreams: true,
 	}, "/test.TestService/BidiStream")
@@ -623,7 +650,10 @@ func TestCoverage_ServerAdapter_SetHeader_LoopStopped(t *testing.T) {
 
 func TestCoverage_ServerAdapter_SendHeader_LoopStopped(t *testing.T) {
 	svrErr := make(chan error, 1)
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -650,7 +680,7 @@ func TestCoverage_ServerAdapter_SendHeader_LoopStopped(t *testing.T) {
 	}})
 	ch.RegisterService(&desc, &echoServer{})
 
-	_, err := ch.NewStream(context.Background(), &grpc.StreamDesc{
+	_, err = ch.NewStream(context.Background(), &grpc.StreamDesc{
 		ServerStreams: true,
 		ClientStreams: true,
 	}, "/test.TestService/BidiStream")

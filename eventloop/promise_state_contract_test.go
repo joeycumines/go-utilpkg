@@ -11,10 +11,16 @@ import (
 
 // Test ChainedPromise.State() method - covers promise.go:265
 func TestChainedPromise_State_Lifecycle(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Pending state", func(t *testing.T) {
 		p, _, _ := js.NewChainedPromise()
@@ -44,10 +50,16 @@ func TestChainedPromise_State_Lifecycle(t *testing.T) {
 
 // Test ChainedPromise.Value() and Reason() methods - covers promise.go:272,284
 func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Value() returns fulfillment value", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
@@ -110,10 +122,16 @@ func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 
 // Test Chaining Cycle Detection - covers promise.go:296-299
 func TestChainedPromise_CycleDetection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, resolve, _ := js.NewChainedPromise()
 
@@ -133,10 +151,16 @@ func TestChainedPromise_CycleDetection(t *testing.T) {
 
 // Test Promise Adopts State from Another Promise - covers promise.go:304-318
 func TestChainedPromise_AdoptsState(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Adopts fulfilled state", func(t *testing.T) {
 		p1, resolve1, _ := js.NewChainedPromise()
@@ -187,10 +211,16 @@ func TestChainedPromise_AdoptsState(t *testing.T) {
 
 // Test Nil Handler Pass-Through - covers tryCall promise.go:680-684
 func TestChainedPromise_NilHandlerPassThrough(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Then with nil handlers passes value through", func(t *testing.T) {
 		p, resolve, _ := js.NewChainedPromise()
@@ -220,10 +250,16 @@ func TestChainedPromise_NilHandlerPassThrough(t *testing.T) {
 
 // Test Resolve/Reject Idempotency - covers promise.go:322,363
 func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Resolve only accepts first call", func(t *testing.T) {
 		p1, resolve1, _ := js.NewChainedPromise()

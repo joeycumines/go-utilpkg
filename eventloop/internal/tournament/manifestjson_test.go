@@ -59,12 +59,14 @@ func validateTournamentManifestJSONShape(data []byte) error {
 		return errors.New("manifest schema_version must be an integer")
 	}
 	var rootKeys []string
+	var optionalRootKeys []string
 	switch schemaVersion {
 	case 4:
 		rootKeys = []string{
 			"concepts", "lanes", "lineage", "measurement", "revision_checkpoints", "revision_variants",
 			"schema_version", "source_authority", "source_history", "variant_groups", "variants",
 		}
+		optionalRootKeys = []string{"root_dispositions"}
 	case 5:
 		rootKeys = []string{
 			"concepts", "lanes", "lineage", "measurement", "revision_checkpoints", "revision_variants",
@@ -73,7 +75,7 @@ func validateTournamentManifestJSONShape(data []byte) error {
 	default:
 		return fmt.Errorf("unsupported manifest schema %d", schemaVersion)
 	}
-	if err := requireTournamentRawKeys(root, rootKeys, "manifest"); err != nil {
+	if err := allowTournamentManifestRootKeys(root, rootKeys, optionalRootKeys); err != nil {
 		return err
 	}
 	for key, value := range root {
@@ -375,6 +377,27 @@ func requireTournamentRawKeys(object map[string]json.RawMessage, expected []stri
 	slices.Sort(actual)
 	if !slices.Equal(actual, expected) {
 		return fmt.Errorf("%s keys = %q, want %q", description, actual, expected)
+	}
+	return nil
+}
+
+func allowTournamentManifestRootKeys(root map[string]json.RawMessage, required, optional []string) error {
+	allowed := make(map[string]struct{}, len(required)+len(optional))
+	for _, key := range required {
+		allowed[key] = struct{}{}
+	}
+	for _, key := range optional {
+		allowed[key] = struct{}{}
+	}
+	for key := range root {
+		if _, ok := allowed[key]; !ok {
+			return fmt.Errorf("manifest has unknown key %q", key)
+		}
+	}
+	for _, key := range required {
+		if _, ok := root[key]; !ok {
+			return fmt.Errorf("manifest omits required key %q", key)
+		}
 	}
 	return nil
 }

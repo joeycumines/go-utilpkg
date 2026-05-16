@@ -39,7 +39,6 @@ var tournamentCandidateScopes = []string{
 	"eventloop/scheduler_topology_bench_test.go",
 	"eventloop/wakeup_dedup_test.go",
 	"go.work",
-	"goja-eventloop/adapter_promise_check_test.go",
 	"goja-eventloop/benchmark_lifecycle_test.go",
 	"goja-eventloop/process_lifecycle_bench_test.go",
 	"goja-eventloop/promise_handover_bench_test.go",
@@ -65,10 +64,10 @@ func TestTournamentCandidateTrackedPathCensus(t *testing.T) {
 		t.Fatalf("git ls-files: %v", err)
 	}
 	paths := bytes.Split(bytes.TrimSuffix(data, []byte{0}), []byte{0})
-	if len(paths) != 558 {
-		t.Fatalf("tracked tournament candidate paths = %d, want 558", len(paths))
+	if len(paths) != 640 {
+		t.Fatalf("tracked tournament candidate paths = %d, want 640", len(paths))
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "9d442421b72ddce3b266caa4b78c3fd729c101b39c4235b44755150a5fb102d4" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "71bec52213fa5f0f8a7c31b8000cb2fea855addca44c74622edb03a252f01cdf" {
 		t.Fatalf("tracked tournament candidate path-set SHA-256 = %s", got)
 	}
 	for _, required := range [][]byte{

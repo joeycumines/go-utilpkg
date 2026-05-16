@@ -13,8 +13,14 @@ import (
 func Example_promiseChaining() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	promise, resolve, _ := js.NewChainedPromise()
 	final := promise.
 		Then(func(value any) any {
@@ -45,8 +51,14 @@ func Example_promiseChaining() {
 func Example_promiseAll() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	p1, resolve1, _ := js.NewChainedPromise()
 	p2, resolve2, _ := js.NewChainedPromise()
 	p3, resolve3, _ := js.NewChainedPromise()
@@ -72,8 +84,14 @@ func Example_promiseAll() {
 func Example_promiseCatch() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	promise, _, reject := js.NewChainedPromise()
 	final := promise.
 		Then(func(any) any { fmt.Println("unexpected fulfillment"); return nil }, nil).
@@ -103,8 +121,14 @@ func Example_promiseCatch() {
 func Example_promiseRace() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	fast, resolveFast, _ := js.NewChainedPromise()
 	slow, resolveSlow, _ := js.NewChainedPromise()
 	race := js.Race([]*eventloop.ChainedPromise{fast, slow})
@@ -128,8 +152,14 @@ func Example_promiseRace() {
 func Example_promiseAny() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	p1, _, reject1 := js.NewChainedPromise()
 	p2, resolve2, _ := js.NewChainedPromise()
 	p3, _, reject3 := js.NewChainedPromise()
@@ -156,8 +186,14 @@ func Example_promiseAny() {
 func Example_promiseWithResolvers() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New()
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
 	resolvers := js.WithResolvers()
 	printed := resolvers.Promise.Then(func(value any) any {
 		fmt.Printf("Got: %v\n", value)

@@ -36,7 +36,10 @@ func (run *asyncLoopRun) Err() error {
 // when ephemeral work arrives after runFastPath's final Alive() re-check but
 // before run() commits termination.
 func TestFastPathAutoExit_StaleQuiescingClearedBeforeEphemeralSubmitRuns(t *testing.T) {
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathForced))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hookEntered := make(chan struct{})
 	submitErrCh := make(chan error, 1)
@@ -123,7 +126,10 @@ func TestFastPathAutoExit_StaleQuiescingClearedBeforeEphemeralSubmitRuns(t *test
 }
 
 func TestFastPathAutoExit_EphemeralSubmitBeforeQuiescingClearRuns(t *testing.T) {
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathForced))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hookEntered := make(chan struct{})
 	submitErrCh := make(chan error, 1)

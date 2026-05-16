@@ -7,9 +7,15 @@ import (
 )
 
 func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	const count = 10
 	promises := make([]*ChainedPromise, count)
@@ -45,9 +51,15 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 }
 
 func TestPromiseAll_ConcurrentResolveAndReject(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	rejection := errors.New("rejection")
 	rejected, _, reject := js.NewChainedPromise()
@@ -80,9 +92,15 @@ func TestPromiseAll_ConcurrentResolveAndReject(t *testing.T) {
 }
 
 func TestPromiseAll_FirstRejectionRemainsStable(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	first, _, rejectFirst := js.NewChainedPromise()
 	second, resolveSecond, _ := js.NewChainedPromise()
@@ -105,9 +123,15 @@ func TestPromiseAll_FirstRejectionRemainsStable(t *testing.T) {
 }
 
 func TestPromiseAll_MixedImmediateAndPending(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	immediate := js.Resolve("immediate")
 	pending, resolvePending, _ := js.NewChainedPromise()

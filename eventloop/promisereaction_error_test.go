@@ -64,9 +64,15 @@ func assertUnhandledRejectionTrackingDrained(t *testing.T, js *JS) {
 }
 
 func TestChainedPromise_HandlerScheduleErrorRejectsChild(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := js.Resolve("ready")
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -91,9 +97,15 @@ func TestChainedPromise_HandlerScheduleErrorRejectsChild(t *testing.T) {
 }
 
 func TestChainedPromise_PassThroughScheduleErrorPreservesFulfillment(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := js.Resolve("ready")
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -110,9 +122,15 @@ func TestChainedPromise_PassThroughScheduleErrorPreservesFulfillment(t *testing.
 }
 
 func TestChainedPromise_PassThroughScheduleErrorPreservesRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := js.Reject("reason")
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -129,9 +147,15 @@ func TestChainedPromise_PassThroughScheduleErrorPreservesRejection(t *testing.T)
 }
 
 func TestChainedPromise_AdoptionScheduleErrorPreservesFulfillment(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	source := js.Resolve("adopted value")
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
@@ -149,9 +173,15 @@ func TestChainedPromise_AdoptionScheduleErrorPreservesFulfillment(t *testing.T) 
 }
 
 func TestChainedPromise_AdoptionScheduleErrorPreservesRejection(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	source := js.Reject("adopted reason")
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
@@ -170,9 +200,15 @@ func TestChainedPromise_AdoptionScheduleErrorPreservesRejection(t *testing.T) {
 
 func TestChainedPromise_PendingAdoptionScheduleErrorPreservesSourceSettlement(t *testing.T) {
 	t.Run("fulfillment", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		js := NewJS(loop)
+		js, err := NewJS(loop)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		source, resolveSource, _ := js.NewChainedPromise()
 		adopter, resolveAdopter, _ := js.NewChainedPromise()
@@ -194,9 +230,15 @@ func TestChainedPromise_PendingAdoptionScheduleErrorPreservesSourceSettlement(t 
 	})
 
 	t.Run("rejection", func(t *testing.T) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+		js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		source, _, rejectSource := js.NewChainedPromise()
 		adopter, resolveAdopter, _ := js.NewChainedPromise()
@@ -219,12 +261,15 @@ func TestChainedPromise_PendingAdoptionScheduleErrorPreservesSourceSettlement(t 
 }
 
 func TestChainedPromise_HandlerScheduleErrorRejectsChildAfterParentUnlock(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var parent *ChainedPromise
 	var reentered atomic.Bool
 	reenteredParent := make(chan struct{}, 1)
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(any) {
 			if reentered.CompareAndSwap(false, true) {
 				parent.Then(func(any) any { return nil }, nil)
@@ -233,6 +278,9 @@ func TestChainedPromise_HandlerScheduleErrorRejectsChildAfterParentUnlock(t *tes
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var resolve ResolveFunc
 	parent, resolve, _ = js.NewChainedPromise()
@@ -271,11 +319,17 @@ func TestChainedPromise_HandlerScheduleErrorRejectsChildAfterParentUnlock(t *tes
 
 func TestChainedPromise_HandlerScheduleErrorRegistersCatchBeforeChildFallback(t *testing.T) {
 	reported := make(chan any, 3)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := &ChainedPromise{js: js, result: "parent"}
 	parent.state.Store(int32(Rejected))
@@ -319,12 +373,18 @@ func TestChainedPromise_HandlerScheduleErrorRegistersCatchBeforeChildFallback(t 
 
 func TestChainedPromise_ThenWithoutRejectedHandlesParentReportsChild(t *testing.T) {
 	reported := make(chan any, 3)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := js.Reject("pass-through")
 	var fulfilledCalled atomic.Bool
@@ -364,12 +424,18 @@ func TestChainedPromise_ThenWithoutRejectedHandlesParentReportsChild(t *testing.
 
 func TestChainedPromise_CatchHandlesParentAndChildStaysQuiet(t *testing.T) {
 	reported := make(chan any, 3)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent := js.Reject("handled")
 	child := parent.Catch(func(reason any) any {
@@ -399,12 +465,18 @@ func TestChainedPromise_CatchHandlesParentAndChildStaysQuiet(t *testing.T) {
 
 func TestChainedPromise_AdoptionHandlesSourceReportsAdopter(t *testing.T) {
 	reported := make(chan any, 3)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	source := js.Reject("adopted")
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
@@ -438,7 +510,10 @@ func TestChainedPromise_AdoptionHandlesSourceReportsAdopter(t *testing.T) {
 
 func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *testing.T) {
 	reported := make(chan any, 4)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var hookSeen atomic.Bool
 	var rejectHookSeen atomic.Bool
@@ -461,9 +536,12 @@ func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *tes
 		},
 	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent, _, rejectParent := js.NewChainedPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -545,7 +623,10 @@ func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *tes
 
 func TestChainedPromise_RejectedStateLateCatchSeesRecordedRejection(t *testing.T) {
 	reported := make(chan any, 4)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var js *JS
 	var hookSeen atomic.Bool
@@ -566,9 +647,12 @@ func TestChainedPromise_RejectedStateLateCatchSeesRecordedRejection(t *testing.T
 		},
 	}
 
-	js = NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err = NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent, _, rejectParent := js.NewChainedPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {

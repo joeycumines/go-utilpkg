@@ -10,8 +10,15 @@ import (
 
 func newPromiseAltThreeAutoLoop(t testing.TB) (*eventloop.Loop, *eventloop.JS) {
 	t.Helper()
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	return loop, eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
+	return loop, js
 }
 
 func runPromiseAltThreeAutoLoop(t testing.TB, loop *eventloop.Loop) {

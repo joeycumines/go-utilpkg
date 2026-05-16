@@ -81,7 +81,10 @@ func newAdapterDiagnosticLoggedLoop(t *testing.T) (*goeventloop.Loop, <-chan ada
 			return nil
 		})),
 	).Logger()
-	loop := goeventloop.New(goeventloop.WithLogger(logger))
+	loop, err := goeventloop.New(goeventloop.WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	return loop, records
 }
 
@@ -97,7 +100,10 @@ func receiveAdapterDiagnosticLog(t *testing.T, records <-chan adapterDiagnosticL
 }
 
 func TestPromiseJobEnqueuerReportsScheduleMicrotaskError(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +139,10 @@ func TestPromiseJobEnqueuerTerminalGateDropsJobs(t *testing.T) {
 		{name: "terminal scheduling race", exiting: false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.Close(); err != nil {
 				t.Fatal(err)
 			}
@@ -191,9 +200,15 @@ func TestPromiseJobEnqueuerDefaultReporterUsesLoopLogger(t *testing.T) {
 }
 
 func TestPromiseJobEnqueuerReportsRunPromiseJobError(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	reported := make(chan error, 1)
 	runtime.SetPromiseJobEnqueuer(newPromiseJobEnqueuer(loop, runtime, func(err error) {
 		reported <- err

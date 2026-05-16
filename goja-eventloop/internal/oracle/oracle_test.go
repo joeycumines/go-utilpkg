@@ -519,7 +519,10 @@ func TestCappedBufferRejectsOversize(t *testing.T) {
 }
 
 func TestGojaConsoleCaptureIsScopedAndPreservesExceptionIdentity(t *testing.T) {
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		if err := loop.Close(); err != nil && !errors.Is(err, goeventloop.ErrLoopTerminated) {
 			t.Errorf("close loop: %v", err)
@@ -527,6 +530,9 @@ func TestGojaConsoleCaptureIsScopedAndPreservesExceptionIdentity(t *testing.T) {
 	})
 	runtime := goja.New()
 	adapter, err := gojaeventloop.New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

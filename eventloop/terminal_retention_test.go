@@ -25,7 +25,10 @@ func TestCloseReleasesConfiguredCallbackCaptures(t *testing.T) {
 }
 
 func TestTerminatedLoopDoesNotRetainQuiescenceHandler(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -35,7 +38,10 @@ func TestTerminatedLoopDoesNotRetainQuiescenceHandler(t *testing.T) {
 }
 
 func TestCloseClearsQuiescenceHandlerCommittedBeforeTransition(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.quiescenceMu.Lock()
 	pointer, setterDone := installBlockedQuiescenceCapture(loop)
 
@@ -64,7 +70,10 @@ func TestCloseClearsQuiescenceHandlerCommittedBeforeTransition(t *testing.T) {
 }
 
 func TestCloseRejectsQuiescenceHandlerWaitingBehindTransition(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	setterReached := make(chan struct{})
 	releaseSetter := make(chan struct{})
 	var releaseOnce sync.Once
@@ -87,8 +96,14 @@ func TestCloseRejectsQuiescenceHandlerWaitingBehindTransition(t *testing.T) {
 }
 
 func TestCloseDiscardsTerminalRegistryStorage(t *testing.T) {
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -107,7 +122,10 @@ func TestCloseDiscardsTerminalRegistryStorage(t *testing.T) {
 }
 
 func TestCloseDiscardsFastSleepTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	entered := make(chan struct{})
 	var once sync.Once
 	loop.testHooks = &loopTestHooks{
@@ -142,9 +160,12 @@ func newLoopWithTerminalCallbackCaptures() (*Loop, weak.Pointer[terminalRetentio
 	quiescence := &terminalRetentionPayload{value: 2}
 	quiescencePointer := weak.Make(quiescence)
 
-	loop := New(WithQueuePressureHandler(func() {
+	loop, err := New(WithQueuePressureHandler(func() {
 		pressure.value++
 	}))
+	if err != nil {
+		panic(err)
+	}
 	loop.SetQuiescenceHandler(func() bool {
 		quiescence.value++
 		return false

@@ -15,7 +15,10 @@ import (
 )
 
 func TestLoopLifecycleClosesWakeDescriptors(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatalf("ensurePoller: %v", err)
@@ -34,7 +37,10 @@ func TestLoopLifecycleClosesWakeDescriptors(t *testing.T) {
 }
 
 func TestLoopUnregisterReportsOwnedDescriptorCloseFailureAfterReleasingLiveness(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -64,7 +70,7 @@ func TestLoopUnregisterReportsOwnedDescriptorCloseFailureAfterReleasingLiveness(
 		}
 		return nil
 	}
-	err := loop.UnregisterFD(pipeFDs[0])
+	err = loop.UnregisterFD(pipeFDs[0])
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("UnregisterFD error = %v, want injected close failure", err)
 	}
@@ -94,7 +100,11 @@ func TestUnregisterFDUnderflowLoggerRunsAfterResourceLocks(t *testing.T) {
 			return nil
 		})),
 	)
-	loop = New(WithLogger(logger.Logger()))
+	var err error
+	loop, err = New(WithLogger(logger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -146,7 +156,10 @@ func TestLoopLifecycleReportsPollerDescriptorCloseFailure(t *testing.T) {
 						return nil
 					})),
 				)
-				loop := New(WithLogger(panicLogger.Logger()))
+				loop, err := New(WithLogger(panicLogger.Logger()))
+				if err != nil {
+					t.Fatal(err)
+				}
 				var pipeFDs [2]int
 				if err := unix.Pipe(pipeFDs[:]); err != nil {
 					t.Fatal(err)
@@ -177,7 +190,7 @@ func TestLoopLifecycleReportsPollerDescriptorCloseFailure(t *testing.T) {
 				}
 				operationDone := make(chan error, 1)
 				go func() { operationDone <- operation.run(loop) }()
-				err := waitContractValue(t, operationDone, "lifecycle operation after logger failure")
+				err = waitContractValue(t, operationDone, "lifecycle operation after logger failure")
 				if !errors.Is(err, sentinel) {
 					t.Fatalf("lifecycle error = %v, want injected close failure", err)
 				}
@@ -242,7 +255,11 @@ func TestTerminalCompletionLoggerLifecycleReentry(t *testing.T) {
 					return nil
 				})),
 			)
-			loop = New(WithLogger(logger.Logger()))
+			var err error
+			loop, err = New(WithLogger(logger.Logger()))
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			var pipeFDs [2]int
 			if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -337,7 +354,11 @@ func TestLoopOwnerCleanupLoggerShutdownAcknowledgesGracefulMode(t *testing.T) {
 			return nil
 		})),
 	)
-	loop = New(WithLogger(logger.Logger()))
+	var err error
+	loop, err = New(WithLogger(logger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -423,9 +444,15 @@ func TestLoopOwnerDescriptorCleanupLoggerRetiresFallbackWorker(t *testing.T) {
 			return nil
 		})),
 	)
-	loop := New(WithLogger(logger.Logger()))
+	loop, err := New(WithLogger(logger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _, reject = js.NewChainedPromise()
 
 	var pipeFDs [2]int
@@ -487,7 +514,10 @@ func TestLoopOwnerDescriptorCleanupLoggerRetiresFallbackWorker(t *testing.T) {
 }
 
 func TestRunReportsRunningCloseDescriptorCleanupFailure(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
 		t.Fatal(err)
@@ -557,7 +587,10 @@ func TestRunReportsRunningCloseDescriptorCleanupFailure(t *testing.T) {
 }
 
 func TestLoopWakeRegistrationFailureRollsBackPollerResources(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var wakeFD, wakeWriteFD int
 	loop.testHooks = &loopTestHooks{
 		BeforeWakeFDRegister: func(readFD, writeFD int) {
@@ -602,7 +635,10 @@ func TestLoopWakeRegistrationFailureRollsBackPollerResources(t *testing.T) {
 }
 
 func TestTerminalCleanupClearsRetainedRegistrationCount(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)
 	closeFDLock := make(chan struct{})
@@ -625,7 +661,7 @@ func TestTerminalCleanupClearsRetainedRegistrationCount(t *testing.T) {
 			}
 		},
 	}
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	var partial *FDRegistrationRollbackError
 	if !errors.As(err, &partial) || !partial.Registered() {
 		t.Fatalf("RegisterFD error at return = %#v, want retained ownership", err)

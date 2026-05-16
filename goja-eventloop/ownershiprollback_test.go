@@ -15,12 +15,18 @@ import (
 )
 
 func TestAdapterBindConflictDoesNotInstall(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	js, err := goeventloop.BindJS(loop, nil, nil)
 	if err != nil {
 		t.Fatalf("reserve loop JS binding: %v", err)
 	}
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -46,13 +52,19 @@ func TestAdapterBindConflictDoesNotInstall(t *testing.T) {
 }
 
 func TestAdapterBindConflictRestoresHostAccessorsWithoutInvokingSetters(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	js, err := goeventloop.BindJS(loop, nil, nil)
 	if err != nil {
 		t.Fatalf("reserve loop JS binding: %v", err)
 	}
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	calls := make(map[string]int)
 	before := make(map[string]observedDescriptor)
 	for _, name := range []string{"Crypto", "Performance", "crypto", "performance"} {
@@ -93,13 +105,19 @@ func TestAdapterBindConflictRestoresHostAccessorsWithoutInvokingSetters(t *testi
 }
 
 func TestAdapterBindConflictAvoidsInheritedProcessSetters(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	js, err := goeventloop.BindJS(loop, nil, nil)
 	if err != nil {
 		t.Fatalf("reserve loop JS binding: %v", err)
 	}
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 
 	names := []string{"_events", "_eventsCount", "_maxListeners", "emitWarning", "exit", "nextTick"}
@@ -156,8 +174,14 @@ func TestAdapterBindConflictAvoidsInheritedProcessSetters(t *testing.T) {
 }
 
 func TestAdapterBindConcurrentState(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	console := runtime.NewObject()
 	entered := make(chan struct{})
@@ -192,8 +216,14 @@ func TestAdapterBindConcurrentState(t *testing.T) {
 }
 
 func TestAdapterBindThrowingJournalReadReleasesClaim(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	thrown := runtime.NewObject()
 	if err := thrown.SetSymbol(goja.SymToPrimitive, func(goja.FunctionCall) goja.Value {
@@ -235,8 +265,14 @@ func TestAdapterBindThrowingJournalReadReleasesClaim(t *testing.T) {
 }
 
 func TestAdapterBindNativePanicRollsBackAndReleasesClaim(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	wantPanic := errors.New("native console getter panic")
 	getter := runtime.ToValue(func(goja.FunctionCall) goja.Value { panic(wantPanic) })
@@ -270,8 +306,14 @@ func TestAdapterBindNativePanicRollsBackAndReleasesClaim(t *testing.T) {
 }
 
 func TestAdapterBindGoexitRollsBackInsideInstall(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, crypto := installConformingHostSingletons(t, runtime)
 	getter := runtime.ToValue(func(goja.FunctionCall) goja.Value {
 		goruntime.Goexit()
@@ -332,8 +374,14 @@ func TestAdapterBindHostLifecycleReentryRollsBackWithoutDeadlock(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
 			installConformingHostSingletons(t, runtime)
 			console := runtime.NewObject()
 			var requestErr error
@@ -373,7 +421,8 @@ func TestAdapterBindHostLifecycleReentryRollsBackWithoutDeadlock(t *testing.T) {
 			if adapter.state() != adapterStateFailed || adapter.OwnsRuntime(runtime) || adapter.OwnsLoop(loop) {
 				t.Fatal("host lifecycle reentry retained usable adapter ownership")
 			}
-			replacement, err := New(goeventloop.New(), runtime)
+			replacementLoop, _ := goeventloop.New()
+			replacement, err := New(replacementLoop, runtime)
 			if err != nil {
 				t.Fatalf("claim runtime after host lifecycle reentry: %v", err)
 			}
@@ -383,8 +432,14 @@ func TestAdapterBindHostLifecycleReentryRollsBackWithoutDeadlock(t *testing.T) {
 }
 
 func TestAdapterBindRollbackExact(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	performance, crypto := installConformingHostSingletons(t, runtime)
 	console := runtime.NewObject()
 	foreignConsoleTime := runtime.ToValue(func() string { return "foreign-console" })
@@ -475,13 +530,19 @@ func TestAdapterBindRollbackExact(t *testing.T) {
 }
 
 func TestAdapterBindLateGetterCannotObservePreparedGlobals(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	js, err := goeventloop.BindJS(loop, nil, nil)
 	if err != nil {
 		t.Fatalf("reserve loop JS binding: %v", err)
 	}
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -568,9 +629,15 @@ func TestAdapterBindLateGetterCannotObservePreparedGlobals(t *testing.T) {
 }
 
 func TestAdapterBindFinalPreflightPreservesLateHostMutation(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	performance, _ := installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -612,9 +679,15 @@ func TestAdapterBindFinalPreflightPreservesLateHostMutation(t *testing.T) {
 func TestAdapterBindFinalPreflightRejectsLateIdentityChanges(t *testing.T) {
 	for _, name := range []string{"global", "Promise", "Symbol"} {
 		t.Run(name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			performance, _ := installConformingHostSingletons(t, runtime)
 			adapter, err := New(loop, runtime)
 			if err != nil {
@@ -725,9 +798,15 @@ func TestAdapterBindRejectsNonextensibleCommitTargetsBeforePublication(t *testin
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			installConformingHostSingletons(t, runtime)
 			adapter, err := New(loop, runtime)
 			if err != nil {

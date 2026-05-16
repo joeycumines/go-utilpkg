@@ -17,11 +17,17 @@ import (
 // so they don't need loop.Run().
 func newBoundCryptoTestAdapter(t *testing.T) (*goeventloop.Loop, *goja.Runtime) {
 	t.Helper()
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { loop.Shutdown(context.Background()) })
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}

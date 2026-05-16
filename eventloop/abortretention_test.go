@@ -51,7 +51,10 @@ func pendingAbortAlgorithmCount(signal *AbortSignal) int {
 
 func newSettledTimeoutLoop(t *testing.T, manual bool) (*AbortController, weak.Pointer[Loop]) {
 	t.Helper()
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	pointer := weak.Make(loop)
 	delay := 0
 	if manual {
@@ -79,7 +82,10 @@ func newSettledTimeoutLoop(t *testing.T, manual bool) (*AbortController, weak.Po
 
 func newTerminalTimeoutLoop(t *testing.T, running, graceful bool) (*AbortController, weak.Pointer[Loop]) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	pointer := weak.Make(loop)
 	controller, err := AbortTimeout(loop, int(time.Hour/time.Millisecond))
 	if err != nil {

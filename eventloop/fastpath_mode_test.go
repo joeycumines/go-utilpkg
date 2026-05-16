@@ -9,7 +9,10 @@ import (
 )
 
 func TestRegisterFDForcedModeRejectsWithoutPollerResources(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathForced))
+	loop, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if loop.pollerReady.Load() || loop.wakePipe != -1 || loop.wakePipeWrite != -1 {
 		t.Fatalf("forced task-only resources = (ready %v, wake %d/%d), want uninitialized", loop.pollerReady.Load(), loop.wakePipe, loop.wakePipeWrite)
@@ -33,7 +36,10 @@ func TestRegisterFDForcedModeRejectsWithoutPollerResources(t *testing.T) {
 }
 
 func TestFastPathAutoTracksFDRegistration(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if !loop.canUseFastPath() || loop.pollerReady.Load() {
 		t.Fatalf("initial Auto state = (fast %v, poller %v), want (true, false)", loop.canUseFastPath(), loop.pollerReady.Load())

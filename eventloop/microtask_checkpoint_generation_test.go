@@ -6,7 +6,10 @@ import (
 )
 
 func TestMicrotaskCheckpointScheduledFromCheckpointYieldsToPrimaryMicrotasks(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var order []string

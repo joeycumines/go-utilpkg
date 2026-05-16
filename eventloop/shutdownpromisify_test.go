@@ -9,7 +9,10 @@ import (
 )
 
 func TestClosePromisifyConcurrentShutdownCloseWinner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseWorker := make(chan struct{})
@@ -82,7 +85,10 @@ func TestClosePromisifyConcurrentShutdownCloseWinner(t *testing.T) {
 }
 
 func TestClosePromisifyWorkerDoesNotJoinWinningShutdown(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	shutdownTransitioned := make(chan struct{})
@@ -171,7 +177,10 @@ func TestClosePromisifyWorkerDoesNotJoinWinningShutdown(t *testing.T) {
 }
 
 func TestGracefulShutdownPromisifyRemainsLiveUntilWorkerReturns(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseWorker := make(chan struct{})

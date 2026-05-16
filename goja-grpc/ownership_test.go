@@ -16,7 +16,10 @@ import (
 
 func newRuntimeIdentityDependencies(t *testing.T) (*goeventloop.Loop, *goja.Runtime, *gojaeventloop.Adapter, *inprocgrpc.Channel, *gojaprotobuf.Module) {
 	t.Helper()
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	owner := goja.New()
 	if _, err := owner.RunString(`
 		(() => {
@@ -148,7 +151,10 @@ func TestNewRejectsProtobufRuntimeMismatch(t *testing.T) {
 
 func TestNewRejectsChannelLoopMismatch(t *testing.T) {
 	_, runtime, adapter, _, protobuf := newRuntimeIdentityDependencies(t)
-	foreignLoop := goeventloop.New()
+	foreignLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = foreignLoop.Shutdown(context.Background()) })
 	foreignChannel := mustNewInprocChannel(t, inprocgrpc.WithLoop(foreignLoop))
 	requirePanicErrorIs(t, errChannelLoopMismatch, func() {
@@ -183,7 +189,10 @@ func TestRequireRejectsDependencyIdentityBeforeExports(t *testing.T) {
 			name: "channel loop",
 			options: func(t *testing.T, _ *goeventloop.Loop, _ *goja.Runtime, adapter *gojaeventloop.Adapter, _ *inprocgrpc.Channel, protobuf *gojaprotobuf.Module) []ModuleOption {
 				t.Helper()
-				foreignLoop := goeventloop.New()
+				foreignLoop, err := goeventloop.New()
+				if err != nil {
+					t.Fatal(err)
+				}
 				t.Cleanup(func() { _ = foreignLoop.Shutdown(context.Background()) })
 				channel := mustNewInprocChannel(t, inprocgrpc.WithLoop(foreignLoop))
 				return []ModuleOption{WithChannel(channel), WithProtobuf(protobuf), WithAdapter(adapter)}

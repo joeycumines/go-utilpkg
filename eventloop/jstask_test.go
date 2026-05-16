@@ -8,8 +8,14 @@ import (
 
 func newRunningMicrotaskJS(t *testing.T) (*Loop, *JS) {
 	t.Helper()
-	loop := New()
-	js := NewJS(loop)
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	ready := make(chan struct{})
@@ -99,9 +105,15 @@ func TestJSMicrotaskBeforeTimer(t *testing.T) {
 }
 
 func TestJSNextTickAndMicrotaskPriorityAndFIFO(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	order := make([]string, 0, 5)
 	scheduled := make(chan error, 1)
 	var reaction *ChainedPromise

@@ -17,9 +17,15 @@ func FuzzPromiseCombinators(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 		var unhandled atomic.Int32
-		js := NewJS(loop, WithUnhandledRejection(func(reason any) { unhandled.Add(1) }))
+		js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { unhandled.Add(1) }))
+		if err != nil {
+			panic(err)
+		}
 
 		n := r.intn(7)
 		promises := make([]*ChainedPromise, n)
@@ -85,9 +91,15 @@ func FuzzPromiseAlternatingThenCatch(f *testing.F) {
 	f.Add(uint8(2), uint8(10))
 
 	f.Fuzz(func(t *testing.T, op uint8, depth uint8) {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 		var unhandled atomic.Int32
-		js := NewJS(loop, WithUnhandledRejection(func(any) {
+		js, err := NewJS(loop, WithUnhandledRejection(func(any) {
+			if err != nil {
+				panic(err)
+			}
 			unhandled.Add(1)
 		}))
 
@@ -247,9 +259,15 @@ func FuzzPromiseChainAdoptionPanicAndChannels(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 		var callbackErrs fuzzErrs
-		js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+		js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
+			if err != nil {
+				panic(err)
+			}
 			callbackErrs.add("unexpected unhandled rejection: %#v", reason)
 		}))
 

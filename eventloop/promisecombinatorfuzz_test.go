@@ -8,9 +8,16 @@ import (
 
 func newCombinatorContractJS(t *testing.T) (*Loop, *JS) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	return loop, NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loop, js
 }
 
 func combinatorSettlementOrder(count int, seed uint64, mode int64, salt int) []int {

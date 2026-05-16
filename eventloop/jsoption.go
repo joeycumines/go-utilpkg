@@ -55,18 +55,16 @@ func validateJSOptions(opts []JSOption) (*jsConfig, error) {
 	return config, nil
 }
 
-func resolveJSOptions(opts []JSOption) *jsConfig {
-	config, err := validateJSOptions(opts)
-	if err != nil {
-		panic(err)
-	}
-	return config
+// resolveJSOptions applies JSOption instances to a fresh jsConfig.
+// Option validation failures are returned as errors per ADR-007.
+func resolveJSOptions(opts []JSOption) (*jsConfig, error) {
+	return validateJSOptions(opts)
 }
 
 // ValidateJSOptions checks opts without constructing or registering a [JS]
 // adapter. Adapter integrations can use this before committing ownership or
-// other externally visible state. NewJS applies the same validation and still
-// panics when an option violates its static contract.
+// other externally visible state. NewJS applies the same validation and returns
+// an error when an option violates its documented contract.
 func ValidateJSOptions(opts ...JSOption) error {
 	_, err := validateJSOptions(opts)
 	return err
@@ -83,7 +81,7 @@ type UnhandledRejectionOption struct {
 // a microtask checkpoint. If a rejection is created after the loop has already
 // terminated, or if shutdown discards a previously scheduled checkpoint, the
 // fallback behavior is controlled by [WithUnhandledRejectionFallback].
-// NewJS panics if handler is nil.
+// NewJS returns an error if handler is nil.
 func WithUnhandledRejection(handler RejectionHandler) *UnhandledRejectionOption {
 	return &UnhandledRejectionOption{handler: handler}
 }

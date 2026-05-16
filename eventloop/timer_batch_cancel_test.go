@@ -7,7 +7,10 @@ import (
 )
 
 func TestCancelTimersEmptyInput(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if got := loop.CancelTimers(); got != nil {
 		t.Fatalf("CancelTimers() = %#v, want nil", got)
@@ -29,12 +32,15 @@ func TestCancelTimersExactSequentialResults(t *testing.T) {
 	}
 
 	t.Run("before Run", func(t *testing.T) {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 
 		fired := make(chan TimerID, 2)
 		var first TimerID
-		first, err := loop.ScheduleTimer(0, func() { fired <- first })
+		first, err = loop.ScheduleTimer(0, func() { fired <- first })
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,12 +63,15 @@ func TestCancelTimersExactSequentialResults(t *testing.T) {
 	})
 
 	t.Run("running owner", func(t *testing.T) {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			t.Fatal(err)
+		}
 		registerLoopCleanupT(t, loop)
 
 		fired := make(chan TimerID, 2)
 		var first TimerID
-		first, err := loop.ScheduleTimer(time.Hour, func() { fired <- first })
+		first, err = loop.ScheduleTimer(time.Hour, func() { fired <- first })
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,12 +110,15 @@ func TestCancelTimersExactSequentialResults(t *testing.T) {
 }
 
 func TestCancelTimersExecutingTimerDuplicateSequentialResult(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	results := make(chan []error, 1)
 	var timerID TimerID
-	timerID, err := loop.ScheduleTimer(0, func() {
+	timerID, err = loop.ScheduleTimer(0, func() {
 		results <- loop.CancelTimers(timerID, timerID)
 	})
 	if err != nil {

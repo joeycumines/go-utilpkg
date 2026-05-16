@@ -18,7 +18,10 @@ func TestTaskQueueConcurrentAdmission(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			runContext, cancelRun := context.WithCancel(context.Background())
 			t.Cleanup(cancelRun)

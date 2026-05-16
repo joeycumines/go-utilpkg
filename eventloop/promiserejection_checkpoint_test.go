@@ -10,12 +10,18 @@ import (
 
 func TestChainedPromise_UnhandledCheckScheduleErrorReportsSynchronously(t *testing.T) {
 	reported := make(chan any, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -35,16 +41,22 @@ func TestChainedPromise_UnhandledCheckScheduleErrorReportsSynchronously(t *testi
 }
 
 func TestChainedPromise_UnhandledCheckScheduleErrorRecoversCallbackPanic(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackStarted := make(chan struct{})
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(any) {
 			close(callbackStarted)
 			panic("boom")
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -66,12 +78,18 @@ func TestChainedPromise_UnhandledCheckScheduleErrorRecoversCallbackPanic(t *test
 
 func TestChainedPromise_UnhandledCheckUsesMicrotaskCheckpointNotSleep(t *testing.T) {
 	reported := make(chan any, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	reject("boom")
@@ -91,13 +109,19 @@ func TestChainedPromise_UnhandledCheckUsesMicrotaskCheckpointNotSleep(t *testing
 func TestChainedPromise_UnhandledCheckWaitsForLaterMicrotasksInCheckpoint(t *testing.T) {
 	reported := make(chan any, 1)
 	handled := make(chan struct{}, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	p, _, reject := js.NewChainedPromise()
 	reject("boom")
@@ -131,11 +155,17 @@ func TestChainedPromise_UnhandledCheckpointDoesNotStarveNextTick(t *testing.T) {
 	reported := make(chan any, 1)
 	nextTickRan := make(chan struct{}, 1)
 	scheduleErr := make(chan error, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	reject("boom")
@@ -192,11 +222,14 @@ func TestChainedPromise_UnhandledCheckpointWaitsForMicrotasksScheduledByDiagnost
 	reported := make(chan any, 2)
 	handledSecond := make(chan struct{}, 1)
 	scheduleErr := make(chan error, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var js *JS
-	js = NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err = NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 		if reason != "first" {
 			return
@@ -214,6 +247,9 @@ func TestChainedPromise_UnhandledCheckpointWaitsForMicrotasksScheduledByDiagnost
 			scheduleErr <- err
 		}
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, rejectFirst := js.NewChainedPromise()
 	rejectFirst("first")
@@ -248,13 +284,16 @@ func TestChainedPromise_UnhandledCheckpointYieldsBetweenSnapshotDiagnostics(t *t
 	reported := make(chan any, 2)
 	handledOther := make(chan any, 1)
 	scheduleErr := make(chan error, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var js *JS
 	var first, second *ChainedPromise
 	var scheduled atomic.Bool
-	js = NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err = NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 		if !scheduled.CompareAndSwap(false, true) {
 			return
@@ -273,6 +312,9 @@ func TestChainedPromise_UnhandledCheckpointYieldsBetweenSnapshotDiagnostics(t *t
 			scheduleErr <- err
 		}
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var rejectFirst, rejectSecond RejectFunc
 	first, _, rejectFirst = js.NewChainedPromise()
@@ -305,12 +347,18 @@ func TestChainedPromise_UnhandledCheckpointYieldsBetweenSnapshotDiagnostics(t *t
 
 func TestChainedPromise_UnhandledCheckpointDiscardedByShutdownDoesNotSuppressFallback(t *testing.T) {
 	reported := make(chan any, 2)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, rejectBeforeShutdown := js.NewChainedPromise()
 	rejectBeforeShutdown("before-shutdown")
@@ -337,11 +385,17 @@ func TestChainedPromise_UnhandledCheckpointDiscardedByShutdownDoesNotSuppressFal
 
 func TestChainedPromise_UnhandledCheckpointDiscardedByNeverRunShutdownReportsOriginal(t *testing.T) {
 	reported := make(chan any, 2)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) {
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason
 	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, rejectBeforeShutdown := js.NewChainedPromise()
 	rejectBeforeShutdown("before-shutdown")
@@ -366,9 +420,12 @@ func TestChainedPromise_TerminatedFallbackSingleOwnerReportsEachRejectionOnce(t 
 	releaseFirstCallback := make(chan struct{})
 	var firstCallbackOnce atomic.Bool
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) {
 			reported <- reason
 			if reason == "first" && firstCallbackOnce.CompareAndSwap(false, true) {
@@ -378,6 +435,9 @@ func TestChainedPromise_TerminatedFallbackSingleOwnerReportsEachRejectionOnce(t 
 		}),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -431,10 +491,16 @@ func TestChainedPromise_TerminatedFallbackSingleOwnerReportsEachRejectionOnce(t 
 
 func TestChainedPromise_RepeatedUnhandledRejectionChecksReportOnce(t *testing.T) {
 	reported := make(chan any, 32)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := range 16 {
 		_, _, reject := js.NewChainedPromise()
@@ -455,12 +521,18 @@ func TestChainedPromise_RepeatedUnhandledRejectionChecksReportOnce(t *testing.T)
 
 func TestChainedPromise_CloseDiscardedUnhandledRejectionCheckpointReportsFallback(t *testing.T) {
 	reported := make(chan any, 1)
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	js := NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	reject("close-discarded")
@@ -481,10 +553,16 @@ func TestChainedPromise_CloseDiscardedUnhandledRejectionCheckpointReportsFallbac
 }
 
 func TestChainedPromise_TerminalDrainFallbackWatcherIsShared(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	const rejectionCount = 32
 	var wg sync.WaitGroup
@@ -530,10 +608,16 @@ func TestChainedPromise_TerminalDrainFallbackWatcherIsShared(t *testing.T) {
 }
 
 func TestConcurrentRejectionCheckScheduleClaimRetainsOneGeneration(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	claimReached := make(chan struct{}, 2)
 	releaseClaims := make(chan struct{})

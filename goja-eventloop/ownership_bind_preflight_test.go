@@ -11,9 +11,15 @@ import (
 func TestAdapterBindRejectsForeignIntrinsicRoots(t *testing.T) {
 	for _, name := range []string{"Promise", "Symbol"} {
 		t.Run(name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			installConformingHostSingletons(t, runtime)
 			global := runtime.GlobalObject()
 			canonicalPromise := runtime.Get("Promise").ToObject(runtime)
@@ -105,10 +111,16 @@ func TestAdapterBindRejectsForeignIntrinsicRoots(t *testing.T) {
 }
 
 func TestAdapterBindDoesNotInvokeInheritedProcessSetter(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
-	_, err := runtime.RunString(`
+	_, err = runtime.RunString(`
 		globalThis.processSetterCalls = 0;
 		globalThis.processSetterCoercions = 0;
 		globalThis.processSetterThrown = {
@@ -188,8 +200,14 @@ func TestAdapterBindPreflightPreservesConflicts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := goeventloop.New()
+			loop, err := goeventloop.New()
 			runtime := goja.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
 			installConformingHostSingletons(t, runtime)
 			adapter, err := New(loop, runtime)
 			if err != nil {
@@ -211,9 +229,15 @@ func TestAdapterBindPreflightPreservesConflicts(t *testing.T) {
 }
 
 func TestAdapterBindPreflightRejectsNonextensiblePerformancePrototype(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	installConformingHostSingletons(t, runtime)
 	performancePrototype := runtime.Get("Performance").ToObject(runtime).Get("prototype").ToObject(runtime)
 	performanceParent := performancePrototype.Prototype()

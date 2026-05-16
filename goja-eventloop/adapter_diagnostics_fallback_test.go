@@ -41,7 +41,10 @@ func newDisabledDiagnosticLoop(t *testing.T) *goeventloop.Loop {
 	logger := logiface.New[*adapterDiagnosticLogEvent](
 		logiface.WithEventFactory[*adapterDiagnosticLogEvent](adapterDiagnosticLogFactory{}),
 	).Logger()
-	loop := goeventloop.New(goeventloop.WithLogger(logger))
+	loop, err := goeventloop.New(goeventloop.WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	return loop
 }
 
@@ -53,7 +56,10 @@ func newPanickingDiagnosticLoop(t *testing.T) *goeventloop.Loop {
 			panic("diagnostic logger panic")
 		})),
 	).Logger()
-	loop := goeventloop.New(goeventloop.WithLogger(logger))
+	loop, err := goeventloop.New(goeventloop.WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	return loop
 }
 
@@ -66,7 +72,10 @@ func newGoexitDiagnosticLoop(t *testing.T) *goeventloop.Loop {
 			return nil
 		})),
 	).Logger()
-	loop := goeventloop.New(goeventloop.WithLogger(logger))
+	loop, err := goeventloop.New(goeventloop.WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	return loop
 }
 
@@ -80,7 +89,10 @@ func assertStandardLogUnused(t *testing.T, buf *bytes.Buffer) {
 func TestPromiseJobDiagnosticDropsWithoutLogger(t *testing.T) {
 	buf := captureStandardLog(t)
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Close()
 
 	reportPromiseJobError(loop, errors.New("boom"))
@@ -119,7 +131,10 @@ func TestPromiseJobDiagnosticContainsStructuredLoggerGoexit(t *testing.T) {
 func TestHostCallbackDiagnosticDropsWithoutLogger(t *testing.T) {
 	buf := captureStandardLog(t)
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Close()
 
 	adapter, err := New(loop, goja.New())
@@ -208,7 +223,10 @@ func TestHostCallbackLoggerReentrantShutdownRetainsLoopRole(t *testing.T) {
 			return nil
 		})),
 	).Logger()
-	loop = goeventloop.New(goeventloop.WithLogger(logger))
+	loop, err := goeventloop.New(goeventloop.WithLogger(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, goja.New())
 	if err != nil {
 		t.Fatal(err)

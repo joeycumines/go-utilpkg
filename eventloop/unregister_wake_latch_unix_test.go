@@ -8,7 +8,10 @@ import (
 )
 
 func TestUnregisterFDLatchesSuccessfulWakeThroughRetirement(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)
@@ -39,7 +42,10 @@ func TestUnregisterFDLatchesSuccessfulWakeThroughRetirement(t *testing.T) {
 }
 
 func TestUnregisterFDWakeFailureReleasesLatchBeforeRetirement(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)

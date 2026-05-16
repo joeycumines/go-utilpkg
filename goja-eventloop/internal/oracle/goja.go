@@ -18,7 +18,10 @@ func runGojaFixture(parent context.Context, manifest *LoadedManifest, fixture Fi
 	ctx, cancel := context.WithTimeout(parent, deadline)
 	defer cancel()
 
-	loop := goeventloop.New(goeventloop.WithAutoExit(true))
+	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
 	closed := false
 	defer func() {
 		if closed {

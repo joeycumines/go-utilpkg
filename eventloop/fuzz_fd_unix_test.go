@@ -16,7 +16,10 @@ func FuzzUnixFDReadinessAndLifecycle(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		r := newFuzzReader(data)
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			panic(err)
+		}
 
 		if got := captureErrorContractPanic(func() { _ = loop.RegisterFD(-1, EventRead, func(IOEvents) {}) }); got == nil {
 			t.Fatal("RegisterFD(-1) did not panic")

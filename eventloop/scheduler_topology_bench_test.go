@@ -18,7 +18,10 @@ const benchmarkMicrotaskDrainBatch = 64 * 1024
 func startBenchmarkLoop(tb testing.TB, opts ...LoopOption) (*Loop, func()) {
 	tb.Helper()
 
-	loop := New(opts...)
+	loop, err := New(opts...)
+	if err != nil {
+		panic(err)
+	}
 
 	runDone := make(chan error, 1)
 	var cleanupOnce sync.Once
@@ -71,7 +74,10 @@ func waitBenchmarkLoopTurn(b *testing.B, loop *Loop, label string) {
 }
 
 func BenchmarkCommandIngressEmptyDrain(b *testing.B) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
@@ -634,7 +640,10 @@ func BenchmarkSetIntervalSteadyTicks(b *testing.B) {
 	if b.N == 0 {
 		return
 	}
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var executed atomic.Int64
 	deadline := time.NewTimer(30 * time.Minute)
@@ -679,7 +688,11 @@ func startPublishedSteadyInterval(js *JS, count int64, executed *atomic.Int64) (
 func TestPublishedSteadyIntervalFixtureLifecycle(t *testing.T) {
 	loop, _ := startBenchmarkLoop(t)
 	var executed atomic.Int64
-	done, err := startPublishedSteadyInterval(NewJS(loop), 16, &executed)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done, err := startPublishedSteadyInterval(js, 16, &executed)
 	if err != nil {
 		t.Fatalf("SetInterval: %v", err)
 	}
@@ -705,7 +718,10 @@ func TestPublishedSteadyIntervalFixtureLifecycle(t *testing.T) {
 func BenchmarkSetImmediateBurst(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var executed atomic.Int64
 	done := make(chan struct{})
@@ -750,7 +766,10 @@ func BenchmarkMetricsHotPath(b *testing.B) {
 
 // BenchmarkMetricsHotPathSnapshot measures the public detached-snapshot component.
 func BenchmarkMetricsHotPathSnapshot(b *testing.B) {
-	loop := New(WithMetrics(true))
+	loop, err := New(WithMetrics(true))
+	if err != nil {
+		b.Fatal(err)
+	}
 	defer func() {
 		if err := loop.Close(); err != nil {
 			b.Errorf("Close: %v", err)

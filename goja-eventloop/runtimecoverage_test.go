@@ -172,13 +172,18 @@ func TestPhase2_QueueMicrotask(t *testing.T) {
 }
 
 func TestPhase2_New_NilLoop(t *testing.T) {
-	defer assertAdapterPanic(t, "nil loop")
-	_, _ = New(nil, nil)
+	if _, err := New(nil, nil); err == nil {
+		t.Fatal("nil loop did not return an error")
+	}
 }
 
 func TestPhase2_New_NilRuntime(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
-	defer assertAdapterPanic(t, "nil runtime")
-	_, _ = New(loop, nil)
+	if _, err := New(loop, nil); err == nil {
+		t.Fatal("nil runtime did not return an error")
+	}
 }

@@ -119,17 +119,17 @@ var _ JSOption = (*testErrorJSOption)(nil)
 
 func TestResolveJSOptionsErrorIdentity(t *testing.T) {
 	sentinel := errors.New("option error")
-	got := captureLoopOptionPanic(func() {
-		resolveJSOptions([]JSOption{&testErrorJSOption{err: sentinel}})
-	})
-	err, ok := got.(error)
-	if !ok || !errors.Is(err, sentinel) {
-		t.Fatalf("resolveJSOptions panic = %#v, want wrapped sentinel", got)
+	_, err := resolveJSOptions([]JSOption{&testErrorJSOption{err: sentinel}})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("resolveJSOptions error = %#v, want wrapped sentinel", err)
 	}
 }
 
 func Test_CancelTimer_Terminated(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,10 @@ func Test_CancelTimer_Terminated(t *testing.T) {
 }
 
 func Test_CancelTimers_Terminated(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -151,13 +154,19 @@ func Test_CancelTimers_Terminated(t *testing.T) {
 }
 
 func Test_safeExecuteFn_Nil(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.safeExecuteFn(nil)
 }
 
 func Test_safeExecute_Nil(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	loop.safeExecute(nil)
 }

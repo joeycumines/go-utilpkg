@@ -11,7 +11,10 @@ import (
 )
 
 func TestClosePreRunReturnsBeforePromisifyDependency(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackRan := make(chan struct{})
@@ -87,7 +90,10 @@ func TestClosePreRunReturnsBeforePromisifyDependency(t *testing.T) {
 }
 
 func TestCloseRunningReturnsBeforePromisifyInternalDependency(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	outerStarted := make(chan struct{})
@@ -187,7 +193,10 @@ func TestCloseRunningReturnsBeforePromisifyInternalDependency(t *testing.T) {
 }
 
 func TestCloseRejectsPromisifyAttemptAtWinningTransition(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackEntered := make(chan struct{})
@@ -246,7 +255,10 @@ func TestCloseRejectsPromisifyAttemptAtWinningTransition(t *testing.T) {
 }
 
 func TestCloseRejectsPromiseNeededByAdmittedCallbackBeforeLoopExit(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseWorker := make(chan struct{})
@@ -324,9 +336,15 @@ func TestCloseRejectsPromiseNeededByAdmittedCallbackBeforeLoopExit(t *testing.T)
 }
 
 func TestCloseRejectsWorkerLoopAccessAfterReturn(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	type accessResult struct {
 		submitErr    error
@@ -445,7 +463,10 @@ func TestCloseTerminalRejectionWinsWorkerFallback(t *testing.T) {
 }
 
 func TestCloseSkipsCommittedPromisifyWorkerBeforeUserEntry(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	workerReachedStart := make(chan struct{})
@@ -484,7 +505,10 @@ func TestCloseSkipsCommittedPromisifyWorkerBeforeUserEntry(t *testing.T) {
 }
 
 func TestCloseWinningTransitionOverridesPromisifyLiveness(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	workerStarted := make(chan struct{})
@@ -548,7 +572,10 @@ func TestCloseWinningTransitionOverridesPromisifyLiveness(t *testing.T) {
 }
 
 func TestClosePreventsCompletedPromisifyWorkerWakeAfterResourceRelease(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	workerStarted := make(chan struct{})
@@ -601,7 +628,10 @@ func TestClosePreventsCompletedPromisifyWorkerWakeAfterResourceRelease(t *testin
 }
 
 func TestCloseAllowsClaimedPromisifyWorkerFirstInstructionAfterReturn(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	entryClaimed := make(chan struct{})
@@ -651,7 +681,10 @@ func TestCloseAllowsClaimedPromisifyWorkerFirstInstructionAfterReturn(t *testing
 
 func testCloseTerminalWorkerFallbackT(t *testing.T, outcome func() (any, error)) {
 	t.Helper()
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseWorker := make(chan struct{})

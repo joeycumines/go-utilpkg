@@ -8,10 +8,12 @@ import (
 )
 
 func TestCancelTimersRejectDuringStateTerminating(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var callbacks atomic.Int32
 	ids := make([]TimerID, 2)
-	var err error
 	for index := range ids {
 		ids[index], err = loop.ScheduleTimer(time.Hour, func() { callbacks.Add(1) })
 		if err != nil {

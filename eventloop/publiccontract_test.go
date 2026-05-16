@@ -20,19 +20,24 @@ type promiseRejecter interface {
 }
 
 var (
-	_ func(...eventloop.LoopOption) *eventloop.Loop = eventloop.New
-	_ func(*eventloop.Loop) *eventloop.Performance  = eventloop.NewLoopPerformance
+	_ func(...eventloop.LoopOption) (*eventloop.Loop, error) = eventloop.New
+	_ func(*eventloop.Loop) *eventloop.Performance           = eventloop.NewLoopPerformance
 )
 
-func TestNewPublicSignatureReflectsInfallibleConstruction(t *testing.T) {
-	constructor := reflect.TypeFor[func(opts ...eventloop.LoopOption) *eventloop.Loop]()
-	if constructor.NumOut() != 1 || constructor.Out(0) != reflect.TypeFor[*eventloop.Loop]() {
-		t.Fatalf("New signature = %v, want func(...LoopOption) *Loop", constructor)
+func TestNewPublicSignatureReturnsError(t *testing.T) {
+	constructor := reflect.TypeFor[func(opts ...eventloop.LoopOption) (*eventloop.Loop, error)]()
+	if constructor.NumOut() != 2 ||
+		constructor.Out(0) != reflect.TypeFor[*eventloop.Loop]() ||
+		constructor.Out(1) != reflect.TypeFor[error]() {
+		t.Fatalf("New signature = %v, want func(...LoopOption) (*Loop, error)", constructor)
 	}
 }
 
 func TestPromisePublicViewHasNoSettlementCapability(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -79,7 +84,10 @@ func TestNewLoopPerformanceReturnsPerformance(t *testing.T) {
 func TestNewLoopPerformanceDoesNotRetainLoop(t *testing.T) {
 	var performance any
 	pointer := func() weak.Pointer[eventloop.Loop] {
-		loop := eventloop.New()
+		loop, err := eventloop.New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		pointer := weak.Make(loop)
 		performance = eventloop.NewLoopPerformance(loop)
 		if err := loop.Close(); err != nil {

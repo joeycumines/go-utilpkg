@@ -90,7 +90,10 @@
 //	registry := require.NewRegistry()
 //	registry.RegisterNativeModule("protobuf", gojaprotobuf.Require())
 //
-//	loop := eventloop.New()
+//	loop, err := eventloop.New()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	runDone := make(chan error, 1)
 //	go func() {
 //	    runDone <- loop.Run(context.Background())

@@ -11,20 +11,25 @@ import (
 
 // Adapter construction and JavaScript global binding coverage.
 
-// TestAdapter_New_NilLoop verifies the static nil-loop contract.
+// TestAdapter_New_NilLoop verifies the nil-loop contract returns an error.
 func TestAdapter_New_NilLoop(t *testing.T) {
 	runtime := goja.New()
-	defer assertAdapterPanic(t, "nil loop")
-	_, _ = New(nil, runtime)
+	if _, err := New(nil, runtime); err == nil {
+		t.Fatal("nil loop did not return an error")
+	}
 }
 
-// TestAdapter_New_NilRuntime verifies the static nil-runtime contract.
+// TestAdapter_New_NilRuntime verifies the nil-runtime contract returns an error.
 func TestAdapter_New_NilRuntime(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
-	defer assertAdapterPanic(t, "nil runtime")
-	_, _ = New(loop, nil)
+	if _, err := New(loop, nil); err == nil {
+		t.Fatal("nil runtime did not return an error")
+	}
 }
 
 func assertAdapterPanic(t *testing.T, label string) {
@@ -39,11 +44,17 @@ func TestAdapter_Bind_AllGlobals(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -80,11 +91,17 @@ func TestAdapter_Bind_PromiseStatics(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -120,11 +137,17 @@ func TestAdapter_setTimeout_NilFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -145,11 +168,17 @@ func TestAdapter_setInterval_NilFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -170,11 +199,17 @@ func TestAdapter_queueMicrotask_NilFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -195,11 +230,17 @@ func TestAdapter_setImmediate_NilFunction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -221,11 +262,17 @@ func TestAdapterSetTimeoutNegativeDelayUsesNodeMinimum(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(ctx)
 
 	rt := goja.New()
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

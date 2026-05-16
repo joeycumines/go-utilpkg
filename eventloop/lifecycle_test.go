@@ -10,7 +10,10 @@ import (
 func TestLoop_Close_BeforeRun(t *testing.T) {
 	t.Parallel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := loop.Close(); err != nil {
 		t.Fatalf("Close before Run: %v", err)
@@ -29,7 +32,10 @@ func TestLoop_Close_BeforeRun(t *testing.T) {
 func TestLoop_Shutdown_BeforeRun(t *testing.T) {
 	t.Parallel()
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

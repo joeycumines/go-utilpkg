@@ -16,9 +16,15 @@ import (
 
 // TestConsoleCount_Basic tests basic console.count() usage.
 func TestConsoleCount_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -52,9 +58,15 @@ func TestConsoleCount_Basic(t *testing.T) {
 
 // TestConsoleCount_DefaultLabel tests default label for console.count().
 func TestConsoleCount_DefaultLabel(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -85,9 +97,15 @@ func TestConsoleCount_DefaultLabel(t *testing.T) {
 
 // TestConsoleCount_MultipleLabels tests multiple counters.
 func TestConsoleCount_MultipleLabels(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -121,9 +139,15 @@ func TestConsoleCount_MultipleLabels(t *testing.T) {
 
 // TestConsoleCountReset_Basic tests basic console.countReset() usage.
 func TestConsoleCountReset_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -160,9 +184,15 @@ func TestConsoleCountReset_Basic(t *testing.T) {
 
 // TestConsoleCountReset_DefaultLabel tests default label for countReset.
 func TestConsoleCountReset_DefaultLabel(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -197,9 +227,15 @@ func TestConsoleCountReset_DefaultLabel(t *testing.T) {
 
 // TestConsoleCountReset_NotExists tests warning when counter doesn't exist.
 func TestConsoleCountReset_NotExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -228,9 +264,15 @@ func TestConsoleCountReset_NotExists(t *testing.T) {
 
 // TestConsoleCount_NilOutput tests nil output handling.
 func TestConsoleCount_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -260,9 +302,15 @@ func TestConsoleCount_NilOutput(t *testing.T) {
 
 // TestConsoleAssert_Truthy tests that truthy conditions don't log.
 func TestConsoleAssert_Truthy(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -296,9 +344,15 @@ func TestConsoleAssert_Truthy(t *testing.T) {
 
 // TestConsoleAssert_Falsy tests that falsy conditions log.
 func TestConsoleAssert_Falsy(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -327,9 +381,15 @@ func TestConsoleAssert_Falsy(t *testing.T) {
 
 // TestConsoleAssert_AllFalsyTypes tests all JavaScript falsy values.
 func TestConsoleAssert_AllFalsyTypes(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -365,9 +425,15 @@ func TestConsoleAssert_AllFalsyTypes(t *testing.T) {
 
 // TestConsoleAssert_WithMessage tests assertion with message data.
 func TestConsoleAssert_WithMessage(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -396,9 +462,15 @@ func TestConsoleAssert_WithMessage(t *testing.T) {
 
 // TestConsoleAssert_NoCondition tests assertion with no arguments.
 func TestConsoleAssert_NoCondition(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -428,9 +500,15 @@ func TestConsoleAssert_NoCondition(t *testing.T) {
 
 // TestConsoleAssert_NilOutput tests nil output handling.
 func TestConsoleAssert_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -459,9 +537,15 @@ func TestConsoleAssert_NilOutput(t *testing.T) {
 
 // TestConsoleTable_ArrayOfObjects tests console.table with array of objects.
 func TestConsoleTable_ArrayOfObjects(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -512,9 +596,15 @@ func TestConsoleTable_ArrayOfObjects(t *testing.T) {
 
 // TestConsoleTable_ArrayOfPrimitives tests console.table with array of primitives.
 func TestConsoleTable_ArrayOfPrimitives(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -555,9 +645,15 @@ func TestConsoleTable_ArrayOfPrimitives(t *testing.T) {
 
 // TestConsoleTable_Object tests console.table with a plain object.
 func TestConsoleTable_Object(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -592,9 +688,15 @@ func TestConsoleTable_Object(t *testing.T) {
 
 // TestConsoleTable_WithColumns tests column filtering.
 func TestConsoleTable_WithColumns(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -634,9 +736,15 @@ func TestConsoleTable_WithColumns(t *testing.T) {
 
 // TestConsoleTable_NestedObjects tests handling of nested objects.
 func TestConsoleTable_NestedObjects(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -672,9 +780,15 @@ func TestConsoleTable_NestedObjects(t *testing.T) {
 
 // TestConsoleTable_Empty tests console.table with empty data.
 func TestConsoleTable_Empty(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -704,9 +818,15 @@ func TestConsoleTable_Empty(t *testing.T) {
 
 // TestConsoleTable_NullUndefined tests console.table with null/undefined.
 func TestConsoleTable_NullUndefined(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -732,9 +852,15 @@ func TestConsoleTable_NullUndefined(t *testing.T) {
 
 // TestConsoleTable_NilOutput tests nil output handling.
 func TestConsoleTable_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}

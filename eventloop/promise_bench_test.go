@@ -57,7 +57,10 @@ func receivePromiseBenchmarkResult(b *testing.B, result <-chan any, deadline <-c
 func BenchmarkPromiseCreation(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	var (
 		promise *ChainedPromise
@@ -87,7 +90,10 @@ func BenchmarkPromiseCreation(b *testing.B) {
 func BenchmarkPromiseSettleNoHandler(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -109,7 +115,10 @@ func BenchmarkPromiseSettleNoHandler(b *testing.B) {
 func BenchmarkPromiseReactionEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 
@@ -138,7 +147,10 @@ func BenchmarkPromiseReactionEndToEnd(b *testing.B) {
 func BenchmarkPromiseDepthThreeEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 
@@ -169,7 +181,10 @@ func BenchmarkPromiseDepthThreeEndToEnd(b *testing.B) {
 func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 
@@ -212,7 +227,10 @@ func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 	checkpointDone := make(chan struct{}, 1)
@@ -248,7 +266,10 @@ func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 
@@ -289,7 +310,10 @@ func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 func BenchmarkPromiseAnyFixedArityEndToEnd(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	deadline := time.NewTimer(promiseBenchmarkTimeout)
 	defer deadline.Stop()
 	checkpointDone := make(chan struct{}, 1)

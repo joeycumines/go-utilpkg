@@ -8,9 +8,15 @@ import (
 )
 
 func TestCloseCallbacksRunAfterCheckPhase(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var (
 		mu    sync.Mutex
@@ -50,7 +56,10 @@ func TestCloseCallbacksRunAfterCheckPhase(t *testing.T) {
 }
 
 func TestCloseCallbacksQueuedDuringCloseDoNotSleepBehindIOPoll(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	fd, cleanup := testCreateIOFD(t)
 	t.Cleanup(cleanup)
 	registerLoopCleanupT(t, loop)

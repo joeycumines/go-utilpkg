@@ -51,7 +51,10 @@ func TestPhaseBatchRotationWarmedSteadyStateAllocations(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			job := checkJob{fn: func() {}}
 			rotate := func() { test.rotate(loop, job) }
 			for range 1000 {
@@ -66,7 +69,10 @@ func TestPhaseBatchRotationWarmedSteadyStateAllocations(t *testing.T) {
 }
 
 func TestRepeatingTimerListRotationWarmedSteadyStateAllocations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	timer := &timer{
 		when:      time.Now(),
 		task:      func() {},
@@ -131,7 +137,10 @@ func BenchmarkRetentionWarmedSteady(b *testing.B) {
 		}
 	})
 	b.Run("mixed-check", func(b *testing.B) {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			b.Fatal(err)
+		}
 		job := checkJob{fn: noop}
 		rotateCheckPhaseBatch(loop, job)
 		b.ReportAllocs()
@@ -294,7 +303,10 @@ func BenchmarkRetentionPublicSubmissionTerminal(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		loop := New(WithAutoExit(true))
+		loop, err := New(WithAutoExit(true))
+		if err != nil {
+			b.Fatal(err)
+		}
 		executed := 0
 		callback := func() { executed++ }
 		for range burst {
@@ -414,7 +426,10 @@ func BenchmarkTimerLatency(b *testing.B) {
 func BenchmarkMixedWorkload(b *testing.B) {
 	loop, cleanup := startBenchmarkLoop(b)
 	defer cleanup()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
 	var executed atomic.Int64
 	completed := make(chan struct{})
 	record := func() {

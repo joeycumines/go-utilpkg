@@ -19,7 +19,10 @@ import (
 // its own callback may be part of the terminal worker drain; it acknowledges
 // the already-committed graceful shutdown without blocking.
 func TestShutdown_ReentrantFromLoopCallbackDuringExternalShutdown(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackStarted := make(chan struct{})
 	callbackMayShutdown := make(chan struct{})
@@ -80,7 +83,10 @@ func TestShutdown_ReentrantFromLoopCallbackDuringExternalShutdown(t *testing.T) 
 }
 
 func TestShutdown_ReentrantFromLoopOwnedTerminalDrain(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	blockingStarted := make(chan struct{})
 	releaseBlocking := make(chan struct{})
@@ -161,7 +167,10 @@ func TestShutdown_ReentrantFromLoopOwnedTerminalDrain(t *testing.T) {
 }
 
 func TestShutdown_LoopCallbackDuringCloseReturnsTerminated(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackStarted := make(chan struct{})
 	callShutdown := make(chan struct{})
@@ -232,7 +241,10 @@ func TestShutdown_LoopCallbackDuringCloseReturnsTerminated(t *testing.T) {
 }
 
 func TestShutdown_ReentrantDuringPreRunTerminalDrain(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackDone := make(chan error, 1)
 	if err := loop.Submit(func() {
@@ -264,7 +276,10 @@ func TestShutdown_ReentrantDuringPreRunTerminalDrain(t *testing.T) {
 }
 
 func TestShutdown_PreRunDrainsPromisifyDependencyBeforeWorkerWait(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackRan := make(chan struct{})
 	submission := make(chan error, 1)
@@ -319,7 +334,10 @@ func TestShutdown_PreRunDrainsPromisifyDependencyBeforeWorkerWait(t *testing.T) 
 }
 
 func TestShutdown_PreRunDrainUsesDedicatedGoroutine(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callerID := goroutineid.Get()
 	callbackID := make(chan int64, 1)
@@ -341,7 +359,10 @@ func TestShutdown_PreRunDrainUsesDedicatedGoroutine(t *testing.T) {
 }
 
 func TestShutdown_PreRunContextBoundsWorkerWaitAndCleanupContinues(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	workerStarted := make(chan struct{})
 	releaseWorker := make(chan struct{})
@@ -432,7 +453,10 @@ func TestShutdown_PreRunContextBoundsWorkerWaitAndCleanupContinues(t *testing.T)
 }
 
 func TestShutdown_ContextBoundsPromisifyWaitAfterLoopExit(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
@@ -502,7 +526,10 @@ func TestShutdown_ContextBoundsPromisifyWaitAfterLoopExit(t *testing.T) {
 }
 
 func TestWaitShutdownCompletion_PrefersCompletedCleanupOverCanceledContext(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.closeTerminalDone()
 
 	ctx, cancel := context.WithCancel(context.Background())

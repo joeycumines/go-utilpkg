@@ -7,9 +7,15 @@ import (
 )
 
 func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fulfilled, resolve, _ := js.NewChainedPromise()
 	rejected, _, reject := js.NewChainedPromise()
@@ -38,9 +44,15 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 }
 
 func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fulfilled, resolve, _ := js.NewChainedPromise()
 	rejected, _, reject := js.NewChainedPromise()
@@ -68,9 +80,15 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 }
 
 func TestPromiseAllSettled_PreservesInputOrder(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	first, resolveFirst, _ := js.NewChainedPromise()
 	second, _, rejectSecond := js.NewChainedPromise()

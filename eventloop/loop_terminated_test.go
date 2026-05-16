@@ -7,7 +7,10 @@ import (
 )
 
 func TestScheduleNextTickTerminatedState(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
@@ -17,7 +20,10 @@ func TestScheduleNextTickTerminatedState(t *testing.T) {
 }
 
 func TestSubmitInternalTerminatedState(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatalf("Shutdown: %v", err)
 	}
@@ -44,7 +50,10 @@ func testTaskOnlyNativePollCallback(
 	schedule func(*Loop, func()) error,
 ) {
 	t.Helper()
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	callbackRan := make(chan struct{})
@@ -61,7 +70,10 @@ func testTaskOnlyNativePollCallback(
 }
 
 func TestProcessExternalProcessesNextTickPriority(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var order []string
 	completed := make(chan struct{})
 	if err := loop.Submit(func() {

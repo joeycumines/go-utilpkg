@@ -54,7 +54,10 @@ func testTryLegacyPanicNil(t *testing.T) {
 }
 
 func testPromisifyLegacyPanicNil(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
 		panic(nil)

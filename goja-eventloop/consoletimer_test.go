@@ -14,9 +14,15 @@ import (
 
 // TestConsoleTime_Basic tests basic console.time() usage.
 func TestConsoleTime_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -45,9 +51,15 @@ func TestConsoleTime_Basic(t *testing.T) {
 
 // TestConsoleTimeEnd_Basic tests basic console.timeEnd() usage.
 func TestConsoleTimeEnd_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -88,9 +100,15 @@ func TestConsoleTimeEnd_Basic(t *testing.T) {
 
 // TestConsoleTimeLog_Basic tests basic console.timeLog() usage.
 func TestConsoleTimeLog_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -147,9 +165,15 @@ func TestConsoleTimeLog_Basic(t *testing.T) {
 
 // TestConsoleTime_DefaultLabel tests that "default" label is used when no label provided.
 func TestConsoleTime_DefaultLabel(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -179,9 +203,15 @@ func TestConsoleTime_DefaultLabel(t *testing.T) {
 
 // TestConsoleTime_AlreadyExists tests warning when timer already exists.
 func TestConsoleTime_AlreadyExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -211,9 +241,15 @@ func TestConsoleTime_AlreadyExists(t *testing.T) {
 
 // TestConsoleTimeEnd_NotExists tests warning when timer doesn't exist.
 func TestConsoleTimeEnd_NotExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -242,9 +278,15 @@ func TestConsoleTimeEnd_NotExists(t *testing.T) {
 
 // TestConsoleTimeLog_NotExists tests warning when timer doesn't exist for timeLog.
 func TestConsoleTimeLog_NotExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -273,9 +315,15 @@ func TestConsoleTimeLog_NotExists(t *testing.T) {
 
 // TestConsoleTimeLog_WithData tests console.timeLog() with additional data.
 func TestConsoleTimeLog_WithData(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -306,9 +354,15 @@ func TestConsoleTimeLog_WithData(t *testing.T) {
 
 // TestConsoleTime_MultipleTimers tests multiple concurrent timers.
 func TestConsoleTime_MultipleTimers(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -363,9 +417,15 @@ func TestConsoleTime_MultipleTimers(t *testing.T) {
 
 // TestConsoleTime_OutputFormat tests the exact output format matches Node.js.
 func TestConsoleTime_OutputFormat(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -399,9 +459,15 @@ func TestConsoleTime_OutputFormat(t *testing.T) {
 
 // TestConsoleTime_NilOutput tests that nil output disables output.
 func TestConsoleTime_NilOutput(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -432,9 +498,15 @@ func TestConsoleTime_NilOutput(t *testing.T) {
 
 // TestConsoleTime_ExtendsExistingConsole tests that we extend existing console object.
 func TestConsoleTime_ExtendsExistingConsole(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -539,9 +611,15 @@ func TestConsoleTime_ExtendsExistingConsole(t *testing.T) {
 
 // TestConsoleTime_SubMillisecondPrecision tests sub-millisecond precision.
 func TestConsoleTime_SubMillisecondPrecision(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -576,9 +654,15 @@ func TestConsoleTime_SubMillisecondPrecision(t *testing.T) {
 
 // TestConsoleTime_UndefinedLabel tests undefined label handling.
 func TestConsoleTime_UndefinedLabel(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -609,9 +693,15 @@ func TestConsoleTime_UndefinedLabel(t *testing.T) {
 
 // TestConsoleTimeEnd_RemovesTimer tests that timeEnd removes the timer.
 func TestConsoleTimeEnd_RemovesTimer(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}

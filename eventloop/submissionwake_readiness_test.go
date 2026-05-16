@@ -11,7 +11,10 @@ import (
 )
 
 func TestFastPathDisabledIngressSubmitsPhysicalWake(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	pollEntered := make(chan struct{})
 	physicalWake := make(chan struct{}, 1)
 	var pollOnce sync.Once
@@ -56,7 +59,10 @@ func TestLastFDUnregisterReleasesPendingTimerCommands(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			fd, cleanupFD := testCreateIOFD(t)
 			t.Cleanup(cleanupFD)
 			if err := loop.RegisterFD(fd, EventRead, func(IOEvents) {}); err != nil {

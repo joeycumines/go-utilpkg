@@ -20,7 +20,10 @@ type combinatorRetentionProof struct {
 func TestSettledPromiseCombinatorsReleasePromiseGraph(t *testing.T) {
 	for _, name := range []string{"all", "race", "allSettled", "any"} {
 		t.Run(name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			runDone := make(chan error, 1)
 			go func() { runDone <- loop.Run(context.Background()) }()
 			ready := make(chan struct{})
@@ -37,7 +40,10 @@ func TestSettledPromiseCombinatorsReleasePromiseGraph(t *testing.T) {
 				}
 			})
 			reported := make(chan any, 1)
-			js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			proof := settledCombinatorRetentionProof(t, loop, js, name)
 			for _, pointer := range proof.promises {

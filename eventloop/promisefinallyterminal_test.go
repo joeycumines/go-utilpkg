@@ -29,7 +29,10 @@ func newTerminalFinallyReaction(
 	testCase promiseFinallyTerminalCase,
 ) (*JS, *ChainedPromise, *ChainedPromise, <-chan any, *atomic.Int32, PromiseState, any) {
 	t.Helper()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
 	source, resolveSource, rejectSource := js.NewChainedPromise()
 	var callbackCalls atomic.Int32
 	var callback func()
@@ -103,7 +106,10 @@ func assertTerminalFinallyOutcome(
 func TestPromiseFinallyAcceptedNotDequeuedTerminalDisposition(t *testing.T) {
 	for _, testCase := range promiseFinallyTerminalCases() {
 		t.Run(testCase.name, func(t *testing.T) {
-			loop := New(WithLogger(nil))
+			loop, err := New(WithLogger(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			js, source, child, resultChannel, callbackCalls, wantState, wantResult :=
 				newTerminalFinallyReaction(t, loop, testCase)
@@ -128,7 +134,10 @@ func TestPromiseFinallyAcceptedNotDequeuedTerminalDisposition(t *testing.T) {
 func TestPromiseFinallyDequeuedAdmissionLossTerminalDisposition(t *testing.T) {
 	for _, testCase := range promiseFinallyTerminalCases() {
 		t.Run(testCase.name, func(t *testing.T) {
-			loop := New(WithLogger(nil))
+			loop, err := New(WithLogger(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			admissionEntered := make(chan struct{})
 			releaseAdmission := make(chan struct{})
@@ -179,8 +188,14 @@ func TestPromiseFinallyDequeuedAdmissionLossTerminalDisposition(t *testing.T) {
 }
 
 func TestPromiseFinally_TerminatedLoop(t *testing.T) {
-	loop := New()
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent := js.Resolve("value")
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
@@ -201,9 +216,15 @@ func TestPromiseFinally_TerminatedLoop(t *testing.T) {
 }
 
 func TestPromiseFinally_PanicInHandler(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	parent, resolve, _ := js.NewChainedPromise()
 	var calls atomic.Int32

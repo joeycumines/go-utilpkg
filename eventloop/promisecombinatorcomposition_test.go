@@ -221,11 +221,20 @@ func TestPromiseAny_ChainedPromise(t *testing.T) {
 }
 
 func TestPromiseAll_CrossAdapterComposition(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	producer := NewJS(loop)
-	consumer := NewJS(loop)
+	producer, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumer, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	promises := []*ChainedPromise{
 		producer.Resolve("a").Then(func(value any) any { return value.(string) + "-transformed" }, nil),
 		producer.Resolve("b").Then(func(value any) any { return value.(string) + "-transformed" }, nil),

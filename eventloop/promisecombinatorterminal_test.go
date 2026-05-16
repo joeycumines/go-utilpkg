@@ -29,11 +29,17 @@ func TestPromiseCombinatorsRejectTerminalReactionScheduleFailure(t *testing.T) {
 					} {
 						t.Run(settlement.name, func(t *testing.T) {
 							reported := make(chan any, 2)
-							loop := New()
-							js := NewJS(loop,
+							loop, err := New()
+							if err != nil {
+								t.Fatal(err)
+							}
+							js, err := NewJS(loop,
 								WithUnhandledRejection(func(reason any) { reported <- reason }),
 								WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 							)
+							if err != nil {
+								t.Fatal(err)
+							}
 							source, resolveSource, rejectSource := js.NewChainedPromise()
 
 							if attachment.afterClose {
@@ -105,12 +111,18 @@ func TestPromiseCombinatorsRejectTerminalSettledSourceAttachment(t *testing.T) {
 					releaseRecordFn := releaseSignalT(t, releaseRecord)
 					var blockRecord atomic.Bool
 					var recordOnce sync.Once
-					loop := New()
+					loop, err := New()
+					if err != nil {
+						t.Fatal(err)
+					}
 					registerLoopCleanupT(t, loop)
-					js := NewJS(loop,
+					js, err := NewJS(loop,
 						WithUnhandledRejection(func(reason any) { reported <- reason }),
 						WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 					)
+					if err != nil {
+						t.Fatal(err)
+					}
 					loop.testHooks = &loopTestHooks{
 						BeforeUnhandledRejectionRecordCheck: func(*ChainedPromise) {
 							if blockRecord.Load() {
@@ -272,12 +284,18 @@ func TestPromiseCombinatorsAcceptedReactionCloseDisposition(t *testing.T) {
 	for _, combinator := range promiseCombinatorTestCases() {
 		t.Run(combinator.name, func(t *testing.T) {
 			reported := make(chan any, 2)
-			loop := New(WithLogger(nil))
+			loop, err := New(WithLogger(nil))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			admissionEntered := make(chan struct{})
 			releaseAdmission := make(chan struct{})
@@ -338,20 +356,32 @@ func TestPromiseCombinatorsAcceptedNotDequeuedImmediateClose(t *testing.T) {
 				}
 				t.Run(name, func(t *testing.T) {
 					reported := make(chan any, 3)
-					sourceLoop := New(WithLogger(nil))
+					sourceLoop, err := New(WithLogger(nil))
+					if err != nil {
+						t.Fatal(err)
+					}
 					registerLoopCleanupT(t, sourceLoop)
-					sourceJS := NewJS(sourceLoop,
+					sourceJS, err := NewJS(sourceLoop,
 						WithUnhandledRejection(func(reason any) { reported <- reason }),
 						WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 					)
+					if err != nil {
+						t.Fatal(err)
+					}
 					targetLoop, targetJS := sourceLoop, sourceJS
 					if crossLoop {
-						targetLoop = New(WithLogger(nil))
+						targetLoop, err = New(WithLogger(nil))
+						if err != nil {
+							t.Fatal(err)
+						}
 						registerLoopCleanupT(t, targetLoop)
-						targetJS = NewJS(targetLoop,
+						targetJS, err = NewJS(targetLoop,
 							WithUnhandledRejection(func(reason any) { reported <- reason }),
 							WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 						)
+						if err != nil {
+							t.Fatal(err)
+						}
 					}
 
 					source, resolveSource, _ := sourceJS.NewChainedPromise()

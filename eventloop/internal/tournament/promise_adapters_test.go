@@ -84,7 +84,10 @@ func TestSettlePromiseRaceInputsSettlesEveryInput(t *testing.T) {
 
 func startPromiseAdapterTestLoop(t *testing.T) (*eventloop.Loop, *eventloop.JS) {
 	t.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	t.Cleanup(func() {
@@ -104,7 +107,11 @@ func startPromiseAdapterTestLoop(t *testing.T) (*eventloop.Loop, *eventloop.JS) 
 		t.Fatalf("Submit readiness callback: %v", err)
 	}
 	waitPromiseAdapterTestSignal(t, ready, "loop readiness")
-	return loop, eventloop.NewJS(loop)
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS: %v", err)
+	}
+	return loop, js
 }
 
 func waitPromiseAdapterTestSignal(t *testing.T, signal <-chan struct{}, name string) {

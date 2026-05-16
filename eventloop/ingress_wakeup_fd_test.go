@@ -8,7 +8,10 @@ import (
 )
 
 func TestSubmitCommittedBeforeRegisterFDDrainsWhenPollPathEntered(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 

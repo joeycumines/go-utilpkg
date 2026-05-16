@@ -10,7 +10,10 @@ import (
 )
 
 func TestNoFDPollPlatformWakeUsesOnlyActiveFastWait(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	waitEntered := make(chan struct{}, 2)
 	var physicalSubmissions atomic.Int32

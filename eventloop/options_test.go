@@ -2,6 +2,9 @@ package eventloop
 
 import "testing"
 
+// captureLoopOptionPanic captures a panic value from fn. It is retained for
+// tests that exercise SetFastPathMode, which still panics on static contract
+// violations per ADR-003.
 func captureLoopOptionPanic(fn func()) (value any) {
 	defer func() { value = recover() }()
 	fn()
@@ -10,7 +13,10 @@ func captureLoopOptionPanic(fn func()) (value any) {
 
 // Test 1.2.6: Test default options
 func TestDefaultOptions(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 	registerLoopCleanupT(t, l)
 
 	// FastPathMode should be Auto (0) by default
@@ -22,7 +28,10 @@ func TestDefaultOptions(t *testing.T) {
 
 // Test 1.2.7: Test custom options
 func TestCustomOptions(t *testing.T) {
-	l := New(WithFastPathMode(FastPathForced))
+	l, err := New(WithFastPathMode(FastPathForced))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, l)
 
 	mode := FastPathMode(l.fastPathMode.Load())
@@ -33,10 +42,13 @@ func TestCustomOptions(t *testing.T) {
 
 // Test: Multiple options in any order
 func TestMultipleOptions(t *testing.T) {
-	l1 := New(
+	l1, err := New(
 		WithFastPathMode(FastPathDisabled),
 		WithMetrics(true),
 	)
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, l1)
 
 	mode := FastPathMode(l1.fastPathMode.Load())
@@ -44,10 +56,13 @@ func TestMultipleOptions(t *testing.T) {
 		t.Errorf("Option order 1: FastPathMode should be Disabled (%d), got %d", FastPathDisabled, mode)
 	}
 
-	l2 := New(
+	l2, err := New(
 		WithMetrics(false),
 		WithFastPathMode(FastPathForced),
 	)
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, l2)
 
 	mode = FastPathMode(l2.fastPathMode.Load())
@@ -58,12 +73,12 @@ func TestMultipleOptions(t *testing.T) {
 
 // Test: Nil option handling
 func TestNilOption(t *testing.T) {
-	if got := captureLoopOptionPanic(func() { _ = New(nil) }); got == nil {
+	if _, err := New(nil); err == nil {
 		t.Fatal("New accepted a nil LoopOption")
 	}
 }
 
-func TestTypedNilBuiltInOptionsPanic(t *testing.T) {
+func TestTypedNilBuiltInOptionsError(t *testing.T) {
 	tests := []struct {
 		name   string
 		option LoopOption
@@ -77,7 +92,7 @@ func TestTypedNilBuiltInOptionsPanic(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := captureLoopOptionPanic(func() { _ = New(test.option) }); got == nil {
+			if _, err := New(test.option); err == nil {
 				t.Fatal("New accepted a typed-nil built-in option")
 			}
 		})
@@ -85,7 +100,10 @@ func TestTypedNilBuiltInOptionsPanic(t *testing.T) {
 }
 
 func TestNewJSStaticContracts(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	options := []struct {
@@ -103,7 +121,7 @@ func TestNewJSStaticContracts(t *testing.T) {
 			if err := ValidateJSOptions(test.option); err == nil {
 				t.Fatal("ValidateJSOptions accepted an invalid option")
 			}
-			if got := captureLoopOptionPanic(func() { NewJS(loop, test.option) }); got == nil {
+			if _, err := NewJS(loop, test.option); err == nil {
 				t.Fatal("NewJS accepted an invalid option")
 			}
 		})
@@ -122,13 +140,16 @@ func TestNewJSStaticContracts(t *testing.T) {
 		{name: "zero loop", loop: &Loop{}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := captureLoopOptionPanic(func() { NewJS(test.loop) }); got == nil {
+			if _, err := NewJS(test.loop); err == nil {
 				t.Fatal("NewJS accepted a Loop not created by New")
 			}
 		})
 	}
 
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS error: %v", err)
+	}
 	if js.Loop() != loop {
 		t.Fatal("NewJS did not retain the configured Loop")
 	}
@@ -138,18 +159,21 @@ func TestNewJSStaticContracts(t *testing.T) {
 }
 
 func TestWithQueuePressureHandlerRejectsNil(t *testing.T) {
-	if got := captureLoopOptionPanic(func() { _ = New(WithQueuePressureHandler(nil)) }); got == nil {
+	if _, err := New(WithQueuePressureHandler(nil)); err == nil {
 		t.Fatal("New accepted a nil queue-pressure handler")
 	}
 }
 
 func TestFastPathModeRejectsInvalidValues(t *testing.T) {
 	invalid := FastPathMode(99)
-	if got := captureLoopOptionPanic(func() { _ = New(WithFastPathMode(invalid)) }); got == nil {
+	if _, err := New(WithFastPathMode(invalid)); err == nil {
 		t.Fatal("New accepted an invalid fast-path mode")
 	}
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 	if got := captureLoopOptionPanic(func() { _ = loop.SetFastPathMode(invalid) }); got == nil {
 		t.Fatal("SetFastPathMode accepted an invalid fast-path mode")
@@ -160,7 +184,10 @@ func TestFastPathModeRejectsInvalidValues(t *testing.T) {
 }
 
 func TestSetFastPathModeTransitions(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	for _, mode := range []FastPathMode{FastPathDisabled, FastPathForced, FastPathAuto} {
@@ -168,7 +195,7 @@ func TestSetFastPathModeTransitions(t *testing.T) {
 			t.Fatalf("SetFastPathMode(%v): %v", mode, err)
 		}
 		if got := FastPathMode(loop.fastPathMode.Load()); got != mode {
-			t.Fatalf("mode after SetFastPathMode(%v) = %v", mode, got)
+			t.Fatalf("mode after SetFastPathMode(%v) = %v, want %v", mode, got, mode)
 		}
 	}
 }

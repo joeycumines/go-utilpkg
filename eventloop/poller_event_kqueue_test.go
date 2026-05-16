@@ -16,7 +16,10 @@ import (
 const pollerFDZeroChild = "GO_EVENTLOOP_POLLER_FD_ZERO_CHILD"
 
 func TestKqueueUnregisterFailureRetainsOwnership(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {
@@ -28,7 +31,7 @@ func TestKqueueUnregisterFailureRetainsOwnership(t *testing.T) {
 	}
 	sentinel := errors.New("injected retained kqueue delete failure")
 	loop.poller.keventChange = func(int, []unix.Kevent_t) error { return sentinel }
-	err := loop.UnregisterFD(pipeFDs[0])
+	err = loop.UnregisterFD(pipeFDs[0])
 	var unregisterErr *FDUnregisterError
 	if !errors.As(err, &unregisterErr) || unregisterErr.Released() || !errors.Is(err, sentinel) {
 		t.Fatalf("UnregisterFD error = %v, want retained ownership failure", err)
@@ -174,7 +177,10 @@ func TestKqueueReadWriteReadinessCoalescesOneCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &fds[0], &fds[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	var callbackCalls atomic.Int32
 	var callbackEvents atomic.Uint32

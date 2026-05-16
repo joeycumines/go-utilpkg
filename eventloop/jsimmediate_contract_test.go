@@ -9,9 +9,15 @@ import (
 
 func newImmediateTestJS(t *testing.T) (*Loop, *JS) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return loop, js
 }
 

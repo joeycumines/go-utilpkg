@@ -16,7 +16,10 @@ import (
 )
 
 func TestWakeSubmissionHoldsDescriptorUntilWriteReturns(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +104,10 @@ func TestWakeSubmissionWriteResultPolicy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatal(err)
 			}
@@ -119,7 +125,7 @@ func TestWakeSubmissionWriteResultPolicy(t *testing.T) {
 				},
 			}
 
-			err := loop.submitWakeupPhysical()
+			err = loop.submitWakeupPhysical()
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("submitWakeupPhysical error = %v, want %v", err, test.wantErr)
 			}
@@ -131,7 +137,10 @@ func TestWakeSubmissionWriteResultPolicy(t *testing.T) {
 }
 
 func TestWakeSubmissionDeduplicatesPendingEpoch(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +171,10 @@ func TestWakeSubmissionDeduplicatesPendingEpoch(t *testing.T) {
 }
 
 func TestConcurrentSuccessfulWakeContendersWriteOnce(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +221,10 @@ func TestConcurrentSuccessfulWakeContendersWriteOnce(t *testing.T) {
 }
 
 func TestFastWakeConsumptionPreservesPhysicalPendingEpoch(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +292,10 @@ func TestPhysicalWakeReleasesNativePollIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	registerTestFDCleanupT(t, &pipeFDs[0], &pipeFDs[1])
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.RegisterFD(pipeFDs[0], EventRead, func(IOEvents) {}); err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +351,10 @@ func TestPhysicalWakeReleasesNativePollIO(t *testing.T) {
 }
 
 func TestPendingWakeTreatsWrappedWouldBlockAsPhysicalPending(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +384,10 @@ func TestPendingWakeTreatsWrappedWouldBlockAsPhysicalPending(t *testing.T) {
 }
 
 func TestPendingWakeResourceReleaseWaitsForSubmission(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +452,10 @@ func TestPendingWakeResourceReleaseWaitsForSubmission(t *testing.T) {
 
 func TestIngressWakeFailureReleasesPendingClaim(t *testing.T) {
 	sentinel := errors.New("wake write failed")
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +488,10 @@ func TestIngressWakeFailureReleasesPendingClaim(t *testing.T) {
 }
 
 func TestSubmittingWakeLoserRetriesAfterWinnerFailure(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +570,10 @@ func TestSubmittingWakeLoserRetriesAfterWinnerFailure(t *testing.T) {
 }
 
 func TestCompletedPendingWakeLoserAvoidsResourceLock(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}

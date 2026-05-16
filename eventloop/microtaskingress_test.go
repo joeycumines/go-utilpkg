@@ -31,7 +31,10 @@ func TestMixedIngressOwnerPreservesPhasePriority(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			var callbackErrs fuzzErrs
@@ -81,7 +84,10 @@ func admitForeignCallback(schedule func(func()) error, fn func()) error {
 }
 
 func TestForeignNextTickAcknowledgedDuringNextTickBatchPrecedesMicrotasks(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var callbackErrs fuzzErrs
@@ -113,9 +119,15 @@ func TestForeignNextTickAcknowledgedDuringNextTickBatchPrecedesMicrotasks(t *tes
 }
 
 func TestForeignNextTickAcknowledgedDuringNextTickBatchPrecedesPromiseReaction(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var callbackErrs fuzzErrs
 	var order []string
@@ -148,7 +160,10 @@ func TestForeignNextTickAcknowledgedDuringNextTickBatchPrecedesPromiseReaction(t
 }
 
 func TestForeignNextTickAcknowledgedBeforeNextTickGoexitPrecedesMicrotasks(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var callbackErrs fuzzErrs
@@ -176,7 +191,10 @@ func TestForeignNextTickAcknowledgedBeforeNextTickGoexitPrecedesMicrotasks(t *te
 }
 
 func TestForeignNextTickAcknowledgedDuringPromiseBatchDoesNotPreemptMicrotasks(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var callbackErrs fuzzErrs
@@ -206,7 +224,10 @@ func TestForeignNextTickAcknowledgedDuringPromiseBatchDoesNotPreemptMicrotasks(t
 }
 
 func TestOwnerScheduleAfterForeignNextTickPreservesActivePromiseBatch(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var callbackErrs fuzzErrs

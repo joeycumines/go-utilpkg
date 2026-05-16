@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"weak"
 
 	goeventloop "github.com/joeycumines/go-eventloop"
 	"github.com/joeycumines/goja"
@@ -46,7 +47,7 @@ func removeEventTargetListenerSlot(infos []*eventTargetListenerInfo, index int) 
 // eventTargetWrapper wraps an EventTarget with Goja-specific state.
 type eventTargetWrapper struct {
 	target        *goeventloop.EventTarget // retained for Go-dispatch fallback tests / APIs
-	object        *goja.Object
+	object        weak.Pointer[goja.Object]
 	abortSignal   *abortSignalState
 	listeners     map[string][]*eventTargetListenerInfo // eventType -> listener infos
 	goListenerIDs map[string]goeventloop.ListenerID
@@ -123,7 +124,7 @@ func (a *Adapter) eventTargetThis(value goja.Value) *eventTargetWrapper {
 func (a *Adapter) initEventTargetObject(obj *goja.Object) *eventTargetWrapper {
 	wrapper := &eventTargetWrapper{
 		target:        goeventloop.NewEventTarget(),
-		object:        obj,
+		object:        weak.Make(obj),
 		listeners:     make(map[string][]*eventTargetListenerInfo),
 		goListenerIDs: make(map[string]goeventloop.ListenerID),
 	}
@@ -273,8 +274,8 @@ func (a *Adapter) dispatchGoEvent(wrapper *eventTargetWrapper, event *goeventloo
 		panic(a.throwDOMException("InvalidStateError", "The event is already being dispatched."))
 	}
 	state.dispatching = true
-	state.target = wrapper.object
-	state.currentTarget = wrapper.object
+	state.target = wrapper.object.Value()
+	state.currentTarget = wrapper.object.Value()
 	state.eventPhase = eventPhaseAtTarget
 	defer func() {
 		state.currentTarget = goja.Null()
@@ -412,8 +413,8 @@ func (a *Adapter) dispatchJSEvent(wrapper *eventTargetWrapper, eventObj *goja.Ob
 		panic(a.throwDOMException("InvalidStateError", "The event is already being dispatched."))
 	}
 	state.dispatching = true
-	state.target = wrapper.object
-	state.currentTarget = wrapper.object
+	state.target = wrapper.object.Value()
+	state.currentTarget = wrapper.object.Value()
 	state.eventPhase = eventPhaseAtTarget
 	state.event.Target = wrapper.target
 	a.dispatchJSEvents.Store(state.event, eventObj)
@@ -459,7 +460,7 @@ func (a *Adapter) invokeEventListener(wrapper *eventTargetWrapper, info *eventTa
 	)
 	if f, ok := goja.AssertFunction(info.callback); ok {
 		fn = f
-		this = wrapper.object
+		this = wrapper.object.Value()
 	} else if obj, ok := info.callback.(*goja.Object); ok && obj != nil {
 		var handleEvent goja.Value
 		if exception := a.runtime.Try(func() { handleEvent = obj.Get("handleEvent") }); exception != nil {

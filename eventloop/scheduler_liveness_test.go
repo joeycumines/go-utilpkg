@@ -9,7 +9,10 @@ import (
 )
 
 func TestFastModeFiniteTimerOverOneSecondFiresWithoutWakeup(t *testing.T) {
-	loop := New(WithAutoExit(false))
+	loop, err := New(WithAutoExit(false))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fired := make(chan struct{})
 	if _, err := loop.ScheduleTimer(1100*time.Millisecond, func() { close(fired) }); err != nil {
@@ -32,7 +35,10 @@ func TestFastModeFiniteTimerOverOneSecondFiresWithoutWakeup(t *testing.T) {
 }
 
 func TestIneligibleTimerDoesNotBlockEligibleDueTimer(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.state.Store(StateRunning)
 	loop.tickCount = 10
 	now := time.Now().Add(-time.Millisecond)
@@ -60,7 +66,10 @@ func TestIneligibleTimerDoesNotBlockEligibleDueTimer(t *testing.T) {
 }
 
 func TestSubmitFIFOAcrossFDModeTransition(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerFDResourceCleanupT(t, loop)
 	loop.state.Store(StateRunning)
 	var order []string
@@ -82,7 +91,10 @@ func TestSubmitFIFOAcrossFDModeTransition(t *testing.T) {
 }
 
 func TestRegisterFDReleasesLivenessLockBeforePostRegistrationRollbackCheck(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	fd, cleanupFD := testCreateIOFD(t)
 	t.Cleanup(cleanupFD)
@@ -103,7 +115,7 @@ func TestRegisterFDReleasesLivenessLockBeforePostRegistrationRollbackCheck(t *te
 		},
 	}
 
-	err := loop.RegisterFD(fd, EventRead, func(IOEvents) {})
+	err = loop.RegisterFD(fd, EventRead, func(IOEvents) {})
 	if !hookRan {
 		t.Fatal("BeforeRegisterFDRollbackCheck hook did not run")
 	}
@@ -121,7 +133,10 @@ func TestRegisterFDReleasesLivenessLockBeforePostRegistrationRollbackCheck(t *te
 }
 
 func TestCheckRefedPredicateCanCallLivenessAPIWhileQuiescing(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var sawQuiescing bool
@@ -157,7 +172,10 @@ func TestCheckRefedPredicateCanCallLivenessAPIWhileQuiescing(t *testing.T) {
 }
 
 func TestCommandImmediateRefedPredicateCanCallLivenessAPIWhileCommittingAutoExit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var enqueued bool
@@ -194,7 +212,10 @@ func TestCommandImmediateRefedPredicateCanCallLivenessAPIWhileCommittingAutoExit
 }
 
 func TestPreRunUnrefTimerDoesNotKeepAutoExitAlive(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	fired := make(chan struct{}, 1)
 	id, err := loop.ScheduleTimer(time.Hour, func() { fired <- struct{}{} })
 	if err != nil {

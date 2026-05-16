@@ -20,10 +20,20 @@ func promiseCombinatorTestCases() []promiseCombinatorTestCase {
 }
 
 func TestPromiseAllEmptyInputSettlesSynchronously(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	result := NewJS(loop).All(nil)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := js.All(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if state := result.State(); state != Fulfilled {
 		t.Fatalf("empty All state = %v, want Fulfilled", state)
 	}
@@ -34,10 +44,20 @@ func TestPromiseAllEmptyInputSettlesSynchronously(t *testing.T) {
 }
 
 func TestPromiseAllSettledEmptyInputSettlesSynchronously(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	result := NewJS(loop).AllSettled(nil)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := js.AllSettled(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if state := result.State(); state != Fulfilled {
 		t.Fatalf("empty AllSettled state = %v, want Fulfilled", state)
 	}
@@ -48,10 +68,20 @@ func TestPromiseAllSettledEmptyInputSettlesSynchronously(t *testing.T) {
 }
 
 func TestPromiseAnyEmptyInputRejectsSynchronously(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	result := NewJS(loop).Any(nil)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := js.Any(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if state := result.State(); state != Rejected {
 		t.Fatalf("empty Any state = %v, want Rejected", state)
 	}
@@ -68,10 +98,20 @@ func TestPromiseAnyEmptyInputRejectsSynchronously(t *testing.T) {
 }
 
 func TestPromiseRaceEmptyInputRemainsPending(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
-	result := NewJS(loop).Race(nil)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := js.Race(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	settled := result.ToChannel()
 	if state := result.State(); state != Pending {
 		t.Fatalf("empty Race initial state = %v, want Pending", state)
@@ -90,12 +130,19 @@ func TestPromiseRaceEmptyInputRemainsPending(t *testing.T) {
 
 func newCombinatorTestAdapter(t *testing.T, reported chan<- any) (*Loop, *JS) {
 	t.Helper()
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	return loop, NewJS(loop,
+	js, err := NewJS(loop,
 		WithUnhandledRejection(func(reason any) { reported <- reason }),
 		WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loop, js
 }
 
 func assertTerminalCombinatorRejection(t *testing.T, result *ChainedPromise, resultChannel <-chan any) {

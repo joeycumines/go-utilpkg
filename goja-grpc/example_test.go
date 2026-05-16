@@ -53,11 +53,17 @@ func exampleGrpcDescBytes() []byte {
 
 func Example() {
 	// Create event loop and goja runtime.
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	defer loop.Close()
 
 	rt := goja.New()
 	adapter, err := gojaeventloop.New(loop, rt)
+	if err != nil {
+		panic(err)
+	}
 	if err != nil {
 		panic(err)
 	}

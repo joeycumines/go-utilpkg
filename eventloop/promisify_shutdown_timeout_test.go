@@ -54,7 +54,10 @@ func (c *shutdownCompletionProbeContext) release() {
 func TestPromisifyWorkerWinningShutdownDoesNotJoinSelf(t *testing.T) {
 	for _, running := range []bool{false, true} {
 		t.Run(map[bool]string{false: "pre-run", true: "running"}[running], func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			var runDone chan error
@@ -119,7 +122,10 @@ func TestPromisifyWorkerWinningShutdownDoesNotJoinSelf(t *testing.T) {
 func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 	const numGoroutines = 10
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	release := make(chan struct{})
@@ -207,7 +213,10 @@ func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 // TestPromisify_MultipleShutdowns verifies that multiple concurrent Shutdown calls
 // all work correctly and wait for Promisify goroutines.
 func TestPromisify_MultipleShutdowns(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	release := make(chan struct{})
@@ -348,7 +357,10 @@ func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			var workerContext context.Context = context.Background()

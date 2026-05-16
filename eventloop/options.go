@@ -130,8 +130,14 @@ type DebugModeOption struct {
 //
 // Example:
 //
-//	loop := eventloop.New(eventloop.WithDebugMode(true))
-//	js := eventloop.NewJS(loop)
+//	loop, err := eventloop.New(eventloop.WithDebugMode(true))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	js, err := eventloop.NewJS(loop)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	// Promises now capture creation stack traces
 //	p, _, _ := js.NewChainedPromise()
 //	fmt.Println(p.CreationStackTrace()) // Prints where the promise was created
@@ -175,7 +181,10 @@ type AutoExitOption struct {
 //
 // Example:
 //
-//	loop := eventloop.New(eventloop.WithAutoExit(true))
+//	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	loop.Submit(func() {
 //	    // This work will execute, then the loop exits when done.
 //	    fmt.Println("done")
@@ -209,7 +218,7 @@ type QueuePressureHandlerOption struct {
 // It may schedule loop work. Panics and runtime.Goexit are contained like other
 // loop callbacks.
 //
-// New panics if handler is nil.
+// New returns an error if handler is nil.
 func WithQueuePressureHandler(handler func()) *QueuePressureHandlerOption {
 	return &QueuePressureHandlerOption{handler: handler}
 }
@@ -228,18 +237,18 @@ func (o *QueuePressureHandlerOption) applyLoopOption(cfg *loopConfig) error {
 var _ LoopOption = (*QueuePressureHandlerOption)(nil)
 
 // resolveLoopOptions applies LoopOption instances to a fresh loopConfig.
-// Static option contract failures panic at the factory boundary per ADR-002.
-func resolveLoopOptions(opts []LoopOption) *loopConfig {
+// Option validation failures are returned as errors per ADR-007.
+func resolveLoopOptions(opts []LoopOption) (*loopConfig, error) {
 	cfg := &loopConfig{
 		fastPathMode: FastPathAuto,
 	}
 	for index, opt := range opts {
 		if opt == nil {
-			panic(fmt.Errorf("eventloop: loop option %d is nil", index))
+			return nil, fmt.Errorf("eventloop: loop option %d is nil", index)
 		}
 		if err := opt.applyLoopOption(cfg); err != nil {
-			panic(fmt.Errorf("eventloop: loop option %d: %w", index, err))
+			return nil, fmt.Errorf("eventloop: loop option %d: %w", index, err)
 		}
 	}
-	return cfg
+	return cfg, nil
 }

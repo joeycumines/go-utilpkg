@@ -16,11 +16,17 @@ import (
 //
 // Without per-callback draining, microtasks would be batched after all timers.
 func TestGojaMicrotaskOrdering_PromiseBetweenTimers(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -81,11 +87,17 @@ func TestGojaMicrotaskOrdering_PromiseBetweenTimers(t *testing.T) {
 // queueMicrotask() called inside a timer callback runs before the next
 // timer callback, matching Node.js v11+ semantics.
 func TestGojaMicrotaskOrdering_QueueMicrotaskBetweenTimers(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -149,11 +161,17 @@ func TestGojaMicrotaskOrdering_QueueMicrotaskBetweenTimers(t *testing.T) {
 // tick drains all queued microtasks at the start-of-tick drainMicrotasks()
 // call, before runTimers() fires the setTimeout callback.
 func TestGojaMicrotaskOrdering_ExhaustiveDrain(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -228,11 +246,17 @@ func TestGojaMicrotaskOrdering_ExhaustiveDrain(t *testing.T) {
 // microtask order, and a nextTick queued from inside a promise job waits until
 // the current microtask checkpoint completes.
 func TestNode26NextTickPromiseQueueMicrotaskOrder(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}
@@ -292,11 +316,17 @@ func TestNode26NextTickPromiseQueueMicrotaskOrder(t *testing.T) {
 // run. The Promise job clears the second immediate; batched adapter-level
 // flushing would run that second callback before the clearImmediate call happens.
 func TestGojaImmediateMicrotaskCheckpoint(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -373,11 +403,17 @@ func TestGojaImmediateMicrotaskCheckpoint(t *testing.T) {
 // phase is already running are not appended to the active phase snapshot. They
 // must run after all already-queued peer immediates, in the next loop iteration.
 func TestGojaImmediateRollover(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -438,11 +474,17 @@ func TestGojaImmediateRollover(t *testing.T) {
 }
 
 func TestNode26TimeoutScheduledInsideImmediateUsesValidOrdering(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -519,11 +561,17 @@ func TestNode26TimeoutScheduledInsideImmediateUsesValidOrdering(t *testing.T) {
 // timer registration is not visible until after the first check phase and
 // setImmediate deterministically wins even when the timer is already due.
 func TestGojaStartupDueTimerCanBeatImmediate(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Shutdown(context.Background()) }()
 
 	vm := goja.New()
 	adapter, err := New(loop, vm)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}

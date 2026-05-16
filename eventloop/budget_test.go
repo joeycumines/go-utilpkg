@@ -7,7 +7,10 @@ import (
 // TestMicrotaskBudget_ResetsPolling verifies that the forceNonBlockingPoll flag
 // is properly reset after usage, preventing busy-spin.
 func TestMicrotaskBudget_ResetsPolling(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Set up state to Running so poll() doesn't early-return
 	l.state.Store(StateRunning)

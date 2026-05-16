@@ -79,7 +79,10 @@ func TestShutdownAdmissionConservesCallbackPublishedAfterTransition(t *testing.T
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			var executed atomic.Int64
 			forceGracefulIngressOverlapT(t, loop, test.kind, func() error {
@@ -150,7 +153,10 @@ func TestShutdownAdmissionConservesTimerMutationPublishedAfterTransition(t *test
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			admit, reject := test.prepare(t, loop)
 			forceGracefulIngressOverlapT(t, loop, test.kind, admit)
 			if err := reject(); !errors.Is(err, ErrLoopTerminated) {
@@ -161,7 +167,10 @@ func TestShutdownAdmissionConservesTimerMutationPublishedAfterTransition(t *test
 }
 
 func TestShutdownDrainsPreTerminalInternalContinuation(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var executionLog []string
 	ingressScheduled := make(chan struct{})
@@ -222,7 +231,10 @@ func TestShutdownDrainsPreTerminalInternalContinuation(t *testing.T) {
 }
 
 func TestShutdownAdmissionConservesTasks(t *testing.T) {
-	l := New()
+	l, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var (
 		executed atomic.Int64

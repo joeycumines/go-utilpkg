@@ -8,7 +8,10 @@ import (
 )
 
 func TestUnhandledRejectionReportClearsRunningTracking(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	ready := make(chan struct{})
@@ -41,7 +44,7 @@ func TestUnhandledRejectionReportClearsRunningTracking(t *testing.T) {
 	observed := make(chan result, 1)
 	var callbackCount atomic.Int32
 	var js *JS
-	js = NewJS(loop, WithUnhandledRejection(func(got any) {
+	js, err = NewJS(loop, WithUnhandledRejection(func(got any) {
 		if got != reason {
 			observed <- result{err: errors.New("unhandled-rejection callback received wrong reason")}
 			return
@@ -69,7 +72,9 @@ func TestUnhandledRejectionReportClearsRunningTracking(t *testing.T) {
 			observed <- result{err: err}
 		}
 	}))
-
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Submit(func() {
 		_, _, reject := js.NewChainedPromise()
 		reject(reason)

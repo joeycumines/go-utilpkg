@@ -35,9 +35,15 @@ var errSentinel = errors.New("sentinel error for testing")
 // --- Require() via require.Registry ---
 
 func TestRequire_ViaRegistry(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
@@ -3038,9 +3044,15 @@ func TestServerStreamHandler_MultipleItems(t *testing.T) {
 // --- submitOrRejectDirect: loop stopped (failure path) ---
 
 func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtime := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {

@@ -9,7 +9,10 @@ import (
 )
 
 func TestRunCallbackRequiresLogicalOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	ran := false
 	if err := loop.RunCallback(func() { ran = true }); !errors.Is(err, ErrCallbackOwner) {
@@ -21,7 +24,10 @@ func TestRunCallbackRequiresLogicalOwner(t *testing.T) {
 }
 
 func TestRunCallbackMeasuresUserWorkAndDrainsCheckpoint(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var order []string
 	var callbackErr error
 	if _, err := loop.ScheduleControlTimer(0, func() {
@@ -57,7 +63,10 @@ func TestRunCallbackMeasuresUserWorkAndDrainsCheckpoint(t *testing.T) {
 }
 
 func TestRunCallbackNilPanics(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	defer func() {
 		if value := recover(); value != "eventloop: nil RunCallback callback" {
@@ -68,7 +77,10 @@ func TestRunCallbackNilPanics(t *testing.T) {
 }
 
 func TestRunCallbackDeferredCheckpointSeparatesHostBookkeeping(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var order []string
 	var callbackErr error
 	var checkpointErr error
@@ -106,7 +118,10 @@ func TestRunCallbackDeferredCheckpointSeparatesHostBookkeeping(t *testing.T) {
 }
 
 func TestRunCallbackDeferredCheckpointRequiresLogicalOwner(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	ran := false
 	if err := loop.RunCallbackDeferredCheckpoint(func() { ran = true }); !errors.Is(err, ErrCallbackOwner) {
@@ -118,7 +133,10 @@ func TestRunCallbackDeferredCheckpointRequiresLogicalOwner(t *testing.T) {
 }
 
 func TestRunCallbackDeferredCheckpointNilPanics(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() { _ = loop.Close() }()
 	defer func() {
 		if value := recover(); value != "eventloop: nil RunCallbackDeferredCheckpoint callback" {
@@ -129,7 +147,10 @@ func TestRunCallbackDeferredCheckpointNilPanics(t *testing.T) {
 }
 
 func TestRunCallbackGoexitDoesNotStopLoop(t *testing.T) {
-	loop := New(WithAutoExit(true), WithMetrics(true))
+	loop, err := New(WithAutoExit(true), WithMetrics(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	continued := false
 	if _, err := loop.ScheduleControlTimer(0, func() {
 		_ = loop.RunCallback(runtime.Goexit)

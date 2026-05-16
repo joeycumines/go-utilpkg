@@ -11,9 +11,15 @@ import (
 
 // TestPromiseWithResolvers_Basic tests basic Promise.withResolvers() usage.
 func TestPromiseWithResolvers_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -37,11 +43,17 @@ func TestPromiseWithResolvers_Basic(t *testing.T) {
 }
 
 func TestPromiseWithResolvers_CustomConstructorValidation(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to create adapter: %v", err)
 	}
@@ -78,9 +90,15 @@ func TestPromiseWithResolvers_CustomConstructorValidation(t *testing.T) {
 
 // TestPromiseWithResolvers_Resolve tests resolving via withResolvers.
 func TestPromiseWithResolvers_Resolve(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -119,9 +137,15 @@ func TestPromiseWithResolvers_Resolve(t *testing.T) {
 
 // TestPromiseWithResolvers_Reject tests rejecting via withResolvers.
 func TestPromiseWithResolvers_Reject(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -160,9 +184,15 @@ func TestPromiseWithResolvers_Reject(t *testing.T) {
 
 // TestPromiseWithResolvers_Chaining tests chaining from withResolvers promise.
 func TestPromiseWithResolvers_Chaining(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -201,9 +231,15 @@ func TestPromiseWithResolvers_Chaining(t *testing.T) {
 
 // TestPromiseWithResolvers_MultiplePromises tests creating multiple withResolvers.
 func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -254,9 +290,15 @@ func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
 
 // TestPromiseWithResolvers_IdempotentResolve tests that resolve is idempotent.
 func TestPromiseWithResolvers_IdempotentResolve(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -298,9 +340,15 @@ func TestPromiseWithResolvers_IdempotentResolve(t *testing.T) {
 
 // TestPromiseWithResolvers_IdempotentReject tests that reject is idempotent.
 func TestPromiseWithResolvers_IdempotentReject(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -341,9 +389,15 @@ func TestPromiseWithResolvers_IdempotentReject(t *testing.T) {
 
 // TestPromiseWithResolvers_ResolveAfterReject tests resolve after reject is ignored.
 func TestPromiseWithResolvers_ResolveAfterReject(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -388,9 +442,15 @@ func TestPromiseWithResolvers_ResolveAfterReject(t *testing.T) {
 
 // TestPromiseWithResolvers_RejectAfterResolve tests reject after resolve is ignored.
 func TestPromiseWithResolvers_RejectAfterResolve(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -435,9 +495,15 @@ func TestPromiseWithResolvers_RejectAfterResolve(t *testing.T) {
 
 // TestPromiseWithResolvers_NullUndefined tests resolving/rejecting with null/undefined.
 func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -484,9 +550,15 @@ func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
 
 // TestPromiseWithResolvers_WithPromiseAll tests using withResolvers with Promise.all.
 func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -536,9 +608,15 @@ func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
 
 // TestPromiseWithResolvers_WithPromiseRace tests using withResolvers with Promise.race.
 func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -582,9 +660,15 @@ func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
 
 // TestPromiseWithResolvers_TimeoutPattern tests timeout pattern implementation.
 func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}
@@ -643,9 +727,15 @@ func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
 
 // TestPromiseWithResolvers_Finally tests finally handler with withResolvers.
 func TestPromiseWithResolvers_Finally(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
 	rt := goja.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	adapter, err := New(loop, rt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("failed to create adapter: %v", err)
 	}

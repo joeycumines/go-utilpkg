@@ -151,7 +151,10 @@ func testAbortTimeoutLegacyPanicNil(t *testing.T) {
 			return nil
 		})),
 	)
-	loop := New(WithAutoExit(true), WithLogger(typedLogger.Logger()))
+	loop, err := New(WithAutoExit(true), WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	controller, err := AbortTimeout(loop, 0)
 	if err != nil {

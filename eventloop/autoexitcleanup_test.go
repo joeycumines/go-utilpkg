@@ -7,7 +7,10 @@ import (
 )
 
 func TestAutoExitUnrefTimerClearsTimerStorage(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	timerID, err := loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {

@@ -11,9 +11,15 @@ import (
 )
 
 func TestCloseCleansPublishedJSHandleRegistries(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := js.SetTimeout(func() {}, int(time.Hour/time.Millisecond)); err != nil {
 		t.Fatalf("SetTimeout: %v", err)
@@ -83,9 +89,15 @@ func TestCloseRejectsJSTimerPublicationAfterCleanup(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
-			js := NewJS(loop)
+			js, err := NewJS(loop)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			publicationReached := make(chan struct{})
 			releasePublication := make(chan struct{})
@@ -132,7 +144,10 @@ func TestCloseRejectsJSTimerPublicationAfterCleanup(t *testing.T) {
 }
 
 func TestNewJSRegistrationConvergesAfterCollectedAdapters(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const adapterCount = 32
@@ -158,7 +173,10 @@ func TestNewJSRegistrationConvergesAfterCollectedAdapters(t *testing.T) {
 		runtime.Gosched()
 	}
 
-	survivor := NewJS(loop)
+	survivor, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	deadline = time.Now().Add(5 * time.Second)
 	for {
 		loop.livenessMu.Lock()
@@ -178,7 +196,10 @@ func TestNewJSRegistrationConvergesAfterCollectedAdapters(t *testing.T) {
 }
 
 func TestCollectedJSAdapterRegistrationsRetireWithoutNewAdapter(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const adapterCount = 32
@@ -207,7 +228,10 @@ func TestCollectedJSAdapterRegistrationsRetireWithoutNewAdapter(t *testing.T) {
 }
 
 func TestNewJSSweepsDelayedCollectedAdapterRegistrations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	cleanupEntered := make(chan struct{})
 	releaseCleanup := make(chan struct{})
@@ -237,7 +261,10 @@ func TestNewJSSweepsDelayedCollectedAdapterRegistrations(t *testing.T) {
 		t.Fatalf("registrations before fallback sweep = %d, want %d", registeredBefore, len(pointers))
 	}
 
-	survivor := NewJS(loop)
+	survivor, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.livenessMu.Lock()
 	registeredAfter := len(loop.jsAdapters)
 	loop.livenessMu.Unlock()
@@ -249,13 +276,20 @@ func TestNewJSSweepsDelayedCollectedAdapterRegistrations(t *testing.T) {
 }
 
 func TestJSAdapterRegistrationsRebuildAfterHighWater(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const survivorCount = 8
 	adapters := make([]*JS, retainedRegistryHighWater+1)
 	for index := range adapters {
-		adapters[index] = NewJS(loop)
+		var err error
+		adapters[index], err = NewJS(loop)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	loop.livenessMu.Lock()
 	oversized := loop.jsAdaptersRetention.oversized
@@ -300,7 +334,10 @@ func TestTerminalJSAdapterRegistryRemainsDiscardedAfterCollection(t *testing.T) 
 		adapterCount = 8
 	)
 	for range iterations {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		pointers := make([]weak.Pointer[JS], adapterCount)
 		for index := range pointers {
 			pointers[index] = newWeakJSAdapterT(t, loop)
@@ -323,7 +360,10 @@ func TestTerminalJSAdapterRegistryRemainsDiscardedAfterCollection(t *testing.T) 
 }
 
 func TestCloseWinsBlockedJSAdapterCleanup(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cleanupEntered := make(chan struct{})
 	cleanupRetired := make(chan struct{})
 	releaseCleanup := make(chan struct{})
@@ -355,7 +395,10 @@ func TestCloseWinsBlockedJSAdapterCleanup(t *testing.T) {
 }
 
 func TestJSAdapterCleanupWinsClose(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cleanupLocked := make(chan struct{})
 	releaseCleanup := make(chan struct{})
 	var lockedOnce sync.Once
@@ -395,7 +438,10 @@ func assertTerminalJSAdapterRegistryDiscarded(t *testing.T, loop *Loop) {
 }
 
 func TestNewJSRejectionCheckpointDoesNotRetainAdapters(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	registerActiveLoopCleanupT(t, loop, runDone)
@@ -430,9 +476,15 @@ func TestNewJSRejectionCheckpointDoesNotRetainAdapters(t *testing.T) {
 }
 
 func TestRejectionCheckRetentionSingleSlotAllocatesNoMap(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	allocations := testing.AllocsPerRun(1000, func() {
 		loop.retainRejectionCheckAdapter(js)
@@ -452,9 +504,25 @@ func TestRejectionCheckRetentionSingleSlotAllocatesNoMap(t *testing.T) {
 }
 
 func TestRejectionCheckRetentionOverflowCollapses(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	adapters := []*JS{NewJS(loop), NewJS(loop), NewJS(loop)}
+	var err2 error
+	adapters := make([]*JS, 3)
+	adapters[0], err2 = NewJS(loop)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	adapters[1], err2 = NewJS(loop)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	adapters[2], err2 = NewJS(loop)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	for _, js := range adapters {
 		loop.retainRejectionCheckAdapter(js)
 	}
@@ -489,7 +557,10 @@ func TestRejectionCheckRetentionOverflowCollapses(t *testing.T) {
 }
 
 func TestCloseCollectsDequeuedRejectionCheckpointOwner(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackReached := make(chan struct{})
@@ -518,10 +589,13 @@ func TestCloseCollectsDequeuedRejectionCheckpointOwner(t *testing.T) {
 	}
 
 	pointer = func() weak.Pointer[JS] {
-		js := NewJS(loop,
+		js, err := NewJS(loop,
 			WithUnhandledRejection(func(reason any) { reported <- reason }),
 			WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 		)
+		if err != nil {
+			t.Fatal(err)
+		}
 		_, _, reject := js.NewChainedPromise()
 		reject("dequeued checkpoint")
 		result := weak.Make(js)
@@ -565,7 +639,10 @@ func TestCloseCollectsDequeuedRejectionCheckpointOwner(t *testing.T) {
 }
 
 func TestCloseDrainsRejectionCheckRetentionOverflow(t *testing.T) {
-	loop := New(WithLogger(nil))
+	loop, err := New(WithLogger(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const adapterCount = 3
@@ -573,10 +650,13 @@ func TestCloseDrainsRejectionCheckRetentionOverflow(t *testing.T) {
 	pointers := make([]weak.Pointer[JS], adapterCount)
 	for index := range pointers {
 		pointers[index] = func() weak.Pointer[JS] {
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 			_, _, reject := js.NewChainedPromise()
 			reject(index)
 			pointer := weak.Make(js)
@@ -635,14 +715,20 @@ func waitRejectionCheckRetentionEmpty(t *testing.T, loop *Loop) {
 
 func newWeakJSAdapterT(t *testing.T, loop *Loop) weak.Pointer[JS] {
 	t.Helper()
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return weak.Make(js)
 }
 
 func newReportedWeakJSAdapterT(t *testing.T, loop *Loop, reason int) weak.Pointer[JS] {
 	t.Helper()
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(value any) { reported <- value }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(value any) { reported <- value }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _, reject := js.NewChainedPromise()
 	reject(reason)
 	if got := waitContractValue(t, reported, "transient adapter rejection report"); got != reason {

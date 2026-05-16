@@ -3,7 +3,10 @@ package eventloop
 import "testing"
 
 func TestDonePublishesTerminalCompletion(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	done := loop.Done()
 	if done == nil {
 		t.Fatal("Done returned nil")

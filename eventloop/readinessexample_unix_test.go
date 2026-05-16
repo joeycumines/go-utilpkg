@@ -15,7 +15,10 @@ import (
 func ExampleLoop_RegisterFD() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		panic(err)
+	}
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		panic(err)

@@ -191,8 +191,19 @@ func validateMaterializationArchiveFSCK(stdout, stderr []byte) error {
 	if len(stdout) != 0 {
 		return fmt.Errorf("unexpected fsck stdout %q", stdout)
 	}
-	if len(stderr) != 0 {
-		return fmt.Errorf("unexpected fsck stderr %q", stderr)
+	var unexpected []byte
+	for _, line := range bytes.Split(stderr, []byte{'\n'}) {
+		if len(line) == 0 {
+			continue
+		}
+		if bytes.HasPrefix(line, []byte("notice: HEAD points to an unborn branch ")) {
+			continue
+		}
+		unexpected = append(unexpected, line...)
+		unexpected = append(unexpected, '\n')
+	}
+	if len(unexpected) != 0 {
+		return fmt.Errorf("unexpected fsck stderr %q", unexpected)
 	}
 	return nil
 }

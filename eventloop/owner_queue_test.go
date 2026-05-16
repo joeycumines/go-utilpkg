@@ -281,7 +281,10 @@ func TestLocalCheckQueueReleasesLargeSnapshotHighWater(t *testing.T) {
 }
 
 func TestLoopCommandIngressFeedsOwnerQueuesFromPublicAdmission(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var order []string
@@ -324,7 +327,10 @@ func TestLoopCommandIngressFeedsOwnerQueuesFromPublicAdmission(t *testing.T) {
 }
 
 func TestLoopThreadMicrotasksBypassCommandIngress(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var order []string
@@ -372,7 +378,10 @@ func TestLoopThreadMicrotasksBypassCommandIngress(t *testing.T) {
 }
 
 func TestLoopCommandIngressTransferVisibleToAlive(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	entered := make(chan struct{})
@@ -425,7 +434,10 @@ func TestLoopCommandIngressTransferVisibleToAlive(t *testing.T) {
 }
 
 func TestLoopCommandIngressUnrefImmediateDoesNotAbortAutoExit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var ran bool
@@ -462,7 +474,10 @@ func TestHasMacrotaskWorkExcludesMicrotaskIngressCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			if err := tt.schedule(loop); err != nil {
@@ -479,7 +494,10 @@ func TestHasMacrotaskWorkExcludesMicrotaskIngressCommands(t *testing.T) {
 }
 
 func TestHasMacrotaskWorkRetriesWhenPredicateAdmitsMacrotaskCommand(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	var submitErr error
@@ -537,7 +555,10 @@ func TestExternalLivenessObserversDoNotRunDynamicPredicates(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			predicateCalls := 0

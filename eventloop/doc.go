@@ -199,14 +199,20 @@
 //
 // # Usage
 //
-//	loop := eventloop.New(eventloop.WithAutoExit(true))
+//	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //	defer func() {
 //	    if err := loop.Close(); err != nil {
 //	        log.Printf("close event loop: %v", err)
 //	    }
 //	}()
 //
-//	js := eventloop.NewJS(loop)
+//	js, err := eventloop.NewJS(loop)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //
 //	if err := loop.Submit(func() {
 //	    if _, err := js.SetTimeout(func() {

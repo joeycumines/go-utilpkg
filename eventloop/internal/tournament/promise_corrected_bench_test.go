@@ -124,7 +124,10 @@ func identityPromiseValue(value any) any {
 
 func startPromiseBenchmarkLoop(b *testing.B) (*eventloop.Loop, *eventloop.JS, func()) {
 	b.Helper()
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		b.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	cleanup := benchmarkLoopCleanup(b, loop, runDone, "promise benchmark")
@@ -134,7 +137,11 @@ func startPromiseBenchmarkLoop(b *testing.B) (*eventloop.Loop, *eventloop.JS, fu
 		b.Fatal(err)
 	}
 	waitPromiseBenchmarkSignal(b, ready)
-	return loop, eventloop.NewJS(loop), cleanup
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return loop, js, cleanup
 }
 
 func waitPromiseBenchmarkSignal(b *testing.B, signal <-chan struct{}) {

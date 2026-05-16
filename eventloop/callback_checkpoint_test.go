@@ -9,7 +9,10 @@ import (
 )
 
 func TestCallbackMicrotaskBarrier(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	hooks, pollReached := newIdleWaitBoundaryHooks()
 	loop.testHooks = hooks
 	runDone := make(chan error, 1)
@@ -86,7 +89,10 @@ func TestCallbackMicrotaskBarrier(t *testing.T) {
 }
 
 func TestMicrotaskCheckpointExhaustsQueue(t *testing.T) {
-	loop := New(WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	hooks, pollReached := newIdleWaitBoundaryHooks()
 	loop.testHooks = hooks
 	runDone := make(chan error, 1)

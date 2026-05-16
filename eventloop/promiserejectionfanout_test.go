@@ -14,13 +14,19 @@ func TestChainedPromiseTerminalScheduleFailureTransfersReportBeforeChildReject(t
 		UnhandledRejectionFallbackDisabled,
 	} {
 		t.Run(fmt.Sprint(mode), func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 2)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(mode),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 			parent, _, rejectParent := js.NewChainedPromise()
 			child := parent.Then(nil, nil)
 			if err := loop.Close(); err != nil {
@@ -73,13 +79,19 @@ func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 4)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 			reason := "fanout " + test.name
 			source, _, rejectSource := js.NewChainedPromise()
 			var first, second *ChainedPromise
@@ -203,10 +215,16 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 4)
-			js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			if err != nil {
+				t.Fatal(err)
+			}
 			reason := "checker race " + test.name
 			source, _, rejectSource := js.NewChainedPromise()
 			rejectSource(reason)
@@ -330,10 +348,16 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 		{name: "adopters", adopters: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 4)
-			js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+			if err != nil {
+				t.Fatal(err)
+			}
 			source, _, rejectSource := js.NewChainedPromise()
 			rejectSource("checker owns fanout")
 			checkerClaimed := make(chan struct{})
@@ -445,13 +469,19 @@ func TestChainedPromiseRejectedCheckerAdmissionLateDescendantReportsExactlyOnce(
 		{name: "adopter", adopter: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			reported := make(chan any, 4)
-			js := NewJS(loop,
+			js, err := NewJS(loop,
 				WithUnhandledRejection(func(reason any) { reported <- reason }),
 				WithUnhandledRejectionFallback(UnhandledRejectionFallbackIsolated),
 			)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			admissionReached := make(chan struct{})
 			releaseAdmission := make(chan struct{})

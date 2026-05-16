@@ -24,11 +24,17 @@ func bindRetainedCryptoTestSurface(t *testing.T, adapter *Adapter) {
 // ===============================================
 
 func TestCryptoRandomUUID_Basic(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -56,11 +62,17 @@ func TestCryptoRandomUUID_Basic(t *testing.T) {
 }
 
 func TestCryptoRandomUUID_Uniqueness(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -93,11 +105,17 @@ func TestCryptoRandomUUID_Uniqueness(t *testing.T) {
 }
 
 func TestCryptoRandomUUID_Format(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -139,11 +157,17 @@ func TestCryptoRandomUUID_Format(t *testing.T) {
 }
 
 func TestCryptoRandomUUID_TypeIsString(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -163,11 +187,17 @@ func TestCryptoRandomUUID_TypeIsString(t *testing.T) {
 }
 
 func TestCryptoRandomUUID_CryptoObjectExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -187,11 +217,17 @@ func TestCryptoRandomUUID_CryptoObjectExists(t *testing.T) {
 }
 
 func TestCryptoRandomUUID_FunctionExists(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -211,11 +247,17 @@ func TestCryptoRandomUUID_FunctionExists(t *testing.T) {
 }
 
 func TestCrypto_RetainedInterfaceAndErrors(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -280,11 +322,17 @@ func TestCrypto_RetainedInterfaceAndErrors(t *testing.T) {
 }
 
 func TestCrypto_GetRandomValuesIntegerViewsAndExactRange(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer loop.Shutdown(context.Background())
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter failed: %v", err)
 	}
@@ -388,10 +436,16 @@ func TestCrypto_RejectsPartialForeignPair(t *testing.T) {
 }
 
 func TestCrypto_EntropyReaderExactRangesAndShortReads(t *testing.T) {
-	loop := goeventloop.New()
+	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err != nil {
 		t.Fatalf("New adapter: %v", err)
 	}

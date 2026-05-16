@@ -10,7 +10,10 @@ import (
 )
 
 func TestCancelRunningTimerReleasesLiveness(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackRan := make(chan struct{}, 1)
@@ -47,7 +50,10 @@ func TestCancelRunningTimerReleasesLiveness(t *testing.T) {
 }
 
 func TestCancelTimerBeforeRunCancelsQueuedTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callbackRan := make(chan struct{}, 1)
@@ -87,7 +93,10 @@ func TestTimerRequestCancellationPrecedesLaterExecutionClaim(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+			loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			claimReached := make(chan struct{})
 			releaseClaim := make(chan struct{})
@@ -106,7 +115,6 @@ func TestTimerRequestCancellationPrecedesLaterExecutionClaim(t *testing.T) {
 				},
 			}
 
-			var err error
 			timerID, err = loop.ScheduleTimer(0, func() { fired.Store(true) })
 			if err != nil {
 				t.Fatalf("ScheduleTimer: %v", err)
@@ -134,7 +142,10 @@ func TestCancelTimerResultPrecedesLaterExecutionClaim(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	claimReached := make(chan struct{})
 	releaseClaim := make(chan struct{})
@@ -165,7 +176,6 @@ func TestCancelTimerResultPrecedesLaterExecutionClaim(t *testing.T) {
 		},
 	}
 
-	var err error
 	timerID, err = loop.ScheduleTimer(0, func() { fired.Store(true) })
 	if err != nil {
 		t.Fatalf("ScheduleTimer: %v", err)
@@ -196,7 +206,10 @@ func TestTimerRequestCancellationAfterExecutionClaimDoesNotSuppressCallback(t *t
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	loop, err := New(WithAutoExit(true), WithFastPathMode(FastPathDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	claimCommitted := make(chan struct{})
 	releaseCallback := make(chan struct{})
@@ -215,7 +228,6 @@ func TestTimerRequestCancellationAfterExecutionClaimDoesNotSuppressCallback(t *t
 		},
 	}
 
-	var err error
 	timerID, err = loop.ScheduleTimer(0, func() { fired.Store(true) })
 	if err != nil {
 		t.Fatalf("ScheduleTimer: %v", err)
@@ -238,9 +250,15 @@ func TestTimerRequestCancellationAfterExecutionClaimDoesNotSuppressCallback(t *t
 }
 
 func TestJSClearTimeoutBeforeRunCancelsQueuedTimer(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	callbackRan := make(chan struct{}, 1)
 	id, err := js.SetTimeout(func() { callbackRan <- struct{}{} }, 0)
@@ -261,7 +279,10 @@ func TestJSClearTimeoutBeforeRunCancelsQueuedTimer(t *testing.T) {
 }
 
 func TestScheduleTimerCancelAfterExpiration(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	fired := make(chan struct{})
@@ -306,7 +327,10 @@ func TestScheduleTimerCancelAfterExpiration(t *testing.T) {
 }
 
 func TestCancelTimerMissingBeforeRun(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	if err := loop.CancelTimer(1); err != ErrTimerNotFound {
 		t.Fatalf("CancelTimer before Run = %v, want %v", err, ErrTimerNotFound)
@@ -314,7 +338,10 @@ func TestCancelTimerMissingBeforeRun(t *testing.T) {
 }
 
 func TestAwaitCancelTimerResultReleasesAfterClose(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	result := make(chan error)
 	waitDone := make(chan error, 1)
@@ -394,10 +421,12 @@ func TestTerminalTransitionReleasesTimerCommandNeededByRunningCallback(t *testin
 	for _, terminationCase := range terminationCases {
 		for _, commandCase := range commandCases {
 			t.Run(terminationCase.name+"/"+commandCase.name, func(t *testing.T) {
-				loop := New()
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
 				ids := make([]TimerID, commandCase.count)
-				var err error
-				for index := range ids {
+			for index := range ids {
 					ids[index], err = loop.ScheduleTimer(time.Hour, func() {})
 					if err != nil {
 						t.Fatalf("ScheduleTimer %d: %v", index, err)
@@ -469,7 +498,10 @@ func TestTerminalTransitionReleasesTimerCommandNeededByRunningCallback(t *testin
 }
 
 func TestTerminalRefDependencyCannotOverrideLaterOwnerUnref(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	id, err := loop.ScheduleTimer(time.Hour, func() {})
 	if err != nil {
@@ -578,7 +610,10 @@ func TestTerminalTransitionPreservesTimerResultAppliedBeforeDependencyScan(t *te
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			commandPopped := make(chan struct{})
 			releaseApply := make(chan struct{})
@@ -599,7 +634,6 @@ func TestTerminalTransitionPreservesTimerResultAppliedBeforeDependencyScan(t *te
 			waitLoopOwnerTurnT(t, loop)
 
 			ids := make([]TimerID, test.count)
-			var err error
 			for index := range ids {
 				ids[index], err = loop.ScheduleTimer(time.Hour, func() {})
 				if err != nil {

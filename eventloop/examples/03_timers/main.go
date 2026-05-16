@@ -15,8 +15,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	loop := eventloop.New(eventloop.WithAutoExit(true))
-	js := eventloop.NewJS(loop)
+	loop, err := eventloop.New(eventloop.WithAutoExit(true))
+	if err != nil {
+		panic(err)
+	}
+	js, err := eventloop.NewJS(loop)
+	if err != nil {
+		panic(err)
+	}
 
 	canceledID, err := js.SetTimeout(func() { fmt.Println("unexpected timeout") }, 1000)
 	if err != nil {

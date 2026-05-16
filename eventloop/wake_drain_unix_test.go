@@ -16,7 +16,10 @@ import (
 )
 
 func TestWakeDrainSteadyStateAllocations(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatalf("ensurePoller: %v", err)
 	}
@@ -53,7 +56,10 @@ func TestWakeDrainSteadyStateAllocations(t *testing.T) {
 }
 
 func TestWakeDrainRetriesInterruptedReadBeforeReset(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +144,10 @@ func TestWakeDrainReadResultPolicy(t *testing.T) {
 					return nil
 				})),
 			)
-			loop := New(WithLogger(typedLogger.Logger()))
+			loop, err := New(WithLogger(typedLogger.Logger()))
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := loop.ensurePoller(); err != nil {
 				t.Fatal(err)
 			}
@@ -172,7 +181,10 @@ func TestWakeDrainReadResultPolicy(t *testing.T) {
 }
 
 func TestWakeDrainAfterCloseDoesNotUseStaleDescriptors(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +211,10 @@ func TestWakeDrainAfterCloseDoesNotUseStaleDescriptors(t *testing.T) {
 }
 
 func TestWakeDrainHoldsResourceUntilReadReturns(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +292,11 @@ func TestWakeDrainLogsOutsideResourceLock(t *testing.T) {
 			return nil
 		})),
 	)
-	loop = New(WithLogger(typedLogger.Logger()))
+	var err error
+	loop, err = New(WithLogger(typedLogger.Logger()))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.ensurePoller(); err != nil {
 		t.Fatal(err)
 	}

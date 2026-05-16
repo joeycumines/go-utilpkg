@@ -158,7 +158,10 @@ func TestFastPollerReadyEventCallbackCanMutatePoller(t *testing.T) {
 }
 
 func TestLoopSparseFDRegisterModifyUnregister(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 
 	var pipeFDs [2]int

@@ -10,7 +10,10 @@ import (
 )
 
 func TestBindJSCommitsAdapterAndQuiescenceTogether(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var calls atomic.Int32
 	js, err := BindJS(loop, func() bool {
 		calls.Add(1)
@@ -64,7 +67,10 @@ func TestBindJSComposesHostQuiescence(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			var hostCalls atomic.Int32
 			var integrationCalls atomic.Int32
 			host := func() bool {
@@ -104,7 +110,10 @@ func TestBindJSSerializesCompleteInstallWithRun(t *testing.T) {
 	var runAttemptOnce sync.Once
 	var installed atomic.Bool
 	var quiescenceCalls atomic.Int32
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.testHooks = &loopTestHooks{
 		BeforeRunLifecycleLock: func() {
 			runAttemptOnce.Do(func() { close(runAttempted) })
@@ -180,7 +189,10 @@ func TestBindJSSerializesCompleteInstallWithTerminalTransitions(t *testing.T) {
 			releaseInstall := contractRelease(t, installRelease)
 			terminalAttempted := make(chan struct{})
 			var terminalAttemptOnce sync.Once
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			hooks := &loopTestHooks{}
 			test.setHook(hooks, func() {
 				terminalAttemptOnce.Do(func() { close(terminalAttempted) })
@@ -249,7 +261,10 @@ func TestBindJSRejectsAfterConcurrentTerminalTransition(t *testing.T) {
 			releaseTerminal := contractRelease(t, terminalRelease)
 			bindAttempted := make(chan struct{})
 			var bindAttemptOnce sync.Once
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			hooks := &loopTestHooks{
 				BeforeBindJSLifecycleLock: func() {
 					bindAttemptOnce.Do(func() { close(bindAttempted) })
@@ -288,7 +303,10 @@ func TestBindJSRejectsAfterConcurrentTerminalTransition(t *testing.T) {
 }
 
 func TestBindJSInstallFailureDoesNotCommit(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	wantErr := errors.New("installation failed")
 	var candidate *JS
 	js, err := BindJS(loop, nil, func(value *JS) error {
@@ -324,7 +342,10 @@ func TestBindJSInstallFailureDoesNotCommit(t *testing.T) {
 }
 
 func TestBindJSInstallPanicReleasesLifecycle(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	wantPanic := errors.New("installation panic")
 	gotPanic := captureLoopOptionPanic(func() {
 		_, _ = BindJS(loop, nil, func(*JS) error { panic(wantPanic) })
@@ -347,7 +368,10 @@ func TestBindJSInstallPanicReleasesLifecycle(t *testing.T) {
 }
 
 func TestBindJSInstallGoexitReleasesLifecycle(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	returned := make(chan struct{})
 	go func() {
 		defer close(returned)
@@ -372,7 +396,10 @@ func TestBindJSInstallGoexitReleasesLifecycle(t *testing.T) {
 }
 
 func TestBindJSRejectsSecondBindingWithoutMutation(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	var firstCalls atomic.Int32
 	first, err := BindJS(loop, func() bool {
 		firstCalls.Add(1)
@@ -398,7 +425,10 @@ func TestBindJSRejectsSecondBindingWithoutMutation(t *testing.T) {
 }
 
 func TestBindJSConcurrentDuplicateArbitration(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ready := make(chan struct{}, 2)
 	release := make(chan struct{})
 	releaseBoth := contractRelease(t, release)
@@ -452,7 +482,10 @@ func TestBindJSConcurrentDuplicateArbitration(t *testing.T) {
 }
 
 func TestBindJSNilQuiescenceConsumesLifetimeSlot(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	first, err := BindJS(loop, nil, nil)
 	if err != nil || first == nil {
 		t.Fatalf("BindJS = (%#v, %v), want success", first, err)
@@ -476,7 +509,10 @@ func TestBindJSLifecycleTerminalCleanupRunsOnceWithoutLifecycleLock(t *testing.T
 		{name: "auto-exit", terminate: func(loop *Loop) error { return loop.Run(context.Background()) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			var calls int
 			cleanup := func() {
 				if !loop.livenessMu.TryLock() {
@@ -509,7 +545,10 @@ func TestBindJSLifecycleTerminalCleanupRunsOnceWithoutLifecycleLock(t *testing.T
 func TestBindJSQuiescenceResumeComposition(t *testing.T) {
 	for _, resume := range []string{"host", "integration"} {
 		t.Run(resume, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			var hostCalls atomic.Int32
 			var integrationCalls atomic.Int32
 			loop.SetQuiescenceHandler(func() bool {
@@ -551,7 +590,10 @@ func TestBindJSQuiescenceAbnormalHostDoesNotSuppressIntegration(t *testing.T) {
 		{name: "Goexit", host: runtime.Goexit},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithAutoExit(true))
+			loop, err := New(WithAutoExit(true))
+			if err != nil {
+				t.Fatal(err)
+			}
 			var integrationCalls atomic.Int32
 			loop.SetQuiescenceHandler(func() bool {
 				test.host()
@@ -583,7 +625,10 @@ func TestBindJSRejectsInvalidInputsWithoutMutation(t *testing.T) {
 		t.Fatalf("BindJS zero loop = (%#v, %v), want nil ErrJSBindState", js, err)
 	}
 
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	original := func() bool { return true }
 	loop.SetQuiescenceHandler(original)
 	loop.state.Store(StateRunning)
@@ -605,7 +650,10 @@ func TestBindJSRejectsInvalidInputsWithoutMutation(t *testing.T) {
 		t.Fatalf("Close restored loop: %v", err)
 	}
 
-	optionLoop := New()
+	optionLoop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
 		if err := optionLoop.Close(); err != nil {
 			t.Errorf("Close option loop: %v", err)
@@ -623,7 +671,10 @@ func TestBindJSRejectsInvalidInputsWithoutMutation(t *testing.T) {
 func TestBindJSLinearizesWithShutdown(t *testing.T) {
 	const attempts = 128
 	for attempt := range attempts {
-		loop := New()
+		loop, err := New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		start := make(chan struct{})
 		var group sync.WaitGroup
 		group.Add(2)

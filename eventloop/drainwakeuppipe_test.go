@@ -20,7 +20,10 @@ func ensureWakePipeForTest(t *testing.T, loop *Loop) {
 // TestDrainWakeUpPipeUninitialized tests the early return when no wake
 // descriptor has been initialized.
 func TestDrainWakeUpPipeUninitialized(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 
 	// Save original values
@@ -49,7 +52,10 @@ func TestDrainWakeUpPipeUninitialized(t *testing.T) {
 
 // TestDrainWakeUpPipe_UnixSingleRead tests draining when there's one byte in the pipe
 func TestDrainWakeUpPipe_UnixSingleRead(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 	ensureWakePipeForTest(t, loop)
 
@@ -59,7 +65,7 @@ func TestDrainWakeUpPipe_UnixSingleRead(t *testing.T) {
 	for i := range 8 {
 		buf[i] = byte(one >> (i * 8))
 	}
-	_, err := writeFD(loop.wakePipeWrite, buf)
+	_, err = writeFD(loop.wakePipeWrite, buf)
 	if err != nil {
 		t.Fatalf("Write to wake pipe failed: %v", err)
 	}
@@ -79,7 +85,10 @@ func TestDrainWakeUpPipe_UnixSingleRead(t *testing.T) {
 // TestDrainWakeUpPipe_UnixMultipleReads tests draining when multiple writes were made
 // This tests the loop that reads until EAGAIN
 func TestDrainWakeUpPipe_UnixMultipleReads(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 	ensureWakePipeForTest(t, loop)
 
@@ -91,7 +100,6 @@ func TestDrainWakeUpPipe_UnixMultipleReads(t *testing.T) {
 	}
 
 	// Write 3 times to ensure multiple reads are needed
-	var err error
 	for i := range 3 {
 		_, err = writeFD(loop.wakePipeWrite, buf)
 		if err != nil {
@@ -120,7 +128,10 @@ func TestDrainWakeUpPipe_UnixMultipleReads(t *testing.T) {
 
 // TestDrainWakeUpPipe_EmptyPipe tests draining when the pipe is already empty
 func TestDrainWakeUpPipe_EmptyPipe(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 	ensureWakePipeForTest(t, loop)
 
@@ -141,7 +152,10 @@ func TestDrainWakeUpPipe_EmptyPipe(t *testing.T) {
 // TestDrainWakeUpPipe_ResetPendingFlag tests that wakeUpSignalPending is properly
 // reset, allowing subsequent wakeups to work
 func TestDrainWakeUpPipe_ResetPendingFlag(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeFDResourcesT(t, loop)
 	ensureWakePipeForTest(t, loop)
 

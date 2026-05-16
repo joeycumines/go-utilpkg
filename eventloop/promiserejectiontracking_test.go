@@ -6,12 +6,18 @@ import (
 )
 
 func TestTrackRejection_DuplicateMicrotaskPrevention(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	const count = 10
 	reported := make(chan any, count)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make(map[any]int, count)
 	for i := range count {
 		_, _, reject := js.NewChainedPromise()
@@ -41,10 +47,16 @@ func TestTrackRejection_DuplicateMicrotaskPrevention(t *testing.T) {
 }
 
 func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	promise, _, reject := js.NewChainedPromise()
 	reject("handled")
@@ -74,10 +86,16 @@ func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
 }
 
 func TestTrackRejection_HandleAfterCheck(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 1)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	reason := errors.New("late handler")
 	promise, _, reject := js.NewChainedPromise()
@@ -105,10 +123,16 @@ func TestTrackRejection_HandleAfterCheck(t *testing.T) {
 }
 
 func TestTrackRejection_CheckRejectionScheduledReset(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	reported := make(chan any, 2)
-	js := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) { reported <- reason }))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, reason := range []string{"first", "second"} {
 		_, _, reject := js.NewChainedPromise()
@@ -128,9 +152,15 @@ func TestTrackRejection_CheckRejectionScheduledReset(t *testing.T) {
 }
 
 func TestTrackRejection_RejectionInfoStorage(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	js, err := NewJS(loop, WithUnhandledRejection(func(any) {}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	promise, _, reject := js.NewChainedPromise()
 	reason := errors.New("specific error")
@@ -149,9 +179,15 @@ func TestTrackRejection_RejectionInfoStorage(t *testing.T) {
 }
 
 func TestTrackRejection_NilCallback(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, _, reject := js.NewChainedPromise()
 	reject("no callback")

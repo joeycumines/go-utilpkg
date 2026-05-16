@@ -6,9 +6,15 @@ import (
 )
 
 func TestUnrefIntervalAllowsAutoExit(t *testing.T) {
-	loop := New(WithAutoExit(true))
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
-	js := NewJS(loop)
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fired := make(chan struct{}, 1)
 	id, err := js.SetInterval(func() { fired <- struct{}{} }, int(time.Hour/time.Millisecond))

@@ -8,7 +8,10 @@ import (
 )
 
 func TestPromisifyWorkerShutdownAcknowledgesActiveGracefulTermination(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callWorkerShutdown := make(chan struct{})
@@ -56,7 +59,10 @@ func TestPromisifyWorkerShutdownAcknowledgesActiveGracefulTermination(t *testing
 }
 
 func TestPromisifyWorkerWinningCloseBeforeRun(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	workerCloseDone := make(chan error, 1)
@@ -73,7 +79,10 @@ func TestPromisifyWorkerWinningCloseBeforeRun(t *testing.T) {
 }
 
 func TestPromisifyWorkerWinningCloseDoesNotJoinLoopDependency(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	releaseCallback := make(chan struct{})
@@ -113,7 +122,10 @@ func TestPromisifyWorkerWinningCloseDoesNotJoinLoopDependency(t *testing.T) {
 }
 
 func TestPromisifyWorkerCloseAcknowledgesActiveImmediateTermination(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callWorkerClose := make(chan struct{})
@@ -204,7 +216,10 @@ func TestPromisifyWorkerLifecycleResultAfterLifecycleRace(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			callWorker := make(chan struct{})
@@ -260,7 +275,7 @@ func TestPromisifyWorkerLifecycleResultAfterLifecycleRace(t *testing.T) {
 			go func() { winnerDone <- test.winner(loop) }()
 			waitContractSignal(t, winnerPublished, "winning terminal publication")
 			releaseWorkerLifecycleLockFn()
-			err := waitContractValue(t, workerDone, "worker locked-recheck lifecycle result")
+			err = waitContractValue(t, workerDone, "worker locked-recheck lifecycle result")
 			if test.want == nil {
 				if err != nil {
 					t.Fatalf("worker lifecycle result = %v, want nil", err)
@@ -291,7 +306,10 @@ func TestPromisifyWorkerLifecycleResultAfterLifecycleRace(t *testing.T) {
 }
 
 func TestPromisifyWorkerShutdownDoesNotJoinImmediateTermination(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	callShutdown := make(chan struct{})
@@ -359,7 +377,10 @@ func TestPromisifyWorkerLifecycleResultsWhileCompletionOpen(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New()
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			callLifecycle := make(chan struct{})

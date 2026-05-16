@@ -63,8 +63,14 @@ func TestJSSetImmediateExecutesAsynchronouslyAndCleansState(t *testing.T) {
 }
 
 func TestJSSetImmediateQueuedDuringImmediateRollsForward(t *testing.T) {
-	loop := New(WithAutoExit(true))
-	js := NewJS(loop)
+	loop, err := New(WithAutoExit(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var order []string
 	if _, err := js.SetImmediate(func() {
 		order = append(order, "outer")

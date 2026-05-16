@@ -110,28 +110,37 @@ type JS struct {
 //
 // Example:
 //
-//	loop := eventloop.New()
-//	js := eventloop.NewJS(loop,
+//	loop, err := eventloop.New()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	js, err := eventloop.NewJS(loop,
 //	    eventloop.WithUnhandledRejection(func(reason any) {
 //	        log.Printf("Unhandled rejection: %v", reason)
 //	    }),
 //	)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //
 //	// Schedule a timeout
 //	js.SetTimeout(func() {
 //	    fmt.Println("Hello after 100ms")
 //	}, 100)
 //
-// NewJS panics if loop is nil or was not created by [New], or if any option is
-// nil or violates its documented static contract.
-func NewJS(loop *Loop, opts ...JSOption) *JS {
+// NewJS returns an error if loop is nil or was not created by [New], or if any
+// option is nil or violates its documented contract.
+func NewJS(loop *Loop, opts ...JSOption) (*JS, error) {
 	if loop == nil || loop.state == nil || loop.commands == nil {
-		panic("eventloop: JS requires a Loop created by New")
+		return nil, errors.New("eventloop: JS requires a Loop created by New")
 	}
-	options := resolveJSOptions(opts)
+	options, err := resolveJSOptions(opts)
+	if err != nil {
+		return nil, err
+	}
 	js := newJS(loop, options)
 	loop.registerJSAdapter(js)
-	return js
+	return js, nil
 }
 
 // BindJS creates a [JS] adapter and atomically installs it on a loop that has

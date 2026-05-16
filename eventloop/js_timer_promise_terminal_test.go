@@ -35,8 +35,14 @@ func TestJSTimerPromisesSettleOnTerminalCleanup(t *testing.T) {
 				name = "while-running"
 			}
 			t.Run(tc.name+"/"+name, func(t *testing.T) {
-				loop := New()
-				js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
+				js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				sleep := js.Sleep(time.Hour)
 				timeout := js.Timeout(time.Hour)
@@ -156,9 +162,15 @@ func TestJSTimerPromiseTerminalReactionDisposition(t *testing.T) {
 	for _, terminationCase := range terminationCases {
 		for _, reactionCase := range reactionCases {
 			t.Run(terminationCase.name+"/"+reactionCase.name, func(t *testing.T) {
-				loop := New()
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
 				registerLoopCleanupT(t, loop)
-				js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				var handlerCalls atomic.Int32
 				parent, child := reactionCase.create(js, func(any) any {
@@ -248,8 +260,14 @@ func TestTerminalTransitionSettlesTimerPromiseNeededByRunningCallback(t *testing
 	for _, terminationCase := range terminationCases {
 		for _, timerCase := range timerCases {
 			t.Run(terminationCase.name+"/"+timerCase.name, func(t *testing.T) {
-				loop := New()
-				js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
+				js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				if err != nil {
+					t.Fatal(err)
+				}
 				promise := timerCase.create(js)
 				result := promise.ToChannel()
 				callbackStarted := make(chan struct{})
@@ -337,8 +355,14 @@ func TestJSTimerPromisesSettleWhenTerminationWinsBeforeTimerPublication(t *testi
 	for _, timerCase := range timerCases {
 		for _, terminationCase := range terminationCases {
 			t.Run(timerCase.name+"/"+terminationCase.name, func(t *testing.T) {
-				loop := New()
-				js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				loop, err := New()
+				if err != nil {
+					t.Fatal(err)
+				}
+				js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+				if err != nil {
+					t.Fatal(err)
+				}
 
 				registered := make(chan struct{})
 				releasePublication := make(chan struct{})
@@ -400,8 +424,14 @@ func TestJSTimerPromisesSettleOnceWhenCallbackWinsTerminalRace(t *testing.T) {
 
 	for _, timerCase := range timerCases {
 		t.Run(timerCase.name, func(t *testing.T) {
-			loop := New()
-			js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			loop, err := New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			callbackReached := make(chan struct{})
 			releaseCallback := make(chan struct{})
@@ -454,8 +484,14 @@ func TestJSTimerPromisesSettleOnceWhenCallbackWinsTerminalRace(t *testing.T) {
 }
 
 func TestJSTimerPromisesSettleAfterScheduleRejection(t *testing.T) {
-	loop := New()
-	js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := loop.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -466,8 +502,14 @@ func TestJSTimerPromisesSettleAfterScheduleRejection(t *testing.T) {
 }
 
 func TestJSTimerPromisesPreserveTimerIDExhaustion(t *testing.T) {
-	loop := New()
-	js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.nextTimerID.Store(math.MaxUint64)
 
 	assertTimerPromiseAdmissionError(t, "Sleep", js.Sleep(time.Hour), ErrTimerIDExhausted)
@@ -476,7 +518,10 @@ func TestJSTimerPromisesPreserveTimerIDExhaustion(t *testing.T) {
 }
 
 func TestJSTimerPromiseTerminalSettlementSurvivesChannelOnlyGC(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	loop.testHooks = &loopTestHooks{
 		AfterJSTerminalSettlementCollect: func() {
 			runtime.GC()
@@ -486,7 +531,10 @@ func TestJSTimerPromiseTerminalSettlementSurvivesChannelOnlyGC(t *testing.T) {
 	}
 
 	sleepResult, timeoutResult := func() (<-chan any, <-chan any) {
-		js := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+		js, err := NewJS(loop, WithUnhandledRejectionFallback(UnhandledRejectionFallbackDisabled))
+		if err != nil {
+			t.Fatal(err)
+		}
 		return js.Sleep(time.Hour).ToChannel(), js.Timeout(time.Hour).ToChannel()
 	}()
 

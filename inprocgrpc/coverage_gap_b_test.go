@@ -22,7 +22,10 @@ import (
 
 func TestCoverage_ServerAdapter_SendMsg_LoopStopped(t *testing.T) {
 	svrErr := make(chan error, 1)
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -49,7 +52,7 @@ func TestCoverage_ServerAdapter_SendMsg_LoopStopped(t *testing.T) {
 	}})
 	ch.RegisterService(&desc, &echoServer{})
 
-	_, err := ch.NewStream(context.Background(), &grpc.StreamDesc{
+	_, err = ch.NewStream(context.Background(), &grpc.StreamDesc{
 		ServerStreams: true,
 		ClientStreams: true,
 	}, "/test.TestService/BidiStream")
@@ -70,7 +73,10 @@ func TestCoverage_ServerAdapter_SendMsg_LoopStopped(t *testing.T) {
 
 func TestCoverage_ServerAdapter_RecvMsg_LoopStopped(t *testing.T) {
 	svrErr := make(chan error, 1)
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -97,7 +103,7 @@ func TestCoverage_ServerAdapter_RecvMsg_LoopStopped(t *testing.T) {
 	}})
 	ch.RegisterService(&desc, &echoServer{})
 
-	_, err := ch.NewStream(context.Background(), &grpc.StreamDesc{
+	_, err = ch.NewStream(context.Background(), &grpc.StreamDesc{
 		ServerStreams: true,
 		ClientStreams: true,
 	}, "/test.TestService/BidiStream")
@@ -532,7 +538,10 @@ func TestCoverage_Stream_EnsureNoMore_ContextCancel(t *testing.T) {
 // --- Coverage gap: RecvMsg initial Submit failure (loop stopped) ---
 
 func TestCoverage_Stream_EnsureNoMore_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -593,7 +602,10 @@ func TestCoverage_Stream_EnsureNoMore_LoopStopped(t *testing.T) {
 }
 
 func TestCoverage_Stream_FetchTrailers_LoopStopped(t *testing.T) {
-	loop := eventloop.New()
+	loop, err := eventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

@@ -18,7 +18,10 @@ func TestSubmitInternalPreservesOwnerAffinity(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := New(WithFastPathMode(test.mode))
+			loop, err := New(WithFastPathMode(test.mode))
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 
 			runDone := make(chan error, 1)
@@ -48,7 +51,10 @@ func TestSubmitInternalPreservesOwnerAffinity(t *testing.T) {
 }
 
 func TestTickAnchorSynchronization(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 
 	start := make(chan struct{})

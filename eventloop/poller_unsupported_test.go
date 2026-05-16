@@ -68,7 +68,10 @@ func TestTaskOnlyLoopReadinessUnsupported(t *testing.T) {
 }
 
 func TestTaskOnlyReadinessStaticContractsPanic(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	registerLoopCleanupT(t, loop)
 	for name, call := range map[string]func(){
 		"register": func() { _ = loop.RegisterFD(1, 0, nil) },

@@ -9,7 +9,10 @@ import (
 )
 
 func TestFastModeTimerRefDoesNotSubmitPhysicalWake(t *testing.T) {
-	loop := New()
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var physicalWakes atomic.Int64
 	loop.testHooks = &loopTestHooks{OnSubmitWakeup: func() { physicalWakes.Add(1) }}
 
