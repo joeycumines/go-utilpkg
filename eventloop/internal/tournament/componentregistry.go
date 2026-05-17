@@ -567,9 +567,9 @@ var fdTableComponentRegistry = []fdTableComponentDescriptor{
 		AlgorithmFamily:        "poller.bounded-dense-sparse",
 		ImplementationRevision: "index-3d4fb6e.nonwrapping-token",
 		Sources: []componentSourceIdentity{
-			{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "3d4fb6e0cf8f292638db78d2361dfc09bdf6f5df", SHA256: "dd5f8932625a66f9248dcf779dc98bb76b3e4c698ec32a91cd550d219d9f857a"},
-			{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "98f65bdb30264a8dbe073a221f7c839c19d7bf00", SHA256: "499f531fc372d133c9375b801893186fad512fde1a6b613b924c3f73450eaa6f"},
-			{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "1a0319cbcd2087a2c73132cf346afb9ba1aa4c5d", SHA256: "581e51bec5396f36840095a0e1a8ac23b1b4bb832c9d0b4a4f238146bbfa39db"},
+			{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9d78430017bdea9d132c3cadadcdd039fc30b0b7", SHA256: "91545929f515035d2d875f7086be7cdb65ce3494629187db41c5f7557db343f8"},
+			{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "e50dea13610f7397bf9d878d58e1e4da54c35f6c", SHA256: "8b23f6b25693d25aaa891a99aaf22323e9103cab4019cdb09cb7a5fca347cd04"},
+			{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "53b79f0a6e8092e162f390d65d7cdc5aa56dfcc6", SHA256: "95399f1756da3515f9049406510937e1f42d5482091979e883682aab35973a9d"},
 			{ProvenanceKind: "index-candidate", Path: "poller_linux.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9fbd45632a3c5221ab474dea37953bcbf1459f02", SHA256: "60b5b6246161c76fe6973ebedb2e768a9ff6dad97acb2419222d88209ab4ed83"},
 		},
 		Adaptations: []string{

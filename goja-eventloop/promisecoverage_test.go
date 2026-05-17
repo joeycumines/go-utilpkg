@@ -27,8 +27,11 @@ func TestPhase2_PromiseResolveReject_NoArgs(t *testing.T) {
 	}
 	coverRunLoopBriefly(t, adapter, 100)
 	rv := adapter.runtime.Get("resolvedVal")
-	if rv != nil && rv.String() != "undefined" && rv.String() != "<nil>" {
-		// resolve() with no args should resolve with undefined
+	switch {
+	case rv == nil, rv.String() == "undefined", rv.String() == "<nil>":
+		// resolve() with no args resolves with undefined, as expected.
+	default:
+		t.Errorf("resolve() with no args resolved to %q, want undefined", rv.String())
 	}
 }
 

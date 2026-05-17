@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	EFD_CLOEXEC  = 0
-	EFD_NONBLOCK = 0
+	EfdCloexec  = 0
+	EfdNonblock = 0
 )
 
 var errFDUnsupported = errors.New("poller: file descriptors not supported")

@@ -1198,9 +1198,11 @@ func TestTerminalReflower_CJKExactFill(t *testing.T) {
 			if firstLine.LineNumber == 0 && firstLine.IsFullWidth != tt.wantF0 {
 				t.Errorf("first line IsFullWidth=%v, want %v", firstLine.IsFullWidth, tt.wantF0)
 			}
-			// All lines should have Width <= col * lineCount (can't exceed total)
-			if lastState.Width > tt.col && lastState.Width <= 2*tt.col {
-				// CJK char wider than col is valid (char width 2 > col 1)
+			// All lines should have Width <= col * lineCount (can't exceed total).
+			// A CJK char wider than col is valid (char width 2 > col 1), so a
+			// last-line width in (col, 2*col] is expected for narrow columns.
+			if lastState.Width > 2*tt.col {
+				t.Errorf("last line Width=%d exceeds 2*col=%d", lastState.Width, 2*tt.col)
 			}
 		})
 	}

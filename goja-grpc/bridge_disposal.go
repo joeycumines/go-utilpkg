@@ -138,14 +138,14 @@ func (d *ownerDispatcher) beginOwnerDisposal(
 	// still being routed.
 	d.bridge.postDoneMu.Lock()
 	if d.bridge.transferred.Load() {
-		done := d.discardOwnerRootsPostDoneLocked(roots)
+		done := d.discardOwnerRootsPostDoneLocked(roots, err)
 		d.bridge.postDoneMu.Unlock()
 		return done
 	}
 	select {
 	case <-d.adapter.Done():
 		d.bridge.transferred.Store(true)
-		done := d.discardOwnerRootsPostDoneLocked(roots)
+		done := d.discardOwnerRootsPostDoneLocked(roots, err)
 		d.bridge.postDoneMu.Unlock()
 		return done
 	default:
@@ -287,6 +287,7 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 
 func (d *ownerDispatcher) discardOwnerRootsPostDoneLocked(
 	roots []supervisorRoot,
+	err error,
 ) <-chan struct{} {
 	for _, root := range roots {
 		if d.finishOwnerDisposalRunPostDoneLocked(
@@ -298,13 +299,18 @@ func (d *ownerDispatcher) discardOwnerRootsPostDoneLocked(
 		if disposal.root != nil {
 			clear(disposal.root.promises)
 			clear(disposal.root.callbacks)
+			for _, disposer := range disposal.root.disposers {
+				if disposer != nil {
+					disposer(err)
+				}
+			}
 			clear(disposal.root.disposers)
 		}
 		var fenceDone <-chan struct{}
 		if value, ok := d.bridge.fences.Load(root.id); ok {
 			fenceDone = value.(*ownerRootFence).done
 		}
-		d.finishRootClose(root.id)
+		d.finishRootClosePostDone(root.id)
 		if fenceDone != nil {
 			<-fenceDone
 		}
@@ -391,5 +397,5 @@ func (d *ownerDispatcher) disposeOwnerRootsWorker(
 	d.bridge.postDoneMu.Lock()
 	defer d.bridge.postDoneMu.Unlock()
 	d.bridge.transferred.Store(true)
-	<-d.discardOwnerRootsPostDoneLocked(roots)
+	<-d.discardOwnerRootsPostDoneLocked(roots, err)
 }

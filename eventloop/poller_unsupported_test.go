@@ -35,15 +35,18 @@ func TestTaskOnlyPollerLifecycle(t *testing.T) {
 func TestTaskOnlyLoopReadinessUnsupported(t *testing.T) {
 	tests := []struct {
 		name string
-		new  func() *Loop
+		new  func() (*Loop, error)
 	}{
-		{name: "default", new: func() *Loop { return New() }},
-		{name: "disabled", new: func() *Loop { return New(WithFastPathMode(FastPathDisabled)) }},
-		{name: "forced", new: func() *Loop { return New(WithFastPathMode(FastPathForced)) }},
+		{name: "default", new: func() (*Loop, error) { return New() }},
+		{name: "disabled", new: func() (*Loop, error) { return New(WithFastPathMode(FastPathDisabled)) }},
+		{name: "forced", new: func() (*Loop, error) { return New(WithFastPathMode(FastPathForced)) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			loop := test.new()
+			loop, err := test.new()
+			if err != nil {
+				t.Fatal(err)
+			}
 			registerLoopCleanupT(t, loop)
 			if err := loop.RegisterFD(42, EventRead, func(IOEvents) {}); !errors.Is(err, ErrReadinessUnsupported) {
 				t.Fatalf("RegisterFD = %v, want ErrReadinessUnsupported", err)

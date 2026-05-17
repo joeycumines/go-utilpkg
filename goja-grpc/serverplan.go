@@ -174,7 +174,7 @@ func (p *serverMethodPlan) buildServerChain(
 		}
 		return value
 	})
-	var next goja.Value = inner
+	next := inner
 	for index := len(p.interceptors) - 1; index >= 0; index-- {
 		value, err := p.interceptors[index](goja.Undefined(), next)
 		if err != nil {

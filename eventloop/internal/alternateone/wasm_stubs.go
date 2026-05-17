@@ -5,8 +5,8 @@ package alternateone
 import "errors"
 
 const (
-	EFD_CLOEXEC  = 0
-	EFD_NONBLOCK = 0
+	EfdCloexec  = 0
+	EfdNonblock = 0
 )
 
 var ErrFDUnsupported = errors.New("alternateone: file descriptors not supported")

@@ -48,7 +48,7 @@ func validateRunEnvironmentPlatform(environment []string) error {
 				return fmt.Errorf("compare Windows environment order: %w", err)
 			}
 			if comparison >= 0 {
-				return fmt.Errorf("Windows run environment is not strictly ordinal-case-insensitive sorted: %q before %q", previous, key)
+				return fmt.Errorf("windows run environment is not strictly ordinal-case-insensitive sorted: %q before %q", previous, key)
 			}
 		}
 		previous = key

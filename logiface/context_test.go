@@ -611,7 +611,7 @@ func TestBuilder_Release_noReleaser(t *testing.T) {
 
 func ExampleContext_Call_arrayField() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = newSimpleLogger(os.Stdout, false)
+	logger := newSimpleLogger(os.Stdout, false)
 
 	// while not a necessary part of the Array API, this pattern makes things easier to manage
 	subLogger := logger.Clone().

@@ -114,17 +114,16 @@ func (r *registry) Scavenge(batchSize int) {
 	// Valid items filter
 	validItems := items[:0]
 
+	// Orphan usages (items absent from r.data, due to deletion or an entry that
+	// should be zeroed in the ring) are skipped here. Marking the ring slot zero
+	// requires a write lock, so compaction defers that cleanup.
 	for _, it := range items {
-		if wp, ok := r.data[it.id]; ok {
-			wps[len(validItems)] = wp
-			validItems = append(validItems, it)
-		} else {
-			// Orphan usage? Or deleted?
-			// If not in map, it should be 0 in ring.
-			// Next compaction will clean it if we mark it 0.
-			// But we need Write Lock to mark 0.
-			// Ignore for now.
+		wp, ok := r.data[it.id]
+		if !ok {
+			continue
 		}
+		wps[len(validItems)] = wp
+		validItems = append(validItems, it)
 	}
 	// Truncate wps match validItems
 	wps = wps[:len(validItems)]

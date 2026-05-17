@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	EFD_CLOEXEC  = unix.EFD_CLOEXEC
-	EFD_NONBLOCK = unix.EFD_NONBLOCK
+	EfdCloexec  = unix.EFD_CLOEXEC
+	EfdNonblock = unix.EFD_NONBLOCK
 )
 
 // createWakeFd creates an eventfd for wake-up notifications (Linux).

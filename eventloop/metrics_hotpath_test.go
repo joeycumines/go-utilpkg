@@ -336,14 +336,21 @@ func TestRuntimeTPSRecordsCompletionTime(t *testing.T) {
 	)
 
 	loop.safeExecute(func() {
-		anchor = loop.tickNow.Add(time.Nanosecond)
-		for !time.Now().After(anchor) {
-		}
-		counter = newTPSCounterAt(100*time.Millisecond, 10*time.Millisecond, anchor)
+		// Use a single 100ms bucket so that all timestamps (manual increment,
+		// recordCallback's increment, and the final TPS query) fall within
+		// the same bucket regardless of platform timer resolution. Windows
+		// has ~15ms granularity; the original 10ms bucket size let the
+		// completion-time increment cross a bucket boundary and zero the
+		// manual increment, yielding TPS=0 instead of 20.
+		anchor = loop.tickNow
+		counter = newTPSCounterAt(100*time.Millisecond, 100*time.Millisecond, anchor)
 		counter.IncrementAt(anchor)
 		loop.metrics.tps = counter
 	})
 
+	// Query at the same anchor: recordCallback incremented at a time within
+	// the same 100ms bucket, so both increments are visible. 2 increments
+	// over a 100ms window = 20 TPS.
 	if got := counter.tpsAt(anchor); got != 20 {
 		t.Fatalf("TPS after sentinel and completed callback = %v, want 20", got)
 	}

@@ -65,12 +65,12 @@ func (b *Buffer) DisplayCursorPositionFullWidth(columns istrings.Width) (Positio
 	return b.Document().DisplayCursorPositionFullWidth(columns)
 }
 
-// Insert string into the buffer and move the cursor.
+// InsertTextMoveCursor inserts a string into the buffer and moves the cursor.
 func (b *Buffer) InsertTextMoveCursor(text string, columns istrings.Width, rows int, overwrite bool) {
 	b.insertText(text, columns, rows, overwrite, true)
 }
 
-// Insert string into the buffer without moving the cursor.
+// InsertText inserts a string into the buffer without moving the cursor.
 func (b *Buffer) InsertText(text string, overwrite bool) {
 	b.insertText(text, 0, 0, overwrite, false)
 }
@@ -168,25 +168,25 @@ func (b *Buffer) setDocument(d *Document, columns istrings.Width, rows int) {
 	b.resetPreferredColumn()
 }
 
-// Move to the left on the current line by the given amount of graphemes.
+// CursorLeft moves to the left on the current line by the given amount of graphemes.
 // Returns true when the view should be rerendered.
 func (b *Buffer) CursorLeft(count istrings.GraphemeNumber, columns istrings.Width, rows int) bool {
 	return b.cursorHorizontalMove(b.Document().GetCursorLeftPosition(count), columns, rows)
 }
 
-// Move to the left on the current line by the given amount of runes.
+// CursorLeftRunes moves to the left on the current line by the given amount of runes.
 // Returns true when the view should be rerendered.
 func (b *Buffer) CursorLeftRunes(count istrings.RuneNumber, columns istrings.Width, rows int) bool {
 	return b.cursorHorizontalMove(b.Document().GetCursorLeftPositionRunes(count), columns, rows)
 }
 
-// Move to the right on the current line by the given amount of graphemes.
+// CursorRight moves to the right on the current line by the given amount of graphemes.
 // Returns true when the view should be rerendered.
 func (b *Buffer) CursorRight(count istrings.GraphemeNumber, columns istrings.Width, rows int) bool {
 	return b.cursorHorizontalMove(b.Document().GetCursorRightPosition(count), columns, rows)
 }
 
-// Move to the right on the current line by the given amount of runes.
+// CursorRightRunes moves to the right on the current line by the given amount of runes.
 // Returns true when the view should be rerendered.
 func (b *Buffer) CursorRightRunes(count istrings.RuneNumber, columns istrings.Width, rows int) bool {
 	return b.cursorHorizontalMove(b.Document().GetCursorRightPositionRunes(count), columns, rows)
@@ -214,7 +214,7 @@ func (b *Buffer) CursorDown(count int, columns istrings.Width, rows int) bool {
 	return b.recalculateStartLine(columns, rows)
 }
 
-// Deletes the specified number of graphemes before the cursor and returns the deleted text.
+// DeleteBeforeCursor deletes the specified number of graphemes before the cursor and returns the deleted text.
 func (b *Buffer) DeleteBeforeCursor(count istrings.GraphemeNumber, columns istrings.Width, rows int) string {
 	debug.Assert(count >= 0, "count should be positive")
 	if b.cursorPosition < 0 {
@@ -243,7 +243,7 @@ func (b *Buffer) DeleteBeforeCursor(count istrings.GraphemeNumber, columns istri
 	return deleted
 }
 
-// Deletes the specified number of runes before the cursor and returns the deleted text.
+// DeleteBeforeCursorRunes deletes the specified number of runes before the cursor and returns the deleted text.
 func (b *Buffer) DeleteBeforeCursorRunes(count istrings.RuneNumber, columns istrings.Width, rows int) (deleted string) {
 	// Defensive: ensure non-negative count. Debug assertion is helpful in tests,
 	// but in production builds the assert is a no-op, so explicitly guard here.
@@ -285,7 +285,7 @@ func (b *Buffer) NewLine(columns istrings.Width, rows int, copyMargin bool) {
 	}
 }
 
-// Deletes the specified number of graphemes and returns the deleted text.
+// Delete deletes the specified number of graphemes and returns the deleted text.
 func (b *Buffer) Delete(count istrings.GraphemeNumber, col istrings.Width, row int) string {
 	textUtf8 := utf8string.NewString(b.Text())
 	if b.cursorPosition >= istrings.RuneCountInString(b.Text()) {
@@ -307,7 +307,7 @@ func (b *Buffer) Delete(count istrings.GraphemeNumber, col istrings.Width, row i
 	return deleted
 }
 
-// Deletes the specified number of runes and returns the deleted text.
+// DeleteRunes deletes the specified number of runes and returns the deleted text.
 func (b *Buffer) DeleteRunes(count istrings.RuneNumber, col istrings.Width, row int) string {
 	r := []rune(b.Text())
 	if b.cursorPosition < istrings.RuneNumber(len(r)) {

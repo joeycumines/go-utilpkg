@@ -12,7 +12,7 @@ var (
 
 func ExampleObject_nestedObjects() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 	)

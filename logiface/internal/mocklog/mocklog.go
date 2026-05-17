@@ -1,3 +1,5 @@
+// Package mocklog provides a mock logiface event, writer, and factory for
+// testing logiface consumers with deterministic, sorted output.
 package mocklog
 
 import (

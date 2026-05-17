@@ -1,3 +1,5 @@
+// Package debug provides assertion and logging helpers for the go-prompt
+// terminal library.
 package debug
 
 import (

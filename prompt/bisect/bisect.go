@@ -1,3 +1,5 @@
+// Package bisect provides binary search operations on sorted integer slices,
+// analogous to Python's bisect module.
 package bisect
 
 import "sort"

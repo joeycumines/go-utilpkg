@@ -9,13 +9,14 @@ import (
 )
 
 func TestCloseWakesPollSleepingLoopWithRegisteredFD(t *testing.T) {
+	fd, cleanupFD := testCreateIOFD(t)
+	defer cleanupFD()
+
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fd, cleanupFD := testCreateIOFD(t)
-	defer cleanupFD()
 	if err := loop.RegisterFD(fd, EventRead, func(IOEvents) {}); err != nil {
 		t.Fatalf("RegisterFD: %v", err)
 	}

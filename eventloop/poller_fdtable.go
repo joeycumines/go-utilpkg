@@ -2,6 +2,23 @@
 
 package eventloop
 
+// Maximum file descriptor count stored in the dense poller table.
+const maxFDs = 65536
+
+// denseFDGrowth bounds empty dense slots added by one registration.
+const denseFDGrowth = 64
+
+// pollEvent represents a single ready FD event collected by PollIO for
+// loop-owned dispatch. The generation and events fields are used only by
+// the native readiness poller; fd and internal are read by the cross-platform
+// dispatch path in poll.go.
+type pollEvent struct {
+	generation uint64
+	fd         int
+	events     IOEvents
+	internal   bool
+}
+
 func (p *fastPoller) initFDTable() {
 	p.fds = nil
 	p.sparseFDs = nil

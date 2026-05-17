@@ -204,7 +204,7 @@ func (m *Module) makeUnaryMethod(
 		})
 
 		// Build chain: right-to-left application of interceptors.
-		var nextFn goja.Value = innerRPC
+		nextFn := innerRPC
 		for i := len(interceptors) - 1; i >= 0; i-- {
 			interceptor := interceptors[i]
 			wrapped, jsErr := interceptor(goja.Undefined(), nextFn)

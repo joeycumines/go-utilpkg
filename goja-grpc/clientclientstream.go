@@ -112,6 +112,22 @@ func (m *Module) newClientStreamCall(
 	_ = callObject.Set("closeSend", m.runtime.ToValue(func(goja.FunctionCall) goja.Value {
 		return projection.closeSend()
 	}))
-	_ = callObject.Set("response", projection.response())
+	// response is lazily created on first access to avoid unhandled
+	// promise rejections when the caller never reads the response.
+	var responsePromise goja.Value
+	_ = callObject.DefineAccessorProperty("response",
+		m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+			if responsePromise == nil {
+				responsePromise = projection.response()
+				// Replace the accessor with a plain data property so
+				// subsequent reads are direct.
+				_ = callObject.Set("response", responsePromise)
+			}
+			return responsePromise
+		}),
+		goja.Undefined(),  // no setter
+		goja.FLAG_TRUE,    // configurable (allows replacement)
+		goja.FLAG_TRUE,    // enumerable
+	)
 	return callObject
 }

@@ -8,7 +8,7 @@ import (
 // prompt.New accepts any number of options (this is functional option pattern).
 type Option func(prompt *Prompt) error
 
-// Callback function that returns a prompt prefix.
+// PrefixCallback is a callback function that returns a prompt prefix.
 type PrefixCallback func() (prefix string)
 
 const DefaultIndentSize = 2

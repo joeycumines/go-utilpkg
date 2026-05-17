@@ -1,12 +1,13 @@
+//go:build plan9 || windows || ((js || wasip1) && wasm)
+
 package eventloop
 
-import (
-	"sync"
-	"sync/atomic"
-)
+import "sync/atomic"
 
+// fdDispatchGate on unsupported targets carries only the publication flag
+// used by the cross-platform registration path. Wait-group coordination is
+// unnecessary because native dispatch never starts.
 type fdDispatchGate struct {
-	starts    sync.WaitGroup
 	published atomic.Bool
 }
 
@@ -19,23 +20,5 @@ func newFDDispatchGate(published bool) *fdDispatchGate {
 func (g *fdDispatchGate) publish() {
 	if g != nil {
 		g.published.Store(true)
-	}
-}
-
-func (g *fdDispatchGate) addPendingStart() {
-	if g != nil {
-		g.starts.Add(1)
-	}
-}
-
-func (g *fdDispatchGate) dispatchStarted() {
-	if g != nil {
-		g.starts.Done()
-	}
-}
-
-func (g *fdDispatchGate) waitPendingStarts() {
-	if g != nil {
-		g.starts.Wait()
 	}
 }

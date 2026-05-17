@@ -17,7 +17,7 @@ var (
 func ExampleArray_nestedArrays() {
 	// note: outputs one field per line
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = newSimpleLogger(os.Stdout, true)
+	logger := newSimpleLogger(os.Stdout, true)
 
 	subLogger := Array[E](Array[E](Array[E](Array[E](Array[E](logger.Clone()).Field(1).Field(true)).Field(2).Field(false).Add()).Field(3)).Field(4)).
 		Field(5).

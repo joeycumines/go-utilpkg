@@ -1,3 +1,6 @@
+// Package promisealtfour implements a Promise/A+ compatible promise with Then,
+// Catch, and Finally methods, scheduling reactions as microtasks via an
+// event loop.
 package promisealtfour
 
 import (

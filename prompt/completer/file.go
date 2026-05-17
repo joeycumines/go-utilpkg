@@ -1,3 +1,5 @@
+// Package completer provides file path completion for terminal prompts,
+// building and caching suggestions from the local filesystem.
 package completer
 
 import (

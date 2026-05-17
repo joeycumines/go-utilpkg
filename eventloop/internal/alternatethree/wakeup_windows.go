@@ -2,10 +2,10 @@
 
 package alternatethree
 
-// EFD_CLOEXEC and EFD_NONBLOCK are no-ops on Windows.
+// EfdCloexec and EfdNonblock are no-ops on Windows.
 const (
-	EFD_CLOEXEC  = 0
-	EFD_NONBLOCK = 0
+	EfdCloexec  = 0
+	EfdNonblock = 0
 )
 
 // createWakeFd returns sentinel values on Windows.

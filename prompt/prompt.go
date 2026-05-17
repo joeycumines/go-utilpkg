@@ -310,28 +310,28 @@ func (p *Prompt) RunNoExit() int {
 	}
 }
 
-// Returns the configured indent size.
+// IndentSize returns the configured indent size.
 func (p *Prompt) IndentSize() int {
 	return p.renderer.indentSize
 }
 
-// Get the number of columns that are available
+// UserInputColumns returns the number of columns that are available
 // for user input.
 func (p *Prompt) UserInputColumns() istrings.Width {
 	return p.renderer.UserInputColumns()
 }
 
-// Returns the current amount of columns that the terminal can display.
+// TerminalColumns returns the current amount of columns that the terminal can display.
 func (p *Prompt) TerminalColumns() istrings.Width {
 	return p.renderer.col
 }
 
-// Returns the current amount of rows that the terminal can display.
+// TerminalRows returns the current amount of rows that the terminal can display.
 func (p *Prompt) TerminalRows() int {
 	return p.renderer.row
 }
 
-// Returns the buffer struct.
+// Buffer returns the buffer struct.
 func (p *Prompt) Buffer() *Buffer {
 	return p.buffer
 }
@@ -1125,25 +1125,25 @@ func (p *Prompt) setup() {
 	p.renderer.UpdateWinSize(p.reader.GetWinSize())
 }
 
-// Move to the left on the current line by the given amount of graphemes (visible characters).
+// CursorLeft moves to the left on the current line by the given amount of graphemes (visible characters).
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorLeft(count istrings.GraphemeNumber) bool {
 	return promptCursorHorizontalMove(p, p.buffer.CursorLeft, count)
 }
 
-// Move to the left on the current line by the given amount of runes.
+// CursorLeftRunes moves to the left on the current line by the given amount of runes.
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorLeftRunes(count istrings.RuneNumber) bool {
 	return promptCursorHorizontalMove(p, p.buffer.CursorLeftRunes, count)
 }
 
-// Move the cursor to the right on the current line by the given amount of graphemes (visible characters).
+// CursorRight moves the cursor to the right on the current line by the given amount of graphemes (visible characters).
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorRight(count istrings.GraphemeNumber) bool {
 	return promptCursorHorizontalMove(p, p.buffer.CursorRight, count)
 }
 
-// Move the cursor to the right on the current line by the given amount of runes.
+// CursorRightRunes moves the cursor to the right on the current line by the given amount of runes.
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorRightRunes(count istrings.RuneNumber) bool {
 	return promptCursorHorizontalMove(p, p.buffer.CursorRightRunes, count)
@@ -1196,7 +1196,7 @@ func promptCursorHorizontalMove[CountT ~int](p *Prompt, modifierFunc horizontalC
 	return false
 }
 
-// Move the cursor up.
+// CursorUp moves the cursor up.
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorUp(count int) bool {
 	b := p.buffer
@@ -1234,7 +1234,7 @@ func (p *Prompt) CursorUp(count int) bool {
 	return false
 }
 
-// Move the cursor down.
+// CursorDown moves the cursor down.
 // Returns true when the view should be rerendered.
 func (p *Prompt) CursorDown(count int) bool {
 	b := p.buffer
@@ -1272,32 +1272,32 @@ func (p *Prompt) CursorDown(count int) bool {
 	return false
 }
 
-// Deletes the specified number of graphemes before the cursor and returns the deleted text.
+// DeleteBeforeCursor deletes the specified number of graphemes before the cursor and returns the deleted text.
 func (p *Prompt) DeleteBeforeCursor(count istrings.GraphemeNumber) string {
 	return p.buffer.DeleteBeforeCursor(count, p.UserInputColumns(), p.renderer.row)
 }
 
-// Deletes the specified number of runes before the cursor and returns the deleted text.
+// DeleteBeforeCursorRunes deletes the specified number of runes before the cursor and returns the deleted text.
 func (p *Prompt) DeleteBeforeCursorRunes(count istrings.RuneNumber) string {
 	return p.buffer.DeleteBeforeCursorRunes(count, p.UserInputColumns(), p.renderer.row)
 }
 
-// Deletes the specified number of graphemes and returns the deleted text.
+// Delete deletes the specified number of graphemes and returns the deleted text.
 func (p *Prompt) Delete(count istrings.GraphemeNumber) string {
 	return p.buffer.Delete(count, p.UserInputColumns(), p.renderer.row)
 }
 
-// Deletes the specified number of runes and returns the deleted text.
+// DeleteRunes deletes the specified number of runes and returns the deleted text.
 func (p *Prompt) DeleteRunes(count istrings.RuneNumber) string {
 	return p.buffer.DeleteRunes(count, p.UserInputColumns(), p.renderer.row)
 }
 
-// Insert string into the buffer without moving the cursor.
+// InsertText inserts a string into the buffer without moving the cursor.
 func (p *Prompt) InsertText(text string, overwrite bool) {
 	p.buffer.InsertText(text, overwrite)
 }
 
-// Insert string into the buffer and move the cursor.
+// InsertTextMoveCursor inserts a string into the buffer and moves the cursor.
 func (p *Prompt) InsertTextMoveCursor(text string, overwrite bool) {
 	p.buffer.InsertTextMoveCursor(text, p.UserInputColumns(), p.renderer.row, overwrite)
 }

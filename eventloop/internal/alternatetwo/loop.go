@@ -73,7 +73,7 @@ var loopIDCounter atomic.Uint64
 
 // New creates a new performance-first event loop.
 func New() (*Loop, error) {
-	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	wakeFd, wakeWriteFd, err := createWakeFd(0, EfdCloexec|EfdNonblock)
 	if err != nil {
 		return nil, err
 	}
@@ -422,10 +422,9 @@ func (l *Loop) safeExecute(fn func()) {
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
-			// PERFORMANCE: Minimal panic handling, just recover
-			// In production, consider logging
-		}
+		// PERFORMANCE: Minimal panic handling, just recover.
+		// In production, consider logging.
+		_ = recover()
 	}()
 
 	fn()

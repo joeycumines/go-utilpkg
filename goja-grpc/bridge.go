@@ -407,6 +407,32 @@ func (d *ownerDispatcher) finishRootClose(id supervisorChildID) {
 	}
 }
 
+// finishRootClosePostDone forces a root close after the adapter is done.
+// In the post-done path, active root effects cannot be properly released,
+// so we force-ack by zeroing the active count. This prevents supervisor
+// root leaks when a loop terminates before module close completes.
+func (d *ownerDispatcher) finishRootClosePostDone(id supervisorChildID) {
+	value, ok := d.bridge.fences.Load(id)
+	if !ok {
+		d.supervisor.ackOwner(id)
+		return
+	}
+	fence := value.(*ownerRootFence)
+	fence.mu.Lock()
+	fence.active = 0
+	if !fence.acked {
+		fence.acked = true
+		fence.closing = true
+		fence.disposed = true
+		fence.mu.Unlock()
+		d.bridge.fences.Delete(id)
+		d.supervisor.ackOwner(id)
+		close(fence.done)
+	} else {
+		fence.mu.Unlock()
+	}
+}
+
 // addOwnerRootDisposer must run on-owner.
 func (m *Module) addOwnerRootDisposer(
 	id supervisorChildID,

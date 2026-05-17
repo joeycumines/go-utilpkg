@@ -133,7 +133,7 @@ func runGojaFixture(parent context.Context, manifest *LoadedManifest, fixture Fi
 }
 
 func installConsoleCapture(runtime *goja.Runtime, adapter *gojaeventloop.Adapter) error {
-	var currentOutput io.Writer = io.Discard
+	currentOutput := io.Discard
 	adapter.SetConsoleOutput(currentOutput)
 	capture := runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		callback, ok := goja.AssertFunction(call.Argument(0))

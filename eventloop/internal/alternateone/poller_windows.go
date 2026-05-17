@@ -208,9 +208,8 @@ func (p *SafePoller) PollIO(timeoutMs int) (int, error) {
 // safeCallback executes a callback with panic recovery.
 func (p *SafePoller) safeCallback(callback func(IOEvents), events IOEvents) {
 	defer func() {
-		if r := recover(); r != nil {
-			// Log panic but continue processing other events
-		}
+		// Log panic but continue processing other events.
+		_ = recover()
 	}()
 	callback(events)
 }

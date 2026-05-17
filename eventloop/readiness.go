@@ -5,12 +5,6 @@ import (
 	"fmt"
 )
 
-// Maximum file descriptor count stored in the dense poller table.
-const maxFDs = 65536
-
-// denseFDGrowth bounds empty dense slots added by one registration.
-const denseFDGrowth = 64
-
 // IOEvents is a readiness interest or callback-result mask.
 type IOEvents uint32
 
@@ -87,12 +81,6 @@ func (e *FDRegistrationRollbackError) Unwrap() []error {
 }
 
 // timerPool for amortized timer allocations.
-func (x *Loop) ensurePoller() error {
-	x.fdMu.Lock()
-	defer x.fdMu.Unlock()
-	return x.ensurePollerLocked()
-}
-
 func (x *Loop) ensurePollerForModeChange() error {
 	x.fdMu.Lock()
 	defer x.fdMu.Unlock()

@@ -56,12 +56,13 @@ func TestCloseCallbacksRunAfterCheckPhase(t *testing.T) {
 }
 
 func TestCloseCallbacksQueuedDuringCloseDoNotSleepBehindIOPoll(t *testing.T) {
+	fd, cleanup := testCreateIOFD(t)
+	t.Cleanup(cleanup)
+
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	fd, cleanup := testCreateIOFD(t)
-	t.Cleanup(cleanup)
 	registerLoopCleanupT(t, loop)
 	if err := loop.RegisterFD(fd, EventRead, func(IOEvents) {}); err != nil {
 		t.Fatalf("RegisterFD: %v", err)

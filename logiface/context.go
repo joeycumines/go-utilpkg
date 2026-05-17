@@ -801,11 +801,10 @@ func (x modifierMethods[E]) Group(event E, name string) error {
 	if !event.Level().Enabled() {
 		return ErrDisabled
 	}
-	if !event.AddGroup(name) {
-		// Fallback for when AddGroup is not supported?
-		// SlogHandler users should ensure Event supports it.
-		// Ignoring it is safer than panic?
-	}
+	// A false return from AddGroup indicates the Event implementation does not
+	// support grouping. SlogHandler users should ensure Event supports it.
+	// Swallowing the false result is safer than panicking.
+	_ = event.AddGroup(name)
 	return nil
 }
 

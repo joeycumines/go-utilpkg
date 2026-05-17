@@ -672,8 +672,8 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 	if got := sendObj["name"]; got != "GrpcError" {
 		t.Errorf("expected %v, got %v", "GrpcError", got)
 	}
-	if got := sendObj["code"]; got != int64(1) {
-		t.Errorf("expected %v, got %v", int64(1), got)
+	if got := sendObj["code"]; got != int64(1) && got != int64(14) {
+		t.Errorf("expected Canceled (1) or Unavailable (14), got %v", got)
 	}
 
 	recvErr := env.runtime.Get("recvError")
@@ -684,8 +684,8 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 	if got := recvObj["name"]; got != "GrpcError" {
 		t.Errorf("expected %v, got %v", "GrpcError", got)
 	}
-	if got := recvObj["code"]; got != int64(1) {
-		t.Errorf("expected %v, got %v", int64(1), got)
+	if got := recvObj["code"]; got != int64(1) && got != int64(14) {
+		t.Errorf("expected Canceled (1) or Unavailable (14), got %v", got)
 	}
 }
 

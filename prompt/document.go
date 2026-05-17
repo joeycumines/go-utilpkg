@@ -71,12 +71,12 @@ func (d *Document) GetCharRelativeToCursor(offset istrings.RuneNumber) (r rune) 
 	return 0
 }
 
-// Returns the index of the rune that's under the cursor.
+// CurrentRuneIndex returns the index of the rune that's under the cursor.
 func (d *Document) CurrentRuneIndex() istrings.RuneNumber {
 	return d.cursorPosition
 }
 
-// Returns the amount of spaces that the last line of input
+// IndentSpaces returns the amount of spaces that the last line of input
 // of the given text is indented with.
 func (d *Document) IndentSpaces(input string) int {
 	lastNewline := strings.LastIndexByte(input, '\n')
@@ -93,7 +93,7 @@ func (d *Document) IndentSpaces(input string) int {
 	return spaces
 }
 
-// Returns the indentation level of the last line of the given text.
+// IndentLevel returns the indentation level of the last line of the given text.
 func (d *Document) IndentLevel(input string, indentSize int) int {
 	if indentSize == 0 {
 		return 0
@@ -101,29 +101,29 @@ func (d *Document) IndentLevel(input string, indentSize int) int {
 	return d.IndentSpaces(input) / indentSize
 }
 
-// Returns the amount of spaces that the last line of input
+// LastLineIndentSpaces returns the amount of spaces that the last line of input
 // is indented with.
 func (d *Document) LastLineIndentSpaces() int {
 	return d.IndentSpaces(d.Text)
 }
 
-// Returns the indentation level of the last line of input.
+// LastLineIndentLevel returns the indentation level of the last line of input.
 func (d *Document) LastLineIndentLevel(indentSize int) int {
 	return d.IndentLevel(d.Text, indentSize)
 }
 
-// Returns the amount of spaces that the current line the cursor is on
+// CurrentLineIndentSpaces returns the amount of spaces that the current line the cursor is on
 // is indented with.
 func (d *Document) CurrentLineIndentSpaces() int {
 	return d.IndentSpaces(d.TextBeforeCursor())
 }
 
-// Returns the indentation level of the current line the cursor is on.
+// CurrentLineIndentLevel returns the indentation level of the current line the cursor is on.
 func (d *Document) CurrentLineIndentLevel(indentSize int) int {
 	return d.IndentLevel(d.TextBeforeCursor(), indentSize)
 }
 
-// Returns the amount of spaces that the previous line (relative to the cursor)
+// PreviousLineIndentSpaces returns the amount of spaces that the previous line (relative to the cursor)
 // is indented with.
 func (d *Document) PreviousLineIndentSpaces() int {
 	line, ok := d.PreviousLine()
@@ -133,7 +133,7 @@ func (d *Document) PreviousLineIndentSpaces() int {
 	return d.IndentSpaces(line)
 }
 
-// Returns the indentation level of the previous line (relative to the cursor).
+// PreviousLineIndentLevel returns the indentation level of the previous line (relative to the cursor).
 func (d *Document) PreviousLineIndentLevel(indentSize int) int {
 	line, ok := d.PreviousLine()
 	if !ok {
@@ -219,7 +219,7 @@ func (d *Document) FindStartOfPreviousWord() istrings.ByteNumber {
 	return 0
 }
 
-// Returns the rune count
+// FindRuneNumberUntilStartOfPreviousWord returns the rune count
 // of the text before the cursor until the start of the previous word.
 func (d *Document) FindRuneNumberUntilStartOfPreviousWord() istrings.RuneNumber {
 	x := d.TextBeforeCursor()
@@ -305,7 +305,7 @@ func (d *Document) FindEndOfCurrentWordWithSpace() istrings.ByteNumber {
 	return start + end
 }
 
-// Returns the number of runes
+// FindRuneNumberUntilEndOfCurrentWord returns the number of runes
 // of the text after the cursor until the end of the current word.
 func (d *Document) FindRuneNumberUntilEndOfCurrentWord() istrings.RuneNumber {
 	t := d.TextAfterCursor()
@@ -382,7 +382,7 @@ func (d *Document) CurrentLine() string {
 	return d.CurrentLineBeforeCursor() + d.CurrentLineAfterCursor()
 }
 
-// Return the text of the previous line (relative to the cursor).
+// PreviousLine returns the text of the previous line (relative to the cursor).
 // If the cursor is on the first line then false is returned in the second value
 // to signify that there is no previous line.
 func (d *Document) PreviousLine() (s string, ok bool) {
@@ -456,7 +456,7 @@ func (d *Document) CursorPositionCol() (col istrings.Width) {
 	return istrings.GetWidth(text)
 }
 
-// Returns the amount of runes that the cursors should be moved by.
+// GetCursorLeftPosition returns the amount of runes that the cursors should be moved by.
 // The `count` argument tells this function by how many graphemes (visible characters)
 // the cursor should be moved (to the left).
 func (d *Document) GetCursorLeftPosition(count istrings.GraphemeNumber) istrings.RuneNumber {
@@ -484,7 +484,7 @@ func (d *Document) GetCursorLeftPosition(count istrings.GraphemeNumber) istrings
 	return -result
 }
 
-// Returns the amount of runes that the cursors should be moved by.
+// GetCursorLeftPositionRunes returns the amount of runes that the cursors should be moved by.
 // The `count` argument tells this function by how many runes
 // the cursor should be moved (to the left).
 func (d *Document) GetCursorLeftPositionRunes(count istrings.RuneNumber) istrings.RuneNumber {
@@ -501,7 +501,7 @@ func (d *Document) GetCursorLeftPositionRunes(count istrings.RuneNumber) istring
 	return counter
 }
 
-// Returns the amount of runes that the cursors should be moved by.
+// GetCursorRightPosition returns the amount of runes that the cursors should be moved by.
 // The `count` argument tells this function by how many graphemes (visible characters)
 // the cursor should be moved (to the right).
 func (d *Document) GetCursorRightPosition(count istrings.GraphemeNumber) istrings.RuneNumber {
@@ -516,7 +516,7 @@ func (d *Document) GetCursorRightPosition(count istrings.GraphemeNumber) istring
 	return istrings.RuneIndexNthGrapheme(text, count)
 }
 
-// Returns the amount of runes that the cursors should be moved by.
+// GetCursorRightPositionRunes returns the amount of runes that the cursors should be moved by.
 // The `count` argument tells this function by how many runes
 // the cursor should be moved (to the right).
 func (d *Document) GetCursorRightPositionRunes(count istrings.RuneNumber) istrings.RuneNumber {
@@ -533,7 +533,7 @@ func (d *Document) GetCursorRightPositionRunes(count istrings.RuneNumber) istrin
 	return counter
 }
 
-// Get the current cursor position.
+// GetCursorPosition returns the current cursor position.
 func (d *Document) GetCursorPosition(columns istrings.Width) Position {
 	pos, _ := d.GetCursorPositionFullWidth(columns)
 	return pos
@@ -545,7 +545,7 @@ func (d *Document) GetCursorPositionFullWidth(columns istrings.Width) (Position,
 	return positionAtEndOfString(d.TextBeforeCursor(), columns)
 }
 
-// Get the position of the end of the current text.
+// GetEndOfTextPosition returns the position of the end of the current text.
 func (d *Document) GetEndOfTextPosition(columns istrings.Width) Position {
 	pos, _ := d.GetEndOfTextPositionFullWidth(columns)
 	return pos
@@ -646,7 +646,7 @@ func (d *Document) GetStartOfLinePosition() istrings.RuneNumber {
 	return istrings.RuneCountInString(d.CurrentLineBeforeCursor())
 }
 
-// GetStartOfLinePosition returns relative position for the start of this line.
+// FindStartOfFirstWordOfLine returns relative position for the start of the first word of the current line.
 func (d *Document) FindStartOfFirstWordOfLine() istrings.RuneNumber {
 	line := d.CurrentLineBeforeCursor()
 	var counter istrings.RuneNumber

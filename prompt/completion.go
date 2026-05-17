@@ -67,7 +67,7 @@ func (c *CompletionManager) GetSuggestions() []Suggest {
 	return c.tmp
 }
 
-// Unselect the currently selected suggestion.
+// Reset unselects the currently selected suggestion.
 func (c *CompletionManager) Reset() {
 	c.selected = -1
 	c.verticalScroll = 0
@@ -86,7 +86,7 @@ func (c *CompletionManager) Update(in Document) {
 	c.tmp, c.startCharIndex, c.endCharIndex = c.completer(in)
 }
 
-// Select the previous suggestion item.
+// Previous selects the previous suggestion item.
 func (c *CompletionManager) Previous() {
 	pageHeight := c.effectivePageHeight()
 	if pageHeight <= 0 {
@@ -377,10 +377,10 @@ func formatSuggestions(suggests []Suggest, max istrings.Width) (new []Suggest, w
 	return new, istrings.Width(leftWidth + rightWidth)
 }
 
-// Constructor option for CompletionManager.
+// CompletionManagerOption is a constructor option for CompletionManager.
 type CompletionManagerOption func(*CompletionManager)
 
-// Set a custom completer.
+// CompletionManagerWithCompleter sets a custom completer.
 func CompletionManagerWithCompleter(completer Completer) CompletionManagerOption {
 	return func(c *CompletionManager) {
 		c.completer = completer

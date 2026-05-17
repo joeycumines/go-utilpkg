@@ -133,7 +133,7 @@ func FuzzPromiseChains(f *testing.F) {
 			depth = 50
 		}
 
-		var last *promisealtone.Promise = p
+		last := p
 
 		for i := 0; i < int(depth); i++ {
 			if i%2 == 0 {

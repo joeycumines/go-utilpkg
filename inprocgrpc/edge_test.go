@@ -74,9 +74,10 @@ func TestChannel_StatsHandler_HeadersTrailers(t *testing.T) {
 		t.Errorf("expected EOF, got %v", err)
 	}
 
-	// Check client stats events for InHeader
+	// Wait for client stats End to be published (ensures InTrailer is recorded)
+	clientEvents := waitStatsEnd(t, clientRec)
 	var clientHasInHeader, clientHasInTrailer bool
-	for _, ev := range clientRec.getEvents() {
+	for _, ev := range clientEvents {
 		switch ev.(type) {
 		case *stats.InHeader:
 			clientHasInHeader = true
@@ -91,9 +92,10 @@ func TestChannel_StatsHandler_HeadersTrailers(t *testing.T) {
 		t.Error("client missing InTrailer event")
 	}
 
-	// Check server stats events for OutHeader, OutPayload
+	// Wait for server stats End to be published (ensures OutTrailer is recorded)
+	serverEvents := waitStatsEnd(t, serverRec)
 	var serverHasOutHeader, serverHasOutPayload, serverHasOutTrailer bool
-	for _, ev := range serverRec.getEvents() {
+	for _, ev := range serverEvents {
 		switch ev.(type) {
 		case *stats.OutHeader:
 			serverHasOutHeader = true

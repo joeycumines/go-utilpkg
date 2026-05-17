@@ -25,10 +25,10 @@ func (o *nilUnsafeLoopOwner) OwnsLoop(candidate *goeventloop.Loop) bool {
 
 func TestChannelSharesLoop(t *testing.T) {
 	loop, err := goeventloop.New()
-	foreign, err := goeventloop.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	foreign, err := goeventloop.New()
 	if err != nil {
 		t.Fatal(err)
 	}

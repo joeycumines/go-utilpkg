@@ -158,7 +158,7 @@ func (h *timerHeap) Pop() any {
 func New() (*Loop, error) {
 	// Create wake-up mechanism using platform-specific implementation
 	// Linux: eventfd (same for R/W), Darwin: self-pipe (distinct R/W)
-	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	wakeFd, wakeWriteFd, err := createWakeFd(0, EfdCloexec|EfdNonblock)
 	if err != nil {
 		return nil, err
 	}

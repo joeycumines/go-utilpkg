@@ -170,8 +170,30 @@ func validateSourceManifestJSONShape(data []byte) error {
 	default:
 		return fmt.Errorf("unsupported manifest schema %d", schemaVersion)
 	}
-	if err := requireSourceRawKeys(root, rootKeys, "manifest"); err != nil {
-		return err
+	// root_dispositions is optional in v4 and required in v5; reject unknown
+	// extra keys that are not part of either schema.
+	allowed := make(map[string]bool, len(rootKeys)+1)
+	for _, k := range rootKeys {
+		allowed[k] = true
+	}
+	if schemaVersion == manifestSchemaVersionV4 {
+		allowed["root_dispositions"] = true
+	}
+	actual := make([]string, 0, len(root))
+	for key := range root {
+		if !allowed[key] {
+			actual = append(actual, key)
+		}
+	}
+	if len(actual) > 0 {
+		slices.Sort(actual)
+		return fmt.Errorf("manifest keys = %q, want %q (root_dispositions optional in v4)", actual, rootKeys)
+	}
+	// Verify all required keys are present.
+	for _, k := range rootKeys {
+		if _, ok := root[k]; !ok {
+			return fmt.Errorf("manifest missing required key %q", k)
+		}
 	}
 	for key, value := range root {
 		if string(bytes.TrimSpace(value)) == "null" {

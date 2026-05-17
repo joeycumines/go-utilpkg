@@ -1,3 +1,6 @@
+// Package testservice provides a gRPC TestService server and client helpers
+// for testing grpc-proxy behavior, including unary, server-streaming, and
+// bidirectional streaming RPCs.
 package testservice
 
 import (

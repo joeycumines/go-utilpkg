@@ -123,13 +123,14 @@ func TestLifecycle_LivenessAddingAPIsRejectDuringPublicTerminating(t *testing.T)
 }
 
 func TestLifecycle_FDOperationsRejectAfterCloseCleanup(t *testing.T) {
+	fd, cleanup := testCreateIOFD(t)
+	defer cleanup()
+
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fd, cleanup := testCreateIOFD(t)
-	defer cleanup()
 	if err := loop.RegisterFD(fd, EventRead, func(IOEvents) {}); err != nil {
 		t.Fatalf("RegisterFD: %v", err)
 	}

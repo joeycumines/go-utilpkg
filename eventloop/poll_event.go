@@ -58,10 +58,3 @@ func fdUnregisterReleased(err error) bool {
 	var unregisterErr *FDUnregisterError
 	return errors.As(err, &unregisterErr) && unregisterErr != nil && unregisterErr.Released()
 }
-
-type pollEvent struct {
-	generation uint64
-	fd         int
-	events     IOEvents
-	internal   bool
-}

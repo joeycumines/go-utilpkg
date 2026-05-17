@@ -101,16 +101,7 @@ func (p *fastPoller) PollIO(int) (int, error) {
 	return 0, nil
 }
 
-func (*fastPoller) readyEventsSnapshot() []pollEvent {
-	return nil
-}
-
-func (*fastPoller) clearReadyEvents() {}
-
-func (*fastPoller) beginReadyEventDispatch(pollEvent) (ioCallback, IOEvents, *fdDispatchGate, bool) {
-	return nil, 0, nil, false
-}
-
-func (*fastPoller) startReadyEventDispatch(pollEvent, *fdDispatchGate) (IOEvents, bool) {
-	return 0, false
-}
+// pollNative is unreachable on unsupported targets because poll() returns via
+// the fast-path branch before reaching the native poll entry point. The stub
+// exists so the cross-platform poll() method compiles without a build tag.
+func (*Loop) pollNative(timeout int) {}

@@ -1,3 +1,6 @@
+// Package promisealttwo implements a lock-free Promise/A+ compatible promise
+// using an atomic Treiber stack of handlers for concurrent reaction
+// registration.
 package promisealttwo
 
 import (

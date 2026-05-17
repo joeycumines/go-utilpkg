@@ -11,7 +11,7 @@ import (
 
 const multilinePrefixCharacter = '.'
 
-// Takes care of the rendering process
+// Renderer takes care of the rendering process.
 type Renderer struct {
 	out               Writer
 	prefixCallback    PrefixCallback
@@ -68,7 +68,7 @@ type Renderer struct {
 	previousCompletionAbove bool
 }
 
-// Build a new Renderer.
+// NewRenderer builds a new Renderer.
 func NewRenderer() *Renderer {
 	defaultWriter := NewStdoutWriter()
 	registerWriter(defaultWriter)
@@ -971,7 +971,7 @@ func (r *Renderer) BreakLine(buffer *Buffer, lexer Lexer) {
 	r.previousCursorIsFullWidth = false
 }
 
-// Get the number of columns that are available
+// UserInputColumns returns the number of columns that are available
 // for user input.
 func (r *Renderer) UserInputColumns() istrings.Width {
 	return r.col - istrings.GetWidth(r.prefixCallback())

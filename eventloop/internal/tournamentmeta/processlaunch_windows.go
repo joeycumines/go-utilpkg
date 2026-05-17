@@ -16,7 +16,7 @@ import (
 
 func validateProcessSpec(spec processSpec) error {
 	if len(spec.Arguments) == 0 || spec.Arguments[0] != spec.Executable {
-		return errors.New("Windows process argv[0] must equal the governed executable")
+		return errors.New("windows process argv[0] must equal the governed executable")
 	}
 	_, err := windowsEnvironmentBlock(spec.Environment)
 	return err
@@ -204,10 +204,10 @@ func windowsEnvironmentBlock(environment []string) ([]uint16, error) {
 	block := make([]uint16, 0)
 	for _, record := range environment {
 		if !utf8.ValidString(record) {
-			return nil, fmt.Errorf("Windows environment record is not valid UTF-8: %q", record)
+			return nil, fmt.Errorf("windows environment record is not valid UTF-8: %q", record)
 		}
 		if len(record) == 0 {
-			return nil, errors.New("Windows environment contains an empty record")
+			return nil, errors.New("windows environment contains an empty record")
 		}
 		block = append(block, utf16.Encode([]rune(record))...)
 		block = append(block, 0)

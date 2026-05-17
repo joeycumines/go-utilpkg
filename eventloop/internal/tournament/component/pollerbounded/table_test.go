@@ -60,8 +60,8 @@ func TestTableBoundedGrowthAndMigration(t *testing.T) {
 }
 
 func TestTableGrowthBoundariesAndNativeLayout(t *testing.T) {
-	if got := unsafe.Sizeof(entry{}); got != 48 {
-		t.Fatalf("entry size = %d, want 48", got)
+	if got := unsafe.Sizeof(entry{}); got != entrySize {
+		t.Fatalf("entry size = %d, want %d", got, entrySize)
 	}
 	table := NewNative()
 	if err := table.Register(denseGrowth, NativeRegistration{}); err != nil {

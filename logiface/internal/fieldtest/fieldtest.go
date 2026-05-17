@@ -1,3 +1,5 @@
+// Package fieldtest provides shared fluent-method templates and types for
+// testing logiface builders and contexts across all field value types.
 package fieldtest
 
 import (

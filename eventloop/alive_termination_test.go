@@ -58,13 +58,13 @@ func TestAlive_ShutdownClearsPendingTimer(t *testing.T) {
 // remaining liveness signals for the running-loop path, including pending
 // timers and registered user I/O FDs.
 func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
+	fd, fdCleanup := testCreateIOFD(t)
+	t.Cleanup(fdCleanup)
+
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fd, fdCleanup := testCreateIOFD(t)
-	t.Cleanup(fdCleanup)
 	registerLoopCleanupT(t, loop)
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
@@ -109,12 +109,13 @@ func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
 }
 
 func TestAliveContextCancellationClearsRegisteredFD(t *testing.T) {
+	fd, fdCleanup := testCreateIOFD(t)
+	t.Cleanup(fdCleanup)
+
 	loop, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	fd, fdCleanup := testCreateIOFD(t)
-	t.Cleanup(fdCleanup)
 	registerLoopCleanupT(t, loop)
 	if err := loop.RegisterFD(fd, EventRead, func(IOEvents) {}); err != nil {
 		t.Fatalf("RegisterFD: %v", err)

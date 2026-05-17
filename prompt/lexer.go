@@ -51,7 +51,7 @@ func SimpleTokenWithDisplayAttributes(attrs ...DisplayAttribute) SimpleTokenOpti
 	}
 }
 
-// Create a new SimpleToken.
+// NewSimpleToken creates a new SimpleToken.
 func NewSimpleToken(firstIndex, lastIndex istrings.ByteNumber, opts ...SimpleTokenOption) *SimpleToken {
 	t := &SimpleToken{
 		firstByteIndex: firstIndex,
@@ -65,27 +65,27 @@ func NewSimpleToken(firstIndex, lastIndex istrings.ByteNumber, opts ...SimpleTok
 	return t
 }
 
-// Retrieve the text color of this token.
+// Color retrieves the text color of this token.
 func (t *SimpleToken) Color() Color {
 	return t.color
 }
 
-// Retrieve the background color of this token.
+// BackgroundColor retrieves the background color of this token.
 func (t *SimpleToken) BackgroundColor() Color {
 	return t.backgroundColor
 }
 
-// Retrieve the display attributes of this token eg. bold, underline.
+// DisplayAttributes retrieves the display attributes of this token eg. bold, underline.
 func (t *SimpleToken) DisplayAttributes() []DisplayAttribute {
 	return t.displayAttributes
 }
 
-// The index of the last byte of the lexeme.
+// LastByteIndex returns the index of the last byte of the lexeme.
 func (t *SimpleToken) LastByteIndex() istrings.ByteNumber {
 	return t.lastByteIndex
 }
 
-// The index of the first byte of the lexeme.
+// FirstByteIndex returns the index of the first byte of the lexeme.
 func (t *SimpleToken) FirstByteIndex() istrings.ByteNumber {
 	return t.firstByteIndex
 }
@@ -105,20 +105,20 @@ type EagerLexer struct {
 	currentIndex int
 }
 
-// Create a new EagerLexer.
+// NewEagerLexer creates a new EagerLexer.
 func NewEagerLexer(fn LexerFunc) *EagerLexer {
 	return &EagerLexer{
 		lexFunc: fn,
 	}
 }
 
-// Initialise the lexer with the given input.
+// Init initialises the lexer with the given input.
 func (l *EagerLexer) Init(input string) {
 	l.tokens = l.lexFunc(input)
 	l.currentIndex = 0
 }
 
-// Return the next token and true if the operation
+// Next returns the next token and true if the operation
 // was successful.
 func (l *EagerLexer) Next() (Token, bool) {
 	if l.currentIndex >= len(l.tokens) {

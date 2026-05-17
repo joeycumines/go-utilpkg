@@ -1,3 +1,6 @@
+// Package promisealtthree implements a lock-free Promise/A+ compatible promise
+// using a pooled linked-list of handlers allocated from sync.Pool to reduce
+// garbage collection pressure.
 package promisealtthree
 
 import (

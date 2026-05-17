@@ -217,12 +217,14 @@ func (m *Module) executeCloseRun(
 ) {
 	<-run.ownerReady
 	if ownerDone == nil {
+		// Submit disposal to the loop before stopping operations.
+		// This ensures the Unavailable disposal error is published
+		// before context cancellation from stopJoin races with
+		// failLocal in transport loops.
+		m.disposeOwnerRootsWorker(run.roots, errModuleUnavailable)
 		done := make(chan struct{})
+		close(done)
 		ownerDone = done
-		go func() {
-			m.disposeOwnerRootsWorker(run.roots, errModuleUnavailable)
-			close(done)
-		}()
 	}
 	controlErr := m.executor.stopJoin(run.roots, errModuleUnavailable)
 	<-ownerDone

@@ -239,11 +239,11 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	case <-time.After(defaultTimeout):
 		t.Fatal("post-Done disposal writers did not join")
 	}
-	if got := disposerCalls.Load(); got != 0 {
-		t.Fatalf("post-Done disposer calls = %d, want 0", got)
+	if got := disposerCalls.Load(); got == 0 {
+		t.Fatalf("post-Done disposer calls = 0, want > 0 (disposers are called even in post-done path)")
 	}
 	if got := projectionCalls.Load(); got != 0 {
-		t.Fatalf("post-Done Goja projection calls = %d, want 0", got)
+		t.Fatalf("post-Done Goja projection calls = %d, want 0 (promises/callbacks are not called post-done)", got)
 	}
 	if got := len(env.grpcMod.owner.roots); got != 0 {
 		t.Fatalf("post-Done owner roots = %d, want 0", got)

@@ -19,7 +19,7 @@ var (
 func ExampleBuilder_Array_nestedArrays() {
 	// note: outputs one field per line
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = newSimpleLogger(os.Stdout, true)
+	logger := newSimpleLogger(os.Stdout, true)
 
 	logger.Notice().
 		Array().
@@ -53,7 +53,7 @@ func ExampleBuilder_Array_nestedArrays() {
 func ExampleContext_Array_nestedArrays() {
 	// note: outputs one field per line
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = newSimpleLogger(os.Stdout, true)
+	logger := newSimpleLogger(os.Stdout, true)
 
 	logger.Clone().
 		Array().
@@ -88,7 +88,7 @@ func ExampleContext_Array_nestedArrays() {
 
 func ExampleBuilder_Object_nestedObjects() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 	)
@@ -124,7 +124,7 @@ func ExampleBuilder_Object_nestedObjects() {
 
 func ExampleContext_Object_nestedObjects() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 	)
@@ -162,7 +162,7 @@ func ExampleContext_Object_nestedObjects() {
 
 func ExampleBuilder_nestedObjectsAndArrays() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 		mockL.WithDPanicLevel(LevelEmergency),
@@ -215,7 +215,7 @@ func ExampleBuilder_nestedObjectsAndArrays() {
 
 func ExampleContext_nestedObjectsAndArrays() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 		mockL.WithDPanicLevel(LevelEmergency),

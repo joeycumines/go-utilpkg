@@ -93,10 +93,10 @@ func (p *ChainedPromise) resolveClaimed(value any) {
 				scheduleFailures = append(scheduleFailures, failure)
 			}
 		}
-	} else {
-		// Standalone handlers execute synchronously below after p.mu is released.
-		// This permits reentrant Then calls without sacrificing state publication.
 	}
+	// When p.js == nil, standalone handlers execute synchronously below after p.mu
+	// is released, permitting reentrant Then calls without sacrificing state
+	// publication.
 
 	if p.js != nil {
 		p.js.notifyToChannels(p, value)

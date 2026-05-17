@@ -267,6 +267,7 @@ def load_manifest(path):
             'schema_version', 'source_history', 'lineage', 'source_authority', 'measurement',
             'variants', 'variant_groups', 'lanes', 'concepts',
             'revision_variants', 'revision_checkpoints',
+            'root_dispositions',
         },
         'manifest',
     )

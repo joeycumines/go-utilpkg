@@ -1,3 +1,6 @@
+// Package strings provides Unicode-aware string measurement utilities for
+// terminal rendering, including byte, rune, grapheme, and display-width
+// calculations.
 package strings
 
 import (
@@ -7,41 +10,41 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// Get the length of the string in bytes.
+// Len returns the length of the string in bytes.
 func Len(s string) ByteNumber {
 	return ByteNumber(len(s))
 }
 
-// Get the length of the string in runes.
+// RuneCountInString returns the length of the string in runes.
 func RuneCountInString(s string) RuneNumber {
 	return RuneNumber(utf8.RuneCountInString(s))
 }
 
-// Get the length of the byte slice in runes.
+// RuneCount returns the length of the byte slice in runes.
 func RuneCount(b []byte) RuneNumber {
 	return RuneNumber(utf8.RuneCount(b))
 }
 
-// Returns the number of horizontal cells needed to print the given
+// GetWidth returns the number of horizontal cells needed to print the given
 // text. It splits the text into its grapheme clusters, calculates each
 // cluster's width, and adds them up to a total.
 func GetWidth(text string) Width {
 	return Width(uniseg.StringWidth(text))
 }
 
-// Returns the number of horizontal cells needed to print the given
+// GraphemeCountInString returns the number of horizontal cells needed to print the given
 // text. It splits the text into its grapheme clusters, calculates each
 // cluster's width, and adds them up to a total.
 func GraphemeCountInString(text string) GraphemeNumber {
 	return GraphemeNumber(uniseg.GraphemeClusterCount(text))
 }
 
-// Get the width of the rune (how many columns it takes upt in the terminal).
+// GetRuneWidth returns the width of the rune (how many columns it takes up in the terminal).
 func GetRuneWidth(char rune) Width {
 	return Width(runewidth.RuneWidth(char))
 }
 
-// Returns the rune index of the nth grapheme in the given text.
+// RuneIndexNthGrapheme returns the rune index of the nth grapheme in the given text.
 func RuneIndexNthGrapheme(text string, n GraphemeNumber) RuneNumber {
 	g := uniseg.NewGraphemes(text)
 	var currentGraphemeIndex GraphemeNumber
@@ -58,7 +61,7 @@ func RuneIndexNthGrapheme(text string, n GraphemeNumber) RuneNumber {
 	return currentPosition
 }
 
-// Returns the rune index of the nth column (in terms of char width) in the given text.
+// RuneIndexNthColumn returns the rune index of the nth column (in terms of char width) in the given text.
 func RuneIndexNthColumn(text string, n Width) RuneNumber {
 	g := uniseg.NewGraphemes(text)
 	var currentColumnIndex Width

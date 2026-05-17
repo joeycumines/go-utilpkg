@@ -17,7 +17,7 @@ var (
 // Demonstrates the default object field formats, if the object support is defaulted.
 func ExampleObjectBuilder_defaultFieldFormats() {
 	type E = *mockSimpleEvent
-	var logger *Logger[E] = mockL.New(
+	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
 	)

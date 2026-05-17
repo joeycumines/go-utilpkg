@@ -106,7 +106,7 @@ func New() (*Loop, error) {
 // NewWithObserver creates a new event loop with a state observer.
 func NewWithObserver(observer StateObserver) (*Loop, error) {
 	// Create wake-up mechanism
-	wakeFd, wakeWriteFd, err := createWakeFd(0, EFD_CLOEXEC|EFD_NONBLOCK)
+	wakeFd, wakeWriteFd, err := createWakeFd(0, EfdCloexec|EfdNonblock)
 	if err != nil {
 		return nil, WrapError("New", err)
 	}

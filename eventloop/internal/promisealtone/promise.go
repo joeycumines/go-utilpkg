@@ -1,3 +1,6 @@
+// Package promisealtone implements an optimized Promise/A+ compatible promise
+// using lock-free state reads, an embedded first handler to avoid allocation
+// for linear chains, and cache-line-aligned structure layout.
 package promisealtone
 
 import (

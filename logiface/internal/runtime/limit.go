@@ -1,3 +1,5 @@
+// Package runtime provides utilities for inspecting the Go call stack, such
+// as locating the first caller outside a given package path.
 package runtime
 
 import (
