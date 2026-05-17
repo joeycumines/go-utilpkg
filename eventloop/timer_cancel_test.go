@@ -426,7 +426,7 @@ func TestTerminalTransitionReleasesTimerCommandNeededByRunningCallback(t *testin
 					t.Fatal(err)
 				}
 				ids := make([]TimerID, commandCase.count)
-			for index := range ids {
+				for index := range ids {
 					ids[index], err = loop.ScheduleTimer(time.Hour, func() {})
 					if err != nil {
 						t.Fatalf("ScheduleTimer %d: %v", index, err)

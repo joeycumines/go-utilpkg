@@ -64,10 +64,10 @@ func TestTournamentCandidateTrackedPathCensus(t *testing.T) {
 		t.Fatalf("git ls-files: %v", err)
 	}
 	paths := bytes.Split(bytes.TrimSuffix(data, []byte{0}), []byte{0})
-	if len(paths) != 642 {
-		t.Fatalf("tracked tournament candidate paths = %d, want 642", len(paths))
+	if len(paths) != 646 {
+		t.Fatalf("tracked tournament candidate paths = %d, want 646", len(paths))
 	}
-	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "db27f5c220492609fb732a772207f011d3294f3949dd12c9b27505772a13bb10" {
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "5e85d9b489d2fd00a69521c19c97e4210e0a8615e06c9a445231d63658942933" {
 		t.Fatalf("tracked tournament candidate path-set SHA-256 = %s", got)
 	}
 	for _, required := range [][]byte{

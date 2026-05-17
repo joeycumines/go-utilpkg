@@ -1,0 +1,77 @@
+tournament: schema=1
+tournament: meta=head=18ecc1e5445aa58ca9e40fe55906ed409a939f50
+tournament: meta=source-state=clean
+tournament: meta=go-version=go version go1.26.2 linux/arm64
+tournament: meta=sample-count=5
+tournament: meta=manifest-git-blob=3f4195c91a05859b3bfb2987db0898a46a7b7175
+tournament: meta=goja-fork-version=
+tournament: meta=goja-nodejs-version=v0.0.0-20260623201902-5cfbacfa7161
+go: downloading golang.org/x/sys v0.47.0
+tournamentmeta: list source cell eventloop.darwin-amd64 at darwin/amd64/cgo=false: go list: exit status 1: go: downloading github.com/joeycumines/goroutineid v1.1.0
+go: downloading github.com/joeycumines/logiface v0.5.0
+go: can't load test package: abort.go:10:2: module lookup disabled by GOPROXY=off
+
+gmake[1]: *** [/work/project.mk:456: eventloop-tournament-source-fingerprint] Error 1
+tournament: meta=source-fingerprint=
+go: downloading github.com/joeycumines/goroutineid v1.1.0
+Compiling tournament components for darwin/arm64
+go: downloading github.com/joeycumines/goja v0.0.0-20260623201241-c7a53758c48d
+go: downloading github.com/joeycumines/goja_nodejs v0.0.0-20260623201253-57636d2adbfc
+go: downloading github.com/joeycumines/logiface v0.5.0
+go: downloading golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+go: downloading github.com/joeycumines/go-catrate v0.0.0-20260429212737-202f4120003b
+go: downloading golang.org/x/text v0.40.0
+go: downloading github.com/go-sourcemap/sourcemap v2.1.4+incompatible
+go: downloading github.com/dlclark/regexp2/v2 v2.5.2
+go: downloading github.com/google/pprof v0.0.0-20260402051712-545e8a4df936
+Compiling tournament components for darwin/amd64
+Compiling tournament components for linux/arm64
+Compiling tournament components for linux/amd64
+Compiling tournament components for windows/arm64
+Compiling tournament components for windows/amd64
+Compiling tournament components for js/wasm
+Compiling tournament components for wasip1/wasm
+Compiling tournament components for plan9/amd64
+go -C /work/eventloop test  ./internal/tournamentmeta
+ok  	github.com/joeycumines/go-eventloop/internal/tournamentmeta	2.586s
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
+	eventloop.docs.tournament.parse_benchmarks_test \
+	eventloop.docs.tournament.protocol_identity_test \
+	eventloop.docs.tournament.timer_workload_digest_test
+............FF.....................
+======================================================================
+FAIL: test_source_fingerprint_uses_manifest_authority (eventloop.docs.tournament.parse_benchmarks_test.ParseBenchmarksTest.test_source_fingerprint_uses_manifest_authority)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/eventloop/docs/tournament/parse_benchmarks_test.py", line 358, in test_source_fingerprint_uses_manifest_authority
+    self.assertEqual(result.returncode, 0, result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 0 : tournamentmeta: list source cell goja-eventloop.darwin-amd64 at darwin/amd64/cgo=false: go list: exit status 1: go: downloading github.com/joeycumines/go-eventloop v0.0.0-20260624075642-f9a45542db92
+go: downloading github.com/joeycumines/goja v0.0.0-20260725225032-4f62ed79b921
+go: downloading golang.org/x/mod v0.38.0
+go: can't load test package: abortdispatch.go:8:2: module lookup disabled by GOPROXY=off
+
+gmake[2]: *** [/work/project.mk:456: eventloop-tournament-source-fingerprint] Error 1
+
+
+======================================================================
+FAIL: test_source_identity_raw_target_emits_one_marker_set (eventloop.docs.tournament.parse_benchmarks_test.ParseBenchmarksTest.test_source_identity_raw_target_emits_one_marker_set)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/work/eventloop/docs/tournament/parse_benchmarks_test.py", line 378, in test_source_identity_raw_target_emits_one_marker_set
+    self.assertEqual(result.returncode, 0, result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 0 : tournamentmeta: list source cell goja-eventloop.darwin-amd64 at darwin/amd64/cgo=false: go list: exit status 1: go: downloading github.com/joeycumines/go-eventloop v0.0.0-20260624075642-f9a45542db92
+go: downloading github.com/joeycumines/goja v0.0.0-20260725225032-4f62ed79b921
+go: downloading golang.org/x/mod v0.38.0
+go: can't load test package: abortdispatch.go:8:2: module lookup disabled by GOPROXY=off
+
+gmake[2]: *** [/work/project.mk:482: eventloop-tournament-source-identity-raw-v2] Error 1
+
+
+----------------------------------------------------------------------
+Ran 35 tests in 11.503s
+
+FAILED (failures=2)
+gmake[1]: *** [/work/project.mk:363: eventloop-tournament-tool-test] Error 1
+gmake: *** [/work/project.mk:529: eventloop-tournament-bench] Error 2

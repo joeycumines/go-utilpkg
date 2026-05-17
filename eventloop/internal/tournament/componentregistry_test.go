@@ -44,12 +44,12 @@ func TestFDTableComponentRegistry(t *testing.T) {
 			{ProvenanceKind: "commit", Path: "poller_linux.go", OriginCommit: "986e2378c1484aa917a1bb0fd13aef914bdce50f", OriginBlob: "d491ef03496571a7dd69cb1a6259f5263165018c", SHA256: "e2ae80547a1d458ac32b3e0c6f46009f0e80963019df65a3367a706bb1a6eb65"},
 			{ProvenanceKind: "commit", Path: "poller_windows.go", OriginCommit: "986e2378c1484aa917a1bb0fd13aef914bdce50f", OriginBlob: "ca13453cf505652a2d16884fa948d9339d5531be", SHA256: "86849e47deee908c230be42655e5b59ccbdbe2b3844f360672a1c6f0b6ea8a1b"},
 		},
-	"poller.bounded-dense-sparse-token-v3": {
-		{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9d78430017bdea9d132c3cadadcdd039fc30b0b7", SHA256: "91545929f515035d2d875f7086be7cdb65ce3494629187db41c5f7557db343f8"},
-		{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "e50dea13610f7397bf9d878d58e1e4da54c35f6c", SHA256: "8b23f6b25693d25aaa891a99aaf22323e9103cab4019cdb09cb7a5fca347cd04"},
-		{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "53b79f0a6e8092e162f390d65d7cdc5aa56dfcc6", SHA256: "95399f1756da3515f9049406510937e1f42d5482091979e883682aab35973a9d"},
-		{ProvenanceKind: "index-candidate", Path: "poller_linux.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9fbd45632a3c5221ab474dea37953bcbf1459f02", SHA256: "60b5b6246161c76fe6973ebedb2e768a9ff6dad97acb2419222d88209ab4ed83"},
-	},
+		"poller.bounded-dense-sparse-token-v3": {
+			{ProvenanceKind: "index-candidate", Path: "poller_fdtable.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9d78430017bdea9d132c3cadadcdd039fc30b0b7", SHA256: "91545929f515035d2d875f7086be7cdb65ce3494629187db41c5f7557db343f8"},
+			{ProvenanceKind: "index-candidate", Path: "readiness.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "e50dea13610f7397bf9d878d58e1e4da54c35f6c", SHA256: "8b23f6b25693d25aaa891a99aaf22323e9103cab4019cdb09cb7a5fca347cd04"},
+			{ProvenanceKind: "index-candidate", Path: "fd_dispatch.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "53b79f0a6e8092e162f390d65d7cdc5aa56dfcc6", SHA256: "95399f1756da3515f9049406510937e1f42d5482091979e883682aab35973a9d"},
+			{ProvenanceKind: "index-candidate", Path: "poller_linux.go", BaseRevision: "469fd952ed251edc7ea1d2bb0faf4e04fc94dd88", OriginBlob: "9fbd45632a3c5221ab474dea37953bcbf1459f02", SHA256: "60b5b6246161c76fe6973ebedb2e768a9ff6dad97acb2419222d88209ab4ed83"},
+		},
 	}
 	wantMetadata := map[string]struct {
 		family              string

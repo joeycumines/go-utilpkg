@@ -125,9 +125,9 @@ func (m *Module) newClientStreamCall(
 			}
 			return responsePromise
 		}),
-		goja.Undefined(),  // no setter
-		goja.FLAG_TRUE,    // configurable (allows replacement)
-		goja.FLAG_TRUE,    // enumerable
+		goja.Undefined(), // no setter
+		goja.FLAG_TRUE,   // configurable (allows replacement)
+		goja.FLAG_TRUE,   // enumerable
 	)
 	return callObject
 }
