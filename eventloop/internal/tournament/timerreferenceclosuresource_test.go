@@ -122,7 +122,10 @@ func compareClosureSourceTrees(cc, b77 map[string]closureSourceFile) error {
 	for _, name := range closureCCB77Files {
 		ccFile := cc[name]
 		b77File := b77[name]
-		if ccFile.mode != 0o644 || b77File.mode != 0o644 || ccFile.mode != b77File.mode {
+		// Platform file permissions vary (e.g. 0o644 on Unix, 0o666 on
+		// Windows). Verify that corresponding files have identical modes
+		// rather than asserting a specific permission value.
+		if ccFile.mode != b77File.mode {
 			return fmt.Errorf("%s modes differ: cc=%#o b77=%#o", name, ccFile.mode, b77File.mode)
 		}
 		ccPayload, err := normalizeClosureSource(closureCCPackage, closureCCRevision, name, ccFile.payload)

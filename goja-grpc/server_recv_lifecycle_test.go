@@ -93,6 +93,17 @@ func TestServerRecv_NonEOFError(t *testing.T) {
 	if setupError != nil && !goja.IsNull(setupError) {
 		t.Fatalf("setup error = %v", setupError)
 	}
+	// Close the module to synchronously retire supervisor roots before
+	// checking retention. The JS __done() signal fires after both recv
+	// callbacks settle, but supervisor root retirement happens
+	// asynchronously via the closeAfterAdapter goroutine, which races
+	// with env.shutdown(). Module.Close blocks on <-run.done, joining
+	// executeCloseRun (stopJoin + disposeOwnerRootsWorker) so all roots
+	// are retired before the assertions run. This matches the pattern in
+	// server_rollback_contract_test.go.
+	if err := env.grpcMod.Close(); err != nil {
+		t.Fatalf("module close: %v", err)
+	}
 	if remaining := supervisorKindCount(env.grpcMod, supervisorServerRPC); remaining != 0 {
 		t.Fatalf("retained server RPCs = %d, want 0", remaining)
 	}

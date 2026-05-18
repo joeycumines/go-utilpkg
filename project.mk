@@ -515,6 +515,16 @@ eventloop-tournament-libuv-bench: eventloop-tournament-libuv-test ## Run the nat
 	@echo 'tournament: libuv-phase=legacy'
 	$(GO) -C $(PROJECT_ROOT)/eventloop test -tags=libuv -bench='$(EVENTLOOP_LIBUV_LEGACY_BENCH_RE)' $(EVENTLOOP_TOURNAMENT_FLAGS) ./internal/libuvbaseline
 
+.PHONY: eventloop-tournament-mod-download
+eventloop-tournament-mod-download: ## Pre-populate the module cache for hermetic source fingerprinting.
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/goja-eventloop mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/goja-grpc mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/goja-protobuf mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/goja-protojson mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/eventloop mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/eventloop/internal/tournament mod download
+	GOPRIVATE= GONOSUMDB=* GONOSUMCHECK=* GOWORK=off $(GO) -C $(PROJECT_ROOT)/eventloop/internal/gojabaseline mod download
+
 .PHONY: eventloop-tournament-bench
 eventloop-tournament-bench: ## Run the complete longitudinal eventloop tournament.
 	@echo 'tournament: schema=1'
@@ -525,6 +535,7 @@ eventloop-tournament-bench: ## Run the complete longitudinal eventloop tournamen
 	@echo 'tournament: meta=manifest-git-blob='"$$(git -C $(PROJECT_ROOT) hash-object eventloop/internal/tournament/manifest.json)"
 	@echo 'tournament: meta=goja-fork-version='"$$($(GO) -C $(PROJECT_ROOT)/eventloop/internal/tournament list -m -f '{{.Version}}' github.com/joeycumines/goja)"
 	@echo 'tournament: meta=goja-nodejs-version='"$$($(GO) -C $(PROJECT_ROOT)/eventloop/internal/tournament list -m -f '{{.Version}}' github.com/joeycumines/goja_nodejs)"
+	@$(MAKE) --no-print-directory eventloop-tournament-mod-download
 	@source_fingerprint="$$($(MAKE) --no-print-directory eventloop-tournament-source-fingerprint)"; \
 		echo 'tournament: meta=source-fingerprint='"$$source_fingerprint"
 	@$(MAKE) --no-print-directory eventloop-tournament-test

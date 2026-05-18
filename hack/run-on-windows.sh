@@ -180,9 +180,10 @@ trap cleanup_remote EXIT INT TERM
 #
 # Pipeline details:
 #   - cd REPO_ROOT: consistent path resolution regardless of caller's CWD.
-#   - git ls-files -c -o --exclude-standard -z: lists tracked AND untracked
-#     (non-ignored) files, NUL-delimited. Modified files are listed by name;
-#     tar archives their actual disk content (not the index version).
+#   - { git ls-files -c -o --exclude-standard -z; printf '.git\0'; }: lists
+#     tracked AND untracked (non-ignored) files PLUS the .git directory,
+#     NUL-delimited. Including .git ensures full git history is available
+#     for source-authentication tests (e.g. componentregistry_test.go).
 #   - perl -0ne 'print if -e': filters ghost files (tracked by git but
 #     deleted from disk) that would cause tar to fail with "No such file".
 #   - tar --null -T -: reads NUL-delimited file list from stdin.
@@ -199,7 +200,7 @@ case "$(uname -s)" in
 esac
 
 (cd "$REPO_ROOT" &&
-  git ls-files -c -o --exclude-standard -z |
+  { git ls-files -c -o --exclude-standard -z; printf '.git\0'; } |
   perl -0ne 'print if -e' |
   COPYFILE_DISABLE=1 tar $TAR_CREATE_FLAGS) |
   ssh -T "$SSH_HOST" "C:\\Windows\\System32\\wsl.exe -e bash -c \"tar --warning=no-unknown-keyword -xzf - -C '${WSL_PATH}'\""

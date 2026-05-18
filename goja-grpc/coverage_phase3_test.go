@@ -570,6 +570,7 @@ func TestPhase3_ClientStreamSender_SubmitFailure(t *testing.T) {
 	// Stop loop, then enqueue closeSend. Sender goroutine's Submit fails.
 	cancel()
 	<-loopDone
+	env.grpcMod.Close()
 
 	_, _ = env.runtime.RunString(`__p3CsSenderCall.closeSend();`)
 	// Sender goroutine: CloseSend(mock)→nil, Submit→fail → lines 506-509
@@ -623,6 +624,7 @@ func TestPhase3_BidiStreamSender_SubmitFailure(t *testing.T) {
 
 	cancel()
 	<-loopDone
+	env.grpcMod.Close()
 
 	_, _ = env.runtime.RunString(`__p3BsSenderStream.closeSend();`)
 	// Sender goroutine: CloseSend(mock)→nil, Submit→fail → lines 668-671
