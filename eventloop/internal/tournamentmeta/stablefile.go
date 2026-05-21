@@ -46,7 +46,7 @@ func readRegularStable(path string, permissions os.FileMode) (_ []byte, err erro
 
 	pathIdentity, err := directory.Lstat(name)
 	if err != nil || !freezeComponentIdentity(pathIdentity) || !pathIdentity.Mode().IsRegular() ||
-		pathIdentity.Mode().Perm() != permissions.Perm() {
+		authorityPerm(pathIdentity.Mode()) != authorityPerm(permissions) {
 		return nil, fmt.Errorf("regular file %q has invalid identity, mode, or permissions: %w", name, err)
 	}
 	file, err := directory.Open(name)
@@ -78,7 +78,7 @@ func readRegularStable(path string, permissions os.FileMode) (_ []byte, err erro
 	finalPath, pathErr := directory.Lstat(name)
 	if handleErr != nil || pathErr != nil || !freezeComponentIdentity(finalHandle) || !freezeComponentIdentity(finalPath) ||
 		!os.SameFile(pathIdentity, finalHandle) || !os.SameFile(pathIdentity, finalPath) ||
-		finalHandle.Size() != int64(len(data)) || finalPath.Mode().Perm() != permissions.Perm() {
+		finalHandle.Size() != int64(len(data)) || authorityPerm(finalPath.Mode()) != authorityPerm(permissions) {
 		return nil, errors.Join(fmt.Errorf("regular file %q changed while reading", name), handleErr, pathErr)
 	}
 	if err := file.Close(); err != nil {
@@ -153,7 +153,7 @@ func readStableDirectoryFiles(path string, permissions os.FileMode) (_ []stableD
 func readRootRegularStable(root *os.Root, name string, permissions os.FileMode) (_ []byte, err error) {
 	identity, err := root.Lstat(name)
 	if err != nil || !freezeComponentIdentity(identity) || !identity.Mode().IsRegular() ||
-		identity.Mode().Perm() != permissions.Perm() {
+		authorityPerm(identity.Mode()) != authorityPerm(permissions) {
 		return nil, fmt.Errorf("stable directory entry %q has invalid identity, mode, or permissions: %w", name, err)
 	}
 	file, err := root.Open(name)
@@ -182,7 +182,7 @@ func readRootRegularStable(root *os.Root, name string, permissions os.FileMode) 
 	finalPath, pathErr := root.Lstat(name)
 	if handleErr != nil || pathErr != nil || !freezeComponentIdentity(finalHandle) || !freezeComponentIdentity(finalPath) ||
 		!os.SameFile(identity, finalHandle) || !os.SameFile(identity, finalPath) ||
-		finalHandle.Size() != int64(len(data)) || finalPath.Mode().Perm() != permissions.Perm() {
+		finalHandle.Size() != int64(len(data)) || authorityPerm(finalPath.Mode()) != authorityPerm(permissions) {
 		return nil, errors.Join(fmt.Errorf("stable directory entry %q changed while reading", name), handleErr, pathErr)
 	}
 	return data, nil

@@ -106,22 +106,13 @@ func materializeSourceEnvironment(config sourceBuildConfig, records []string) ([
 			return nil, errors.New("source environment requires SYSTEMROOT on Windows")
 		}
 	}
-	replacements := []struct {
-		token string
-		value string
-	}{
-		{token: "{build-cache}", value: config.BuildCache},
-		{token: "{go-executable-directory}", value: filepath.Dir(config.GoExecutable)},
-		{token: "{host-system-root}", value: systemRoot},
-		{token: "{module-cache}", value: config.ModuleCache},
-		{token: "{scratch}", value: config.ScratchRoot},
-	}
 	result := make([]string, len(records))
 	for index, record := range records {
-		result[index] = record
-		for _, replacement := range replacements {
-			result[index] = strings.ReplaceAll(result[index], replacement.token, replacement.value)
+		substituted, err := substituteEnvironmentPlaceholders(record, config, systemRoot)
+		if err != nil {
+			return nil, err
 		}
+		result[index] = substituted
 		if strings.Contains(result[index], "{") || strings.Contains(result[index], "}") {
 			return nil, fmt.Errorf("source environment has unknown placeholder %q", record)
 		}
@@ -130,6 +121,92 @@ func materializeSourceEnvironment(config sourceBuildConfig, records []string) ([
 		return nil, errors.New("materialized source environment is not sorted")
 	}
 	return result, nil
+}
+
+// substituteEnvironmentPlaceholders expands the placeholder tokens defined by
+// sourceCellEnvironment for a single environment record. Path-bearing tokens
+// ({scratch}, {build-cache}, {module-cache}, and {go-executable-directory})
+// are joined to any trailing slash-relative suffix using filepath.Join, so the
+// materialized path uses native separators on every platform even though the
+// token templates themselves are platform-independent forward-slash text.
+func substituteEnvironmentPlaceholders(record string, config sourceBuildConfig, systemRoot string) (string, error) {
+	pathValues := map[string]string{
+		"{build-cache}":             config.BuildCache,
+		"{go-executable-directory}": filepath.Dir(config.GoExecutable),
+		"{module-cache}":            config.ModuleCache,
+		"{scratch}":                 config.ScratchRoot,
+	}
+	plainValues := map[string]string{
+		"{host-system-root}": systemRoot,
+	}
+	tokens := []string{
+		"{host-system-root}",
+		"{build-cache}",
+		"{go-executable-directory}",
+		"{module-cache}",
+		"{scratch}",
+	}
+	result := record
+	for _, token := range tokens {
+		pathValue, isPath := pathValues[token]
+		value, ok := plainValues[token]
+		if isPath {
+			value = pathValue
+			ok = true
+		}
+		if !ok {
+			continue
+		}
+		result = replacePathToken(result, token, value, isPath)
+	}
+	return result, nil
+}
+
+// replacePathToken substitutes a single placeholder token in record. When the
+// token is path-bearing and immediately followed by a slash-relative suffix
+// (e.g. "{scratch}/tmp"), the suffix is appended with filepath.Join so the
+// separators match the host platform; otherwise the token is replaced by value
+// verbatim.
+func replacePathToken(record, token, value string, pathAware bool) string {
+	if !pathAware {
+		return strings.ReplaceAll(record, token, value)
+	}
+	var builder strings.Builder
+	remaining := record
+	for {
+		index := strings.Index(remaining, token)
+		if index < 0 {
+			builder.WriteString(remaining)
+			break
+		}
+		builder.WriteString(remaining[:index])
+		after := remaining[index+len(token):]
+		trimmed, rest := splitPathSuffix(after)
+		if trimmed == "" {
+			builder.WriteString(value)
+		} else {
+			builder.WriteString(filepath.Join(value, trimmed))
+		}
+		remaining = rest
+	}
+	return builder.String()
+}
+
+// splitPathSuffix separates a leading slash-relative path component (the part
+// following a path placeholder token) from the remainder of the record. It
+// returns the relative path without its leading separator and the unconsumed
+// record tail. A non-empty relative path beginning with any other character
+// means the token was not path-qualified and the whole input is the tail.
+func splitPathSuffix(input string) (relative string, tail string) {
+	if input == "" || input[0] != '/' {
+		return "", input
+	}
+	rest := input[1:]
+	end := len(rest)
+	if cut := strings.IndexAny(rest, "{}"); cut >= 0 {
+		end = cut
+	}
+	return rest[:end], input[1+end:]
 }
 
 func runSourceList(arguments, environment []string) ([]byte, error) {

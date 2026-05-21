@@ -68,62 +68,62 @@ type isolatedCallbackRole struct {
 // apply backpressure.
 //
 // Log panics if the Loop receiver is nil.
-func (x *Loop) Log(level logiface.Level, modifier logiface.Modifier[logiface.Event]) {
-	if x == nil {
+func (l *Loop) Log(level logiface.Level, modifier logiface.Modifier[logiface.Event]) {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	logger := x.logger
-	x.executeLoggerCallback(func() {
+	logger := l.logger
+	l.executeLoggerCallback(func() {
 		_ = logger.Log(level, modifier)
 	})
 }
 
 // safeExecute executes a task with panic recovery.
-func (x *Loop) safeExecute(t func()) {
-	x.safeExecuteTask(t, true)
+func (l *Loop) safeExecute(t func()) {
+	l.safeExecuteTask(t, true)
 }
 
 // safeExecuteControl preserves callback ownership and panic containment for
 // internal host plumbing without reporting it as a user callback.
-func (x *Loop) safeExecuteControl(t func()) {
-	x.safeExecuteTask(t, false)
+func (l *Loop) safeExecuteControl(t func()) {
+	l.safeExecuteTask(t, false)
 }
 
-func (x *Loop) safeExecuteTask(t func(), recordMetrics bool) bool {
+func (l *Loop) safeExecuteTask(t func(), recordMetrics bool) bool {
 	if t == nil {
 		return false
 	}
-	if !x.beginCallbackExecution() {
+	if !l.beginCallbackExecution() {
 		return false
 	}
 	if recordMetrics {
-		x.releaseMicrotaskYield()
+		l.releaseMicrotaskYield()
 	}
 
 	// Record callback execution-path duration if metrics are enabled.
 	var start time.Time
 	var end time.Time
 	var outcome callbackOutcome
-	if recordMetrics && x.metrics != nil {
-		start = x.refreshTickTime()
+	if recordMetrics && l.metrics != nil {
+		start = l.refreshTickTime()
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			x.logCallbackError("eventloop: task panicked", r)
+			l.logCallbackError("eventloop: task panicked", r)
 		}
 		// Record the duration even when the callback panics or exits abnormally.
-		if recordMetrics && x.metrics != nil {
+		if recordMetrics && l.metrics != nil {
 			if end.IsZero() {
-				end = x.refreshTickTime()
+				end = l.refreshTickTime()
 			}
 			duration := end.Sub(start)
-			x.metrics.recordCallback(duration, end, outcome.returned && !outcome.panicked)
+			l.metrics.recordCallback(duration, end, outcome.returned && !outcome.panicked)
 		}
 	}()
 
-	outcome = x.executeCallback(t, true)
-	x.logCallbackOutcome("task", outcome)
+	outcome = l.executeCallback(t, true)
+	l.logCallbackOutcome("task", outcome)
 	return true
 }
 
@@ -135,17 +135,17 @@ func (x *Loop) safeExecuteTask(t func(), recordMetrics bool) bool {
 // several user callbacks behind one internal readiness or timer wake.
 //
 // RunCallback panics if the Loop receiver or fn is nil.
-func (x *Loop) RunCallback(fn func()) error {
-	if x == nil {
+func (l *Loop) RunCallback(fn func()) error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
 	if fn == nil {
 		panic("eventloop: nil RunCallback callback")
 	}
-	if err := x.runHostCallback(fn); err != nil {
+	if err := l.runHostCallback(fn); err != nil {
 		return err
 	}
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 	return nil
 }
 
@@ -159,21 +159,21 @@ func (x *Loop) RunCallback(fn func()) error {
 // goroutines receive [ErrCallbackOwner].
 //
 // RunCallbackDeferredCheckpoint panics if the Loop receiver or fn is nil.
-func (x *Loop) RunCallbackDeferredCheckpoint(fn func()) error {
-	if x == nil {
+func (l *Loop) RunCallbackDeferredCheckpoint(fn func()) error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
 	if fn == nil {
 		panic("eventloop: nil RunCallbackDeferredCheckpoint callback")
 	}
-	return x.runHostCallback(fn)
+	return l.runHostCallback(fn)
 }
 
-func (x *Loop) runHostCallback(fn func()) error {
-	if !x.ownsLocalQueues() {
+func (l *Loop) runHostCallback(fn func()) error {
+	if !l.ownsLocalQueues() {
 		return ErrCallbackOwner
 	}
-	if !x.safeExecuteTask(fn, true) {
+	if !l.safeExecuteTask(fn, true) {
 		return ErrLoopTerminated
 	}
 	return nil
@@ -181,32 +181,32 @@ func (x *Loop) runHostCallback(fn func()) error {
 
 // safeExecuteFn preserves a function-shaped callback executor for rejection
 // reporting while sharing the scheduled-callback admission and metrics path.
-func (x *Loop) safeExecuteFn(fn func()) {
-	x.safeExecute(fn)
+func (l *Loop) safeExecuteFn(fn func()) {
+	l.safeExecute(fn)
 }
 
 // safeExecuteFnDirect executes a callback that is already inside the isolated
 // owner worker. Keeping this boundary separate lets queue drains amortize the
 // worker handoff without paying a goroutine-id lookup for every callback.
-func (x *Loop) safeExecuteFnDirect(fn func()) bool {
+func (l *Loop) safeExecuteFnDirect(fn func()) bool {
 	if fn == nil {
 		return false
 	}
-	if !x.beginCallbackExecution() {
+	if !l.beginCallbackExecution() {
 		return false
 	}
 	var start time.Time
 	successful := false
-	if x.metrics != nil {
-		start = x.refreshTickTime()
+	if l.metrics != nil {
+		start = l.refreshTickTime()
 		defer func() {
-			end := x.refreshTickTime()
-			x.metrics.recordCallback(end.Sub(start), end, successful)
+			end := l.refreshTickTime()
+			l.metrics.recordCallback(end.Sub(start), end, successful)
 		}()
 	}
 	value, panicked := invokeCallback(fn)
 	successful = !panicked
-	x.logCallbackOutcome("task", callbackOutcome{
+	l.logCallbackOutcome("task", callbackOutcome{
 		panicValue: value,
 		panicked:   panicked,
 		returned:   true,
@@ -219,23 +219,23 @@ func (x *Loop) safeExecuteFnDirect(fn func()) bool {
 // through the isolated boundary so the synchronous callback cannot join a
 // completion barrier that depends on its caller. Genuinely post-terminal
 // callers retain the unprivileged isolated fallback contract.
-func (x *Loop) safeExecuteFallback(fn func()) {
+func (l *Loop) safeExecuteFallback(fn func()) {
 	if fn == nil {
 		return
 	}
 
-	x.logCallbackOutcome("task", x.executeCallback(fn, x.ownsLocalQueues()))
+	l.logCallbackOutcome("task", l.executeCallback(fn, l.ownsLocalQueues()))
 }
 
-func (x *Loop) executeCallback(fn func(), owner bool) callbackOutcome {
+func (l *Loop) executeCallback(fn func(), owner bool) callbackOutcome {
 	if owner {
-		return x.executeOwnedCallback(fn)
+		return l.executeOwnedCallback(fn)
 	}
-	return x.executeIsolatedCallback(fn)
+	return l.executeIsolatedCallback(fn)
 }
 
-func (x *Loop) executeOwnedCallback(fn func()) callbackOutcome {
-	worker := x.callbackWorker
+func (l *Loop) executeOwnedCallback(fn func()) callbackOutcome {
+	worker := l.callbackWorker
 	// The normal owner path reaches this method while the worker is idle. Only
 	// pay the goroutine-id lookup cost when a callback has synchronously entered
 	// another callback boundary on the worker itself.
@@ -249,19 +249,19 @@ func (x *Loop) executeOwnedCallback(fn func()) callbackOutcome {
 			outcomes: make(chan callbackOutcome),
 			done:     make(chan struct{}),
 		}
-		x.callbackWorker = worker
-		go x.runCallbackWorker(worker)
+		l.callbackWorker = worker
+		go l.runCallbackWorker(worker)
 	}
 	worker.requests <- fn
 	outcome := <-worker.outcomes
 	if !outcome.returned {
 		<-worker.done
-		x.callbackWorker = nil
+		l.callbackWorker = nil
 	}
 	return outcome
 }
 
-func (x *Loop) runCallbackWorker(worker *callbackWorker) {
+func (l *Loop) runCallbackWorker(worker *callbackWorker) {
 	var outcome callbackOutcome
 	var previousLoopOwner int64
 	var previousTerminalOwner int64
@@ -273,10 +273,10 @@ func (x *Loop) runCallbackWorker(worker *callbackWorker) {
 		if active {
 			worker.active.Store(false)
 			if loopOwner {
-				x.loopGoroutineID.Store(previousLoopOwner)
+				l.loopGoroutineID.Store(previousLoopOwner)
 			}
 			if terminalOwner {
-				x.terminalDrainOwner.Store(previousTerminalOwner)
+				l.terminalDrainOwner.Store(previousTerminalOwner)
 			}
 			worker.outcomes <- outcome
 		}
@@ -285,14 +285,14 @@ func (x *Loop) runCallbackWorker(worker *callbackWorker) {
 	worker.ownerID.Store(workerID)
 	for fn := range worker.requests {
 		outcome = callbackOutcome{}
-		previousLoopOwner = x.loopGoroutineID.Load()
+		previousLoopOwner = l.loopGoroutineID.Load()
 		loopOwner = previousLoopOwner != 0
-		terminalOwner = !loopOwner && x.terminalDraining.Load()
+		terminalOwner = !loopOwner && l.terminalDraining.Load()
 		if loopOwner {
-			x.loopGoroutineID.Store(workerID)
+			l.loopGoroutineID.Store(workerID)
 		}
 		if terminalOwner {
-			previousTerminalOwner = x.terminalDrainOwner.Swap(workerID)
+			previousTerminalOwner = l.terminalDrainOwner.Swap(workerID)
 		}
 		active = true
 		worker.active.Store(true)
@@ -300,10 +300,10 @@ func (x *Loop) runCallbackWorker(worker *callbackWorker) {
 		outcome.returned = true
 		worker.active.Store(false)
 		if loopOwner {
-			x.loopGoroutineID.Store(previousLoopOwner)
+			l.loopGoroutineID.Store(previousLoopOwner)
 		}
 		if terminalOwner {
-			x.terminalDrainOwner.Store(previousTerminalOwner)
+			l.terminalDrainOwner.Store(previousTerminalOwner)
 		}
 		active = false
 		loopOwner = false
@@ -314,23 +314,23 @@ func (x *Loop) runCallbackWorker(worker *callbackWorker) {
 	}
 }
 
-func (x *Loop) stopCallbackWorker() {
-	worker := x.callbackWorker
+func (l *Loop) stopCallbackWorker() {
+	worker := l.callbackWorker
 	if worker == nil {
 		return
 	}
 	close(worker.requests)
 	<-worker.done
-	x.callbackWorker = nil
+	l.callbackWorker = nil
 }
 
-func (x *Loop) executeIsolatedCallback(fn func()) callbackOutcome {
-	role := x.captureIsolatedCallbackRole(goroutineid.Get())
+func (l *Loop) executeIsolatedCallback(fn func()) callbackOutcome {
+	role := l.captureIsolatedCallbackRole(goroutineid.Get())
 	result := make(chan callbackOutcome, 1)
 	go func() {
 		outcome := callbackOutcome{}
 		defer func() { result <- outcome }()
-		restore, ok := x.delegateIsolatedCallbackRole(role)
+		restore, ok := l.delegateIsolatedCallbackRole(role)
 		if !ok {
 			outcome.panicValue = errCallbackRoleTransfer
 			outcome.panicked = true
@@ -350,35 +350,35 @@ func (x *Loop) executeIsolatedCallback(fn func()) callbackOutcome {
 // no longer terminate a Run owner, terminal finisher, or Promisify worker.
 // The returned outcome is deliberately discarded by callers: reporting a
 // logger failure through the same logger would recurse.
-func (x *Loop) executeLoggerCallback(fn func()) {
+func (l *Loop) executeLoggerCallback(fn func()) {
 	if fn == nil {
 		return
 	}
 	callerID := goroutineid.Get()
-	if _, recursive := x.loggerCallbackIDs.Load(callerID); recursive {
+	if _, recursive := l.loggerCallbackIDs.Load(callerID); recursive {
 		return
 	}
-	_ = x.executeIsolatedCallback(func() {
+	_ = l.executeIsolatedCallback(func() {
 		ownerID := goroutineid.Get()
-		x.loggerCallbackIDs.Store(ownerID, struct{}{})
-		defer x.loggerCallbackIDs.Delete(ownerID)
+		l.loggerCallbackIDs.Store(ownerID, struct{}{})
+		defer l.loggerCallbackIDs.Delete(ownerID)
 		fn()
 	})
 }
 
-func (x *Loop) captureIsolatedCallbackRole(ownerID int64) isolatedCallbackRole {
+func (l *Loop) captureIsolatedCallbackRole(ownerID int64) isolatedCallbackRole {
 	role := isolatedCallbackRole{
 		ownerID:                 ownerID,
-		loopOwner:               x.loopGoroutineID.Load() == ownerID,
-		terminalDrainOwner:      x.terminalDraining.Load() && x.terminalDrainOwner.Load() == ownerID,
-		terminalCompletionOwner: x.terminalCompletionOwner.Load() == ownerID,
+		loopOwner:               l.loopGoroutineID.Load() == ownerID,
+		terminalDrainOwner:      l.terminalDraining.Load() && l.terminalDrainOwner.Load() == ownerID,
+		terminalCompletionOwner: l.terminalCompletionOwner.Load() == ownerID,
 	}
-	_, role.promisifyWorker = x.promisifyWorkerIDs.Load(ownerID)
-	_, role.loggerCallback = x.loggerCallbackIDs.Load(ownerID)
+	_, role.promisifyWorker = l.promisifyWorkerIDs.Load(ownerID)
+	_, role.loggerCallback = l.loggerCallbackIDs.Load(ownerID)
 	// callbackWorker is owner-confined. Only its current logical loop/drain
 	// owner may inspect it; arbitrary concurrent logger callers must not.
 	if role.loopOwner || role.terminalDrainOwner {
-		worker := x.callbackWorker
+		worker := l.callbackWorker
 		if worker != nil && worker.active.Load() && worker.ownerID.Load() == ownerID {
 			role.worker = worker
 		}
@@ -386,7 +386,7 @@ func (x *Loop) captureIsolatedCallbackRole(ownerID int64) isolatedCallbackRole {
 	return role
 }
 
-func (x *Loop) delegateIsolatedCallbackRole(role isolatedCallbackRole) (func(), bool) {
+func (l *Loop) delegateIsolatedCallbackRole(role isolatedCallbackRole) (func(), bool) {
 	ownerID := goroutineid.Get()
 	loopOwner := false
 	terminalDrainOwner := false
@@ -394,22 +394,22 @@ func (x *Loop) delegateIsolatedCallbackRole(role isolatedCallbackRole) (func(), 
 	workerOwner := false
 	restore := func() {
 		if role.loggerCallback {
-			x.loggerCallbackIDs.Delete(ownerID)
+			l.loggerCallbackIDs.Delete(ownerID)
 		}
 		if role.promisifyWorker {
-			x.promisifyWorkerIDs.Delete(ownerID)
+			l.promisifyWorkerIDs.Delete(ownerID)
 		}
 		if workerOwner {
 			role.worker.ownerID.CompareAndSwap(ownerID, role.ownerID)
 		}
 		if terminalCompletionOwner {
-			x.terminalCompletionOwner.CompareAndSwap(ownerID, role.ownerID)
+			l.terminalCompletionOwner.CompareAndSwap(ownerID, role.ownerID)
 		}
 		if terminalDrainOwner {
-			x.terminalDrainOwner.CompareAndSwap(ownerID, role.ownerID)
+			l.terminalDrainOwner.CompareAndSwap(ownerID, role.ownerID)
 		}
 		if loopOwner {
-			x.loopGoroutineID.CompareAndSwap(ownerID, role.ownerID)
+			l.loopGoroutineID.CompareAndSwap(ownerID, role.ownerID)
 		}
 	}
 	fail := func() (func(), bool) {
@@ -417,19 +417,19 @@ func (x *Loop) delegateIsolatedCallbackRole(role isolatedCallbackRole) (func(), 
 		return func() {}, false
 	}
 	if role.loopOwner {
-		loopOwner = x.loopGoroutineID.CompareAndSwap(role.ownerID, ownerID)
+		loopOwner = l.loopGoroutineID.CompareAndSwap(role.ownerID, ownerID)
 		if !loopOwner {
 			return fail()
 		}
 	}
 	if role.terminalDrainOwner {
-		terminalDrainOwner = x.terminalDrainOwner.CompareAndSwap(role.ownerID, ownerID)
+		terminalDrainOwner = l.terminalDrainOwner.CompareAndSwap(role.ownerID, ownerID)
 		if !terminalDrainOwner {
 			return fail()
 		}
 	}
 	if role.terminalCompletionOwner {
-		terminalCompletionOwner = x.terminalCompletionOwner.CompareAndSwap(role.ownerID, ownerID)
+		terminalCompletionOwner = l.terminalCompletionOwner.CompareAndSwap(role.ownerID, ownerID)
 		if !terminalCompletionOwner {
 			return fail()
 		}
@@ -441,21 +441,21 @@ func (x *Loop) delegateIsolatedCallbackRole(role isolatedCallbackRole) (func(), 
 		}
 	}
 	if role.promisifyWorker {
-		x.promisifyWorkerIDs.Store(ownerID, struct{}{})
+		l.promisifyWorkerIDs.Store(ownerID, struct{}{})
 	}
 	if role.loggerCallback {
-		x.loggerCallbackIDs.Store(ownerID, struct{}{})
+		l.loggerCallbackIDs.Store(ownerID, struct{}{})
 	}
 	return restore, true
 }
 
-func (x *Loop) logCallbackOutcome(subject string, outcome callbackOutcome) {
+func (l *Loop) logCallbackOutcome(subject string, outcome callbackOutcome) {
 	if outcome.panicked {
-		x.logCallbackError("eventloop: "+subject+" panicked", outcome.panicValue)
+		l.logCallbackError("eventloop: "+subject+" panicked", outcome.panicValue)
 		return
 	}
 	if !outcome.returned {
-		x.logCallbackError("eventloop: "+subject+" exited via runtime.Goexit", errCallbackGoexit)
+		l.logCallbackError("eventloop: "+subject+" exited via runtime.Goexit", errCallbackGoexit)
 	}
 }
 
@@ -476,16 +476,16 @@ func invokeCallback(fn func()) (value any, panicked bool) {
 	return nil, false
 }
 
-func (x *Loop) beginCallbackExecution() bool {
-	if x.testHooks != nil && x.testHooks.BeforeCallbackAdmission != nil {
-		x.testHooks.BeforeCallbackAdmission()
+func (l *Loop) beginCallbackExecution() bool {
+	if l.testHooks != nil && l.testHooks.BeforeCallbackAdmission != nil {
+		l.testHooks.BeforeCallbackAdmission()
 	}
-	x.callbackGateMu.Lock()
-	if x.callbackGateMode == callbackGateClosed {
-		x.callbackGateMu.Unlock()
+	l.callbackGateMu.Lock()
+	if l.callbackGateMode == callbackGateClosed {
+		l.callbackGateMu.Unlock()
 		return false
 	}
-	x.callbackGateMu.Unlock()
+	l.callbackGateMu.Unlock()
 	return true
 }
 
@@ -494,16 +494,16 @@ func (x *Loop) beginCallbackExecution() bool {
 // logError emits an instance-scoped error event. A disabled or panicking
 // logger drops the diagnostic; logging must never alter loop control flow or
 // escape through a process-global fallback.
-func (x *Loop) logError(msg string, err error) {
-	x.logErrorValue(msg, "", err)
+func (l *Loop) logError(msg string, err error) {
+	l.logErrorValue(msg, "", err)
 }
 
-func (x *Loop) logCallbackError(msg string, panicValue any) {
-	x.logErrorValue(msg, "panic", panicValue)
+func (l *Loop) logCallbackError(msg string, panicValue any) {
+	l.logErrorValue(msg, "panic", panicValue)
 }
 
-func (x *Loop) logErrorValue(msg, key string, value any) {
-	x.Log(logiface.LevelError, logiface.ModifierFunc[logiface.Event](func(event logiface.Event) error {
+func (l *Loop) logErrorValue(msg, key string, value any) {
+	l.Log(logiface.LevelError, logiface.ModifierFunc[logiface.Event](func(event logiface.Event) error {
 		addLogString(event, "component", "eventloop")
 		if key != "" {
 			event.AddField(key, value)
@@ -517,8 +517,8 @@ func (x *Loop) logErrorValue(msg, key string, value any) {
 
 // logCritical emits an instance-scoped critical event. Logging failures are
 // contained and never replaced with process-global output.
-func (x *Loop) logCritical(msg string, err error) {
-	x.Log(logiface.LevelCritical, logiface.ModifierFunc[logiface.Event](func(event logiface.Event) error {
+func (l *Loop) logCritical(msg string, err error) {
+	l.Log(logiface.LevelCritical, logiface.ModifierFunc[logiface.Event](func(event logiface.Event) error {
 		addLogString(event, "component", "eventloop")
 		if err != nil {
 			addLogError(event, err)
@@ -560,6 +560,6 @@ func addLogMessage(event logiface.Event, msg string) {
 // fields are the latest owner-turn sample rather than a synchronous queue
 // inspection. The caller owns the returned value and may retain or modify it
 // without affecting the Loop.
-func (x *Loop) Metrics() *Metrics {
-	return x.metrics.snapshot()
+func (l *Loop) Metrics() *Metrics {
+	return l.metrics.snapshot()
 }

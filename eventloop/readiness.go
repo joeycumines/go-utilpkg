@@ -81,30 +81,30 @@ func (e *FDRegistrationRollbackError) Unwrap() []error {
 }
 
 // timerPool for amortized timer allocations.
-func (x *Loop) ensurePollerForModeChange() error {
-	x.fdMu.Lock()
-	defer x.fdMu.Unlock()
-	x.livenessMu.Lock()
-	state := x.state.Load()
+func (l *Loop) ensurePollerForModeChange() error {
+	l.fdMu.Lock()
+	defer l.fdMu.Unlock()
+	l.livenessMu.Lock()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
-		x.livenessMu.Unlock()
+		l.livenessMu.Unlock()
 		return ErrLoopTerminated
 	}
-	x.livenessMu.Unlock()
-	return x.ensurePollerLocked()
+	l.livenessMu.Unlock()
+	return l.ensurePollerLocked()
 }
 
-func (x *Loop) ensurePollerLocked() error {
-	_, err := x.initPollerLocked(true)
+func (l *Loop) ensurePollerLocked() error {
+	_, err := l.initPollerLocked(true)
 	return err
 }
 
-func (x *Loop) initPollerLocked(publish bool) (bool, error) {
-	if x.pollerReady.Load() {
+func (l *Loop) initPollerLocked(publish bool) (bool, error) {
+	if l.pollerReady.Load() {
 		return false, nil
 	}
-	if x.pollerCleanupPending {
-		if err := x.closePollerLocked(); err != nil {
+	if l.pollerCleanupPending {
+		if err := l.closePollerLocked(); err != nil {
 			return false, err
 		}
 	}
@@ -113,60 +113,60 @@ func (x *Loop) initPollerLocked(publish bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := x.poller.Init(); err != nil {
+	if err := l.poller.Init(); err != nil {
 		return false, joinErrors(err, closeWakeFDs(wakeFd, wakeWriteFd))
 	}
 	if wakeFd >= 0 {
-		if x.testHooks != nil && x.testHooks.BeforeWakeFDRegister != nil {
-			x.testHooks.BeforeWakeFDRegister(wakeFd, wakeWriteFd)
+		if l.testHooks != nil && l.testHooks.BeforeWakeFDRegister != nil {
+			l.testHooks.BeforeWakeFDRegister(wakeFd, wakeWriteFd)
 		}
-		if err := x.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
-			x.drainWakeUpPipe()
+		if err := l.poller.RegisterFD(wakeFd, EventRead, func(IOEvents) {
+			l.drainWakeUpPipe()
 		}); err != nil {
-			cleanupErr := x.closePollerLocked()
+			cleanupErr := l.closePollerLocked()
 			cleanupErr = joinErrors(cleanupErr, closeWakeFDs(wakeFd, wakeWriteFd))
 			return false, joinErrors(err, cleanupErr)
 		}
-		if !x.poller.markFDInternal(wakeFd) {
-			cleanupErr := x.closePollerLocked()
+		if !l.poller.markFDInternal(wakeFd) {
+			cleanupErr := l.closePollerLocked()
 			cleanupErr = joinErrors(cleanupErr, closeWakeFDs(wakeFd, wakeWriteFd))
 			return false, joinErrors(ErrFDNotRegistered, cleanupErr)
 		}
 	}
-	x.wakePipe = wakeFd
-	x.wakePipeWrite = wakeWriteFd
+	l.wakePipe = wakeFd
+	l.wakePipeWrite = wakeWriteFd
 	if publish {
-		x.pollerReady.Store(true)
+		l.pollerReady.Store(true)
 	}
 	return true, nil
 }
 
-func (x *Loop) resetUnpublishedPollerLocked() error {
-	err := x.closePollerLocked()
-	err = joinErrors(err, closeWakeFDs(x.wakePipe, x.wakePipeWrite))
-	x.wakePipe = -1
-	x.wakePipeWrite = -1
+func (l *Loop) resetUnpublishedPollerLocked() error {
+	err := l.closePollerLocked()
+	err = joinErrors(err, closeWakeFDs(l.wakePipe, l.wakePipeWrite))
+	l.wakePipe = -1
+	l.wakePipeWrite = -1
 	return err
 }
 
 // closePollerLocked retains a closed poller in place while it still owns
 // retryable cleanup. The caller holds fdMu, so a successful retry can replace
 // the synchronization-bearing poller value without copying it while active.
-func (x *Loop) closePollerLocked() error {
-	err := x.poller.Close()
-	x.pollerCleanupPending = err != nil
+func (l *Loop) closePollerLocked() error {
+	err := l.poller.Close()
+	l.pollerCleanupPending = err != nil
 	if err == nil {
-		x.poller = newFastPoller()
+		l.poller = newFastPoller()
 	}
 	return err
 }
 
-func (x *Loop) retryPollerCleanup() {
-	x.fdMu.Lock()
-	if x.pollerCleanupPending {
-		_ = x.closePollerLocked()
+func (l *Loop) retryPollerCleanup() {
+	l.fdMu.Lock()
+	if l.pollerCleanupPending {
+		_ = l.closePollerLocked()
 	}
-	x.fdMu.Unlock()
+	l.fdMu.Unlock()
 }
 
 func closeWakeFDs(wakeFd, wakeWriteFd int) error {
@@ -230,8 +230,8 @@ func closeWakeFDs(wakeFd, wakeWriteFd int) error {
 // Thread Safety: Safe to call concurrently with SetFastPathMode.
 // Uses livenessMu to linearize FD registration with fast-path mode changes
 // without holding the liveness lock across the OS poller registration call.
-func (x *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents)) error {
-	x.requireReadinessLoop("RegisterFD")
+func (l *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents)) error {
+	l.requireReadinessLoop("RegisterFD")
 	if fd < 0 {
 		panic(fmt.Errorf("eventloop: RegisterFD: %w", errFDNegative))
 	}
@@ -243,121 +243,121 @@ func (x *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents
 	}
 	dispatch := newFDDispatchGate(false)
 	defer func() {
-		if x.testHooks != nil && x.testHooks.BeforeRegisterFDReturn != nil {
-			x.testHooks.BeforeRegisterFDReturn(fd)
+		if l.testHooks != nil && l.testHooks.BeforeRegisterFDReturn != nil {
+			l.testHooks.BeforeRegisterFDReturn(fd)
 		}
 		dispatch.publish()
 	}()
 
 	// RegisterFD adds liveness and therefore follows the same terminal/quiescing
 	// gate as ScheduleTimer, RefTimer(ref=true), and Promisify.
-	x.livenessMu.Lock()
-	if err := x.rejectLivenessAddLocked(); err != nil {
-		x.livenessMu.Unlock()
+	l.livenessMu.Lock()
+	if err := l.rejectLivenessAddLocked(); err != nil {
+		l.livenessMu.Unlock()
 		return err
 	}
 
 	// Fast rejection before expensive syscall.
-	if FastPathMode(x.fastPathMode.Load()) == FastPathForced {
-		x.livenessMu.Unlock()
+	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+		l.livenessMu.Unlock()
 		return ErrFastPathIncompatible
 	}
-	x.livenessMu.Unlock()
+	l.livenessMu.Unlock()
 
 	// Perform registration with the platform readiness backend. This can
 	// be slow or block behind platform internals, so do not hold livenessMu while
 	// it runs. fdMu still serializes poller ownership with UnregisterFD/ModifyFD
 	// until the post-registration check below either commits or rolls back.
-	x.fdMu.Lock()
-	defer x.fdMu.Unlock()
-	x.livenessMu.Lock()
-	if err := x.rejectLivenessAddLocked(); err != nil {
-		x.livenessMu.Unlock()
+	l.fdMu.Lock()
+	defer l.fdMu.Unlock()
+	l.livenessMu.Lock()
+	if err := l.rejectLivenessAddLocked(); err != nil {
+		l.livenessMu.Unlock()
 		return err
 	}
-	x.livenessMu.Unlock()
-	createdPoller, err := x.initPollerLocked(false)
+	l.livenessMu.Unlock()
+	createdPoller, err := l.initPollerLocked(false)
 	if err != nil {
 		return err
 	}
-	err = x.poller.stageFD(fd, events, callback, dispatch)
+	err = l.poller.stageFD(fd, events, callback, dispatch)
 	registrationErr := err
 	if err != nil {
 		var partial *FDRegistrationRollbackError
 		if !errors.As(err, &partial) || !partial.Registered() {
 			var cleanupErr error
 			if createdPoller {
-				cleanupErr = x.resetUnpublishedPollerLocked()
+				cleanupErr = l.resetUnpublishedPollerLocked()
 			}
 			return joinErrors(err, cleanupErr)
 		}
 	}
-	if x.testHooks != nil && x.testHooks.BeforeRegisterFDRollbackCheck != nil {
-		x.testHooks.BeforeRegisterFDRollbackCheck()
+	if l.testHooks != nil && l.testHooks.BeforeRegisterFDRollbackCheck != nil {
+		l.testHooks.BeforeRegisterFDRollbackCheck()
 	}
 
-	x.livenessMu.Lock()
+	l.livenessMu.Lock()
 
 	// Native registration occurs outside livenessMu. Re-check quiescing after
 	// reacquiring the lock and roll back if the lifecycle changed meanwhile.
-	if err := x.rejectLivenessAddLocked(); err != nil {
-		x.livenessMu.Unlock()
-		rollbackErr := x.rollbackFDRegistration(fd)
+	if err := l.rejectLivenessAddLocked(); err != nil {
+		l.livenessMu.Unlock()
+		rollbackErr := l.rollbackFDRegistration(fd)
 		if rollbackErr != nil && !fdRollbackReleased(rollbackErr) {
 			// The poller still owns the FD entry if rollback failed. Count it so
 			// Alive() and later cleanup stay consistent with actual poller state,
 			// force a polling-capable mode, and return both the lifecycle rejection
 			// and rollback failure.
-			x.livenessMu.Lock()
-			commitErr := x.commitFDRegistrationLocked(fd, createdPoller)
+			l.livenessMu.Lock()
+			commitErr := l.commitFDRegistrationLocked(fd, createdPoller)
 			if commitErr != nil {
-				x.livenessMu.Unlock()
+				l.livenessMu.Unlock()
 				var cleanupErr error
 				if createdPoller {
-					cleanupErr = x.resetUnpublishedPollerLocked()
+					cleanupErr = l.resetUnpublishedPollerLocked()
 				}
 				return fdRegistrationRollbackResult(registrationErr, err, joinErrors(joinErrors(rollbackErr, commitErr), cleanupErr), false)
 			}
-			if FastPathMode(x.fastPathMode.Load()) == FastPathForced {
-				x.fastPathMode.Store(int32(FastPathAuto))
-				x.fastPathInvariantLogged.Store(false)
+			if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+				l.fastPathMode.Store(int32(FastPathAuto))
+				l.fastPathInvariantLogged.Store(false)
 			}
-			x.livenessMu.Unlock()
-			x.doWakeup()
+			l.livenessMu.Unlock()
+			l.doWakeup()
 			return fdRegistrationRollbackResult(registrationErr, err, rollbackErr, true)
 		}
 		cleanupErr := fdRollbackCleanupError(rollbackErr)
 		if createdPoller {
-			cleanupErr = joinErrors(cleanupErr, x.resetUnpublishedPollerLocked())
+			cleanupErr = joinErrors(cleanupErr, l.resetUnpublishedPollerLocked())
 		}
 		return fdRegistrationRollbackResult(registrationErr, err, cleanupErr, false)
 	}
-	if x.testHooks != nil && x.testHooks.BeforeRegisterFDCommit != nil {
-		x.testHooks.BeforeRegisterFDCommit()
+	if l.testHooks != nil && l.testHooks.BeforeRegisterFDCommit != nil {
+		l.testHooks.BeforeRegisterFDCommit()
 	}
-	if FastPathMode(x.fastPathMode.Load()) == FastPathForced {
-		x.livenessMu.Unlock()
-		rollbackErr := x.rollbackFDRegistration(fd)
+	if FastPathMode(l.fastPathMode.Load()) == FastPathForced {
+		l.livenessMu.Unlock()
+		rollbackErr := l.rollbackFDRegistration(fd)
 		if rollbackErr != nil && !fdRollbackReleased(rollbackErr) {
-			x.livenessMu.Lock()
-			commitErr := x.commitFDRegistrationLocked(fd, createdPoller)
+			l.livenessMu.Lock()
+			commitErr := l.commitFDRegistrationLocked(fd, createdPoller)
 			if commitErr != nil {
-				x.livenessMu.Unlock()
+				l.livenessMu.Unlock()
 				var cleanupErr error
 				if createdPoller {
-					cleanupErr = x.resetUnpublishedPollerLocked()
+					cleanupErr = l.resetUnpublishedPollerLocked()
 				}
 				return fdRegistrationRollbackResult(registrationErr, ErrFastPathIncompatible, joinErrors(joinErrors(rollbackErr, commitErr), cleanupErr), false)
 			}
-			x.fastPathMode.Store(int32(FastPathAuto))
-			x.fastPathInvariantLogged.Store(false)
-			x.livenessMu.Unlock()
-			x.doWakeup()
+			l.fastPathMode.Store(int32(FastPathAuto))
+			l.fastPathInvariantLogged.Store(false)
+			l.livenessMu.Unlock()
+			l.doWakeup()
 			return fdRegistrationRollbackResult(registrationErr, ErrFastPathIncompatible, rollbackErr, true)
 		}
 		cleanupErr := fdRollbackCleanupError(rollbackErr)
 		if createdPoller {
-			cleanupErr = joinErrors(cleanupErr, x.resetUnpublishedPollerLocked())
+			cleanupErr = joinErrors(cleanupErr, l.resetUnpublishedPollerLocked())
 		}
 		return fdRegistrationRollbackResult(registrationErr, ErrFastPathIncompatible, cleanupErr, false)
 	}
@@ -365,36 +365,36 @@ func (x *Loop) RegisterFD(fd int, events IOEvents, callback func(events IOEvents
 	// Commit liveness before the poller dispatch gate. A native event may be
 	// collected while registration is provisional, but its callback cannot start
 	// until all lifecycle and fast-path ownership checks have succeeded.
-	if err := x.commitFDRegistrationLocked(fd, createdPoller); err != nil {
-		x.livenessMu.Unlock()
-		rollbackErr := x.rollbackFDRegistration(fd)
+	if err := l.commitFDRegistrationLocked(fd, createdPoller); err != nil {
+		l.livenessMu.Unlock()
+		rollbackErr := l.rollbackFDRegistration(fd)
 		if createdPoller {
-			rollbackErr = joinErrors(rollbackErr, x.resetUnpublishedPollerLocked())
+			rollbackErr = joinErrors(rollbackErr, l.resetUnpublishedPollerLocked())
 		}
 		return fdRegistrationRollbackResult(registrationErr, err, rollbackErr, false)
 	}
-	x.livenessMu.Unlock()
+	l.livenessMu.Unlock()
 
 	// Successfully registered FD in non-Forced mode. Wake the loop to transition
 	// from fast-path to poll-path immediately if needed.
-	x.doWakeup()
+	l.doWakeup()
 
 	return registrationErr
 }
 
 // commitFDRegistrationLocked publishes Loop liveness before enabling user
 // callback dispatch. The caller holds livenessMu and fdMu.
-func (x *Loop) commitFDRegistrationLocked(fd int, createdPoller bool) error {
+func (l *Loop) commitFDRegistrationLocked(fd int, createdPoller bool) error {
 	if createdPoller {
-		x.pollerReady.Store(true)
+		l.pollerReady.Store(true)
 	}
-	x.userIOFDCount.Add(1)
-	x.submissionEpoch.Add(1)
-	if err := x.poller.commitFD(fd); err != nil {
-		x.userIOFDCount.Add(-1)
-		x.submissionEpoch.Add(1)
+	l.userIOFDCount.Add(1)
+	l.submissionEpoch.Add(1)
+	if err := l.poller.commitFD(fd); err != nil {
+		l.userIOFDCount.Add(-1)
+		l.submissionEpoch.Add(1)
 		if createdPoller {
-			x.pollerReady.Store(false)
+			l.pollerReady.Store(false)
 		}
 		return err
 	}
@@ -428,39 +428,39 @@ func fdRegistrationRollbackResult(registrationErr, cause, rollbackErr error, reg
 	}
 }
 
-func (x *Loop) rollbackFDRegistration(fd int) error {
-	if x.testHooks != nil && x.testHooks.RegisterFDRollback != nil {
-		return x.testHooks.RegisterFDRollback(fd)
+func (l *Loop) rollbackFDRegistration(fd int) error {
+	if l.testHooks != nil && l.testHooks.RegisterFDRollback != nil {
+		return l.testHooks.RegisterFDRollback(fd)
 	}
-	return x.unregisterPollerFD(fd)
+	return l.unregisterPollerFD(fd)
 }
 
 // unregisterPollerFD latches a successful loop wake until native retirement
 // finishes. The poll backend can then avoid a duplicate private-control write;
 // a failed or unavailable loop wake leaves its private fallback enabled.
-func (x *Loop) unregisterPollerFD(fd int) error {
+func (l *Loop) unregisterPollerFD(fd int) error {
 	select {
-	case x.fastWakeupCh <- struct{}{}:
+	case l.fastWakeupCh <- struct{}{}:
 	default:
 	}
-	if x.testHooks != nil && x.testHooks.OnSubmitWakeup != nil {
-		x.testHooks.OnSubmitWakeup()
+	if l.testHooks != nil && l.testHooks.OnSubmitWakeup != nil {
+		l.testHooks.OnSubmitWakeup()
 	}
 
 	loopWakeLatched := false
-	if x.state.Load() != StateTerminated {
-		x.wakeMu.Lock()
-		if fdPollingSupported && x.pollerReady.Load() && x.wakePipeWrite >= 0 {
-			loopWakeLatched = x.submitWakeupPhysicalLocked() == nil
+	if l.state.Load() != StateTerminated {
+		l.wakeMu.Lock()
+		if fdPollingSupported && l.pollerReady.Load() && l.wakePipeWrite >= 0 {
+			loopWakeLatched = l.submitWakeupPhysicalLocked() == nil
 		}
 		if !loopWakeLatched {
-			x.wakeMu.Unlock()
+			l.wakeMu.Unlock()
 		}
 	}
 	if loopWakeLatched {
-		defer x.wakeMu.Unlock()
+		defer l.wakeMu.Unlock()
 	}
-	return x.poller.unregisterFD(fd, loopWakeLatched)
+	return l.poller.unregisterFD(fd, loopWakeLatched)
 }
 
 // UnregisterFD removes a file descriptor from monitoring.
@@ -480,8 +480,8 @@ func (x *Loop) unregisterPollerFD(fd int) error {
 // released despite a native mutation or descriptor-cleanup failure.
 // UnregisterFD panics if the Loop was not constructed by [New] or fd is
 // negative. Those static contracts are checked before platform support.
-func (x *Loop) UnregisterFD(fd int) error {
-	x.requireReadinessLoop("UnregisterFD")
+func (l *Loop) UnregisterFD(fd int) error {
+	l.requireReadinessLoop("UnregisterFD")
 	if fd < 0 {
 		panic(fmt.Errorf("eventloop: UnregisterFD: %w", errFDNegative))
 	}
@@ -489,52 +489,52 @@ func (x *Loop) UnregisterFD(fd int) error {
 		return ErrReadinessUnsupported
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeFDUnregisterLock != nil {
-		x.testHooks.BeforeFDUnregisterLock()
+	if l.testHooks != nil && l.testHooks.BeforeFDUnregisterLock != nil {
+		l.testHooks.BeforeFDUnregisterLock()
 	}
 	remaining := int32(-1)
 	underflow := false
 	err, released := func() (error, bool) {
-		x.fdMu.Lock()
-		defer x.fdMu.Unlock()
-		x.livenessMu.Lock()
-		defer x.livenessMu.Unlock()
-		if err := x.rejectFDMutationLocked(true); err != nil {
+		l.fdMu.Lock()
+		defer l.fdMu.Unlock()
+		l.livenessMu.Lock()
+		defer l.livenessMu.Unlock()
+		if err := l.rejectFDMutationLocked(true); err != nil {
 			return err, false
 		}
-		if !x.pollerReady.Load() || !x.poller.userFDRegistered(fd) {
+		if !l.pollerReady.Load() || !l.poller.userFDRegistered(fd) {
 			return ErrFDNotRegistered, false
 		}
-		if x.testHooks != nil && x.testHooks.BeforeFDUnregister != nil {
-			x.testHooks.BeforeFDUnregister()
+		if l.testHooks != nil && l.testHooks.BeforeFDUnregister != nil {
+			l.testHooks.BeforeFDUnregister()
 		}
 		// A successful loop wake remains latched through native retirement. The
 		// poll backend uses that same token instead of posting a duplicate control
 		// wake.
-		err := x.unregisterPollerFD(fd)
+		err := l.unregisterPollerFD(fd)
 		if err != nil && !fdUnregisterReleased(err) {
 			return err, false
 		}
-		remaining = x.userIOFDCount.Add(-1)
+		remaining = l.userIOFDCount.Add(-1)
 		if remaining < 0 {
-			x.userIOFDCount.Store(0)
+			l.userIOFDCount.Store(0)
 			remaining = 0
 			underflow = true
 		}
-		x.submissionEpoch.Add(1) // Alive() consistency: FD unregistration changes liveness
+		l.submissionEpoch.Add(1) // Alive() consistency: FD unregistration changes liveness
 		return err, true
 	}()
 	if !released {
 		return err
 	}
 	if underflow {
-		x.logError("eventloop: user I/O FD count went negative during UnregisterFD; clamped to zero", nil)
+		l.logError("eventloop: user I/O FD count went negative during UnregisterFD; clamped to zero", nil)
 	}
 	// When the last I/O FD is removed, the loop may still be blocked in PollIO()
 	// (not listening on fastWakeupCh). Wake it so it transitions to pollFastMode
 	// immediately, rather than waiting for a later submission or poll timeout.
 	if remaining == 0 {
-		x.doWakeup()
+		l.doWakeup()
 	}
 	return err
 }
@@ -552,8 +552,8 @@ func (x *Loop) UnregisterFD(fd int) error {
 // ModifyFD panics if the Loop was not constructed by [New], fd is negative, or
 // events contains any bit other than [EventRead] or [EventWrite]. A zero mask
 // remains valid. Static contracts are checked before platform support.
-func (x *Loop) ModifyFD(fd int, events IOEvents) error {
-	x.requireReadinessLoop("ModifyFD")
+func (l *Loop) ModifyFD(fd int, events IOEvents) error {
+	l.requireReadinessLoop("ModifyFD")
 	if fd < 0 {
 		panic(fmt.Errorf("eventloop: ModifyFD: %w", errFDNegative))
 	}
@@ -564,27 +564,27 @@ func (x *Loop) ModifyFD(fd int, events IOEvents) error {
 		return ErrReadinessUnsupported
 	}
 
-	x.fdMu.Lock()
-	defer x.fdMu.Unlock()
-	x.livenessMu.Lock()
-	defer x.livenessMu.Unlock()
-	if err := x.rejectFDMutationLocked(false); err != nil {
+	l.fdMu.Lock()
+	defer l.fdMu.Unlock()
+	l.livenessMu.Lock()
+	defer l.livenessMu.Unlock()
+	if err := l.rejectFDMutationLocked(false); err != nil {
 		return err
 	}
-	if !x.pollerReady.Load() {
+	if !l.pollerReady.Load() {
 		return ErrFDNotRegistered
 	}
-	if !x.poller.userFDRegistered(fd) {
+	if !l.poller.userFDRegistered(fd) {
 		return ErrFDNotRegistered
 	}
-	if x.testHooks != nil && x.testHooks.BeforeFDModify != nil {
-		x.testHooks.BeforeFDModify()
+	if l.testHooks != nil && l.testHooks.BeforeFDModify != nil {
+		l.testHooks.BeforeFDModify()
 	}
-	return x.poller.ModifyFD(fd, events)
+	return l.poller.ModifyFD(fd, events)
 }
 
-func (x *Loop) requireReadinessLoop(method string) {
-	if x == nil || x.state == nil {
+func (l *Loop) requireReadinessLoop(method string) {
+	if l == nil || l.state == nil {
 		panic(fmt.Errorf("eventloop: %s: %w", method, errLoopUninitialized))
 	}
 }

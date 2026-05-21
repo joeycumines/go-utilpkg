@@ -6,11 +6,11 @@ package eventloop
 // Done is stable for the lifetime of the Loop. It is intended for integrations
 // that must release work whose owner callback was admitted before an immediate
 // terminal transition but was discarded by that transition.
-func (x *Loop) Done() <-chan struct{} {
-	if x == nil {
+func (l *Loop) Done() <-chan struct{} {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	return x.terminalDone
+	return l.terminalDone
 }
 
 // Submit admits a task to the external task phase.
@@ -31,11 +31,11 @@ func (x *Loop) Done() <-chan struct{} {
 // Thread Safety: Uses a mutex-protected atomic state-check and typed-command
 // publication. The loop owner transfers accepted commands to its local queue.
 // Submit panics if task is nil.
-func (x *Loop) Submit(task func()) error {
+func (l *Loop) Submit(task func()) error {
 	if task == nil {
 		panic("eventloop: nil Submit callback")
 	}
-	return x.enqueueTerminalCommand(loopCommand{kind: loopCommandExternal, fn: task})
+	return l.enqueueTerminalCommand(loopCommand{kind: loopCommandExternal, fn: task})
 }
 
 // ScheduleImmediate schedules fn into the loop's check phase. Check callbacks
@@ -43,8 +43,8 @@ func (x *Loop) Submit(task func()) error {
 // running check callback roll over to a later iteration. This is the primitive
 // used by JavaScript setImmediate bindings.
 // ScheduleImmediate panics if fn is nil.
-func (x *Loop) ScheduleImmediate(fn func()) error {
-	return x.ScheduleImmediateRef(fn, nil)
+func (l *Loop) ScheduleImmediate(fn func()) error {
+	return l.ScheduleImmediateRef(fn, nil)
 }
 
 // ScheduleImmediateRef schedules fn into the loop's check phase with a dynamic
@@ -65,20 +65,20 @@ func (x *Loop) ScheduleImmediate(fn func()) error {
 // not revive the callback.
 // ScheduleImmediateRef panics if fn is nil. A nil refed predicate means the
 // callback is ref'd.
-func (x *Loop) ScheduleImmediateRef(fn func(), refed func() bool) error {
+func (l *Loop) ScheduleImmediateRef(fn func(), refed func() bool) error {
 	if fn == nil {
 		panic("eventloop: nil ScheduleImmediateRef callback")
 	}
-	if x.ownsLocalQueues() {
-		state := LoopState(x.state.Load())
-		if !x.terminalQueueAllowed(state) {
+	if l.ownsLocalQueues() {
+		state := LoopState(l.state.Load())
+		if !l.terminalQueueAllowed(state) {
 			return ErrLoopTerminated
 		}
-		x.pushOwnerCheck(checkJob{fn: fn, refed: refed, seq: x.phaseSeq.Add(1)})
-		x.submissionEpoch.Add(1)
+		l.pushOwnerCheck(checkJob{fn: fn, refed: refed, seq: l.phaseSeq.Add(1)})
+		l.submissionEpoch.Add(1)
 		return nil
 	}
-	return x.enqueueCommand(loopCommand{kind: loopCommandImmediate, fn: fn, refed: refed}, x.terminalQueueAllowed)
+	return l.enqueueCommand(loopCommand{kind: loopCommandImmediate, fn: fn, refed: refed}, l.terminalQueueAllowed)
 }
 
 // ScheduleCloseCallback schedules fn into the close-callback phase. Close
@@ -86,20 +86,20 @@ func (x *Loop) ScheduleImmediateRef(fn func(), refed func() bool) error {
 // is already alive; callbacks queued while the loop is otherwise idle keep the
 // loop alive and run before auto-exit commits.
 // ScheduleCloseCallback panics if fn is nil.
-func (x *Loop) ScheduleCloseCallback(fn func()) error {
+func (l *Loop) ScheduleCloseCallback(fn func()) error {
 	if fn == nil {
 		panic("eventloop: nil ScheduleCloseCallback callback")
 	}
-	if x.ownsLocalQueues() {
-		state := LoopState(x.state.Load())
-		if !x.terminalQueueAllowed(state) {
+	if l.ownsLocalQueues() {
+		state := LoopState(l.state.Load())
+		if !l.terminalQueueAllowed(state) {
 			return ErrLoopTerminated
 		}
-		x.pushOwnerClose(checkJob{fn: fn, seq: x.phaseSeq.Add(1)})
-		x.submissionEpoch.Add(1)
+		l.pushOwnerClose(checkJob{fn: fn, seq: l.phaseSeq.Add(1)})
+		l.submissionEpoch.Add(1)
 		return nil
 	}
-	return x.enqueueCommand(loopCommand{kind: loopCommandClose, fn: fn}, x.terminalQueueAllowed)
+	return l.enqueueCommand(loopCommand{kind: loopCommandClose, fn: fn}, l.terminalQueueAllowed)
 }
 
 // doWakeup attempts both the channel and physical wake signals. This handles
@@ -107,10 +107,10 @@ func (x *Loop) ScheduleCloseCallback(fn func()) error {
 // disagrees with the loop's actual poll path (e.g., mode=Forced + count>0 due
 // to concurrent RegisterFD/SetFastPathMode). On platforms without public FD
 // polling, submitWakeup is a no-op and the channel is the sole wait primitive.
-func (x *Loop) doWakeup() {
+func (l *Loop) doWakeup() {
 	// Always try channel wakeup (covers fast path mode)
 	select {
-	case x.fastWakeupCh <- struct{}{}:
+	case l.fastWakeupCh <- struct{}{}:
 	default:
 		// Channel already has pending wakeup
 	}
@@ -118,7 +118,7 @@ func (x *Loop) doWakeup() {
 	// Always try pipe/eventfd wakeup (covers I/O poll mode)
 	// This is unconditional to prevent lost wakeups when mode and count
 	// are transiently inconsistent due to concurrent SetFastPathMode/RegisterFD.
-	_ = x.submitWakeup()
+	_ = l.submitWakeup()
 }
 
 // wakeAfterIngress wakes whichever wait primitive the loop is currently using
@@ -130,27 +130,27 @@ func (x *Loop) doWakeup() {
 // polling for a task-only loop. FD-count and mode transitions perform their own
 // physical wakeups, so ordinary task-only submissions do not pay the pipe/eventfd
 // cost.
-func (x *Loop) wakeAfterIngress() {
+func (l *Loop) wakeAfterIngress() {
 	select {
-	case x.fastWakeupCh <- struct{}{}:
+	case l.fastWakeupCh <- struct{}{}:
 	default:
 	}
 
-	if x.state.Load() == StateSleeping && x.nativePollSelected() {
-		_ = x.submitPendingWakeup()
+	if l.state.Load() == StateSleeping && l.nativePollSelected() {
+		_ = l.submitPendingWakeup()
 	}
 }
 
-func (x *Loop) nativePollSelected() bool {
-	return x.userIOFDCount.Load() > 0 || FastPathMode(x.fastPathMode.Load()) == FastPathDisabled
+func (l *Loop) nativePollSelected() bool {
+	return l.userIOFDCount.Load() > 0 || FastPathMode(l.fastPathMode.Load()) == FastPathDisabled
 }
 
-func (x *Loop) forceWakeup() {
+func (l *Loop) forceWakeup() {
 	select {
-	case x.fastWakeupCh <- struct{}{}:
+	case l.fastWakeupCh <- struct{}{}:
 	default:
 	}
-	_ = x.submitWakeupPhysical()
+	_ = l.submitWakeupPhysical()
 }
 
 // SubmitInternal admits a task to the internal priority phase.
@@ -164,39 +164,39 @@ func (x *Loop) forceWakeup() {
 // Thread Safety: Owner calls append directly to the local priority queue;
 // external calls use mutex-protected typed command ingress.
 // SubmitInternal panics if task is nil.
-func (x *Loop) SubmitInternal(task func()) error {
+func (l *Loop) SubmitInternal(task func()) error {
 	if task == nil {
 		panic("eventloop: nil SubmitInternal callback")
 	}
-	return x.submitToQueue(task)
+	return l.submitToQueue(task)
 }
 
 // submitToQueue admits a task to the internal phase and wakes the loop.
 // The logical owner appends directly; other callers use typed ingress.
-func (x *Loop) submitToQueue(task func()) error {
-	if x.ownsLocalQueues() {
-		state := LoopState(x.state.Load())
-		if !x.terminalQueueAllowed(state) {
+func (l *Loop) submitToQueue(task func()) error {
+	if l.ownsLocalQueues() {
+		state := LoopState(l.state.Load())
+		if !l.terminalQueueAllowed(state) {
 			return ErrLoopTerminated
 		}
-		x.materializeCommandIngress()
-		x.pushOwnerInternal(task)
-		x.submissionEpoch.Add(1)
+		l.materializeCommandIngress()
+		l.pushOwnerInternal(task)
+		l.submissionEpoch.Add(1)
 		return nil
 	}
-	return x.enqueueTerminalCommand(loopCommand{kind: loopCommandInternal, fn: task})
+	return l.enqueueTerminalCommand(loopCommand{kind: loopCommandInternal, fn: task})
 }
 
-func (x *Loop) submitLivenessCommand(cmd loopCommand, beforeCommit func()) error {
-	x.livenessMu.Lock()
-	defer x.livenessMu.Unlock()
+func (l *Loop) submitLivenessCommand(cmd loopCommand, beforeCommit func()) error {
+	l.livenessMu.Lock()
+	defer l.livenessMu.Unlock()
 	if beforeCommit != nil {
 		beforeCommit()
 	}
-	if err := x.rejectLivenessAddLocked(); err != nil {
+	if err := l.rejectLivenessAddLocked(); err != nil {
 		return err
 	}
-	return x.enqueueCommand(cmd, x.terminalQueueAllowed)
+	return l.enqueueCommand(cmd, l.terminalQueueAllowed)
 }
 
 // Wake attempts to wake up the loop from a suspended state.
@@ -210,20 +210,20 @@ func (x *Loop) submitLivenessCommand(cmd loopCommand, beforeCommit func()) error
 //
 // A physical wake submission failure is returned to the caller. The pending
 // claim is reopened so a later Wake or ingress operation can retry.
-func (x *Loop) Wake() error {
-	state := x.state.Load()
+func (l *Loop) Wake() error {
+	state := l.state.Load()
 	if state != StateRunning && state != StateSleeping {
 		return nil
 	}
 
 	select {
-	case x.fastWakeupCh <- struct{}{}:
+	case l.fastWakeupCh <- struct{}{}:
 	default:
 	}
-	if !x.nativePollSelected() {
+	if !l.nativePollSelected() {
 		return nil
 	}
-	err := x.submitPendingWakeup()
+	err := l.submitPendingWakeup()
 	if err == ErrLoopTerminated {
 		return nil
 	}
@@ -245,49 +245,49 @@ func (x *Loop) Wake() error {
 // would be harmful: it would reject work that correctly prevents termination.
 //
 // ScheduleMicrotask panics if fn is nil.
-func (x *Loop) ScheduleMicrotask(fn func()) error {
+func (l *Loop) ScheduleMicrotask(fn func()) error {
 	if fn == nil {
 		panic("eventloop: nil ScheduleMicrotask callback")
 	}
 
-	state := LoopState(x.state.Load())
-	if !x.terminalMicrotaskAllowed(state) {
+	state := LoopState(l.state.Load())
+	if !l.terminalMicrotaskAllowed(state) {
 		return ErrLoopTerminated
 	}
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		x.pushOwnerPromiseMicrotask(fn, nil)
-		x.submissionEpoch.Add(1)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		l.pushOwnerPromiseMicrotask(fn, nil)
+		l.submissionEpoch.Add(1)
 		return nil
 	}
 
-	return x.enqueueCommand(loopCommand{kind: loopCommandMicrotask, fn: fn}, x.terminalMicrotaskAllowed)
+	return l.enqueueCommand(loopCommand{kind: loopCommandMicrotask, fn: fn}, l.terminalMicrotaskAllowed)
 }
 
 // schedulePromiseReaction queues an internal Promise reaction together with
 // the child identity that receives an explicit terminal disposition if normal
 // callback admission later discards the accepted microtask.
-func (x *Loop) schedulePromiseReaction(fn func(), reaction *ChainedPromise) error {
+func (l *Loop) schedulePromiseReaction(fn func(), reaction *ChainedPromise) error {
 	if fn == nil || reaction == nil {
 		return nil
 	}
 
-	state := LoopState(x.state.Load())
-	if !x.terminalMicrotaskAllowed(state) {
+	state := LoopState(l.state.Load())
+	if !l.terminalMicrotaskAllowed(state) {
 		return ErrLoopTerminated
 	}
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		x.pushOwnerPromiseMicrotask(fn, reaction)
-		x.submissionEpoch.Add(1)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		l.pushOwnerPromiseMicrotask(fn, reaction)
+		l.submissionEpoch.Add(1)
 		return nil
 	}
 
-	return x.enqueueCommand(loopCommand{
+	return l.enqueueCommand(loopCommand{
 		kind:     loopCommandMicrotask,
 		fn:       fn,
 		reaction: reaction,
-	}, x.terminalMicrotaskAllowed)
+	}, l.terminalMicrotaskAllowed)
 }
 
 // scheduleMicrotaskCheckpoint schedules a loop-internal callback that runs
@@ -296,23 +296,23 @@ func (x *Loop) schedulePromiseReaction(fn func(), reaction *ChainedPromise) erro
 // rules, but keeps checkpoint-end diagnostics out of the public FIFO promise
 // microtask queue so they cannot starve nextTick callbacks scheduled by promise
 // microtasks.
-func (x *Loop) scheduleMicrotaskCheckpoint(fn func()) error {
+func (l *Loop) scheduleMicrotaskCheckpoint(fn func()) error {
 	if fn == nil {
 		return nil
 	}
 
-	state := LoopState(x.state.Load())
-	if !x.terminalMicrotaskAllowed(state) {
+	state := LoopState(l.state.Load())
+	if !l.terminalMicrotaskAllowed(state) {
 		return ErrLoopTerminated
 	}
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		x.pushOwnerMicrotask(x.ownerCheckpt, fn, false)
-		x.submissionEpoch.Add(1)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		l.pushOwnerMicrotask(l.ownerCheckpt, fn, false)
+		l.submissionEpoch.Add(1)
 		return nil
 	}
 
-	return x.enqueueCommand(loopCommand{kind: loopCommandCheckpoint, fn: fn}, x.terminalMicrotaskAllowed)
+	return l.enqueueCommand(loopCommand{kind: loopCommandCheckpoint, fn: fn}, l.terminalMicrotaskAllowed)
 }
 
 // ScheduleMicrotaskCheckpoint schedules a loop-internal-style callback that runs
@@ -322,11 +322,11 @@ func (x *Loop) scheduleMicrotaskCheckpoint(fn func()) error {
 // callback runs on the logical callback-owner goroutine and follows the same
 // terminal-drain rules as [Loop.ScheduleMicrotask].
 // ScheduleMicrotaskCheckpoint panics if fn is nil.
-func (x *Loop) ScheduleMicrotaskCheckpoint(fn func()) error {
+func (l *Loop) ScheduleMicrotaskCheckpoint(fn func()) error {
 	if fn == nil {
 		panic("eventloop: nil ScheduleMicrotaskCheckpoint callback")
 	}
-	return x.scheduleMicrotaskCheckpoint(fn)
+	return l.scheduleMicrotaskCheckpoint(fn)
 }
 
 // scheduleMicrotask adds a task to the microtask queue (internal use).
@@ -334,10 +334,10 @@ func (x *Loop) ScheduleMicrotaskCheckpoint(fn func()) error {
 // Used by platform-specific tests (regression_test.go, linux/darwin only).
 //
 //lint:ignore U1000 Used by platform-specific test files with build constraints.
-func (x *Loop) scheduleMicrotask(task func()) {
+func (l *Loop) scheduleMicrotask(task func()) {
 	if task != nil {
-		x.materializeCommandIngress()
-		x.pushOwnerPromiseMicrotask(task, nil)
+		l.materializeCommandIngress()
+		l.pushOwnerPromiseMicrotask(task, nil)
 	}
 }
 
@@ -367,21 +367,21 @@ func (x *Loop) scheduleMicrotask(task func()) {
 //
 // Thread Safety: Safe to call from any goroutine.
 // ScheduleNextTick panics if fn is nil.
-func (x *Loop) ScheduleNextTick(fn func()) error {
+func (l *Loop) ScheduleNextTick(fn func()) error {
 	if fn == nil {
 		panic("eventloop: nil ScheduleNextTick callback")
 	}
 
-	state := LoopState(x.state.Load())
-	if !x.terminalMicrotaskAllowed(state) {
+	state := LoopState(l.state.Load())
+	if !l.terminalMicrotaskAllowed(state) {
 		return ErrLoopTerminated
 	}
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		x.pushOwnerMicrotask(x.ownerNextTick, fn, true)
-		x.submissionEpoch.Add(1)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		l.pushOwnerMicrotask(l.ownerNextTick, fn, true)
+		l.submissionEpoch.Add(1)
 		return nil
 	}
 
-	return x.enqueueCommand(loopCommand{kind: loopCommandNextTick, fn: fn}, x.terminalMicrotaskAllowed)
+	return l.enqueueCommand(loopCommand{kind: loopCommandNextTick, fn: fn}, l.terminalMicrotaskAllowed)
 }

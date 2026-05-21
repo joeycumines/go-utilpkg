@@ -81,7 +81,7 @@ func (h *timerListHeap) Pop() any {
 	return list
 }
 
-func (x *Loop) prepareTimerCommit(t *timer) {
+func (l *Loop) prepareTimerCommit(t *timer) {
 	if t == nil {
 		return
 	}
@@ -89,58 +89,58 @@ func (x *Loop) prepareTimerCommit(t *timer) {
 	// same tick's later timer phase. This preserves the Node/libuv phase boundary:
 	// a timeout scheduled from poll/check/close/timer callback code is eligible no
 	// earlier than the next event-loop iteration.
-	t.deferTick = x.tickActive
-	t.scheduledTick = x.tickCount
+	t.deferTick = l.tickActive
+	t.scheduledTick = l.tickCount
 }
 
-func (x *Loop) timerBucketKey(when time.Time) int64 {
-	if x.timerEpoch.IsZero() {
-		x.timerEpoch = time.Now()
+func (l *Loop) timerBucketKey(when time.Time) int64 {
+	if l.timerEpoch.IsZero() {
+		l.timerEpoch = time.Now()
 	}
-	delta := when.Sub(x.timerEpoch)
+	delta := when.Sub(l.timerEpoch)
 	if delta <= 0 {
 		return 0
 	}
 	return delta.Milliseconds()
 }
 
-func (x *Loop) commitTimer(t *timer) {
+func (l *Loop) commitTimer(t *timer) {
 	if t == nil {
 		return
 	}
-	x.prepareTimerCommit(t)
-	x.timerMap = retainedMapStore(x.timerMap, &x.timerMapRetention, t.id, t)
-	x.pushTimerNode(t)
+	l.prepareTimerCommit(t)
+	l.timerMap = retainedMapStore(l.timerMap, &l.timerMapRetention, t.id, t)
+	l.pushTimerNode(t)
 	if t.refed.Load() {
-		x.refedTimerCount.Add(1)
+		l.refedTimerCount.Add(1)
 	}
 }
 
-func (x *Loop) pushTimerNode(t *timer) {
+func (l *Loop) pushTimerNode(t *timer) {
 	if t == nil {
 		return
 	}
-	key := x.timerBucketKey(t.when)
-	list := x.timerLists[key]
+	key := l.timerBucketKey(t.when)
+	list := l.timerLists[key]
 	if list == nil {
-		list = x.acquireTimerList(key, t.when)
-		x.timerLists = retainedMapStore(x.timerLists, &x.timerListsRetention, key, list)
-		heap.Push(&x.timers, list)
+		list = l.acquireTimerList(key, t.when)
+		l.timerLists = retainedMapStore(l.timerLists, &l.timerListsRetention, key, list)
+		heap.Push(&l.timers, list)
 	} else if t.when.Before(list.deadline) {
 		list.deadline = t.when
-		if list.heapIndex >= 0 && list.heapIndex < len(x.timers) {
-			heap.Fix(&x.timers, list.heapIndex)
+		if list.heapIndex >= 0 && list.heapIndex < len(l.timers) {
+			heap.Fix(&l.timers, list.heapIndex)
 		}
 	}
-	x.insertTimerNode(list, t)
+	l.insertTimerNode(list, t)
 }
 
-func (x *Loop) acquireTimerList(key int64, deadline time.Time) *timerList {
-	list := x.timerListSpare
+func (l *Loop) acquireTimerList(key int64, deadline time.Time) *timerList {
+	list := l.timerListSpare
 	if list == nil {
 		list = new(timerList)
 	} else {
-		x.timerListSpare = nil
+		l.timerListSpare = nil
 	}
 	list.key = key
 	list.deadline = deadline
@@ -148,13 +148,13 @@ func (x *Loop) acquireTimerList(key int64, deadline time.Time) *timerList {
 	return list
 }
 
-func (x *Loop) releaseTimerList(list *timerList) {
+func (l *Loop) releaseTimerList(list *timerList) {
 	if list == nil {
 		return
 	}
 	*list = timerList{heapIndex: -1}
-	if x.timerListSpare == nil {
-		x.timerListSpare = list
+	if l.timerListSpare == nil {
+		l.timerListSpare = list
 	}
 }
 
@@ -162,7 +162,7 @@ func timerNodeBefore(a, b *timer) bool {
 	return a.when.Before(b.when)
 }
 
-func (x *Loop) insertTimerNode(list *timerList, t *timer) {
+func (l *Loop) insertTimerNode(list *timerList, t *timer) {
 	if list.head == nil || timerNodeBefore(t, list.head) {
 		t.prev = nil
 		t.next = list.head
@@ -213,7 +213,7 @@ func (x *Loop) insertTimerNode(list *timerList, t *timer) {
 	list.len++
 }
 
-func (x *Loop) unlinkTimerNode(t *timer) {
+func (l *Loop) unlinkTimerNode(t *timer) {
 	if t == nil || t.list == nil {
 		return
 	}
@@ -233,17 +233,17 @@ func (x *Loop) unlinkTimerNode(t *timer) {
 	t.list = nil
 	list.len--
 	if list.len == 0 {
-		if list.heapIndex >= 0 && list.heapIndex < len(x.timers) {
-			heap.Remove(&x.timers, list.heapIndex)
+		if list.heapIndex >= 0 && list.heapIndex < len(l.timers) {
+			heap.Remove(&l.timers, list.heapIndex)
 		}
-		x.deleteTimerList(list.key)
-		x.releaseTimerList(list)
+		l.deleteTimerList(list.key)
+		l.releaseTimerList(list)
 		return
 	}
-	x.refreshTimerListDeadline(list)
+	l.refreshTimerListDeadline(list)
 }
 
-func (x *Loop) refreshTimerListDeadline(list *timerList) {
+func (l *Loop) refreshTimerListDeadline(list *timerList) {
 	if list == nil || list.head == nil {
 		return
 	}
@@ -251,43 +251,43 @@ func (x *Loop) refreshTimerListDeadline(list *timerList) {
 	// is therefore always the bucket's next true deadline; avoid rescanning large
 	// same-deadline buckets during cleanup-heavy benchmark and cancellation paths.
 	list.deadline = list.head.when
-	if list.heapIndex >= 0 && list.heapIndex < len(x.timers) {
-		heap.Fix(&x.timers, list.heapIndex)
+	if list.heapIndex >= 0 && list.heapIndex < len(l.timers) {
+		heap.Fix(&l.timers, list.heapIndex)
 	}
 }
 
-func (x *Loop) popTimerList() *timerList {
-	if len(x.timers) == 0 {
+func (l *Loop) popTimerList() *timerList {
+	if len(l.timers) == 0 {
 		return nil
 	}
-	list := heap.Pop(&x.timers).(*timerList)
-	x.deleteTimerList(list.key)
+	list := heap.Pop(&l.timers).(*timerList)
+	l.deleteTimerList(list.key)
 	return list
 }
 
-func (x *Loop) deleteTimerList(key int64) {
+func (l *Loop) deleteTimerList(key int64) {
 	var rebuilt bool
-	x.timerLists, rebuilt = retainedMapDelete(x.timerLists, &x.timerListsRetention, key)
+	l.timerLists, rebuilt = retainedMapDelete(l.timerLists, &l.timerListsRetention, key)
 	if rebuilt {
-		x.rebuildTimerHeap()
+		l.rebuildTimerHeap()
 	}
 }
 
-func (x *Loop) rebuildTimerHeap() {
-	if len(x.timers) == 0 {
-		x.timers = nil
+func (l *Loop) rebuildTimerHeap() {
+	if len(l.timers) == 0 {
+		l.timers = nil
 		return
 	}
-	replacement := make(timerListHeap, len(x.timers))
-	copy(replacement, x.timers)
+	replacement := make(timerListHeap, len(l.timers))
+	copy(replacement, l.timers)
 	for index, list := range replacement {
 		list.heapIndex = index
 	}
-	x.timers = replacement
+	l.timers = replacement
 }
 
-func (x *Loop) deleteTimer(id TimerID) {
-	x.timerMap, _ = retainedMapDelete(x.timerMap, &x.timerMapRetention, id)
+func (l *Loop) deleteTimer(id TimerID) {
+	l.timerMap, _ = retainedMapDelete(l.timerMap, &l.timerMapRetention, id)
 }
 
 func detachTimerList(list *timerList) *timer {
@@ -305,20 +305,20 @@ func detachTimerList(list *timerList) *timer {
 	return head
 }
 
-func (x *Loop) nextTimerDeadline() (time.Time, bool) {
-	if len(x.timers) == 0 {
+func (l *Loop) nextTimerDeadline() (time.Time, bool) {
+	if len(l.timers) == 0 {
 		return time.Time{}, false
 	}
-	return x.timers[0].deadline, true
+	return l.timers[0].deadline, true
 }
 
-func (x *Loop) rescheduleRepeatingTimer(t *timer, callbackStart time.Time) {
+func (l *Loop) rescheduleRepeatingTimer(t *timer, callbackStart time.Time) {
 	if t == nil || !t.repeat || t.canceled.Load() {
 		return
 	}
 	t.when = callbackStart.Add(t.interval)
-	x.prepareTimerCommit(t)
-	x.pushTimerNode(t)
+	l.prepareTimerCommit(t)
+	l.pushTimerNode(t)
 }
 
 func resetTimerForPool(t *timer) {
@@ -348,31 +348,31 @@ func resetTimerForPool(t *timer) {
 	}
 }
 
-func (x *Loop) cleanupTimers() {
-	x.timers = discardSlice(x.timers)
-	for _, list := range x.timerLists {
-		x.releaseTimerList(list)
+func (l *Loop) cleanupTimers() {
+	l.timers = discardSlice(l.timers)
+	for _, list := range l.timerLists {
+		l.releaseTimerList(list)
 	}
-	x.timerLists = discardRetainedMap(x.timerLists, &x.timerListsRetention)
-	for _, t := range x.timerMap {
+	l.timerLists = discardRetainedMap(l.timerLists, &l.timerListsRetention)
+	for _, t := range l.timerMap {
 		t.task = nil
 		t.refed.Store(false)
 		t.canceled.Store(true)
 		resetTimerForPool(t)
 		timerPool.Put(t)
 	}
-	x.timerMap = discardRetainedMap(x.timerMap, &x.timerMapRetention)
-	x.timerListSpare = nil
-	x.refedTimerCount.Store(0)
+	l.timerMap = discardRetainedMap(l.timerMap, &l.timerMapRetention)
+	l.timerListSpare = nil
+	l.refedTimerCount.Store(0)
 }
 
 // runTimers executes all expired timers.
-func (x *Loop) runTimers() {
-	if x.hardAbortRequested() {
+func (l *Loop) runTimers() {
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainCommandIngress()
-	if x.autoExitReady() {
+	l.drainCommandIngress()
+	if l.autoExitReady() {
 		return
 	}
 	// Startup materialization intentionally occurs before an active turn so
@@ -380,10 +380,10 @@ func (x *Loop) runTimers() {
 	// timer pass. Once the timer phase itself begins, every later admission must
 	// observe an active turn and defer until tickCount advances. Normal tick and
 	// runAux callers already set this marker; preserve their outer ownership.
-	previousTickActive := x.tickActive
-	x.tickActive = true
-	defer func() { x.tickActive = previousTickActive }()
-	now := x.refreshTickTime()
+	previousTickActive := l.tickActive
+	l.tickActive = true
+	defer func() { l.tickActive = previousTickActive }()
+	now := l.refreshTickTime()
 	var deferred []*timer
 	defer func() {
 		for _, t := range deferred {
@@ -391,64 +391,64 @@ func (x *Loop) runTimers() {
 				continue
 			}
 			if t.canceled.Load() {
-				x.retireTimer(t)
+				l.retireTimer(t)
 				continue
 			}
-			x.pushTimerNode(t)
+			l.pushTimerNode(t)
 		}
 	}()
-	for len(x.timers) > 0 {
-		if x.timers[0].deadline.After(now) {
+	for len(l.timers) > 0 {
+		if l.timers[0].deadline.After(now) {
 			break
 		}
-		list := x.popTimerList()
+		list := l.popTimerList()
 		t := detachTimerList(list)
-		x.releaseTimerList(list)
+		l.releaseTimerList(list)
 		for t != nil {
 			next := t.next
 			t.next = nil
 			if t.canceled.Load() {
-				x.retireTimer(t)
+				l.retireTimer(t)
 				t = next
 				continue
 			}
-			if t.when.After(now) || (t.deferTick && t.scheduledTick == x.tickCount) {
+			if t.when.After(now) || (t.deferTick && t.scheduledTick == l.tickCount) {
 				deferred = append(deferred, t)
 				t = next
 				continue
 			}
 
-			if x.testHooks != nil && x.testHooks.BeforeTimerExecutionClaim != nil {
-				x.testHooks.BeforeTimerExecutionClaim(t.id)
+			if l.testHooks != nil && l.testHooks.BeforeTimerExecutionClaim != nil {
+				l.testHooks.BeforeTimerExecutionClaim(t.id)
 			}
 			// A false pending observation is the uncontended callback-entry claim:
 			// every earlier command would have published true before its payload.
 			// When work is pending, externalMu instead joins all earlier publishers
 			// into one drain, cancellation check, and executing-state commitment.
-			if !x.commandIngressPending.Load() {
+			if !l.commandIngressPending.Load() {
 				if t.canceled.Load() {
-					x.retireTimer(t)
+					l.retireTimer(t)
 					t = next
 					continue
 				}
 				t.executing = true
 			} else {
-				x.externalMu.Lock()
-				x.drainCommandIngressLocked()
-				if x.testHooks != nil && x.testHooks.AfterTimerExecutionIngressDrain != nil {
-					x.testHooks.AfterTimerExecutionIngressDrain(t.id)
+				l.externalMu.Lock()
+				l.drainCommandIngressLocked()
+				if l.testHooks != nil && l.testHooks.AfterTimerExecutionIngressDrain != nil {
+					l.testHooks.AfterTimerExecutionIngressDrain(t.id)
 				}
 				if t.canceled.Load() {
-					x.externalMu.Unlock()
-					x.retireTimer(t)
+					l.externalMu.Unlock()
+					l.retireTimer(t)
 					t = next
 					continue
 				}
 				t.executing = true
-				x.externalMu.Unlock()
+				l.externalMu.Unlock()
 			}
-			if x.testHooks != nil && x.testHooks.BeforeTimerPublicationWait != nil {
-				x.testHooks.BeforeTimerPublicationWait(t.id)
+			if l.testHooks != nil && l.testHooks.BeforeTimerPublicationWait != nil {
+				l.testHooks.BeforeTimerPublicationWait(t.id)
 			}
 			if t.publication != nil {
 				<-t.publication
@@ -458,22 +458,22 @@ func (x *Loop) runTimers() {
 				// Node repeating timers anchor the next deadline immediately before
 				// callback entry. Callback duration therefore consumes interval time
 				// instead of accumulating as permanent drift.
-				repeatStart = x.refreshTickTime()
+				repeatStart = l.refreshTickTime()
 			}
 			if t.control {
-				x.safeExecuteControl(t.task)
+				l.safeExecuteControl(t.task)
 			} else {
-				x.safeExecute(t.task)
+				l.safeExecute(t.task)
 			}
 			t.executing = false
 			if t.repeat && !t.canceled.Load() {
-				x.rescheduleRepeatingTimer(t, repeatStart)
+				l.rescheduleRepeatingTimer(t, repeatStart)
 			} else {
-				x.retireTimer(t)
+				l.retireTimer(t)
 			}
 
-			x.drainMicrotasks()
-			if x.hardAbortRequested() {
+			l.drainMicrotasks()
+			if l.hardAbortRequested() {
 				for next != nil {
 					pending := next
 					next = next.next
@@ -488,18 +488,18 @@ func (x *Loop) runTimers() {
 	}
 }
 
-func (x *Loop) retireTimer(t *timer) {
+func (l *Loop) retireTimer(t *timer) {
 	if t == nil {
 		return
 	}
-	x.unlinkTimerNode(t)
-	x.deleteTimer(t.id)
+	l.unlinkTimerNode(t)
+	l.deleteTimer(t.id)
 	if t.refed.Load() {
 		// Decrement refedTimerCount without incrementing submissionEpoch.
 		// This is correct: epoch tracks liveness-*adding* mutations. A timer
 		// firing or cancellation reduces liveness, so Alive() returning false
 		// after this decrement is the correct outcome.
-		x.refedTimerCount.Add(-1)
+		l.refedTimerCount.Add(-1)
 	}
 	resetTimerForPool(t)
 	timerPool.Put(t)
@@ -517,11 +517,11 @@ func (x *Loop) retireTimer(t *timer) {
 // callback, is eligible no earlier than a later iteration. Timers admitted by
 // bootstrap work before the startup timer phase remain eligible for that phase.
 // ScheduleTimer panics if fn is nil.
-func (x *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
+func (l *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 	if fn == nil {
 		panic("eventloop: nil ScheduleTimer callback")
 	}
-	return x.scheduleTimerNodeRef(delay, fn, false, true)
+	return l.scheduleTimerNodeRef(delay, fn, false, true)
 }
 
 // ScheduleTimerUnrefed schedules a task without adding loop liveness. The
@@ -529,11 +529,11 @@ func (x *Loop) ScheduleTimer(delay time.Duration, fn func()) (TimerID, error) {
 // Its unreferenced state is part of the initial publication, so concurrent
 // liveness observers never see a transient referenced timer.
 // ScheduleTimerUnrefed panics if fn is nil.
-func (x *Loop) ScheduleTimerUnrefed(delay time.Duration, fn func()) (TimerID, error) {
+func (l *Loop) ScheduleTimerUnrefed(delay time.Duration, fn func()) (TimerID, error) {
 	if fn == nil {
 		panic("eventloop: nil ScheduleTimerUnrefed callback")
 	}
-	return x.scheduleTimerNodeRef(delay, fn, false, false)
+	return l.scheduleTimerNodeRef(delay, fn, false, false)
 }
 
 // ScheduleControlTimer schedules referenced host-adapter plumbing while
@@ -542,41 +542,41 @@ func (x *Loop) ScheduleTimerUnrefed(delay time.Duration, fn func()) (TimerID, er
 // phase ordering are otherwise identical to [Loop.ScheduleTimer].
 //
 // ScheduleControlTimer panics if fn is nil.
-func (x *Loop) ScheduleControlTimer(delay time.Duration, fn func()) (TimerID, error) {
+func (l *Loop) ScheduleControlTimer(delay time.Duration, fn func()) (TimerID, error) {
 	if fn == nil {
 		panic("eventloop: nil ScheduleControlTimer callback")
 	}
-	return x.scheduleTimerControlRef(delay, fn, true)
+	return l.scheduleTimerControlRef(delay, fn, true)
 }
 
 // ScheduleControlTimerUnrefed is [Loop.ScheduleControlTimer] without initial
 // loop liveness. The timer remains eligible while referenced work exists.
 //
 // ScheduleControlTimerUnrefed panics if fn is nil.
-func (x *Loop) ScheduleControlTimerUnrefed(delay time.Duration, fn func()) (TimerID, error) {
+func (l *Loop) ScheduleControlTimerUnrefed(delay time.Duration, fn func()) (TimerID, error) {
 	if fn == nil {
 		panic("eventloop: nil ScheduleControlTimerUnrefed callback")
 	}
-	return x.scheduleTimerControlRef(delay, fn, false)
+	return l.scheduleTimerControlRef(delay, fn, false)
 }
 
-func (x *Loop) scheduleRepeatingTimer(delay time.Duration, fn func()) (TimerID, error) {
-	return x.scheduleTimerNodeRef(delay, fn, true, true)
+func (l *Loop) scheduleRepeatingTimer(delay time.Duration, fn func()) (TimerID, error) {
+	return l.scheduleTimerNodeRef(delay, fn, true, true)
 }
 
-func (x *Loop) scheduleTimerNodeRef(delay time.Duration, fn func(), repeat, refed bool) (TimerID, error) {
-	return x.scheduleTimerNodeRetireMode(delay, fn, repeat, nil, refed, false)
+func (l *Loop) scheduleTimerNodeRef(delay time.Duration, fn func(), repeat, refed bool) (TimerID, error) {
+	return l.scheduleTimerNodeRetireMode(delay, fn, repeat, nil, refed, false)
 }
 
-func (x *Loop) scheduleTimerControlRef(delay time.Duration, fn func(), refed bool) (TimerID, error) {
-	return x.scheduleTimerNodeRetireMode(delay, fn, false, nil, refed, true)
+func (l *Loop) scheduleTimerControlRef(delay time.Duration, fn func(), refed bool) (TimerID, error) {
+	return l.scheduleTimerNodeRetireMode(delay, fn, false, nil, refed, true)
 }
 
-func (x *Loop) scheduleTimerRetire(delay time.Duration, fn, retire func()) (TimerID, error) {
-	return x.scheduleTimerNodeRetireMode(delay, fn, false, retire, true, false)
+func (l *Loop) scheduleTimerRetire(delay time.Duration, fn, retire func()) (TimerID, error) {
+	return l.scheduleTimerNodeRetireMode(delay, fn, false, retire, true, false)
 }
 
-func (x *Loop) scheduleTimerNodeRetireMode(
+func (l *Loop) scheduleTimerNodeRetireMode(
 	delay time.Duration,
 	fn func(),
 	repeat bool,
@@ -586,17 +586,17 @@ func (x *Loop) scheduleTimerNodeRetireMode(
 ) (TimerID, error) {
 	// Timers add liveness and are rejected during active terminal drain,
 	// StateTerminating/StateTerminated, and current-epoch quiescing.
-	if err := x.rejectLivenessAdd(); err != nil {
+	if err := l.rejectLivenessAdd(); err != nil {
 		return 0, err
 	}
 
 	scheduledAt := time.Now()
-	if x.isLoopThread() {
-		scheduledAt = x.refreshTickTime()
+	if l.isLoopThread() {
+		scheduledAt = l.refreshTickTime()
 	}
 
 	publication := make(chan struct{})
-	t, err := x.acquireTimerRef(scheduledAt, delay, fn, repeat, retire, publication, refed, control)
+	t, err := l.acquireTimerRef(scheduledAt, delay, fn, repeat, retire, publication, refed, control)
 	if err != nil {
 		close(publication)
 		return 0, err
@@ -608,33 +608,33 @@ func (x *Loop) scheduleTimerNodeRetireMode(
 	// canUseFastPath is false), causing Schedule-then-Unref from a
 	// loop callback to race if the unref arrives before the queued
 	// registration is processed.
-	if x.isLoopThread() {
-		x.livenessMu.Lock()
-		if err := x.rejectLivenessAddLocked(); err != nil {
-			x.livenessMu.Unlock()
+	if l.isLoopThread() {
+		l.livenessMu.Lock()
+		if err := l.rejectLivenessAddLocked(); err != nil {
+			l.livenessMu.Unlock()
 			close(publication)
 			resetTimerForPool(t)
 			timerPool.Put(t)
 			return 0, err
 		}
-		x.materializeCommandIngress()
-		x.commitTimer(t)
-		x.submissionEpoch.Add(1)
-		if x.testHooks != nil && x.testHooks.BeforeScheduleTimerReturn != nil {
-			x.testHooks.BeforeScheduleTimerReturn(id)
+		l.materializeCommandIngress()
+		l.commitTimer(t)
+		l.submissionEpoch.Add(1)
+		if l.testHooks != nil && l.testHooks.BeforeScheduleTimerReturn != nil {
+			l.testHooks.BeforeScheduleTimerReturn(id)
 		}
 		close(publication)
-		x.livenessMu.Unlock()
+		l.livenessMu.Unlock()
 		return id, nil
 	}
 
 	// External goroutine: use submitToQueue (not SubmitInternal) to
 	// skip the redundant isLoopThread() check. We already proved
 	// we're not on the logical owner above.
-	if x.testHooks != nil && x.testHooks.BeforeScheduleTimerCommit != nil {
-		x.testHooks.BeforeScheduleTimerCommit()
+	if l.testHooks != nil && l.testHooks.BeforeScheduleTimerCommit != nil {
+		l.testHooks.BeforeScheduleTimerCommit()
 	}
-	err = x.submitLivenessCommand(loopCommand{kind: loopCommandTimerAdd, timer: t}, nil)
+	err = l.submitLivenessCommand(loopCommand{kind: loopCommandTimerAdd, timer: t}, nil)
 	if err != nil {
 		// Put back to pool on error.
 		// Reset all pooled timer fields before reuse.
@@ -644,14 +644,14 @@ func (x *Loop) scheduleTimerNodeRetireMode(
 		return 0, err
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeScheduleTimerReturn != nil {
-		x.testHooks.BeforeScheduleTimerReturn(id)
+	if l.testHooks != nil && l.testHooks.BeforeScheduleTimerReturn != nil {
+		l.testHooks.BeforeScheduleTimerReturn(id)
 	}
 	close(publication)
 	return id, nil
 }
 
-func (x *Loop) acquireTimer(
+func (l *Loop) acquireTimer(
 	scheduledAt time.Time,
 	delay time.Duration,
 	fn func(),
@@ -659,10 +659,10 @@ func (x *Loop) acquireTimer(
 	retire func(),
 	publication chan struct{},
 ) (*timer, error) {
-	return x.acquireTimerRef(scheduledAt, delay, fn, repeat, retire, publication, true, false)
+	return l.acquireTimerRef(scheduledAt, delay, fn, repeat, retire, publication, true, false)
 }
 
-func (x *Loop) acquireTimerRef(
+func (l *Loop) acquireTimerRef(
 	scheduledAt time.Time,
 	delay time.Duration,
 	fn func(),
@@ -673,7 +673,7 @@ func (x *Loop) acquireTimerRef(
 	control bool,
 ) (*timer, error) {
 	t := timerPool.Get().(*timer)
-	id, ok := allocateID(&x.nextTimerID, math.MaxUint64)
+	id, ok := allocateID(&l.nextTimerID, math.MaxUint64)
 	if !ok {
 		t.retire = retire
 		resetTimerForPool(t)

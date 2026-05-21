@@ -6,19 +6,19 @@ import (
 	"unsafe"
 )
 
-func (x *Loop) storeTerminalError(err error) {
+func (l *Loop) storeTerminalError(err error) {
 	if err != nil {
-		x.terminalErr.Store(&terminalErrorBox{err: err})
+		l.terminalErr.Store(&terminalErrorBox{err: err})
 	}
 }
 
-func (x *Loop) terminalError() error {
+func (l *Loop) terminalError() error {
 	var terminalErr error
-	value := x.terminalErr.Load()
+	value := l.terminalErr.Load()
 	if box, ok := value.(*terminalErrorBox); ok && box != nil {
 		terminalErr = box.err
 	}
-	return joinErrors(terminalErr, x.fdResourceCloseError())
+	return joinErrors(terminalErr, l.fdResourceCloseError())
 }
 
 func joinErrors(primary, secondary error) error {
@@ -31,8 +31,8 @@ func joinErrors(primary, secondary error) error {
 	return errors.Join(primary, secondary)
 }
 
-func (x *Loop) fdResourceCloseError() error {
-	value := x.fdCloseErr.Load()
+func (l *Loop) fdResourceCloseError() error {
+	value := l.fdCloseErr.Load()
 	if box, ok := value.(*terminalErrorBox); ok && box != nil {
 		return box.err
 	}
@@ -41,23 +41,23 @@ func (x *Loop) fdResourceCloseError() error {
 
 // drainWakeUpPipe drains the wake-up pipe and resets the wakeup pending flag.
 // This is called when the physical wake descriptor is reported ready.
-func (x *Loop) drainWakeUpPipe() {
-	x.wakeMu.Lock()
-	if !x.pollerReady.Load() || x.wakePipe < 0 {
+func (l *Loop) drainWakeUpPipe() {
+	l.wakeMu.Lock()
+	if !l.pollerReady.Load() || l.wakePipe < 0 {
 		// Task-only targets and closed or unpublished readiness resources have
 		// no physical wake descriptor to drain.
-		x.wakeUpSignalPending.Store(wakeSignalIdle)
-		x.wakeMu.Unlock()
+		l.wakeUpSignalPending.Store(wakeSignalIdle)
+		l.wakeMu.Unlock()
 		return
 	}
 	read := readFD
-	if x.testHooks != nil && x.testHooks.ReadWakeFD != nil {
-		read = x.testHooks.ReadWakeFD
+	if l.testHooks != nil && l.testHooks.ReadWakeFD != nil {
+		read = l.testHooks.ReadWakeFD
 	}
 	var reportErr error
 	var reportMsg string
 	for {
-		n, err := read(x.wakePipe, x.wakeBuf[:])
+		n, err := read(l.wakePipe, l.wakeBuf[:])
 		switch {
 		case err == nil && n > 0:
 			continue
@@ -79,13 +79,13 @@ func (x *Loop) drainWakeUpPipe() {
 		break
 	}
 	// Reset the wakeup pending flag so future Submit/SubmitInternal can wake again
-	x.wakeUpSignalPending.Store(wakeSignalIdle)
-	x.wakeMu.Unlock()
-	if x.testHooks != nil && x.testHooks.AfterWakeDrain != nil {
-		x.testHooks.AfterWakeDrain()
+	l.wakeUpSignalPending.Store(wakeSignalIdle)
+	l.wakeMu.Unlock()
+	if l.testHooks != nil && l.testHooks.AfterWakeDrain != nil {
+		l.testHooks.AfterWakeDrain()
 	}
 	if reportErr != nil {
-		x.logError("eventloop: "+reportMsg, reportErr)
+		l.logError("eventloop: "+reportMsg, reportErr)
 	}
 }
 
@@ -104,38 +104,38 @@ func (x *Loop) drainWakeUpPipe() {
 // IMPLEMENTATION NOTES:
 //   - readiness targets write to an eventfd or self-pipe
 //   - task-only targets do nothing because the loop cannot enter native FD polling
-func (x *Loop) submitWakeup() error {
+func (l *Loop) submitWakeup() error {
 	// Test hook: allow tests to observe submitWakeup calls
-	if x.testHooks != nil && x.testHooks.OnSubmitWakeup != nil {
-		x.testHooks.OnSubmitWakeup()
+	if l.testHooks != nil && l.testHooks.OnSubmitWakeup != nil {
+		l.testHooks.OnSubmitWakeup()
 	}
 	// Check state and reject once terminal admission is closed.
 	// We MUST allow wake-up during StateTerminating so the loop can
 	// drain queued tasks and complete shutdown
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminated {
 		// Terminal admission is closed, so no lifecycle wake is needed.
 		return ErrLoopTerminated
 	}
 
-	return x.submitWakeupPhysical()
+	return l.submitWakeupPhysical()
 }
 
-func (x *Loop) submitWakeupPhysical() error {
-	x.wakeMu.Lock()
-	defer x.wakeMu.Unlock()
-	return x.submitWakeupPhysicalLocked()
+func (l *Loop) submitWakeupPhysical() error {
+	l.wakeMu.Lock()
+	defer l.wakeMu.Unlock()
+	return l.submitWakeupPhysicalLocked()
 }
 
-func (x *Loop) submitWakeupPhysicalLocked() error {
+func (l *Loop) submitWakeupPhysicalLocked() error {
 	if !fdPollingSupported {
 		return nil
 	}
-	if !x.pollerReady.Load() {
+	if !l.pollerReady.Load() {
 		return nil
 	}
-	if x.testHooks != nil && x.testHooks.BeforePhysicalWake != nil {
-		x.testHooks.BeforePhysicalWake()
+	if l.testHooks != nil && l.testHooks.BeforePhysicalWake != nil {
+		l.testHooks.BeforePhysicalWake()
 	}
 	// Platform-specific eventfd or self-pipe wake mechanism.
 	// Internal optimization: Native endianness, no binary.LittleEndian overhead
@@ -143,11 +143,11 @@ func (x *Loop) submitWakeupPhysicalLocked() error {
 	buf := (*[8]byte)(unsafe.Pointer(&one))[:]
 
 	write := writeFD
-	if x.testHooks != nil && x.testHooks.WriteWakeFD != nil {
-		write = x.testHooks.WriteWakeFD
+	if l.testHooks != nil && l.testHooks.WriteWakeFD != nil {
+		write = l.testHooks.WriteWakeFD
 	}
 	for {
-		n, err := write(x.wakePipeWrite, buf)
+		n, err := write(l.wakePipeWrite, buf)
 		if err == nil {
 			if n != len(buf) {
 				return io.ErrShortWrite
@@ -164,38 +164,38 @@ func (x *Loop) submitWakeupPhysicalLocked() error {
 	}
 }
 
-func (x *Loop) submitPendingWakeup() error {
+func (l *Loop) submitPendingWakeup() error {
 	if !fdPollingSupported {
 		return nil
 	}
-	if x.wakeUpSignalPending.Load() == wakeSignalPending {
+	if l.wakeUpSignalPending.Load() == wakeSignalPending {
 		return nil
 	}
-	if x.testHooks != nil && x.testHooks.BeforePendingWakeLock != nil {
-		x.testHooks.BeforePendingWakeLock()
+	if l.testHooks != nil && l.testHooks.BeforePendingWakeLock != nil {
+		l.testHooks.BeforePendingWakeLock()
 	}
-	x.wakeMu.Lock()
-	defer x.wakeMu.Unlock()
-	if x.wakeUpSignalPending.Load() == wakeSignalPending {
+	l.wakeMu.Lock()
+	defer l.wakeMu.Unlock()
+	if l.wakeUpSignalPending.Load() == wakeSignalPending {
 		return nil
 	}
-	if !x.pollerReady.Load() {
+	if !l.pollerReady.Load() {
 		return nil
 	}
-	if x.testHooks != nil && x.testHooks.OnSubmitWakeup != nil {
-		x.testHooks.OnSubmitWakeup()
+	if l.testHooks != nil && l.testHooks.OnSubmitWakeup != nil {
+		l.testHooks.OnSubmitWakeup()
 	}
-	if x.state.Load() == StateTerminated {
-		x.wakeUpSignalPending.Store(wakeSignalIdle)
+	if l.state.Load() == StateTerminated {
+		l.wakeUpSignalPending.Store(wakeSignalIdle)
 		return ErrLoopTerminated
 	}
-	x.wakeUpSignalPending.Store(wakeSignalSubmitting)
-	if err := x.submitWakeupPhysicalLocked(); err != nil {
+	l.wakeUpSignalPending.Store(wakeSignalSubmitting)
+	if err := l.submitWakeupPhysicalLocked(); err != nil {
 		// No physical wake represents this claim. Re-open admission so a later
 		// producer can retry rather than stranding accepted work in PollIO.
-		x.wakeUpSignalPending.Store(wakeSignalIdle)
+		l.wakeUpSignalPending.Store(wakeSignalIdle)
 		return err
 	}
-	x.wakeUpSignalPending.Store(wakeSignalPending)
+	l.wakeUpSignalPending.Store(wakeSignalPending)
 	return nil
 }

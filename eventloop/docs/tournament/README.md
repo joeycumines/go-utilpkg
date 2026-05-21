@@ -125,8 +125,70 @@ The local wrappers in `config.mk` capture complete logs:
 gmake eventloop-tournament
 
 # Windows is explicit and may only be claimed after a real host ran it.
+# See "Run the tournament on Windows" below for host setup and the libuv build.
 WINDOWS_HOST=your-host gmake eventloop-tournament-windows
 ```
+
+## Run the tournament on Windows
+
+A Windows run is genuine only when it executes the real `windows/amd64 go.exe`,
+never Go under WSL. The harness transfers the repository as a clean tarball
+(`hack/run-on-windows.sh`), so the remote workspace has no `.git`; the source
+HEAD and dirty/clean state are captured on the originating checkout and
+forwarded as positional make variables (`EVENTLOOP_TOURNAMENT_HEAD`,
+`EVENTLOOP_TOURNAMENT_SOURCE_STATE`), which `eventloop-tournament-bench`
+honors in its metadata lines. The libuv lane must not be skipped: the run
+records `tournament: meta=libuv-version=<ver>` and a `lane=libuv` marker only
+when pkg-config resolves libuv on the host.
+
+Prerequisites on the Windows host:
+
+- Git for Windows (provides `bash.exe`; the launcher must invoke this, never
+  bare `bash`, which `run-on-windows.sh` resolves to WSL bash and Linux tools).
+- Go for Windows matching the module's `go` directive (`go1.26.5` or later).
+- GNU Make and pkg-config on the Windows `PATH`.
+- A MinGW-w64 C toolchain whose runtime ABI matches Go's `runtime/cgo`, and a
+  libuv built against that toolchain.
+
+The host-specific paths are overridable make variables (defaults match the
+`moo` host; set them for a different machine):
+
+```bash
+WINDOWS_HOST=moo                              # SSH alias / host
+GIT_BASH='C:/Program Files/Git/bin/bash.exe'  # Git-for-Windows bash
+# forwarded into hack/run-eventloop-tournament-windows.sh:
+MINGW_BIN=...                                  # mingw-w64 gcc bin dir
+LIBUV_PKG_CONFIG_PATH=...                      # dir holding libuv.pc
+CGO_LDFLAGS='-static-libgcc -static-libstdc++ -static'
+```
+
+Build libuv from source with the matching toolchain using
+`hack/build-libuv-mingw8.sh`. It downloads libuv 1.52.0, builds it as a static
+library with MinGW-w64 8.1.0, installs it into a prefix, and writes a
+pkg-config `.pc` file the tournament consumes via `PKG_CONFIG_PATH`. The script
+passes the small set of C defines (`PROCESSOR_ARCHITECTURE_ARM64`,
+`WSA_FLAG_NO_HANDLE_INHERIT`, `FILE_DEVICE_CONSOLE`) that the older mingw 8.1.0
+headers lack but the libuv 1.52.0 source references. Run it through Git bash on
+the host (not WSL bash):
+
+```bash
+# On the Windows host, via Git bash:
+bash hack/build-libuv-mingw8.sh
+```
+
+Then run the tournament. The `eventloop-tournament-windows` config target
+captures the local HEAD/state, routes through the launcher (which sets up the
+libuv/mingw environment and fails fast if pkg-config cannot find libuv), and
+forwards the provenance overrides:
+
+```bash
+gmake eventloop-tournament-windows
+```
+
+The libuv lane semantics (byte-frozen legacy endpoints, checked V2 roots,
+distinct workload identities) are described above under "Run the current
+tournament"; they apply unchanged on Windows.
+
 
 Normal runs use five one-second samples with allocation reporting. For a smoke
 check, override the count and benchmark time without changing the manifest:

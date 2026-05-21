@@ -13,106 +13,106 @@ import (
 // terminal transition have no effect because the callback can no longer run.
 // A JavaScript integration registered by [BindJS] has an independent callback;
 // replacing or clearing this host callback does not disturb that integration.
-func (x *Loop) SetQuiescenceHandler(fn func() bool) {
-	if x == nil {
+func (l *Loop) SetQuiescenceHandler(fn func() bool) {
+	if l == nil {
 		return
 	}
-	if x.testHooks != nil && x.testHooks.BeforeSetQuiescenceHandlerLock != nil {
-		x.testHooks.BeforeSetQuiescenceHandlerLock()
+	if l.testHooks != nil && l.testHooks.BeforeSetQuiescenceHandlerLock != nil {
+		l.testHooks.BeforeSetQuiescenceHandlerLock()
 	}
-	x.livenessMu.Lock()
-	defer x.livenessMu.Unlock()
-	state := x.state.Load()
+	l.livenessMu.Lock()
+	defer l.livenessMu.Unlock()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
 		return
 	}
-	x.quiescenceMu.Lock()
-	x.quiescenceHandler = fn
-	x.quiescenceMu.Unlock()
+	l.quiescenceMu.Lock()
+	l.quiescenceHandler = fn
+	l.quiescenceMu.Unlock()
 }
 
-func (x *Loop) runQuiescenceHandlers() (resume bool) {
-	x.quiescenceMu.Lock()
-	host := x.quiescenceHandler
-	js := x.jsQuiescenceHandler
-	x.quiescenceMu.Unlock()
-	if x.runQuiescenceCallback("quiescence handler", host) {
+func (l *Loop) runQuiescenceHandlers() (resume bool) {
+	l.quiescenceMu.Lock()
+	host := l.quiescenceHandler
+	js := l.jsQuiescenceHandler
+	l.quiescenceMu.Unlock()
+	if l.runQuiescenceCallback("quiescence handler", host) {
 		resume = true
 	}
-	if x.runQuiescenceCallback("JS quiescence handler", js) {
+	if l.runQuiescenceCallback("JS quiescence handler", js) {
 		resume = true
 	}
 	return resume
 }
 
-func (x *Loop) runQuiescenceCallback(label string, fn func() bool) (resume bool) {
+func (l *Loop) runQuiescenceCallback(label string, fn func() bool) (resume bool) {
 	if fn == nil {
 		return false
 	}
-	if !x.beginCallbackExecution() {
+	if !l.beginCallbackExecution() {
 		return false
 	}
-	outcome := x.executeCallback(func() { resume = fn() }, true)
-	x.logCallbackOutcome(label, outcome)
+	outcome := l.executeCallback(func() { resume = fn() }, true)
+	l.logCallbackOutcome(label, outcome)
 	if outcome.panicked || !outcome.returned {
 		return false
 	}
 	return resume
 }
 
-func (x *Loop) hasTimersPending() bool {
-	return len(x.timers) > 0
+func (l *Loop) hasTimersPending() bool {
+	return len(l.timers) > 0
 }
 
-func (x *Loop) snapshotCheckJobsLocked() []checkJob {
-	jobs := make([]checkJob, 0, len(x.checkJobs)+len(x.closeJobs))
-	jobs = append(jobs, x.checkJobs...)
-	jobs = append(jobs, x.closeJobs...)
+func (l *Loop) snapshotCheckJobsLocked() []checkJob {
+	jobs := make([]checkJob, 0, len(l.checkJobs)+len(l.closeJobs))
+	jobs = append(jobs, l.checkJobs...)
+	jobs = append(jobs, l.closeJobs...)
 	return jobs
 }
 
-func (x *Loop) hasLiveCheckJob(jobs []checkJob) bool {
-	return slices.ContainsFunc(jobs, x.checkJobAlive)
+func (l *Loop) hasLiveCheckJob(jobs []checkJob) bool {
+	return slices.ContainsFunc(jobs, l.checkJobAlive)
 }
 
-func (x *Loop) checkJobAlive(job checkJob) (alive bool) {
+func (l *Loop) checkJobAlive(job checkJob) (alive bool) {
 	if job.fn == nil {
 		return false
 	}
 	if job.refed == nil {
 		return true
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		// Dynamic liveness predicates are user code and may be goroutine-affine or
 		// re-enter lifecycle APIs. External observers conservatively retain the job;
 		// only the loop owner may evaluate the predicate exactly.
 		return true
 	}
-	if x.testHooks != nil && x.testHooks.BeforeCheckPredicateAdmission != nil {
-		x.testHooks.BeforeCheckPredicateAdmission()
+	if l.testHooks != nil && l.testHooks.BeforeCheckPredicateAdmission != nil {
+		l.testHooks.BeforeCheckPredicateAdmission()
 	}
-	if !x.beginCallbackExecution() {
+	if !l.beginCallbackExecution() {
 		return false
 	}
-	outcome := x.executeCallback(func() { alive = job.refed() }, true)
-	x.logCallbackOutcome("check liveness predicate", outcome)
+	outcome := l.executeCallback(func() { alive = job.refed() }, true)
+	l.logCallbackOutcome("check liveness predicate", outcome)
 	if outcome.panicked || !outcome.returned {
 		return false
 	}
 	return alive
 }
 
-func (x *Loop) ownerPhaseWorkAlive() bool {
-	if x.ownerCheckCount.Load() == 0 && x.ownerCloseCount.Load() == 0 {
+func (l *Loop) ownerPhaseWorkAlive() bool {
+	if l.ownerCheckCount.Load() == 0 && l.ownerCloseCount.Load() == 0 {
 		return false
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		// External observers cannot safely inspect owner-local phase queues without
 		// racing the loop owner. Be conservative; the loop owner performs the exact
 		// predicate evaluation during auto-exit decisions.
 		return true
 	}
-	return x.hasLiveCheckJob(x.snapshotOwnerCheckJobs())
+	return l.hasLiveCheckJob(l.snapshotOwnerCheckJobs())
 }
 
 // Alive reports whether the event loop has ref'd pending work.
@@ -136,61 +136,61 @@ func (x *Loop) ownerPhaseWorkAlive() bool {
 // detached check, close, or auxiliary phase work is pending; only the loop
 // owner evaluates dynamic liveness predicates exactly to avoid racing
 // owner-local queues or running user predicate code from an arbitrary goroutine.
-func (x *Loop) Alive() bool {
-	state := x.state.Load()
-	if (state == StateTerminating || state == StateTerminated) && x.immediateCloseWon() {
+func (l *Loop) Alive() bool {
+	state := l.state.Load()
+	if (state == StateTerminating || state == StateTerminated) && l.immediateCloseWon() {
 		return false
 	}
 	// A privileged owner observation is ordered after every foreign operation
 	// that returned before this call. External observers retain the conservative
 	// snapshot path and never mutate owner-only state.
-	if x.commandIngressPending.Load() && x.ownsLocalQueues() {
-		x.drainCommandIngress()
+	if l.commandIngressPending.Load() && l.ownsLocalQueues() {
+		l.drainCommandIngress()
 	}
 	const maxRetries = 3
 	for range maxRetries {
-		epoch := x.submissionEpoch.Load()
+		epoch := l.submissionEpoch.Load()
 
 		// Fast path: check atomic counters and owner-local queues first, avoiding
 		// command-ingress locking unless every cheap liveness signal is empty.
-		if x.refedTimerCount.Load() > 0 {
+		if l.refedTimerCount.Load() > 0 {
 			return true
 		}
-		if x.promisifyCount.Load() > 0 {
+		if l.promisifyCount.Load() > 0 {
 			return true
 		}
-		if x.userIOFDCount.Load() > 0 {
+		if l.userIOFDCount.Load() > 0 {
 			return true
 		}
-		if x.microtaskYield.Load() {
+		if l.microtaskYield.Load() {
 			return true
 		}
-		if !x.microtaskQueuesEmpty() {
+		if !l.microtaskQueuesEmpty() {
 			return true
 		}
-		if x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.activePhaseJobCount.Load() > 0 {
+		if l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.activePhaseJobCount.Load() > 0 {
 			return true
 		}
-		if x.ownerPhaseWorkAlive() {
-			return true
-		}
-
-		x.externalMu.Lock()
-		commands := x.snapshotCommandsLocked()
-		checkJobs := x.snapshotCheckJobsLocked()
-		x.externalMu.Unlock()
-		if x.hasLiveCheckJob(checkJobs) || x.hasLiveCommand(commands) {
-			return true
-		}
-		if x.refedTimerCount.Load() > 0 || x.promisifyCount.Load() > 0 || x.userIOFDCount.Load() > 0 || x.microtaskYield.Load() || !x.microtaskQueuesEmpty() || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.activePhaseJobCount.Load() > 0 || x.ownerPhaseWorkAlive() {
+		if l.ownerPhaseWorkAlive() {
 			return true
 		}
 
-		if x.testHooks != nil && x.testHooks.BeforeAliveEpochValidation != nil {
-			x.testHooks.BeforeAliveEpochValidation()
+		l.externalMu.Lock()
+		commands := l.snapshotCommandsLocked()
+		checkJobs := l.snapshotCheckJobsLocked()
+		l.externalMu.Unlock()
+		if l.hasLiveCheckJob(checkJobs) || l.hasLiveCommand(commands) {
+			return true
+		}
+		if l.refedTimerCount.Load() > 0 || l.promisifyCount.Load() > 0 || l.userIOFDCount.Load() > 0 || l.microtaskYield.Load() || !l.microtaskQueuesEmpty() || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.activePhaseJobCount.Load() > 0 || l.ownerPhaseWorkAlive() {
+			return true
+		}
+
+		if l.testHooks != nil && l.testHooks.BeforeAliveEpochValidation != nil {
+			l.testHooks.BeforeAliveEpochValidation()
 		}
 		// Validate epoch: if unchanged, no concurrent work was added during checks
-		if x.submissionEpoch.Load() == epoch {
+		if l.submissionEpoch.Load() == epoch {
 			return false
 		}
 		// Epoch changed — concurrent work was added. Retry.
@@ -208,40 +208,40 @@ func (x *Loop) Alive() bool {
 // auxiliary phase batches remain visible until the whole accepted batch
 // completes. External callers conservatively retain dynamic check work without
 // invoking its owner-affine liveness predicate.
-func (x *Loop) HasMacrotaskWork() bool {
-	state := x.state.Load()
-	if (state == StateTerminating || state == StateTerminated) && x.immediateCloseWon() {
+func (l *Loop) HasMacrotaskWork() bool {
+	state := l.state.Load()
+	if (state == StateTerminating || state == StateTerminated) && l.immediateCloseWon() {
 		return false
 	}
-	if x.commandIngressPending.Load() && x.ownsLocalQueues() {
-		x.drainCommandIngress()
+	if l.commandIngressPending.Load() && l.ownsLocalQueues() {
+		l.drainCommandIngress()
 	}
 	const maxRetries = 3
 	for range maxRetries {
-		epoch := x.submissionEpoch.Load()
+		epoch := l.submissionEpoch.Load()
 
-		if x.refedTimerCount.Load() > 0 || x.promisifyCount.Load() > 0 || x.userIOFDCount.Load() > 0 || x.microtaskYield.Load() {
+		if l.refedTimerCount.Load() > 0 || l.promisifyCount.Load() > 0 || l.userIOFDCount.Load() > 0 || l.microtaskYield.Load() {
 			return true
 		}
-		if x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.activePhaseJobCount.Load() > 0 {
+		if l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.activePhaseJobCount.Load() > 0 {
 			return true
 		}
-		if x.ownerPhaseWorkAlive() {
-			return true
-		}
-
-		x.externalMu.Lock()
-		commands := x.snapshotCommandsLocked()
-		checkJobs := x.snapshotCheckJobsLocked()
-		x.externalMu.Unlock()
-		if x.hasLiveCheckJob(checkJobs) || x.hasMacrotaskCommand(commands) {
-			return true
-		}
-		if x.refedTimerCount.Load() > 0 || x.promisifyCount.Load() > 0 || x.userIOFDCount.Load() > 0 || x.microtaskYield.Load() || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.activePhaseJobCount.Load() > 0 || x.ownerPhaseWorkAlive() {
+		if l.ownerPhaseWorkAlive() {
 			return true
 		}
 
-		if x.submissionEpoch.Load() == epoch {
+		l.externalMu.Lock()
+		commands := l.snapshotCommandsLocked()
+		checkJobs := l.snapshotCheckJobsLocked()
+		l.externalMu.Unlock()
+		if l.hasLiveCheckJob(checkJobs) || l.hasMacrotaskCommand(commands) {
+			return true
+		}
+		if l.refedTimerCount.Load() > 0 || l.promisifyCount.Load() > 0 || l.userIOFDCount.Load() > 0 || l.microtaskYield.Load() || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.activePhaseJobCount.Load() > 0 || l.ownerPhaseWorkAlive() {
+			return true
+		}
+
+		if l.submissionEpoch.Load() == epoch {
 			return false
 		}
 	}

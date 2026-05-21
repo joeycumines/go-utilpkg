@@ -18,8 +18,8 @@ import (
 // Before Run starts, the change is queued in that same order and returns
 // without waiting for an owner.
 // Silently ignores timers that have already fired or don't exist.
-func (x *Loop) RefTimer(id TimerID) error {
-	return x.submitTimerRefChange(id, true, true)
+func (l *Loop) RefTimer(id TimerID) error {
+	return l.submitTimerRefChange(id, true, true)
 }
 
 // UnrefTimer marks the timer as NOT keeping the event loop alive.
@@ -37,19 +37,19 @@ func (x *Loop) RefTimer(id TimerID) error {
 // Before Run starts, the change is queued in that same order and returns
 // without waiting for an owner.
 // Silently ignores timers that have already fired or don't exist.
-func (x *Loop) UnrefTimer(id TimerID) error {
-	return x.submitTimerRefChange(id, false, true)
+func (l *Loop) UnrefTimer(id TimerID) error {
+	return l.submitTimerRefChange(id, false, true)
 }
 
 // queueTimerRefChange accepts a timer ref-state change without waiting for the
 // loop owner. Adapter handle arbitration must establish validity before calling
 // this method because asynchronous completion cannot report a later timer miss.
-func (x *Loop) queueTimerRefChange(id TimerID, ref bool) error {
-	return x.submitTimerRefChange(id, ref, false)
+func (l *Loop) queueTimerRefChange(id TimerID, ref bool) error {
+	return l.submitTimerRefChange(id, ref, false)
 }
 
-func (x *Loop) submitTimerRefChange(id TimerID, ref, wait bool) error {
-	initialState := x.state.Load()
+func (l *Loop) submitTimerRefChange(id TimerID, ref, wait bool) error {
+	initialState := l.state.Load()
 	if initialState == StateTerminated || (!wait && initialState == StateTerminating) {
 		return ErrLoopTerminated
 	}
@@ -61,39 +61,39 @@ func (x *Loop) submitTimerRefChange(id TimerID, ref, wait bool) error {
 		cmd := loopCommand{kind: kind, token: uint64(id)}
 		if ref {
 			var beforeCommit func()
-			if x.testHooks != nil {
-				beforeCommit = x.testHooks.BeforeTimerRefCommit
+			if l.testHooks != nil {
+				beforeCommit = l.testHooks.BeforeTimerRefCommit
 			}
-			return x.submitLivenessCommand(cmd, beforeCommit)
+			return l.submitLivenessCommand(cmd, beforeCommit)
 		}
-		return x.enqueueCommand(cmd, x.terminalQueueAllowed)
+		return l.enqueueCommand(cmd, l.terminalQueueAllowed)
 	}
-	if x.ownsLocalQueues() {
+	if l.ownsLocalQueues() {
 		if ref {
-			x.livenessMu.Lock()
-			if err := x.rejectLivenessAddLocked(); err != nil {
-				x.livenessMu.Unlock()
+			l.livenessMu.Lock()
+			if err := l.rejectLivenessAddLocked(); err != nil {
+				l.livenessMu.Unlock()
 				return err
 			}
 		}
-		x.materializeCommandIngress()
-		x.applyTimerRefChange(id, ref)
+		l.materializeCommandIngress()
+		l.applyTimerRefChange(id, ref)
 		if ref {
-			x.livenessMu.Unlock()
+			l.livenessMu.Unlock()
 		}
 		return nil
 	}
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateAwake {
 		cmd := loopCommand{kind: kind, token: uint64(id)}
 		if ref {
 			var beforeCommit func()
-			if x.testHooks != nil {
-				beforeCommit = x.testHooks.BeforeTimerRefCommit
+			if l.testHooks != nil {
+				beforeCommit = l.testHooks.BeforeTimerRefCommit
 			}
-			return x.submitLivenessCommand(cmd, beforeCommit)
+			return l.submitLivenessCommand(cmd, beforeCommit)
 		}
-		return x.enqueueCommand(cmd, x.terminalQueueAllowed)
+		return l.enqueueCommand(cmd, l.terminalQueueAllowed)
 	}
 	// External goroutine: synchronous command submission to ensure the ref change
 	// is applied before any later due timer phase that observes the accepted
@@ -103,19 +103,19 @@ func (x *Loop) submitTimerRefChange(id TimerID, ref, wait bool) error {
 	cmd := loopCommand{kind: kind, token: uint64(id), result: result}
 	if ref {
 		var beforeCommit func()
-		if x.testHooks != nil {
-			beforeCommit = x.testHooks.BeforeTimerRefCommit
+		if l.testHooks != nil {
+			beforeCommit = l.testHooks.BeforeTimerRefCommit
 		}
-		if err := x.submitLivenessCommand(cmd, beforeCommit); err != nil {
+		if err := l.submitLivenessCommand(cmd, beforeCommit); err != nil {
 			return err
 		}
-	} else if err := x.enqueueCommand(cmd, x.terminalQueueAllowed); err != nil {
+	} else if err := l.enqueueCommand(cmd, l.terminalQueueAllowed); err != nil {
 		return err
 	}
-	if x.testHooks != nil && x.testHooks.AfterSynchronousTimerCommandPublish != nil {
-		x.testHooks.AfterSynchronousTimerCommandPublish(kind)
+	if l.testHooks != nil && l.testHooks.AfterSynchronousTimerCommandPublish != nil {
+		l.testHooks.AfterSynchronousTimerCommandPublish(kind)
 	}
-	return x.awaitCancelTimerResult(result)
+	return l.awaitCancelTimerResult(result)
 }
 
 // applyTimerRefChange applies the ref/unref change directly.
@@ -126,8 +126,8 @@ func (x *Loop) submitTimerRefChange(id TimerID, ref, wait bool) error {
 // registrations, cancellations, and ref changes apply in acceptance order before
 // due timers can run.
 // When called from the logical owner, ScheduleTimer registers synchronously.
-func (x *Loop) applyTimerRefChange(id TimerID, ref bool) {
-	t, ok := x.timerMap[id]
+func (l *Loop) applyTimerRefChange(id TimerID, ref bool) {
+	t, ok := l.timerMap[id]
 	if !ok {
 		// Timer already fired, was cancelled, or doesn't exist. Silently ignore.
 		return
@@ -135,18 +135,18 @@ func (x *Loop) applyTimerRefChange(id TimerID, ref bool) {
 	old := t.refed.Swap(ref)
 	if old != ref {
 		if ref {
-			x.refedTimerCount.Add(1)
+			l.refedTimerCount.Add(1)
 		} else {
-			x.refedTimerCount.Add(-1)
+			l.refedTimerCount.Add(-1)
 		}
 		// Increment epoch to ensure Alive() detects the liveness change
-		x.submissionEpoch.Add(1)
+		l.submissionEpoch.Add(1)
 		// Wake the loop so auto-exit re-checks Alive() after the count changes.
 		// Only needed when auto-exit is enabled: the loop may be in PollIO
 		// and needs to return so the auto-exit check sees the liveness transition.
 		// When auto-exit is disabled, no liveness re-evaluation wake is needed.
-		if x.autoExit {
-			x.doWakeup()
+		if l.autoExit {
+			l.doWakeup()
 		}
 	}
 }
@@ -167,44 +167,44 @@ func (x *Loop) applyTimerRefChange(id TimerID, ref bool) {
 // Not gated by the quiescing flag: cancellation reduces liveness (opposite of
 // ScheduleTimer which IS gated). This asymmetry is intentional — during the
 // quiescing window, callers can cancel timers but not schedule new ones.
-func (x *Loop) CancelTimer(id TimerID) error {
-	return x.cancelTimer(id, true)
+func (l *Loop) CancelTimer(id TimerID) error {
+	return l.cancelTimer(id, true)
 }
 
 // queueTimerCancel accepts cancellation without waiting for the loop owner. It
 // does not suppress a callback whose entry has already been claimed. Adapter
 // callers that promise stronger suppression must arbitrate their handle first.
-func (x *Loop) queueTimerCancel(id TimerID) error {
-	return x.cancelTimer(id, false)
+func (l *Loop) queueTimerCancel(id TimerID) error {
+	return l.cancelTimer(id, false)
 }
 
-func (x *Loop) queueTimerCancels(ids []TimerID) error {
+func (l *Loop) queueTimerCancels(ids []TimerID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return x.enqueueCommand(loopCommand{
+	return l.enqueueCommand(loopCommand{
 		kind: loopCommandTimerCancelBatch,
 		ids:  slices.Clone(ids),
-	}, x.terminalQueueAllowed)
+	}, l.terminalQueueAllowed)
 }
 
-func (x *Loop) cancelTimer(id TimerID, wait bool) error {
+func (l *Loop) cancelTimer(id TimerID, wait bool) error {
 	// Check if loop is in a valid state for cancellation.
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminated || (!wait && state == StateTerminating) {
 		return ErrLoopTerminated
 	}
 	if !wait {
-		return x.enqueueCommand(loopCommand{kind: loopCommandTimerCancel, token: uint64(id)}, x.terminalQueueAllowed)
+		return l.enqueueCommand(loopCommand{kind: loopCommandTimerCancel, token: uint64(id)}, l.terminalQueueAllowed)
 	}
 
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		return x.applyCancelTimer(id)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		return l.applyCancelTimer(id)
 	}
 
 	if state == StateAwake {
-		if err, handled := x.cancelTimerBeforeRun(id); handled {
+		if err, handled := l.cancelTimerBeforeRun(id); handled {
 			return err
 		}
 	}
@@ -214,44 +214,44 @@ func (x *Loop) cancelTimer(id TimerID, wait bool) error {
 	// Submit as a timer lifecycle command so an accepted cancellation cannot be
 	// overtaken by a due timer merely because internal/control work runs after the
 	// timer phase.
-	if err := x.enqueueCommand(loopCommand{kind: loopCommandTimerCancel, token: uint64(id), result: result}, x.terminalQueueAllowed); err != nil {
+	if err := l.enqueueCommand(loopCommand{kind: loopCommandTimerCancel, token: uint64(id), result: result}, l.terminalQueueAllowed); err != nil {
 		return err
 	}
-	if x.testHooks != nil && x.testHooks.AfterSynchronousTimerCommandPublish != nil {
-		x.testHooks.AfterSynchronousTimerCommandPublish(loopCommandTimerCancel)
+	if l.testHooks != nil && l.testHooks.AfterSynchronousTimerCommandPublish != nil {
+		l.testHooks.AfterSynchronousTimerCommandPublish(loopCommandTimerCancel)
 	}
 
-	return x.awaitCancelTimerResult(result)
+	return l.awaitCancelTimerResult(result)
 }
 
-func (x *Loop) cancelTimerBeforeRun(id TimerID) (error, bool) {
-	x.externalMu.Lock()
-	if x.state.Load() != StateAwake {
-		x.externalMu.Unlock()
+func (l *Loop) cancelTimerBeforeRun(id TimerID) (error, bool) {
+	l.externalMu.Lock()
+	if l.state.Load() != StateAwake {
+		l.externalMu.Unlock()
 		return nil, false
 	}
-	live := x.pendingTimerIDsLocked()
+	live := l.pendingTimerIDsLocked()
 	if _, ok := live[id]; !ok {
-		x.externalMu.Unlock()
+		l.externalMu.Unlock()
 		return ErrTimerNotFound, true
 	}
-	x.enqueueCommandLocked(loopCommand{kind: loopCommandTimerCancel, token: uint64(id)})
-	x.externalMu.Unlock()
-	x.wakeAfterIngress()
+	l.enqueueCommandLocked(loopCommand{kind: loopCommandTimerCancel, token: uint64(id)})
+	l.externalMu.Unlock()
+	l.wakeAfterIngress()
 	return nil, true
 }
 
-func (x *Loop) awaitCancelTimerResult(result <-chan error) error {
+func (l *Loop) awaitCancelTimerResult(result <-chan error) error {
 	select {
 	case err := <-result:
 		return err
-	case <-x.loopDone:
+	case <-l.loopDone:
 		select {
 		case err := <-result:
 			return err
 		default:
 		}
-		if done, active := x.terminalDrainWaiter(); active {
+		if done, active := l.terminalDrainWaiter(); active {
 			select {
 			case err := <-result:
 				return err
@@ -269,8 +269,8 @@ func (x *Loop) awaitCancelTimerResult(result <-chan error) error {
 
 // applyCancelTimer cancels a timer by ID. It must be called by the logical loop
 // or terminal-drain owner.
-func (x *Loop) applyCancelTimer(id TimerID) error {
-	t, exists := x.timerMap[id]
+func (l *Loop) applyCancelTimer(id TimerID) error {
+	t, exists := l.timerMap[id]
 	if !exists {
 		// Timer not in map — already fired or cancelled
 		return ErrTimerNotFound
@@ -283,18 +283,18 @@ func (x *Loop) applyCancelTimer(id TimerID) error {
 	// cancellation so a duplicate observes the sequential ErrTimerNotFound
 	// result. runTimers later sees refed=false and cannot double-decrement.
 	if t.list == nil {
-		x.deleteTimer(id)
+		l.deleteTimer(id)
 		if t.refed.Swap(false) {
-			x.refedTimerCount.Add(-1)
+			l.refedTimerCount.Add(-1)
 		}
 		return nil
 	}
 	// Timer is still pending in a deadline list — we own the cleanup.
-	x.deleteTimer(id)
+	l.deleteTimer(id)
 	if t.refed.Swap(false) {
-		x.refedTimerCount.Add(-1)
+		l.refedTimerCount.Add(-1)
 	}
-	x.unlinkTimerNode(t)
+	l.unlinkTimerNode(t)
 	// Return timer to pool
 	resetTimerForPool(t)
 	timerPool.Put(t)
@@ -322,13 +322,13 @@ func (x *Loop) applyCancelTimer(id TimerID) error {
 // ScheduleTimer which IS gated). See CancelTimer for rationale.
 //
 // Thread Safety: Safe to call from any goroutine.
-func (x *Loop) CancelTimers(ids ...TimerID) []error {
+func (l *Loop) CancelTimers(ids ...TimerID) []error {
 	if len(ids) == 0 {
 		return nil
 	}
 
 	// Check if loop is in a valid state for cancellation.
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminated {
 		errors := make([]error, len(ids))
 		for i := range errors {
@@ -337,15 +337,15 @@ func (x *Loop) CancelTimers(ids ...TimerID) []error {
 		return errors
 	}
 
-	if x.ownsLocalQueues() {
-		x.materializeCommandIngress()
-		return x.applyCancelTimers(ids)
+	if l.ownsLocalQueues() {
+		l.materializeCommandIngress()
+		return l.applyCancelTimers(ids)
 	}
 
 	ids = slices.Clone(ids)
 
 	if state == StateAwake {
-		if errors, handled := x.cancelTimersBeforeRun(ids); handled {
+		if errors, handled := l.cancelTimersBeforeRun(ids); handled {
 			return errors
 		}
 	}
@@ -354,7 +354,7 @@ func (x *Loop) CancelTimers(ids ...TimerID) []error {
 
 	// Submit as one timer lifecycle command so the batch cannot be overtaken by a
 	// due timer phase after timer registrations have transferred from ingress.
-	if err := x.enqueueCommand(loopCommand{kind: loopCommandTimerCancelBatch, ids: ids, results: result}, x.terminalQueueAllowed); err != nil {
+	if err := l.enqueueCommand(loopCommand{kind: loopCommandTimerCancelBatch, ids: ids, results: result}, l.terminalQueueAllowed); err != nil {
 		// submitToQueue failed, return error for all IDs
 		errors := make([]error, len(ids))
 		for i := range errors {
@@ -362,20 +362,20 @@ func (x *Loop) CancelTimers(ids ...TimerID) []error {
 		}
 		return errors
 	}
-	if x.testHooks != nil && x.testHooks.AfterSynchronousTimerCommandPublish != nil {
-		x.testHooks.AfterSynchronousTimerCommandPublish(loopCommandTimerCancelBatch)
+	if l.testHooks != nil && l.testHooks.AfterSynchronousTimerCommandPublish != nil {
+		l.testHooks.AfterSynchronousTimerCommandPublish(loopCommandTimerCancelBatch)
 	}
 
-	return x.awaitCancelTimersResult(result, len(ids))
+	return l.awaitCancelTimersResult(result, len(ids))
 }
 
-func (x *Loop) cancelTimersBeforeRun(ids []TimerID) ([]error, bool) {
-	x.externalMu.Lock()
-	if x.state.Load() != StateAwake {
-		x.externalMu.Unlock()
+func (l *Loop) cancelTimersBeforeRun(ids []TimerID) ([]error, bool) {
+	l.externalMu.Lock()
+	if l.state.Load() != StateAwake {
+		l.externalMu.Unlock()
 		return nil, false
 	}
-	live := x.pendingTimerIDsLocked()
+	live := l.pendingTimerIDsLocked()
 	errors := make([]error, len(ids))
 	accepted := false
 	for index, id := range ids {
@@ -387,22 +387,22 @@ func (x *Loop) cancelTimersBeforeRun(ids []TimerID) ([]error, bool) {
 		accepted = true
 	}
 	if accepted {
-		x.enqueueCommandLocked(loopCommand{kind: loopCommandTimerCancelBatch, ids: ids})
+		l.enqueueCommandLocked(loopCommand{kind: loopCommandTimerCancelBatch, ids: ids})
 	}
-	x.externalMu.Unlock()
+	l.externalMu.Unlock()
 	if accepted {
-		x.wakeAfterIngress()
+		l.wakeAfterIngress()
 	}
 	return errors, true
 }
 
-func (x *Loop) pendingTimerIDsLocked() map[TimerID]struct{} {
+func (l *Loop) pendingTimerIDsLocked() map[TimerID]struct{} {
 	live := make(map[TimerID]struct{})
-	if x.commands == nil {
+	if l.commands == nil {
 		return live
 	}
-	for index := x.commands.head; index < len(x.commands.cmds); index++ {
-		cmd := x.commands.cmds[index]
+	for index := l.commands.head; index < len(l.commands.cmds); index++ {
+		cmd := l.commands.cmds[index]
 		switch cmd.kind {
 		case loopCommandTimerAdd:
 			if cmd.timer != nil {
@@ -419,17 +419,17 @@ func (x *Loop) pendingTimerIDsLocked() map[TimerID]struct{} {
 	return live
 }
 
-func (x *Loop) awaitCancelTimersResult(result <-chan []error, count int) []error {
+func (l *Loop) awaitCancelTimersResult(result <-chan []error, count int) []error {
 	select {
 	case res := <-result:
 		return res
-	case <-x.loopDone:
+	case <-l.loopDone:
 		select {
 		case res := <-result:
 			return res
 		default:
 		}
-		if done, active := x.terminalDrainWaiter(); active {
+		if done, active := l.terminalDrainWaiter(); active {
 			select {
 			case res := <-result:
 				return res
@@ -451,10 +451,10 @@ func (x *Loop) awaitCancelTimersResult(result <-chan []error, count int) []error
 
 // applyCancelTimers cancels multiple timers. It must run under logical owner
 // access to timerMap.
-func (x *Loop) applyCancelTimers(ids []TimerID) []error {
+func (l *Loop) applyCancelTimers(ids []TimerID) []error {
 	errors := make([]error, len(ids))
 	for i, id := range ids {
-		errors[i] = x.applyCancelTimer(id)
+		errors[i] = l.applyCancelTimer(id)
 	}
 	return errors
 }

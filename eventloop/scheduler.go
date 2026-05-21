@@ -45,60 +45,60 @@ func validateFastPathMode(mode FastPathMode) error {
 // registration and mutation.
 //
 // SetFastPathMode panics if mode is not a declared [FastPathMode] value.
-func (x *Loop) SetFastPathMode(mode FastPathMode) error {
+func (l *Loop) SetFastPathMode(mode FastPathMode) error {
 	if err := validateFastPathMode(mode); err != nil {
 		panic(fmt.Errorf("eventloop: SetFastPathMode: %w", err))
 	}
 	if mode == FastPathDisabled && fdPollingSupported {
-		if err := x.ensurePollerForModeChange(); err != nil {
+		if err := l.ensurePollerForModeChange(); err != nil {
 			return err
 		}
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeSetFastPathModeLock != nil {
-		x.testHooks.BeforeSetFastPathModeLock()
+	if l.testHooks != nil && l.testHooks.BeforeSetFastPathModeLock != nil {
+		l.testHooks.BeforeSetFastPathModeLock()
 	}
-	x.livenessMu.Lock()
-	if x.state.Load() == StateTerminating || x.state.Load() == StateTerminated {
-		x.livenessMu.Unlock()
+	l.livenessMu.Lock()
+	if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+		l.livenessMu.Unlock()
 		return ErrLoopTerminated
 	}
 
-	if mode == FastPathForced && x.userIOFDCount.Load() > 0 {
-		x.livenessMu.Unlock()
+	if mode == FastPathForced && l.userIOFDCount.Load() > 0 {
+		l.livenessMu.Unlock()
 		return ErrFastPathIncompatible
 	}
 
-	x.fastPathMode.Store(int32(mode))
+	l.fastPathMode.Store(int32(mode))
 	if mode != FastPathForced {
-		x.fastPathInvariantLogged.Store(false)
+		l.fastPathInvariantLogged.Store(false)
 	}
-	x.livenessMu.Unlock()
+	l.livenessMu.Unlock()
 
 	// Wake the loop so it immediately re-evaluates the mode.
-	x.doWakeup()
+	l.doWakeup()
 
 	return nil
 }
 
 // canUseFastPath returns true if fast path can be used right now.
 // This consolidates all conditions into a single check.
-func (x *Loop) canUseFastPath() bool {
-	mode := FastPathMode(x.fastPathMode.Load())
+func (l *Loop) canUseFastPath() bool {
+	mode := FastPathMode(l.fastPathMode.Load())
 	switch mode {
 	case FastPathForced:
-		if x.userIOFDCount.Load() > 0 {
-			if !x.fastPathInvariantLogged.Swap(true) {
-				x.logCritical("eventloop: FastPathForced with registered I/O FDs; falling back to poll path", ErrFastPathIncompatible)
+		if l.userIOFDCount.Load() > 0 {
+			if !l.fastPathInvariantLogged.Swap(true) {
+				l.logCritical("eventloop: FastPathForced with registered I/O FDs; falling back to poll path", ErrFastPathIncompatible)
 			}
 			return false
 		}
-		x.fastPathInvariantLogged.Store(false)
+		l.fastPathInvariantLogged.Store(false)
 		return true
 	case FastPathDisabled:
 		return false
 	default: // FastPathAuto
-		return x.userIOFDCount.Load() == 0
+		return l.userIOFDCount.Load() == 0
 	}
 }
 
@@ -109,147 +109,147 @@ func (x *Loop) canUseFastPath() bool {
 //   - skipping only the blocking poll and timer phases while no timers exist,
 //   - preserving per-callback microtask checkpoints, and
 //   - continuing later fast turns for work admitted beyond the current snapshot.
-func (x *Loop) runAux() {
-	if x.hardAbortRequested() {
+func (l *Loop) runAux() {
+	if l.hardAbortRequested() {
 		return
 	}
-	x.tickCount++
-	x.drainCommandIngress()
-	x.recordQueueMetrics()
-	if x.hasTimersPending() {
+	l.tickCount++
+	l.drainCommandIngress()
+	l.recordQueueMetrics()
+	if l.hasTimersPending() {
 		return
 	}
-	x.tickActive = true
-	defer func() { x.tickActive = false }()
-	x.refreshTickTime()
+	l.tickActive = true
+	defer func() { l.tickActive = false }()
+	l.refreshTickTime()
 
 	// Fast-path turns must begin with the same nextTick / promise-microtask
 	// checkpoint as the normal tick path. Without this, work submitted before Run
 	// or while the fast path is blocked can overtake already-pending microtasks.
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
-	if x.autoExitReady() {
+	if l.autoExitReady() {
 		return
 	}
-	x.processCheckQueue()
-	if x.hardAbortRequested() {
-		return
-	}
-
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
-		return
-	}
-	if x.autoExitReady() {
+	l.processCheckQueue()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.processCloseQueue()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
+		return
+	}
+	if l.autoExitReady() {
 		return
 	}
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
-		return
-	}
-	if x.autoExitReady() {
+	l.processCloseQueue()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.processInternalQueue()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
+		return
+	}
+	if l.autoExitReady() {
 		return
 	}
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.processInternalQueue()
+	if l.hardAbortRequested() {
+		return
+	}
+
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Drain public Submit work after internal/control work, matching normal tick
 	// priority while retaining processExternal's bounded snapshot and pressure
 	// signal for producer pressure.
-	x.processExternal()
-	if x.hardAbortRequested() {
+	l.processExternal()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Drain microtasks (safety net — catches any microtasks from the last task's drain)
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 }
 
 // hasTimersPending returns true if there are pending timers.
 // NOTE: This is only called from the loop goroutine, so no mutex needed.
 // tick is a single iteration of the event loop.
-func (x *Loop) tick() {
-	x.tickCount++
-	x.drainCommandIngress()
-	x.tickActive = true
-	defer func() { x.tickActive = false }()
+func (l *Loop) tick() {
+	l.tickCount++
+	l.drainCommandIngress()
+	l.tickActive = true
+	defer func() { l.tickActive = false }()
 
-	x.recordQueueMetrics()
+	l.recordQueueMetrics()
 
 	// Update elapsed monotonic time offset from anchor.
-	x.refreshTickTime()
+	l.refreshTickTime()
 
 	// Drain microtasks at the start of each tick to catch any that were
 	// scheduled during the previous tick's final drain or between ticks.
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Node v20+/libuv 1.45+ observes poll before timers in the JS-facing
 	// topology; calculateTimeout returns zero for already-due timers, so this
 	// poll phase will not sleep past due timer work.
-	x.poll()
-	if x.hardAbortRequested() {
+	l.poll()
+	if l.hardAbortRequested() {
 		return
 	}
-	if x.autoExitReady() {
+	if l.autoExitReady() {
 		return
 	}
-	x.refreshTickTime()
+	l.refreshTickTime()
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
-	if x.autoExitReady() {
-		return
-	}
-
-	x.processCheckQueue()
-	if x.hardAbortRequested() {
+	if l.autoExitReady() {
 		return
 	}
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
-		return
-	}
-	if x.autoExitReady() {
+	l.processCheckQueue()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.processCloseQueue()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
+		return
+	}
+	if l.autoExitReady() {
 		return
 	}
 
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.processCloseQueue()
+	if l.hardAbortRequested() {
 		return
 	}
-	if x.autoExitReady() {
+
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
+		return
+	}
+	if l.autoExitReady() {
 		return
 	}
 
@@ -257,66 +257,66 @@ func (x *Loop) tick() {
 	// from a check callback reaches the next check phase before timers that were
 	// scheduled from the prior check callback but have not yet reached their
 	// minimum threshold.
-	if x.testHooks != nil && x.testHooks.BeforeRunTimers != nil {
-		x.testHooks.BeforeRunTimers()
+	if l.testHooks != nil && l.testHooks.BeforeRunTimers != nil {
+		l.testHooks.BeforeRunTimers()
 	}
-	x.runTimers()
-	if x.hardAbortRequested() {
+	l.runTimers()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Inter-phase drain: catch microtasks from timer callbacks before
 	// processing the internal queue.
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.processInternalQueue()
-	if x.hardAbortRequested() {
+	l.processInternalQueue()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Inter-phase drain: catch microtasks from internal tasks before
 	// processing the external queue.
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
-	x.processExternal()
-	if x.hardAbortRequested() {
+	l.processExternal()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Inter-phase drain: catch microtasks from external tasks.
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
 
 	// Safety net drain: catches any microtasks that escaped per-callback draining
 	// before registry scavenging or the next tick.
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 
 	// Scavenge registry - limit per tick to avoid stalling
 	const registryScavengeLimit = 20
-	x.registry.Scavenge(registryScavengeLimit)
+	l.registry.Scavenge(registryScavengeLimit)
 }
 
-func (x *Loop) recordQueueMetrics() {
-	if x.metrics == nil {
+func (l *Loop) recordQueueMetrics() {
+	if l.metrics == nil {
 		return
 	}
-	x.externalMu.Lock()
+	l.externalMu.Lock()
 	// Close the post-drain publication race so the sample represents every
 	// command acknowledged before this owner-turn boundary.
-	x.drainCommandIngressLocked()
-	ingressDepth := int(x.ownerExternalCount.Load()+x.ownerCheckCount.Load()+x.ownerCloseCount.Load()) + len(x.checkJobs) + len(x.closeJobs)
-	internalDepth := int(x.ownerInternalCount.Load())
-	microtaskDepth := int(x.ownerMicroCount.Load() + x.ingressMicroCount.Load())
-	x.externalMu.Unlock()
-	x.metrics.recordQueueDepths(
+	l.drainCommandIngressLocked()
+	ingressDepth := int(l.ownerExternalCount.Load()+l.ownerCheckCount.Load()+l.ownerCloseCount.Load()) + len(l.checkJobs) + len(l.closeJobs)
+	internalDepth := int(l.ownerInternalCount.Load())
+	microtaskDepth := int(l.ownerMicroCount.Load() + l.ingressMicroCount.Load())
+	l.externalMu.Unlock()
+	l.metrics.recordQueueDepths(
 		ingressDepth,
 		internalDepth,
 		microtaskDepth,
@@ -324,22 +324,22 @@ func (x *Loop) recordQueueMetrics() {
 }
 
 // processInternalQueue drains the internal priority queue.
-func (x *Loop) processInternalQueue() bool {
-	if x.hardAbortRequested() {
+func (l *Loop) processInternalQueue() bool {
+	if l.hardAbortRequested() {
 		return false
 	}
-	x.drainCommandIngress()
+	l.drainCommandIngress()
 	processed := false
-	ownerSnapshot := x.ownerInternal.Len()
+	ownerSnapshot := l.ownerInternal.Len()
 	for range ownerSnapshot {
-		task := x.popOwnerInternal()
+		task := l.popOwnerInternal()
 		if task == nil {
 			break
 		}
-		x.safeExecute(task)
-		x.drainMicrotasks()
+		l.safeExecute(task)
+		l.drainMicrotasks()
 		processed = true
-		if x.hardAbortRequested() {
+		if l.hardAbortRequested() {
 			return processed
 		}
 	}
@@ -347,79 +347,79 @@ func (x *Loop) processInternalQueue() bool {
 }
 
 // processExternal processes the external queue phase snapshot.
-func (x *Loop) processExternal() {
-	if x.hardAbortRequested() {
+func (l *Loop) processExternal() {
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainCommandIngress()
+	l.drainCommandIngress()
 	// Drain the owner queue using a phase snapshot. Concurrent ingress is first
 	// materialized by drainCommandIngress and submissions admitted during this
 	// phase wait for a later tick.
-	ownerSnapshot := x.ownerExternal.Len()
+	ownerSnapshot := l.ownerExternal.Len()
 
 	processed := 0
 	for range ownerSnapshot {
-		task := x.popOwnerExternal()
+		task := l.popOwnerExternal()
 		if task == nil {
 			break
 		}
 		processed++
-		x.safeExecute(task)
-		x.drainMicrotasks()
-		if x.hardAbortRequested() {
+		l.safeExecute(task)
+		l.drainMicrotasks()
+		if l.hardAbortRequested() {
 			break
 		}
 	}
 
-	if x.hardAbortRequested() {
+	if l.hardAbortRequested() {
 		return
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeExternalPressureCheck != nil {
-		x.testHooks.BeforeExternalPressureCheck()
-		if x.hardAbortRequested() {
+	if l.testHooks != nil && l.testHooks.BeforeExternalPressureCheck != nil {
+		l.testHooks.BeforeExternalPressureCheck()
+		if l.hardAbortRequested() {
 			return
 		}
 	}
 
-	x.externalMu.Lock()
-	remainingTasks := int(x.ownerExternalCount.Load()) + x.externalCommandCountLocked()
-	x.externalMu.Unlock()
+	l.externalMu.Lock()
+	remainingTasks := int(l.ownerExternalCount.Load()) + l.externalCommandCountLocked()
+	l.externalMu.Unlock()
 
 	// Emit a pressure signal if work remains beyond this phase snapshot. This is
 	// not a numeric callback budget; it indicates producers outpaced the current
 	// phase snapshot and callers may want backpressure.
-	if processed > 0 && remainingTasks > 0 && x.queuePressureHandler != nil {
-		if !x.beginCallbackExecution() {
+	if processed > 0 && remainingTasks > 0 && l.queuePressureHandler != nil {
+		if !l.beginCallbackExecution() {
 			return
 		}
-		outcome := x.executeCallback(x.queuePressureHandler, true)
-		x.logCallbackOutcome("queue pressure handler", outcome)
+		outcome := l.executeCallback(l.queuePressureHandler, true)
+		l.logCallbackOutcome("queue pressure handler", outcome)
 	}
 }
 
-func (x *Loop) processCheckQueue() {
-	if x.hardAbortRequested() {
+func (l *Loop) processCheckQueue() {
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainCommandIngress()
-	if x.hardAbortRequested() {
+	l.drainCommandIngress()
+	if l.hardAbortRequested() {
 		return
 	}
-	x.externalMu.Lock()
-	batch := x.takeCheckPhaseBatchLocked()
+	l.externalMu.Lock()
+	batch := l.takeCheckPhaseBatchLocked()
 	count := batch.remaining()
-	x.startPhaseBatch(count)
-	x.externalMu.Unlock()
+	l.startPhaseBatch(count)
+	l.externalMu.Unlock()
 
 	if count == 0 {
-		x.releaseCheckPhaseBatch(&batch)
-		x.releaseMicrotaskYieldAtEmptyCheck()
+		l.releaseCheckPhaseBatch(&batch)
+		l.releaseMicrotaskYieldAtEmptyCheck()
 		return
 	}
 	defer func() {
-		x.releaseCheckPhaseBatch(&batch)
-		x.finishPhaseBatch(count)
+		l.releaseCheckPhaseBatch(&batch)
+		l.finishPhaseBatch(count)
 	}()
 
 	for {
@@ -427,35 +427,35 @@ func (x *Loop) processCheckQueue() {
 		if !ok {
 			break
 		}
-		x.safeExecute(job.fn)
-		x.drainMicrotasks()
-		if x.hardAbortRequested() {
+		l.safeExecute(job.fn)
+		l.drainMicrotasks()
+		if l.hardAbortRequested() {
 			break
 		}
 	}
 }
 
-func (x *Loop) processCloseQueue() {
-	if x.hardAbortRequested() {
+func (l *Loop) processCloseQueue() {
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainCommandIngress()
-	if x.hardAbortRequested() {
+	l.drainCommandIngress()
+	if l.hardAbortRequested() {
 		return
 	}
-	x.externalMu.Lock()
-	batch := x.takeClosePhaseBatchLocked()
+	l.externalMu.Lock()
+	batch := l.takeClosePhaseBatchLocked()
 	count := batch.remaining()
-	x.startPhaseBatch(count)
-	x.externalMu.Unlock()
+	l.startPhaseBatch(count)
+	l.externalMu.Unlock()
 
 	if count == 0 {
-		x.releaseClosePhaseBatch(&batch)
+		l.releaseClosePhaseBatch(&batch)
 		return
 	}
 	defer func() {
-		x.releaseClosePhaseBatch(&batch)
-		x.finishPhaseBatch(count)
+		l.releaseClosePhaseBatch(&batch)
+		l.finishPhaseBatch(count)
 	}()
 
 	for {
@@ -463,9 +463,9 @@ func (x *Loop) processCloseQueue() {
 		if !ok {
 			break
 		}
-		x.safeExecute(job.fn)
-		x.drainMicrotasks()
-		if x.hardAbortRequested() {
+		l.safeExecute(job.fn)
+		l.drainMicrotasks()
+		if l.hardAbortRequested() {
 			break
 		}
 	}
@@ -494,15 +494,15 @@ func (x *Loop) processCloseQueue() {
 // which returns `logiface.ErrDisabled` without emitting an event. Only immediate
 // Close makes hardAbortRequested stop this checkpoint; context cancellation and
 // graceful Shutdown leave it exhaustive.
-func (x *Loop) drainMicrotasks() {
-	if x.hardAbortRequested() || x.microtaskYield.Load() {
+func (l *Loop) drainMicrotasks() {
+	if l.hardAbortRequested() || l.microtaskYield.Load() {
 		return
 	}
-	x.drainCommandIngress()
+	l.drainCommandIngress()
 	// Fast path: if both queues are empty, skip the loop entirely.
 	// This avoids per-iteration Pop() overhead when no microtasks are pending,
 	// which is the common case after most callbacks.
-	if x.microtaskQueuesEmpty() {
+	if l.microtaskQueuesEmpty() {
 		return
 	}
 
@@ -511,10 +511,10 @@ func (x *Loop) drainMicrotasks() {
 	warned := false
 
 	for {
-		if x.microtaskYield.Load() {
+		if l.microtaskYield.Load() {
 			return
 		}
-		x.drainCommandIngress()
+		l.drainCommandIngress()
 		progress := false
 
 		// Batch 1: drain ALL currently-available nextTick callbacks.
@@ -524,24 +524,24 @@ func (x *Loop) drainMicrotasks() {
 		// acknowledged ingress after each completed owner batch and repeat before
 		// entering the promise batch.
 		for {
-			executed, completed := x.drainOwnerMicrotaskBatch(x.ownerNextTick, true, false)
+			executed, completed := l.drainOwnerMicrotaskBatch(l.ownerNextTick, true, false)
 			progress = executed > 0 || progress
 			count += executed
-			if x.hardAbortRequested() || x.microtaskYield.Load() {
+			if l.hardAbortRequested() || l.microtaskYield.Load() {
 				return
 			}
 			if !warned && count >= safetyThreshold {
-				x.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+				l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
 				warned = true
 			}
 			if !completed {
 				continue
 			}
-			x.materializeCommandIngress()
-			if x.hardAbortRequested() {
+			l.materializeCommandIngress()
+			if l.hardAbortRequested() {
 				return
 			}
-			if x.ownerNextTick.IsEmpty() {
+			if l.ownerNextTick.IsEmpty() {
 				break
 			}
 		}
@@ -549,14 +549,14 @@ func (x *Loop) drainMicrotasks() {
 		// Batch 2: drain ALL currently-available promise microtasks.
 		// (Node: runMicrotasks -> V8 MicrotaskQueue::PerformCheckpoint.)
 		for {
-			executed, completed := x.drainOwnerPromiseMicrotaskBatch()
+			executed, completed := l.drainOwnerPromiseMicrotaskBatch()
 			progress = executed > 0 || progress
 			count += executed
-			if x.hardAbortRequested() || x.microtaskYield.Load() {
+			if l.hardAbortRequested() || l.microtaskYield.Load() {
 				return
 			}
 			if !warned && count >= safetyThreshold {
-				x.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+				l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
 				warned = true
 			}
 			if completed {
@@ -569,19 +569,19 @@ func (x *Loop) drainMicrotasks() {
 		// are not normal promise microtasks; re-enqueueing them into Batch 2 while
 		// nextTickQueue is non-empty would starve the nextTick batch that must run
 		// before the checkpoint is complete.
-		if x.primaryMicrotaskQueuesEmpty() {
+		if l.primaryMicrotaskQueuesEmpty() {
 			for {
-				executed, completed := x.drainOwnerMicrotaskBatch(x.ownerCheckpt, false, true)
+				executed, completed := l.drainOwnerMicrotaskBatch(l.ownerCheckpt, false, true)
 				progress = executed > 0 || progress
 				count += executed
-				if x.hardAbortRequested() || x.microtaskYield.Load() {
+				if l.hardAbortRequested() || l.microtaskYield.Load() {
 					return
 				}
 				if !warned && count >= safetyThreshold {
-					x.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+					l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
 					warned = true
 				}
-				if !x.primaryMicrotaskQueuesEmpty() {
+				if !l.primaryMicrotaskQueuesEmpty() {
 					break
 				}
 				if completed {
@@ -600,21 +600,21 @@ func (x *Loop) drainMicrotasks() {
 // exhaustive queue batch. A callback that calls runtime.Goexit retires the
 // worker; completed is false so the caller can resume the still-owned queue on
 // a replacement worker without losing the callbacks that were not yet popped.
-func (x *Loop) drainOwnerMicrotaskBatch(queue *localFnQueue, primary, stopOnPrimary bool) (executed int, completed bool) {
-	outcome := x.executeCallback(func() {
+func (l *Loop) drainOwnerMicrotaskBatch(queue *localFnQueue, primary, stopOnPrimary bool) (executed int, completed bool) {
+	outcome := l.executeCallback(func() {
 		for {
-			fn := x.popOwnerMicrotask(queue, primary)
+			fn := l.popOwnerMicrotask(queue, primary)
 			if fn == nil {
 				return
 			}
 			executed++
-			x.safeExecuteFnDirect(fn)
-			if x.hardAbortRequested() || x.microtaskYield.Load() || (stopOnPrimary && !x.primaryMicrotaskQueuesEmpty()) {
+			l.safeExecuteFnDirect(fn)
+			if l.hardAbortRequested() || l.microtaskYield.Load() || (stopOnPrimary && !l.primaryMicrotaskQueuesEmpty()) {
 				return
 			}
 		}
 	}, true)
-	x.logCallbackOutcome("task", outcome)
+	l.logCallbackOutcome("task", outcome)
 	return executed, outcome.returned
 }
 
@@ -622,43 +622,43 @@ func (x *Loop) drainOwnerMicrotaskBatch(queue *localFnQueue, primary, stopOnPrim
 // normal callback admission. If immediate Close closes that admission after the
 // microtask was accepted, the denied callback receives its terminal failure
 // instead of disappearing with a permanently pending child.
-func (x *Loop) drainOwnerPromiseMicrotaskBatch() (executed int, completed bool) {
-	outcome := x.executeCallback(func() {
+func (l *Loop) drainOwnerPromiseMicrotaskBatch() (executed int, completed bool) {
+	outcome := l.executeCallback(func() {
 		for {
-			job := x.popOwnerPromiseMicrotask()
+			job := l.popOwnerPromiseMicrotask()
 			if job.fn == nil {
 				return
 			}
 			executed++
 			if job.reaction == nil {
-				x.safeExecuteFnDirect(job.fn)
+				l.safeExecuteFnDirect(job.fn)
 			} else {
-				if x.testHooks != nil && x.testHooks.BeforePromiseReactionClaim != nil {
-					x.testHooks.BeforePromiseReactionClaim(job.reaction)
+				if l.testHooks != nil && l.testHooks.BeforePromiseReactionClaim != nil {
+					l.testHooks.BeforePromiseReactionClaim(job.reaction)
 				}
-				reaction, ok := x.claimPendingPromiseReaction(job.reaction)
+				reaction, ok := l.claimPendingPromiseReaction(job.reaction)
 				if !ok {
 					continue
 				}
-				if !x.safeExecuteFnDirect(job.fn) {
+				if !l.safeExecuteFnDirect(job.fn) {
 					reaction.fail()
 				}
 			}
-			if x.hardAbortRequested() || x.microtaskYield.Load() {
+			if l.hardAbortRequested() || l.microtaskYield.Load() {
 				return
 			}
 		}
 	}, true)
-	x.logCallbackOutcome("task", outcome)
+	l.logCallbackOutcome("task", outcome)
 	return executed, outcome.returned
 }
 
 // CurrentTickTime returns the cached time for the current tick.
 // The returned value uses the monotonic clock and is safe to use for timer calculations.
-func (x *Loop) CurrentTickTime() time.Time {
-	x.tickAnchorMu.RLock()
-	anchor := x.tickAnchor
-	x.tickAnchorMu.RUnlock()
+func (l *Loop) CurrentTickTime() time.Time {
+	l.tickAnchorMu.RLock()
+	anchor := l.tickAnchor
+	l.tickAnchorMu.RUnlock()
 
 	// If anchor not initialized (shouldn't happen after Run), return current wall-clock time
 	if anchor.IsZero() {
@@ -666,41 +666,41 @@ func (x *Loop) CurrentTickTime() time.Time {
 	}
 	// Add elapsed monotonic offset to anchor to get current monotonic time
 	// This ensures timer accuracy even if wall-clock is adjusted
-	elapsed := time.Duration(x.tickElapsedTime.Load())
+	elapsed := time.Duration(l.tickElapsedTime.Load())
 	return anchor.Add(elapsed)
 }
 
-func (x *Loop) refreshTickTime() time.Time {
+func (l *Loop) refreshTickTime() time.Time {
 	now := time.Now()
-	x.tickAnchorMu.RLock()
-	anchor := x.tickAnchor
-	x.tickAnchorMu.RUnlock()
+	l.tickAnchorMu.RLock()
+	anchor := l.tickAnchor
+	l.tickAnchorMu.RUnlock()
 	if anchor.IsZero() {
-		x.tickNow = now
+		l.tickNow = now
 		return now
 	}
 	elapsed := now.Sub(anchor)
-	x.tickElapsedTime.Store(int64(elapsed))
-	x.tickNow = anchor.Add(elapsed)
-	return x.tickNow
+	l.tickElapsedTime.Store(int64(elapsed))
+	l.tickNow = anchor.Add(elapsed)
+	return l.tickNow
 }
 
-func (x *Loop) setTickAnchor(t time.Time) {
-	x.tickAnchorMu.Lock()
-	x.tickAnchor = t
-	x.tickAnchorMu.Unlock()
-	x.tickElapsedTime.Store(0)
+func (l *Loop) setTickAnchor(t time.Time) {
+	l.tickAnchorMu.Lock()
+	l.tickAnchor = t
+	l.tickAnchorMu.Unlock()
+	l.tickElapsedTime.Store(0)
 }
 
-func (x *Loop) tickAnchorTime() time.Time {
-	x.tickAnchorMu.RLock()
-	defer x.tickAnchorMu.RUnlock()
-	return x.tickAnchor
+func (l *Loop) tickAnchorTime() time.Time {
+	l.tickAnchorMu.RLock()
+	defer l.tickAnchorMu.RUnlock()
+	return l.tickAnchor
 }
 
 // State returns the current loop state.
-func (x *Loop) State() LoopState {
-	return x.state.Load()
+func (l *Loop) State() LoopState {
+	return l.state.Load()
 }
 
 // calculateTimeout determines how long to block in poll. It returns -1 when
@@ -708,18 +708,18 @@ func (x *Loop) State() LoopState {
 // convention. Finite timer deadlines always produce a non-negative timeout;
 // fast mode must honor those finite values even when they are longer than one
 // second.
-func (x *Loop) calculateTimeout() int {
+func (l *Loop) calculateTimeout() int {
 	// Pending check/close phase callbacks should run in the current iteration
 	// without sleeping for an unrelated future timer. Ref state affects liveness,
 	// not phase execution once the loop is already running.
-	x.externalMu.Lock()
-	hasPhaseJobs := len(x.checkJobs) > 0 || len(x.closeJobs) > 0 || x.ownerCheckCount.Load() > 0 || x.ownerCloseCount.Load() > 0
-	x.externalMu.Unlock()
+	l.externalMu.Lock()
+	hasPhaseJobs := len(l.checkJobs) > 0 || len(l.closeJobs) > 0 || l.ownerCheckCount.Load() > 0 || l.ownerCloseCount.Load() > 0
+	l.externalMu.Unlock()
 	if hasPhaseJobs {
 		return 0
 	}
 
-	deadline, ok := x.nextTimerDeadline()
+	deadline, ok := l.nextTimerDeadline()
 	if !ok {
 		return -1
 	}
@@ -727,7 +727,7 @@ func (x *Loop) calculateTimeout() int {
 	// Queue and microtask processing can consume a substantial portion of a
 	// turn. Refresh immediately before selecting the poll timeout so elapsed
 	// work cannot make an already-due timer sleep for its delay a second time.
-	now := x.refreshTickTime()
+	now := l.refreshTickTime()
 	return pollTimeoutMillis(deadline.Sub(now))
 }
 

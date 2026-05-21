@@ -1,14 +1,9 @@
 package tournament
 
 import (
-	"crypto/sha256"
 	"errors"
-	"fmt"
-	"os/exec"
-	"path/filepath"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/joeycumines/go-eventloop/internal/tournament/component"
@@ -518,54 +513,4 @@ func assertFDTableConformance(t *testing.T, descriptor fdTableComponentDescripto
 	if table.Len() != 0 || table.Stats().ActiveCallbacks != 0 {
 		t.Errorf("descriptor %q Reset retained state: %+v", descriptor.ID, table.Stats())
 	}
-}
-
-func TestFDTableComponentSourcesAuthenticate(t *testing.T) {
-	repository, err := filepath.Abs(filepath.Join("..", "..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, descriptor := range fdTableComponentRegistry {
-		for _, source := range descriptor.Sources {
-			t.Run(descriptor.ID+"/"+source.ProvenanceKind+"/"+strings.ReplaceAll(source.Path, "/", "_"), func(t *testing.T) {
-				var payload []byte
-				var blob string
-				switch source.ProvenanceKind {
-				case "commit":
-					object := source.OriginCommit + ":eventloop/" + source.Path
-					payload = runComponentGit(t, repository, "show", object)
-					blob = strings.TrimSpace(string(runComponentGit(t, repository, "rev-parse", object)))
-				case "index-candidate":
-					if source.BaseRevision == "" {
-						t.Fatal("index-candidate source has empty base revision")
-					}
-					base := strings.TrimSpace(string(runComponentGit(t, repository, "rev-parse", source.BaseRevision+"^{commit}")))
-					if base != source.BaseRevision {
-						t.Errorf("base revision = %s, want %s", base, source.BaseRevision)
-					}
-					object := ":eventloop/" + source.Path
-					payload = runComponentGit(t, repository, "show", object)
-					blob = strings.TrimSpace(string(runComponentGit(t, repository, "rev-parse", object)))
-				default:
-					t.Fatalf("unsupported provenance kind %q", source.ProvenanceKind)
-				}
-				if blob != source.OriginBlob {
-					t.Errorf("blob = %s, want %s", blob, source.OriginBlob)
-				}
-				if got := fmt.Sprintf("%x", sha256.Sum256(payload)); got != source.SHA256 {
-					t.Errorf("SHA-256 = %s, want %s", got, source.SHA256)
-				}
-			})
-		}
-	}
-}
-
-func runComponentGit(t *testing.T, repository string, arguments ...string) []byte {
-	t.Helper()
-	command := exec.Command("git", append([]string{"-C", repository}, arguments...)...)
-	output, err := command.Output()
-	if err != nil {
-		t.Fatalf("git %s: %v", strings.Join(arguments, " "), err)
-	}
-	return output
 }

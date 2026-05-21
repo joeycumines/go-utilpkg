@@ -210,6 +210,7 @@ func newHistoryGit(gitPath, repository string) (historyGit, func(), error) {
 	if gitPath == "" || repository == "" || !filepath.IsAbs(gitPath) || !filepath.IsAbs(repository) {
 		return historyGit{}, func() {}, errors.New("history requires absolute -git and -repository paths")
 	}
+	gitPath = normalizeExecutablePath(gitPath)
 	resolvedGit, err := filepath.EvalSymlinks(gitPath)
 	if err != nil {
 		return historyGit{}, func() {}, fmt.Errorf("resolve Git executable: %w", err)

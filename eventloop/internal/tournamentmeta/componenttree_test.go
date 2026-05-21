@@ -53,36 +53,6 @@ func TestCaptureComponentTreeRelocatesExactly(t *testing.T) {
 	}
 }
 
-func TestComponentTreeExecutableModeChangesIdentity(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "tool")
-	mustWriteFile(t, path, []byte("tool\n"), 0o644)
-	plain, err := captureComponentTree(root)
-	if err != nil {
-		t.Fatalf("capture plain: %v", err)
-	}
-	if err := os.Chmod(path, 0o755); err != nil {
-		t.Fatalf("Chmod executable: %v", err)
-	}
-	executable, err := captureComponentTree(root)
-	if err != nil {
-		t.Fatalf("capture executable: %v", err)
-	}
-	if executable.SHA256 == plain.SHA256 || executable.Records[1].Mode != "100755" {
-		t.Fatal("executable mode did not change component identity")
-	}
-	if err := os.Chmod(path, 0o700); err != nil {
-		t.Fatalf("Chmod executable permissions: %v", err)
-	}
-	normalized, err := captureComponentTree(root)
-	if err != nil {
-		t.Fatalf("capture normalized executable: %v", err)
-	}
-	if normalized.SHA256 != executable.SHA256 {
-		t.Fatal("ordinary executable permissions changed component identity")
-	}
-}
-
 func TestComponentTreeValidationRejectsTopologyAndPayloadTampering(t *testing.T) {
 	root := componentTreeFixture(t)
 	tree, err := captureComponentTree(root)

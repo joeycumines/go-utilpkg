@@ -41,7 +41,7 @@ func (e PanicError) Error() string {
 //     function that already claimed execution. A committed worker that has not
 //     claimed execution when Close wins skips the function entirely.
 //   - Atomic check: Checks state before adding to promisifyWg to prevent race with shutdown.
-func (x *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any, error)) Promise {
+func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any, error)) Promise {
 	if fn == nil {
 		panic("eventloop: nil Promisify callback")
 	}
@@ -52,66 +52,66 @@ func (x *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 	// Lock livenessMu and promisifyMu to atomically check terminal admission and
 	// add to promisifyWg. Graceful Shutdown uses both locks; immediate Close
 	// publishes terminal state under livenessMu and never waits for this worker.
-	x.livenessMu.Lock()
-	x.promisifyMu.Lock()
-	currentState := x.state.Load()
+	l.livenessMu.Lock()
+	l.promisifyMu.Lock()
+	currentState := l.state.Load()
 	if currentState == StateTerminating || currentState == StateTerminated {
-		x.promisifyMu.Unlock()
-		x.livenessMu.Unlock()
+		l.promisifyMu.Unlock()
+		l.livenessMu.Unlock()
 		return newRejectedPromise(ErrLoopTerminated)
 	}
 
 	// Reject during active terminal drain or auto-exit quiescing window (GAP-AE-05).
 	// Checked under promisifyMu for atomicity with the state check above.
-	if err := x.rejectLivenessAddLocked(); err != nil {
-		x.promisifyMu.Unlock()
-		x.livenessMu.Unlock()
+	if err := l.rejectLivenessAddLocked(); err != nil {
+		l.promisifyMu.Unlock()
+		l.livenessMu.Unlock()
 		return newRejectedPromise(err)
 	}
-	if x.testHooks != nil && x.testHooks.BeforePromisifyCommit != nil {
-		x.testHooks.BeforePromisifyCommit()
+	if l.testHooks != nil && l.testHooks.BeforePromisifyCommit != nil {
+		l.testHooks.BeforePromisifyCommit()
 	}
 
-	_, p := x.registry.NewPromise()
+	_, p := l.registry.NewPromise()
 
-	x.promisifyWg.Add(1)
-	x.promisifyCount.Add(1)
-	x.submissionEpoch.Add(1)
-	x.promisifyMu.Unlock()
-	x.livenessMu.Unlock()
+	l.promisifyWg.Add(1)
+	l.promisifyCount.Add(1)
+	l.submissionEpoch.Add(1)
+	l.promisifyMu.Unlock()
+	l.livenessMu.Unlock()
 
 	go func() {
-		defer x.promisifyWg.Done()
+		defer l.promisifyWg.Done()
 		workerID := goroutineid.Get()
-		x.promisifyWorkerIDs.Store(workerID, struct{}{})
-		defer x.promisifyWorkerIDs.Delete(workerID)
+		l.promisifyWorkerIDs.Store(workerID, struct{}{})
+		defer l.promisifyWorkerIDs.Delete(workerID)
 		defer func() {
-			x.promisifyCount.Add(-1)
+			l.promisifyCount.Add(-1)
 			// Wake the loop so it re-checks Alive() after the count changes.
 			// Only needed when auto-exit is enabled: the loop may be blocked
 			// in PollIO/fast-path select and needs to re-evaluate liveness.
 			// When auto-exit is disabled, this is pure overhead (syscall).
-			if x.autoExit {
-				if x.testHooks != nil && x.testHooks.BeforePromisifyWorkerWake != nil {
-					x.testHooks.BeforePromisifyWorkerWake()
+			if l.autoExit {
+				if l.testHooks != nil && l.testHooks.BeforePromisifyWorkerWake != nil {
+					l.testHooks.BeforePromisifyWorkerWake()
 				}
 				// Close owns livenessMu from its terminal-state publication through
 				// release of lifecycle admission. Serialize the final wake with that
 				// publication so a worker cannot observe a live loop, lose the race to
 				// Close, and then write through a released poller wake descriptor.
-				x.livenessMu.Lock()
-				if x.state.Load() != StateTerminated {
-					x.doWakeup()
+				l.livenessMu.Lock()
+				if l.state.Load() != StateTerminated {
+					l.doWakeup()
 				}
-				x.livenessMu.Unlock()
+				l.livenessMu.Unlock()
 			}
 		}()
 
 		rejectReason := func(reason error) {
-			if err := x.SubmitInternal(func() {
-				x.rejectPromisify(p, reason)
+			if err := l.SubmitInternal(func() {
+				l.rejectPromisify(p, reason)
 			}); err != nil {
-				x.rejectPromisify(p, reason)
+				l.rejectPromisify(p, reason)
 			}
 		}
 
@@ -133,18 +133,18 @@ func (x *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 			default:
 			}
 
-			if x.testHooks != nil && x.testHooks.BeforePromisifyWorkerStart != nil {
-				x.testHooks.BeforePromisifyWorkerStart()
+			if l.testHooks != nil && l.testHooks.BeforePromisifyWorkerStart != nil {
+				l.testHooks.BeforePromisifyWorkerStart()
 			}
-			x.terminalDrainMu.Lock()
-			if x.immediateClose.Load() {
-				x.terminalDrainMu.Unlock()
-				x.rejectPromisify(p, ErrLoopTerminated)
+			l.terminalDrainMu.Lock()
+			if l.immediateClose.Load() {
+				l.terminalDrainMu.Unlock()
+				l.rejectPromisify(p, ErrLoopTerminated)
 				return
 			}
-			x.terminalDrainMu.Unlock()
-			if x.testHooks != nil && x.testHooks.AfterPromisifyWorkerEntryClaim != nil {
-				x.testHooks.AfterPromisifyWorkerEntryClaim()
+			l.terminalDrainMu.Unlock()
+			if l.testHooks != nil && l.testHooks.AfterPromisifyWorkerEntryClaim != nil {
+				l.testHooks.AfterPromisifyWorkerEntryClaim()
 			}
 
 			res, err := fn(ctx)
@@ -152,10 +152,10 @@ func (x *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 			// Resolution goes through SubmitInternal to ensure single-owner
 			if err != nil {
 				rejectReason(err)
-			} else if submitErr := x.SubmitInternal(func() {
-				x.resolvePromisify(p, res)
+			} else if submitErr := l.SubmitInternal(func() {
+				l.resolvePromisify(p, res)
 			}); submitErr != nil {
-				x.resolvePromisify(p, res)
+				l.resolvePromisify(p, res)
 			}
 		})
 		completed = true
@@ -167,8 +167,8 @@ func (x *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 	return Promise{promise: p}
 }
 
-func (x *Loop) isPromisifyWorker() bool {
-	_, ok := x.promisifyWorkerIDs.Load(goroutineid.Get())
+func (l *Loop) isPromisifyWorker() bool {
+	_, ok := l.promisifyWorkerIDs.Load(goroutineid.Get())
 	return ok
 }
 
@@ -178,20 +178,20 @@ func newRejectedPromise(err error) Promise {
 	return Promise{promise: p}
 }
 
-func (x *Loop) rejectPromisify(p *promise, err error) {
-	x.terminalDrainMu.Lock()
-	defer x.terminalDrainMu.Unlock()
-	if x.immediateClose.Load() {
+func (l *Loop) rejectPromisify(p *promise, err error) {
+	l.terminalDrainMu.Lock()
+	defer l.terminalDrainMu.Unlock()
+	if l.immediateClose.Load() {
 		p.reject(ErrLoopTerminated)
 		return
 	}
 	p.reject(err)
 }
 
-func (x *Loop) resolvePromisify(p *promise, result any) {
-	x.terminalDrainMu.Lock()
-	defer x.terminalDrainMu.Unlock()
-	if x.immediateClose.Load() {
+func (l *Loop) resolvePromisify(p *promise, result any) {
+	l.terminalDrainMu.Lock()
+	defer l.terminalDrainMu.Unlock()
+	if l.immediateClose.Load() {
 		p.reject(ErrLoopTerminated)
 		return
 	}

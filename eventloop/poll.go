@@ -25,112 +25,112 @@ func boundedPhysicalPollTimeout(timeout int) int {
 // poll blocks on the channel wake path for ordinary task-only workloads. It
 // uses native readiness polling when user descriptors are registered or when
 // FastPathDisabled deliberately selects the physical wake path.
-func (x *Loop) poll() {
-	currentState := x.state.Load()
+func (l *Loop) poll() {
+	currentState := l.state.Load()
 	if currentState != StateRunning {
 		return
 	}
-	x.drainCommandIngress()
+	l.drainCommandIngress()
 
 	// Read and reset forceNonBlockingPoll
-	forced := x.forceNonBlockingPoll
-	x.forceNonBlockingPoll = false
+	forced := l.forceNonBlockingPoll
+	l.forceNonBlockingPoll = false
 
-	if x.testHooks != nil && x.testHooks.PrePollSleep != nil {
-		x.testHooks.PrePollSleep()
+	if l.testHooks != nil && l.testHooks.PrePollSleep != nil {
+		l.testHooks.PrePollSleep()
 	}
 
 	// Optimistic state transition
-	if !x.state.TryTransition(StateRunning, StateSleeping) {
+	if !l.state.TryTransition(StateRunning, StateSleeping) {
 		return
 	}
 
 	// Quick length check (need to hold mutexes for accurate count)
-	x.externalMu.Lock()
-	extLen := x.commands.Len() + int(x.ownerExternalCount.Load())
-	hasPhaseJobs := len(x.checkJobs) > 0 || len(x.closeJobs) > 0 || x.ownerCheckCount.Load() > 0 || x.ownerCloseCount.Load() > 0
-	x.externalMu.Unlock()
-	intLen := int(x.ownerInternalCount.Load())
+	l.externalMu.Lock()
+	extLen := l.commands.Len() + int(l.ownerExternalCount.Load())
+	hasPhaseJobs := len(l.checkJobs) > 0 || len(l.closeJobs) > 0 || l.ownerCheckCount.Load() > 0 || l.ownerCloseCount.Load() > 0
+	l.externalMu.Unlock()
+	intLen := int(l.ownerInternalCount.Load())
 
-	if extLen > 0 || intLen > 0 || hasPhaseJobs || x.microtaskYield.Load() || !x.microtaskQueuesEmpty() {
-		x.state.TryTransition(StateSleeping, StateRunning)
+	if extLen > 0 || intLen > 0 || hasPhaseJobs || l.microtaskYield.Load() || !l.microtaskQueuesEmpty() {
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// Auto-exit check: don't block in poll if loop should exit.
-	if x.autoExit && !x.Alive() {
-		x.state.TryTransition(StateSleeping, StateRunning)
+	if l.autoExit && !l.Alive() {
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
 		return
 	}
 
 	// Calculate timeout
-	timeout := x.calculateTimeout()
+	timeout := l.calculateTimeout()
 	if forced {
 		timeout = 0
 	}
 
 	// Check for termination AGAIN after calculating timeout
 	// but BEFORE blocking in poll. This prevents racing with Shutdown.
-	state = x.state.Load()
+	state = l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// Task-only Auto/Forced loops and targets without native readiness block on
 	// the channel wake path. FastPathDisabled deliberately exercises the native
 	// poll path on readiness-capable targets even when no user descriptor is registered.
-	if x.userIOFDCount.Load() == 0 && (FastPathMode(x.fastPathMode.Load()) != FastPathDisabled || !fdPollingSupported) {
-		x.pollFastMode(timeout)
+	if l.userIOFDCount.Load() == 0 && (FastPathMode(l.fastPathMode.Load()) != FastPathDisabled || !fdPollingSupported) {
+		l.pollFastMode(timeout)
 		return
 	}
 
 	// Native readiness mode: user FDs are registered or FastPathDisabled was
 	// selected explicitly.
-	x.pollNative(timeout)
+	l.pollNative(timeout)
 }
 
 // executePollInternal isolates native wake plumbing from user callback
 // admission, metrics, TPS, and microtask checkpoints while preserving panic
 // containment for test hooks and future internal callbacks.
-func (x *Loop) executePollInternal(callback func()) {
-	x.logCallbackOutcome("internal poll callback", x.executeOwnedCallback(callback))
+func (l *Loop) executePollInternal(callback func()) {
+	l.logCallbackOutcome("internal poll callback", l.executeOwnedCallback(callback))
 }
 
 // pollFastMode is the channel-based fast path for task-only workloads.
 // It blocks on fastWakeupCh instead of a native readiness backend.
-func (x *Loop) pollFastMode(timeoutMs int) {
+func (l *Loop) pollFastMode(timeoutMs int) {
 	// Drain any pending channel signal first (non-blocking)
-	if x.consumeFastWakeup() {
+	if l.consumeFastWakeup() {
 		return
 	}
 
 	// Check for termination BEFORE blocking in pollFastMode
 	// This prevents a race where shutdown happens after the channel drain
 	// but before we block, causing us to sleep indefinitely.
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// Auto-exit check: don't block in pollFastMode if loop should exit.
-	if x.autoExit && !x.Alive() {
-		x.state.TryTransition(StateSleeping, StateRunning)
+	if l.autoExit && !l.Alive() {
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// Non-blocking case
 	if timeoutMs == 0 {
-		if x.testHooks != nil && x.testHooks.PrePollAwake != nil {
-			x.testHooks.PrePollAwake()
+		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
+			l.testHooks.PrePollAwake()
 		}
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
@@ -139,97 +139,97 @@ func (x *Loop) pollFastMode(timeoutMs int) {
 	// timer so scheduled timers cannot sleep forever in fast mode.
 	if timeoutMs < 0 {
 		// Check termination before indefinite block
-		if x.state.Load() == StateTerminating || x.state.Load() == StateTerminated {
-			x.state.TryTransition(StateSleeping, StateRunning)
+		if l.state.Load() == StateTerminating || l.state.Load() == StateTerminated {
+			l.state.TryTransition(StateSleeping, StateRunning)
 			return
 		}
-		if x.testHooks != nil && x.testHooks.BeforeFastPollWait != nil {
-			x.testHooks.BeforeFastPollWait(timeoutMs)
+		if l.testHooks != nil && l.testHooks.BeforeFastPollWait != nil {
+			l.testHooks.BeforeFastPollWait(timeoutMs)
 		}
 		// Block indefinitely on channel - no timer allocation
-		<-x.fastWakeupCh
-		if x.state.Load() == StateTerminated {
+		<-l.fastWakeupCh
+		if l.state.Load() == StateTerminated {
 			return
 		}
-		if x.testHooks != nil && x.testHooks.PrePollAwake != nil {
-			x.testHooks.PrePollAwake()
+		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
+			l.testHooks.PrePollAwake()
 		}
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
 
 	// Finite timeout - use the loop-owned reusable sleep timer.
 	// Check termination before timer-protected block
-	state = x.state.Load()
+	state = l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
-	timerC := x.resetFastSleepTimer(time.Duration(timeoutMs) * time.Millisecond)
-	if x.testHooks != nil && x.testHooks.BeforeFastPollWait != nil {
-		x.testHooks.BeforeFastPollWait(timeoutMs)
+	timerC := l.resetFastSleepTimer(time.Duration(timeoutMs) * time.Millisecond)
+	if l.testHooks != nil && l.testHooks.BeforeFastPollWait != nil {
+		l.testHooks.BeforeFastPollWait(timeoutMs)
 	}
 	select {
-	case <-x.fastWakeupCh:
-		x.stopFastSleepTimer()
+	case <-l.fastWakeupCh:
+		l.stopFastSleepTimer()
 	case <-timerC:
 	}
-	if x.state.Load() == StateTerminated {
+	if l.state.Load() == StateTerminated {
 		return
 	}
 
-	if x.testHooks != nil && x.testHooks.PrePollAwake != nil {
-		x.testHooks.PrePollAwake()
+	if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
+		l.testHooks.PrePollAwake()
 	}
 
-	x.state.TryTransition(StateSleeping, StateRunning)
+	l.state.TryTransition(StateSleeping, StateRunning)
 }
 
-func (x *Loop) consumeFastWakeup() bool {
+func (l *Loop) consumeFastWakeup() bool {
 	select {
-	case <-x.fastWakeupCh:
-		if x.testHooks != nil && x.testHooks.PrePollAwake != nil {
-			x.testHooks.PrePollAwake()
+	case <-l.fastWakeupCh:
+		if l.testHooks != nil && l.testHooks.PrePollAwake != nil {
+			l.testHooks.PrePollAwake()
 		}
-		x.state.TryTransition(StateSleeping, StateRunning)
+		l.state.TryTransition(StateSleeping, StateRunning)
 		return true
 	default:
 		return false
 	}
 }
 
-func (x *Loop) resetFastSleepTimer(d time.Duration) <-chan time.Time {
-	if x.fastSleepTimer == nil {
-		x.fastSleepTimer = time.NewTimer(d)
-		return x.fastSleepTimer.C
+func (l *Loop) resetFastSleepTimer(d time.Duration) <-chan time.Time {
+	if l.fastSleepTimer == nil {
+		l.fastSleepTimer = time.NewTimer(d)
+		return l.fastSleepTimer.C
 	}
-	x.stopFastSleepTimer()
-	x.fastSleepTimer.Reset(d)
-	return x.fastSleepTimer.C
+	l.stopFastSleepTimer()
+	l.fastSleepTimer.Reset(d)
+	return l.fastSleepTimer.C
 }
 
-func (x *Loop) stopFastSleepTimer() {
-	if x.fastSleepTimer == nil {
+func (l *Loop) stopFastSleepTimer() {
+	if l.fastSleepTimer == nil {
 		return
 	}
-	if x.fastSleepTimer.Stop() {
+	if l.fastSleepTimer.Stop() {
 		return
 	}
 	select {
-	case <-x.fastSleepTimer.C:
+	case <-l.fastSleepTimer.C:
 	default:
 	}
 }
 
 // handlePollError handles errors from PollIO.
-func (x *Loop) handlePollError(err error) {
-	x.storeTerminalError(err)
-	x.logCritical("pollIO failed", err)
-	if endTerminalDrain, ok := x.tryBeginTerminalDrainTransition(StateSleeping, StateTerminating); ok {
-		x.claimTerminalDrainOwner()
-		x.transitionToTerminatedStartedForShutdown(endTerminalDrain)
-		x.terminateCleanup()
-		x.closeFDs()
-		x.startTerminalCompletion()
+func (l *Loop) handlePollError(err error) {
+	l.storeTerminalError(err)
+	l.logCritical("pollIO failed", err)
+	if endTerminalDrain, ok := l.tryBeginTerminalDrainTransition(StateSleeping, StateTerminating); ok {
+		l.claimTerminalDrainOwner()
+		l.transitionToTerminatedStartedForShutdown(endTerminalDrain)
+		l.terminateCleanup()
+		l.closeFDs()
+		l.startTerminalCompletion()
 	}
 }

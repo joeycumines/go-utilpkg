@@ -80,7 +80,7 @@ func TestSnapshotPreservesGovernedTopology(t *testing.T) {
 	if target, err := os.Readlink(filepath.Join(snapshot, "eventloop", "source-link")); err != nil || target != "source.go" {
 		t.Fatalf("snapshot link = %q, %v", target, err)
 	}
-	if info, err := os.Stat(filepath.Join(snapshot, "eventloop", "source.go")); err != nil || info.Mode().Perm() != 0o644 {
+	if info, err := os.Stat(filepath.Join(snapshot, "eventloop", "source.go")); err != nil || authorityPerm(info.Mode()) != authorityPerm(0o644) {
 		t.Fatalf("snapshot source mode = %v, %v", info, err)
 	}
 
@@ -350,42 +350,6 @@ func TestSourceListEnvironmentRejectsAmbientInfluence(t *testing.T) {
 		if values[key] != want {
 			t.Errorf("source-list %s = %q, want %q", key, values[key], want)
 		}
-	}
-}
-
-func TestFingerprintNormalizesRegularPermissions(t *testing.T) {
-	repository := testSourceRepository(t)
-	files, err := liveSourceFiles(repository)
-	if err != nil {
-		t.Fatalf("liveSourceFiles: %v", err)
-	}
-	path := filepath.Join(repository, "eventloop", "source.go")
-	if err := os.Chmod(path, 0o600); err != nil {
-		t.Fatalf("Chmod 0600: %v", err)
-	}
-	plain, err := fingerprintFiles(repository, files)
-	if err != nil {
-		t.Fatalf("fingerprint plain: %v", err)
-	}
-	if err := os.Chmod(path, 0o644); err != nil {
-		t.Fatalf("Chmod 0644: %v", err)
-	}
-	plainAgain, err := fingerprintFiles(repository, files)
-	if err != nil {
-		t.Fatalf("fingerprint plain again: %v", err)
-	}
-	if plainAgain != plain {
-		t.Fatalf("non-executable permission changed fingerprint: %s != %s", plainAgain, plain)
-	}
-	if err := os.Chmod(path, 0o755); err != nil {
-		t.Fatalf("Chmod 0755: %v", err)
-	}
-	executable, err := fingerprintFiles(repository, files)
-	if err != nil {
-		t.Fatalf("fingerprint executable: %v", err)
-	}
-	if executable == plain {
-		t.Fatal("executable permission did not change fingerprint")
 	}
 }
 

@@ -8,163 +8,163 @@ import (
 	"github.com/joeycumines/goroutineid"
 )
 
-func (x *Loop) transitionToTerminatedForShutdown() {
-	x.livenessMu.Lock()
-	endTerminalDrain := x.beginTerminalDrainAllChecks()
-	x.livenessMu.Unlock()
-	x.transitionToTerminatedStartedForShutdown(endTerminalDrain)
+func (l *Loop) transitionToTerminatedForShutdown() {
+	l.livenessMu.Lock()
+	endTerminalDrain := l.beginTerminalDrainAllChecks()
+	l.livenessMu.Unlock()
+	l.transitionToTerminatedStartedForShutdown(endTerminalDrain)
 }
 
-func (x *Loop) transitionToTerminatedStarted(endTerminalDrain func()) {
-	x.transitionToTerminatedStartedWithReject(endTerminalDrain, true)
+func (l *Loop) transitionToTerminatedStarted(endTerminalDrain func()) {
+	l.transitionToTerminatedStartedWithReject(endTerminalDrain, true)
 }
 
-func (x *Loop) transitionToTerminatedStartedForShutdown(endTerminalDrain func()) {
-	x.transitionToTerminatedStartedWithReject(endTerminalDrain, false)
+func (l *Loop) transitionToTerminatedStartedForShutdown(endTerminalDrain func()) {
+	l.transitionToTerminatedStartedWithReject(endTerminalDrain, false)
 }
 
-func (x *Loop) transitionToTerminatedStartedWithReject(endTerminalDrain func(), rejectPending bool) {
-	x.waitTerminalDependencyRelease()
-	if x.testHooks != nil && x.testHooks.BeforeTerminateState != nil {
-		x.testHooks.BeforeTerminateState()
+func (l *Loop) transitionToTerminatedStartedWithReject(endTerminalDrain func(), rejectPending bool) {
+	l.waitTerminalDependencyRelease()
+	if l.testHooks != nil && l.testHooks.BeforeTerminateState != nil {
+		l.testHooks.BeforeTerminateState()
 	}
 
 	// Lock promisifyMu to prevent new Promisify operations while we shut down
-	x.livenessMu.Lock()
-	x.promisifyMu.Lock()
-	x.state.Store(StateTerminated)
-	x.promisifyMu.Unlock()
-	x.livenessMu.Unlock()
-	if x.testHooks != nil && x.testHooks.AfterTerminateStateBeforeDrain != nil {
-		x.testHooks.AfterTerminateStateBeforeDrain()
+	l.livenessMu.Lock()
+	l.promisifyMu.Lock()
+	l.state.Store(StateTerminated)
+	l.promisifyMu.Unlock()
+	l.livenessMu.Unlock()
+	if l.testHooks != nil && l.testHooks.AfterTerminateStateBeforeDrain != nil {
+		l.testHooks.AfterTerminateStateBeforeDrain()
 	}
 
 	// Drain loop queues with normal microtask checkpoints.
 	// Tasks that are already queued will get executed.
 	// Tasks submitted after this point will be rejected.
-	x.drainTerminalQueuesStarted()
+	l.drainTerminalQueuesStarted()
 	endTerminalDrain()
 
 	if rejectPending {
 		// Reject all remaining pending promises.
-		x.rejectAllPendingPromises(ErrLoopTerminated)
+		l.rejectAllPendingPromises(ErrLoopTerminated)
 	}
 }
 
-func (x *Loop) rejectAllPendingPromises(err error) {
-	x.rejectAllOnce.Do(func() {
-		x.registry.RejectAll(err)
+func (l *Loop) rejectAllPendingPromises(err error) {
+	l.rejectAllOnce.Do(func() {
+		l.registry.RejectAll(err)
 	})
 }
 
-func (x *Loop) closeTerminalDone() {
-	x.closeTerminalOnce.Do(func() {
-		close(x.terminalDone)
-		if x.testHooks != nil && x.testHooks.AfterTerminalDoneClose != nil {
-			x.testHooks.AfterTerminalDoneClose()
+func (l *Loop) closeTerminalDone() {
+	l.closeTerminalOnce.Do(func() {
+		close(l.terminalDone)
+		if l.testHooks != nil && l.testHooks.AfterTerminalDoneClose != nil {
+			l.testHooks.AfterTerminalDoneClose()
 		}
 	})
 }
 
-func (x *Loop) waitPromisifyGoroutines() {
-	x.promisifyMu.Lock()
+func (l *Loop) waitPromisifyGoroutines() {
+	l.promisifyMu.Lock()
 	//lint:ignore SA2001 intentional memory barrier
-	x.promisifyMu.Unlock()
-	x.promisifyWg.Wait()
+	l.promisifyMu.Unlock()
+	l.promisifyWg.Wait()
 }
 
-func (x *Loop) beginTerminalDrain() func() {
-	return x.beginTerminalDrainMode(false, false)
+func (l *Loop) beginTerminalDrain() func() {
+	return l.beginTerminalDrainMode(false, false)
 }
 
-func (x *Loop) beginAutoExitTerminalDrain() func() {
-	return x.beginTerminalDrainMode(false, true)
+func (l *Loop) beginAutoExitTerminalDrain() func() {
+	return l.beginTerminalDrainMode(false, true)
 }
 
-func (x *Loop) beginTerminalDrainAllChecks() func() {
-	return x.beginTerminalDrainMode(true, false)
+func (l *Loop) beginTerminalDrainAllChecks() func() {
+	return l.beginTerminalDrainMode(true, false)
 }
 
-func (x *Loop) beginTerminalDrainMode(allChecks, skipChecks bool) func() {
+func (l *Loop) beginTerminalDrainMode(allChecks, skipChecks bool) func() {
 	done := make(chan struct{})
 	var once sync.Once
-	x.terminalDrainMu.Lock()
-	if x.terminalDraining.Load() && x.terminalDrainDone != nil {
+	l.terminalDrainMu.Lock()
+	if l.terminalDraining.Load() && l.terminalDrainDone != nil {
 		if allChecks {
-			x.terminalDrainAllChecks.Store(true)
-			x.terminalDrainSkipChecks.Store(false)
+			l.terminalDrainAllChecks.Store(true)
+			l.terminalDrainSkipChecks.Store(false)
 		}
-		x.terminalDrainMu.Unlock()
+		l.terminalDrainMu.Unlock()
 		return func() {}
 	}
-	x.terminalDrainDone = done
-	x.terminalDrainOwner.Store(goroutineid.Get())
-	x.terminalDrainAllChecks.Store(allChecks)
-	x.terminalDrainSkipChecks.Store(skipChecks)
-	x.terminalDraining.Store(true)
-	x.terminalDrainMu.Unlock()
-	return func() { once.Do(func() { x.finishTerminalDrain(done) }) }
+	l.terminalDrainDone = done
+	l.terminalDrainOwner.Store(goroutineid.Get())
+	l.terminalDrainAllChecks.Store(allChecks)
+	l.terminalDrainSkipChecks.Store(skipChecks)
+	l.terminalDraining.Store(true)
+	l.terminalDrainMu.Unlock()
+	return func() { once.Do(func() { l.finishTerminalDrain(done) }) }
 }
 
-func (x *Loop) tryBeginTerminalDrainTransition(from, to LoopState) (func(), bool) {
-	return x.tryBeginTerminalDrainTransitionMode(from, to, true)
+func (l *Loop) tryBeginTerminalDrainTransition(from, to LoopState) (func(), bool) {
+	return l.tryBeginTerminalDrainTransitionMode(from, to, true)
 }
 
-func (x *Loop) tryBeginTerminalDrainRequest(from, to LoopState) (func(), bool) {
-	return x.tryBeginTerminalDrainTransitionOwner(from, to, true, 0)
+func (l *Loop) tryBeginTerminalDrainRequest(from, to LoopState) (func(), bool) {
+	return l.tryBeginTerminalDrainTransitionOwner(from, to, true, 0)
 }
 
-func (x *Loop) tryBeginTerminalDrainTransitionMode(from, to LoopState, allChecks bool) (func(), bool) {
-	return x.tryBeginTerminalDrainTransitionOwner(from, to, allChecks, goroutineid.Get())
+func (l *Loop) tryBeginTerminalDrainTransitionMode(from, to LoopState, allChecks bool) (func(), bool) {
+	return l.tryBeginTerminalDrainTransitionOwner(from, to, allChecks, goroutineid.Get())
 }
 
-func (x *Loop) tryBeginTerminalDrainTransitionOwner(from, to LoopState, allChecks bool, owner int64) (func(), bool) {
+func (l *Loop) tryBeginTerminalDrainTransitionOwner(from, to LoopState, allChecks bool, owner int64) (func(), bool) {
 	done := make(chan struct{})
 	var once sync.Once
-	x.livenessMu.Lock()
-	x.terminalDrainMu.Lock()
-	if x.terminalDraining.Load() && x.terminalDrainDone != nil {
-		activeDone := x.terminalDrainDone
-		if x.state.TryTransition(from, to) {
-			if to == StateTerminating && x.testHooks != nil && x.testHooks.TerminalStateCAS != nil {
-				x.testHooks.TerminalStateCAS()
+	l.livenessMu.Lock()
+	l.terminalDrainMu.Lock()
+	if l.terminalDraining.Load() && l.terminalDrainDone != nil {
+		activeDone := l.terminalDrainDone
+		if l.state.TryTransition(from, to) {
+			if to == StateTerminating && l.testHooks != nil && l.testHooks.TerminalStateCAS != nil {
+				l.testHooks.TerminalStateCAS()
 			}
 			if allChecks {
-				x.terminalDrainAllChecks.Store(true)
-				x.terminalDrainSkipChecks.Store(false)
+				l.terminalDrainAllChecks.Store(true)
+				l.terminalDrainSkipChecks.Store(false)
 			}
-			x.terminalDrainMu.Unlock()
-			x.livenessMu.Unlock()
-			return func() { once.Do(func() { x.finishTerminalDrain(activeDone) }) }, true
+			l.terminalDrainMu.Unlock()
+			l.livenessMu.Unlock()
+			return func() { once.Do(func() { l.finishTerminalDrain(activeDone) }) }, true
 		}
-		x.terminalDrainMu.Unlock()
-		x.livenessMu.Unlock()
+		l.terminalDrainMu.Unlock()
+		l.livenessMu.Unlock()
 		return nil, false
 	}
-	if x.state.TryTransition(from, to) {
-		if to == StateTerminating && x.testHooks != nil && x.testHooks.TerminalStateCAS != nil {
-			x.testHooks.TerminalStateCAS()
+	if l.state.TryTransition(from, to) {
+		if to == StateTerminating && l.testHooks != nil && l.testHooks.TerminalStateCAS != nil {
+			l.testHooks.TerminalStateCAS()
 		}
-		x.terminalDrainDone = done
-		x.terminalDrainOwner.Store(owner)
-		x.terminalDrainAllChecks.Store(allChecks)
-		x.terminalDrainSkipChecks.Store(false)
-		x.terminalDraining.Store(true)
-		x.terminalDrainMu.Unlock()
-		x.livenessMu.Unlock()
-		return func() { once.Do(func() { x.finishTerminalDrain(done) }) }, true
+		l.terminalDrainDone = done
+		l.terminalDrainOwner.Store(owner)
+		l.terminalDrainAllChecks.Store(allChecks)
+		l.terminalDrainSkipChecks.Store(false)
+		l.terminalDraining.Store(true)
+		l.terminalDrainMu.Unlock()
+		l.livenessMu.Unlock()
+		return func() { once.Do(func() { l.finishTerminalDrain(done) }) }, true
 	}
-	x.terminalDrainMu.Unlock()
-	x.livenessMu.Unlock()
+	l.terminalDrainMu.Unlock()
+	l.livenessMu.Unlock()
 	return nil, false
 }
 
-func (x *Loop) finishTerminalDrain(done chan struct{}) {
+func (l *Loop) finishTerminalDrain(done chan struct{}) {
 	if done == nil {
 		return
 	}
 	for {
-		diagnostics, shouldClose := x.takeTerminalDiagnosticsOrFinish(done)
+		diagnostics, shouldClose := l.takeTerminalDiagnosticsOrFinish(done)
 		if len(diagnostics) == 0 {
 			if shouldClose {
 				close(done)
@@ -173,128 +173,128 @@ func (x *Loop) finishTerminalDrain(done chan struct{}) {
 		}
 		for i, diagnostic := range diagnostics {
 			if diagnostic != nil {
-				x.safeExecuteFallback(diagnostic)
+				l.safeExecuteFallback(diagnostic)
 			}
 			diagnostics[i] = nil
 		}
-		x.drainTerminalQueuesStarted()
+		l.drainTerminalQueuesStarted()
 	}
 }
 
-func (x *Loop) scheduleTerminalDiagnostic(fn func()) bool {
+func (l *Loop) scheduleTerminalDiagnostic(fn func()) bool {
 	if fn == nil {
 		return true
 	}
-	x.terminalDrainMu.Lock()
-	if !x.terminalDraining.Load() || x.terminalDrainDone == nil {
-		x.terminalDrainMu.Unlock()
+	l.terminalDrainMu.Lock()
+	if !l.terminalDraining.Load() || l.terminalDrainDone == nil {
+		l.terminalDrainMu.Unlock()
 		return false
 	}
-	x.terminalDiagnostics = append(x.terminalDiagnostics, fn)
-	x.terminalDrainMu.Unlock()
+	l.terminalDiagnostics = append(l.terminalDiagnostics, fn)
+	l.terminalDrainMu.Unlock()
 	return true
 }
 
-func (x *Loop) takeTerminalDiagnosticsOrFinish(done chan struct{}) ([]func(), bool) {
-	x.terminalDrainMu.Lock()
-	defer x.terminalDrainMu.Unlock()
-	if x.terminalDrainDone != done {
+func (l *Loop) takeTerminalDiagnosticsOrFinish(done chan struct{}) ([]func(), bool) {
+	l.terminalDrainMu.Lock()
+	defer l.terminalDrainMu.Unlock()
+	if l.terminalDrainDone != done {
 		return nil, false
 	}
-	if len(x.terminalDiagnostics) == 0 {
-		if x.testHooks != nil && x.testHooks.BeforeTerminalDrainFinish != nil {
-			x.testHooks.BeforeTerminalDrainFinish()
+	if len(l.terminalDiagnostics) == 0 {
+		if l.testHooks != nil && l.testHooks.BeforeTerminalDrainFinish != nil {
+			l.testHooks.BeforeTerminalDrainFinish()
 		}
-		x.finishTerminalDrainLocked(done)
+		l.finishTerminalDrainLocked(done)
 		return nil, true
 	}
-	diagnostics := x.terminalDiagnostics
-	x.terminalDiagnostics = nil
+	diagnostics := l.terminalDiagnostics
+	l.terminalDiagnostics = nil
 	return diagnostics, false
 }
 
-func (x *Loop) finishTerminalDrainLocked(done chan struct{}) {
-	if x.terminalDrainDone == done {
-		x.terminalDraining.Store(false)
-		x.terminalDrainAllChecks.Store(false)
-		x.terminalDrainSkipChecks.Store(false)
-		x.terminalDrainOwner.Store(0)
-		x.terminalDrainDone = nil
+func (l *Loop) finishTerminalDrainLocked(done chan struct{}) {
+	if l.terminalDrainDone == done {
+		l.terminalDraining.Store(false)
+		l.terminalDrainAllChecks.Store(false)
+		l.terminalDrainSkipChecks.Store(false)
+		l.terminalDrainOwner.Store(0)
+		l.terminalDrainDone = nil
 	}
 }
 
-func (x *Loop) terminalDrainWaiter() (<-chan struct{}, bool) {
-	x.terminalDrainMu.Lock()
-	defer x.terminalDrainMu.Unlock()
-	if !x.terminalDraining.Load() || x.terminalDrainDone == nil {
+func (l *Loop) terminalDrainWaiter() (<-chan struct{}, bool) {
+	l.terminalDrainMu.Lock()
+	defer l.terminalDrainMu.Unlock()
+	if !l.terminalDraining.Load() || l.terminalDrainDone == nil {
 		return nil, false
 	}
-	return x.terminalDrainDone, true
+	return l.terminalDrainDone, true
 }
 
-func (x *Loop) claimTerminalDrainOwner() {
-	if x.terminalDraining.Load() {
-		x.terminalDrainOwner.Store(goroutineid.Get())
+func (l *Loop) claimTerminalDrainOwner() {
+	if l.terminalDraining.Load() {
+		l.terminalDrainOwner.Store(goroutineid.Get())
 	}
 }
 
-func (x *Loop) finishActiveTerminalDrain() {
-	x.terminalDrainMu.Lock()
-	done := x.terminalDrainDone
-	x.terminalDrainMu.Unlock()
+func (l *Loop) finishActiveTerminalDrain() {
+	l.terminalDrainMu.Lock()
+	done := l.terminalDrainDone
+	l.terminalDrainMu.Unlock()
 	if done != nil {
-		x.finishTerminalDrain(done)
+		l.finishTerminalDrain(done)
 	}
 }
 
-func (x *Loop) isTerminalDrainOwner() bool {
+func (l *Loop) isTerminalDrainOwner() bool {
 	// Goroutine ownership is intentionally implicit but bounded by the active
 	// terminal-drain window. A matching goroutine id grants no authority unless
 	// terminalDraining is still true, and finishTerminalDrain clears both fields.
-	if !x.terminalDraining.Load() {
+	if !l.terminalDraining.Load() {
 		return false
 	}
-	owner := x.terminalDrainOwner.Load()
+	owner := l.terminalDrainOwner.Load()
 	return owner != 0 && owner == goroutineid.Get()
 }
 
-func (x *Loop) claimTerminalCompletionOwner() func() {
+func (l *Loop) claimTerminalCompletionOwner() func() {
 	owner := goroutineid.Get()
-	x.terminalCompletionOwner.Store(owner)
+	l.terminalCompletionOwner.Store(owner)
 	return func() {
-		x.terminalCompletionOwner.CompareAndSwap(owner, 0)
+		l.terminalCompletionOwner.CompareAndSwap(owner, 0)
 	}
 }
 
-func (x *Loop) isTerminalCompletionOwner() bool {
-	owner := x.terminalCompletionOwner.Load()
+func (l *Loop) isTerminalCompletionOwner() bool {
+	owner := l.terminalCompletionOwner.Load()
 	return owner != 0 && owner == goroutineid.Get()
 }
 
-func (x *Loop) startTerminalDependencyRelease() {
-	x.terminalDependencyOnce.Do(func() {
-		go x.releaseTerminalDependencies()
+func (l *Loop) startTerminalDependencyRelease() {
+	l.terminalDependencyOnce.Do(func() {
+		go l.releaseTerminalDependencies()
 	})
 }
 
-func (x *Loop) waitTerminalDependencyRelease() {
-	x.startTerminalDependencyRelease()
-	<-x.terminalDependencyDone
+func (l *Loop) waitTerminalDependencyRelease() {
+	l.startTerminalDependencyRelease()
+	<-l.terminalDependencyDone
 }
 
-func (x *Loop) releaseTerminalDependencies() {
-	defer close(x.terminalDependencyDone)
-	releaseCompletionOwner := x.claimTerminalCompletionOwner()
+func (l *Loop) releaseTerminalDependencies() {
+	defer close(l.terminalDependencyDone)
+	releaseCompletionOwner := l.claimTerminalCompletionOwner()
 	defer releaseCompletionOwner()
 
 	var reactions []pendingPromiseReaction
-	if x.immediateClose.Load() {
-		reactions = x.takePendingPromiseReactions()
+	if l.immediateClose.Load() {
+		reactions = l.takePendingPromiseReactions()
 	}
-	adapters, settlements := x.takeJSTerminalDependencies()
-	x.externalMu.Lock()
-	x.releaseTerminalCommandDependenciesLocked()
-	x.externalMu.Unlock()
+	adapters, settlements := l.takeJSTerminalDependencies()
+	l.externalMu.Lock()
+	l.releaseTerminalCommandDependenciesLocked()
+	l.externalMu.Unlock()
 
 	failPendingPromiseReactions(reactions)
 	for _, js := range adapters {
@@ -305,29 +305,29 @@ func (x *Loop) releaseTerminalDependencies() {
 	}
 }
 
-func (x *Loop) takeJSTerminalDependencies() ([]*JS, []func()) {
-	x.livenessMu.Lock()
-	adapters := make([]*JS, 0, len(x.jsAdapters))
+func (l *Loop) takeJSTerminalDependencies() ([]*JS, []func()) {
+	l.livenessMu.Lock()
+	adapters := make([]*JS, 0, len(l.jsAdapters))
 	var settlements []func()
-	for pointer := range x.jsAdapters {
+	for pointer := range l.jsAdapters {
 		js := pointer.Value()
 		if js == nil {
-			delete(x.jsAdapters, pointer)
+			delete(l.jsAdapters, pointer)
 			continue
 		}
 		adapters = append(adapters, js)
 		settlements = append(settlements, js.takeTimerPromiseSettlements()...)
 	}
-	x.livenessMu.Unlock()
+	l.livenessMu.Unlock()
 	return adapters, settlements
 }
 
-func (x *Loop) releaseTerminalCommandDependenciesLocked() {
-	if x.commands == nil {
+func (l *Loop) releaseTerminalCommandDependenciesLocked() {
+	if l.commands == nil {
 		return
 	}
-	for index := x.commands.head; index < len(x.commands.cmds); index++ {
-		cmd := &x.commands.cmds[index]
+	for index := l.commands.head; index < len(l.commands.cmds); index++ {
+		cmd := &l.commands.cmds[index]
 		switch cmd.kind {
 		case loopCommandTimerRef, loopCommandTimerUnref:
 			if cmd.result != nil {
@@ -359,77 +359,77 @@ func (x *Loop) releaseTerminalCommandDependenciesLocked() {
 	}
 }
 
-func (x *Loop) terminalDrainActive() bool {
-	x.terminalDrainMu.Lock()
-	active := x.terminalDraining.Load()
-	x.terminalDrainMu.Unlock()
+func (l *Loop) terminalDrainActive() bool {
+	l.terminalDrainMu.Lock()
+	active := l.terminalDraining.Load()
+	l.terminalDrainMu.Unlock()
 	return active
 }
 
-func (x *Loop) terminalEphemeralAllowed(state LoopState) bool {
+func (l *Loop) terminalEphemeralAllowed(state LoopState) bool {
 	if state != StateTerminating && state != StateTerminated {
-		if !x.terminalDraining.Load() {
+		if !l.terminalDraining.Load() {
 			return true
 		}
-		return x.isTerminalDrainOwner() || x.isLoopThread()
+		return l.isTerminalDrainOwner() || l.isLoopThread()
 	}
 
-	if x.terminalDraining.Load() {
-		return x.isTerminalDrainOwner() || x.isLoopThread()
+	if l.terminalDraining.Load() {
+		return l.isTerminalDrainOwner() || l.isLoopThread()
 	}
 
 	// A lifecycle transition publishes StateTerminating while holding
 	// terminalDrainMu and then publishes terminalDraining before unlocking. A
 	// lock-free reader can observe the state store before the drain store, so
 	// synchronize here before rejecting terminal continuation work.
-	if x.testHooks != nil && x.testHooks.BeforeTerminalEphemeralDrainSync != nil {
-		x.testHooks.BeforeTerminalEphemeralDrainSync()
+	if l.testHooks != nil && l.testHooks.BeforeTerminalEphemeralDrainSync != nil {
+		l.testHooks.BeforeTerminalEphemeralDrainSync()
 	}
-	x.terminalDrainMu.Lock()
-	draining := x.terminalDraining.Load()
-	x.terminalDrainMu.Unlock()
+	l.terminalDrainMu.Lock()
+	draining := l.terminalDraining.Load()
+	l.terminalDrainMu.Unlock()
 	if draining {
-		return x.isTerminalDrainOwner() || x.isLoopThread()
+		return l.isTerminalDrainOwner() || l.isLoopThread()
 	}
 	return false
 }
 
-func (x *Loop) terminalMicrotaskAllowed(state LoopState) bool {
-	return x.terminalEphemeralAllowed(state)
+func (l *Loop) terminalMicrotaskAllowed(state LoopState) bool {
+	return l.terminalEphemeralAllowed(state)
 }
 
-func (x *Loop) terminalQueueAllowed(state LoopState) bool {
-	return state != StateTerminating && state != StateTerminated && !x.terminalDraining.Load()
+func (l *Loop) terminalQueueAllowed(state LoopState) bool {
+	return state != StateTerminating && state != StateTerminated && !l.terminalDraining.Load()
 }
 
-func (x *Loop) hardAbortRequested() bool {
-	state := x.state.Load()
+func (l *Loop) hardAbortRequested() bool {
+	state := l.state.Load()
 	if state == StateTerminating {
-		return x.immediateCloseWon()
+		return l.immediateCloseWon()
 	}
-	return state == StateTerminated && !x.terminalDraining.Load()
+	return state == StateTerminated && !l.terminalDraining.Load()
 }
 
-func (x *Loop) immediateCloseWon() bool {
-	state := x.state.Load()
+func (l *Loop) immediateCloseWon() bool {
+	state := l.state.Load()
 	if state != StateTerminating && state != StateTerminated {
 		return false
 	}
 	// Close publishes StateTerminating while holding terminalDrainMu, then
 	// publishes immediateClose before unlocking. Synchronize readers that see
 	// the state store before the mode store.
-	if x.testHooks != nil && x.testHooks.BeforeTerminalModeLock != nil {
-		x.testHooks.BeforeTerminalModeLock()
+	if l.testHooks != nil && l.testHooks.BeforeTerminalModeLock != nil {
+		l.testHooks.BeforeTerminalModeLock()
 	}
-	x.terminalDrainMu.Lock()
-	immediate := x.immediateClose.Load()
-	x.terminalDrainMu.Unlock()
+	l.terminalDrainMu.Lock()
+	immediate := l.immediateClose.Load()
+	l.terminalDrainMu.Unlock()
 	return immediate
 }
 
-func (x *Loop) cleanupCommandIngressLocked() {
+func (l *Loop) cleanupCommandIngressLocked() {
 	for {
-		cmd, ok := x.commands.Pop()
+		cmd, ok := l.commands.Pop()
 		if !ok {
 			break
 		}
@@ -438,7 +438,7 @@ func (x *Loop) cleanupCommandIngressLocked() {
 			timerPool.Put(cmd.timer)
 		}
 	}
-	x.commandIngressPending.Store(false)
+	l.commandIngressPending.Store(false)
 }
 
 // drainStartupQueues commits work that was accepted before Run entered its
@@ -448,26 +448,26 @@ func (x *Loop) cleanupCommandIngressLocked() {
 // visible before setImmediate callbacks, matching Node's startup boundary. Due
 // ref'ed timers may then run before the first check phase if their 1ms threshold
 // elapsed while the main script was executing or before Run was called.
-func (x *Loop) drainStartupQueues() {
-	x.drainCommandIngress()
-	x.recordQueueMetrics()
-	x.processInternalQueue()
-	if x.hardAbortRequested() {
+func (l *Loop) drainStartupQueues() {
+	l.drainCommandIngress()
+	l.recordQueueMetrics()
+	l.processInternalQueue()
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainMicrotasks()
-	if x.hardAbortRequested() {
+	l.drainMicrotasks()
+	if l.hardAbortRequested() {
 		return
 	}
-	if x.autoExit && !x.Alive() {
+	if l.autoExit && !l.Alive() {
 		return
 	}
-	x.refreshTickTime()
-	x.runTimers()
-	if x.hardAbortRequested() {
+	l.refreshTickTime()
+	l.runTimers()
+	if l.hardAbortRequested() {
 		return
 	}
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 }
 
 // terminateCleanup clears all remaining loop state after termination.
@@ -482,27 +482,27 @@ func (x *Loop) drainStartupQueues() {
 // workers from adding new queue or resource work. Auto-exit and
 // context-cancellation paths call this from the loop goroutine, which is the sole
 // consumer of these structures.
-func (x *Loop) terminateCleanup() {
-	x.waitTerminalDependencyRelease()
+func (l *Loop) terminateCleanup() {
+	l.waitTerminalDependencyRelease()
 	// A graceful drain normally executes every accepted reaction. Any residue is
 	// work that cleanup is about to discard, so publish its terminal outcome
 	// before resetting owner or ingress queues.
-	failPendingPromiseReactions(x.takePendingPromiseReactions())
+	failPendingPromiseReactions(l.takePendingPromiseReactions())
 	// Cleanup settlements may use the owner callback boundary. Register this
 	// retirement first so the unlock-and-settle defer runs before it, including
 	// while unwinding an abnormal settlement exit.
-	defer x.stopCallbackWorker()
+	defer l.stopCallbackWorker()
 
 	var (
 		jsTerminalCleanup func()
 		jsSettlements     []func()
 	)
-	x.livenessMu.Lock()
+	l.livenessMu.Lock()
 	defer func() {
-		x.livenessMu.Unlock()
-		x.safeExecuteFallback(jsTerminalCleanup)
+		l.livenessMu.Unlock()
+		l.safeExecuteFallback(jsTerminalCleanup)
 		for _, settle := range jsSettlements {
-			x.safeExecuteFallback(settle)
+			l.safeExecuteFallback(settle)
 		}
 	}()
 
@@ -511,44 +511,44 @@ func (x *Loop) terminateCleanup() {
 	// true during the brief window between !Alive() and terminal-drain commit.
 	// While benign in practice (StateTerminated is checked first in all gated APIs),
 	// clearing the flag prevents stale state if the code is refactored.
-	x.quiescing.Store(false)
-	x.releaseMicrotaskYield()
+	l.quiescing.Store(false)
+	l.releaseMicrotaskYield()
 
-	if x.testHooks != nil && x.testHooks.BeforeJSTerminalCleanupCollect != nil {
-		x.testHooks.BeforeJSTerminalCleanupCollect()
+	if l.testHooks != nil && l.testHooks.BeforeJSTerminalCleanupCollect != nil {
+		l.testHooks.BeforeJSTerminalCleanupCollect()
 	}
-	jsTerminalCleanup = x.jsTerminalCleanup
-	x.jsTerminalCleanup = nil
-	jsSettlements = x.cleanupJSAdaptersLocked()
-	if x.testHooks != nil && x.testHooks.AfterJSTerminalSettlementCollect != nil {
-		x.testHooks.AfterJSTerminalSettlementCollect()
+	jsTerminalCleanup = l.jsTerminalCleanup
+	l.jsTerminalCleanup = nil
+	jsSettlements = l.cleanupJSAdaptersLocked()
+	if l.testHooks != nil && l.testHooks.AfterJSTerminalSettlementCollect != nil {
+		l.testHooks.AfterJSTerminalSettlementCollect()
 	}
-	x.cleanupTimers()
-	x.stopFastSleepTimer()
-	x.fastSleepTimer = nil
-	x.userIOFDCount.Store(0)
-	x.activePhaseJobCount.Store(0)
-	x.discardOwnerQueues()
-	x.externalMu.Lock()
-	x.cleanupCommandIngressLocked()
-	x.commands.discard()
-	x.checkJobs = discardSlice(x.checkJobs)
-	x.checkJobsSpare = discardSlice(x.checkJobsSpare)
-	x.closeJobs = discardSlice(x.closeJobs)
-	x.closeJobsSpare = discardSlice(x.closeJobsSpare)
-	x.externalMu.Unlock()
-	x.queuePressureHandler = nil
-	x.quiescenceMu.Lock()
-	x.quiescenceHandler = nil
-	x.jsQuiescenceHandler = nil
-	x.quiescenceMu.Unlock()
+	l.cleanupTimers()
+	l.stopFastSleepTimer()
+	l.fastSleepTimer = nil
+	l.userIOFDCount.Store(0)
+	l.activePhaseJobCount.Store(0)
+	l.discardOwnerQueues()
+	l.externalMu.Lock()
+	l.cleanupCommandIngressLocked()
+	l.commands.discard()
+	l.checkJobs = discardSlice(l.checkJobs)
+	l.checkJobsSpare = discardSlice(l.checkJobsSpare)
+	l.closeJobs = discardSlice(l.closeJobs)
+	l.closeJobsSpare = discardSlice(l.closeJobsSpare)
+	l.externalMu.Unlock()
+	l.queuePressureHandler = nil
+	l.quiescenceMu.Lock()
+	l.quiescenceHandler = nil
+	l.jsQuiescenceHandler = nil
+	l.quiescenceMu.Unlock()
 
-	x.terminalDrainMu.Lock()
-	for i := range x.terminalDiagnostics {
-		x.terminalDiagnostics[i] = nil
+	l.terminalDrainMu.Lock()
+	for i := range l.terminalDiagnostics {
+		l.terminalDiagnostics[i] = nil
 	}
-	x.terminalDiagnostics = nil
-	x.terminalDrainMu.Unlock()
+	l.terminalDiagnostics = nil
+	l.terminalDrainMu.Unlock()
 
 }
 
@@ -556,19 +556,19 @@ func (x *Loop) terminateCleanup() {
 // livenessMu linearizes registration with every terminal transition and with
 // cleanupJSAdaptersLocked. Weak keys avoid retaining otherwise unreachable
 // adapters for the lifetime of a long-running loop.
-func (x *Loop) registerJSAdapter(js *JS) {
-	if x == nil || js == nil || x.state == nil {
+func (l *Loop) registerJSAdapter(js *JS) {
+	if l == nil || js == nil || l.state == nil {
 		return
 	}
-	x.livenessMu.Lock()
-	state := x.state.Load()
+	l.livenessMu.Lock()
+	state := l.state.Load()
 	var registration jsAdapterRegistration
 	registered := false
 	if state != StateTerminating && state != StateTerminated {
-		registration = x.retainJSAdapterLocked(js)
+		registration = l.retainJSAdapterLocked(js)
 		registered = true
 	}
-	x.livenessMu.Unlock()
+	l.livenessMu.Unlock()
 	if registered {
 		runtime.AddCleanup(js, cleanupJSAdapterRegistration, registration)
 		runtime.KeepAlive(js)
@@ -578,22 +578,22 @@ func (x *Loop) registerJSAdapter(js *JS) {
 // bindJSAdapter gives install exclusive lifecycle ownership, then atomically
 // registers js and its independent integration quiescence callback while the
 // loop remains in StateAwake. It returns the state observed under livenessMu.
-func (x *Loop) bindJSAdapter(js *JS, quiescence func() bool, terminalCleanup func(), install func(*JS) error) (LoopState, error) {
-	if x == nil || js == nil || x.state == nil {
+func (l *Loop) bindJSAdapter(js *JS, quiescence func() bool, terminalCleanup func(), install func(*JS) error) (LoopState, error) {
+	if l == nil || js == nil || l.state == nil {
 		return StateTerminated, ErrJSBindState
 	}
-	if x.testHooks != nil && x.testHooks.BeforeBindJSLifecycleLock != nil {
-		x.testHooks.BeforeBindJSLifecycleLock()
+	if l.testHooks != nil && l.testHooks.BeforeBindJSLifecycleLock != nil {
+		l.testHooks.BeforeBindJSLifecycleLock()
 	}
-	x.livenessMu.Lock()
-	defer x.livenessMu.Unlock()
-	x.quiescenceMu.Lock()
-	bound := x.jsQuiescenceBound
-	x.quiescenceMu.Unlock()
+	l.livenessMu.Lock()
+	defer l.livenessMu.Unlock()
+	l.quiescenceMu.Lock()
+	bound := l.jsQuiescenceBound
+	l.quiescenceMu.Unlock()
 	if bound {
-		return x.state.Load(), ErrJSBindConflict
+		return l.state.Load(), ErrJSBindConflict
 	}
-	state := x.state.Load()
+	state := l.state.Load()
 	if state != StateAwake {
 		return state, ErrJSBindState
 	}
@@ -602,26 +602,26 @@ func (x *Loop) bindJSAdapter(js *JS, quiescence func() bool, terminalCleanup fun
 			return state, err
 		}
 	}
-	x.quiescenceMu.Lock()
-	registration := x.retainJSAdapterLocked(js)
-	x.jsQuiescenceHandler = quiescence
-	x.jsQuiescenceBound = true
-	x.jsTerminalCleanup = terminalCleanup
-	x.quiescenceMu.Unlock()
+	l.quiescenceMu.Lock()
+	registration := l.retainJSAdapterLocked(js)
+	l.jsQuiescenceHandler = quiescence
+	l.jsQuiescenceBound = true
+	l.jsTerminalCleanup = terminalCleanup
+	l.quiescenceMu.Unlock()
 	runtime.AddCleanup(js, cleanupJSAdapterRegistration, registration)
 	runtime.KeepAlive(js)
 	return state, nil
 }
 
 // retainJSAdapterLocked records js while livenessMu is held.
-func (x *Loop) retainJSAdapterLocked(js *JS) jsAdapterRegistration {
-	if len(x.jsAdapters) >= x.jsAdapterSweepAt {
-		x.sweepJSAdaptersLocked()
+func (l *Loop) retainJSAdapterLocked(js *JS) jsAdapterRegistration {
+	if len(l.jsAdapters) >= l.jsAdapterSweepAt {
+		l.sweepJSAdaptersLocked()
 	}
 	pointer := weak.Make(js)
-	x.jsAdapters = retainedMapStore(x.jsAdapters, &x.jsAdaptersRetention, pointer, struct{}{})
+	l.jsAdapters = retainedMapStore(l.jsAdapters, &l.jsAdaptersRetention, pointer, struct{}{})
 	return jsAdapterRegistration{
-		loop:    weak.Make(x),
+		loop:    weak.Make(l),
 		adapter: pointer,
 	}
 }
@@ -653,14 +653,14 @@ func cleanupJSAdapterRegistration(registration jsAdapterRegistration) {
 	loop.livenessMu.Unlock()
 }
 
-func (x *Loop) sweepJSAdaptersLocked() {
-	for pointer := range x.jsAdapters {
+func (l *Loop) sweepJSAdaptersLocked() {
+	for pointer := range l.jsAdapters {
 		if pointer.Value() == nil {
-			delete(x.jsAdapters, pointer)
+			delete(l.jsAdapters, pointer)
 		}
 	}
-	x.jsAdapters, _ = rebuildRetainedMap(x.jsAdapters, &x.jsAdaptersRetention)
-	x.jsAdapterSweepAt = nextJSAdapterSweep(len(x.jsAdapters))
+	l.jsAdapters, _ = rebuildRetainedMap(l.jsAdapters, &l.jsAdaptersRetention)
+	l.jsAdapterSweepAt = nextJSAdapterSweep(len(l.jsAdapters))
 }
 
 func nextJSAdapterSweep(length int) int {
@@ -675,75 +675,75 @@ func nextJSAdapterSweep(length int) int {
 // being discarded. The caller holds livenessMu, preventing a successful handle
 // or timer-promise publication from crossing terminal cleanup in either
 // direction. Returned promise settlements run only after that lock is released.
-func (x *Loop) cleanupJSAdaptersLocked() []func() {
+func (l *Loop) cleanupJSAdaptersLocked() []func() {
 	var settlements []func()
-	for pointer := range x.jsAdapters {
+	for pointer := range l.jsAdapters {
 		if js := pointer.Value(); js != nil {
 			settlements = append(settlements, js.terminateCleanup()...)
 		}
 	}
-	x.jsAdapters = discardRetainedMap(x.jsAdapters, &x.jsAdaptersRetention)
-	x.jsAdapterSweepAt = 0
+	l.jsAdapters = discardRetainedMap(l.jsAdapters, &l.jsAdaptersRetention)
+	l.jsAdapterSweepAt = 0
 	return settlements
 }
 
 // closeFDs closes file descriptors.
 // Uses sync.Once to ensure FDs are only closed once,
 // even if called from multiple paths (shutdown + poll error).
-func (x *Loop) closeFDs() {
+func (l *Loop) closeFDs() {
 	// A synchronous descriptor-cleanup diagnostic retains its caller's logical
 	// loop role. If that diagnostic causes terminal fallback work, retire the
 	// owner callback worker only after the complete logger call returns.
-	defer x.stopCallbackWorker()
+	defer l.stopCallbackWorker()
 
 	closedNow := false
-	x.closeOnce.Do(func() {
+	l.closeOnce.Do(func() {
 		closedNow = true
-		if x.testHooks != nil && x.testHooks.BeforeCloseFDLock != nil {
-			x.testHooks.BeforeCloseFDLock()
+		if l.testHooks != nil && l.testHooks.BeforeCloseFDLock != nil {
+			l.testHooks.BeforeCloseFDLock()
 		}
-		x.fdMu.Lock()
-		x.livenessMu.Lock()
-		if x.testHooks != nil && x.testHooks.BeforeWakeResourceClose != nil {
-			x.testHooks.BeforeWakeResourceClose()
+		l.fdMu.Lock()
+		l.livenessMu.Lock()
+		if l.testHooks != nil && l.testHooks.BeforeWakeResourceClose != nil {
+			l.testHooks.BeforeWakeResourceClose()
 		}
-		x.wakeMu.Lock()
+		l.wakeMu.Lock()
 
-		wakePipe := x.wakePipe
-		wakePipeWrite := x.wakePipeWrite
-		x.wakePipe = -1
-		x.wakePipeWrite = -1
-		x.pollerReady.Store(false)
-		closeErr := x.closePollerLocked()
-		x.userIOFDCount.Store(0)
+		wakePipe := l.wakePipe
+		wakePipeWrite := l.wakePipeWrite
+		l.wakePipe = -1
+		l.wakePipeWrite = -1
+		l.pollerReady.Store(false)
+		closeErr := l.closePollerLocked()
+		l.userIOFDCount.Store(0)
 		closeErr = joinErrors(closeErr, closeWakeFDs(wakePipe, wakePipeWrite))
-		x.wakeUpSignalPending.Store(wakeSignalIdle)
-		x.wakeMu.Unlock()
-		x.livenessMu.Unlock()
-		x.fdMu.Unlock()
+		l.wakeUpSignalPending.Store(wakeSignalIdle)
+		l.wakeMu.Unlock()
+		l.livenessMu.Unlock()
+		l.fdMu.Unlock()
 		if closeErr != nil {
-			x.fdCloseErr.Store(&terminalErrorBox{err: closeErr})
-			x.logError("eventloop: descriptor cleanup failed", closeErr)
+			l.fdCloseErr.Store(&terminalErrorBox{err: closeErr})
+			l.logError("eventloop: descriptor cleanup failed", closeErr)
 		}
 	})
 	if !closedNow {
-		x.retryPollerCleanup()
+		l.retryPollerCleanup()
 	}
 }
 
 // isLoopThread reports whether the caller currently owns logical loop access.
 // During callback execution, that ownership may be delegated from the physical
 // Run goroutine to the callback worker.
-func (x *Loop) isLoopThread() bool {
-	loopID := x.loopGoroutineID.Load()
+func (l *Loop) isLoopThread() bool {
+	loopID := l.loopGoroutineID.Load()
 	if loopID == 0 {
 		return false
 	}
 	return goroutineid.Get() == loopID
 }
 
-func (x *Loop) waitLoopDoneAfterTerminal() {
-	if x.runStarted.Load() {
-		<-x.loopDone
+func (l *Loop) waitLoopDoneAfterTerminal() {
+	if l.runStarted.Load() {
+		<-l.loopDone
 	}
 }

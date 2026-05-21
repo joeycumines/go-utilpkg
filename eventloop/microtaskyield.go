@@ -10,19 +10,19 @@ import "time"
 //
 // The caller must hold the logical loop owner role. Ordinary goroutines receive
 // [ErrCallbackOwner]. A terminating loop receives [ErrLoopTerminated].
-func (x *Loop) YieldMicrotasks() error {
-	if x == nil {
+func (l *Loop) YieldMicrotasks() error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
 		return ErrLoopTerminated
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		return ErrCallbackOwner
 	}
-	if x.microtaskYield.CompareAndSwap(false, true) {
-		x.submissionEpoch.Add(1)
+	if l.microtaskYield.CompareAndSwap(false, true) {
+		l.submissionEpoch.Add(1)
 	}
 	return nil
 }
@@ -38,17 +38,17 @@ func (x *Loop) YieldMicrotasks() error {
 // phase boundary.
 //
 // RunMicrotaskCheckpoint panics if the Loop receiver is nil.
-func (x *Loop) RunMicrotaskCheckpoint() error {
-	if x == nil {
+func (l *Loop) RunMicrotaskCheckpoint() error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		return ErrCallbackOwner
 	}
-	if x.hardAbortRequested() {
+	if l.hardAbortRequested() {
 		return ErrLoopTerminated
 	}
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 	return nil
 }
 
@@ -65,21 +65,21 @@ func (x *Loop) RunMicrotaskCheckpoint() error {
 // goroutines receive [ErrCallbackOwner].
 //
 // AdvanceMicrotaskCheckpoint panics if the Loop receiver is nil.
-func (x *Loop) AdvanceMicrotaskCheckpoint() error {
-	if x == nil {
+func (l *Loop) AdvanceMicrotaskCheckpoint() error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		return ErrCallbackOwner
 	}
-	if x.hardAbortRequested() {
+	if l.hardAbortRequested() {
 		return ErrLoopTerminated
 	}
-	if x.microtaskYield.CompareAndSwap(true, false) {
+	if l.microtaskYield.CompareAndSwap(true, false) {
 		return nil
 	}
-	x.drainMicrotasks()
-	x.releaseMicrotaskYield()
+	l.drainMicrotasks()
+	l.releaseMicrotaskYield()
 	return nil
 }
 
@@ -94,37 +94,37 @@ func (x *Loop) AdvanceMicrotaskCheckpoint() error {
 // goroutines receive [ErrCallbackOwner].
 //
 // ResumeMicrotaskCheckpoint panics if the Loop receiver is nil.
-func (x *Loop) ResumeMicrotaskCheckpoint() error {
-	if x == nil {
+func (l *Loop) ResumeMicrotaskCheckpoint() error {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	if !x.ownsLocalQueues() {
+	if !l.ownsLocalQueues() {
 		return ErrCallbackOwner
 	}
-	if x.hardAbortRequested() {
+	if l.hardAbortRequested() {
 		return ErrLoopTerminated
 	}
-	x.releaseMicrotaskYield()
-	x.drainMicrotasks()
+	l.releaseMicrotaskYield()
+	l.drainMicrotasks()
 	return nil
 }
 
-func (x *Loop) releaseMicrotaskYield() {
-	x.microtaskYield.Store(false)
+func (l *Loop) releaseMicrotaskYield() {
+	l.microtaskYield.Store(false)
 }
 
-func (x *Loop) releaseMicrotaskYieldAtEmptyCheck() {
-	if !x.microtaskYield.Load() {
+func (l *Loop) releaseMicrotaskYieldAtEmptyCheck() {
+	if !l.microtaskYield.Load() {
 		return
 	}
-	deadline, timerPending := x.nextTimerDeadline()
+	deadline, timerPending := l.nextTimerDeadline()
 	timerReady := timerPending && !deadline.After(time.Now())
 	if timerReady ||
-		x.commandIngressPending.Load() ||
-		x.ownerInternalCount.Load() != 0 ||
-		x.ownerExternalCount.Load() != 0 ||
-		x.ownerCloseCount.Load() != 0 {
+		l.commandIngressPending.Load() ||
+		l.ownerInternalCount.Load() != 0 ||
+		l.ownerExternalCount.Load() != 0 ||
+		l.ownerCloseCount.Load() != 0 {
 		return
 	}
-	x.releaseMicrotaskYield()
+	l.releaseMicrotaskYield()
 }

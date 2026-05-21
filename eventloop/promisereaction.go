@@ -35,77 +35,77 @@ func (r pendingPromiseReaction) fail() {
 
 const pendingReactionOverflowRetainLimit = 64
 
-func (x *Loop) registerPendingPromiseReaction(target, source *ChainedPromise, failure handlerScheduleFailure) {
+func (l *Loop) registerPendingPromiseReaction(target, source *ChainedPromise, failure handlerScheduleFailure) {
 	if target == nil || source == nil {
 		return
 	}
-	x.pendingReactionsMu.Lock()
-	x.pendingReactionSeq++
-	reaction := pendingPromiseReaction{source: source, failure: failure, seq: x.pendingReactionSeq}
-	if x.pendingReactionTarget == nil {
-		x.pendingReactionTarget = target
-		x.pendingReaction = reaction
+	l.pendingReactionsMu.Lock()
+	l.pendingReactionSeq++
+	reaction := pendingPromiseReaction{source: source, failure: failure, seq: l.pendingReactionSeq}
+	if l.pendingReactionTarget == nil {
+		l.pendingReactionTarget = target
+		l.pendingReaction = reaction
 	} else {
-		if x.pendingReactionOverflow == nil {
-			x.pendingReactionOverflow = make(map[*ChainedPromise]pendingPromiseReaction)
+		if l.pendingReactionOverflow == nil {
+			l.pendingReactionOverflow = make(map[*ChainedPromise]pendingPromiseReaction)
 		}
-		x.pendingReactionOverflow[target] = reaction
-		if size := len(x.pendingReactionOverflow); size > x.pendingReactionOverflowPeak {
-			x.pendingReactionOverflowPeak = size
+		l.pendingReactionOverflow[target] = reaction
+		if size := len(l.pendingReactionOverflow); size > l.pendingReactionOverflowPeak {
+			l.pendingReactionOverflowPeak = size
 		}
 	}
-	x.pendingReactionsMu.Unlock()
+	l.pendingReactionsMu.Unlock()
 }
 
-func (x *Loop) claimPendingPromiseReaction(target *ChainedPromise) (pendingPromiseReaction, bool) {
+func (l *Loop) claimPendingPromiseReaction(target *ChainedPromise) (pendingPromiseReaction, bool) {
 	if target == nil {
 		return pendingPromiseReaction{}, false
 	}
-	x.pendingReactionsMu.Lock()
-	if x.pendingReactionTarget == target {
-		reaction := x.pendingReaction
-		x.pendingReactionTarget = nil
-		x.pendingReaction = pendingPromiseReaction{}
-		x.pendingReactionsMu.Unlock()
+	l.pendingReactionsMu.Lock()
+	if l.pendingReactionTarget == target {
+		reaction := l.pendingReaction
+		l.pendingReactionTarget = nil
+		l.pendingReaction = pendingPromiseReaction{}
+		l.pendingReactionsMu.Unlock()
 		return reaction, true
 	}
-	reaction, ok := x.pendingReactionOverflow[target]
+	reaction, ok := l.pendingReactionOverflow[target]
 	if ok {
-		delete(x.pendingReactionOverflow, target)
-		if len(x.pendingReactionOverflow) == 0 && x.pendingReactionOverflowPeak > pendingReactionOverflowRetainLimit {
-			x.pendingReactionOverflow = nil
-			x.pendingReactionOverflowPeak = 0
+		delete(l.pendingReactionOverflow, target)
+		if len(l.pendingReactionOverflow) == 0 && l.pendingReactionOverflowPeak > pendingReactionOverflowRetainLimit {
+			l.pendingReactionOverflow = nil
+			l.pendingReactionOverflowPeak = 0
 		}
 	}
-	x.pendingReactionsMu.Unlock()
+	l.pendingReactionsMu.Unlock()
 	return reaction, ok
 }
 
 // takePendingPromiseReactions detaches every unclaimed reaction in registration
 // order. Terminal cleanup drops even the bounded reusable overflow table before
 // failure callbacks run outside ownership.
-func (x *Loop) takePendingPromiseReactions() []pendingPromiseReaction {
-	x.pendingReactionsMu.Lock()
-	count := len(x.pendingReactionOverflow)
-	if x.pendingReactionTarget != nil {
+func (l *Loop) takePendingPromiseReactions() []pendingPromiseReaction {
+	l.pendingReactionsMu.Lock()
+	count := len(l.pendingReactionOverflow)
+	if l.pendingReactionTarget != nil {
 		count++
 	}
 	var reactions []pendingPromiseReaction
 	if count != 0 {
 		reactions = make([]pendingPromiseReaction, 0, count)
 	}
-	if x.pendingReactionTarget != nil {
-		reactions = append(reactions, x.pendingReaction)
+	if l.pendingReactionTarget != nil {
+		reactions = append(reactions, l.pendingReaction)
 	}
-	for target, reaction := range x.pendingReactionOverflow {
-		delete(x.pendingReactionOverflow, target)
+	for target, reaction := range l.pendingReactionOverflow {
+		delete(l.pendingReactionOverflow, target)
 		reactions = append(reactions, reaction)
 	}
-	x.pendingReactionTarget = nil
-	x.pendingReaction = pendingPromiseReaction{}
-	x.pendingReactionOverflow = nil
-	x.pendingReactionOverflowPeak = 0
-	x.pendingReactionsMu.Unlock()
+	l.pendingReactionTarget = nil
+	l.pendingReaction = pendingPromiseReaction{}
+	l.pendingReactionOverflow = nil
+	l.pendingReactionOverflowPeak = 0
+	l.pendingReactionsMu.Unlock()
 	slices.SortFunc(reactions, func(a, b pendingPromiseReaction) int {
 		return cmp.Compare(a.seq, b.seq)
 	})

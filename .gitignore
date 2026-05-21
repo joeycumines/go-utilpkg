@@ -11,3 +11,7 @@ __pycache__
 /.wasm-cache
 /.wasm-tmp
 /candidateproxy
+# Compiled tournamentmeta binaries (main package; dropped by go build/test).
+/tournamentmeta
+/tournamentmeta.exe
+/eventloop/internal/tournamentmeta/tournamentmeta

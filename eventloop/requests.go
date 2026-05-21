@@ -20,11 +20,11 @@ type LoopRequests struct {
 
 // Requests returns a transferable nonjoining request capability.
 // It panics if the Loop receiver is nil.
-func (x *Loop) Requests() LoopRequests {
-	if x == nil {
+func (l *Loop) Requests() LoopRequests {
+	if l == nil {
 		panic("eventloop: nil Loop")
 	}
-	return LoopRequests{loop: x}
+	return LoopRequests{loop: l}
 }
 
 // Shutdown requests graceful termination without joining terminal cleanup.

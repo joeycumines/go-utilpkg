@@ -97,6 +97,9 @@ func validateSourceBuildConfig(root string, config sourceBuildConfig) (string, s
 		if value == "" || !filepath.IsAbs(value) {
 			return "", sourceBuildConfig{}, fmt.Errorf("source build %s must be absolute", name)
 		}
+		if name == "Go executable" {
+			value = normalizeExecutablePath(value)
+		}
 		resolved, err := filepath.EvalSymlinks(value)
 		if err != nil {
 			return "", sourceBuildConfig{}, fmt.Errorf("resolve source build %s: %w", name, err)

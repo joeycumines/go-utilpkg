@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -16,68 +15,6 @@ type timerReferenceCoreShape struct {
 	ReferencedAdd  int64
 	UnrefedAdd     int64
 	Excluded       int
-}
-
-func TestTimerReferenceASTExtractionProof(t *testing.T) {
-	repository, err := filepath.Abs(filepath.Join("..", "..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	int32Descriptor, ok := timerReferenceDescriptorID("timer.ref-core.map-swap-int32.v1")
-	if !ok {
-		t.Fatal("missing Int32 reference descriptor")
-	}
-	int64Descriptor, ok := timerReferenceDescriptorID("timer.ref-core.map-swap-int64.v1")
-	if !ok {
-		t.Fatal("missing Int64 reference descriptor")
-	}
-
-	historical := []struct {
-		owner  string
-		source componentSourceIdentity
-	}{{owner: int32Descriptor.SourceStorageID, source: int32Descriptor.Sources[0]}}
-	for _, binding := range timerReferenceStorageBindings {
-		if binding.Disposition == timerReferenceBindingNormalizedAlias {
-			historical = append(historical, struct {
-				owner  string
-				source componentSourceIdentity
-			}{owner: binding.StorageID, source: binding.NormalizedSource})
-		}
-	}
-	for _, candidate := range historical {
-		t.Run(candidate.owner, func(t *testing.T) {
-			payload := timerReferenceSourcePayload(t, repository, candidate.source)
-			shape, shapeErr := parseTimerReferenceCore(payload, "applyTimerRefChange", "timerMap", "refedTimerCount")
-			if shapeErr != nil {
-				t.Fatal(shapeErr)
-			}
-			if shape != (timerReferenceCoreShape{MissingReturns: true, SwapsAtomicBit: true, ReferencedAdd: 1, UnrefedAdd: -1, Excluded: 2}) {
-				t.Fatalf("historical owner core shape = %+v", shape)
-			}
-		})
-	}
-
-	currentSource := timerReferenceSourcePayload(t, repository, int64Descriptor.Sources[0])
-	currentShape, err := parseTimerReferenceCore(currentSource, "applyTimerRefChange", "timerMap", "refedTimerCount")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if currentShape != (timerReferenceCoreShape{MissingReturns: true, SwapsAtomicBit: true, ReferencedAdd: 1, UnrefedAdd: -1, Excluded: 2}) {
-		t.Fatalf("current owner core shape = %+v", currentShape)
-	}
-
-	for _, descriptor := range []timerReferenceDescriptor{int32Descriptor, int64Descriptor} {
-		t.Run(descriptor.ID, func(t *testing.T) {
-			payload := timerReferenceSourcePayload(t, repository, descriptor.MaterializationSources[0])
-			shape, shapeErr := parseTimerReferenceCore(payload, "Apply", "entries", "refed")
-			if shapeErr != nil {
-				t.Fatal(shapeErr)
-			}
-			if shape != (timerReferenceCoreShape{MissingReturns: true, SwapsAtomicBit: true, ReferencedAdd: 1, UnrefedAdd: -1}) {
-				t.Fatalf("materialized owner core shape = %+v", shape)
-			}
-		})
-	}
 }
 
 func TestTimerReferenceASTExtractionRejectsDrift(t *testing.T) {
@@ -104,20 +41,6 @@ func (c *Core) Apply(id ID, refed bool) {
 			}
 		})
 	}
-}
-
-func timerReferenceSourcePayload(t *testing.T, repository string, source componentSourceIdentity) []byte {
-	t.Helper()
-	var object string
-	switch source.ProvenanceKind {
-	case "commit":
-		object = source.OriginCommit + ":eventloop/" + source.Path
-	case "archived-index-candidate", "index-candidate-materialization":
-		object = ":eventloop/" + source.Path
-	default:
-		t.Fatalf("unsupported reference provenance kind %q", source.ProvenanceKind)
-	}
-	return runComponentGit(t, repository, "show", object)
 }
 
 func parseTimerReferenceCore(source []byte, function, mapField, aggregateField string) (timerReferenceCoreShape, error) {

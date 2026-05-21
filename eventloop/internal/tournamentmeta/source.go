@@ -396,6 +396,7 @@ func inspectSourceRecords(root string, files []string) ([]sourceRecord, error) {
 			if err != nil {
 				return nil, fmt.Errorf("read governed symlink %q: %w", relative, err)
 			}
+			target = filepath.ToSlash(target)
 			if err := validateSymlink(root, relative, target); err != nil {
 				return nil, err
 			}
@@ -539,6 +540,7 @@ func copySourcePath(root, output, relative string) error {
 		if err != nil {
 			return fmt.Errorf("read snapshot symlink %q: %w", relative, err)
 		}
+		linkTarget = filepath.ToSlash(linkTarget)
 		if err := validateSymlink(root, relative, linkTarget); err != nil {
 			return err
 		}
@@ -693,7 +695,8 @@ func validateSymlink(root, relative, target string) error {
 }
 
 func validateSymlinkTarget(target string) error {
-	if target == "" || !utf8.ValidString(target) || filepath.IsAbs(target) || filepath.VolumeName(target) != "" ||
+	if target == "" || !utf8.ValidString(target) || filepath.IsAbs(target) || strings.HasPrefix(target, "/") ||
+		filepath.VolumeName(target) != "" ||
 		windowsVolumePattern.MatchString(target) || strings.HasPrefix(target, "//") ||
 		strings.ContainsAny(target, "\\:") || strings.IndexFunc(target, unicode.IsControl) >= 0 {
 		return fmt.Errorf("unsafe symlink target %q", target)

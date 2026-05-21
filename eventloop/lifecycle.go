@@ -27,53 +27,53 @@ import (
 // Promise reaction chain can delay cancellation.
 //
 // To run in a separate goroutine, use: `go loop.Run(ctx)`.
-func (x *Loop) Run(ctx context.Context) error {
+func (l *Loop) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if x.isLoopThread() {
+	if l.isLoopThread() {
 		return ErrReentrantRun
 	}
 	// A published terminal state needs no lifecycle arbitration. This fast
 	// probe also lets Run report the stable result while the terminal winner is
 	// still publishing mode under livenessMu.
-	currentState := x.state.Load()
+	currentState := l.state.Load()
 	if currentState == StateTerminated || currentState == StateTerminating {
 		return ErrLoopTerminated
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeRunLifecycleLock != nil {
-		x.testHooks.BeforeRunLifecycleLock()
+	if l.testHooks != nil && l.testHooks.BeforeRunLifecycleLock != nil {
+		l.testHooks.BeforeRunLifecycleLock()
 	}
-	x.livenessMu.Lock()
-	if !x.state.TryTransition(StateAwake, StateRunning) {
-		currentState = x.state.Load()
-		x.livenessMu.Unlock()
+	l.livenessMu.Lock()
+	if !l.state.TryTransition(StateAwake, StateRunning) {
+		currentState = l.state.Load()
+		l.livenessMu.Unlock()
 		if currentState == StateTerminated || currentState == StateTerminating {
 			return ErrLoopTerminated
 		}
 		return ErrLoopAlreadyRunning
 	}
-	x.livenessMu.Unlock()
-	if x.testHooks != nil && x.testHooks.AfterRunStateRunningBeforeStart != nil {
-		x.testHooks.AfterRunStateRunningBeforeStart()
+	l.livenessMu.Unlock()
+	if l.testHooks != nil && l.testHooks.AfterRunStateRunningBeforeStart != nil {
+		l.testHooks.AfterRunStateRunningBeforeStart()
 	}
-	x.runStarted.Store(true)
+	l.runStarted.Store(true)
 
 	now := time.Now()
-	x.setTickAnchor(now)
-	x.tickNow = now
+	l.setTickAnchor(now)
+	l.tickNow = now
 
-	runErr := x.run(ctx)
+	runErr := l.run(ctx)
 	// Only the successful Run owner publishes loopDone. Immediate Close uses
 	// that signal to begin resource cleanup; Run then joins the shorter terminal
 	// barrier so it cannot publish a stale pre-cleanup result. Graceful completion
 	// remains independent because it may wait for a Promisify worker that itself
 	// depends on Run returning.
-	x.closeLoopDoneOnce.Do(func() { close(x.loopDone) })
-	if x.immediateCloseWon() {
-		<-x.terminalDone
-		return joinErrors(runErr, x.terminalError())
+	l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
+	if l.immediateCloseWon() {
+		<-l.terminalDone
+		return joinErrors(runErr, l.terminalError())
 	}
 	return runErr
 }
@@ -106,237 +106,237 @@ func (x *Loop) Run(ctx context.Context) error {
 // admitting checkpoint continuations until the queues empty; an unbounded chain
 // can therefore delay terminal completion. A caller context still bounds that
 // caller's wait.
-func (x *Loop) Shutdown(ctx context.Context) error {
-	return x.shutdownImpl(ctx, true)
+func (l *Loop) Shutdown(ctx context.Context) error {
+	return l.shutdownImpl(ctx, true)
 }
 
 // shutdownImpl contains the actual Shutdown implementation.
-func (x *Loop) shutdownImpl(ctx context.Context, join bool) error {
+func (l *Loop) shutdownImpl(ctx context.Context, join bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if x.isLoopThread() {
-		return x.shutdownLoopThread()
+	if l.isLoopThread() {
+		return l.shutdownLoopThread()
 	}
-	if x.isTerminalDrainOwner() {
+	if l.isTerminalDrainOwner() {
 		// A callback delegated by the pre-Run graceful drain owns this narrow
 		// capability instead of loop-thread identity. It must acknowledge the
 		// active graceful request without joining the drain that is waiting for
 		// the callback to return.
-		if !x.immediateCloseWon() {
+		if !l.immediateCloseWon() {
 			return nil
 		}
 		return ErrLoopTerminated
 	}
-	nonjoining := !join || x.isPromisifyWorker()
-	if x.terminalCompletionPublished() {
-		x.retryPollerCleanup()
+	nonjoining := !join || l.isPromisifyWorker()
+	if l.terminalCompletionPublished() {
+		l.retryPollerCleanup()
 		return ErrLoopTerminated
 	}
-	if x.isTerminalCompletionOwner() {
-		return x.terminalRequestResult(false)
+	if l.isTerminalCompletionOwner() {
+		return l.terminalRequestResult(false)
 	}
 
 	for {
-		currentState := x.state.Load()
+		currentState := l.state.Load()
 		if currentState == StateTerminated || currentState == StateTerminating {
 			if nonjoining {
-				return x.terminalRequestResult(false)
+				return l.terminalRequestResult(false)
 			}
-			x.beforeTerminalJoin()
-			return x.waitShutdownCompletion(ctx)
+			l.beforeTerminalJoin()
+			return l.waitShutdownCompletion(ctx)
 		}
-		if x.testHooks != nil && x.testHooks.BeforeShutdownLifecycleLock != nil {
-			x.testHooks.BeforeShutdownLifecycleLock()
+		if l.testHooks != nil && l.testHooks.BeforeShutdownLifecycleLock != nil {
+			l.testHooks.BeforeShutdownLifecycleLock()
 		}
 
-		endTerminalDrain, ok := x.tryBeginTerminalDrainRequest(currentState, StateTerminating)
+		endTerminalDrain, ok := l.tryBeginTerminalDrainRequest(currentState, StateTerminating)
 		if !ok {
 			continue
 		}
-		if x.testHooks != nil && x.testHooks.AfterShutdownStateTerminating != nil {
-			x.testHooks.AfterShutdownStateTerminating()
+		if l.testHooks != nil && l.testHooks.AfterShutdownStateTerminating != nil {
+			l.testHooks.AfterShutdownStateTerminating()
 		}
-		x.startTerminalDependencyRelease()
+		l.startTerminalDependencyRelease()
 
 		if currentState == StateAwake {
 			// Run has not acquired ownership. A dedicated drain goroutine must own
 			// callbacks so cancellation of this caller never abandons cleanup and
 			// never leaves the caller executing an unbounded callback or worker wait.
-			x.startAwakeShutdown(endTerminalDrain)
+			l.startAwakeShutdown(endTerminalDrain)
 		} else {
 			// Wake up the loop - in fast path mode, the loop may be blocking on
 			// fastWakeupCh without transitioning to StateSleeping.
-			x.doWakeup()
+			l.doWakeup()
 		}
 		if nonjoining {
 			return nil
 		}
-		return x.waitShutdownCompletion(ctx)
+		return l.waitShutdownCompletion(ctx)
 	}
 }
 
-func (x *Loop) waitShutdownCompletion(ctx context.Context) error {
+func (l *Loop) waitShutdownCompletion(ctx context.Context) error {
 	// Prefer a completed graceful shutdown over a context that became ready at
 	// the same boundary. Context cancellation is authoritative only while
 	// terminal cleanup remains incomplete.
 	select {
-	case <-x.terminalDone:
-		return x.terminalError()
+	case <-l.terminalDone:
+		return l.terminalError()
 	default:
 	}
 
 	select {
-	case <-x.terminalDone:
-		return x.terminalError()
+	case <-l.terminalDone:
+		return l.terminalError()
 	case <-ctx.Done():
-		if x.testHooks != nil && x.testHooks.AfterShutdownJoinContext != nil {
-			x.testHooks.AfterShutdownJoinContext()
+		if l.testHooks != nil && l.testHooks.AfterShutdownJoinContext != nil {
+			l.testHooks.AfterShutdownJoinContext()
 		}
 		select {
-		case <-x.terminalDone:
-			return x.terminalError()
+		case <-l.terminalDone:
+			return l.terminalError()
 		default:
 			return ctx.Err()
 		}
 	}
 }
 
-func (x *Loop) terminalCompletionPublished() bool {
+func (l *Loop) terminalCompletionPublished() bool {
 	select {
-	case <-x.terminalDone:
+	case <-l.terminalDone:
 		return true
 	default:
 		return false
 	}
 }
 
-func (x *Loop) terminalRequestResult(immediate bool) error {
-	if x.immediateCloseWon() == immediate {
+func (l *Loop) terminalRequestResult(immediate bool) error {
+	if l.immediateCloseWon() == immediate {
 		return nil
 	}
 	return ErrLoopTerminated
 }
 
-func (x *Loop) beforeTerminalJoin() {
-	if x.testHooks != nil && x.testHooks.BeforeTerminalJoin != nil {
-		x.testHooks.BeforeTerminalJoin()
+func (l *Loop) beforeTerminalJoin() {
+	if l.testHooks != nil && l.testHooks.BeforeTerminalJoin != nil {
+		l.testHooks.BeforeTerminalJoin()
 	}
 }
 
-func (x *Loop) startAwakeShutdown(endTerminalDrain func()) {
-	x.terminalCompletionOnce.Do(func() {
-		go x.finishAwakeShutdown(endTerminalDrain)
+func (l *Loop) startAwakeShutdown(endTerminalDrain func()) {
+	l.terminalCompletionOnce.Do(func() {
+		go l.finishAwakeShutdown(endTerminalDrain)
 	})
 }
 
-func (x *Loop) finishAwakeShutdown(endTerminalDrain func()) {
-	x.waitTerminalDependencyRelease()
-	releaseCompletionOwner := x.claimTerminalCompletionOwner()
+func (l *Loop) finishAwakeShutdown(endTerminalDrain func()) {
+	l.waitTerminalDependencyRelease()
+	releaseCompletionOwner := l.claimTerminalCompletionOwner()
 	defer releaseCompletionOwner()
 
 	// Public transition requests publish no drain owner. Claim that narrow
 	// admission capability on the dedicated goroutine before running callbacks.
-	x.claimTerminalDrainOwner()
-	x.transitionToTerminatedStartedForShutdown(endTerminalDrain)
+	l.claimTerminalDrainOwner()
+	l.transitionToTerminatedStartedForShutdown(endTerminalDrain)
 
 	// Accepted callback dependencies are now drained, so workers waiting on
 	// those callbacks can finish. New workers and queue submissions have already
 	// been excluded by StateTerminated under promisifyMu/livenessMu.
-	x.waitPromisifyGoroutines()
-	x.rejectAllPendingPromises(ErrLoopTerminated)
-	x.terminateCleanup()
-	x.closeFDs()
+	l.waitPromisifyGoroutines()
+	l.rejectAllPendingPromises(ErrLoopTerminated)
+	l.terminateCleanup()
+	l.closeFDs()
 
 	// Run never acquired this loop, so this finisher owns both completion
 	// signals. terminalDone is the public completion barrier and closes last.
-	x.closeLoopDoneOnce.Do(func() { close(x.loopDone) })
+	l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
 	releaseCompletionOwner()
-	x.closeTerminalDone()
+	l.closeTerminalDone()
 }
 
-func (x *Loop) startTerminalCompletion() {
-	x.terminalCompletionOnce.Do(func() {
-		go x.finishTerminalCompletion()
+func (l *Loop) startTerminalCompletion() {
+	l.terminalCompletionOnce.Do(func() {
+		go l.finishTerminalCompletion()
 	})
 }
 
-func (x *Loop) finishTerminalCompletion() {
-	x.waitTerminalDependencyRelease()
-	releaseCompletionOwner := x.claimTerminalCompletionOwner()
+func (l *Loop) finishTerminalCompletion() {
+	l.waitTerminalDependencyRelease()
+	releaseCompletionOwner := l.claimTerminalCompletionOwner()
 	defer releaseCompletionOwner()
 
 	// The loop drains all accepted queue dependencies before starting this
 	// finisher. Wait for the owner goroutine to exit, then wait for workers that
 	// can no longer enqueue owner work. The winning public Shutdown caller
 	// independently selects terminalDone against its own context.
-	x.waitLoopDoneAfterTerminal()
-	x.waitPromisifyGoroutines()
-	x.rejectAllPendingPromises(ErrLoopTerminated)
+	l.waitLoopDoneAfterTerminal()
+	l.waitPromisifyGoroutines()
+	l.rejectAllPendingPromises(ErrLoopTerminated)
 	releaseCompletionOwner()
-	x.closeTerminalDone()
+	l.closeTerminalDone()
 }
 
-func (x *Loop) startImmediateTerminalCompletion(waitLoop bool) {
-	x.terminalCompletionOnce.Do(func() {
-		go x.finishImmediateTerminalCompletion(waitLoop)
+func (l *Loop) startImmediateTerminalCompletion(waitLoop bool) {
+	l.terminalCompletionOnce.Do(func() {
+		go l.finishImmediateTerminalCompletion(waitLoop)
 	})
 }
 
-func (x *Loop) finishImmediateTerminalCompletion(waitLoop bool) {
-	x.waitTerminalDependencyRelease()
-	releaseCompletionOwner := x.claimTerminalCompletionOwner()
+func (l *Loop) finishImmediateTerminalCompletion(waitLoop bool) {
+	l.waitTerminalDependencyRelease()
+	releaseCompletionOwner := l.claimTerminalCompletionOwner()
 	defer releaseCompletionOwner()
 
 	if waitLoop {
-		<-x.loopDone
+		<-l.loopDone
 	}
-	x.closeFDs()
-	x.terminateCleanup()
+	l.closeFDs()
+	l.terminateCleanup()
 	if !waitLoop {
-		x.closeLoopDoneOnce.Do(func() { close(x.loopDone) })
+		l.closeLoopDoneOnce.Do(func() { close(l.loopDone) })
 	}
 	releaseCompletionOwner()
-	x.closeTerminalDone()
+	l.closeTerminalDone()
 }
 
-func (x *Loop) shutdownLoopThread() error {
+func (l *Loop) shutdownLoopThread() error {
 	for {
-		currentState := x.state.Load()
+		currentState := l.state.Load()
 		switch currentState {
 		case StateTerminating, StateTerminated:
 			// A logical loop owner cannot join completion that waits for that owner
 			// to return. Resolve the already-committed mode instead. This also covers
 			// synchronous cleanup callbacks after a graceful drain has ended.
-			if x.terminalCompletionPublished() {
+			if l.terminalCompletionPublished() {
 				return ErrLoopTerminated
 			}
-			return x.terminalRequestResult(false)
+			return l.terminalRequestResult(false)
 		}
 
-		if _, ok := x.tryBeginTerminalDrainTransition(currentState, StateTerminating); ok {
+		if _, ok := l.tryBeginTerminalDrainTransition(currentState, StateTerminating); ok {
 			// The loop goroutine already owns execution. It will observe
 			// StateTerminating after the current callback/checkpoint returns, drain
 			// terminal continuations, clean loop-owned state, close loopDone via
 			// Run's defer, and let the independent finisher publish terminalDone
 			// after admitted Promisify workers complete.
-			x.startTerminalDependencyRelease()
+			l.startTerminalDependencyRelease()
 			return nil
 		}
 	}
 }
 
 // run is the main loop goroutine.
-func (x *Loop) run(ctx context.Context) error {
-	x.loopGoroutineID.Store(goroutineid.Get())
-	defer x.loopGoroutineID.Store(0)
+func (l *Loop) run(ctx context.Context) error {
+	l.loopGoroutineID.Store(goroutineid.Get())
+	defer l.loopGoroutineID.Store(0)
 
 	// Start context watcher goroutine to wake loop on cancellation
 	ctxDone := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
-			x.doWakeup()
+			l.doWakeup()
 		case <-ctxDone:
 		}
 	}()
@@ -352,76 +352,76 @@ func (x *Loop) run(ctx context.Context) error {
 			// if a Promisify goroutine is blocking on something
 			ownedTermination := false
 			for {
-				x.livenessMu.Lock()
-				current := x.state.Load()
+				l.livenessMu.Lock()
+				current := l.state.Load()
 				if current == StateTerminating {
-					x.livenessMu.Unlock()
-					if x.immediateCloseWon() {
+					l.livenessMu.Unlock()
+					if l.immediateCloseWon() {
 						return ctx.Err()
 					}
-					x.claimTerminalDrainOwner()
-					x.transitionToTerminatedStartedForShutdown(x.finishActiveTerminalDrain)
-					x.terminateCleanup()
-					x.closeFDs()
-					x.startTerminalCompletion()
-					return joinErrors(ctx.Err(), x.terminalError())
+					l.claimTerminalDrainOwner()
+					l.transitionToTerminatedStartedForShutdown(l.finishActiveTerminalDrain)
+					l.terminateCleanup()
+					l.closeFDs()
+					l.startTerminalCompletion()
+					return joinErrors(ctx.Err(), l.terminalError())
 				}
 				if current == StateTerminated {
-					x.livenessMu.Unlock()
-					if x.immediateCloseWon() {
+					l.livenessMu.Unlock()
+					if l.immediateCloseWon() {
 						return ctx.Err()
 					}
-					x.closeFDs()
-					return joinErrors(ctx.Err(), x.terminalError())
+					l.closeFDs()
+					return joinErrors(ctx.Err(), l.terminalError())
 				}
-				if x.state.TryTransition(current, StateTerminating) {
+				if l.state.TryTransition(current, StateTerminating) {
 					ownedTermination = true
-					x.livenessMu.Unlock()
+					l.livenessMu.Unlock()
 					if current == StateSleeping {
-						x.doWakeup()
+						l.doWakeup()
 					}
 					break
 				}
-				x.livenessMu.Unlock()
+				l.livenessMu.Unlock()
 			}
 			if !ownedTermination {
-				x.closeFDs()
-				return joinErrors(ctx.Err(), x.terminalError())
+				l.closeFDs()
+				return joinErrors(ctx.Err(), l.terminalError())
 			}
 			// Transition state to Terminated so new Promisify operations are rejected.
 			// Drain queues on the loop goroutine, then defer promise rejection and the
 			// terminal completion signal until in-flight Promisify callbacks have
 			// reached their terminal state.
-			x.transitionToTerminatedForShutdown()
-			x.terminateCleanup() // GAP-AE-06: full cleanup resets all liveness counters
-			x.closeFDs()
-			x.startTerminalCompletion()
-			return joinErrors(ctx.Err(), x.terminalError())
+			l.transitionToTerminatedForShutdown()
+			l.terminateCleanup() // GAP-AE-06: full cleanup resets all liveness counters
+			l.closeFDs()
+			l.startTerminalCompletion()
+			return joinErrors(ctx.Err(), l.terminalError())
 		default:
 		}
 
-		terminalState := x.state.Load()
+		terminalState := l.state.Load()
 		if terminalState == StateTerminating || terminalState == StateTerminated {
 			// Immediate Close owns resource cleanup and only needs the loop owner to
 			// stop. Graceful termination keeps drain execution on this goroutine so
 			// callbacks preserve their affinity contract.
-			if x.immediateCloseWon() {
+			if l.immediateCloseWon() {
 				return nil
 			}
 			if terminalState == StateTerminating {
-				x.claimTerminalDrainOwner()
-				x.transitionToTerminatedStartedForShutdown(x.finishActiveTerminalDrain)
-				x.terminateCleanup()
-				x.startTerminalCompletion()
+				l.claimTerminalDrainOwner()
+				l.transitionToTerminatedStartedForShutdown(l.finishActiveTerminalDrain)
+				l.terminateCleanup()
+				l.startTerminalCompletion()
 			}
-			x.closeFDs()
-			return x.terminalError()
+			l.closeFDs()
+			return l.terminalError()
 		}
 
 		if !startupQueuesDrained {
 			startupQueuesDrained = true
-			x.drainStartupQueues()
-			if x.hardAbortRequested() {
+			l.drainStartupQueues()
+			if l.hardAbortRequested() {
 				continue
 			}
 		}
@@ -436,74 +436,74 @@ func (x *Loop) run(ctx context.Context) error {
 		// Alive() to catch any work that was added between the initial !Alive()
 		// decision and the flag being set (the epoch-based consistency in Alive()
 		// detects concurrent epoch changes). If work was added, abort termination.
-		if x.autoExit {
-			alive := x.Alive()
-			if x.quiescing.Load() && alive {
+		if l.autoExit {
+			alive := l.Alive()
+			if l.quiescing.Load() && alive {
 				// runFastPath may return after setting quiescing when it observes
 				// no liveness. If ephemeral work (Submit, ScheduleMicrotask,
 				// ScheduleNextTick) arrives before termination commits, Alive()
 				// becomes true and termination must be aborted. Clear the stale
 				// fast-path gate before executing that work so liveness-adding APIs
 				// called by the accepted task are not falsely rejected.
-				x.quiescing.Store(false)
+				l.quiescing.Store(false)
 			}
 
 			if !alive {
-				if x.runQuiescenceHandlers() || x.Alive() {
-					x.quiescing.Store(false)
+				if l.runQuiescenceHandlers() || l.Alive() {
+					l.quiescing.Store(false)
 					continue
 				}
-				x.livenessMu.Lock()
-				x.beginQuiescing()
-				x.livenessMu.Unlock()
+				l.livenessMu.Lock()
+				l.beginQuiescing()
+				l.livenessMu.Unlock()
 
 				// Re-check after gate: catches work added between !Alive() and the flag.
-				if x.Alive() {
-					x.quiescing.Store(false)
+				if l.Alive() {
+					l.quiescing.Store(false)
 					continue
 				}
-				if x.testHooks != nil && x.testHooks.BeforeAutoExitCommit != nil {
-					x.testHooks.BeforeAutoExitCommit()
+				if l.testHooks != nil && l.testHooks.BeforeAutoExitCommit != nil {
+					l.testHooks.BeforeAutoExitCommit()
 				}
-				if x.Alive() {
-					x.quiescing.Store(false)
+				if l.Alive() {
+					l.quiescing.Store(false)
 					continue
 				}
-				if x.testHooks != nil && x.testHooks.AfterAutoExitFinalAliveCheck != nil {
-					x.testHooks.AfterAutoExitFinalAliveCheck()
+				if l.testHooks != nil && l.testHooks.AfterAutoExitFinalAliveCheck != nil {
+					l.testHooks.AfterAutoExitFinalAliveCheck()
 				}
-				x.externalMu.Lock()
-				checkJobs := x.snapshotCheckJobsLocked()
-				commands := x.snapshotCommandsLocked()
-				queuesActive := x.microtaskYield.Load() || !x.microtaskQueuesEmpty() || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.activePhaseJobCount.Load() > 0
-				x.externalMu.Unlock()
-				checkJobs = append(checkJobs, x.snapshotOwnerCheckJobs()...)
-				if queuesActive || x.hasLiveCheckJob(checkJobs) || x.hasLiveCommand(commands) {
-					x.quiescing.Store(false)
+				l.externalMu.Lock()
+				checkJobs := l.snapshotCheckJobsLocked()
+				commands := l.snapshotCommandsLocked()
+				queuesActive := l.microtaskYield.Load() || !l.microtaskQueuesEmpty() || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.activePhaseJobCount.Load() > 0
+				l.externalMu.Unlock()
+				checkJobs = append(checkJobs, l.snapshotOwnerCheckJobs()...)
+				if queuesActive || l.hasLiveCheckJob(checkJobs) || l.hasLiveCommand(commands) {
+					l.quiescing.Store(false)
 					continue
 				}
-				endTerminalDrain, ok := x.commitAutoExitTerminalDrain(ctx.Done())
+				endTerminalDrain, ok := l.commitAutoExitTerminalDrain(ctx.Done())
 				if !ok {
 					continue
 				}
-				x.transitionToTerminatedStarted(endTerminalDrain)
-				x.terminateCleanup()
-				x.closeFDs()
-				x.startTerminalCompletion()
-				return x.fdResourceCloseError()
+				l.transitionToTerminatedStarted(endTerminalDrain)
+				l.terminateCleanup()
+				l.closeFDs()
+				l.startTerminalCompletion()
+				return l.fdResourceCloseError()
 			}
 		}
 
 		// Use the tight fast-path loop for task-only workloads.
-		if x.canUseFastPath() && !x.hasTimersPending() {
-			if x.runFastPath(ctx) {
+		if l.canUseFastPath() && !l.hasTimersPending() {
+			if l.runFastPath(ctx) {
 				// Fast path completed or needs mode switch - continue to check termination
 				continue
 			}
 			// Fall through to regular tick for feature transition
 		}
 
-		x.tick()
+		l.tick()
 	}
 }
 
@@ -512,10 +512,10 @@ func (x *Loop) run(ctx context.Context) error {
 //
 // It uses a blocking channel select and owner-local task batches without the
 // regular scheduler's timer and readiness phases.
-func (x *Loop) runFastPath(ctx context.Context) bool {
-	x.fastPathEntries.Add(1)
-	if x.testHooks != nil && x.testHooks.OnFastPathEntry != nil {
-		x.testHooks.OnFastPathEntry()
+func (l *Loop) runFastPath(ctx context.Context) bool {
+	l.fastPathEntries.Add(1)
+	if l.testHooks != nil && l.testHooks.OnFastPathEntry != nil {
+		l.testHooks.OnFastPathEntry()
 	}
 
 	for {
@@ -528,7 +528,7 @@ func (x *Loop) runFastPath(ctx context.Context) bool {
 		// Fast path must handle: StateTerminated and StateTerminating. This is
 		// different from the main loop because terminal-drain ownership may already
 		// be published while state is still being finalized.
-		currentState := x.state.Load()
+		currentState := l.state.Load()
 		if currentState == StateTerminated || currentState == StateTerminating {
 			return true
 		}
@@ -536,19 +536,19 @@ func (x *Loop) runFastPath(ctx context.Context) bool {
 		// Auto-exit check: don't block in fast path if loop should exit.
 		// The main run loop owns the quiescence handler and gate commit so the
 		// handler runs exactly once and observes the pre-quiescing state.
-		if x.autoExit && !x.Alive() {
-			if x.testHooks != nil && x.testHooks.BeforeFastPathAutoExitReturn != nil {
-				x.testHooks.BeforeFastPathAutoExitReturn()
+		if l.autoExit && !l.Alive() {
+			if l.testHooks != nil && l.testHooks.BeforeFastPathAutoExitReturn != nil {
+				l.testHooks.BeforeFastPathAutoExitReturn()
 			}
 			return true
 		}
 
-		if x.fastPathNeedsTick() {
+		if l.fastPathNeedsTick() {
 			return false
 		}
 
-		if x.fastPathHasReadyWork() {
-			x.runAux()
+		if l.fastPathHasReadyWork() {
+			l.runAux()
 			continue
 		}
 
@@ -556,7 +556,7 @@ func (x *Loop) runFastPath(ctx context.Context) bool {
 		case <-ctx.Done():
 			return true
 
-		case <-x.fastWakeupCh:
+		case <-l.fastWakeupCh:
 			// Work is observed at the top of the next turn so auto-exit can still
 			// skip unref-only handles instead of executing them merely because a wake
 			// was received.
@@ -564,133 +564,133 @@ func (x *Loop) runFastPath(ctx context.Context) bool {
 	}
 }
 
-func (x *Loop) fastPathNeedsTick() bool {
-	if !x.canUseFastPath() {
+func (l *Loop) fastPathNeedsTick() bool {
+	if !l.canUseFastPath() {
 		return true
 	}
-	return x.hasTimersPending()
+	return l.hasTimersPending()
 }
 
-func (x *Loop) autoExitReady() bool {
-	return x.autoExit && !x.Alive()
+func (l *Loop) autoExitReady() bool {
+	return l.autoExit && !l.Alive()
 }
 
-func (x *Loop) fastPathHasReadyWork() bool {
-	if x.microtaskYield.Load() || !x.microtaskQueuesEmpty() || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0 || x.ownerCheckCount.Load() > 0 || x.ownerCloseCount.Load() > 0 {
+func (l *Loop) fastPathHasReadyWork() bool {
+	if l.microtaskYield.Load() || !l.microtaskQueuesEmpty() || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0 || l.ownerCheckCount.Load() > 0 || l.ownerCloseCount.Load() > 0 {
 		return true
 	}
 
-	x.externalMu.Lock()
-	hasExternal := x.commands.Len() > 0
-	hasPhase := len(x.checkJobs) > 0 || len(x.closeJobs) > 0
-	x.externalMu.Unlock()
+	l.externalMu.Lock()
+	hasExternal := l.commands.Len() > 0
+	hasPhase := len(l.checkJobs) > 0 || len(l.closeJobs) > 0
+	l.externalMu.Unlock()
 	return hasExternal || hasPhase
 }
 
-func (x *Loop) beginQuiescing() {
-	x.quiescingEpoch.Store(x.submissionEpoch.Load())
-	x.quiescing.Store(true)
+func (l *Loop) beginQuiescing() {
+	l.quiescingEpoch.Store(l.submissionEpoch.Load())
+	l.quiescing.Store(true)
 }
 
-func (x *Loop) quiescingRejectsLiveness() bool {
-	if !x.quiescing.Load() {
+func (l *Loop) quiescingRejectsLiveness() bool {
+	if !l.quiescing.Load() {
 		return false
 	}
-	state := x.state.Load()
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
 		return true
 	}
-	if x.submissionEpoch.Load() != x.quiescingEpoch.Load() {
-		x.quiescing.Store(false)
+	if l.submissionEpoch.Load() != l.quiescingEpoch.Load() {
+		l.quiescing.Store(false)
 		return false
 	}
 	return true
 }
 
-func (x *Loop) commitAutoExitTerminalDrain(contextDone <-chan struct{}) (func(), bool) {
-	x.livenessMu.Lock()
-	x.externalMu.Lock()
+func (l *Loop) commitAutoExitTerminalDrain(contextDone <-chan struct{}) (func(), bool) {
+	l.livenessMu.Lock()
+	l.externalMu.Lock()
 
-	commands := x.snapshotCommandsLocked()
-	checkJobs := x.snapshotCheckJobsLocked()
-	queuesActive := x.microtaskYield.Load() || !x.microtaskQueuesEmpty() || x.activePhaseJobCount.Load() > 0
-	queuesActive = queuesActive || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0
-	quiescing := x.quiescingRejectsLiveness()
-	state := x.state.Load()
-	terminalActive := state == StateTerminating || state == StateTerminated || x.terminalDraining.Load()
-	x.externalMu.Unlock()
-	x.livenessMu.Unlock()
-	checkJobs = append(checkJobs, x.snapshotOwnerCheckJobs()...)
+	commands := l.snapshotCommandsLocked()
+	checkJobs := l.snapshotCheckJobsLocked()
+	queuesActive := l.microtaskYield.Load() || !l.microtaskQueuesEmpty() || l.activePhaseJobCount.Load() > 0
+	queuesActive = queuesActive || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0
+	quiescing := l.quiescingRejectsLiveness()
+	state := l.state.Load()
+	terminalActive := state == StateTerminating || state == StateTerminated || l.terminalDraining.Load()
+	l.externalMu.Unlock()
+	l.livenessMu.Unlock()
+	checkJobs = append(checkJobs, l.snapshotOwnerCheckJobs()...)
 
 	// Dynamic check/immediate liveness predicates are user code. Evaluate them
 	// outside admission and liveness locks; predicates are allowed to call back
 	// into loop APIs such as ScheduleTimer or Submit without deadlocking the
 	// auto-exit terminal admission path.
-	if terminalActive || !quiescing || queuesActive || x.hasLiveCheckJob(checkJobs) || x.hasLiveCommand(commands) {
+	if terminalActive || !quiescing || queuesActive || l.hasLiveCheckJob(checkJobs) || l.hasLiveCommand(commands) {
 		// Every failed commit leaves the loop running. Lower the provisional
 		// admission gate before returning to its next quiescence callback or
 		// accepting an ordinary liveness-adding operation.
-		x.quiescing.Store(false)
+		l.quiescing.Store(false)
 		return nil, false
 	}
 
-	x.livenessMu.Lock()
-	x.externalMu.Lock()
+	l.livenessMu.Lock()
+	l.externalMu.Lock()
 
-	queuesActive = x.microtaskYield.Load() || !x.microtaskQueuesEmpty() || x.activePhaseJobCount.Load() > 0
-	queuesActive = queuesActive || x.ownerInternalCount.Load() > 0 || x.ownerExternalCount.Load() > 0
-	state = x.state.Load()
-	terminalActive = state == StateTerminating || state == StateTerminated || x.terminalDraining.Load()
-	if terminalActive || !x.quiescingRejectsLiveness() || queuesActive {
-		x.quiescing.Store(false)
-		x.externalMu.Unlock()
-		x.livenessMu.Unlock()
+	queuesActive = l.microtaskYield.Load() || !l.microtaskQueuesEmpty() || l.activePhaseJobCount.Load() > 0
+	queuesActive = queuesActive || l.ownerInternalCount.Load() > 0 || l.ownerExternalCount.Load() > 0
+	state = l.state.Load()
+	terminalActive = state == StateTerminating || state == StateTerminated || l.terminalDraining.Load()
+	if terminalActive || !l.quiescingRejectsLiveness() || queuesActive {
+		l.quiescing.Store(false)
+		l.externalMu.Unlock()
+		l.livenessMu.Unlock()
 		return nil, false
 	}
 
-	if x.testHooks != nil && x.testHooks.BeforeAutoExitTerminalDrainCommit != nil {
-		x.testHooks.BeforeAutoExitTerminalDrainCommit()
+	if l.testHooks != nil && l.testHooks.BeforeAutoExitTerminalDrainCommit != nil {
+		l.testHooks.BeforeAutoExitTerminalDrainCommit()
 	}
 	// This is the context/auto-exit precedence cut. Cancellation already
 	// observable while final admission is locked wins; once the terminal drain
 	// commits, clean auto-exit wins over a later cancellation.
 	select {
 	case <-contextDone:
-		x.quiescing.Store(false)
-		x.externalMu.Unlock()
-		x.livenessMu.Unlock()
+		l.quiescing.Store(false)
+		l.externalMu.Unlock()
+		l.livenessMu.Unlock()
 		return nil, false
 	default:
 	}
 
-	endTerminalDrain := x.beginAutoExitTerminalDrain()
-	x.externalMu.Unlock()
-	x.livenessMu.Unlock()
+	endTerminalDrain := l.beginAutoExitTerminalDrain()
+	l.externalMu.Unlock()
+	l.livenessMu.Unlock()
 	return endTerminalDrain, true
 }
 
-func (x *Loop) rejectLivenessAdd() error {
-	x.livenessMu.Lock()
-	defer x.livenessMu.Unlock()
-	return x.rejectLivenessAddLocked()
+func (l *Loop) rejectLivenessAdd() error {
+	l.livenessMu.Lock()
+	defer l.livenessMu.Unlock()
+	return l.rejectLivenessAddLocked()
 }
 
-func (x *Loop) rejectLivenessAddLocked() error {
-	state := x.state.Load()
+func (l *Loop) rejectLivenessAddLocked() error {
+	state := l.state.Load()
 	if state == StateTerminating || state == StateTerminated {
 		return ErrLoopTerminated
 	}
-	if x.terminalDraining.Load() {
+	if l.terminalDraining.Load() {
 		return ErrLoopTerminated
 	}
-	if x.quiescingRejectsLiveness() {
+	if l.quiescingRejectsLiveness() {
 		return ErrLoopTerminated
 	}
 	return nil
 }
 
-func (x *Loop) rejectFDMutationLocked(allowTerminating bool) error {
-	state := x.state.Load()
+func (l *Loop) rejectFDMutationLocked(allowTerminating bool) error {
+	state := l.state.Load()
 	if state == StateTerminated || (!allowTerminating && state == StateTerminating) {
 		return ErrLoopTerminated
 	}
@@ -730,88 +730,88 @@ func (x *Loop) rejectFDMutationLocked(allowTerminating bool) error {
 // winning external caller receives the aggregate terminal error. Use
 // [Loop.Requests] when a dependency child or loop callback must acknowledge an
 // immediate request without joining terminal cleanup.
-func (x *Loop) Close() error {
-	return x.closeImpl(true)
+func (l *Loop) Close() error {
+	return l.closeImpl(true)
 }
 
-func (x *Loop) closeImpl(join bool) error {
-	if join && (x.isLoopThread() || x.isTerminalDrainOwner()) {
+func (l *Loop) closeImpl(join bool) error {
+	if join && (l.isLoopThread() || l.isTerminalDrainOwner()) {
 		return ErrReentrantClose
 	}
-	nonjoining := !join || x.isPromisifyWorker()
-	if x.terminalCompletionPublished() {
-		x.retryPollerCleanup()
+	nonjoining := !join || l.isPromisifyWorker()
+	if l.terminalCompletionPublished() {
+		l.retryPollerCleanup()
 		return ErrLoopTerminated
 	}
-	if x.isTerminalCompletionOwner() {
-		return x.terminalRequestResult(true)
+	if l.isTerminalCompletionOwner() {
+		return l.terminalRequestResult(true)
 	}
 
 	for {
-		currentState := x.state.Load()
+		currentState := l.state.Load()
 		if currentState == StateTerminating || currentState == StateTerminated {
 			if nonjoining {
-				return x.terminalRequestResult(true)
+				return l.terminalRequestResult(true)
 			}
-			x.beforeTerminalJoin()
-			<-x.terminalDone
-			return x.terminalError()
+			l.beforeTerminalJoin()
+			<-l.terminalDone
+			return l.terminalError()
 		}
-		if x.testHooks != nil && x.testHooks.BeforeCloseLifecycleLock != nil {
-			x.testHooks.BeforeCloseLifecycleLock()
+		if l.testHooks != nil && l.testHooks.BeforeCloseLifecycleLock != nil {
+			l.testHooks.BeforeCloseLifecycleLock()
 		}
 
-		x.livenessMu.Lock()
-		currentState = x.state.Load()
+		l.livenessMu.Lock()
+		currentState = l.state.Load()
 		if currentState == StateTerminating || currentState == StateTerminated {
-			x.livenessMu.Unlock()
+			l.livenessMu.Unlock()
 			if nonjoining {
-				return x.terminalRequestResult(true)
+				return l.terminalRequestResult(true)
 			}
-			x.beforeTerminalJoin()
-			<-x.terminalDone
-			return x.terminalError()
+			l.beforeTerminalJoin()
+			<-l.terminalDone
+			return l.terminalError()
 		}
-		x.terminalDrainMu.Lock()
-		x.callbackGateMu.Lock()
-		if x.state.TryTransition(currentState, StateTerminating) {
-			if x.testHooks != nil && x.testHooks.TerminalStateCAS != nil {
-				x.testHooks.TerminalStateCAS()
+		l.terminalDrainMu.Lock()
+		l.callbackGateMu.Lock()
+		if l.state.TryTransition(currentState, StateTerminating) {
+			if l.testHooks != nil && l.testHooks.TerminalStateCAS != nil {
+				l.testHooks.TerminalStateCAS()
 			}
-			x.immediateClose.Store(true)
-			x.callbackGateMode = callbackGateClosed
-			x.callbackGateMu.Unlock()
-			x.terminalDrainMu.Unlock()
-			if x.testHooks != nil && x.testHooks.AfterCloseStateTerminating != nil {
-				x.testHooks.AfterCloseStateTerminating()
+			l.immediateClose.Store(true)
+			l.callbackGateMode = callbackGateClosed
+			l.callbackGateMu.Unlock()
+			l.terminalDrainMu.Unlock()
+			if l.testHooks != nil && l.testHooks.AfterCloseStateTerminating != nil {
+				l.testHooks.AfterCloseStateTerminating()
 			}
 			waitLoop := currentState != StateAwake
 			// Publish the immediate terminal state before releasing lifecycle
 			// admission. A Run owner that already committed StateRunning is joined
 			// even if it has not yet published runStarted.
-			x.state.Store(StateTerminated)
-			x.livenessMu.Unlock()
+			l.state.Store(StateTerminated)
+			l.livenessMu.Unlock()
 			// Release callbacks already admitted by the loop owner before waiting for
 			// that owner to exit. Such a callback may be blocked on a Promisify
 			// promise whose user function outlives Close; delaying rejection until
 			// after loopDone would make each side wait for the other.
-			if x.testHooks != nil && x.testHooks.BeforeClosePromiseRejection != nil {
-				x.testHooks.BeforeClosePromiseRejection()
+			if l.testHooks != nil && l.testHooks.BeforeClosePromiseRejection != nil {
+				l.testHooks.BeforeClosePromiseRejection()
 			}
-			x.rejectAllPendingPromises(ErrLoopTerminated)
-			x.startTerminalDependencyRelease()
+			l.rejectAllPendingPromises(ErrLoopTerminated)
+			l.startTerminalDependencyRelease()
 			if waitLoop {
-				x.forceWakeup()
+				l.forceWakeup()
 			}
-			x.startImmediateTerminalCompletion(waitLoop)
+			l.startImmediateTerminalCompletion(waitLoop)
 			if nonjoining {
 				return nil
 			}
-			<-x.terminalDone
-			return x.terminalError()
+			<-l.terminalDone
+			return l.terminalError()
 		}
-		x.callbackGateMu.Unlock()
-		x.terminalDrainMu.Unlock()
-		x.livenessMu.Unlock()
+		l.callbackGateMu.Unlock()
+		l.terminalDrainMu.Unlock()
+		l.livenessMu.Unlock()
 	}
 }

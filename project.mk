@@ -349,7 +349,7 @@ eventloop-tournament-component-cross: ## Compile FD-table and timer registries a
 	done
 
 .PHONY: eventloop-tournament-retention-test
-EVENTLOOP_TOURNAMENT_RETENTION_TEST_RE ?= ^(TestActiveBenchmarkRootsGovernedOrDisposed|TestBenchmarkRootProjectionSchema5.*|TestFDTableComponentSourcesAuthenticate|TestHarnessIndexCandidateReconstructsExactAuthority|TestHistoricalTournamentSourcesRemainExact|TestImmutableBaseRootBenchmarksRemainExact|TestLineageRetainsEveryKnownSemanticFamily|TestManifestCoverageContract|TestManifestRetainsImmutableTournamentCatalog|TestRestoredHarnessArchiveReconstructsExactAuthority|TestTimerComponentSourcesAuthenticate|TestTimerIndexCandidateReconstructsExactAuthority|TestTournamentCandidateTrackedPathCensus|TestTournamentCandidateTreeReconstructsTrackedScope|TestTournamentHistoricalDirectoriesRemainPhysical|TestTournamentWorkspaceEntriesRemainRegistered|TestTrackedTournamentRawEvidenceExact|TestUnreachableCommitPayloadsRemainExact|TestUnreachablePatchesReconstructExactTrees)$$
+EVENTLOOP_TOURNAMENT_RETENTION_TEST_RE ?= ^(TestActiveBenchmarkRootsGovernedOrDisposed|TestBenchmarkRootProjectionSchema5.*|TestHarnessIndexCandidateReconstructsExactAuthority|TestHistoricalTournamentSourcesRemainExact|TestImmutableBaseRootBenchmarksRemainExact|TestLineageRetainsEveryKnownSemanticFamily|TestManifestCoverageContract|TestManifestRetainsImmutableTournamentCatalog|TestRestoredHarnessArchiveReconstructsExactAuthority|TestTimerIndexCandidateReconstructsExactAuthority|TestTournamentCandidateTrackedPathCensus|TestTournamentCandidateTreeReconstructsTrackedScope|TestTournamentHistoricalDirectoriesRemainPhysical|TestTournamentWorkspaceEntriesRemainRegistered|TestTrackedTournamentRawEvidenceExact|TestUnreachableCommitPayloadsRemainExact|TestUnreachablePatchesReconstructExactTrees)$$
 eventloop-tournament-retention-test: ## Verify exact retained tournament source and revision reconstruction.
 	$(GO) -C $(PROJECT_ROOT)/eventloop/internal/tournament test $(GO_TEST_FLAGS) -count=1 -run='$(EVENTLOOP_TOURNAMENT_RETENTION_TEST_RE)' .
 
@@ -528,8 +528,8 @@ eventloop-tournament-mod-download: ## Pre-populate the module cache for hermetic
 .PHONY: eventloop-tournament-bench
 eventloop-tournament-bench: ## Run the complete longitudinal eventloop tournament.
 	@echo 'tournament: schema=1'
-	@echo 'tournament: meta=head='"$$(git -C $(PROJECT_ROOT) rev-parse HEAD)"
-	@echo 'tournament: meta=source-state='"$$(test -z "$$(git -C $(PROJECT_ROOT) status --porcelain=v1 --untracked-files=all -- eventloop go.work project.mk)" && echo clean || echo dirty)"
+	@echo 'tournament: meta=head='"$$([ -n "$(EVENTLOOP_TOURNAMENT_HEAD)" ] && printf '%s' "$(EVENTLOOP_TOURNAMENT_HEAD)" || git -C $(PROJECT_ROOT) rev-parse HEAD 2>/dev/null)"
+	@echo 'tournament: meta=source-state='"$$([ -n "$(EVENTLOOP_TOURNAMENT_SOURCE_STATE)" ] && printf '%s' "$(EVENTLOOP_TOURNAMENT_SOURCE_STATE)" || { status="$$(git -C $(PROJECT_ROOT) status --porcelain=v1 --untracked-files=all -- eventloop go.work project.mk 2>/dev/null)"; test $$? -eq 0 || { echo unknown; exit; }; test -z "$$status" && echo clean || echo dirty; })"
 	@echo 'tournament: meta=go-version='"$$($(GO) version)"
 	@echo 'tournament: meta=sample-count=$(EVENTLOOP_TOURNAMENT_COUNT)'
 	@echo 'tournament: meta=manifest-git-blob='"$$(git -C $(PROJECT_ROOT) hash-object eventloop/internal/tournament/manifest.json)"

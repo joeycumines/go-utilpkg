@@ -6,122 +6,122 @@ type checkJob struct {
 	seq   uint64
 }
 
-func (x *Loop) pushOwnerExternal(fn func()) {
+func (l *Loop) pushOwnerExternal(fn func()) {
 	if fn == nil {
 		return
 	}
-	x.ownerExternal.Push(fn)
-	x.ownerExternalCount.Add(1)
+	l.ownerExternal.Push(fn)
+	l.ownerExternalCount.Add(1)
 }
 
-func (x *Loop) popOwnerExternal() func() {
-	fn := x.ownerExternal.Pop()
+func (l *Loop) popOwnerExternal() func() {
+	fn := l.ownerExternal.Pop()
 	if fn != nil {
-		x.ownerExternalCount.Add(-1)
+		l.ownerExternalCount.Add(-1)
 	}
 	return fn
 }
 
-func (x *Loop) pushOwnerInternal(fn func()) {
+func (l *Loop) pushOwnerInternal(fn func()) {
 	if fn == nil {
 		return
 	}
-	x.ownerInternal.Push(fn)
-	x.ownerInternalCount.Add(1)
+	l.ownerInternal.Push(fn)
+	l.ownerInternalCount.Add(1)
 }
 
-func (x *Loop) popOwnerInternal() func() {
-	fn := x.ownerInternal.Pop()
+func (l *Loop) popOwnerInternal() func() {
+	fn := l.ownerInternal.Pop()
 	if fn != nil {
-		x.ownerInternalCount.Add(-1)
+		l.ownerInternalCount.Add(-1)
 	}
 	return fn
 }
 
-func (x *Loop) pushOwnerMicrotask(queue *localFnQueue, fn func(), primary bool) {
+func (l *Loop) pushOwnerMicrotask(queue *localFnQueue, fn func(), primary bool) {
 	if fn == nil {
 		return
 	}
 	queue.Push(fn)
-	x.ownerMicroCount.Add(1)
+	l.ownerMicroCount.Add(1)
 	if primary {
-		x.ownerPrimaryMicroCount.Add(1)
+		l.ownerPrimaryMicroCount.Add(1)
 	}
 }
 
-func (x *Loop) popOwnerMicrotask(queue *localFnQueue, primary bool) func() {
+func (l *Loop) popOwnerMicrotask(queue *localFnQueue, primary bool) func() {
 	fn := queue.Pop()
 	if fn != nil {
-		x.ownerMicroCount.Add(-1)
+		l.ownerMicroCount.Add(-1)
 		if primary {
-			x.ownerPrimaryMicroCount.Add(-1)
+			l.ownerPrimaryMicroCount.Add(-1)
 		}
 	}
 	return fn
 }
 
-func (x *Loop) pushOwnerPromiseMicrotask(fn func(), reaction *ChainedPromise) {
+func (l *Loop) pushOwnerPromiseMicrotask(fn func(), reaction *ChainedPromise) {
 	if fn == nil {
 		return
 	}
-	x.ownerMicro.Push(microtaskJob{fn: fn, reaction: reaction})
-	x.ownerMicroCount.Add(1)
-	x.ownerPrimaryMicroCount.Add(1)
+	l.ownerMicro.Push(microtaskJob{fn: fn, reaction: reaction})
+	l.ownerMicroCount.Add(1)
+	l.ownerPrimaryMicroCount.Add(1)
 }
 
-func (x *Loop) popOwnerPromiseMicrotask() microtaskJob {
-	job := x.ownerMicro.Pop()
+func (l *Loop) popOwnerPromiseMicrotask() microtaskJob {
+	job := l.ownerMicro.Pop()
 	if job.fn != nil {
-		x.ownerMicroCount.Add(-1)
-		x.ownerPrimaryMicroCount.Add(-1)
+		l.ownerMicroCount.Add(-1)
+		l.ownerPrimaryMicroCount.Add(-1)
 	}
 	return job
 }
 
-func (x *Loop) pushOwnerCheck(job checkJob) {
+func (l *Loop) pushOwnerCheck(job checkJob) {
 	if job.fn == nil {
 		return
 	}
-	x.ownerCheck.Push(job)
-	x.ownerCheckCount.Add(1)
+	l.ownerCheck.Push(job)
+	l.ownerCheckCount.Add(1)
 }
 
-func (x *Loop) pushOwnerClose(job checkJob) {
+func (l *Loop) pushOwnerClose(job checkJob) {
 	if job.fn == nil {
 		return
 	}
-	x.ownerClose.Push(job)
-	x.ownerCloseCount.Add(1)
+	l.ownerClose.Push(job)
+	l.ownerCloseCount.Add(1)
 }
 
-func (x *Loop) snapshotOwnerCheckJobs() []checkJob {
-	checkLen := x.ownerCheck.Len()
-	closeLen := x.ownerClose.Len()
+func (l *Loop) snapshotOwnerCheckJobs() []checkJob {
+	checkLen := l.ownerCheck.Len()
+	closeLen := l.ownerClose.Len()
 	if checkLen == 0 && closeLen == 0 {
 		return nil
 	}
 	jobs := make([]checkJob, 0, checkLen+closeLen)
 	if checkLen != 0 {
-		jobs = append(jobs, x.ownerCheck.buf[x.ownerCheck.head:]...)
+		jobs = append(jobs, l.ownerCheck.buf[l.ownerCheck.head:]...)
 	}
 	if closeLen != 0 {
-		jobs = append(jobs, x.ownerClose.buf[x.ownerClose.head:]...)
+		jobs = append(jobs, l.ownerClose.buf[l.ownerClose.head:]...)
 	}
 	return jobs
 }
 
-func (x *Loop) takeOwnerCheckJobs() []checkJob {
-	jobs := x.ownerCheck.Snapshot()
+func (l *Loop) takeOwnerCheckJobs() []checkJob {
+	jobs := l.ownerCheck.Snapshot()
 	if len(jobs) != 0 {
-		x.ownerCheckCount.Add(-int64(len(jobs)))
+		l.ownerCheckCount.Add(-int64(len(jobs)))
 	}
 	return jobs
 }
 
-func (x *Loop) takeOwnerCloseJobs() []checkJob {
-	jobs := x.ownerClose.Snapshot()
+func (l *Loop) takeOwnerCloseJobs() []checkJob {
+	jobs := l.ownerClose.Snapshot()
 	if len(jobs) != 0 {
-		x.ownerCloseCount.Add(-int64(len(jobs)))
+		l.ownerCloseCount.Add(-int64(len(jobs)))
 	}
 	return jobs
 }
@@ -161,53 +161,53 @@ func (b *phaseJobBatch) next() (checkJob, bool) {
 
 // takeCheckPhaseBatchLocked transfers both queue snapshots to one immutable
 // phase batch. The caller holds externalMu while rotating the ingress buffers.
-func (x *Loop) takeCheckPhaseBatchLocked() phaseJobBatch {
+func (l *Loop) takeCheckPhaseBatchLocked() phaseJobBatch {
 	batch := phaseJobBatch{
-		owner:    x.takeOwnerCheckJobs(),
-		external: x.checkJobs,
+		owner:    l.takeOwnerCheckJobs(),
+		external: l.checkJobs,
 	}
-	x.checkJobs = x.checkJobsSpare[:0]
-	x.checkJobsSpare = nil
+	l.checkJobs = l.checkJobsSpare[:0]
+	l.checkJobsSpare = nil
 	return batch
 }
 
-func (x *Loop) releaseCheckPhaseBatch(batch *phaseJobBatch) {
+func (l *Loop) releaseCheckPhaseBatch(batch *phaseJobBatch) {
 	if batch.owner != nil {
-		x.ownerCheck.release(batch.owner)
+		l.ownerCheck.release(batch.owner)
 	}
-	x.checkJobsSpare = resetRetainedSlice(batch.external, retainedCheckJobCapacity)
+	l.checkJobsSpare = resetRetainedSlice(batch.external, retainedCheckJobCapacity)
 	*batch = phaseJobBatch{}
 }
 
 // takeClosePhaseBatchLocked transfers both queue snapshots to one immutable
 // phase batch. The caller holds externalMu while rotating the ingress buffers.
-func (x *Loop) takeClosePhaseBatchLocked() phaseJobBatch {
+func (l *Loop) takeClosePhaseBatchLocked() phaseJobBatch {
 	batch := phaseJobBatch{
-		owner:    x.takeOwnerCloseJobs(),
-		external: x.closeJobs,
+		owner:    l.takeOwnerCloseJobs(),
+		external: l.closeJobs,
 	}
-	x.closeJobs = x.closeJobsSpare[:0]
-	x.closeJobsSpare = nil
+	l.closeJobs = l.closeJobsSpare[:0]
+	l.closeJobsSpare = nil
 	return batch
 }
 
-func (x *Loop) releaseClosePhaseBatch(batch *phaseJobBatch) {
+func (l *Loop) releaseClosePhaseBatch(batch *phaseJobBatch) {
 	if batch.owner != nil {
-		x.ownerClose.release(batch.owner)
+		l.ownerClose.release(batch.owner)
 	}
-	x.closeJobsSpare = resetRetainedSlice(batch.external, retainedCheckJobCapacity)
+	l.closeJobsSpare = resetRetainedSlice(batch.external, retainedCheckJobCapacity)
 	*batch = phaseJobBatch{}
 }
 
-func (x *Loop) startPhaseBatch(count int) {
+func (l *Loop) startPhaseBatch(count int) {
 	if count > 0 {
-		x.activePhaseJobCount.Add(int64(count))
+		l.activePhaseJobCount.Add(int64(count))
 	}
 }
 
-func (x *Loop) finishPhaseBatch(count int) {
+func (l *Loop) finishPhaseBatch(count int) {
 	if count > 0 {
-		x.activePhaseJobCount.Add(-int64(count))
+		l.activePhaseJobCount.Add(-int64(count))
 	}
 }
 
@@ -222,26 +222,26 @@ func phaseJobBefore(a checkJob, b checkJob) bool {
 	return a.seq-b.seq >= uint64(1)<<63
 }
 
-func (x *Loop) ownsLocalQueues() bool {
-	return x.isLoopThread() || x.isTerminalDrainOwner()
+func (l *Loop) ownsLocalQueues() bool {
+	return l.isLoopThread() || l.isTerminalDrainOwner()
 }
 
-func (x *Loop) discardOwnerQueues() {
-	x.ownerExternal.discard()
-	x.ownerInternal.discard()
-	x.ownerMicro.discard()
-	x.ownerNextTick.discard()
-	x.ownerCheckpt.discard()
-	x.ownerCheck.discard()
-	x.ownerClose.discard()
-	x.ownerExternalCount.Store(0)
-	x.ownerInternalCount.Store(0)
-	x.ownerCheckCount.Store(0)
-	x.ownerCloseCount.Store(0)
-	x.ownerMicroCount.Store(0)
-	x.ownerPrimaryMicroCount.Store(0)
-	x.ingressMicroCount.Store(0)
-	x.ingressPrimaryMicroCount.Store(0)
+func (l *Loop) discardOwnerQueues() {
+	l.ownerExternal.discard()
+	l.ownerInternal.discard()
+	l.ownerMicro.discard()
+	l.ownerNextTick.discard()
+	l.ownerCheckpt.discard()
+	l.ownerCheck.discard()
+	l.ownerClose.discard()
+	l.ownerExternalCount.Store(0)
+	l.ownerInternalCount.Store(0)
+	l.ownerCheckCount.Store(0)
+	l.ownerCloseCount.Store(0)
+	l.ownerMicroCount.Store(0)
+	l.ownerPrimaryMicroCount.Store(0)
+	l.ingressMicroCount.Store(0)
+	l.ingressPrimaryMicroCount.Store(0)
 }
 
 func commandMicroCounts(kind loopCommandKind) (micro int64, primary int64) {
@@ -255,73 +255,73 @@ func commandMicroCounts(kind loopCommandKind) (micro int64, primary int64) {
 	}
 }
 
-func (x *Loop) enqueueCommand(cmd loopCommand, allow func(LoopState) bool) error {
+func (l *Loop) enqueueCommand(cmd loopCommand, allow func(LoopState) bool) error {
 	if cmd.kind == loopCommandNone {
 		return nil
 	}
-	x.externalMu.Lock()
-	state := LoopState(x.state.Load())
+	l.externalMu.Lock()
+	state := LoopState(l.state.Load())
 	if allow != nil && !allow(state) {
-		x.externalMu.Unlock()
+		l.externalMu.Unlock()
 		return ErrLoopTerminated
 	}
-	x.enqueueCommandLocked(cmd)
-	x.externalMu.Unlock()
-	x.wakeAfterIngress()
+	l.enqueueCommandLocked(cmd)
+	l.externalMu.Unlock()
+	l.wakeAfterIngress()
 	return nil
 }
 
-func (x *Loop) enqueueTerminalCommand(cmd loopCommand) error {
+func (l *Loop) enqueueTerminalCommand(cmd loopCommand) error {
 	if cmd.kind == loopCommandNone {
 		return nil
 	}
-	x.externalMu.Lock()
-	state := LoopState(x.state.Load())
-	if state == StateTerminating || state == StateTerminated || x.terminalDraining.Load() {
-		x.externalMu.Unlock()
+	l.externalMu.Lock()
+	state := LoopState(l.state.Load())
+	if state == StateTerminating || state == StateTerminated || l.terminalDraining.Load() {
+		l.externalMu.Unlock()
 		return ErrLoopTerminated
 	}
-	x.enqueueCommandLocked(cmd)
-	x.externalMu.Unlock()
-	x.wakeAfterIngress()
+	l.enqueueCommandLocked(cmd)
+	l.externalMu.Unlock()
+	l.wakeAfterIngress()
 	return nil
 }
 
-func (x *Loop) enqueueCommandLocked(cmd loopCommand) {
-	if x.testHooks != nil && x.testHooks.BeforeCommandIngressPublish != nil {
-		x.testHooks.BeforeCommandIngressPublish(cmd.kind)
+func (l *Loop) enqueueCommandLocked(cmd loopCommand) {
+	if l.testHooks != nil && l.testHooks.BeforeCommandIngressPublish != nil {
+		l.testHooks.BeforeCommandIngressPublish(cmd.kind)
 	}
 	// Publish the pending state before the first command in an ingress batch. An
 	// owner that observes true waits for externalMu and therefore cannot overtake
 	// the batch; an owner that observed false first has reserved the preceding
 	// position while its call overlaps a producer that has not published yet.
-	if x.commands.Len() == 0 {
-		x.commandIngressPending.Store(true)
+	if l.commands.Len() == 0 {
+		l.commandIngressPending.Store(true)
 	}
 	micro, primary := commandMicroCounts(cmd.kind)
 	if micro != 0 {
-		x.ingressMicroCount.Add(micro)
+		l.ingressMicroCount.Add(micro)
 	}
 	if primary != 0 {
-		x.ingressPrimaryMicroCount.Add(primary)
+		l.ingressPrimaryMicroCount.Add(primary)
 	}
 	if (cmd.kind == loopCommandImmediate || cmd.kind == loopCommandClose) && cmd.token == 0 {
-		cmd.token = x.phaseSeq.Add(1)
+		cmd.token = l.phaseSeq.Add(1)
 	}
-	x.commands.Push(cmd)
-	x.submissionEpoch.Add(1)
-	if x.testHooks != nil && x.testHooks.AfterCommandIngressPublish != nil {
-		x.testHooks.AfterCommandIngressPublish(cmd.kind)
+	l.commands.Push(cmd)
+	l.submissionEpoch.Add(1)
+	if l.testHooks != nil && l.testHooks.AfterCommandIngressPublish != nil {
+		l.testHooks.AfterCommandIngressPublish(cmd.kind)
 	}
 }
 
-func (x *Loop) drainCommandIngress() bool {
-	if !x.commandIngressPending.Load() {
+func (l *Loop) drainCommandIngress() bool {
+	if !l.commandIngressPending.Load() {
 		return false
 	}
-	x.externalMu.Lock()
-	processed := x.drainCommandIngressLocked()
-	x.externalMu.Unlock()
+	l.externalMu.Lock()
+	processed := l.drainCommandIngressLocked()
+	l.externalMu.Unlock()
 	return processed
 }
 
@@ -331,75 +331,75 @@ func (x *Loop) drainCommandIngress() bool {
 // against a producer that has not published. A true observation synchronizes
 // on externalMu and drains the commands published before the owner acquires it;
 // an overlapping producer that acquires the mutex first joins that drain.
-func (x *Loop) materializeCommandIngress() bool {
-	return x.drainCommandIngress()
+func (l *Loop) materializeCommandIngress() bool {
+	return l.drainCommandIngress()
 }
 
 // drainCommandIngressLocked transfers all published commands to owner-only
 // state. The caller holds externalMu, excluding producers until the pending
 // state has been cleared for the observed empty queue.
-func (x *Loop) drainCommandIngressLocked() bool {
+func (l *Loop) drainCommandIngressLocked() bool {
 	processed := false
 	for {
-		cmd, ok := x.commands.Pop()
+		cmd, ok := l.commands.Pop()
 		if !ok {
 			break
 		}
 		micro, primary := commandMicroCounts(cmd.kind)
 		if micro != 0 {
-			x.ingressMicroCount.Add(-micro)
+			l.ingressMicroCount.Add(-micro)
 		}
 		if primary != 0 {
-			x.ingressPrimaryMicroCount.Add(-primary)
+			l.ingressPrimaryMicroCount.Add(-primary)
 		}
-		if x.testHooks != nil && x.testHooks.AfterCommandIngressPopBeforeApply != nil {
-			x.testHooks.AfterCommandIngressPopBeforeApply(cmd.kind)
+		if l.testHooks != nil && l.testHooks.AfterCommandIngressPopBeforeApply != nil {
+			l.testHooks.AfterCommandIngressPopBeforeApply(cmd.kind)
 		}
 		processed = true
-		x.applyCommandLocked(cmd)
+		l.applyCommandLocked(cmd)
 	}
 	if processed {
-		x.commandIngressPending.Store(false)
+		l.commandIngressPending.Store(false)
 	}
 	return processed
 }
 
-func (x *Loop) applyCommandLocked(cmd loopCommand) {
+func (l *Loop) applyCommandLocked(cmd loopCommand) {
 	switch cmd.kind {
 	case loopCommandExternal:
-		x.pushOwnerExternal(cmd.fn)
+		l.pushOwnerExternal(cmd.fn)
 	case loopCommandInternal:
-		x.pushOwnerInternal(cmd.fn)
+		l.pushOwnerInternal(cmd.fn)
 	case loopCommandMicrotask:
-		x.pushOwnerPromiseMicrotask(cmd.fn, cmd.reaction)
+		l.pushOwnerPromiseMicrotask(cmd.fn, cmd.reaction)
 	case loopCommandNextTick:
-		x.pushOwnerMicrotask(x.ownerNextTick, cmd.fn, true)
+		l.pushOwnerMicrotask(l.ownerNextTick, cmd.fn, true)
 	case loopCommandCheckpoint:
-		x.pushOwnerMicrotask(x.ownerCheckpt, cmd.fn, false)
+		l.pushOwnerMicrotask(l.ownerCheckpt, cmd.fn, false)
 	case loopCommandImmediate:
 		if cmd.fn != nil {
-			x.checkJobs = append(x.checkJobs, checkJob{fn: cmd.fn, refed: cmd.refed, seq: cmd.token})
+			l.checkJobs = append(l.checkJobs, checkJob{fn: cmd.fn, refed: cmd.refed, seq: cmd.token})
 		}
 	case loopCommandClose:
 		if cmd.fn != nil {
-			x.closeJobs = append(x.closeJobs, checkJob{fn: cmd.fn, refed: cmd.refed, seq: cmd.token})
+			l.closeJobs = append(l.closeJobs, checkJob{fn: cmd.fn, refed: cmd.refed, seq: cmd.token})
 		}
 	case loopCommandTimerAdd:
 		if cmd.timer != nil {
-			x.commitTimer(cmd.timer)
+			l.commitTimer(cmd.timer)
 		}
 	case loopCommandTimerCancel:
-		err := x.applyCancelTimer(TimerID(cmd.token))
+		err := l.applyCancelTimer(TimerID(cmd.token))
 		if cmd.result != nil {
 			cmd.result <- err
 		}
 	case loopCommandTimerCancelBatch:
-		errs := x.applyCancelTimers(cmd.ids)
+		errs := l.applyCancelTimers(cmd.ids)
 		if cmd.results != nil {
 			cmd.results <- errs
 		}
 	case loopCommandTimerRef, loopCommandTimerUnref:
-		x.applyTimerRefChange(TimerID(cmd.token), cmd.kind == loopCommandTimerRef)
+		l.applyTimerRefChange(TimerID(cmd.token), cmd.kind == loopCommandTimerRef)
 		if cmd.result != nil {
 			cmd.result <- nil
 		}
@@ -411,40 +411,40 @@ func (x *Loop) applyCommandLocked(cmd loopCommand) {
 	}
 }
 
-func (x *Loop) snapshotCommandsLocked() []loopCommand {
-	if x.commands == nil || x.commands.Len() == 0 {
+func (l *Loop) snapshotCommandsLocked() []loopCommand {
+	if l.commands == nil || l.commands.Len() == 0 {
 		return nil
 	}
-	commands := make([]loopCommand, 0, x.commands.Len())
-	for i := x.commands.head; i < len(x.commands.cmds); i++ {
-		commands = append(commands, x.commands.cmds[i])
+	commands := make([]loopCommand, 0, l.commands.Len())
+	for i := l.commands.head; i < len(l.commands.cmds); i++ {
+		commands = append(commands, l.commands.cmds[i])
 	}
 	return commands
 }
 
-func (x *Loop) externalCommandCountLocked() int {
-	if x.commands == nil || x.commands.Len() == 0 {
+func (l *Loop) externalCommandCountLocked() int {
+	if l.commands == nil || l.commands.Len() == 0 {
 		return 0
 	}
 	count := 0
-	for i := x.commands.head; i < len(x.commands.cmds); i++ {
-		if x.commands.cmds[i].kind == loopCommandExternal {
+	for i := l.commands.head; i < len(l.commands.cmds); i++ {
+		if l.commands.cmds[i].kind == loopCommandExternal {
 			count++
 		}
 	}
 	return count
 }
 
-func (x *Loop) hasLiveCommand(commands []loopCommand) bool {
-	return x.commandSetAlive(commands, false)
+func (l *Loop) hasLiveCommand(commands []loopCommand) bool {
+	return l.commandSetAlive(commands, false)
 }
 
-func (x *Loop) commandAlive(cmd loopCommand) bool {
+func (l *Loop) commandAlive(cmd loopCommand) bool {
 	switch cmd.kind {
 	case loopCommandExternal, loopCommandInternal, loopCommandMicrotask, loopCommandNextTick, loopCommandCheckpoint, loopCommandClose, loopCommandTimerRef, loopCommandFDRegister:
 		return true
 	case loopCommandImmediate:
-		return x.checkJobAlive(checkJob{fn: cmd.fn, refed: cmd.refed})
+		return l.checkJobAlive(checkJob{fn: cmd.fn, refed: cmd.refed})
 	case loopCommandTimerAdd:
 		return cmd.timer != nil && cmd.timer.refed.Load()
 	default:
@@ -452,8 +452,8 @@ func (x *Loop) commandAlive(cmd loopCommand) bool {
 	}
 }
 
-func (x *Loop) hasMacrotaskCommand(commands []loopCommand) bool {
-	return x.commandSetAlive(commands, true)
+func (l *Loop) hasMacrotaskCommand(commands []loopCommand) bool {
+	return l.commandSetAlive(commands, true)
 }
 
 type pendingTimerLiveness struct {
@@ -461,7 +461,7 @@ type pendingTimerLiveness struct {
 	live  bool
 }
 
-func (x *Loop) commandSetAlive(commands []loopCommand, macrotask bool) bool {
+func (l *Loop) commandSetAlive(commands []loopCommand, macrotask bool) bool {
 	pending := make(map[TimerID]pendingTimerLiveness)
 	existing := make(map[TimerID]loopCommandKind)
 	for _, cmd := range commands {
@@ -498,10 +498,10 @@ func (x *Loop) commandSetAlive(commands []loopCommand, macrotask bool) bool {
 			}
 		default:
 			if macrotask {
-				if x.commandMacrotaskAlive(cmd) {
+				if l.commandMacrotaskAlive(cmd) {
 					return true
 				}
-			} else if x.commandAlive(cmd) {
+			} else if l.commandAlive(cmd) {
 				return true
 			}
 		}
@@ -519,12 +519,12 @@ func (x *Loop) commandSetAlive(commands []loopCommand, macrotask bool) bool {
 	return false
 }
 
-func (x *Loop) commandMacrotaskAlive(cmd loopCommand) bool {
+func (l *Loop) commandMacrotaskAlive(cmd loopCommand) bool {
 	switch cmd.kind {
 	case loopCommandExternal, loopCommandInternal, loopCommandClose, loopCommandTimerRef, loopCommandFDRegister:
 		return true
 	case loopCommandImmediate:
-		return x.checkJobAlive(checkJob{fn: cmd.fn, refed: cmd.refed})
+		return l.checkJobAlive(checkJob{fn: cmd.fn, refed: cmd.refed})
 	case loopCommandTimerAdd:
 		return cmd.timer != nil && cmd.timer.refed.Load()
 	default:
@@ -532,20 +532,20 @@ func (x *Loop) commandMacrotaskAlive(cmd loopCommand) bool {
 	}
 }
 
-func (x *Loop) drainTerminalQueuesStarted() {
+func (l *Loop) drainTerminalQueuesStarted() {
 	for {
 		progress := false
 
-		progress = x.drainCommandIngress() || progress
-		progress = x.drainMicrotasksIfPending() || progress
-		progress = x.drainTerminalCheckJobs() || progress
-		progress = x.drainMicrotasksIfPending() || progress
-		progress = x.drainTerminalCloseJobs() || progress
-		progress = x.drainMicrotasksIfPending() || progress
-		progress = x.drainTerminalInternalQueue() || progress
-		progress = x.drainMicrotasksIfPending() || progress
-		progress = x.drainTerminalExternalQueue() || progress
-		progress = x.drainMicrotasksIfPending() || progress
+		progress = l.drainCommandIngress() || progress
+		progress = l.drainMicrotasksIfPending() || progress
+		progress = l.drainTerminalCheckJobs() || progress
+		progress = l.drainMicrotasksIfPending() || progress
+		progress = l.drainTerminalCloseJobs() || progress
+		progress = l.drainMicrotasksIfPending() || progress
+		progress = l.drainTerminalInternalQueue() || progress
+		progress = l.drainMicrotasksIfPending() || progress
+		progress = l.drainTerminalExternalQueue() || progress
+		progress = l.drainMicrotasksIfPending() || progress
 
 		if !progress {
 			return
@@ -553,65 +553,65 @@ func (x *Loop) drainTerminalQueuesStarted() {
 	}
 }
 
-func (x *Loop) drainMicrotasksIfPending() bool {
-	if x.microtaskQueuesEmpty() {
+func (l *Loop) drainMicrotasksIfPending() bool {
+	if l.microtaskQueuesEmpty() {
 		return false
 	}
-	x.drainMicrotasks()
+	l.drainMicrotasks()
 	return true
 }
 
-func (x *Loop) microtaskQueuesEmpty() bool {
-	return x.ownerMicroCount.Load() == 0 && x.ingressMicroCount.Load() == 0
+func (l *Loop) microtaskQueuesEmpty() bool {
+	return l.ownerMicroCount.Load() == 0 && l.ingressMicroCount.Load() == 0
 }
 
-func (x *Loop) primaryMicrotaskQueuesEmpty() bool {
-	return x.ingressPrimaryMicroCount.Load() == 0 && x.ownerPrimaryMicroCount.Load() == 0
+func (l *Loop) primaryMicrotaskQueuesEmpty() bool {
+	return l.ingressPrimaryMicroCount.Load() == 0 && l.ownerPrimaryMicroCount.Load() == 0
 }
 
-func (x *Loop) drainTerminalInternalQueue() bool {
+func (l *Loop) drainTerminalInternalQueue() bool {
 	processed := false
 	for {
-		task := x.popOwnerInternal()
+		task := l.popOwnerInternal()
 		if task == nil {
 			return processed
 		}
-		x.safeExecute(task)
+		l.safeExecute(task)
 		processed = true
-		x.drainMicrotasks()
+		l.drainMicrotasks()
 	}
 }
 
-func (x *Loop) drainTerminalExternalQueue() bool {
+func (l *Loop) drainTerminalExternalQueue() bool {
 	processed := false
 	for {
-		task := x.popOwnerExternal()
+		task := l.popOwnerExternal()
 		if task == nil {
 			return processed
 		}
-		x.safeExecute(task)
+		l.safeExecute(task)
 		processed = true
-		x.drainMicrotasks()
+		l.drainMicrotasks()
 	}
 }
 
-func (x *Loop) drainTerminalCheckJobs() bool {
-	x.releaseMicrotaskYield()
-	allChecks := x.terminalDrainAllChecks.Load()
-	skipChecks := x.terminalDrainSkipChecks.Load()
-	x.externalMu.Lock()
-	batch := x.takeCheckPhaseBatchLocked()
+func (l *Loop) drainTerminalCheckJobs() bool {
+	l.releaseMicrotaskYield()
+	allChecks := l.terminalDrainAllChecks.Load()
+	skipChecks := l.terminalDrainSkipChecks.Load()
+	l.externalMu.Lock()
+	batch := l.takeCheckPhaseBatchLocked()
 	count := batch.remaining()
-	x.startPhaseBatch(count)
-	x.externalMu.Unlock()
+	l.startPhaseBatch(count)
+	l.externalMu.Unlock()
 
 	if count == 0 {
-		x.releaseCheckPhaseBatch(&batch)
+		l.releaseCheckPhaseBatch(&batch)
 		return false
 	}
 	defer func() {
-		x.releaseCheckPhaseBatch(&batch)
-		x.finishPhaseBatch(count)
+		l.releaseCheckPhaseBatch(&batch)
+		l.finishPhaseBatch(count)
 	}()
 
 	for {
@@ -619,28 +619,28 @@ func (x *Loop) drainTerminalCheckJobs() bool {
 		if !ok {
 			break
 		}
-		if !skipChecks && (allChecks || x.checkJobAlive(job)) {
-			x.safeExecute(job.fn)
+		if !skipChecks && (allChecks || l.checkJobAlive(job)) {
+			l.safeExecute(job.fn)
 		}
-		x.drainMicrotasks()
+		l.drainMicrotasks()
 	}
 	return true
 }
 
-func (x *Loop) drainTerminalCloseJobs() bool {
-	x.externalMu.Lock()
-	batch := x.takeClosePhaseBatchLocked()
+func (l *Loop) drainTerminalCloseJobs() bool {
+	l.externalMu.Lock()
+	batch := l.takeClosePhaseBatchLocked()
 	count := batch.remaining()
-	x.startPhaseBatch(count)
-	x.externalMu.Unlock()
+	l.startPhaseBatch(count)
+	l.externalMu.Unlock()
 
 	if count == 0 {
-		x.releaseClosePhaseBatch(&batch)
+		l.releaseClosePhaseBatch(&batch)
 		return false
 	}
 	defer func() {
-		x.releaseClosePhaseBatch(&batch)
-		x.finishPhaseBatch(count)
+		l.releaseClosePhaseBatch(&batch)
+		l.finishPhaseBatch(count)
 	}()
 
 	for {
@@ -648,8 +648,8 @@ func (x *Loop) drainTerminalCloseJobs() bool {
 		if !ok {
 			break
 		}
-		x.safeExecute(job.fn)
-		x.drainMicrotasks()
+		l.safeExecute(job.fn)
+		l.drainMicrotasks()
 	}
 	return true
 }

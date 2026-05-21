@@ -484,26 +484,26 @@ func (js *JS) ensureRejectionCheckRetainedLocked() {
 	js.loop.retainRejectionCheckAdapter(js)
 }
 
-func (x *Loop) retainRejectionCheckAdapter(js *JS) {
-	x.rejectionCheckMu.Lock()
-	if x.rejectionCheckAdapter == js {
-		x.rejectionCheckMu.Unlock()
+func (l *Loop) retainRejectionCheckAdapter(js *JS) {
+	l.rejectionCheckMu.Lock()
+	if l.rejectionCheckAdapter == js {
+		l.rejectionCheckMu.Unlock()
 		return
 	}
-	if _, retained := x.rejectionCheckAdapters[js]; retained {
-		x.rejectionCheckMu.Unlock()
+	if _, retained := l.rejectionCheckAdapters[js]; retained {
+		l.rejectionCheckMu.Unlock()
 		return
 	}
-	if x.rejectionCheckAdapter == nil {
-		x.rejectionCheckAdapter = js
-		x.rejectionCheckMu.Unlock()
+	if l.rejectionCheckAdapter == nil {
+		l.rejectionCheckAdapter = js
+		l.rejectionCheckMu.Unlock()
 		return
 	}
-	if x.rejectionCheckAdapters == nil {
-		x.rejectionCheckAdapters = make(map[*JS]struct{})
+	if l.rejectionCheckAdapters == nil {
+		l.rejectionCheckAdapters = make(map[*JS]struct{})
 	}
-	x.rejectionCheckAdapters[js] = struct{}{}
-	x.rejectionCheckMu.Unlock()
+	l.rejectionCheckAdapters[js] = struct{}{}
+	l.rejectionCheckMu.Unlock()
 }
 
 func (js *JS) releaseRejectionCheck() {
@@ -523,21 +523,21 @@ func (js *JS) releaseRejectionCheckLocked() {
 	}
 }
 
-func (x *Loop) releaseRejectionCheckAdapter(js *JS) {
-	x.rejectionCheckMu.Lock()
-	delete(x.rejectionCheckAdapters, js)
-	if x.rejectionCheckAdapter == js {
-		x.rejectionCheckAdapter = nil
-		for adapter := range x.rejectionCheckAdapters {
-			x.rejectionCheckAdapter = adapter
-			delete(x.rejectionCheckAdapters, adapter)
+func (l *Loop) releaseRejectionCheckAdapter(js *JS) {
+	l.rejectionCheckMu.Lock()
+	delete(l.rejectionCheckAdapters, js)
+	if l.rejectionCheckAdapter == js {
+		l.rejectionCheckAdapter = nil
+		for adapter := range l.rejectionCheckAdapters {
+			l.rejectionCheckAdapter = adapter
+			delete(l.rejectionCheckAdapters, adapter)
 			break
 		}
 	}
-	if len(x.rejectionCheckAdapters) == 0 {
-		x.rejectionCheckAdapters = nil
+	if len(l.rejectionCheckAdapters) == 0 {
+		l.rejectionCheckAdapters = nil
 	}
-	x.rejectionCheckMu.Unlock()
+	l.rejectionCheckMu.Unlock()
 }
 
 // checkUnhandledRejections checks for rejections without handlers and reports them.

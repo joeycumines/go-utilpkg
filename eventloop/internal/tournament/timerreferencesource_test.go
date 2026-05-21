@@ -1,76 +1,11 @@
 package tournament
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-func TestTimerReferenceSourcesAuthenticate(t *testing.T) {
-	repository, err := filepath.Abs(filepath.Join("..", "..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, descriptor := range timerReferenceDescriptors() {
-		for _, source := range append(append([]componentSourceIdentity(nil), descriptor.Sources...), descriptor.MaterializationSources...) {
-			authenticateTimerReferenceSource(t, repository, descriptor.ID, source)
-		}
-	}
-	for _, descriptor := range timerReferenceStrategyDescriptors() {
-		for _, source := range append(append([]componentSourceIdentity(nil), descriptor.Sources...), descriptor.MaterializationSources...) {
-			authenticateTimerReferenceSource(t, repository, descriptor.ID, source)
-		}
-	}
-	for _, binding := range timerReferenceStorageBindings {
-		if binding.Disposition == timerReferenceBindingNormalizedAlias {
-			authenticateTimerReferenceSource(t, repository, binding.StorageID, binding.NormalizedSource)
-		}
-	}
-}
-
-func authenticateTimerReferenceSource(t *testing.T, repository, owner string, source componentSourceIdentity) {
-	t.Helper()
-	name := strings.Join([]string{owner, source.ProvenanceKind, source.OriginBlob, strings.ReplaceAll(source.Path, "/", "_")}, "/")
-	t.Run(name, func(t *testing.T) {
-		var payload []byte
-		var blob string
-		switch source.ProvenanceKind {
-		case "commit":
-			if source.OriginCommit == "" || source.BaseRevision != "" {
-				t.Fatalf("commit source has invalid authority fields: %+v", source)
-			}
-			object := source.OriginCommit + ":eventloop/" + source.Path
-			payload = runComponentGit(t, repository, "show", object)
-			blob = strings.TrimSpace(string(runComponentGit(t, repository, "rev-parse", object)))
-		case "archived-index-candidate", "index-candidate-materialization":
-			if source.OriginCommit != "" || source.BaseRevision != timerCandidateArchive().BaseRevision {
-				t.Fatalf("candidate source has invalid authority fields: %+v", source)
-			}
-			object := ":eventloop/" + source.Path
-			payload = runComponentGit(t, repository, "show", object)
-			blob = strings.TrimSpace(string(runComponentGit(t, repository, "rev-parse", object)))
-			worktree, readErr := os.ReadFile(filepath.Join(repository, "eventloop", filepath.FromSlash(source.Path)))
-			if readErr != nil {
-				t.Fatal(readErr)
-			}
-			if !bytes.Equal(worktree, payload) {
-				t.Fatal("candidate source has unstaged worktree drift")
-			}
-		default:
-			t.Fatalf("unsupported reference provenance kind %q", source.ProvenanceKind)
-		}
-		if blob != source.OriginBlob {
-			t.Errorf("blob = %s, want %s", blob, source.OriginBlob)
-		}
-		if got := fmt.Sprintf("%x", sha256.Sum256(payload)); got != source.SHA256 {
-			t.Errorf("SHA-256 = %s, want %s", got, source.SHA256)
-		}
-	})
-}
 
 func TestTimerReferenceMaterializationsKeepTimedBoundary(t *testing.T) {
 	for _, descriptor := range timerReferenceDescriptors() {

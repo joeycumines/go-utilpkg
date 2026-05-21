@@ -81,7 +81,7 @@ func TestWriteAtomicNewPreservesExistingBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat existing target: %v", err)
 	}
-	if info.Mode().Perm() != 0o640 {
+	if authorityPerm(info.Mode()) != authorityPerm(0o640) {
 		t.Fatalf("existing target mode = %04o, want 0640", info.Mode().Perm())
 	}
 }

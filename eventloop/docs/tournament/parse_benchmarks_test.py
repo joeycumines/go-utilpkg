@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Regression tests for parse_benchmarks.py."""
 
+import contextlib
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,6 +19,27 @@ def load_sibling_module(name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@contextlib.contextmanager
+def _temp_text_path(text, *, encoding='utf-8'):
+    """Yield a path to a temporary file containing ``text``.
+
+    The file is fully written and CLOSED before the path is yielded, so a second
+    opener (the module-under-test reads paths via ``Path.read_bytes`` / ``open``)
+    always succeeds. ``tempfile.NamedTemporaryFile`` holds an exclusive lock on
+    Windows and re-opening its ``.name`` while it is open raises
+    ``PermissionError``; this helper side-steps that entirely by closing the
+    file first. Cleanup is guaranteed even when the body raises.
+    """
+    fd, raw_path = tempfile.mkstemp(suffix='.txt')
+    try:
+        with os.fdopen(fd, 'w', encoding=encoding) as handle:
+            handle.write(text)
+        yield raw_path
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(raw_path)
 
 
 class ParseBenchmarksTest(unittest.TestCase):
@@ -40,10 +63,8 @@ BenchmarkShared-8
 diagnostic output between name and result
 1  20 ns/op  2 B/op  2 allocs/op
 """
-        with tempfile.NamedTemporaryFile('w', encoding='utf-8') as file:
-            file.write(log)
-            file.flush()
-            benchmarks = self.parser.parse_log(file.name)
+        with _temp_text_path(log) as path:
+            benchmarks = self.parser.parse_log(path)
 
         output = self.parser.build_output(
             benchmarks,
@@ -571,22 +592,18 @@ tournament: complete
     def test_load_manifest_rejects_unknown_field(self):
         manifest = self.parser.default_manifest_path().read_text(encoding='utf-8')
         mutated = manifest.replace('"sample_count": 5,', '"sample_count": 5,\n  "typo": true,', 1)
-        with tempfile.NamedTemporaryFile('w', encoding='utf-8') as file:
-            file.write(mutated)
-            file.flush()
+        with _temp_text_path(mutated) as path:
             with self.assertRaisesRegex(self.parser.ValidationError, 'unknown fields'):
-                self.parser.load_manifest(file.name)
+                self.parser.load_manifest(path)
 
     def test_load_manifest_rejects_alias_variant_id_collision(self):
         manifest = json.loads(
             self.parser.default_manifest_path().read_text(encoding='utf-8')
         )
         manifest['variants'][0]['aliases'].append(manifest['variants'][1]['id'])
-        with tempfile.NamedTemporaryFile('w', encoding='utf-8') as file:
-            json.dump(manifest, file)
-            file.flush()
+        with _temp_text_path(json.dumps(manifest)) as path:
             with self.assertRaisesRegex(self.parser.ValidationError, 'collide'):
-                self.parser.load_manifest(file.name)
+                self.parser.load_manifest(path)
 
     def test_live_manifest_uses_distinct_protocol_schemas(self):
         manifest, _, _ = self.parser.load_manifest(self.parser.default_manifest_path())
@@ -677,11 +694,9 @@ tournament: complete
             with self.subTest(label=label):
                 manifest = json.loads(live)
                 mutate(manifest)
-                with tempfile.NamedTemporaryFile('w', encoding='utf-8') as file:
-                    json.dump(manifest, file)
-                    file.flush()
+                with _temp_text_path(json.dumps(manifest)) as path:
                     with self.assertRaisesRegex(self.parser.ValidationError, error):
-                        self.parser.load_manifest(file.name)
+                        self.parser.load_manifest(path)
 
     def test_validation_requires_lowercase_sha256_source_fingerprint(self):
         manifest = self.minimal_manifest(include_optional=False)
@@ -717,10 +732,8 @@ tournament: complete
                 analyzer.require_validated(smoke, 'smoke.json')
 
     def parse_run(self, log):
-        with tempfile.NamedTemporaryFile('w', encoding='utf-8') as file:
-            file.write(log)
-            file.flush()
-            return self.parser.parse_run(file.name)
+        with _temp_text_path(log) as path:
+            return self.parser.parse_run(path)
 
     @staticmethod
     def canonical_analysis_result(goos):

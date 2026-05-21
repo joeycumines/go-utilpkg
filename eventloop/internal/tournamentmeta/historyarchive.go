@@ -404,7 +404,7 @@ func requireHistoryRegularFile(path string, permissions os.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("inspect history archive %q: %w", path, err)
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm() != permissions {
+	if !info.Mode().IsRegular() || authorityPerm(info.Mode()) != authorityPerm(permissions) {
 		return fmt.Errorf("history archive %q mode = %s, want regular %04o", path, info.Mode(), permissions)
 	}
 	return nil

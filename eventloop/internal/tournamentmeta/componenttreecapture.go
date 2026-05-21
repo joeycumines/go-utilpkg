@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"slices"
 )
@@ -295,6 +296,7 @@ func captureComponentSymlink(
 	if err != nil {
 		return componentTreeRecord{}, nil, fmt.Errorf("read component symlink %q: %w", logical, err)
 	}
+	first = filepath.ToSlash(first)
 	middle, err := root.Lstat(name)
 	if err != nil || !freezeComponentIdentity(middle) || !os.SameFile(identity, middle) {
 		return componentTreeRecord{}, nil, fmt.Errorf("component symlink %q changed after first read: %w", logical, err)
@@ -303,6 +305,7 @@ func captureComponentSymlink(
 	if err != nil {
 		return componentTreeRecord{}, nil, fmt.Errorf("reread component symlink %q: %w", logical, err)
 	}
+	second = filepath.ToSlash(second)
 	final, err := root.Lstat(name)
 	if err != nil || !freezeComponentIdentity(final) || !os.SameFile(identity, final) || first != second {
 		return componentTreeRecord{}, nil, fmt.Errorf("component symlink %q changed while reading: %w", logical, err)
