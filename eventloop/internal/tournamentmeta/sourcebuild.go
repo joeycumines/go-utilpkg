@@ -94,11 +94,16 @@ func validateSourceBuildConfig(root string, config sourceBuildConfig) (string, s
 	}
 	for _, path := range paths {
 		name, value := path.name, path.value
-		if value == "" || !filepath.IsAbs(value) {
-			return "", sourceBuildConfig{}, fmt.Errorf("source build %s must be absolute", name)
-		}
+		// normalizeExecutablePath rewrites an MSYS drive prefix (/c/...) that a
+		// POSIX shell reports via command -v into the Windows-native form (C:/...)
+		// before the IsAbs check, so a path that is semantically absolute but not
+		// recognized by filepath.IsAbs is not rejected. On POSIX platforms and for
+		// paths that are already Windows-native it is a no-op.
 		if name == "Go executable" {
 			value = normalizeExecutablePath(value)
+		}
+		if value == "" || !filepath.IsAbs(value) {
+			return "", sourceBuildConfig{}, fmt.Errorf("source build %s must be absolute", name)
 		}
 		resolved, err := filepath.EvalSymlinks(value)
 		if err != nil {

@@ -76,7 +76,7 @@ eventloop-tournament-windows:
 	@echo "Running eventloop benchmarks on Windows..."; \
 	set -o pipefail; \
 	head=$$(git -C $(PROJECT_ROOT) rev-parse HEAD) && \
-	state=$$(test -z "$$(git -C $(PROJECT_ROOT) status --porcelain=v1 --untracked-files=all -- eventloop go.work project.mk)" && echo clean || echo dirty) && \
+	state=$$(status="$$(git -C $(PROJECT_ROOT) status --porcelain=v1 --untracked-files=all -- eventloop go.work project.mk 2>/dev/null)"; test $$? -eq 0 || { echo unknown; exit; }; test -z "$$status" && echo clean || echo dirty) && \
 	hack/run-on-windows.sh $(WINDOWS_HOST) "$(GIT_BASH)" hack/run-eventloop-tournament-windows.sh \
 		EVENTLOOP_TOURNAMENT_HEAD=$$head EVENTLOOP_TOURNAMENT_SOURCE_STATE=$$state \
 		2>&1 | tee $(PROJECT_ROOT)/eventloop-tournament-windows.log; \

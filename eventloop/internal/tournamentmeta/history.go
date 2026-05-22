@@ -207,10 +207,13 @@ func generateHistory(gitPath, repository string) (historyInventory, error) {
 }
 
 func newHistoryGit(gitPath, repository string) (historyGit, func(), error) {
+	// normalizeExecutablePath rewrites an MSYS drive prefix (/c/...) that a POSIX
+	// shell reports via command -v into the Windows-native form (C:/...) before
+	// the IsAbs check; on POSIX and for already-native paths it is a no-op.
+	gitPath = normalizeExecutablePath(gitPath)
 	if gitPath == "" || repository == "" || !filepath.IsAbs(gitPath) || !filepath.IsAbs(repository) {
 		return historyGit{}, func() {}, errors.New("history requires absolute -git and -repository paths")
 	}
-	gitPath = normalizeExecutablePath(gitPath)
 	resolvedGit, err := filepath.EvalSymlinks(gitPath)
 	if err != nil {
 		return historyGit{}, func() {}, fmt.Errorf("resolve Git executable: %w", err)
