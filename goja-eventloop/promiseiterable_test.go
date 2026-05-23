@@ -28,9 +28,6 @@ func TestAdapter_Iterator_NullIterable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -81,9 +78,6 @@ func TestAdapter_Iterator_NonIterable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -131,9 +125,6 @@ func TestNodePromiseCombinatorIterableErrors(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -211,9 +202,6 @@ func TestNodePromiseCombinatorCapabilitiesUseCapturedTypeError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -286,9 +274,6 @@ func TestAdapter_Iterator_ArrayFastPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -338,9 +323,6 @@ func TestAdapter_consumeIterable_Set(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -392,9 +374,6 @@ func TestAdapter_consumeIterable_Generator(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

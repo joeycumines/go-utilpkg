@@ -22,9 +22,6 @@ func TestConsoleTable_WithObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
 	}
@@ -50,9 +47,6 @@ func TestConsoleTable_WithColumnFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
 	}
@@ -76,9 +70,6 @@ func TestConsoleTable_NonArrayNonObject(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -105,9 +96,6 @@ func TestConsoleTable_NestedObjectsCoverage(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)

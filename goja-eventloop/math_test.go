@@ -36,10 +36,6 @@ func newMathTestAdapter(t *testing.T) (*Adapter, *goja.Runtime, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		loop.Shutdown(context.Background())
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		loop.Shutdown(context.Background())

@@ -65,9 +65,6 @@ func TestWebConstructorGlobalsRollbackAfterLateBindFailure(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 
 	names := []string{"AbortController", "EventTarget", "Event", "CustomEvent", "DOMException"}

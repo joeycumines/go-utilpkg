@@ -161,9 +161,6 @@ func TestAdapterBindReadsPreservedSingletonPairOnce(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	performance, _ := installConformingHostSingletons(t, runtime)
 	performanceConstructor := runtime.Get("Performance").ToObject(runtime)
 	adapter, err := New(loop, runtime)
@@ -220,9 +217,6 @@ func TestAdapterBindIntegratesPreservedPerformanceClockAndEventTarget(t *testing
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	performance, _ := installConformingHostSingletons(t, runtime)
 	performanceConstructor := runtime.Get("Performance")
 	var nowCalls int
@@ -325,9 +319,6 @@ func TestAdapterBindRejectsPreservedPerformanceInheritedReparentedMembers(t *tes
 			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
 			performance, _ := installConformingHostSingletons(t, runtime)
 			constructor := runtime.Get("Performance").ToObject(runtime)
 			prototype := constructor.Get("prototype").ToObject(runtime)
@@ -360,13 +351,10 @@ func TestAdapterBindRejectsPreservedPerformanceInheritedReparentedMembers(t *tes
 func newBoundOwnershipAdapter(t *testing.T, options ...goeventloop.LoopOption) (*goeventloop.Loop, *goja.Runtime, *Adapter) {
 	t.Helper()
 	loop, err := goeventloop.New(options...)
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -380,13 +368,10 @@ func newBoundOwnershipAdapter(t *testing.T, options ...goeventloop.LoopOption) (
 
 func TestAdapterBindDetachesForeignProcess(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 
 	prototype := runtime.NewObject()
@@ -489,13 +474,10 @@ func TestAdapterBindDetachesForeignProcess(t *testing.T) {
 func TestAdapterPreservesForeignAndConstructionGlobals(t *testing.T) {
 	t.Run("construction helpers", func(t *testing.T) {
 		loop, err := goeventloop.New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		runtime := goja.New()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
 		for _, name := range []string{"__gojaEventloopCreateTimeout", "__gojaEventloopCreateImmediate", "consumeIterable"} {
 			if err := runtime.GlobalObject().DefineDataProperty(name, runtime.NewObject(), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE); err != nil {
 				t.Fatal(err)
@@ -517,13 +499,10 @@ func TestAdapterPreservesForeignAndConstructionGlobals(t *testing.T) {
 
 	t.Run("successful Bind", func(t *testing.T) {
 		loop, err := goeventloop.New()
+		if err != nil {
+			t.Fatal(err)
+		}
 		runtime := goja.New()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
 		performance, crypto := installConformingHostSingletons(t, runtime)
 		foreignNames := []string{
 			"require",
@@ -783,13 +762,10 @@ func TestAdapterRejectsInvalidHostSingletonPairs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
 			installConformingHostSingletons(t, runtime)
 			test.setup(t, runtime)
 			targetNames := []string{"performance", "Performance", "crypto", "Crypto", "setTimeout"}
@@ -856,9 +832,6 @@ func TestAdapterRejectsIncompleteCoherentForeignSingletonPairs(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
 			installConformingHostSingletons(t, runtime)
 			test.setup(t, runtime)
 			targetNames := []string{"performance", "Performance", "crypto", "Crypto"}

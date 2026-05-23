@@ -144,16 +144,13 @@ func TestPromiseJobHandoverDirectDiagnosticsRunJobs(t *testing.T) {
 		}
 		t.Run(implementation.name, func(t *testing.T) {
 			loop, err := goeventloop.New()
-			runtime := goja.New()
 			if err != nil {
 				t.Fatal(err)
 			}
+			runtime := goja.New()
 			adapter, err := New(loop, runtime)
 			if err != nil {
 				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatalf("create adapter: %v", err)
 			}
 			runLoopForTest(t, loop)
 			errors := make(chan error, 1)

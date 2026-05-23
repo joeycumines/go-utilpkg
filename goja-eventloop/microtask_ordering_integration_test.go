@@ -27,9 +27,6 @@ func TestGojaMicrotaskOrdering_PromiseBetweenTimers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
@@ -97,9 +94,6 @@ func TestGojaMicrotaskOrdering_QueueMicrotaskBetweenTimers(t *testing.T) {
 	adapter, err := New(loop, vm)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -171,9 +165,6 @@ func TestGojaMicrotaskOrdering_ExhaustiveDrain(t *testing.T) {
 	adapter, err := New(loop, vm)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -257,9 +248,6 @@ func TestNode26NextTickPromiseQueueMicrotaskOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -326,9 +314,6 @@ func TestGojaImmediateMicrotaskCheckpoint(t *testing.T) {
 	adapter, err := New(loop, vm)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -414,9 +399,6 @@ func TestGojaImmediateRollover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
@@ -484,9 +466,6 @@ func TestNode26TimeoutScheduledInsideImmediateUsesValidOrdering(t *testing.T) {
 	adapter, err := New(loop, vm)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -571,9 +550,6 @@ func TestGojaStartupDueTimerCanBeatImmediate(t *testing.T) {
 	adapter, err := New(loop, vm)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)

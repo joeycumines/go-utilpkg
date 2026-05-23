@@ -17,9 +17,6 @@ func TestAdapterBindRejectsForeignIntrinsicRoots(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
 			installConformingHostSingletons(t, runtime)
 			global := runtime.GlobalObject()
 			canonicalPromise := runtime.Get("Promise").ToObject(runtime)
@@ -112,13 +109,10 @@ func TestAdapterBindRejectsForeignIntrinsicRoots(t *testing.T) {
 
 func TestAdapterBindDoesNotInvokeInheritedProcessSetter(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	_, err = runtime.RunString(`
 		globalThis.processSetterCalls = 0;
@@ -201,13 +195,10 @@ func TestAdapterBindPreflightPreservesConflicts(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			loop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
 			installConformingHostSingletons(t, runtime)
 			adapter, err := New(loop, runtime)
 			if err != nil {
@@ -235,9 +226,6 @@ func TestAdapterBindPreflightRejectsNonextensiblePerformancePrototype(t *testing
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	performancePrototype := runtime.Get("Performance").ToObject(runtime).Get("prototype").ToObject(runtime)
 	performanceParent := performancePrototype.Prototype()

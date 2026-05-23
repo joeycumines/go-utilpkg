@@ -17,9 +17,6 @@ func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -112,13 +109,10 @@ func copyAdapterValue(adapter *Adapter) *Adapter {
 
 func TestAdapterDoneForwardsExactTerminalSignal(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -148,9 +142,6 @@ func TestAdapterDoneRejectsInvalidReceivers(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -208,13 +199,10 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 	}
 
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -247,9 +235,6 @@ func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -278,13 +263,10 @@ func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
 
 func TestAdapterConstructionFailureReleasesClaims(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	symbol := runtime.Get("Symbol").ToObject(runtime)
 	if err := symbol.DefineDataProperty(
 		"dispose",
@@ -317,9 +299,6 @@ func TestAdapterConstructionUsesRuntimePrimordials(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = loop.Close() })
 			runtime := goja.New()
-			if err != nil {
-				t.Fatal(err)
-			}
 			installConformingHostSingletons(t, runtime)
 			prototypeTargets := []struct {
 				object *goja.Object
@@ -496,9 +475,6 @@ func TestAdapterOwnerOnlyHelperPreconditions(t *testing.T) {
 	t.Cleanup(func() { _ = loop.Shutdown(context.Background()) })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

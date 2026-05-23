@@ -64,9 +64,6 @@ func TestEventTarget_Constructor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -97,9 +94,6 @@ func TestEventTarget_AddEventListener_Basic(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,9 +129,6 @@ func TestEventTarget_AddEventListener_MultipleListeners(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,9 +172,6 @@ func TestEventTarget_AddEventListener_Once(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -217,9 +205,6 @@ func TestEventTarget_RemoveEventListener(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,9 +242,6 @@ func TestEventTarget_RemoveEventListener_DifferentFunction(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

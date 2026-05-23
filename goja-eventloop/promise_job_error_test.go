@@ -206,9 +206,6 @@ func TestPromiseJobEnqueuerReportsRunPromiseJobError(t *testing.T) {
 	}
 
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	reported := make(chan error, 1)
 	runtime.SetPromiseJobEnqueuer(newPromiseJobEnqueuer(loop, runtime, func(err error) {
 		reported <- err

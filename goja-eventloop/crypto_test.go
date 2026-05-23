@@ -35,9 +35,6 @@ func TestCryptoRandomUUID_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -72,9 +69,6 @@ func TestCryptoRandomUUID_Uniqueness(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -115,9 +109,6 @@ func TestCryptoRandomUUID_Format(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -168,9 +159,6 @@ func TestCryptoRandomUUID_TypeIsString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -197,9 +185,6 @@ func TestCryptoRandomUUID_CryptoObjectExists(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -228,9 +213,6 @@ func TestCryptoRandomUUID_FunctionExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -257,9 +239,6 @@ func TestCrypto_RetainedInterfaceAndErrors(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 	bindRetainedCryptoTestSurface(t, adapter)
 
@@ -332,9 +311,6 @@ func TestCrypto_GetRandomValuesIntegerViewsAndExactRange(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 	bindRetainedCryptoTestSurface(t, adapter)
 
@@ -445,9 +421,6 @@ func TestCrypto_EntropyReaderExactRangesAndShortReads(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 
 	adapter.entropyReader = bytes.NewReader([]byte{0x10, 0x11, 0x12, 0x13})

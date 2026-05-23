@@ -283,9 +283,6 @@ func runFatalProcessScript(t *testing.T, script string) *Adapter {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}

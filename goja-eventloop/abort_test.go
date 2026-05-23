@@ -26,9 +26,6 @@ func TestAbortController_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -61,9 +58,6 @@ func TestAbortController_Abort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -93,9 +87,6 @@ func TestAbortController_OnAbort(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -130,9 +121,6 @@ func TestAbortController_AddEventListener(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -170,9 +158,6 @@ func TestAbortController_ThrowIfAborted(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -219,9 +204,6 @@ func TestAbortSignal_CannotConstruct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -259,9 +241,6 @@ func TestPerformance_Now(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -301,9 +280,6 @@ func TestPerformance_TimeOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -326,16 +302,13 @@ func TestPerformance_TimeOrigin(t *testing.T) {
 
 func TestPerformance_RetainedPrototypeAndBrand(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind performance: %v", err)
@@ -431,9 +404,6 @@ func TestAbortController_WithFetch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -501,9 +471,6 @@ func TestAbortSignal_Any_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -544,9 +511,6 @@ func TestAbortSignal_Any_AlreadyAborted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -583,9 +547,6 @@ func TestAbortSignal_Any_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -614,9 +575,6 @@ func TestAbortSignal_Any_OnAbort(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -674,9 +632,6 @@ func TestAbortSignal_Timeout_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -728,9 +683,6 @@ func TestAbortSignal_Timeout_Fires(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -781,9 +733,6 @@ func TestAbortSignal_Timeout_Zero(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

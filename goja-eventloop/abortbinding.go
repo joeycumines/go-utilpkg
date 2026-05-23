@@ -14,8 +14,8 @@ import (
 // abortControllerConstructor creates the AbortController constructor for JavaScript.
 func (a *Adapter) abortControllerConstructor(call goja.ConstructorCall) *goja.Object {
 	thisObj := call.This
-	signalState := a.newAbortSignal()
-	controller := &abortControllerState{signal: signalState}
+	signalState, signalObject := a.newAbortSignal()
+	controller := &abortControllerState{signal: signalState, signalObject: signalObject}
 	a.setHiddenState(a.abortControllerStore, thisObj, controller)
 
 	return thisObj
@@ -30,7 +30,11 @@ func (a *Adapter) bindAbortControllerPrototype(constructor *goja.Object) error {
 		return fmt.Errorf("abortController prototype not found")
 	}
 	if err := defineWebAccessor(a.runtime, prototype, "signal", true, func(call goja.FunctionCall) goja.Value {
-		return a.abortControllerThis(call.This).signal.object.Value()
+		state := a.abortControllerThis(call.This)
+		if state.signalObject != nil {
+			return state.signalObject
+		}
+		return goja.Undefined()
 	}, nil); err != nil {
 		return fmt.Errorf("bind AbortController.prototype.signal: %w", err)
 	}
@@ -69,7 +73,7 @@ func (a *Adapter) abortSignalConstructor(call goja.ConstructorCall) *goja.Object
 	panic(a.runtime.NewTypeError("AbortSignal cannot be constructed directly"))
 }
 
-func (a *Adapter) newAbortSignal() *abortSignalState {
+func (a *Adapter) newAbortSignal() (*abortSignalState, *goja.Object) {
 	obj := a.runtime.NewObject()
 	if prototype := a.abortSignalPrototype; prototype != nil {
 		if err := obj.SetPrototype(prototype); err != nil {
@@ -82,7 +86,7 @@ func (a *Adapter) newAbortSignal() *abortSignalState {
 
 	a.setHiddenState(a.abortSignalStateStore, obj, state)
 
-	return state
+	return state, obj
 }
 
 func (a *Adapter) bindAbortSignalPrototype(constructor *goja.Object) error {
@@ -155,9 +159,9 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 	}
 
 	if err := defineWebMethod(a.runtime, abortSignalObj, "abort", 0, true, func(call goja.FunctionCall) goja.Value {
-		state := a.newAbortSignal()
+		state, obj := a.newAbortSignal()
 		markAbortSignal(state, a.abortReason(call.Argument(0)))
-		return state.object.Value()
+		return obj
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.abort: %w", err)
 	}
@@ -167,11 +171,11 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 	if err := defineWebMethod(a.runtime, abortSignalObj, "any", 1, true, func(call goja.FunctionCall) goja.Value {
 		signals := a.abortSignalSequence(call.Argument(0))
 
-		composite := a.newAbortSignal()
+		composite, compositeObject := a.newAbortSignal()
 		for _, sig := range signals {
 			if sig.aborted {
 				markAbortSignal(composite, sig.reason)
-				return composite.object.Value()
+				return compositeObject
 			}
 		}
 		composite.dependent = true
@@ -185,8 +189,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 				a.linkAbortSignal(source, composite)
 			}
 		}
-		runtime.KeepAlive(composite)
-		return composite.object.Value()
+		return compositeObject
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.any: %w", err)
 	}
@@ -195,7 +198,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 	// Creates a signal that aborts after the specified timeout
 	if err := defineWebMethod(a.runtime, abortSignalObj, "timeout", 1, true, func(call goja.FunctionCall) goja.Value {
 		delayMs := a.abortTimeoutDelay(call.Argument(0))
-		state := a.newAbortSignal()
+		state, obj := a.newAbortSignal()
 		stateRef := &abortTimeoutRef{adapter: weak.Make(a), signal: weak.Make(state)}
 		state.timeout = stateRef
 		callback := a.runtime.ToValue(func(goja.FunctionCall) goja.Value {
@@ -224,8 +227,7 @@ func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 		stateRef.cleanup = cleanup
 		stateRef.cleanupSet = true
 		stateRef.mu.Unlock()
-		runtime.KeepAlive(state)
-		return state.object.Value()
+		return obj
 	}); err != nil {
 		return fmt.Errorf("bind AbortSignal.timeout: %w", err)
 	}

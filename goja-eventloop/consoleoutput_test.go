@@ -43,9 +43,6 @@ func TestConsoleGroup_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -75,14 +72,11 @@ func TestConsoleGroup_Basic(t *testing.T) {
 
 func TestConsoleOutputWriterMayReenterConfiguration(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,14 +108,11 @@ func TestConsoleOutputWriterMayReenterConfiguration(t *testing.T) {
 
 func TestConsoleOutputConcurrentConfigurationAndWarning(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,9 +157,6 @@ func TestConsoleGroup_DefaultLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -202,9 +190,6 @@ func TestConsoleGroupCollapsed(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -244,9 +229,6 @@ func TestConsoleGroupEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -281,9 +263,6 @@ func TestConsoleGroupEnd_NoGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -314,9 +293,6 @@ func TestConsoleTrace_Basic(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -359,9 +335,6 @@ func TestConsoleTrace_NoMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -396,9 +369,6 @@ func TestConsoleTrace_NilOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	adapter.SetConsoleOutput(nil)
 
@@ -427,9 +397,6 @@ func TestConsoleClear_Basic(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -466,9 +433,6 @@ func TestConsoleClear_NilOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	adapter.SetConsoleOutput(nil)
 
@@ -497,9 +461,6 @@ func TestConsoleDir_Object(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -544,9 +505,6 @@ func TestConsoleDir_Array(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -586,9 +544,6 @@ func TestConsoleDir_Primitive(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -632,9 +587,6 @@ func TestConsoleDir_NullUndefined(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -674,9 +626,6 @@ func TestConsoleDir_NilOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	adapter.SetConsoleOutput(nil)
 
@@ -705,9 +654,6 @@ func TestConsoleGroup_Indentation(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer

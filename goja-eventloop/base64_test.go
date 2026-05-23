@@ -24,9 +24,6 @@ func TestBtoa_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -55,9 +52,6 @@ func TestBtoa_EmptyString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -84,9 +78,6 @@ func TestBtoa_BinaryData(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -116,9 +107,6 @@ func TestBtoa_Latin1Only(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -153,9 +141,6 @@ func TestBtoa_NoArgument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -178,9 +163,6 @@ func TestAtob_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -210,9 +192,6 @@ func TestAtob_EmptyString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -239,9 +218,6 @@ func TestAtob_BinaryData(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -273,9 +249,6 @@ func TestAtob_InvalidBase64(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -310,9 +283,6 @@ func TestAtob_NoArgument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -335,9 +305,6 @@ func TestBtoaAtob_RoundTrip(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -377,9 +344,6 @@ func TestBtoaAtob_RoundTrip_Binary(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -423,9 +387,6 @@ func TestAtob_WithWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -455,9 +416,6 @@ func TestAtob_ForgivingUnpadded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
 	}
@@ -482,9 +440,6 @@ func TestAtob_ForgivingBase64EdgeMatrix(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -541,9 +496,6 @@ func TestBase64_WebIDLStringAndMissingArgumentErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind adapter: %v", err)
 	}
@@ -590,9 +542,6 @@ func TestBtoa_TypeIsFunction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -619,9 +568,6 @@ func TestAtob_TypeIsFunction(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

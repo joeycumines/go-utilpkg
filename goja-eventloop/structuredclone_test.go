@@ -22,9 +22,6 @@ func testSetup(t *testing.T) (*Adapter, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)

@@ -2849,7 +2849,10 @@ func TestServerStreamRPC_WithSignalAbort(t *testing.T) {
 					item.set('name', 'item-' + i);
 					call.send(item);
 				}
-				// Don't close — let the client abort.
+				// Keep the response stream open (never settle the handler
+				// promise) so the client abort is the only terminator.
+				// Returning here would end the stream and race the abort.
+				return new Promise(function() {});
 			},
 			clientStream: function(call) { return null; },
 			bidiStream: function(call) {}

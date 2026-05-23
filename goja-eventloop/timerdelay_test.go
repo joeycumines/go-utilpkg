@@ -58,9 +58,6 @@ func TestNodeTimerIdleTimeoutPreservesNodeCoercion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -95,9 +92,6 @@ func TestNodeTimerDelayUsesArithmeticCoercion(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -165,9 +159,6 @@ func TestNodeTimerIdleTimeoutRefreshAndClearSemantics(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -289,9 +280,6 @@ func TestNodeTimerIdleTimeoutCallbackClearSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -374,9 +362,6 @@ func TestNodeTimerDelayWarnings(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

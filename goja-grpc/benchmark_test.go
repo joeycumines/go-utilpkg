@@ -22,16 +22,13 @@ import (
 func benchEnv(b *testing.B) *grpcTestEnv {
 	b.Helper()
 	loop, err := eventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		b.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
 		b.Fatal(err)
-	}
-	if err != nil {
-		b.Fatalf("unexpected error: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		b.Fatalf("unexpected error: %v", err)

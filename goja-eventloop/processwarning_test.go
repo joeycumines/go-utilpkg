@@ -14,16 +14,13 @@ func TestProcessEmitWarningIsDeferred(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -83,16 +80,13 @@ func TestProcessEmitWarningIsDeferred(t *testing.T) {
 
 func TestProcessEmitWarningValidation(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -170,14 +164,11 @@ func TestProcessEmitWarningValidation(t *testing.T) {
 
 func TestProcessEmitWarningErrorNameGetterThrowsSynchronously(t *testing.T) {
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,9 +204,6 @@ func TestProcessEmitWarningFallbackPreservesConversionException(t *testing.T) {
 	loop, records := newAdapterDiagnosticLoggedLoop(t)
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,16 +276,13 @@ func TestProcessEmitWarningDetailAndEmptyCode(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

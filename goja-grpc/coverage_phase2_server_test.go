@@ -394,19 +394,21 @@ func TestServerSend_StreamError(t *testing.T) {
 				return new Promise(function(resolve) {
 					function sendOne(i) {
 						if (i >= 100) { resolve(); return; }
-						try {
-							var item = new Item();
-							item.set('id', String(i));
-							item.set('name', 'item');
-							call.send(item);
+						var item = new Item();
+						item.set('id', String(i));
+						item.set('name', 'item');
+						call.send(item).then(function() {
 							sendCount = i + 1;
-						} catch(e) {
+							// Yield to event loop between sends — allows abort cleanup.
+							setTimeout(function() { sendOne(i + 1); }, 0);
+						}).catch(function(e) {
+							// Expected once the client aborts: the response
+							// channel is closed, so this send fails. The
+							// rejection must be handled or the adapter
+							// treats it as a fatal unhandled rejection.
 							sendError = e;
 							resolve();
-							return;
-						}
-						// Yield to event loop between sends — allows abort cleanup.
-						setTimeout(function() { sendOne(i + 1); }, 0);
+						});
 					}
 					sendOne(0);
 				});
@@ -441,6 +443,15 @@ func TestServerSend_StreamError(t *testing.T) {
 			setTimeout(function() { __done(); }, 200);
 		});
 	`, defaultTimeout)
+
+	sendError := env.runtime.Get("sendError")
+	if sendError == nil || isGojaUndefined(sendError) {
+		t.Fatal("expected server-side send to fail after client abort")
+	}
+	sendCount := env.runtime.Get("sendCount")
+	if sendCount == nil || sendCount.ToInteger() == 0 {
+		t.Fatal("expected at least one successful send before the abort")
+	}
 }
 
 // ============================================================================

@@ -120,8 +120,10 @@ func (m *Module) newClientStreamCall(
 			if responsePromise == nil {
 				responsePromise = projection.response()
 				// Replace the accessor with a plain data property so
-				// subsequent reads are direct.
-				_ = callObject.Set("response", responsePromise)
+				// subsequent reads are direct. DefineDataProperty (not
+				// Set) is required: Set invokes [[Set]], which fails on
+				// an accessor property with no setter.
+				_ = callObject.DefineDataProperty("response", responsePromise, goja.FLAG_TRUE, goja.FLAG_TRUE, goja.FLAG_TRUE)
 			}
 			return responsePromise
 		}),

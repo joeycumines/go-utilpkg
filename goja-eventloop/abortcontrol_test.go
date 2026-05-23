@@ -144,7 +144,7 @@ func TestAbortSignalBareGoexitAbandonsUndispatchedAlgorithms(t *testing.T) {
 func TestAbortSignalGoexitCleanupRace(t *testing.T) {
 	adapter := newBoundAdapterForNode26Test(t)
 	for iteration := range 200 {
-		state := adapter.newAbortSignal()
+		state, _ := adapter.newAbortSignal()
 		started := make(chan struct{})
 		release := make(chan struct{})
 		if cleanup, aborted := adapter.addAbortAlgorithm(state, func() {

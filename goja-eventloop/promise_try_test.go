@@ -25,9 +25,6 @@ func TestPromiseTry_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -83,9 +80,6 @@ func TestPromiseTry_Throws(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -143,9 +137,6 @@ func TestPromiseTry_ReturnsPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -201,9 +192,6 @@ func TestPromiseTry_ReturnsNull(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -273,9 +261,6 @@ func TestPromiseTry_NonFunction(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -359,9 +344,6 @@ func TestPromiseTry_CustomConstructorValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
 	}
@@ -401,16 +383,13 @@ func TestPromiseTryAndAnyIgnoreMutableUserlandIntrinsics(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -494,16 +473,13 @@ func TestPromiseAnyPreservesGenericReturnSemantics(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -605,9 +581,6 @@ func TestPromiseTry_Chaining(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -667,9 +640,6 @@ func TestPromiseTry_Finally(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

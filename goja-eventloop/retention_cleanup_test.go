@@ -203,7 +203,7 @@ func TestEventTargetSignalCleanupRemovedWithListener(t *testing.T) {
 	adapter := newRetentionCleanupAdapter(t)
 	callback := adapter.runtime.ToValue(func(goja.FunctionCall) goja.Value { return goja.Undefined() })
 	target := adapter.initEventTargetObject(adapter.runtime.NewObject())
-	signal := adapter.newAbortSignal()
+	signal, _ := adapter.newAbortSignal()
 
 	adapter.eventTargetAddConfigured(target, "tick", callback, false, false, false, false, false, signal)
 	infos := target.listeners["tick"]
@@ -255,7 +255,7 @@ func newJSTimerCallbackSentinel(runtime *goja.Runtime) (goja.Value, weak.Pointer
 
 func TestAbortAlgorithmCleanupHandleReleasesCallbackCapture(t *testing.T) {
 	adapter := newRetentionCleanupAdapter(t)
-	state := adapter.newAbortSignal()
+	state, _ := adapter.newAbortSignal()
 	callback, ref := newAbortCallbackSentinel()
 	cleanup, aborted := adapter.addAbortAlgorithm(state, callback)
 	if cleanup == nil || aborted {
@@ -270,7 +270,7 @@ func TestAbortAlgorithmCleanupHandleReleasesCallbackCapture(t *testing.T) {
 func TestAbortAlgorithmClaimReleasesCallbackCapture(t *testing.T) {
 	adapter := newRetentionCleanupAdapter(t)
 	bindRetainedAbortTestSurface(t, adapter)
-	state := adapter.newAbortSignal()
+	state, _ := adapter.newAbortSignal()
 	callback, ref := newAbortCallbackSentinel()
 	cleanup, aborted := adapter.addAbortAlgorithm(state, callback)
 	if cleanup == nil || aborted {
@@ -296,8 +296,8 @@ func waitCollectedAbortCallbackSentinel(t *testing.T, ref weak.Pointer[abortCall
 
 func TestAbortSignalConcurrentObserverRetentionMatchesFinalState(t *testing.T) {
 	adapter := newRetentionCleanupAdapter(t)
-	source := adapter.newAbortSignal()
-	dependent := adapter.newAbortSignal()
+	source, _ := adapter.newAbortSignal()
+	dependent, _ := adapter.newAbortSignal()
 	dependent.dependent = true
 	adapter.linkAbortSignal(source, dependent)
 
@@ -586,9 +586,6 @@ func TestAdapterTerminalCleanupClearsRootsAfterThrowingTimerLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -645,9 +642,6 @@ func TestAdapterTerminalCleanupReleasesDynamicState(t *testing.T) {
 			adapter, err := New(loop, runtime)
 			if err != nil {
 				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatalf("New adapter: %v", err)
 			}
 			if err := adapter.Bind(); err != nil {
 				t.Fatalf("Bind: %v", err)

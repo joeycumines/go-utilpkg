@@ -29,9 +29,6 @@ func TestNewAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if adapter.loop != loop {
 		t.Error("adapter.loop should return the same loop")
@@ -69,9 +66,6 @@ func TestSetTimeout(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -123,9 +117,6 @@ func TestClearTimeout(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -195,9 +186,6 @@ func TestSetInterval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -250,9 +238,6 @@ func TestClearInterval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -303,9 +288,6 @@ func TestQueueMicrotask(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -358,9 +340,6 @@ func TestPromiseThen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -407,9 +386,6 @@ func TestPromiseChain(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -515,9 +491,6 @@ func TestMixedTimersAndPromises(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -617,9 +590,6 @@ func TestContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -673,9 +643,6 @@ func TestConcurrentJSOperations(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -737,9 +704,6 @@ func TestSetImmediate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
@@ -798,9 +762,6 @@ func TestClearImmediate(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

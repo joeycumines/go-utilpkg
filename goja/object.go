@@ -5,7 +5,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
-	"unsafe"
+	"sync/atomic"
 
 	"github.com/joeycumines/goja/unistring"
 )
@@ -49,6 +49,11 @@ var (
 type Object struct {
 	self    objectImpl
 	runtime *Runtime
+	// objID is a lazily-assigned unique identifier. It replaces the object's
+	// heap address as the identity used by WeakMap storage and hashing so that
+	// address reuse after garbage collection cannot alias a dead object's
+	// entry with a live one (the classic weak-map ABA problem).
+	objID uint64
 }
 
 type iterNextFunc func() (propIterItem, iterNextFunc)
@@ -1643,8 +1648,17 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 	}
 }
 
+// nextObjectID supplies monotonically increasing unique object identifiers.
+// Addresses cannot be used for WeakMap identity: after an object is collected,
+// a new allocation may reuse the address, and a pending key-cleanup would then
+// delete the new object's WeakMap entry.
+var nextObjectID atomic.Uint64
+
 func (o *Object) getId() uint64 {
-	return uint64(uintptr(unsafe.Pointer(o)))
+	if o.objID == 0 {
+		o.objID = nextObjectID.Add(1)
+	}
+	return o.objID
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {

@@ -71,9 +71,6 @@ func newGrpcTestEnv(t *testing.T) *grpcTestEnv {
 	}
 
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
@@ -207,6 +204,9 @@ func (e *grpcTestEnv) runOnLoop(t *testing.T, code string, timeout time.Duration
 		}
 		if err != nil && ctx.Err() == nil {
 			t.Fatalf("loop error: %v", err)
+		}
+		if ctx.Err() == nil {
+			t.Fatalf("event loop exited before __done() was called")
 		}
 	case <-ctx.Done():
 		t.Fatalf("timeout waiting for __done()")

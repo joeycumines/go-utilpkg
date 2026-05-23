@@ -27,9 +27,6 @@ func BenchmarkProcessBeforeExitSchedulesTimer(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		if err != nil {
-			b.Fatalf("New adapter: %v", err)
-		}
 		if err := adapter.Bind(); err != nil {
 			b.Fatalf("Bind: %v", err)
 		}
@@ -123,16 +120,13 @@ func BenchmarkProcessBeforeExitTimerEndToEnd(b *testing.B) {
 
 func runProcessBeforeExitFixture(ctx context.Context) (processBeforeExitFixture, error) {
 	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
-	runtime := goja.New()
 	if err != nil {
 		panic(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		panic(err)
-	}
-	if err != nil {
-		return processBeforeExitFixture{}, errors.Join(fmt.Errorf("New adapter: %w", err), loop.Close())
 	}
 	if err := adapter.Bind(); err != nil {
 		return processBeforeExitFixture{}, errors.Join(fmt.Errorf("Bind: %w", err), loop.Close())

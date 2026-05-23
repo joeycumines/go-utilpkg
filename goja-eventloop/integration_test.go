@@ -29,9 +29,6 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -93,9 +90,6 @@ func TestIntegration_ThenableUnwrapping(t *testing.T) {
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -163,9 +157,6 @@ func TestIntegration_NestedPromiseChaining(t *testing.T) {
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -244,9 +235,6 @@ func TestIntegration_IteratorConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -311,9 +299,6 @@ func TestIntegration_PromiseFinally(t *testing.T) {
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -398,9 +383,6 @@ func TestIntegration_WithResolvers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -458,9 +440,6 @@ func TestIntegration_AbortController(t *testing.T) {
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -525,9 +504,6 @@ func TestIntegration_Timers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -587,9 +563,6 @@ func TestIntegration_QueueMicrotask(t *testing.T) {
 	adapter, err := New(loop, gojaRT)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -680,9 +653,6 @@ func TestIntegration_LargePromiseChain(t *testing.T) {
 	adapter, err := New(loop, gojaRuntime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

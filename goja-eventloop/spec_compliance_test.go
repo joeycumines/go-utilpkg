@@ -26,9 +26,6 @@ func TestPromiseRejectPreservesPromiseIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)
 	}
@@ -103,9 +100,6 @@ func TestPromiseRejectPreservesErrorProperties(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind adapter: %v", err)

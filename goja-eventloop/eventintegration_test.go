@@ -29,9 +29,6 @@ func TestEventTarget_WithPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -93,9 +90,6 @@ func TestEventTarget_MultipleTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -133,9 +127,6 @@ func TestCustomEvent_NestedObjects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +159,6 @@ func TestEventTarget_ConsoleIntegration(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,9 +202,6 @@ func TestEventTarget_TypeProperty_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -240,9 +225,6 @@ func TestDispatchEvent_InvalidEvent(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,9 +257,6 @@ func TestDispatchEvent_PlainObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -307,9 +286,6 @@ func TestAddEventListener_NilHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -332,9 +308,6 @@ func TestRemoveEventListener_NilHandler(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,9 +335,6 @@ func TestEventTarget_TypeExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -384,9 +354,6 @@ func TestEvent_TypeExists(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,9 +379,6 @@ func TestCustomEvent_TypeExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
@@ -435,9 +399,6 @@ func TestCustomEvent_InheritsEventMethods(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -486,9 +447,6 @@ func TestEventTarget_ConsoleLog(t *testing.T) {
 
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

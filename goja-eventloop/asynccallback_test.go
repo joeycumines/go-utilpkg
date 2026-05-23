@@ -23,9 +23,6 @@ func TestTimerImmediateAndNextTickArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -93,16 +90,13 @@ func TestTimerImmediateAndNextTickArguments(t *testing.T) {
 
 func TestNodeAsyncCallbackValidationErrors(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -154,16 +148,13 @@ func TestProcessNextTickValidationDuringExit(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

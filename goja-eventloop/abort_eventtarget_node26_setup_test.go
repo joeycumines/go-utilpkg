@@ -19,9 +19,6 @@ func newBoundAdapterForNode26Test(t *testing.T) *Adapter {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}

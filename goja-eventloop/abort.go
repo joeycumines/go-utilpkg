@@ -25,7 +25,8 @@ type abortSignalState struct {
 }
 
 type abortControllerState struct {
-	signal *abortSignalState
+	signal       *abortSignalState
+	signalObject *goja.Object
 }
 
 func markAbortSignal(state *abortSignalState, reason goja.Value) {

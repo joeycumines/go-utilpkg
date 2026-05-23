@@ -31,9 +31,6 @@ func TestAdapter_Promise_ExecutorNotFunction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -67,9 +64,6 @@ func TestAdapter_Promise_ExecutorThrows(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -120,9 +114,6 @@ func TestAdapter_Thenable_Resolution(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -178,9 +169,6 @@ func TestAdapter_Thenable_Rejection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -234,9 +222,6 @@ func TestAdapter_Thenable_ThenThrows(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -292,9 +277,6 @@ func TestAdapter_ErrorConversion_JSError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -343,9 +325,6 @@ func TestAdapter_ErrorConversion_AggregateError(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -411,9 +390,6 @@ func TestAdapter_NativePromise_GC(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -486,9 +462,6 @@ func TestAdapter_NativePromise_NoLeak(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -564,9 +537,6 @@ func TestAdapter_gojaFuncToHandler_NilHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -616,9 +586,6 @@ func TestAdapter_gojaFuncToHandler_NonFunction(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -670,9 +637,6 @@ func TestAdapter_PromiseResolve_Identity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -707,9 +671,6 @@ func TestAdapter_gojaVoidFuncToHandler_NilHandler(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -761,9 +722,6 @@ func TestAdapter_Then_OnNonPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -796,9 +754,6 @@ func TestAdapter_Catch_OnNonPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -830,9 +785,6 @@ func TestAdapter_Finally_OnNonPromise(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

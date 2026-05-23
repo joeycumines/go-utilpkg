@@ -23,9 +23,6 @@ func TestConsoleTime_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -59,9 +56,6 @@ func TestConsoleTimeEnd_Basic(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -108,9 +102,6 @@ func TestConsoleTimeLog_Basic(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -174,9 +165,6 @@ func TestConsoleTime_DefaultLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -211,9 +199,6 @@ func TestConsoleTime_AlreadyExists(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -250,9 +235,6 @@ func TestConsoleTimeEnd_NotExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -287,9 +269,6 @@ func TestConsoleTimeLog_NotExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -323,9 +302,6 @@ func TestConsoleTimeLog_WithData(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -362,9 +338,6 @@ func TestConsoleTime_MultipleTimers(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -426,9 +399,6 @@ func TestConsoleTime_OutputFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -468,9 +438,6 @@ func TestConsoleTime_NilOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	adapter.SetConsoleOutput(nil)
 
@@ -506,9 +473,6 @@ func TestConsoleTime_ExtendsExistingConsole(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	// A configurable host member can be normalized without assignment or
@@ -620,9 +584,6 @@ func TestConsoleTime_SubMillisecondPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -663,9 +624,6 @@ func TestConsoleTime_UndefinedLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -701,9 +659,6 @@ func TestConsoleTimeEnd_RemovesTimer(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer

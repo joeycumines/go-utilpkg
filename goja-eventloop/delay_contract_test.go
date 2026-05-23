@@ -21,9 +21,6 @@ func newDelayContractAdapter(t *testing.T) (*goeventloop.Loop, *goja.Runtime, *A
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
 	return loop, runtime, adapter
 }
 

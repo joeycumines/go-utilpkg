@@ -14,16 +14,13 @@ func TestProcessUnhandledRejectionAndRejectionHandledSemantics(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -99,16 +96,13 @@ func TestProcessUnhandledRejectionEmissionOrder(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -233,16 +227,13 @@ func TestDefaultUnhandledRejectionEscalationReason(t *testing.T) {
 			defer cancel()
 
 			loop, err := goeventloop.New()
-			runtime := goja.New()
 			if err != nil {
 				t.Fatal(err)
 			}
+			runtime := goja.New()
 			adapter, err := New(loop, runtime)
 			if err != nil {
 				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatalf("New adapter: %v", err)
 			}
 			if err := adapter.Bind(); err != nil {
 				t.Fatalf("Bind: %v", err)
@@ -299,16 +290,13 @@ func TestDefaultUnhandledRejectionIgnoresMutableGlobals(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -370,9 +358,6 @@ func TestDefaultUnhandledRejectionFunctionDoesNotInvokePrimitiveHook(t *testing.
 	loop, records := newAdapterDiagnosticLoggedLoop(t)
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

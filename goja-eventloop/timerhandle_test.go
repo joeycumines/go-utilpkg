@@ -14,13 +14,10 @@ func TestNodeTimerAndImmediatePrototypeDescriptorsAndConstructors(t *testing.T) 
 	defer cancel()
 
 	loop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	installConformingHostSingletons(t, runtime)
 	adapter, err := New(loop, runtime)
 	if err != nil {
@@ -172,16 +169,13 @@ func TestNodeTimeoutConstructorRefreshActivatesHandle(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -265,9 +259,6 @@ func TestNodeTimerAndImmediateHandleObjects(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -361,16 +352,13 @@ func TestNodeTimerAndImmediateHandleObjects(t *testing.T) {
 
 func TestNodeTimerAndImmediateHandleMethodsUseReceiver(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -418,9 +406,6 @@ func TestClearTimerAndImmediateHandlesIgnoreUserShadowIDProperties(t *testing.T)
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -477,9 +462,6 @@ func TestNodeTimerAndImmediateTransparentProxyHandles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -513,16 +495,13 @@ func TestNodeImmediateDestroyedRefState(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -584,16 +563,13 @@ func TestNodeImmediateRejectsMalformedArgumentIterators(t *testing.T) {
 	defer cancel()
 
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

@@ -28,9 +28,6 @@ func newBoundCryptoTestAdapter(t *testing.T) (*goeventloop.Loop, *goja.Runtime) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
 	}

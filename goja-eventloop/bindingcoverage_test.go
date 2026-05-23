@@ -23,9 +23,6 @@ func coverSetup(t *testing.T) *Adapter {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)
 	}
@@ -54,9 +51,6 @@ func TestBindPreservesHostFetch(t *testing.T) {
 	}
 	defer func() { _ = loop.Close() }()
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := runtime.Set("fetch", func(goja.FunctionCall) goja.Value { return runtime.ToValue("host-fetch") }); err != nil {
 		t.Fatalf("set host fetch: %v", err)
 	}
@@ -83,9 +77,6 @@ func TestBindPreservesNativeSymbolRegistry(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 	symbol := runtime.Get("Symbol")
 	symbolObject := symbol.ToObject(runtime)
 	registryLookup := symbolObject.Get("for")

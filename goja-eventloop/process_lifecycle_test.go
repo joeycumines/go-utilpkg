@@ -23,9 +23,6 @@ func TestProcessBeforeExitCanExtendAutoExitAndExitIsTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -113,9 +110,6 @@ func TestProcessBeforeExitMicrotasksDoNotRepeatBeforeExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -169,9 +163,6 @@ func TestProcessBeforeExitMicrotaskMacrotaskRepeatsBeforeExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -216,16 +207,13 @@ func TestProcessBeforeExitMicrotaskMacrotaskRepeatsBeforeExit(t *testing.T) {
 
 func TestProcessExitSuppressesAsyncExitWorkAndStopsScript(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -272,16 +260,13 @@ func TestProcessExitExplicitNullishClearsExitCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			loop, err := goeventloop.New()
-			runtime := goja.New()
 			if err != nil {
 				t.Fatal(err)
 			}
+			runtime := goja.New()
 			adapter, err := New(loop, runtime)
 			if err != nil {
 				t.Fatal(err)
-			}
-			if err != nil {
-				t.Fatalf("New adapter: %v", err)
 			}
 			if err := adapter.Bind(); err != nil {
 				t.Fatalf("Bind: %v", err)
@@ -309,16 +294,13 @@ func TestProcessExitExplicitNullishClearsExitCode(t *testing.T) {
 
 func TestProcessExitNoArgumentClearsNullExitCode(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -419,16 +401,13 @@ func TestProcessExitFromBeforeExitIsClean(t *testing.T) {
 
 func TestProcessExitCodeRejectsInvalidValues(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -493,16 +472,13 @@ func TestProcessExitCodeRejectsInvalidValues(t *testing.T) {
 
 func TestProcessExitWrapsLargeIntegerCode(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -530,16 +506,13 @@ func TestProcessExitWrapsLargeIntegerCode(t *testing.T) {
 
 func TestProcessExitAcceptsNodeNumericStrings(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -566,16 +539,13 @@ func TestProcessExitAcceptsNodeNumericStrings(t *testing.T) {
 
 func TestProcessExitCodeErrorsIgnoreMutableGlobals(t *testing.T) {
 	loop, err := goeventloop.New()
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
@@ -626,16 +596,13 @@ func runAutoExitProcessScript(t *testing.T, script string) string {
 	defer cancel()
 
 	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
-	runtime := goja.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

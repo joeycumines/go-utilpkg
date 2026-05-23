@@ -64,9 +64,6 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		panic(err)
-	}
 	if err := adapter.Bind(); err != nil {
 		panic(err)
 	}

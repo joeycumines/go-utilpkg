@@ -841,9 +841,6 @@ func newAutoExitAdapter(t *testing.T) (context.Context, *goeventloop.Loop, *goja
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}

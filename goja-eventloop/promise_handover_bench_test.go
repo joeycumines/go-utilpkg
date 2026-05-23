@@ -54,9 +54,6 @@ func newBenchEnv(tb testing.TB) *benchEnv {
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		tb.Fatalf("failed to create adapter: %v", err)
-	}
 	env.runtime = rt
 	env.adapter = adapter
 	return env

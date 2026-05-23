@@ -20,9 +20,6 @@ func TestPromiseWithResolvers_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -53,9 +50,6 @@ func TestPromiseWithResolvers_CustomConstructorValidation(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("Failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Failed to bind: %v", err)
@@ -98,9 +92,6 @@ func TestPromiseWithResolvers_Resolve(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -146,9 +137,6 @@ func TestPromiseWithResolvers_Reject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -193,9 +181,6 @@ func TestPromiseWithResolvers_Chaining(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -239,9 +224,6 @@ func TestPromiseWithResolvers_MultiplePromises(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -299,9 +281,6 @@ func TestPromiseWithResolvers_IdempotentResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -349,9 +328,6 @@ func TestPromiseWithResolvers_IdempotentReject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -397,9 +373,6 @@ func TestPromiseWithResolvers_ResolveAfterReject(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -451,9 +424,6 @@ func TestPromiseWithResolvers_RejectAfterResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -503,9 +473,6 @@ func TestPromiseWithResolvers_NullUndefined(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -558,9 +525,6 @@ func TestPromiseWithResolvers_WithPromiseAll(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -617,9 +581,6 @@ func TestPromiseWithResolvers_WithPromiseRace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind: %v", err)
@@ -668,9 +629,6 @@ func TestPromiseWithResolvers_TimeoutPattern(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -735,9 +693,6 @@ func TestPromiseWithResolvers_Finally(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

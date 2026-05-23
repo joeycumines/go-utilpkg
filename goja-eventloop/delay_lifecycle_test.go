@@ -26,9 +26,6 @@ func newBoundDelayAdapter(
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}

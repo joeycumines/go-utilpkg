@@ -158,9 +158,6 @@ func newPhase3BrokenClonerEnv(t *testing.T) *grpcTestEnv {
 	}
 
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {

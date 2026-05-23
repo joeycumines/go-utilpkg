@@ -149,7 +149,13 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	}
 
 	const rootCount = 64
-	var disposerCalls atomic.Int32
+	// oddDisposerCalls counts only the disposers planted as pending disposal
+	// run actions (odd ids). These can only fire through the post-Done
+	// disposer sweep in finishOwnerDisposalRunPostDoneLocked, so they pin
+	// that behavior deterministically (the even-id root-entry disposers are
+	// delivery-raced by the concurrent clearPostDoneOwnerIndexes writer, so
+	// they are not asserted).
+	var oddDisposerCalls atomic.Int32
 	var projectionCalls atomic.Int32
 	runs := make([]*ownerDisposalRun, 0, rootCount/2)
 	env.grpcMod.owner.postDoneMu.Lock()
@@ -180,7 +186,7 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 					},
 				},
 				disposers: []func(error){
-					func(error) { disposerCalls.Add(1) },
+					func(error) {},
 				},
 			}
 			continue
@@ -188,7 +194,7 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 		run := &ownerDisposalRun{
 			done: make(chan struct{}),
 			actions: []ownerDisposalAction{{
-				disposer: func(error) { disposerCalls.Add(1) },
+				disposer: func(error) { oddDisposerCalls.Add(1) },
 				root:     id,
 				kind:     ownerDisposalDisposer,
 			}},
@@ -222,12 +228,10 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 			)
 		}()
 	}
-	writers.Add(1)
-	go func() {
-		defer writers.Done()
+	writers.Go(func() {
 		<-start
 		env.grpcMod.clearPostDoneOwnerIndexes()
-	}()
+	})
 	close(start)
 	done := make(chan struct{})
 	go func() {
@@ -239,8 +243,8 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	case <-time.After(defaultTimeout):
 		t.Fatal("post-Done disposal writers did not join")
 	}
-	if got := disposerCalls.Load(); got == 0 {
-		t.Fatalf("post-Done disposer calls = 0, want > 0 (disposers are called even in post-done path)")
+	if got := oddDisposerCalls.Load(); got != rootCount/2 {
+		t.Fatalf("post-Done disposal-run disposer calls = %d, want %d (every pending run action disposer must fire exactly once)", got, rootCount/2)
 	}
 	if got := projectionCalls.Load(); got != 0 {
 		t.Fatalf("post-Done Goja projection calls = %d, want 0 (promises/callbacks are not called post-done)", got)

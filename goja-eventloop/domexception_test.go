@@ -24,9 +24,6 @@ func testSetupDOMException(t *testing.T) (*Adapter, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	if err := runtime.Set("DOMException", adapter.domExceptionConstructor); err != nil {
 		t.Fatalf("failed to install DOMException constructor: %v", err)

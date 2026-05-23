@@ -31,9 +31,6 @@ func TestEncodeURIComponent_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -75,9 +72,6 @@ func TestDecodeURIComponent_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -118,9 +112,6 @@ func TestEncodeURIComponent_Unicode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -158,9 +149,6 @@ func TestEncodeURI_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -200,9 +188,6 @@ func TestDecodeURI_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -239,9 +224,6 @@ func TestEscape_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -281,9 +263,6 @@ func TestUnescape_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -320,9 +299,6 @@ func TestURIComponent_InvalidSequence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -353,9 +329,6 @@ func TestParseInt_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -401,9 +374,6 @@ func TestParseInt_NaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -439,9 +409,6 @@ func TestParseFloat_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -495,9 +462,6 @@ func TestParseFloat_NaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -542,9 +506,6 @@ func TestIsNaN_Global(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -594,9 +555,6 @@ func TestIsFinite_Global(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -643,9 +601,6 @@ func TestNumberIsNaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -691,9 +646,6 @@ func TestNumberIsFinite(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -743,9 +695,6 @@ func TestGlobalVsNumberVersions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -785,9 +734,6 @@ func TestNumberIsInteger(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -835,9 +781,6 @@ func TestNumberIsSafeInteger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -884,9 +827,6 @@ func TestNumberConstants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -930,9 +870,6 @@ func TestBuiltinFunctionsExist(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -981,9 +918,6 @@ func TestNumberParseIntParseFloat(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

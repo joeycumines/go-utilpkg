@@ -533,9 +533,6 @@ func TestGojaConsoleCaptureIsScopedAndPreservesExceptionIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := installConsoleCapture(runtime, adapter); err != nil {
 		t.Fatal(err)
 	}

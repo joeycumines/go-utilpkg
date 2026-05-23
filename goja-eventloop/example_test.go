@@ -19,9 +19,6 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
-	if err != nil {
-		panic(err)
-	}
 	if err := runtime.Set("record", func(value string) { fmt.Println(value) }); err != nil {
 		panic(err)
 	}

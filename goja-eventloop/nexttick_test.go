@@ -26,9 +26,6 @@ func TestProcessNextTick_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -82,9 +79,6 @@ func TestProcessNextTick_RunsBeforePromise(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -154,9 +148,6 @@ func TestProcessNextTick_Multiple(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -216,9 +207,6 @@ func TestProcessNextTick_NoArgumentError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -252,9 +240,6 @@ func TestDelay_Basic(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -315,9 +300,6 @@ func TestDelay_ZeroMs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -360,9 +342,6 @@ func TestDelay_Chaining(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {
@@ -428,9 +407,6 @@ func TestDelay_ReturnsPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
-	}
 
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind failed: %v", err)
@@ -460,9 +436,6 @@ func TestDelay_NegativeValueTreatedAsZero(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("New adapter failed: %v", err)
 	}
 
 	if err := adapter.Bind(); err != nil {

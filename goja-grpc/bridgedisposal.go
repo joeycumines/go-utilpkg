@@ -268,6 +268,15 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 		return false
 	}
 	delete(d.bridge.disposals, id)
+	// Post-Done contract: disposers must still run. Promise and root actions
+	// are intentionally dropped (no Goja projections post-Done; root fences
+	// are closed below), but every not-yet-executed disposer fires exactly
+	// once with the disposal error.
+	for _, action := range run.actions[run.next:] {
+		if action.kind == ownerDisposalDisposer && action.disposer != nil {
+			action.disposer(run.err)
+		}
+	}
 	clear(run.actions)
 	run.actions = nil
 	for _, root := range run.roots {

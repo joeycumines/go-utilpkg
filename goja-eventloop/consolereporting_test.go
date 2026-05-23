@@ -25,9 +25,6 @@ func TestConsoleCount_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -67,9 +64,6 @@ func TestConsoleCount_DefaultLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -105,9 +99,6 @@ func TestConsoleCount_MultipleLabels(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -147,9 +138,6 @@ func TestConsoleCountReset_Basic(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -193,9 +181,6 @@ func TestConsoleCountReset_DefaultLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -236,9 +221,6 @@ func TestConsoleCountReset_NotExists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -272,9 +254,6 @@ func TestConsoleCount_NilOutput(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	adapter.SetConsoleOutput(nil)
@@ -310,9 +289,6 @@ func TestConsoleAssert_Truthy(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -353,9 +329,6 @@ func TestConsoleAssert_Falsy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -389,9 +362,6 @@ func TestConsoleAssert_AllFalsyTypes(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -434,9 +404,6 @@ func TestConsoleAssert_WithMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -470,9 +437,6 @@ func TestConsoleAssert_NoCondition(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -509,9 +473,6 @@ func TestConsoleAssert_NilOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	adapter.SetConsoleOutput(nil)
 
@@ -545,9 +506,6 @@ func TestConsoleTable_ArrayOfObjects(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -605,9 +563,6 @@ func TestConsoleTable_ArrayOfPrimitives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -654,9 +609,6 @@ func TestConsoleTable_Object(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -696,9 +648,6 @@ func TestConsoleTable_WithColumns(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -745,9 +694,6 @@ func TestConsoleTable_NestedObjects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -789,9 +735,6 @@ func TestConsoleTable_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -827,9 +770,6 @@ func TestConsoleTable_NullUndefined(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 
 	var buf bytes.Buffer
 	adapter.SetConsoleOutput(&buf)
@@ -860,9 +800,6 @@ func TestConsoleTable_NilOutput(t *testing.T) {
 	adapter, err := New(loop, rt)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 
 	adapter.SetConsoleOutput(nil)

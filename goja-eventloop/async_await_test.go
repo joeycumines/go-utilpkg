@@ -29,9 +29,6 @@ func TestAsyncAwaitDrainsViaEventLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)
 	}
@@ -82,9 +79,6 @@ func TestAsyncAwaitChain(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)
@@ -139,9 +133,6 @@ func TestAsyncAwaitRejection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
-	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)
 	}
@@ -195,9 +186,6 @@ func TestAsyncAwaitBoundNativePromiseResolve(t *testing.T) {
 	adapter, err := New(loop, runtime)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if err != nil {
-		t.Fatalf("failed to create adapter: %v", err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("failed to bind adapter: %v", err)

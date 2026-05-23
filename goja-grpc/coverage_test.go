@@ -41,9 +41,6 @@ func TestRequire_ViaRegistry(t *testing.T) {
 	}
 
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
@@ -3050,9 +3047,6 @@ func TestSubmitOrRejectDirect_LoopStopped(t *testing.T) {
 	}
 
 	runtime := goja.New()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	adapter, err := gojaeventloop.New(loop, runtime)
 	if err != nil {
