@@ -122,8 +122,18 @@ func (m *Module) newClientStreamCall(
 				// Replace the accessor with a plain data property so
 				// subsequent reads are direct. DefineDataProperty (not
 				// Set) is required: Set invokes [[Set]], which fails on
-				// an accessor property with no setter.
-				_ = callObject.DefineDataProperty("response", responsePromise, goja.FLAG_TRUE, goja.FLAG_TRUE, goja.FLAG_TRUE)
+				// an accessor property with no setter. The flags mirror
+				// the accessor it replaces: enumerable and configurable
+				// as defined above, and writable=false so that assignment
+				// keeps failing silently (sloppy) or throwing (strict)
+				// exactly like a getter-only accessor — the object's
+				// observable shape (Object.keys, spread, JSON.stringify,
+				// assignment) must not depend on whether .response was
+				// read. The define cannot fail: the accessor is
+				// configurable. If it ever did, the accessor remains
+				// functional as a fallback (it returns the cached
+				// promise), so the error is intentionally tolerated.
+				_ = callObject.DefineDataProperty("response", responsePromise, goja.FLAG_FALSE, goja.FLAG_TRUE, goja.FLAG_TRUE)
 			}
 			return responsePromise
 		}),

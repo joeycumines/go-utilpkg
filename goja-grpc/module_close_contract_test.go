@@ -149,13 +149,17 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	}
 
 	const rootCount = 64
-	// oddDisposerCalls counts only the disposers planted as pending disposal
-	// run actions (odd ids). These can only fire through the post-Done
-	// disposer sweep in finishOwnerDisposalRunPostDoneLocked, so they pin
-	// that behavior deterministically (the even-id root-entry disposers are
-	// delivery-raced by the concurrent clearPostDoneOwnerIndexes writer, so
-	// they are not asserted).
+	// Every planted disposer must fire exactly once, with the disposal error
+	// (errModuleUnavailable) — never nil — regardless of which post-Done
+	// path wins the race: odd ids are pending disposal-run actions, swept by
+	// finishOwnerDisposalRunPostDoneLocked; even ids are root-entry
+	// disposers, fired either by the same sweep (via
+	// discardOwnerRootsPostDoneLocked) or by the concurrent
+	// clearPostDoneOwnerIndexes writer. All writers serialize on postDoneMu,
+	// so each disposer is consumed exactly once.
 	var oddDisposerCalls atomic.Int32
+	var evenDisposerCalls atomic.Int32
+	var wrongDisposerErr atomic.Int32
 	var projectionCalls atomic.Int32
 	runs := make([]*ownerDisposalRun, 0, rootCount/2)
 	env.grpcMod.owner.postDoneMu.Lock()
@@ -186,17 +190,28 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 					},
 				},
 				disposers: []func(error){
-					func(error) {},
+					func(err error) {
+						evenDisposerCalls.Add(1)
+						if err != errModuleUnavailable {
+							wrongDisposerErr.Add(1)
+						}
+					},
 				},
 			}
 			continue
 		}
 		run := &ownerDisposalRun{
 			done: make(chan struct{}),
+			err:  errModuleUnavailable,
 			actions: []ownerDisposalAction{{
-				disposer: func(error) { oddDisposerCalls.Add(1) },
-				root:     id,
-				kind:     ownerDisposalDisposer,
+				disposer: func(err error) {
+					oddDisposerCalls.Add(1)
+					if err != errModuleUnavailable {
+						wrongDisposerErr.Add(1)
+					}
+				},
+				root: id,
+				kind: ownerDisposalDisposer,
 			}},
 			roots: []supervisorChildID{id},
 		}
@@ -228,10 +243,12 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 			)
 		}()
 	}
-	writers.Go(func() {
+	writers.Add(1)
+	go func() {
+		defer writers.Done()
 		<-start
 		env.grpcMod.clearPostDoneOwnerIndexes()
-	})
+	}()
 	close(start)
 	done := make(chan struct{})
 	go func() {
@@ -245,6 +262,12 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	}
 	if got := oddDisposerCalls.Load(); got != rootCount/2 {
 		t.Fatalf("post-Done disposal-run disposer calls = %d, want %d (every pending run action disposer must fire exactly once)", got, rootCount/2)
+	}
+	if got := evenDisposerCalls.Load(); got != rootCount/2 {
+		t.Fatalf("post-Done root-entry disposer calls = %d, want %d (every root disposer must fire exactly once, via the sweep or clearPostDoneOwnerIndexes)", got, rootCount/2)
+	}
+	if got := wrongDisposerErr.Load(); got != 0 {
+		t.Fatalf("post-Done disposers receiving nil or a mismatched error = %d, want 0 (every disposer must receive the disposal error)", got)
 	}
 	if got := projectionCalls.Load(); got != 0 {
 		t.Fatalf("post-Done Goja projection calls = %d, want 0 (promises/callbacks are not called post-done)", got)

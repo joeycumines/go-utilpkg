@@ -223,6 +223,15 @@ func (e *ownerEffect) finish(ack ownerEffectAck) {
 // ownerBridge is accessed only by the adapter owner until Adapter.Done closes.
 // After that single barrier, postDoneMu serializes the one explicit ownership
 // transfer used to discard unreachable Goja projections.
+//
+// The post-Done window is not owner-free in practice: JS-facing entry points
+// (RPC bindings, reflection, dial, server) may still be invoked on the
+// runtime-owning goroutine after the loop has terminated, and worker
+// goroutines may still settle in-flight operations. Every owner-bridge
+// accessor therefore takes postDoneMu. Before Adapter.Done the lock is
+// uncontended (owner work is serialized by the loop and the transfer only
+// starts after the loop is dead), so this is a fast-path lock, not a
+// contention point.
 type ownerBridge struct {
 	roots           map[supervisorChildID]*ownerRootEntry
 	tombstones      map[supervisorChildID]struct{}
@@ -311,10 +320,22 @@ func cloneOwnerMessage(message proto.Message) proto.Message {
 
 // ensureOwnerRoot must run on-owner. A tombstone means close already disposed
 // this exact preparing root, so late construction cannot republish it.
+//
+// postDoneMu serializes this against the post-Done transfer: a JS entry point
+// invoked after Adapter.Done (when the loop is dead but the runtime is still
+// held by one goroutine) must not race discardOwnerRootsPostDoneLocked /
+// clearPostDoneOwnerIndexes. See ensureOwnerRootLocked.
 func (m *Module) ensureOwnerRoot(id supervisorChildID) error {
 	if id == 0 {
 		return errModuleClosed
 	}
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
+	return m.ensureOwnerRootLocked(id)
+}
+
+// ensureOwnerRootLocked is ensureOwnerRoot with postDoneMu already held.
+func (m *Module) ensureOwnerRootLocked(id supervisorChildID) error {
 	if _, closed := m.owner.tombstones[id]; closed {
 		delete(m.owner.tombstones, id)
 		return errModuleClosed
@@ -329,7 +350,11 @@ func (m *Module) ensureOwnerRoot(id supervisorChildID) error {
 	return nil
 }
 
+// activateOwnerRoot must run on-owner. It takes postDoneMu so a late JS entry
+// point cannot race the post-Done transfer (see the ownerBridge contract).
 func (m *Module) activateOwnerRoot(id supervisorChildID) {
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
 	if root := m.owner.roots[id]; root != nil {
 		root.active = true
 	}
@@ -433,7 +458,9 @@ func (d *ownerDispatcher) finishRootClosePostDone(id supervisorChildID) {
 	}
 }
 
-// addOwnerRootDisposer must run on-owner.
+// addOwnerRootDisposer must run on-owner. It takes postDoneMu so a late JS
+// entry point cannot race the post-Done transfer (see the ownerBridge
+// contract).
 func (m *Module) addOwnerRootDisposer(
 	id supervisorChildID,
 	disposer func(error),
@@ -441,7 +468,9 @@ func (m *Module) addOwnerRootDisposer(
 	if disposer == nil {
 		return nil
 	}
-	if err := m.ensureOwnerRoot(id); err != nil {
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
+	if err := m.ensureOwnerRootLocked(id); err != nil {
 		return err
 	}
 	root := m.owner.roots[id]
@@ -459,6 +488,14 @@ func allocateOwnerChild(root *ownerRootEntry) (uint64, error) {
 
 // newOwnerPromise must run on-owner. The root was reserved before any Promise
 // or projection was created.
+//
+// newOwnerPromise takes postDoneMu so a JS entry point invoked after
+// Adapter.Done (when the loop is dead but the runtime is still held by one
+// goroutine) cannot race the post-Done transfer's map access. The runtime
+// calls inside (NewPromise, ToValue, promise rejection) do not execute
+// JavaScript synchronously — reactions are queued for the loop — so holding
+// the lock across them cannot deadlock: the transfer never calls into the
+// runtime and never waits on a goroutine that holds the lock.
 func (m *Module) newOwnerPromise(
 	rootID supervisorChildID,
 	resolve ownerPromiseProjection,
@@ -479,6 +516,8 @@ func (m *Module) newOwnerPromise(
 	if resolve == nil {
 		resolve = func(ownerResult) any { return goja.Undefined() }
 	}
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
 	root := m.owner.roots[rootID]
 	if root == nil {
 		_ = rejectNative(m.grpcErrorFromGoError(errModuleUnavailable))
@@ -611,20 +650,31 @@ func (m *Module) rejectOwnerPromiseInline(
 	)
 }
 
+// settleOwnerPromiseInline settles an owner promise entry without routing
+// through the effect queue. The map access is guarded by postDoneMu so a JS
+// entry point or worker invoking this after Adapter.Done cannot race the
+// post-Done transfer; the entry itself is extracted (copied) and the map
+// entry removed under the lock, after which the projection and native
+// resolution run unlocked — they may re-enter the bridge (e.g. metadata
+// callbacks), and postDoneMu is not reentrant.
 func (d *ownerDispatcher) settleOwnerPromiseInline(
 	id ownerOperationID,
 	result ownerResult,
 	rejected bool,
 ) error {
+	d.bridge.postDoneMu.Lock()
 	root := d.bridge.roots[id.root]
 	if root == nil {
+		d.bridge.postDoneMu.Unlock()
 		return gojaeventloop.ErrPromiseSettled
 	}
 	entry, ok := root.promises[id.child]
 	if !ok {
+		d.bridge.postDoneMu.Unlock()
 		return gojaeventloop.ErrPromiseSettled
 	}
 	delete(root.promises, id.child)
+	d.bridge.postDoneMu.Unlock()
 	projection := entry.resolveProjection
 	if rejected {
 		projection = entry.rejectProjection
@@ -665,6 +715,9 @@ func settleOwnerEntry(
 	return settleErr
 }
 
+// rememberOwnerCallback registers a metadata callback under the root. It
+// takes postDoneMu so a late JS entry point cannot race the post-Done
+// transfer (see the ownerBridge contract).
 func (m *Module) rememberOwnerCallback(
 	rootID supervisorChildID,
 	callback goja.Callable,
@@ -672,6 +725,8 @@ func (m *Module) rememberOwnerCallback(
 	if callback == nil {
 		return ownerCallbackID{}
 	}
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
 	root := m.owner.roots[rootID]
 	if root == nil {
 		return ownerCallbackID{}
@@ -686,6 +741,11 @@ func (m *Module) rememberOwnerCallback(
 	return ownerCallbackID{root: rootID, child: child}
 }
 
+// invokeMetadataCallbackID looks up a registered metadata callback and
+// invokes it. The lookup is guarded by postDoneMu so a late JS entry point or
+// worker cannot race the post-Done transfer's map access; the callback itself
+// runs unlocked — it executes JavaScript (the user's onHeader/onTrailer
+// handler), which may re-enter the module, and postDoneMu is not reentrant.
 func (m *Module) invokeMetadataCallbackID(
 	id ownerCallbackID,
 	md grpcmetadata.MD,
@@ -693,14 +753,18 @@ func (m *Module) invokeMetadataCallbackID(
 	if id.root == 0 || id.child == 0 {
 		return nil
 	}
+	m.owner.postDoneMu.Lock()
 	root := m.owner.roots[id.root]
 	if root == nil {
+		m.owner.postDoneMu.Unlock()
 		return errors.New("gojagrpc: owner callback root is unavailable")
 	}
 	callback, ok := root.callbacks[id.child]
 	if !ok {
+		m.owner.postDoneMu.Unlock()
 		return errors.New("gojagrpc: owner callback is unavailable")
 	}
+	m.owner.postDoneMu.Unlock()
 	return callback(md)
 }
 

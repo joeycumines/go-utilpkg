@@ -50,9 +50,17 @@ type Object struct {
 	self    objectImpl
 	runtime *Runtime
 	// objID is a lazily-assigned unique identifier. It replaces the object's
-	// heap address as the identity used by WeakMap storage and hashing so that
-	// address reuse after garbage collection cannot alias a dead object's
-	// entry with a live one (the classic weak-map ABA problem).
+	// heap address as the identity used by WeakMap storage and hashing so
+	// that address reuse after garbage collection cannot alias a dead
+	// object's entry with a live one (the classic weak-map ABA problem).
+	//
+	// Call sites: builtin_weakmap.go stores WeakMap entries in a strong Go
+	// map keyed by getId() (weakMap.m map[uint64]Value) and deletes them via
+	// runtime.AddCleanup on the key; if a new allocation reused a collected
+	// key's address before its cleanup ran, the new object would read (and
+	// overwrite) the dead key's entry. Object.hash (value.go) also uses
+	// getId(), so Map/Set identity is covered by the same monotonically
+	// assigned counter.
 	objID uint64
 }
 
@@ -1649,9 +1657,16 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 }
 
 // nextObjectID supplies monotonically increasing unique object identifiers.
-// Addresses cannot be used for WeakMap identity: after an object is collected,
-// a new allocation may reuse the address, and a pending key-cleanup would then
-// delete the new object's WeakMap entry.
+// Addresses cannot be used for WeakMap identity (see builtin_weakmap.go, which
+// keys a strong Go map by getId() with per-key runtime.AddCleanup deletion):
+// after an object is collected, a new allocation may reuse the address, and a
+// pending key-cleanup would then delete the new object's WeakMap entry.
+//
+// getId is intentionally safe to call from any goroutine: assignment uses
+// atomic load/compare-and-swap because runtime.AddCleanup may run on a
+// non-runtime goroutine. 0 is reserved as the "not yet assigned" sentinel and
+// is never returned as a live id; on the astronomically unlikely counter
+// wrap, the next value is taken instead.
 var nextObjectID atomic.Uint64
 
 func (o *Object) getId() (ID uint64) {

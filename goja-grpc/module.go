@@ -239,6 +239,13 @@ func (m *Module) executeCloseRun(
 // after Adapter.Done. Live-owner disposal executes every disposer; after the
 // owner is gone, Go-owned indexes must be cleared explicitly so they cannot
 // retain unreachable Goja objects or constructor tombstones.
+//
+// Disposers must still run: every disposer registered on a root present in
+// owner.roots is collected here and invoked (after the lock is released, via
+// runPostDoneDisposers) with the module-unavailable disposal error. Roots and
+// pending disposal runs are consumed under postDoneMu, so a disposer fires
+// exactly once regardless of whether this function or the dispatcher sweep
+// (discardOwnerRootsPostDoneLocked) wins the race.
 func (m *Module) clearPostDoneOwnerIndexes() {
 	select {
 	case <-m.adapter.Done():
@@ -246,12 +253,28 @@ func (m *Module) clearPostDoneOwnerIndexes() {
 		return
 	}
 	m.owner.postDoneMu.Lock()
-	defer m.owner.postDoneMu.Unlock()
 	m.owner.transferred.Store(true)
+	var disposers []ownerDisposerCall
+	for _, root := range m.owner.roots {
+		if root == nil {
+			continue
+		}
+		for _, disposer := range root.disposers {
+			if disposer != nil {
+				disposers = append(disposers, ownerDisposerCall{
+					disposer: disposer,
+					err:      errModuleUnavailable,
+				})
+			}
+		}
+		clear(root.disposers)
+	}
 	clear(m.dialObjects)
 	clear(m.owner.roots)
 	clear(m.owner.tombstones)
 	clear(m.owner.serverPlans)
+	m.owner.postDoneMu.Unlock()
+	runPostDoneDisposers(disposers)
 }
 
 // SetupExports wires the module's JS API onto the given exports object.

@@ -199,14 +199,26 @@ func (e *grpcTestEnv) runOnLoop(t *testing.T, code string, timeout time.Duration
 		cancel()   // Stop the event loop.
 		<-loopDone // Wait for loop goroutine to finish.
 	case err := <-loopDone:
-		if jsErr != nil {
-			t.Fatalf("JS error: %v", jsErr)
-		}
-		if err != nil && ctx.Err() == nil {
-			t.Fatalf("loop error: %v", err)
-		}
-		if ctx.Err() == nil {
-			t.Fatalf("event loop exited before __done() was called")
+		// When __done() fires and the loop exits at the same moment, both
+		// channels are ready and select chooses between them uniformly.
+		// Re-check done non-blockingly so a completed script cannot be
+		// reported as a premature loop exit (select gives no priority to
+		// ready cases).
+		select {
+		case <-done:
+			// __done() was called; the loop merely beat it to the finish.
+			// Treat this like the <-done path: the shared jsErr check below
+			// still applies, but the loop's own exit is not an error.
+		default:
+			if jsErr != nil {
+				t.Fatalf("JS error: %v", jsErr)
+			}
+			if err != nil && ctx.Err() == nil {
+				t.Fatalf("loop error: %v", err)
+			}
+			if ctx.Err() == nil {
+				t.Fatalf("event loop exited before __done() was called")
+			}
 		}
 	case <-ctx.Done():
 		t.Fatalf("timeout waiting for __done()")

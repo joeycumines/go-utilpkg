@@ -628,6 +628,12 @@ func (w *clientStreamWorker) drainRecvs() {
 
 // clientStreamProjection is retained only by owner-created JS closures. It is
 // mutated only on-owner, including its root-disposal terminal transition.
+//
+// The terminal/eof fields are written by the root-disposal disposer and read
+// by the JS-facing recv/response entry points. Pre-Done both sides run on the
+// owner (serialized by the loop); post-Done the disposer may run on the Close
+// goroutine while a late recv/response runs on the runtime goroutine, so both
+// sides guard the fields with postDoneMu (see terminalState).
 type clientStreamProjection struct {
 	module   *Module
 	input    protoreflect.MessageDescriptor
@@ -636,6 +642,15 @@ type clientStreamProjection struct {
 	streamID supervisorChildID
 	terminal error
 	eof      bool
+}
+
+// terminalState returns the terminal error and EOF flag, guarded by
+// postDoneMu against the concurrent root-disposal disposer write.
+func (p *clientStreamProjection) terminalState() (err error, eof bool) {
+	p.module.owner.postDoneMu.Lock()
+	err, eof = p.terminal, p.eof
+	p.module.owner.postDoneMu.Unlock()
+	return
 }
 
 func (m *Module) newClientStreamProjection(
@@ -651,21 +666,23 @@ func (m *Module) newClientStreamProjection(
 		streamID: rootID,
 	}
 	_ = m.addOwnerRootDisposer(rootID, func(err error) {
+		m.owner.postDoneMu.Lock()
 		projection.terminal = err
 		projection.eof = errors.Is(err, io.EOF)
+		m.owner.postDoneMu.Unlock()
 	})
 	return projection
 }
 
 func (p *clientStreamProjection) immediateRecv() goja.Value {
 	promise, resolve, reject := p.module.runtime.NewPromise()
-	if p.eof {
+	err, eof := p.terminalState()
+	if eof {
 		object := p.module.runtime.NewObject()
 		_ = object.Set("done", true)
 		_ = object.Set("value", goja.Undefined())
 		_ = resolve(object)
 	} else {
-		err := p.terminal
 		if err == nil {
 			err = errModuleUnavailable
 		}
@@ -677,7 +694,8 @@ func (p *clientStreamProjection) immediateRecv() goja.Value {
 func (p *clientStreamProjection) newRecvPromise(
 	terminalNext bool,
 ) goja.Value {
-	if p.terminal != nil || p.eof {
+	terminal, eof := p.terminalState()
+	if terminal != nil || eof {
 		return p.immediateRecv()
 	}
 	promise := p.module.newOwnerPromise(
@@ -722,7 +740,8 @@ func (p *clientStreamProjection) recv() goja.Value {
 }
 
 func (p *clientStreamProjection) response() goja.Value {
-	if p.terminal != nil || p.eof {
+	terminal, eof := p.terminalState()
+	if terminal != nil || eof {
 		return p.immediateRecv()
 	}
 	promise := p.module.newOwnerPromise(

@@ -70,7 +70,16 @@ func (c *serverRegistrationControl) wait() <-chan struct{} { return c.done }
 
 func (*serverRegistrationControl) result() error { return nil }
 
+// removeServerMethodPlans removes the given server method plans. It takes
+// postDoneMu: the root-disposal disposer may run on the Close goroutine while
+// a late JS server operation or an in-flight transport stream reads the plan
+// map on another goroutine.
 func (m *Module) removeServerMethodPlans(ids []serverMethodID) {
+	if len(ids) == 0 {
+		return
+	}
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
 	for _, id := range ids {
 		delete(m.owner.serverPlans, id)
 	}

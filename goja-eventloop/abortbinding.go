@@ -14,8 +14,8 @@ import (
 // abortControllerConstructor creates the AbortController constructor for JavaScript.
 func (a *Adapter) abortControllerConstructor(call goja.ConstructorCall) *goja.Object {
 	thisObj := call.This
-	signalState, signalObject := a.newAbortSignal()
-	controller := &abortControllerState{signal: signalState, signalObject: signalObject}
+	_, signalObject := a.newAbortSignal()
+	controller := &abortControllerState{signalObject: signalObject}
 	a.setHiddenState(a.abortControllerStore, thisObj, controller)
 
 	return thisObj
@@ -30,16 +30,18 @@ func (a *Adapter) bindAbortControllerPrototype(constructor *goja.Object) error {
 		return fmt.Errorf("abortController prototype not found")
 	}
 	if err := defineWebAccessor(a.runtime, prototype, "signal", true, func(call goja.FunctionCall) goja.Value {
-		state := a.abortControllerThis(call.This)
-		if state.signalObject != nil {
-			return state.signalObject
-		}
-		return goja.Undefined()
+		// abortControllerThis already guarantees a non-nil signalObject; the
+		// signal object is always present for a valid controller (WebIDL:
+		// the getter yields the signal object, never undefined).
+		return a.abortControllerThis(call.This).signalObject
 	}, nil); err != nil {
 		return fmt.Errorf("bind AbortController.prototype.signal: %w", err)
 	}
 	if err := defineWebMethod(a.runtime, prototype, "abort", 0, true, func(call goja.FunctionCall) goja.Value {
-		a.abortSignalState(a.abortControllerThis(call.This).signal, a.abortReason(call.Argument(0)))
+		a.abortSignalState(
+			a.abortControllerSignalState(a.abortControllerThis(call.This)),
+			a.abortReason(call.Argument(0)),
+		)
 		return goja.Undefined()
 	}); err != nil {
 		return fmt.Errorf("bind AbortController.prototype.abort: %w", err)
@@ -60,10 +62,27 @@ func (a *Adapter) abortControllerThis(value goja.Value) *abortControllerState {
 		panic(a.runtime.NewTypeError("AbortController method called on incompatible receiver"))
 	}
 	state, ok := stateValue.Export().(*abortControllerState)
-	if !ok || state == nil || state.signal == nil {
+	if !ok || state == nil || state.signalObject == nil {
 		panic(a.runtime.NewTypeError("AbortController method called on incompatible receiver"))
 	}
 	return state
+}
+
+// abortControllerSignalState derives the signal state from the controller's
+// strong signalObject via the hidden-state store. This is the single source
+// of truth: the controller state stores only the object, so the state can
+// never drift out of sync with it. A nil object or a failed derivation is a
+// brand-check failure and must throw a TypeError per WebIDL — never return
+// undefined.
+func (a *Adapter) abortControllerSignalState(state *abortControllerState) *abortSignalState {
+	if state == nil || state.signalObject == nil {
+		panic(a.runtime.NewTypeError("AbortController method called on incompatible receiver"))
+	}
+	signalState, ok := a.abortSignalStateValue(state.signalObject)
+	if !ok {
+		panic(a.runtime.NewTypeError("AbortController method called on incompatible receiver"))
+	}
+	return signalState
 }
 
 // abortSignalConstructor creates the AbortSignal constructor for JavaScript.
@@ -81,7 +100,7 @@ func (a *Adapter) newAbortSignal() (*abortSignalState, *goja.Object) {
 		}
 	}
 	wrapper := a.initEventTargetObject(obj)
-	state := &abortSignalState{target: wrapper, object: weak.Make(obj), reason: goja.Undefined()}
+	state := &abortSignalState{target: wrapper, reason: goja.Undefined()}
 	wrapper.abortSignal = state
 
 	a.setHiddenState(a.abortSignalStateStore, obj, state)
@@ -153,6 +172,15 @@ func (a *Adapter) bindAbortSignalPrototype(constructor *goja.Object) error {
 // AbortSignal Static Methods
 
 // bindAbortSignalStatics adds static methods (any, timeout) to AbortSignal.
+//
+// Each static factory returns the strong signal object local (obj / the
+// compositeObject) rather than a weak derivation. That local is load-bearing:
+// a Go GC cycle that runs while the factory is still executing (e.g. during
+// markAbortSignal, linkAbortSignal, or timer activation) must not collect the
+// JS object before it is handed to JavaScript. The previously used
+// runtime.KeepAlive(state) calls did NOT provide this guarantee — they pinned
+// only the Go state (which was already reachable through the local anyway)
+// and never the JS object — so they were removed, not replaced.
 func (a *Adapter) bindAbortSignalStatics(abortSignalObj *goja.Object) error {
 	if abortSignalObj == nil {
 		return fmt.Errorf("AbortSignal not found")

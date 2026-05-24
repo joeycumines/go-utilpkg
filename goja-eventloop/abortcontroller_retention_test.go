@@ -14,6 +14,29 @@ import (
 // implementation stored only a weak.Pointer to the signal in the controller
 // state, so after a Go GC cycle `controller.signal` returned nil and any JS
 // use of it crashed the VM with a nil pointer dereference.
+//
+// GC mechanics relied on here (goja internals, not public API):
+//
+//   - Each JS snippet that must leave objects collectible is terminated with a
+//     trailing `RunString("void 0")`. goja retains the last evaluated value in
+//     vm.result and may retain stack references, so without the extra run the
+//     object under test stays reachable and the collection assertions below
+//     would fail — or, if someone deletes the trailing run later, flake.
+//
+//   - The hidden-state stores (Adapter.setHiddenState/hiddenState in
+//     adapter.go) are JS WeakMaps keyed by the object. State attached to an
+//     object is therefore collected together with it — there is no strong
+//     Go-side map holding controller or signal state. Test
+//     TestAbortControllerDroppedEverythingCollects pins exactly that: the new
+//     strong controller -> signalObject edge must not leak once both JS
+//     references are dropped.
+//
+//   - AbortSignal.timeout(100000) leaves a 100 s pending timer. That is safe
+//     here because newBoundAdapterForNode26Test registers loop.Close()
+//     (immediate termination: queued and pending timers are discarded, not
+//     waited on) via t.Cleanup, and the timer callback holds only weak state
+//     references, so the pending timer neither keeps the JS object alive nor
+//     outlives the test.
 
 func gcAbortRetention(t *testing.T) {
 	t.Helper()

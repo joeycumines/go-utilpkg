@@ -37,7 +37,14 @@ type serverMethodPlan struct {
 func (m *Module) allocateServerMethodPlan(
 	plan *serverMethodPlan,
 ) (serverMethodID, error) {
-	if plan == nil || m.owner.nextServerPlan == math.MaxUint64 {
+	if plan == nil {
+		return 0, errOwnerIDExhausted
+	}
+	// postDoneMu serializes this against the root-disposal disposer's
+	// removeServerMethodPlans and the post-Done transfer (clearPostDoneOwnerIndexes).
+	m.owner.postDoneMu.Lock()
+	defer m.owner.postDoneMu.Unlock()
+	if m.owner.nextServerPlan == math.MaxUint64 {
 		return 0, errOwnerIDExhausted
 	}
 	m.owner.nextServerPlan++
@@ -50,7 +57,9 @@ func (d *ownerDispatcher) serverHandler(
 	id serverMethodID,
 ) inprocgrpc.StreamHandlerFunc {
 	return func(ctx context.Context, stream *inprocgrpc.RPCStream) {
+		d.bridge.postDoneMu.Lock()
 		plan := d.bridge.serverPlans[id]
+		d.bridge.postDoneMu.Unlock()
 		if plan == nil {
 			stream.Finish(errModuleUnavailable)
 			return

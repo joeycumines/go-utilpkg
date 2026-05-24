@@ -2,7 +2,6 @@ package gojaeventloop
 
 import (
 	"sync"
-	"weak"
 
 	"github.com/joeycumines/goja"
 )
@@ -10,7 +9,6 @@ import (
 type abortSignalState struct {
 	reason             goja.Value
 	target             *eventTargetWrapper
-	object             weak.Pointer[goja.Object]
 	onabort            *eventTargetListenerInfo
 	timeout            *abortTimeoutRef
 	algorithms         []*abortAlgorithm
@@ -24,8 +22,13 @@ type abortSignalState struct {
 	dependent          bool
 }
 
+// abortControllerState carries exactly one reference — the strong JS signal
+// object. The abortSignalState is always derived from that object through the
+// hidden-state store (see abortControllerSignalState), so the two can never
+// drift. The signal object must be strongly held: the previous design stored
+// only a weak pointer, so after a Go GC cycle controller.signal returned nil
+// and any JS use of it crashed the VM.
 type abortControllerState struct {
-	signal       *abortSignalState
 	signalObject *goja.Object
 }
 

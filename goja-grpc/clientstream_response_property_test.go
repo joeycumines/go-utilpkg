@@ -57,6 +57,19 @@ func TestClientStreamResponsePropertyBecomesDataProperty(t *testing.T) {
 				var descAfter = Object.getOwnPropertyDescriptor(call, 'response');
 				afterIsAccessor = typeof descAfter.get === 'function';
 				afterIsData = 'value' in descAfter;
+				// The data property must mirror the accessor it replaced:
+				// enumerable and configurable true (as the accessor was
+				// defined), writable false (a getter-only accessor cannot be
+				// assigned through, and the data property must behave the
+				// same so the object's shape does not depend on whether
+				// .response was read).
+				afterWritable = descAfter.writable;
+				afterEnumerable = descAfter.enumerable;
+				afterConfigurable = descAfter.configurable;
+				// Assignment must have no effect (sloppy mode), exactly as
+				// with the setter-less accessor.
+				call.response = 'not a promise';
+				afterAssignmentStable = call.response === p;
 				return p;
 			}).then(function(resp) {
 				respMessage = resp.get('message');
@@ -79,6 +92,18 @@ func TestClientStreamResponsePropertyBecomesDataProperty(t *testing.T) {
 	}
 	if value := env.runtime.Get("afterIsData"); value == nil || !value.ToBoolean() {
 		t.Fatalf("expected response to be a data property after first read, got %v", value)
+	}
+	if value := env.runtime.Get("afterWritable"); value == nil || value.ToBoolean() {
+		t.Fatalf("expected response data property to be non-writable (mirroring the getter-only accessor), got %v", value)
+	}
+	if value := env.runtime.Get("afterEnumerable"); value == nil || !value.ToBoolean() {
+		t.Fatalf("expected response data property to be enumerable, got %v", value)
+	}
+	if value := env.runtime.Get("afterConfigurable"); value == nil || !value.ToBoolean() {
+		t.Fatalf("expected response data property to be configurable, got %v", value)
+	}
+	if value := env.runtime.Get("afterAssignmentStable"); value == nil || !value.ToBoolean() {
+		t.Fatalf("expected assignment to .response to have no effect, got %v", value)
 	}
 	if value := env.runtime.Get("respMessage"); value == nil || value.String() != "ok" {
 		t.Fatalf("expected response promise to resolve, got %v", value)

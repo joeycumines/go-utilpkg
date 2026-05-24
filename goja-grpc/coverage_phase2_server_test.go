@@ -380,7 +380,13 @@ func TestServerSend_StreamError(t *testing.T) {
 	// Use an async handler that yields between sends via setTimeout.
 	// After the client aborts, the context cancellation closes the
 	// Responses channel, causing subsequent sends on the server side
-	// to fail with an error (panic caught by the try/catch).
+	// to fail with an error (caught by the promise catch).
+	//
+	// Deterministic by construction: the server sends unboundedly (there is
+	// no fixed count to race against the abort) and the client aborts only
+	// after its first successful recv, which proves the server's first send
+	// completed — so sendCount >= 1 is guaranteed before the abort, and a
+	// later send is guaranteed to fail once the abort has landed.
 	//
 	// Covers: server.go line 459-460 (Send error in addServerSend)
 	env.runOnLoop(t, `
@@ -393,7 +399,6 @@ func TestServerSend_StreamError(t *testing.T) {
 				var Item = pb.messageType('testgrpc.Item');
 				return new Promise(function(resolve) {
 					function sendOne(i) {
-						if (i >= 100) { resolve(); return; }
 						var item = new Item();
 						item.set('id', String(i));
 						item.set('name', 'item');
@@ -425,14 +430,18 @@ func TestServerSend_StreamError(t *testing.T) {
 
 		var ctrl = new AbortController();
 		client.serverStream(req, { signal: ctrl.signal }).then(function(stream) {
-			// Got the stream, abort after a tiny delay to let a few sends through.
-			setTimeout(function() {
-				ctrl.abort();
-			}, 10);
-			// Try to recv — will eventually fail because of abort.
+			var seen = false;
 			(function recvLoop() {
 				stream.recv().then(function(result) {
 					if (result.done) { __done(); return; }
+					if (!seen) {
+						seen = true;
+						// The first item was received, so the server's first
+						// send completed (sendCount >= 1). Abort now: the
+						// server keeps sending, so its next send
+						// deterministically fails.
+						ctrl.abort();
+					}
 					recvLoop();
 				}).catch(function(err) {
 					// Expected: abort error. Give handler time to hit send error.

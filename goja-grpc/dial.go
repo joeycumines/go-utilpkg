@@ -129,7 +129,9 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 	// Build JS channel wrapper object.
 	obj := m.runtime.NewObject()
 	_ = obj.Set("close", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
+		m.owner.postDoneMu.Lock()
 		delete(m.dialObjects, obj)
+		m.owner.postDoneMu.Unlock()
 		if closeErr := control.close(); closeErr != nil {
 			panic(m.runtime.NewTypeError("close: %s", closeErr))
 		}
@@ -140,7 +142,9 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 		return m.runtime.ToValue(control.target)
 	}))
 	if err := m.addOwnerRootDisposer(rootID, func(error) {
+		m.owner.postDoneMu.Lock()
 		delete(m.dialObjects, obj)
+		m.owner.postDoneMu.Unlock()
 	}); err != nil {
 		panic(m.runtime.NewTypeError("dial: module is closed"))
 	}
@@ -157,9 +161,13 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 	}
 	m.activateOwnerRoot(rootID)
 	published = true
+	m.owner.postDoneMu.Lock()
 	m.dialObjects[obj] = dc
+	m.owner.postDoneMu.Unlock()
 	if !m.control.open() {
+		m.owner.postDoneMu.Lock()
 		delete(m.dialObjects, obj)
+		m.owner.postDoneMu.Unlock()
 		_ = control.close()
 		panic(m.runtime.NewTypeError("dial: module is closed"))
 	}
@@ -183,7 +191,9 @@ func (m *Module) parseChannelOpt(optsObj *goja.Object) grpc.ClientConnInterface 
 		panic(m.runtime.NewTypeError("channel must be a dial() result"))
 	}
 
+	m.owner.postDoneMu.Lock()
 	dc, ok := m.dialObjects[chObj]
+	m.owner.postDoneMu.Unlock()
 	if !ok || dc == nil {
 		panic(m.runtime.NewTypeError("channel must be a dial() result"))
 	}
