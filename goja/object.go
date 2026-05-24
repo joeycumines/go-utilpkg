@@ -1654,11 +1654,20 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 // delete the new object's WeakMap entry.
 var nextObjectID atomic.Uint64
 
-func (o *Object) getId() uint64 {
-	if o.objID == 0 {
-		o.objID = nextObjectID.Add(1)
+func (o *Object) getId() (ID uint64) {
+	ID = atomic.LoadUint64(&o.objID)
+	if ID != 0 {
+		return ID
 	}
-	return o.objID
+	ID = nextObjectID.Add(1)
+	if ID == 0 {
+		// counter wrapped to 0; try next to avoid assigning 0 as a live id
+		ID = nextObjectID.Add(1)
+	}
+	if atomic.CompareAndSwapUint64(&o.objID, 0, ID) {
+		return ID
+	}
+	return atomic.LoadUint64(&o.objID)
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {
