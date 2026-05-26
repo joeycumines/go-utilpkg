@@ -228,10 +228,14 @@ func (e *ownerEffect) finish(ack ownerEffectAck) {
 // (RPC bindings, reflection, dial, server) may still be invoked on the
 // runtime-owning goroutine after the loop has terminated, and worker
 // goroutines may still settle in-flight operations. Every owner-bridge
-// accessor therefore takes postDoneMu. Before Adapter.Done the lock is
-// uncontended (owner work is serialized by the loop and the transfer only
-// starts after the loop is dead), so this is a fast-path lock, not a
-// contention point.
+// accessor that can run outside the loop's serialization therefore takes
+// postDoneMu (the two loop-only readers of the disposals map,
+// scheduleOwnerDisposal and runOwnerDisposalStep, need no lock because the
+// transfer only starts after the loop is dead). Before Adapter.Done the
+// critical sections are short map operations, and although transport/worker
+// goroutines (e.g. serverHandler) can briefly contend with owner-side
+// accessors, the transfer itself only starts after the loop is dead, so no
+// accessor ever blocks on it while owner work is running.
 type ownerBridge struct {
 	roots           map[supervisorChildID]*ownerRootEntry
 	tombstones      map[supervisorChildID]struct{}
@@ -336,6 +340,14 @@ func (m *Module) ensureOwnerRoot(id supervisorChildID) error {
 
 // ensureOwnerRootLocked is ensureOwnerRoot with postDoneMu already held.
 func (m *Module) ensureOwnerRootLocked(id supervisorChildID) error {
+	if m.owner.transferred.Load() {
+		// The ownership transfer has run (the event loop is done and the
+		// owner indexes were cleared). A late JS entry point reaching here
+		// must not allocate a fresh root+fence into the cleared maps: the
+		// root could never be disposed (the loop is dead), leaking the fence
+		// and the supervisor slot.
+		return errModuleClosed
+	}
 	if _, closed := m.owner.tombstones[id]; closed {
 		delete(m.owner.tombstones, id)
 		return errModuleClosed

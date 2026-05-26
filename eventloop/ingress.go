@@ -246,10 +246,6 @@ func (q *loopCommandIngress) Len() int {
 	return len(q.cmds) - q.head
 }
 
-func (q *loopCommandIngress) IsEmpty() bool {
-	return q.Len() == 0
-}
-
 func (q *loopCommandIngress) Reset() {
 	q.cmds = resetRetainedSlice(q.cmds, retainedLoopCommandCapacity)
 	q.head = 0

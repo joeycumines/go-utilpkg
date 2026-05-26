@@ -61,7 +61,13 @@ type Object struct {
 	// overwrite) the dead key's entry. Object.hash (value.go) also uses
 	// getId(), so Map/Set identity is covered by the same monotonically
 	// assigned counter.
-	objID uint64
+	//
+	// The field is atomic.Uint64 (not a plain uint64) so the 64-bit atomic
+	// load/compare-and-swap in getId are guaranteed 8-byte aligned on every
+	// architecture, including 32-bit (linux/386, linux/arm, etc.) where a
+	// plain uint64 following the interface + pointer fields above would land
+	// at an unaligned offset and panic at runtime.
+	objID atomic.Uint64
 }
 
 type iterNextFunc func() (propIterItem, iterNextFunc)
@@ -1662,15 +1668,17 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 // after an object is collected, a new allocation may reuse the address, and a
 // pending key-cleanup would then delete the new object's WeakMap entry.
 //
-// getId is intentionally safe to call from any goroutine: assignment uses
-// atomic load/compare-and-swap because runtime.AddCleanup may run on a
-// non-runtime goroutine. 0 is reserved as the "not yet assigned" sentinel and
-// is never returned as a live id; on the astronomically unlikely counter
-// wrap, the next value is taken instead.
+// getId is implemented with atomic load/compare-and-swap as a defensive
+// measure: every current call site runs on the runtime goroutine (JS
+// execution), but identity must remain correct if a future finalizer,
+// cleanup, or host path ever invokes it off the runtime goroutine — a torn
+// read/write there would corrupt WeakMap/Map/Set identity. 0 is reserved as
+// the "not yet assigned" sentinel and is never returned as a live id; on the
+// astronomically unlikely counter wrap, the next value is taken instead.
 var nextObjectID atomic.Uint64
 
 func (o *Object) getId() (ID uint64) {
-	ID = atomic.LoadUint64(&o.objID)
+	ID = o.objID.Load()
 	if ID != 0 {
 		return ID
 	}
@@ -1679,10 +1687,10 @@ func (o *Object) getId() (ID uint64) {
 		// counter wrapped to 0; try next to avoid assigning 0 as a live id
 		ID = nextObjectID.Add(1)
 	}
-	if atomic.CompareAndSwapUint64(&o.objID, 0, ID) {
+	if o.objID.CompareAndSwap(0, ID) {
 		return ID
 	}
-	return atomic.LoadUint64(&o.objID)
+	return o.objID.Load()
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {

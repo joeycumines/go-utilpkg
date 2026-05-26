@@ -298,11 +298,12 @@ func (d *ownerDispatcher) finishOwnerDisposalPostDone(
 // The returned ok reports whether a run was found. That guard is load-bearing
 // for memory safety: a second entry after run.actions = nil would panic on
 // nil[run.next:], and deletion under the lock plus the early return make that
-// impossible. run.next is set to len(run.actions) before any collection so
-// that exactly-once holds structurally rather than by argument: the live-owner
-// path advances run.next before invoking an action (runOwnerDisposalStep), and
-// this function cannot re-enter because the run is removed from disposals
-// first and every sweep runs under the same lock.
+// impossible. The pending actions are snapshotted and run.next is advanced to
+// len(run.actions) before the snapshot is consumed, so exactly-once holds
+// structurally rather than by argument: the live-owner path advances run.next
+// before invoking an action (runOwnerDisposalStep), and this function cannot
+// re-enter because the run is removed from disposals first and every sweep
+// runs under the same lock.
 func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 	id ownerDisposalID,
 ) (disposers []ownerDisposerCall, ok bool) {
@@ -315,7 +316,9 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 	// are intentionally dropped (no Goja projections post-Done; root fences
 	// are closed below), but every not-yet-executed disposer fires exactly
 	// once with the disposal error.
-	for _, action := range run.actions[run.next:] {
+	pending := run.actions[run.next:]
+	run.next = len(run.actions)
+	for _, action := range pending {
 		if action.kind == ownerDisposalDisposer && action.disposer != nil {
 			disposers = append(disposers, ownerDisposerCall{
 				disposer: action.disposer,
@@ -323,7 +326,6 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 			})
 		}
 	}
-	run.next = len(run.actions)
 	clear(run.actions)
 	run.actions = nil
 	for _, root := range run.roots {
@@ -333,6 +335,12 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 		}
 		d.finishRootClose(root)
 		if fenceDone != nil {
+			// Waiting on the fence while holding postDoneMu is safe only
+			// because every fence-release path (releaseRootEffect,
+			// finishRootClose/PostDone) avoids postDoneMu entirely — a
+			// future refactor adding the lock to releaseRootEffect would
+			// deadlock here. The same applies to the wait in
+			// discardOwnerRootsPostDoneLocked.
 			<-fenceDone
 		}
 	}

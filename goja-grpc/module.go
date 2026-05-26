@@ -240,12 +240,15 @@ func (m *Module) executeCloseRun(
 // owner is gone, Go-owned indexes must be cleared explicitly so they cannot
 // retain unreachable Goja objects or constructor tombstones.
 //
-// Disposers must still run: every disposer registered on a root present in
-// owner.roots is collected here and invoked (after the lock is released, via
-// runPostDoneDisposers) with the module-unavailable disposal error. Roots and
-// pending disposal runs are consumed under postDoneMu, so a disposer fires
-// exactly once regardless of whether this function or the dispatcher sweep
-// (discardOwnerRootsPostDoneLocked) wins the race.
+// This function sweeps owner.roots only: every disposer registered on a root
+// present in owner.roots is collected and invoked (after the lock is released,
+// via runPostDoneDisposers) with the module-unavailable disposal error, and
+// finishRootClosePostDone closes the root's fence and acks the supervisor.
+// Pending disposal runs in owner.disposals are NOT consumed here — they are
+// owned by the dispatcher's post-Done sweep (discardOwnerRootsPostDoneLocked
+// via beginOwnerDisposal / finishOwnerDisposalPostDone / disposeOwnerRootsWorker),
+// which races this function under postDoneMu so a disposer fires exactly once
+// regardless of which path wins.
 func (m *Module) clearPostDoneOwnerIndexes() {
 	select {
 	case <-m.adapter.Done():
@@ -255,7 +258,7 @@ func (m *Module) clearPostDoneOwnerIndexes() {
 	m.owner.postDoneMu.Lock()
 	m.owner.transferred.Store(true)
 	var disposers []ownerDisposerCall
-	for _, root := range m.owner.roots {
+	for id, root := range m.owner.roots {
 		if root == nil {
 			continue
 		}
@@ -268,6 +271,12 @@ func (m *Module) clearPostDoneOwnerIndexes() {
 			}
 		}
 		clear(root.disposers)
+		// Finish the root close so its fence.done channel is closed and the
+		// supervisor is acked. This is idempotent (a no-op if the disposal
+		// path already acked the root) and prevents fence/supervisor leaks
+		// for roots that were never disposed before the loop terminated
+		// (e.g. host-only roots like dial channels).
+		m.dispatcher.finishRootClosePostDone(id)
 	}
 	clear(m.dialObjects)
 	clear(m.owner.roots)

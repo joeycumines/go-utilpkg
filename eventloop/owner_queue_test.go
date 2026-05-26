@@ -208,8 +208,8 @@ func TestLoopCommandIngressResetClearsQueuedReferences(t *testing.T) {
 		t.Fatalf("Len before reset = %d, want 1", q.Len())
 	}
 	q.Reset()
-	if !q.IsEmpty() || q.Len() != 0 {
-		t.Fatalf("Len after reset = %d empty=%v", q.Len(), q.IsEmpty())
+	if q.Len() != 0 {
+		t.Fatalf("Len after reset = %d", q.Len())
 	}
 	if len(q.cmds) != 0 || q.head != 0 {
 		t.Fatalf("reset storage len=%d head=%d", len(q.cmds), q.head)

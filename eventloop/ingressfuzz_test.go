@@ -43,9 +43,6 @@ func FuzzLoopCommandIngressFIFOAndReset(f *testing.F) {
 			if got, want := q.Len(), len(model); got != want {
 				t.Fatalf("Len = %d, want %d", got, want)
 			}
-			if got, want := q.IsEmpty(), len(model) == 0; got != want {
-				t.Fatalf("IsEmpty = %v, want %v", got, want)
-			}
 		}
 
 		for _, want := range model {
@@ -55,7 +52,7 @@ func FuzzLoopCommandIngressFIFOAndReset(f *testing.F) {
 			}
 		}
 		cmd, ok := q.Pop()
-		if ok || cmd.kind != loopCommandNone || q.Len() != 0 || !q.IsEmpty() {
+		if ok || cmd.kind != loopCommandNone || q.Len() != 0 {
 			t.Fatalf("queue not empty after drain: cmd=%+v ok=%v len=%d", cmd, ok, q.Len())
 		}
 	})

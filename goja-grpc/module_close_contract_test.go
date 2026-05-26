@@ -165,6 +165,11 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	env.grpcMod.owner.postDoneMu.Lock()
 	for value := 1; value <= rootCount; value++ {
 		id := supervisorChildID(value)
+		// Plant a fence for every root id, mirroring what
+		// ensureOwnerRootLocked creates in production. The post-Done
+		// sweep must finish (close + ack) every fence, not just clear
+		// the root entry — otherwise the fence leaks.
+		env.grpcMod.owner.fences.Store(id, &ownerRootFence{done: make(chan struct{})})
 		if value%2 == 0 {
 			env.grpcMod.owner.roots[id] = &ownerRootEntry{
 				promises: map[uint64]ownerPromiseEntry{
@@ -277,6 +282,9 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 	}
 	if got := len(env.grpcMod.owner.disposals); got != 0 {
 		t.Fatalf("post-Done disposal runs = %d, want 0", got)
+	}
+	if got := syncMapSize(&env.grpcMod.owner.fences); got != 0 {
+		t.Fatalf("post-Done owner fences = %d, want 0 (every root must be finished, not just cleared)", got)
 	}
 	for index, run := range runs {
 		select {

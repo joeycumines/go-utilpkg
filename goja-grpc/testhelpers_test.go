@@ -213,15 +213,25 @@ func (e *grpcTestEnv) runOnLoop(t *testing.T, code string, timeout time.Duration
 			if jsErr != nil {
 				t.Fatalf("JS error: %v", jsErr)
 			}
-			if err != nil && ctx.Err() == nil {
+			if ctx.Err() != nil {
+				t.Fatalf("timeout waiting for __done()")
+			}
+			if err != nil {
 				t.Fatalf("loop error: %v", err)
 			}
-			if ctx.Err() == nil {
-				t.Fatalf("event loop exited before __done() was called")
-			}
+			t.Fatalf("event loop exited before __done() was called")
 		}
 	case <-ctx.Done():
-		t.Fatalf("timeout waiting for __done()")
+		// The deadline can land at the same moment __done() fires; re-check
+		// done non-blockingly so a completed script is not reported as a
+		// timeout.
+		select {
+		case <-done:
+			cancel()
+			<-loopDone
+		default:
+			t.Fatalf("timeout waiting for __done()")
+		}
 	}
 
 	if jsErr != nil {

@@ -89,6 +89,10 @@ func (m *Module) removeServerMethodPlans(ids []serverMethodID) {
 // owner and control obligation created by one compound server admission. It
 // runs only under the admission boundary, before the channel can observe the
 // registration, so no user-derived disposer is invoked.
+//
+// The bridge map access is guarded by postDoneMu: the admission callback runs
+// on the caller's goroutine, which post-Done may be the runtime goroutine
+// while the ownership transfer runs on the Close goroutine.
 func (m *Module) rollbackServerRegistrationOwner(
 	admission *serverRegistrationAdmission,
 ) {
@@ -96,6 +100,7 @@ func (m *Module) rollbackServerRegistrationOwner(
 		return
 	}
 	m.removeServerMethodPlans(admission.plans)
+	m.owner.postDoneMu.Lock()
 	disposal := m.dispatcher.prepareOwnerRootDisposal(
 		admission.rootID,
 		false,
@@ -106,6 +111,7 @@ func (m *Module) rollbackServerRegistrationOwner(
 		clear(disposal.root.disposers)
 		disposal.root.disposers = nil
 	}
+	m.owner.postDoneMu.Unlock()
 	m.dispatcher.finishRootClose(admission.rootID)
 	m.control.abandon(admission.rootID)
 }
