@@ -162,8 +162,18 @@ func (m *Module) jsDial(call goja.FunctionCall) goja.Value {
 	m.activateOwnerRoot(rootID)
 	published = true
 	m.owner.postDoneMu.Lock()
-	m.dialObjects[obj] = dc
+	terminal := m.ownerTerminalLocked()
+	if !terminal {
+		m.dialObjects[obj] = dc
+	}
 	m.owner.postDoneMu.Unlock()
+	if terminal {
+		// The loop died between admission and publication: never register a
+		// dial entry the transfer cannot clean up. The module close
+		// triggered by Adapter.Done disposes the root.
+		_ = control.close()
+		panic(m.runtime.NewTypeError("dial: module is closed"))
+	}
 	if !m.control.open() {
 		m.owner.postDoneMu.Lock()
 		delete(m.dialObjects, obj)

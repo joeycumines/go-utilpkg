@@ -44,6 +44,11 @@ func (m *Module) allocateServerMethodPlan(
 	// removeServerMethodPlans and the post-Done transfer (clearPostDoneOwnerIndexes).
 	m.owner.postDoneMu.Lock()
 	defer m.owner.postDoneMu.Unlock()
+	if m.ownerTerminalLocked() {
+		// Refuse admission: a plan inserted post-Done would be cleared by
+		// the transfer before the transport could ever dispatch it.
+		return 0, errModuleClosed
+	}
 	if m.owner.nextServerPlan == math.MaxUint64 {
 		return 0, errOwnerIDExhausted
 	}

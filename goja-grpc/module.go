@@ -153,6 +153,20 @@ func (m *Module) checkOpen() error {
 	if m.control == nil || !m.control.open() {
 		return errModuleClosed
 	}
+	if m.adapter == nil {
+		// No Done barrier to consult (synthetic fixtures only; production
+		// Modules always carry an adapter): the control state governs.
+		return nil
+	}
+	select {
+	case <-m.adapter.Done():
+		// The event loop is already dead; the asynchronous module-close
+		// goroutine has not necessarily run yet. Treat the module as closed
+		// so late JS entry points fail admission here instead of publishing
+		// obligations the transfer will discard.
+		return errModuleClosed
+	default:
+	}
 	return nil
 }
 

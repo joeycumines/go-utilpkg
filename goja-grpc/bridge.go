@@ -322,6 +322,36 @@ func cloneOwnerMessage(message proto.Message) proto.Message {
 	return proto.Clone(message)
 }
 
+// ownerTerminalLocked reports whether owner-obligation admission is closed:
+// the single ownership transfer has run, or the adapter event loop is already
+// dead (Adapter.Done closed) so the transfer is pending and no future
+// settlement could ever reach a newly created obligation. It must be called
+// with postDoneMu held.
+//
+// This predicate closes the post-Done admission window: JS-facing entry
+// points keep running on the runtime-owning goroutine after Adapter.Done
+// closes and before the transfer clears the owner maps. Without the Done
+// check, a late call would insert a root, fence, promise entry, callback,
+// plan, or dial entry that the transfer then drops without settlement —
+// leaving a permanently pending Promise or a leaked map entry.
+func (m *Module) ownerTerminalLocked() bool {
+	if m.owner.transferred.Load() {
+		return true
+	}
+	if m.adapter == nil {
+		// Synthetic fixtures construct Modules without an adapter; such a
+		// module has no Done barrier, so the transferred flag is the only
+		// terminal signal. Production Modules always carry an adapter.
+		return false
+	}
+	select {
+	case <-m.adapter.Done():
+		return true
+	default:
+		return false
+	}
+}
+
 // ensureOwnerRoot must run on-owner. A tombstone means close already disposed
 // this exact preparing root, so late construction cannot republish it.
 //
@@ -340,12 +370,11 @@ func (m *Module) ensureOwnerRoot(id supervisorChildID) error {
 
 // ensureOwnerRootLocked is ensureOwnerRoot with postDoneMu already held.
 func (m *Module) ensureOwnerRootLocked(id supervisorChildID) error {
-	if m.owner.transferred.Load() {
-		// The ownership transfer has run (the event loop is done and the
-		// owner indexes were cleared). A late JS entry point reaching here
-		// must not allocate a fresh root+fence into the cleared maps: the
-		// root could never be disposed (the loop is dead), leaking the fence
-		// and the supervisor slot.
+	if m.ownerTerminalLocked() {
+		// The ownership transfer has run, or the adapter loop is already
+		// dead with the transfer pending: either way a fresh root+fence
+		// allocated here could never be disposed (the loop is dead), leaking
+		// the fence and the supervisor slot.
 		return errModuleClosed
 	}
 	if _, closed := m.owner.tombstones[id]; closed {
@@ -482,6 +511,12 @@ func (m *Module) addOwnerRootDisposer(
 	}
 	m.owner.postDoneMu.Lock()
 	defer m.owner.postDoneMu.Unlock()
+	if m.ownerTerminalLocked() {
+		// Refuse admission explicitly (redundant with the check inside
+		// ensureOwnerRootLocked but keeping this owner-map mutation locally
+		// auditable): a disposer appended post-Done could never fire.
+		return errModuleClosed
+	}
 	if err := m.ensureOwnerRootLocked(id); err != nil {
 		return err
 	}
@@ -530,6 +565,16 @@ func (m *Module) newOwnerPromise(
 	}
 	m.owner.postDoneMu.Lock()
 	defer m.owner.postDoneMu.Unlock()
+	if m.ownerTerminalLocked() {
+		// Post-Done admission is refused: reject the fresh native promise
+		// synchronously and return an unadmitted handle. The transfer must
+		// never be handed an obligation it cannot settle — an admitted entry
+		// here would be dropped with its resolvers, leaving the promise
+		// pending forever. (The promise is settled, never pending; its JS
+		// reactions still require a live loop to drain.)
+		_ = rejectNative(m.grpcErrorFromGoError(errModuleUnavailable))
+		return ownerPromiseHandle{value: value}
+	}
 	root := m.owner.roots[rootID]
 	if root == nil {
 		_ = rejectNative(m.grpcErrorFromGoError(errModuleUnavailable))
@@ -739,6 +784,11 @@ func (m *Module) rememberOwnerCallback(
 	}
 	m.owner.postDoneMu.Lock()
 	defer m.owner.postDoneMu.Unlock()
+	if m.ownerTerminalLocked() {
+		// Refuse admission: a callback registered post-Done would be
+		// discarded by the transfer without ever being invoked.
+		return ownerCallbackID{}
+	}
 	root := m.owner.roots[rootID]
 	if root == nil {
 		return ownerCallbackID{}
