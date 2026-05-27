@@ -32,21 +32,52 @@ type ownerDisposerCall struct {
 	err      error
 }
 
-// runPostDoneDisposers invokes every collected post-Done disposer outside the
-// postDone lock. Each disposer runs under recover() so that one panicking
-// disposer cannot skip the rest (matching the per-step panic isolation of the
-// live-owner path in runOwnerDisposalStep). Note: runtime.Goexit inside a
-// disposer still terminates the collecting goroutine, exactly as it would a
-// live-owner step goroutine.
-func runPostDoneDisposers(disposers []ownerDisposerCall) {
-	for _, call := range disposers {
+// ownerPostDoneDisposal is the two-phase post-Done disposal work captured
+// under postDoneMu and executed outside it by runPostDoneDisposal: the
+// pending disposers (in order), the roots whose fences must be force-closed
+// and supervisor-acked, and the runs whose completion channels must close
+// last.
+type ownerPostDoneDisposal struct {
+	disposers []ownerDisposerCall
+	roots     []supervisorChildID
+	runs      []*ownerDisposalRun
+}
+
+// runPostDoneDisposer executes one disposer in its own goroutine and joins it,
+// so that both a panic and runtime.Goexit retire only the disposable helper
+// goroutine. Disposers are host-registered user code and must never run on
+// the collector's goroutine: Goexit there would strand the collector (for
+// example Module.Close's executeCloseRun would skip cancel, complete, and
+// close(run.done), blocking every Close waiter forever).
+func runPostDoneDisposer(call ownerDisposerCall) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer func() { _ = recover() }()
+		call.disposer(call.err)
+	}()
+	<-done
+}
+
+// runPostDoneDisposal executes a captured post-Done disposal snapshot in the
+// prescribed order: every disposer sequentially (each isolated in its own
+// joined goroutine, so one Goexit or panic abandons at most that disposer),
+// then the roots' fences are force-closed and the supervisor acked, and only
+// then are the runs' completion channels closed. A waiter can therefore
+// observe disposal completion only after every user-derived disposer for that
+// snapshot has returned, and run.finish() never precedes disposer execution.
+func (d *ownerDispatcher) runPostDoneDisposal(snapshot ownerPostDoneDisposal) {
+	for _, call := range snapshot.disposers {
 		if call.disposer == nil {
 			continue
 		}
-		func() {
-			defer func() { _ = recover() }()
-			call.disposer(call.err)
-		}()
+		runPostDoneDisposer(call)
+	}
+	for _, root := range snapshot.roots {
+		d.finishRootClosePostDone(root)
+	}
+	for _, run := range snapshot.runs {
+		run.finish()
 	}
 }
 
@@ -164,17 +195,17 @@ func (d *ownerDispatcher) beginOwnerDisposal(
 	// still being routed.
 	d.bridge.postDoneMu.Lock()
 	if d.bridge.transferred.Load() {
-		disposers, done := d.discardOwnerRootsPostDoneLocked(roots, err)
+		snapshot, done := d.discardOwnerRootsPostDoneLocked(roots, err)
 		d.bridge.postDoneMu.Unlock()
-		runPostDoneDisposers(disposers)
+		d.runPostDoneDisposal(snapshot)
 		return done
 	}
 	select {
 	case <-d.adapter.Done():
 		d.bridge.transferred.Store(true)
-		disposers, done := d.discardOwnerRootsPostDoneLocked(roots, err)
+		snapshot, done := d.discardOwnerRootsPostDoneLocked(roots, err)
 		d.bridge.postDoneMu.Unlock()
-		runPostDoneDisposers(disposers)
+		d.runPostDoneDisposal(snapshot)
 		return done
 	default:
 	}
@@ -284,16 +315,19 @@ func (d *ownerDispatcher) finishOwnerDisposalPostDone(
 	<-d.adapter.Done()
 	d.bridge.postDoneMu.Lock()
 	d.bridge.transferred.Store(true)
-	disposers, _ := d.finishOwnerDisposalRunPostDoneLocked(id)
+	snapshot, _ := d.finishOwnerDisposalRunPostDoneLocked(id)
 	d.bridge.postDoneMu.Unlock()
-	runPostDoneDisposers(disposers)
+	d.runPostDoneDisposal(snapshot)
 }
 
 // finishOwnerDisposalRunPostDoneLocked tears down a pending disposal run after
-// the adapter is done and returns the disposers that must still fire. It must
-// be called with postDoneMu held, and the returned disposers must be invoked
-// with runPostDoneDisposers only after the lock is released: disposers are
-// host-registered user code and must never run inside the critical section.
+// the adapter is done, snapshotting the disposers that must still fire, the
+// roots whose fences must be force-closed, and the run whose completion
+// channel must close last. It must be called with postDoneMu held, and the
+// returned snapshot must be executed with runPostDoneDisposal only after the
+// lock is released: disposers are host-registered user code and must never
+// run inside the critical section, and the run's done channel must close only
+// after every disposer for it has returned.
 //
 // The returned ok reports whether a run was found. That guard is load-bearing
 // for memory safety: a second entry after run.actions = nil would panic on
@@ -304,23 +338,24 @@ func (d *ownerDispatcher) finishOwnerDisposalPostDone(
 // before invoking an action (runOwnerDisposalStep), and this function cannot
 // re-enter because the run is removed from disposals first and every sweep
 // runs under the same lock.
+//
+// Post-Done contract: disposers must still run. Promise and root actions are
+// intentionally dropped (no Goja projections post-Done; the roots' fences are
+// force-closed by the runner), but every not-yet-executed disposer fires
+// exactly once with the disposal error.
 func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 	id ownerDisposalID,
-) (disposers []ownerDisposerCall, ok bool) {
+) (snapshot ownerPostDoneDisposal, ok bool) {
 	run := d.bridge.disposals[id]
 	if run == nil {
-		return nil, false
+		return ownerPostDoneDisposal{}, false
 	}
 	delete(d.bridge.disposals, id)
-	// Post-Done contract: disposers must still run. Promise and root actions
-	// are intentionally dropped (no Goja projections post-Done; root fences
-	// are closed below), but every not-yet-executed disposer fires exactly
-	// once with the disposal error.
 	pending := run.actions[run.next:]
 	run.next = len(run.actions)
 	for _, action := range pending {
 		if action.kind == ownerDisposalDisposer && action.disposer != nil {
-			disposers = append(disposers, ownerDisposerCall{
+			snapshot.disposers = append(snapshot.disposers, ownerDisposerCall{
 				disposer: action.disposer,
 				err:      run.err,
 			})
@@ -328,43 +363,34 @@ func (d *ownerDispatcher) finishOwnerDisposalRunPostDoneLocked(
 	}
 	clear(run.actions)
 	run.actions = nil
-	for _, root := range run.roots {
-		var fenceDone <-chan struct{}
-		if value, ok := d.bridge.fences.Load(root); ok {
-			fenceDone = value.(*ownerRootFence).done
-		}
-		d.finishRootClose(root)
-		if fenceDone != nil {
-			// Waiting on the fence while holding postDoneMu is safe only
-			// because every fence-release path (releaseRootEffect,
-			// finishRootClose/PostDone) avoids postDoneMu entirely — a
-			// future refactor adding the lock to releaseRootEffect would
-			// deadlock here. The same applies to the wait in
-			// discardOwnerRootsPostDoneLocked.
-			<-fenceDone
-		}
-	}
+	snapshot.roots = append(snapshot.roots, run.roots...)
 	run.roots = nil
-	run.finish()
-	return disposers, true
+	snapshot.runs = append(snapshot.runs, run)
+	return snapshot, true
 }
 
 // discardOwnerRootsPostDoneLocked discards the given roots (and any pending
-// disposal runs) after the adapter is done, collecting every disposer that
-// must still fire. It must be called with postDoneMu held; the returned
-// disposers must be invoked with runPostDoneDisposers only after the lock is
-// released (see finishOwnerDisposalRunPostDoneLocked).
+// disposal runs) after the adapter is done, snapshotting every disposer that
+// must still fire, every root whose fence must be force-closed, and every run
+// whose completion channel must close last. It must be called with postDoneMu
+// held; the returned snapshot must be executed with runPostDoneDisposal only
+// after the lock is released (see finishOwnerDisposalRunPostDoneLocked). The
+// returned done channel is already closed: the caller executes the snapshot
+// inline and then joins the closed channel, so a waiter proceeds only after
+// that snapshot's disposers have returned.
 func (d *ownerDispatcher) discardOwnerRootsPostDoneLocked(
 	roots []supervisorRoot,
 	err error,
-) ([]ownerDisposerCall, <-chan struct{}) {
-	var disposers []ownerDisposerCall
+) (ownerPostDoneDisposal, <-chan struct{}) {
+	var snapshot ownerPostDoneDisposal
 	for _, root := range roots {
-		runDisposers, ok := d.finishOwnerDisposalRunPostDoneLocked(
+		runSnapshot, ok := d.finishOwnerDisposalRunPostDoneLocked(
 			ownerDisposalID(root.id),
 		)
 		if ok {
-			disposers = append(disposers, runDisposers...)
+			snapshot.disposers = append(snapshot.disposers, runSnapshot.disposers...)
+			snapshot.roots = append(snapshot.roots, runSnapshot.roots...)
+			snapshot.runs = append(snapshot.runs, runSnapshot.runs...)
 			continue
 		}
 		disposal := d.prepareOwnerRootDisposal(root.id, root.preparing)
@@ -373,7 +399,7 @@ func (d *ownerDispatcher) discardOwnerRootsPostDoneLocked(
 			clear(disposal.root.callbacks)
 			for _, disposer := range disposal.root.disposers {
 				if disposer != nil {
-					disposers = append(disposers, ownerDisposerCall{
+					snapshot.disposers = append(snapshot.disposers, ownerDisposerCall{
 						disposer: disposer,
 						err:      err,
 					})
@@ -381,18 +407,11 @@ func (d *ownerDispatcher) discardOwnerRootsPostDoneLocked(
 			}
 			clear(disposal.root.disposers)
 		}
-		var fenceDone <-chan struct{}
-		if value, ok := d.bridge.fences.Load(root.id); ok {
-			fenceDone = value.(*ownerRootFence).done
-		}
-		d.finishRootClosePostDone(root.id)
-		if fenceDone != nil {
-			<-fenceDone
-		}
+		snapshot.roots = append(snapshot.roots, root.id)
 	}
 	done := make(chan struct{})
 	close(done)
-	return disposers, done
+	return snapshot, done
 }
 
 func (d *ownerDispatcher) disposeOwnerRootOwner(
@@ -471,8 +490,8 @@ func (d *ownerDispatcher) disposeOwnerRootsWorker(
 	<-d.adapter.Done()
 	d.bridge.postDoneMu.Lock()
 	d.bridge.transferred.Store(true)
-	disposers, done := d.discardOwnerRootsPostDoneLocked(roots, err)
+	snapshot, done := d.discardOwnerRootsPostDoneLocked(roots, err)
 	d.bridge.postDoneMu.Unlock()
-	runPostDoneDisposers(disposers)
+	d.runPostDoneDisposal(snapshot)
 	<-done
 }

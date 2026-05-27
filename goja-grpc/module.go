@@ -255,49 +255,51 @@ func (m *Module) executeCloseRun(
 // retain unreachable Goja objects or constructor tombstones.
 //
 // This function sweeps owner.roots only: every disposer registered on a root
-// present in owner.roots is collected and invoked (after the lock is released,
-// via runPostDoneDisposers) with the module-unavailable disposal error, and
-// finishRootClosePostDone closes the root's fence and acks the supervisor.
+// present in owner.roots is collected into a two-phase snapshot and executed
+// (after the lock is released, via runPostDoneDisposal) with the
+// module-unavailable disposal error, and the snapshot runner force-closes the
+// root fences and acks the supervisor only after every disposer has returned.
 // Pending disposal runs in owner.disposals are NOT consumed here — they are
 // owned by the dispatcher's post-Done sweep (discardOwnerRootsPostDoneLocked
 // via beginOwnerDisposal / finishOwnerDisposalPostDone / disposeOwnerRootsWorker),
 // which races this function under postDoneMu so a disposer fires exactly once
 // regardless of which path wins.
+//
+// The disposer snapshot is executed inline on the calling goroutine, which is
+// safe only because runPostDoneDisposal isolates every disposer in its own
+// joined goroutine: executeCloseRun calls this function and must reach
+// cancel/complete/close(run.done) after the captured disposers complete, and
+// a disposer Goexit must strand nothing.
 func (m *Module) clearPostDoneOwnerIndexes() {
 	select {
 	case <-m.adapter.Done():
 	default:
 		return
 	}
+	var snapshot ownerPostDoneDisposal
 	m.owner.postDoneMu.Lock()
 	m.owner.transferred.Store(true)
-	var disposers []ownerDisposerCall
 	for id, root := range m.owner.roots {
 		if root == nil {
 			continue
 		}
 		for _, disposer := range root.disposers {
 			if disposer != nil {
-				disposers = append(disposers, ownerDisposerCall{
+				snapshot.disposers = append(snapshot.disposers, ownerDisposerCall{
 					disposer: disposer,
 					err:      errModuleUnavailable,
 				})
 			}
 		}
 		clear(root.disposers)
-		// Finish the root close so its fence.done channel is closed and the
-		// supervisor is acked. This is idempotent (a no-op if the disposal
-		// path already acked the root) and prevents fence/supervisor leaks
-		// for roots that were never disposed before the loop terminated
-		// (e.g. host-only roots like dial channels).
-		m.dispatcher.finishRootClosePostDone(id)
+		snapshot.roots = append(snapshot.roots, id)
 	}
 	clear(m.dialObjects)
 	clear(m.owner.roots)
 	clear(m.owner.tombstones)
 	clear(m.owner.serverPlans)
 	m.owner.postDoneMu.Unlock()
-	runPostDoneDisposers(disposers)
+	m.dispatcher.runPostDoneDisposal(snapshot)
 }
 
 // SetupExports wires the module's JS API onto the given exports object.
