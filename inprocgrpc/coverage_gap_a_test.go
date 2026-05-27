@@ -275,9 +275,15 @@ func TestCoverage_Invoke_InnerSubmitFailure(t *testing.T) {
 	// Wait for handler to start
 	<-handlerReady
 
-	// Stop the loop
+	// Stop the loop and wait for terminal cleanup to fully complete.
 	cancel()
 	<-done
+	// Loop.Run returning does not imply Loop.Done() is closed (terminal
+	// completion is published by an independent finisher). The handler's
+	// later claim consults Loop.Done() to decide whether the scheduler
+	// terminal must win; waiting here makes that decision deterministic
+	// instead of racing the finisher.
+	<-loop.Done()
 
 	// Let the handler proceed - inner Submit will fail
 	close(handlerProceed)
@@ -334,9 +340,15 @@ func TestCoverage_NewStream_InnerSubmitFailure(t *testing.T) {
 	// Wait for handler to start
 	<-handlerReady
 
-	// Stop the loop
+	// Stop the loop and wait for terminal cleanup to fully complete.
 	cancel()
 	<-done
+	// Loop.Run returning does not imply Loop.Done() is closed (terminal
+	// completion is published by an independent finisher). The handler's
+	// later claim consults Loop.Done() to decide whether the scheduler
+	// terminal must win; waiting here makes that decision deterministic
+	// instead of racing the finisher.
+	<-loop.Done()
 
 	// Let the handler proceed - inner Submit will fail, cleanup happens directly
 	close(handlerProceed)

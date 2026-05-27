@@ -81,3 +81,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Trailer delivery timing** — Trailers set between `Send` and `Finish` are now correctly
   included in the client's trailer metadata.
+
+- **Loop-death recv hang** — When the event loop terminates while a client
+  `RecvMsg` is in flight and no terminal claim is ever admitted, the RPC
+  lifecycle now installs the scheduler recovery publication. Previously the
+  scheduler-origin terminal selection left `materialReady`/`resultReady`
+  unpublished, so the blocked receive never returned and the RPC never
+  released, hanging any `Close` that joined the root control.

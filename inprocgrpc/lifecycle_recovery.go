@@ -556,6 +556,23 @@ func (r *rpcLifecycle) watch(ctx context.Context) {
 			case <-r.release:
 			}
 		case <-r.release:
+			return
+		}
+		// The loop can die after the initial select won on context
+		// cancellation (the caller context and the loop commonly share the
+		// same cancellation, making both cases ready at once). When no
+		// terminal claim is ever admitted, the rpcControlSchedulerDone
+		// reducer selects a scheduler-origin terminal and grants the recovery
+		// transfer, but nothing runs the recovery install unless this
+		// goroutine (or an admitted claim) starts it: without it,
+		// materialReady/resultReady/recoveryReady never close, a blocked
+		// RecvMsg hangs forever, and the RPC never releases (Done stays open,
+		// hanging any Close that joins the root control). Wait for the loop
+		// death (or the already-complete release) and install it.
+		select {
+		case <-r.loop.Done():
+			r.schedulerStopped()
+		case <-r.release:
 		}
 	}()
 }

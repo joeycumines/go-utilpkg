@@ -451,15 +451,32 @@ func TestBidiStream_SendAfterAbort(t *testing.T) {
 // The empty-target check is JS-level and tested in dial_test.go.
 
 // ============================================================================
-// Test: Bidi recv Submit failure
+// Test: Bidi recv with in-flight recv when the loop dies
 //
-// Covers: client.go line 749 (Submit failure in bidi recv goroutine)
+// Drives the raw in-process channel (go-inprocgrpc) directly: a bidi stream
+// with a receive in flight while the shared loop/caller context is cancelled.
+// The receive must complete with the terminal outcome of the caller-cancellation
+// vs scheduler-loss race (Canceled or Unavailable) and must never hang.
+//
+// Regression: a loop death with no admitted terminal claim used to leave the
+// RPC's scheduler recovery unpublished, hanging the in-flight RecvMsg forever
+// (go-inprocgrpc lifecycle watch fix).
 // ============================================================================
 
 func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 	env := newGrpcTestEnv(t)
+	defer env.shutdown()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	loopDone := make(chan struct{})
+	defer func() {
+		cancel()
+		select {
+		case <-loopDone:
+		case <-time.After(10 * time.Second):
+			t.Fatal("loop didn't stop")
+		}
+	}()
 
 	setupDone := make(chan struct{}, 1)
 	_ = env.runtime.Set("__ready", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
@@ -493,12 +510,14 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 		`)
 	})
 
-	go env.loop.Run(ctx)
+	go func() {
+		_ = env.loop.Run(ctx)
+		close(loopDone)
+	}()
 
 	select {
 	case <-setupDone:
 	case <-time.After(10 * time.Second):
-		cancel()
 		t.Fatal("timeout")
 	}
 
@@ -536,7 +555,10 @@ func TestBidiStream_RecvSubmitFailure(t *testing.T) {
 		recvDone <- cs.RecvMsg(resp2)
 	}()
 
-	// Cancel the loop.
+	// Cancel the loop. The same context drives both the loop and the stream,
+	// so the in-flight recv races the caller cancellation against the
+	// scheduler loss: whichever terminal selection wins is authoritative, and
+	// the recv must complete with that outcome (never hang).
 	<-recvStarted
 	cancel()
 
