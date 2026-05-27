@@ -121,12 +121,12 @@ func BenchmarkProcessBeforeExitTimerEndToEnd(b *testing.B) {
 func runProcessBeforeExitFixture(ctx context.Context) (processBeforeExitFixture, error) {
 	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
 	if err != nil {
-		panic(err)
+		return processBeforeExitFixture{}, fmt.Errorf("create Go event loop: %w", err)
 	}
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
-		panic(err)
+		return processBeforeExitFixture{}, errors.Join(fmt.Errorf("New: %w", err), loop.Close())
 	}
 	if err := adapter.Bind(); err != nil {
 		return processBeforeExitFixture{}, errors.Join(fmt.Errorf("Bind: %w", err), loop.Close())

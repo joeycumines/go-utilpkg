@@ -20,7 +20,7 @@ func runGojaFixture(parent context.Context, manifest *LoadedManifest, fixture Fi
 
 	loop, err := goeventloop.New(goeventloop.WithAutoExit(true))
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("create Go event loop: %w", err)
 	}
 	closed := false
 	defer func() {

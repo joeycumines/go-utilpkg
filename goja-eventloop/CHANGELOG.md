@@ -38,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `New` returns errors for nil loop, nil runtime, and invalid JS options before
+  claiming the runtime or event loop; construction validation failures are
+  never panics
 - `Adapter.Bind()` documents and enforces the fetch boundary: it does not install
   a `fetch` stub and preserves any host-provided `fetch` binding.
 - Construction now claims one exact loop/runtime/adapter identity. Binding

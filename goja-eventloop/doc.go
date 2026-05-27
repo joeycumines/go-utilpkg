@@ -163,9 +163,10 @@
 // `process.on("rejectionHandled", ...)` handlers when Goja-aware rejection
 // diagnostics are needed. The [eventloop.JSOption] values accepted by [New]
 // configure lower-level Go `eventloop.JS` primitives and do not replace the
-// native Goja Promise rejection tracker. New panics for nil inputs or invalid
-// options before it claims the runtime or event loop, matching the repository's
-// static-contract policy.
+// native Goja Promise rejection tracker. [New] returns an error for a nil
+// loop, a nil runtime, or invalid JS options before it claims the runtime or
+// event loop — construction validation failures are always returned, never
+// panics.
 //
 // [eventloop]: https://pkg.go.dev/github.com/joeycumines/go-eventloop
 // [goja]: https://pkg.go.dev/github.com/joeycumines/goja

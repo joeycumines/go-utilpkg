@@ -40,7 +40,11 @@ func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
 	if preBindCopy.OwnsLoop(loop) || preBindCopy.OwnsRuntime(runtime) {
 		t.Fatal("copied pre-Bind adapter reported ownership")
 	}
-	foreignLoop, _ := goeventloop.New()
+	foreignLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foreignLoop.Close() })
 	for name, candidate := range map[string]struct {
 		loop    *goeventloop.Loop
 		runtime *goja.Runtime
@@ -65,7 +69,11 @@ func TestAdapterOwnershipExclusiveClaims(t *testing.T) {
 	if adapter.OwnsLoop(nil) || adapter.OwnsRuntime(nil) {
 		t.Fatal("bound adapter reported nil ownership")
 	}
-	otherLoop, _ := goeventloop.New()
+	otherLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = otherLoop.Close() })
 	if adapter.OwnsLoop(otherLoop) || adapter.OwnsRuntime(goja.New()) {
 		t.Fatal("bound adapter reported foreign ownership")
 	}
@@ -179,7 +187,11 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 		defer assertAdapterPanic(t, "nil Adapter Submit")
 		_ = nilAdapter.Submit(func(*goja.Runtime) {})
 	}()
-	foreignLoop, _ := goeventloop.New()
+	foreignLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = foreignLoop.Close() })
 	if zero.OwnsLoop(foreignLoop) || zero.OwnsRuntime(goja.New()) {
 		t.Fatal("zero adapter reported ownership")
 	}
@@ -220,7 +232,11 @@ func TestAdapterOwnershipInvalidAndTerminal(t *testing.T) {
 	if adapter.OwnsRuntime(runtime) || !errors.Is(adapter.Submit(func(*goja.Runtime) {}), ErrAdapterFailed) {
 		t.Fatal("failed adapter retained usable ownership")
 	}
-	replacementLoop, _ := goeventloop.New()
+	replacementLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = replacementLoop.Close() })
 	replacement, err := New(replacementLoop, runtime)
 	if err != nil {
 		t.Fatalf("claim after failed Bind: %v", err)
@@ -253,7 +269,11 @@ func TestAdapterBindLifecycleConflictRestoresDisposeDescriptor(t *testing.T) {
 	if adapter.OwnsRuntime(runtime) || !errors.Is(adapter.Submit(func(*goja.Runtime) {}), ErrAdapterFailed) {
 		t.Fatal("failed adapter retained usable ownership")
 	}
-	replacementLoop, _ := goeventloop.New()
+	replacementLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = replacementLoop.Close() })
 	replacement, err := New(replacementLoop, runtime)
 	if err != nil {
 		t.Fatalf("claim runtime after lifecycle conflict: %v", err)
@@ -444,7 +464,11 @@ func TestAdapterSetConsoleOutputRejectsInvalidReceivers(t *testing.T) {
 		zero.SetConsoleOutput(nil)
 	}()
 
-	newLoop, _ := goeventloop.New()
+	newLoop, err := goeventloop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = newLoop.Close() })
 	adapter, err := New(newLoop, goja.New())
 	if err != nil {
 		t.Fatal(err)

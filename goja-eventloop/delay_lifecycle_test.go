@@ -18,13 +18,13 @@ func newBoundDelayAdapter(
 	t.Helper()
 	loop, err := goeventloop.New(options...)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = loop.Close() })
 	runtime := goja.New()
 	adapter, err := New(loop, runtime)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	if err := adapter.Bind(); err != nil {
 		t.Fatalf("Bind: %v", err)

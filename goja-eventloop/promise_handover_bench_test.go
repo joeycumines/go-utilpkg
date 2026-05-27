@@ -40,7 +40,7 @@ func newBenchEnv(tb testing.TB) *benchEnv {
 
 	loop, err := goeventloop.New()
 	if err != nil {
-		panic(err)
+		tb.Fatal(err)
 	}
 	env := &benchEnv{
 		loop:         loop,
@@ -52,7 +52,7 @@ func newBenchEnv(tb testing.TB) *benchEnv {
 	rt := goja.New()
 	adapter, err := New(loop, rt)
 	if err != nil {
-		panic(err)
+		tb.Fatal(err)
 	}
 	env.runtime = rt
 	env.adapter = adapter

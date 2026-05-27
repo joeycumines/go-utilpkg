@@ -397,7 +397,11 @@ func TestAdapterBindHostLifecycleReentryRollsBackWithoutDeadlock(t *testing.T) {
 			if adapter.state() != adapterStateFailed || adapter.OwnsRuntime(runtime) || adapter.OwnsLoop(loop) {
 				t.Fatal("host lifecycle reentry retained usable adapter ownership")
 			}
-			replacementLoop, _ := goeventloop.New()
+			replacementLoop, err := goeventloop.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = replacementLoop.Close() })
 			replacement, err := New(replacementLoop, runtime)
 			if err != nil {
 				t.Fatalf("claim runtime after host lifecycle reentry: %v", err)
