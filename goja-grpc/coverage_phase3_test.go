@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -518,113 +520,175 @@ func TestPhase3_BidiStream_SubmitFailure(t *testing.T) {
 }
 
 // ============================================================================
-// Test: client.go:506-509 — newClientStreamCall sender goroutine Submit failure
+// Test: sender goroutine owner-submission failure (deterministic seam)
 //
-// Creates a client-stream call object (promise resolves on running loop),
-// stops the loop, then calls closeSend(). The sender goroutine's Submit fails.
+// Replaces the former TestPhase3_ClientStreamSender_SubmitFailure and
+// TestPhase3_BidiStreamSender_SubmitFailure integration tests, which closed
+// the module before closeSend so newOwnerPromise returned an unadmitted
+// handle and streams.send was never invoked — the advertised sender
+// goroutine "Submit failure" branch was never reached.
+//
+// This seam keeps the stream worker and its supervisor root installed,
+// stops the loop without closing the module (the module's auto-close
+// watcher is pre-empted via the module context, and the control context is
+// test-owned so the worker's ctx-done watcher cannot preempt the command),
+// then drives closeSend. The command is unquestionably dequeued (the mock
+// CloseSend is invoked), the owner submission deterministically fails with
+// ErrLoopTerminated (the adapter loop is dead), and the sendLoop's failure
+// branch runs (failLocal publishes the worker terminal and retires the
+// root). The send promise entry is constructed white-box so the test holds
+// the native reject function and settles the promise exactly once after the
+// branch — the post-Done disposal intentionally discards promise entries
+// without Goja settlement.
 // ============================================================================
 
-func TestPhase3_ClientStreamSender_SubmitFailure(t *testing.T) {
+func TestPhase3_SenderSubmitFailureSeam(t *testing.T) {
 	env := newGrpcTestEnv(t)
+	defer env.shutdown()
 
-	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
-	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.EchoResponse")
+	// Pre-empt the module's closeAfterAdapter watcher: after the loop is
+	// stopped the module must stay OPEN so the planted root and the stream
+	// worker remain installed.
+	env.grpcMod.cancel()
 
-	mockCC := &phase3MockCC{
-		newStreamFn: func(ctx context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
-			return &phase3MockStream{ctx: ctx}, nil
-		},
-	}
-
+	// Test-owned control context: NOT derived from the module context, so the
+	// worker's ctx-done watcher cannot fire when the loop stops.
 	ctx, cancel := context.WithCancel(context.Background())
-
-	callReady := make(chan struct{})
-	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeClientStreamMethod(mockCC, "/test/ClientStream", inputDesc, outputDesc)
-		_ = env.runtime.Set("__p3CsSenderFn", fn)
-		_ = env.runtime.Set("__p3CsSenderOK", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
-			close(callReady)
-			return goja.Undefined()
-		}))
-		_, _ = env.runtime.RunString(`
-			__p3CsSenderFn().then(function(call) {
-				__p3CsSenderCall = call;
-				__p3CsSenderOK();
-			});
-		`)
-	})
-
-	loopDone := make(chan struct{})
-	go func() { env.loop.Run(ctx); close(loopDone) }()
-
-	select {
-	case <-callReady:
-	case <-time.After(5 * time.Second):
-		cancel()
-		t.Fatal("timeout waiting for call object")
+	defer cancel()
+	options := &callOpts{module: env.grpcMod, ctx: ctx, cancel: cancel}
+	if err := options.register(); err != nil {
+		t.Fatal(err)
 	}
-
-	// Stop loop, then enqueue closeSend. Sender goroutine's Submit fails.
-	cancel()
-	<-loopDone
-	env.grpcMod.Close()
-
-	_, _ = env.runtime.RunString(`__p3CsSenderCall.closeSend();`)
-	// Sender goroutine: CloseSend(mock)→nil, Submit→fail → lines 506-509
-}
-
-// ============================================================================
-// Test: client.go:668-671 — newBidiStream sender goroutine Submit failure
-//
-// Same pattern as client-stream sender, but for bidi streaming.
-// ============================================================================
-
-func TestPhase3_BidiStreamSender_SubmitFailure(t *testing.T) {
-	env := newGrpcTestEnv(t)
 
 	inputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 	outputDesc := phase3FindMsgDesc(t, env, "testgrpc.Item")
 
-	mockCC := &phase3MockCC{
-		newStreamFn: func(ctx context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
-			return &phase3MockStream{ctx: ctx}, nil
+	var closeSendCalls atomic.Int32
+	stream := &phase3MockStream{
+		ctx: ctx,
+		closeSendFn: func() error {
+			closeSendCalls.Add(1)
+			return nil
 		},
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	streamReady := make(chan struct{})
-	_ = env.loop.Submit(func() {
-		fn := env.grpcMod.makeBidiStreamMethod(mockCC, "/test/BidiStream", inputDesc, outputDesc)
-		_ = env.runtime.Set("__p3BsSenderFn", fn)
-		_ = env.runtime.Set("__p3BsSenderOK", env.runtime.ToValue(func(_ goja.FunctionCall) goja.Value {
-			close(streamReady)
-			return goja.Undefined()
-		}))
-		_, _ = env.runtime.RunString(`
-			__p3BsSenderFn().then(function(stream) {
-				__p3BsSenderStream = stream;
-				__p3BsSenderOK();
-			});
-		`)
-	})
-
-	loopDone := make(chan struct{})
-	go func() { env.loop.Run(ctx); close(loopDone) }()
-
-	select {
-	case <-streamReady:
-	case <-time.After(5 * time.Second):
-		cancel()
-		t.Fatal("timeout waiting for stream object")
+	worker, err := newClientStreamWorker(
+		stream,
+		nil, // no transport lifecycle
+		inputDesc,
+		outputDesc,
+		workerRoot{owner: env.grpcMod.dispatcher, control: options.control, id: options.rootID},
+		ownerCallbackID{}, // no onHeader
+		ownerCallbackID{}, // no onTrailer
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.grpcMod.streams.install(options.rootID, worker); err != nil {
+		t.Fatal(err)
+	}
+	// Mirror the projection's root disposer (see newClientStreamProjection):
+	// the worker entry is removed when the root is disposed.
+	if err := env.grpcMod.addOwnerRootDisposer(options.rootID, func(error) {
+		env.grpcMod.streams.remove(options.rootID)
+	}); err != nil {
+		t.Fatal(err)
 	}
 
-	cancel()
-	<-loopDone
-	env.grpcMod.Close()
+	// The send promise entry is constructed white-box (mirroring
+	// newOwnerPromise) so the test holds the native reject function: the
+	// post-Done disposal discards promise entries without settlement, so the
+	// seam settles the promise itself, exactly once, after the branch runs.
+	promise, _, rejectNative := env.runtime.NewPromise()
+	value := env.runtime.ToValue(promise)
+	root := env.grpcMod.owner.roots[options.rootID]
+	child, err := allocateOwnerChild(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root.promises[child] = ownerPromiseEntry{
+		value:         value,
+		resolveNative: func(any) error { return nil },
+		rejectNative:  rejectNative,
+		resolveProjection: func(ownerResult) any {
+			return goja.Undefined()
+		},
+		rejectProjection: func(ownerResult) any {
+			return goja.Undefined()
+		},
+		terminalProjection: func(ownerResult) any {
+			return goja.Undefined()
+		},
+	}
+	handle := ownerPromiseHandle{
+		value: value,
+		id:    ownerOperationID{root: options.rootID, child: child},
+	}
 
-	_, _ = env.runtime.RunString(`__p3BsSenderStream.closeSend();`)
-	// Sender goroutine: CloseSend(mock)→nil, Submit→fail → lines 668-671
+	// Stop the loop WITHOUT closing the module: owner submissions now fail
+	// deterministically with ErrLoopTerminated.
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer shutdownCancel()
+	if err := env.loop.Shutdown(shutdownCtx); err != nil {
+		t.Fatal(err)
+	}
+	<-env.grpcMod.adapter.Done()
+
+	// The send command: enqueued, dequeued by the sendLoop, whose owner
+	// submission then fails.
+	if err := env.grpcMod.streams.send(options.rootID, clientSendCommand{promise: handle.id, close: true}); err != nil {
+		t.Fatalf("send enqueue: %v", err)
+	}
+
+	// The command was dequeued: the sendLoop invoked the mock CloseSend.
+	deadline := time.Now().Add(defaultTimeout)
+	for closeSendCalls.Load() == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("send command was not dequeued")
+		}
+		runtime.Gosched()
+	}
+
+	// The failure branch ran: the worker failed locally (publishing its
+	// terminal) after the owner submission error.
+	deadline = time.Now().Add(defaultTimeout)
+	for {
+		terminal, _ := worker.terminalResult()
+		if terminal != nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("worker did not fail locally after the owner submission error")
+		}
+		runtime.Gosched()
+	}
+
+	// The root was retired by the failLocal's disposal: no supervisor
+	// operation remains.
+	deadline = time.Now().Add(defaultTimeout)
+	for supervisorKindCount(env.grpcMod, supervisorOperation) != 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("supervisor operation retained after the submit-failure disposal")
+		}
+		runtime.Gosched()
+	}
+
+	// The send promise settles exactly once (the seam holds the native
+	// reject; the post-Done disposal discarded the entry without Goja
+	// settlement).
+	if err := rejectNative(env.runtime.ToValue("seam settlement")); err != nil {
+		t.Fatal(err)
+	}
+	if promise.State() != goja.PromiseStateRejected {
+		t.Fatalf("send promise state = %v, want rejected", promise.State())
+	}
+
+	// Close still completes cleanly and cleans the remaining owner indexes.
+	if err := env.grpcMod.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := syncMapSize(&env.grpcMod.streams.workers); got != 0 {
+		t.Fatalf("stream workers retained after Close = %d", got)
+	}
 }
 
 // ============================================================================
