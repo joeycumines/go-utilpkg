@@ -44,6 +44,14 @@ type Module struct {
 
 	dialObjects map[*goja.Object]*dialConn
 
+	// promiseThen is the captured %Promise.prototype.then% intrinsic used to
+	// arm internal no-op rejection handlers on eagerly created client-stream
+	// response promises. It is captured lazily from the first response
+	// promise (whose prototype chain is the runtime's internal Promise
+	// prototype, immune to user shadowing of the global Promise) and is
+	// written only by the owner, so it needs no synchronization.
+	promiseThen goja.Callable
+
 	statusDetailStore *goja.Object
 	statusDetailGet   goja.Callable
 	statusDetailSet   goja.Callable
