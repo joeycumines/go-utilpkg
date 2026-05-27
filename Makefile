@@ -327,7 +327,14 @@ endif
 
 # includes workaround for https://github.com/golang/go/issues/72824
 # (the workaround is running go tool -n _twice_)
-go_tool_binary_path = $(if $(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(error no go tool found for $1))
+#
+# `go tool -n` prints the tool path in native format: backslash-separated on
+# Windows. Normalize to forward slashes so recipes still work when make.exe
+# routes them through a POSIX shell (e.g. WSL's /usr/bin/sh, which make.exe
+# uses whenever the recipe contains shell metacharacters): a backslash path
+# would have every separator eaten as a shell escape. CreateProcess accepts
+# forward slashes in executable paths, so direct execution is unaffected.
+go_tool_binary_path = $(if $(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(subst \,/,$(shell $(GO) tool -C $(PROJECT_ROOT) -n $1)),$(error no go tool found for $1))
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
 go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
@@ -463,8 +470,16 @@ $(eval $(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS := $$(addprefix $$(GO_TARGET_PREFI
 $(GO_TARGET_PREFIX)staticcheck: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS) ## Runs the staticcheck tool.
 
 .PHONY: $($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS)
-$($(GO_MK_VAR_PREFIX)STATICCHECK_TARGETS): $(GO_TARGET_PREFIX)staticcheck.%:
+$(addprefix $(GO_TARGET_PREFIX)staticcheck.,$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES)): $(GO_TARGET_PREFIX)staticcheck.%:
 	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_staticcheck STATICCHECK_FLAGS=$(call escape_command_arg,$(STATICCHECK_FLAGS)) "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
+
+# Modules without packages have nothing for staticcheck to analyze; skip the
+# tool entirely (mirrors vet's no-package handling). Running it anyway would
+# build and execute the tool against an empty package set, which fails on
+# Windows where the tool binary path cannot be executed by the WSL sh that
+# make.exe uses.
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)staticcheck.,$(GO_MODULE_SLUGS_NO_PACKAGES))
+$(addprefix $(GO_TARGET_PREFIX)staticcheck.,$(GO_MODULE_SLUGS_NO_PACKAGES)): $(GO_TARGET_PREFIX)staticcheck.%:
 
 .PHONY: $(GO_TARGET_PREFIX)_staticcheck
 $(GO_TARGET_PREFIX)_staticcheck:
