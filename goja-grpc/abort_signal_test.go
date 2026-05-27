@@ -579,7 +579,18 @@ func TestAbort_DuringStreamReceive(t *testing.T) {
 // ============================================================================
 
 // TestAbort_DuringBidiInterleave verifies aborting mid-conversation
-// in a bidi stream causes both send and recv to fail.
+// in a bidi stream causes both send and recv to fail with CANCELLED.
+//
+// Barriers proving the observed rejection is the abort's (review finding 5):
+//  1. The RPC is admitted: the first echo ("echo-hello") is received before
+//     the abort, so the stream is fully open and working.
+//  2. The abort is issued before any independent terminal condition: it fires
+//     after the echo while the server worker is still pumping (the client
+//     stream is not closed and the server resolves only on done), so no EOF
+//     or completion can precede the abort.
+//  3. The rejection reason is the abort itself: both the send and the recv
+//     after the abort must reject with exactly Canceled (1) — never
+//     Unavailable — regardless of the transport teardown race.
 func TestAbort_DuringBidiInterleave(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
@@ -672,8 +683,8 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 	if got := sendObj["name"]; got != "GrpcError" {
 		t.Errorf("expected %v, got %v", "GrpcError", got)
 	}
-	if got := sendObj["code"]; got != int64(1) && got != int64(14) {
-		t.Errorf("expected Canceled (1) or Unavailable (14), got %v", got)
+	if got := sendObj["code"]; got != int64(1) {
+		t.Errorf("expected Canceled (1), got %v", got)
 	}
 
 	recvErr := env.runtime.Get("recvError")
@@ -684,8 +695,8 @@ func TestAbort_DuringBidiInterleave(t *testing.T) {
 	if got := recvObj["name"]; got != "GrpcError" {
 		t.Errorf("expected %v, got %v", "GrpcError", got)
 	}
-	if got := recvObj["code"]; got != int64(1) && got != int64(14) {
-		t.Errorf("expected Canceled (1) or Unavailable (14), got %v", got)
+	if got := recvObj["code"]; got != int64(1) {
+		t.Errorf("expected Canceled (1), got %v", got)
 	}
 }
 

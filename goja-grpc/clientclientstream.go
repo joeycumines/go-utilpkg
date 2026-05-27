@@ -15,11 +15,15 @@ func (m *Module) makeClientStreamMethod(
 ) goja.Value {
 	return m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		options := m.parseCallOpts(call, 0)
-		promise := m.newOwnerPromise(options.rootID, func(result ownerResult) any {
-			id := result.(ownerStreamResult).id
-			return m.newClientStreamCall(
-				m.newClientStreamProjection(id, inputDesc, outputDesc),
-			)
+		// The projection is created eagerly (not inside the resolve
+		// projection): its root disposer removes the stream worker entry from
+		// the executor map at disposal, and a construction failure that
+		// prevents the stream promise from resolving must still trigger that
+		// removal — otherwise the worker entry would leak until the module
+		// dies. The stream id equals the reserved root id by construction.
+		projection := m.newClientStreamProjection(options.rootID, inputDesc, outputDesc)
+		promise := m.newOwnerPromise(options.rootID, func(ownerResult) any {
+			return m.newClientStreamCall(projection)
 		}, nil)
 		if !promise.admitted() {
 			options.finishOwner()

@@ -108,8 +108,35 @@ func (e *clientStreamExecutor) install(
 	if _, loaded := e.workers.LoadOrStore(id, worker); loaded {
 		return errors.New("gojagrpc: duplicate client stream root")
 	}
-	worker.start(func() { e.workers.Delete(id) })
+	// The worker is NOT removed on completion: it stays in the map (marked
+	// closed, with its terminal cached) until the root disposal removes it,
+	// so a late send/recv racing the teardown observes the stream's terminal
+	// (e.g. Canceled for an abort) instead of a missing worker (Unavailable).
+	worker.start()
 	return nil
+}
+
+// remove deletes the worker entry for a completed stream. It is called by the
+// root-disposal disposer (see newClientStreamProjection) so the entry lives
+// exactly as long as the root.
+func (e *clientStreamExecutor) remove(id supervisorChildID) {
+	if id == 0 {
+		return
+	}
+	e.workers.Delete(id)
+}
+
+// terminal returns the stream worker's cached terminal, or (nil, false) when
+// the worker is absent or not yet terminal. It lets the projection terminal
+// checks observe the worker's terminal during the disposal window in which
+// the root is already deleted but the disposal disposer has not yet recorded
+// the terminal on the projection.
+func (e *clientStreamExecutor) terminal(id supervisorChildID) (error, bool) {
+	value, ok := e.workers.Load(id)
+	if !ok {
+		return nil, false
+	}
+	return value.(*clientStreamWorker).terminalResult()
 }
 
 func (e *clientStreamExecutor) send(
@@ -163,7 +190,7 @@ func newClientStreamWorker(
 	return worker, nil
 }
 
-func (w *clientStreamWorker) start(remove func()) {
+func (w *clientStreamWorker) start() {
 	workerCount := 3
 	if w.lifecycle != nil {
 		workerCount++
@@ -183,9 +210,11 @@ func (w *clientStreamWorker) start(remove func()) {
 			err = io.EOF
 		}
 		w.root.finish(err)
-		if remove != nil {
-			remove()
-		}
+		// The worker entry in the stream executor is intentionally NOT
+		// removed here: it is removed by the root-disposal disposer (see
+		// clientStreamExecutor.install), so a late send/recv racing the
+		// teardown still observes this worker's terminal (e.g. Canceled for
+		// an abort) rather than a missing worker (Unavailable).
 	}()
 	go func() {
 		select {
@@ -664,6 +693,20 @@ func (p *clientStreamProjection) terminalState() (err error, eof bool) {
 	return
 }
 
+// terminalStateWithWorker returns the recorded terminal, falling back to the
+// stream worker's cached terminal while the worker entry still exists: the
+// disposal deletes the root before its disposer records the terminal on the
+// projection, and an independent owner turn in that window must still observe
+// the terminal (e.g. Canceled for an abort) instead of the nil-root
+// Unavailable rejection.
+func (p *clientStreamProjection) terminalStateWithWorker() (err error, eof bool) {
+	err, eof = p.terminalState()
+	if err != nil || eof {
+		return
+	}
+	return p.module.streams.terminal(p.streamID)
+}
+
 func (m *Module) newClientStreamProjection(
 	rootID supervisorChildID,
 	input protoreflect.MessageDescriptor,
@@ -681,13 +724,23 @@ func (m *Module) newClientStreamProjection(
 		projection.terminal = err
 		projection.eof = errors.Is(err, io.EOF)
 		m.owner.postDoneMu.Unlock()
+		// The root is disposed: the stream worker entry in the executor map
+		// is no longer needed. Removing it here (instead of at worker
+		// completion) keeps the worker and its terminal observable to late
+		// send/recv calls until the disposal settles the root.
+		m.streams.remove(rootID)
 	})
 	return projection
 }
 
 func (p *clientStreamProjection) immediateRecv() goja.Value {
 	promise, resolve, reject := p.module.runtime.NewPromise()
-	err, eof := p.terminalState()
+	// Read the same terminal source as the admission checks
+	// (terminalStateWithWorker): the checks may pass the worker's terminal or
+	// EOF while the projection's recorded terminal is still nil (the disposal
+	// records it after the root is deleted), and re-reading a different,
+	// empty state here would fall into the errModuleUnavailable fallback.
+	err, eof := p.terminalStateWithWorker()
 	if eof {
 		object := p.module.runtime.NewObject()
 		_ = object.Set("done", true)
@@ -705,7 +758,7 @@ func (p *clientStreamProjection) immediateRecv() goja.Value {
 func (p *clientStreamProjection) newRecvPromise(
 	terminalNext bool,
 ) goja.Value {
-	terminal, eof := p.terminalState()
+	terminal, eof := p.terminalStateWithWorker()
 	if terminal != nil || eof {
 		return p.immediateRecv()
 	}
@@ -751,7 +804,7 @@ func (p *clientStreamProjection) recv() goja.Value {
 }
 
 func (p *clientStreamProjection) response() goja.Value {
-	terminal, eof := p.terminalState()
+	terminal, eof := p.terminalStateWithWorker()
 	if terminal != nil || eof {
 		return p.immediateRecv()
 	}
@@ -788,6 +841,15 @@ func (p *clientStreamProjection) send(value goja.Value) goja.Value {
 	if err != nil {
 		panic(p.module.runtime.NewTypeError("send: %s", err))
 	}
+	// The root may already be disposed (the disposal disposer records the
+	// terminal): the recorded outcome — e.g. Canceled for an abort — is
+	// authoritative and must be exposed instead of the nil-root Unavailable
+	// rejection. The check runs before newOwnerPromise because that call
+	// rejects with Unavailable once the root is gone.
+	terminal, eof := p.terminalStateWithWorker()
+	if terminal != nil || eof {
+		return p.terminalRejectedPromise(eof, terminal)
+	}
 	promise := p.module.newOwnerPromise(p.rootID, nil, nil)
 	if !promise.admitted() {
 		return promise.value
@@ -803,6 +865,12 @@ func (p *clientStreamProjection) send(value goja.Value) goja.Value {
 }
 
 func (p *clientStreamProjection) closeSend() goja.Value {
+	// See send: a disposed root exposes its recorded terminal instead of the
+	// nil-root Unavailable rejection.
+	terminal, eof := p.terminalStateWithWorker()
+	if terminal != nil || eof {
+		return p.terminalRejectedPromise(eof, terminal)
+	}
 	promise := p.module.newOwnerPromise(p.rootID, nil, nil)
 	if !promise.admitted() {
 		return promise.value
@@ -815,4 +883,19 @@ func (p *clientStreamProjection) closeSend() goja.Value {
 		_ = p.module.rejectOwnerPromiseInline(promise.id, err)
 	}
 	return promise.value
+}
+
+// terminalRejectedPromise builds a directly rejected promise carrying the
+// recorded terminal outcome. It deliberately avoids newOwnerPromise (which
+// rejects with Unavailable once the root is disposed) and mirrors
+// immediateRecv: the rejection is the recorded terminal, and an EOF terminal
+// rejects like the enqueue path's selectedSendError (errSendClosed).
+func (p *clientStreamProjection) terminalRejectedPromise(eof bool, terminal error) goja.Value {
+	promise, _, reject := p.module.runtime.NewPromise()
+	if eof {
+		_ = reject(p.module.grpcErrorFromGoError(errSendClosed))
+	} else {
+		_ = reject(p.module.grpcErrorFromGoError(terminal))
+	}
+	return p.module.runtime.ToValue(promise)
 }
