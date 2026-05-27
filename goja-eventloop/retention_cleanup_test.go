@@ -427,6 +427,55 @@ func TestAbortSignalAnyDetachesSourceLinksAfterCompositeAbort(t *testing.T) {
 	}
 }
 
+// TestAbortSignalTimeoutRetentionRegistration is a deterministic structural
+// assertion (review finding 9): the abortTimeoutRef.retained pin must be set
+// exactly while the timeout signal has observers and is not aborted, and
+// unset once the observers are removed or the signal aborts. It uses no
+// runtime.GC() — the GC stress tests are secondary evidence.
+func TestAbortSignalTimeoutRetentionRegistration(t *testing.T) {
+	adapter := newRetentionCleanupAdapter(t)
+	state, obj := adapter.newAbortSignal()
+	stateRef := &abortTimeoutRef{adapter: weak.Make(adapter), signal: weak.Make(state)}
+	state.mu.Lock()
+	state.timeout = stateRef
+	state.mu.Unlock()
+
+	// Without observers the timeout retention is not registered.
+	refreshAbortTimeoutRetention(state)
+	if stateRef.retained.Load() != nil {
+		t.Fatal("timeout retention set without observers")
+	}
+
+	// Adding an observer registers the retention pin.
+	changeAbortSignalObservers(state, 1)
+	if stateRef.retained.Load() != state {
+		t.Fatal("timeout retention not set while the signal has an observer")
+	}
+
+	// Removing the observer releases the pin.
+	changeAbortSignalObservers(state, -1)
+	if stateRef.retained.Load() != nil {
+		t.Fatal("timeout retention not unset after the observer was removed")
+	}
+
+	// Re-adding an observer re-registers; aborting releases it.
+	changeAbortSignalObservers(state, 1)
+	if stateRef.retained.Load() != state {
+		t.Fatal("timeout retention not re-set while the signal has an observer")
+	}
+	beginAbortSignal(state, adapter.timeoutReason())
+	if stateRef.retained.Load() != nil {
+		t.Fatal("timeout retention not unset after abort")
+	}
+	state.mu.Lock()
+	timeout := state.timeout
+	state.mu.Unlock()
+	if timeout != nil {
+		t.Fatal("aborted timeout signal retained its timeout reference")
+	}
+	_ = obj
+}
+
 func TestAbortSignalTimeoutStopsRuntimeCleanupAfterAbort(t *testing.T) {
 	adapter := newRetentionCleanupAdapter(t)
 	bindRetainedAbortTestSurface(t, adapter)

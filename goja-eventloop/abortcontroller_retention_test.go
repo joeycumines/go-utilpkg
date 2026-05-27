@@ -8,8 +8,15 @@ import (
 	"github.com/joeycumines/goja"
 )
 
-// Regression tests for the AbortController -> AbortSignal strong-retention
-// contract. The signal JS object must live exactly as long as its controller
+// GC-stress tests for the AbortController -> AbortSignal strong-retention
+// contract. These tests are STRESS - SECONDARY EVIDENCE: they infer
+// non-retention from a fixed loop of runtime.GC calls, and the weak.Pointer
+// contract does not guarantee eventual nil. The primary deterministic proof
+// of the retention semantics lives in retention_cleanup_test.go
+// (TestAbortSignalConcurrentObserverRetentionMatchesFinalState,
+// TestAbortSignalAnyDetachesSourceLinksAfterCompositeAbort,
+// TestAbortSignalTimeoutRetentionRegistration) and
+// abort_signal_identity_test.go. The signal JS object must live exactly as long as its controller
 // (or a user-held reference), and must be collectible otherwise. A previous
 // implementation stored only a weak.Pointer to the signal in the controller
 // state, so after a Go GC cycle `controller.signal` returned nil and any JS
@@ -38,6 +45,9 @@ import (
 //     references, so the pending timer neither keeps the JS object alive nor
 //     outlives the test.
 
+// gcAbortRetention forces GC cycles. As above, this is stress-only evidence:
+// the deterministic structural retention assertions live in
+// retention_cleanup_test.go and abort_signal_identity_test.go.
 func gcAbortRetention(t *testing.T) {
 	t.Helper()
 	for range 100 {
