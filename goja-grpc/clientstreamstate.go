@@ -338,19 +338,30 @@ func (w *clientStreamWorker) publishTerminalState(
 	})
 }
 
+// failLocal publishes a worker-selected local terminal and retires the root.
+//
+// Ordering is load-bearing. publishTerminalState must run FIRST: it sets
+// w.closed under w.mu and only then cancels the operation context (to release
+// blocked transport calls) and closes w.done. The ctx-done watcher started in
+// start() treats a cancellation observed while w.closed is false as an
+// unexplained local failure and republishes it as context.Canceled — a cancel
+// issued before the terminal is published would let that Canceled terminal
+// win terminalOnce over the real error (the "expected 13, got 1" flake: a
+// server-stream sync-throw header error became context.Canceled). Conversely
+// the cancel must precede every observable settlement: w.done only closes
+// after the cancel, so sendLoop/recvLoop drains and the root disposal (both
+// of which settle promises) always run after the operation context is
+// canceled, keeping the "terminal error cancels the caller context" contract.
 func (w *clientStreamWorker) failLocal(err error) {
 	if err == nil {
 		return
 	}
 	err = canonicalWorkerError(err)
+	w.publishTerminalState(err, false, false)
 	w.root.control.stop(err)
 	w.localOnce.Do(func() {
 		w.root.owner.disposeOwnerRootWorker(w.root.id, err)
 	})
-	// Local operation outcomes remain visible even when transport truth was
-	// already stable. Transport release is still joined independently through
-	// operationControl's bound lifecycle.Done channel.
-	w.publishTerminalState(err, false, false)
 }
 
 func (w *clientStreamWorker) runTransportLoop(

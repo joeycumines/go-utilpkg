@@ -142,11 +142,21 @@ func (e *controlExecutor) install(
 	}
 	go func() {
 		<-slot.done
+		// Ordering is load-bearing for two complementary invariants.
+		// ackControl must run before Delete: a slot absent from the map must
+		// imply the supervisor control acknowledgement was already applied,
+		// otherwise stopJoin can miss the slot and complete() can race the
+		// ack (spurious "close completed before root acknowledgements").
+		// Delete must run before close(slot.acked): stopJoin unblocks on
+		// slot.acked, so the acknowledgement must imply the slot is already
+		// gone — otherwise a Close returning on that barrier could still
+		// observe a retained slot (the retention flake where the
+		// registration/RPC control lingered past Close).
 		if e.ackControl != nil {
 			e.ackControl(id)
 		}
-		slot.ackOnce.Do(func() { close(slot.acked) })
 		e.slots.Delete(id)
+		slot.ackOnce.Do(func() { close(slot.acked) })
 	}()
 	return nil
 }

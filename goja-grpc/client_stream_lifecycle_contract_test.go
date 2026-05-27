@@ -133,11 +133,13 @@ func TestClientStreamConstructorReturnsSelectedCloseTerminal(t *testing.T) {
 	defer stopLoop()
 	closeDone := make(chan error, 1)
 	go func() { closeDone <- env.grpcMod.Close() }()
-	select {
-	case err := <-closeDone:
-		t.Fatalf("Close returned before construction binding: %v", err)
-	default:
-	}
+	// The admitted-but-unbound construction is a close obligation: Close must
+	// cancel it, and a late bindRelease must observe the close-selected
+	// terminal (Unavailable). Close itself may resolve the obligation through
+	// the abandon path (which consumes the binding with nil), so the ordering
+	// assertions here are only the deterministic ones: cancellation first,
+	// then the selected terminal on bindRelease, then Close joining once the
+	// construction obligation is released.
 	select {
 	case <-ctx.Done():
 	case <-time.After(defaultTimeout):
