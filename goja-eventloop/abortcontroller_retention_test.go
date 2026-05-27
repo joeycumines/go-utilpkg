@@ -284,24 +284,50 @@ func TestAbortSignalAndEventTargetCollectibleWhenDropped(t *testing.T) {
 	})
 	t.Run("composite-with-listener", func(t *testing.T) {
 		adapter := newBoundAdapterForNode26Test(t)
-		value, err := adapter.runtime.RunString(`
+		if _, err := adapter.runtime.RunString(`
+			globalThis.__fn = null;
 			(function() {
 				var s = AbortSignal.any([AbortSignal.timeout(100000)]);
-				s.addEventListener("abort", function() {});
-				return s;
+				globalThis.__fn = function() {};
+				s.addEventListener("abort", globalThis.__fn);
+				globalThis.__ref = s;
+				s = null;
 			})();
-		`)
+			void 0;
+		`); err != nil {
+			t.Fatal(err)
+		}
+		value, err := adapter.runtime.RunString(`globalThis.__ref`)
 		if err != nil {
 			t.Fatal(err)
 		}
-		ref := weak.Make(value.(*goja.Object))
-		value = nil
-		if _, err := adapter.runtime.RunString(`void 0`); err != nil {
+		obj := value.(*goja.Object)
+		ref := weak.Make(obj)
+		// A non-aborted signal with abort listeners is retained per the DOM
+		// and must NOT be garbage-collected while the listener is attached —
+		// the old assertion here (that the dropped composite with a listener
+		// is collected) contradicted that contract and the identity tests in
+		// abort_signal_identity_test.go. This test guards the release side:
+		// removing the listener ends the retention and the object must then
+		// be collectible.
+		fn, err := adapter.runtime.RunString(`globalThis.__fn`)
+		if err != nil {
 			t.Fatal(err)
 		}
+		remove, ok := goja.AssertFunction(obj.Get("removeEventListener"))
+		if !ok {
+			t.Fatal("removeEventListener is not callable")
+		}
+		if _, err := remove(obj, adapter.runtime.ToValue("abort"), fn); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := adapter.runtime.RunString(`globalThis.__fn = null; globalThis.__ref = null; void 0;`); err != nil {
+			t.Fatal(err)
+		}
+		obj = nil
 		gcAbortRetention(t)
 		if ref.Value() != nil {
-			t.Fatal("dropped composite signal object remained strongly retained")
+			t.Fatal("composite signal remained retained after its listener was removed")
 		}
 	})
 }

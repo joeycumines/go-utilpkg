@@ -251,6 +251,15 @@ func (a *Adapter) runAbortSignalDispatch(dispatch *abortSignalDispatch, panicSta
 		_, eventState := a.eventStateArgument(eventObj)
 		a.dispatchJSEvent(dispatch.state.target, eventObj, eventState)
 	}))
+	// The abort event has been dispatched: the signal is aborted, the
+	// retention condition has ended, and the JS object must become
+	// collectible again (unless something else retains it). Release the
+	// object pin only now — the dispatch above required the exact object
+	// identity, and a GC between the aborted transition and this point must
+	// not sweep it.
+	dispatch.state.mu.Lock()
+	dispatch.state.retainedObject = nil
+	dispatch.state.mu.Unlock()
 	dispatch.completed = true
 }
 
@@ -266,6 +275,13 @@ func (dispatch *abortSignalDispatch) abandon() {
 		dispatch.algorithms[index] = nil
 	}
 	dispatch.algorithms = nil
+	// The dispatch never ran: the aborted state no longer needs its object
+	// pin (the abort event will not fire), so release it.
+	if dispatch.state != nil {
+		dispatch.state.mu.Lock()
+		dispatch.state.retainedObject = nil
+		dispatch.state.mu.Unlock()
+	}
 	dispatch.completed = true
 	dispatch.state = nil
 }

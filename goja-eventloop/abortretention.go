@@ -279,6 +279,27 @@ func refreshAbortTimeoutRetention(state *abortSignalState) {
 			timeout.retained.Store(nil)
 		}
 	}
+	// The JS signal object must be strongly retained exactly while the state
+	// is retained: a non-aborted signal with abort listeners, abort
+	// algorithms, or dependent observers (a source of a retained composite)
+	// must not be garbage-collected, and its dispatch must observe the exact
+	// object identity (this/target/currentTarget). The wrapper's weak
+	// pointer alone would let the object be swept while the pinned state
+	// survived, leaving dispatch with nil identities. The pin is released
+	// only by the abort dispatch completion (see runAbortSignalDispatch) or
+	// abandonment, and by this function when the retention condition ends
+	// while the state is NOT aborted. An aborted state's pin is never
+	// released here: beginAbortSignal re-evaluates this function (via
+	// unlinkAbortSignal -> adjustAbortDependentObservers) for signals that
+	// are sources of retained composites BEFORE their own dispatch runs, so
+	// releasing here would let a GC sweep the object mid-dispatch.
+	if retain {
+		if state.retainedObject == nil && state.target != nil {
+			state.retainedObject = state.target.object.Value()
+		}
+	} else if !state.aborted && state.retainedObject != nil {
+		state.retainedObject = nil
+	}
 	state.mu.Unlock()
 }
 

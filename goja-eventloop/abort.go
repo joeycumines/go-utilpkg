@@ -20,6 +20,19 @@ type abortSignalState struct {
 	mu                 sync.Mutex
 	aborted            bool
 	dependent          bool
+
+	// retainedObject strongly pins the JS signal object exactly while the
+	// Go-side retention machinery pins this state (see
+	// refreshAbortTimeoutRetention): a non-aborted signal with abort
+	// listeners, abort algorithms, or dependent observers must not be
+	// garbage-collected (DOM: retained signals are not collected), and
+	// dispatch must be able to observe the exact object identity for
+	// this/target/currentTarget. The pin is released when the retention
+	// condition ends or after the abort dispatch completes. It is scoped to
+	// retained states only — it is NOT an unconditional strong pointer on
+	// every EventTarget (unrelated EventTarget objects remain weakly
+	// referenced and collectible).
+	retainedObject *goja.Object
 }
 
 // abortControllerState carries exactly one reference — the strong JS signal
