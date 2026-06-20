@@ -54,6 +54,22 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 		return nil, fmt.Errorf("failed to create JS adapter: %w", err)
 	}
 
+	// Route goja's native promise jobs (async/await continuations, native
+	// Promise reactions) to the event loop's microtask queue. Without this,
+	// async/await uses goja's internal jobQueue which is only drained by
+	// leave() at the end of a top-level call — the event loop never drains
+	// it, so continuations are lost. This implements ECMA-262 §9.5.5
+	// HostEnqueuePromiseJob by forwarding each job to ScheduleMicrotask,
+	// which runs it on the loop goroutine in FIFO order. RunPromiseJob
+	// provides the same uncatchable-exception recovery that goja applies
+	// to top-level calls, converting InterruptedError/StackOverflowError
+	// into returned errors and clearing the interrupt flag.
+	runtime.SetPromiseJobEnqueuer(func(job func()) {
+		_ = loop.ScheduleMicrotask(func() {
+			_ = runtime.RunPromiseJob(job)
+		})
+	})
+
 	return &Adapter{
 		js:              js,
 		runtime:         runtime,
