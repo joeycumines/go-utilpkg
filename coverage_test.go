@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dop251/goja"
-	gojarequire "github.com/dop251/goja_nodejs/require"
+	"github.com/joeycumines/goja"
+	gojarequire "github.com/joeycumines/goja_nodejs/require"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"

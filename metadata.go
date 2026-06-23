@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc/metadata"
 )
 

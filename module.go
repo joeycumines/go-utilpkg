@@ -1,7 +1,7 @@
 package gojagrpc
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"

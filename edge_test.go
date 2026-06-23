@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 )
 
 // T102: Edge case - concurrent handler registration during RPC dispatch.
