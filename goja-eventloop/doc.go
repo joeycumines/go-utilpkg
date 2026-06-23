@@ -68,5 +68,5 @@
 //	loop.Run(context.Background())
 //
 // [eventloop]: github.com/joeycumines/go-eventloop
-// [goja]: github.com/dop251/goja
+// [goja]: github.com/joeycumines/goja
 package gojaeventloop

@@ -1,6 +1,6 @@
 # goja-eventloop
 
-Package goja-eventloop provides bindings between [go-eventloop](https://pkg.go.dev/github.com/joeycumines/go-eventloop) and the [Goja](https://github.com/dop251/goja) JavaScript runtime.
+Package goja-eventloop provides bindings between [go-eventloop](https://pkg.go.dev/github.com/joeycumines/go-eventloop) and the [Goja](https://github.com/joeycumines/goja) JavaScript runtime.
 
 See the [API docs](https://pkg.go.dev/github.com/joeycumines/goja-eventloop).
 
@@ -27,7 +27,7 @@ import (
     "context"
     "time"
 
-    "github.com/dop251/goja"
+    "github.com/joeycumines/goja"
     eventloop "github.com/joeycumines/go-eventloop"
     gojaeventloop "github.com/joeycumines/goja-eventloop"
 )
@@ -220,7 +220,7 @@ Static constants: `INDEX_SIZE_ERR` (1), `HIERARCHY_REQUEST_ERR` (3), `INVALID_CH
 
 ## Goja-Native APIs
 
-These are provided by the [Goja](https://github.com/dop251/goja) JavaScript engine itself (ECMAScript 2020+):
+These are provided by the [Goja](https://github.com/joeycumines/goja) JavaScript engine itself (ECMAScript 2020+):
 
 - **Primitives:** `Boolean`, `Number`, `String`, `BigInt`, `Symbol`
 - **Core:** `Object`, `Array`, `Function`, `Date`, `RegExp`, `JSON`, `Math`
@@ -260,7 +260,7 @@ concurrently from a separate goroutine.
 ## Requirements
 
 - Go 1.25+
-- [github.com/dop251/goja](https://github.com/dop251/goja)
+- [github.com/joeycumines/goja](https://github.com/joeycumines/goja)
 - [github.com/joeycumines/go-eventloop](https://pkg.go.dev/github.com/joeycumines/go-eventloop)
 
 ## License

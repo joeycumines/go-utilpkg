@@ -3,11 +3,9 @@ module github.com/joeycumines/goja-eventloop
 go 1.26.2
 
 require (
-	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	github.com/joeycumines/go-eventloop v0.0.0-20260428025403-c64a0733c558
+	github.com/joeycumines/goja v0.0.0-20260623201856-83e5a372a3c3
 )
-
-replace github.com/dop251/goja => github.com/joeycumines/goja v0.0.0-20260623084332-22eadc31347a
 
 require (
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect

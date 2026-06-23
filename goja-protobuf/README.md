@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/joeycumines/goja-protobuf.svg)](https://pkg.go.dev/github.com/joeycumines/goja-protobuf)
 
-Protocol Buffers support for the [goja](https://github.com/dop251/goja) JavaScript runtime. Create, manipulate, serialize, and deserialize protobuf messages from JavaScript running in Go.
+Protocol Buffers support for the [goja](https://github.com/joeycumines/goja) JavaScript runtime. Create, manipulate, serialize, and deserialize protobuf messages from JavaScript running in Go.
 
 ## Features
 
@@ -28,8 +28,8 @@ package main
 import (
     "os"
 
-    "github.com/dop251/goja"
-    "github.com/dop251/goja_nodejs/require"
+    "github.com/joeycumines/goja"
+    "github.com/joeycumines/goja_nodejs/require"
     gojaprotobuf "github.com/joeycumines/goja-protobuf"
 )
 

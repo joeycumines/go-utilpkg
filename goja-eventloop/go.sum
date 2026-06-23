@@ -18,8 +18,8 @@ github.com/joeycumines/go-eventloop v0.0.0-20260428025403-c64a0733c558 h1:0sgfWP
 github.com/joeycumines/go-eventloop v0.0.0-20260428025403-c64a0733c558/go.mod h1:qCUse+jIScRww182gNXjpM+6UnIs8YBNea+ELe0KLtQ=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
-github.com/joeycumines/goja v0.0.0-20260623084332-22eadc31347a h1:HoUbZSLeHqxA1TqRN3XxPfKiku4R96twxpFU0wDWft4=
-github.com/joeycumines/goja v0.0.0-20260623084332-22eadc31347a/go.mod h1:Sc+QOu1WruvaaeT/cxFez/pXHpI9ZDjg/E8QNfSVveI=
+github.com/joeycumines/goja v0.0.0-20260623201856-83e5a372a3c3 h1:FjkD6RzRdvnLuKjfb7KP6yDV1ye4MBwibxIrl7kiV8c=
+github.com/joeycumines/goja v0.0.0-20260623201856-83e5a372a3c3/go.mod h1:blZd3hcV+734zJXTgXGxxjWsbCK3hkq++I6cIIzmO7M=
 github.com/joeycumines/goroutineid v1.1.0 h1:qBh3nHCqr6GaELN5aoRptfoK+/1l9DnB8CzGLulrIUw=
 github.com/joeycumines/goroutineid v1.1.0/go.mod h1:tnbQeix98R8i/E4oejMogd9GowCxPd9/uySabNi3MJE=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=

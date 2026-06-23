@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dop251/goja"
-	gojaloop "github.com/dop251/goja_nodejs/eventloop"
+	"github.com/joeycumines/goja"
+	gojaloop "github.com/joeycumines/goja_nodejs/eventloop"
 )
 
 var (

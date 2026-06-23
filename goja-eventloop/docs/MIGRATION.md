@@ -1,7 +1,7 @@
 # Migration Guide for Goja Users
 
 This guide helps you integrate the `goja-eventloop` package with your existing
-[Goja](https://github.com/dop251/goja) JavaScript runtime.
+[Goja](https://github.com/joeycumines/goja) JavaScript runtime.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ import (
     "context"
     "time"
 
-    "github.com/dop251/goja"
+    "github.com/joeycumines/goja"
     eventloop "github.com/joeycumines/go-eventloop"
     gojaeventloop "github.com/joeycumines/goja-eventloop"
 )

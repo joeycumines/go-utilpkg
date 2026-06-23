@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/require"
+	"github.com/joeycumines/goja"
+	"github.com/joeycumines/goja_nodejs/require"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"

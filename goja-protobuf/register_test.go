@@ -3,8 +3,8 @@ package gojaprotobuf
 import (
 	"testing"
 
-	"github.com/dop251/goja"
-	gojarequire "github.com/dop251/goja_nodejs/require"
+	"github.com/joeycumines/goja"
+	gojarequire "github.com/joeycumines/goja_nodejs/require"
 )
 
 func TestRequire_LoadsProtobufModule(t *testing.T) {

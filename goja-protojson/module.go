@@ -3,7 +3,7 @@ package gojaprotojson
 import (
 	"fmt"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 )
 
@@ -50,7 +50,7 @@ func (m *Module) SetupExports(exports *goja.Object) {
 	_ = exports.Set("format", m.runtime.ToValue(m.jsFormat))
 }
 
-// Require returns a [github.com/dop251/goja_nodejs/require.ModuleLoader]
+// Require returns a [github.com/joeycumines/goja_nodejs/require.ModuleLoader]
 // that registers the protojson module. This follows the standard Goja
 // Node.js module pattern.
 //

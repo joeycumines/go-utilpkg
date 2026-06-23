@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Core bridge between [goja](https://github.com/dop251/goja) JavaScript runtime
+- Core bridge between [goja](https://github.com/joeycumines/goja) JavaScript runtime
   and [go-eventloop](https://github.com/joeycumines/go-eventloop), providing 56+
   Web Platform APIs as JavaScript globals via `Adapter.Bind()`
 - Timer APIs: `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`,

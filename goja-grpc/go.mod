@@ -3,20 +3,22 @@ module github.com/joeycumines/goja-grpc
 go 1.26.2
 
 require (
-	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
-	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/joeycumines/go-eventloop v0.0.0-20260428025403-c64a0733c558
 	github.com/joeycumines/go-inprocgrpc v0.0.0-20260331032414-92dc1790fe75
+	github.com/joeycumines/goja v0.0.0-20260623201856-83e5a372a3c3
 	github.com/joeycumines/goja-eventloop v0.0.0-20260331032353-b381e124657b
 	github.com/joeycumines/goja-protobuf v0.0.0-20260331032401-b5c5be7a30d3
 	github.com/joeycumines/goja-protojson v0.0.0-20260331032406-6db2ea2c9a56
+	github.com/joeycumines/goja_nodejs v0.0.0-20260623201902-5cfbacfa7161
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/dlclark/regexp2 v1.12.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
+	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c // indirect
+	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20260331032335-1bb8bb5ab23b // indirect

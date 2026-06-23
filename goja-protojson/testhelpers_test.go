@@ -3,7 +3,7 @@ package gojaprotojson_test
 import (
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	gojaprotojson "github.com/joeycumines/goja-protojson"
 	"google.golang.org/protobuf/proto"

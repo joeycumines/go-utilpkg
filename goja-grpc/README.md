@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/joeycumines/goja-grpc.svg)](https://pkg.go.dev/github.com/joeycumines/goja-grpc)
 
-JavaScript gRPC module for the [goja](https://github.com/dop251/goja) runtime. Build gRPC clients and servers in JavaScript, running entirely in-process within Go via [inprocgrpc](https://github.com/joeycumines/go-inprocgrpc).
+JavaScript gRPC module for the [goja](https://github.com/joeycumines/goja) runtime. Build gRPC clients and servers in JavaScript, running entirely in-process within Go via [inprocgrpc](https://github.com/joeycumines/go-inprocgrpc).
 
 ## Features
 
@@ -35,8 +35,8 @@ This module requires three companion packages:
 package main
 
 import (
-    "github.com/dop251/goja"
-    "github.com/dop251/goja_nodejs/require"
+    "github.com/joeycumines/goja"
+    "github.com/joeycumines/goja_nodejs/require"
     eventloop "github.com/joeycumines/go-eventloop"
     gojaeventloop "github.com/joeycumines/goja-eventloop"
     gojaprotobuf "github.com/joeycumines/goja-protobuf"

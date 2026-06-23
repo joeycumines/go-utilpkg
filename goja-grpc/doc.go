@@ -270,8 +270,8 @@
 //	    `)
 //	})
 //
-// [goja]: github.com/dop251/goja
-// [goja_nodejs/require]: github.com/dop251/goja_nodejs/require
+// [goja]: github.com/joeycumines/goja
+// [goja_nodejs/require]: github.com/joeycumines/goja_nodejs/require
 // [gojaprotobuf]: github.com/joeycumines/goja-protobuf
 // [inprocgrpc]: github.com/joeycumines/go-inprocgrpc
 // [eventloop.Loop.Submit]: github.com/joeycumines/go-eventloop

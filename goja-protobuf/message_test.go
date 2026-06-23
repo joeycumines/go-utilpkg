@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 )
 
 func TestMessage_GetSet_Scalars(t *testing.T) {

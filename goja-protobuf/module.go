@@ -3,7 +3,7 @@ package gojaprotobuf
 import (
 	"fmt"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/dynamicpb"

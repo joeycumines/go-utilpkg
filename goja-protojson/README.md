@@ -1,6 +1,6 @@
 # goja-protojson
 
-Protocol Buffers JSON encoding and decoding for [Goja](https://github.com/dop251/goja) JavaScript engine.
+Protocol Buffers JSON encoding and decoding for [Goja](https://github.com/joeycumines/goja) JavaScript engine.
 
 This module wraps Go's standard
 [`protojson`](https://pkg.go.dev/google.golang.org/protobuf/encoding/protojson)
@@ -32,7 +32,7 @@ go get github.com/joeycumines/goja-protojson
 
 ```go
 import (
-    "github.com/dop251/goja"
+    "github.com/joeycumines/goja"
     gojaprotobuf "github.com/joeycumines/goja-protobuf"
     gojaprotojson "github.com/joeycumines/goja-protojson"
 )

@@ -3,7 +3,7 @@ package gojaprotobuf
 import (
 	"strconv"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"

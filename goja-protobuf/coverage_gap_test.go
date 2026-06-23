@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dop251/goja"
-	gojarequire "github.com/dop251/goja_nodejs/require"
+	"github.com/joeycumines/goja"
+	gojarequire "github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"

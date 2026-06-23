@@ -1,7 +1,7 @@
 package gojaprotobuf
 
 import (
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/dynamicpb"

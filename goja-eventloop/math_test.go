@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
 )
 

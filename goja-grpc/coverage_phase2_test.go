@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/joeycumines/goja"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
