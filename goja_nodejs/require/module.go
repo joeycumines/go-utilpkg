@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"text/template"
 
-	js "github.com/dop251/goja"
-	"github.com/dop251/goja/parser"
+	js "github.com/joeycumines/goja"
+	"github.com/joeycumines/goja/parser"
 )
 
 type ModuleLoader func(*js.Runtime, *js.Object)
