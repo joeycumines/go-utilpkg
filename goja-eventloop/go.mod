@@ -7,8 +7,10 @@ require (
 	github.com/joeycumines/go-eventloop v0.0.0-20260428025403-c64a0733c558
 )
 
+replace github.com/dop251/goja => github.com/joeycumines/goja v0.0.0-20260623084332-22eadc31347a
+
 require (
-	github.com/dlclark/regexp2 v1.12.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20260331032335-1bb8bb5ab23b // indirect
