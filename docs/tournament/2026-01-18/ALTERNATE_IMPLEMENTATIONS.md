@@ -464,7 +464,7 @@ AlternateThree has **unacceptable platform variance** (22.7 point score differen
 
 ### Design Philosophy
 
-The Baseline wraps `github.com/dop251/goja_nodejs/eventloop` to serve as an **external reference implementation**. Our custom implementations must outperform this to be considered viable.
+The Baseline wraps `github.com/joeycumines/goja_nodejs/eventloop` to serve as an **external reference implementation**. Our custom implementations must outperform this to be considered viable.
 
 ### Implementation Details
 
