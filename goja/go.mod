@@ -8,8 +8,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible
 	github.com/goccy/go-yaml v1.19.2
 	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8
-	github.com/joeycumines/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d
 	golang.org/x/text v0.16.0
 )
 
-replace github.com/joeycumines/goja_nodejs => ../goja_nodejs
+require github.com/joeycumines/goja_nodejs v0.0.0-20260623201253-57636d2adbfc
