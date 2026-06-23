@@ -9,7 +9,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/dlclark/regexp2/v2"
-	"github.com/dop251/goja/unistring"
+	"github.com/joeycumines/goja/unistring"
 )
 
 type regexp2MatchCache struct {

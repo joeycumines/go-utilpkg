@@ -3,9 +3,9 @@ package goja
 import (
 	"testing"
 
-	"github.com/dop251/goja/file"
-	"github.com/dop251/goja/parser"
-	"github.com/dop251/goja/unistring"
+	"github.com/joeycumines/goja/file"
+	"github.com/joeycumines/goja/parser"
+	"github.com/joeycumines/goja/unistring"
 )
 
 func TestTaggedTemplateArgExport(t *testing.T) {
