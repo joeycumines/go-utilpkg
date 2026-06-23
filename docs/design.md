@@ -80,6 +80,6 @@ func (m *Module) SetupExports(exports *goja.Object)
 Sugar for `marshal(msg, {indent: '  '})`.
 
 ## Dependencies
-- `github.com/dop251/goja`
+- `github.com/joeycumines/goja`
 - `github.com/joeycumines/goja-protobuf` — for message wrapping and type resolution
 - `google.golang.org/protobuf/encoding/protojson`
