@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/dop251/goja/token"
+	"github.com/joeycumines/goja/token"
 
-	"github.com/dop251/goja/ast"
-	"github.com/dop251/goja/file"
-	"github.com/dop251/goja/unistring"
+	"github.com/joeycumines/goja/ast"
+	"github.com/joeycumines/goja/file"
+	"github.com/joeycumines/goja/unistring"
 )
 
 type blockType int
