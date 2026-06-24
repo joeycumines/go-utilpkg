@@ -3,8 +3,8 @@ package gojaeventloop
 import (
 	"testing"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 func setupTextEncoderTest(t *testing.T) (*Adapter, func()) {

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 func setupURLTest(t *testing.T) (*Adapter, func()) {

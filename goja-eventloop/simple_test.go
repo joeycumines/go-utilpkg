@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestPromiseRejectSimple - simple test without console.log statements that might fail if console not bound

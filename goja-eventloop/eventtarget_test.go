@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // testEventLoopSetup creates a loop and starts it in a goroutine, returning

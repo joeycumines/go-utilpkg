@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/joeycumines/goja"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcmetadata "google.golang.org/grpc/metadata"

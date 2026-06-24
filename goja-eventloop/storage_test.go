@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestLocalStorage_SetGetItem tests basic setItem/getItem.

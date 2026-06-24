@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joeycumines/goja" //nolint:staticcheck // used in Crypto_PreExisting
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja" //nolint:staticcheck // used in Crypto_PreExisting
 )
 
 // =============================================================================

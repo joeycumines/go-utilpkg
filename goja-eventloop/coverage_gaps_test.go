@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // coverSetup creates a minimal adapter for coverage tests.

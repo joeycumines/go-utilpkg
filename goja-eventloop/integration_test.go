@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // ============================================================================

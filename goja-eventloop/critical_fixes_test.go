@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestCriticalFixes_Verification verifies Promise identity and reject semantics.

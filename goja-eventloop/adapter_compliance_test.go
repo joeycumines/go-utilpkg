@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // TestReproThenable verifies if Promise.resolve handles "thenables" correctly

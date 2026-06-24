@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // Tests for coverage of wrapBlobWithObject (the slice-created Blob path).

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"

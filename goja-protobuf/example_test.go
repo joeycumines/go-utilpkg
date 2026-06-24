@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/joeycumines/goja"
-	"github.com/joeycumines/goja_nodejs/require"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
+	"github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )

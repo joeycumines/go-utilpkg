@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/joeycumines/goja"
 	goeventloop "github.com/joeycumines/go-eventloop"
+	"github.com/joeycumines/goja"
 )
 
 // Adapter bridges Goja runtime to goeventloop.JS.
