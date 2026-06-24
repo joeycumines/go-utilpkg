@@ -40,6 +40,24 @@ type Adapter struct { //nolint:govet // betteralign:ignore
 	consoleIndent    int                  // current group indentation level
 }
 
+// newPromiseJobEnqueuer returns a [goja.PromiseJobEnqueuer] that routes
+// goja's native promise jobs (async/await continuations, native Promise
+// reactions) to the event loop's microtask queue. Each job is wrapped in a
+// closure that calls [goja.Runtime.RunPromiseJob] for uncatchable-exception
+// recovery, then scheduled via [goeventloop.Loop.ScheduleMicrotask] which
+// runs it on the loop goroutine in FIFO order.
+//
+// Extracted from [New] as a package-level function so the closures get a
+// meaningful prefix in stack traces (newPromiseJobEnqueuer.func1) instead
+// of New.func1.
+func newPromiseJobEnqueuer(loop *goeventloop.Loop, runtime *goja.Runtime) goja.PromiseJobEnqueuer {
+	return func(job func()) {
+		_ = loop.ScheduleMicrotask(func() {
+			_ = runtime.RunPromiseJob(job)
+		})
+	}
+}
+
 // New creates a new Goja adapter for given event loop and runtime.
 func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	if loop == nil {
@@ -64,11 +82,7 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime) (*Adapter, error) {
 	// provides the same uncatchable-exception recovery that goja applies
 	// to top-level calls, converting InterruptedError/StackOverflowError
 	// into returned errors and clearing the interrupt flag.
-	runtime.SetPromiseJobEnqueuer(func(job func()) {
-		_ = loop.ScheduleMicrotask(func() {
-			_ = runtime.RunPromiseJob(job)
-		})
-	})
+	runtime.SetPromiseJobEnqueuer(newPromiseJobEnqueuer(loop, runtime))
 
 	return &Adapter{
 		js:              js,
