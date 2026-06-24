@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joeycumines/goja"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
 	"google.golang.org/grpc"

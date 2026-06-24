@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/joeycumines/goja"
-	"github.com/joeycumines/goja_nodejs/require"
 	eventloop "github.com/joeycumines/go-eventloop"
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
+	"github.com/joeycumines/goja"
 	gojaeventloop "github.com/joeycumines/goja-eventloop"
 	gojagrpc "github.com/joeycumines/goja-grpc"
 	gojaprotobuf "github.com/joeycumines/goja-protobuf"
+	"github.com/joeycumines/goja_nodejs/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
