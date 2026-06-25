@@ -684,3 +684,112 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+// TestDrain_NextTickDoesNotPreemptMicrotasks verifies that a nextTick
+// scheduled DURING a promise microtask does NOT preempt the remaining promise
+// microtasks. This matches Node.js v11+ semantics, where the runtime drains in
+// alternating BATCHES: all nextTick callbacks, then all promise microtasks, then
+// repeat (verified against Node v26.1.0 source: lib/internal/process/
+// task_queues.js processTicksAndRejections drains all nextTicks, then calls
+// runMicrotasks which maps to V8 MicrotaskQueue::PerformCheckpoint and drains
+// the entire promise queue).
+//
+// Node runtime reference (Node v26.1.0):
+//
+//	Promise.resolve().then(() => { log('promise1'); process.nextTick(() => log('tick')); });
+//	Promise.resolve().then(() => { log('promise2'); });
+//	// => promise1, promise2, tick
+//
+// The pre-fix drainMicrotasks checked nextTick before EVERY microtask, which
+// would yield promise1, tick, promise2 (a deviation). This test uses New() with
+// no options, so it exercises the default (unconditional) draining path.
+func TestDrain_NextTickDoesNotPreemptMicrotasks(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var order []string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	appendOrder := func(s string) {
+		mu.Lock()
+		order = append(order, s)
+		mu.Unlock()
+	}
+
+	// Submit all setup from within the loop goroutine so both microtasks are
+	// queued in the same tick before draining begins.
+	loop.Submit(func() {
+		// Microtask 1: schedules a nextTick during its execution. Under Node
+		// (batch) semantics the nextTick must NOT run until microtask 2 finishes.
+		if err := js.QueueMicrotask(func() {
+			appendOrder("promise1")
+			if err := loop.ScheduleNextTick(func() {
+				appendOrder("tick-in-promise1")
+				// done is closed here — this is the LAST expected event. It runs
+				// in the nextTick batch, AFTER both microtasks. Closing done only
+				// once all expected events are appended avoids a logical race
+				// where the test goroutine observes len(order) < 3.
+				close(done)
+			}); err != nil {
+				t.Errorf("ScheduleNextTick failed: %v", err)
+			}
+		}); err != nil {
+			t.Errorf("QueueMicrotask(promise1) failed: %v", err)
+		}
+
+		// Microtask 2: queued AFTER microtask 1. It must run BEFORE the nextTick
+		// scheduled by microtask 1 (batch draining: both microtasks drain in one
+		// microtask batch; the nextTick runs in the next nextTick batch).
+		if err := js.QueueMicrotask(func() {
+			appendOrder("promise2")
+		}); err != nil {
+			t.Errorf("QueueMicrotask(promise2) failed: %v", err)
+		}
+	})
+
+	go func() {
+		if err := loop.Run(ctx); err != nil && ctx.Err() == nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+	waitForRunning(t, loop)
+
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		mu.Lock()
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Expected (Node v11+ batch semantics): promise1, promise2, tick-in-promise1.
+	expected := []string{"promise1", "promise2", "tick-in-promise1"}
+	if len(order) != len(expected) {
+		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(order), order)
+	}
+	for i, ev := range expected {
+		if order[i] != ev {
+			t.Errorf("order[%d]: expected %q, got %q (nextTick preempted a microtask — Node v11+ batch semantics violated)", i, ev, order[i])
+		}
+	}
+}

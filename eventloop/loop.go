@@ -1101,11 +1101,25 @@ func (l *Loop) processExternal() {
 	}
 }
 
-// drainMicrotasks drains the microtask queue exhaustively.
-// nextTick callbacks run before regular microtasks (like Node.js).
-// Draining continues until both queues are empty. A safety counter
-// logs a warning after 100000 iterations to detect infinite loops,
-// but does NOT stop draining.
+// drainMicrotasks drains the nextTick and microtask queues exhaustively,
+// following Node.js v11+ semantics.
+//
+// Node.js drains in alternating BATCHES (verified against Node v26.1.0:
+// lib/internal/process/task_queues.js processTicksAndRejections drains ALL
+// nextTicks, then calls runMicrotasks — which maps to V8
+// MicrotaskQueue::PerformCheckpoint in src/node_task_queue.cc and drains the
+// ENTIRE promise queue — repeating until both are empty). First ALL pending
+// nextTick callbacks are drained, then ALL pending promise microtasks, then the
+// cycle repeats. A nextTick scheduled DURING a promise microtask is therefore
+// processed in the next nextTick batch — it does NOT preempt the remaining
+// promise microtasks of the current microtask drain. Within each batch the
+// respective queue is drained FIFO and exhaustively (a nextTick scheduling
+// another nextTick, or a microtask scheduling another microtask, runs in the
+// same batch).
+//
+// A safety counter logs a warning after 100000 executed callbacks to detect
+// runaway self-rescheduling, but does NOT stop draining — this matches
+// JavaScript's ability to starve the event loop with recursive microtasks.
 func (l *Loop) drainMicrotasks() {
 	// Fast path: if both queues are empty, skip the loop entirely.
 	// This avoids per-iteration Pop() overhead when no microtasks are pending,
@@ -1115,24 +1129,47 @@ func (l *Loop) drainMicrotasks() {
 	}
 
 	const safetyThreshold = 100000
+	var count int
+	warned := false
 
-	for i := 0; ; i++ {
-		if i == safetyThreshold {
-			l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
-		}
+	for {
+		progress := false
 
-		// Priority 1: nextTick queue (process.nextTick runs before Promise microtasks)
-		if fn := l.nextTickQueue.Pop(); fn != nil {
+		// Batch 1: drain ALL currently-available nextTick callbacks.
+		// (Node: processTicksAndRejections nextTick while-loop.)
+		for {
+			fn := l.nextTickQueue.Pop()
+			if fn == nil {
+				break
+			}
+			progress = true
 			l.safeExecuteFn(fn)
-			continue
+			count++
+			if !warned && count >= safetyThreshold {
+				l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+				warned = true
+			}
 		}
 
-		// Priority 2: Regular microtasks (Promise reactions, queueMicrotask)
-		fn := l.microtasks.Pop()
-		if fn == nil {
-			break
+		// Batch 2: drain ALL currently-available promise microtasks.
+		// (Node: runMicrotasks -> V8 MicrotaskQueue::PerformCheckpoint.)
+		for {
+			fn := l.microtasks.Pop()
+			if fn == nil {
+				break
+			}
+			progress = true
+			l.safeExecuteFn(fn)
+			count++
+			if !warned && count >= safetyThreshold {
+				l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+				warned = true
+			}
 		}
-		l.safeExecuteFn(fn)
+
+		if !progress {
+			return
+		}
 	}
 }
 
