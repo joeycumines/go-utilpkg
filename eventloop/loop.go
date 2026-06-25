@@ -987,17 +987,34 @@ func (l *Loop) tick() {
 	elapsed := time.Since(anchor)
 	l.tickElapsedTime.Store(int64(elapsed))
 
+	// Drain microtasks at the start of each tick to catch any that were
+	// scheduled during the previous tick's final drain or between ticks.
+	l.drainMicrotasks()
+
 	l.runTimers()
+
+	// Inter-phase drain: catch microtasks from timer callbacks before
+	// processing the internal queue.
+	l.drainMicrotasks()
 
 	l.processInternalQueue()
 
+	// Inter-phase drain: catch microtasks from internal tasks before
+	// processing the external queue.
+	l.drainMicrotasks()
+
 	l.processExternal()
+
+	// Inter-phase drain: catch microtasks from external tasks before
+	// draining auxJobs.
+	l.drainMicrotasks()
 
 	// Drain auxJobs (leftover from fast path mode transitions).
 	// This handles the race where Submit() checks canUseFastPath() before lock,
 	// mode changes, and task ends up in auxJobs while loop is in poll path.
 	l.drainAuxJobs()
 
+	// Safety net drain: catches any microtasks that escaped per-callback draining.
 	l.drainMicrotasks()
 
 	l.poll()
