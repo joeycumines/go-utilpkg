@@ -248,7 +248,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 
 // TestMicrotaskBudgetBypass verifies that StrictMode respects the budget logic too,
 // although the budget is per-drain call. If a single ingress task spawns 1000 microtasks,
-// strict mode will try to drain them all before the next ingress task.
+// per-callback draining will try to drain them all before the next ingress task.
 func TestStrictModeRespectsBudget(t *testing.T) {
 	l, err := New()
 	if err != nil {

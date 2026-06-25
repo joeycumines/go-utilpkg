@@ -448,7 +448,7 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 	// Submit all registrations atomically within the loop goroutine
 	// to avoid cross-tick race between microtasks and timers.
 	loop.Submit(func() {
-		// With strict ordering, microtasks should be processed more aggressively
+		// With per-callback draining, microtasks should be processed more aggressively
 		js.QueueMicrotask(func() {
 			order = append(order, "micro-1")
 			js.QueueMicrotask(func() {
@@ -496,7 +496,7 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 		}
 	}
 
-	t.Logf("Strict mode order: %v", order)
+	t.Logf("Per-callback draining order: %v", order)
 }
 
 // TestMicrotaskOrdering_MixedMicrotaskSources verifies ordering when microtasks

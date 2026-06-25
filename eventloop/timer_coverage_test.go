@@ -395,7 +395,7 @@ func TestRunTimers_StrictMicrotaskOrdering(t *testing.T) {
 		t.Fatal("Timers timed out")
 	}
 
-	// With strict ordering: timer1, microtask1, timer2, microtask2
+	// With per-callback draining: timer1, microtask1, timer2, microtask2
 	orderMu.Lock()
 	expected := []string{"timer1", "microtask1", "timer2", "microtask2"}
 	if len(order) != len(expected) {
