@@ -696,8 +696,9 @@ func (l *Loop) runAux() {
 	}
 	l.auxJobsSpare = jobs[:0]
 
-	// Drain internal queue (SubmitInternal tasks)
-	for {
+	// Drain internal queue (SubmitInternal tasks) with a per-tick budget.
+	const internalQueueBudget = 4096
+	for i := 0; i < internalQueueBudget; i++ {
 		l.internalQueueMu.Lock()
 		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
@@ -1022,9 +1023,11 @@ func (l *Loop) tick() {
 
 // processInternalQueue drains the internal priority queue.
 func (l *Loop) processInternalQueue() bool {
-	// Drain the chunked internal queue
+	// Drain the chunked internal queue with a per-tick budget to prevent
+	// starvation of other phases if tasks continuously re-queue themselves.
+	const internalQueueBudget = 4096
 	processed := false
-	for {
+	for i := 0; i < internalQueueBudget; i++ {
 		l.internalQueueMu.Lock()
 		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
@@ -1035,6 +1038,16 @@ func (l *Loop) processInternalQueue() bool {
 		l.drainMicrotasks()
 		processed = true
 	}
+
+	// If the queue still has tasks, log a warning. Remaining tasks are
+	// deferred to the next tick — this prevents starvation without dropping work.
+	l.internalQueueMu.Lock()
+	remaining := l.internal.Length()
+	l.internalQueueMu.Unlock()
+	if remaining > 0 {
+		l.logError("eventloop: internal queue budget exceeded, deferring remaining tasks to next tick", nil)
+	}
+
 	return processed
 }
 
