@@ -42,11 +42,13 @@
 //  1. Timer callbacks (earliest deadline first)
 //  2. Internal queue tasks ([Loop.SubmitInternal])
 //  3. External queue tasks ([Loop.Submit])
-//  4. Microtasks (nextTick and promise reactions, drained after every callback)
+//  4. Microtasks (drained after each macrotask when strict ordering is enabled)
 //
 // # Usage
 //
-//	loop, err := eventloop.New()
+//	loop, err := eventloop.New(
+//	    eventloop.WithStrictMicrotaskOrdering(true),
+//	)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

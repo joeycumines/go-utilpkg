@@ -557,6 +557,7 @@ func TestDebugMode_CombinedWithOtherOptions(t *testing.T) {
 	loop, err := New(
 		WithDebugMode(true),
 		WithMetrics(true),
+		WithStrictMicrotaskOrdering(true),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create loop: %v", err)
@@ -567,6 +568,9 @@ func TestDebugMode_CombinedWithOtherOptions(t *testing.T) {
 	}
 	if loop.metrics == nil {
 		t.Error("Expected metrics to be enabled")
+	}
+	if !loop.strictMicrotaskOrdering {
+		t.Error("Expected strict microtask ordering")
 	}
 }
 

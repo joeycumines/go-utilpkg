@@ -57,6 +57,7 @@ func TestNew_ResolveLoopOptions_NilOption(t *testing.T) {
 	// Test with nil options interspersed with valid options
 	loop, err := New(
 		nil,
+		WithStrictMicrotaskOrdering(true),
 		nil,
 		WithFastPathMode(FastPathDisabled),
 		nil,
@@ -67,6 +68,10 @@ func TestNew_ResolveLoopOptions_NilOption(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Verify options were applied correctly
+	if !loop.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true")
+	}
+
 	mode := FastPathMode(loop.fastPathMode.Load())
 	if mode != FastPathDisabled {
 		t.Errorf("FastPathMode should be Disabled (%d), got %d", FastPathDisabled, mode)
@@ -82,6 +87,10 @@ func TestNew_ResolveLoopOptions_EmptyOptions(t *testing.T) {
 	defer loop.Shutdown(context.Background())
 
 	// Verify defaults
+	if loop.strictMicrotaskOrdering {
+		t.Error("Default strictMicrotaskOrdering should be false")
+	}
+
 	mode := FastPathMode(loop.fastPathMode.Load())
 	if mode != FastPathAuto {
 		t.Errorf("Default FastPathMode should be Auto (%d), got %d", FastPathAuto, mode)
@@ -142,6 +151,7 @@ func TestNew_ResolveLoopOptions_ErrorAtMiddle(t *testing.T) {
 // TestNew_AllValidOptions tests that all supported options work correctly.
 func TestNew_AllValidOptions(t *testing.T) {
 	loop, err := New(
+		WithStrictMicrotaskOrdering(true),
 		WithFastPathMode(FastPathForced),
 		WithMetrics(true),
 		WithLogger(nil), // nil logger should be accepted
@@ -150,6 +160,10 @@ func TestNew_AllValidOptions(t *testing.T) {
 		t.Fatalf("New() with all valid options failed: %v", err)
 	}
 	defer loop.Shutdown(context.Background())
+
+	if !loop.strictMicrotaskOrdering {
+		t.Error("strictMicrotaskOrdering should be true")
+	}
 
 	mode := FastPathMode(loop.fastPathMode.Load())
 	if mode != FastPathForced {

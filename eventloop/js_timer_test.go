@@ -395,7 +395,7 @@ func TestJSQueueMicrotaskExecutes(t *testing.T) {
 func TestJSQueueMicrotaskOrdering(t *testing.T) {
 	ctx := t.Context()
 
-	loop, err := New()
+	loop, err := New(WithStrictMicrotaskOrdering(true))
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}

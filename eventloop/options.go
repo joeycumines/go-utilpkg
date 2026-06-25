@@ -5,12 +5,13 @@ import "github.com/joeycumines/logiface"
 // loopOptions holds configuration options for Loop creation.
 // Fields are ordered for optimal struct alignment (larger types first).
 type loopOptions struct {
-	logger           *logiface.Logger[logiface.Event] // 8 bytes
-	ingressChunkSize int                              // 8 bytes - Configurable chunk size for ChunkedIngress
-	fastPathMode     FastPathMode                     // 4 bytes
-	metricsEnabled   bool                             // 1 byte
-	debugMode        bool                             // 1 byte - Enable debug features like stack trace capture
-	autoExit         bool                             // 1 byte - Exit Run() when Alive() returns false
+	logger                  *logiface.Logger[logiface.Event] // 8 bytes
+	ingressChunkSize        int                              // 8 bytes - Configurable chunk size for ChunkedIngress
+	fastPathMode            FastPathMode                     // 4 bytes
+	strictMicrotaskOrdering bool                             // 1 byte
+	metricsEnabled          bool                             // 1 byte
+	debugMode               bool                             // 1 byte - Enable debug features like stack trace capture
+	autoExit                bool                             // 1 byte - Exit Run() when Alive() returns false
 }
 
 // Default chunk size for ingress queue.
@@ -22,6 +23,29 @@ const defaultIngressChunkSize = 64
 type LoopOption interface {
 	applyLoop(*loopOptions) error
 }
+
+// --- StrictMicrotaskOrderingOption ---
+
+// StrictMicrotaskOrderingOption controls whether microtasks should be drained
+// after each task execution for strict ordering.
+type StrictMicrotaskOrderingOption struct {
+	enabled bool
+}
+
+// WithStrictMicrotaskOrdering sets whether microtasks should be drained
+// after each task execution for strict ordering.
+// When enabled, microtasks are guaranteed to run after every task.
+// When disabled (default), microtasks are drained in batches for better performance.
+func WithStrictMicrotaskOrdering(enabled bool) *StrictMicrotaskOrderingOption {
+	return &StrictMicrotaskOrderingOption{enabled: enabled}
+}
+
+func (o *StrictMicrotaskOrderingOption) applyLoop(opts *loopOptions) error {
+	opts.strictMicrotaskOrdering = o.enabled
+	return nil
+}
+
+var _ LoopOption = (*StrictMicrotaskOrderingOption)(nil)
 
 // --- FastPathModeOption ---
 

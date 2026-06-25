@@ -155,9 +155,10 @@ func TestSubmitInternal_TerminatedState(t *testing.T) {
 	}
 }
 
-// TestRunTimers_CanceledWithStrictOrdering tests the canceled timer path.
+// TestRunTimers_CanceledWithStrictOrdering tests the canceled timer path
+// with StrictMicrotaskOrdering enabled.
 func TestRunTimers_CanceledWithStrictOrdering(t *testing.T) {
-	loop, err := New()
+	loop, err := New(WithStrictMicrotaskOrdering(true))
 	if err != nil {
 		t.Fatalf("failed to create loop: %v", err)
 	}
