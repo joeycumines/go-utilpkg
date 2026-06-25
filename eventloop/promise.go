@@ -482,22 +482,45 @@ func (p *ChainedPromise) resolve(value any) {
 
 	p.h0 = handler{} // Clears h0
 	p.result = value
-	p.state.Store(int32(Fulfilled))
+
+	if p.js != nil {
+		// JS-backed: schedule handlers BEFORE setting state.
+		// addHandler's optimistic lock-free path reads p.state without holding p.mu.
+		// If state is set before handlers are scheduled, a concurrent Then() call
+		// can schedule its handler BEFORE the pre-existing handlers, violating
+		// Promise/A+ §2.2.6 ("callbacks must execute in the order of their
+		// originating calls to then"). By scheduling first, any concurrent
+		// addHandler that sees the settled state will append to the microtask
+		// ring AFTER the pre-existing handlers are already queued.
+		if useH0 {
+			p.scheduleHandler(h0, int32(Fulfilled), value)
+		}
+		for _, h := range handlers {
+			p.scheduleHandler(h, int32(Fulfilled), value)
+		}
+		// Set state AFTER scheduling so the optimistic path only fires
+		// once pre-existing handlers are already in the microtask ring.
+		p.state.Store(int32(Fulfilled))
+	} else {
+		// Standalone (p.js == nil): scheduleHandler runs executeHandler
+		// SYNCHRONOUSLY inside this lock. If a handler calls Then() on the
+		// same promise, addHandler would see Pending and try to acquire
+		// p.mu → deadlock. Set state BEFORE scheduling to avoid this.
+		// Standalone promises are explicitly non-Promise/A+ compliant
+		// (see thenStandalone comment), so FIFO ordering is not guaranteed.
+		p.state.Store(int32(Fulfilled))
+		if useH0 {
+			p.scheduleHandler(h0, int32(Fulfilled), value)
+		}
+		for _, h := range handlers {
+			p.scheduleHandler(h, int32(Fulfilled), value)
+		}
+	}
 
 	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
 	// This ensures ToChannel works even when the event loop is not running.
 	if p.js != nil {
 		p.js.notifyToChannels(p, value)
-	}
-
-	// Schedule handlers inside lock to guarantee ordering consistency
-	// with concurrent addHandler calls (Promise/A+ §2.2.6).
-	// This matches reject()'s T27 pattern.
-	if useH0 {
-		p.scheduleHandler(h0, int32(Fulfilled), value)
-	}
-	for _, h := range handlers {
-		p.scheduleHandler(h, int32(Fulfilled), value)
 	}
 	p.mu.Unlock()
 
@@ -527,26 +550,43 @@ func (p *ChainedPromise) reject(reason any) {
 	}
 
 	p.result = reason
-	p.state.Store(int32(Rejected))
+
+	if p.js != nil {
+		// JS-backed: schedule handlers BEFORE setting state (same as resolve).
+		// See resolve() for the full rationale on Promise/A+ §2.2.6 ordering.
+		// CRITICAL (T27): Handler microtasks must also run before
+		// checkUnhandledRejections. This is preserved because trackRejection
+		// is called after mu.Unlock, which is after both scheduling and state.Store.
+		if useH0 {
+			p.scheduleHandler(h0, int32(Rejected), reason)
+		}
+		for _, h := range handlers {
+			p.scheduleHandler(h, int32(Rejected), reason)
+		}
+		// Clear handlers AFTER scheduling their microtasks
+		p.h0 = handler{} // Clears h0
+		// Set state AFTER scheduling so the optimistic path only fires
+		// once pre-existing handlers are already in the microtask ring.
+		p.state.Store(int32(Rejected))
+	} else {
+		// Standalone (p.js == nil): set state BEFORE scheduling to avoid
+		// deadlock (see resolve() for explanation). Standalone promises
+		// are non-Promise/A+ compliant, so FIFO ordering is not guaranteed.
+		p.state.Store(int32(Rejected))
+		if useH0 {
+			p.scheduleHandler(h0, int32(Rejected), reason)
+		}
+		for _, h := range handlers {
+			p.scheduleHandler(h, int32(Rejected), reason)
+		}
+		p.h0 = handler{} // Clears h0
+	}
 
 	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
 	// This ensures ToChannel works even when the event loop is not running.
 	if p.js != nil {
 		p.js.notifyToChannels(p, reason)
 	}
-
-	// CRITICAL (T27): Schedule handler microtasks WHILE holding lock.
-	// This ensures proper ordering: handler microtasks run before
-	// checkUnhandledRejections, preventing false-positive reports.
-	if useH0 {
-		p.scheduleHandler(h0, int32(Rejected), reason)
-	}
-	for _, h := range handlers {
-		p.scheduleHandler(h, int32(Rejected), reason)
-	}
-
-	// Clear handlers AFTER scheduling their microtasks
-	p.h0 = handler{} // Clears h0
 
 	p.mu.Unlock()
 
