@@ -26,8 +26,8 @@ type LoopOption interface {
 
 // --- StrictMicrotaskOrderingOption ---
 
-// StrictMicrotaskOrderingOption controls whether microtasks should be drained
-// after each task execution for strict ordering.
+// StrictMicrotaskOrderingOption controls whether microtasks are drained after
+// each timer callback, external task, and aux job.
 type StrictMicrotaskOrderingOption struct {
 	enabled bool
 }

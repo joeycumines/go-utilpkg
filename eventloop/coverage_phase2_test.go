@@ -268,7 +268,7 @@ func TestProcessExternal_StrictMicrotaskOrdering(t *testing.T) {
 	wg.Add(2)
 
 	// Submit two tasks that each schedule a microtask.
-	// With strict ordering: task1 → micro1 → task2 → micro2
+	// With per-callback draining: task1 → micro1 → task2 → micro2
 	loop.Submit(func() {
 		mu.Lock()
 		order = append(order, "task1")
@@ -318,7 +318,7 @@ func TestProcessExternal_StrictMicrotaskOrdering(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// With strict ordering, micro1 must come before task2
+	// With per-callback draining, micro1 must come before task2
 	if len(order) < 4 {
 		t.Fatalf("expected at least 4 events, got %d: %v", len(order), order)
 	}
@@ -336,7 +336,7 @@ func TestProcessExternal_StrictMicrotaskOrdering(t *testing.T) {
 	}
 
 	if micro1Idx >= 0 && task2Idx >= 0 && micro1Idx > task2Idx {
-		t.Errorf("strict ordering violated: micro1 at %d, task2 at %d; order=%v",
+		t.Errorf("per-callback draining violated: micro1 at %d, task2 at %d; order=%v",
 			micro1Idx, task2Idx, order)
 	}
 }
@@ -368,7 +368,7 @@ func TestRunTimers_StrictMicrotaskOrderingInterleave(t *testing.T) {
 	wg.Add(2) // wait for both microtasks
 
 	// Schedule two timers with delay 0 — they fire immediately on next tick.
-	// Each timer schedules a microtask. With strict ordering,
+	// Each timer schedules a microtask. With per-callback draining,
 	// timer1 → micro1 → timer2 → micro2
 	loop.ScheduleTimer(0, func() {
 		mu.Lock()
@@ -418,7 +418,7 @@ func TestRunTimers_StrictMicrotaskOrderingInterleave(t *testing.T) {
 		t.Fatalf("expected 4 events, got %d: %v", len(order), order)
 	}
 
-	// With strict ordering, micro1 should come before timer2
+	// With per-callback draining, micro1 should come before timer2
 	micro1Idx := -1
 	timer2Idx := -1
 	for i, v := range order {
@@ -431,7 +431,7 @@ func TestRunTimers_StrictMicrotaskOrderingInterleave(t *testing.T) {
 	}
 
 	if micro1Idx >= 0 && timer2Idx >= 0 && micro1Idx > timer2Idx {
-		t.Errorf("strict ordering violated: micro1@%d, timer2@%d; order=%v",
+		t.Errorf("per-callback draining violated: micro1@%d, timer2@%d; order=%v",
 			micro1Idx, timer2Idx, order)
 	}
 }
@@ -1089,7 +1089,7 @@ func TestScheduleNextTick_FastMode(t *testing.T) {
 // =============================================================================
 
 // TestDrainAuxJobs_StrictMicrotaskOrdering exercises the strictMicrotaskOrdering
-// path in drainAuxJobs by combining strict ordering + timer (forces tick) + Submit.
+// path in drainAuxJobs by combining per-callback draining + timer (forces tick) + Submit.
 func TestDrainAuxJobs_StrictMicrotaskOrdering(t *testing.T) {
 	loop, err := New(WithStrictMicrotaskOrdering(true))
 	if err != nil {
@@ -1877,7 +1877,7 @@ func TestChunkedIngress_PopDoubleCheckAfterAdvance(t *testing.T) {
 // =============================================================================
 
 // TestLoop_MetricsStrictDisabledEndToEnd exercises the full metrics pipeline
-// with strict ordering and disabled fast path to force tick() execution.
+// with per-callback draining and disabled fast path to force tick() execution.
 func TestLoop_MetricsStrictDisabledEndToEnd(t *testing.T) {
 	loop, err := New(
 		WithMetrics(true),

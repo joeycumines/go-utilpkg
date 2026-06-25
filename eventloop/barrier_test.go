@@ -79,7 +79,7 @@ func TestBarrierOrderingModesUnit(t *testing.T) {
 		l.drainMicrotasks() // Cleanup any remainder
 
 		// Check Order
-		// Strict mode: processExternal runs A, then drains (M1). Then runs B, then drains (M2).
+		// Per-callback draining: processExternal runs A, then drains (M1). Then runs B, then drains (M2).
 		expected := []string{"A", "M1", "B", "M2"}
 
 		if len(order) != 4 {
