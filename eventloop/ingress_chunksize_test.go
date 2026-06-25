@@ -181,7 +181,6 @@ func TestWithIngressChunkSize_CombinedWithOtherOptions(t *testing.T) {
 		WithIngressChunkSize(128),
 		WithMetrics(true),
 		WithFastPathMode(FastPathAuto),
-		WithStrictMicrotaskOrdering(true),
 	)
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
@@ -193,9 +192,6 @@ func TestWithIngressChunkSize_CombinedWithOtherOptions(t *testing.T) {
 	}
 	if loop.metrics == nil {
 		t.Error("expected metrics to be enabled")
-	}
-	if !loop.strictMicrotaskOrdering {
-		t.Error("expected strict microtask ordering to be enabled")
 	}
 }
 

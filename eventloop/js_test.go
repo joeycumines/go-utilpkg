@@ -65,8 +65,7 @@ func TestNewJSMultipleInstances(t *testing.T) {
 
 // Test: NewJS with existing loop options
 func TestNewJSWithLoopOptions(t *testing.T) {
-	// Create loop with strict microtask ordering
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
 	}
@@ -77,9 +76,6 @@ func TestNewJSWithLoopOptions(t *testing.T) {
 		t.Fatalf("NewJS() failed: %v", err)
 	}
 
-	if !loop.strictMicrotaskOrdering {
-		t.Error("Loop should have strictMicrotaskOrdering=true")
-	}
 	if js.Loop() != loop {
 		t.Error("JS loop reference incorrect")
 	}

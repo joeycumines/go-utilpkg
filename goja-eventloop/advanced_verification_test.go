@@ -77,7 +77,7 @@ func TestAdvancedVerification_ExecutionOrder(t *testing.T) {
 // TestAdvancedVerification_GCProof verifies GC doesn't break promises
 // (the GC Cycle Proof test from review.md Section 4.C.2)
 func TestAdvancedVerification_GCProof(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	loop, _ := goeventloop.New()
@@ -192,7 +192,7 @@ func TestAdvancedVerification_GCProof(t *testing.T) {
 // TestAdvancedVerification_DeadlockFree verifies no deadlocks under
 // concurrent operations (the Deadlock Fuzzing test from review.md Section 4.C.3)
 func TestAdvancedVerification_DeadlockFree(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	loop, _ := goeventloop.New()

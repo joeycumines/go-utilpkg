@@ -424,17 +424,13 @@ func TestMicrotaskOrdering_ChainsAcrossTicks(t *testing.T) {
 	t.Logf("Chain ordering verified: %v", order)
 }
 
-// TestMicrotaskOrdering_StrictModeEnforcement verifies StrictMicrotaskOrdering option.
+// TestMicrotaskOrdering_StrictModeEnforcement verifies strict microtask ordering behavior.
 func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 	ctx := t.Context()
 
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
-	}
-
-	if !loop.strictMicrotaskOrdering {
-		t.Fatal("Expected strictMicrotaskOrdering to be true")
 	}
 
 	js, err := NewJS(loop)
@@ -448,7 +444,7 @@ func TestMicrotaskOrdering_StrictModeEnforcement(t *testing.T) {
 	// Submit all registrations atomically within the loop goroutine
 	// to avoid cross-tick race between microtasks and timers.
 	loop.Submit(func() {
-		// With strict ordering, microtasks should be processed more aggressively
+		// Microtasks should be processed before timers
 		js.QueueMicrotask(func() {
 			order = append(order, "micro-1")
 			js.QueueMicrotask(func() {

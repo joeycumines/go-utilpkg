@@ -336,7 +336,6 @@ func TestRunTimers_HTML5NestingClamp(t *testing.T) {
 func TestRunTimers_StrictMicrotaskOrdering(t *testing.T) {
 	loop, err := New(
 		WithFastPathMode(FastPathDisabled),
-		WithStrictMicrotaskOrdering(true),
 	)
 	if err != nil {
 		t.Fatal(err)

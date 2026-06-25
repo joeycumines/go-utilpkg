@@ -59,7 +59,6 @@ func main() {
 // Step 1: Create the core event loop
 loop, err := eventloop.New(
     eventloop.WithMetrics(true),              // Optional: enable metrics
-    eventloop.WithStrictMicrotaskOrdering(true), // Optional: strict mode
 )
 if err != nil {
     log.Fatal(err)

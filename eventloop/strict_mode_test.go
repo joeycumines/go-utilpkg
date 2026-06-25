@@ -9,129 +9,15 @@ import (
 )
 
 // TestBarrierOrderingModes verifies Phase 7: Ingress Barrier Ambiguity Resolution.
-// It proves the difference between Default Mode (Batch Barrier) and Strict Mode (Per-Task Barrier).
+// It verifies the per-task barrier behavior (microtasks drain between each ingress task).
 func TestBarrierOrderingModes(t *testing.T) {
-	// Part 1: Verify Default Mode (Batch Barrier)
-	// Expectation: Task A schedules Microtask. Task B runs BEFORE Microtask.
-	t.Run("DefaultMode_BatchBarrier", func(t *testing.T) {
-		l, err := New()
-		if err != nil {
-			t.Fatalf("Failed to create loop: %v", err)
-		}
-		// Ensure StrictMode is false (default)
-		l.strictMicrotaskOrdering = false
-		// Force poll path for deterministic behavior
-		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
-			t.Fatalf("SetFastPathMode failed: %v", err)
-		}
-
-		ctx := t.Context()
-
-		runDone := make(chan struct{})
-		errChan := make(chan error, 1)
-		go func() {
-			if err := l.Run(ctx); err != nil {
-				errChan <- err
-				return
-			}
-			close(runDone)
-		}()
-		defer func() {
-			l.Shutdown(context.Background())
-			<-runDone
-			select {
-			case err := <-errChan:
-				t.Fatalf("Failed to start loop: %v", err)
-			default:
-			}
-		}()
-
-		var executionOrder []string
-		var mu sync.Mutex
-		var wg sync.WaitGroup
-		wg.Add(3) // Task A, Task B, Microtask
-
-		// Task A: Schedules Microtask
-		taskA := func() {
-			mu.Lock()
-			executionOrder = append(executionOrder, "TaskA")
-			mu.Unlock()
-
-			// Schedule Microtask
-			l.microtasks.Push(func() {
-				mu.Lock()
-				executionOrder = append(executionOrder, "Microtask")
-				mu.Unlock()
-				wg.Done()
-			})
-			wg.Done()
-		}
-
-		// Task B: Runs after Task A.
-		// In Default Mode, this should run BEFORE the Microtask scheduled by A.
-		taskB := func() {
-			mu.Lock()
-			executionOrder = append(executionOrder, "TaskB")
-			mu.Unlock()
-			wg.Done()
-		}
-
-		// Push both tasks atomically into the external queue while the loop
-		// is sleeping. Using Submit() sequentially would race on platforms
-		// where the loop goroutine schedules between the two calls (the
-		// first Submit wakes the loop before the second pushes its task).
-		waitLoopState(t, l, StateSleeping, time.Second)
-		l.externalMu.Lock()
-		l.external.Push(taskA)
-		l.external.Push(taskB)
-		l.externalMu.Unlock()
-		// Wake the loop now that both tasks are enqueued
-		if l.wakeUpSignalPending.CompareAndSwap(0, 1) {
-			l.doWakeup()
-		}
-
-		// Wait for completion
-		done := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			t.Fatal("Timeout waiting for tasks")
-		}
-
-		// Verify Order
-		mu.Lock()
-		defer mu.Unlock()
-
-		// Expected Order: TaskA -> TaskB -> Microtask
-		// Because ingress is processed in a batch, and microtasks run after the batch.
-		if len(executionOrder) != 3 {
-			t.Fatalf("Expected 3 steps, got %d: %v", len(executionOrder), executionOrder)
-		}
-		if executionOrder[0] != "TaskA" {
-			t.Errorf("Step 1 should be TaskA, got %s", executionOrder[0])
-		}
-		if executionOrder[1] != "TaskB" {
-			t.Errorf("Step 2 should be TaskB, got %s (Default Mode should batch ingress)", executionOrder[1])
-		}
-		if executionOrder[2] != "Microtask" {
-			t.Errorf("Step 3 should be Microtask, got %s", executionOrder[2])
-		}
-	})
-
-	// Part 2: Verify Strict Mode (Per-Task Barrier)
+	// Verify Per-Task Barrier behavior (now unconditional)
 	// Expectation: Task A schedules Microtask. Microtask runs IMMEDIATELY. Task B runs LAST.
-	t.Run("StrictMode_PerTaskBarrier", func(t *testing.T) {
+	t.Run("PerTaskBarrier", func(t *testing.T) {
 		l, err := New()
 		if err != nil {
 			t.Fatalf("Failed to create loop: %v", err)
 		}
-		// Enable Strict Mode
-		l.strictMicrotaskOrdering = true
 		// Force poll path for deterministic behavior
 		if err := l.SetFastPathMode(FastPathDisabled); err != nil {
 			t.Fatalf("SetFastPathMode failed: %v", err)
@@ -230,7 +116,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 		defer mu.Unlock()
 
 		// Expected Order: TaskA -> Microtask -> TaskB
-		// Because StrictMode forces a barrier (drain) after EACH ingress task.
+		// Because the per-task barrier forces a drain after EACH ingress task.
 		if len(executionOrder) != 3 {
 			t.Fatalf("Expected 3 steps, got %d: %v", len(executionOrder), executionOrder)
 		}
@@ -238,7 +124,7 @@ func TestBarrierOrderingModes(t *testing.T) {
 			t.Errorf("Step 1 should be TaskA, got %s", executionOrder[0])
 		}
 		if executionOrder[1] != "Microtask" {
-			t.Errorf("Step 2 should be Microtask, got %s (Strict Mode should drain immediately)", executionOrder[1])
+			t.Errorf("Step 2 should be Microtask, got %s (per-task barrier should drain immediately)", executionOrder[1])
 		}
 		if executionOrder[2] != "TaskB" {
 			t.Errorf("Step 3 should be TaskB, got %s", executionOrder[2])
@@ -246,15 +132,14 @@ func TestBarrierOrderingModes(t *testing.T) {
 	})
 }
 
-// TestMicrotaskBudgetBypass verifies that StrictMode respects the budget logic too,
+// TestMicrotaskBudgetBypass verifies that the per-task barrier respects the budget logic too,
 // although the budget is per-drain call. If a single ingress task spawns 1000 microtasks,
-// strict mode will try to drain them all before the next ingress task.
+// the drain will try to drain them all before the next ingress task.
 func TestStrictModeRespectsBudget(t *testing.T) {
 	l, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.strictMicrotaskOrdering = true
 	// Force poll path for deterministic behavior
 	if err := l.SetFastPathMode(FastPathDisabled); err != nil {
 		t.Fatalf("SetFastPathMode failed: %v", err)

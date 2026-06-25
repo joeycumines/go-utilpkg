@@ -197,14 +197,13 @@ type Loop struct {
 	promisifyCount  atomic.Int64  // in-flight Promisify goroutines
 	submissionEpoch atomic.Uint64 // incremented after each work-adding mutation for Alive() consistency
 
-	wakeBuf                 [8]byte
-	_                       [2]byte // Align to 8-byte
-	_                       [2]byte // Align to 8-byte
-	forceNonBlockingPoll    bool
-	strictMicrotaskOrdering bool
-	debugMode               bool       // Enable debug features like stack trace capture
-	autoExit                bool       // Exit Run() when Alive() returns false
-	promisifyMu             sync.Mutex // Protects promisifyWg + state check for Promisify
+	wakeBuf              [8]byte
+	_                    [2]byte // Align to 8-byte
+	_                    [2]byte // Align to 8-byte
+	forceNonBlockingPoll bool
+	debugMode            bool       // Enable debug features like stack trace capture
+	autoExit             bool       // Exit Run() when Alive() returns false
+	promisifyMu          sync.Mutex // Protects promisifyWg + state check for Promisify
 }
 
 // TimerID uniquely identifies a scheduled timer and can be used to cancel it.
@@ -284,7 +283,6 @@ func New(opts ...LoopOption) (*Loop, error) {
 	}
 
 	// Apply options to Loop struct
-	loop.strictMicrotaskOrdering = options.strictMicrotaskOrdering
 	loop.fastPathMode.Store(int32(options.fastPathMode))
 	loop.logger = options.logger
 	loop.debugMode = options.debugMode // Enable debug mode
@@ -690,9 +688,7 @@ func (l *Loop) runAux() {
 		l.safeExecute(job)
 		jobs[i] = nil // Clear for GC
 
-		if l.strictMicrotaskOrdering {
-			l.drainMicrotasks()
-		}
+		l.drainMicrotasks()
 	}
 	l.auxJobsSpare = jobs[:0]
 
@@ -1053,9 +1049,7 @@ func (l *Loop) processExternal() {
 		l.safeExecute(l.batchBuf[i])
 		l.batchBuf[i] = nil // Clear for GC
 
-		if l.strictMicrotaskOrdering {
-			l.drainMicrotasks()
-		}
+		l.drainMicrotasks()
 	}
 
 	// Emit overload signal if more tasks remain after budget
@@ -1074,6 +1068,13 @@ func (l *Loop) processExternal() {
 // drainMicrotasks drains the microtask queue.
 // nextTick callbacks run before regular microtasks (like Node.js).
 func (l *Loop) drainMicrotasks() {
+	// Fast path: if both queues are empty, skip the loop entirely.
+	// This avoids per-iteration Pop() overhead when no microtasks are pending,
+	// which is the common case after most callbacks.
+	if l.nextTickQueue.IsEmpty() && l.microtasks.IsEmpty() {
+		return
+	}
+
 	const budget = 1024
 
 	for range budget {
@@ -1126,9 +1127,7 @@ func (l *Loop) drainAuxJobs() {
 		l.safeExecute(job)
 		jobs[i] = nil // Clear for GC
 
-		if l.strictMicrotaskOrdering {
-			l.drainMicrotasks()
-		}
+		l.drainMicrotasks()
 	}
 	l.auxJobsSpare = jobs[:0]
 }
@@ -2124,9 +2123,7 @@ func (l *Loop) runTimers() {
 			timerPool.Put(t)
 		}
 
-		if l.strictMicrotaskOrdering {
-			l.drainMicrotasks()
-		}
+		l.drainMicrotasks()
 	}
 }
 

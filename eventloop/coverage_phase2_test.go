@@ -32,7 +32,7 @@ func waitForRunning(t *testing.T, loop *Loop) {
 // =============================================================================
 
 // TestNew_AllOptionsCombined covers the config branches in New() that set
-// strictMicrotaskOrdering, fastPathMode, logger, debugMode, metricsEnabled,
+// fastPathMode, logger, debugMode, metricsEnabled,
 // and ingressChunkSize on the constructed Loop.
 func TestNew_AllOptionsCombined(t *testing.T) {
 	writer := &testEventWriter{onWrite: func(event *testEvent) error { return nil }}
@@ -44,7 +44,6 @@ func TestNew_AllOptionsCombined(t *testing.T) {
 	genericLogger := typedLogger.Logger()
 
 	loop, err := New(
-		WithStrictMicrotaskOrdering(true),
 		WithFastPathMode(FastPathDisabled),
 		WithMetrics(true),
 		WithLogger(genericLogger),
@@ -56,9 +55,6 @@ func TestNew_AllOptionsCombined(t *testing.T) {
 	}
 	defer loop.Close()
 
-	if !loop.strictMicrotaskOrdering {
-		t.Error("expected strictMicrotaskOrdering to be true")
-	}
 	if FastPathMode(loop.fastPathMode.Load()) != FastPathDisabled {
 		t.Error("expected fastPathMode to be FastPathDisabled")
 	}
@@ -142,7 +138,7 @@ func TestNew_MetricsDisabledByDefault(t *testing.T) {
 }
 
 // =============================================================================
-// processExternal — OnOverload and strictMicrotaskOrdering coverage
+// processExternal — OnOverload and microtask draining coverage
 // =============================================================================
 
 // TestProcessExternal_OnOverloadFires verifies that the OnOverload callback
@@ -249,10 +245,9 @@ func TestProcessExternal_OnOverloadPanics(t *testing.T) {
 }
 
 // TestProcessExternal_StrictMicrotaskOrdering verifies that microtasks are
-// drained between each external task when strictMicrotaskOrdering is enabled.
+// drained between each external task.
 func TestProcessExternal_StrictMicrotaskOrdering(t *testing.T) {
 	loop, err := New(
-		WithStrictMicrotaskOrdering(true),
 		WithFastPathMode(FastPathDisabled),
 	)
 	if err != nil {
@@ -342,13 +337,13 @@ func TestProcessExternal_StrictMicrotaskOrdering(t *testing.T) {
 }
 
 // =============================================================================
-// runTimers — strictMicrotaskOrdering and canceled timer paths
+// runTimers — microtask draining and canceled timer paths
 // =============================================================================
 
 // TestRunTimers_StrictMicrotaskOrderingInterleave verifies that microtasks drain between
-// timer callbacks when strictMicrotaskOrdering is enabled.
+// timer callbacks.
 func TestRunTimers_StrictMicrotaskOrderingInterleave(t *testing.T) {
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -1085,13 +1080,13 @@ func TestScheduleNextTick_FastMode(t *testing.T) {
 }
 
 // =============================================================================
-// drainAuxJobs strictMicrotaskOrdering + runAux strictMicrotaskOrdering
+// drainAuxJobs + runAux microtask draining
 // =============================================================================
 
-// TestDrainAuxJobs_StrictMicrotaskOrdering exercises the strictMicrotaskOrdering
-// path in drainAuxJobs by combining strict ordering + timer (forces tick) + Submit.
+// TestDrainAuxJobs_StrictMicrotaskOrdering exercises the microtask draining
+// path in drainAuxJobs by combining timer (forces tick) + Submit.
 func TestDrainAuxJobs_StrictMicrotaskOrdering(t *testing.T) {
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -1149,7 +1144,7 @@ func TestDrainAuxJobs_StrictMicrotaskOrdering(t *testing.T) {
 
 // TestRunAux_StrictMicrotaskOrdering tests microtask draining in runAux.
 func TestRunAux_StrictMicrotaskOrdering(t *testing.T) {
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -1594,7 +1589,7 @@ func TestScheduleMicrotask_OnTerminatedLoop(t *testing.T) {
 // Since CancelTimer normally removes timers from the heap, we directly
 // inject a canceled timer into the heap from the loop thread.
 func TestRunTimers_CanceledTimerInHeap(t *testing.T) {
-	loop, err := New(WithStrictMicrotaskOrdering(true))
+	loop, err := New()
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -1877,12 +1872,11 @@ func TestChunkedIngress_PopDoubleCheckAfterAdvance(t *testing.T) {
 // =============================================================================
 
 // TestLoop_MetricsStrictDisabledEndToEnd exercises the full metrics pipeline
-// with strict ordering and disabled fast path to force tick() execution.
+// with disabled fast path to force tick() execution.
 func TestLoop_MetricsStrictDisabledEndToEnd(t *testing.T) {
 	loop, err := New(
 		WithMetrics(true),
 		WithFastPathMode(FastPathDisabled),
-		WithStrictMicrotaskOrdering(true),
 	)
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
