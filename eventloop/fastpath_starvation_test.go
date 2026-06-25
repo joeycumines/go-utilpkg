@@ -565,3 +565,96 @@ func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
 		cancel()
 	}
 }
+
+// TestRunAuxInternalBudgetDoesNotStrandTasks is the Reproduce-or-Fail guard for
+// review-01 #1 / review-02 §2, which claimed that runAux's missing fastWakeupCh
+// self-signal on internal-queue budget exhaustion strands the surplus in the
+// fast path (the loop would block forever on select, leaving the deferred tasks
+// unprocessed until an unrelated wakeup).
+//
+// Determinism: the loopTestHooks.OnFastPathEntry hook gates the test so the
+// sentinel is submitted only AFTER the loop has entered runFastPath. This makes
+// the sentinel (submitted first, popped first by FIFO chunkedIngress) be
+// processed by runAux's internal loop rather than tick()'s processInternalQueue,
+// so runAux provably observes more than internalQueueBudget (4096) tasks at once
+// (the "internal queue budget exceeded in runAux" log is asserted to fire).
+//
+// Verified-correct no-stranding mechanism: runAux processes 4096 and returns
+// with a remainder; runFastPath's hasInternalTasks() guard (loop.go:660-664)
+// returns the loop to the main run() loop, which calls tick() ->
+// processInternalQueue() to drain the remainder. The queued-LAST marker closes
+// done only once everything ahead of it has run, so reaching done proves no task
+// was stranded. No fastWakeupCh self-signal is needed in runAux.
+//
+// If a regression removes the hasInternalTasks guard or breaks the tick fallback,
+// this test hangs and fails on the done-timeout. (An independent reviewer
+// confirmed this via an adversarial break-test: neutering the guard made this
+// test fail ~7/8 runs.)
+func TestRunAuxInternalBudgetDoesNotStrandTasks(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	// Default New() => FastPathAuto, no I/O FDs => fast path (runFastPath/runAux).
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Gate on actual fast-path entry so the sentinel is processed by runAux
+	// (deterministic) rather than racing into the tick path.
+	enteredFastPath := make(chan struct{})
+	var fpOnce sync.Once
+	loop.testHooks = &loopTestHooks{
+		OnFastPathEntry: func() { fpOnce.Do(func() { close(enteredFastPath) }) },
+	}
+
+	runCh := make(chan error, 1)
+	go func() { runCh <- loop.Run(ctx) }()
+
+	const taskCount = 10000 // well above internalQueueBudget (4096)
+	var executed atomic.Int64
+	done := make(chan struct{})
+	gate := make(chan struct{})
+
+	// Wait until the loop has entered runFastPath, then queue the sentinel.
+	<-enteredFastPath
+
+	// Sentinel: submitted first => popped first by runAux. It blocks the loop
+	// goroutine until the rest are queued, GUARANTEEING runAux sees >4096 queued
+	// tasks at once (deterministic budget exhaustion).
+	if err := loop.SubmitInternal(func() { <-gate }); err != nil {
+		t.Fatalf("sentinel SubmitInternal failed: %v", err)
+	}
+
+	// Queue the no-op tasks while the loop is blocked on the sentinel.
+	for range taskCount {
+		if err := loop.SubmitInternal(func() { executed.Add(1) }); err != nil {
+			close(gate)
+			t.Fatalf("SubmitInternal %d failed: %v", executed.Load(), err)
+		}
+	}
+	// Marker: queued LAST. Closing done here proves every prior task drained.
+	if err := loop.SubmitInternal(func() { close(done) }); err != nil {
+		close(gate)
+		t.Fatalf("marker SubmitInternal failed: %v", err)
+	}
+
+	close(gate) // release the loop: runAux now sees taskCount+1 queued at once
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("fast-path internal queue stalled after budget exhaustion: %d/%d tasks executed",
+			executed.Load(), taskCount)
+	}
+
+	if got := executed.Load(); got != taskCount {
+		t.Fatalf("task loss: executed %d/%d (internal queue budget stranding)", got, taskCount)
+	}
+
+	if err := loop.Shutdown(context.Background()); err != nil && !errors.Is(err, ErrLoopTerminated) {
+		t.Logf("Shutdown: %v", err)
+	}
+	cancel()
+	<-runCh
+}
