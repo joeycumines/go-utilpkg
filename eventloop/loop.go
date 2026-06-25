@@ -710,16 +710,6 @@ func (l *Loop) runAux() {
 
 	// Drain microtasks (safety net — catches any microtasks from the last task's drain)
 	l.drainMicrotasks()
-
-	// If microtasks remain (budget exceeded), signal the loop to run again immediately.
-	// This prevents blocking in the runFastPath select statement.
-	if !l.microtasks.IsEmpty() {
-		select {
-		case l.fastWakeupCh <- struct{}{}:
-		default:
-			// Channel full means wake-up is already pending
-		}
-	}
 }
 
 // hasTimersPending returns true if there are pending timers.
@@ -759,7 +749,7 @@ func (l *Loop) transitionToTerminated() {
 	l.state.Store(StateTerminated)
 	l.promisifyMu.Unlock()
 
-	// Drain loop queues quickly (single pass, not exhaustive)
+	// Drain loop queues (exhaustive)
 	// This tasks that are already queued will get executed
 	// Tasks submitted after this point will be rejected
 
@@ -796,7 +786,7 @@ func (l *Loop) transitionToTerminated() {
 	}
 	l.auxJobsSpare = jobs[:0]
 
-	l.drainDeferredQueues()
+	l.drainMicrotasks()
 
 	// Reject all remaining pending promises
 	l.registry.RejectAll(ErrLoopTerminated)
@@ -865,7 +855,11 @@ func (l *Loop) shutdown() {
 		}
 		l.auxJobsSpare = jobs[:0]
 
-		if l.drainDeferredQueues() {
+		// Check if either microtask queue has work before draining.
+		// drainMicrotasks() returns nothing, so we track work done by
+		// checking queue emptiness before calling it.
+		if !l.nextTickQueue.IsEmpty() || !l.microtasks.IsEmpty() {
+			l.drainMicrotasks()
 			drained = true
 		}
 
@@ -1086,8 +1080,11 @@ func (l *Loop) processExternal() {
 	}
 }
 
-// drainMicrotasks drains the microtask queue.
+// drainMicrotasks drains the microtask queue exhaustively.
 // nextTick callbacks run before regular microtasks (like Node.js).
+// Draining continues until both queues are empty. A safety counter
+// logs a warning after 100000 iterations to detect infinite loops,
+// but does NOT stop draining.
 func (l *Loop) drainMicrotasks() {
 	// Fast path: if both queues are empty, skip the loop entirely.
 	// This avoids per-iteration Pop() overhead when no microtasks are pending,
@@ -1096,9 +1093,13 @@ func (l *Loop) drainMicrotasks() {
 		return
 	}
 
-	const budget = 1024
+	const safetyThreshold = 100000
 
-	for range budget {
+	for i := 0; ; i++ {
+		if i == safetyThreshold {
+			l.logError("eventloop: microtask drain exceeded safety threshold, possible infinite loop in callback", nil)
+		}
+
 		// Priority 1: nextTick queue (process.nextTick runs before Promise microtasks)
 		if fn := l.nextTickQueue.Pop(); fn != nil {
 			l.safeExecuteFn(fn)
@@ -1112,25 +1113,6 @@ func (l *Loop) drainMicrotasks() {
 		}
 		l.safeExecuteFn(fn)
 	}
-}
-
-func (l *Loop) drainDeferredQueues() bool {
-	const budget = 4096 // Safety limit: prevents infinite recursion if callbacks re-schedule
-	drained := false
-	for i := 0; i < budget; i++ {
-		if fn := l.nextTickQueue.Pop(); fn != nil {
-			l.safeExecuteFn(fn)
-			drained = true
-			continue
-		}
-		fn := l.microtasks.Pop()
-		if fn == nil {
-			break
-		}
-		l.safeExecuteFn(fn)
-		drained = true
-	}
-	return drained
 }
 
 // drainAuxJobs drains leftover tasks from the fast path auxJobs queue.

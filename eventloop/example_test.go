@@ -879,7 +879,7 @@ func Example_setFastPathMode() {
 //
 // Both nextTick and microtask callbacks are deferred until after the current
 // task completes. In the deferred queue, nextTick callbacks are processed
-// before microtask callbacks. This follows the eventloop's drainDeferredQueues
+// before microtask callbacks. This follows the eventloop's drainMicrotasks
 // ordering: nextTick first, then microtasks.
 func Example_scheduleMicrotask() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
