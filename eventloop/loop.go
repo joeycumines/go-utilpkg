@@ -705,9 +705,10 @@ func (l *Loop) runAux() {
 			break
 		}
 		l.safeExecute(task)
+		l.drainMicrotasks()
 	}
 
-	// Drain microtasks (standard pass)
+	// Drain microtasks (safety net — catches any microtasks from the last task's drain)
 	l.drainMicrotasks()
 
 	// If microtasks remain (budget exceeded), signal the loop to run again immediately.
@@ -1020,11 +1021,8 @@ func (l *Loop) processInternalQueue() bool {
 			break
 		}
 		l.safeExecute(task)
-		processed = true
-	}
-
-	if processed {
 		l.drainMicrotasks()
+		processed = true
 	}
 	return processed
 }
@@ -1074,6 +1072,13 @@ func (l *Loop) processExternal() {
 // drainMicrotasks drains the microtask queue.
 // nextTick callbacks run before regular microtasks (like Node.js).
 func (l *Loop) drainMicrotasks() {
+	// Fast path: if both queues are empty, skip the loop entirely.
+	// This avoids per-iteration Pop() overhead when no microtasks are pending,
+	// which is the common case after most callbacks.
+	if l.nextTickQueue.IsEmpty() && l.microtasks.IsEmpty() {
+		return
+	}
+
 	const budget = 1024
 
 	for range budget {
