@@ -33,9 +33,11 @@ type StrictMicrotaskOrderingOption struct {
 }
 
 // WithStrictMicrotaskOrdering sets whether microtasks should be drained
-// after each task execution for strict ordering.
-// When enabled, microtasks are guaranteed to run after every task.
-// When disabled (default), microtasks are drained in batches for better performance.
+// after each timer callback, external task, and aux job.
+// When enabled, microtasks are guaranteed to run after every callback.
+// When disabled (default), microtasks are still drained after each internal
+// task, between phase boundaries, and exhaustively (no budget cap) — but
+// timer callbacks, external tasks, and aux jobs drain microtasks in batches.
 func WithStrictMicrotaskOrdering(enabled bool) *StrictMicrotaskOrderingOption {
 	return &StrictMicrotaskOrderingOption{enabled: enabled}
 }

@@ -1847,8 +1847,10 @@ func (l *Loop) scheduleMicrotask(task func()) {
 // ScheduleNextTick schedules a function to run before any microtasks in the current tick.
 //
 // This emulates Node.js process.nextTick() semantics. NextTick callbacks
-// have higher priority than regular microtasks (promises, queueMicrotask), meaning
-// they run before any promise handlers in the same tick.
+// have higher priority than regular microtasks (promises, queueMicrotask).
+// After each callback execution, the nextTick queue is drained exhaustively
+// before the microtask queue, meaning they run before any promise handlers
+// scheduled in the same or prior callbacks.
 //
 // Unlike setTimeout(fn, 0) which schedules for the next tick, NextTick callbacks
 // execute immediately after the current synchronous code, before any pending

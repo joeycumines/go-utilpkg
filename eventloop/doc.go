@@ -42,13 +42,18 @@
 //  1. Timer callbacks (earliest deadline first)
 //  2. Internal queue tasks ([Loop.SubmitInternal])
 //  3. External queue tasks ([Loop.Submit])
-//  4. Microtasks (drained after each macrotask when strict ordering is enabled)
+//  4. Microtasks (nextTick and promise reactions, drained exhaustively)
+//
+// Microtask draining occurs after each internal task execution
+// (unconditionally), between every phase boundary in tick(), at the
+// start of each tick, and exhaustively (no budget cap). When
+// WithStrictMicrotaskOrdering is enabled, draining also occurs after
+// each timer callback, external task, and aux job. nextTick callbacks
+// always run before promise microtasks within each drain cycle.
 //
 // # Usage
 //
-//	loop, err := eventloop.New(
-//	    eventloop.WithStrictMicrotaskOrdering(true),
-//	)
+//	loop, err := eventloop.New()
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
