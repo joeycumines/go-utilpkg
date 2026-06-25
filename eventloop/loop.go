@@ -709,6 +709,14 @@ func (l *Loop) runAux() {
 		l.drainMicrotasks()
 	}
 
+	// Log if the budget was exhausted and tasks remain.
+	l.internalQueueMu.Lock()
+	remaining := l.internal.Length()
+	l.internalQueueMu.Unlock()
+	if remaining > 0 {
+		l.logError("eventloop: internal queue budget exceeded in runAux, deferring remaining tasks", nil)
+	}
+
 	// Drain microtasks (safety net — catches any microtasks from the last task's drain)
 	l.drainMicrotasks()
 }
