@@ -549,6 +549,7 @@ func (p *ChainedPromise) reject(reason any) {
 		handlers = p.result.([]handler)
 	}
 
+	p.h0 = handler{} // Clears h0
 	p.result = reason
 
 	if p.js != nil {
@@ -563,8 +564,6 @@ func (p *ChainedPromise) reject(reason any) {
 		for _, h := range handlers {
 			p.scheduleHandler(h, int32(Rejected), reason)
 		}
-		// Clear handlers AFTER scheduling their microtasks
-		p.h0 = handler{} // Clears h0
 		// Set state AFTER scheduling so the optimistic path only fires
 		// once pre-existing handlers are already in the microtask ring.
 		p.state.Store(int32(Rejected))
@@ -579,7 +578,6 @@ func (p *ChainedPromise) reject(reason any) {
 		for _, h := range handlers {
 			p.scheduleHandler(h, int32(Rejected), reason)
 		}
-		p.h0 = handler{} // Clears h0
 	}
 
 	// Notify ToChannel subscribers from side table (synchronous, no microtask queue).
