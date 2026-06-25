@@ -1183,7 +1183,7 @@ func (l *Loop) poll() {
 	intLen := l.internal.Length()
 	l.internalQueueMu.Unlock()
 
-	if extLen > 0 || intLen > 0 || !l.microtasks.IsEmpty() {
+	if extLen > 0 || intLen > 0 || !l.microtasks.IsEmpty() || !l.nextTickQueue.IsEmpty() {
 		l.state.TryTransition(StateSleeping, StateRunning)
 		return
 	}
