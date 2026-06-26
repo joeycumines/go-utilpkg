@@ -244,3 +244,218 @@ func TestFIFO_ConcurrentRejectAndThen(t *testing.T) {
 			v, numIterations)
 	}
 }
+
+// TestFIFO_OffLoopResolveOrdering verifies that resolving a JS-backed promise
+// from an EXTERNAL goroutine (not the loop thread) preserves FIFO handler order:
+// all N pre-attached handlers run in attach order 0..N-1, none dropped/reordered.
+//
+// This is ORTHOGONAL coverage to the Promise/A+ §2.2.6 concurrent-Then race,
+// which is guarded by TestFIFO_ConcurrentResolveAndThen (the schedule-before-
+// state.Store fix). Pre-attached handlers are scheduled in attach order
+// regardless of the store-vs-schedule ordering (this test passes even if that
+// fix is reverted), so it does NOT discriminate that fix. It only verifies the
+// off-loop resolution path drains the pre-attached handlers in attach order.
+func TestFIFO_OffLoopResolveOrdering(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+	waitForRunning(t, loop)
+	defer loop.Shutdown(context.Background())
+
+	const numHandlers = 64
+	p, resolve, _ := js.NewChainedPromise()
+
+	var mu sync.Mutex
+	var order []int
+	var count atomic.Int64
+	done := make(chan struct{})
+
+	for i := range numHandlers {
+		idx := i
+		p.Then(func(any) any {
+			mu.Lock()
+			order = append(order, idx)
+			mu.Unlock()
+			if count.Add(1) == int64(numHandlers) {
+				close(done)
+			}
+			return nil
+		}, nil)
+	}
+
+	// Resolve from an external goroutine (off-loop).
+	go func() { resolve("value") }()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		mu.Lock()
+		snapshot := append([]int(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout: only %d/%d handlers ran. Order: %v", len(snapshot), numHandlers, snapshot)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(order) != numHandlers {
+		t.Fatalf("Expected %d handlers, got %d: %v", numHandlers, len(order), order)
+	}
+	for i, v := range order {
+		if v != i {
+			t.Fatalf("FIFO violation (off-loop resolve): order[%d]=%d, expected %d. Full order: %v",
+				i, v, i, order)
+		}
+	}
+}
+
+// TestFIFO_HandlerThenOnSamePromiseDuringResolve verifies that a handler which
+// re-enters Then() on the SAME promise during its own execution does not
+// deadlock and that the late-attached handler still runs. When handler-1 calls
+// p.Then, addHandler either takes the optimistic settled-state fast path (if
+// resolve() has already published state) or briefly waits on p.mu until resolve()
+// finishes publishing — neither case deadlocks, and handler-2 is scheduled as a
+// microtask that runs afterward.
+func TestFIFO_HandlerThenOnSamePromiseDuringResolve(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+	waitForRunning(t, loop)
+	defer loop.Shutdown(context.Background())
+
+	p, resolve, _ := js.NewChainedPromise()
+
+	var mu sync.Mutex
+	var order []string
+	done := make(chan struct{})
+
+	appendOrder := func(s string) {
+		mu.Lock()
+		order = append(order, s)
+		mu.Unlock()
+	}
+
+	// Pre-attached handler re-enters Then on the same promise once it runs.
+	p.Then(func(any) any {
+		appendOrder("handler-1")
+		// p is settled now; this schedules handler-2 as a microtask.
+		p.Then(func(any) any {
+			appendOrder("handler-2-from-handler-1")
+			close(done)
+			return nil
+		}, nil)
+		return nil
+	}, nil)
+
+	go func() { resolve("value") }()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		mu.Lock()
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout / deadlock: order: %v", snapshot)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	expected := []string{"handler-1", "handler-2-from-handler-1"}
+	if len(order) != len(expected) {
+		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(order), order)
+	}
+	for i, ev := range expected {
+		if order[i] != ev {
+			t.Errorf("order[%d]: expected %q, got %q", i, ev, order[i])
+		}
+	}
+}
+
+// TestToChannel_OrderingVsHandlers verifies that a ToChannel subscriber and
+// promise handlers both receive the resolution value with no deadlock or hang,
+// covering review-02 §4.3. notifyToChannels runs synchronously under p.mu inside
+// resolve/reject; handler microtasks are queued before notifyToChannels, so the
+// relative order of handler execution vs the channel send is not guaranteed.
+// This test only asserts that both the channel and the handler observe the value
+// (not any ordering between them).
+func TestToChannel_OrderingVsHandlers(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go loop.Run(ctx)
+	waitForRunning(t, loop)
+	defer loop.Shutdown(context.Background())
+
+	p, resolve, _ := js.NewChainedPromise()
+
+	// Subscribe BEFORE resolving (exercises the side-table registration path).
+	ch := p.ToChannel()
+
+	var mu sync.Mutex
+	var handlerVal any
+	done := make(chan struct{})
+
+	// Attach a handler that records the value and signals completion.
+	p.Then(func(v any) any {
+		mu.Lock()
+		handlerVal = v
+		mu.Unlock()
+		close(done)
+		return nil
+	}, nil)
+
+	go func() { resolve("the-value") }()
+
+	// ToChannel is buffered (cap 1) so this receive cannot deadlock; it returns
+	// the value pushed by notifyToChannels inside resolve.
+	var channelVal any
+	select {
+	case channelVal = <-ch:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Timeout waiting for ToChannel value")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Timeout waiting for handler to run")
+	}
+
+	mu.Lock()
+	hv := handlerVal
+	mu.Unlock()
+
+	if channelVal != "the-value" {
+		t.Errorf("ToChannel value: expected %q, got %v", "the-value", channelVal)
+	}
+	if hv != "the-value" {
+		t.Errorf("handler value: expected %q, got %v", "the-value", hv)
+	}
+}
