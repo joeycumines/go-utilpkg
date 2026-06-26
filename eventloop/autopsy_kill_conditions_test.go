@@ -1,22 +1,22 @@
 package eventloop
 
 // ============================================================================
-// Autopsy Kill Conditions — Node.js v11+ Microtask/nextTick Ordering
+// Autopsy Kill Conditions — Microtask/nextTick Draining Model
 //
-// These tests verify that the event loop correctly implements Node.js v11+
-// semantics where microtasks (promises, queueMicrotask) and nextTick callbacks
-// are drained between phases and per-task (for internal queue tasks),
-// regardless of the strictMicrotaskOrdering option.
+// These tests verify the event loop's microtask/nextTick draining model.
+// Internal-task per-callback draining, inter-phase draining, and exhaustive
+// draining (no budget cap) are all UNCONDITIONAL — they hold regardless of the
+// strictMicrotaskOrdering option. Per-callback draining after each timer
+// callback, external task, and aux job is opt-in (strictMicrotaskOrdering,
+// default false); KILL-001 enables it for the timer-callback case.
 //
 // Key fixes being verified:
 //   - Task 5: processInternalQueue drains microtasks per-task (unconditional)
 //   - Task 6: Inter-phase drains in tick() between runTimers, processInternalQueue,
 //     processExternal, and drainAuxJobs (unconditional)
 //   - Task 7: Exhaustive draining with no budget cap (unconditional)
-//
-// Note: Per-callback draining in runTimers, processExternal, drainAuxJobs,
-// and runAux auxJobs is still gated by strictMicrotaskOrdering (default false).
-// KILL-001 uses WithStrictMicrotaskOrdering(true) for this reason.
+//   - Batch draining: nextTick and microtask queues drain in alternating batches
+//     (Task 21), matching Node v11+ processTicksAndRejections + PerformCheckpoint.
 // ============================================================================
 
 import (

@@ -52,12 +52,33 @@
 //  3. External queue tasks ([Loop.Submit])
 //  4. Microtasks (nextTick and promise reactions, drained exhaustively)
 //
-// Microtask draining occurs after each internal task execution
-// (unconditionally), between every phase boundary in tick(), at the
-// start of each tick, and exhaustively (no budget cap). When
-// WithStrictMicrotaskOrdering is enabled, draining also occurs after
-// each timer callback, external task, and aux job. nextTick callbacks
-// always run before promise microtasks within each drain cycle.
+// Microtask draining follows Node.js v11+ semantics. The nextTick and microtask
+// queues are drained in alternating BATCHES: all pending nextTick callbacks,
+// then all pending promise/queueMicrotask callbacks, repeating until both queues
+// are empty. A nextTick scheduled during a promise microtask is therefore
+// processed in the next nextTick batch rather than preempting the remaining
+// microtasks — matching Node's processTicksAndRejections plus V8
+// MicrotaskQueue::PerformCheckpoint. Draining is exhaustive (no budget cap), so
+// a self-rescheduling microtask or nextTick can starve timers and I/O just as in
+// JavaScript (a one-shot warning is logged after 100000 callbacks).
+//
+// Draining occurs after each internal task execution (unconditionally), between
+// every phase boundary in tick(), and at the start of each tick. Per-callback
+// draining after each timer callback, external task, and aux job is opt-in via
+// [WithStrictMicrotaskOrdering]: the default batches those phases (as Node did
+// before v11); enable it for exact Node v11+ per-callback checkpoints.
+//
+// Both task queues apply a per-tick callback budget as overload protection: the
+// internal queue processes at most 4096 tasks per tick and the external queue at
+// most 1024. Work beyond the budget is deferred (not dropped) to the next tick
+// and the loop advances to the next phase; when the external budget is exceeded,
+// [Loop.OnOverload] is signaled so callers can apply backpressure. These limits
+// are a deliberate design choice (see docs/process_external_budget.md), not a
+// Node.js equivalence.
+//
+// [JS.SetImmediate] uses the external queue and therefore runs in the external
+// phase, before poll; in Node.js, setImmediate runs in a separate check phase
+// after poll. This is a deliberate deviation.
 //
 // # Usage
 //

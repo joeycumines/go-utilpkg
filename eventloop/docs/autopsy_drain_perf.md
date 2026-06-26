@@ -55,11 +55,13 @@ Each benchmark:
 
 ## Results
 
-Results below are from a prior run with `New()` (fast-path mode). Current
-benchmarks use `WithFastPathMode(FastPathDisabled)` which may show different
-absolute numbers but similar relative patterns. Re-run with
-`go test -bench=BenchmarkDrainPerf -benchmem -count=5 -run=^$ ./eventloop/`
-for current numbers.
+> **Note:** The numbers below are HISTORICAL, captured when the benchmark used
+> `New()` (fast-path mode). The current benchmark code (see Setup above) forces
+> the poll path with `WithFastPathMode(FastPathDisabled)`, so absolute numbers
+> will differ; the relative conclusions (negligible fast-path drain overhead)
+> are unaffected by the mode. Re-run
+> `go test -bench=BenchmarkDrainPerf -benchmem -count=5 -run=^$ ./eventloop/`
+> for current numbers.
 
 ```
 goos: darwin
