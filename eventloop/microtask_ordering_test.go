@@ -640,7 +640,7 @@ func TestMicrotaskOrdering_ConcurrentQueueing(t *testing.T) {
 	}
 
 	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
+	waitForRunning(t, loop)
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -688,7 +688,7 @@ func TestMicrotaskOrdering_IntervalInteraction(t *testing.T) {
 	}
 
 	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
+	waitForRunning(t, loop)
 
 	js, err := NewJS(loop)
 	if err != nil {
@@ -804,7 +804,7 @@ func TestMicrotaskOrdering_AfterTimerFires(t *testing.T) {
 	}
 
 	go func() { loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond)
+	waitForRunning(t, loop)
 
 	js, err := NewJS(loop)
 	if err != nil {

@@ -60,7 +60,7 @@ func TestKill001_PerTimerCallbackMicrotaskDraining(t *testing.T) {
 	}
 
 	// Submit all setup atomically within the loop goroutine to avoid cross-tick races.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		// Timer 1: queues a microtask during its callback.
 		js.SetTimeout(func() {
 			appendOrder("timer-1")
@@ -92,7 +92,9 @@ func TestKill001_PerTimerCallbackMicrotaskDraining(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		mu.Lock()
-		t.Fatalf("Timeout. Order: %v", order)
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
 	}
 
 	mu.Lock()
@@ -201,7 +203,9 @@ func TestKill002_PerInternalTaskMicrotaskDraining(t *testing.T) {
 		case <-done:
 		case <-time.After(5 * time.Second):
 			mu.Lock()
-			t.Fatalf("Timeout. Order: %v", order)
+			snapshot := append([]string(nil), order...)
+			mu.Unlock()
+			t.Fatalf("Timeout. Order: %v", snapshot)
 		}
 
 		mu.Lock()
@@ -253,7 +257,7 @@ func TestKill003_MicrotaskBudgetOverflow(t *testing.T) {
 
 	// Submit all microtasks from within the loop goroutine to ensure
 	// they are queued in the same tick before draining begins.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		for range numMicrotasks {
 			js.QueueMicrotask(func() {
 				if count.Add(1) == int64(numMicrotasks) {
@@ -338,7 +342,7 @@ func TestKill004_InterPhaseMicrotaskLeakage(t *testing.T) {
 	// With FastPathDisabled, SubmitInternal does NOT execute inline even on
 	// the loop thread (canUseFastPath() returns false), so the internal task
 	// lands in the internal queue for the next tick().
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		// Timer: fires in runTimers(), queues a microtask.
 		js.SetTimeout(func() {
 			appendOrder("timer")
@@ -360,7 +364,9 @@ func TestKill004_InterPhaseMicrotaskLeakage(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		mu.Lock()
-		t.Fatalf("Timeout. Order: %v", order)
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
 	}
 
 	mu.Lock()
@@ -403,7 +409,7 @@ func TestKill005_NextTickStarvationViaBudget(t *testing.T) {
 	done := make(chan struct{})
 
 	// Submit all nextTick callbacks and a microtask from within the loop goroutine.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		for range numNextTicks {
 			loop.ScheduleNextTick(func() {
 				if nextTickCount.Add(1) == int64(numNextTicks) {
@@ -486,7 +492,7 @@ func TestTransition_NextTickBeforeMicrotaskWithinDrain(t *testing.T) {
 
 	// Submit all setup from within the loop goroutine to ensure
 	// nextTick and microtask are queued in the same tick.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		// Queue a microtask FIRST (lower priority).
 		js.QueueMicrotask(func() {
 			appendOrder("microtask")
@@ -515,7 +521,9 @@ func TestTransition_NextTickBeforeMicrotaskWithinDrain(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		mu.Lock()
-		t.Fatalf("Timeout. Order: %v", order)
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
 	}
 
 	mu.Lock()
@@ -595,7 +603,7 @@ func TestTransition_NestedNextTickRecursion(t *testing.T) {
 	}
 
 	// Submit all setup from within the loop goroutine.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		recursiveNextTick(depth)
 	})
 
@@ -615,7 +623,9 @@ func TestTransition_NestedNextTickRecursion(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		mu.Lock()
-		t.Fatalf("Timeout. Order: %v", order)
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
 	}
 
 	mu.Lock()
@@ -657,6 +667,15 @@ func TestTransition_NestedNextTickRecursion(t *testing.T) {
 		if order[i] != ev {
 			t.Errorf("order[%d]: expected %q, got %q", i, ev, order[i])
 		}
+	}
+}
+
+// mustSubmit submits fn to loop, failing the test immediately if submission is
+// rejected (e.g. the loop has terminated), instead of letting the test time out.
+func mustSubmit(t *testing.T, loop *Loop, fn func()) {
+	t.Helper()
+	if err := loop.Submit(fn); err != nil {
+		t.Fatalf("Submit failed: %v", err)
 	}
 }
 
@@ -729,7 +748,7 @@ func TestDrain_NextTickDoesNotPreemptMicrotasks(t *testing.T) {
 
 	// Submit all setup from within the loop goroutine so both microtasks are
 	// queued in the same tick before draining begins.
-	loop.Submit(func() {
+	mustSubmit(t, loop, func() {
 		// Microtask 1: schedules a nextTick during its execution. Under Node
 		// (batch) semantics the nextTick must NOT run until microtask 2 finishes.
 		if err := js.QueueMicrotask(func() {

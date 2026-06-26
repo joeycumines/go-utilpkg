@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"context"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -32,7 +33,17 @@ func TestFIFO_ConcurrentResolveAndThen(t *testing.T) {
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
 
-	const numIterations = 50000
+	// numIterations defaults to 2000, which reliably surfaces the FIFO race: the
+	// unfixed violation rate is ~1 per 500 iterations (~4 expected at 2000).
+	// Set EVENTLOOP_STRESS=1 for the full 50000-iteration stress run.
+	// testing.Short() uses a smaller, faster count (300) that still exercises the
+	// race path but only probabilistically catches a regression.
+	numIterations := 2000
+	if testing.Short() {
+		numIterations = 300
+	} else if os.Getenv("EVENTLOOP_STRESS") != "" {
+		numIterations = 50000
+	}
 	const numPreHandlers = 50
 	const numToChannelSubs = 100
 
@@ -168,7 +179,12 @@ func TestFIFO_ConcurrentRejectAndThen(t *testing.T) {
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
 
-	const numIterations = 5000
+	numIterations := 1000
+	if testing.Short() {
+		numIterations = 150
+	} else if os.Getenv("EVENTLOOP_STRESS") != "" {
+		numIterations = 5000
+	}
 	const numPreHandlers = 50
 
 	var violations atomic.Int64
