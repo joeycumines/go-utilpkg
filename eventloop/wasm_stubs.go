@@ -23,8 +23,13 @@ func (f *fastPoller) RegisterFD(fd int, events IOEvents, callback func(events IO
 	return errors.New("WASM: file descriptors not supported")
 }
 
-// UnregisterFD is a stub on WASM
-func (f *fastPoller) UnregisterFD(fd int) error { return nil }
+// UnregisterFD is a stub on WASM (returns an error, consistent with RegisterFD
+// and ModifyFD). Returning nil here would let [Loop.UnregisterFD] decrement
+// userIOFDCount despite no FD ever being registered, which could drive the
+// count negative and force the loop into the no-op PollIO busy-loop.
+func (f *fastPoller) UnregisterFD(fd int) error {
+	return errors.New("WASM: file descriptors not supported")
+}
 
 // ModifyFD is a stub on WASM
 func (f *fastPoller) ModifyFD(fd int, events IOEvents) error {

@@ -20,6 +20,14 @@
 //   - macOS: kqueue
 //   - Linux: epoll
 //   - Windows: IOCP (I/O Completion Ports)
+//   - wasm/js: task-only support. Timers, microtasks, promises, and
+//     [Loop.Submit]/[Loop.SubmitInternal] run via the channel-based fast path
+//     (no I/O file descriptors are registered, so the loop never enters the
+//     kqueue/epoll/IOCP poll path). I/O readiness operations
+//     ([Loop.RegisterFD], [Loop.UnregisterFD], [Loop.ModifyFD]) are unsupported
+//     and return errors; there is no wake file descriptor. The
+//     internal/alternate* experimental packages do not build on wasm; use the
+//     main package for wasm workloads.
 //
 // File descriptor operations ([Loop.RegisterFD], [Loop.UnregisterFD],
 // [Loop.ModifyFD]) provide cross-platform I/O readiness notification.
