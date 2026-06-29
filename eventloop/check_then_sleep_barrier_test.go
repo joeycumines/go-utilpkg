@@ -14,13 +14,7 @@ import (
 // TestMutexBarrierProtocol verifies that the mutex barrier pattern works correctly
 // on the loop side of the Check-Then-Sleep protocol.
 //
-// Per review.md section I.1:
-// "Loop Side: Adopt the Mutex-Barrier Pattern:
-//  1. atomic.StoreInt32(&l.state, StateSleeping)
-//  2. l.ingressMu.Lock() (Acts as the StoreLoad Barrier)
-//  3. len := l.ingressQueue.Length()
-//  4. l.ingressMu.Unlock()
-//  5. If len > 0: atomic.StoreInt32(&l.state, StateAwake) and process."
+
 func TestMutexBarrierProtocol(t *testing.T) {
 	t.Parallel()
 
@@ -174,10 +168,6 @@ func TestStoreLoadBarrierEffectiveness(t *testing.T) {
 
 // TestWakeUpDeduplication verifies that wake-up deduplication on the producer
 // side prevents redundant wake-up syscalls.
-//
-// Per review.md section I.1:
-// "Use atomic.CompareAndSwapUint32(&q.wakeUpSignalPending, 0, 1) to ensure
-// only one producer performs the syscall.Write."
 //
 // This test simulates 1000 concurrent producers attempting to wake the loop
 // and verifies that deduplication prevents redundant syscalls.
@@ -653,10 +643,7 @@ func TestBarrierProtocolUnderStress(t *testing.T) {
 // TestWriteThenCheckProtocol verifies the producer-side Write-Then-Check
 // protocol ordering.
 //
-// Per review.md:
-// "Producer Side (Write-Then-Check with Wake-up Deduplication):
-// Use atomic.CompareAndSwapUint32(&q.wakeUpSignalPending, 0, 1) to ensure
-// only one producer performs the syscall.Write."
+
 func TestWriteThenCheckProtocol(t *testing.T) {
 	t.Parallel()
 

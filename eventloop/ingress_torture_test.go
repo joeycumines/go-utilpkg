@@ -12,7 +12,7 @@ import (
 // REGRESSION TESTS FOR MICROTASKRING DEFECTS
 //
 // These tests are designed to FAIL on buggy code to prove the existence of
-// the defects documented in scratch.md.
+// documented defects.
 // =============================================================================
 
 // Test_microtaskRing_WriteAfterFree_Race is a torture test proving the Pop ordering bug.

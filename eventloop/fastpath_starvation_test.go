@@ -22,7 +22,7 @@ import (
 //  3. RegisterFD() is called - loop must transition to poll path
 //  4. Verify: auxJobs MUST be drained before or during transition
 //
-// POTENTIAL BUG: If runFastPath exits (returns false) without draining,
+// If runFastPath exits (returns false) without draining,
 // tick() would process l.external (chunkedIngress) but NOT l.auxJobs.
 func TestFastPath_AuxJobsStarvation_ModeTransition(t *testing.T) {
 	loop, err := New()
@@ -129,12 +129,15 @@ func TestFastPath_InternalQueueStarvation_FastVsTick(t *testing.T) {
 	<-runCh
 }
 
-// TestFastPath_MicrotaskBudgetExceeded_NoBlock verifies that when microtask
-// budget (1024) is exceeded, the loop does NOT block indefinitely.
+// TestFastPath_MicrotaskDrainIsExhaustive verifies that drainMicrotasks()
+// exhaustively drains all microtasks (no budget cap), and that the loop
+// does not block after draining.
 //
-// IMPLEMENTATION DETAIL: After drainMicrotasks(), if !IsEmpty(), runAux()
-// sends to fastWakeupCh to prevent blocking. This test verifies that.
-func TestFastPath_MicrotaskBudgetExceeded_NoBlock(t *testing.T) {
+// Previously, drainMicrotasks() had a 1024-iteration budget and runAux()
+// would self-signal fastWakeupCh if microtasks remained. Now drainMicrotasks()
+// is exhaustive (no budget), so the self-signal is unnecessary. This test
+// verifies that a large batch of microtasks (2048) drains completely.
+func TestFastPath_MicrotaskDrainIsExhaustive(t *testing.T) {
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New() failed: %v", err)
@@ -154,7 +157,9 @@ func TestFastPath_MicrotaskBudgetExceeded_NoBlock(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 
-	// Submit a task that schedules MORE than budget (1024) microtasks
+	// Submit a task that schedules a large batch of microtasks.
+	// drainMicrotasks() is now exhaustive (no 1024 budget cap), so all
+	// should drain in a single pass.
 	const microtaskCount = 2048
 	var executed atomic.Int64
 	done := make(chan struct{})
@@ -366,7 +371,7 @@ func TestFastPath_TerminatingDrain_AuxJobs(t *testing.T) {
 //  2. Drain internal queue
 //  3. Drain microtasks (at end)
 //
-// BUG RISK: Microtasks scheduled by internal tasks are drained at step 3,
+// Microtasks scheduled by internal tasks are drained at step 3,
 // but if internal tasks schedule MORE internal tasks... those go to the queue
 // and are picked up in the next runAux iteration.
 func TestFastPath_RunAux_DrainsMicrotasksAfterInternal(t *testing.T) {
@@ -508,7 +513,7 @@ func TestFastPath_ConcurrentSubmit_ModeSwitch(t *testing.T) {
 //  3. Submit() checks canUseFastPath() -> false, pushes to l.external
 //  4. SetFastPathMode(Auto) called quickly
 //  5. Loop wakes, canUseFastPath() -> true (mode is Auto again)
-//  6. BUG (fixed): Loop stays in fast path, never drains l.external
+//  6. Loop stays in fast path, never drains l.external
 //  7. FIX: runFastPath now checks hasExternalTasks() and exits to tick()
 func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
 	for iter := range 100 {
@@ -567,8 +572,7 @@ func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
 }
 
 // TestRunAuxInternalBudgetDoesNotStrandTasks is the Reproduce-or-Fail guard for
-// review-01 #1 / review-02 §2, which claimed that runAux's missing fastWakeupCh
-// self-signal on internal-queue budget exhaustion strands the surplus in the
+// the claim that runAux's missing fastWakeupCh self-signal on internal-queue
 // fast path (the loop would block forever on select, leaving the deferred tasks
 // unprocessed until an unrelated wakeup).
 //
@@ -588,7 +592,7 @@ func TestFastPath_ExternalQueueDrained_ModeReversion(t *testing.T) {
 //
 // If a regression removes the hasInternalTasks guard or breaks the tick fallback,
 // this test hangs and fails on the done-timeout. (An independent reviewer
-// confirmed this via an adversarial break-test: neutering the guard made this
+// confirmed this via a break-test: neutering the guard made this
 // test fail ~7/8 runs.)
 func TestRunAuxInternalBudgetDoesNotStrandTasks(t *testing.T) {
 	loop, err := New()

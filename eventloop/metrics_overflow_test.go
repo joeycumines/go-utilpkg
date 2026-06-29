@@ -217,7 +217,7 @@ func Test_tpsCounter_ClockJumps(t *testing.T) {
 // time tracking (lastRotation) is synchronized to the current actual time
 // rather than permanently lagging behind.
 //
-// This tests RV09 fix: Before the fix, if bucketsToAdvance > len(buckets),
+// This tests the time synchronization fix: Before the fix, if bucketsToAdvance > len(buckets),
 // the code would only advance lastRotation by len(buckets)*bucketSize (one
 // window), even if the actual elapsed time was much longer. This caused
 // lastRotation to permanently lag behind real time, leading to incorrect TPS
@@ -244,7 +244,7 @@ func Test_tpsCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
 	}
 
 	// Simulate a very long pause: 5 minutes (30x the window size)
-	// This is the critical scenario for RV09 time synchronization defect
+	// This is the critical scenario for the time synchronization defect
 	t.Logf("Simulating long pause of 5 minutes...")
 	longPause := 5 * time.Minute
 
@@ -290,7 +290,7 @@ func Test_tpsCounter_TimeSynchronizationAfterLongPause(t *testing.T) {
 	}
 
 	// 3. Last rotation time is synchronized to current time (not lagging)
-	// The key RV09 fix: lastRotation should be set to time.Now()
+	// The key fix: lastRotation should be set to time.Now()
 	// during the reset, not advanced by only one window
 	lastRotationTime := counter.lastRotation.Load().(time.Time)
 	timeSinceSync := timeAfterSync.Sub(lastRotationTime)

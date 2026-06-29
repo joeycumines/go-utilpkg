@@ -5,7 +5,7 @@ import (
 )
 
 func TestBarrierOrderingModesUnit(t *testing.T) {
-	// Task 7.1 & 7.2: Verify Default (Batch) vs Strict (Interleaved)
+	// Verify Default (Batch) vs Strict (Interleaved)
 
 	// Case 1: Default Mode (Batch)
 	{

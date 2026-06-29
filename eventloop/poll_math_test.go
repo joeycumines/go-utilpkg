@@ -17,7 +17,7 @@ func TestPollTimeoutMath(t *testing.T) {
 		t.Errorf("Expected 10000ms default, got %d", timeout)
 	}
 
-	// Case 2: Sub-millisecond rounding (Task 3.1)
+	// Case 2: Sub-millisecond rounding
 	// Add timer for 0.5ms from now
 	// We construct it carefully to ensure delta is > 0 and < 1ms
 	l.timers = make(timerHeap, 0)
@@ -47,7 +47,7 @@ func TestPollTimeoutMath(t *testing.T) {
 }
 
 func TestOversleepPrevention(t *testing.T) {
-	// Task 3.2: Verify timeout is capped by next timer
+	// Verify timeout is capped by next timer
 	l, _ := New()
 
 	targetDelay := 50 * time.Millisecond

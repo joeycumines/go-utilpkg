@@ -12,10 +12,10 @@ import (
 )
 
 // TestDrainMicrotasks_SafetyThresholdWarning verifies the exhaustive-draining
-// liveness property flagged by review-02 §6: drainMicrotasks drains without any
-// budget cap (matching JavaScript's ability to starve the event loop with
-// recursive microtasks), and its 100000-callback safety counter logs a warning
-// exactly once WITHOUT stopping or yielding.
+// liveness property: drainMicrotasks drains without any budget cap (matching
+// JavaScript's ability to starve the event loop with recursive microtasks), and
+// its 100000-callback safety counter logs a warning exactly once WITHOUT
+// stopping or yielding.
 //
 // The test schedules a self-rescheduling microtask that self-limits at
 // safetyThreshold+100 callbacks (so the test provably cannot hang, even if the

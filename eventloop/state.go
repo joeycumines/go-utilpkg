@@ -19,7 +19,7 @@ import (
 // State Transition Rules:
 //   - Use TryTransition() (CAS) for temporary states (Running, Sleeping)
 //   - Use Store() for irreversible states (Terminated)
-//   - Using Store(Running) or Store(Sleeping) is a BUG (breaks CAS logic)
+//   - Using Store(Running) or Store(Sleeping) breaks CAS logic
 //
 // Note: State values (0, 1, 2, 4, 5) are deliberately non-sequential to preserve
 // stable serialization. Do not renumber.

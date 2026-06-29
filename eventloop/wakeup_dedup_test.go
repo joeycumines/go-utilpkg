@@ -13,10 +13,6 @@ import (
 // TestWakeUpDeduplicationIntegration verifies that concurrent producers result in only
 // ONE wake-up syscall per tick, not one per producer.
 //
-// Per review.md section I.2:
-// "Use atomic.CompareAndSwapUint32 on wakeUpSignalPending to ensure only one
-// producer performs syscall.Write"
-//
 // This test creates a torture scenario:
 // - Start the loop in a way that it will enter Sleeping state
 // - Have many concurrent producers Submit() tasks
@@ -192,7 +188,7 @@ func TestWakeUpSignalLifecycleIntegration(t *testing.T) {
 // TestWriteThenCheckIntegration verifies that the producer-side "Write-Then-Check" protocol
 // works correctly.
 //
-// Protocol (from review.md):
+// Protocol:
 // 1. Enqueue task to ingress queue (Write)
 // 2. atomic.LoadInt32(&loop.state)
 // 3. If StateSleeping: perform syscall (write to eventfd)

@@ -16,14 +16,6 @@ import (
 // submitting tasks while the loop attempts to sleep with a timeout.
 // It verifies zero lost wake-ups by checking that the queue length is 0
 // whenever the loop blocks.
-//
-// Per review.md, section I.1:
-// "Loop Side: Adopt the Mutex-Barrier Pattern:
-//  1. atomic.StoreInt32(&l.state, StateSleeping)
-//  2. l.ingressMu.Lock() (Acts as the StoreLoad Barrier)
-//  3. len := l.ingressQueue.Length()
-//  4. l.ingressMu.Unlock()
-//  5. If len > 0: atomic.StoreInt32(&l.state, StateAwake) and process."
 func TestTask1_2_CheckThenSleepBarrier(t *testing.T) {
 	t.Parallel()
 

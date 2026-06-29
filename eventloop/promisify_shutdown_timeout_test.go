@@ -88,15 +88,15 @@ func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 
 	<-runDone
 
-	// NOTE: Shutdown returns early due to T28 bug (StateAwake early return)
-	// The T29 fix ensures Promisify goroutines complete, but T28 causes early return
-	// So we verify T29 fix by checking that Promises resolved (not timing)
+	// NOTE: Shutdown returns early due to StateAwake early return
+	// The fix ensures Promisify goroutines complete, but early return may occur
+	// So we verify by checking that Promises resolved (not timing)
 	// The key validation: ALL Promisify calls completed without being abandoned
 
-	// Verify all submissions completed (key validation for T29 fix)
+	// Verify all submissions completed (key validation)
 	completed := completedSubmissions.Load()
 	if completed != numGoroutines {
-		t.Fatalf("Expected %d Promisify submissions, but only %d completed (data corruption occurred - T29 BUG NOT FIXED)",
+		t.Fatalf("Expected %d Promisify submissions, but only %d completed (data corruption occurred)",
 			numGoroutines, completed)
 	}
 
@@ -145,7 +145,7 @@ func TestPromisify_VerySlowOperation_ShutdownStillWaits(t *testing.T) {
 
 	<-promiseSubmitted
 
-	// Shutdown should block, but T28 bug causes early return
+	// Shutdown should block, but may return early due to StateAwake check
 	// Key validation is: SubmitInternal succeeded, no data corruption
 	shutdownStarted := time.Now()
 	err = loop.Shutdown(context.Background())
@@ -157,16 +157,16 @@ func TestPromisify_VerySlowOperation_ShutdownStillWaits(t *testing.T) {
 
 	<-runDone
 
-	// NOTE: T28 bug causes early return, but T29 fix ensures SubmitInternal succeeds
+	// NOTE: Shutdown may return early, but the fix ensures SubmitInternal succeeds
 	// The key validation: Promisify goroutine completed without being abandoned
 
 	// Sleep to ensure Promisify goroutine had time to complete
 	time.Sleep(verySlowDelay)
 
-	// The key validation for T29: no race, no deadlock, no corruption
-	// (Even with T28 early return, the Promisify operation completes cleanly)
+	// The key validation: no race, no deadlock, no corruption
+	// (Even with early return, the Promisify operation completes cleanly)
 	_ = promise // Promise used for testing
-	t.Logf("Shutdown duration: %v (T28 early return), but Promisify completed without data corruption", shutdownDuration)
+	t.Logf("Shutdown duration: %v, but Promisify completed without data corruption", shutdownDuration)
 }
 
 // TestPromisify_MultipleShutdowns verifies that multiple concurrent Shutdown calls

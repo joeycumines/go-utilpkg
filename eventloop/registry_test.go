@@ -65,8 +65,7 @@ func TestRegistryThreadSafety(t *testing.T) {
 }
 
 func TestRegistryGCPruning(t *testing.T) {
-	// Task 2.3 & 5.3: Verify that Scavenge removes dead items.
-	// 5.3 is "Ring Buffer Scavenger Fix", but basic functionality is implemented in Phase 2.
+	// Verify that Scavenge removes dead items.
 
 	r := newRegistry()
 

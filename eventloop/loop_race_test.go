@@ -92,7 +92,7 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 	err = <-stopDone
 
 	if err == context.DeadlineExceeded {
-		t.Log("BUG CONFIRMED: poll() likely overwrote StateTerminating, causing shutdown hang")
+		t.Log("poll() likely overwrote StateTerminating, causing shutdown hang")
 		// Force cleanup for test hygiene
 		l.state.Store(StateTerminating)
 		l.submitWakeup()
@@ -122,7 +122,7 @@ func TestPollStateOverwrite_PreSleep(t *testing.T) {
 // in SubmitInternal() maintains thread affinity by only executing tasks
 // on the event loop goroutine.
 //
-// CRITICAL BUGFIX #1: Before the fix, the fast path would execute tasks
+// Before the fix, the fast path would execute tasks
 // on the caller's goroutine, violating reactor pattern guarantees and
 // causing potential data races.
 //
@@ -193,7 +193,7 @@ func TestLoop_StrictThreadAffinity(t *testing.T) {
 	// CRITICAL ASSERTION: The task MUST run on the loop goroutine
 	if taskGoroutineID != loopGoroutineID {
 		t.Fatalf(
-			"CRITICAL BUG: Thread Affinity Violated!\n"+
+			"Thread Affinity Violated!\n"+
 				"  Loop goroutine ID: %d\n"+
 				"  Task goroutine ID: %d\n"+
 				"  The fast path executed on the wrong goroutine!",
@@ -280,7 +280,7 @@ func TestLoop_StrictThreadAffinity_DisabledFastPath(t *testing.T) {
 }
 
 // TestLoop_TickAnchor_DataRace verifies the fix for the data race on
-// l.tickAnchor discovered in review.md.
+// l.tickAnchor.
 //
 // Bug: tick() was reading l.tickAnchor without lock, but SetTickAnchor()
 // writes it with lock. This is a data race detectable by go test -race.

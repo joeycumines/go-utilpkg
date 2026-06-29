@@ -758,9 +758,9 @@ func (l *Loop) transitionToTerminated() {
 	l.state.Store(StateTerminated)
 	l.promisifyMu.Unlock()
 
-	// Drain loop queues (exhaustive)
-	// This tasks that are already queued will get executed
-	// Tasks submitted after this point will be rejected
+	// Drain loop queues (unbounded task processing; microtasks drained once at end)
+	// Tasks that are already queued will get executed.
+	// Tasks submitted after this point will be rejected.
 
 	// Drain internal queue
 	for {
@@ -1621,12 +1621,11 @@ func (l *Loop) submitToQueue(task func()) error {
 		}
 
 		// No defense-in-depth submitWakeup() needed here. When userIOFDCount
-		// transitions from >0 to 0, UnregisterFD's GAP-004 doWakeup() already sent
+		// transitions from >0 to 0, UnregisterFD's doWakeup() already sent
 		// the pipe write that interrupts PollIO. The fastWakeupCh signal above is
 		// buffered and consumed when the loop enters fast-mode after PollIO returns.
 		// The loop only enters PollIO when userIOFDCount > 0, and the only path from
-		// >0 to 0 during normal operation is UnregisterFD (which triggers GAP-004).
-		// See docs/eventloop-autopsy-20260419/03_critical_finding.md for proof.
+		// >0 to 0 during normal operation is UnregisterFD (which triggers doWakeup).
 
 		return nil
 	}
@@ -1906,9 +1905,10 @@ func (l *Loop) scheduleMicrotask(task func()) {
 //
 // This emulates Node.js process.nextTick() semantics. NextTick callbacks
 // have higher priority than regular microtasks (promises, queueMicrotask).
-// After each callback execution, the nextTick queue is drained exhaustively
-// before the microtask queue, meaning they run before any promise handlers
-// scheduled in the same or prior callbacks.
+// NextTick callbacks drain in alternating batches — all pending nextTicks
+// drain before any microtasks, and a nextTick scheduled during a microtask
+// runs in the next nextTick batch rather than preempting the remaining
+// microtasks.
 //
 // Unlike setTimeout(fn, 0) which schedules for the next tick, NextTick callbacks
 // execute immediately after the current synchronous code, before any pending

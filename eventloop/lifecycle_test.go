@@ -340,7 +340,7 @@ func TestLoop_Close_PreventsNewSubmits(t *testing.T) {
 }
 
 // TestLoop_Stop_Race_Torture is a stress test that verifies the loop can be
-// stopped without deadlock. It catches the "Zombie Loop" bug where Shutdown()
+// stopped without deadlock. It catches the case where Shutdown()
 // hangs forever due to state overwrite in poll().
 func TestLoop_Stop_Race_Torture(t *testing.T) {
 	for i := range 100 {

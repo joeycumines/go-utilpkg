@@ -8,7 +8,7 @@ The overarching goal of the tournament is to act as a **reliable, robust anti-pe
 
 A **full tournament** means:
 
-- **All benchmarks** run, not a subset. The eventloop module currently runs **108 benchmarks** covering timers, promises, microtasks, I/O polling, and integration scenarios.
+- **All benchmarks** run, not a subset. The eventloop module currently runs **167 benchmarks** covering timers, promises, microtasks, I/O polling, and integration scenarios.
 - **All 3 platforms**: Darwin (macOS), Linux, Windows — each run independently.
 - **Promises benchmarks included**: Promise resolution latency, concurrent promise handling, promise chain throughput.
 - **Statistical rigor**: 5 runs per benchmark (via `-count=5`), with Welch's t-test significance testing (p < 0.05).
@@ -31,8 +31,8 @@ docker run --rm golang:1.25.7 go version  # Confirm container execution works
 # This requires the hack/run-on-windows.sh script and appropriate access
 hack/run-on-windows.sh echo "windows accessible" 2>/dev/null && echo "OK" || echo "Windows access unavailable"
 
-# 4. Check benchmark count matches reference (108 benchmarks)
-go test -bench=. -list='^$' -run=^$ . 2>/dev/null | grep -c "Benchmark"  # Should report 108
+# 4. Check benchmark count matches reference (167 benchmarks)
+go test -list='Benchmark' -run='^$' . 2>/dev/null | grep -c "Benchmark"  # Should report 167
 ```
 
 If any check fails, resolve before proceeding. Linux benchmarks can be skipped if Docker is unavailable, but this breaks the 3-platform comparison.
@@ -217,11 +217,11 @@ Direct ns/op comparison across platforms is only meaningful when hardware is sim
 
 ### Missing Benchmarks
 
-If the benchmark count is less than 108:
+If the benchmark count is less than 167:
 
 ```bash
 # Check what benchmarks exist
-go test -bench=. -list='^$' -run=^$ . 2>/dev/null | grep Benchmark
+go test -list='Benchmark' -run='^$' . 2>/dev/null | grep Benchmark
 
 # Common causes:
 # - New benchmark code not yet committed

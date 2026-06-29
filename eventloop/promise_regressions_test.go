@@ -10,7 +10,7 @@ import (
 )
 
 // TestMemoryLeakProof_HandlerLeak_SuccessPath proves that promiseHandlers cleanup occurs on resolve.
-// This verifies the fix for Memory Leak #1 from review.md Section 2.A.
+// This verifies the fix for a memory leak where handler closures retain promises.
 //
 // Test flow:
 // 1. Track initial promiseHandlers count
@@ -96,7 +96,7 @@ func TestMemoryLeakProof_HandlerLeak_SuccessPath(t *testing.T) {
 }
 
 // TestMemoryLeakProof_HandlerLeak_LateSubscriber proves that retroactive cleanup prevents leak.
-// This verifies the fix for Memory Leak #3 from review.md Section 2.A.
+// This verifies the fix for a memory leak where resolved promises retain handler closures.
 //
 // Test flow:
 // 1. Create and resolve a promise (already-settled)
@@ -210,7 +210,8 @@ func TestMemoryLeakProof_HandlerLeak_LateSubscriberOnRejected(t *testing.T) {
 }
 
 // TestMemoryLeakProof_SetImmediate_PanicLeak proves that defer cleanup prevents leak on panic.
-// This verifies the fix for Memory Leak #2 from review.md Section 2.A.
+// This verifies the fix for a memory leak where setImmediate map entries persist
+// when the callback panics.
 //
 // Test flow:
 // 1. Track initial setImmediateMap size
@@ -306,9 +307,9 @@ func TestMemoryLeakProof_SetImmediate_PanicLeak(t *testing.T) {
 }
 
 // TestPromiseRace_ConcurrentThenReject_HandlersCalled verifies fix for CRITICAL-3
-// from review_vs_main_MAX_PARANOIA_2026-01-30.txt.
+// from the original internal review.
 //
-// BUG DESCRIPTION (BEFORE FIX):
+// Before fix:
 // When reject() and then() execute concurrently:
 // 1. reject() stores rejection in unhandledRejections
 // 2. reject() calls trackRejection() which schedules checkUnhandledRejections microtask

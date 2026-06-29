@@ -7,7 +7,7 @@ import (
 )
 
 func TestPromiseFanOut(t *testing.T) {
-	// Task 4.2, 4.3: Verify multiple subscribers get result
+	// Verify multiple subscribers get result
 	r := newRegistry()
 	_, p := r.NewPromise()
 
@@ -50,7 +50,7 @@ func TestPromiseFanOut(t *testing.T) {
 }
 
 func TestPromiseLateBinding(t *testing.T) {
-	// Task 4.4: Verify late binding works
+	// Verify late binding works
 	r := newRegistry()
 	_, p := r.NewPromise()
 
@@ -76,7 +76,7 @@ func TestPromiseLateBinding(t *testing.T) {
 }
 
 func TestToChannelIdentity(t *testing.T) {
-	// Task 4.2: Multiple calls create different channels
+	// Multiple calls create different channels
 	r := newRegistry()
 	_, p := r.NewPromise()
 

@@ -34,9 +34,9 @@ import (
 //
 // RACE SCENARIO:
 //
-//	T1: Submit() checks fastMode=true (fast path)
-//	T2: RegisterFD() increments userIOFDCount (now poll path)
-//	T1: Submit() acquires lock, appends to auxJobs
+//	Submit() checks fastMode=true (fast path)
+//	RegisterFD() increments userIOFDCount (now poll path)
+//	Submit() acquires lock, appends to auxJobs
 //	RESULT: Task in auxJobs, but loop now in poll path
 //
 // QUESTION: Is this safe? YES, because:
@@ -48,7 +48,7 @@ import (
 //   - tick() calls processExternal() which drains l.external (chunkedIngress)
 //   - auxJobs are ONLY drained by runAux() in fast path mode
 //
-// POTENTIAL BUG: If Submit() puts task in auxJobs but loop transitions to
+// If Submit() puts task in auxJobs but loop transitions to
 // poll path, the task is STARVED until:
 //
 //	a) Mode switches back to fast path, OR
@@ -208,7 +208,7 @@ func TestPollPath_DrainsBothQueues(t *testing.T) {
 
 	if auxCount != 5 {
 		// CRITICAL: If this fails, auxJobs are NOT processed in poll path!
-		t.Errorf("POTENTIAL BUG: auxJobs tasks: expected 5, got %d. "+
+		t.Errorf("auxJobs tasks: expected 5, got %d. "+
 			"Tasks in auxJobs may be starved in poll mode!", auxCount)
 	}
 

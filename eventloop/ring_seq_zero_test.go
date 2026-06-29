@@ -9,7 +9,7 @@ import (
 )
 
 // Test_microtaskRing_SeqWrapAround verifies that sequence number wrap-around
-// does not cause infinite spin loops or data loss. This test covers the R101 fix.
+// does not cause infinite spin loops or data loss.
 func Test_microtaskRing_SeqWrapAround(t *testing.T) {
 	ring := newMicrotaskRing()
 

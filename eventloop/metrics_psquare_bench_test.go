@@ -8,12 +8,8 @@ import (
 	"time"
 )
 
-// =============================================================================
-// PERF-001: TPS Metrics Percentile Computation Optimization
-// =============================================================================
 // Benchmarks comparing old O(n log n) sort-based approach vs new O(1) P-Square
 // algorithm for streaming percentile computation.
-// =============================================================================
 
 // BenchmarkLatencySample_OldSortBased simulates the old sorting-based approach.
 // This allocates a slice and sorts it every time.

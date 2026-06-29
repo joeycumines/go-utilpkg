@@ -254,7 +254,7 @@ func Test_microtaskRing_SharedStress(t *testing.T) {
 }
 
 // Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted proves the fix for
-// the IsEmpty() logic error discovered in review.md.
+// the IsEmpty() logic error.
 //
 // Bug: IsEmpty() was checking len(r.overflow) == 0, but overflow is not
 // immediately compacted after pops. Instead, overflowHead advances and
@@ -364,7 +364,7 @@ func Test_microtaskRing_IsEmpty_BugWhenOverflowNotCompacted(t *testing.T) {
 	// overflow might still have len > 0 with overflowHead == len (all items drained).
 	// The fix ensures we check len(overflow) - overflowHead == 0.
 	if !ring.IsEmpty() {
-		t.Fatal("IsEmpty() returned false after draining all items - BUG NOT FIXED!")
+		t.Fatal("IsEmpty() returned false after draining all items")
 	}
 
 	// 13. Verify invariant: (Length()==0) == IsEmpty()

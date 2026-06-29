@@ -659,7 +659,8 @@ func (s *setImmediateState) run() {
 	}
 
 	// DEFER cleanup to ensure map entry is removed even if fn() panics
-	// This fixes Memory Leak #2 from review.md Section 2.A
+	// This fixes a memory leak where setImmediate map entries persist
+	// when the callback panics.
 	defer func() {
 		s.js.setImmediateMu.Lock()
 		delete(s.js.setImmediateMap, s.id)

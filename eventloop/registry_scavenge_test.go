@@ -6,7 +6,7 @@ import (
 )
 
 func TestScavengerPruning(t *testing.T) {
-	// Task 5.3: Prune Settled and GC'd
+	// Prune Settled and GC'd
 	r := newRegistry()
 
 	// 1. Pending (Should Keep)
@@ -41,8 +41,8 @@ func TestScavengerPruning(t *testing.T) {
 }
 
 func TestLoadFactorCompaction(t *testing.T) {
-	// Task 5.2: Compact when load factor < 25% (D20)
-	// D20: Compaction triggers when capacity > 256 && load factor < 25%
+	// Compact when load factor < 25%
+	// Compaction triggers when capacity > 256 && load factor < 25%
 	r := newRegistry()
 
 	// Create 300 items to exceed the 256 threshold. Keep 30 (10%).
@@ -109,7 +109,6 @@ func TestNoCompactionWhenLoadHigh(t *testing.T) {
 }
 
 func TestDeterministicDiscovery(t *testing.T) {
-	// Task 5.1
 	r := newRegistry()
 
 	// Create items, settle some, ensure iteration works
@@ -136,7 +135,7 @@ func TestDeterministicDiscovery(t *testing.T) {
 }
 
 // TestRegistry_BucketReclaim verifies that memory is properly reclaimed after
-// promises are released. This catches the "Bucket Ghost" bug where map buckets
+// promises are released. This catches the case where map buckets
 // are never released.
 func TestRegistry_BucketReclaim(t *testing.T) {
 	runtime.GC()

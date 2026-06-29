@@ -79,7 +79,7 @@ func TestRegisterFD_Basic(t *testing.T) {
 	wg.Add(1)
 
 	callbackCalled := false
-	var once sync.Once // T10-FIX: Protect against multiple callbacks
+	var once sync.Once // Protect against multiple callbacks
 	err = loop.RegisterFD(fd, EventWrite, func(events IOEvents) {
 		if events&EventWrite != 0 {
 			once.Do(func() {

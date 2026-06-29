@@ -325,10 +325,10 @@ func TestRegression_StateSpecCompliance(t *testing.T) {
 	}
 }
 
-// --- T5: Heap Escape Test ---
+// --- Heap Escape Test ---
 
 // TestRegression_TickTimeNoHeapEscape verifies that tickTime storage
-// does not cause heap allocations. T5 fix: Use Anchor+Offset pattern
+// does not cause heap allocations. Use Anchor+Offset pattern
 // (tickAnchor + tickElapsedTime) to avoid heap escape while preserving monotonic clock.
 func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 	l, err := New()
@@ -350,11 +350,11 @@ func TestRegression_TickTimeNoHeapEscape(t *testing.T) {
 	})
 
 	if allocs > 0 {
-		t.Fatalf("T5 VIOLATION: tickTime operations allocated %f objects/op (Expected 0)", allocs)
+		t.Fatalf("VIOLATION: tickTime operations allocated %f objects/op (Expected 0)", allocs)
 	}
 }
 
-// --- T11: Chunk Pooling Test ---
+// --- Chunk Pooling Test ---
 
 // TestRegression_ChunkPooling verifies that ingress chunks are pooled
 // and reused rather than being GC'd.
@@ -390,15 +390,15 @@ func TestRegression_ChunkPooling(t *testing.T) {
 	// With sync.Pool, after warmup we should see reduced allocations
 	// We allow some allocations because sync.Pool may not always return pooled items
 	if allocs > 2 {
-		t.Logf("T11 INFO: Chunk operations allocated %f objects/op (pooling may reduce this)", allocs)
+		t.Logf("INFO: Chunk operations allocated %f objects/op (pooling may reduce this)", allocs)
 	}
 }
 
-// --- T5: Monotonic Timer Integrity Test ---
+// --- Monotonic Timer Integrity Test ---
 
 // TestRegression_MonotonicTimerIntegrity verifies that the tickTime implementation
 // provides consistent timing for timer calculations using the Anchor+Offset pattern.
-// T5 FIX (REVISED): Uses tickAnchor + tickElapsedTime for monotonic clock stability.
+// Uses tickAnchor + tickElapsedTime for monotonic clock stability.
 func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 	l, err := New()
 	if err != nil {
@@ -421,7 +421,7 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 		_ = l.CurrentTickTime()
 	})
 	if allocs > 0 {
-		t.Errorf("T5 Violation: CurrentTickTime allocating %f objects/op", allocs)
+		t.Errorf("Violation: CurrentTickTime allocating %f objects/op", allocs)
 	}
 
 	// PROOF 2: Monotonicity Check - tickTime should equal tickAnchor.Add(offset)
@@ -451,7 +451,7 @@ func TestRegression_MonotonicTimerIntegrity(t *testing.T) {
 	}
 }
 
-// --- T11: Queue Memory Lifecycle Test ---
+// --- Queue Memory Lifecycle Test ---
 
 // TestRegression_QueueMemoryLifecycle verifies that the chunkedIngress queue properly
 // manages task references to prevent memory leaks.
@@ -484,9 +484,9 @@ func TestRegression_QueueMemoryLifecycle(t *testing.T) {
 	t.Log("SUCCESS: Queue lifecycle verified - tasks properly pushed and popped")
 }
 
-// --- Comprehensive Regression Tests from scratch.md ---
+// --- Comprehensive Regression Tests ---
 
-// RT-3: Proof of Struct Alignment (T10-M3)
+// Proof of Struct Alignment
 func TestRegression_StructAlignment(t *testing.T) {
 	var l Loop
 	wgOffset := unsafe.Offsetof(l.promisifyWg)
@@ -502,7 +502,7 @@ func TestRegression_StructAlignment(t *testing.T) {
 	}
 }
 
-// RT-4: Proof of Darwin Error Propagation (T10-M1)
+// Proof of Darwin Error Propagation
 func TestRegression_DarwinErrorPropagation(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("Skipping Darwin-specific test on non-Darwin OS")
@@ -531,7 +531,7 @@ func TestRegression_DarwinErrorPropagation(t *testing.T) {
 	t.Logf("Success: ModifyFD correctly returned error: %v", err)
 }
 
-// RT-5: Proof of Monotonic Integrity & Zero Allocations (T5)
+// Proof of Monotonic Integrity & Zero Allocations
 func TestRegression_MonotonicIntegrity(t *testing.T) {
 	l, err := New()
 	if err != nil {

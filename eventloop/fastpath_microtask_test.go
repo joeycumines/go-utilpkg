@@ -152,7 +152,7 @@ func TestFastPathVsNormalPath_Microtasks(t *testing.T) {
 					tt.name, expectedCount, iterations, iterations, actualCount)
 
 				if tt.fastPath && actualCount == int64(iterations) {
-					t.Errorf("%s: BUG CONFIRMED - Only tasks executed, microtasks ignored in fast path!", tt.name)
+					t.Errorf("%s: Only tasks executed, microtasks ignored in fast path!", tt.name)
 				}
 			} else {
 				t.Logf("%s: All %d tasks and microtasks executed correctly", tt.name, iterations)
@@ -258,9 +258,9 @@ func TestFastPath_HandlesMicrotasks(t *testing.T) {
 		// Microtask executed - this is the expected behavior
 		t.Log("Microtask executed correctly in fast path mode")
 	case <-time.After(5 * time.Second):
-		// BUG: Microtask did not execute
+		// Microtask did not execute
 		// This proves that runAux() does not drain microtasks in fast path
-		t.Errorf("BUG PROVED: Microtask did not execute in fast path mode! Microtasks are being ignored by runAux()")
+		t.Errorf("Microtask did not execute in fast path mode! Microtasks are being ignored by runAux()")
 
 		// Additional diagnostic: check if microtasks are still in queue
 		if !loop.microtasks.IsEmpty() {
@@ -346,7 +346,7 @@ func TestFastPath_MicrotaskOrdering(t *testing.T) {
 		t.Logf("Executions: %v", executions)
 
 		if actualLen == 10 {
-			t.Error("BUG CONFIRMED: Only tasks executed, microtasks were ignored!")
+			t.Error("Only tasks executed, microtasks were ignored!")
 		}
 	}
 
@@ -414,7 +414,7 @@ func TestFastPath_MultipleMicrotasks(t *testing.T) {
 	if actualCount != expectedCount {
 		t.Errorf("Expected %d microtask executions, got %d", expectedCount, actualCount)
 		if actualCount == 0 {
-			t.Error("BUG CONFIRMED: No microtasks executed in fast path mode!")
+			t.Error("No microtasks executed in fast path mode!")
 		}
 	}
 

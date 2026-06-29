@@ -18,8 +18,7 @@ by epoll/kevent in a single batch.
 The 1024 budget serves as **overload protection**:
 
 1. **Prevents starvation**: Without a budget, a flood of external tasks could
-   starve timers, internal tasks, and I/O polling — similar to the
-   processInternalQueue unbounded loop issue (DEFECT-003, fixed in Task 16).
+   starve timers, internal tasks, and I/O polling.
 
 2. **Batched execution**: Tasks are popped in a batch while holding the
    external mutex (minimizing lock contention), then executed without the
@@ -36,7 +35,7 @@ The 1024 budget serves as **overload protection**:
 
 ## Comparison with processInternalQueue Budget
 
-The internal queue budget (Task 16) is 4096 — 4x larger than the external
+The internal queue budget is 4096 — 4x larger than the external
 budget. This is intentional: internal tasks include promise reactions and
 other high-priority work that should be processed more aggressively. External
 tasks are general-purpose and can tolerate more latency.

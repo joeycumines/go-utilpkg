@@ -139,7 +139,7 @@ func (p *promise) fanOut() {
 }
 
 // ============================================================================
-// ChainedPromise Implementation (Task 1.6)
+// ChainedPromise Implementation
 // ============================================================================
 
 // ChainedPromise implements the Promise/A+ specification with [Then], [Catch], and [Finally].
@@ -555,7 +555,7 @@ func (p *ChainedPromise) reject(reason any) {
 	if p.js != nil {
 		// JS-backed: schedule handlers BEFORE setting state (same as resolve).
 		// See resolve() for the full rationale on Promise/A+ §2.2.6 ordering.
-		// CRITICAL (T27): Handler microtasks must also run before
+		// CRITICAL: Handler microtasks must also run before
 		// checkUnhandledRejections. This is preserved because trackRejection
 		// is called after mu.Unlock, which is after both scheduling and state.Store.
 		if useH0 {
@@ -1134,7 +1134,7 @@ func formatCreationStack(pcs []uintptr) string {
 }
 
 // ============================================================================
-// Promise Combinators (Task 3.x)
+// Promise Combinators
 // ============================================================================
 
 // All returns a promise that resolves when all input promises resolve.

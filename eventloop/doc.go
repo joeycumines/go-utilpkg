@@ -25,9 +25,7 @@
 //     (no I/O file descriptors are registered, so the loop never enters the
 //     kqueue/epoll/IOCP poll path). I/O readiness operations
 //     ([Loop.RegisterFD], [Loop.UnregisterFD], [Loop.ModifyFD]) are unsupported
-//     and return errors; there is no wake file descriptor. The
-//     internal/alternate* experimental packages do not build on wasm; use the
-//     main package for wasm workloads.
+//     and return errors; there is no wake file descriptor.
 //
 // File descriptor operations ([Loop.RegisterFD], [Loop.UnregisterFD],
 // [Loop.ModifyFD]) provide cross-platform I/O readiness notification.
@@ -52,15 +50,16 @@
 //  3. External queue tasks ([Loop.Submit])
 //  4. Microtasks (nextTick and promise reactions, drained exhaustively)
 //
-// Microtask draining follows Node.js v11+ semantics. The nextTick and microtask
-// queues are drained in alternating BATCHES: all pending nextTick callbacks,
-// then all pending promise/queueMicrotask callbacks, repeating until both queues
-// are empty. A nextTick scheduled during a promise microtask is therefore
-// processed in the next nextTick batch rather than preempting the remaining
-// microtasks — matching Node's processTicksAndRejections plus V8
-// MicrotaskQueue::PerformCheckpoint. Draining is exhaustive (no budget cap), so
-// a self-rescheduling microtask or nextTick can starve timers and I/O just as in
-// JavaScript (a one-shot warning is logged after 100000 callbacks).
+// Microtask draining uses the Node.js v11+ alternating-batch algorithm: the
+// nextTick and microtask queues are drained in alternating BATCHES — all pending
+// nextTick callbacks, then all pending promise/queueMicrotask callbacks,
+// repeating until both queues are empty. A nextTick scheduled during a promise
+// microtask is therefore processed in the next nextTick batch rather than
+// preempting the remaining microtasks — matching Node's
+// processTicksAndRejections plus V8 MicrotaskQueue::PerformCheckpoint. Draining
+// is exhaustive (no budget cap), so a self-rescheduling microtask or nextTick
+// can starve timers and I/O just as in JavaScript (a one-shot warning is logged
+// after 100000 callbacks).
 //
 // Draining occurs after each internal task execution (unconditionally), between
 // every phase boundary in tick(), and at the start of each tick. Per-callback
@@ -82,6 +81,9 @@
 //
 // # Usage
 //
+//	// Note: New() uses pre-v11 timer microtask batching by default.
+//	// Use New(WithStrictMicrotaskOrdering(true)) for Node v11+ per-callback
+//	// draining after each timer callback, external task, and aux job.
 //	loop, err := eventloop.New()
 //	if err != nil {
 //	    log.Fatal(err)
