@@ -111,3 +111,93 @@ func TestDrainMicrotasks_SafetyThresholdWarning(t *testing.T) {
 		t.Errorf("safety-threshold warning logged %d times, want exactly 1. captured log:\n%s", c, out)
 	}
 }
+
+// TestDrain_ComplexInterleaving verifies the alternating-batch draining model
+// handles a complex interleaving: a microtask that schedules BOTH another
+// microtask AND a nextTick. The new microtask should run in the same microtask
+// batch (inner loop is unbounded), while the nextTick should NOT preempt it —
+// it runs in the next nextTick batch.
+//
+// Expected order: microtask-1, microtask-2, nextTick-1
+//
+// This matches Node.js v26.1.0 behavior. The test validates two
+// invariants: (1) microtask-2 runs in the same microtask batch as microtask-1
+// (inner loop is unbounded), and (2) nextTick-1 is deferred to the next
+// nextTick batch rather than preempting microtask-2.
+func TestDrain_ComplexInterleaving(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var order []string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	appendOrder := func(s string) {
+		mu.Lock()
+		order = append(order, s)
+		mu.Unlock()
+	}
+
+	go func() {
+		if err := loop.Run(ctx); err != nil && ctx.Err() == nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+	waitForRunning(t, loop)
+
+	defer loop.Shutdown(context.Background())
+
+	// microtask-1: schedules both another microtask (microtask-2) and a nextTick.
+	mustSubmit(t, loop, func() {
+		js.QueueMicrotask(func() {
+			appendOrder("microtask-1")
+
+			// Schedule another microtask — should run in the SAME microtask batch
+			// (inner loop is unbounded, drains all microtasks before checking nextTick).
+			js.QueueMicrotask(func() {
+				appendOrder("microtask-2")
+			})
+
+			// Schedule a nextTick — should NOT preempt microtask-2.
+			// It runs in the NEXT nextTick batch.
+			if err := loop.ScheduleNextTick(func() {
+				appendOrder("nextTick-1")
+				close(done)
+			}); err != nil {
+				t.Errorf("ScheduleNextTick failed: %v", err)
+			}
+		})
+	})
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		mu.Lock()
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	expected := []string{"microtask-1", "microtask-2", "nextTick-1"}
+	if len(order) != len(expected) {
+		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(order), order)
+	}
+	for i, ev := range expected {
+		if order[i] != ev {
+			t.Errorf("order[%d]: expected %q, got %q", i, ev, order[i])
+		}
+	}
+}
