@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// promisify() Function 100% Coverage
 // Tests for: loop terminated check, context cancellation before goroutine,
 //            function panic, runtime.Goexit(), SubmitInternal() failure paths
 

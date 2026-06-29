@@ -57,11 +57,11 @@ func TestTimerHeap_PopResetsHeapIndex(t *testing.T) {
 // popped from the heap have heapIndex=-1, not just the first one.
 func TestTimerHeap_AllPoppedTimersHaveInvalidIndex(t *testing.T) {
 	h := make(timerHeap, 0)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		heap.Push(&h, &timer{id: TimerID(i + 1), when: time.Unix(0, int64(i+1))})
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		popped := heap.Pop(&h).(*timer)
 		if popped.heapIndex != -1 {
 			t.Errorf("pop %d: heapIndex=%d, want -1", i, popped.heapIndex)
@@ -315,8 +315,7 @@ func TestClose_DeadlockWithPendingTimerOps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Block the loop thread so it can't process the internal queue
 	blockCh := make(chan struct{})
@@ -479,7 +478,7 @@ func TestInterval_RefStatePropagation_Ordering(t *testing.T) {
 // QUIESCING PROTOCOL REGRESSION TESTS
 //
 // These tests verify the quiescing protocol that fixes the auto-exit race
-// conditions (Blocker 1 and Blocker 2 from scratch/review.md).
+// conditions.
 //
 // The quiescing protocol uses an atomic.Bool flag that is set when the auto-exit
 // path decides to terminate. All liveness-adding APIs (ScheduleTimer, RegisterFD,
@@ -643,8 +642,7 @@ func TestQuiesce_AliveFalseAfterShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() { _ = loop.Run(ctx) }()
 	waitLoopState(t, loop, StateRunning, 2*time.Second)
@@ -676,8 +674,7 @@ func TestQuiesce_AliveFalseAfterClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() { _ = loop.Run(ctx) }()
 	waitLoopState(t, loop, StateRunning, 2*time.Second)

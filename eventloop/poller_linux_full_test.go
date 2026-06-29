@@ -12,7 +12,7 @@ import (
 )
 
 // Linux Poller Full Coverage Tests
-// These tests mirror poller_darwin_full_coverage_test.go
+// These tests mirror poller_darwin_full_test.go
 // and are designed to run only on Linux. They test the epoll-based fastPoller
 // implementation for full coverage.
 

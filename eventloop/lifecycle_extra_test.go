@@ -1470,7 +1470,7 @@ func TestAddHandler_RaceBetweenSettleAndLock(t *testing.T) {
 }
 
 // =============================================================================
-// New() with metrics — tick coverage for queue depth tracking
+// New() with metrics — queue depth tracking
 // =============================================================================
 
 // TestNew_WithMetricsTickCoverage runs the loop with metrics and multiple
@@ -1873,7 +1873,7 @@ func TestChunkedIngress_PopDoubleCheckAfterAdvance(t *testing.T) {
 }
 
 // =============================================================================
-// Loop with all options — max coverage for constructor + tick paths
+// Loop with all options — constructor + tick paths
 // =============================================================================
 
 // TestLoop_MetricsStrictDisabledEndToEnd exercises the full metrics pipeline

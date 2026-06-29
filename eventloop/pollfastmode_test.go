@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// pollFastMode Function 100% Coverage
-// Target: loop.go pollFastMode function
-// Gaps covered:
 // - Fast mode wakeup via channel path (fastWakeupCh)
 // - Timeout expiration while in fast mode
 // - Termination check during fast mode

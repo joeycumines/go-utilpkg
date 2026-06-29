@@ -2,6 +2,9 @@ package eventloop
 
 import (
 	"context"
+	"io"
+	"log"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -28,12 +31,29 @@ import (
 //
 // Run: go test -bench=BenchmarkDrainPerf -benchmem -count=5 -run=^$ ./eventloop/
 
+// waitForRunningBench spins until the loop is active (StateRunning or StateSleeping)
+// with a 5-second timeout guard. This is the *testing.B variant of waitForRunning.
+// Unlike waitForRunning (which checks StateRunning), this also accepts StateSleeping
+// because a loop with no pending work will quickly transition to StateSleeping.
+func waitForRunningBench(b *testing.B, loop *Loop) {
+	b.Helper()
+	deadline := time.After(5 * time.Second)
+	for loop.State() == StateAwake {
+		select {
+		case <-deadline:
+			b.Fatal("timed out waiting for loop to start")
+		default:
+			runtime.Gosched()
+		}
+	}
+}
+
 // setupDrainBenchLoop creates a running loop with FastPathDisabled to force
 // the poll path (tick() → processInternalQueue). The per-task draining in
 // processInternalQueue is unconditional. Returns the loop and a cleanup func.
 func setupDrainBenchLoop(b *testing.B) (*Loop, func()) {
 	b.Helper()
-	ctx := context.Background()
+	ctx := b.Context()
 
 	loop, err := New(WithFastPathMode(FastPathDisabled))
 	if err != nil {
@@ -41,9 +61,17 @@ func setupDrainBenchLoop(b *testing.B) (*Loop, func()) {
 	}
 
 	go func() { _ = loop.Run(ctx) }()
-	time.Sleep(10 * time.Millisecond) // let loop start
+	waitForRunningBench(b, loop)
+
+	// Suppress budget-exceeded log output. When b.N is large, tasks from
+	// multiple iterations can accumulate in the internal queue within a single
+	// tick, exceeding the 4096 budget. This is correct behavior (tasks are
+	// deferred, not dropped), but the log output is noise in benchmarks.
+	origOut := log.Writer()
+	log.SetOutput(io.Discard)
 
 	cleanup := func() {
+		log.SetOutput(origOut)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = loop.Shutdown(shutdownCtx)
@@ -69,7 +97,7 @@ func BenchmarkDrainPerf_NoMicrotasks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
 
-		for j := 0; j < 10000; j++ {
+		for range 100 {
 			if err := loop.SubmitInternal(func() {}); err != nil {
 				b.Fatalf("SubmitInternal: %v", err)
 			}
@@ -97,7 +125,7 @@ func BenchmarkDrainPerf_WithMicrotasks(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
 
-		for j := 0; j < 10000; j++ {
+		for range 100 {
 			if err := loop.SubmitInternal(func() {
 				_ = loop.ScheduleMicrotask(func() {})
 			}); err != nil {
@@ -125,7 +153,7 @@ func BenchmarkDrainPerf_WithNextTick(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
 
-		for j := 0; j < 10000; j++ {
+		for range 100 {
 			if err := loop.SubmitInternal(func() {
 				_ = loop.ScheduleNextTick(func() {})
 			}); err != nil {
@@ -158,7 +186,7 @@ func BenchmarkDrainPerf_MixedWorkload(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		done := make(chan struct{})
 
-		for j := 0; j < 10000; j++ {
+		for j := range 100 {
 			switch j % 10 {
 			case 0, 1, 2, 3, 4: // 50% internal + microtask
 				if err := loop.SubmitInternal(func() {

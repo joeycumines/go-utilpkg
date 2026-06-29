@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-// ScheduleMicrotask Function 100% Coverage
-// Target: loop.go ScheduleMicrotask function
-// Gaps covered:
 // - State check while holding mutex
 // - I/O mode wakeup with deduplication
 // - Fast mode channel wakeup path

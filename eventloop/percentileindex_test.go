@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// percentileIndex Function 100% Coverage
-// Target: metrics.go percentileIndex function
-// Gaps covered:
 // - Percentile calculation edge case where result index >= n (when p=100 or n=1)
 // - Boundary conditions for small sample sizes
 // - Various percentile values ensuring index clamping works correctly

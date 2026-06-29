@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// runTimers Function 100% Coverage
 // Tests for: timer callback panic recovery, canceled timer path,
 //            nested timer calls with nesting depth, timer pool return
 

@@ -1,7 +1,7 @@
 package eventloop
 
 // ============================================================================
-// Autopsy Kill Conditions — Microtask/nextTick Draining Model
+// Kill Conditions — Microtask/nextTick Draining Model
 //
 // These tests verify the event loop's microtask/nextTick draining model.
 // Internal-task per-callback draining, inter-phase draining, and exhaustive
@@ -11,10 +11,10 @@ package eventloop
 // default false); KILL-001 enables it for the timer-callback case.
 //
 // Key fixes being verified:
-//   - Task 5: processInternalQueue drains microtasks per-task (unconditional)
-//   - Task 6: Inter-phase drains in tick() between runTimers, processInternalQueue,
+//   - processInternalQueue drains microtasks per-task (unconditional)
+//   - Inter-phase drains in tick() between runTimers, processInternalQueue,
 //     processExternal, and drainAuxJobs (unconditional)
-//   - Task 7: Exhaustive draining with no budget cap (unconditional)
+//   - Exhaustive draining with no budget cap (unconditional)
 //   - Batch draining: nextTick and microtask queues drain in alternating batches
 //     (Task 21), matching Node v11+ processTicksAndRejections + PerformCheckpoint.
 // ============================================================================
@@ -102,6 +102,96 @@ func TestKill001_PerTimerCallbackMicrotaskDraining(t *testing.T) {
 
 	// Expected: timer-1 -> microtask-from-timer-1 -> timer-2
 	expected := []string{"timer-1", "microtask-from-timer-1", "timer-2"}
+	if len(order) != len(expected) {
+		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(order), order)
+	}
+	for i, ev := range expected {
+		if order[i] != ev {
+			t.Errorf("order[%d]: expected %q, got %q", i, ev, order[i])
+		}
+	}
+}
+
+// TestKill001b_DefaultTimerMicrotaskOrdering verifies that in default mode
+// (New() without WithStrictMicrotaskOrdering), microtasks scheduled during a
+// timer callback are batched and drained AFTER all timer callbacks complete
+// (the inter-phase drain between runTimers() and processInternalQueue()).
+//
+// This is pre-v11 Node.js behavior: microtasks are NOT drained between
+// individual timer callbacks. This test locks in the documented deviation as a
+// behavioral contract — if someone accidentally makes per-callback draining
+// unconditional in runTimers(), this test will FAIL.
+//
+// Compare with TestKill001 (strict mode) which asserts the v11+ per-callback
+// order: [timer-1, microtask, timer-2].
+func TestKill001b_DefaultTimerMicrotaskOrdering(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	js, err := NewJS(loop)
+	if err != nil {
+		t.Fatalf("NewJS() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var order []string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	appendOrder := func(s string) {
+		mu.Lock()
+		order = append(order, s)
+		mu.Unlock()
+	}
+
+	// Submit all setup atomically within the loop goroutine to avoid cross-tick races.
+	mustSubmit(t, loop, func() {
+		// Timer 1: queues a microtask during its callback.
+		js.SetTimeout(func() {
+			appendOrder("timer-1")
+			js.QueueMicrotask(func() {
+				appendOrder("microtask-from-timer-1")
+				close(done) // Signal AFTER the microtask runs — not from timer-2.
+			})
+		}, 0)
+
+		// Timer 2: in default mode, runs BEFORE the microtask (batched).
+		js.SetTimeout(func() {
+			appendOrder("timer-2")
+		}, 0)
+	})
+
+	go func() {
+		if err := loop.Run(ctx); err != nil && ctx.Err() == nil {
+			t.Errorf("loop.Run failed: %v", err)
+		}
+	}()
+	waitForRunning(t, loop)
+
+	defer func() {
+		cancel()
+		loop.Shutdown(context.Background())
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		mu.Lock()
+		snapshot := append([]string(nil), order...)
+		mu.Unlock()
+		t.Fatalf("Timeout. Order: %v", snapshot)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Expected (pre-v11): timer-1 -> timer-2 -> microtask-from-timer-1
+	// The microtask is deferred to the inter-phase drain after all timers.
+	expected := []string{"timer-1", "timer-2", "microtask-from-timer-1"}
 	if len(order) != len(expected) {
 		t.Fatalf("Expected %d events, got %d: %v", len(expected), len(order), order)
 	}

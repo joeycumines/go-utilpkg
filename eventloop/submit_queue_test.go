@@ -3,19 +3,19 @@
 package eventloop
 
 // ============================================================================
-// TDD Tests — CF-001 and CF-002
+// TDD Tests — Ref Count Correctness and Lost Wakeup Prevention
 //
-// CF-001: submitTimerRefChange closure previously called doWakeup() unconditionally,
+// Ref Count Correctness: submitTimerRefChange closure previously called doWakeup() unconditionally,
 //         even when applyTimerRefChange determined no wakeup was needed (old == ref).
 //         FIX: Removed the unconditional doWakeup() from the closure. applyTimerRefChange
 //         is now the sole authority for wakeup decisions in this code path.
 //
-// CF-002: submitToQueue's fast-mode path (userIOFDCount == 0) only sent to fastWakeupCh
+// Lost Wakeup Prevention: submitToQueue's fast-mode path (userIOFDCount == 0) only sent to fastWakeupCh
 //         without calling submitWakeup() (pipe write). If the loop was in PollIO despite
 //         userIOFDCount == 0 (due to concurrent UnregisterFD), the signal was lost.
 //         FIX: Added defense-in-depth submitWakeup() call, mirroring Submit()'s pattern.
 //
-// GAP-004: UnregisterFD did not wake the loop when userIOFDCount dropped to 0.
+// UnregisterFD Wakeup: UnregisterFD did not wake the loop when userIOFDCount dropped to 0.
 //          FIX: Added doWakeup() when the last I/O FD is removed.
 // ============================================================================
 
@@ -28,7 +28,7 @@ import (
 )
 
 // ============================================================================
-// CF-001: Ref Count Correctness After No-Op RefTimer/UnrefTimer Operations
+// Ref Count Correctness After No-Op RefTimer/UnrefTimer Operations
 //
 // The original bug: submitTimerRefChange closure called doWakeup() unconditionally
 // after applyTimerRefChange, even when old == ref (no state change). This caused:
@@ -46,7 +46,7 @@ import (
 // TestCF001_RefTimerNoOp_DoesNotChangeRefCount verifies that calling RefTimer on
 // a timer that is ALREADY ref'd does NOT increment refedTimerCount.
 //
-// This is the direct correctness test for CF-001: the ref count must remain
+// This is the direct correctness test: the ref count must remain
 // unchanged when the ref state doesn't change (old == ref).
 func TestCF001_RefTimerNoOp_DoesNotChangeRefCount(t *testing.T) {
 	loop, err := New()
@@ -79,7 +79,7 @@ func TestCF001_RefTimerNoOp_DoesNotChangeRefCount(t *testing.T) {
 
 	// Call RefTimer 100 times on the already-ref'd timer.
 	// Each call should be a no-op: old == ref == true.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if err := loop.RefTimer(timerID); err != nil {
 			t.Errorf("RefTimer %d: %v", i, err)
 		}
@@ -88,7 +88,7 @@ func TestCF001_RefTimerNoOp_DoesNotChangeRefCount(t *testing.T) {
 	// The ref count must not have changed — all 100 calls were no-ops.
 	countAfter := loop.refedTimerCount.Load()
 	if countAfter != countBefore {
-		t.Errorf("CF-001 FAIL: refedTimerCount changed after no-op RefTimer calls: "+
+		t.Errorf("FAIL: refedTimerCount changed after no-op RefTimer calls: "+
 			"before=%d, after=%d. No-op RefTimer should not change the ref count.",
 			countBefore, countAfter)
 	}
@@ -144,7 +144,7 @@ func TestCF001_UnrefTimerNoOp_DoesNotChangeRefCount(t *testing.T) {
 
 	// Call UnrefTimer 100 times on the already-unref'd timer.
 	// Each call should be a no-op: old == ref == false.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if err := loop.UnrefTimer(testTimerID); err != nil {
 			t.Errorf("UnrefTimer %d: %v", i, err)
 		}
@@ -153,7 +153,7 @@ func TestCF001_UnrefTimerNoOp_DoesNotChangeRefCount(t *testing.T) {
 	// The ref count must not have changed — all 100 calls were no-ops.
 	countAfter := loop.refedTimerCount.Load()
 	if countAfter != countBefore {
-		t.Errorf("CF-001 FAIL: refedTimerCount changed after no-op UnrefTimer calls: "+
+		t.Errorf("FAIL: refedTimerCount changed after no-op UnrefTimer calls: "+
 			"before=%d, after=%d. No-op UnrefTimer should not change the ref count.",
 			countBefore, countAfter)
 	}
@@ -199,7 +199,7 @@ func TestCF001_ConcurrentNoOpRefChanges_RefCountCorrect(t *testing.T) {
 
 	const nTimers = 10
 	timerIDs := make([]TimerID, nTimers)
-	for i := 0; i < nTimers; i++ {
+	for i := range nTimers {
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			cancel()
@@ -231,11 +231,11 @@ func TestCF001_ConcurrentNoOpRefChanges_RefCountCorrect(t *testing.T) {
 	const callsPerWorker = 2000
 
 	var workerWg sync.WaitGroup
-	for w := 0; w < nWorkers; w++ {
+	for w := range nWorkers {
 		workerWg.Add(1)
 		go func(workerID int) {
 			defer workerWg.Done()
-			for i := 0; i < callsPerWorker; i++ {
+			for i := range callsPerWorker {
 				id := timerIDs[(workerID*17+i)%nTimers]
 				_ = loop.UnrefTimer(id)
 				_ = loop.RefTimer(id)
@@ -251,7 +251,7 @@ func TestCF001_ConcurrentNoOpRefChanges_RefCountCorrect(t *testing.T) {
 
 	finalCount := loop.refedTimerCount.Load()
 	if finalCount != expectedCount {
-		t.Errorf("CF-001 FAIL: refedTimerCount after concurrent operations: "+
+		t.Errorf("FAIL: refedTimerCount after concurrent operations: "+
 			"expected %d, got %d. Concurrent Ref/Unref corrupted the ref count.",
 			expectedCount, finalCount)
 	}
@@ -329,8 +329,8 @@ func TestCF001_ClosureNoLongerCallsDoWakeup(t *testing.T) {
 
 	// Perform RefTimer/UnrefTimer on the cancelled (non-existent) timer.
 	// applyTimerRefChange will find no timer in timerMap → early return, no state change.
-	// The closure should NOT call doWakeup() (CF-001 fix).
-	for i := 0; i < 100; i++ {
+	// The closure should NOT call doWakeup() (fix).
+	for range 100 {
 		_ = loop.RefTimer(cancelledID)
 		_ = loop.UnrefTimer(cancelledID)
 	}
@@ -338,7 +338,7 @@ func TestCF001_ClosureNoLongerCallsDoWakeup(t *testing.T) {
 	// refedTimerCount must be unchanged — the timer doesn't exist.
 	countAfter := loop.refedTimerCount.Load()
 	if countAfter != countBefore {
-		t.Errorf("CF-001 FAIL: refedTimerCount changed after ref operations on "+
+		t.Errorf("FAIL: refedTimerCount changed after ref operations on "+
 			"non-existent timer: before=%d, after=%d. Operations on cancelled timers "+
 			"must not affect the ref count.", countBefore, countAfter)
 	}
@@ -350,7 +350,7 @@ func TestCF001_ClosureNoLongerCallsDoWakeup(t *testing.T) {
 }
 
 // ============================================================================
-// CF-002: Lost Wakeup in submitToQueue When userIOFDCount Transitions to 0
+// Lost Wakeup in submitToQueue When userIOFDCount Transitions to 0
 //
 // The defect: submitToQueue's fast-mode path (when userIOFDCount == 0) only
 // sent to fastWakeupCh and returned without calling submitWakeup() (pipe write).
@@ -360,21 +360,21 @@ func TestCF001_ClosureNoLongerCallsDoWakeup(t *testing.T) {
 // ORIGINAL FIX: Added _ = l.submitWakeup() in submitToQueue's fast-mode branch.
 // This worked but caused ~1750 ns overhead per fast-mode call (pipe syscall).
 //
-// OPTIMIZED FIX (PERF-001): Removed the submitWakeup() call. GAP-004 alone
+// OPTIMIZED FIX: Removed the submitWakeup() call. The UnregisterFD wakeup alone
 // handles the race: UnregisterFD calls doWakeup() when count drops to 0.
 // The loop only enters PollIO when count > 0, and count can only transition
-// from >0 to 0 via UnregisterFD (which triggers GAP-004). So by the time
+// from >0 to 0 via UnregisterFD (which triggers the wakeup). So by the time
 // submitToQueue sees count==0, the wakeup is already in flight.
 //
-// THE RACE WINDOW (covered by GAP-004):
+// THE RACE WINDOW (covered by the UnregisterFD wakeup):
 //   1. Loop calls PollIO(timeout=X) with userIOFDCount > 0. The syscall is
 //      now blocked in the kernel (EpollWait/Kevent).
 //   2. External goroutine calls UnregisterFD → userIOFDCount becomes 0.
-//      GAP-004: UnregisterFD calls doWakeup() → pipe write interrupts PollIO.
+//      UnregisterFD calls doWakeup() → pipe write interrupts PollIO.
 //   3. External goroutine calls RefTimer → submitToQueue sees userIOFDCount == 0
 //      → sends to fastWakeupCh ONLY.
 //      → fastWakeupCh is buffered until PollIO returns (step 2 pipe write).
-//   4. PollIO returns (due to GAP-004 pipe write from step 2).
+//   4. PollIO returns (due to the pipe write from step 2).
 //   5. Loop enters fast-mode → consumes fastWakeupCh signal → closure runs.
 // ============================================================================
 
@@ -467,7 +467,7 @@ func TestCF002_LostWakeup_RefTimer_Hangs(t *testing.T) {
 	// Now unregister the pipe — userIOFDCount drops to 0.
 	// The PollIO syscall is ALREADY in the kernel and does NOT return.
 	// It waits for its timeout (~1s).
-	// GAP-004 fix: UnregisterFD now calls doWakeup() when count drops to 0,
+	// Fix: UnregisterFD now calls doWakeup() when count drops to 0,
 	// which wakes PollIO immediately.
 	if err := loop.UnregisterFD(pipeFD); err != nil {
 		pipeCleanup()
@@ -480,7 +480,7 @@ func TestCF002_LostWakeup_RefTimer_Hangs(t *testing.T) {
 	// At this point:
 	// - userIOFDCount == 0
 	// - UnregisterFD called doWakeup() → PollIO should return soon
-	// - submitToQueue now also calls submitWakeup() (CF-002 fix)
+	// - submitToQueue now also calls submitWakeup() (defense in depth)
 	// - RefTimer should complete quickly
 
 	refDone := make(chan error, 1)
@@ -490,7 +490,7 @@ func TestCF002_LostWakeup_RefTimer_Hangs(t *testing.T) {
 		refDone <- loop.RefTimer(testTimerID)
 	}()
 
-	// Threshold: 300ms. With CF-002 + GAP-004 fixed, RefTimer completes quickly.
+	// Threshold: 300ms. With both fixes applied, RefTimer completes quickly.
 	// Without either fix, RefTimer takes ~1s (PollIO timeout).
 	const maxAcceptableDelay = 300 * time.Millisecond
 
@@ -501,15 +501,15 @@ func TestCF002_LostWakeup_RefTimer_Hangs(t *testing.T) {
 			t.Errorf("RefTimer returned error: %v", err)
 		}
 		if elapsed > maxAcceptableDelay {
-			t.Errorf("CF-002 FAIL: RefTimer took %v (expected < %v). "+
+			t.Errorf("FAIL: RefTimer took %v (expected < %v). "+
 				"submitToQueue fast-mode path or UnregisterFD wakeup is missing.",
 				elapsed, maxAcceptableDelay)
 		} else {
-			t.Logf("RefTimer completed in %v — CF-002/GAP-004 fixes working",
+			t.Logf("RefTimer completed in %v — fixes working",
 				elapsed)
 		}
 	case <-time.After(5 * time.Second):
-		t.Errorf("CF-002 FAIL: RefTimer blocked for > 5 seconds.")
+		t.Errorf("FAIL: RefTimer blocked for > 5 seconds.")
 		go func() { <-refDone }()
 	}
 
@@ -599,15 +599,15 @@ func TestCF002_LostWakeup_CancelTimer_Hangs(t *testing.T) {
 			t.Errorf("CancelTimer returned unexpected error: %v", err)
 		}
 		if elapsed > maxAcceptableDelay {
-			t.Errorf("CF-002 FAIL: CancelTimer took %v (expected < %v). "+
+			t.Errorf("FAIL: CancelTimer took %v (expected < %v). "+
 				"submitToQueue fast-mode path or UnregisterFD wakeup is missing.",
 				elapsed, maxAcceptableDelay)
 		} else {
-			t.Logf("CancelTimer completed in %v — CF-002/GAP-004 fixes working",
+			t.Logf("CancelTimer completed in %v — fixes working",
 				elapsed)
 		}
 	case <-time.After(5 * time.Second):
-		t.Errorf("CF-002 FAIL: CancelTimer blocked for > 5 seconds.")
+		t.Errorf("FAIL: CancelTimer blocked for > 5 seconds.")
 		go func() { <-cancelDone }()
 	}
 
@@ -619,7 +619,7 @@ func TestCF002_LostWakeup_CancelTimer_Hangs(t *testing.T) {
 }
 
 // ============================================================================
-// GAP-004: UnregisterFD Must Wake Loop When userIOFDCount Drops to 0
+// UnregisterFD Must Wake Loop When userIOFDCount Drops to 0
 //
 // The defect: UnregisterFD decremented userIOFDCount but did NOT wake the loop.
 // When the last I/O FD was removed, the loop remained blocked in PollIO until
@@ -677,7 +677,7 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Unregister the last I/O FD → userIOFDCount drops to 0
-	// GAP-004 fix: this should wake the loop from PollIO
+	// Fix: this should wake the loop from PollIO
 	start := time.Now()
 	if err := loop.UnregisterFD(pipeFD); err != nil {
 		pipeCleanup()
@@ -694,7 +694,7 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 	}
 
 	// Submit a task. If the loop is stuck in PollIO, this will take ~1s.
-	// With GAP-004 fix, the loop is in pollFastMode and processes immediately.
+	// With the fix, the loop is in pollFastMode and processes immediately.
 	taskDone := make(chan struct{})
 	if err := loop.Submit(func() {
 		close(taskDone)
@@ -709,15 +709,15 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 	case <-taskDone:
 		elapsed := time.Since(start)
 		if elapsed > maxAcceptableDelay {
-			t.Errorf("GAP-004 FAIL: task after UnregisterFD took %v (expected < %v). "+
+			t.Errorf("FAIL: task after UnregisterFD took %v (expected < %v). "+
 				"UnregisterFD did not wake the loop from PollIO.",
 				elapsed, maxAcceptableDelay)
 		} else {
-			t.Logf("Task completed in %v after UnregisterFD — GAP-004 fix working",
+			t.Logf("Task completed in %v after UnregisterFD — fix working",
 				elapsed)
 		}
 	case <-time.After(5 * time.Second):
-		t.Errorf("GAP-004 FAIL: task blocked for > 5 seconds after UnregisterFD.")
+		t.Errorf("FAIL: task blocked for > 5 seconds after UnregisterFD.")
 	}
 
 	_ = loop.CancelTimer(keepaliveID)
@@ -726,10 +726,10 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 }
 
 // ============================================================================
-// CF-001 Walkthrough
+// Ref Count Correctness Walkthrough
 // ============================================================================
 //
-// ORIGINAL BEHAVIOR (CF-001 present, loop.go:1569-1575):
+// ORIGINAL BEHAVIOR (bug present, loop.go:1569-1575):
 //   External goroutine: loop.RefTimer(alreadyRefdTimerID)
 //     → submitTimerRefChange(id, true)
 //       → submitToQueue(closure)
@@ -739,26 +739,26 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 //                 if old != ref:  ← FALSE (no state change)
 //                 NO doWakeup()  ← correct
 //             result <- struct{}{}
-//             l.doWakeup()     ← BUG: unconditional wakeup!
+//             l.doWakeup()     ← unconditional wakeup!
 //         }
 //         → l.fastWakeupCh <- struct{}{}
 //         → loop wakes, runs closure
 //         → closure calls doWakeup() spuriously
 //
-// FIXED BEHAVIOR (after CF-001 fix):
+// FIXED BEHAVIOR (after fix):
 //   The closure no longer calls doWakeup(). applyTimerRefChange is the sole
 //   authority for wakeup decisions: it calls doWakeup() only when old != ref.
 //   When old == ref (no-op case), no additional wakeup is sent.
 //
 // ============================================================================
-// CF-002 Walkthrough
+// Lost Wakeup Walkthrough
 // ============================================================================
 //
-// ORIGINAL BEHAVIOR (CF-002 present, loop.go:1469-1474):
+// ORIGINAL BEHAVIOR (bug present, loop.go:1469-1474):
 //   1. Loop: PollIO(timeout=1s) — blocked in kernel
 //   2. External goroutine: UnregisterFD(pipeFD) → userIOFDCount: 1→0
 //      The syscall is ALREADY blocked — does NOT return until timeout
-//      (GAP-004 fix: now calls doWakeup() when count reaches 0)
+//      (fix: now calls doWakeup() when count reaches 0)
 //   3. External goroutine: RefTimer(id) → submitTimerRefChange → submitToQueue
 //
 //   submitToQueue path (BEFORE fix):
@@ -772,7 +772,7 @@ func TestGAP004_UnregisterFD_WakesLoopWhenLastFDRemoved(t *testing.T) {
 //     _ = l.submitWakeup()  ← Defense in depth: wakes PollIO
 //     return nil
 //
-//   With GAP-004 fix: UnregisterFD already woke the loop via doWakeup(),
+//   With the UnregisterFD fix: UnregisterFD already woke the loop via doWakeup(),
 //   so PollIO returns immediately. submitToQueue's submitWakeup() provides
 //   an additional safety net if the timing window is missed.
 //
@@ -822,7 +822,7 @@ func TestCancelTimer_RefCountCorrect(t *testing.T) {
 	// Schedule 10 timers (all ref'd by default)
 	const nTimers = 10
 	timerIDs := make([]TimerID, nTimers)
-	for i := 0; i < nTimers; i++ {
+	for i := range nTimers {
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			cancel()
@@ -836,7 +836,7 @@ func TestCancelTimer_RefCountCorrect(t *testing.T) {
 	waitForCounter(t, &loop.refedTimerCount, nTimers, 2*time.Second)
 
 	// Cancel them one by one — each cancellation should decrement refedTimerCount
-	for i := 0; i < nTimers; i++ {
+	for i := range nTimers {
 		before := loop.refedTimerCount.Load()
 		if err := loop.CancelTimer(timerIDs[i]); err != nil {
 			cancel()
@@ -878,7 +878,7 @@ func TestCancelTimers_RefCountCorrect(t *testing.T) {
 	// Schedule 10 timers (all ref'd by default)
 	const nTimers = 10
 	timerIDs := make([]TimerID, nTimers)
-	for i := 0; i < nTimers; i++ {
+	for i := range nTimers {
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			cancel()
@@ -911,14 +911,14 @@ func TestCancelTimers_RefCountCorrect(t *testing.T) {
 }
 
 // ============================================================================
-// PERF-001: submitToQueue Fast-Mode Path Should Not Call submitWakeup
+// submitToQueue Fast-Mode Path Should Not Call submitWakeup
 //
-// The CF-002 defense-in-depth added _ = l.submitWakeup() to submitToQueue's
+// The defense-in-depth added _ = l.submitWakeup() to submitToQueue's
 // fast-mode branch (when userIOFDCount == 0). However, this is redundant
-// given GAP-004 (UnregisterFD calls doWakeup() when count drops to 0).
+// given the UnregisterFD wakeup (UnregisterFD calls doWakeup() when count drops to 0).
 //
 // The proof: the loop only enters PollIO when userIOFDCount > 0. The count
-// can only transition from >0 to 0 via UnregisterFD, which triggers GAP-004.
+// can only transition from >0 to 0 via UnregisterFD, which triggers the wakeup.
 // So by the time submitToQueue sees count == 0, the wakeup is already in
 // flight. The fastWakeupCh signal is sufficient.
 //
@@ -933,7 +933,7 @@ func TestCancelTimers_RefCountCorrect(t *testing.T) {
 // fast-mode (no FDs registered). This test uses a test hook to count submitWakeup
 // calls during normal fast-mode RefTimer operations.
 //
-// TDD: This test FAILS with the current code because CF-002's defense-in-depth
+// TDD: This test FAILS with the current code because the defense-in-depth
 // calls submitWakeup() on every fast-mode submitToQueue invocation. After removing
 // the redundant defense-in-depth, this test passes.
 func TestPERF001_SubmitToQueueFastMode_NoSubmitWakeup(t *testing.T) {
@@ -977,7 +977,7 @@ func TestPERF001_SubmitToQueueFastMode_NoSubmitWakeup(t *testing.T) {
 	// No FDs are registered, so the loop is in fast-mode (blocking on fastWakeupCh).
 	// submitToQueue's fast-mode branch should NOT call submitWakeup().
 	const nOps = 50
-	for i := 0; i < nOps; i++ {
+	for i := range nOps {
 		if err := loop.RefTimer(timerID); err != nil {
 			t.Errorf("RefTimer %d: %v", i, err)
 		}
@@ -990,10 +990,10 @@ func TestPERF001_SubmitToQueueFastMode_NoSubmitWakeup(t *testing.T) {
 	// With the defense-in-depth present, submitWakeup is called nOps times.
 	count := submitWakeupCount.Load()
 	if count > 0 {
-		t.Errorf("PERF-001 FAIL: submitWakeup was called %d times during %d fast-mode "+
+		t.Errorf("FAIL: submitWakeup was called %d times during %d fast-mode "+
 			"RefTimer operations. Expected 0 — submitToQueue's fast-mode branch should "+
-			"not call submitWakeup() when no FDs are registered (GAP-004 handles the "+
-			"PollIO wakeup when userIOFDCount transitions to 0).",
+			"not call submitWakeup() when no FDs are registered (the UnregisterFD "+
+			"wakeup handles the PollIO wakeup when userIOFDCount transitions to 0).",
 			count, nOps)
 	}
 
@@ -1003,9 +1003,9 @@ func TestPERF001_SubmitToQueueFastMode_NoSubmitWakeup(t *testing.T) {
 }
 
 // TestPERF001_CF002_StillWorksAfterOptimization verifies that removing the
-// defense-in-depth submitWakeup does NOT break the CF-002 race condition fix.
+// defense-in-depth submitWakeup does NOT break the lost wakeup race condition fix.
 // This test is identical to TestCF002_LostWakeup_RefTimer_Hangs but also
-// verifies that GAP-004 alone is sufficient to prevent the deadlock.
+// verifies that the UnregisterFD wakeup alone is sufficient to prevent the deadlock.
 func TestPERF001_CF002_StillWorksAfterOptimization(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping timing-sensitive test in short mode")
@@ -1070,7 +1070,7 @@ func TestPERF001_CF002_StillWorksAfterOptimization(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Unregister the pipe -> userIOFDCount drops to 0
-	// GAP-004: UnregisterFD calls doWakeup() -> PollIO returns
+	// UnregisterFD calls doWakeup() -> PollIO returns
 	if err := loop.UnregisterFD(pipeFD); err != nil {
 		pipeCleanup()
 		cancel()
@@ -1080,7 +1080,7 @@ func TestPERF001_CF002_StillWorksAfterOptimization(t *testing.T) {
 	pipeCleanup()
 
 	// Now call RefTimer. submitToQueue sees count=0, sends to fastWakeupCh only.
-	// GAP-004's doWakeup() already woke PollIO. The loop enters fast-mode and
+	// The doWakeup() already woke PollIO. The loop enters fast-mode and
 	// picks up the fastWakeupCh signal. RefTimer should complete quickly.
 	refDone := make(chan error, 1)
 	start := time.Now()
@@ -1098,15 +1098,15 @@ func TestPERF001_CF002_StillWorksAfterOptimization(t *testing.T) {
 			t.Errorf("RefTimer returned error: %v", err)
 		}
 		if elapsed > maxAcceptableDelay {
-			t.Errorf("PERF-001 FAIL: RefTimer took %v (expected < %v). "+
-				"GAP-004 should handle the PollIO wakeup without submitToQueue's "+
-				"defense-in-depth pipe write.",
+			t.Errorf("FAIL: RefTimer took %v (expected < %v). "+
+				"The UnregisterFD wakeup should handle the PollIO wakeup without "+
+				"submitToQueue's defense-in-depth pipe write.",
 				elapsed, maxAcceptableDelay)
 		} else {
-			t.Logf("RefTimer completed in %v — GAP-004 alone is sufficient", elapsed)
+			t.Logf("RefTimer completed in %v — UnregisterFD wakeup alone is sufficient", elapsed)
 		}
 	case <-time.After(5 * time.Second):
-		t.Errorf("PERF-001 FAIL: RefTimer blocked for > 5 seconds.")
+		t.Errorf("FAIL: RefTimer blocked for > 5 seconds.")
 		go func() { <-refDone }()
 	}
 

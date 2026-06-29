@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-// handlePollError Full Coverage
-// Target: loop.go handlePollError function
-// Gaps covered:
 // - Test injection to trigger poll error paths
 // - State transition from StateSleeping to StateTerminating on poll failure
 // - shutdown() invocation after state transition

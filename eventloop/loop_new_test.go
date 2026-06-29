@@ -25,7 +25,6 @@ func (o *testTrackLoopOption) applyLoop(opts *loopOptions) error {
 
 var _ LoopOption = (*testTrackLoopOption)(nil)
 
-// New() Function 100% Coverage
 // Tests for: New(), resolveLoopOptions(), createWakeFd failure handling,
 //            poller.Init() failure handling
 

@@ -481,7 +481,7 @@ func Test_microtaskRing_OverflowPendingFlag(t *testing.T) {
 	}
 }
 
-// Test_microtaskRing_ValidFlag tests the valid flag for R101 fix.
+// Test_microtaskRing_ValidFlag tests the valid flag.
 func Test_microtaskRing_ValidFlag(t *testing.T) {
 	r := newMicrotaskRing()
 

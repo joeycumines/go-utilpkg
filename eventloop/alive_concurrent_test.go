@@ -14,15 +14,14 @@ import (
 // Verifies that refedTimerCount never goes negative and ends at the correct value.
 func TestAdversarial_ConcurrentRefUnref(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -39,19 +38,17 @@ func TestAdversarial_ConcurrentRefUnref(t *testing.T) {
 	const iterations = 1000
 
 	var wg sync.WaitGroup
-	wg.Add(goroutines)
 
-	for g := 0; g < goroutines; g++ {
-		go func() {
-			defer wg.Done()
-			for i := 0; i < iterations; i++ {
+	for range goroutines {
+		wg.Go(func() {
+			for i := range iterations {
 				if i%2 == 0 {
 					_ = loop.UnrefTimer(id)
 				} else {
 					_ = loop.RefTimer(id)
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -90,15 +87,14 @@ func TestAdversarial_ConcurrentRefUnref(t *testing.T) {
 // on the canceled timer ID. Verifies no panic and refedTimerCount is correct.
 func TestAdversarial_RefAfterCancel(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -151,15 +147,14 @@ func TestAdversarial_RefAfterCancel(t *testing.T) {
 // Verifies no race condition (with -race) and refedTimerCount is correct.
 func TestAdversarial_UnrefDuringTimerFire(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -172,7 +167,7 @@ func TestAdversarial_UnrefDuringTimerFire(t *testing.T) {
 	// Schedule timers with sufficient delay so unref goroutines can start
 	// while timers are still pending (not yet fired).
 	const timerDelay = 50 * time.Millisecond
-	for i := 0; i < numTimers; i++ {
+	for i := range numTimers {
 		ids[i], err = loop.ScheduleTimer(timerDelay, func() {
 			fired.Add(1)
 		})
@@ -184,14 +179,12 @@ func TestAdversarial_UnrefDuringTimerFire(t *testing.T) {
 	// Start unref goroutines immediately while timers are still pending.
 	// The 50ms delay ensures the unref race with runTimers is actually exercised.
 	var wg sync.WaitGroup
-	for g := 0; g < 20; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < numTimers; i++ {
+	for range 20 {
+		wg.Go(func() {
+			for i := range numTimers {
 				_ = loop.UnrefTimer(ids[i])
 			}
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -224,16 +217,16 @@ func TestAdversarial_UnrefDuringTimerFire(t *testing.T) {
 // Verifies no panic or deadlock.
 func TestAdversarial_AliveDuringShutdown(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	const trials = 10
-	for trial := 0; trial < trials; trial++ {
+	for trial := range trials {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New: %v", err)
 		}
-		ctx := context.Background()
+		ctx := t.Context()
 		defer loop.Close() // Ensure trial loop is closed on any exit path
 
 		go loop.Run(ctx)
@@ -250,15 +243,13 @@ func TestAdversarial_AliveDuringShutdown(t *testing.T) {
 		var wg sync.WaitGroup
 		const pollers = 20
 		var aliveCalls atomic.Int64
-		for p := 0; p < pollers; p++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for i := 0; i < 200; i++ {
+		for range pollers {
+			wg.Go(func() {
+				for range 200 {
 					_ = loop.Alive()
 					aliveCalls.Add(1)
 				}
-			}()
+			})
 		}
 
 		// Simultaneously close the loop.
@@ -282,22 +273,21 @@ func TestAdversarial_AliveDuringShutdown(t *testing.T) {
 // Verifies refedTimerCount remains consistent under rapid schedule/unref/cancel.
 func TestAdversarial_RapidScheduleUnrefCancel(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
 
 	const iterations = 10000
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		id, err := loop.ScheduleTimer(time.Hour, func() {})
 		if err != nil {
 			t.Fatalf("ScheduleTimer %d: %v", i, err)
@@ -334,15 +324,14 @@ func TestAdversarial_RapidScheduleUnrefCancel(t *testing.T) {
 // all complete (within a tolerance window).
 func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -352,8 +341,7 @@ func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 	var started atomic.Int32
 	var completed atomic.Int32
 
-	for i := 0; i < n; i++ {
-		i := i // capture loop variable into local scope
+	for i := range n {
 		_ = loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 			started.Add(1)
 			time.Sleep(10 * time.Millisecond)
@@ -383,9 +371,7 @@ func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 	var aliveFalseCount atomic.Int64
 	stopPoll := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stopPoll:
@@ -398,7 +384,7 @@ func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	// Wait for all to complete.
 	for completed.Load() < n {
@@ -410,6 +396,8 @@ func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	if loop.promisifyCount.Load() > 0 {
+		close(stopPoll)
+		wg.Wait()
 		t.Fatalf("promisifyCount did not reach 0 (got %d)", loop.promisifyCount.Load())
 	}
 
@@ -436,15 +424,14 @@ func TestAdversarial_PromisifyAliveAccuracy(t *testing.T) {
 // The sentinel drain loop should complete because no timer remains ref'd after draining.
 func TestAdversarial_SentinelWithActiveIntervals(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -496,7 +483,7 @@ func TestAdversarial_SentinelWithActiveIntervals(t *testing.T) {
 	sentinelDone := make(chan struct{})
 	go func() {
 		defer close(sentinelDone)
-		for i := 0; i < 10000; i++ {
+		for range 10000 {
 			done := make(chan struct{})
 			if err := loop.SubmitInternal(func() { close(done) }); err != nil {
 				return
@@ -526,15 +513,14 @@ func TestAdversarial_SentinelWithActiveIntervals(t *testing.T) {
 // refedTimerCount never goes negative.
 func TestAdversarial_IntervalRefUnrefCycle(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -552,7 +538,7 @@ func TestAdversarial_IntervalRefUnrefCycle(t *testing.T) {
 	// Each timer fires exactly once. From an external goroutine, we toggle
 	// ref/unref on each timer while it is pending.
 	ids := make([]TimerID, targetFires)
-	for i := 0; i < targetFires; i++ {
+	for i := range targetFires {
 		ids[i], err = loop.ScheduleTimer(time.Duration(i+1)*10*time.Millisecond, func() {
 			n := fireCount.Add(1)
 			aliveNow := loop.Alive()
@@ -576,7 +562,7 @@ func TestAdversarial_IntervalRefUnrefCycle(t *testing.T) {
 	toggleDone := make(chan struct{})
 	go func() {
 		defer close(toggleDone)
-		for i := 0; i < targetFires; i++ {
+		for i := range targetFires {
 			if i%2 == 0 {
 				_ = loop.UnrefTimer(ids[i])
 				time.Sleep(2 * time.Millisecond)
@@ -635,19 +621,18 @@ func TestAdversarial_IntervalRefUnrefCycle(t *testing.T) {
 // operations (which modify refedTimerCount). Alive() checks both signals, so this
 // test verifies that both counters are tracked correctly under concurrent load.
 //
-// This closes a testing gap: existing adversarial tests exercise promisify OR
+// This closes a testing gap: existing concurrent tests exercise promisify OR
 // ref/unref in isolation, but never simultaneously.
 func TestAdversarial_ConcurrentPromisifyAndRefUnref(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping adversarial stress test in short mode")
+		t.Skip("skipping concurrent stress test in short mode")
 	}
 
 	loop, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -666,12 +651,10 @@ func TestAdversarial_ConcurrentPromisifyAndRefUnref(t *testing.T) {
 	var refErrors atomic.Int64
 
 	// Phase 1: Concurrent promisify + ref/unref
-	wg.Add(3)
 
 	// Goroutine 1: Rapid promisify operations.
-	go func() {
-		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+	wg.Go(func() {
+		for i := range iterations {
 			_ = loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 				return i, nil
 			})
@@ -680,12 +663,11 @@ func TestAdversarial_ConcurrentPromisifyAndRefUnref(t *testing.T) {
 				runtime.Gosched()
 			}
 		}
-	}()
+	})
 
 	// Goroutine 2: Rapid unref + ref cycles.
-	go func() {
-		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+	wg.Go(func() {
+		for range iterations {
 			if err := loop.UnrefTimer(timerID); err != nil {
 				refErrors.Add(1)
 			}
@@ -693,13 +675,12 @@ func TestAdversarial_ConcurrentPromisifyAndRefUnref(t *testing.T) {
 				refErrors.Add(1)
 			}
 		}
-	}()
+	})
 
 	// Goroutine 3: Observe Alive() from external goroutine.
 	var aliveObservations atomic.Int64
-	go func() {
-		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+	wg.Go(func() {
+		for range iterations {
 			// Alive() should always return true because:
 			// - Timer is either ref'd (refedTimerCount > 0) or
 			// - Promisify goroutines are in flight (promisifyCount > 0)
@@ -708,7 +689,7 @@ func TestAdversarial_ConcurrentPromisifyAndRefUnref(t *testing.T) {
 			}
 			runtime.Gosched()
 		}
-	}()
+	})
 
 	wg.Wait()
 

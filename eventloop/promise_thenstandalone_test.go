@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-// thenStandalone Function 100% Coverage Tests
-//
 // These tests target specific code paths in thenStandalone() that were
 // previously uncovered. The function handles promises without a JS adapter.
 

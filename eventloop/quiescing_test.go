@@ -3,14 +3,14 @@
 package eventloop
 
 // ============================================================================
-// Autopsy TDD Tests — Verifying Quiescing Protocol Fixes
+// Quiescing Protocol Tests
 //
 // These tests verify that the quiescing protocol correctly fixes the two
-// race conditions identified in the adversarial review (scratch/review.md).
+// race conditions identified during review.
 //
 // Before the fix:
-//   - Blocker 1: ScheduleTimer returned (id, nil) during auto-exit, timer discarded
-//   - Blocker 2: RegisterFD succeeded during auto-exit, Alive()==true on terminated loop
+//   - ScheduleTimer returned (id, nil) during auto-exit, timer discarded
+//   - RegisterFD succeeded during auto-exit, Alive()==true on terminated loop
 //
 // After the fix:
 //   - ScheduleTimer returns (0, ErrLoopTerminated) during quiescing window
@@ -28,7 +28,7 @@ import (
 )
 
 // ============================================================================
-// Blocker 1: ScheduleTimer now correctly rejected during auto-exit
+// ScheduleTimer now correctly rejected during auto-exit
 // ============================================================================
 
 // TestAutopsy_Blocker1_ScheduleTimerRejectedDuringAutoExit verifies that
@@ -141,7 +141,7 @@ func TestAutopsy_Blocker1_ScheduleTimerRejectedDuringAutoExit(t *testing.T) {
 		t.Errorf("refedTimerCount should be 0, got %d", refedCount)
 	}
 
-	t.Log("BLOCKER 1 FIX VERIFIED: ScheduleTimer correctly rejected during quiescing window")
+	t.Log("FIX VERIFIED: ScheduleTimer correctly rejected during quiescing window")
 }
 
 // TestAutopsy_Blocker1_ScheduleTimerRace_TimerNeverFires verifies that
@@ -225,11 +225,11 @@ func TestAutopsy_Blocker1_ScheduleTimerRace_TimerNeverFires(t *testing.T) {
 		t.Error("Alive() should be false after termination")
 	}
 
-	t.Log("BLOCKER 1 FIX VERIFIED: Timer was rejected (not accepted then discarded) during auto-exit window")
+	t.Log("FIX VERIFIED: Timer was rejected (not accepted then discarded) during auto-exit window")
 }
 
 // ============================================================================
-// Blocker 2: RegisterFD now correctly rejected during auto-exit
+// RegisterFD now correctly rejected during auto-exit
 // ============================================================================
 
 // TestAutopsy_Blocker2_RegisterFDRejectedDuringAutoExit verifies that
@@ -343,7 +343,7 @@ func TestAutopsy_Blocker2_RegisterFDRejectedDuringAutoExit(t *testing.T) {
 		t.Errorf("userIOFDCount should be 0 after termination, got %d", ioCount)
 	}
 
-	t.Log("BLOCKER 2 FIX VERIFIED: RegisterFD correctly rejected, invariant preserved")
+	t.Log("FIX VERIFIED: RegisterFD correctly rejected, invariant preserved")
 }
 
 // TestAutopsy_Blocker2_RegisterFD_InvariantPreservedDetailed verifies the
@@ -437,7 +437,7 @@ func TestAutopsy_Blocker2_RegisterFD_InvariantPreservedDetailed(t *testing.T) {
 		t.Error("INVARIANT BREAK: Alive()==true while State()==StateTerminated")
 	}
 
-	t.Log("BLOCKER 2 FIX VERIFIED: All liveness signals correctly zero after auto-exit")
+	t.Log("FIX VERIFIED: All liveness signals correctly zero after auto-exit")
 }
 
 // ============================================================================
@@ -511,8 +511,7 @@ func TestAutopsy_ShutdownPath_ResetsUserIOFDCount(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunningT(t, loop, 2*time.Second)
@@ -552,8 +551,7 @@ func TestAutopsy_ClosePath_ResetsUserIOFDCount(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunningT(t, loop, 2*time.Second)
