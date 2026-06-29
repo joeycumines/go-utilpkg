@@ -14,8 +14,7 @@ func TestAlive_AfterAllTimersFire(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -26,7 +25,7 @@ func TestAlive_AfterAllTimersFire(t *testing.T) {
 	}
 
 	// Wait for timer to fire and drain using sentinel pattern
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		barrier := make(chan struct{})
 		if err := loop.SubmitInternal(func() { close(barrier) }); err != nil {
 			break
@@ -49,8 +48,7 @@ func TestAlive_WithOnlyUnrefdTimers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -82,8 +80,7 @@ func TestAlive_PromisifyDuringExecution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -151,8 +148,7 @@ func TestAlive_ExternalAndInternalQueues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Block the loop to accumulate work
 	blockDone := make(chan struct{})
@@ -195,8 +191,7 @@ func TestAlive_MicrotaskOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Block the loop so microtasks accumulate
 	blockDone := make(chan struct{})
@@ -232,8 +227,7 @@ func TestAlive_AuxJobsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Block the loop to accumulate auxJobs
 	blockDone := make(chan struct{})

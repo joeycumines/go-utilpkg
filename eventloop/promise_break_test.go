@@ -27,8 +27,7 @@ func TestFIFO_ConcurrentResolveAndThen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
@@ -173,8 +172,7 @@ func TestFIFO_ConcurrentRejectAndThen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
@@ -281,8 +279,7 @@ func TestFIFO_OffLoopResolveOrdering(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
@@ -351,8 +348,7 @@ func TestFIFO_HandlerThenOnSamePromiseDuringResolve(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())
@@ -408,7 +404,7 @@ func TestFIFO_HandlerThenOnSamePromiseDuringResolve(t *testing.T) {
 
 // TestToChannel_OrderingVsHandlers verifies that a ToChannel subscriber and
 // promise handlers both receive the resolution value with no deadlock or hang,
-// covering review-02 §4.3. notifyToChannels runs synchronously under p.mu inside
+// covering the ToChannel ordering invariant. notifyToChannels runs synchronously under p.mu inside
 // resolve/reject; handler microtasks are queued before notifyToChannels, so the
 // relative order of handler execution vs the channel send is not guaranteed.
 // This test only asserts that both the channel and the handler observe the value
@@ -423,8 +419,7 @@ func TestToChannel_OrderingVsHandlers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go loop.Run(ctx)
 	waitForRunning(t, loop)
 	defer loop.Shutdown(context.Background())

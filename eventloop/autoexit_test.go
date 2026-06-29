@@ -685,7 +685,7 @@ func TestAutoExit_ConcurrentSubmit(t *testing.T) {
 	wg.Add(numTasks)
 
 	// Submit all tasks before starting the loop.
-	for i := 0; i < numTasks; i++ {
+	for range numTasks {
 		err := loop.Submit(func() {
 			completed.Add(1)
 			wg.Done()

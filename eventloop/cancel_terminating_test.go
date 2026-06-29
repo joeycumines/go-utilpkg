@@ -19,8 +19,7 @@ func TestCancelTimer_DuringTerminating(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -86,8 +85,7 @@ func TestCancelTimers_DuringTerminating(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -134,8 +132,7 @@ func TestCancelTimer_DuringTerminating_AlreadyFired(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -189,8 +186,7 @@ func TestCancelTimer_StateTerminatingGuard(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Use a counter to track CancelTimer outcomes
 	var successCount atomic.Int32

@@ -152,33 +152,27 @@ func TestAlive_ConcurrentStress(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range 500 {
 				_ = loop.Alive()
 			}
-		}()
+		})
 	}
 
 	for range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range 500 {
 				_ = loop.ScheduleMicrotask(func() {})
 			}
-		}()
+		})
 	}
 
 	for range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range 500 {
 				_ = loop.ScheduleNextTick(func() {})
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -194,8 +188,7 @@ func TestClose_ConcurrentNoPanic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -203,11 +196,9 @@ func TestClose_ConcurrentNoPanic(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make([]error, 10)
 	for i := range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			errors[i] = loop.Close()
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -461,9 +452,7 @@ func TestRefedTimerCount_MixedOps(t *testing.T) {
 	const opsPerGoroutine = 100
 
 	for range numGoroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for j := range opsPerGoroutine {
 				id, scheduleErr := loop.ScheduleTimer(time.Duration(j%100)*time.Millisecond, func() {})
 				if scheduleErr != nil {
@@ -480,7 +469,7 @@ func TestRefedTimerCount_MixedOps(t *testing.T) {
 					_ = loop.CancelTimer(id)
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

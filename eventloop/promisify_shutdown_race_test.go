@@ -561,8 +561,7 @@ func TestPromisify_ContextCancelDuringExecution(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, runCancel := context.WithCancel(context.Background())
-	defer runCancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 

@@ -213,7 +213,7 @@ func dynamicWorkQueueExample() {
 	}
 
 	// Submit initial batch
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		submitWork(workItems[i])
 	}
 
@@ -337,7 +337,7 @@ func healthCheckExample() {
 		}, 25)
 	}, 10) // Total 35ms
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, _ = js.SetTimeout(func() {
 			workCount.Add(1)
 			fmt.Printf("  Starting work item %d\n", i+1)

@@ -22,7 +22,7 @@ func TestGetBasic(t *testing.T) {
 func TestGetConsistency(t *testing.T) {
 	mainID := Get()
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		id := Get()
 		if id != mainID {
 			t.Errorf("Get() returned different value on call %d: got %d, want %d", i+1, id, mainID)
@@ -42,15 +42,13 @@ func TestGetDifferentGoroutines(t *testing.T) {
 	ids[mainID] = true
 
 	const goroutineCount = 100
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			id := Get()
 			mu.Lock()
 			ids[id] = true
 			mu.Unlock()
-		}()
+		})
 	}
 	mu.Unlock()
 
@@ -85,7 +83,7 @@ func TestGetMatchesFastSlowConsistency(t *testing.T) {
 
 	var val *int64
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		getID := Get()
 
 		if getID <= 0 {
@@ -124,12 +122,10 @@ func TestGetConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			results <- Get()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -157,12 +153,10 @@ func TestGetHighConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			results <- Get()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -184,7 +178,7 @@ func TestGetHighConcurrency(t *testing.T) {
 func TestGetPreemptionResilience(t *testing.T) {
 	const iterations = 50
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		id1 := Get()
 		runtime.Gosched()
 		id2 := Get()
@@ -202,7 +196,7 @@ func TestGetIdempotent(t *testing.T) {
 	const iterations = 1000
 
 	id := Get()
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		newID := Get()
 		if newID != id {
 			t.Errorf("Get() returned different value on iteration %d: got %d, want %d", i, newID, id)
@@ -214,7 +208,7 @@ func TestGetIdempotent(t *testing.T) {
 func TestGetReturnsPositive(t *testing.T) {
 	const iterations = 100
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		id := Get()
 		if id < 1 {
 			t.Errorf("Get() returned non-positive ID on iteration %d: %d", i, id)
@@ -227,14 +221,12 @@ func TestGetValueStability(t *testing.T) {
 	initialID := Get()
 
 	// Perform various operations
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		var wg sync.WaitGroup
-		for j := 0; j < 10; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 10 {
+			wg.Go(func() {
 				_ = Get()
-			}()
+			})
 		}
 		wg.Wait()
 		runtime.Gosched()
@@ -277,15 +269,13 @@ func TestGetWithMutex(t *testing.T) {
 
 	const goroutineCount = 50
 	var wg sync.WaitGroup
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			id := Get()
 			mu.Lock()
 			ids[id] = true
 			mu.Unlock()
-		}()
+		})
 	}
 	mu.Unlock()
 
@@ -302,13 +292,11 @@ func TestGetWithAtomic(t *testing.T) {
 	const goroutineCount = 100
 	var wg sync.WaitGroup
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			id := Get()
 			atomic.AddInt64(&counter, id)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -352,7 +340,7 @@ func TestGetWithPoolUsage(t *testing.T) {
 	const iterations = 50
 	ids := make([]int64, iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		bufPtr := pool.Get().(*[]byte)
 		slowID := Slow(*bufPtr)
 		pool.Put(bufPtr)
@@ -383,12 +371,10 @@ func TestGetCalledFromNewGoroutine(t *testing.T) {
 	results := make(chan int64, goroutineCount)
 	var wg sync.WaitGroup
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			results <- Get()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -425,10 +411,8 @@ func TestGetStressMixedOperations(t *testing.T) {
 
 	fastSupported := Fast() != -1
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 
 			r := result{
@@ -439,7 +423,7 @@ func TestGetStressMixedOperations(t *testing.T) {
 				r.fastID = Fast()
 			}
 			results <- r
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -517,28 +501,24 @@ func TestGetWithRWMutex(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Writers
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 20 {
+		wg.Go(func() {
 			id := Get()
 			rwmu.Lock()
 			ids[id] = true
 			rwmu.Unlock()
-		}()
+		})
 	}
 
 	// Readers
-	for i := 0; i < 30; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 30 {
+		wg.Go(func() {
 			_ = Get()
 			rwmu.RLock()
 			// Read the map (no modification)
 			_ = len(ids)
 			rwmu.RUnlock()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -553,12 +533,10 @@ func TestGetWithWaitGroup(t *testing.T) {
 	var wg sync.WaitGroup
 	ids := make(chan int64, 50)
 
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			ids <- Get()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -625,17 +603,15 @@ func TestGetWithContextCancellation(t *testing.T) {
 
 	resultCh := make(chan int64, 1)
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		id := Get()
 		select {
 		case <-ctx.Done():
 			return
 		case resultCh <- id:
 		}
-	}()
+	})
 
 	cancel()
 
@@ -649,11 +625,9 @@ func TestGetWithTimer(t *testing.T) {
 	defer timer.Stop()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-timer.C
-	}()
+	})
 
 	// Get() should work correctly even with timer running
 	id := Get()
@@ -694,14 +668,12 @@ func TestGetInsideNestedGoroutines(t *testing.T) {
 
 	var spawn func(level int)
 	spawn = func(level int) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			results <- Get()
 			if level < depth {
 				spawn(level + 1)
 			}
-		}()
+		})
 	}
 
 	// Start the chain
@@ -797,12 +769,10 @@ func TestGetIDUniqueness(t *testing.T) {
 	var wg sync.WaitGroup
 	collected := make(chan int64, 50)
 
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			collected <- Get()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -849,12 +819,10 @@ func BenchmarkGetStress(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
-		for j := 0; j < goroutineCount; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutineCount {
+			wg.Go(func() {
 				_ = Get()
-			}()
+			})
 		}
 		wg.Wait()
 	}

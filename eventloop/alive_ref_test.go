@@ -13,8 +13,7 @@ func TestAlive_NoWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -30,8 +29,7 @@ func TestAlive_TimerPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -55,8 +53,7 @@ func TestAlive_ExternalTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Block the loop so tasks accumulate
 	blockDone := make(chan struct{})
@@ -92,8 +89,7 @@ func TestAlive_PromisifyGoroutine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -124,8 +120,7 @@ func TestRefTimer_UnrefTimer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -167,8 +162,7 @@ func TestUnrefTimer_AllowsExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -206,8 +200,7 @@ func TestRefTimer_NonexistentTimer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -227,8 +220,7 @@ func TestRefTimer_DoubleRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -263,8 +255,7 @@ func TestRefTimer_FromExternalGoroutine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -291,8 +282,7 @@ func TestPromisifyCount_Tracking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -303,7 +293,7 @@ func TestPromisifyCount_Tracking(t *testing.T) {
 
 	_ = atomic.Int32{} // ensure atomic import used
 	const n = 5
-	for i := 0; i < n; i++ {
+	for i := range n {
 		p := loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 			time.Sleep(100 * time.Millisecond)
 			return i, nil
@@ -332,8 +322,7 @@ func TestAlive_SentinelDrainLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -354,7 +343,7 @@ func TestAlive_SentinelDrainLoop(t *testing.T) {
 	// so Alive() accurately reflects the timer state when checked.
 	// (Submit would go to auxJobs in fast path mode, which runs BEFORE
 	// the internal queue in runAux(), causing premature Alive() == false.)
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		done := make(chan struct{})
 		if err := loop.SubmitInternal(func() { close(done) }); err != nil {
 			break
@@ -380,8 +369,7 @@ func TestTimerCount_Tracking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -426,8 +414,7 @@ func TestCancelTimers_BatchCounterUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)

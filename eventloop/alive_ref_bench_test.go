@@ -144,8 +144,7 @@ func BenchmarkAlive_WithMutexes_Contended(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -162,8 +161,7 @@ func BenchmarkAlive_WithMutexes_HighContention(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -207,8 +205,7 @@ func BenchmarkAlive_AllAtomic_Contended(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -504,7 +501,7 @@ func BenchmarkMicrotaskRingIsEmpty(b *testing.B) {
 func BenchmarkMicrotaskRingIsEmpty_WithItems(b *testing.B) {
 	ring := newMicrotaskRing()
 	// Fill the ring partially
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		ring.Push(func() {})
 	}
 	b.ResetTimer()
@@ -901,7 +898,7 @@ func BenchmarkAlive_WithTimer(b *testing.B) {
 }
 
 // ============================================================================
-// SECTION 8: EPOCH MECHANISM OVERHEAD — Alive() post-GAP-004 benchmarks
+// SECTION 8: EPOCH MECHANISM OVERHEAD — Alive() benchmarks
 //
 // Measures the cost of the submissionEpoch guard in Alive().
 // The epoch adds two atomic.Uint64.Load() calls in the no-contention path.
@@ -915,8 +912,7 @@ func BenchmarkAlive_Epoch_NoContention(b *testing.B) {
 	if err != nil {
 		b.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -935,8 +931,7 @@ func BenchmarkAlive_Epoch_ConcurrentSubmit(b *testing.B) {
 	if err != nil {
 		b.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)
@@ -970,8 +965,7 @@ func BenchmarkAlive_Epoch_FromCallback(b *testing.B) {
 	if err != nil {
 		b.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	go loop.Run(ctx)
 	time.Sleep(10 * time.Millisecond)

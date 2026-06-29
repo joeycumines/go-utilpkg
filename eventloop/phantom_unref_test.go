@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -24,8 +23,7 @@ func TestPhantomUnref_ScheduleThenUnrefOnLoopThread_IOMode(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -85,8 +83,7 @@ func TestPhantomUnref_ScheduleThenUnrefThenRefOnLoopThread_IOMode(t *testing.T) 
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -146,8 +143,7 @@ func TestPhantomUnref_MultiplePendingRefChanges(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -160,7 +156,7 @@ func TestPhantomUnref_MultiplePendingRefChanges(t *testing.T) {
 	const n = 3
 	resultCh := make(chan struct{})
 	if err := loop.SubmitInternal(func() {
-		for i := 0; i < n; i++ {
+		for i := range n {
 			id, sErr := loop.ScheduleTimer(time.Hour, func() {})
 			if sErr != nil {
 				t.Errorf("ScheduleTimer %d: %v", i, sErr)
@@ -206,8 +202,7 @@ func TestPhantomUnref_ExternalGoroutineThenLoopThread(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -248,8 +243,7 @@ func TestPhantomUnref_FastPathDirectExecution(t *testing.T) {
 
 	// No I/O FD registered — fast-path mode
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -308,8 +302,7 @@ func TestPhantomUnref_CancelDuringPendingRegistration(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 

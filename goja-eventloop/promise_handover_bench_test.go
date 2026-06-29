@@ -73,6 +73,7 @@ package gojaeventloop
 import (
 	"context"
 	goruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -317,15 +318,16 @@ func BenchmarkNativePromiseThenChain(b *testing.B) {
 	const chainDepth = 10
 
 	// Build: Promise.resolve(0).then(x=>x+1).then(x=>x+1)...then(reportResult)
-	jsCode := "Promise.resolve(0)"
+	var jsCode strings.Builder
+	jsCode.WriteString("Promise.resolve(0)")
 	for range chainDepth {
-		jsCode += ".then(x => x + 1)"
+		jsCode.WriteString(".then(x => x + 1)")
 	}
-	jsCode += ".then(reportResult)"
+	jsCode.WriteString(".then(reportResult)")
 
 	defProgram, err := goja.Compile("define", `
 		function runChain() {
-			`+jsCode+`;
+			`+jsCode.String()+`;
 		}
 	`, false)
 	if err != nil {

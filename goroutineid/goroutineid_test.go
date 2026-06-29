@@ -25,7 +25,7 @@ func TestFastConsistency(t *testing.T) {
 	}
 
 	// Call multiple times and verify consistency
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		id2 := Fast()
 		if id2 == -1 {
 			t.Fatal("Fast() returned -1 after initial success")
@@ -51,17 +51,15 @@ func TestFastDifferentGoroutines(t *testing.T) {
 	ids[id] = true
 
 	// Spawn 100 distinct goroutines (goroutine spawn INSIDE the loop)
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			goid := Fast()
 			if goid >= 1 {
 				mu.Lock()
 				ids[goid] = true
 				mu.Unlock()
 			}
-		}()
+		})
 	}
 	mu.Unlock()
 
@@ -163,25 +161,21 @@ func TestConcurrentAccess(t *testing.T) {
 	results := make(chan int64, goroutineCount*2)
 
 	// Test Slow in concurrent goroutines
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 			id := Slow(buf)
 			results <- id
-		}()
+		})
 	}
 
 	// Test Fast in concurrent goroutines
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			if id := Fast(); id >= 1 {
 				results <- id
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -207,14 +201,12 @@ func TestSlowMultipleGoroutines(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 			id := Slow(buf)
 			results <- id
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -242,14 +234,12 @@ func TestFastMultipleGoroutines(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			if gid := Fast(); gid >= 1 {
 				results <- gid
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -326,7 +316,7 @@ func BenchmarkSlowVsFast(b *testing.B) {
 func BenchmarkStressLargeGoroutineCount(b *testing.B) {
 	const goroutineCount = 1000
 	pool := sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			b := make([]byte, 64)
 			return &b
 		},
@@ -335,14 +325,12 @@ func BenchmarkStressLargeGoroutineCount(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
-		for j := 0; j < goroutineCount; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutineCount {
+			wg.Go(func() {
 				buf := pool.Get().(*[]byte)
 				_ = Slow(*buf)
 				pool.Put(buf)
-			}()
+			})
 		}
 		wg.Wait()
 	}
@@ -360,14 +348,12 @@ func TestStressHighConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 			id := Slow(buf)
 			results <- id
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -400,14 +386,12 @@ func TestStressHighConcurrencyFast(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make(chan int64, goroutineCount)
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			if id := Fast(); id > 0 {
 				results <- id
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -444,10 +428,8 @@ func TestStressMixedAccess(t *testing.T) {
 
 	fastSupported := Fast() != -1
 
-	for i := 0; i < goroutineCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutineCount {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 			r := result{
 				slowID: Slow(buf),
@@ -456,7 +438,7 @@ func TestStressMixedAccess(t *testing.T) {
 				r.fastID = Fast()
 			}
 			results <- r
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -509,10 +491,8 @@ func TestPreemptionResilience(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Force context switches via Gosched in tight loop, checking both paths
-	for i := 0; i < iterations; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range iterations {
+		wg.Go(func() {
 			buf := make([]byte, 64)
 			fastID := Fast()
 			runtime.Gosched() // Force context switch - should not corrupt fastID
@@ -525,7 +505,7 @@ func TestPreemptionResilience(t *testing.T) {
 				slowID:  slowID,
 				matches: fastID == slowID && fastID == fastID2,
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

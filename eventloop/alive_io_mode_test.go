@@ -20,7 +20,7 @@ import (
 //
 //	SubmitInternal -> internal queue -> processInternalQueue -> applyTimerRefChange
 //
-// This test closes the coverage gap in submitTimerRefChange for the
+// This tests submitTimerRefChange for the
 // I/O mode + external goroutine code path.
 func TestIOMode_RefUnrefFromExternalGoroutine(t *testing.T) {
 	if testing.Short() {
@@ -41,7 +41,7 @@ func TestIOMode_RefUnrefFromExternalGoroutine(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -108,7 +108,7 @@ func TestIOMode_AliveWithUnrefdTimer(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -193,7 +193,7 @@ func TestIOMode_SentinelDrainWithUnrefdTimer(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -282,7 +282,7 @@ func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -306,16 +306,14 @@ func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
 	// Launch 10 goroutines that each unref a different timer.
 	const numUnrefGoroutines = 10
 	var unrefWg sync.WaitGroup
-	unrefWg.Add(numUnrefGoroutines)
 	var unrefErrors atomic.Int64
-	for i := 0; i < numUnrefGoroutines; i++ {
-		go func(idx int) {
-			defer unrefWg.Done()
-			if err := loop.UnrefTimer(ids[idx]); err != nil {
-				t.Errorf("UnrefTimer %d: %v", idx, err)
+	for i := range numUnrefGoroutines {
+		unrefWg.Go(func() {
+			if err := loop.UnrefTimer(ids[i]); err != nil {
+				t.Errorf("UnrefTimer %d: %v", i, err)
 				unrefErrors.Add(1)
 			}
-		}(i)
+		})
 	}
 	unrefWg.Wait()
 
@@ -331,16 +329,14 @@ func TestIOMode_ConcurrentRefUnrefUnderLoad(t *testing.T) {
 
 	// Launch 10 goroutines that each ref a different timer (the same 10 we unref'd).
 	var refWg sync.WaitGroup
-	refWg.Add(numUnrefGoroutines)
 	var refErrors atomic.Int64
-	for i := 0; i < numUnrefGoroutines; i++ {
-		go func(idx int) {
-			defer refWg.Done()
-			if err := loop.RefTimer(ids[idx]); err != nil {
-				t.Errorf("RefTimer %d: %v", idx, err)
+	for i := range numUnrefGoroutines {
+		refWg.Go(func() {
+			if err := loop.RefTimer(ids[i]); err != nil {
+				t.Errorf("RefTimer %d: %v", i, err)
 				refErrors.Add(1)
 			}
-		}(i)
+		})
 	}
 	refWg.Wait()
 
@@ -365,7 +361,7 @@ func TestSubmitTimerRefChange_TerminatedState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -403,7 +399,7 @@ func TestSubmitTimerRefChange_OnLoopGoroutine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -470,7 +466,7 @@ func TestSubmitTimerRefChange_OnLoopGoroutine(t *testing.T) {
 // TestAlive_MicrotaskPath verifies that Alive() returns true when microtasks
 // are pending in the ring buffer, and false after they are drained.
 //
-// This closes the coverage gap on loop.go:1447 — the
+// This tests the path on loop.go:1447 — the
 //
 //	!l.microtasks.IsEmpty() || !l.nextTickQueue.IsEmpty()
 //
@@ -484,7 +480,7 @@ func TestAlive_MicrotaskPath(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -492,8 +488,6 @@ func TestAlive_MicrotaskPath(t *testing.T) {
 		defer close(done)
 		loop.Run(ctx)
 	}()
-
-	// Wait for loop to start.
 	time.Sleep(20 * time.Millisecond)
 
 	// Strategy: SubmitInternal callback runs during processInternalQueue.
@@ -562,7 +556,7 @@ func TestAlive_NextTickPath(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -638,7 +632,7 @@ func TestAlive_UserIOFDOnly(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -687,7 +681,7 @@ func TestAlive_AllSignalsExercised(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan struct{})
@@ -855,7 +849,7 @@ func TestCancelTimers_RaceWithShutdown(t *testing.T) {
 	var hitError atomic.Int32
 	var wg sync.WaitGroup
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New: %v", err)
@@ -863,7 +857,7 @@ func TestCancelTimers_RaceWithShutdown(t *testing.T) {
 
 		// Schedule timers for each goroutine.
 		batchIDs := make([][]TimerID, goroutines)
-		for j := 0; j < goroutines; j++ {
+		for j := range goroutines {
 			ids := make([]TimerID, 5)
 			for k := range ids {
 				ids[k], err = loop.ScheduleTimer(time.Hour, func() {})
@@ -874,18 +868,17 @@ func TestCancelTimers_RaceWithShutdown(t *testing.T) {
 			batchIDs[j] = ids
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			loop.Run(ctx)
 		}()
 
-		wg.Add(goroutines)
-		for j := 0; j < goroutines; j++ {
-			go func(ids []TimerID) {
-				defer wg.Done()
-				for k := 0; k < 100; k++ {
+		for j := range goroutines {
+			ids := batchIDs[j]
+			wg.Go(func() {
+				for range 100 {
 					runtime.Gosched()
 				}
 				errs := loop.CancelTimers(ids)
@@ -894,7 +887,7 @@ func TestCancelTimers_RaceWithShutdown(t *testing.T) {
 						hitError.Add(1)
 					}
 				}
-			}(batchIDs[j])
+			})
 		}
 
 		runtime.Gosched()
@@ -925,7 +918,7 @@ func TestSubmitTimerRefChange_RaceWithShutdown(t *testing.T) {
 	var hitError atomic.Int32
 	var wg sync.WaitGroup
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		loop, err := New()
 		if err != nil {
 			t.Fatalf("New: %v", err)
@@ -940,7 +933,7 @@ func TestSubmitTimerRefChange_RaceWithShutdown(t *testing.T) {
 			}
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -948,18 +941,16 @@ func TestSubmitTimerRefChange_RaceWithShutdown(t *testing.T) {
 		}()
 
 		// Ramp up: multiple goroutines trying to ref/unref concurrently.
-		wg.Add(goroutines)
-		for j := 0; j < goroutines; j++ {
-			go func(idx int) {
-				defer wg.Done()
+		for j := range goroutines {
+			wg.Go(func() {
 				// Busy-wait briefly to increase contention.
-				for k := 0; k < 100; k++ {
+				for range 100 {
 					runtime.Gosched()
 				}
-				if err := loop.UnrefTimer(timerIDs[idx]); err != nil {
+				if err := loop.UnrefTimer(timerIDs[j]); err != nil {
 					hitError.Add(1)
 				}
-			}(j)
+			})
 		}
 
 		// Cancel concurrently with the goroutines.

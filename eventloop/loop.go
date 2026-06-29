@@ -698,7 +698,7 @@ func (l *Loop) runAux() {
 
 	// Drain internal queue (SubmitInternal tasks) with a per-tick budget.
 	const internalQueueBudget = 4096
-	for i := 0; i < internalQueueBudget; i++ {
+	for range internalQueueBudget {
 		l.internalQueueMu.Lock()
 		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
@@ -1035,7 +1035,7 @@ func (l *Loop) processInternalQueue() bool {
 	// starvation of other phases if tasks continuously re-queue themselves.
 	const internalQueueBudget = 4096
 	processed := false
-	for i := 0; i < internalQueueBudget; i++ {
+	for range internalQueueBudget {
 		l.internalQueueMu.Lock()
 		task, ok := l.internal.Pop()
 		l.internalQueueMu.Unlock()
@@ -1796,7 +1796,7 @@ func (l *Loop) applyTimerRefChange(id TimerID, ref bool) {
 // acquisition and are performed only when all atomic checks return zero.
 func (l *Loop) Alive() bool {
 	const maxRetries = 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for range maxRetries {
 		epoch := l.submissionEpoch.Load()
 
 		// Fast path: check atomic counters and lock-free ring buffers first.

@@ -16,8 +16,7 @@ func TestAlive_ShutdownClearsPendingTimer(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 
@@ -60,8 +59,7 @@ func TestAlive_CloseClearsPendingTimerAndFD(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 
@@ -167,8 +165,7 @@ func TestClose_Idempotent_NoPanic(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 
@@ -216,8 +213,7 @@ func TestShutdown_ThenClose(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 
@@ -260,8 +256,7 @@ func TestClose_DuringPromisify_InFlight(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 
@@ -324,8 +319,7 @@ func TestShutdown_NextTickPriority_OverMicrotasks(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() { _ = loop.Run(ctx) }()
 	waitForLoopRunning(t, loop, 2*time.Second)
 

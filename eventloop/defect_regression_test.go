@@ -20,7 +20,7 @@ import (
 // of the select statement and attempt to close runCh, causing a double-close panic.
 // The fix introduces runChOnce sync.Once to protect the close.
 
-func TestDefect1_ConcurrentRun_NoPanic(t *testing.T) {
+func TestConcurrentRun_NoPanic(t *testing.T) {
 	// Launches many goroutines simultaneously behind a barrier, all calling Run().
 	// Without runChOnce, the unprotected select/default pattern allows two goroutines
 	// to both reach close(l.runCh), causing panic: close of closed channel.
@@ -38,12 +38,10 @@ func TestDefect1_ConcurrentRun_NoPanic(t *testing.T) {
 	barrier.Add(workers)
 
 	var wg sync.WaitGroup
-	panicCh := make(chan interface{}, workers)
+	panicCh := make(chan any, workers)
 
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workers {
+		wg.Go(func() {
 			barrier.Done() // signal ready
 			barrier.Wait() // wait for all goroutines
 			defer func() {
@@ -55,7 +53,7 @@ func TestDefect1_ConcurrentRun_NoPanic(t *testing.T) {
 				}
 			}()
 			_ = loop.Run(ctx)
-		}()
+		})
 	}
 
 	// Let the race play out, then cancel to unblock all goroutines
@@ -78,7 +76,7 @@ func TestDefect1_ConcurrentRun_NoPanic(t *testing.T) {
 // This poisons all sync operations (CancelTimer, RefTimer) that monitor loopDone,
 // causing them to return ErrLoopTerminated while the loop is still alive.
 
-func TestDefect2_SecondRunDoesNotPoisonLoopDone(t *testing.T) {
+func TestSecondRunDoesNotPoisonLoopDone(t *testing.T) {
 	// Step 1: Start the loop in goroutine A.
 	// Step 2: Call Run() from goroutine B — fails TryTransition, returns error.
 	// Step 3: Schedule and cancel a timer.
@@ -134,7 +132,7 @@ func TestDefect2_SecondRunDoesNotPoisonLoopDone(t *testing.T) {
 // blocked on <-loopDone in CancelTimer/submitTimerRefChange will deadlock.
 // The fix closes loopDone in Close()'s StateAwake branch.
 
-func TestDefect3_CloseBeforeRun_ClosesLoopDone(t *testing.T) {
+func TestCloseBeforeRun_ClosesLoopDone(t *testing.T) {
 	// Close() on an unstarted loop MUST close loopDone.
 	// Without the fix, loopDone is never closed, leaking goroutines.
 	if testing.Short() {
@@ -158,7 +156,7 @@ func TestDefect3_CloseBeforeRun_ClosesLoopDone(t *testing.T) {
 	}
 }
 
-func TestDefect3_CancelTimerAfterCloseBeforeRun_NoDeadlock(t *testing.T) {
+func TestCancelTimerAfterCloseBeforeRun_NoDeadlock(t *testing.T) {
 	// CancelTimer on a loop that was Close()'d before Run() must not deadlock.
 	// Without the fix, CancelTimer blocks on <-loopDone which is never closed.
 	if testing.Short() {
@@ -196,7 +194,7 @@ func TestDefect3_CancelTimerAfterCloseBeforeRun_NoDeadlock(t *testing.T) {
 // Promisify() call will hang on promisifyMu.Lock() instead of being rejected.
 // The fix unlocks promisifyMu before waiting, mirroring shutdown().
 
-func TestDefect4_PromisifyNotBlockedByClose(t *testing.T) {
+func TestPromisifyNotBlockedByClose(t *testing.T) {
 	// Verifies that a new Promisify() call during Close() is quickly rejected
 	// rather than hanging on promisifyMu.
 	//
@@ -288,7 +286,7 @@ func TestDefect4_PromisifyNotBlockedByClose(t *testing.T) {
 // Alive() may return false (not alive) despite a registered FD, because the epoch
 // didn't change to trigger a retry. The fix adds submissionEpoch.Add(1) to both.
 
-func TestDefect6_RegisterFD_UpdatesEpoch(t *testing.T) {
+func TestRegisterFD_UpdatesEpoch(t *testing.T) {
 	// Direct verification: RegisterFD must increment submissionEpoch.
 	// This is a structural test — it checks the mechanism that prevents the race.
 	loop, err := New()
@@ -331,12 +329,12 @@ func TestDefect6_RegisterFD_UpdatesEpoch(t *testing.T) {
 	}
 }
 
-// TestDefect6_RevertWouldFail verifies that if someone removes the
+// TestRegisterFD_RevertWouldFail verifies that if someone removes the
 // submissionEpoch increment from RegisterFD/UnregisterFD, the Alive() check
 // becomes unreliable. It registers an FD in a tight loop where Alive() is polled
 // concurrently. Without the epoch increment, the concurrent poll can see
 // userIOFDCount > 0 but epoch unchanged, and incorrectly return false.
-func TestDefect6_RevertWouldFail(t *testing.T) {
+func TestRegisterFD_RevertWouldFail(t *testing.T) {
 	// This test would catch a revert because it exercises the exact
 	// Alive() code path that relies on epoch changes after FD registration.
 	// With the epoch increment, Alive() always sees the FD.
@@ -367,7 +365,7 @@ func TestDefect6_RevertWouldFail(t *testing.T) {
 
 	// Poll Alive() many times — it must ALWAYS return true after FD registration.
 	// If someone reverts the epoch increment, this may catch it under load.
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		if !loop.Alive() {
 			t.Fatalf("DEFECT 6: Alive() returned false on iteration %d after RegisterFD — epoch not incremented (reverted fix?)", i)
 		}
@@ -384,7 +382,7 @@ func TestDefect6_RevertWouldFail(t *testing.T) {
 // an external RefInterval call can race. The fix re-checks state.refed after
 // UnrefTimer to detect and compensate for the race.
 
-func TestDefect7_RefIntervalDuringWrapperPropagation(t *testing.T) {
+func TestRefIntervalDuringWrapperPropagation(t *testing.T) {
 	// Stress test: rapidly toggle Ref/UnrefInterval while the interval fires.
 	// Without the fix, the wrapper's stale refed=false overrides RefInterval's ref,
 	// potentially killing the loop.
@@ -421,9 +419,7 @@ func TestDefect7_RefIntervalDuringWrapperPropagation(t *testing.T) {
 	// Rapidly toggle ref/unref to hit the TOCTOU window
 	stopToggle := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stopToggle:
@@ -433,7 +429,7 @@ func TestDefect7_RefIntervalDuringWrapperPropagation(t *testing.T) {
 				js.UnrefInterval(intervalID)
 			}
 		}
-	}()
+	})
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -455,9 +451,9 @@ func TestDefect7_RefIntervalDuringWrapperPropagation(t *testing.T) {
 	<-runDone
 }
 
-// TestDefect7_RevertWouldFail uses the interval callback (which runs on the loop
+// TestRefInterval_RevertWouldFail uses the interval callback (which runs on the loop
 // thread) to call RefInterval at the exact moment between the wrapper's refed.Load()
-// and UnrefTimer() calls. This simulates the adversarial interleaving deterministically.
+// and UnrefTimer() calls. This simulates the race interleaving deterministically.
 //
 // How it works:
 //  1. Create interval, UnrefInterval it
@@ -473,7 +469,7 @@ func TestDefect7_RefIntervalDuringWrapperPropagation(t *testing.T) {
 // should pass because there's no true interleaving on the same goroutine.
 //
 // The real value is the concurrent test above + the structural verification below.
-func TestDefect7_RevertWouldFail(t *testing.T) {
+func TestRefInterval_RevertWouldFail(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}

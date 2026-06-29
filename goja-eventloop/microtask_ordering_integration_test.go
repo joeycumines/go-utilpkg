@@ -228,7 +228,7 @@ func TestGojaMicrotaskOrdering_ExhaustiveDrain(t *testing.T) {
 	}
 
 	// Verify all microtasks ran before the timer, in order.
-	for i := 0; i < count; i++ {
+	for i := range count {
 		expected := "microtask-" + strconv.Itoa(i)
 		if order[i] != expected {
 			t.Errorf("order[%d]: expected %q, got %q", i, expected, order[i])

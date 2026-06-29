@@ -21,8 +21,7 @@ func TestUnrefInterval_PropagatesAcrossReschedules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -104,8 +103,7 @@ func TestUnrefInterval_TimerIDChangesBetweenTicks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -138,7 +136,7 @@ func TestUnrefInterval_TimerIDChangesBetweenTicks(t *testing.T) {
 	jsIDReady.Store(true)
 
 	ids := make(map[TimerID]bool)
-	for i := 0; i < ticks; i++ {
+	for i := range ticks {
 		select {
 		case id := <-idCh:
 			ids[id] = true
@@ -168,8 +166,7 @@ func TestUnrefInterval_AllowsLoopExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -224,8 +221,7 @@ func TestUnrefInterval_RefReversesUnref(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -289,8 +285,7 @@ func TestUnrefInterval_MultipleIntervals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -304,7 +299,7 @@ func TestUnrefInterval_MultipleIntervals(t *testing.T) {
 	const numIntervals = 3
 	intervalIDs := make([]uint64, numIntervals)
 
-	for i := 0; i < numIntervals; i++ {
+	for i := range numIntervals {
 		intervalIDs[i], err = js.SetInterval(func() {}, 20)
 		if err != nil {
 			t.Fatalf("SetInterval %d: %v", i, err)
@@ -366,8 +361,7 @@ func TestUnrefInterval_ConcurrentUnrefDuringFire(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	defer loop.Close()
 
 	go loop.Run(ctx)
@@ -391,14 +385,12 @@ func TestUnrefInterval_ConcurrentUnrefDuringFire(t *testing.T) {
 
 	// Launch concurrent unref'ers using UnrefInterval
 	var wg sync.WaitGroup
-	for g := 0; g < 10; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < 100; i++ {
+	for range 10 {
+		wg.Go(func() {
+			for range 100 {
 				_ = js.UnrefInterval(jsID)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -466,7 +458,7 @@ func TestRefUnrefInterval_ConcurrentStress(t *testing.T) {
 		const hammerGoroutines = 8
 		wg.Add(hammerGoroutines)
 
-		for g := 0; g < hammerGoroutines; g++ {
+		for g := range hammerGoroutines {
 			go func(refFirst bool) {
 				defer wg.Done()
 				for !stopHammer.Load() {

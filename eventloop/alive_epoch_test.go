@@ -30,8 +30,7 @@ func TestAlive_EpochConsistency_ConcurrentSubmit(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -55,30 +54,26 @@ func TestAlive_EpochConsistency_ConcurrentSubmit(t *testing.T) {
 
 	// Start submitters
 	var submitWg sync.WaitGroup
-	submitWg.Add(numSubmitters)
-	for i := 0; i < numSubmitters; i++ {
-		go func() {
-			defer submitWg.Done()
+	for range numSubmitters {
+		submitWg.Go(func() {
 			defer activeSubmitters.Add(-1)
-			for j := 0; j < submitsPerGoroutine; j++ {
+			for range submitsPerGoroutine {
 				_ = loop.Submit(func() {})
 			}
-		}()
+		})
 	}
 
 	// Start Alive() checker
 	var checkWg sync.WaitGroup
-	checkWg.Add(1)
-	go func() {
-		defer checkWg.Done()
-		for i := 0; i < aliveChecks; i++ {
+	checkWg.Go(func() {
+		for range aliveChecks {
 			alive := loop.Alive()
 			if !alive && activeSubmitters.Load() > 0 {
 				falseNegatives.Add(1)
 			}
 			runtime.Gosched()
 		}
-	}()
+	})
 
 	submitWg.Wait()
 	checkWg.Wait()
@@ -107,8 +102,7 @@ func TestAlive_EpochConsistency_ConcurrentScheduleTimer(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -128,29 +122,25 @@ func TestAlive_EpochConsistency_ConcurrentScheduleTimer(t *testing.T) {
 	var falseNegatives atomic.Int32
 
 	var schedWg sync.WaitGroup
-	schedWg.Add(numSchedulers)
-	for i := 0; i < numSchedulers; i++ {
-		go func() {
-			defer schedWg.Done()
+	for range numSchedulers {
+		schedWg.Go(func() {
 			defer activeSchedulers.Add(-1)
-			for j := 0; j < timersPerGoroutine; j++ {
+			for range timersPerGoroutine {
 				_, _ = loop.ScheduleTimer(time.Hour, func() {})
 			}
-		}()
+		})
 	}
 
 	var checkWg sync.WaitGroup
-	checkWg.Add(1)
-	go func() {
-		defer checkWg.Done()
-		for i := 0; i < aliveChecks; i++ {
+	checkWg.Go(func() {
+		for range aliveChecks {
 			alive := loop.Alive()
 			if !alive && activeSchedulers.Load() > 0 {
 				falseNegatives.Add(1)
 			}
 			runtime.Gosched()
 		}
-	}()
+	})
 
 	schedWg.Wait()
 	checkWg.Wait()
@@ -178,8 +168,7 @@ func TestAlive_EpochConsistency_ConcurrentPromisify(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -203,7 +192,7 @@ func TestAlive_EpochConsistency_ConcurrentPromisify(t *testing.T) {
 
 	var falseNegatives atomic.Int32
 
-	for i := 0; i < numPromisifies; i++ {
+	for i := range numPromisifies {
 		unblock := unblocks[i]
 		_ = loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 			defer activePromises.Add(-1)
@@ -217,17 +206,15 @@ func TestAlive_EpochConsistency_ConcurrentPromisify(t *testing.T) {
 
 	// Check Alive() while Promisify goroutines are running
 	var checkWg sync.WaitGroup
-	checkWg.Add(1)
-	go func() {
-		defer checkWg.Done()
-		for i := 0; i < aliveChecks; i++ {
+	checkWg.Go(func() {
+		for range aliveChecks {
 			alive := loop.Alive()
 			if !alive && activePromises.Load() > 0 {
 				falseNegatives.Add(1)
 			}
 			runtime.Gosched()
 		}
-	}()
+	})
 
 	// Release Promisify goroutines
 	for _, unblock := range unblocks {
@@ -261,8 +248,7 @@ func TestAlive_EpochConsistency_MixedWork(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -279,67 +265,57 @@ func TestAlive_EpochConsistency_MixedWork(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Submitters
-	wg.Add(1)
 	activeWorkers.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer activeWorkers.Add(-1)
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			_ = loop.Submit(func() {})
 		}
-	}()
+	})
 
 	// Timer schedulers
-	wg.Add(1)
 	activeWorkers.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer activeWorkers.Add(-1)
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			_, _ = loop.ScheduleTimer(time.Hour, func() {})
 		}
-	}()
+	})
 
 	// Microtask schedulers
-	wg.Add(1)
 	activeWorkers.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer activeWorkers.Add(-1)
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			_ = loop.ScheduleMicrotask(func() {})
 		}
-	}()
+	})
 
 	// Promisify workers
 	unblock := make(chan struct{})
-	wg.Add(1)
 	activeWorkers.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer activeWorkers.Add(-1)
 		_ = loop.Promisify(ctx, func(ctx context.Context) (any, error) {
 			<-unblock
 			return nil, nil
 		})
-	}()
+	})
 
 	// Give promisify goroutine time to start
 	time.Sleep(10 * time.Millisecond)
 
 	// Alive() checker
 	var checkWg sync.WaitGroup
-	checkWg.Add(1)
-	go func() {
-		defer checkWg.Done()
-		for i := 0; i < aliveChecks; i++ {
+	checkWg.Go(func() {
+		for range aliveChecks {
 			alive := loop.Alive()
 			if !alive && activeWorkers.Load() > 0 {
 				falseNegatives.Add(1)
 			}
 			runtime.Gosched()
 		}
-	}()
+	})
 
 	wg.Wait()
 	close(unblock)
@@ -375,8 +351,7 @@ func TestAlive_EpochRetry(t *testing.T) {
 		t.Fatalf("RegisterFD: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	go loop.Run(ctx)
 
@@ -392,16 +367,14 @@ func TestAlive_EpochRetry(t *testing.T) {
 	// Submit a large burst of work to advance the epoch significantly
 	const burstSize = 500
 	var wg sync.WaitGroup
-	wg.Add(burstSize)
-	for i := 0; i < burstSize; i++ {
-		go func() {
-			defer wg.Done()
+	for range burstSize {
+		wg.Go(func() {
 			_ = loop.Submit(func() {})
-		}()
+		})
 	}
 
 	// Call Alive() concurrently with the submissions
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		_ = loop.Alive()
 		runtime.Gosched()
 	}
