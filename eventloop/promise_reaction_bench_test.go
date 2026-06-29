@@ -27,8 +27,7 @@ func setupBenchLoop(b *testing.B) (*Loop, *JS, func()) {
 	}
 
 	go func() { _ = loop.Run(ctx) }()
-
-	time.Sleep(10 * time.Millisecond)
+	waitForRunningBench(b, loop)
 
 	js, err := NewJS(loop, WithUnhandledRejection(func(reason any) {}))
 	if err != nil {
@@ -206,7 +205,7 @@ func BenchmarkReaction_ThenOnPending(b *testing.B) {
 // --- concurrent resolve benchmark ---
 
 // BenchmarkReaction_ConcurrentResolve measures resolve + concurrent Then
-// under parallel load. This is the race scenario from the autopsy, but
+// under parallel load. This is the race scenario, but
 // measured for throughput rather than correctness.
 func BenchmarkReaction_ConcurrentResolve(b *testing.B) {
 	_, js, cleanup := setupBenchLoop(b)
@@ -240,15 +239,12 @@ func BenchmarkReaction_ConcurrentResolveAndThen(b *testing.B) {
 			p.Then(noopHandler, nil) // pre-attach one handler
 
 			var wg sync.WaitGroup
-			wg.Add(2)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				resolve(0)
-			}()
-			go func() {
-				defer wg.Done()
+			})
+			wg.Go(func() {
 				p.Then(noopHandler, nil)
-			}()
+			})
 			wg.Wait()
 		}
 	})

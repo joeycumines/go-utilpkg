@@ -1850,6 +1850,10 @@ func (l *Loop) Alive() bool {
 // causes the Alive() re-check to abort termination. Adding a quiescing check here
 // would be harmful: it would reject work that correctly prevents termination.
 func (l *Loop) ScheduleMicrotask(fn func()) error {
+	if fn == nil {
+		return nil
+	}
+
 	state := l.state.Load()
 	if state == StateTerminated {
 		return ErrLoopTerminated

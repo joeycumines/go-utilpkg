@@ -54,8 +54,5 @@ const (
 	EventWrite IOEvents = 0
 )
 
-// IOCallback is a stub type on WASM
-type IOCallback func(events IOEvents)
-
 // ErrFDNotRegistered is a stub error on WASM
 var ErrFDNotRegistered = errors.New("WASM: file descriptors not supported")

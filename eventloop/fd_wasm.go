@@ -2,10 +2,6 @@
 
 package eventloop
 
-import (
-	"errors"
-)
-
 // WASM-specific FD operations - all stub implementations
 
 // closeFD is a stub on WASM (no real file descriptors)
@@ -57,5 +53,5 @@ func getWakeReadFd() int {
 
 // submitGenericWakeup is a stub on WASM
 func submitGenericWakeup(_ uintptr) error {
-	return errors.New("WASM: wakeup not supported")
+	return nil
 }
