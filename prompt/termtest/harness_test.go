@@ -1029,6 +1029,9 @@ func TestHarness_EnterVsCtrlJ(t *testing.T) {
 	if err := h.Console().WriteSync(ctx, "hello"); err != nil {
 		t.Fatalf("WriteSync: %v", err)
 	}
+	// Snapshot before SendSync: the prompt may re-render (outputting "$ ")
+	// before SendSync returns, so the snapshot must precede the Enter key.
+	snap = h.Console().Snapshot()
 	if err := h.Console().SendSync(ctx, "enter"); err != nil {
 		t.Fatalf("SendSync enter: %v", err)
 	}
@@ -1045,8 +1048,8 @@ func TestHarness_EnterVsCtrlJ(t *testing.T) {
 		t.Fatalf("timeout waiting for Enter callback")
 	}
 
-	// Wait for next prompt
-	snap = h.Console().Snapshot()
+	// Wait for next prompt — snapshot was taken before SendSync, so the
+	// re-rendered "$ " is captured in the output since the snapshot.
 	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
 		t.Fatalf("Await second prompt: %v", err)
 	}
@@ -1217,6 +1220,8 @@ func TestHarness_ModeSwitching(t *testing.T) {
 	if err := h.Console().WriteSync(ctx, "world"); err != nil {
 		t.Fatalf("WriteSync: %v", err)
 	}
+	// Snapshot before SendSync: the prompt may re-render before SendSync returns.
+	snap = h.Console().Snapshot()
 	if err := h.Console().SendSync(ctx, "enter"); err != nil {
 		t.Fatalf("SendSync enter: %v", err)
 	}
@@ -1232,7 +1237,6 @@ func TestHarness_ModeSwitching(t *testing.T) {
 	}
 
 	// Wait for next prompt
-	snap = h.Console().Snapshot()
 	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
 		t.Fatalf("Await second prompt: %v", err)
 	}
@@ -1241,6 +1245,8 @@ func TestHarness_ModeSwitching(t *testing.T) {
 	if err := h.Console().WriteSync(ctx, "!ls -la"); err != nil {
 		t.Fatalf("WriteSync bang: %v", err)
 	}
+	// Snapshot before SendSync: the prompt may re-render before SendSync returns.
+	snap = h.Console().Snapshot()
 	if err := h.Console().SendSync(ctx, "enter"); err != nil {
 		t.Fatalf("SendSync enter: %v", err)
 	}
@@ -1256,7 +1262,6 @@ func TestHarness_ModeSwitching(t *testing.T) {
 	}
 
 	// Wait for next prompt
-	snap = h.Console().Snapshot()
 	if err := h.Console().Await(ctx, snap, Contains("$ ")); err != nil {
 		t.Fatalf("Await third prompt: %v", err)
 	}
