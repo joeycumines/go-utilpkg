@@ -1844,6 +1844,12 @@ func (l *Loop) Alive() bool {
 //
 // microtaskRing now implements dynamic growth, so Push never fails.
 //
+// Parameters:
+//   - fn: The function to execute. If nil, returns nil without scheduling.
+//
+// Returns:
+//   - ErrLoopTerminated if the loop has been shut down.
+//
 // Quiescing Protocol: ScheduleMicrotask is intentionally NOT gated by the quiescing
 // flag. Microtasks are ephemeral work detected by Alive() via the submissionEpoch
 // mechanism. If a microtask is scheduled during the quiescing window, the epoch change

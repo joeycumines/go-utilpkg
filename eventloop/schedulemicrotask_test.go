@@ -200,3 +200,42 @@ func TestScheduleMicrotask_AfterShutdown(t *testing.T) {
 
 	t.Log("ScheduleMicrotask after shutdown test passed")
 }
+
+// TestScheduleMicrotask_NilGuard tests that ScheduleMicrotask returns nil
+// immediately when fn is nil, without scheduling anything. This directly
+// exercises the nil guard in ScheduleMicrotask (not via QueueMicrotask,
+// which has its own nil check before delegating).
+func TestScheduleMicrotask_NilGuard(t *testing.T) {
+	loop, err := New()
+	if err != nil {
+		t.Fatal("New failed:", err)
+	}
+	defer loop.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	go loop.Run(ctx)
+	time.Sleep(10 * time.Millisecond)
+
+	// ScheduleMicrotask(nil) must return nil, not an error.
+	err = loop.ScheduleMicrotask(nil)
+	if err != nil {
+		t.Errorf("ScheduleMicrotask(nil) returned %v, want nil", err)
+	}
+
+	// Verify the loop is still functional after a nil microtask.
+	executed := make(chan struct{})
+	err = loop.ScheduleMicrotask(func() {
+		close(executed)
+	})
+	if err != nil {
+		t.Fatalf("ScheduleMicrotask after nil: %v", err)
+	}
+
+	select {
+	case <-executed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Microtask not executed after nil guard")
+	}
+}
