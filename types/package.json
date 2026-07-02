@@ -1,0 +1,37 @@
+{
+  "name": "@joeycumines/goja_nodejs",
+  "version": "0.0.0",
+  "description": "TypeScript type definitions for the goja_nodejs Node.js compatibility layer (goja fork). Covers the global GojaNodeJS namespace, the url/node:url modules (URL, URLSearchParams), and the buffer/node:buffer modules (Buffer).",
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "globals.d.ts",
+    "url.d.ts",
+    "buffer.d.ts",
+    "buffer.buffer.d.ts"
+  ],
+  "scripts": {
+    "test": "tsc --noEmit"
+  },
+  "keywords": [
+    "goja",
+    "goja_nodejs",
+    "typescript",
+    "types",
+    "nodejs",
+    "buffer",
+    "url"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joeycumines/goja_nodejs.git",
+    "directory": "types"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "devDependencies": {
+    "typescript": "next"
+  }
+}
