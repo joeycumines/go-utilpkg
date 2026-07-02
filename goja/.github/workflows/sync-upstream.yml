@@ -164,24 +164,29 @@ jobs:
         if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0' && steps.test262-cache.outputs.cache-hit != 'true'
         run: ./.tc39_test262_checkout.sh
 
-      - name: Validate merged tree (vet + build + full test)
+      - name: Validate merged tree (vet + build + full test + race)
         if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0'
         id: validate
         run: |
           set +e
           go vet ./... > /tmp/vet.log 2>&1; vet_rc=$?
           go build ./... > /tmp/build.log 2>&1; build_rc=$?
-          # -race: catch data-race regressions from upstream before they land
-          # on main (the GITHUB_TOKEN push will not trigger ci.yml's race job).
-          # -vet=off: vet already ran above; avoid running it twice.
-          go test -race -vet=off ./... > /tmp/test.log 2>&1; test_rc=$?
+          # Full functional suite (incl. tc39 test262), no race.
+          go test -vet=off -timeout 15m ./... > /tmp/test.log 2>&1; test_rc=$?
+          # Race detector with tc39 skipped (-short): the full test262 suite
+          # under -race blows the Go test timeout. The dedicated concurrency
+          # tests still run under -race and exercise the promise-job machinery.
+          # Mirrors ci.yml's race step so a sync never lands a race regression
+          # the GITHUB_TOKEN push would not re-trigger.
+          go test -race -short -vet=off ./... > /tmp/race.log 2>&1; race_rc=$?
           {
             echo "### go vet (exit $vet_rc)"; echo; cat /tmp/vet.log; echo;
             echo "### go build (exit $build_rc)"; echo; cat /tmp/build.log; echo;
             echo "### go test (exit $test_rc)"; echo; cat /tmp/test.log; echo;
+            echo "### go test -race -short (exit $race_rc)"; echo; cat /tmp/race.log; echo;
           } > /tmp/validate.log
-          echo "vet=$vet_rc build=$build_rc test=$test_rc"
-          if [ "$vet_rc" -eq 0 ] && [ "$build_rc" -eq 0 ] && [ "$test_rc" -eq 0 ]; then
+          echo "vet=$vet_rc build=$build_rc test=$test_rc race=$race_rc"
+          if [ "$vet_rc" -eq 0 ] && [ "$build_rc" -eq 0 ] && [ "$test_rc" -eq 0 ] && [ "$race_rc" -eq 0 ]; then
             echo "result=pass" >> "$GITHUB_OUTPUT"
             echo "Validation passed."
           else

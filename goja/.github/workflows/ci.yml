@@ -102,7 +102,7 @@ jobs:
   race-and-coverage:
     name: Race + coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -130,8 +130,17 @@ jobs:
         if: steps.test262-cache.outputs.cache-hit != 'true'
         run: ./.tc39_test262_checkout.sh
 
-      - name: Run race + coverage
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Run race detector
+        # tc39 is skipped via -short: the full test262 suite under -race is
+        # pathologically slow (individual URI-encoding subtests take minutes
+        # each, blowing the 10m default test timeout). Only the tc39 tests use
+        # testing.Short(), so the dedicated concurrency tests
+        # (TestPromiseJobEnqueuer, TestAsyncContextTracker) still run under the
+        # race detector and exercise the promise-job machinery.
+        run: go test -race -short -vet=off ./...
+
+      - name: Run coverage (full suite, no race)
+        run: go test -coverprofile=coverage.out -covermode=atomic -vet=off -timeout 15m ./...
 
       - name: Coverage summary
         run: |
