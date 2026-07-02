@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (fmt, vet, staticcheck, mod)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.x'
+          check-latest: true
+
+      - name: Check formatting (gofmt)
+        run: |
+          fmt_out="$(gofmt -l .)"
+          if [ -n "$fmt_out" ]; then
+            echo "::error::Files need gofmt:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Check go.mod / go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        # Honors staticcheck.conf at the repo root. Installed first-party via
+        # `go install` — no third-party action wrapper.
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          staticcheck ./...
+
+  test:
+    name: Test (go ${{ matrix.go-version }} / ${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Cross-OS coverage (goja_nodejs touches process/console/eventloop).
+          - os: ubuntu-latest
+            go-version: '1.25.x'
+            arch: amd64
+          - os: ubuntu-latest
+            go-version: '1.x'
+            arch: amd64
+          - os: windows-latest
+            go-version: '1.25.x'
+            arch: amd64
+          - os: windows-latest
+            go-version: '1.x'
+            arch: amd64
+          # 386 full-test (buffer does byte/int-width work); ubuntu only.
+          - os: ubuntu-latest
+            go-version: '1.x'
+            arch: '386'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+
+      - name: Run tests
+        env:
+          GOARCH: ${{ matrix.arch }}
+        run: go test -vet=off ./...
+
+  race-and-coverage:
+    name: Race + coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.x'
+          check-latest: true
+
+      # The event loop is the concurrent core of goja_nodejs (timers, intervals,
+      # cross-goroutine APIs), and the suite has dedicated race-regression
+      # tests (e.g. TestRunOnStoppedLoop). Unlike the goja sibling there is no
+      # tc39/test262 corpus, so the full suite under -race is fast (~seconds)
+      # and needs no -short split.
+      - name: Run race + coverage
+        run: go test -race -coverprofile=coverage.out -covermode=atomic -vet=off ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage.out
+          if-no-files-found: warn
+          retention-days: 14
+
+  test-types:
+    name: Type definitions (tsc --noEmit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check workspaces
+        run: npm test --workspaces
+
+  publish-types:
+    name: Publish type definitions to npm (tagged)
+    needs: [lint, test, race-and-coverage, test-types]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Extract version
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          VERSION="${REF#refs/tags/v}"
+          if [[ "$VERSION" == [0-9].* ]]; then
+            echo "version=$VERSION" >> "$GITHUB_ENV"
+          fi
+
+      - name: Publish
+        if: env.version != ''
+        uses: ./.github/actions/publish-types
+        with:
+          VERSION: ${{ env.version }}

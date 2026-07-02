@@ -1,4 +1,5 @@
 name: Publish type definitions to npm
+description: Stamp and publish the goja_nodejs TypeScript type-definition packages (global, url, buffer) to npm.
 inputs:
   VERSION:
     description: Packages version
