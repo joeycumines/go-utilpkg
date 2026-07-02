@@ -1,4 +1,3 @@
-/// <reference types="@dop251/types-goja_nodejs-global" />
 /// <reference path="buffer.buffer.d.ts" />
 declare module 'buffer' {
     export type WithImplicitCoercion<T> =
