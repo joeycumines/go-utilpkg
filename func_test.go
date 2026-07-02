@@ -1039,7 +1039,7 @@ func TestPromiseJobEnqueuer(t *testing.T) {
 		if secondRan {
 			t.Fatal("second reaction should not have run yet")
 		}
-		if r.jobQueue == nil || len(r.jobQueue) == 0 {
+		if len(r.jobQueue) == 0 {
 			t.Fatal("expected second reaction in internal queue")
 		}
 		// leave() should drain the internal queue on the next Run*() call.
