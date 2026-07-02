@@ -1,0 +1,248 @@
+name: Sync upstream
+
+# Keeps joeycumines/goja_nodejs:main in sync with dop251/goja_nodejs:master.
+#
+# Merge upstream/master into main, then validate the merged tree inline
+# (vet + build + go test -race + npm type-check). If the merge is clean AND
+# validation passes, push directly to main. Otherwise open a descriptive PR.
+#
+# Reality for this fork: go.mod and go.sum are PERPETUAL conflicts (the fork
+# rebrands the module path to github.com/joeycumines/goja_nodejs and pins the
+# sibling github.com/joeycumines/goja fork, while upstream uses dop251/*). So
+# any upstream change that touches go.mod/go.sum (the common case) will route
+# to the PR-fallback path for manual reconciliation. Source-only upstream
+# changes merge cleanly and build successfully.
+#
+# Why inline validation: pushes made with the auto GITHUB_TOKEN do not fire
+# downstream `on: push` workflows, so this workflow is itself the gate.
+#
+# First-party only: actions/checkout, actions/setup-go, actions/setup-node;
+# git for the merge; gh CLI for PR creation.
+
+on:
+  schedule:
+    - cron: '27 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      UPSTREAM_REMOTE: https://github.com/dop251/goja_nodejs.git
+      UPSTREAM_BRANCH: master
+      TARGET_BRANCH: main
+    steps:
+      - name: Checkout fork (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ env.TARGET_BRANCH }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_REMOTE"
+          git fetch upstream "$UPSTREAM_BRANCH" --tags --no-recurse-submodules
+
+      - name: Check if sync is needed
+        id: needed
+        run: |
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_BRANCH" HEAD; then
+            echo "sync=false" >> "$GITHUB_OUTPUT"
+            echo "Already in sync with upstream/$UPSTREAM_BRANCH; nothing to do."
+          else
+            echo "sync=true" >> "$GITHUB_OUTPUT"
+            echo "Upstream has new commits; proceeding with sync."
+          fi
+
+      - name: Compute sync branch id
+        if: steps.needed.outputs.sync == 'true'
+        id: id
+        run: |
+          short="$(git rev-parse --short=12 "upstream/$UPSTREAM_BRANCH")"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "branch=sync/upstream-$short" >> "$GITHUB_OUTPUT"
+
+      - name: Attempt merge
+        if: steps.needed.outputs.sync == 'true'
+        id: merge
+        run: |
+          set +e
+          # --no-ff forces a merge commit so HEAD~1 is always the pre-merge tip
+          # and HEAD~1..upstream/master lists exactly the incoming commits.
+          git merge "upstream/$UPSTREAM_BRANCH" --no-edit --no-ff > /tmp/merge.log 2>&1
+          rc=$?
+          echo "exitcode=$rc" >> "$GITHUB_OUTPUT"
+          cat /tmp/merge.log
+          if [ "$rc" -ne 0 ]; then
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt
+            echo "Conflicted files:"
+            cat /tmp/conflicts.txt
+          fi
+          exit 0
+
+      # --- Conflict path: finalize a pushable merge commit (with markers) and
+      #     open a PR. Never push conflicted state to main. ---
+      - name: Open PR for conflicts
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode != '0'
+        env:
+          SYNC_BRANCH: ${{ steps.id.outputs.branch }}
+        run: |
+          git add -A
+          git commit --no-edit --no-verify
+          git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
+
+          {
+            echo "Automatic upstream sync from \`dop251/goja_nodejs:master\` produced **conflicts** that need manual resolution."
+            echo
+            echo "**Conflicted files:**"
+            echo
+            while IFS= read -r f; do [ -n "$f" ] && echo "- \`$f\`"; done < /tmp/conflicts.txt
+            echo
+            echo "**Incoming commits:**"
+            echo
+            echo '```'
+            git log --oneline HEAD~1.."upstream/$UPSTREAM_BRANCH"
+            echo '```'
+            echo
+            echo "This branch contains a merge commit with conflict markers. Resolve the markers, commit, then merge this PR."
+            echo
+            echo "> **Note:** \`go.mod\`/\`go.sum\` are perpetual conflicts for this fork. When resolving, keep \`module github.com/joeycumines/goja_nodejs\` and the \`github.com/joeycumines/goja\` dependency pin; adopt upstream's other dependency changes and run \`go mod tidy\`."
+          } > /tmp/pr-body.md
+
+          existing="$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Open PR #$existing already exists; refreshing it."
+            gh pr edit "$existing" --title "sync: upstream master → main (conflicts)" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --base "$TARGET_BRANCH" \
+              --head "$SYNC_BRANCH" \
+              --title "sync: upstream master → main (conflicts)" \
+              --body-file /tmp/pr-body.md
+          fi
+
+      # --- Clean-merge path: validate before any push to main. ---
+      - name: Validate merged tree (vet + build + race + types)
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0'
+        id: validate
+        run: |
+          set +e
+          go vet ./... > /tmp/vet.log 2>&1; vet_rc=$?
+          go build ./... > /tmp/build.log 2>&1; build_rc=$?
+          # Full suite under -race is fast for goja_nodejs (no tc39 corpus).
+          go test -race -vet=off ./... > /tmp/test.log 2>&1; test_rc=$?
+          npm ci > /tmp/npm-install.log 2>&1; npm_install_rc=$?
+          npm test --workspaces > /tmp/npm-test.log 2>&1; npm_test_rc=$?
+          {
+            echo "### go vet (exit $vet_rc)"; echo; cat /tmp/vet.log; echo;
+            echo "### go build (exit $build_rc)"; echo; cat /tmp/build.log; echo;
+            echo "### go test -race (exit $test_rc)"; echo; cat /tmp/test.log; echo;
+            echo "### npm ci (exit $npm_install_rc)"; echo; cat /tmp/npm-install.log | tail -5; echo;
+            echo "### npm test --workspaces (exit $npm_test_rc)"; echo; cat /tmp/npm-test.log; echo;
+          } > /tmp/validate.log
+          echo "vet=$vet_rc build=$build_rc test=$test_rc npm_install=$npm_install_rc npm_test=$npm_test_rc"
+          if [ "$vet_rc" -eq 0 ] && [ "$build_rc" -eq 0 ] && [ "$test_rc" -eq 0 ] && [ "$npm_install_rc" -eq 0 ] && [ "$npm_test_rc" -eq 0 ]; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+            echo "Validation passed."
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            echo "Validation FAILED:"
+            cat /tmp/validate.log
+          fi
+          exit 0
+
+      - name: Push to main
+        id: push
+        if: steps.needed.outputs.sync == 'true' && steps.merge.outputs.exitcode == '0' && steps.validate.outputs.result == 'pass'
+        run: |
+          set +e
+          git push origin "$TARGET_BRANCH" > /tmp/push.log 2>&1; push_rc=$?
+          echo "push_rc=$push_rc"
+          if [ "$push_rc" -eq 0 ]; then
+            echo "result=ok" >> "$GITHUB_OUTPUT"
+            echo "Pushed synced main."
+            git log --oneline -5 "$TARGET_BRANCH"
+          else
+            echo "result=failed" >> "$GITHUB_OUTPUT"
+            echo "Direct push to main failed:"
+            cat /tmp/push.log
+          fi
+          exit 0
+
+      - name: Open PR (validation failed or push rejected)
+        if: >
+          steps.needed.outputs.sync == 'true'
+          && steps.merge.outputs.exitcode == '0'
+          && (steps.validate.outputs.result == 'fail'
+              || steps.push.outputs.result == 'failed')
+        env:
+          SYNC_BRANCH: ${{ steps.id.outputs.branch }}
+          VALIDATE_RESULT: ${{ steps.validate.outputs.result }}
+        run: |
+          git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
+
+          if [ "$VALIDATE_RESULT" = "fail" ]; then
+            title="sync: upstream master → main (validation failing)"
+            header="Upstream merged cleanly, but **validation failed** on the merged tree."
+            detail="$(cat /tmp/validate.log)"
+          else
+            title="sync: upstream master → main (push rejected)"
+            header="Upstream merged and validated cleanly, but the direct push to main was **rejected** (e.g. branch protection)."
+            detail="$(cat /tmp/push.log)"
+          fi
+
+          {
+            echo "$header"
+            echo
+            echo "**Incoming commits:**"
+            echo
+            echo '```'
+            git log --oneline HEAD~1.."upstream/$UPSTREAM_BRANCH"
+            echo '```'
+            echo
+            echo '<details><summary>Details</summary>'
+            echo
+            echo '```'
+            echo "$detail"
+            echo '```'
+            echo
+            echo '</details>'
+          } > /tmp/pr-body.md
+
+          existing="$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "Open PR #$existing already exists; refreshing it."
+            gh pr edit "$existing" --title "$title" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --base "$TARGET_BRANCH" \
+              --head "$SYNC_BRANCH" \
+              --title "$title" \
+              --body-file /tmp/pr-body.md
+          fi
