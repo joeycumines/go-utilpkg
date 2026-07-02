@@ -22,6 +22,17 @@ on:
   schedule:
     - cron: '27 6 * * *'
   workflow_dispatch:
+    inputs:
+      upstream_remote:
+        description: Upstream remote URL to sync from (default dop251/goja_nodejs).
+        required: false
+        default: https://github.com/dop251/goja_nodejs.git
+        type: string
+      upstream_ref:
+        description: Upstream BRANCH to sync from (a branch name; default master).
+        required: false
+        default: master
+        type: string
 
 permissions:
   contents: write
@@ -40,8 +51,11 @@ jobs:
       synced_sha: ${{ steps.push.outputs.sha }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      UPSTREAM_REMOTE: https://github.com/dop251/goja_nodejs.git
-      UPSTREAM_BRANCH: master
+      # Scheduled runs have no inputs context → these fall back to the dop251
+      # defaults; manual dispatches may override either to sync a different ref
+      # (e.g. a feature branch, or a controlled stand-in for verification).
+      UPSTREAM_REMOTE: ${{ inputs.upstream_remote || 'https://github.com/dop251/goja_nodejs.git' }}
+      UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'master' }}
       TARGET_BRANCH: main
     steps:
       - name: Checkout fork (full history)
