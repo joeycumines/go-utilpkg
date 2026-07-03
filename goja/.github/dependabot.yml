@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keep first-party GitHub Actions current across all workflows. Grouped into
+  # a single weekly PR so version bumps land together and review once.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
