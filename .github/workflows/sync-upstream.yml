@@ -1,6 +1,8 @@
 name: Sync upstream
 
-# Keeps joeycumines/goja_nodejs:main in sync with dop251/goja_nodejs:master.
+# Keeps joeycumines/goja_nodejs:main in sync with its upstream (default
+# dop251/goja_nodejs:master; the workflow_dispatch upstream_remote/upstream_ref
+# inputs may override the remote/branch).
 #
 # Merge upstream/master into main. If the merge is clean, OR if it conflicts
 # ONLY on go.mod/go.sum (the perpetual conflict — the fork rebrands the module
@@ -188,7 +190,7 @@ jobs:
           git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
 
           {
-            echo "Automatic upstream sync from \`dop251/goja_nodejs:master\` produced **conflicts** that need manual resolution."
+            echo "Automatic upstream sync from branch \`$UPSTREAM_BRANCH\` produced **conflicts** that need manual resolution."
             echo
             echo "**Conflicted files:**"
             echo
@@ -208,12 +210,12 @@ jobs:
           existing="$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')"
           if [ -n "$existing" ]; then
             echo "Open PR #$existing already exists; refreshing it."
-            gh pr edit "$existing" --title "sync: upstream master → main (conflicts)" --body-file /tmp/pr-body.md
+            gh pr edit "$existing" --title "sync: upstream $UPSTREAM_BRANCH → main (conflicts)" --body-file /tmp/pr-body.md
           else
             gh pr create \
               --base "$TARGET_BRANCH" \
               --head "$SYNC_BRANCH" \
-              --title "sync: upstream master → main (conflicts)" \
+              --title "sync: upstream $UPSTREAM_BRANCH → main (conflicts)" \
               --body-file /tmp/pr-body.md
           fi
 
@@ -276,11 +278,11 @@ jobs:
           git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
 
           if [ "$VALIDATE_RESULT" = "fail" ]; then
-            title="sync: upstream master → main (validation failing)"
+            title="sync: upstream $UPSTREAM_BRANCH → main (validation failing)"
             header="Upstream merged (and go.mod/go.sum auto-resolved if needed), but **validation failed** on the merged tree."
             detail="$(cat /tmp/validate.log)"
           else
-            title="sync: upstream master → main (push rejected)"
+            title="sync: upstream $UPSTREAM_BRANCH → main (push rejected)"
             header="Upstream merged and validated cleanly, but the direct push to main was **rejected** (e.g. branch protection)."
             detail="$(cat /tmp/push.log)"
           fi

@@ -1,6 +1,8 @@
 Nodejs compatibility library for Goja
 ====
 
+[![CI](https://github.com/joeycumines/goja_nodejs/actions/workflows/ci.yml/badge.svg)](https://github.com/joeycumines/goja_nodejs/actions/workflows/ci.yml)
+
 This is a collection of [Goja](https://github.com/joeycumines/goja) modules that provide nodejs compatibility.
 
 Example:
