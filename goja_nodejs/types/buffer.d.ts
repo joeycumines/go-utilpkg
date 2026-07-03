@@ -29,7 +29,6 @@ declare module 'buffer' {
          */
         interface BufferConstructor {
             // see buffer.buffer.d.ts for implementation specific to TypeScript 5.7 and later
-            // see ts5.6/buffer.buffer.d.ts for implementation specific to TypeScript 5.6 and earlier
 
             /**
              * Returns `true` if `obj` is a `Buffer`, `false` otherwise.
