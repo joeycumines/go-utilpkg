@@ -21,10 +21,31 @@ func Pow10(z *big.Float, n int) *big.Float {
 	case n == 0:
 		z.SetInt64(1)
 	case n < 0:
+		q := uint(-n) / pow10Table1Len
 		if z.Prec() == 0 {
 			z.SetPrec(pow10DefaultPrec) // N.B. same as n == 0 case
 		}
-		z.Set(&pow10Table3[uint(-n)/pow10Table1Len])
+		// The precomputed negative table entries (pow10Table3) are only as
+		// precise as their own precision (see init: 64..1064 bits). If the
+		// caller requested more precision than the specific table entry
+		// carries, z.Set would copy that lower-precision approximation and
+		// z.Quo could not recover the lost bits, silently truncating accuracy
+		// (e.g. Pow10(prec=4000, -300) differs from the exact value by
+		// ~1e-589). Fall back to the direct pow10() computation, which avoids
+		// the low-precision table approximation. For positive powers this is
+		// exact (10^|n| is an integer). For negative powers, the
+		// exponentiation-by-squaring in pow10() performs repeated
+		// big.Float.Mul at z.Prec(), each of which may round; the result is
+		// at least as accurate as the table-based approach but is not
+		// guaranteed to be correctly rounded for large |n| where 10^|n|
+		// exceeds z.Prec() bits. Positive powers need no such guard:
+		// 10**(32q) is an exact integer representable precisely at any
+		// precision >= its bit length, and Mul by the exact integer table1
+		// keeps it exact.
+		if z.Prec() > uint(pow10Table3[q].Prec()) {
+			return pow10(z, n)
+		}
+		z.Set(&pow10Table3[q])
 		z.Quo(z, &pow10Table1[uint(-n)%pow10Table1Len])
 	default:
 		if z.Prec() == 0 {
@@ -61,17 +82,33 @@ func pow10(z *big.Float, n int) *big.Float {
 		SetInt64(10)
 
 	neg := n < 0
+	// Compute the magnitude as a uint64 so that the most-negative input
+	// (math.MinInt, whose two's-complement negation is itself) does not
+	// overflow a signed int and silently skip the loop. The int64 cast
+	// before negation is essential on 32-bit builds (GOARCH=386/arm),
+	// where int is 32 bits: without it, uint64(-n) for n == math.MinInt32
+	// sign-extends the 32-bit value -2147483648 to 0xFFFFFFFF80000000
+	// (18446744071562067968) instead of the correct 2147483648, producing
+	// a wildly wrong magnitude and 33x more multiplications (33 set bits
+	// vs 1). For n == math.MinInt, the resulting magnitude drives the loop
+	// correctly; the intermediate value overflows big.Float's int32 exponent to +Inf
+	// (math/big returns +Inf, not a panic, on exponent overflow), and the
+	// final reciprocal 1/+Inf underflows to 0, which is the correct result
+	// for 10^(MinInt).
+	var m uint64
 	if neg {
-		n = -n
+		m = uint64(-int64(n))
+	} else {
+		m = uint64(int64(n))
 	}
 
 	// exponentiation by squaring
-	for n > 0 {
-		if n%2 == 1 { // current bit is 1?
+	for m > 0 {
+		if m&1 == 1 { // current bit is 1?
 			z.Mul(z, base)
 		}
 		base.Mul(base, base)
-		n /= 2 // shift right
+		m >>= 1 // shift right
 	}
 
 	if neg {
@@ -82,6 +119,14 @@ func pow10(z *big.Float, n int) *big.Float {
 }
 
 func calculatePrecForPosPow10(n int) uint {
+	// math.Pow10(n+1) returns +Inf for n >= 308, and uint(+Inf) is
+	// implementation-defined garbage. This is currently masked because
+	// n == pow10Max is intercepted before this is called (max n passed is
+	// 307), but guard it so a future pow10Max increase cannot silently
+	// produce a wrong precision.
+	if n >= 308 {
+		return pow10Prec
+	}
 	return uint(math.Floor(math.Log2(math.Pow10(n+1)))) + 1
 }
 

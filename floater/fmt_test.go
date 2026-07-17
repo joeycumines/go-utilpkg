@@ -20,9 +20,21 @@ func isNumericByte(b byte) bool {
 
 var bmrStr string
 
+// mustRat parses s as a [math/big.Rat], failing the test on a parse error.
+// It turns a mistyped rat literal into a clear failure instead of a
+// nil-dereference panic downstream.
+func mustRat(tb testing.TB, s string) *big.Rat {
+	tb.Helper()
+	r, ok := new(big.Rat).SetString(s)
+	if !ok {
+		tb.Fatalf("mustRat: invalid big.Rat string %q", s)
+	}
+	return r
+}
+
 func runBenchmarkFormatDecimalRat(b *testing.B, input string, prec int, floatPrec uint, output string) {
 	b.Helper()
-	r, _ := new(big.Rat).SetString(input)
+	r := mustRat(b, input)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -35,7 +47,7 @@ func runBenchmarkFormatDecimalRat(b *testing.B, input string, prec int, floatPre
 
 func runBenchmarkBigRatFloatString(b *testing.B, input string, prec int) {
 	b.Helper()
-	r, _ := new(big.Rat).SetString(input)
+	r := mustRat(b, input)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -50,7 +62,7 @@ func runBenchmarkBigRatFloatString(b *testing.B, input string, prec int) {
 
 func runBenchmarkBigRatFloatText(b *testing.B, input string, prec int, floatPrec uint, auto bool) {
 	b.Helper()
-	r, _ := new(big.Rat).SetString(input)
+	r := mustRat(b, input)
 	f := new(big.Float).SetPrec(floatPrec).SetRat(r)
 	var precForCall int
 	if auto {
@@ -74,7 +86,7 @@ func runBenchmarkBigRatFloatText(b *testing.B, input string, prec int, floatPrec
 
 func runBenchmarkStrconvFormatFloat(b *testing.B, input string, prec int, auto bool) {
 	b.Helper()
-	r, _ := new(big.Rat).SetString(input)
+	r := mustRat(b, input)
 	f, _ := r.Float64()
 	var precForCall int
 	if auto {
@@ -1232,6 +1244,54 @@ func Test_approximateDecimalBufferSizeWithFixedDecimals(t *testing.T) {
 			}
 			if d != tc.decimals {
 				t.Errorf(`unexpected decimals: %d != %d`, d, tc.decimals)
+			}
+		})
+	}
+}
+
+// T33: Benchmark comparison strconv.FormatFloat vs FormatDecimalFloat for denormals
+
+// BenchmarkFormatFloatDenorm compares strconv vs floater for denormalized values
+func BenchmarkFormatFloatDenorm(b *testing.B) {
+	denormals := []float64{
+		math.SmallestNonzeroFloat64,
+		5e-324,
+		1e-323,
+	}
+
+	for _, f64 := range denormals {
+		b.Run(fmt.Sprintf("strconv/%g", f64), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = strconv.FormatFloat(f64, 'f', -1, 64)
+			}
+		})
+
+		b.Run(fmt.Sprintf("floater/%g", f64), func(b *testing.B) {
+			f := new(big.Float).SetPrec(53).SetFloat64(f64)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = FormatDecimalFloat(f, -1)
+			}
+		})
+	}
+}
+
+// BenchmarkFormatFloatNormal compares performance for normal float values
+func BenchmarkFormatFloatNormal(b *testing.B) {
+	normals := []float64{1.0, 0.1, math.Pi, math.E, 1e100, 1e-308}
+
+	for _, f64 := range normals {
+		b.Run(fmt.Sprintf("strconv/%g", f64), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = strconv.FormatFloat(f64, 'f', -1, 64)
+			}
+		})
+
+		b.Run(fmt.Sprintf("floater/%g", f64), func(b *testing.B) {
+			f := new(big.Float).SetPrec(53).SetFloat64(f64)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = FormatDecimalFloat(f, -1)
 			}
 		})
 	}
