@@ -259,3 +259,32 @@ func TestRatConv_Value(t *testing.T) {
 		t.Fatal(v)
 	}
 }
+
+// TestRatConv_UnmarshalJSON_Escapes verifies that valid JSON string escapes
+// (\uXXXX and \/) are decoded before being handed to big.Rat.UnmarshalText.
+// Previously UnmarshalJSON manually stripped the surrounding quotes, bypassing
+// encoding/json's unescaping, so valid JSON like "1/2" or "1\/2" was rejected.
+// Escapes are built byte-by-byte so the Go compiler does not decode them.
+func TestRatConv_UnmarshalJSON_Escapes(t *testing.T) {
+	bb := func(chars ...byte) string { return string(chars) }
+	cases := []struct {
+		name string
+		json string
+	}{
+		{"plain", bb('"', '1', '/', '2', '"')}, // "1/2"
+		{"escaped unicode", bb('"', '\\', 'u', '0', '0', '3', '1', '\\', 'u', '0', '0', '2', 'f', '\\', 'u', '0', '0', '3', '2', '"')}, // "1/2"
+		{"escaped solidus", bb('"', '1', '\\', '/', '2', '"')},                                                                         // "1\/2"
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var r RatConv
+			if err := r.UnmarshalJSON([]byte(c.json)); err != nil {
+				t.Errorf("UnmarshalJSON(%s): unexpected error: %v", c.json, err)
+				return
+			}
+			if r.Value().Cmp(big.NewRat(1, 2)) != 0 {
+				t.Errorf("UnmarshalJSON(%s) = %s, want 1/2", c.json, r.Value().RatString())
+			}
+		})
+	}
+}

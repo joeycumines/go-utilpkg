@@ -1,6 +1,7 @@
 package floater
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,12 +82,18 @@ func (x *FloatConv) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	if v.Value == strPosInf {
-		x.Value().SetPrec(0).SetPrec(uint(v.Prec)).SetInf(false)
+		x.Value().SetPrec(uint(v.Prec)).SetInf(false)
 	} else if v.Value == strNegInf {
-		x.Value().SetPrec(0).SetPrec(uint(v.Prec)).SetInf(true)
+		x.Value().SetPrec(uint(v.Prec)).SetInf(true)
 	} else if _, ok := x.Value().SetPrec(uint(v.Prec)).SetString(v.Value); !ok {
 		return fmt.Errorf("floater: floatconv: invalid value: %s", v.Value)
 	} else {
+		// Preserve the uninitialised-zero contract: when the JSON carried no
+		// precision field (prec == 0) and the value is exactly zero, force
+		// precision back to 0. SetString above parses at the precision-0
+		// default (which behaves as 64), so without this reset the decoded
+		// zero would report Prec() == 64 instead of the intended 0. This
+		// is exercised by TestFloatConv_UnmarshalJSON/value_0.
 		if v.Prec == 0 && x.Value().Sign() == 0 {
 			x.Value().SetPrec(0)
 		}
@@ -121,11 +128,21 @@ func (x *RatConv) MarshalJSON() ([]byte, error) {
 }
 
 func (x *RatConv) UnmarshalJSON(b []byte) error {
-	// note: >=3 because empty string is invalid
-	if len(b) >= 3 && b[0] == '"' && b[len(b)-1] == '"' {
+	// Fast path: a plain double-quoted string with no escape sequences can be
+	// decoded by trimming the quotes directly, avoiding an encoding/json round
+	// trip (the common, allocation-free case). A backslash signals possible
+	// \uXXXX or \/ escapes that require full JSON decoding to expand.
+	if len(b) >= 2 && b[0] == '"' && b[len(b)-1] == '"' && bytes.IndexByte(b, '\\') < 0 {
 		return x.Value().UnmarshalText(b[1 : len(b)-1])
 	}
-	return fmt.Errorf("floater: ratconv: invalid value: %s", b)
+	// General path: decode via encoding/json so escape sequences (e.g. "1/2" or
+	// "1\/2") are expanded before big.Rat.UnmarshalText sees the text. This also
+	// rejects non-string JSON (numbers, booleans) with an error.
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("floater: ratconv: invalid value: %s", b)
+	}
+	return x.Value().UnmarshalText([]byte(s))
 }
 
 func (x *RatConv) append(b []byte) []byte {

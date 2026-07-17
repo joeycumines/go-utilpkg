@@ -84,7 +84,24 @@ func RoundRatToUnitsFractional(units *big.Rat, rat *big.Rat, prec int, fractiona
 	z.Rem(num, den)
 	signRemPart := z.Sign() // sign of remainder
 	if signRemPart == 0 {
-		panic(`floater: round rat: unexpected zero remainder`)
+		// The scaled value is an integer: there is no fractional remainder
+		// to round, so the result is the integer part unchanged, with a zero
+		// fractional component. This is reachable for negative-precision
+		// rounding when the input is an exact multiple of the scaling factor
+		// (e.g. RoundRat(_, 100, -1) -> 100), where dividing by 10^(1-prec)
+		// yields an integer. Previously this case panicked.
+		units.SetFrac(num, den)
+		if fractional != nil {
+			fractional.SetInt64(0)
+		}
+		if multi != nil {
+			r.SetInt(multi)
+			units.Mul(units, &r)
+			if fractional != nil {
+				fractional.Mul(fractional, &r)
+			}
+		}
+		return units, fractional
 	}
 
 	// reset rat to integer part (doesn't yet mutate den)
@@ -156,6 +173,25 @@ func RoundRatToUnitsFractional(units *big.Rat, rat *big.Rat, prec int, fractiona
 		units.Mul(units, &r)
 		if fractional != nil {
 			fractional.Mul(fractional, &r)
+		}
+	}
+
+	// For negative precision (multi != nil) the re-scaling above can push the
+	// fractional component to |fractional| >= 1: rounding to a precision < 1
+	// always yields an integer (a multiple of 10^(-prec)), so the whole result
+	// would otherwise land in fractional (e.g. 12.34 @prec -1 -> fractional 10,
+	// contradicting the documented "integer component -> units"). Move any
+	// integer part of fractional back into units, leaving fractional in (-1, 1).
+	// This is a no-op for prec >= 1, where multi == nil and the carry logic
+	// above already keeps |fractional| < 1, and for the exact-multiple early
+	// return (which keeps fractional == 0).
+	if fractional != nil && multi != nil {
+		var intPart big.Int
+		intPart.Quo(fractional.Num(), fractional.Denom()) // truncates toward zero; reads fractional's numerator/denominator without mutating them
+		if intPart.Sign() != 0 {
+			r.SetInt(&intPart)
+			units.Add(units, &r)
+			fractional.Sub(fractional, &r)
 		}
 	}
 
