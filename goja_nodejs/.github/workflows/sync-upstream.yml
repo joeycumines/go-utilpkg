@@ -22,7 +22,7 @@ name: Sync upstream
 
 on:
   schedule:
-    - cron: '27 6 * * *'
+    - cron: '27 6 */3 * *'
   workflow_dispatch:
     inputs:
       upstream_remote:
