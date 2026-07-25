@@ -48,6 +48,9 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       synced: ${{ steps.push.outputs.result == 'ok' }}
       synced_sha: ${{ steps.push.outputs.sha }}
