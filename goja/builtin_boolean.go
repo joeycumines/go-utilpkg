@@ -56,7 +56,8 @@ func (r *Runtime) getBooleanPrototype() *Object {
 		r.global.BooleanPrototype = ret
 		o := ret.self
 		o._putProp("toString", r.newNativeFunc(r.booleanproto_toString, "toString", 0), true, false, true)
-		o._putProp("valueOf", r.newNativeFunc(r.booleanproto_valueOf, "valueOf", 0), true, false, true)
+		valueOf, _ := r.Intrinsic(IntrinsicBooleanValueOf)
+		o._putProp("valueOf", valueOf, true, false, true)
 		o._putProp("constructor", r.getBoolean(), true, false, true)
 	}
 	return ret

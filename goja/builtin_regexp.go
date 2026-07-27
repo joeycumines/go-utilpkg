@@ -1342,37 +1342,37 @@ func (r *Runtime) getRegExpPrototype() *Object {
 		o._putProp("toString", r.newNativeFunc(r.regexpproto_toString, "toString", 0), true, false, true)
 		o.setOwnStr("source", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getSource, "get source", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpSourceGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("global", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getGlobal, "get global", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpGlobalGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("multiline", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getMultiline, "get multiline", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpMultilineGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("dotAll", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getDotAll, "get dotAll", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpDotAllGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("ignoreCase", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getIgnoreCase, "get ignoreCase", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpIgnoreCaseGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("unicode", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getUnicode, "get unicode", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpUnicodeGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("sticky", &valueProperty{
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.regexpproto_getSticky, "get sticky", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicRegExpStickyGetter),
 			accessor:     true,
 		}, false)
 		o.setOwnStr("flags", &valueProperty{

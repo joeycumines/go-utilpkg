@@ -275,15 +275,15 @@ func (r *Runtime) createSetProto(val *Object) objectImpl {
 	o := newBaseObjectObj(val, r.global.ObjectPrototype, classObject)
 
 	o._putProp("constructor", r.getSet(), true, false, true)
-	r.global.setAdder = r.newNativeFunc(r.setProto_add, "add", 1)
+	r.global.setAdder = r.intrinsicObject(IntrinsicSetAdd)
 	o._putProp("add", r.global.setAdder, true, false, true)
 
 	o._putProp("clear", r.newNativeFunc(r.setProto_clear, "clear", 0), true, false, true)
 	o._putProp("delete", r.newNativeFunc(r.setProto_delete, "delete", 1), true, false, true)
-	o._putProp("forEach", r.newNativeFunc(r.setProto_forEach, "forEach", 1), true, false, true)
+	o._putProp("forEach", r.intrinsicObject(IntrinsicSetForEach), true, false, true)
 	o._putProp("has", r.newNativeFunc(r.setProto_has, "has", 1), true, false, true)
 	o.setOwnStr("size", &valueProperty{
-		getterFunc:   r.newNativeFunc(r.setProto_getSize, "get size", 0),
+		getterFunc:   r.intrinsicObject(IntrinsicSetSizeGetter),
 		accessor:     true,
 		writable:     true,
 		configurable: true,

@@ -1104,7 +1104,10 @@ func createStringProtoTemplate() *objectTemplate {
 	t.putStr("replaceAll", func(r *Runtime) Value { return r.methodProp(r.stringproto_replaceAll, "replaceAll", 2) })
 	t.putStr("search", func(r *Runtime) Value { return r.methodProp(r.stringproto_search, "search", 1) })
 	t.putStr("slice", func(r *Runtime) Value { return r.methodProp(r.stringproto_slice, "slice", 2) })
-	t.putStr("split", func(r *Runtime) Value { return r.methodProp(r.stringproto_split, "split", 2) })
+	t.putStr("split", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicStringSplit)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("startsWith", func(r *Runtime) Value { return r.methodProp(r.stringproto_startsWith, "startsWith", 1) })
 	t.putStr("substring", func(r *Runtime) Value { return r.methodProp(r.stringproto_substring, "substring", 2) })
 	t.putStr("toLocaleLowerCase", func(r *Runtime) Value { return r.methodProp(r.stringproto_toLowerCase, "toLocaleLowerCase", 0) })
@@ -1117,7 +1120,10 @@ func createStringProtoTemplate() *objectTemplate {
 	t.putStr("trimStart", func(r *Runtime) Value { return valueProp(r.getStringproto_trimStart(), true, false, true) })
 	t.putStr("trimRight", func(r *Runtime) Value { return valueProp(r.getStringproto_trimEnd(), true, false, true) })
 	t.putStr("trimLeft", func(r *Runtime) Value { return valueProp(r.getStringproto_trimStart(), true, false, true) })
-	t.putStr("valueOf", func(r *Runtime) Value { return r.methodProp(r.stringproto_valueOf, "valueOf", 0) })
+	t.putStr("valueOf", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicStringValueOf)
+		return valueProp(value, true, false, true)
+	})
 
 	// Annex B
 	t.putStr("substr", func(r *Runtime) Value { return r.methodProp(r.stringproto_substr, "substr", 2) })

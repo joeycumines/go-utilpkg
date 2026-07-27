@@ -239,9 +239,15 @@ func createFunctionProtoTemplate() *objectTemplate {
 	t.putStr("name", func(r *Runtime) Value { return valueProp(stringEmpty, false, false, true) })
 
 	t.putStr("apply", func(r *Runtime) Value { return r.methodProp(r.functionproto_apply, "apply", 2) })
-	t.putStr("bind", func(r *Runtime) Value { return r.methodProp(r.functionproto_bind, "bind", 1) })
+	t.putStr("bind", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicFunctionBind)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("call", func(r *Runtime) Value { return r.methodProp(r.functionproto_call, "call", 1) })
-	t.putStr("toString", func(r *Runtime) Value { return r.methodProp(r.functionproto_toString, "toString", 0) })
+	t.putStr("toString", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicFunctionToString)
+		return valueProp(value, true, false, true)
+	})
 
 	t.putStr("caller", func(r *Runtime) Value { return r.newThrowerProperty(true) })
 	t.putStr("arguments", func(r *Runtime) Value { return r.newThrowerProperty(true) })

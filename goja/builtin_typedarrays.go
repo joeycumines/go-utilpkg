@@ -1661,7 +1661,7 @@ func createTypedArrayProtoTemplate() *objectTemplate {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.typedArrayProto_getBuffer, "get buffer", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicTypedArrayBufferGetter),
 		}
 	})
 
@@ -1677,7 +1677,7 @@ func createTypedArrayProtoTemplate() *objectTemplate {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.typedArrayProto_getByteOffset, "get byteOffset", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicTypedArrayByteOffsetGetter),
 		}
 	})
 
@@ -1702,7 +1702,7 @@ func createTypedArrayProtoTemplate() *objectTemplate {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.typedArrayProto_getLength, "get length", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicTypedArrayLengthGetter),
 		}
 	})
 	t.putStr("map", func(r *Runtime) Value { return r.methodProp(r.typedArrayProto_map, "map", 1) })
@@ -1724,7 +1724,7 @@ func createTypedArrayProtoTemplate() *objectTemplate {
 	t.putSym(SymIterator, func(r *Runtime) Value { return valueProp(r.getTypedArrayValues(), true, false, true) })
 	t.putSym(SymToStringTag, func(r *Runtime) Value {
 		return &valueProperty{
-			getterFunc:   r.newNativeFunc(r.typedArrayProto_toStringTag, "get [Symbol.toStringTag]", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicTypedArrayNameGetter),
 			accessor:     true,
 			configurable: true,
 		}
@@ -1882,21 +1882,21 @@ func createDataViewProtoTemplate() *objectTemplate {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.dataViewProto_getBuffer, "get buffer", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicDataViewBufferGetter),
 		}
 	})
 	t.putStr("byteLength", func(r *Runtime) Value {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.dataViewProto_getByteLen, "get byteLength", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicDataViewByteLengthGetter),
 		}
 	})
 	t.putStr("byteOffset", func(r *Runtime) Value {
 		return &valueProperty{
 			accessor:     true,
 			configurable: true,
-			getterFunc:   r.newNativeFunc(r.dataViewProto_getByteOffset, "get byteOffset", 0),
+			getterFunc:   r.intrinsicObject(IntrinsicDataViewByteOffsetGetter),
 		}
 	})
 

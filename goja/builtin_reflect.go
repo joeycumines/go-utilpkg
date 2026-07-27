@@ -110,10 +110,10 @@ func (r *Runtime) builtin_reflect_setPrototypeOf(call FunctionCall) Value {
 func (r *Runtime) createReflect(val *Object) objectImpl {
 	o := newBaseObjectObj(val, r.global.ObjectPrototype, classObject)
 
-	o._putProp("apply", r.newNativeFunc(r.builtin_reflect_apply, "apply", 3), true, false, true)
-	o._putProp("construct", r.newNativeFunc(r.builtin_reflect_construct, "construct", 2), true, false, true)
+	o._putProp("apply", r.intrinsicObject(IntrinsicReflectApply), true, false, true)
+	o._putProp("construct", r.intrinsicObject(IntrinsicReflectConstruct), true, false, true)
 	o._putProp("defineProperty", r.newNativeFunc(r.builtin_reflect_defineProperty, "defineProperty", 3), true, false, true)
-	o._putProp("deleteProperty", r.newNativeFunc(r.builtin_reflect_deleteProperty, "deleteProperty", 2), true, false, true)
+	o._putProp("deleteProperty", r.intrinsicObject(IntrinsicReflectDeleteProperty), true, false, true)
 	o._putProp("get", r.newNativeFunc(r.builtin_reflect_get, "get", 2), true, false, true)
 	o._putProp("getOwnPropertyDescriptor", r.newNativeFunc(r.builtin_reflect_getOwnPropertyDescriptor, "getOwnPropertyDescriptor", 2), true, false, true)
 	o._putProp("getPrototypeOf", r.newNativeFunc(r.builtin_reflect_getPrototypeOf, "getPrototypeOf", 1), true, false, true)

@@ -272,14 +272,14 @@ func (r *Runtime) createMapProto(val *Object) objectImpl {
 
 	o._putProp("constructor", r.getMap(), true, false, true)
 	o._putProp("clear", r.newNativeFunc(r.mapProto_clear, "clear", 0), true, false, true)
-	r.global.mapAdder = r.newNativeFunc(r.mapProto_set, "set", 2)
+	r.global.mapAdder = r.intrinsicObject(IntrinsicMapSet)
 	o._putProp("set", r.global.mapAdder, true, false, true)
 	o._putProp("delete", r.newNativeFunc(r.mapProto_delete, "delete", 1), true, false, true)
-	o._putProp("forEach", r.newNativeFunc(r.mapProto_forEach, "forEach", 1), true, false, true)
+	o._putProp("forEach", r.intrinsicObject(IntrinsicMapForEach), true, false, true)
 	o._putProp("has", r.newNativeFunc(r.mapProto_has, "has", 1), true, false, true)
 	o._putProp("get", r.newNativeFunc(r.mapProto_get, "get", 1), true, false, true)
 	o.setOwnStr("size", &valueProperty{
-		getterFunc:   r.newNativeFunc(r.mapProto_getSize, "get size", 0),
+		getterFunc:   r.intrinsicObject(IntrinsicMapSizeGetter),
 		accessor:     true,
 		writable:     true,
 		configurable: true,

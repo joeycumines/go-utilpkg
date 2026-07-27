@@ -554,7 +554,7 @@ func (p *proxyObject) proxyGetOwnPropertyDescriptor(targetProp Value, target *Ob
 		resultDesc.Enumerable == FLAG_TRUE {
 		return resultDesc.Value
 	}
-	return r.toValueProp(trapResultObj)
+	return descriptorValueProperty(resultDesc)
 }
 
 func (p *proxyObject) getOwnPropStr(name unistring.String) Value {
