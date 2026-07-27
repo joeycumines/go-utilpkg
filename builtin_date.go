@@ -993,7 +993,10 @@ func createDateProtoTemplate() *objectTemplate {
 	t.putStr("toLocaleDateString", func(r *Runtime) Value { return r.methodProp(r.dateproto_toLocaleDateString, "toLocaleDateString", 0) })
 	t.putStr("toLocaleTimeString", func(r *Runtime) Value { return r.methodProp(r.dateproto_toLocaleTimeString, "toLocaleTimeString", 0) })
 	t.putStr("valueOf", func(r *Runtime) Value { return r.methodProp(r.dateproto_valueOf, "valueOf", 0) })
-	t.putStr("getTime", func(r *Runtime) Value { return r.methodProp(r.dateproto_getTime, "getTime", 0) })
+	t.putStr("getTime", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicDateGetTime)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("getFullYear", func(r *Runtime) Value { return r.methodProp(r.dateproto_getFullYear, "getFullYear", 0) })
 	t.putStr("getUTCFullYear", func(r *Runtime) Value { return r.methodProp(r.dateproto_getUTCFullYear, "getUTCFullYear", 0) })
 	t.putStr("getMonth", func(r *Runtime) Value { return r.methodProp(r.dateproto_getMonth, "getMonth", 0) })

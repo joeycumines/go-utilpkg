@@ -165,6 +165,111 @@ func TestExportCircular(t *testing.T) {
 	}
 }
 
+func TestObjectIsOrdinary(t *testing.T) {
+	runtime := New()
+	for _, test := range []struct {
+		expression string
+		ordinary   bool
+	}{
+		{expression: `({})`, ordinary: true},
+		{expression: `Object.create(null)`, ordinary: true},
+		{expression: `new (class { #hidden = 1; constructor() { this.visible = 2; } })`, ordinary: true},
+		{expression: `Object.create(Date.prototype)`, ordinary: true},
+		{expression: `Object.prototype`, ordinary: true},
+		{expression: `Math`, ordinary: true},
+		{expression: `JSON`, ordinary: true},
+		{expression: `Reflect`, ordinary: true},
+		{expression: `RegExp.prototype`, ordinary: true},
+		{expression: `[]`, ordinary: false},
+		{expression: `new Date()`, ordinary: false},
+		{expression: `/x/`, ordinary: false},
+		{expression: `new Map()`, ordinary: false},
+		{expression: `new Set()`, ordinary: false},
+		{expression: `new WeakMap()`, ordinary: false},
+		{expression: `new WeakSet()`, ordinary: false},
+		{expression: `Promise.resolve()`, ordinary: false},
+		{expression: `Object(Symbol())`, ordinary: false},
+		{expression: `Object(1n)`, ordinary: false},
+		{expression: `(function () { return arguments; })()`, ordinary: false},
+		{expression: `[][Symbol.iterator]()`, ordinary: false},
+		{expression: `new Map().entries()`, ordinary: false},
+		{expression: `new Set().values()`, ordinary: false},
+		{expression: `""[Symbol.iterator]()`, ordinary: false},
+		{expression: `"x".matchAll(/x/g)`, ordinary: false},
+		{expression: `(function* () {})()`, ordinary: false},
+		{expression: `(function () {})`, ordinary: false},
+		{expression: `new Proxy({}, {})`, ordinary: false},
+	} {
+		t.Run(test.expression, func(t *testing.T) {
+			value, err := runtime.RunString(test.expression)
+			if err != nil {
+				t.Fatalf("RunString: %v", err)
+			}
+			object, ok := value.(*Object)
+			if !ok || object == nil {
+				t.Fatalf("expression returned %T, want *Object", value)
+			}
+			if got := object.IsOrdinary(); got != test.ordinary {
+				t.Fatalf("IsOrdinary() = %t, want %t", got, test.ordinary)
+			}
+		})
+	}
+
+	var nilObject *Object
+	if nilObject.IsOrdinary() {
+		t.Fatal("nil Object is ordinary")
+	}
+	if runtime.ToValue(map[string]int{"value": 1}).ToObject(runtime).IsOrdinary() {
+		t.Fatal("wrapped Go map is ordinary")
+	}
+	if runtime.ToValue([]int{1}).ToObject(runtime).IsOrdinary() {
+		t.Fatal("wrapped Go slice is ordinary")
+	}
+}
+
+func TestObjectIsECMAScriptArray(t *testing.T) {
+	runtime := New()
+	for _, test := range []struct {
+		expression string
+		array      bool
+	}{
+		{expression: `[]`, array: true},
+		{expression: `Object.assign([], { 1000000: true })`, array: true},
+		{expression: `Array.prototype`, array: true},
+		{expression: `({})`, array: false},
+		{expression: `new Proxy([], {})`, array: false},
+		{expression: `new Uint8Array(1)`, array: false},
+	} {
+		t.Run(test.expression, func(t *testing.T) {
+			value, err := runtime.RunString(test.expression)
+			if err != nil {
+				t.Fatalf("RunString: %v", err)
+			}
+			object, ok := value.(*Object)
+			if !ok || object == nil {
+				t.Fatalf("expression returned %T, want *Object", value)
+			}
+			if got := object.IsECMAScriptArray(); got != test.array {
+				t.Fatalf("IsECMAScriptArray() = %t, want %t", got, test.array)
+			}
+		})
+	}
+
+	var nilObject *Object
+	if nilObject.IsECMAScriptArray() {
+		t.Fatal("nil Object is an ECMAScript Array")
+	}
+	if runtime.ToValue([]int{1}).ToObject(runtime).IsECMAScriptArray() {
+		t.Fatal("wrapped Go slice is an ECMAScript Array")
+	}
+	if runtime.ToValue([1]int{1}).ToObject(runtime).IsECMAScriptArray() {
+		t.Fatal("wrapped Go array is an ECMAScript Array")
+	}
+	if runtime.NewDynamicArray(&testDynArray{r: runtime}).IsECMAScriptArray() {
+		t.Fatal("dynamic host array is an ECMAScript Array")
+	}
+}
+
 type test_s struct {
 	S *test_s1
 }

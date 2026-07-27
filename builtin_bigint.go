@@ -341,7 +341,10 @@ func createBigIntProtoTemplate() *objectTemplate {
 
 	t.putStr("toLocaleString", func(r *Runtime) Value { return r.methodProp(r.bigintproto_toString, "toLocaleString", 0) })
 	t.putStr("toString", func(r *Runtime) Value { return r.methodProp(r.bigintproto_toString, "toString", 0) })
-	t.putStr("valueOf", func(r *Runtime) Value { return r.methodProp(r.bigintproto_valueOf, "valueOf", 0) })
+	t.putStr("valueOf", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicBigIntValueOf)
+		return valueProp(value, true, false, true)
+	})
 	t.putSym(SymToStringTag, func(r *Runtime) Value { return valueProp(asciiString("BigInt"), false, false, true) })
 
 	return t

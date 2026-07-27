@@ -174,11 +174,11 @@ func (r *Runtime) createWeakMapProto(val *Object) objectImpl {
 	o := newBaseObjectObj(val, r.global.ObjectPrototype, classObject)
 
 	o._putProp("constructor", r.getWeakMap(), true, false, true)
-	r.global.weakMapAdder = r.newNativeFunc(r.weakMapProto_set, "set", 2)
+	r.global.weakMapAdder = r.intrinsicObject(IntrinsicWeakMapSet)
 	o._putProp("set", r.global.weakMapAdder, true, false, true)
 	o._putProp("delete", r.newNativeFunc(r.weakMapProto_delete, "delete", 1), true, false, true)
-	o._putProp("has", r.newNativeFunc(r.weakMapProto_has, "has", 1), true, false, true)
-	o._putProp("get", r.newNativeFunc(r.weakMapProto_get, "get", 1), true, false, true)
+	o._putProp("has", r.intrinsicObject(IntrinsicWeakMapHas), true, false, true)
+	o._putProp("get", r.intrinsicObject(IntrinsicWeakMapGet), true, false, true)
 
 	o._putSym(SymToStringTag, valueProp(asciiString(classWeakMap), false, false, true))
 

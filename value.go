@@ -797,6 +797,46 @@ func (o *Object) ExportType() reflect.Type {
 	return o.self.exportType()
 }
 
+// IsOrdinary reports whether the object uses Goja's ordinary ECMAScript Object
+// representation without specialized ECMAScript internal slots. Its
+// prototype, private elements, and Goja's implementation templates or property
+// guards do not change the result.
+//
+// This predicate is intentionally narrower than ClassName() == "Object".
+// Arrays, arguments objects, iterators, generators, wrapped Go values, and
+// other objects with specialized internal representations may also report the
+// Object class name.
+func (o *Object) IsOrdinary() bool {
+	if o == nil {
+		return false
+	}
+	switch impl := o.self.(type) {
+	case *baseObject:
+		return impl.class == classObject
+	case *guardedObject:
+		return impl.class == classObject
+	case *templatedObject:
+		return impl.class == classObject
+	default:
+		return false
+	}
+}
+
+// IsECMAScriptArray reports whether the object uses Goja's ECMAScript Array
+// internal representation. Unlike JavaScript's Array.isArray(), it returns
+// false for Go-backed and dynamic array objects supplied by the host.
+func (o *Object) IsECMAScriptArray() bool {
+	if o == nil {
+		return false
+	}
+	switch o.self.(type) {
+	case *arrayObject, *sparseArrayObject, *templatedArrayObject:
+		return true
+	default:
+		return false
+	}
+}
+
 func (o *Object) hash(*maphash.Hash) uint64 {
 	return o.getId()
 }
@@ -836,6 +876,49 @@ func (o *Object) GetOwnPropertyNames() (keys []string) {
 	}
 
 	return
+}
+
+// OwnPropertyDescriptor returns the object's own property descriptor for name.
+//
+// Ordinary accessor getters are not invoked. Proxy objects retain their
+// ECMAScript [[GetOwnProperty]] trap behavior, including panicking with an
+// *Exception when the trap throws; use Runtime.Try to catch it.
+func (o *Object) OwnPropertyDescriptor(name string) (PropertyDescriptor, bool) {
+	if o == nil {
+		return PropertyDescriptor{}, false
+	}
+	value := o.getOwnProp(newStringValue(name))
+	if value == nil {
+		return PropertyDescriptor{}, false
+	}
+	if property, ok := value.(*valueProperty); ok {
+		descriptor := PropertyDescriptor{
+			Configurable: ToFlag(property.configurable),
+			Enumerable:   ToFlag(property.enumerable),
+		}
+		if property.accessor {
+			if property.getterFunc != nil {
+				descriptor.Getter = property.getterFunc
+			} else {
+				descriptor.Getter = _undefined
+			}
+			if property.setterFunc != nil {
+				descriptor.Setter = property.setterFunc
+			} else {
+				descriptor.Setter = _undefined
+			}
+		} else {
+			descriptor.Value = property.value
+			descriptor.Writable = ToFlag(property.writable)
+		}
+		return descriptor, true
+	}
+	return PropertyDescriptor{
+		Value:        value,
+		Writable:     FLAG_TRUE,
+		Configurable: FLAG_TRUE,
+		Enumerable:   FLAG_TRUE,
+	}, true
 }
 
 // Symbols returns a list of Object's enumerable symbol properties.
@@ -929,6 +1012,16 @@ func (o *Object) DeleteSymbol(name *Symbol) error {
 // returns nil.
 func (o *Object) Prototype() *Object {
 	return o.self.proto()
+}
+
+// IsExtensible reports the result of the object's ECMAScript
+// [[IsExtensible]] internal method. A nil Object is not extensible.
+//
+// Proxy objects retain their trap behavior, including panicking with an
+// *Exception when the trap throws or violates the proxy invariant; use
+// Runtime.Try to catch it.
+func (o *Object) IsExtensible() bool {
+	return o != nil && o.self.isExtensible()
 }
 
 // SetPrototype sets the Object's prototype, same as Object.setPrototypeOf(). Setting proto to nil

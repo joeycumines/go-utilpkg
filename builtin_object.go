@@ -111,54 +111,6 @@ func (r *Runtime) object_getOwnPropertySymbols(call FunctionCall) Value {
 	return r.newArrayValues(obj.self.symbols(true, nil))
 }
 
-func (r *Runtime) toValueProp(v Value) *valueProperty {
-	if v == nil || v == _undefined {
-		return nil
-	}
-	obj := r.toObject(v)
-	getter := obj.self.getStr("get", nil)
-	setter := obj.self.getStr("set", nil)
-	writable := obj.self.getStr("writable", nil)
-	value := obj.self.getStr("value", nil)
-	if (getter != nil || setter != nil) && (value != nil || writable != nil) {
-		r.typeErrorResult(true, "Invalid property descriptor. Cannot both specify accessors and a value or writable attribute")
-	}
-
-	ret := &valueProperty{}
-	if writable != nil && writable.ToBoolean() {
-		ret.writable = true
-	}
-	if e := obj.self.getStr("enumerable", nil); e != nil && e.ToBoolean() {
-		ret.enumerable = true
-	}
-	if c := obj.self.getStr("configurable", nil); c != nil && c.ToBoolean() {
-		ret.configurable = true
-	}
-	ret.value = value
-
-	if getter != nil && getter != _undefined {
-		o := r.toObject(getter)
-		if _, ok := o.self.assertCallable(); !ok {
-			r.typeErrorResult(true, "getter must be a function")
-		}
-		ret.getterFunc = o
-	}
-
-	if setter != nil && setter != _undefined {
-		o := r.toObject(setter)
-		if _, ok := o.self.assertCallable(); !ok {
-			r.typeErrorResult(true, "setter must be a function")
-		}
-		ret.setterFunc = o
-	}
-
-	if ret.getterFunc != nil || ret.setterFunc != nil {
-		ret.accessor = true
-	}
-
-	return ret
-}
-
 func (r *Runtime) toPropertyDescriptor(v Value) (ret PropertyDescriptor) {
 	if o, ok := v.(*Object); ok {
 		descr := o.self
@@ -608,22 +560,33 @@ func createObjectTemplate() *objectTemplate {
 	t.putStr("prototype", func(r *Runtime) Value { return valueProp(r.global.ObjectPrototype, false, false, false) })
 
 	t.putStr("assign", func(r *Runtime) Value { return r.methodProp(r.object_assign, "assign", 2) })
-	t.putStr("defineProperty", func(r *Runtime) Value { return r.methodProp(r.object_defineProperty, "defineProperty", 3) })
+	t.putStr("defineProperty", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicObjectDefineProperty)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("defineProperties", func(r *Runtime) Value { return r.methodProp(r.object_defineProperties, "defineProperties", 2) })
 	t.putStr("entries", func(r *Runtime) Value { return r.methodProp(r.object_entries, "entries", 1) })
 	t.putStr("getOwnPropertyDescriptor", func(r *Runtime) Value {
-		return r.methodProp(r.object_getOwnPropertyDescriptor, "getOwnPropertyDescriptor", 2)
+		value, _ := r.Intrinsic(IntrinsicObjectGetOwnPropertyDescriptor)
+		return valueProp(value, true, false, true)
 	})
 	t.putStr("getOwnPropertyDescriptors", func(r *Runtime) Value {
-		return r.methodProp(r.object_getOwnPropertyDescriptors, "getOwnPropertyDescriptors", 1)
+		value, _ := r.Intrinsic(IntrinsicObjectGetOwnPropertyDescriptors)
+		return valueProp(value, true, false, true)
 	})
-	t.putStr("getPrototypeOf", func(r *Runtime) Value { return r.methodProp(r.object_getPrototypeOf, "getPrototypeOf", 1) })
+	t.putStr("getPrototypeOf", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicObjectGetPrototypeOf)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("is", func(r *Runtime) Value { return r.methodProp(r.object_is, "is", 2) })
 	t.putStr("getOwnPropertyNames", func(r *Runtime) Value { return r.methodProp(r.object_getOwnPropertyNames, "getOwnPropertyNames", 1) })
 	t.putStr("getOwnPropertySymbols", func(r *Runtime) Value {
 		return r.methodProp(r.object_getOwnPropertySymbols, "getOwnPropertySymbols", 1)
 	})
-	t.putStr("create", func(r *Runtime) Value { return r.methodProp(r.object_create, "create", 2) })
+	t.putStr("create", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicObjectCreate)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("seal", func(r *Runtime) Value { return r.methodProp(r.object_seal, "seal", 1) })
 	t.putStr("freeze", func(r *Runtime) Value { return r.methodProp(r.object_freeze, "freeze", 1) })
 	t.putStr("preventExtensions", func(r *Runtime) Value { return r.methodProp(r.object_preventExtensions, "preventExtensions", 1) })
@@ -631,7 +594,10 @@ func createObjectTemplate() *objectTemplate {
 	t.putStr("isFrozen", func(r *Runtime) Value { return r.methodProp(r.object_isFrozen, "isFrozen", 1) })
 	t.putStr("isExtensible", func(r *Runtime) Value { return r.methodProp(r.object_isExtensible, "isExtensible", 1) })
 	t.putStr("keys", func(r *Runtime) Value { return r.methodProp(r.object_keys, "keys", 1) })
-	t.putStr("setPrototypeOf", func(r *Runtime) Value { return r.methodProp(r.object_setPrototypeOf, "setPrototypeOf", 2) })
+	t.putStr("setPrototypeOf", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicObjectSetPrototypeOf)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("values", func(r *Runtime) Value { return r.methodProp(r.object_values, "values", 1) })
 	t.putStr("fromEntries", func(r *Runtime) Value { return r.methodProp(r.object_fromEntries, "fromEntries", 1) })
 	t.putStr("hasOwn", func(r *Runtime) Value { return r.methodProp(r.object_hasOwn, "hasOwn", 2) })
