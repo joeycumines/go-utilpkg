@@ -100,10 +100,10 @@ func (r *Runtime) createWeakSetProto(val *Object) objectImpl {
 	o := newBaseObjectObj(val, r.global.ObjectPrototype, classObject)
 
 	o._putProp("constructor", r.global.WeakSet, true, false, true)
-	r.global.weakSetAdder = r.newNativeFunc(r.weakSetProto_add, "add", 1)
+	r.global.weakSetAdder = r.intrinsicObject(IntrinsicWeakSetAdd)
 	o._putProp("add", r.global.weakSetAdder, true, false, true)
-	o._putProp("delete", r.newNativeFunc(r.weakSetProto_delete, "delete", 1), true, false, true)
-	o._putProp("has", r.newNativeFunc(r.weakSetProto_has, "has", 1), true, false, true)
+	o._putProp("delete", r.intrinsicObject(IntrinsicWeakSetDelete), true, false, true)
+	o._putProp("has", r.intrinsicObject(IntrinsicWeakSetHas), true, false, true)
 
 	o._putSym(SymToStringTag, valueProp(asciiString(classWeakSet), false, false, true))
 

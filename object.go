@@ -140,6 +140,26 @@ func (p *PropertyDescriptor) complete() {
 	}
 }
 
+func descriptorValueProperty(descriptor PropertyDescriptor) *valueProperty {
+	property := &valueProperty{
+		configurable: descriptor.Configurable == FLAG_TRUE,
+		enumerable:   descriptor.Enumerable == FLAG_TRUE,
+	}
+	if descriptor.IsAccessor() {
+		property.accessor = true
+		if getter, ok := descriptor.Getter.(*Object); ok && getter != nil {
+			property.getterFunc = getter
+		}
+		if setter, ok := descriptor.Setter.(*Object); ok && setter != nil {
+			property.setterFunc = setter
+		}
+		return property
+	}
+	property.value = descriptor.Value
+	property.writable = descriptor.Writable == FLAG_TRUE
+	return property
+}
+
 type objectExportCacheItem map[reflect.Type]interface{}
 
 type objectExportCtx struct {

@@ -201,6 +201,8 @@ type Runtime struct {
 	promiseRejectionTracker PromiseRejectionTracker
 	asyncContextTracker     AsyncContextTracker
 
+	intrinsics map[Intrinsic]Value
+
 	// Stack for tracking objects currently being converted to string
 	// to detect and handle circular references
 	toStringStack []*Object

@@ -321,8 +321,14 @@ func createMathTemplate() *objectTemplate {
 	t.putStr("log1p", func(r *Runtime) Value { return r.methodProp(r.math_log1p, "log1p", 1) })
 	t.putStr("log10", func(r *Runtime) Value { return r.methodProp(r.math_log10, "log10", 1) })
 	t.putStr("log2", func(r *Runtime) Value { return r.methodProp(r.math_log2, "log2", 1) })
-	t.putStr("max", func(r *Runtime) Value { return r.methodProp(r.math_max, "max", 2) })
-	t.putStr("min", func(r *Runtime) Value { return r.methodProp(r.math_min, "min", 2) })
+	t.putStr("max", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicMathMax)
+		return valueProp(value, true, false, true)
+	})
+	t.putStr("min", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicMathMin)
+		return valueProp(value, true, false, true)
+	})
 	t.putStr("pow", func(r *Runtime) Value { return r.methodProp(r.math_pow, "pow", 2) })
 	t.putStr("random", func(r *Runtime) Value { return r.methodProp(r.math_random, "random", 0) })
 	t.putStr("round", func(r *Runtime) Value { return r.methodProp(r.math_round, "round", 1) })
@@ -332,7 +338,10 @@ func createMathTemplate() *objectTemplate {
 	t.putStr("sqrt", func(r *Runtime) Value { return r.methodProp(r.math_sqrt, "sqrt", 1) })
 	t.putStr("tan", func(r *Runtime) Value { return r.methodProp(r.math_tan, "tan", 1) })
 	t.putStr("tanh", func(r *Runtime) Value { return r.methodProp(r.math_tanh, "tanh", 1) })
-	t.putStr("trunc", func(r *Runtime) Value { return r.methodProp(r.math_trunc, "trunc", 1) })
+	t.putStr("trunc", func(r *Runtime) Value {
+		value, _ := r.Intrinsic(IntrinsicMathTrunc)
+		return valueProp(value, true, false, true)
+	})
 
 	return t
 }
