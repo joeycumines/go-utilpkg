@@ -210,7 +210,8 @@ type Runtime struct {
 	// during a tracker scope. Later jobs are appended to the queue to preserve
 	// FIFO with the buffered jobs.
 	promiseJobQueuePriority bool
-	intrinsics              map[Intrinsic]Value
+
+	intrinsics map[Intrinsic]Value
 
 	// Stack for tracking objects currently being converted to string
 	// to detect and handle circular references
