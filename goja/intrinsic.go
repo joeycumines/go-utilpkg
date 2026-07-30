@@ -1,9 +1,10 @@
 package goja
 
-// Intrinsic identifies a canonical ECMAScript constructor or callable owned by
-// a Runtime. Intrinsic values are intended for host integrations that must not
-// resolve a built-in through mutable JavaScript globals or prototype
-// properties.
+// Intrinsic identifies specific intrinsic object variants.
+//
+// https://tc39.es/ecma262/2024/#sec-well-known-intrinsic-objects
+//
+// N.B. This enumeration is not a complete implementation.
 type Intrinsic uint16
 
 const (
@@ -99,8 +100,13 @@ const (
 // not execute JavaScript. Repeated successful lookups return the same value
 // identity. It returns false for a nil Runtime or an unknown id.
 //
-// A Runtime and its values remain confined to the goroutine discipline
-// documented by Runtime; Intrinsic adds no synchronization.
+// The returned value is the realm's canonical object identity. It is not
+// frozen; JavaScript that has obtained a reference to the same object (for
+// example through a prototype property) may still mutate the object's own
+// properties.
+//
+// Access to Runtime and its values are subject to the calling goroutine
+// constraints documented by Runtime.
 func (r *Runtime) Intrinsic(id Intrinsic) (Value, bool) {
 	if r == nil {
 		return nil, false
