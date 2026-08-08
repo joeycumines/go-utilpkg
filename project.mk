@@ -6,27 +6,27 @@ GO_MODULE_SLUGS_NO_UPDATE = sql.export.mysql
 GO_MODULE_SLUGS_NO_BETTERALIGN = prompt microbatch
 GRIT_SRC ?= https://github.com/joeycumines/go-utilpkg.git
 GRIT_DST ?= \
-    catrate$(MAP_SEPARATOR)https://github.com/joeycumines/go-catrate.git \
-    fangrpcstream$(MAP_SEPARATOR)https://github.com/joeycumines/go-fangrpcstream.git \
-    logiface$(MAP_SEPARATOR)https://github.com/joeycumines/logiface.git \
-    logiface-logrus$(MAP_SEPARATOR)https://github.com/joeycumines/ilogrus.git \
-    logiface-stumpy$(MAP_SEPARATOR)https://github.com/joeycumines/stumpy.git \
-    logiface-testsuite$(MAP_SEPARATOR)https://github.com/joeycumines/logiface-testsuite.git \
-    logiface-zerolog$(MAP_SEPARATOR)https://github.com/joeycumines/izerolog.git \
-    longpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-longpoll.git \
-    microbatch$(MAP_SEPARATOR)https://github.com/joeycumines/go-microbatch.git \
-    smartpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-smartpoll.git \
-    sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
-    prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
-    grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
-    floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
-    eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/go-eventloop.git \
-    goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git \
-    goja-grpc$(MAP_SEPARATOR)https://github.com/joeycumines/goja-grpc.git \
-    goja-protobuf$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protobuf.git \
-    goja-protojson$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protojson.git \
-    inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git \
-    goroutineid$(MAP_SEPARATOR)https://github.com/joeycumines/goroutineid.git
+    ./catrate$(MAP_SEPARATOR)https://github.com/joeycumines/go-catrate.git \
+    ./fangrpcstream$(MAP_SEPARATOR)https://github.com/joeycumines/go-fangrpcstream.git \
+    ./logiface$(MAP_SEPARATOR)https://github.com/joeycumines/logiface.git \
+    ./logiface-logrus$(MAP_SEPARATOR)https://github.com/joeycumines/ilogrus.git \
+    ./logiface-stumpy$(MAP_SEPARATOR)https://github.com/joeycumines/stumpy.git \
+    ./logiface-testsuite$(MAP_SEPARATOR)https://github.com/joeycumines/logiface-testsuite.git \
+    ./logiface-zerolog$(MAP_SEPARATOR)https://github.com/joeycumines/izerolog.git \
+    ./longpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-longpoll.git \
+    ./microbatch$(MAP_SEPARATOR)https://github.com/joeycumines/go-microbatch.git \
+    ./smartpoll$(MAP_SEPARATOR)https://github.com/joeycumines/go-smartpoll.git \
+    ./sql$(MAP_SEPARATOR)https://github.com/joeycumines/go-sql.git \
+    ./prompt$(MAP_SEPARATOR)https://github.com/joeycumines/go-prompt.git \
+    ./grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
+    ./floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
+    ./eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/go-eventloop.git \
+    ./goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git \
+    ./goja-grpc$(MAP_SEPARATOR)https://github.com/joeycumines/goja-grpc.git \
+    ./goja-protobuf$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protobuf.git \
+    ./goja-protojson$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protojson.git \
+    ./inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git \
+    ./goroutineid$(MAP_SEPARATOR)https://github.com/joeycumines/goroutineid.git
 # N.B. relative to the go module it applies to
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true

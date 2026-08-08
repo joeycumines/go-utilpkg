@@ -76,12 +76,21 @@ gmake test-promise-race-concurrent
 
 ### Grit Publishing
 
+Grit targets are generated from `GRIT_DST` only. It maps a directory to a
+destination repository, and the directory is converted to a slug using the
+usual convention (`./logiface/logrus` becomes `logiface.logrus`). A Go module
+without a `GRIT_DST` entry has no grit targets, and a `GRIT_DST` directory need
+not be a Go module.
+
 ```bash
-# Publish specific module to its separate repo
+# Publish specific directory to its separate repo
 gmake grit.eventloop
 
-# Publish all modules
+# Publish all configured destinations
 gmake grit
+
+# Sync one destination repo back into this monorepo (on demand, no "pull all")
+gmake grit-pull.eventloop
 ```
 
 See `project.mk` for the grit destination mappings.
