@@ -31,17 +31,13 @@ GRIT_DST ?= \
 DEADCODE_IGNORE_PATTERNS_FILE = .deadcodeignore
 DEADCODE_ERROR_ON_UNIGNORED = true
 
-# Generalized staticcheck configuration. This lives here (a tracked file, in
-# contrast to the gitignored config.mk) so config.mk-less environments — e.g.
-# the Windows lane, which transfers the workspace without gitignored files —
-# run the same analysis as the host. config.mk may still override it locally
-# (it is included after project.mk).
-#
-# Suppress pre-existing staticcheck issues that vary by Go version. Fixing
-# them would break tournament hashes or require modifying upstream-fork
-# production source files (goja, eventloop). Style (ST*) checks are suppressed
-# globally; they are pre-existing across those modules.
-STATICCHECK_FLAGS = -checks=all,-U1000,-SA9003,-ST*
+# Vendored upstream forks, kept byte-close to their origins to minimize
+# sync deltas. They are excluded from staticcheck (fork code must not fail
+# the gate on upstream style/checks) and from `go fix` (which would rewrite
+# fork sources away from upstream). Everything else runs the full default
+# staticcheck check set.
+GO_MODULE_SLUGS_NO_STATICCHECK = goja goja_nodejs
+GO_MODULE_SLUGS_NO_FIX = goja goja_nodejs
 
 # ---
 

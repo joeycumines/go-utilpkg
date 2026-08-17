@@ -18,7 +18,6 @@ var (
 
 func ExampleBuilder_Array_nestedArrays() {
 	// note: outputs one field per line
-	type E = *mockSimpleEvent
 	logger := newSimpleLogger(os.Stdout, true)
 
 	logger.Notice().
@@ -52,7 +51,6 @@ func ExampleBuilder_Array_nestedArrays() {
 
 func ExampleContext_Array_nestedArrays() {
 	// note: outputs one field per line
-	type E = *mockSimpleEvent
 	logger := newSimpleLogger(os.Stdout, true)
 
 	logger.Clone().
@@ -87,7 +85,6 @@ func ExampleContext_Array_nestedArrays() {
 }
 
 func ExampleBuilder_Object_nestedObjects() {
-	type E = *mockSimpleEvent
 	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
@@ -123,7 +120,6 @@ func ExampleBuilder_Object_nestedObjects() {
 }
 
 func ExampleContext_Object_nestedObjects() {
-	type E = *mockSimpleEvent
 	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
@@ -161,7 +157,6 @@ func ExampleContext_Object_nestedObjects() {
 }
 
 func ExampleBuilder_nestedObjectsAndArrays() {
-	type E = *mockSimpleEvent
 	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),
@@ -214,7 +209,6 @@ func ExampleBuilder_nestedObjectsAndArrays() {
 }
 
 func ExampleContext_nestedObjectsAndArrays() {
-	type E = *mockSimpleEvent
 	logger := mockL.New(
 		mockL.WithEventFactory(NewEventFactoryFunc(mockSimpleEventFactory)),
 		mockL.WithWriter(&mockSimpleWriter{Writer: os.Stdout, MultiLine: true, JSON: true}),

@@ -139,7 +139,18 @@ func (x *Logger) Write(event *Event) error {
 	event.Entry.Data = fields
 
 	// log the entry
-	entry.Log(logrusLevel, event.Entry.Message)
+	// N.B. logrus removed the panic/exit side effects from Entry.Log for
+	// PanicLevel/FatalLevel (see logrus#1283); the dedicated methods are
+	// required to honor the documented logiface mappings
+	// (LevelEmergency => PANIC, LevelAlert => FATAL).
+	switch logrusLevel {
+	case logrus.PanicLevel:
+		entry.Panic(event.Entry.Message)
+	case logrus.FatalLevel:
+		entry.Fatal(event.Entry.Message)
+	default:
+		entry.Log(logrusLevel, event.Entry.Message)
+	}
 
 	return nil
 }
