@@ -104,10 +104,22 @@
 #
 # Caveats:
 #
-# - Currently only supports configuring the same branch for all modules,
+# - Currently only supports configuring the same branch for all destinations,
 #   source and target
-# - Does not currently provide tooling to support bi-directional syncing;
-#   though `grit` does support it, it's a bit... hairy
+# - Reverse (inbound) syncing is deliberately per-destination and on-demand;
+#   `grit` supports it, but it's a bit... hairy, so there's no "pull all"
+#
+# Configuration:
+#
+# `GRIT_DST` is a map of _directory_ to _destination repository_, e.g.
+# `./logiface/logrus$(MAP_SEPARATOR)https://github.com/example/ilogrus.git`.
+# Directories are relative to the repository root, formatted like the output
+# of the module/sub-Makefile discovery, i.e. "." or "./path/to/dir". Each
+# directory is converted to a grit slug, using the same convention as
+# elsewhere (leading "./" removed, "/" replaced with SLUG_SEPARATOR, "." mapped
+# to "root"), which is used as the target suffix, e.g. `grit.logiface.logrus`.
+# N.B. Grit destinations are a wholly separate namespace: they need not be Go
+# modules, and Go modules without a `GRIT_DST` entry get no grit targets.
 #
 # Usage:
 #
@@ -115,12 +127,15 @@
 # 2. Update `project.mk`, setting `GRIT_SRC` (if you haven't already) and
 #   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main")
 # 3. Sync _from_ the target to the source (this repository) like
-#   `make grit-init GRIT_INIT_TARGET=go-module-slug`, where go-module-slug is
-#   the map key, used in GRIT_DST, note that you may need to specify
-#   GRIT_FLAGS='-push -linearize' (see the docs)
+#   `make grit-init GRIT_INIT_TARGET=grit-dst-slug`, where grit-dst-slug is the
+#   slug of the directory used as the map key, in GRIT_DST, note that you may
+#   need to specify GRIT_FLAGS='-push -linearize' (see the docs)
 # 4. Add the new module to the Go workspace
 # 5. Run (either automatically or manually) `make grit` to sync _to_ the
 #   configured target(s), to propagate
+# 6. To sync an _existing_ destination back into this repository, on demand,
+#   run `make grit-pull.<grit-dst-slug>` (there is deliberately no aggregate
+#   target for this direction)
 
 # simple variables that either represent invariants, or need to be interacted
 # with in an imperative manner, e.g. "building" values across includes, without
@@ -201,7 +216,7 @@ RUN_FLAGS ?=
 
 # determines the output of the debug-vars target
 # N.B. only _defined_ variables will be present in the output
-$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_NO_STATICCHECK GO_MODULE_SLUGS_EXCL_NO_STATICCHECK GO_MODULE_SLUGS_NO_FIX GO_MODULE_SLUGS_EXCL_NO_FIX GO_MODULE_SLUGS_GRIT_DST GO_MODULE_SLUGS_EXCL_GRIT_DST GO_PACKAGES $$(addprefix GO_PACKAGES.,$$(GO_MODULE_SLUGS)) SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS,$$(GO_MK_VAR_PREFIX)$$v))
+$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_NO_STATICCHECK GO_MODULE_SLUGS_EXCL_NO_STATICCHECK GO_MODULE_SLUGS_NO_FIX GO_MODULE_SLUGS_EXCL_NO_FIX GO_PACKAGES $$(addprefix GO_PACKAGES.,$$(GO_MODULE_SLUGS)) SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS GRIT_PULL_TARGETS,$$(GO_MK_VAR_PREFIX)$$v) GRIT_SRC GRIT_DST GRIT_BRANCH GRIT_INIT_TARGET GRIT_DST_PATHS GRIT_DST_SLUGS _GRIT_DST_MAP)
 
 # ---
 
@@ -231,9 +246,16 @@ GRIT ?= $(GO) tool $(GO_PKG_GRIT)
 GRIT_FLAGS ?= -push
 GRIT_BRANCH ?= main
 GRIT_SRC ?=
+# Map of _directory_ to _destination repository_, e.g.
+# `./logiface/logrus$(MAP_SEPARATOR)https://github.com/example/ilogrus.git`.
+# Directories are formatted like the output of the module/sub-Makefile
+# discovery, i.e. "." or "./path/to/dir" - see the grit usage docs above.
+# N.B. Grit destinations are independent of Go module and sub-Makefile
+# discovery - the directory need not be a Go module.
 GRIT_DST ?=
+# A grit destination slug, i.e. an entry in GRIT_DST_SLUGS, for grit-init
 GRIT_INIT_TARGET ?=
-GRIT_MODULE_COMMAND ?= $(GRIT) $(GRIT_FLAGS) $(call go_module_slug_to_grit_src,$1) $(call go_module_slug_to_grit_dst,$1)
+GRIT_MODULE_COMMAND ?= $(GRIT) $(GRIT_FLAGS) $(call grit_dst_slug_to_local,$1) $(call grit_dst_slug_to_remote,$1)
 STATICCHECK ?= $(call go_tool_binary_path,$(GO_PKG_STATICCHECK))
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(call go_tool_binary_path,$(GO_PKG_BETTERALIGN))
@@ -334,10 +356,11 @@ endif
 #
 # `go tool -n` prints the tool path in native format: backslash-separated on
 # Windows. Normalize to forward slashes so recipes still work when make.exe
-# routes them through a POSIX shell (e.g. WSL's /usr/bin/sh, which make.exe
-# uses whenever the recipe contains shell metacharacters): a backslash path
-# would have every separator eaten as a shell escape. CreateProcess accepts
-# forward slashes in executable paths, so direct execution is unaffected.
+# routes them through a POSIX shell (e.g. the sh.exe bundled with MSYS2 or Git
+# Bash, which make.exe uses whenever the recipe contains shell metacharacters):
+# a backslash path would have every separator eaten as a shell escape.
+# CreateProcess accepts forward slashes in executable paths, so direct
+# execution via cmd.exe is unaffected.
 go_tool_binary_path = $(if $(shell $(GO) tool -C $(PROJECT_ROOT) -n $1),$(subst \,/,$(shell $(GO) tool -C $(PROJECT_ROOT) -n $1)),$(error no go tool found for $1))
 
 go_module_path_to_slug = $(call map_value_by_key,$(_GO_MODULE_MAP),$1)
@@ -346,8 +369,19 @@ go_module_slug_to_path = $(call map_key_by_value,$(_GO_MODULE_MAP),$1)
 subdir_makefile_path_to_slug = $(call map_value_by_key,$(_SUBDIR_MAKEFILE_MAP),$1)
 subdir_makefile_slug_to_path = $(call map_key_by_value,$(_SUBDIR_MAKEFILE_MAP),$1)
 
-go_module_slug_to_grit_src = $(GRIT_SRC),$(patsubst ./%,%,$(or $(call go_module_slug_to_path,$1),$(error no go module found for $1)))/,$(GRIT_BRANCH)
-go_module_slug_to_grit_dst = $(or $(call map_value_by_key,$(GRIT_DST),$1),$(error no GRIT_DST entry for $1)),,$(GRIT_BRANCH)
+# the prefix used to sync a grit destination directory, e.g. "" for the
+# repository root, or "logiface/" for ./logiface
+grit_dst_path_to_prefix = $(if $(filter .,$1),,$(patsubst ./%,%,$1)/)
+# conversion between grit destination directories and slugs, e.g. . -> root,
+# and ./logiface/logrus -> logiface.logrus (same convention as go modules)
+grit_dst_path_to_slug = $(call map_value_by_key,$(_GRIT_DST_MAP),$1)
+grit_dst_slug_to_path = $(call map_key_by_value,$(_GRIT_DST_MAP),$1)
+# the destination repository for a grit destination slug
+grit_dst_slug_to_repo = $(or $(call map_value_by_key,$(GRIT_DST),$(call grit_dst_slug_to_path,$1)),$(error no GRIT_DST entry for grit destination slug: $1))
+# the source (this repository), and target (the destination repository), as
+# grit endpoints, for a grit destination slug
+grit_dst_slug_to_local = $(GRIT_SRC),$(call grit_dst_path_to_prefix,$(call grit_dst_slug_to_path,$1)),$(GRIT_BRANCH)
+grit_dst_slug_to_remote = $(call grit_dst_slug_to_repo,$1),,$(GRIT_BRANCH)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod,$(GO_MODULE_PATHS_EXCLUDE_PATTERNS)))
@@ -376,8 +410,35 @@ GO_MODULE_SLUGS_INCL_NO_FIX := $(filter-out $(GO_MODULE_SLUGS_EXCL_NO_FIX),$(GO_
 GO_MODULE_SLUGS_INCL_USE_DEADCODE := $(filter $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_MODULE_SLUGS_EXCL_NO_PACKAGES))
 # because GO_MODULE_SLUGS_INCL_USE_DEADCODE is composite (with no packages), and we need a target for _all_ modules
 GO_MODULE_SLUGS_EXCL_USE_DEADCODE := $(filter-out $(GO_MODULE_SLUGS_INCL_USE_DEADCODE),$(GO_MODULE_SLUGS))
-GO_MODULE_SLUGS_GRIT_DST := $(filter $(call map_keys,$(GRIT_DST)),$(GO_MODULE_SLUGS))
-GO_MODULE_SLUGS_EXCL_GRIT_DST := $(filter-out $(GO_MODULE_SLUGS_GRIT_DST),$(GO_MODULE_SLUGS))
+
+# paths for the grit destinations, formatted like GO_MODULE_PATHS, i.e. "." or
+# "./path/to/dir", e.g. ". ./logiface ./logiface/logrus"
+GRIT_DST_PATHS := $(call map_keys,$(GRIT_DST))
+# used by grit_dst_path_to_slug and grit_dst_slug_to_path to lookup an
+# associated path/slug
+_GRIT_DST_MAP := $(call map_transform_keys,$(GRIT_DST_PATHS),slug_transform)
+# slugs for the grit destinations, without a leading ./, / replaced with ., and
+# the path . mapped to root
+GRIT_DST_SLUGS := $(foreach d,$(GRIT_DST_PATHS),$(call grit_dst_path_to_slug,$d))
+# sanity checks for GRIT_DST, note that these are _intentionally_ strict, and
+# will fail the build, since otherwise the grit targets would just silently
+# no-op (or worse), e.g. if a key were to be renamed
+ifneq ($(filter-out . $(foreach d,$(GRIT_DST_PATHS),$(if $(filter ./%,$d),$d)),$(GRIT_DST_PATHS)),)
+$(error GRIT_DST keys must be "." or "./"-prefixed directories, without a trailing slash - to migrate from the old module-slug format, use the module path, e.g. ./logiface/logrus)
+endif
+ifneq ($(filter %/,$(GRIT_DST_PATHS)),)
+$(error GRIT_DST keys must not have a trailing slash, e.g. use ./logiface/logrus rather than ./logiface/logrus/)
+endif
+ifneq ($(or $(filter %/..,$(GRIT_DST_PATHS)),$(findstring /../,$(GRIT_DST_PATHS))),)
+$(error GRIT_DST keys must not contain ".." path components, e.g. use ./logiface/logrus rather than ./logiface/../logiface/logrus)
+endif
+# sanity check the slug lookups, i.e. that the paths can be recovered from the
+# slugs (detects duplicates, e.g. due to SLUG_SEPARATOR != .)
+ifneq ($(GRIT_DST_PATHS),$(foreach d,$(GRIT_DST_SLUGS),$(call grit_dst_slug_to_path,$d)))
+$(error GRIT_DST contains duplicate grit destination slugs)
+endif
+# check that all destinations are configured, i.e. with a value
+$(foreach d,$(GRIT_DST_PATHS),$(if $(call map_value_by_key,$(GRIT_DST),$d),,$(error missing GRIT_DST destination repository for $d)))
 
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
@@ -517,14 +578,14 @@ $(GO_TARGET_PREFIX)deadcode: $($(GO_MK_VAR_PREFIX)DEADCODE_TARGETS) ## Runs the 
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE))
 $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_INCL_USE_DEADCODE)): $(GO_TARGET_PREFIX)deadcode.%:
-	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_deadcode DEADCODE_FLAGS=$(call escape_command_arg,$(DEADCODE_FLAGS))
+	$(MAKE) -s -C $(call go_module_slug_to_path,$*) -f $(ROOT_MAKEFILE) $(GO_TARGET_PREFIX)_deadcode DEADCODE_FLAGS=$(call escape_command_arg,$(DEADCODE_FLAGS)) "GO_PACKAGES=$(call go_module_slug_to_packages,$*)"
 
 .PHONY: $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE))
 $(addprefix $(GO_TARGET_PREFIX)deadcode.,$(GO_MODULE_SLUGS_EXCL_USE_DEADCODE)): $(GO_TARGET_PREFIX)deadcode.%:
 
 .PHONY: $(GO_TARGET_PREFIX)_deadcode
 $(GO_TARGET_PREFIX)_deadcode:
-	$(DEADCODE) $(DEADCODE_FLAGS) ./...
+	$(DEADCODE) $(DEADCODE_FLAGS) $(GO_PACKAGES)
 
 # test, test.<go module slug>
 
@@ -664,19 +725,26 @@ $(GO_TARGET_PREFIX)doc: ## Runs the go doc tool specifying -http. Module variant
 $($(GO_MK_VAR_PREFIX)GO_DOC_TARGETS): $(GO_TARGET_PREFIX)doc.%:
 	$(GO) -C $(PROJECT_ROOT)/$(call go_module_slug_to_path,$*) doc $(GO_DOC_FLAGS)
 
-# grit, grit.<go module slug>
+##@ Grit Targets
 
-$(eval $(GO_MK_VAR_PREFIX)GRIT_TARGETS := $$(addprefix $$(GO_TARGET_PREFIX)grit.,$$(GO_MODULE_SLUGS)))
+# grit, grit.<grit destination slug>, grit-pull.<grit destination slug>
+
+$(eval $(GO_MK_VAR_PREFIX)GRIT_TARGETS := $$(addprefix $$(GO_TARGET_PREFIX)grit.,$$(GRIT_DST_SLUGS)))
 
 .PHONY: $(GO_TARGET_PREFIX)grit
-$(GO_TARGET_PREFIX)grit: $($(GO_MK_VAR_PREFIX)GRIT_TARGETS) ## Runs grit to sync modules to defined target repositories.
+$(GO_TARGET_PREFIX)grit: $($(GO_MK_VAR_PREFIX)GRIT_TARGETS) ## Runs grit to sync configured directories to their target repositories.
 
-.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST))
-$(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GRIT_DST_SLUGS))
+$(addprefix $(GO_TARGET_PREFIX)grit.,$(GRIT_DST_SLUGS)): $(GO_TARGET_PREFIX)grit.%:
 	$(call GRIT_MODULE_COMMAND,$*)
 
-.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST))
-$(addprefix $(GO_TARGET_PREFIX)grit.,$(GO_MODULE_SLUGS_EXCL_GRIT_DST)): $(GO_TARGET_PREFIX)grit.%:
+# inbound sync, per-destination and on-demand (deliberately no aggregate target)
+
+$(eval $(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS := $$(addprefix $$(GO_TARGET_PREFIX)grit-pull.,$$(GRIT_DST_SLUGS)))
+
+.PHONY: $($(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS)
+$($(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS): $(GO_TARGET_PREFIX)grit-pull.%:
+	$(GRIT) $(GRIT_FLAGS) $(call grit_dst_slug_to_remote,$*) $(call grit_dst_slug_to_local,$*)
 
 # ---
 
@@ -721,19 +789,25 @@ endef
 .PHONY: $(GO_TARGET_PREFIX)grit-init
 $(GO_TARGET_PREFIX)grit-init: ## Runs grit to initialize a new GRIT_DST, see Makefile for docs.
 ifeq ($(IS_WINDOWS),true)
-	if exist $(_grit_init_DIR) exit 1
+	if exist $(subst /,\,$(_grit_init_DIR)) exit 1
 else
-	if [ -d $(_grit_init_DIR) ]; then exit 1; fi
+	if [ -e "$(_grit_init_DIR)" ] || [ -L "$(_grit_init_DIR)" ]; then exit 1; fi
 endif
-	$(GRIT) $(GRIT_FLAGS) $(_grit_init_SRC) $(_grit_init_DST)
+	$(GRIT) $(GRIT_FLAGS) $(_grit_init_REMOTE) $(_grit_init_LOCAL)
 
-_grit_init_SRC = $(or $(and $(GRIT_INIT_TARGET),$(call go_module_slug_to_grit_dst,$(GRIT_INIT_TARGET))),$(error GRIT_INIT_TARGET is not set))
-_grit_init_DIR = $(or $(patsubst ./%,%,$(or $(and $(GRIT_INIT_TARGET),$(or $(call slug_parse,$(GRIT_INIT_TARGET)),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))),$(error GRIT_INIT_TARGET is not set))),$(error failed to determine grit dir: invalid GRIT_INIT_TARGET: $(GRIT_INIT_TARGET)))
-_grit_init_DST = $(GRIT_SRC),$(_grit_init_DIR)/,$(GRIT_BRANCH)
+# N.B. Unlike the grit.<slug> and grit-pull.<slug> targets, grit-init is a
+# "script" target, for a GRIT_DST entry whose directory does not yet exist. It
+# refuses to run if the directory is already present - use grit-pull.<slug> for
+# that case. The directory is never the repository root.
+_grit_init_SLUG = $(or $(GRIT_INIT_TARGET),$(error GRIT_INIT_TARGET is not set))
+_grit_init_PATH = $(or $(call grit_dst_slug_to_path,$(_grit_init_SLUG)),$(error not a configured grit destination slug: $(_grit_init_SLUG)))
+_grit_init_DIR = $(or $(patsubst ./%,%,$(filter-out .,$(_grit_init_PATH))),$(error refusing to grit-init the repository root))
+_grit_init_REMOTE = $(call grit_dst_slug_to_remote,$(_grit_init_SLUG))
+_grit_init_LOCAL = $(call grit_dst_slug_to_local,$(_grit_init_SLUG))
 
 .PHONY: $(GO_TARGET_PREFIX)debug-vars
 $(GO_TARGET_PREFIX)debug-vars: ## Prints the values of the specified variables.
-	$(foreach debug_var,$($(GO_MK_VAR_PREFIX)DEBUG_VARS),$(_debug_vars_TEMPLATE))
+	$(foreach debug_var,$($(GO_MK_VAR_PREFIX)DEBUG_VARS),$(if $(filter undefined,$(origin $(debug_var))),,$(_debug_vars_TEMPLATE)))
 define _debug_vars_TEMPLATE =
 @echo $(debug_var)=$(call escape_command_arg,$($(debug_var)))
 
