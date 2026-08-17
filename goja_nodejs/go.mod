@@ -15,5 +15,3 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 // indirect
 )
-
-replace github.com/joeycumines/goja => ../goja

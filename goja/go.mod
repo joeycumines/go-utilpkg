@@ -12,5 +12,3 @@ require (
 )
 
 require github.com/joeycumines/goja_nodejs v0.0.0-20260725224646-7b69489f6ce5
-
-replace github.com/joeycumines/goja_nodejs => ../goja_nodejs

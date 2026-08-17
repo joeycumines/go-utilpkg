@@ -98,11 +98,20 @@ func TestRuntimeIntrinsicConstructorIdentity(t *testing.T) {
 			}
 			object, err := runtime.New(first, args...)
 			if test.constructionRejects {
-				if err == nil {
-					t.Fatal("New unexpectedly succeeded")
+				// ECMAScript spec-non-constructable callables such as Symbol are
+				// callable but reject `new`. Assert that construction rejects,
+				// without asserting constructability either way: goja registers
+				// these with a construct function that throws, so
+				// AssertConstructor may report true even though `new` throws.
+				if _, err := runtime.New(first, args...); err == nil {
+					t.Fatal("New unexpectedly succeeded for non-constructable intrinsic")
 				}
 				return
 			}
+			if _, ok := AssertConstructor(first); !ok {
+				t.Fatal("intrinsic is not a constructor")
+			}
+			object, err = runtime.New(first, args...)
 			if err != nil {
 				t.Fatalf("New: %v", err)
 			}
@@ -255,6 +264,82 @@ func TestRuntimeIntrinsicErrorPrototypeDoesNotReadGlobalError(t *testing.T) {
 	}
 	if reads != 0 {
 		t.Fatalf("global Error getter ran %d times", reads)
+	}
+}
+
+// TestRuntimeIntrinsicErrorPrototypeStableUnderMutation verifies that
+// IntrinsicErrorPrototype returns the original realm Error.prototype identity
+// even after JavaScript mutates Error.prototype's own properties and attempts
+// to reassign Error.prototype (which is non-writable per spec).
+func TestRuntimeIntrinsicErrorPrototypeStableUnderMutation(t *testing.T) {
+	runtime := New()
+	first, ok := runtime.Intrinsic(IntrinsicErrorPrototype)
+	if !ok {
+		t.Fatal("IntrinsicErrorPrototype returned false")
+	}
+	realmProto := runtime.Get("Error").ToObject(runtime).Get("prototype")
+	if !first.SameAs(realmProto) {
+		t.Fatal("IntrinsicErrorPrototype differs from realm Error.prototype")
+	}
+	// Error.prototype is non-writable, non-configurable, non-enumerable per spec.
+	errorCtor := runtime.Get("Error").ToObject(runtime)
+	protoDesc, hasProtoDesc := errorCtor.OwnPropertyDescriptor("prototype")
+	if !hasProtoDesc {
+		t.Fatal("Error.prototype property missing on Error constructor")
+	}
+	if protoDesc.Writable != FLAG_FALSE {
+		t.Fatalf("Error.prototype is writable: %+v", protoDesc)
+	}
+	// Mutate Error.prototype's own state.
+	if _, err := runtime.RunString(`
+		Error.prototype.extra = 1;
+		Error.prototype = {};
+	`); err != nil {
+		t.Fatal(err)
+	}
+	// The reassignment must not have replaced the prototype (non-writable).
+	after := errorCtor.Get("prototype")
+	if !after.SameAs(realmProto) {
+		t.Fatal("Error.prototype identity changed after reassignment attempt")
+	}
+	// The intrinsic lookup must still return the same canonical identity.
+	again, ok := runtime.Intrinsic(IntrinsicErrorPrototype)
+	if !ok || !again.SameAs(first) {
+		t.Fatal("IntrinsicErrorPrototype changed identity after Error.prototype mutation")
+	}
+	// The mutation to the object's own state is visible through the intrinsic,
+	// demonstrating that the intrinsic is canonical identity, not a frozen copy.
+	if got := first.ToObject(runtime).Get("extra").ToInteger(); got != 1 {
+		t.Fatalf("Error.prototype.extra via intrinsic = %d, want 1", got)
+	}
+}
+
+// TestRuntimeIntrinsicMethodSharedIdentity demonstrates that an intrinsic
+// method object is the same identity as the realm prototype property, so
+// JavaScript-added own properties on the function object are visible on the
+// intrinsic. This documents the not-frozen hardening boundary: the lookup is
+// protected, but the intrinsic object's own state is mutable by JS holding a
+// reference.
+func TestRuntimeIntrinsicMethodSharedIdentity(t *testing.T) {
+	runtime := New()
+	sliceIntrinsic, ok := runtime.Intrinsic(IntrinsicArraySlice)
+	if !ok {
+		t.Fatal("IntrinsicArraySlice returned false")
+	}
+	realmSlice := runtime.Get("Array").ToObject(runtime).Get("prototype").ToObject(runtime).Get("slice")
+	if !sliceIntrinsic.SameAs(realmSlice) {
+		t.Fatal("IntrinsicArraySlice differs from Array.prototype.slice")
+	}
+	if _, err := runtime.RunString(`Array.prototype.slice.marker = "polluted";`); err != nil {
+		t.Fatal(err)
+	}
+	if got := sliceIntrinsic.ToObject(runtime).Get("marker").String(); got != "polluted" {
+		t.Fatalf("intrinsic slice marker = %q, want %q", got, "polluted")
+	}
+	// A subsequent intrinsic lookup returns the same (mutated) identity.
+	again, ok := runtime.Intrinsic(IntrinsicArraySlice)
+	if !ok || !again.SameAs(sliceIntrinsic) {
+		t.Fatal("IntrinsicArraySlice identity changed after mutation")
 	}
 }
 
@@ -473,6 +558,61 @@ func TestObjectOwnPropertyDescriptor(t *testing.T) {
 	}
 }
 
+// TestObjectOwnPropertyDescriptorNilDataValue exercises the nil-value hardening
+// in OwnPropertyDescriptor. An internal valueProperty with accessor==false and
+// a nil value (which the ordinary defineOwnProperty path normalizes away, but
+// which exotic producers could in principle produce) must surface as a data
+// descriptor whose Value is undefined rather than a nil Go interface.
+func TestObjectOwnPropertyDescriptorNilDataValue(t *testing.T) {
+	runtime := New()
+	object := runtime.NewObject()
+	// Directly install a data property whose value is a nil Go interface, as an
+	// exotic internal producer might. This bypasses defineOwnProperty
+	// normalization to reach the OwnPropertyDescriptor data branch directly.
+	if bo, ok := object.self.(*baseObject); ok {
+		bo._put("genny", &valueProperty{
+			writable:     true,
+			configurable: true,
+			enumerable:   true,
+			// value left nil, accessor false
+		})
+	} else {
+		t.Skipf("object self is %T, not *baseObject", object.self)
+	}
+
+	descriptor, ok := object.OwnPropertyDescriptor("genny")
+	if !ok {
+		t.Fatal("OwnPropertyDescriptor returned false for nil-valued data property")
+	}
+	if !descriptor.IsData() {
+		t.Fatalf("nil-valued data property is not data: %+v", descriptor)
+	}
+	if descriptor.IsAccessor() {
+		t.Fatalf("nil-valued data property is accessor: %+v", descriptor)
+	}
+	if descriptor.Value == nil {
+		t.Fatal("descriptor.Value is a nil Go interface; expected _undefined")
+	}
+	if !IsUndefined(descriptor.Value) {
+		t.Fatalf("descriptor.Value = %v, want undefined", descriptor.Value)
+	}
+	if !descriptor.Value.SameAs(Undefined()) {
+		t.Fatal("descriptor.Value is not SameAs Undefined()")
+	}
+	// Calling a method on the Value must not panic with a nil-interface
+	// dereference.
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic using nil-normalized Value: %v", r)
+			}
+		}()
+		if descriptor.Value.ToInteger() != 0 {
+			t.Fatalf("undefined.ToInteger() = %d, want 0", descriptor.Value.ToInteger())
+		}
+	}()
+}
+
 func TestObjectOwnPropertyDescriptorIndexedObjects(t *testing.T) {
 	runtime := New()
 	array := runtime.NewArray("value")
@@ -675,5 +815,117 @@ func TestObjectOwnPropertyDescriptorProxyTrap(t *testing.T) {
 	})
 	if exception == nil || !exception.Value().SameAs(runtime.Get("ownDescriptorSentinel")) {
 		t.Fatalf("proxy trap exception = %v", exception)
+	}
+}
+
+// TestObjectOwnPropertyDescriptorGoProxyTrap exercises the Go-side
+// ProxyTrapConfig.GetOwnPropertyDescriptor path through the
+// descriptorValueProperty helper, covering the descriptor shapes a Go host
+// might return: generic, data (including undefined value), accessor (getter,
+// setter, undefined getter), and a non-callable getter that must TypeError.
+func TestObjectOwnPropertyDescriptorGoProxyTrap(t *testing.T) {
+	runtime := New()
+	getter := runtime.ToValue(func(FunctionCall) Value { return runtime.ToValue(1) })
+	setter := runtime.ToValue(func(FunctionCall) Value { return Undefined() })
+
+	tests := []struct {
+		name   string
+		desc   PropertyDescriptor
+		assert func(*testing.T, PropertyDescriptor)
+		throws bool
+	}{
+		{
+			name: "generic becomes data",
+			desc: PropertyDescriptor{Configurable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsData() || d.IsAccessor() || !IsUndefined(d.Value) ||
+					d.Writable != FLAG_FALSE || d.Configurable != FLAG_TRUE || d.Enumerable != FLAG_FALSE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name: "undefined data value",
+			desc: PropertyDescriptor{Value: Undefined(), Writable: FLAG_TRUE, Configurable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsData() || d.IsAccessor() || !IsUndefined(d.Value) ||
+					d.Writable != FLAG_TRUE || d.Configurable != FLAG_TRUE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name: "data value",
+			desc: PropertyDescriptor{Value: runtime.ToValue(42), Writable: FLAG_TRUE, Configurable: FLAG_TRUE, Enumerable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsData() || d.IsAccessor() || d.Value.ToInteger() != 42 ||
+					d.Writable != FLAG_TRUE || d.Configurable != FLAG_TRUE || d.Enumerable != FLAG_TRUE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name: "accessor getter only",
+			desc: PropertyDescriptor{Getter: getter, Configurable: FLAG_TRUE, Enumerable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsAccessor() || d.IsData() || !d.Getter.SameAs(getter) ||
+					!IsUndefined(d.Setter) || d.Configurable != FLAG_TRUE || d.Enumerable != FLAG_TRUE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name: "accessor setter only",
+			desc: PropertyDescriptor{Setter: setter, Configurable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsAccessor() || d.IsData() || !d.Setter.SameAs(setter) ||
+					!IsUndefined(d.Getter) || d.Configurable != FLAG_TRUE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name: "undefined accessor getter",
+			desc: PropertyDescriptor{Getter: Undefined(), Configurable: FLAG_TRUE},
+			assert: func(t *testing.T, d PropertyDescriptor) {
+				if !d.IsAccessor() || d.IsData() || !IsUndefined(d.Getter) ||
+					!IsUndefined(d.Setter) || d.Configurable != FLAG_TRUE {
+					t.Fatalf("descriptor = %+v", d)
+				}
+			},
+		},
+		{
+			name:   "non-callable getter typeerrors",
+			desc:   PropertyDescriptor{Getter: runtime.ToValue(123), Configurable: FLAG_TRUE},
+			throws: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			target := runtime.NewObject()
+			desc := test.desc
+			proxy := runtime.NewProxy(target, &ProxyTrapConfig{
+				GetOwnPropertyDescriptor: func(target *Object, prop string) PropertyDescriptor {
+					return desc
+				},
+			}).proxy.val
+
+			if test.throws {
+				exception := runtime.Try(func() {
+					proxy.OwnPropertyDescriptor("value")
+				})
+				if exception == nil {
+					t.Fatal("expected TypeError for non-callable getter, got nil")
+				}
+				return
+			}
+
+			descriptor, ok := proxy.OwnPropertyDescriptor("value")
+			if !ok {
+				t.Fatal("OwnPropertyDescriptor returned false")
+			}
+			test.assert(t, descriptor)
+		})
 	}
 }

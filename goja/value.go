@@ -883,6 +883,9 @@ func (o *Object) GetOwnPropertyNames() (keys []string) {
 // Ordinary accessor getters are not invoked. Proxy objects retain their
 // ECMAScript [[GetOwnProperty]] trap behavior, including panicking with an
 // *Exception when the trap throws; use Runtime.Try to catch it.
+//
+// Only string keys are supported; symbol-keyed properties are not described by
+// this method. Use Symbols to enumerate symbol keys.
 func (o *Object) OwnPropertyDescriptor(name string) (PropertyDescriptor, bool) {
 	if o == nil {
 		return PropertyDescriptor{}, false
@@ -908,7 +911,11 @@ func (o *Object) OwnPropertyDescriptor(name string) (PropertyDescriptor, bool) {
 				descriptor.Setter = _undefined
 			}
 		} else {
-			descriptor.Value = property.value
+			if property.value != nil {
+				descriptor.Value = property.value
+			} else {
+				descriptor.Value = _undefined
+			}
 			descriptor.Writable = ToFlag(property.writable)
 		}
 		return descriptor, true
