@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\x1072Bx*8\"8y1AxY")

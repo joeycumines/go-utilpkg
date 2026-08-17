@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$Y22(^y\x11Y*100700")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Xa$!$9.\xf6\xf6xq\x10a\xf6\xf6xq\x10a\x10\x10Z9.%W11(00B")

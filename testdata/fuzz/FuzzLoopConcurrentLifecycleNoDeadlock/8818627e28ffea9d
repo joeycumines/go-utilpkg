@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8=a!90B0'80y yyCy(87007y7cX")

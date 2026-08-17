@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\"10891C2289(zBy99!")

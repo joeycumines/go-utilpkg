@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("*7727 7\x06!\x10\x00p7a\xfbR#.z\x04\xa4)\x19\xd2[\x129")

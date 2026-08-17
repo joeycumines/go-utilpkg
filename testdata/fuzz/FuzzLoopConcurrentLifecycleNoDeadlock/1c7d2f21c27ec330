@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B1,m1m1Y\x9c\x9c\x9c#0'\xdb\xdb\xdbW$1\x80cY1$Y,Y")

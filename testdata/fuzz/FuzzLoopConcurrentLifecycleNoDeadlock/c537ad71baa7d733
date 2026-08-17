@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("0A1&X8*0d0B1&X1")

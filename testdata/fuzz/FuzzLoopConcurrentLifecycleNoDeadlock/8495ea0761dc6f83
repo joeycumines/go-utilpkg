@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("z*0z0**%Az0$ 12 11B+7")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BXb\"#770x\"yx,00\xb8c!\"7*\"00")

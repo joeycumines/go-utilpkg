@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(".+79cc0c0BZ\"X8.9188Z'x00!\x13%")

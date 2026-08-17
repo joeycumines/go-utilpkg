@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("0b+0^^^y\a!B\\\xf1[8\x15\a7\aZ8!\a[y20")

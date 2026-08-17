@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("*772\x0327\x06\a \t")

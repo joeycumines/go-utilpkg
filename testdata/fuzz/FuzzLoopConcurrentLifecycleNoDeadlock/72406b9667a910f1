@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("9X+1\x00\x7f\xff!BY\xb0C#\\\x00+\"")

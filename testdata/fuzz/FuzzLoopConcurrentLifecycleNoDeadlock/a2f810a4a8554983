@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Yb28'886(8$088&8B8B8")

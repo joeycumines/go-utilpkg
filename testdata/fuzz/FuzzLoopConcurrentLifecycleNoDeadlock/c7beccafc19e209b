@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("2c!117,01.cA")

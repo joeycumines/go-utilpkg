@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$'0c 08+2%1X28yB0%$.\"7Z0+Y1%\xff\"y\x00!%)z")

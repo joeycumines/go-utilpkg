@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("81*zB\"8Y.)c!2C#ZB08* \xceX08x0C9Ya[1")

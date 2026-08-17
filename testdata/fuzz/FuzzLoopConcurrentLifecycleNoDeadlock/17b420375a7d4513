@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\"1Y7#0\xe21,7'!01,70y$\xccz00B090020X0B")

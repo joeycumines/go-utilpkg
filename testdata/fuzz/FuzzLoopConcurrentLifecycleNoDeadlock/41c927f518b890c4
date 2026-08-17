@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B20^y1,x2\"80201")

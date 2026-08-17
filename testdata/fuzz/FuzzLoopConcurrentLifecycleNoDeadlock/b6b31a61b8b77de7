@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("82X9+208$a.(Xy#27%82dy9\x007(#9c%B0a0 A")

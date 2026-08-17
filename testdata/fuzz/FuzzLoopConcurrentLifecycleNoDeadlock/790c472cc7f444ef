@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8c \x9a\x9a\x9a\x9a\x9a\x9a\x9ax12b *!y8>xZX2.'a")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("'Zz7$\xe2\xe2\xe20X $\xe2\xe2\xe20")

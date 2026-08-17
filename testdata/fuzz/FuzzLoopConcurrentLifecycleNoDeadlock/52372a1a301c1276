@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Z0C\x00\x02\x00B\"Zc12$aa&$k\"Ai127B0\x1a2R\"\"91")

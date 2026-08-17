@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("aC21\"\xa6\xa6\xa6\xa6#\xc5")

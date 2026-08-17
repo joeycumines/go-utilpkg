@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Z(x70$2yb(yXA\"90 8Cz70X2C\xdc87/.x1)Yb")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\"9Yc(1c22(8&XX2X)7")

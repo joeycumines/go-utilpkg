@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("b\x10(\xf9\xf9x\xf9\xf9$\xf9\xf9$\xff")

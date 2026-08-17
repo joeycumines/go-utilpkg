@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(".(yc0B800B82X%C'$YY0#>&)x%(8@0Y")

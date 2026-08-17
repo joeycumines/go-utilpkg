@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("tY'||||t^Bt8b8|'\xc0\xa1\xec2Ac8B00Z")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("xxxxZxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxB0'0x0Zxx9x%202xxx9X 8229Z(8%19C#")

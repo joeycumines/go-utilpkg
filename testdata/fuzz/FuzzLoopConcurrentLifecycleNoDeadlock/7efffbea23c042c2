@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("88)2Y021Aac0010221$11XBx\"189'BC)8.%%")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BB$0$$\xf6B$$BB\xf6\xf6$BB\xf6$\xf6BB\xf6BDB\xf6\xf6\xf6\xf6B$")

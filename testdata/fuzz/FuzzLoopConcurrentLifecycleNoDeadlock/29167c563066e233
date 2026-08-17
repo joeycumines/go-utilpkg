@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("subbyt-\x00\x80cr2ta7-shut1own-2+osA20002")

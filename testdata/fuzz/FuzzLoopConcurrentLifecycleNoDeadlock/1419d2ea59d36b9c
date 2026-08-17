@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$\xdbA!8A!$z2#\"")

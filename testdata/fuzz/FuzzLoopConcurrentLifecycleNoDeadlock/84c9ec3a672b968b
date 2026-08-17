@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$J212Y11\xb3011\xb3'11Y11\xda1%")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\x10\x10\x10$)C9+0127.\x10\x10\x10.C\x10\x10X\x10B!")

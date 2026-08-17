@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("nq{\x9aL\xb0\xa4\x18")

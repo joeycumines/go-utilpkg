@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("1\xb4\x8400'00\"$H[[00000\x8d\xab@1A\x93\"010g0\"Y8")

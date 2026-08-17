@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("y11Y708$02x0$2AC22y911Ax0Z\"27&079100")

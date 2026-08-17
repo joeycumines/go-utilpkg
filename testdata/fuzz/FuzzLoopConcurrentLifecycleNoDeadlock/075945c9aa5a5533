@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("890{{{{{{{{*807'\x1a182#0\xcb\xcb\xcb\xcb\xcb")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BBBBB$B$$BBB$B$BBBBBBJ$B$Bc")

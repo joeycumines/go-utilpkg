@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("AeB`.``bcc(12X1C")

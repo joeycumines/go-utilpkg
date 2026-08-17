@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Zc$1X\x00>dr\"\x17\x17Bb1z")

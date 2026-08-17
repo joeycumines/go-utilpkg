@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8\x10\x10\x10$.\xf6\xf6\xf6\xf6B8 0\x10\xf9\x0fZ8+x\x9f Q'01'0270")

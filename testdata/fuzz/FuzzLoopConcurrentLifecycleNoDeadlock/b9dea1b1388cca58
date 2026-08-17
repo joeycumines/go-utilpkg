@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("CA$2W#Z&CB219A$2:9900297z7C")
