@@ -8,10 +8,12 @@ use (
 	./eventloop/internal/tournament
 	./fangrpcstream
 	./floater
+	./goja
 	./goja-eventloop
 	./goja-grpc
 	./goja-protobuf
 	./goja-protojson
+	./goja_nodejs
 	./goroutineid
 	./grpc-proxy
 	./inprocgrpc
