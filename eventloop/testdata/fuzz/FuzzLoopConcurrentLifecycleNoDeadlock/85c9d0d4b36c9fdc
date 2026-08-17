@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B2Y0*70 z\"X9+8B+*0,1+CZx00a")

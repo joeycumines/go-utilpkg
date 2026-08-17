@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$22(A\xb31\xa2 09\xb3a.89Z0Ac1\xf1$)H\x157")

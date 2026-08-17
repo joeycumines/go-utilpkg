@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!7#c!\x00\x86\x9b\xa4+a\x0fR\x00\x9b\xa4 ")

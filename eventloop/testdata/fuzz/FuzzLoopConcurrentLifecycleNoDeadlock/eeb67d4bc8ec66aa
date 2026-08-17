@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("(c821*8\"2y1A82")

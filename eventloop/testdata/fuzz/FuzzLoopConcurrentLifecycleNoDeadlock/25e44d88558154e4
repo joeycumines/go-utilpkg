@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xffb\xff\xff\"\"\"18y0BB00*11")

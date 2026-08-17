@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\"1X\")1X2'C\xff$z9B7\x7f7")

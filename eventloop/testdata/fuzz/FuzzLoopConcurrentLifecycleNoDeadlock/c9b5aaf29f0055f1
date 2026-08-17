@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" A72X%0A0 yz*07$Xa. a\xaeA7(88C0b2Z71")

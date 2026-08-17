@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$0cZ0XA\" #1'792A0070C770")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("z00z01z17z$0z00*B)z0z 10 00z11\x00\x10(")

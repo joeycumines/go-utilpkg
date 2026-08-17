@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("91\"\" !\xff\x00y.d10S0002")

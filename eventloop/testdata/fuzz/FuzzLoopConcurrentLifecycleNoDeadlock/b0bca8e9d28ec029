@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!9 C999CBC99&9*a9\x150CC&99Y9Cab99b%9")

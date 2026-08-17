@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("*b8$55,5\x1f\x1f\x1f51\x0e\x0eC")

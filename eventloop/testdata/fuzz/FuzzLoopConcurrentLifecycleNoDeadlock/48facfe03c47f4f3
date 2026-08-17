@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(".11070020011\xb0A$0+9 E2b&C")

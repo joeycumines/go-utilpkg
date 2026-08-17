@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Y &(a%12878Y71XB2$1+b980708\"r1118b2")

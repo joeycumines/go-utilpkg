@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\xccB22)72\xa5$\xc9A\xd6\"\xd6\xd6")

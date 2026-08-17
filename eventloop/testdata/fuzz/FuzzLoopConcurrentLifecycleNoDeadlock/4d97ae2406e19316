@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("18911\x9f\"Z$28A*C88#ttt7,z$02%91&#xbZ\")$Y07A2X0")

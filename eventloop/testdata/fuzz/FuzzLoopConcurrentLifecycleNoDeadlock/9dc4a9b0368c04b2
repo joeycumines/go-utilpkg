@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("submit-micro\x00ask-timer-shutdown-close-wake")

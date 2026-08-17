@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Z20M\xda\xda\xda1$2012+YACCyc0")

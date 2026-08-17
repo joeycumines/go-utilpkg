@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("9\"Z!+7\xff\xff\xc3\x7f")

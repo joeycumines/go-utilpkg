@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8289#B\x02\x00\x10\x04\",9$+Cy#")

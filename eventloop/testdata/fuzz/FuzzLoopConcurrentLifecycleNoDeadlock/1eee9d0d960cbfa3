@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Z0x0801%0B17\xdc8X718z90C=k!(\xe03A")

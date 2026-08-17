@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8Z1\x1f0$]'2\xf6B#\xe3\xe3%A")

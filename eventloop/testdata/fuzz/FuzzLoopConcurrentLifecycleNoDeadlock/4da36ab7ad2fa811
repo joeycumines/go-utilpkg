@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8.1cA9'0C8+c#Z8$")

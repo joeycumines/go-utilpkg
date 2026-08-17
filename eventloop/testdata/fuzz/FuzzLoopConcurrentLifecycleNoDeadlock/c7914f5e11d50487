@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("B)\x100z 10 \x14\x14\x1402z(1\x00a0")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$*zc5+XA\x007\xb30 ")

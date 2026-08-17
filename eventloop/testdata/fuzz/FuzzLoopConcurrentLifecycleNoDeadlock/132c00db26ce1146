@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Bm\fmm\"m1m&00001000c8191")

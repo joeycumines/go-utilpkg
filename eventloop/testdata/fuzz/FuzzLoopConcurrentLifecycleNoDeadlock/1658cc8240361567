@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("!1'B9(A+2B9(8*087y")

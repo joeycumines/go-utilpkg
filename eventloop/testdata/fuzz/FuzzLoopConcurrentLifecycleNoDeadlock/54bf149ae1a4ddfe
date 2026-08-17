@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$y111Ayyy)yyy)1)y)yyyy")

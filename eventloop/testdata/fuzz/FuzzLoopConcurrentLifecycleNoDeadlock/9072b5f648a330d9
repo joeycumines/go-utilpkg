@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("yO$0\x00\x80\x00\x000y2209b!79!")

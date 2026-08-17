@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("800.z\xa4z\"bY,\xa40Az\xa4z\"bY,\xa4z\"bs,7!!\"I")

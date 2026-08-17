@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("$ZCc!e1$7\x00\x008dr\xff\xff\x17#c\x00!e18|")

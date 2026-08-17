@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("X)0901\x80\xff\xff\xffa!20*200(090Z")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("8\x8d\"mm\"m#mmmmm\"+Z0\x1611mmcm87mm+'C($1\xffC")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" \xba\x06\a\a\a\a\a\xf7 \"+1 80.")

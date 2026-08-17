@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("s')yi\x8c2t's\x9d\x9d7`w\xd2!*$kA")

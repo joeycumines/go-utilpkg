@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("+\"z)$Z1888!YB8Y1A1J!&cX88Z9Z)c\"20")

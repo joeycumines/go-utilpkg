@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("lX8&z1&2ca1\v)+0")

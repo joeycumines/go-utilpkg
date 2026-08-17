@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" \xac*\xac\xaczz  zzzz\xacz  zzzz z*z zzz z")

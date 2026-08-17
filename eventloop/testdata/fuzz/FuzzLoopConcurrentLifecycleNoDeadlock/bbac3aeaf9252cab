@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("*Zbi2$0tcYk-\"-&Aut(o(n$2loB\xc4-z$+y")

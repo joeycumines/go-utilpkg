@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("Z!Cz\xe8970(\x881B")
