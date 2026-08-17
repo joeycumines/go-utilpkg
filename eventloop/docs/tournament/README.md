@@ -1,17 +1,13 @@
 # Eventloop Performance Tournament
 
-> **Status:** This branch retains an incomplete, unqualified corpus that may
-> omit major variants. It does not establish correctness, a winner, a live
-> baseline, or longitudinal-performance conclusions.
-
-The tournament is the longitudinal performance laboratory for eventloop. It
+The tournament provides longitudinal performance tracking for eventloop. It
 keeps current production measurements separate from comparisons among every
-retained scheduler and Promise design. Historical alternatives are evidence,
-not dead code: a design stays runnable even after another design becomes the
+retained scheduler and Promise design. Historical alternatives are retained for
+comparison: a design stays runnable even after another design becomes the
 product default.
 
 The raw Go benchmark log is the authoritative measurement artifact. Parsed
-JSON is an indexed view of that log. Statistical comparisons use the
+JSON provides an indexed view of that log. Statistical comparisons use the
 repository-pinned `benchstat`; the Python reports intentionally provide only
 descriptive values and observed deltas.
 
@@ -23,8 +19,8 @@ the exact source tree for historical designs, records its executable source
 package, declares benchmark lanes and workloads, and pins the normal sample
 count. A separate active-root census fails closed when a restored or newly
 added benchmark has not yet received a manifest binding or typed disposition.
-While that census is red, the manifest is a migration input rather than a
-complete claim about the live tournament.
+While that census is red, the manifest functions as a migration input instead
+of a complete claim about the live tournament.
 
 The complete tournament has four lanes:
 
@@ -51,8 +47,7 @@ their absence on Windows is declared applicability, not missing evidence.
 
 The following documented designs have no implementation in repository history.
 They remain stable concept identities so a future implementation can join the
-correct longitudinal record, but they must never produce invented benchmark
-rows:
+correct longitudinal record, but they do not produce benchmark rows:
 
 | Stable concept ID | Documented design | Tournament status |
 |---|---|---|
@@ -67,10 +62,10 @@ candidate for retirement describe product selection only. They never authorize
 removing an implementation, adapter, workload, manifest identity, or raw result
 from the tournament.
 
-The old in-process `TournamentResults.BenchmarkData` mechanism is not a timing
+The old in-process `TournamentResults.BenchmarkData` mechanism lacks timing
 authority. Go calibrates benchmarks by calling them repeatedly, so values
-recorded from inside a benchmark can mix calibration and final runs. Only the
-raw benchmark records emitted by `go test` are used for performance analysis.
+recorded from inside a benchmark mix calibration and final runs. Only the
+raw benchmark records emitted by `go test` provide performance analysis data.
 
 ## Run the current tournament
 
@@ -91,31 +86,30 @@ gmake eventloop-tournament-libuv-bench
 
 The libuv lane keeps its four original benchmark roots and source files
 byte-frozen for longitudinal reruns. Those legacy endpoints have unchecked
-failure paths and can block on invalid preconditions, so they are diagnostic
-history rather than robustness references. Four additive V2 roots use checked
-construction, bounded condition-variable generations, explicit Go/native
+failure paths and can block on invalid preconditions, so they serve as
+diagnostic history instead of robustness references. Four additive V2 roots use
+checked construction, bounded condition-variable generations, explicit Go/native
 ownership, exact callback cardinality, and verified teardown. The threaded V2
 endpoint finishes at the prepare phase immediately before the next I/O poll;
-it is a checked cross-thread round trip, not proof that the sending goroutine
-woke an already-blocked kernel poll. The synchronous V2 timer endpoints drain
-naturally, unlike the legacy dummy-async plus `uv_stop` topology, so the two
-generations have distinct workload identities rather than fabricated numeric
-equivalence. The benchmark target first runs the no-performance native
-correctness gate, then runs V2 and legacy groups in separate processes, V2
-first:
+it verifies a cross-thread round trip, but does not prove that the sending
+goroutine woke an already-blocked kernel poll. The synchronous V2 timer
+endpoints drain naturally, unlike the legacy dummy-async plus `uv_stop`
+topology, giving the two generations distinct workload identities. The benchmark
+target first runs the no-performance native correctness gate, then runs V2 and
+legacy groups in separate processes, V2 first:
 
 ```bash
 gmake eventloop-tournament-libuv-test
 ```
 
-Availability through ambient `pkg-config` is sufficient for local correctness
-work, not canonical cross-host evidence. A governed run must additionally bind
-the package metadata, headers, linked library, compiler/linker inputs, and
-captured source. In particular, a plain Linux container that lacks that
-authority records libuv as unavailable; it does not inherit a Darwin result.
-The direct Make benchmark target is a local diagnostic surface: roots within
-each generation still share one `go test` process. Canonical evidence requires
-the schema-5 runner to put every exact root in its own watchdog-controlled
+Availability through ambient `pkg-config` supports local correctness work, but
+lacks the provenance required for canonical cross-host evidence. A governed run
+must additionally bind the package metadata, headers, linked library, compiler/linker
+inputs, and captured source. In particular, a plain Linux container that lacks
+that authority records libuv as unavailable; it does not inherit a Darwin result.
+The direct Make benchmark target provides a local diagnostic surface: roots
+within each generation still share one `go test` process. Canonical evidence
+requires the schema-5 runner to put every exact root in its own watchdog-controlled
 process so a legacy semaphore hang cannot suppress unrelated results.
 
 The local wrappers in `config.mk` capture complete logs:
@@ -131,8 +125,8 @@ WINDOWS_HOST=your-host gmake eventloop-tournament-windows
 
 ## Run the tournament on Windows
 
-A Windows run is genuine only when it executes the real `windows/amd64 go.exe`,
-never Go under WSL. The harness transfers the repository as a clean tarball
+A Windows run requires the native `windows/amd64` `go.exe` instead of Go under
+WSL. The harness transfers the repository as a clean tarball
 (`hack/run-on-windows.sh`), so the remote workspace has no `.git`; the source
 HEAD and dirty/clean state are captured on the originating checkout and
 forwarded as positional make variables (`EVENTLOOP_TOURNAMENT_HEAD`,
@@ -199,10 +193,10 @@ gmake eventloop-tournament-bench \
   EVENTLOOP_TOURNAMENT_BENCHTIME=1x
 ```
 
-A smoke log is not a valid normal tournament. The parser accepts its different
-sample count only when explicitly passed `--expected-samples 1`, stamps the
-result with the `smoke` evidence class, and the analyzers refuse to use it as
-canonical evidence. Five samples produce the `canonical` evidence class.
+A smoke log does not constitute a normal tournament run. The parser accepts its
+different sample count only when explicitly passed `--expected-samples 1`,
+stamps the result with the `smoke` evidence class, and the analyzers refuse to
+use it as canonical evidence. Five samples produce the `canonical` evidence class.
 
 Every aggregate raw log includes:
 
@@ -220,16 +214,15 @@ that are currently staged for deletion. Dated result archives under
 must not mutate the source identity of the next platform run. The live
 GNU Make fingerprint target and its tests remain inside the governed surface.
 It hashes bounded file batches, frames the final path/blob stream with NUL
-delimiters, and rejects newline-bearing paths rather than accepting ambiguous
-input.
+delimiters, and rejects newline-bearing paths to avoid accepting ambiguous input.
 
 Dependency metadata names the actual executable Goja forks,
 `github.com/joeycumines/goja` and `github.com/joeycumines/goja_nodejs`, with
-their resolved versions. A log naming a different module is not equivalent
+their resolved versions. A log naming a different module provides insufficient
 provenance for the Goja baseline.
 
 If a command fails, the completion marker is absent. The parser rejects that
-log rather than returning a partial comparison.
+log entirely instead of returning a partial comparison.
 
 ## Parse and preserve a run
 
@@ -358,7 +351,7 @@ unknown revision or a failed historical package makes the target fail.
 ## Interpretation rules
 
 1. Correctness gates every performance result. A faster design that fails the
-   tournament's lifecycle, conservation, panic, or ordering tests is not a
+   tournament's lifecycle, conservation, panic, or ordering tests cannot be a
    candidate.
 2. Compare revisions on the same hardware, OS, architecture, Go version,
    benchmark flags, and dependency versions. Otherwise re-run them.
@@ -366,14 +359,13 @@ unknown revision or a failed historical package makes the target fail.
    Preserve the exact source bytes before citing it later.
 4. Cross-OS ratios are descriptive. They combine OS, container, runtime, and
    toolchain effects and do not prove a regression.
-5. Missing rows are coverage gaps, never infinite slowdowns or implicit wins.
+5. Missing rows represent coverage gaps, not infinite slowdowns or implicit wins.
 6. Keep raw logs. Parsed means alone are insufficient for `benchstat` or later
    forensic checks.
 7. Preserve the manifest digest and stable IDs. Human-readable names may evolve;
    the stable identity is the longitudinal join key.
-8. Dated reports preserve the methodology and conclusions of their recorded run.
-   They are historical evidence, not current execution instructions; use this
-   guide and the live manifest for a new run.
+8. Dated reports serve as historical evidence, while this guide and the live
+   manifest provide current execution instructions.
 
 ## Durable files
 
