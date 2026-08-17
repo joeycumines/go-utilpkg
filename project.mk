@@ -21,10 +21,12 @@ GRIT_DST ?= \
     ./grpc-proxy$(MAP_SEPARATOR)https://github.com/joeycumines/grpc-proxy.git \
     ./floater$(MAP_SEPARATOR)https://github.com/joeycumines/floater.git \
     ./eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/go-eventloop.git \
+    ./goja$(MAP_SEPARATOR)https://github.com/joeycumines/goja.git \
     ./goja-eventloop$(MAP_SEPARATOR)https://github.com/joeycumines/goja-eventloop.git \
     ./goja-grpc$(MAP_SEPARATOR)https://github.com/joeycumines/goja-grpc.git \
     ./goja-protobuf$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protobuf.git \
     ./goja-protojson$(MAP_SEPARATOR)https://github.com/joeycumines/goja-protojson.git \
+    ./goja_nodejs$(MAP_SEPARATOR)https://github.com/joeycumines/goja_nodejs.git \
     ./inprocgrpc$(MAP_SEPARATOR)https://github.com/joeycumines/go-inprocgrpc.git \
     ./goroutineid$(MAP_SEPARATOR)https://github.com/joeycumines/goroutineid.git
 # N.B. relative to the go module it applies to
