@@ -49,24 +49,11 @@ var (
 type Object struct {
 	self    objectImpl
 	runtime *Runtime
-	// objID is a lazily-assigned unique identifier. It replaces the object's
-	// heap address as the identity used by WeakMap storage and hashing so
-	// that address reuse after garbage collection cannot alias a dead
-	// object's entry with a live one (the classic weak-map ABA problem).
-	//
-	// Call sites: builtin_weakmap.go stores WeakMap entries in a strong Go
-	// map keyed by getId() (weakMap.m map[uint64]Value) and deletes them via
-	// runtime.AddCleanup on the key; if a new allocation reused a collected
-	// key's address before its cleanup ran, the new object would read (and
-	// overwrite) the dead key's entry. Object.hash (value.go) also uses
-	// getId(), so Map/Set identity is covered by the same monotonically
-	// assigned counter.
-	//
-	// The field is atomic.Uint64 (not a plain uint64) so the 64-bit atomic
-	// load/compare-and-swap in getId are guaranteed 8-byte aligned on every
-	// architecture, including 32-bit (linux/386, linux/arm, etc.) where a
-	// plain uint64 following the interface + pointer fields above would land
-	// at an unaligned offset and panic at runtime.
+
+	// objID is a lazily-assigned unique identifier used for Map/Set/WeakMap
+	// identity. It replaces the object's heap address to mitigate ABA issues
+	// where the Go GC reuses a collected object's address before its cleanup
+	// functions have executed.
 	objID atomic.Uint64
 }
 
@@ -1662,21 +1649,12 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 	}
 }
 
-// nextObjectID supplies monotonically increasing unique object identifiers.
-// Addresses cannot be used for WeakMap identity (see builtin_weakmap.go, which
-// keys a strong Go map by getId() with per-key runtime.AddCleanup deletion):
-// after an object is collected, a new allocation may reuse the address, and a
-// pending key-cleanup would then delete the new object's WeakMap entry.
-//
-// getId is implemented with atomic load/compare-and-swap as a defensive
-// measure: every current call site runs on the runtime goroutine (JS
-// execution), but identity must remain correct if a future finalizer,
-// cleanup, or host path ever invokes it off the runtime goroutine — a torn
-// read/write there would corrupt WeakMap/Map/Set identity. 0 is reserved as
-// the "not yet assigned" sentinel and is never returned as a live id; on the
-// astronomically unlikely counter wrap, the next value is taken instead.
+// nextObjectID supplies monotonically increasing object identifiers.
+// 0 is reserved as the "unassigned" sentinel.
 var nextObjectID atomic.Uint64
 
+// getId returns a unique, stable identifier for the object, assigning one
+// lazily if necessary. It is safe to call from any goroutine.
 func (o *Object) getId() (ID uint64) {
 	ID = o.objID.Load()
 	if ID != 0 {

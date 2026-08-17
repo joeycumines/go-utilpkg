@@ -6,17 +6,11 @@ import (
 	"testing"
 )
 
-// Tests for Object.getId() — the lazily-assigned monotonic identity counter
-// that replaced the object's heap address as WeakMap/Map/Set identity
-// (see Object.objID in object.go). The contract pinned here:
-//
-//   - every assigned ID is non-zero (0 is the unassigned sentinel);
-//   - an object's ID is stable across calls;
-//   - distinct objects never share an ID, even across GC cycles (an
-//     address-based scheme can reuse a collected object's identity before
-//     its weak-map cleanup runs — the ABA hazard);
-//   - assignment is safe from any goroutine (runtime.AddCleanup may run on
-//     non-runtime goroutines), verified under -race.
+// Tests for Object.getId(). The required properties are:
+//   - IDs are non-zero (0 is unassigned);
+//   - An object's ID is stable;
+//   - Distinct objects never share an ID, even across GC cycles;
+//   - Assignment is safe from concurrent access.
 
 func TestObjectIDAssignment(t *testing.T) {
 	vm := New()
@@ -34,10 +28,8 @@ func TestObjectIDAssignment(t *testing.T) {
 	}
 }
 
-// Objects created and dropped across GC cycles must never receive an ID that
-// was previously assigned to a collected object. This is the property the
-// heap-address scheme violated: a new allocation could reuse a dead object's
-// address while its weak-map cleanup was still pending.
+// TestObjectIDNeverReusedAcrossGC verifies that IDs are not reused for new
+// allocations after previous objects are garbage collected.
 func TestObjectIDNeverReusedAcrossGC(t *testing.T) {
 	vm := New()
 	used := make(map[uint64]struct{})
@@ -51,22 +43,19 @@ func TestObjectIDNeverReusedAcrossGC(t *testing.T) {
 			}
 			ids = append(ids, id)
 		}
-		// All objects of this batch are now unreachable; force collection so
-		// the next batch cannot be confused with them.
+		// Force collection of the current batch.
 		runtime.GC()
 		for _, id := range ids {
 			if _, exists := used[id]; exists {
-				t.Fatalf("object ID %d was previously assigned and reused after GC (address-identity ABA)", id)
+				t.Fatalf("object ID %d reused after GC", id)
 			}
 			used[id] = struct{}{}
 		}
 	}
 }
 
-// getId is a mutating lazy assignment and must be safe when called from any
-// goroutine. This exercises the atomic load/compare-and-swap path with
-// concurrent first-assignment on shared objects, plus concurrent assignment
-// on distinct objects (uniqueness). Run under -race.
+// TestObjectIDConcurrentAssignment verifies that concurrent lazy assignments
+// on shared and distinct objects are safe and unique.
 func TestObjectIDConcurrentAssignment(t *testing.T) {
 	vm := New()
 	objects := make([]*Object, 8)
@@ -111,12 +100,9 @@ func TestObjectIDConcurrentAssignment(t *testing.T) {
 	}
 }
 
-// Behavioral regression for the weak-map ABA hazard: a fresh WeakMap key must
-// never observe an entry left behind by a collected key whose cleanup has not
-// yet run. WeakMap entries live in a strong Go map keyed by getId()
-// (builtin_weakmap.go) and are deleted by a per-key runtime.AddCleanup, so
-// identity reuse — exactly what the counter prevents — would make a new key
-// read stale data and corrupt its own new entry.
+// TestWeakMapNoCrossObjectContamination verifies that a fresh WeakMap key
+// cannot access an entry belonging to a collected key whose cleanup has not
+// yet executed.
 func TestWeakMapNoCrossObjectContamination(t *testing.T) {
 	vm := New()
 	if _, err := vm.RunString(`
@@ -128,9 +114,8 @@ func TestWeakMapNoCrossObjectContamination(t *testing.T) {
 	`); err != nil {
 		t.Fatal(err)
 	}
-	// Force collection of keyA. Its cleanup may still be pending — precisely
-	// the window in which an address-based scheme would alias a new
-	// allocation onto the stale entry.
+	// Force collection of keyA to ensure its pending cleanup does not
+	// alias with a new allocation.
 	for range 5 {
 		runtime.GC()
 	}
@@ -147,6 +132,6 @@ func TestWeakMapNoCrossObjectContamination(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !value.ToBoolean() {
-		t.Fatal("fresh WeakMap key observed a stale entry from a collected key (weak-map ABA)")
+		t.Fatal("fresh WeakMap key observed a stale entry from a collected key")
 	}
 }
