@@ -64,3 +64,17 @@ func (x *bigFloatInfo) IsInf() bool {
 func (x *bigFloatInfo) IsInt() bool {
 	return (*big.Float)(x).IsInt()
 }
+
+// EffectivePrec returns the minimum number of mantissa bits needed to represent
+// the float exactly (i.e. [math/big.Float].MinPrec). It is always <= Prec(), and
+// equals Prec() only when the mantissa has no trailing zero bits. For subnormal
+// values (e.g. [math.SmallestNonzeroFloat64]) it can be significantly less than
+// Prec() — the root-cause nuance behind golang/go#71245, where [math/big.Float].Text
+// produces more digits than [strconv.FormatFloat]. Returns 0 for nil, zero, or
+// infinite values.
+func (x *bigFloatInfo) EffectivePrec() uint {
+	if x == nil {
+		return 0
+	}
+	return (*big.Float)(x).MinPrec()
+}

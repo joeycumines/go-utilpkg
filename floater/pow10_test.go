@@ -110,7 +110,7 @@ func ExamplePow10_defaultPrecBehavior() {
 
 func Test_pow10Prec_comment(t *testing.T) {
 	s := strings.Repeat(`9`, pow10Max+1)
-	r, _ := new(big.Rat).SetString(s)
+	r := mustRat(t, s)
 	f := new(big.Float).SetRat(r)
 	if v := f.MinPrec(); v != pow10Prec {
 		t.Fatal(v)

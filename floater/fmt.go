@@ -1,60 +1,59 @@
 package floater
 
 import (
-	"golang.org/x/exp/slices"
 	"math"
 	"math/big"
+	"strconv"
 	"unsafe"
+
+	"golang.org/x/exp/slices"
 )
 
-// FormatDecimalRat formats a [math/big.Rat] as if it were a floating point
-// number, without undue loss of precision. The core use case of this function
-// is formatting string representations that are as accurate _as possible_,
-// for _both_ humans and machines. As float precision is supported, this
-// function can be used to format at least as many digits, as necessary to
-// avoid munging the result. Aside from the rounding behavior described below,
-// all digits will be exact.
+// FormatDecimalRat formats a [math/big.Rat] as a decimal string, treating
+// it as a floating point number with the given precision (floatPrec).
 //
-// Results are derived from the [math/big.Rat.FloatString] method, by
-// formatting to a higher precision than the derived "target", then, in most
-// cases, applying to-nearest-even rounding, excepting cases that would round
-// to 0, where `abs(rat) < 0.5` AND the same value would round up using an
-// away-from-zero rounding strategy. This is handled as a special case, and
-// will round up, instead. Note that rounding down to zero is still possible
-// (the switching logic only applies to that specific case, on tie).
-// N.B. The "in most cases" qualifier is a tradeoff - for performance and ease
-// of implementation reasons, the rat is simply formatted using 3 more decimal
-// places than required, using [math/big.Rat.FloatString], which notably rounds
-// halves away from zero.
+// When prec < 0 (auto), the number of decimals is at least as many as the
+// equivalent [math/big.Float] at the same precision. When prec >= 0, exactly
+// that many decimal places are written.
 //
-// Using a specific prec will, like stdlib formatters, include exactly that
-// many decimal places, with rounding or trailing zeros as necessary.
-// In the -1 prec (auto-decimal) case, the result will include at least as
-// many decimals, as the equivalent [math/big.Float], i.e. it will be at least
-// as accurate as
-// `new(big.Float).SetPrec(floatPrec).SetRat(rat).Text('f', -1)`.
+// If floatPrec is 0, it defaults to the precision of the input rat (as
+// defined by [math/big.Float.SetRat]).
 //
-// If floatPrec is 0, it will default to using the precision of the input rat,
-// in the same manner as [math/big.Float.SetRat], i.e. the maximum of 64, or
-// the bit length of the numerator and denominator.
-// For the best "whole number" rounding, the floatPrec should be the maximum
-// number of bits for the mantissa (significand), across all input floats, and
-// potentially at least 64. A lower bound of 64 aligns with the
-// "default precision" behavior of some [math/big.Float] methods, including
-// [math/big.Float.SetString] (though it is advisable to set the precision
-// explicitly, if you need more precision).
+// Rounding is round-half-to-even, computed EXACTLY from the rational's
+// numerator and denominator (so it is correct even for rationals with long or
+// repeating decimal expansions, where formatting to a finite window and
+// re-rounding would introduce double-rounding errors). Because the EXACT
+// rational is rounded — rather than a binary-float approximation as
+// [math/big.Float].Text rounds — the result may differ from big.Float.Text for
+// non-dyadic values near a rounding boundary; it is never less accurate.
+//
+// WARNING — non-standard divergence: as the sole intentional deviation from
+// IEEE 754 roundTiesToEven, an exact half that would otherwise round to ZERO
+// rounds AWAY from zero instead (e.g. 1/20 @prec1 -> "0.1"). This applies only
+// when the formatted result carries one or more decimal places — i.e. the
+// effective decimal-place count (targetDecimals) is > 0, which is always the
+// case for a fixed prec > 0; at the ones place (no decimal places) halves round
+// to even. (In auto-precision mode, prec < 0, the rendering precision follows
+// the value, so this tie-to-zero case is not reached; that property is pinned
+// by TestFormatDecimalRat_AutoMode_NoTieToZeroDivergence.) This differs from
+// Python decimal (ROUND_HALF_EVEN), Java BigDecimal (HALF_EVEN), .NET
+// Decimal, Rust bigdecimal, and MPFR — all of which would yield "0.0" for such a
+// tie; only [math/big.Rat].FloatString agrees for this prec > 0 tie-to-zero case,
+// and only because it rounds halves away from zero unconditionally (at the ones
+// place floater uses half-to-even, where the two differ). Callers expecting
+// textbook banker's rounding should account for this. The sign of a value that
+// rounds to zero is preserved
+// ("-0"), matching Python decimal and [strconv.FormatFloat].
 func FormatDecimalRat(rat *big.Rat, prec int, floatPrec uint) string {
 	b := AppendDecimalRat(nil, rat, prec, floatPrec)
-	// convert to string w/o alloc, using the unsafe package
-	// https://cs.opensource.google/go/go/+/refs/tags/go1.22.2:src/strings/builder.go;l=48-50
-	p := unsafe.SliceData(b)
-	return unsafe.String(p, len(b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // AppendDecimalRat is the append variant of [FormatDecimalRat].
 func AppendDecimalRat(b []byte, rat *big.Rat, prec int, floatPrec uint) []byte {
 	if rat == nil {
-		panic(`floater: append decimal rat: cannot format nil value`)
+		// Consistent with AppendDecimalFloat's nil handling.
+		return append(b, "<nil>"...)
 	}
 
 	// trivial case: integer value
@@ -67,16 +66,6 @@ func AppendDecimalRat(b []byte, rat *big.Rat, prec int, floatPrec uint) []byte {
 		return b
 	}
 
-	// determine the number of decimals available from the rat
-	ratDecimals, exact := rat.FloatPrec()
-	if exact {
-		if ratDecimals <= 0 {
-			panic(`floater: append decimal rat: unreachable`)
-		}
-	} else if ratDecimals < 0 {
-		panic(`floater: append decimal rat: unreachable`)
-	}
-
 	ratInfo := (*bigRatInfo)(rat)
 
 	// ensure our floatPrec is set, as we will need it shortly
@@ -84,149 +73,192 @@ func AppendDecimalRat(b []byte, rat *big.Rat, prec int, floatPrec uint) []byte {
 		floatPrec = ratInfo.Prec()
 	}
 
-	// approximate how our floating point number will be formatted
-	atMostBufferSize, _, floatDecimals := approximateDecimalBufferSizeWithFixedDecimals(ratInfo, floatPrec)
-	if floatDecimals < 0 {
-		panic(`floater: append decimal rat: unreachable`)
-	}
-
 	// note: we don't mutate prec, as it being <0 indicates no padding
-	var targetDecimals int
+	targetDecimals := prec
 	if prec < 0 {
+		// approximate the number of decimals a [math/big.Float] at floatPrec
+		// would use to format rat. In the auto-precision case (prec < 0) this
+		// is the target; the result is therefore at least as accurate, and has
+		// at least as many decimals, as
+		// `new(big.Float).SetPrec(floatPrec).SetRat(rat).Text('f', -1)`. Only
+		// the `decimals` result is needed (the wrapper
+		// approximateDecimalBufferSizeWithFixedDecimals only adjusts `bytes`,
+		// which we discard), so call the inner function directly.
+		_, _, floatDecimals := approximateDecimalBufferSize(ratInfo, floatPrec)
 		targetDecimals = floatDecimals
+	}
+
+	// Round the EXACT rational to targetDecimals decimal places using exact
+	// integer arithmetic and round-half-to-even. This is the crucial step: the
+	// rounding direction is decided from the true remainder of the rational
+	// (num*10^targetDecimals mod denom), never from a pre-rounded decimal
+	// approximation. Formatting to a finite decimal window and re-rounding would
+	// suffer from double-rounding errors near the half boundary (e.g. 112/1003
+	// at 5 decimals: the window rounds 0.111665004.. to "0.11166500", which
+	// trims and re-rounds as an exact tie to 0.11166, when the true value is
+	// strictly above the half and must round to 0.11167).
+	m, isTie := roundRatToScaledInt(rat, targetDecimals)
+
+	// As the sole intentional divergence from round-half-to-even (and from
+	// [math/big.Float].Text / [strconv.FormatFloat]), an exact half that would
+	// otherwise round to zero rounds away from zero instead. This is applied
+	// only when the result carries one or more decimal places (targetDecimals
+	// > 0); at the ones place (targetDecimals == 0) halves round to even,
+	// matching the stdlib. (targetDecimals == prec for fixed prec >= 0, and the
+	// auto-decimal estimate for prec < 0, where this case is not reached.)
+	if isTie && m.Sign() == 0 && targetDecimals > 0 {
+		if rat.Sign() < 0 {
+			m.SetInt64(-1)
+		} else {
+			m.SetInt64(1)
+		}
+	}
+
+	return appendScaledIntDecimal(b, m, targetDecimals, prec < 0, rat.Sign() < 0)
+}
+
+// smallPow10IntTableMax is the largest exponent covered by smallPow10IntTable.
+// It is sized to cover every realistic fixed-precision decimal-place count
+// (money, google.type.Money nanos=9, float64's <=17 significant digits,
+// decimal128's 34) with margin; larger precisions fall back to [big.Int.Exp].
+const smallPow10IntTableMax = 36
+
+// smallPow10IntTable stores 10**i for i in [0, smallPow10IntTableMax] as
+// ready-to-use [big.Int] values. It is READ-ONLY after init: entries are only
+// ever passed as the (unmutated) y operand of [math/big.Int.Mul], so sharing
+// them across concurrent calls is safe.
+var smallPow10IntTable [smallPow10IntTableMax + 1]big.Int
+
+func init() {
+	smallPow10IntTable[0].SetInt64(1)
+	for i := 1; i <= smallPow10IntTableMax; i++ {
+		smallPow10IntTable[i].Mul(&smallPow10IntTable[i-1], big.NewInt(10))
+	}
+}
+
+// roundRatToScaledInt returns m = round(rat * 10**decimals), rounded to the
+// nearest integer with exact halves (ties) rounded to even, together with
+// isTie reporting whether the discarded fraction was an exact half.
+//
+// rat must be non-nil; decimals must be >= 0. The rounding is EXACT: it uses
+// only integer arithmetic on the rational's numerator and denominator, so it is
+// correct for any rational regardless of decimal expansion length (terminating
+// or repeating). The result agrees with IEEE round-half-to-even applied to the
+// true mathematical value.
+func roundRatToScaledInt(rat *big.Rat, decimals int) (m *big.Int, isTie bool) {
+	// scale = 10**decimals; the scaled value is (rat.Num() * scale) / rat.Denom().
+	// For the common (small) precisions, reuse a precomputed table entry to avoid
+	// a per-call [big.Int.Exp] — historically the dominant allocation hotspot.
+	// The table entry is only ever passed as the (unmutated) y operand of Mul, so
+	// sharing it across calls is safe (it is read-only after init).
+	var scale *big.Int
+	if 0 <= decimals && decimals <= smallPow10IntTableMax {
+		scale = &smallPow10IntTable[decimals]
 	} else {
-		targetDecimals = prec
+		scale = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	}
+	num := new(big.Int).Mul(rat.Num(), scale)
+	den := rat.Denom() // always positive for a valid big.Rat
 
-	// determine how many decimals we need to format (initially)
-	// NOTE: It appears 0.9 recurring is exactly equal to 1. Therefore, we
-	// don't need to worry about recurring digits rounding up to the next whole
-	// number.
-	decimals := targetDecimals + 3 // +3 for rounding (consider: 5/101, prec=1)
-	if exact {                     // no recurring digits
-		decimals = min(decimals, ratDecimals) // avoid trailing zeros
-	}
+	// q = num/den truncated toward zero; rem has the sign of num (== sign of rat).
+	q, rem := new(big.Int).QuoRem(num, den, new(big.Int))
 
-	// adjust the buffer size to account for the maximum of decimals (what we
-	// will format initially) and prec (the maximum we will write out), instead
-	// of floatDecimals (already applied to atMostBufferSize)
-	atMostBufferSize = atMostBufferSize - floatDecimals + max(prec, decimals)
+	m = new(big.Int).Set(q)
+	sgn := rat.Sign() // direction of "away from zero"; +/-1 for a non-zero rat
 
-	// format the actual number, for processing
-	b = slices.Grow(b, atMostBufferSize)        // pre-allocate
-	start := len(b)                             // start of our value
-	b = append(b, rat.FloatString(decimals)...) // note: no append variant available
-
-	// skip trimming trailing zeros if possible
-	if prec >= 0 { // if <0 we always need to trim trailing zeros
-		if decimals == prec {
-			return b
+	// Classify the discarded fraction |rem|/den by comparing 2*|rem| to den.
+	switch new(big.Int).Lsh(new(big.Int).Abs(rem), 1).Cmp(den) {
+	case +1: // strictly more than half: round away from zero
+		if sgn < 0 {
+			m.Sub(m, intOne)
+		} else {
+			m.Add(m, intOne)
 		}
-		if decimals < prec {
-			// adding missing zeros
-			return appendZeros(b, prec-decimals)
+	case 0: // exactly half: tie -> round to even (away from zero iff q is odd)
+		isTie = true
+		if q.Bit(0) == 1 { // q is odd in magnitude
+			if sgn < 0 {
+				m.Sub(m, intOne)
+			} else {
+				m.Add(m, intOne)
+			}
 		}
 	}
+	return m, isTie
+}
 
-	// ensure there are no trailing zeros
-	if decimals != 0 {
-		b, decimals = TrimTrailingZeros(b, decimals)
-	}
+// appendScaledIntDecimal appends the decimal representation of m / 10**decimals
+// to b. When trim is true, trailing fractional zeros (and a trailing decimal
+// point) are removed; otherwise exactly `decimals` fractional digits are
+// written, padding with leading zeros as needed.
+//
+// neg reports the sign of the original value and is used only to preserve the
+// sign of a zero magnitude (matching [math/big.Float].Text, which renders a
+// negative value that rounds to zero as "-0" / "-0.0"). For a non-zero m the
+// sign is always taken from m itself.
+func appendScaledIntDecimal(b []byte, m *big.Int, decimals int, trim bool, neg bool) []byte {
+	// Pre-size the output so the incremental appends below don't trigger
+	// amortized-doubling reallocations. This path is allocation-sensitive (see
+	// smallPow10IntTable and the unsafe.String zero-copy conversions in the
+	// callers), and the previous implementation pre-sized via slices.Grow.
+	//
+	// The rendered length is at most 1 (sign) + (decimal digits of |m|) + 1 ('.')
+	// + max(0, decimals). Because log10(2) < 1/3, the base-10 digit count of |m|
+	// is <= m.BitLen()/3 + 1, which bounds every branch below (m == 0,
+	// decimals <= 0, len(d) <= decimals, len(d) > decimals), with or without
+	// trimming. slices.Grow only ever increases capacity, so this is always
+	// safe; at worst an underestimate merely leaves a reallocation in place.
+	b = slices.Grow(b, int(m.BitLen())/3+max(0, decimals)+3)
 
-	// guard against no decimals remaining
-	if decimals == 0 {
-		if prec > 0 {
+	if m.Sign() == 0 {
+		if neg {
+			b = append(b, '-', '0')
+		} else {
+			b = append(b, '0')
+		}
+		if decimals > 0 && !trim {
 			b = append(b, '.')
-			b = appendZeros(b, prec)
+			b = appendZeros(b, decimals)
 		}
 		return b
 	}
 
-	dec := len(b) - 1 - decimals // index of decimal point
-	if b[dec] != '.' {
-		panic(`floater: append decimal rat: unreachable`)
+	if m.Sign() < 0 {
+		b = append(b, '-')
 	}
 
-	// round to our target number of decimals
-	if decimals > targetDecimals {
-		d := decimal{
-			buf:  b,
-			mant: start, // may need adjusting
-			dec:  dec,   // might be removed and replaced with a negative exponent
-		}
-		for {
-			if b[d.mant] == '0' {
-				d.exp--
-				if -d.exp-1 > targetDecimals {
-					// there is no chance we will round up - we can stop now
-					if prec <= 0 {
-						return b[:dec]
-					}
-					return b[:dec+1+targetDecimals]
-				}
-			} else if b[d.mant] >= '1' && b[d.mant] <= '9' {
-				break
-			}
-			d.mant++
-			if d.dec != 0 && d.mant == d.dec {
-				d.mant++ // skip the decimal point
-				d.dec = 0
-			}
-		}
-		exp := d.exp                                 // original exponent
-		n := d.mantlen() - decimals + targetDecimals // rounding to n mantissa digits
-		if n < 0 || n >= d.mantlen() {
-			panic(`floater: append decimal rat: unreachable`)
-		}
-		roundedToZeroSpecialCase := targetDecimals > 0 && d.get(n) == '5'
-		d.round(n)
-		if roundedToZeroSpecialCase && d.mantlen() == 0 {
-			// rounding to zero on tie is handled as a special case (round away from zero)
-			l := len(b) - decimals + targetDecimals
-			if l == dec+1 {
-				l--
-			}
-			b = b[:l]
-			b[l-1] = '1' // note: preceding digits are all zeros (not normalised)
-			return b
-		}
-		d.normalise(exp)
-		b = d.buf
+	// absolute decimal digit run of m (no sign)
+	// m is a freshly allocated, exclusively-owned *big.Int returned by
+	// roundRatToScaledInt, so it is safe to mutate in place (no allocation).
+	var d []byte
+	d = m.Abs(m).Append(d, 10)
+
+	switch {
+	case decimals <= 0:
+		b = append(b, d...) // integer, no fractional part
+	case len(d) <= decimals:
+		// |m| < 10**decimals: render as "0." + leading zeros + digits
+		b = append(b, '0', '.')
+		b = appendZeros(b, decimals-len(d))
+		b = append(b, d...)
+	default:
+		// the decimal point falls inside the digit run
+		split := len(d) - decimals
+		b = append(b, d[:split]...)
+		b = append(b, '.')
+		b = append(b, d[split:]...)
 	}
 
-	// update the dec variable + identify if we have a decimal point
-	var noDecimal bool
-	if dec == len(b) {
-		noDecimal = true
-	} else if b[dec] != '.' { // rounded up
-		dec++
-		if dec == len(b) {
-			noDecimal = true
-		} else if b[dec] != '.' {
-			panic(`floater: append decimal rat: unreachable`)
-		}
+	if trim && decimals > 0 {
+		// the last `decimals` bytes are the fractional part following the '.'
+		b, _ = TrimTrailingZeros(b, decimals)
 	}
-
-	// finalize the result
-	if prec == 0 {
-		if !noDecimal {
-			panic(`floater: append decimal rat: unreachable`)
-		}
-	} else if prec < 0 { // ensure we've trimmed trailing zeros
-		if !noDecimal {
-			b, _ = TrimTrailingZeros(b, len(b)-1-dec)
-		}
-	} else if prec > 0 { // add padding as needed
-		if noDecimal {
-			b = append(b, '.')
-		}
-
-		// add any necessary zeros
-		b = appendZeros(b, prec-(len(b)-dec-1))
-	}
-
 	return b
 }
+
+// intOne is a read-only big.Int equal to 1, shared to avoid per-call allocation
+// in [roundRatToScaledInt]. It is never mutated.
+var intOne = big.NewInt(1)
 
 func appendZeros(b []byte, n int) []byte {
 	for range n {
@@ -235,11 +267,217 @@ func appendZeros(b []byte, n int) []byte {
 	return b
 }
 
+// FormatDecimalFloat formats a [math/big.Float] as a decimal string using 'f'
+// notation, with the same precision semantics as [strconv.FormatFloat]: prec < 0
+// yields the shortest decimal that round-trips; prec >= 0 yields exactly prec
+// digits after the decimal point.
+//
+// For any FINITE value that is exactly representable as a float64 (i.e.
+// f.Float64() reports [big.Exact]), the output is byte-identical to
+// strconv.FormatFloat(f.Float64(), 'f', prec, 64). This deliberately differs
+// from [math/big.Float].Text, which diverges from strconv for some float64
+// values — the edge cases reported in golang/go#71245 (e.g. subnormals such as
+// 2**-1074, and values like 4.375e17). Values that are not float64-representable
+// fall back to [math/big.Float].Append with the same verb and precision.
+//
+// Infinities render as "Infinity" / "-Infinity" (NOT strconv's "+Inf" / "-Inf"),
+// for consistency with [FloatConv]; a nil float renders as "<nil>".
+func FormatDecimalFloat(f *big.Float, prec int) string {
+	return string(AppendDecimalFloat(nil, f, prec))
+}
+
+// FormatDecimalFloat32 is the float32 analogue of [FormatDecimalFloat]: it uses
+// 'f' notation with [strconv.FormatFloat] precision semantics, and for any FINITE
+// value exactly representable as a float32 the output is byte-identical to
+// strconv.FormatFloat(f.Float32(), 'f', prec, 32), including float32 denormals
+// (which have fewer than 24 significant bits — also at the root of golang/go#71245).
+// Non-representable finite values fall back to [math/big.Float].Append; infinities
+// render as "Infinity" / "-Infinity"; nil renders as "<nil>".
+func FormatDecimalFloat32(f *big.Float, prec int) string {
+	return string(AppendDecimalFloat32(nil, f, prec))
+}
+
+// AppendDecimalFloat32 is the append variant of [FormatDecimalFloat32].
+func AppendDecimalFloat32(b []byte, f *big.Float, prec int) []byte {
+	if f == nil {
+		return append(b, "<nil>"...)
+	}
+
+	// Handle infinities
+	if f.IsInf() {
+		if f.Signbit() {
+			return append(b, "-Infinity"...)
+		}
+		return append(b, "Infinity"...)
+	}
+
+	// Try to use strconv.FormatFloat for float32-representable values
+	// This ensures we match strconv.FormatFloat output exactly,
+	// including for denormalized values affected by golang/go#71245,
+	// and correctly handles zero values (including -0 and precision).
+	if f32, acc := f.Float32(); acc == big.Exact {
+		if prec < 0 {
+			b = append(b, strconv.FormatFloat(float64(f32), 'f', -1, 32)...)
+		} else {
+			b = append(b, strconv.FormatFloat(float64(f32), 'f', prec, 32)...)
+		}
+		return b
+	}
+
+	// For values that lose precision in float32 conversion,
+	// fall back to big.Float.Text
+	if prec < 0 {
+		b = f.Append(b, 'f', -1)
+	} else {
+		b = f.Append(b, 'f', prec)
+	}
+	return b
+}
+
+// AppendDecimalFloat is the append variant of [FormatDecimalFloat].
+func AppendDecimalFloat(b []byte, f *big.Float, prec int) []byte {
+	if f == nil {
+		return append(b, "<nil>"...)
+	}
+
+	// Handle infinities
+	if f.IsInf() {
+		if f.Signbit() {
+			return append(b, "-Infinity"...)
+		}
+		return append(b, "Infinity"...)
+	}
+
+	// Try to use strconv.FormatFloat for float64-representable values
+	// This ensures we match strconv.FormatFloat output exactly,
+	// including for zero values (correctly handling -0 and precision)
+	// and values affected by golang/go#71245.
+	if f64, acc := f.Float64(); acc == big.Exact {
+		if prec < 0 {
+			b = append(b, strconv.FormatFloat(f64, 'f', -1, 64)...)
+		} else {
+			b = append(b, strconv.FormatFloat(f64, 'f', prec, 64)...)
+		}
+		return b
+	}
+
+	// For values that lose precision in float64 conversion, or NaN,
+	// fall back to big.Float.Text
+	if prec < 0 {
+		b = f.Append(b, 'f', -1)
+	} else {
+		b = f.Append(b, 'f', prec)
+	}
+	return b
+}
+
+// FormatDecimalScientific formats a [math/big.Float] using scientific notation
+// ('e'), with [strconv.FormatFloat] precision semantics. For any FINITE
+// float64-representable value the output is byte-identical to
+// strconv.FormatFloat(f.Float64(), 'e', prec, 64); otherwise it falls back to
+// [math/big.Float].Append. Infinities render as "Infinity" / "-Infinity"; nil
+// as "<nil>". See [FormatDecimalFloat] for the rationale.
+func FormatDecimalScientific(f *big.Float, prec int) string {
+	return string(AppendDecimalScientific(nil, f, prec))
+}
+
+// AppendDecimalScientific is the append variant of [FormatDecimalScientific].
+func AppendDecimalScientific(b []byte, f *big.Float, prec int) []byte {
+	if f == nil {
+		return append(b, "<nil>"...)
+	}
+
+	// Handle infinities
+	if f.IsInf() {
+		if f.Signbit() {
+			return append(b, "-Infinity"...)
+		}
+		return append(b, "Infinity"...)
+	}
+
+	// Try to use strconv.FormatFloat for float64-representable values
+	// This ensures we match strconv.FormatFloat output exactly,
+	// including for zero values (correctly handling -0 and precision)
+	// and values affected by golang/go#71245.
+	if f64, acc := f.Float64(); acc == big.Exact {
+		if prec < 0 {
+			b = append(b, strconv.FormatFloat(f64, 'e', -1, 64)...)
+		} else {
+			b = append(b, strconv.FormatFloat(f64, 'e', prec, 64)...)
+		}
+		return b
+	}
+
+	// For values that lose precision in float64 conversion, or NaN,
+	// fall back to big.Float.Text
+	if prec < 0 {
+		b = f.Append(b, 'e', -1)
+	} else {
+		b = f.Append(b, 'e', prec)
+	}
+	return b
+}
+
+// FormatDecimalGeneral formats a [math/big.Float] using general format ('g'),
+// with [strconv.FormatFloat] precision semantics (prec is the maximum number of
+// significant digits). For any FINITE float64-representable value the output is
+// byte-identical to strconv.FormatFloat(f.Float64(), 'g', prec, 64); otherwise
+// it falls back to [math/big.Float].Append. Infinities render as
+// "Infinity" / "-Infinity"; nil as "<nil>". See [FormatDecimalFloat] for the rationale.
+func FormatDecimalGeneral(f *big.Float, prec int) string {
+	return string(AppendDecimalGeneral(nil, f, prec))
+}
+
+// AppendDecimalGeneral is the append variant of [FormatDecimalGeneral].
+func AppendDecimalGeneral(b []byte, f *big.Float, prec int) []byte {
+	if f == nil {
+		return append(b, "<nil>"...)
+	}
+
+	// Handle infinities
+	if f.IsInf() {
+		if f.Signbit() {
+			return append(b, "-Infinity"...)
+		}
+		return append(b, "Infinity"...)
+	}
+
+	// Try to use strconv.FormatFloat for float64-representable values
+	if f64, acc := f.Float64(); acc == big.Exact {
+		if prec < 0 {
+			b = append(b, strconv.FormatFloat(f64, 'g', -1, 64)...)
+		} else {
+			b = append(b, strconv.FormatFloat(f64, 'g', prec, 64)...)
+		}
+		return b
+	}
+
+	// For values that lose precision in float64 conversion, or NaN,
+	// fall back to big.Float.Text
+	if prec < 0 {
+		b = f.Append(b, 'g', -1)
+	} else {
+		b = f.Append(b, 'g', prec)
+	}
+	return b
+}
+
 // TrimTrailingZeros trims trailing zeros from a byte slice b, which MUST have
 // the specified number of decimals, returning the right-trimmed slice, and the
 // number of decimals remaining.
+//
+// If b is too short to contain a decimal point followed by `decimals` digits
+// (i.e. len(b) <= decimals), there is nothing to trim and b is returned
+// unchanged with its decimals count, rather than panicking on out-of-range
+// access. This keeps the exported function safe to call with malformed input.
 func TrimTrailingZeros(b []byte, decimals int) ([]byte, int) {
+	if decimals <= 0 {
+		return b, 0
+	}
 	dec := len(b) - 1 - decimals
+	if dec < 0 {
+		return b, decimals
+	}
 	for i := len(b) - 1; i >= dec; i-- {
 		if i == dec {
 			return b[:dec], 0
@@ -265,16 +503,10 @@ type approximateDecimalBufferSizeInput interface {
 var _ approximateDecimalBufferSizeInput = (*bigFloatInfo)(nil)
 var _ approximateDecimalBufferSizeInput = (*bigRatInfo)(nil)
 
-// approximateDecimalBufferSize calculates what should be the maximum number of
-// bytes to format a [math/big.Float] as a decimal string.
-// It is intended to always be an overestimate. The bytes return value includes
-// both the sign and any decimal. The significand return value is the estimated
-// number of digits in the significand (mantissa), and the decimals return
-// value is the estimated number of decimal places, in the formatted string.
-//
-// WARNING: The decimals value is independent of bytes. If you request a
-// specific number of decimals (and always get them) you may need MORE than
-// bytes. To handle that, see approximateDecimalBufferSizeWithFixedDecimals.
+// approximateDecimalBufferSize estimates the maximum bytes needed to format
+// a float as decimal. The bytes value includes sign and decimal point.
+// The decimals value is independent of bytes; see
+// approximateDecimalBufferSizeWithFixedDecimals for fixed-decimal sizing.
 func approximateDecimalBufferSize[T approximateDecimalBufferSizeInput](f T, prec uint) (bytes, significand, decimals int) {
 	if !f.Valid() || f.IsInf() {
 		panic(`floater: approximate decimal buffer size: invalid input`)

@@ -46,3 +46,52 @@ func FuzzFloatFromHalfOpenRange(f *testing.F) {
 		}
 	})
 }
+
+// TestFloatFromHalfOpenRange_Aliasing verifies that the destination z may safely
+// alias x, y, or f (a math/big convention). Previously the chain
+// z.Sub(y,x).Mul(z,f).Add(z,x) reused z as the accumulator while re-reading x
+// last, so aliasing corrupted an input mid-computation (z==x -> 2*(y-x)*f
+// instead of x+f*(y-x); z==y -> lost the y-x term).
+func TestFloatFromHalfOpenRange_Aliasing(t *testing.T) {
+	const (
+		xf = 0.0
+		yf = 10.0
+		ff = 0.5
+	)
+	want := big.NewFloat(5.0) // x + f*(y-x) = 0 + 0.5*10
+
+	// control: distinct z
+	z := FloatFromHalfOpenRange(new(big.Float), big.NewFloat(xf), big.NewFloat(yf), big.NewFloat(ff))
+	if z.Cmp(want) != 0 {
+		t.Errorf(`distinct z: got %g, want %g`, z, want)
+	}
+
+	// z == x (in-place into x)
+	x := big.NewFloat(xf)
+	z2 := FloatFromHalfOpenRange(x, x, big.NewFloat(yf), big.NewFloat(ff))
+	if z2.Cmp(want) != 0 || z2 != x {
+		t.Errorf(`z==x: got %g (z==x:%v), want %g`, z2, z2 == x, want)
+	}
+
+	// z == y (in-place into y)
+	y := big.NewFloat(yf)
+	z3 := FloatFromHalfOpenRange(y, big.NewFloat(xf), y, big.NewFloat(ff))
+	if z3.Cmp(want) != 0 || z3 != y {
+		t.Errorf(`z==y: got %g (z==y:%v), want %g`, z3, z3 == y, want)
+	}
+
+	// z == f (in-place into f)
+	f := big.NewFloat(ff)
+	z4 := FloatFromHalfOpenRange(f, big.NewFloat(xf), big.NewFloat(yf), f)
+	if z4.Cmp(want) != 0 || z4 != f {
+		t.Errorf(`z==f: got %g (z==f:%v), want %g`, z4, z4 == f, want)
+	}
+
+	// negative range: x=-10, y=0, f=0.5 -> -5
+	wantNeg := big.NewFloat(-5.0)
+	xn := big.NewFloat(-10.0)
+	z5 := FloatFromHalfOpenRange(xn, xn, big.NewFloat(0), big.NewFloat(ff))
+	if z5.Cmp(wantNeg) != 0 {
+		t.Errorf(`z==x negative range: got %g, want %g`, z5, wantNeg)
+	}
+}

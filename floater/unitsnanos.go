@@ -1,11 +1,12 @@
 package floater
 
 import (
-	"golang.org/x/exp/slices"
 	"math"
 	"math/big"
 	"strconv"
 	"unsafe"
+
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -98,14 +99,17 @@ func RatToUnitsNanos(rat *big.Rat) (int64, int32, bool) {
 
 	den := rat.Denom()
 	if den.Sign() == 0 {
-		panic(`floater: rat to units nanos: denominator cannot be zero`)
+		// A big.Rat always has a positive denominator; this is defensive.
+		return 0, 0, false
 	}
 
 	num := rat.Num()
 
 	r1 := new(big.Int).Quo(num, den)
 	if !r1.IsInt64() {
-		panic(`floater: rat to units nanos: integer part out of int64 range`)
+		// Out of int64 range. The bounds check above should make this
+		// unreachable, but return ok=false rather than panicking.
+		return 0, 0, false
 	}
 
 	units := r1.Int64() // units has the correct sign
@@ -115,7 +119,9 @@ func RatToUnitsNanos(rat *big.Rat) (int64, int32, bool) {
 
 	sign := r1.Sign() // either 0 or sign of result
 	if sign == 0 {
-		panic(`floater: rat to units nanos: unexpected zero remainder`)
+		// Unreachable for a non-integer rat (checked above), but return
+		// ok=false rather than panicking if somehow reached.
+		return 0, 0, false
 	}
 
 	r1.Abs(r1) // abs(remainder)
@@ -168,8 +174,7 @@ func RatToUnitsNanos(rat *big.Rat) (int64, int32, bool) {
 // zeros, and [AppendUnitsNanos], for a byte slice append variant.
 func FormatUnitsNanos(units int64, nanos int32) string {
 	b := AppendUnitsNanos(nil, units, nanos)
-	p := unsafe.SliceData(b)
-	return unsafe.String(p, len(b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // FormatUnitsNanosTrimmed formats the units and nanos to a string, without any
@@ -182,17 +187,29 @@ func FormatUnitsNanosTrimmed(units int64, nanos int32) string {
 	}
 	b := AppendUnitsNanos(nil, units, nanos)
 	b, _ = TrimTrailingZeros(b, unitNanosDecimals)
-	p := unsafe.SliceData(b)
-	return unsafe.String(p, len(b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // AppendUnitsNanos appends the formatted units and nanos to the byte slice,
 // with nanos always having 9 digits, and returns the extended slice.
 //
+// nanos MUST be in the range [-999999999, 999999999] (the valid range for the
+// nanos field of google.type.Money); otherwise the function panics. In addition,
+// when both units and nanos are non-zero they MUST share the same sign, matching
+// the validation performed by [UnitsNanosToRat]; a mismatch panics rather than
+// silently producing a malformed value (e.g. otherwise (1, -1) and (1, 1) would
+// render identically). Either may be zero.
+//
 // See also [TrimTrailingZeros], for removing trailing zeros from the formatted
 // string, and [FormatUnitsNanos] and [FormatUnitsNanosTrimmed], for string
 // variants.
 func AppendUnitsNanos(b []byte, units int64, nanos int32) []byte {
+	if nanos > unitNanosMaxNanos || nanos < -unitNanosMaxNanos {
+		panic(`floater: append units nanos: nanos out of range [-999999999, 999999999]: ` + strconv.FormatInt(int64(nanos), 10))
+	}
+	if units != 0 && nanos != 0 && (units > 0) != (nanos > 0) {
+		panic(`floater: append units nanos: units and nanos have mismatched signs: ` + strconv.FormatInt(units, 10) + `, ` + strconv.FormatInt(int64(nanos), 10))
+	}
 	if nanos < 0 {
 		nanos = -nanos
 		if units == 0 {
@@ -213,5 +230,23 @@ func decimalsForNanos(nanos int32) int8 {
 	if nanos == 0 {
 		return unitNanosDecimals - 1
 	}
-	return unitNanosDecimals - int8(math.Log10(float64(nanos))) - 1
+	// The sole caller (AppendUnitsNanos) guarantees nanos is in [0, 999999999]
+	// on entry: it panics on anything outside [-999999999, 999999999] and flips
+	// the sign of negatives first, so this branch is never reached in practice.
+	// Take the absolute value in int64 anyway as defense-in-depth: it avoids the
+	// int32 negation overflow (which, for math.MinInt32, wraps back to itself)
+	// should the helper ever be called directly. The leading-zero COUNT it
+	// returns is only meaningful within the caller-guaranteed [0, 999999999]
+	// range; out-of-range magnitudes yield a nonsense (negative) value rather
+	// than panicking, which is acceptable since the public API prevents that.
+	n := int64(nanos)
+	if n < 0 {
+		n = -n
+	}
+	decimals := int8(unitNanosDecimals - 1)
+	for n >= 10 {
+		n /= 10
+		decimals--
+	}
+	return decimals
 }
