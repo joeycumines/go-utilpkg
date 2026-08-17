@@ -13,7 +13,3 @@ require (
 	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 // indirect
 	golang.org/x/text v0.41.0 // indirect
 )
-
-replace github.com/joeycumines/goja => ../../../goja
-
-replace github.com/joeycumines/goja_nodejs => ../../../goja_nodejs

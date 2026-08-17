@@ -25,5 +25,3 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260810153831-ec0a7760b754 // indirect
 )
-
-replace github.com/joeycumines/goja => ../../../goja

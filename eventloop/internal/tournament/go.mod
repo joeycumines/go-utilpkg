@@ -24,7 +24,3 @@ require (
 	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297 // indirect
 	golang.org/x/text v0.41.0 // indirect
 )
-
-replace github.com/joeycumines/goja => ../../../goja
-
-replace github.com/joeycumines/goja_nodejs => ../../../goja_nodejs

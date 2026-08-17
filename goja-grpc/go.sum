@@ -32,12 +32,16 @@ github.com/joeycumines/go-inprocgrpc v0.0.0-20260624075719-4d4ca2aad3e8 h1:MD8aD
 github.com/joeycumines/go-inprocgrpc v0.0.0-20260624075719-4d4ca2aad3e8/go.mod h1:C7u+Cvt2tsK3Fxv/2qIro9MNiLqBOTbI49fgXF477ck=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
+github.com/joeycumines/goja v0.0.0-20260807074527-37ac99caa69a h1:n1KhJkax4VOEmT9CPzzD2cPQxV9B/l/jRzOUYP1tsCk=
+github.com/joeycumines/goja v0.0.0-20260807074527-37ac99caa69a/go.mod h1:/JB7udGN+8Kj/yzuhPZ1Epev8lxEwZFySUxzQfyZ9Kw=
 github.com/joeycumines/goja-eventloop v0.0.0-20260624075653-1774b6f91929 h1:fsQCP9dwwuGWNy6ZaRD6EflxbgkDxxGMqh970MOXJcI=
 github.com/joeycumines/goja-eventloop v0.0.0-20260624075653-1774b6f91929/go.mod h1:PthVoEQBbt1WRvnVM/sBiAxUqMWsszlmxQbb/+QGNzM=
 github.com/joeycumines/goja-protobuf v0.0.0-20260624075704-ffc13154913d h1:Zavo3LG/SONngwwag/FI1q4fwWn1aQeY6iZVSyFqb4o=
 github.com/joeycumines/goja-protobuf v0.0.0-20260624075704-ffc13154913d/go.mod h1:bRGNVuLRzdJRTwlLNGicmbWC22cB75VJrKfTYkJWgLA=
 github.com/joeycumines/goja-protojson v0.0.0-20260624075710-cbc63e899449 h1:R73EMt19JVb218UivGffx02cO3aVhAzePSEgTGiYhcg=
 github.com/joeycumines/goja-protojson v0.0.0-20260624075710-cbc63e899449/go.mod h1:rcSJwnD0x2dRvGiKnZ95Bgl0fcH278I1MQO4hK8xLfw=
+github.com/joeycumines/goja_nodejs v0.0.0-20260725224646-7b69489f6ce5 h1:KG4BgNWOeNfLmTW0xIYZ3gTTRvYVAWFXPoewLrfn798=
+github.com/joeycumines/goja_nodejs v0.0.0-20260725224646-7b69489f6ce5/go.mod h1:0pONdAar7AkaQd1jNOjpBKEFcrUZJ5h+Q/9j3k8g5lM=
 github.com/joeycumines/goroutineid v1.1.0 h1:qBh3nHCqr6GaELN5aoRptfoK+/1l9DnB8CzGLulrIUw=
 github.com/joeycumines/goroutineid v1.1.0/go.mod h1:tnbQeix98R8i/E4oejMogd9GowCxPd9/uySabNi3MJE=
 github.com/joeycumines/logiface v0.5.0 h1:4fm7M1b6XLWByJ215bqUqGGbPExKBbTEG9ugUkrCZPk=
