@@ -1,11 +1,11 @@
 module github.com/joeycumines/logiface-testsuite
 
-go 1.26.2
+go 1.26.6
 
 require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/joeycumines/logiface v0.5.0
-	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
 )
 
 require (

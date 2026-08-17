@@ -1,3 +1,3 @@
 module github.com/joeycumines/go-longpoll
 
-go 1.26.2
+go 1.26.6

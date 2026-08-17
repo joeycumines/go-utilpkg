@@ -1,4 +1,4 @@
-go 1.26.2
+go 1.26.6
 
 use (
 	.
@@ -9,11 +9,11 @@ use (
 	./fangrpcstream
 	./floater
 	./goja
-	./goja_nodejs
 	./goja-eventloop
 	./goja-grpc
 	./goja-protobuf
 	./goja-protojson
+	./goja_nodejs
 	./goroutineid
 	./grpc-proxy
 	./inprocgrpc
