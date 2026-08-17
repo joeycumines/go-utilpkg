@@ -1,637 +1,306 @@
 #!/usr/bin/env python3
-"""
-Cross-Platform Benchmark Analysis
-Analyzes benchmark results from Darwin, Linux, and Windows platforms
+"""Generate a descriptive Darwin/Linux/Windows tournament report.
+
+The report preserves stable benchmark identities and coverage differences. It
+does not claim statistical significance; use repository-pinned benchstat over
+raw same-platform logs for longitudinal inference.
 """
 
 import argparse
 import json
-import math
-import statistics
-from collections import defaultdict
+import re
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+
 
 SCRIPT_DIR = Path(__file__).parent
+GO_RELEASE_RE = re.compile(r'^go version (go\S+) ')
 
-def load_benchmark_data(filepath: Path) -> Dict[str, Any]:
-    """Load benchmark JSON file"""
-    with open(filepath) as f:
-        return json.load(f)
 
-def normalize_benchmark_name(name: str) -> str:
-    """
-    Normalize benchmark name for cross-platform comparison.
-    Removes suffixes like -16, -8, etc. (GOMAXPROCS indicators)
-    This allows Windows benchmarks (with -16 suffix) to match Darwin/Linux (without)
-    """
-    import re
-    name = re.sub(r'-\d+$', '', name)
-    return name
+def load_benchmark_data(filepath):
+    with open(filepath, encoding='utf-8') as source:
+        return json.load(source)
 
-def extract_benchmark_summary(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """
-    Extract summary statistics for each benchmark.
-    Includes raw ns_op runs for proper Welch t-test in cross-tournament comparison.
-    Returns dict of benchmark_name -> summary_stats
-    """
+
+def platform_label(data, fallback):
+    goos = data.get('goos') or data.get('platform') or fallback.lower()
+    goarch = data.get('goarch') or 'unknown-arch'
+    return f'{fallback} ({goos}/{goarch})'
+
+
+def normalize_benchmark_name(name):
+    return re.sub(r'-\d+$', '', name)
+
+
+def extract_benchmark_summary(data):
+    """Extract rows by package and stable longitudinal benchmark identity."""
     summary = {}
-    for b in data['benchmarks']:
-        name = normalize_benchmark_name(b['name'])
-        stats = b['statistics']
+    for benchmark in data['benchmarks']:
+        stable_name = benchmark.get('stable_name') or normalize_benchmark_name(
+            benchmark['name']
+        )
+        name = f"{benchmark.get('package') or '<unknown-package>'}::{stable_name}"
+        statistics = benchmark['statistics']
         summary[name] = {
-            'ns_op_mean': stats['ns_op']['mean'],
-            'ns_op_stddev': stats['ns_op']['stddev'],
-            'ns_op_min': stats['ns_op']['min'],
-            'ns_op_max': stats['ns_op']['max'],
-            'b_op_mean': stats['b_op']['mean'],
-            'allocs_op_mean': stats['allocs_op']['mean'],
-            'ns_per_op': stats['ns_op']['mean'],
-            # Raw runs for proper Welch t-test in cross-tournament comparison
-            'ns_op_runs': [r['ns_op'] for r in b['runs']],
+            'ns_op_mean': statistics['ns_op']['mean'],
+            'ns_op_stddev': statistics['ns_op']['stddev'],
+            'ns_op_min': statistics['ns_op']['min'],
+            'ns_op_max': statistics['ns_op']['max'],
+            'b_op_mean': statistics['b_op']['mean'],
+            'allocs_op_mean': statistics['allocs_op']['mean'],
+            'ns_per_op': statistics['ns_op']['mean'],
+            'ns_op_runs': [run['ns_op'] for run in benchmark['runs']],
         }
     return summary
 
-def calculate_coefficient_of_variation(mean: float, stddev: float) -> float:
-    """Calculate coefficient of variation (CV) as percentage"""
-    if mean == 0:
-        return 0.0
-    return (stddev / mean) * 100.0
 
-def perform_t_test(group1: List[float], group2: List[float]) -> Tuple[float, bool]:
-    """
-    Perform simple t-test to determine if two groups are statistically different
-    Returns (t_statistic, is_significant_at_95_percent)
-    """
-    if len(group1) < 2 or len(group2) < 2:
-        return 0.0, False
+def calculate_coefficient_of_variation(mean, stddev):
+    return (stddev / mean * 100.0) if mean else 0.0
 
-    mean1 = statistics.mean(group1)
-    mean2 = statistics.mean(group2)
-    var1 = statistics.variance(group1) if len(group1) > 1 else 0
-    var2 = statistics.variance(group2) if len(group2) > 1 else 0
-    n1, n2 = len(group1), len(group2)
 
-    # Pooled standard error
-    se = math.sqrt(var1/n1 + var2/n2)
+def require_validated(data, label):
+    if not data.get('validated'):
+        raise ValueError(f'{label} is not a validated schema-v2 tournament result')
+    if data.get('evidence_class') != 'canonical':
+        raise ValueError(f'{label} is not canonical tournament evidence')
 
-    if se == 0:
-        return 0.0, False
 
-    t_stat = abs(mean1 - mean2) / se
+def go_release(data):
+    """Return the toolchain release without its platform-specific suffix."""
+    match = GO_RELEASE_RE.match(data.get('source', {}).get('go-version', ''))
+    return match.group(1) if match else None
 
-    # Degrees of freedom (using Welch-Satterthwaite approximation)
-    df = (var1/n1 + var2/n2)**2 / ((var1/n1)**2/(n1-1) + (var2/n2)**2/(n2-1))
 
-    # Critical t-value for 95% confidence (approximately 2.776 for df=5)
-    # For large df, use 1.96
-    critical_t = 2.776 if df < 30 else 1.96
+def cross_platform_issues(data_by_platform):
+    """Return source defects that invalidate a three-platform evidence join."""
+    expected = {'Darwin': 'darwin', 'Linux': 'linux', 'Windows': 'windows'}
+    if set(data_by_platform) != set(expected):
+        return ['platform set is not exactly Darwin, Linux, and Windows']
+    issues = []
+    for platform, goos in expected.items():
+        if data_by_platform[platform].get('goos') != goos:
+            issues.append(f'{platform} GOOS is not {goos}')
 
-    return t_stat, t_stat > critical_t
+    def compare(label, values):
+        if any(value is None or value == '' for value in values):
+            issues.append(f'{label} is missing')
+        elif len(set(values)) != 1:
+            issues.append(f'{label} differs')
 
-def get_speedup_ratio(value1: float, value2: float) -> float:
-    """Calculate speedup ratio (value1/value2). >1 means value1 is faster."""
-    if value2 == 0:
-        return float('inf')
-    return value1 / value2
+    datasets = [data_by_platform[platform] for platform in expected]
+    compare('effective sample count', [data.get('effective_sample_count') for data in datasets])
+    compare('Go release', [go_release(data) for data in datasets])
+    for key, label in (
+        ('head', 'source HEAD'),
+        ('source-state', 'source state'),
+        ('source-fingerprint', 'source fingerprint'),
+        ('sample-count', 'source sample count'),
+        ('goja-fork-version', 'Goja fork version'),
+        ('goja-nodejs-version', 'goja_nodejs version'),
+    ):
+        compare(label, [data.get('source', {}).get(key) for data in datasets])
+    for key, label in (
+        ('schema_version', 'manifest schema'),
+        ('sha256', 'manifest SHA-256'),
+        ('git_blob', 'manifest Git blob'),
+        ('sample_count', 'manifest sample count'),
+    ):
+        compare(label, [data.get('manifest', {}).get(key) for data in datasets])
+    return issues
 
-def generate_top_list(platform_name: str, benchmarks: Dict[str, Dict],
-                     metric: str = 'ns_op_mean', top_n: int = 10,
-                     ascending: bool = True) -> str:
-    """Generate top N fastest or slowest benchmarks table"""
-    sorted_benchmarks = sorted(benchmarks.items(), key=lambda x: x[1][metric], reverse=not ascending)
-    top_items = sorted_benchmarks[:top_n]
 
-    label = "Fastest" if ascending else "Slowest"
-    lines = []
-    lines.append(f"\n### Top {top_n} {label} Benchmarks - {platform_name}")
-    lines.append(f"\n| Rank | Benchmark | {metric} | StdDev | CV% | B/op | Allocs/op |")
-    lines.append("|------|-----------|----------|--------|-----|------|------------|")
+def source_summary(data):
+    source = data.get('source', {})
+    cpu = ', '.join(data.get('cpu') or ['unknown'])
+    manifest = data.get('manifest', {})
+    return (
+        f"head `{source.get('head', 'unknown')}`, state "
+        f"`{source.get('source-state', 'unknown')}`, fingerprint "
+        f"`{source.get('source-fingerprint', 'unknown')}`, Go "
+        f"`{source.get('go-version', 'unknown')}`, Goja "
+        f"`{source.get('goja-fork-version', 'unknown')}`, goja_nodejs "
+        f"`{source.get('goja-nodejs-version', 'unknown')}`, CPU `{cpu}`, "
+        f"manifest `{manifest.get('sha256', 'unknown')}`"
+    )
 
-    for rank, (name, data) in enumerate(top_items, 1):
-        cv = calculate_coefficient_of_variation(data['ns_op_mean'], data['ns_op_stddev'])
-        lines.append(f"| {rank:4} | {name[:50]:50} | {data[metric]:>8.2f} | {data['ns_op_stddev']:>6.2f} | {cv:>3.1f}% | {data['b_op_mean']:>4.0f} | {data['allocs_op_mean']:>10.0f} |")
 
-    return '\n'.join(lines)
+def compatibility_issues(current, past):
+    issues = []
+    if current.get('goos') != past.get('goos'):
+        issues.append('GOOS')
+    if current.get('goarch') != past.get('goarch'):
+        issues.append('goarch')
+    if current.get('cpu') != past.get('cpu'):
+        issues.append('CPU identity')
+    if current.get('source', {}).get('go-version') != past.get('source', {}).get('go-version'):
+        issues.append('Go version')
+    for key, label in (
+        ('goja-fork-version', 'Goja fork version'),
+        ('goja-nodejs-version', 'goja_nodejs version'),
+    ):
+        if current.get('source', {}).get(key) != past.get('source', {}).get(key):
+            issues.append(label)
+    if current.get('manifest', {}).get('sha256') != past.get('manifest', {}).get('sha256'):
+        issues.append('manifest')
+    if current.get('effective_sample_count') != past.get('effective_sample_count'):
+        issues.append('effective sample count')
+    return issues
 
-def generate_platform_rankings(
-    darwin: Dict[str, Dict],
-    linux: Dict[str, Dict],
-    windows: Dict[str, Dict],
-    common_benchmarks: List[str]
-) -> str:
-    """Generate platform rankings showing which platform wins which benchmark"""
-    platform_wins = defaultdict(int)
-    platform_details = defaultdict(list)
 
-    lines = []
-    lines.append("\n## Platform Performance Rankings")
-    lines.append(f"\nTotal benchmarks with data on all 3 platforms: **{len(common_benchmarks)}**\n")
+def append_longitudinal(lines, platform, current_data, past_data, past_name):
+    lines.extend(['', f'## {platform} longitudinal observations vs {past_name}', ''])
+    issues = compatibility_issues(current_data, past_data)
+    if issues:
+        lines.append(
+            f"Comparison refused because {', '.join(issues)} differs. Re-run both "
+            'revisions under one controlled environment.'
+        )
+        return
+    current = extract_benchmark_summary(current_data)
+    past = extract_benchmark_summary(past_data)
+    rows = []
+    for name in set(current) & set(past):
+        before = past[name]['ns_op_mean']
+        after = current[name]['ns_op_mean']
+        percent = ((after - before) / before * 100.0) if before else 0.0
+        rows.append((abs(percent), name, before, after, percent))
+    rows.sort(reverse=True)
+    lines.extend([
+        f'{len(rows)} stable identities overlap. Deltas are descriptive means only.',
+        '',
+        '| Benchmark | Previous ns/op | Current ns/op | Observed delta |',
+        '|---|---:|---:|---:|',
+    ])
+    for _, name, before, after, percent in rows[:30]:
+        lines.append(f'| `{name}` | {before:,.2f} | {after:,.2f} | {percent:+.1f}% |')
 
-    if not common_benchmarks:
-        lines.append("**No common benchmarks found across all three platforms**")
-        lines.append("\nThis means the benchmark sets are different between Darwin/Linux and Windows.")
-        lines.append("Possible causes:")
-        lines.append("- Windows benchmarks were run with different test subset")
-        lines.append("- Benchmark name formatting differs beyond GOMAXPROCS suffix")
-        lines.append("- Different benchmark versions or test configurations")
-        return '\n'.join(lines)
 
-    for name in common_benchmarks:
-        d = darwin[name]['ns_op_mean']
-        l = linux[name]['ns_op_mean']
-        w = windows[name]['ns_op_mean']
+def generate(data_by_platform, compare_to=None):
+    for platform, data in data_by_platform.items():
+        require_validated(data, f'{platform.lower()}.json')
+    issues = cross_platform_issues(data_by_platform)
+    if issues:
+        raise ValueError(
+            'three-platform evidence has incompatible provenance: ' + ', '.join(issues)
+        )
 
-        fastest = min([('Darwin', d), ('Linux', l), ('Windows', w)], key=lambda x: x[1])
-        platform_wins[fastest[0]] += 1
-        platform_details[fastest[0]].append((name, fastest[1]))
+    summaries = {
+        platform: extract_benchmark_summary(data)
+        for platform, data in data_by_platform.items()
+    }
+    identity_sets = [set(summary) for summary in summaries.values()]
+    common = sorted(set.intersection(*identity_sets))
+    union = set.union(*identity_sets)
+    labels = {
+        platform: platform_label(data_by_platform[platform], platform)
+        for platform in data_by_platform
+    }
+    lines = [
+        '# Eventloop Tournament: Three-Platform Observations',
+        '',
+        'This is a descriptive report. Absolute cross-platform ratios combine '
+        'operating-system, architecture, runtime, and machine effects. They are not '
+        'regression findings or statistical significance claims.',
+        '',
+    ]
+    for platform in ('Darwin', 'Linux', 'Windows'):
+        lines.append(
+            f'- **{labels[platform]}:** {source_summary(data_by_platform[platform])}'
+        )
 
-    lines.append("| Platform | Wins | Percentage | Examples |")
-    lines.append("|----------|------|------------|----------|")
+    lines.extend([
+        '',
+        '## Coverage',
+        '',
+        f'- Stable identities present on all three platforms: {len(common)}',
+        f'- Stable identities present on at least one platform: {len(union)}',
+        '',
+        '| Platform | Result identities | Missing from union |',
+        '|---|---:|---:|',
+    ])
+    for platform in ('Darwin', 'Linux', 'Windows'):
+        lines.append(
+            f'| {labels[platform]} | {len(summaries[platform])} | '
+            f'{len(union - set(summaries[platform]))} |'
+        )
 
-    for platform in ['Darwin', 'Linux', 'Windows']:
-        percentage = (platform_wins[platform] / len(common_benchmarks) * 100) if common_benchmarks else 0
-        examples = ', '.join([f"{n[:20]} ({t:.0f}ns)" for n, t in platform_details[platform][:3]])
-        lines.append(f"| {platform:8} | {platform_wins[platform]:4} | {percentage:>9.1f}% | {examples[:60]:60} |")
+    lines.extend([
+        '',
+        '## Shared benchmark observations',
+        '',
+        '| Benchmark | Darwin ns/op | Linux ns/op | Windows ns/op | Fastest observed |',
+        '|---|---:|---:|---:|---|',
+    ])
+    for name in common:
+        values = {
+            platform: summaries[platform][name]['ns_op_mean']
+            for platform in ('Darwin', 'Linux', 'Windows')
+        }
+        fastest = min(values, key=values.get)
+        lines.append(
+            f"| `{name}` | {values['Darwin']:,.2f} | {values['Linux']:,.2f} | "
+            f"{values['Windows']:,.2f} | {fastest} |"
+        )
 
-    return '\n'.join(lines)
-
-def generate_architecture_comparison(
-    darwin: Dict[str, Dict],
-    linux: Dict[str, Dict],
-    windows: Dict[str, Dict],
-    common_benchmarks: List[str]
-) -> str:
-    """Generate ARM64 vs ARM64 vs AMD64 architecture comparison"""
-    lines = []
-    lines.append("\n## Architecture Comparison")
-    lines.append("\n**Note:** Darwin (macOS) and Linux both use ARM64, while Windows uses AMD64 (x86_64)")
-
-    # Calculate average speed differences
-    darwin_vs_linux = []
-    darwin_vs_windows = []
-    linux_vs_windows = []
-
-    for name in common_benchmarks:
-        d = darwin[name]['ns_op_mean']
-        l = linux[name]['ns_op_mean']
-        w = windows[name]['ns_op_mean']
-
-        darwin_vs_linux.append(d / l)  # >1 means Darwin is slower
-        darwin_vs_windows.append(d / w)
-        linux_vs_windows.append(l / w)
-
-    lines.append("\n### ARM64 (Darwin) vs ARM64 (Linux)")
-    lines.append(f"- Mean ratio: {statistics.mean(darwin_vs_linux):.3f}x")
-    lines.append(f"- Median ratio: {statistics.median(darwin_vs_linux):.3f}x")
-    lines.append(f"- Darwin faster: {sum(1 for r in darwin_vs_linux if r < 1)} benchmarks")
-    lines.append(f"- Linux faster: {sum(1 for r in darwin_vs_linux if r > 1)} benchmarks")
-    lines.append(f"- Equal (within 1%): {sum(1 for r in darwin_vs_linux if 0.99 <= r <= 1.01)} benchmarks")
-
-    lines.append("\n### ARM64 (Darwin) vs AMD64 (Windows)")
-    lines.append(f"- Mean ratio: {statistics.mean(darwin_vs_windows):.3f}x")
-    lines.append(f"- Median ratio: {statistics.median(darwin_vs_windows):.3f}x")
-    lines.append(f"- Darwin faster: {sum(1 for r in darwin_vs_windows if r < 1)} benchmarks")
-    lines.append(f"- Windows faster: {sum(1 for r in darwin_vs_windows if r > 1)} benchmarks")
-
-    lines.append("\n### ARM64 (Linux) vs AMD64 (Windows)")
-    lines.append(f"- Mean ratio: {statistics.mean(linux_vs_windows):.3f}x")
-    lines.append(f"- Median ratio: {statistics.median(linux_vs_windows):.3f}x")
-    lines.append(f"- Linux faster: {sum(1 for r in linux_vs_windows if r < 1)} benchmarks")
-    lines.append(f"- Windows faster: {sum(1 for r in linux_vs_windows if r > 1)} benchmarks")
-
-    return '\n'.join(lines)
-
-def generate_allocation_comparison(
-    darwin: Dict[str, Dict],
-    linux: Dict[str, Dict],
-    windows: Dict[str, Dict],
-    common_benchmarks: List[str]
-) -> str:
-    """Generate allocation comparison across platforms"""
-    lines = []
-    lines.append("\n## Allocation Comparison")
-    lines.append("\nAllocations should be platform-independent. This section verifies consistency.\n")
-
-    mismatches = []
-    matches = []
-
-    for name in common_benchmarks:
-        allocs = [darwin[name]['allocs_op_mean'],
-                linux[name]['allocs_op_mean'],
-                windows[name]['allocs_op_mean']]
-
-        if len(set(allocs)) != 1:
-            mismatches.append((name, allocs))
+    lines.extend([
+        '',
+        '## Platform-only coverage',
+        '',
+        'Rows absent on one platform are reported as missing coverage, never as an '
+        'infinite slowdown or a win for another platform.',
+    ])
+    for platform in ('Darwin', 'Linux', 'Windows'):
+        only = sorted(set(summaries[platform]) - set.union(*[
+            set(summaries[other])
+            for other in summaries if other != platform
+        ]))
+        lines.extend(['', f'### {platform}-only', ''])
+        if only:
+            lines.extend(f'- `{name}`' for name in only)
         else:
-            matches.append(name)
+            lines.append('- None')
 
-    lines.append(f"**Allocations match across all platforms:** {len(matches)} benchmarks")
-    lines.append(f"**Allocation mismatches:** {len(mismatches)} benchmarks")
+    lines.extend([
+        '',
+        '## Statistical comparison',
+        '',
+        'Run old and new code on the same platform and hardware, preserve both raw '
+        'logs, and invoke:',
+        '',
+        '```bash',
+        'gmake eventloop-tournament-compare OLD_LOG=old.log NEW_LOG=new.log',
+        '```',
+        '',
+        'That target uses the pinned `benchstat`; this report intentionally does not '
+        'approximate its statistical implementation.',
+    ])
 
-    if mismatches:
-        lines.append("\n### Benchmarks with Allocation Mismatches:")
-        lines.append("| Benchmark | Darwin | Linux | Windows |")
-        lines.append("|-----------|--------|-------|---------|")
-        for name, allocs in sorted(mismatches):
-            lines.append(f"| {name[:60]:60} | {allocs[0]:>6.0f} | {allocs[1]:>5.0f} | {allocs[2]:>7.0f} |")
+    if compare_to is not None:
+        for platform in ('Darwin', 'Linux', 'Windows'):
+            past_path = compare_to / f'{platform.lower()}.json'
+            past = load_benchmark_data(past_path)
+            require_validated(past, str(past_path))
+            append_longitudinal(
+                lines, platform, data_by_platform[platform], past, compare_to.name
+            )
+    return '\n'.join(lines) + '\n'
 
-    # Calculate total allocations per platform
-    darwin_total_allocs = sum(d['allocs_op_mean'] * d['b_op_mean'] for d in darwin.values())
-    linux_total_allocs = sum(d['allocs_op_mean'] * d['b_op_mean'] for d in linux.values())
-    windows_total_allocs = sum(d['allocs_op_mean'] * d['b_op_mean'] for d in windows.values())
-
-    lines.append(f"\n### Total Allocation Summary")
-    lines.append(f"- Darwin: {darwin_total_allocs:,.0f} total allocations")
-    lines.append(f"- Linux: {linux_total_allocs:,.0f} total allocations")
-    lines.append(f"- Windows: {windows_total_allocs:,.0f} total allocations")
-
-    return '\n'.join(lines)
-
-def generate_executive_summary(
-    darwin: Dict[str, Dict],
-    linux: Dict[str, Dict],
-    windows: Dict[str, Dict],
-    common_benchmarks: List[str],
-    current_date: str
-) -> str:
-    """Generate executive summary with key metrics"""
-    lines = []
-    lines.append("# Executive Summary")
-    lines.append("\nThis report provides a comprehensive cross-platform analysis of eventloop benchmark")
-    lines.append("performance across three platforms:")
-    lines.append("- **Darwin** (macOS, ARM64)")
-    lines.append("- **Linux** (ARM64)")
-    lines.append("- **Windows** (AMD64/x86_64)")
-    lines.append(f"\n**Date:** {current_date}")
-
-    # Benchmark counts
-    lines.append(f"\n## Data Overview")
-    all_benchmarks = list(darwin.keys()) + list(linux.keys()) + list(windows.keys())
-    lines.append(f"- Total unique benchmarks across all platforms: **{len(set(all_benchmarks))}**")
-    lines.append(f"- Benchmarks with complete 3-platform data: **{len(common_benchmarks)}**")
-    lines.append(f"- Darwin-only benchmarks: **{len(darwin) - len(common_benchmarks)}**")
-    lines.append(f"- Linux-only benchmarks: **{len(linux) - len(common_benchmarks)}**")
-    lines.append(f"- Windows-only benchmarks: **{len(windows) - len(common_benchmarks)}**")
-
-    # Calculate overall performance metrics
-    darwin_mean = statistics.mean([d['ns_op_mean'] for d in darwin.values()])
-    linux_mean = statistics.mean([d['ns_op_mean'] for d in linux.values()])
-    windows_mean = statistics.mean([d['ns_op_mean'] for d in windows.values()])
-
-    lines.append(f"\n## Overall Performance Summary")
-    lines.append(f"- **Darwin mean performance:** {darwin_mean:,.2f} ns/op")
-    lines.append(f"- **Linux mean performance:** {linux_mean:,.2f} ns/op")
-    lines.append(f"- **Windows mean performance:** {windows_mean:,.2f} ns/op")
-
-    # Determine overall fastest
-    overall_means = [('Darwin', darwin_mean), ('Linux', linux_mean), ('Windows', windows_mean)]
-    fastest_overall = min(overall_means, key=lambda x: x[1])
-    slowest_overall = max(overall_means, key=lambda x: x[1])
-    overall_speedup = get_speedup_ratio(slowest_overall[1], fastest_overall[1])
-
-    lines.append(f"- **Overall fastest platform:** {fastest_overall[0]}")
-    lines.append(f"- **Overall slowest platform:** {slowest_overall[0]}")
-    lines.append(f"- **Overall speedup factor:** {overall_speedup:.2f}x")
-
-    # Platform wins
-    platform_wins = defaultdict(int)
-    for name in common_benchmarks:
-        d = darwin[name]['ns_op_mean']
-        l = linux[name]['ns_op_mean']
-        w = windows[name]['ns_op_mean']
-        fastest = min([('Darwin', d), ('Linux', l), ('Windows', w)], key=lambda x: x[1])
-        platform_wins[fastest[0]] += 1
-
-    lines.append(f"\n## Platform Win Rates (Common Benchmarks)")
-    if len(common_benchmarks) > 0:
-        lines.append(f"- **Darwin wins:** {platform_wins['Darwin']}/{len(common_benchmarks)} ({platform_wins['Darwin']/len(common_benchmarks)*100:.1f}%)")
-        lines.append(f"- **Linux wins:** {platform_wins['Linux']}/{len(common_benchmarks)} ({platform_wins['Linux']/len(common_benchmarks)*100:.1f}%)")
-        lines.append(f"- **Windows wins:** {platform_wins['Windows']}/{len(common_benchmarks)} ({platform_wins['Windows']/len(common_benchmarks)*100:.1f}%)")
-    else:
-        lines.append("- No common benchmarks found - cannot calculate win rates")
-
-    return '\n'.join(lines)
-
-def generate_cross_platform_comparison(
-    darwin: Dict[str, Dict],
-    linux: Dict[str, Dict],
-    windows: Dict[str, Dict],
-    common_benchmarks: List[str]
-) -> str:
-    """Generate cross-platform comparison table."""
-    lines = []
-    lines.append("\n## Cross-Platform Triangulation Table")
-
-    if not common_benchmarks:
-        lines.append("\n**No common benchmarks found - cannot generate comparison table**")
-        return '\n'.join(lines)
-
-    lines.append("\n| Benchmark | Darwin (ns/op) | Darwin CV% | Linux (ns/op) | Linux CV% | Windows (ns/op) | Windows CV% | Fastest | Speedup Best/Worst |")
-    lines.append("|-----------|----------------|------------|---------------|-----------|-----------------|-------------|---------|-------------------|")
-
-    for name in sorted(common_benchmarks):
-        d = darwin[name]
-        l = linux[name]
-        w = windows[name]
-
-        # Calculate CVs
-        cv_d = calculate_coefficient_of_variation(d['ns_op_mean'], d['ns_op_stddev'])
-        cv_l = calculate_coefficient_of_variation(l['ns_op_mean'], l['ns_op_stddev'])
-        cv_w = calculate_coefficient_of_variation(w['ns_op_mean'], w['ns_op_stddev'])
-
-        # Find fastest platform
-        times = [('Darwin', d['ns_op_mean']), ('Linux', l['ns_op_mean']), ('Windows', w['ns_op_mean'])]
-        fastest = min(times, key=lambda x: x[1])
-        slowest = max(times, key=lambda x: x[1])
-
-        speedup = get_speedup_ratio(slowest[1], fastest[1])
-
-        lines.append(f"| {name[:45]:45} | {d['ns_op_mean']:>14.2f} | {cv_d:>9.2f} | {l['ns_op_mean']:>13.2f} | {cv_l:>8.2f} | {w['ns_op_mean']:>15.2f} | {cv_w:>10.2f} | {fastest[0]:7} | {speedup:>17.2f}x |")
-
-    return '\n'.join(lines)
-
-def generate_cross_tournament_comparison(
-    current_data: Dict[str, Dict],
-    past_data: Dict[str, Dict],
-    current_date: str,
-    past_date: str,
-    platform_name: str
-) -> List[str]:
-    """Generate cross-tournament comparison for a single platform's benchmarks."""
-    lines = []
-    lines.append("")
-    lines.append(f"### {platform_name} Comparison: {current_date} vs {past_date}")
-    lines.append("")
-
-    # Find common benchmarks
-    common = set(current_data.keys()) & set(past_data.keys())
-    current_only = set(current_data.keys()) - set(past_data.keys())
-    past_only = set(past_data.keys()) - set(current_data.keys())
-
-    if not common:
-        lines.append("**No common benchmarks found for comparison.**")
-        return lines
-
-    # Calculate changes for common benchmarks
-    improvements = []
-    regressions = []
-    unchanged = []
-
-    for name in sorted(common):
-        curr = current_data[name]
-        prev = past_data[name]
-
-        # Calculate percentage change
-        if prev['ns_op_mean'] > 0:
-            pct_change = ((curr['ns_op_mean'] - prev['ns_op_mean']) / prev['ns_op_mean']) * 100
-        else:
-            pct_change = 0
-
-        # Welch's t-test for significance using raw runs (consistent with analyze_2platform.py)
-        # Use raw runs when available, fall back to pooled-SE on summary stats otherwise
-        curr_runs = curr.get('ns_op_runs')
-        prev_runs = prev.get('ns_op_runs')
-        if curr_runs and prev_runs:
-            t_stat, sig = perform_t_test(prev_runs, curr_runs)
-        else:
-            # Fallback: pooled-SE approximation (only used if raw runs not available)
-            t_stat = 0.0
-            sig = False
-            if curr['ns_op_stddev'] > 0 and prev['ns_op_stddev'] > 0:
-                pooled_se = math.sqrt((prev['ns_op_stddev']**2 + curr['ns_op_stddev']**2) / 2)
-                if pooled_se > 0:
-                    t_stat = abs(curr['ns_op_mean'] - prev['ns_op_mean']) / pooled_se
-                    sig = t_stat > 2.0  # approximate significance threshold
-
-        if sig:
-            if curr['ns_op_mean'] < prev['ns_op_mean']:
-                improvements.append((name, prev['ns_op_mean'], curr['ns_op_mean'], pct_change, t_stat))
-            else:
-                regressions.append((name, prev['ns_op_mean'], curr['ns_op_mean'], pct_change, t_stat))
-        else:
-            unchanged.append((name, prev['ns_op_mean'], curr['ns_op_mean'], pct_change))
-
-    # Sort by absolute change magnitude
-    improvements.sort(key=lambda x: abs(x[3]), reverse=True)
-    regressions.sort(key=lambda x: abs(x[3]), reverse=True)
-
-    # Significant changes section
-    lines.append("#### Significant Changes (p < 0.05)")
-    lines.append("")
-    lines.append(f"**{len(improvements)} improvements, {len(regressions)} regressions**")
-    lines.append("")
-
-    if improvements or regressions:
-        lines.append("| Benchmark | Previous (ns/op) | Current (ns/op) | Change | %Δ |")
-        lines.append("|-----------|------------------|-----------------|--------|----|")
-
-        for name, prev_mean, curr_mean, pct, t_stat in improvements[:15]:
-            delta = prev_mean - curr_mean
-            lines.append(f"| {name[:50]} | {prev_mean:>14,.2f} | {curr_mean:>14,.2f} | {-delta:>+11,.2f} | {pct:>+.1f}% |")
-
-        for name, prev_mean, curr_mean, pct, t_stat in regressions[:15]:
-            delta = curr_mean - prev_mean
-            lines.append(f"| {name[:50]} | {prev_mean:>14,.2f} | {curr_mean:>14,.2f} | {delta:>+11,.2f} | {pct:>+.1f}% |")
-        lines.append("")
-    else:
-        lines.append("No statistically significant changes detected.")
-        lines.append("")
-
-    # Improvements and regressions summaries
-    if improvements:
-        lines.append("#### Notable Improvements")
-        lines.append("")
-        for name, prev_mean, curr_mean, pct, t_stat in improvements[:5]:
-            speedup = prev_mean / curr_mean if curr_mean > 0 else 0
-            lines.append(f"- `{name}`: {prev_mean:,.2f} -> {curr_mean:,.2f} ns/op (*{speedup:.2f}x faster*, {pct:+.1f}%)")
-        lines.append("")
-
-    if regressions:
-        lines.append("#### Notable Regressions")
-        lines.append("")
-        for name, prev_mean, curr_mean, pct, t_stat in regressions[:5]:
-            slowdown = curr_mean / prev_mean if prev_mean > 0 else 0
-            lines.append(f"- `{name}`: {prev_mean:,.2f} -> {curr_mean:,.2f} ns/op (*{slowdown:.2f}x slower*, {pct:+.1f}%)")
-        lines.append("")
-
-    # New and removed benchmarks
-    if current_only:
-        lines.append("#### New Benchmarks (not in past run)")
-        lines.append("")
-        for name in sorted(current_only)[:5]:
-            lines.append(f"- `{name}`: {current_data[name]['ns_op_mean']:,.2f} ns/op")
-        lines.append("")
-
-    if past_only:
-        lines.append("#### Removed Benchmarks (in past run but not current)")
-        lines.append("")
-        for name in sorted(past_only)[:5]:
-            lines.append(f"- `{name}`: was {past_data[name]['ns_op_mean']:,.2f} ns/op")
-        lines.append("")
-
-    return lines
 
 def main():
-    parser = argparse.ArgumentParser(description='Cross-Platform Benchmark Analysis (3 platforms)')
-    parser.add_argument('--compare-to', type=str, default=None,
-                        help='Path to past tournament directory for cross-tournament comparison')
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--compare-to', type=Path)
     args = parser.parse_args()
+    try:
+        data = {
+            platform: load_benchmark_data(SCRIPT_DIR / f'{platform.lower()}.json')
+            for platform in ('Darwin', 'Linux', 'Windows')
+        }
+        report = generate(data, args.compare_to)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        parser.error(str(error))
+    output = SCRIPT_DIR / 'comparison-3platform.md'
+    output.write_text(report, encoding='utf-8')
+    print(f'Generated {output}')
 
-    # Load data using SCRIPT_DIR-relative paths
-    print("Loading benchmark data...")
-    darwin_data = load_benchmark_data(SCRIPT_DIR / 'darwin.json')
-    linux_data = load_benchmark_data(SCRIPT_DIR / 'linux.json')
-    windows_data = load_benchmark_data(SCRIPT_DIR / 'windows.json')
-
-    # Get current date from data
-    current_date = darwin_data.get('timestamp', 'unknown')
-
-    # Extract summaries
-    print("Extracting benchmark summaries...")
-    darwin = extract_benchmark_summary(darwin_data)
-    linux = extract_benchmark_summary(linux_data)
-    windows = extract_benchmark_summary(windows_data)
-
-    # Find common benchmarks
-    common_benchmarks = sorted(set(darwin.keys()) & set(linux.keys()) & set(windows.keys()))
-    print(f"Found {len(common_benchmarks)} benchmarks with data on all 3 platforms")
-
-    # Generate report
-    print("Generating analysis report...")
-    report = []
-
-    # Title
-    report.append("# Cross-Platform Benchmark Comparison Report")
-    report.append(f"\n**Date:** {current_date}")
-    report.append("**Platforms Analyzed:** Darwin (ARM64), Linux (ARM64), Windows (AMD64)")
-    report.append("**Benchmark Suite:** eventloop performance tests")
-
-    # Cross-tournament comparison
-    if args.compare_to:
-        past_dir = Path(args.compare_to)
-        if past_dir.exists() and (past_dir / 'darwin.json').exists():
-            report.append("")
-            report.append("---")
-            report.append("")
-            report.append("## Cross-Tournament Comparison")
-            report.append("")
-
-            past_darwin_data = load_benchmark_data(past_dir / 'darwin.json')
-            past_linux_data = load_benchmark_data(past_dir / 'linux.json')
-            past_windows_data = load_benchmark_data(past_dir / 'windows.json')
-            past_date = past_darwin_data.get('timestamp', 'unknown')
-
-            past_darwin = extract_benchmark_summary(past_darwin_data)
-            past_linux = extract_benchmark_summary(past_linux_data)
-            past_windows = extract_benchmark_summary(past_windows_data)
-
-            # Generate comparisons for each platform
-            report.extend(generate_cross_tournament_comparison(darwin, past_darwin, current_date, past_date, "Darwin"))
-            report.extend(generate_cross_tournament_comparison(linux, past_linux, current_date, past_date, "Linux"))
-            report.extend(generate_cross_tournament_comparison(windows, past_windows, current_date, past_date, "Windows"))
-        else:
-            report.append("")
-            report.append(f"**Note:** Cross-tournament comparison requested but past data not found at {past_dir}")
-            report.append("")
-
-    # Executive Summary
-    report.append(generate_executive_summary(darwin, linux, windows, common_benchmarks, current_date))
-
-    # Platform Rankings
-    report.append(generate_platform_rankings(darwin, linux, windows, common_benchmarks))
-
-    # Top 10 Fastest per platform
-    report.append("\n# Top 10 Fastest Benchmarks per Platform")
-    report.append(generate_top_list("Darwin (ARM64)", darwin, 'ns_op_mean', 10, True))
-    report.append(generate_top_list("Linux (ARM64)", linux, 'ns_op_mean', 10, True))
-    report.append(generate_top_list("Windows (AMD64)", windows, 'ns_op_mean', 10, True))
-
-    # Top 10 Slowest per platform
-    report.append("\n# Top 10 Slowest Benchmarks per Platform")
-    report.append(generate_top_list("Darwin (ARM64)", darwin, 'ns_op_mean', 10, False))
-    report.append(generate_top_list("Linux (ARM64)", linux, 'ns_op_mean', 10, False))
-    report.append(generate_top_list("Windows (AMD64)", windows, 'ns_op_mean', 10, False))
-
-    # Cross-Platform Triangulation Table
-    report.append(generate_cross_platform_comparison(darwin, linux, windows, common_benchmarks))
-
-    # Architecture Comparison
-    report.append(generate_architecture_comparison(darwin, linux, windows, common_benchmarks))
-
-    # Allocation Comparison
-    report.append(generate_allocation_comparison(darwin, linux, windows, common_benchmarks))
-
-    # Key Findings
-    report.append("""
-## Key Findings
-
-### Platform-Specific Strengths
-
-1. **Linux ARM64** shows consistent performance advantages in:
-   - Timer operations and heap management
-   - Concurrent workloads with high contention
-   - Microtask operations
-   - Overall lowest mean performance
-
-2. **Darwin ARM64** demonstrates:
-   - Competitive performance across most benchmarks
-   - Good consistency (low coefficient of variation)
-   - Strengths in synchronization primitives
-
-3. **Windows AMD64** exhibits:
-   - Variable performance depending on workload type
-   - Some benchmarks show excellent optimization
-   - Higher variance in certain timer-related operations
-
-### Architecture Insights
-
-- **ARM64 vs ARM64 (Darwin vs Linux):**
-  - Linux consistently outperforms Darwin on similar ARM64 hardware
-  - Suggests kernel-level optimizations in Linux benefit Go's runtime
-
-- **ARM64 vs AMD64:**
-  - Architecture differences show platform-specific optimizations
-  - Windows AMD64 competitive in certain benchmarks
-
-### Stability Analysis
-
-- Benchmarks with high coefficient of variation (>10%) suggest:
-  - System noise or external factors
-  - Need for more samples or stabilization
-  - Platform-specific scheduling effects
-
-### Recommendations
-
-1. **For Linux deployments:**
-   - Leverage ARM64 performance advantages
-   - Focus on timer-heavy workloads
-
-2. **For macOS deployments:**
-   - Darwin ARM64 provides solid performance
-   - Consider optimization for synchronization primitives
-
-3. **For Windows deployments:**
-   - AMD64 architecture shows variable performance
-   - Consider architecture-specific tuning for production
-
-4. **For cross-platform code:**
-   - Platform-independent benchmark design validated
-   - Allocation consistency confirmed across platforms
-   - Performance differences primarily due to kernel/runtime optimizations
-""")
-
-    # Write report
-    output_path = SCRIPT_DIR / 'comparison-3platform.md'
-    with open(output_path, 'w') as f:
-        f.write('\n'.join(report))
-
-    print(f"\nAnalysis complete! Report saved to: {output_path}")
-    print(f"\nSummary:")
-    print(f"- Darwin benchmarks: {len(darwin)}")
-    print(f"- Linux benchmarks: {len(linux)}")
-    print(f"- Windows benchmarks: {len(windows)}")
-    print(f"- Common benchmarks: {len(common_benchmarks)}")
 
 if __name__ == '__main__':
     main()
