@@ -22,7 +22,7 @@ import (
 // before the failLocal ordering fix; 100 iterations leave a comfortable
 // margin while keeping the test fast.
 func TestServerStreamSyncThrowRecvRejectsServerErrorStress(t *testing.T) {
-	for iteration := 0; iteration < 100; iteration++ {
+	for iteration := range 100 {
 		env := newGrpcTestEnv(t)
 		env.runOnLoop(t, `
 			var server = grpc.createServer();

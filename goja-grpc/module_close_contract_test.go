@@ -248,12 +248,10 @@ func TestPostDoneOwnerDisposalTransferSerializesAllWriters(t *testing.T) {
 			)
 		}()
 	}
-	writers.Add(1)
-	go func() {
-		defer writers.Done()
+	writers.Go(func() {
 		<-start
 		env.grpcMod.clearPostDoneOwnerIndexes()
-	}()
+	})
 	close(start)
 	done := make(chan struct{})
 	go func() {

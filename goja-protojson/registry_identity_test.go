@@ -163,61 +163,61 @@ func filesOnlyProtoJSONGraph(t *testing.T) protoreflect.FileDescriptor {
 	message := descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum()
 	int64Type := descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum()
 	file, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
-		Name:       proto.String("fileonly/root.proto"),
-		Package:    proto.String("fileonly"),
-		Syntax:     proto.String("proto2"),
+		Name:       new("fileonly/root.proto"),
+		Package:    new("fileonly"),
+		Syntax:     new("proto2"),
 		Dependency: []string{anypb.File_google_protobuf_any_proto.Path(), timestamppb.File_google_protobuf_timestamp_proto.Path()},
 		EnumType: []*descriptorpb.EnumDescriptorProto{{
-			Name: proto.String("Mode"),
+			Name: new("Mode"),
 			Value: []*descriptorpb.EnumValueDescriptorProto{
-				{Name: proto.String("MODE_UNSPECIFIED"), Number: proto.Int32(0)},
-				{Name: proto.String("MODE_ACTIVE"), Number: proto.Int32(1)},
+				{Name: new("MODE_UNSPECIFIED"), Number: proto.Int32(0)},
+				{Name: new("MODE_ACTIVE"), Number: proto.Int32(1)},
 			},
 		}},
 		MessageType: []*descriptorpb.DescriptorProto{
 			{
-				Name: proto.String("Payload"),
+				Name: new("Payload"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("value"),
-						JsonName: proto.String("value"),
+						Name:     new("value"),
+						JsonName: new("value"),
 						Number:   proto.Int32(1),
 						Label:    optional,
 						Type:     int64Type,
 					},
 					{
-						Name:     proto.String("mode"),
-						JsonName: proto.String("mode"),
+						Name:     new("mode"),
+						JsonName: new("mode"),
 						Number:   proto.Int32(2),
 						Label:    optional,
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_ENUM.Enum(),
-						TypeName: proto.String(".fileonly.Mode"),
+						TypeName: new(".fileonly.Mode"),
 					},
 				},
 			},
 			{
-				Name: proto.String("Envelope"),
+				Name: new("Envelope"),
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{
-						Name:     proto.String("payload"),
-						JsonName: proto.String("payload"),
+						Name:     new("payload"),
+						JsonName: new("payload"),
 						Number:   proto.Int32(1),
 						Label:    optional,
 						Type:     message,
-						TypeName: proto.String(".google.protobuf.Any"),
+						TypeName: new(".google.protobuf.Any"),
 					},
 					{
-						Name:     proto.String("created_at"),
-						JsonName: proto.String("createdAt"),
+						Name:     new("created_at"),
+						JsonName: new("createdAt"),
 						Number:   proto.Int32(2),
 						Label:    optional,
 						Type:     message,
-						TypeName: proto.String(".google.protobuf.Timestamp"),
+						TypeName: new(".google.protobuf.Timestamp"),
 					},
 				},
 			},
 			{
-				Name: proto.String("Host"),
+				Name: new("Host"),
 				ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
 					Start: proto.Int32(100),
 					End:   proto.Int32(200),
@@ -225,12 +225,12 @@ func filesOnlyProtoJSONGraph(t *testing.T) protoreflect.FileDescriptor {
 			},
 		},
 		Extension: []*descriptorpb.FieldDescriptorProto{{
-			Name:     proto.String("extra"),
-			JsonName: proto.String("extra"),
+			Name:     new("extra"),
+			JsonName: new("extra"),
 			Number:   proto.Int32(100),
 			Label:    optional,
 			Type:     int64Type,
-			Extendee: proto.String(".fileonly.Host"),
+			Extendee: new(".fileonly.Host"),
 		}},
 	}, dependencies)
 	if err != nil {

@@ -23,7 +23,7 @@ import (
 // drives 200 fresh environments with a throwing server and requires the
 // executor map to be empty after every failed RPC.
 func TestClientStreamConstructionFailureReleasesWorker(t *testing.T) {
-	for iteration := 0; iteration < 200; iteration++ {
+	for iteration := range 200 {
 		env := newGrpcTestEnv(t)
 		env.runOnLoop(t, `
 			var server = grpc.createServer();

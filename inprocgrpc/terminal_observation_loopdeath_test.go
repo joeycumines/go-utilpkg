@@ -27,7 +27,7 @@ func TestClientStreamRecvLoopDeathWithoutClaim(t *testing.T) {
 	const iterations = 100
 	recvErrs := make([]error, iterations)
 	releases := make([]bool, iterations)
-	for iteration := 0; iteration < iterations; iteration++ {
+	for iteration := range iterations {
 		func() {
 			loop, err := goeventloop.New()
 			if err != nil {

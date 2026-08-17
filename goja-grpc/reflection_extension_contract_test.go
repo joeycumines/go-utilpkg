@@ -17,22 +17,22 @@ func TestReflectionEnumeratesRuntimeOnlyExtensions(t *testing.T) {
 	defer env.shutdown()
 
 	file := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("runtime_only_extension.proto"),
-		Package: proto.String("runtimeonly"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("runtime_only_extension.proto"),
+		Package: new("runtimeonly"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Host"),
+			Name: new("Host"),
 			ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
 				Start: proto.Int32(100),
 				End:   proto.Int32(200),
 			}},
 		}},
 		Extension: []*descriptorpb.FieldDescriptorProto{{
-			Name:     proto.String("note"),
+			Name:     new("note"),
 			Number:   proto.Int32(123),
 			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
-			Extendee: proto.String(".runtimeonly.Host"),
+			Extendee: new(".runtimeonly.Host"),
 		}},
 	}
 	data, err := proto.Marshal(&descriptorpb.FileDescriptorSet{

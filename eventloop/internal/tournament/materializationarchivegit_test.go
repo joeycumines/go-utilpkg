@@ -192,7 +192,7 @@ func validateMaterializationArchiveFSCK(stdout, stderr []byte) error {
 		return fmt.Errorf("unexpected fsck stdout %q", stdout)
 	}
 	var unexpected []byte
-	for _, line := range bytes.Split(stderr, []byte{'\n'}) {
+	for line := range bytes.SplitSeq(stderr, []byte{'\n'}) {
 		if len(line) == 0 {
 			continue
 		}
