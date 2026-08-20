@@ -55,12 +55,10 @@ func processExitCode(err error) (int, bool) {
 	// A raw Goja exception may implement Unwrap by reading its runtime-owned
 	// thrown object. Detect it before errors.As can traverse that method while
 	// looking for the native process-exit sentinel.
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if _, ok := errors.AsType[*goja.Exception](err); ok {
 		return 0, false
 	}
-	var signal processExitSignal
-	if errors.As(err, &signal) {
+	if signal, ok := errors.AsType[processExitSignal](err); ok {
 		return signal.code, true
 	}
 	return 0, false
@@ -240,8 +238,7 @@ func (a *Adapter) errorValue(err error) goja.Value {
 	if err == nil {
 		return goja.Undefined()
 	}
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if exception, ok := errors.AsType[*goja.Exception](err); ok {
 		return exception.Value()
 	}
 	return a.runtime.NewGoError(err)

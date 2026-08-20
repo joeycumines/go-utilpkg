@@ -42,8 +42,7 @@ func wrapRuntimeExceptionError(operation string, err error) error {
 	if err == nil {
 		return nil
 	}
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if exception, ok := errors.AsType[*goja.Exception](err); ok {
 		return wrapRuntimeException(operation, exception)
 	}
 	return err
@@ -67,8 +66,7 @@ func wrapRuntimeError(operation string, err error) error {
 	if err == nil {
 		return nil
 	}
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if exception, ok := errors.AsType[*goja.Exception](err); ok {
 		return wrapRuntimeException(operation, exception)
 	}
 	return fmt.Errorf("goja-eventloop: %s: %w", operation, err)

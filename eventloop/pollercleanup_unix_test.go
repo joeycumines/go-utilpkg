@@ -347,8 +347,8 @@ func TestLoopOwnerCleanupLoggerShutdownAcknowledgesGracefulMode(t *testing.T) {
 					draining:        loop.terminalDraining.Load(),
 					immediate:       loop.immediateCloseWon(),
 					completed:       loop.terminalCompletionPublished(),
-				}
-				observation.shutdownErr = loop.Shutdown(context.Background())
+
+					shutdownErr: loop.Shutdown(context.Background())}
 				observed <- observation
 			}
 			return nil

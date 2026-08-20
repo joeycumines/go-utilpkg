@@ -455,12 +455,12 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 			in := make(chan *mockComplexEvent)
 			defer close(in)
 			out := make(chan struct{})
-			var calls int64
+			var calls atomic.Int64
 			s.writer = NewWriterFunc(func(event *mockComplexEvent) error {
 				if b.shared != &s {
 					t.Error(b.shared)
 				}
-				atomic.AddInt64(&calls, 1)
+				calls.Add(1)
 				panic(err)
 			})
 			s.releaser = NewEventReleaserFunc(func(event *mockComplexEvent) {
@@ -487,7 +487,7 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 			}
 
 			e := <-in
-			if v := atomic.LoadInt64(&calls); v != 1 {
+			if v := calls.Load(); v != 1 {
 				t.Error(v)
 			}
 			if e != ev {

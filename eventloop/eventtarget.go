@@ -730,10 +730,8 @@ type CustomEvent struct {
 //   - A new CustomEvent with Bubbles=false and Cancelable=false
 func NewCustomEvent(eventType string, detail any) *CustomEvent {
 	return &CustomEvent{
-		Event: Event{
-			Type:   eventType,
-			detail: detail,
-		},
+		Type:   eventType,
+		detail: detail,
 	}
 }
 
@@ -749,12 +747,10 @@ func NewCustomEvent(eventType string, detail any) *CustomEvent {
 //   - A new CustomEvent configured with the specified options
 func NewCustomEventWithOptions(eventType string, detail any, bubbles, cancelable bool) *CustomEvent {
 	return &CustomEvent{
-		Event: Event{
-			Type:       eventType,
-			detail:     detail,
-			Bubbles:    bubbles,
-			Cancelable: cancelable,
-		},
+		Type:       eventType,
+		detail:     detail,
+		Bubbles:    bubbles,
+		Cancelable: cancelable,
 	}
 }
 

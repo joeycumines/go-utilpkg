@@ -85,8 +85,7 @@ func TestChainedPromiseTypedNilAdoptionRejects(t *testing.T) {
 	if !ok || reason == nil {
 		t.Fatalf("typed-nil adoption reason = %T %#v, want nonnil error", target.Reason(), target.Reason())
 	}
-	var nilInput *NilPromiseError
-	if errors.As(reason, &nilInput) {
+	if _, ok := errors.AsType[*NilPromiseError](reason); ok {
 		t.Fatal("typed-nil adoption used combinator input error")
 	}
 }

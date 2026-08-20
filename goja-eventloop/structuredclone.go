@@ -78,8 +78,7 @@ func (a *Adapter) panicJSException(err error) {
 	if err == nil {
 		return
 	}
-	var jsErr *goja.Exception
-	if errors.As(err, &jsErr) {
+	if jsErr, ok := errors.AsType[*goja.Exception](err); ok {
 		panic(jsErr.Value())
 	}
 	panic(a.runtime.NewTypeError(err.Error()))

@@ -3,6 +3,7 @@ package tournament
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -374,8 +375,8 @@ func TestPromiseSuccessorAllOrdering(t *testing.T) {
 			loop, js := startPromiseAdapterTestLoop(t)
 			combinator := implementation.AllCase(js, promiseSuccessorFanOut)
 			promiseSuccessorRequireResolvers(t, combinator, promiseSuccessorFanOut)
-			for index := len(combinator.Resolvers) - 1; index >= 0; index-- {
-				combinator.Resolvers[index](promiseBenchmarkValue(1000 + index))
+			for index, v := range slices.Backward(combinator.Resolvers) {
+				v(promiseBenchmarkValue(1000 + index))
 			}
 			deadline := time.NewTimer(5 * time.Second)
 			defer deadline.Stop()

@@ -3,6 +3,7 @@ package gojaprotojson
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/joeycumines/goja"
@@ -177,8 +178,8 @@ func (m *Module) installExports(exports *goja.Object) error {
 
 	installed := make([]string, 0, len(names))
 	rollback := func() {
-		for index := len(installed) - 1; index >= 0; index-- {
-			_ = exports.Delete(installed[index])
+		for _, i := range slices.Backward(installed) {
+			_ = exports.Delete(i)
 		}
 	}
 	for _, name := range names {

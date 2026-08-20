@@ -78,8 +78,7 @@ func TestRequireReturnsDynamicConstructionErrorAsGojaException(t *testing.T) {
 	if err == nil {
 		t.Error("expected error")
 	}
-	var exception *goja.Exception
-	if !errors.As(err, &exception) {
+	if _, ok := errors.AsType[*goja.Exception](err); !ok {
 		t.Fatalf("require error = %T %v, want *goja.Exception", err, err)
 	}
 	if !strings.Contains(err.Error(), "WeakMap constructor") {

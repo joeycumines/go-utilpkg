@@ -25,7 +25,7 @@ type Table struct {
 type Adapter struct{ Table }
 
 func New() *Adapter {
-	return &Adapter{Table: Table{entries: make(map[int]*entry)}}
+	return &Adapter{entries: make(map[int]*entry)}
 }
 
 func NewNative() *Table {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/joeycumines/goja"
 	"google.golang.org/grpc"
@@ -205,8 +206,8 @@ func (m *Module) makeUnaryMethod(
 
 		// Build chain: right-to-left application of interceptors.
 		nextFn := innerRPC
-		for i := len(interceptors) - 1; i >= 0; i-- {
-			interceptor := interceptors[i]
+		for _, interceptor := range slices.Backward(interceptors) {
+
 			wrapped, jsErr := interceptor(goja.Undefined(), nextFn)
 			if jsErr != nil {
 				panic(jsErr)

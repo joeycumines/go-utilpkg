@@ -151,8 +151,7 @@ func installConsoleCapture(runtime *goja.Runtime, adapter *gojaeventloop.Adapter
 		}()
 
 		if _, err := callback(goja.Undefined()); err != nil {
-			var exception *goja.Exception
-			if errors.As(err, &exception) {
+			if exception, ok := errors.AsType[*goja.Exception](err); ok {
 				panic(exception)
 			}
 			panic(err)

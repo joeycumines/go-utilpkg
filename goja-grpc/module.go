@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	goeventloop "github.com/joeycumines/go-eventloop"
@@ -432,11 +433,11 @@ func authenticateRuntimeObject(
 
 func rollbackExports(exports *goja.Object, names []string) error {
 	var result error
-	for index := len(names) - 1; index >= 0; index-- {
-		if err := exports.Delete(names[index]); err != nil {
+	for _, name := range slices.Backward(names) {
+		if err := exports.Delete(name); err != nil {
 			result = errors.Join(result, fmt.Errorf(
 				"gojagrpc: rollback export %q: %w",
-				names[index],
+				name,
 				err,
 			))
 		}

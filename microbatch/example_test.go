@@ -60,7 +60,7 @@ func ExampleBatcher_independentOperations() {
 	var resultWg sync.WaitGroup
 	resultWg.Add(numOps)
 
-	var callbackCount int64
+	var callbackCount atomic.Int64
 	submit := func() {
 		defer submitWg.Done() // note: (potentially) prior to the result being available
 		succeed := rand.Intn(2) == 0
@@ -71,7 +71,7 @@ func ExampleBatcher_independentOperations() {
 		}
 		result, err := batcher.Submit(context.Background(), &Job{
 			Callback: func(ctx context.Context) (int, error) {
-				atomic.AddInt64(&callbackCount, 1)
+				callbackCount.Add(1)
 				return expectedResult, expectedErr
 			},
 		})
@@ -113,7 +113,7 @@ func ExampleBatcher_independentOperations() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	fmt.Println(`total number of callback calls:`, atomic.LoadInt64(&callbackCount))
+	fmt.Println(`total number of callback calls:`, callbackCount.Load())
 	fmt.Println(`max number of concurrent batch processors:`, *maxRunningBatchProcessorCount)
 
 	//output:

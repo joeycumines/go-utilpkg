@@ -399,13 +399,11 @@ func FuzzAbortTimeoutReasonStability(f *testing.F) {
 				t.Fatalf("manual abort reason changed after timeout: got %#v want %#v", signal.Reason(), manualReason)
 			}
 		} else if mode == 0 {
-			var timeoutErr *TimeoutError
-			if !errors.As(signal.ThrowIfAborted(), &timeoutErr) {
+			if _, ok := errors.AsType[*TimeoutError](signal.ThrowIfAborted()); !ok {
 				t.Fatalf("timeout ThrowIfAborted did not return TimeoutError")
 			}
 		} else if !abortReasonEquivalent(signal.Reason(), manualReason) {
-			var timeoutErr *TimeoutError
-			if !errors.As(signal.ThrowIfAborted(), &timeoutErr) {
+			if _, ok := errors.AsType[*TimeoutError](signal.ThrowIfAborted()); !ok {
 				t.Fatalf("racing result = %#v, want manual identity or TimeoutError", signal.Reason())
 			}
 		}

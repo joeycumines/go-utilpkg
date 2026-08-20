@@ -34,8 +34,7 @@ func TestRegisterFDPreCountRollbackPollerCloseReleasesOwnership(t *testing.T) {
 	if !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("RegisterFD error = %v, want ErrLoopTerminated", err)
 	}
-	var rollbackErr *FDRegistrationRollbackError
-	if errors.As(err, &rollbackErr) {
+	if rollbackErr, ok := errors.AsType[*FDRegistrationRollbackError](err); ok {
 		t.Fatalf("RegisterFD returned retained-ownership error after poller Close: %#v", rollbackErr)
 	}
 	if got := loop.userIOFDCount.Load(); got != 0 {
@@ -76,8 +75,7 @@ func TestRegisterFDPreCountRollbackNotRegisteredIsNotOwned(t *testing.T) {
 	if !errors.Is(err, ErrLoopTerminated) {
 		t.Fatalf("RegisterFD error = %v, want ErrLoopTerminated", err)
 	}
-	var rollbackErr *FDRegistrationRollbackError
-	if errors.As(err, &rollbackErr) {
+	if rollbackErr, ok := errors.AsType[*FDRegistrationRollbackError](err); ok {
 		t.Fatalf("RegisterFD returned rollback ownership error = %#v, want plain lifecycle rejection", rollbackErr)
 	}
 	if got := loop.userIOFDCount.Load(); got != 0 {
@@ -112,8 +110,7 @@ func TestRegisterFDRollbackPollerClosePreservesForcedMode(t *testing.T) {
 	if !errors.Is(err, ErrFastPathIncompatible) {
 		t.Fatalf("RegisterFD error = %v, want ErrFastPathIncompatible", err)
 	}
-	var rollbackErr *FDRegistrationRollbackError
-	if errors.As(err, &rollbackErr) {
+	if rollbackErr, ok := errors.AsType[*FDRegistrationRollbackError](err); ok {
 		t.Fatalf("RegisterFD returned retained-ownership error after poller Close: %#v", rollbackErr)
 	}
 	if got := loop.userIOFDCount.Load(); got != 0 {

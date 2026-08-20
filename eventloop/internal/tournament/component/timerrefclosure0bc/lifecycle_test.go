@@ -347,11 +347,11 @@ func TestSourceWakeTurnDrainsGracefulTerminatingCallback(t *testing.T) {
 		observation := callbackObservation{
 			state:  state(value.state.Load()),
 			refErr: value.refTimer(id),
-		}
-		observation.unrefErr = value.unrefTimer(id)
-		observation.refed = timerValue.refed.Load()
-		observation.refedCount = value.refedTimerCount.Load()
-		observation.epoch = value.submissionEpoch.Load()
+
+			unrefErr:   value.unrefTimer(id),
+			refed:      timerValue.refed.Load(),
+			refedCount: value.refedTimerCount.Load(),
+			epoch:      value.submissionEpoch.Load()}
 		callbackResult <- observation
 	}); err != nil {
 		t.Fatal(err)

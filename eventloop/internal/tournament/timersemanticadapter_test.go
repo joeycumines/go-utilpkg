@@ -368,56 +368,56 @@ func qualificationTimerHeapDeadlineSemantics(queue *timerheapdeadline.Qualificat
 }
 
 func qualificationTimerHeapRefSemantics(queue *timerheapref.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerheapref.InsertInput{When: input.when, Task: input.task, NestingLevel: input.nesting, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerheapref.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		result, err := queue.BatchDrain(timerheapref.DrainInput{Now: input.now})
-		return timerSemanticResult{executed: result.Executed, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerheapref.InsertInput{When: input.when, Task: input.task, NestingLevel: input.nesting, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerheapref.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			result, err := queue.BatchDrain(timerheapref.DrainInput{Now: input.now})
+			return timerSemanticResult{executed: result.Executed, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
+		}}
 	return semantic
 }
 
 func qualificationTimerHeapStallSemantics(queue *timerheapstall.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerheapstall.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, NestingLevel: input.nesting, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerheapstall.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		result, err := queue.BatchDrain(timerheapstall.DrainInput{Now: input.now, Tick: input.tick})
-		return timerSemanticResult{executed: result.Executed, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerheapstall.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, NestingLevel: input.nesting, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerheapstall.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			result, err := queue.BatchDrain(timerheapstall.DrainInput{Now: input.now, Tick: input.tick})
+			return timerSemanticResult{executed: result.Executed, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
+		}}
 	return semantic
 }
 
 func qualificationTimerHeapDeferSemantics(queue *timerheapdefer.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerheapdefer.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, NestingLevel: input.nesting, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerheapdefer.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		result, err := queue.BatchDrain(timerheapdefer.DrainInput{Now: input.now, Tick: input.tick})
-		return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerheapdefer.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, NestingLevel: input.nesting, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerheapdefer.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			result, err := queue.BatchDrain(timerheapdefer.DrainInput{Now: input.now, Tick: input.tick})
+			return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.HeapActive, mapEntries: stats.MapEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedPointers: stats.RetainedHeapPointers}, err
+		}}
 	return semantic
 }
 
@@ -426,59 +426,59 @@ func nativeTimerHeapDeadlineQualificationMethods(queue *timerheapdeadline.Qualif
 }
 
 func qualificationTimerBucket27Semantics(queue *timerbucket27.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerbucket27.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, Interval: input.interval, NestingLevel: input.nesting, NestedClamp: input.nestedClamp, Repeat: input.repeat, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerbucket27.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		result, err := queue.BatchDrain(timerbucket27.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, CurrentNesting: input.currentNesting})
-		return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedAnchors: stats.RetainedListAnchors}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerbucket27.InsertInput{When: input.when, Task: input.task, EarliestTick: input.earliestTick, Interval: input.interval, NestingLevel: input.nesting, NestedClamp: input.nestedClamp, Repeat: input.repeat, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerbucket27.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			result, err := queue.BatchDrain(timerbucket27.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, CurrentNesting: input.currentNesting})
+			return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedAnchors: stats.RetainedListAnchors}, err
+		}}
 	return semantic
 }
 
 func qualificationTimerBucketRetireSemantics(queue *timerbucketretire.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerbucketretire.InsertInput{When: input.when, Task: input.task, Retire: input.retire, EarliestTick: input.earliestTick, Interval: input.interval, NestingLevel: input.nesting, NestedClamp: input.nestedClamp, Repeat: input.repeat, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerbucketretire.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		result, err := queue.BatchDrain(timerbucketretire.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, CurrentNesting: input.currentNesting})
-		return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedRetireHooks: stats.RetainedRetireHooks, retainedAnchors: stats.RetainedListAnchors}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerbucketretire.InsertInput{When: input.when, Task: input.task, Retire: input.retire, EarliestTick: input.earliestTick, Interval: input.interval, NestingLevel: input.nesting, NestedClamp: input.nestedClamp, Repeat: input.repeat, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerbucketretire.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			result, err := queue.BatchDrain(timerbucketretire.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, CurrentNesting: input.currentNesting})
+			return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedRetireHooks: stats.RetainedRetireHooks, retainedAnchors: stats.RetainedListAnchors}, err
+		}}
 	return semantic
 }
 
 func qualificationTimerBucketCurrentSemantics(queue *timerbucketcurrent.Qualification) timerSemanticQueue {
-	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed}
-	semantic.insert = func(input timerSemanticInsert) (uint64, error) {
-		handle, err := queue.Insert(timerbucketcurrent.InsertInput{When: input.when, Task: input.task, Retire: input.retire, Publication: input.publication, ScheduledTick: input.scheduledTick, Interval: input.interval, DeferTick: input.deferTick, Repeat: input.repeat, Refed: input.refed})
-		return uint64(handle), err
-	}
-	semantic.cancel = func(id uint64) error { return queue.Cancel(timerbucketcurrent.Handle(id)) }
-	semantic.drain = func(input timerSemanticDrain) (timerSemanticResult, error) {
-		var before func(timerbucketcurrent.Handle)
-		if input.beforePublish != nil {
-			before = func(id timerbucketcurrent.Handle) { input.beforePublish(uint64(id)) }
-		}
-		result, err := queue.BatchDrain(timerbucketcurrent.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, BeforePublication: before})
-		return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
-	}
-	semantic.stats = func() (timerSemanticStats, error) {
-		stats, err := queue.Stats()
-		return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedRetireHooks: stats.RetainedRetireHooks, retainedPublications: stats.RetainedPublications, retainedAnchors: stats.RetainedListAnchors}, err
-	}
+	semantic := timerSemanticQueue{peek: queue.Peek, length: queue.Len, reset: queue.Reset, seedID: queue.SeedID, idSeed: queue.IDSeed,
+		insert: func(input timerSemanticInsert) (uint64, error) {
+			handle, err := queue.Insert(timerbucketcurrent.InsertInput{When: input.when, Task: input.task, Retire: input.retire, Publication: input.publication, ScheduledTick: input.scheduledTick, Interval: input.interval, DeferTick: input.deferTick, Repeat: input.repeat, Refed: input.refed})
+			return uint64(handle), err
+		},
+		cancel: func(id uint64) error { return queue.Cancel(timerbucketcurrent.Handle(id)) },
+		drain: func(input timerSemanticDrain) (timerSemanticResult, error) {
+			var before func(timerbucketcurrent.Handle)
+			if input.beforePublish != nil {
+				before = func(id timerbucketcurrent.Handle) { input.beforePublish(uint64(id)) }
+			}
+			result, err := queue.BatchDrain(timerbucketcurrent.DrainInput{Now: input.now, RepeatNow: input.repeatNow, Tick: input.tick, BeforePublication: before})
+			return timerSemanticResult{executed: result.Executed, deferred: result.Deferred, repeated: result.Repeated, canceled: result.Canceled, panics: result.Panics}, err
+		},
+		stats: func() (timerSemanticStats, error) {
+			stats, err := queue.Stats()
+			return timerSemanticStats{active: stats.Active, heapLists: stats.HeapLists, mapEntries: stats.MapEntries, listEntries: stats.ListEntries, refed: stats.Refed, retainedCallbacks: stats.RetainedCallbacks, retainedRetireHooks: stats.RetainedRetireHooks, retainedPublications: stats.RetainedPublications, retainedAnchors: stats.RetainedListAnchors}, err
+		}}
 	return semantic
 }

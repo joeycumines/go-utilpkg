@@ -9,15 +9,15 @@ import (
 )
 
 type nopWriter struct {
-	writeCount uint64
+	writeCount atomic.Uint64
 }
 
 func (s *nopWriter) WriteCount() uint64 {
-	return atomic.LoadUint64(&s.writeCount)
+	return s.writeCount.Load()
 }
 
 func (s *nopWriter) Write(p []byte) (int, error) {
-	atomic.AddUint64(&s.writeCount, 1)
+	s.writeCount.Add(1)
 	return len(p), nil
 }
 

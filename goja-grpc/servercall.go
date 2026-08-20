@@ -315,8 +315,7 @@ func (m *Module) finishUnaryResponse(
 }
 
 func (m *Module) jsErrorToGRPC(err error) error {
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if exception, ok := errors.AsType[*goja.Exception](err); ok {
 		return m.jsValueToGRPCError(exception.Value())
 	}
 	return status.Errorf(codes.Internal, "%v", err)

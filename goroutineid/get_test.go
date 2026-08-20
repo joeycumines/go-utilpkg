@@ -288,20 +288,20 @@ func TestGetWithMutex(t *testing.T) {
 
 // TestGetWithAtomic tests Get() alongside atomic operations.
 func TestGetWithAtomic(t *testing.T) {
-	var counter int64
+	var counter atomic.Int64
 	const goroutineCount = 100
 	var wg sync.WaitGroup
 
 	for range goroutineCount {
 		wg.Go(func() {
 			id := Get()
-			atomic.AddInt64(&counter, id)
+			counter.Add(id)
 		})
 	}
 
 	wg.Wait()
 
-	final := atomic.LoadInt64(&counter)
+	final := counter.Load()
 	if final == 0 {
 		t.Error("atomic counter should not be zero after adding goroutine IDs")
 	}

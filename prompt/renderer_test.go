@@ -3,6 +3,7 @@ package prompt
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1516,9 +1517,9 @@ func TestRenderer_AboveCompletionRestoreWithExactFill(t *testing.T) {
 	// Find the final CursorForward call after CursorDown(1)
 	// This should use physical column (19) not logical X (20)
 	foundRestore := false
-	for i := len(calls) - 1; i >= 0; i-- {
-		if calls[i].method == "CursorDown" && len(calls[i].args) > 0 {
-			if n, ok := calls[i].args[0].(int); ok && n == 1 {
+	for i, call := range slices.Backward(calls) {
+		if call.method == "CursorDown" && len(call.args) > 0 {
+			if n, ok := call.args[0].(int); ok && n == 1 {
 				// Found CursorDown(1) - look for next CursorForward
 				for j := i + 1; j < len(calls); j++ {
 					if calls[j].method == "CursorForward" && len(calls[j].args) > 0 {

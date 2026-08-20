@@ -3,6 +3,7 @@ package eventloop
 import (
 	"context"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 )
@@ -198,8 +199,8 @@ func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 		}
 		child := js.All(promises).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
-		for index := len(resolvers) - 1; index >= 0; index-- {
-			resolvers[index](promiseBenchmarkTokens[index])
+		for index, resolver := range slices.Backward(resolvers) {
+			resolver(promiseBenchmarkTokens[index])
 		}
 
 		rawValues := receivePromiseBenchmarkResult(b, result, deadline.C)
@@ -246,8 +247,8 @@ func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 		}
 		child := js.Race(promises).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
-		for index := len(resolvers) - 1; index >= 0; index-- {
-			resolvers[index](promiseBenchmarkTokens[index])
+		for index, resolver := range slices.Backward(resolvers) {
+			resolver(promiseBenchmarkTokens[index])
 		}
 		if err := loop.ScheduleMicrotaskCheckpoint(checkpoint); err != nil {
 			b.Fatalf("schedule Race completion checkpoint: %v", err)
@@ -283,8 +284,8 @@ func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 		}
 		child := js.AllSettled(promises).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
-		for index := len(resolvers) - 1; index >= 0; index-- {
-			resolvers[index](promiseBenchmarkTokens[index])
+		for index, resolver := range slices.Backward(resolvers) {
+			resolver(promiseBenchmarkTokens[index])
 		}
 
 		rawValues := receivePromiseBenchmarkResult(b, result, deadline.C)
@@ -329,8 +330,8 @@ func BenchmarkPromiseAnyFixedArityEndToEnd(b *testing.B) {
 		}
 		child := js.Any(promises).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
-		for index := len(resolvers) - 1; index >= 0; index-- {
-			resolvers[index](promiseBenchmarkTokens[index])
+		for index, resolver := range slices.Backward(resolvers) {
+			resolver(promiseBenchmarkTokens[index])
 		}
 		if err := loop.ScheduleMicrotaskCheckpoint(checkpoint); err != nil {
 			b.Fatalf("schedule Any completion checkpoint: %v", err)

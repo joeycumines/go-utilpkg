@@ -31,7 +31,7 @@ type Table struct {
 type Adapter struct{ Table }
 
 func New() *Adapter {
-	return &Adapter{Table: Table{entries: make([]entry, initialDenseSlots)}}
+	return &Adapter{entries: make([]entry, initialDenseSlots)}
 }
 
 func NewNative() *Table {

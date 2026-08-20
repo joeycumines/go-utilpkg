@@ -365,9 +365,9 @@ func TestCloseRejectsWorkerLoopAccessAfterReturn(t *testing.T) {
 	promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
 		close(workerStarted)
 		<-releaseWorker
-		result := accessResult{}
-		result.submitErr = loop.Submit(func() {})
-		result.internalErr = loop.SubmitInternal(func() {})
+		result := accessResult{
+			submitErr:   loop.Submit(func() {}),
+			internalErr: loop.SubmitInternal(func() {})}
 		_, result.timerErr = loop.ScheduleTimer(0, func() {})
 		_, result.jsTimerErr = js.SetTimeout(func() {}, 0)
 		result.shutdownErr = loop.Shutdown(context.Background())

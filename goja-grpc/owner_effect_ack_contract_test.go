@@ -15,8 +15,7 @@ import (
 func ownerTestException(t *testing.T, runtime *goja.Runtime) error {
 	t.Helper()
 	_, err := runtime.RunString(`throw new Error("owner-only failure")`)
-	var exception *goja.Exception
-	if !errors.As(err, &exception) {
+	if _, ok := errors.AsType[*goja.Exception](err); !ok {
 		t.Fatalf("runtime error = %T %v, want *goja.Exception", err, err)
 	}
 	return err
@@ -30,8 +29,7 @@ func assertGojaFreeOwnerError(t *testing.T, err error) {
 	if !strings.Contains(err.Error(), "owner-only failure") {
 		t.Fatalf("ack error = %v, want owner failure message", err)
 	}
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
+	if exception, ok := errors.AsType[*goja.Exception](err); ok {
 		t.Fatalf("ack retained Goja exception %p", exception)
 	}
 }

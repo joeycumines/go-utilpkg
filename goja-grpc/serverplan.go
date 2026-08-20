@@ -3,6 +3,7 @@ package gojagrpc
 import (
 	"context"
 	"math"
+	"slices"
 
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 	"github.com/joeycumines/goja"
@@ -189,8 +190,8 @@ func (p *serverMethodPlan) buildServerChain(
 		return value
 	})
 	next := inner
-	for index := len(p.interceptors) - 1; index >= 0; index-- {
-		value, err := p.interceptors[index](goja.Undefined(), next)
+	for _, v := range slices.Backward(p.interceptors) {
+		value, err := v(goja.Undefined(), next)
 		if err != nil {
 			return nil, err
 		}

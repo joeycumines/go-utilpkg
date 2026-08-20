@@ -196,8 +196,7 @@ func TestOwnerPromiseEffectNonreturnAcknowledgesAndReleases(t *testing.T) {
 					ownerPromiseEffectFallbackAck.status.GetMessage(),
 				)
 			}
-			var retained *goja.Exception
-			if errors.As(effectErr, &retained) {
+			if retained, ok := errors.AsType[*goja.Exception](effectErr); ok {
 				t.Fatalf("owner Promise effect retained Goja exception %p", retained)
 			}
 			assertReleasedOwnerEffect(t, env.grpcMod, rootID)
@@ -256,8 +255,7 @@ func TestOwnerMetadataEffectNonreturnAcknowledgesAndReleases(t *testing.T) {
 					ownerMetadataEffectFallbackAck.status.GetMessage(),
 				)
 			}
-			var retained *goja.Exception
-			if errors.As(effectErr, &retained) {
+			if retained, ok := errors.AsType[*goja.Exception](effectErr); ok {
 				t.Fatalf("owner metadata effect retained Goja exception %p", retained)
 			}
 			assertReleasedOwnerEffect(t, env.grpcMod, rootID)

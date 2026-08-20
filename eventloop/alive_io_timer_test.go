@@ -241,10 +241,10 @@ func TestSubmitTimerRefChange_OnLoopGoroutine(t *testing.T) {
 	}
 	results := make(chan result, 1)
 	if err := loop.SubmitInternal(func() {
-		value := result{unrefErr: loop.UnrefTimer(timerID)}
-		value.afterUnref = loop.refedTimerCount.Load()
-		value.refErr = loop.RefTimer(timerID)
-		value.afterRef = loop.refedTimerCount.Load()
+		value := result{unrefErr: loop.UnrefTimer(timerID),
+			afterUnref: loop.refedTimerCount.Load(),
+			refErr:     loop.RefTimer(timerID),
+			afterRef:   loop.refedTimerCount.Load()}
 		results <- value
 	}); err != nil {
 		t.Fatalf("owner timer-ref admission: %v", err)
@@ -270,8 +270,8 @@ func TestAlive_MicrotaskPath(t *testing.T) {
 	observed := make(chan result, 1)
 	microtaskDone := make(chan struct{})
 	if err := loop.SubmitInternal(func() {
-		value := result{scheduleErr: loop.ScheduleMicrotask(func() { close(microtaskDone) })}
-		value.alive = loop.Alive()
+		value := result{scheduleErr: loop.ScheduleMicrotask(func() { close(microtaskDone) }),
+			alive: loop.Alive()}
 		observed <- value
 	}); err != nil {
 		t.Fatalf("SubmitInternal: %v", err)
@@ -305,8 +305,8 @@ func TestAlive_NextTickPath(t *testing.T) {
 	observed := make(chan result, 1)
 	nextTickDone := make(chan struct{})
 	if err := loop.SubmitInternal(func() {
-		value := result{scheduleErr: loop.ScheduleNextTick(func() { close(nextTickDone) })}
-		value.alive = loop.Alive()
+		value := result{scheduleErr: loop.ScheduleNextTick(func() { close(nextTickDone) }),
+			alive: loop.Alive()}
 		observed <- value
 	}); err != nil {
 		t.Fatalf("SubmitInternal: %v", err)

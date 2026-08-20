@@ -3,6 +3,7 @@ package tournament
 import (
 	"fmt"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -142,8 +143,8 @@ func BenchmarkPromiseAll100OrderedEndToEndV3(b *testing.B) {
 				b.StartTimer()
 				combinator := implementation.AllCase(js, promiseSuccessorFanOut)
 				seed := promiseBenchmarkValue(iteration*promiseSuccessorFanOut + 1)
-				for index := len(combinator.Resolvers) - 1; index >= 0; index-- {
-					combinator.Resolvers[index](seed + promiseBenchmarkValue(index))
+				for index, v := range slices.Backward(combinator.Resolvers) {
+					v(seed + promiseBenchmarkValue(index))
 				}
 				promiseSuccessorCheckpoint(b, loop, deadline.C)
 				b.StopTimer()

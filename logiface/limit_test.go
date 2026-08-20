@@ -207,7 +207,7 @@ func TestLoggerShared_catrateAllowCaller_noCaller(t *testing.T) {
 	const skip = 611
 	const packagePath = `/some/other/path`
 	pkgPath = packagePath
-	var count int32
+	var count atomic.Int32
 	runtimeutilCallerSkipPackage = func(pkgPath string, i int) runtimeutil.Caller {
 		if pkgPath != packagePath {
 			t.Error(pkgPath)
@@ -215,7 +215,7 @@ func TestLoggerShared_catrateAllowCaller_noCaller(t *testing.T) {
 		if i != skip+1 {
 			t.Error(i)
 		}
-		if !atomic.CompareAndSwapInt32(&count, 0, 1) {
+		if !count.CompareAndSwap(0, 1) {
 			t.Error()
 		}
 		return runtimeutil.Caller{}
@@ -225,7 +225,7 @@ func TestLoggerShared_catrateAllowCaller_noCaller(t *testing.T) {
 
 	caller, next, ok := d.catrateAllowCaller(skip)
 
-	if !atomic.CompareAndSwapInt32(&count, 1, 2) {
+	if !count.CompareAndSwap(1, 2) {
 		t.Error()
 	}
 

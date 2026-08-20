@@ -750,8 +750,8 @@ func (j *installationJournal) rollback() error {
 	j.adapter.js = nil
 
 	var rollbackErr error
-	for i := len(j.attempted) - 1; i >= 0; i-- {
-		property := j.attempted[i]
+	for _, property := range slices.Backward(j.attempted) {
+
 		var err error
 		if exception := j.adapter.runtime.Try(func() {
 			_, err = j.adapter.propertyRestore(
@@ -768,8 +768,8 @@ func (j *installationJournal) rollback() error {
 			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("restore %q: %w", property.name, err))
 		}
 	}
-	for i := len(j.attemptedPrototypes) - 1; i >= 0; i-- {
-		prototype := j.attemptedPrototypes[i]
+	for _, prototype := range slices.Backward(j.attemptedPrototypes) {
+
 		if err := prototype.object.SetPrototype(prototype.prototype); err != nil {
 			rollbackErr = errors.Join(rollbackErr, wrapRuntimeError("restore object prototype", err))
 		}

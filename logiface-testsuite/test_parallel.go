@@ -21,9 +21,9 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 		)
 
 		// going to log messages with identifiers ranging from 1 to maxMessages
-		var monotoniclyIncreasingID int64
+		var monotoniclyIncreasingID atomic.Int64
 		nextID := func() (int64, bool) {
-			ID := atomic.AddInt64(&monotoniclyIncreasingID, 1)
+			ID := monotoniclyIncreasingID.Add(1)
 			return ID, ID <= maxMessages
 		}
 		const messageIDField = "TestParallel_message_id"

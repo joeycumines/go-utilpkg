@@ -224,8 +224,7 @@ func candidateGitOutput(ctx context.Context, root string, args ...string) ([]byt
 	if contextErr := ctx.Err(); contextErr != nil {
 		return nil, contextErr
 	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		if stderr := strings.TrimSpace(string(exitErr.Stderr)); stderr != "" {
 			return nil, fmt.Errorf("%w: %s", err, stderr)
 		}
