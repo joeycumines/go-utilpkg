@@ -1,10 +1,10 @@
 module github.com/joeycumines/goja_nodejs
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217
-	github.com/joeycumines/goja v0.0.0-20260807074527-37ac99caa69a
+	github.com/joeycumines/goja v0.0.0-20260820000247-c1e35283ab97
 	go.uber.org/goleak v1.3.0
 	golang.org/x/net v0.58.0
 	golang.org/x/text v0.41.0

@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-eventloop
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/joeycumines/goroutineid v1.1.0
@@ -13,5 +13,5 @@ require (
 	github.com/joeycumines/go-catrate v0.0.0-20260429212737-202f4120003b // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297 // indirect
+	golang.org/x/exp v0.0.0-20260820142414-ca536658362e // indirect
 )

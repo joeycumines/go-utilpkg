@@ -50,11 +50,7 @@ type Object struct {
 	self    objectImpl
 	runtime *Runtime
 
-	// objID is a lazily-assigned unique identifier used for Map/Set/WeakMap
-	// identity. It replaces the object's heap address to mitigate ABA issues
-	// where the Go GC reuses a collected object's address before its cleanup
-	// functions have executed.
-	objID atomic.Uint64
+	id atomic.Uint64
 }
 
 type iterNextFunc func() (propIterItem, iterNextFunc)
@@ -1649,26 +1645,20 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 	}
 }
 
-// nextObjectID supplies monotonically increasing object identifiers.
-// 0 is reserved as the "unassigned" sentinel.
 var nextObjectID atomic.Uint64
 
-// getId returns a unique, stable identifier for the object, assigning one
-// lazily if necessary. It is safe to call from any goroutine.
-func (o *Object) getId() (ID uint64) {
-	ID = o.objID.Load()
-	if ID != 0 {
-		return ID
+func (o *Object) getId() uint64 {
+	if id := o.id.Load(); id != 0 {
+		return id
 	}
-	ID = nextObjectID.Add(1)
-	if ID == 0 {
-		// counter wrapped to 0; try next to avoid assigning 0 as a live id
-		ID = nextObjectID.Add(1)
+	id := nextObjectID.Add(1)
+	if id == 0 {
+		id = nextObjectID.Add(1)
 	}
-	if o.objID.CompareAndSwap(0, ID) {
-		return ID
+	if o.id.CompareAndSwap(0, id) {
+		return id
 	}
-	return o.objID.Load()
+	return o.id.Load()
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {

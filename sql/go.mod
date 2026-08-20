@@ -1,14 +1,13 @@
 module github.com/joeycumines/go-sql
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/go-test/deep v1.1.1
 	github.com/joeycumines/go-detect-cycle v1.0.1
-	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
+	github.com/joeycumines/logiface v0.5.0
+	golang.org/x/exp v0.0.0-20260820142414-ca536658362e
 )
-
-require github.com/joeycumines/logiface v0.5.0
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

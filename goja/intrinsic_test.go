@@ -96,7 +96,6 @@ func TestRuntimeIntrinsicConstructorIdentity(t *testing.T) {
 			if test.args != nil {
 				args = test.args()
 			}
-			object, err := runtime.New(first, args...)
 			if test.constructionRejects {
 				// ECMAScript spec-non-constructable callables such as Symbol are
 				// callable but reject `new`. Assert that construction rejects,
@@ -111,7 +110,7 @@ func TestRuntimeIntrinsicConstructorIdentity(t *testing.T) {
 			if _, ok := AssertConstructor(first); !ok {
 				t.Fatal("intrinsic is not a constructor")
 			}
-			object, err = runtime.New(first, args...)
+			object, err := runtime.New(first, args...)
 			if err != nil {
 				t.Fatalf("New: %v", err)
 			}
