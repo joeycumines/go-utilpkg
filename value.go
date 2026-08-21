@@ -838,7 +838,7 @@ func (o *Object) IsECMAScriptArray() bool {
 }
 
 func (o *Object) hash(*maphash.Hash) uint64 {
-	return o.getId()
+	return uint64(uintptr(unsafe.Pointer(o)))
 }
 
 // Get an object's property by name.

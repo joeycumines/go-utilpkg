@@ -5,7 +5,6 @@ import (
 	"math"
 	"reflect"
 	"sort"
-	"unsafe"
 
 	"github.com/joeycumines/goja/unistring"
 )
@@ -1641,10 +1640,6 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 	default:
 		return o.self.defineOwnPropertyStr(n.string(), desc, throw)
 	}
-}
-
-func (o *Object) getId() uint64 {
-	return uint64(uintptr(unsafe.Pointer(o)))
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {
