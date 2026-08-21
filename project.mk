@@ -481,11 +481,11 @@ eventloop-tournament-source-fingerprint: ## Print the governed source fingerprin
 		-go-scratch "$$fingerprint_dir/scratch"
 
 .PHONY: eventloop-tournament-source-identity
-eventloop-tournament-source-identity: private _EVENTLOOP_SOURCE_IDENTITY_FORMAT := json
+eventloop-tournament-source-identity: _EVENTLOOP_SOURCE_IDENTITY_FORMAT := json
 eventloop-tournament-source-identity: ## Print platform-neutral and capture-specific governed source identities.
 
 .PHONY: eventloop-tournament-source-identity-raw-v2
-eventloop-tournament-source-identity-raw-v2: private _EVENTLOOP_SOURCE_IDENTITY_FORMAT := raw-v2
+eventloop-tournament-source-identity-raw-v2: _EVENTLOOP_SOURCE_IDENTITY_FORMAT := raw-v2
 eventloop-tournament-source-identity-raw-v2: ## Print one raw-v2 identity marker set without running benchmarks.
 
 eventloop-tournament-source-identity eventloop-tournament-source-identity-raw-v2:
