@@ -1,4 +1,4 @@
-//go:build go1.26 && !go1.27 && arm64 && !js && !tinygo && gc
+//go:build (go1.26 || go1.27) && !go1.28 && arm64 && !js && !tinygo && gc
 
 // NOTICE: This build constraint is strict to mitigate future issues.
 
