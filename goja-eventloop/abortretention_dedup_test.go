@@ -1,6 +1,7 @@
 package gojaeventloop
 
 import (
+	goruntime "runtime"
 	"testing"
 )
 
@@ -36,15 +37,29 @@ func TestAbortSignalLinkDeduplicatesSourceDependentPair(t *testing.T) {
 		t.Fatal("surviving link differs between source and dependent side")
 	}
 
+	// goruntime.GC here reproduces review-02 §4: without the post-cleanup
+	// assertions below keeping source alive through this point, its state
+	// cluster is collectible and cleanupAbortSignalLink would observe a nil
+	// source and return without unlinking.
+	goruntime.GC()
+	goruntime.GC()
+
 	cleanupAbortSignalLink(abortSignalLinkCleanup{
 		source:    sourceLinks[0].source,
 		dependent: dependentLinks[0].dependent,
 	})
 
+	source.mu.Lock()
+	remainingSourceSide := len(source.dependentLinks)
+	source.mu.Unlock()
+	if remainingSourceSide != 0 {
+		t.Fatalf("after cleanup %d source links remain, want 0", remainingSourceSide)
+	}
+
 	dependent.mu.Lock()
 	remainingDependentSide := len(dependent.sourceLinks)
 	dependent.mu.Unlock()
 	if remainingDependentSide != 0 {
-		t.Fatalf("after cleanup %d links remain, want 0", remainingDependentSide)
+		t.Fatalf("after cleanup %d dependent links remain, want 0", remainingDependentSide)
 	}
 }
