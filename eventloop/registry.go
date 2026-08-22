@@ -82,10 +82,8 @@ func (r *registry) Scavenge(batchSize int) {
 	}
 
 	validItems := items[:0]
-	validWPs := make([]weak.Pointer[promise], 0, len(items))
 	for _, it := range items {
 		if _, ok := r.data[it.wp]; ok {
-			validWPs = append(validWPs, it.wp)
 			validItems = append(validItems, it)
 		}
 	}
@@ -100,9 +98,8 @@ func (r *registry) Scavenge(batchSize int) {
 
 	itemsToRemove := validItems[:0]
 
-	for i, it := range validItems {
-		wp := validWPs[i]
-		val := wp.Value()
+	for _, it := range validItems {
+		val := it.wp.Value()
 		if val == nil || val.State() != Pending {
 			itemsToRemove = append(itemsToRemove, it)
 		}
