@@ -17,11 +17,10 @@ var (
 	// Not goroutine-safe, do not use for anything other than package level init
 	pkgHasher maphash.Hash
 
-	hashFalse      = randomHash()
-	hashTrue       = randomHash()
-	hashNull       = randomHash()
-	hashUndef      = randomHash()
-	hashObjectSalt = randomHash()
+	hashFalse = randomHash()
+	hashTrue  = randomHash()
+	hashNull  = randomHash()
+	hashUndef = randomHash()
 )
 
 // Not goroutine-safe, do not use for anything other than package level init
@@ -839,7 +838,7 @@ func (o *Object) IsECMAScriptArray() bool {
 }
 
 func (o *Object) hash(*maphash.Hash) uint64 {
-	return o.getId() ^ hashObjectSalt
+	return uint64(uintptr(unsafe.Pointer(o)))
 }
 
 // Get an object's property by name.

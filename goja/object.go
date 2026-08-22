@@ -5,7 +5,6 @@ import (
 	"math"
 	"reflect"
 	"sort"
-	"sync/atomic"
 
 	"github.com/joeycumines/goja/unistring"
 )
@@ -49,8 +48,6 @@ var (
 type Object struct {
 	self    objectImpl
 	runtime *Runtime
-
-	id atomic.Uint64
 }
 
 type iterNextFunc func() (propIterItem, iterNextFunc)
@@ -1643,22 +1640,6 @@ func (o *Object) defineOwnProperty(n Value, desc PropertyDescriptor, throw bool)
 	default:
 		return o.self.defineOwnPropertyStr(n.string(), desc, throw)
 	}
-}
-
-var nextObjectID atomic.Uint64
-
-func (o *Object) getId() uint64 {
-	if id := o.id.Load(); id != 0 {
-		return id
-	}
-	id := nextObjectID.Add(1)
-	if id == 0 {
-		id = nextObjectID.Add(1)
-	}
-	if o.id.CompareAndSwap(0, id) {
-		return id
-	}
-	return o.id.Load()
 }
 
 func (o *guardedObject) guard(props ...unistring.String) {
