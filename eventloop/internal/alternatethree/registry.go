@@ -137,8 +137,13 @@ func (r *registry) Scavenge(batchSize int) {
 	}
 }
 
-// RejectAll rejects all pending promises with the given error (D16).
+// RejectAll rejects all pending promises with the given error and discards the
+// registry storage. It synchronizes on scavengeMu so a concurrent Scavenge cannot
+// write back a stale head against a ring/head just cleared by RejectAll.
 func (r *registry) RejectAll(err error) {
+	r.scavengeMu.Lock()
+	defer r.scavengeMu.Unlock()
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

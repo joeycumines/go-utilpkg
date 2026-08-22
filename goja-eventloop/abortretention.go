@@ -74,12 +74,19 @@ func (a *Adapter) linkAbortSignal(source, dependent *abortSignalState) {
 	if source == nil || dependent == nil || source == dependent {
 		return
 	}
+	dependentWP := weak.Make(dependent)
+	source.mu.Lock()
+	for _, existing := range source.dependentLinks {
+		if existing != nil && existing.dependent == dependentWP && existing.active.Load() {
+			source.mu.Unlock()
+			return
+		}
+	}
 	link := &abortSignalLink{
 		source:    weak.Make(source),
-		dependent: weak.Make(dependent),
+		dependent: dependentWP,
 	}
 	link.active.Store(true)
-	source.mu.Lock()
 	source.dependentLinks = append(source.dependentLinks, link)
 	source.mu.Unlock()
 	dependent.mu.Lock()
@@ -106,7 +113,7 @@ func cleanupAbortSignalLink(cleanup abortSignalLinkCleanup) {
 	source.mu.Lock()
 	var target *abortSignalLink
 	for _, link := range source.dependentLinks {
-		if link != nil && link.dependent == cleanup.dependent {
+		if link != nil && link.dependent == cleanup.dependent && link.active.Load() {
 			target = link
 			break
 		}
