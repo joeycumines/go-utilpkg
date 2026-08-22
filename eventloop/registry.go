@@ -96,22 +96,14 @@ func (r *registry) Scavenge(batchSize int) {
 	}
 	r.mu.RUnlock()
 
-	cycleCompleted := (nextHead == 0)
+	cycleCompleted := nextHead == 0
 
-	var itemsToRemove []item
+	itemsToRemove := validItems[:0]
 
 	for i, it := range validItems {
 		wp := validWPs[i]
 		val := wp.Value()
-		shouldRemove := false
-		if val == nil {
-			shouldRemove = true
-		} else {
-			if val.State() != Pending {
-				shouldRemove = true
-			}
-		}
-		if shouldRemove {
+		if val == nil || val.State() != Pending {
 			itemsToRemove = append(itemsToRemove, it)
 		}
 	}
