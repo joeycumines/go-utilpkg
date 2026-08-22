@@ -51,22 +51,22 @@ func TestTable_MarshalJSON_failure(t *testing.T) {
 	}{
 		{
 			Name:  `empty`,
-			Error: `json: error calling MarshalJSON for type export.Table: invalid table: ""`,
+			Error: `json: error calling MarshalJSON for type *export.Table: invalid table: ""`,
 		},
 		{
 			Name:  `just schema`,
 			Table: Table{Schema: `a`},
-			Error: `json: error calling MarshalJSON for type export.Table: invalid table: "a."`,
+			Error: `json: error calling MarshalJSON for type *export.Table: invalid table: "a."`,
 		},
 		{
 			Name:  `name contains period`,
 			Table: Table{Schema: `a`, Name: `b.c`},
-			Error: `json: error calling MarshalJSON for type export.Table: invalid table: "a.b.c"`,
+			Error: `json: error calling MarshalJSON for type *export.Table: invalid table: "a.b.c"`,
 		},
 		{
 			Name:  `schema contains period`,
 			Table: Table{Schema: `a.b`, Name: `c`},
-			Error: `json: error calling MarshalJSON for type export.Table: invalid table: "a.b.c"`,
+			Error: `json: error calling MarshalJSON for type *export.Table: invalid table: "a.b.c"`,
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {

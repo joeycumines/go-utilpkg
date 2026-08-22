@@ -27,9 +27,7 @@ func cleanupAdapterTimerRegistration(token adapterTimerCleanup) {
 		return
 	}
 	adapter.timersMu.Lock()
-	if _, ok := adapter.timerRegistry.states[token.state]; ok {
-		delete(adapter.timerRegistry.states, token.state)
-	}
+	delete(adapter.timerRegistry.states, token.state)
 	adapter.timersMu.Unlock()
 }
 

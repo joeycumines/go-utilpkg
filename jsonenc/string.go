@@ -182,12 +182,12 @@ func appendStringComplex(dst []byte, s string, i int) []byte {
 			r, size := utf8.DecodeRuneInString(s[i:])
 			if r == utf8.RuneError && size == 1 {
 				// In case of error, first append previous simple characters to
-				// the byte slice if any and append a replacement character code
-				// in place of the invalid sequence.
+				// the byte slice if any and append the UTF-8 replacement rune
+				// (U+FFFD) in place of the invalid sequence.
 				if start < i {
 					dst = append(dst, s[start:i]...)
 				}
-				dst = append(dst, `\ufffd`...)
+				dst = utf8.AppendRune(dst, utf8.RuneError)
 				i += size
 				start = i
 				continue

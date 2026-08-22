@@ -77,7 +77,7 @@ var encodeStringTests = []struct {
 	{"\x1e", `"\u001e"`}, // record separator
 	{"\x1f", `"\u001f"`}, // unit separator
 	{"✭", `"✭"`},         // star symbol
-	{"foo\xc2\x7fbar", `"foo\ufffd` + "\x7f" + `bar"`}, // replaces invalid byte sequence
+	{"foo\xc2\x7fbar", `"foo` + "\ufffd\x7f" + `bar"`}, // replaces invalid byte sequence
 	{"ascii", `"ascii"`},                 // ASCII characters
 	{"\"a", `"\"a"`},                     // double quote with letter
 	{"\x1fa", `"\u001fa"`},               // letter with escape character
@@ -91,17 +91,17 @@ var encodeStringTests = []struct {
 	{"\u2028", `"\u2028"`}, // line separator
 	{"\u2029", `"\u2029"`}, // paragraph separator
 	{"foo \u2028\u2029 \u2028 \u2029  bar", `"foo \u2028\u2029 \u2028 \u2029  bar"`}, // string with line and paragraph separators
-	{"\xc0", `"\ufffd"`},                               // start of a two-byte sequence without a continuation byte
-	{"\xed\xa0\x80", `"\ufffd\ufffd\ufffd"`},           // an overlong three-byte sequence
-	{"\xf4\x90\x80\x80", `"\ufffd\ufffd\ufffd\ufffd"`}, // a four-byte sequence representing a code point outside the valid range
-	{"\u0022", `"\""`},                                 // double quote
-	{"\u0027", `"'"`},                                  // single quote
-	{"\u005c", `"\\"`},                                 // backslash
-	{"\u00a9", `"©"`},                                  // copyright symbol
-	{"\u2603", `"☃"`},                                  // snowman
-	{"\u20ac", `"€"`},                                  // euro symbol
-	{"\u1f600", `"ὠ0"`},                                // grinning face
-	{"\u1f9a3", `"ᾚ3"`},                                // zombie
+	{"\xc0", `"` + "\ufffd" + `"`},                               // start of a two-byte sequence without a continuation byte
+	{"\xed\xa0\x80", `"` + "\ufffd\ufffd\ufffd" + `"`},           // an overlong three-byte sequence
+	{"\xf4\x90\x80\x80", `"` + "\ufffd\ufffd\ufffd\ufffd" + `"`}, // a four-byte sequence representing a code point outside the valid range
+	{"\u0022", `"\""`},  // double quote
+	{"\u0027", `"'"`},   // single quote
+	{"\u005c", `"\\"`},  // backslash
+	{"\u00a9", `"©"`},   // copyright symbol
+	{"\u2603", `"☃"`},   // snowman
+	{"\u20ac", `"€"`},   // euro symbol
+	{"\u1f600", `"ὠ0"`}, // grinning face
+	{"\u1f9a3", `"ᾚ3"`}, // zombie
 	{"\u1f468\u200d\u2695\ufe0f", `"` + "\u1f468\u200d\u2695\ufe0f" + `"`}, // man health worker
 	{"\u1f9d1\u200d\u1f52c", `"` + "\u1f9d1\u200d\u1f52c" + `"`},           // woman mage
 	{"\U0001F926\U0001F3FB\u200D\u2642\uFE0F", `"🤦🏻‍♂️"`},                  // man facepalming
@@ -247,7 +247,6 @@ func TestInsertStringContent(t *testing.T) {
 
 var validatedReplacementRune = func() rune {
 	const replacementRune = '�'
-	const replacementRuneEncoding = `"\ufffd"`
 
 	// sanity check
 	b, err := json.Marshal(string(replacementRune))
@@ -262,12 +261,12 @@ var validatedReplacementRune = func() rune {
 	if err != nil {
 		panic(err)
 	}
-	if string(b) != replacementRuneEncoding {
+	if string(b) != `"`+string(replacementRune)+`"` {
 		panic("unexpected replacementRune encoding: " + string(b))
 	}
 
 	var s string
-	if err := json.Unmarshal([]byte(replacementRuneEncoding), &s); err != nil {
+	if err := json.Unmarshal([]byte(`"`+string(replacementRune)+`"`), &s); err != nil {
 		panic(err)
 	}
 	if s != string(replacementRune) {
