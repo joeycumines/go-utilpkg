@@ -13,7 +13,6 @@ type abortSignalLink struct {
 	retained   atomic.Pointer[abortSignalState]
 	cleanup    runtime.Cleanup
 	mu         sync.Mutex
-	id         uint64
 	active     atomic.Bool
 	cleanupSet bool
 }
@@ -34,11 +33,9 @@ type abortTimeoutCleanup struct {
 }
 
 type abortSignalLinkCleanup struct {
-	source weak.Pointer[abortSignalState]
-	id     uint64
+	source    weak.Pointer[abortSignalState]
+	dependent weak.Pointer[abortSignalState]
 }
-
-var nextAbortSignalLinkID atomic.Uint64
 
 func cleanupAbortTimeout(cleanup abortTimeoutCleanup) {
 	adapter := cleanup.adapter.Value()
@@ -80,7 +77,6 @@ func (a *Adapter) linkAbortSignal(source, dependent *abortSignalState) {
 	link := &abortSignalLink{
 		source:    weak.Make(source),
 		dependent: weak.Make(dependent),
-		id:        nextAbortSignalLinkID.Add(1),
 	}
 	link.active.Store(true)
 	source.mu.Lock()
@@ -90,7 +86,7 @@ func (a *Adapter) linkAbortSignal(source, dependent *abortSignalState) {
 	dependent.sourceLinks = append(dependent.sourceLinks, link)
 	dependent.mu.Unlock()
 	updateAbortSignalRetention(dependent)
-	cleanup := runtime.AddCleanup(dependent, cleanupAbortSignalLink, abortSignalLinkCleanup{source: weak.Make(source), id: link.id})
+	cleanup := runtime.AddCleanup(dependent, cleanupAbortSignalLink, abortSignalLinkCleanup{source: weak.Make(source), dependent: weak.Make(dependent)})
 	link.mu.Lock()
 	if link.active.Load() {
 		link.cleanup = cleanup
@@ -110,7 +106,7 @@ func cleanupAbortSignalLink(cleanup abortSignalLinkCleanup) {
 	source.mu.Lock()
 	var target *abortSignalLink
 	for _, link := range source.dependentLinks {
-		if link != nil && link.id == cleanup.id {
+		if link != nil && link.dependent == cleanup.dependent {
 			target = link
 			break
 		}

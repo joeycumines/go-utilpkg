@@ -4,6 +4,7 @@ import (
 	"errors"
 	"runtime"
 	"testing"
+	"weak"
 )
 
 // Test_Promise_NewPromise tests creating promises in different initial states
@@ -14,11 +15,8 @@ func Test_Promise_NewPromise(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		id, p := registry.NewPromise()
+		p := registry.NewPromise()
 
-		if id == 0 {
-			t.Fatal("Expected non-zero promise ID")
-		}
 		if p == nil {
 			t.Fatal("Expected non-nil promise")
 		}
@@ -31,17 +29,17 @@ func Test_Promise_NewPromise(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		ids := make(map[uint64]bool)
+		seen := make(map[*promise]bool)
 
 		for range 100 {
-			id, _ := registry.NewPromise()
-			if id == 0 {
-				t.Fatalf("Expected non-zero ID, got %d", id)
+			p := registry.NewPromise()
+			if p == nil {
+				t.Fatalf("Expected non-nil promise")
 			}
-			if ids[id] {
-				t.Fatalf("Duplicate ID: %d", id)
+			if seen[p] {
+				t.Fatalf("Duplicate promise pointer: %p", p)
 			}
-			ids[id] = true
+			seen[p] = true
 		}
 	})
 }
@@ -54,7 +52,7 @@ func Test_Promise_Resolve(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		result := "success value"
 		p.Resolve(result)
@@ -73,7 +71,7 @@ func Test_Promise_Resolve(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		p.Resolve("first")
 		p.Resolve("second")
@@ -88,7 +86,7 @@ func Test_Promise_Resolve(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		p.Resolve(nil)
 		if p.State() != Resolved {
@@ -105,7 +103,7 @@ func Test_Promise_Reject(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		reason := errors.New("test error")
 		p.Reject(reason)
@@ -124,7 +122,7 @@ func Test_Promise_Reject(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		p.Reject(errors.New("first error"))
 		p.Reject(errors.New("second error"))
@@ -139,7 +137,7 @@ func Test_Promise_Reject(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		p.Reject(errors.New("error"))
 		p.Resolve("value")
@@ -159,7 +157,7 @@ func Test_Promise_MonotonicState(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		// First settlement (resolve)
 		p.Resolve("first")
@@ -186,7 +184,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		const numGoroutines = 10
 		done := make(chan struct{}, numGoroutines)
@@ -216,7 +214,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		const numGoroutines = 10
 		done := make(chan struct{}, numGoroutines)
@@ -246,7 +244,7 @@ func Test_Promise_ConcurrentSettlement(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		const numGoroutines = 20
 		done := make(chan struct{}, numGoroutines)
@@ -289,7 +287,7 @@ func Test_Promise_ToChannel(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		resultCh := p.ToChannel()
 
@@ -311,7 +309,7 @@ func Test_Promise_ToChannel(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		_, p := registry.NewPromise()
+		p := registry.NewPromise()
 
 		resultCh := p.ToChannel()
 
@@ -337,11 +335,12 @@ func Test_Promise_WeakPointerBehavior(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		id, promise := registry.NewPromise()
+		promise := registry.NewPromise()
+		wp := weak.Make(promise)
 		runtime.GC()
 		registry.Scavenge(1)
 		registry.mu.RLock()
-		_, exists := registry.data[id]
+		_, exists := registry.data[wp]
 		registry.mu.RUnlock()
 		if !exists {
 			t.Error("reachable pending promise was removed")
@@ -355,14 +354,15 @@ func Test_Promise_WeakPointerBehavior(t *testing.T) {
 		registry := newRegistry()
 
 		// Create and resolve a promise
-		id, p := registry.NewPromise()
+		p := registry.NewPromise()
+		wp := weak.Make(p)
 		p.Resolve("result")
 
 		// Run scavenger
 		registry.Scavenge(100)
 
 		registry.mu.RLock()
-		_, exists := registry.data[id]
+		_, exists := registry.data[wp]
 		registry.mu.RUnlock()
 		if exists {
 			t.Error("settled promise remained in registry after Scavenge")
@@ -377,7 +377,8 @@ func Test_Promise_CallbackMemoryLeak(t *testing.T) {
 		t.Parallel()
 
 		registry := newRegistry()
-		id, p := registry.NewPromise()
+		p := registry.NewPromise()
+		wp := weak.Make(p)
 
 		// Register many channels
 		const numChannels = 1000
@@ -412,7 +413,7 @@ func Test_Promise_CallbackMemoryLeak(t *testing.T) {
 		}
 		registry.Scavenge(200)
 		registry.mu.RLock()
-		_, exists := registry.data[id]
+		_, exists := registry.data[wp]
 		registry.mu.RUnlock()
 		if exists {
 			t.Error("settled promise remained registered")

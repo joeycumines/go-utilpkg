@@ -9,17 +9,16 @@ import (
 )
 
 type adapterTimerRegistry struct {
-	states map[uint64]weak.Pointer[adapterTimer]
+	states map[weak.Pointer[adapterTimer]]struct{}
 }
 
 type adapterTimerCleanup struct {
 	adapter weak.Pointer[Adapter]
 	state   weak.Pointer[adapterTimer]
-	id      uint64
 }
 
 func newAdapterTimerRegistry() *adapterTimerRegistry {
-	return &adapterTimerRegistry{states: make(map[uint64]weak.Pointer[adapterTimer])}
+	return &adapterTimerRegistry{states: make(map[weak.Pointer[adapterTimer]]struct{})}
 }
 
 func cleanupAdapterTimerRegistration(token adapterTimerCleanup) {
@@ -28,8 +27,8 @@ func cleanupAdapterTimerRegistration(token adapterTimerCleanup) {
 		return
 	}
 	adapter.timersMu.Lock()
-	if current, ok := adapter.timerRegistry.states[token.id]; ok && current == token.state {
-		delete(adapter.timerRegistry.states, token.id)
+	if _, ok := adapter.timerRegistry.states[token.state]; ok {
+		delete(adapter.timerRegistry.states, token.state)
 	}
 	adapter.timersMu.Unlock()
 }
@@ -45,7 +44,7 @@ func (a *Adapter) registerTimerState(state *adapterTimer) bool {
 		a.timersMu.Unlock()
 		return false
 	}
-	a.timerRegistry.states[state.id] = pointer
+	a.timerRegistry.states[pointer] = struct{}{}
 	a.timersMu.Unlock()
 	if !state.cleanupSet.CompareAndSwap(false, true) {
 		return true
@@ -53,7 +52,6 @@ func (a *Adapter) registerTimerState(state *adapterTimer) bool {
 	runtime.AddCleanup(state, cleanupAdapterTimerRegistration, adapterTimerCleanup{
 		adapter: weak.Make(a),
 		state:   pointer,
-		id:      state.id,
 	})
 	if hooks := a.timerBackendHooks; hooks != nil && hooks.afterCleanupRegistration != nil {
 		hooks.afterCleanupRegistration()
@@ -84,8 +82,8 @@ func (a *Adapter) terminateCleanup() {
 	}
 	a.timersMu.Lock()
 	timerHandles := make([]any, 0, len(a.timerRegistry.states))
-	for _, pointer := range a.timerRegistry.states {
-		state := pointer.Value()
+	for wp := range a.timerRegistry.states {
+		state := wp.Value()
 		if state == nil {
 			continue
 		}
@@ -114,12 +112,12 @@ func (a *Adapter) terminateCleanup() {
 	a.retireTimerBackendCarrier()
 
 	a.timersMu.Lock()
-	for id, pointer := range a.timerRegistry.states {
-		state := pointer.Value()
+	for wp := range a.timerRegistry.states {
+		state := wp.Value()
 		if payload := retireTimerState(state); payload != nil {
 			payload.object = nil
 		}
-		delete(a.timerRegistry.states, id)
+		delete(a.timerRegistry.states, wp)
 	}
 	a.timers = make(map[uint64]*adapterTimer)
 	a.timeoutBackendRefed = false

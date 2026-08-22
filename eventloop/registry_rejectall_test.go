@@ -7,10 +7,10 @@ import (
 
 func TestRegistryRejectAllPreservesSettledAndRejectsPending(t *testing.T) {
 	r := newRegistry()
-	_, fulfilled := r.NewPromise()
-	_, rejected := r.NewPromise()
-	_, firstPending := r.NewPromise()
-	_, secondPending := r.NewPromise()
+	fulfilled := r.NewPromise()
+	rejected := r.NewPromise()
+	firstPending := r.NewPromise()
+	secondPending := r.NewPromise()
 
 	fulfilled.resolve("fulfilled")
 	priorReason := errors.New("prior rejection")
@@ -55,7 +55,7 @@ func TestRegistryRejectAllConcurrentScavenge(t *testing.T) {
 	r := newRegistry()
 	promises := make([]*promise, promiseCount)
 	for i := range promises {
-		_, promises[i] = r.NewPromise()
+		promises[i] = r.NewPromise()
 	}
 
 	reason := errors.New("shutdown")
@@ -95,7 +95,7 @@ func TestRegistryRejectAllDiscardsHighWaterStorage(t *testing.T) {
 	r := newRegistry()
 	promises := make([]*promise, promiseCount)
 	for index := range promises {
-		_, promises[index] = r.NewPromise()
+		promises[index] = r.NewPromise()
 	}
 	if cap(r.ring) < promiseCount {
 		t.Fatalf("registry ring capacity before rejection = %d, want at least %d", cap(r.ring), promiseCount)

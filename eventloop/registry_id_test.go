@@ -1,76 +1,71 @@
 package eventloop
 
-import "testing"
+import (
+	"testing"
+	"weak"
+)
 
 func TestRegistryNewPromisePublication(t *testing.T) {
 	r := newRegistry()
 
-	id, promise := r.NewPromise()
+	p := r.NewPromise()
+	wp := weak.Make(p)
 
 	r.mu.RLock()
-	registered := r.data[id].Value()
-	ring := append([]uint64(nil), r.ring...)
+	_, exists := r.data[wp]
+	ring := append([]weak.Pointer[promise](nil), r.ring...)
 	head := r.head
-	nextID := r.nextID
 	r.mu.RUnlock()
 
-	if id != 1 {
-		t.Fatalf("first promise ID = %d, want 1", id)
-	}
-	if promise == nil {
+	if p == nil {
 		t.Fatal("first promise is nil")
 	}
-	if promise.State() != Pending {
-		t.Fatalf("first promise state = %v, want Pending", promise.State())
+	if p.State() != Pending {
+		t.Fatalf("first promise state = %v, want Pending", p.State())
 	}
-	if registered != promise {
-		t.Fatalf("registered promise = %p, want %p", registered, promise)
+	if !exists {
+		t.Fatalf("registered promise not found in data via weak pointer")
 	}
-	if len(ring) != 1 || ring[0] != id {
-		t.Fatalf("registry ring = %v, want [%d]", ring, id)
+	if len(ring) != 1 || ring[0] != wp {
+		t.Fatalf("registry ring = %v, want [%v]", ring, wp)
 	}
-	if head != 0 || nextID != 2 {
-		t.Fatalf("registry cursor = (head %d, next ID %d), want (0, 2)", head, nextID)
+	if head != 0 {
+		t.Fatalf("registry head = %d, want 0", head)
+	}
+	if wp.Value() != p {
+		t.Fatalf("weak pointer value = %p, want %p", wp.Value(), p)
 	}
 }
 
-func TestRegistryNewPromiseWrapSkipsSentinelAndLiveIDs(t *testing.T) {
+func TestRegistryNewPromiseUniquePointers(t *testing.T) {
 	r := newRegistry()
 
-	firstID, first := r.NewPromise()
-	if firstID != 1 {
-		t.Fatalf("first ID = %d, want 1", firstID)
-	}
+	first := r.NewPromise()
+	second := r.NewPromise()
 
-	r.mu.Lock()
-	r.nextID = ^uint64(0)
-	r.mu.Unlock()
-
-	maxID, maximum := r.NewPromise()
-	if maxID != ^uint64(0) {
-		t.Fatalf("maximum ID = %d, want %d", maxID, ^uint64(0))
+	if first == second {
+		t.Fatalf("first and second promise same pointer %p", first)
 	}
-	wrappedID, wrapped := r.NewPromise()
-	if wrappedID != 2 {
-		t.Fatalf("wrapped ID = %d, want first free ID 2", wrappedID)
+	wp1 := weak.Make(first)
+	wp2 := weak.Make(second)
+	if wp1 == wp2 {
+		t.Fatalf("weak pointers equal for distinct promises: %v", wp1)
 	}
 
 	r.mu.RLock()
-	firstRegistered := r.data[firstID].Value() == first
-	maximumRegistered := r.data[maxID].Value() == maximum
-	wrappedRegistered := r.data[wrappedID].Value() == wrapped
-	_, sentinelRegistered := r.data[0]
-	nextID := r.nextID
+	_, ok1 := r.data[wp1]
+	_, ok2 := r.data[wp2]
 	r.mu.RUnlock()
 
-	if !firstRegistered || !maximumRegistered || !wrappedRegistered {
-		t.Fatalf("live registrations after wrap = first %v maximum %v wrapped %v, want all true", firstRegistered, maximumRegistered, wrappedRegistered)
+	if !ok1 || !ok2 {
+		t.Fatalf("live registrations after second alloc missing: first %v second %v", ok1, ok2)
 	}
+	// Ensure zero sentinel not used
+	r.mu.RLock()
+	_, sentinelRegistered := r.data[weak.Pointer[promise]{}]
+	r.mu.RUnlock()
 	if sentinelRegistered {
-		t.Fatal("promise registry stored a live promise under sentinel ID 0")
-	}
-	if nextID != 3 {
-		t.Fatalf("next ID after wrap = %d, want 3", nextID)
+		t.Fatal("promise registry stored entry under zero weak pointer sentinel")
 	}
 }
 
@@ -81,7 +76,7 @@ func TestRegistryNewPromiseConcurrentIDs(t *testing.T) {
 	)
 
 	type result struct {
-		id      uint64
+		wp      weak.Pointer[promise]
 		promise *promise
 	}
 
@@ -90,37 +85,44 @@ func TestRegistryNewPromiseConcurrentIDs(t *testing.T) {
 	for range workerCount {
 		go func() {
 			for range promisesPerWorker {
-				id, promise := r.NewPromise()
-				results <- result{id: id, promise: promise}
+				promise := r.NewPromise()
+				wp := weak.Make(promise)
+				results <- result{wp: wp, promise: promise}
 			}
 		}()
 	}
 
-	registered := make(map[uint64]*promise, workerCount*promisesPerWorker)
+	registered := make(map[weak.Pointer[promise]]*promise, workerCount*promisesPerWorker)
 	for range workerCount * promisesPerWorker {
 		got := waitContractValue(t, results, "concurrent registry allocation")
-		if got.id == 0 {
-			t.Fatal("concurrent allocation published sentinel ID 0")
+		if got.wp == (weak.Pointer[promise]{}) {
+			t.Fatal("concurrent allocation published zero weak pointer sentinel")
 		}
 		if got.promise == nil {
-			t.Fatalf("concurrent allocation for ID %d published a nil promise", got.id)
+			t.Fatalf("concurrent allocation for wp %v published a nil promise", got.wp)
 		}
 		if got.promise.State() != Pending {
-			t.Fatalf("concurrent allocation for ID %d published state %v, want Pending", got.id, got.promise.State())
+			t.Fatalf("concurrent allocation for wp %v published state %v, want Pending", got.wp, got.promise.State())
 		}
-		if previous := registered[got.id]; previous != nil {
-			t.Fatalf("duplicate registry ID %d published promises %p and %p", got.id, previous, got.promise)
+		if got.wp.Value() != got.promise {
+			t.Fatalf("weak pointer value mismatch: wp.Value()=%p want %p", got.wp.Value(), got.promise)
 		}
-		registered[got.id] = got.promise
+		if previous := registered[got.wp]; previous != nil {
+			t.Fatalf("duplicate registry weak pointer %v published promises %p and %p", got.wp, previous, got.promise)
+		}
+		registered[got.wp] = got.promise
 	}
 
 	r.mu.RLock()
 	if len(r.data) != len(registered) || len(r.ring) != len(registered) {
 		t.Fatalf("registry sizes = (data %d, ring %d), want (%d, %d)", len(r.data), len(r.ring), len(registered), len(registered))
 	}
-	for id, promise := range registered {
-		if got := r.data[id].Value(); got != promise {
-			t.Errorf("registry ID %d points to %p, want %p", id, got, promise)
+	for wp, promise := range registered {
+		if got := wp.Value(); got != promise {
+			t.Errorf("registry wp %v points to %p, want %p", wp, got, promise)
+		}
+		if _, ok := r.data[wp]; !ok {
+			t.Errorf("registry missing wp %v", wp)
 		}
 	}
 	r.mu.RUnlock()

@@ -3,6 +3,7 @@ package gojaeventloop
 import (
 	"errors"
 	"fmt"
+	"weak"
 
 	"github.com/joeycumines/goja"
 )
@@ -219,7 +220,7 @@ func (a *Adapter) nativeTimerRetired(value goja.Value) {
 	if current, exists := a.timers[state.id]; exists && current == state {
 		delete(a.timers, state.id)
 	}
-	delete(a.timerRegistry.states, state.id)
+	delete(a.timerRegistry.states, weak.Make(state))
 	a.timersMu.Unlock()
 	if payload := retireTimerState(state); payload != nil {
 		payload.object = nil

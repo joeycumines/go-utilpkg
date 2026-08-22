@@ -317,7 +317,7 @@ func TestLoopRejectAllPendingPromisesRunsOnce(t *testing.T) {
 
 	errFirst := errors.New("first terminal rejection")
 	errSecond := errors.New("second terminal rejection")
-	_, first := loop.registry.NewPromise()
+	first := loop.registry.NewPromise()
 	loop.rejectAllPendingPromises(errFirst)
 
 	if first.State() != Rejected {
@@ -327,7 +327,7 @@ func TestLoopRejectAllPendingPromisesRunsOnce(t *testing.T) {
 		t.Fatalf("first promise reason = %v, want %v", first.Result(), errFirst)
 	}
 
-	_, second := loop.registry.NewPromise()
+	second := loop.registry.NewPromise()
 	loop.rejectAllPendingPromises(errSecond)
 	if second.State() != Pending {
 		t.Fatalf("second promise state = %v, want Pending because rejectAllOnce already fired", second.State())

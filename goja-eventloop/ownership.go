@@ -52,19 +52,17 @@ type adapterOwnership struct {
 type adapterClaimToken struct {
 	loop    weak.Pointer[goeventloop.Loop]
 	runtime weak.Pointer[goja.Runtime]
-	id      uint64
+	owner   weak.Pointer[Adapter]
 }
 
 type adapterClaim struct {
 	owner weak.Pointer[Adapter]
-	id    uint64
 }
 
 var adapterClaimRegistry = struct {
 	sync.Mutex
 	loops    map[weak.Pointer[goeventloop.Loop]]adapterClaim
 	runtimes map[weak.Pointer[goja.Runtime]]adapterClaim
-	nextID   uint64
 }{
 	loops:    make(map[weak.Pointer[goeventloop.Loop]]adapterClaim),
 	runtimes: make(map[weak.Pointer[goja.Runtime]]adapterClaim),
@@ -92,9 +90,8 @@ func claimAdapter(adapter *Adapter, jsOptions []goeventloop.JSOption) error {
 		adapterClaimRegistry.Unlock()
 		return fmt.Errorf("%w: runtime already claimed", ErrOwnershipConflict)
 	}
-	adapterClaimRegistry.nextID++
-	token := adapterClaimToken{loop: loopKey, runtime: runtimeKey, id: adapterClaimRegistry.nextID}
-	claim := adapterClaim{owner: owner, id: token.id}
+	token := adapterClaimToken{loop: loopKey, runtime: runtimeKey, owner: owner}
+	claim := adapterClaim{owner: owner}
 	adapterClaimRegistry.loops[loopKey] = claim
 	adapterClaimRegistry.runtimes[runtimeKey] = claim
 	adapterClaimRegistry.Unlock()
@@ -113,13 +110,13 @@ func claimAdapter(adapter *Adapter, jsOptions []goeventloop.JSOption) error {
 
 func cleanupAdapterClaim(token adapterClaimToken) {
 	adapterClaimRegistry.Lock()
-	deleteAdapterClaimLocked(adapterClaimRegistry.loops, token.loop, token.id)
-	deleteAdapterClaimLocked(adapterClaimRegistry.runtimes, token.runtime, token.id)
+	deleteAdapterClaimLocked(adapterClaimRegistry.loops, token.loop, token.owner)
+	deleteAdapterClaimLocked(adapterClaimRegistry.runtimes, token.runtime, token.owner)
 	adapterClaimRegistry.Unlock()
 }
 
-func deleteAdapterClaimLocked[T any](claims map[weak.Pointer[T]]adapterClaim, key weak.Pointer[T], id uint64) {
-	if claim, ok := claims[key]; ok && claim.id == id {
+func deleteAdapterClaimLocked[T any](claims map[weak.Pointer[T]]adapterClaim, key weak.Pointer[T], owner weak.Pointer[Adapter]) {
+	if claim, ok := claims[key]; ok && claim.owner == owner {
 		delete(claims, key)
 	}
 }
@@ -153,7 +150,7 @@ func (a *Adapter) claimed() bool {
 	adapterClaimRegistry.Lock()
 	loopClaim, loopOK := adapterClaimRegistry.loops[token.loop]
 	runtimeClaim, runtimeOK := adapterClaimRegistry.runtimes[token.runtime]
-	claimed := loopOK && runtimeOK && loopClaim.id == token.id && runtimeClaim.id == token.id &&
+	claimed := loopOK && runtimeOK && loopClaim.owner == token.owner && runtimeClaim.owner == token.owner &&
 		loopClaim.owner.Value() == a && runtimeClaim.owner.Value() == a
 	adapterClaimRegistry.Unlock()
 	runtime.KeepAlive(a)

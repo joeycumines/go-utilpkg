@@ -66,7 +66,7 @@ We standardize on **`weak.Pointer[T]`** (via `weak.Make` from the Go standard li
 
 ### Core Architectural Rules
 
-1. **Weak Pointer as Key Identity**: Backing maps for weak collections must be keyed directly by `weak.Pointer[K]` (e.g., `map[weak.Pointer[K]]V` or concurrent variants), where `K` is the referent object type.
+1. **Weak Pointer as Key Identity**: Backing maps for weak collections must be keyed directly by `weak.Pointer[K]` (e.g., `map[weak.Pointer[K]]V` for associative maps or `map[weak.Pointer[K]]struct{}` for membership-only registries/sets where the value would otherwise be the same `weak.Pointer[K]`), where `K` is the referent object type.
 2. **Cleanup Token Binding**: When registering cleanups via `runtime.AddCleanup(target, cleanupFn, token)`, the cleanup token passed must be the `weak.Pointer[K]` (or a value containing it).
 3. **Exact Identity Eviction**: Cleanups must evict entries using the captured `weak.Pointer[K]`. Because `weak.Pointer[T]` maintains referent equality even after reclamation [3], evicting by weak pointer is mathematically immune to address recycling.
 4. **Prohibition of Address-Derived Keys in GC-Observing Maps**: Raw pointers (`*T`), raw addresses (`uintptr`), or pointer hashes must never be used as map keys if entries are subject to asynchronous GC-driven deletion.
@@ -249,6 +249,28 @@ $$\text{Key } K \longleftarrow \text{strong ref} \longleftarrow \text{Value } V 
 
 Cleanup handlers run concurrently with main application goroutines [6, 7].
 - **Rule**: Any internal map access inside a cleanup handler must be properly synchronized (via mutexes, concurrent maps, or actor channels) against concurrent reads, writes, and other cleanups.
+
+### 4. Avoid Redundant Weak-Pointer Values for Membership-Only Registries
+
+When a weak collection is a *registry* or *set* that tracks only the liveness of objects themselves — rather than associating an external value with each key — storing the same `weak.Pointer[T]` as both key and value (e.g., `map[weak.Pointer[T]]weak.Pointer[T]` where the value is `weak.Make(keyObject)`) is redundant. The key already carries the exact referent identity required for ABA-safe eviction and lookup; duplicating it as the value doubles weak-reference allocations, obscures intent (map vs. set), and invites future misuse where callers mistakenly compare the stored value instead of the key.
+
+- **Rule**: For membership-only weak registries/sets where no external value is associated, the backing map **must** be `map[weak.Pointer[T]]struct{}` (the standard Go set idiom). Use `map[weak.Pointer[K]]V` only when `V` is a *distinct* associated value (e.g., a creation stack, timeout state, or source pointer that differs from the key referent). When converting a legacy `map[uint64]weak.Pointer[T]` registry that stored `weak.Make(obj)` as both key and value, replace it with `map[weak.Pointer[T]]struct{}` and store `struct{}{}` on insertion. Cleanup and lookup then operate purely on the key: `delete(m, wp)` and `for wp := range m { if wp.Value() != nil { ... } }`.
+
+> **Example — Timer Registry (corrected):**
+> ```go
+> type adapterTimerRegistry struct {
+>     states map[weak.Pointer[adapterTimer]]struct{}
+> }
+> func (r *adapterTimerRegistry) Add(state *adapterTimer) {
+>     wp := weak.Make(state)
+>     r.states[wp] = struct{}{}
+>     runtime.AddCleanup(state, func(token weak.Pointer[adapterTimer]) {
+>         delete(r.states, token)
+>     }, wp)
+> }
+> ```
+
+This guideline prevents the `map[weak.Pointer[T]]weak.Pointer[T]` anti-pattern detected during the 2026-08-22 alignment (e.g., `adapterTimerRegistry.states`) from recurring.
 
 ---
 

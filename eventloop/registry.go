@@ -8,19 +8,16 @@ import (
 // registry tracks active promises using weak pointers to allow garbage collection.
 // It uses a Ring Buffer strategy for efficient scavenging.
 type registry struct {
-	// data stores weak pointers to promises.
-	data map[uint64]weak.Pointer[promise]
+	// data stores weak pointers to promises as membership set.
+	data map[weak.Pointer[promise]]struct{}
 
-	// ring is a circular buffer of IDs used for scavenging.
-	// It allows deterministic checking of all promises over time.
-	ring []uint64
+	// ring is a circular buffer of weak pointers used for scavenging.
+	ring []weak.Pointer[promise]
 
 	// head is the current cursor position in the ring for the scavenger.
 	head int
 
-	// nextID is the counter for generating unique promise IDs.
-	nextID uint64
-	mu     sync.RWMutex
+	mu sync.RWMutex
 
 	// scavengeMu serializes scavenge operations to prevent overlap
 	// and to ensure compaction safety.
@@ -30,60 +27,25 @@ type registry struct {
 // newRegistry creates a new initialized registry.
 func newRegistry() *registry {
 	return &registry{
-		data:   make(map[uint64]weak.Pointer[promise]),
-		ring:   make([]uint64, 0, 1024), // Initial capacity
-		nextID: 1,                       // Start at 1 so 0 is null marker
+		data: make(map[weak.Pointer[promise]]struct{}),
+		ring: make([]weak.Pointer[promise], 0, 1024),
 	}
 }
 
-// NewPromise creates a new promise, registers it, and returns the ID and the concrete promise.
-func (r *registry) NewPromise() (uint64, *promise) {
+// NewPromise creates a new promise, registers it, and returns the concrete promise.
+func (r *registry) NewPromise() *promise {
 	p := &promise{
 		state: Pending,
 	}
-
 	wp := weak.Make(p)
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.data == nil {
-		r.data = make(map[uint64]weak.Pointer[promise])
+		r.data = make(map[weak.Pointer[promise]]struct{})
 	}
-
-	id := r.allocatePromiseIDLocked()
-
-	r.data[id] = wp
-	r.ring = append(r.ring, id)
-
-	return id, p
-}
-
-// allocatePromiseIDLocked returns an unused nonzero registry ID.
-// The caller must hold r.mu for writing.
-func (r *registry) allocatePromiseIDLocked() uint64 {
-	candidate := r.nextID
-	if candidate == 0 {
-		candidate = 1
-	}
-	first := candidate
-
-	for {
-		if _, exists := r.data[candidate]; !exists {
-			r.nextID = candidate + 1
-			if r.nextID == 0 {
-				r.nextID = 1
-			}
-			return candidate
-		}
-
-		candidate++
-		if candidate == 0 {
-			candidate = 1
-		}
-		if candidate == first {
-			panic("eventloop: promise registry IDs exhausted")
-		}
-	}
+	r.data[wp] = struct{}{}
+	r.ring = append(r.ring, wp)
+	return p
 }
 
 // Scavenge performs a partial cleanup of dead promises.
@@ -103,33 +65,30 @@ func (r *registry) Scavenge(batchSize int) {
 		return
 	}
 
-	// Calculate batch range
 	start := r.head
 	end := min(start+batchSize, ringLen)
 
 	type item struct {
-		id  uint64
+		wp  weak.Pointer[promise]
 		idx int
 	}
 	items := make([]item, 0, end-start)
 
 	for i := start; i < end; i++ {
-		id := r.ring[i]
-		if id != 0 {
-			items = append(items, item{id, i})
+		wp := r.ring[i]
+		if wp != (weak.Pointer[promise]{}) {
+			items = append(items, item{wp, i})
 		}
 	}
 
-	wps := make([]weak.Pointer[promise], len(items))
 	validItems := items[:0]
-
+	validWPs := make([]weak.Pointer[promise], 0, len(items))
 	for _, it := range items {
-		if wp, ok := r.data[it.id]; ok {
-			wps[len(validItems)] = wp
+		if _, ok := r.data[it.wp]; ok {
+			validWPs = append(validWPs, it.wp)
 			validItems = append(validItems, it)
 		}
 	}
-	wps = wps[:len(validItems)]
 
 	nextHead := end
 	if nextHead >= ringLen {
@@ -139,14 +98,11 @@ func (r *registry) Scavenge(batchSize int) {
 
 	cycleCompleted := (nextHead == 0)
 
-	// Perform Checks (OUTSIDE LOCK)
 	var itemsToRemove []item
 
 	for i, it := range validItems {
-		wp := wps[i]
+		wp := validWPs[i]
 		val := wp.Value()
-
-		// Remove if GC'd (nil) OR Settled (State != Pending)
 		shouldRemove := false
 		if val == nil {
 			shouldRemove = true
@@ -155,38 +111,27 @@ func (r *registry) Scavenge(batchSize int) {
 				shouldRemove = true
 			}
 		}
-
 		if shouldRemove {
 			itemsToRemove = append(itemsToRemove, it)
 		}
 	}
 
-	// Perform Deletions (INSIDE LOCK)
 	if len(itemsToRemove) > 0 || cycleCompleted {
 		r.mu.Lock()
-
 		for _, it := range itemsToRemove {
-			delete(r.data, it.id)
-
-			// Mark as 0 (Null Marker) in ring
-			if it.idx < len(r.ring) && r.ring[it.idx] == it.id {
-				r.ring[it.idx] = 0
+			delete(r.data, it.wp)
+			if it.idx < len(r.ring) && r.ring[it.idx] == it.wp {
+				r.ring[it.idx] = weak.Pointer[promise]{}
 			}
 		}
-
 		r.head = nextHead
-
-		// Compaction
 		if cycleCompleted {
 			active := len(r.data)
 			capacity := len(r.ring)
-
-			// Trigger compaction when load factor < 25%
 			if capacity > 256 && float64(active) < float64(capacity)*0.25 {
 				r.compactAndRenew()
 			}
 		}
-
 		r.mu.Unlock()
 	} else {
 		r.mu.Lock()
@@ -204,12 +149,12 @@ func (r *registry) RejectAll(err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for id, wp := range r.data {
+	for wp := range r.data {
 		p := wp.Value()
 		if p != nil && p.State() == Pending {
 			p.reject(err)
 		}
-		delete(r.data, id)
+		delete(r.data, wp)
 	}
 
 	r.data = nil
@@ -221,14 +166,14 @@ func (r *registry) RejectAll(err error) {
 // Go's delete() doesn't free hashmap bucket array; allocating a new map reclaims memory.
 // Must be called with mu.Lock held.
 func (r *registry) compactAndRenew() {
-	newRing := make([]uint64, 0, len(r.data))
-	newData := make(map[uint64]weak.Pointer[promise], len(r.data))
+	newRing := make([]weak.Pointer[promise], 0, len(r.data))
+	newData := make(map[weak.Pointer[promise]]struct{}, len(r.data))
 
-	for _, id := range r.ring {
-		if id != 0 {
-			if wp, ok := r.data[id]; ok {
-				newRing = append(newRing, id)
-				newData[id] = wp
+	for _, wp := range r.ring {
+		if wp != (weak.Pointer[promise]{}) {
+			if _, ok := r.data[wp]; ok {
+				newRing = append(newRing, wp)
+				newData[wp] = struct{}{}
 			}
 		}
 	}

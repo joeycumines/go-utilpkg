@@ -72,7 +72,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 		l.testHooks.BeforePromisifyCommit()
 	}
 
-	_, p := l.registry.NewPromise()
+	p := l.registry.NewPromise()
 
 	l.promisifyWg.Add(1)
 	l.promisifyCount.Add(1)

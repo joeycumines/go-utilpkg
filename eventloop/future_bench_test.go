@@ -49,7 +49,7 @@ func BenchmarkFutureRegisteredCreate(b *testing.B) {
 			count := futureTournamentBatchCount(b.N-completed, futureTournamentBatchSize)
 			b.StartTimer()
 			for index := range count {
-				_, promises[index] = registry.NewPromise()
+				promises[index] = registry.NewPromise()
 			}
 			b.StopTimer()
 			for index := range count {

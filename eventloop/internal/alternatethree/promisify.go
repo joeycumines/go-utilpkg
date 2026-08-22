@@ -41,7 +41,7 @@ func (e PanicError) Error() string {
 //     can wait for them to complete before calling RejectAll.
 func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (Result, error)) Promise {
 	// Task 2.2/2.4 integration: use registry
-	_, p := l.registry.NewPromise()
+	p := l.registry.NewPromise()
 
 	// C4 FIX: Track this goroutine so shutdown can wait for it
 

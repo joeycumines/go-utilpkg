@@ -215,7 +215,7 @@ func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
-		_, p := loop.registry.NewPromise()
+		p := loop.registry.NewPromise()
 		promiseMade <- p
 		close(callbackStarted)
 		<-releaseCallback
@@ -297,7 +297,7 @@ func TestShutdownFromLoopCallbackThenContextCancelRunsCleanup(t *testing.T) {
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
-		_, p := loop.registry.NewPromise()
+		p := loop.registry.NewPromise()
 		promiseMade <- p
 		shutdownErr <- loop.Shutdown(context.Background())
 		cancelRun()
@@ -356,7 +356,7 @@ func TestTimedOutShutdownThenContextCancelRunsCleanup(t *testing.T) {
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
-		_, p := loop.registry.NewPromise()
+		p := loop.registry.NewPromise()
 		promiseMade <- p
 		close(callbackStarted)
 		<-releaseCallback
