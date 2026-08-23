@@ -29,7 +29,7 @@ func TestConsole_Write_And_ExpectErrorMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewConsole: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	snap := c.Snapshot()
 	// Test Write (bytes variant)
@@ -77,7 +77,7 @@ func TestPtyWriter_ExtraControlSequences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	writer := &ptyWriter{file: h.pts}
 
@@ -109,7 +109,7 @@ func TestPtyWriter_WriteBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	writer := &ptyWriter{file: h.pts}
 	snap := h.Console().Snapshot()
@@ -247,7 +247,7 @@ func TestPtyWriter_ControlSequences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	writer := &ptyWriter{file: h.pts}
 
@@ -286,7 +286,7 @@ func TestPtyReader_Open_ErrorBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	_, readerFile := h.dupPTS()
 	if readerFile == nil {

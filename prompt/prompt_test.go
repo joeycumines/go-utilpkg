@@ -471,7 +471,7 @@ func TestRunNoExit(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 
 		// Inspect logger calls: ensure command was rendered before executor output
-		var cmdIdx, outIdx, promptIdx int = -1, -1, -1
+		var cmdIdx, outIdx, promptIdx = -1, -1, -1
 		calls := logger.Calls()
 		for i, c := range calls {
 			if c.method == "WriteString" {
@@ -551,7 +551,7 @@ func TestRunNoExit(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 
 		// Find the index of the executor output
-		var outIdx, promptIdx int = -1, -1
+		var outIdx, promptIdx = -1, -1
 		calls := logger.Calls()
 		for i, c := range calls {
 			if c.method == "WriteString" {
@@ -1235,10 +1235,7 @@ func TestRunNoExit_FlushesAckOnImmediateExit(t *testing.T) {
 
 	// Wait for the ACK to appear in the writer buffer
 	deadline := time.After(2 * time.Second)
-	for {
-		if strings.Contains(mw.String(), BuildSyncAck(id)) {
-			break
-		}
+	for !strings.Contains(mw.String(), BuildSyncAck(id)) {
 		select {
 		case <-time.After(5 * time.Millisecond):
 			// loop
@@ -1275,10 +1272,7 @@ func TestInput_FlushesAckOnImmediateExit(t *testing.T) {
 
 	// Wait for ACK
 	deadline := time.After(2 * time.Second)
-	for {
-		if strings.Contains(mw.String(), BuildSyncAck(id)) {
-			break
-		}
+	for !strings.Contains(mw.String(), BuildSyncAck(id)) {
 		select {
 		case <-time.After(5 * time.Millisecond):
 		case <-deadline:
@@ -1318,10 +1312,7 @@ func TestInput_FlushesAckOnSubmission(t *testing.T) {
 
 	// Wait for ACK
 	deadline := time.After(2 * time.Second)
-	for {
-		if strings.Contains(mw.String(), BuildSyncAck(id)) {
-			break
-		}
+	for !strings.Contains(mw.String(), BuildSyncAck(id)) {
 		select {
 		case <-time.After(5 * time.Millisecond):
 		case <-deadline:

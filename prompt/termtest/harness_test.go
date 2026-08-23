@@ -75,7 +75,7 @@ func TestPtyReader_CloseWakesRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Start the prompt with default executor
 	h.RunPrompt(nil)
@@ -111,7 +111,7 @@ func TestHarness_Completion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	h.RunPrompt(nil, prompt.WithCompleter(completer))
 
@@ -145,7 +145,7 @@ func TestHarness_Send_Completion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	completer := newTestCompleter("apple", "apricot", "banana")
 	h.RunPrompt(nil, prompt.WithCompleter(completer), prompt.WithPrefix("fruit> "))
@@ -191,7 +191,7 @@ func TestHarness_WaitExit_Timeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	h.RunPrompt(func(s string) { /* do nothing */ })
 
@@ -259,7 +259,7 @@ func TestRunPrompt_Helper(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer h.Close()
+		defer func() { _ = h.Close() }()
 
 		h.RunPrompt(nil, prompt.WithExitChecker(func(s string, _ bool) bool { return s == "exit" }))
 
@@ -306,7 +306,7 @@ func TestConsole_NewConsole_External(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewConsole: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	snap := c.Snapshot()
 	err = c.Expect(ctx, snap, Contains("hello world"), "waiting for echo output")
@@ -332,7 +332,7 @@ func TestConsole_WriteSync_Timeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// We do NOT run the prompt, so nothing will echo back the sync ACK.
 
@@ -354,7 +354,7 @@ func TestConsole_Send_Robustness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	err = h.Console().Send("invalid-key-name")
 	if err == nil {
@@ -379,7 +379,7 @@ func TestConsole_SendSync_Timeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// No prompt running
 
@@ -404,7 +404,7 @@ func TestConsole_Environment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewConsole: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.Expect(ctx, c.Snapshot(), Contains("foobar"), "environment variable output not found"); err != nil {
 		t.Fatalf("Expect: %v", err)
@@ -430,7 +430,7 @@ func TestConsole_Dir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewConsole: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.Expect(ctx, c.Snapshot(), Contains(resolvedTmp), "working directory output not found"); err != nil {
 		t.Fatalf("Expect: %v", err)
@@ -446,7 +446,7 @@ func TestHarness_RunPrompt_PanicRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	boom := "executor panic explosion"
 	h.RunPrompt(func(s string) {
@@ -485,7 +485,7 @@ func TestHarness_RunPrompt_MultipleCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	h.RunPrompt(nil) // First call OK
 
@@ -514,7 +514,7 @@ func TestHarness_Race_Close_RunPrompt(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewHarness: %v", err)
 			}
-			// Do NOT defer h.Close() here, we close explicitly below
+			// Do NOT defer func() { _ = h.Close() }() here, we close explicitly below
 
 			var wg sync.WaitGroup
 			wg.Go(func() {
@@ -528,7 +528,7 @@ func TestHarness_Race_Close_RunPrompt(t *testing.T) {
 				// the panic might happen before the recovery block is active?
 				// Actually, RunPrompt recovery is inside the goroutine it spawns.
 				// The main body of RunPrompt checks atomic CAS.
-				defer func() { recover() }()
+				defer func() { _ = recover() }()
 				h.RunPrompt(nil)
 			})
 
@@ -544,7 +544,7 @@ func TestHarness_ExecutorAndExecutedCommands_Coverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Normal send path (cmdCh <- cmd)
 	h.Executor("one")
@@ -606,7 +606,7 @@ func TestHarness_RunPrompt_NoPTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Force dupPTS to return nil
 	h.ptsMu.Lock()
@@ -628,7 +628,7 @@ func TestHarness_dupPTS_EdgeCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Nil PTS branch
 	h.ptsMu.Lock()
@@ -680,7 +680,7 @@ func TestHarness_RunPrompt_DupFalse_Branch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Force syscall.Dup to fail (dupPTS returns origPTS==readerFile).
 	h.ptsMu.Lock()
@@ -777,7 +777,7 @@ func TestHarness_Close_GracefulExitPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Prompt exits when user types "exit".
 	h.RunPrompt(nil, prompt.WithExitChecker(func(in string, _ bool) bool { return in == "exit" }))
@@ -803,7 +803,7 @@ func TestHarness_closePTY_PTSNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	h.ptsMu.Lock()
 	h.pts = nil
@@ -818,7 +818,7 @@ func TestHarness_Executor_ContextDone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Cancel the harness context so Executor should drop the command.
 	h.cancel()
@@ -833,7 +833,7 @@ func TestHarness_Executor_ContextDone(t *testing.T) {
 func TestHarness_closePTY_ReturnsErrors(t *testing.T) {
 	// Construct a harness with a deliberately bad slave FD to force an error.
 	badFD := os.NewFile(^uintptr(0), "bad")
-	defer badFD.Close()
+	defer func() { _ = badFD.Close() }()
 
 	h := &Harness{
 		console: &Console{
@@ -881,7 +881,7 @@ func TestHarness_LineWrapRendering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Completer that always returns suggestions (regardless of input).
 	completer := func(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
@@ -943,7 +943,7 @@ func TestHarness_LineWrapOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	completer := func(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		return []prompt.Suggest{
@@ -997,7 +997,7 @@ func TestHarness_EnterVsCtrlJ(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	type callbackResult struct {
 		enterKey bool
@@ -1085,7 +1085,7 @@ func TestHarness_FreeformMultiline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	type callbackResult struct {
 		text string
@@ -1170,7 +1170,7 @@ func TestHarness_ModeSwitching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	type callbackResult struct {
 		text string
@@ -1295,7 +1295,7 @@ func TestHarness_MultilineCursorNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	type callbackResult struct {
 		text string

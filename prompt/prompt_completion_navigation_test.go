@@ -370,7 +370,7 @@ func TestCompletion_PageUp_PreservesPreviousSelectionVisibility(t *testing.T) {
 	}
 
 	// Check if prevSelected is within the current visible window [verticalScroll, verticalScroll + pageHeight)
-	if !(prevSelected >= p.completion.verticalScroll && prevSelected < p.completion.verticalScroll+pageHeight) {
+	if prevSelected < p.completion.verticalScroll || prevSelected >= p.completion.verticalScroll+pageHeight {
 		t.Fatalf("previously-selected item %d not visible after PageUp: scroll=%d height=%d", prevSelected, p.completion.verticalScroll, pageHeight)
 	}
 }

@@ -874,11 +874,11 @@ func TestRenderer_renderCompletion(t *testing.T) {
 				sb.WriteString("mock writer calls do not match expected calls.\n")
 				sb.WriteString("----------- GOT -----------\n")
 				for i, got := range mockOut.calls {
-					sb.WriteString(fmt.Sprintf("%d: %s(%v)\n", i, got.method, got.args))
+					_, _ = fmt.Fprintf(&sb, "%d: %s(%v)\n", i, got.method, got.args)
 				}
 				sb.WriteString("---------- EXPECTED ----------\n")
 				for i, want := range tc.expectedCalls {
-					sb.WriteString(fmt.Sprintf("%d: %s(%v)\n", i, want.method, want.args))
+					_, _ = fmt.Fprintf(&sb, "%d: %s(%v)\n", i, want.method, want.args)
 				}
 				t.Error(sb.String())
 			}

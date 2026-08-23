@@ -22,7 +22,7 @@ func TestExactFill_PTY(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	// Simple executor that just returns
 	executor := func(string) {}
@@ -48,9 +48,9 @@ func TestExactFill_PTY(t *testing.T) {
 	}
 
 	// 2. Test completion window after exact fill
-	h.Close()
+	_ = h.Close()
 	h, _ = NewHarness(ctx, WithSize(rows, cols))
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	completer := func(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 		return []prompt.Suggest{{Text: "suggestion"}}, 0, 0

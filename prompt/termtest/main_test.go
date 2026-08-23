@@ -52,7 +52,7 @@ func runHelperProcess() {
 	case "interactive":
 		// A simple interactive echo server.
 		fmt.Println("Interactive mode ready")
-		os.Stdout.Sync() // Ensure initial message is flushed
+		_ = os.Stdout.Sync() // Ensure initial message is flushed
 		scanner := &lineScanner{r: os.Stdin}
 		for {
 			input, err := scanner.ReadLine()
@@ -64,7 +64,7 @@ func runHelperProcess() {
 				os.Exit(0)
 			}
 			fmt.Printf("ECHO: %s\n", input)
-			os.Stdout.Sync() // Flush after each echo
+			_ = os.Stdout.Sync() // Flush after each echo
 		}
 	case "env":
 		// Prints the value of a specific environment variable.
@@ -88,7 +88,7 @@ func runHelperProcess() {
 			os.Exit(1)
 		}
 		var code int
-		fmt.Sscan(args[1], &code)
+		_, _ = fmt.Sscan(args[1], &code)
 		os.Exit(code)
 	case "ansi":
 		// Prints text with ANSI escape codes.

@@ -18,7 +18,7 @@ func TestPTYReader_InitCloseWaitAndEOFInterpretation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	_, readerFile := h.dupPTS()
 	if readerFile == nil {

@@ -43,7 +43,7 @@ func TestConsole_NewTest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newTestConsole: %v", err)
 		}
-		defer cp.Close()
+		defer func() { _ = cp.Close() }()
 		snap := cp.Snapshot()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -78,7 +78,7 @@ func TestConsole_NewTest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newTestConsole: %v", err)
 		}
-		defer cp.Close()
+		defer func() { _ = cp.Close() }()
 		// Internal timeout should be the default 30s
 		if cp.defaultTimeout != 30*time.Second {
 			t.Errorf("defaultTimeout: got %v, want %v", cp.defaultTimeout, 30*time.Second)
@@ -90,7 +90,7 @@ func TestConsole_NewTest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newTestConsole: %v", err)
 		}
-		defer cp.Close()
+		defer func() { _ = cp.Close() }()
 		if cp.defaultTimeout != 5*time.Second {
 			t.Errorf("defaultTimeout: got %v, want %v", cp.defaultTimeout, 5*time.Second)
 		}
@@ -102,7 +102,7 @@ func TestConsole_NewTest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newTestConsole: %v", err)
 		}
-		defer cp.Close()
+		defer func() { _ = cp.Close() }()
 
 		snap := cp.Snapshot()
 		_, err = cp.WriteString("pwd\n")
@@ -135,7 +135,7 @@ func TestConsole_Interaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTestConsole: %v", err)
 	}
-	defer cp.Close()
+	defer func() { _ = cp.Close() }()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -197,7 +197,7 @@ func TestConsole_ExpectSince_ExpectNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTestConsole: %v", err)
 	}
-	defer cp.Close()
+	defer func() { _ = cp.Close() }()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -333,7 +333,7 @@ func TestConsole_ExpectExitCode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("newTestConsole: %v", err)
 		}
-		defer cp.Close()
+		defer func() { _ = cp.Close() }()
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
 		_, err = cp.WaitExit(ctx)
@@ -350,7 +350,7 @@ func TestConsole_ExpectExitCode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewHarness: %v", err)
 		}
-		defer h.Close()
+		defer func() { _ = h.Close() }()
 
 		_, err = h.Console().WaitExit(context.Background())
 		if err == nil {
@@ -367,7 +367,7 @@ func TestConsole_OutputManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTestConsole: %v", err)
 	}
-	defer cp.Close()
+	defer func() { _ = cp.Close() }()
 	snap := cp.Snapshot()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -394,7 +394,7 @@ func TestConsole_WriteSyncAndSendSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	h.RunPrompt(nil)
 
@@ -425,7 +425,7 @@ func TestConsole_Await_EdgeCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newTestConsole: %v", err)
 	}
-	defer cp.Close()
+	defer func() { _ = cp.Close() }()
 
 	// Wait for boot
 	if err := cp.Await(context.Background(), cp.Snapshot(), Contains("Interactive mode ready")); err != nil {
@@ -434,7 +434,7 @@ func TestConsole_Await_EdgeCases(t *testing.T) {
 
 	t.Run("immediate success", func(t *testing.T) {
 		snap := cp.Snapshot()
-		cp.WriteString("immediate\n")
+		_, _ = cp.WriteString("immediate\n")
 		if err := cp.Await(context.Background(), snap, Contains("immediate")); err != nil {
 			t.Fatalf("Await: %v", err)
 		}
@@ -460,13 +460,13 @@ func TestConsole_Await_EdgeCases(t *testing.T) {
 
 	t.Run("snapshot isolation", func(t *testing.T) {
 		snap1 := cp.Snapshot()
-		cp.WriteString("isolation_A\n")
+		_, _ = cp.WriteString("isolation_A\n")
 		if err := cp.Await(context.Background(), snap1, Contains("ECHO: isolation_A")); err != nil {
 			t.Fatalf("Await: %v", err)
 		}
 
 		snap2 := cp.Snapshot()
-		cp.WriteString("isolation_B\n")
+		_, _ = cp.WriteString("isolation_B\n")
 		if err := cp.Await(context.Background(), snap2, Contains("isolation_B")); err != nil {
 			t.Fatalf("Await: %v", err)
 		}
@@ -585,7 +585,7 @@ func TestConsole_WaitIdle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewConsole: %v", err)
 		}
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 
 		_, err = c.WriteString("foo")
 		if err != nil {
@@ -639,7 +639,7 @@ func TestConsole_WriteSync_Closed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	if err := h.Console().Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -655,7 +655,7 @@ func TestConsole_SendLine_Closed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	if err := h.Console().Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -671,7 +671,7 @@ func TestConsole_WaitIdle_EarlyReturnBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHarness: %v", err)
 	}
-	defer h.Close()
+	defer func() { _ = h.Close() }()
 
 	t.Run("ctx already cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -781,7 +781,7 @@ func TestConsole_Concurrency_Regression(t *testing.T) {
 				return
 			}
 			// Use WriteString directly
-			_, err := cp.WriteString(fmt.Sprintf("msg-%d\n", i))
+			_, err := fmt.Fprintf(cp, "msg-%d\n", i)
 			if err != nil {
 				// If closed, that's expected
 				return
