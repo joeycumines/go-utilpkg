@@ -106,8 +106,8 @@
 #
 # - Currently only supports configuring the same branch for all destinations,
 #   source and target
-# - Reverse (inbound) syncing is deliberately per-destination and on-demand;
-#   `grit` supports it, but it's a bit... hairy, so there's no "pull all"
+# - Reverse (inbound) syncing can sync all configured destinations via
+#   `grit-pull`, or a single destination via `grit-pull.<grit-dst-slug>`
 #
 # Configuration:
 #
@@ -133,9 +133,8 @@
 # 4. Add the new module to the Go workspace
 # 5. Run (either automatically or manually) `make grit` to sync _to_ the
 #   configured target(s), to propagate
-# 6. To sync an _existing_ destination back into this repository, on demand,
-#   run `make grit-pull.<grit-dst-slug>` (there is deliberately no aggregate
-#   target for this direction)
+# 6. To sync existing destinations back into this repository, on demand,
+#   run `make grit-pull` (or `make grit-pull.<grit-dst-slug>`)
 
 # simple variables that either represent invariants, or need to be interacted
 # with in an imperative manner, e.g. "building" values across includes, without
@@ -247,6 +246,7 @@ GO_TOOL_COVER ?= $(GO) tool cover
 GO_DOC_FLAGS ?= -all
 GRIT ?= $(GO) tool $(GO_PKG_GRIT)
 GRIT_FLAGS ?= -push
+GRIT_PULL_FLAGS ?= $(GRIT_FLAGS)
 GRIT_BRANCH ?= main
 GRIT_SRC ?=
 # Map of _directory_ to _destination repository_, e.g.
@@ -260,6 +260,8 @@ GRIT_DST ?=
 GRIT_INIT_TARGET ?=
 # callable variable, with param $1 being a grit destination slug (see grit_dst_slug_to_path)
 GRIT_MODULE_COMMAND ?= $(GRIT) $(GRIT_FLAGS) $(call grit_dst_slug_to_local,$1) $(call grit_dst_slug_to_remote,$1)
+# callable variable, with param $1 being a grit destination slug (see grit_dst_slug_to_path)
+GRIT_PULL_MODULE_COMMAND ?= $(GRIT) $(GRIT_PULL_FLAGS) $(call grit_dst_slug_to_remote,$1) $(call grit_dst_slug_to_local,$1)
 STATICCHECK ?= $(call go_tool_binary_path,$(GO_PKG_STATICCHECK))
 STATICCHECK_FLAGS ?=
 BETTERALIGN ?= $(call go_tool_binary_path,$(GO_PKG_BETTERALIGN))
@@ -751,7 +753,7 @@ $($(GO_MK_VAR_PREFIX)GO_DOC_TARGETS): $(GO_TARGET_PREFIX)doc.%:
 
 ##@ Grit Targets
 
-# grit, grit.<grit destination slug>, grit-pull.<grit destination slug>
+# grit, grit.<grit destination slug>, grit-pull, grit-pull.<grit destination slug>
 
 $(eval $(GO_MK_VAR_PREFIX)GRIT_TARGETS := $$(addprefix $$(GO_TARGET_PREFIX)grit.,$$(GRIT_DST_SLUGS)))
 
@@ -763,14 +765,17 @@ $(GO_TARGET_PREFIX)grit: $($(GO_MK_VAR_PREFIX)GRIT_TARGETS) ## Runs grit to sync
 $(addprefix $(GO_TARGET_PREFIX)grit.,$(GRIT_DST_SLUGS)): $(GO_TARGET_PREFIX)grit.%:
 	$(call GRIT_MODULE_COMMAND,$*)
 
-# inbound sync, per-destination and on-demand (deliberately no aggregate target)
+# grit-pull, grit-pull.<grit destination slug>
 
 $(eval $(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS := $$(addprefix $$(GO_TARGET_PREFIX)grit-pull.,$$(GRIT_DST_SLUGS)))
 
+.PHONY: $(GO_TARGET_PREFIX)grit-pull
+$(GO_TARGET_PREFIX)grit-pull: $($(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS) ## Runs grit to sync configured repositories back into their directories.
+
 ##+ grit-pull.<grit destination slug>: Runs grit to sync one GRIT_DST repository back into its directory.
-.PHONY: $($(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS)
-$($(GO_MK_VAR_PREFIX)GRIT_PULL_TARGETS): $(GO_TARGET_PREFIX)grit-pull.%:
-	$(GRIT) $(GRIT_FLAGS) $(call grit_dst_slug_to_remote,$*) $(call grit_dst_slug_to_local,$*)
+.PHONY: $(addprefix $(GO_TARGET_PREFIX)grit-pull.,$(GRIT_DST_SLUGS))
+$(addprefix $(GO_TARGET_PREFIX)grit-pull.,$(GRIT_DST_SLUGS)): $(GO_TARGET_PREFIX)grit-pull.%:
+	$(call GRIT_PULL_MODULE_COMMAND,$*)
 
 # N.B. Unlike the grit.<slug> and grit-pull.<slug> targets, grit-init is a
 # "script" target, for a GRIT_DST entry whose directory does not yet exist. It

@@ -22,37 +22,12 @@ Do not add module inventories, package catalogs, dependency maps, directory tree
 
 ## Build System
 
-GNU Make is the authoritative interface for repository build, test, analysis, coverage, and publication operations. On macOS, use `gmake`, never BSD `make`.
-
-```bash
-gmake help | head -n 170 # why = gmake:macOS head:long
-```
+GNU Make is the authoritative interface for repository build, test, analysis, coverage, and publication operations. On macOS, use `gmake`, never BSD `make`. Discover targets and usage via `gmake help`.
 
 ## Development Workflow
 
 1. **Always verify all tests pass** across all three OS platforms (Darwin, Linux, Windows). The complete repository gate must pass 100% before considering work complete.
 2. **Never commit with failing tests** - timing-dependent failures are treated as bugs to be fixed, not as flakiness to be ignored.
-
-### Grit Publishing
-
-Grit targets are generated from `GRIT_DST` only. It maps a directory to a
-destination repository, and the directory is converted to a slug using the
-usual convention (`./logiface/logrus` becomes `logiface.logrus`). A Go module
-without a `GRIT_DST` entry has no grit targets, and a `GRIT_DST` directory need
-not be a Go module.
-
-```bash
-# Publish specific directory to its separate repo
-gmake grit.eventloop
-
-# Publish all configured destinations
-gmake grit
-
-# Sync one destination repo back into this monorepo (on demand, no "pull all")
-gmake grit-pull.eventloop
-```
-
-See `project.mk` for the grit destination mappings.
 
 ## Code Quality Standards
 
