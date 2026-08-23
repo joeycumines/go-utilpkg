@@ -3,7 +3,7 @@ module github.com/joeycumines/goja-eventloop
 go 1.27.0
 
 require (
-	github.com/joeycumines/go-eventloop v0.0.0-20260819231007-2edc22ef6181
+	github.com/joeycumines/go-eventloop v0.0.0-20260822232754-a17b0b974c0b
 	github.com/joeycumines/goja v0.0.0-20260820000247-c1e35283ab97
 	github.com/joeycumines/logiface v0.5.0
 	golang.org/x/mod v0.40.0

@@ -14,8 +14,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/joeycumines/go-catrate v0.0.0-20260429212737-202f4120003b h1:3O5z91nWsT3YU9CA+FLiS1L2pgBS7+pUA5t1KihSdg0=
 github.com/joeycumines/go-catrate v0.0.0-20260429212737-202f4120003b/go.mod h1:F1H26YpOqPfR6CB12t6yq9qpLdv4Rd3Dzfhq5AABNDQ=
-github.com/joeycumines/go-eventloop v0.0.0-20260819231007-2edc22ef6181 h1:ftNfzpCyCT55MWbPmDBCHv+D0kXmoK7R37ZfVCPc+WI=
-github.com/joeycumines/go-eventloop v0.0.0-20260819231007-2edc22ef6181/go.mod h1:3y+z5NYUex7hmokSaNQCmDoSnVeHJxA2isTMl0DvqXU=
+github.com/joeycumines/go-eventloop v0.0.0-20260822232754-a17b0b974c0b h1:5UfrZd3i8Iyd2HrSTavJeDNhCOqvPxs1qTbbdo5/Dr8=
+github.com/joeycumines/go-eventloop v0.0.0-20260822232754-a17b0b974c0b/go.mod h1:2enscnjphCjwS8rWjvFLw/vFnJ+jpVybtq9W2+FoDuQ=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae h1:XL7IcdFq74hx1dXXl1xOXRbgaZUWdCojaa1tAW6/ozc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20230803131503-0fe828ecefae/go.mod h1:CunLunFiy6ZyhuiuwK5K6z9n1DsFLOvNd5Cu0KgK420=
 github.com/joeycumines/goja v0.0.0-20260820000247-c1e35283ab97 h1:JCpkQaC0qKz+IBb0y+H6Ro9UqKi01X68ToyhZfugp9s=

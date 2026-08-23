@@ -3,12 +3,12 @@ module github.com/joeycumines/goja-grpc
 go 1.27.0
 
 require (
-	github.com/joeycumines/go-eventloop v0.0.0-20260819231007-2edc22ef6181
-	github.com/joeycumines/go-inprocgrpc v0.0.0-20260624075719-4d4ca2aad3e8
-	github.com/joeycumines/goja v0.0.0-20260820000247-c1e35283ab97
-	github.com/joeycumines/goja-eventloop v0.0.0-20260624075653-1774b6f91929
-	github.com/joeycumines/goja-protobuf v0.0.0-20260624075704-ffc13154913d
-	github.com/joeycumines/goja-protojson v0.0.0-20260624075710-cbc63e899449
+	github.com/joeycumines/go-eventloop v0.0.0-20260822232754-a17b0b974c0b
+	github.com/joeycumines/go-inprocgrpc v0.0.0-20260822232810-780c6f5db643
+	github.com/joeycumines/goja v0.0.0-20260822181647-8f98c768a897
+	github.com/joeycumines/goja-eventloop v0.0.0-20260822232758-2c777cb61975
+	github.com/joeycumines/goja-protobuf v0.0.0-20260822232803-44a77899ef04
+	github.com/joeycumines/goja-protojson v0.0.0-20260822232805-5701873b10dc
 	github.com/joeycumines/goja_nodejs v0.0.0-20260725224646-7b69489f6ce5
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688
 	google.golang.org/grpc v1.83.1

@@ -3,7 +3,7 @@ module github.com/joeycumines/go-inprocgrpc
 go 1.27.0
 
 require (
-	github.com/joeycumines/go-eventloop v0.0.0-20260819231007-2edc22ef6181
+	github.com/joeycumines/go-eventloop v0.0.0-20260822232754-a17b0b974c0b
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 )

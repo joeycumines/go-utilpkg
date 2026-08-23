@@ -23,7 +23,11 @@ func TestActiveBenchmarkRootsGovernedOrDisposed(t *testing.T) {
 	manifest := loadManifest(t)
 	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	if _, err := os.Stat(filepath.Join(repositoryRoot, "eventloop", "go.mod")); err != nil {
-		t.Fatalf("locate repository root: %v", err)
+		// This test verifies the tournament manifest's benchmark-root governance
+		// against the monorepo source tree (the eventloop and goja-eventloop
+		// sibling modules). A standalone checkout of go-eventloop lacks that
+		// layout by construction, so the check is skipped rather than failed.
+		t.Skipf("repository root layout unavailable in standalone checkout: %v", err)
 	}
 
 	physical := discoverBenchmarkRoots(t, repositoryRoot)
