@@ -10,7 +10,7 @@ import (
 const (
 	EfdCloexec  = 0
 	EfdNonblock = 0
-	maxFDs       = 65536
+	maxFDs      = 65536
 )
 
 var (

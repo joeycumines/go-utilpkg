@@ -65,7 +65,9 @@ type promiseAltOneRunningLoop struct {
 func startPromiseAltOneRunningLoop(t testing.TB) (*promiseAltOneRunningLoop, *eventloop.JS) {
 	t.Helper()
 	loop, err := eventloop.New()
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	harness := &promiseAltOneRunningLoop{
 		loop:     loop,
 		runDone:  make(chan error, 1),

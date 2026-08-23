@@ -173,9 +173,13 @@ func runTournamentTest(b *testing.B, factory func(*eventloop.JS) (genericPromise
 func startPromiseTournamentLoop(b *testing.B) *eventloop.JS {
 	b.Helper()
 	loop, err := eventloop.New()
-	if err != nil { b.Fatal(err) }
+	if err != nil {
+		b.Fatal(err)
+	}
 	js, err := eventloop.NewJS(loop)
-	if err != nil { b.Fatal(err) }
+	if err != nil {
+		b.Fatal(err)
+	}
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
 	var cleanupOnce sync.Once
