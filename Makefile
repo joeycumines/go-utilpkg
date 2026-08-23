@@ -104,8 +104,9 @@
 #
 # Caveats:
 #
-# - Currently only supports configuring the same branch for all destinations,
-#   source and target
+# - Branch selection defaults to `GRIT_BRANCH`. Per-destination source and
+#   target branch overrides are supported via `GRIT_SRC_BRANCH.<slug>` and
+#   `GRIT_DST_BRANCH.<slug>` respectively.
 # - Reverse (inbound) syncing can sync all configured destinations via
 #   `grit-pull`, or a single destination via `grit-pull.<grit-dst-slug>`
 #
@@ -121,11 +122,16 @@
 # N.B. Grit destinations are a wholly separate namespace: they need not be Go
 # modules, and Go modules without a `GRIT_DST` entry get no grit targets.
 #
+# `GRIT_BRANCH` (default "main") is the fallback branch for endpoints. Optional
+# `GRIT_SRC_BRANCH.<slug>` and `GRIT_DST_BRANCH.<slug>` variables override the
+# source (this repository) and destination (target repository) branches.
+#
 # Usage:
 #
 # 1. Prepare the target repository (presumably the canonical one per go.mod)
 # 2. Update `project.mk`, setting `GRIT_SRC` (if you haven't already) and
-#   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main")
+#   `GRIT_DST`, optionally setting `GRIT_BRANCH` (defaults to "main") and
+#   per-destination branch overrides like `GRIT_SRC_BRANCH.eventloop`
 # 3. Sync _from_ the target to the source (this repository) like
 #   `make grit-init GRIT_INIT_TARGET=grit-dst-slug`, where grit-dst-slug is the
 #   slug of the directory used as the map key, in GRIT_DST, note that you may
@@ -215,7 +221,7 @@ RUN_FLAGS ?=
 
 # determines the output of the debug-vars target
 # N.B. only _defined_ variables will be present in the output
-$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_NO_STATICCHECK GO_MODULE_SLUGS_EXCL_NO_STATICCHECK GO_MODULE_SLUGS_NO_FIX GO_MODULE_SLUGS_EXCL_NO_FIX GO_PACKAGES $$(addprefix GO_PACKAGES.,$$(GO_MODULE_SLUGS)) SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS GRIT_PULL_TARGETS,$$(GO_MK_VAR_PREFIX)$$v) GRIT_SRC GRIT_DST GRIT_BRANCH GRIT_INIT_TARGET GRIT_DST_PATHS GRIT_DST_SLUGS _GRIT_DST_MAP)
+$(eval $(GO_MK_VAR_PREFIX)DEBUG_VARS ?= ROOT_MAKEFILE PROJECT_ROOT PROJECT_NAME IS_WINDOWS GO_MODULE_PATHS GO_MODULE_PATHS_EXCLUDE_PATTERNS GO_MODULE_SLUGS GO_MODULE_SLUGS_NO_PACKAGES GO_MODULE_SLUGS_EXCL_NO_PACKAGES GO_MODULE_SLUGS_NO_UPDATE GO_MODULE_SLUGS_EXCL_NO_UPDATE GO_MODULE_SLUGS_NO_STATICCHECK GO_MODULE_SLUGS_EXCL_NO_STATICCHECK GO_MODULE_SLUGS_NO_FIX GO_MODULE_SLUGS_EXCL_NO_FIX GO_PACKAGES $$(addprefix GO_PACKAGES.,$$(GO_MODULE_SLUGS)) SUBDIR_MAKEFILE_PATHS_EXCLUDE_PATTERNS SUBDIR_MAKEFILE_PATHS SUBDIR_MAKEFILE_SLUGS GO_TARGET_PREFIX MAKEFILE_TARGET_PREFIXES $$(MAKEFILE_TARGET_PREFIXES) $$(foreach v,CLEAN_PATHS ALL_TARGETS BUILD_TARGETS LINT_TARGETS VET_TARGETS STATICCHECK_TARGETS BETTERALIGN_TARGETS DEADCODE_TARGETS TEST_TARGETS COVER_TARGETS FMT_TARGETS GENERATE_TARGETS FIX_TARGETS UPDATE_TARGETS TIDY_TARGETS GO_DOC_TARGETS GRIT_TARGETS GRIT_PULL_TARGETS,$$(GO_MK_VAR_PREFIX)$$v) GRIT_SRC GRIT_DST GRIT_BRANCH $$(addprefix GRIT_SRC_BRANCH.,$$(GRIT_DST_SLUGS)) $$(addprefix GRIT_DST_BRANCH.,$$(GRIT_DST_SLUGS)) GRIT_INIT_TARGET GRIT_DST_PATHS GRIT_DST_SLUGS _GRIT_DST_MAP)
 
 # ---
 
@@ -388,12 +394,17 @@ grit_dst_path_to_prefix = $(if $(filter .,$1),,$(patsubst ./%,%,$1)/)
 # and ./logiface/logrus -> logiface.logrus (same convention as go modules)
 grit_dst_path_to_slug = $(call map_value_by_key,$(_GRIT_DST_MAP),$1)
 grit_dst_slug_to_path = $(call map_key_by_value,$(_GRIT_DST_MAP),$1)
+# normalized lookup that fails loudly for unknown slugs
+grit_dst_slug_to_path_or_error = $(or $(call grit_dst_slug_to_path,$1),$(error not a configured grit destination slug: $1))
+# branch selection for a grit destination slug; undefined falls back to GRIT_BRANCH
+grit_dst_slug_to_src_branch = $(if $(filter undefined,$(origin GRIT_SRC_BRANCH.$1)),$(GRIT_BRANCH),$(or $(strip $(GRIT_SRC_BRANCH.$1)),$(error GRIT_SRC_BRANCH.$1 must not be empty)))
+grit_dst_slug_to_dst_branch = $(if $(filter undefined,$(origin GRIT_DST_BRANCH.$1)),$(GRIT_BRANCH),$(or $(strip $(GRIT_DST_BRANCH.$1)),$(error GRIT_DST_BRANCH.$1 must not be empty)))
 # the destination repository for a grit destination slug
-grit_dst_slug_to_repo = $(or $(call map_value_by_key,$(GRIT_DST),$(call grit_dst_slug_to_path,$1)),$(error no GRIT_DST entry for grit destination slug: $1))
+grit_dst_slug_to_repo = $(or $(call map_value_by_key,$(GRIT_DST),$(call grit_dst_slug_to_path_or_error,$1)),$(error no GRIT_DST entry for grit destination slug: $1))
 # the source (this repository), and target (the destination repository), as
 # grit endpoints, for a grit destination slug
-grit_dst_slug_to_local = $(GRIT_SRC),$(call grit_dst_path_to_prefix,$(or $(call grit_dst_slug_to_path,$1),$(error not a configured grit destination slug: $1))),$(GRIT_BRANCH)
-grit_dst_slug_to_remote = $(call grit_dst_slug_to_repo,$1),,$(GRIT_BRANCH)
+grit_dst_slug_to_local = $(GRIT_SRC),$(call grit_dst_path_to_prefix,$(call grit_dst_slug_to_path_or_error,$1)),$(call grit_dst_slug_to_src_branch,$1)
+grit_dst_slug_to_remote = $(call grit_dst_slug_to_repo,$1),,$(call grit_dst_slug_to_dst_branch,$1)
 
 # paths formatted like ". ./logiface ./logiface/logrus ./logiface/testsuite ./logiface/zerolog"
 GO_MODULE_PATHS := $(patsubst %/go.mod,%,$(call rwildcard,./,go.mod,$(GO_MODULE_PATHS_EXCLUDE_PATTERNS)))
@@ -465,6 +476,7 @@ $(error GRIT_DST contains duplicate grit destination slugs, got: $(strip $(forea
 endif
 # check that all destinations are configured, i.e. with a value
 $(foreach d,$(GRIT_DST_PATHS),$(if $(call map_value_by_key,$(GRIT_DST),$d),,$(error missing GRIT_DST destination repository for $d)))
+$(if $(strip $(GRIT_BRANCH)),,$(error GRIT_BRANCH must not be empty))
 
 # subdirectories which contain a file named "Makefile", formatted with a leading ".", and no trailing slash
 # note that the root Makefile (this file) is excluded
@@ -792,7 +804,7 @@ endif
 	$(GRIT) $(GRIT_FLAGS) $(_grit_init_REMOTE) $(_grit_init_LOCAL)
 
 _grit_init_SLUG = $(or $(GRIT_INIT_TARGET),$(error GRIT_INIT_TARGET is not set))
-_grit_init_PATH = $(or $(call grit_dst_slug_to_path,$(_grit_init_SLUG)),$(error not a configured grit destination slug: $(_grit_init_SLUG)))
+_grit_init_PATH = $(call grit_dst_slug_to_path_or_error,$(_grit_init_SLUG))
 _grit_init_DIR = $(or $(patsubst ./%,%,$(filter-out .,$(_grit_init_PATH))),$(error refusing to grit-init the repository root))
 _grit_init_REMOTE = $(call grit_dst_slug_to_remote,$(_grit_init_SLUG))
 _grit_init_LOCAL = $(call grit_dst_slug_to_local,$(_grit_init_SLUG))
