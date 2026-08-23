@@ -53,7 +53,7 @@ jobs:
         # Honors staticcheck.conf at the repo root. Pinned to the same release
         # upstream goja targets; install is first-party (go install, no action).
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
           staticcheck ./...
 
   test:

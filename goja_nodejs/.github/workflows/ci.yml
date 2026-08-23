@@ -50,7 +50,7 @@ jobs:
         # Honors staticcheck.conf at the repo root. Installed first-party via
         # `go install` — no third-party action wrapper.
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@2026.1
+          go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
           staticcheck ./...
 
   test:
