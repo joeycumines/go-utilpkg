@@ -22,12 +22,17 @@ type benchmarkRoot struct {
 func TestActiveBenchmarkRootsGovernedOrDisposed(t *testing.T) {
 	manifest := loadManifest(t)
 	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
-	if _, err := os.Stat(filepath.Join(repositoryRoot, "eventloop", "go.mod")); err != nil {
-		// This test verifies the tournament manifest's benchmark-root governance
-		// against the monorepo source tree (the eventloop and goja-eventloop
-		// sibling modules). A standalone checkout of go-eventloop lacks that
-		// layout by construction, so the check is skipped rather than failed.
-		t.Skipf("repository root layout unavailable in standalone checkout: %v", err)
+	// This test verifies the tournament manifest's benchmark-root governance
+	// against the monorepo source tree, which contains the eventloop and
+	// goja-eventloop sibling modules (see discoverBenchmarkRoots). A standalone
+	// checkout of the go-eventloop module lacks the goja-eventloop sibling by
+	// construction, so the check is skipped rather than failed. The guard must
+	// probe the sibling, not this module's own go.mod: a standalone checkout
+	// named "eventloop" also contains its own go.mod, which would otherwise
+	// satisfy a self-referential check and let the test fail on the missing
+	// sibling.
+	if _, err := os.Stat(filepath.Join(repositoryRoot, "goja-eventloop", "go.mod")); err != nil {
+		t.Skipf("monorepo sibling layout unavailable in standalone checkout: %v", err)
 	}
 
 	physical := discoverBenchmarkRoots(t, repositoryRoot)
