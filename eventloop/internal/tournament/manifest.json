@@ -1800,14 +1800,14 @@
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "3c8b7098250947f63e23c4c955c57def5572a92c3260d6919e96bfe90bad0881"
+          "harness_sha256": "f97a4a68e6656d736444cf76109bdcda634070f56cbf18137c9edcc90dfbec53"
         },
         "BenchmarkChainDepth": {
           "id": "workload.promise.chain-depth.v1",
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "3c8b7098250947f63e23c4c955c57def5572a92c3260d6919e96bfe90bad0881"
+          "harness_sha256": "f97a4a68e6656d736444cf76109bdcda634070f56cbf18137c9edcc90dfbec53"
         }
       }
     },
