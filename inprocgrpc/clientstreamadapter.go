@@ -196,6 +196,12 @@ func (s *clientStreamAdapter) waitHeaderResult(
 
 func (s *clientStreamAdapter) recoverHeaderResult() (metadata.MD, error) {
 	result, final := s.life.resolveTerminalMaterial()
+	if !result.header && !final {
+		// An early owner-side material may have published before the
+		// post-Done fold applied the terminal publication rule; the final
+		// scheduler material is authoritative for header presence.
+		result = s.life.resolveScheduler()
+	}
 	if result.header {
 		if err := s.storeHeaders(result.headers); err != nil {
 			s.life.clientFailure(err)
@@ -205,9 +211,6 @@ func (s *clientStreamAdapter) recoverHeaderResult() (metadata.MD, error) {
 		headers := cloneMetadata(s.headers)
 		s.metaMu.Unlock()
 		return headers, nil
-	}
-	if !final {
-		result = s.life.resolveScheduler()
 	}
 	s.metaMu.Lock()
 	headers := cloneMetadata(s.headers)
