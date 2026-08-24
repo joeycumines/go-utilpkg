@@ -126,6 +126,30 @@ ch.RegisterStreamHandler("/mypackage.MyService/MyMethod",
 )
 ```
 
+#### Unregistering handlers and services
+
+Registrations can be retired so the same service or method can be registered
+again (delete/recreate lifecycles). Removal is idempotent — a name that is not
+registered is a silent no-op — and atomic with respect to dispatch:
+
+```go
+// Remove a generated service registration.
+ch.UnregisterService("mypackage.MyService")
+
+// Remove an event-loop-native handler.
+ch.UnregisterStreamHandler("/mypackage.MyService/MyMethod")
+
+// Or remove both atomically. For goja-grpc-style servers whose MethodDesc
+// carries a nil Handler, removing both in one batch is required: leaving the
+// service entry behind after its stream handler is gone would leave unary
+// dispatch dereferencing that nil Handler — a recovered panic surfacing as an
+// Internal error instead of a clean Unimplemented.
+ch.UnregisterBatch(inprocgrpc.UnregistrationBatch{
+    Services:       []string{"mypackage.MyService"},
+    StreamHandlers: []string{"/mypackage.MyService/MyMethod"},
+})
+```
+
 ## Architecture
 
 All RPC communication is coordinated by an [eventloop.Loop](https://github.com/joeycumines/go-eventloop).

@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `Loop.IsCallbackOwner` reports whether the calling goroutine holds the loop's
+  logical callback-owner role — the `Run` goroutine while the loop is active,
+  temporarily transferred to the isolated callback worker for the duration of a
+  host callback. Re-entrant host adapters (e.g. a gRPC handler calling back
+  into the runtime) use it instead of their own goroutine-id snapshot to decide
+  between synchronous execution and `Submit`; a stale snapshot inside a
+  callback deadlocks on the loop the callback is already blocking. It returns
+  false before `Run` starts and on a nil receiver.
+
 - `Loop.Done` exposes the stable terminal-cleanup barrier to integrations. It
   closes only after no callback accepted by the loop can still execute.
 

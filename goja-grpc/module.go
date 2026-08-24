@@ -186,6 +186,149 @@ func (m *Module) mustOpen(operation string) {
 	}
 }
 
+// DisposeServices retires every server registration whose registered gRPC
+// service fully-qualified name appears in services. It is the teardown used when
+// one or more servers must be fully retired so that the same services can be
+// registered again — the module delete/recreate lifecycle. Unlike [Module.Close],
+// which disposes every root and leaves disposed methods reporting
+// codes.Unavailable, DisposeServices removes the matching stream handlers and
+// service entries from the in-process channel so that the next registration of
+// the same service does not collide with a stale entry.
+//
+// services are matched against the service component of each registered
+// method's full name (the "/service/Method" prefix). A service name with no
+// matching registration is a silent no-op. Retirement is scoped per service,
+// not per server: when one server.start admission registered several
+// services, disposing a subset leaves the siblings' registrations fully
+// intact and callable.
+//
+// DisposeServices is safe to call concurrently with RPC dispatch: in-flight
+// RPCs that already snapshotted their target complete (or fail with a
+// transport error), and the retired plans' handler closures report
+// codes.Unavailable for any lookup that won the race. Retirement is also
+// serialized against compound server admissions and whole-module close
+// through the supervisor boundary — the same mutex [Module.Close] holds, and
+// both the registry scan and the removal run under it — so an in-flight
+// admission either completes before retirement observes it (and is retired
+// wholesale like any other) or runs entirely after it, publishing fresh
+// entries into the already-retired registry. No interleaving exists in which
+// published channel entries outlive their plans.
+//
+// The in-process channel entries — the part that prevents a re-registration
+// collision — are removed synchronously, and the number of plans this call
+// actually retires is returned; a concurrent caller that observed the same
+// plans first retires zero. The deeper owner-side disposal (retiring those
+// supervisor roots and running their registered disposers) is scheduled on
+// the event loop as best-effort and is NOT awaited: it completes when the
+// loop next runs, or is swept when the adapter terminates (Submit is rejected
+// only once the loop is terminated, terminating, or committed to its terminal
+// drain; the terminal transfer path performs that sweep). This makes
+// DisposeServices safe to call regardless of whether the event loop is
+// currently running, which is required by embedders (such as boi) whose
+// module-unload path may run during setup.
+//
+// Because one supervisor root hosts everything a single server.start
+// admission published, a root is disposed only when every service registered
+// under it appears in services; disposing that root runs the admission's
+// disposer, which retires all of its method plans at once. A partially
+// matched root survives untouched — its retired methods report codes.Unimplemented
+// through their removed channel entries while sibling methods keep serving —
+// and is disposed together with the rest of the module at [Module.Close].
+//
+// A nil receiver returns 0.
+func (m *Module) DisposeServices(services []string) int {
+	if m == nil || len(services) == 0 {
+		return 0
+	}
+	want := make(map[string]struct{}, len(services))
+	for _, s := range services {
+		if s != "" {
+			want[s] = struct{}{}
+		}
+	}
+	if len(want) == 0 {
+		return 0
+	}
+
+	var retired int
+	m.control.admissionBoundary(func() {
+		// The snapshot runs inside the admission boundary so it can never
+		// observe a partially published compound admission: admit holds the
+		// same boundary across every plan allocation, so this scan sees either
+		// the pre-admission registry or the fully published one — never a
+		// subset of one admission's plans. A snapshot taken outside could
+		// record a full root from a subset of its plans and let the root
+		// disposal strand the unpublished siblings' channel entries behind
+		// deleted plans.
+		m.owner.postDoneMu.Lock()
+		var planIDs []serverMethodID
+		// rootServices maps each supervisor root to every service name
+		// currently registered under it, so retirement can tell a fully
+		// matched root apart from one that still hosts sibling services.
+		rootServices := make(map[supervisorChildID]map[string]struct{})
+		for id, plan := range m.owner.serverPlans {
+			if plan == nil {
+				continue
+			}
+			service, _, ok := splitFullMethod(plan.fullMethod)
+			if !ok {
+				continue
+			}
+			if _, match := want[service]; match {
+				planIDs = append(planIDs, id)
+			}
+			if plan.rootID == 0 {
+				continue
+			}
+			existing := rootServices[plan.rootID]
+			if existing == nil {
+				existing = make(map[string]struct{})
+				rootServices[plan.rootID] = existing
+			}
+			existing[service] = struct{}{}
+		}
+		roots := make(map[supervisorChildID]struct{}, len(rootServices))
+		for rootID, registered := range rootServices {
+			fullyMatched := true
+			for service := range registered {
+				if _, match := want[service]; !match {
+					fullyMatched = false
+					break
+				}
+			}
+			if fullyMatched {
+				roots[rootID] = struct{}{}
+			}
+		}
+		m.owner.postDoneMu.Unlock()
+
+		// Synchronously remove the channel entries so a follow-up registration
+		// of the same service does not collide. This also deletes the plans;
+		// the root disposer's removeServerMethodPlans below will then be an
+		// idempotent no-op.
+		retired = m.disposeServerRegistration(planIDs)
+
+		// Schedule the deeper owner-side disposal (root retirement + in-flight
+		// RPC promise rejection) as best-effort. beginOwnerDisposal must run
+		// on-owner (see bridgedisposal.go): it shares the disposals map with
+		// the loop-submitted scheduleOwnerDisposal, and the two are only
+		// mutually serialized while both run on the loop goroutine. Calling it
+		// directly from this off-loop caller raced that map under the race
+		// detector, so the disposal is owner-submitted here instead. It is
+		// fire-and-forget — awaiting it would deadlock when the loop is not
+		// running — and the synchronous channel-entry removal above is what
+		// actually unblocks re-registration. The disposal's own machinery
+		// completes the roots when the loop next ticks, or sweeps them when
+		// the adapter terminates.
+		for rootID := range roots {
+			_ = m.dispatcher.submit(func() {
+				m.dispatcher.disposeOwnerRootOwner(rootID, errModuleUnavailable)
+			})
+		}
+	})
+	return retired
+}
+
 // Close rejects new admissions, aborts active server RPCs, releases active
 // client and reflection operations, and closes every external connection
 // created by this module. A nil receiver returns nil. Close is safe for

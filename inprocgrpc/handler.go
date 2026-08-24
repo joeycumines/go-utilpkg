@@ -75,6 +75,15 @@ func (m *handlerMap) registerServiceLocked(
 	m.services[desc.ServiceName] = serviceEntry{desc: desc, handler: impl}
 }
 
+// unregisterServiceLocked removes a service registration. A missing service is
+// a silent no-op — delete on a nil map is itself a no-op — because
+// unregistration must stay idempotent: the same code path serves both a failed
+// admission (nothing was ever published) and a real teardown. It must be
+// called with handlers.mu held in write mode.
+func (m *handlerMap) unregisterServiceLocked(name string) {
+	delete(m.services, name)
+}
+
 // queryService returns the service descriptor and handler for the given service
 // name. Returns nil, nil if not found.
 func (m *handlerMap) queryService(name string) (*grpc.ServiceDesc, any) {

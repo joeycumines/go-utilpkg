@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Base-owned descriptor files admit additive metadata** — loading a
+  descriptor set that redeclares a file the base registry already owns (e.g.
+  `google/protobuf/descriptor.proto` as emitted by buf, whose custom
+  `FileOptions` extension ranges make the bytes differ) no longer fails a
+  strict byte comparison. The incoming file is accepted when the base
+  semantically covers it: every declared path, package, symbol, and extension
+  is already present in the base with a matching kind, and the canonical base
+  identity keeps serving resolution. A genuine redefinition — one introducing a
+  symbol or extension the base lacks, or changing a symbol's kind — is still
+  rejected and rolls back transactionally.
+
 ### Added
 
 - **Initial release** — Go-native protobuf bridge for the Goja JavaScript engine, modeled

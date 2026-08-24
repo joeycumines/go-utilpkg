@@ -28,6 +28,7 @@ const (
 // callables.
 type serverMethodPlan struct {
 	module       *Module
+	rootID       supervisorChildID
 	fullMethod   string
 	method       protoreflect.MethodDescriptor
 	handler      goja.Callable

@@ -356,6 +356,158 @@ func descriptorFileGraph(file protoreflect.FileDescriptor) (*descriptorGraph, er
 	return graph, nil
 }
 
+// covers reports whether base semantically covers other: every file path,
+// package, symbol, and extension that other declares must already be present
+// in base with a matching descriptor kind. Unlike [descriptorGraph.compatible],
+// it is intended for descriptors built from different registries (so pointer
+// identity does not hold) and compares by fully-qualified name and kind only.
+//
+// It is the gate that lets an incoming descriptor file whose bytes differ from
+// the base only by additive, non-semantic metadata (for example the custom
+// FileOptions extension ranges that buf injects into
+// google/protobuf/descriptor.proto) be satisfied from the base registry without
+// being re-registered, while still rejecting a genuine redefinition that
+// introduces a symbol or extension the base does not have.
+//
+// Because coverage is verified against base, an incoming file that passes is
+// discarded: the [combinedFileResolver] resolves its path and symbols from base
+// (local miss falls through to global, then the base graph), so registering a
+// local copy would only shadow the canonical base identity.
+func (g *descriptorGraph) covers(other *descriptorGraph) error {
+	// Iterate every category in a deterministic, sorted order. A coverage gate
+	// answers the same question for the same input, so the FIRST conflict it
+	// surfaces — and therefore the error string a caller sees — must be stable
+	// across runs. Ranging over Go maps directly yields a randomized order, which
+	// makes the reported conflict (and thus logs and error-dependent tests)
+	// non-reproducible when more than one violation is present. Sorting by the
+	// natural ordering of each key guarantees a single, reproducible verdict.
+	files := make([]string, 0, len(other.files))
+	for path := range other.files {
+		files = append(files, path)
+	}
+	slices.Sort(files)
+	for _, path := range files {
+		descriptor := other.files[path]
+		base, ok := g.files[path]
+		if !ok {
+			return fmt.Errorf("file %q is not present in the base registry", path)
+		}
+		if base.FullName() != descriptor.FullName() {
+			return fmt.Errorf(
+				"file %q package changed from %q to %q",
+				path,
+				base.FullName(),
+				descriptor.FullName(),
+			)
+		}
+	}
+	packages := make([]protoreflect.FullName, 0, len(other.packages))
+	for name := range other.packages {
+		packages = append(packages, name)
+	}
+	slices.Sort(packages)
+	for _, name := range packages {
+		if _, ok := g.packages[name]; !ok {
+			return fmt.Errorf("package %q is not present in the base registry", name)
+		}
+	}
+	symbols := make([]protoreflect.FullName, 0, len(other.symbols))
+	for name := range other.symbols {
+		symbols = append(symbols, name)
+	}
+	slices.Sort(symbols)
+	for _, name := range symbols {
+		descriptor := other.symbols[name]
+		base, ok := g.symbols[name]
+		if !ok {
+			return fmt.Errorf(
+				"symbol %q declared in %q is not present in the base registry",
+				name,
+				descriptor.ParentFile().Path(),
+			)
+		}
+		if baseKind := symbolKind(base); baseKind != symbolKind(descriptor) {
+			return fmt.Errorf(
+				"symbol %q changed kind from %s to %s",
+				name,
+				baseKind,
+				symbolKind(descriptor),
+			)
+		}
+	}
+	extensions := make([]extensionNumberKey, 0, len(other.extensions))
+	for key := range other.extensions {
+		extensions = append(extensions, key)
+	}
+	slices.SortFunc(extensions, func(a, b extensionNumberKey) int {
+		if a.message != b.message {
+			if a.message < b.message {
+				return -1
+			}
+			return 1
+		}
+		switch {
+		case a.number < b.number:
+			return -1
+		case a.number > b.number:
+			return 1
+		default:
+			return 0
+		}
+	})
+	for _, key := range extensions {
+		descriptor := other.extensions[key]
+		base, ok := g.extensions[key]
+		if !ok {
+			return fmt.Errorf(
+				"extension %q (%s field %d) is not present in the base registry",
+				descriptor.FullName(),
+				key.message,
+				key.number,
+			)
+		}
+		if base.FullName() != descriptor.FullName() {
+			return fmt.Errorf(
+				"extension at %s field %d changed from %q to %q",
+				key.message,
+				key.number,
+				base.FullName(),
+				descriptor.FullName(),
+			)
+		}
+	}
+	return nil
+}
+
+// symbolKind returns a coarse, stable classification for a descriptor used by
+// [descriptorGraph.covers] to detect kind changes without relying on pointer
+// identity. It mirrors the value/extension distinction that matters for
+// resolution; finer distinctions (field vs oneof, message vs enum) are captured
+// by the protoreflect type switches.
+func symbolKind(descriptor protoreflect.Descriptor) string {
+	switch d := descriptor.(type) {
+	case protoreflect.MessageDescriptor:
+		return "message"
+	case protoreflect.EnumDescriptor:
+		return "enum"
+	case protoreflect.EnumValueDescriptor:
+		return "enumvalue"
+	case protoreflect.FieldDescriptor:
+		if d.IsExtension() {
+			return "extension"
+		}
+		return "field"
+	case protoreflect.OneofDescriptor:
+		return "oneof"
+	case protoreflect.ServiceDescriptor:
+		return "service"
+	case protoreflect.MethodDescriptor:
+		return "method"
+	default:
+		return fmt.Sprintf("%T", descriptor)
+	}
+}
+
 func walkDescriptors(
 	file protoreflect.FileDescriptor,
 	visit func(protoreflect.Descriptor) bool,

@@ -19,7 +19,9 @@ func (l *Loop) Done() <-chan struct{} {
 //   - StateTerminated: returns ErrLoopTerminated
 //   - StateTerminating: returns ErrLoopTerminated. Terminal drain allows only
 //     microtask/nextTick/checkpoint continuations, not new Submit work.
-//   - StateSleeping/StateRunning: normal operation
+//   - StateSleeping/StateRunning: normal operation, except once the loop has
+//     committed to its terminal drain while still in one of these states (the
+//     auto-exit commit): that also returns ErrLoopTerminated.
 //
 // Quiescing Protocol: Submit is intentionally NOT gated by the quiescing flag.
 // Submitted tasks are ephemeral work detected by Alive() via the submissionEpoch
@@ -159,7 +161,10 @@ func (l *Loop) forceWakeup() {
 //   - StateTerminated: returns ErrLoopTerminated
 //   - StateTerminating: returns ErrLoopTerminated. Terminal drain allows only
 //     microtask/nextTick/checkpoint continuations, not new SubmitInternal work.
-//   - StateSleeping/StateRunning: normal operation
+//   - StateSleeping/StateRunning: normal operation, except once the loop has
+//     committed to its terminal drain while still in one of these states (the
+//     auto-exit commit): foreign-goroutine calls then also return
+//     ErrLoopTerminated. Owner-local calls keep the terminalQueueAllowed gate.
 //
 // Thread Safety: Owner calls append directly to the local priority queue;
 // external calls use mutex-protected typed command ingress.

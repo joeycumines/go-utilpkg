@@ -418,6 +418,22 @@ func (s *moduleSupervisor) admit(
 	return nil
 }
 
+// admissionBoundary runs fn while holding the close/admission boundary mutex —
+// the same mutex admit and beginClose hold across their critical sections. It
+// exists for off-loop teardown paths that must observe and retire published
+// state without interleaving with an in-flight compound admission: either fn
+// sees the fully published registration (and may retire it wholesale), or the
+// later admission publishes into the already-retired registry. Lock order is
+// boundaryMu -> owner.postDoneMu -> channel locks, matching admit.
+func (s *moduleSupervisor) admissionBoundary(fn func()) {
+	if s == nil {
+		return
+	}
+	s.boundaryMu.Lock()
+	defer s.boundaryMu.Unlock()
+	fn()
+}
+
 func (s *moduleSupervisor) activate(id supervisorChildID) error {
 	if s == nil || id == 0 {
 		return errModuleClosed

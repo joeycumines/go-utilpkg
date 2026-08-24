@@ -45,6 +45,16 @@ type RegistrationBatch struct {
 	StreamHandlers []StreamHandlerRegistration
 }
 
+// UnregistrationBatch is one atomic set of service and event-loop-native
+// handler removals. A name that is not currently registered is a silent
+// no-op, because the same teardown path serves a failed admission (nothing
+// was published) and a real disposal (entries were published). Services are
+// identified by service name; stream handlers by full method name.
+type UnregistrationBatch struct {
+	Services       []string
+	StreamHandlers []string
+}
+
 // LoopOwner authenticates ownership of one concrete event loop without
 // exposing that loop through an inward accessor.
 type LoopOwner interface {
@@ -138,6 +148,46 @@ func (c *Channel) RegisterStreamHandler(method string, handler StreamHandlerFunc
 	}); err != nil {
 		panic(err.Error())
 	}
+}
+
+// UnregisterStreamHandler removes an event-loop-native handler for a full
+// method name. If no handler is registered for the method, it is a silent
+// no-op. Unregistration is synchronized with RPC dispatch exactly like
+// [Channel.RegisterStreamHandler]: in-flight RPCs that already snapshotted the
+// handler continue unaffected, while new lookups observe the removal.
+//
+// UnregisterStreamHandler panics on a static contract violation, mirroring
+// [Channel.RegisterStreamHandler]: a method name not starting with '/' panics
+// here with "must start with '/'", while any other malformed shape (e.g. an
+// empty service or method segment) panics from [Channel.UnregisterBatch] with
+// its full-form message.
+func (c *Channel) UnregisterStreamHandler(method string) {
+	if len(method) == 0 || method[0] != '/' {
+		panic(fmt.Sprintf(
+			"inprocgrpc: method name must start with '/': %q",
+			method,
+		))
+	}
+	c.UnregisterBatch(UnregistrationBatch{
+		StreamHandlers: []string{method},
+	})
+}
+
+// UnregisterService removes a generated gRPC service registration by service
+// name. If the service is not registered, it is a silent no-op. A stream
+// handler registered for the same method is NOT removed by this call; remove
+// stream handlers explicitly via [Channel.UnregisterStreamHandler] (or use
+// [Channel.UnregisterBatch] to remove both atomically).
+//
+// UnregisterService panics if serviceName is empty: a static contract
+// violation.
+func (c *Channel) UnregisterService(serviceName string) {
+	if serviceName == "" {
+		panic("inprocgrpc: service name must not be empty")
+	}
+	c.UnregisterBatch(UnregistrationBatch{
+		Services: []string{serviceName},
+	})
 }
 
 // RegisterBatch atomically registers generated services and
@@ -237,4 +287,49 @@ func (c *Channel) RegisterBatch(batch RegistrationBatch) error {
 		c.streamHandlers[streamHandler.Method] = streamHandler.Handler
 	}
 	return nil
+}
+
+// UnregisterBatch atomically removes generated services and
+// event-loop-native stream handlers. RPC dispatch observes the removal on the
+// next lookup; RPCs that already snapshotted their target are unaffected (the
+// captured callback closure or service entry outlives the map delete).
+//
+// A service or method that is not currently registered is a silent no-op. This
+// idempotence is required because the same teardown path runs for both a
+// failed admission (nothing was ever published) and a genuine disposal, and
+// those two callers cannot be distinguished at the channel boundary. Removal
+// therefore has no runtime failure mode, so UnregisterBatch reports nothing:
+// invalid input panics as a static contract violation (mirroring
+// [Channel.RegisterBatch]).
+//
+// UnregisterBatch panics if the channel is nil or a stream-handler method has
+// an invalid shape. The removal is atomic with respect to dispatch because it
+// is published under the same registrationMu/handlers.mu lock pair as
+// [Channel.RegisterBatch].
+func (c *Channel) UnregisterBatch(batch UnregistrationBatch) {
+	if c == nil {
+		panic("inprocgrpc: channel must not be nil")
+	}
+	for index, method := range batch.StreamHandlers {
+		normalized, _, _, methodErr := validateMethod(method)
+		if methodErr != nil || normalized != method {
+			panic(fmt.Errorf(
+				"inprocgrpc: stream handler removal %d method must have form '/service/method': %q",
+				index,
+				method,
+			))
+		}
+	}
+
+	c.registrationMu.Lock()
+	defer c.registrationMu.Unlock()
+	c.handlers.mu.Lock()
+	defer c.handlers.mu.Unlock()
+
+	for _, name := range batch.Services {
+		c.handlers.unregisterServiceLocked(name)
+	}
+	for _, method := range batch.StreamHandlers {
+		delete(c.streamHandlers, method)
+	}
 }

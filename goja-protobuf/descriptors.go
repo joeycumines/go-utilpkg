@@ -105,6 +105,24 @@ func (m *Module) installFileProtos(input []*descriptorpb.FileDescriptorProto) ([
 	stagedProtos := make(map[string]*descriptorpb.FileDescriptorProto, len(m.state.localProtos)+len(incoming))
 	maps.Copy(stagedProtos, m.state.localProtos)
 
+	// The resolver is built before the partition loop because a file whose path
+	// the base registry already owns must be validated against the base graph,
+	// which requires materializing it as a protoreflect.FileDescriptor (and that
+	// needs the combined resolver to satisfy its imports).
+	resolver := &combinedFileResolver{
+		local:  stagedFiles,
+		global: m.state.baseFiles,
+		graph:  m.state.baseGraph,
+	}
+
+	// The incoming set is partitioned by ownership: paths the base registry
+	// already owns are validated for semantic coverage rather than registered.
+	// Such a file is NOT staged locally — the combinedFileResolver serves it
+	// from the base (local miss falls through to global then the base graph),
+	// and a local copy would shadow the canonical base identity. Every other
+	// path joins pending below and is built, compatibility-checked, and staged
+	// in dependency order.
+
 	pending := make(map[string]*descriptorpb.FileDescriptorProto, len(incoming))
 	for name, file := range incoming {
 		if existing, ok := stagedProtos[name]; ok {
@@ -113,20 +131,38 @@ func (m *Module) installFileProtos(input []*descriptorpb.FileDescriptorProto) ([
 			}
 			continue
 		}
-		if base, ok := m.state.baseGraph.files[name]; ok {
-			if !proto.Equal(protodesc.ToFileDescriptorProto(base), file) {
-				return nil, fmt.Errorf("file %q conflicts with the base registry", name)
-			}
+		base, ok := m.state.baseGraph.files[name]
+		if !ok {
+			pending[name] = file
 			continue
 		}
-		pending[name] = file
+		// The base registry owns this path. A byte-identical copy is trivially
+		// satisfied; otherwise the incoming file is only acceptable when the
+		// base semantically covers it: every declared symbol, package, and
+		// extension must already be present in base with a matching kind.
+		// Coverage compares names and kinds only — same-name, same-kind
+		// differences inside existing symbols (e.g. a field's scalar type,
+		// pinned by TestCoversFieldKindIsCoarse) also pass and are rendered
+		// operationally irrelevant because a covered file is discarded: the
+		// canonical base identity keeps serving resolution through the
+		// combinedFileResolver. The motivating case is the additive custom
+		// FileOptions ranges buf injects into google/protobuf/descriptor.proto.
+		if proto.Equal(protodesc.ToFileDescriptorProto(base), file) {
+			continue
+		}
+		built, err := protodesc.NewFile(file, resolver)
+		if err != nil {
+			return nil, fmt.Errorf("validate base-owned file %q: %w", name, err)
+		}
+		incomingGraph, err := descriptorFileGraph(built)
+		if err != nil {
+			return nil, fmt.Errorf("build graph for base-owned file %q: %w", name, err)
+		}
+		if err := m.state.baseGraph.covers(incomingGraph); err != nil {
+			return nil, fmt.Errorf("file %q conflicts with the base registry: %w", name, err)
+		}
 	}
 
-	resolver := &combinedFileResolver{
-		local:  stagedFiles,
-		global: m.state.baseFiles,
-		graph:  m.state.baseGraph,
-	}
 	var names []string
 	for len(pending) != 0 {
 		paths := sortedProtoPaths(pending)

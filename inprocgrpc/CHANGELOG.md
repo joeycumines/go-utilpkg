@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Idempotent unregistration API** — `Channel.UnregisterStreamHandler`,
+  `Channel.UnregisterService`, and `Channel.UnregisterBatch` (with
+  `UnregistrationBatch`) remove event-loop-native handlers and generated
+  service registrations. Removal is atomic with respect to dispatch, is
+  synchronized under the same lock pair as `RegisterBatch`, and treats missing
+  entries as silent no-ops so one teardown path serves both a failed admission
+  and a real disposal. This enables delete/recreate lifecycles without the
+  "stream handler already registered" collision.
+
 - **Event-loop identity predicate** — `Channel.SharesLoop` lets runtime
   integrations authenticate the channel's concrete `eventloop.Loop` without
   exposing it through an inward accessor.

@@ -38,6 +38,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Initial release** — JavaScript gRPC clients and in-process servers for the
   Goja runtime, using `inprocgrpc.Channel` as the default transport.
+
+- **`Module.DisposeServices`** — retires every server registration whose gRPC
+  service fully-qualified name appears in `services`, returning the number of
+  plans this call actually retired. The in-process channel entries (stream
+  handler and service entry) are removed synchronously so a fresh registration
+  of the same service succeeds — the module delete/recreate lifecycle that
+  previously bricked on "stream handler already registered". Retirement is
+  scoped per service: when one `server.start` admission published several
+  services, disposing a subset leaves co-rooted siblings fully live, and a
+  supervisor root is disposed only once every service on it has been retired.
+  Retirement is serialized against compound server admissions through the
+  supervisor boundary (the same mutex `Module.Close` holds), so channel entries
+  can never outlive their plans. The deeper owner-side disposal (root
+  retirement and disposer execution) is scheduled best-effort and not awaited,
+  so disposal is safe whether or not the event loop is currently running.
+  Unlike `Module.Close`, retired methods report `Unimplemented` rather than
+  `Unavailable`; missing services are silent no-ops.
 - **Client API** — `grpc.createClient(serviceName, options?)` returns a client
   with methods matching the service definition:
   - Unary RPCs return `Promise<Message>`

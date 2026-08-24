@@ -70,10 +70,18 @@ func (c *serverRegistrationControl) wait() <-chan struct{} { return c.done }
 
 func (*serverRegistrationControl) result() error { return nil }
 
-// removeServerMethodPlans removes the given server method plans. It takes
-// postDoneMu: the root-disposal disposer may run on the Close goroutine while
-// a late JS server operation or an in-flight transport stream reads the plan
-// map on another goroutine.
+// removeServerMethodPlans removes the given server method plans from the owner
+// bridge. It takes postDoneMu: the root-disposal disposer may run on the Close
+// goroutine while a late JS server operation or an in-flight transport stream
+// reads the plan map on another goroutine.
+//
+// This deliberately does NOT unregister the channel entries. Whole-module Close
+// leaves the stream-handler entry in place on purpose so that the
+// (now-planless) serverHandler closure returns codes.Unavailable — signalling
+// "the module existed but is closed" — rather than codes.Unimplemented. The
+// channel teardown required for delete/recreate (where the method must be
+// fully removable so a re-registration succeeds) is handled separately by
+// [Module.disposeServerRegistration], invoked from the per-server disposal API.
 func (m *Module) removeServerMethodPlans(ids []serverMethodID) {
 	if len(ids) == 0 {
 		return
@@ -83,6 +91,93 @@ func (m *Module) removeServerMethodPlans(ids []serverMethodID) {
 	for _, id := range ids {
 		delete(m.owner.serverPlans, id)
 	}
+}
+
+// disposeServerRegistration removes the given server method plans AND unregisters
+// their stream handlers and service entries from the in-process channel. It is
+// the teardown used when a single server registration must be fully retired so
+// that the same service/method can be registered again — the delete/recreate
+// lifecycle. It must NOT be used on whole-module Close, which intentionally
+// keeps the stream-handler entry so disposed plans report codes.Unavailable.
+//
+// Both the stream handler and the service entry are removed atomically in a
+// single channel batch. Both must go: the service entry's MethodDesc carries a
+// nil Handler (buildStartPlan registers nil-Handler MethodDescs because the
+// stream handler is what actually dispatches), so removing only the stream
+// handler would leave lookupUnary to fall through to a nil-Handler service entry
+// and panic on the next call.
+//
+// Plans with an invalid or empty fullMethod (e.g. zero-value test plans, or
+// plans from a failed admission where nothing was published) are skipped: the
+// channel has no entry for them, and attempting to unregister an empty method
+// would panic in validateMethod. channel.UnregisterBatch is idempotent on
+// missing entries, so skipping is safe.
+//
+// In-flight RPCs are safe: the lookup path snapshots the stream-handler
+// callback under the channel's registrationMu and releases the read lock before
+// dispatching, and serverHandler short-circuits to codes.Unavailable once the
+// plan is deleted. No lock inversion is possible: postDoneMu is acquired here,
+// then channel.UnregisterBatch acquires registrationMu then handlers.mu, and no
+// inprocgrpc path ever acquires postDoneMu.
+//
+// The returned count is the number of plans this call actually found and
+// deleted; plans already removed by a concurrent caller contribute nothing.
+func (m *Module) disposeServerRegistration(ids []serverMethodID) int {
+	if len(ids) == 0 {
+		return 0
+	}
+	var batch inprocgrpc.UnregistrationBatch
+	deleted := 0
+	m.owner.postDoneMu.Lock()
+	for _, id := range ids {
+		plan, ok := m.owner.serverPlans[id]
+		if !ok {
+			continue
+		}
+		service, _, valid := splitFullMethod(plan.fullMethod)
+		if !valid {
+			continue
+		}
+		batch.StreamHandlers = append(batch.StreamHandlers, plan.fullMethod)
+		batch.Services = append(batch.Services, service)
+		delete(m.owner.serverPlans, id)
+		deleted++
+	}
+	m.owner.postDoneMu.Unlock()
+	if len(batch.StreamHandlers) == 0 && len(batch.Services) == 0 {
+		return 0
+	}
+	m.channel.UnregisterBatch(batch)
+	return deleted
+}
+
+// splitFullMethod parses a gRPC full method name of the form "/service/Method"
+// into its service and method components. It reports ok=false for any shape
+// that is not exactly "/service/method" (including empty, missing slashes, or
+// a leading slash with an empty service/method). It mirrors the canonical form
+// produced by buildStartPlan: fmt.Sprintf("/%s/%s", serviceFullName, methodName).
+func splitFullMethod(fullMethod string) (service, method string, ok bool) {
+	if len(fullMethod) == 0 || fullMethod[0] != '/' {
+		return "", "", false
+	}
+	body := fullMethod[1:]
+	for i := 0; i < len(body); i++ {
+		if body[i] == '/' {
+			service = body[:i]
+			method = body[i+1:]
+			if service == "" || method == "" {
+				return "", "", false
+			}
+			// Reject any additional '/' — a valid full method has exactly one.
+			for j := range method {
+				if method[j] == '/' {
+					return "", "", false
+				}
+			}
+			return service, method, true
+		}
+	}
+	return "", "", false
 }
 
 // rollbackServerRegistrationOwner synchronously consumes every unpublished
@@ -458,6 +553,7 @@ func (s *jsServer) start(goja.FunctionCall) goja.Value {
 				)
 				for index := range service.methods {
 					method := &service.methods[index]
+					method.plan.rootID = admission.rootID
 					method.id, err = s.m.allocateServerMethodPlan(method.plan)
 					if err != nil {
 						return err
