@@ -2,6 +2,7 @@ package inprocgrpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 	"testing"
@@ -511,15 +512,41 @@ func TestClientInboundStatsMayReenterLocalFailure(t *testing.T) {
 			if contextErr == nil {
 				t.Fatal("client context was not canceled before SendMsg returned")
 			}
-			if !terminal || terminalErr != nil {
-				t.Fatalf("TerminalResult = %v, %v, want nil, true",
+			// One first-terminal-wins arbiter decides the RPC (see
+			// docs/design.md, "RPC Lifecycle"): size violations participate
+			// like any other candidate, so either the server's graceful
+			// completion or the reentrant local failure may win. Both winners
+			// are contract-valid; anything else is a bug.
+			if !terminal {
+				t.Fatal("TerminalResult was never selected")
+			}
+			switch {
+			case terminalErr == nil:
+				// The server's graceful completion won the arbiter.
+			case status.Code(terminalErr) == codes.ResourceExhausted:
+				// The reentrant local failure won the arbiter.
+			default:
+				t.Fatalf("TerminalResult = %v, want nil or ResourceExhausted",
 					terminalErr,
-					terminal,
 				)
 			}
 			err = client.RecvMsg(new(wrapperspb.StringValue))
-			if status.Code(err) != codes.ResourceExhausted {
-				t.Fatalf("terminal RecvMsg = %v, want ResourceExhausted", err)
+			switch {
+			case terminalErr == nil:
+				// Server won: the live-owner receive observes the clean
+				// close (io.EOF). A racing terminal-path receive can
+				// instead surface the recorded local failure; both are
+				// contract-valid here.
+				if err == nil ||
+					(status.Code(err) != codes.ResourceExhausted &&
+						!errors.Is(err, io.EOF)) {
+					t.Fatalf("terminal RecvMsg = %v, want EOF or ResourceExhausted", err)
+				}
+			default:
+				// Local failure won: the abort error surfaces.
+				if status.Code(err) != codes.ResourceExhausted {
+					t.Fatalf("terminal RecvMsg = %v, want ResourceExhausted", err)
+				}
 			}
 			waitStatsBarrier(t, handler.ended, "client stats End")
 			waitStatsBarrier(t, client.Done(), "client Done")

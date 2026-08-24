@@ -64,9 +64,14 @@ type StreamReceiver interface {
 // It wraps the internal stream state and provides non-blocking access
 // suitable for event-loop-native handlers.
 //
-// Except for [RPCStream.Abort], all methods must be called on the event loop
-// goroutine. RPCStream is the primary interface through which non-blocking
-// handlers (registered via [StreamHandlerFunc]) interact with RPC streams.
+// Most methods must be called on the event loop goroutine. The exceptions
+// are [RPCStream.Abort] (nonblocking, safe from any goroutine) and the
+// observation methods [RPCStream.Done] and [RPCStream.TerminalResult]
+// (also safe from any goroutine); [RPCStream.ScheduleCallback] may be
+// called from any goroutine because it enters through the loop's external
+// submission path. RPCStream is the primary interface through which
+// non-blocking handlers (registered via [StreamHandlerFunc]) interact with
+// RPC streams.
 //
 // The send/receive directions are named from the server's perspective:
 //   - [RPCStream.Recv] receives client-to-server messages (requests)
