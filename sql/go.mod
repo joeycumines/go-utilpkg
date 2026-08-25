@@ -5,13 +5,8 @@ go 1.27.0
 require (
 	github.com/go-test/deep v1.1.1
 	github.com/joeycumines/go-detect-cycle v1.0.1
-	github.com/joeycumines/logiface v0.5.0
-	golang.org/x/exp v0.0.0-20260820142414-ca536658362e
+	github.com/joeycumines/logiface v0.6.0
+	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa
 )
 
-require (
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20260429212737-202f4120003b // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
-)
+require github.com/joeycumines/go-catrate v0.0.0-20260822232657-5012a789c17d // indirect

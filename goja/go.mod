@@ -7,7 +7,7 @@ require (
 	github.com/dlclark/regexp2/v2 v2.7.1
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible
 	github.com/goccy/go-yaml v1.19.2
-	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3
-	github.com/joeycumines/goja_nodejs v0.0.0-20260725224646-7b69489f6ce5
+	github.com/google/pprof v0.0.0-20260825002013-8a176773c324
+	github.com/joeycumines/goja_nodejs v0.0.0-20260823081323-05fa4bcb64d4
 	golang.org/x/text v0.41.0
 )
