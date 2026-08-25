@@ -37,6 +37,7 @@ type Adapter struct { //nolint:govet // betteralign:ignore
 	timersMu          sync.Mutex   // protects timers and nextTimerID
 	immediatesMu      sync.Mutex   // protects immediates and immediate queue state
 	processMu         sync.Mutex   // protects process rejection state
+	bridgesMu         sync.Mutex   // protects pendingBridges
 
 	js                       *goeventloop.JS
 	runtime                  *goja.Runtime
@@ -61,6 +62,7 @@ type Adapter struct { //nolint:govet // betteralign:ignore
 	immediates               map[uint64]*adapterImmediate
 	pendingRejections        map[*goja.Promise]goja.Value
 	pendingRejectionOrder    []*goja.Promise
+	pendingBridges           map[*trackedBridge]struct{}
 	reportedRejectionSet     *goja.Object
 	rejectionIDStore         *goja.Object
 	rejectionWarningStore    *goja.Object
@@ -467,6 +469,7 @@ func New(loop *goeventloop.Loop, runtime *goja.Runtime, jsOptions ...goeventloop
 		timerClockOrigin:  time.Now(),
 		immediates:        make(map[uint64]*adapterImmediate),
 		pendingRejections: make(map[*goja.Promise]goja.Value),
+		pendingBridges:    make(map[*trackedBridge]struct{}),
 		consoleOutput:     os.Stderr, // Default to stderr like browsers/Node.js
 	}
 	if err := claimAdapter(adapter, gojaSafeOptions); err != nil {

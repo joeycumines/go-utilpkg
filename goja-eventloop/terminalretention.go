@@ -130,6 +130,8 @@ func (a *Adapter) terminateCleanup() {
 	a.immediates = make(map[uint64]*adapterImmediate)
 	a.immediatesMu.Unlock()
 
+	a.sweepTrackedBridges()
+
 	a.processEmitterCore = nil
 	a.processMu.Lock()
 	clear(a.pendingRejectionOrder)
