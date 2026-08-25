@@ -252,61 +252,53 @@ func (m *Module) DisposeServices(services []string) int {
 
 	var retired int
 	m.control.admissionBoundary(func() {
-		// The snapshot runs inside the admission boundary so it can never
-		// observe a partially published compound admission: admit holds the
-		// same boundary across every plan allocation, so this scan sees either
-		// the pre-admission registry or the fully published one — never a
-		// subset of one admission's plans. A snapshot taken outside could
-		// record a full root from a subset of its plans and let the root
-		// disposal strand the unpublished siblings' channel entries behind
-		// deleted plans.
 		m.owner.postDoneMu.Lock()
-		var planIDs []serverMethodID
-		// rootServices maps each supervisor root to every service name
-		// currently registered under it, so retirement can tell a fully
-		// matched root apart from one that still hosts sibling services.
-		rootServices := make(map[supervisorChildID]map[string]struct{})
-		for id, plan := range m.owner.serverPlans {
-			if plan == nil {
+		var (
+			batch inprocgrpc.UnregistrationBatch
+			roots []supervisorChildID
+		)
+		for rootID, record := range m.owner.serverRegistrations {
+			if record == nil {
 				continue
 			}
-			service, _, ok := splitFullMethod(plan.fullMethod)
-			if !ok {
-				continue
-			}
-			if _, match := want[service]; match {
-				planIDs = append(planIDs, id)
-			}
-			if plan.rootID == 0 {
-				continue
-			}
-			existing := rootServices[plan.rootID]
-			if existing == nil {
-				existing = make(map[string]struct{})
-				rootServices[plan.rootID] = existing
-			}
-			existing[service] = struct{}{}
-		}
-		roots := make(map[supervisorChildID]struct{}, len(rootServices))
-		for rootID, registered := range rootServices {
-			fullyMatched := true
-			for service := range registered {
-				if _, match := want[service]; !match {
-					fullyMatched = false
-					break
+			var matchedServices []string
+			for serviceName := range record.services {
+				if _, ok := want[serviceName]; ok {
+					matchedServices = append(matchedServices, serviceName)
 				}
 			}
-			if fullyMatched {
-				roots[rootID] = struct{}{}
+			if len(matchedServices) == 0 {
+				continue
+			}
+			for _, serviceName := range matchedServices {
+				batch.Services = append(batch.Services, serviceName)
+				delete(record.services, serviceName)
+				for fullMethod, planID := range record.methods {
+					svc, _, ok := splitFullMethod(fullMethod)
+					if ok && svc == serviceName {
+						batch.StreamHandlers = append(batch.StreamHandlers, fullMethod)
+						delete(record.methods, fullMethod)
+						if planID != 0 {
+							if _, exists := m.owner.serverPlans[planID]; exists {
+								delete(m.owner.serverPlans, planID)
+								retired++
+							}
+						}
+					}
+				}
+			}
+			if len(record.services) == 0 {
+				delete(m.owner.serverRegistrations, rootID)
+				roots = append(roots, rootID)
 			}
 		}
 		m.owner.postDoneMu.Unlock()
 
 		// Synchronously remove the channel entries so a follow-up registration
-		// of the same service does not collide. This also deletes the plans;
-		// the root disposer's removeServerMethodPlans below will then be an
-		// idempotent no-op.
-		retired = m.disposeServerRegistration(planIDs)
+		// of the same service does not collide.
+		if len(batch.Services) > 0 || len(batch.StreamHandlers) > 0 {
+			m.channel.UnregisterBatch(batch)
+		}
 
 		// Schedule the deeper owner-side disposal (root retirement + in-flight
 		// RPC promise rejection) as best-effort. beginOwnerDisposal must run
@@ -320,7 +312,7 @@ func (m *Module) DisposeServices(services []string) int {
 		// actually unblocks re-registration. The disposal's own machinery
 		// completes the roots when the loop next ticks, or sweeps them when
 		// the adapter terminates.
-		for rootID := range roots {
+		for _, rootID := range roots {
 			_ = m.dispatcher.submit(func() {
 				m.dispatcher.disposeOwnerRootOwner(rootID, errModuleUnavailable)
 			})
@@ -450,6 +442,7 @@ func (m *Module) clearPostDoneOwnerIndexes() {
 	clear(m.owner.roots)
 	clear(m.owner.tombstones)
 	clear(m.owner.serverPlans)
+	clear(m.owner.serverRegistrations)
 	m.owner.postDoneMu.Unlock()
 	m.dispatcher.runPostDoneDisposal(snapshot)
 }

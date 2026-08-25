@@ -281,12 +281,10 @@ func TestDisposeServicesHandlesEmptyAndNil(t *testing.T) {
 	}
 }
 
-// TestDisposeServicesAfterCloseIsSafe proves DisposeServices does not panic on
-// a closed module and pins the contract divergence from the open-module path:
-// Close disposed every root (running their plan-removal disposers), so nothing
-// matches and zero plans are retired — while the channel entries Close
-// deliberately retained keep answering codes.Unavailable, exactly the opposite
-// of DisposeServices' own Unimplemented outcome.
+// TestDisposeServicesAfterCloseIsSafe proves DisposeServices removes channel
+// entries even when called after Close has already retired method plans,
+// transitioning the service from codes.Unavailable to codes.Unimplemented and
+// allowing a replacement module on the same channel to re-register without collision.
 func TestDisposeServicesAfterCloseIsSafe(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
@@ -300,12 +298,69 @@ func TestDisposeServicesAfterCloseIsSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"}); got != 0 {
-		t.Fatalf("DisposeServices after Close retired %d plans, want 0 (Close already disposed every root)", got)
-	}
+	// After Close, calls return Unavailable because channel entries were intentionally retained.
 	_, err := invokeEcho(t, env, "closed")
 	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("Invoke after Close err = %v, want Unavailable (Close retains channel entries by design)", err)
+		t.Fatalf("Invoke after Close err = %v, want Unavailable", err)
+	}
+
+	// DisposeServices after Close removes the channel entries.
+	env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+
+	// Once disposed, the method is Unimplemented (fully removed from channel).
+	_, err = invokeEcho(t, env, "disposed")
+	if status.Code(err) != codes.Unimplemented {
+		t.Fatalf("Invoke after DisposeServices err = %v, want Unimplemented", err)
+	}
+
+	// A replacement module using the same channel can now register the service cleanly.
+	var replacementMod *Module
+	done := make(chan error, 1)
+	if err := env.loop.Submit(func() {
+		var err error
+		replacementMod, err = New(
+			env.runtime,
+			WithChannel(env.channel),
+			WithProtobuf(env.pbMod),
+			WithAdapter(env.adapter),
+		)
+		if err != nil {
+			done <- err
+			return
+		}
+		obj := env.runtime.NewObject()
+		if err := replacementMod.SetupExports(obj); err != nil {
+			done <- err
+			return
+		}
+		_ = env.runtime.Set("grpc2", obj)
+		_, err = env.runtime.RunString(`
+			var server = grpc2.createServer();
+			server.addService('testgrpc.TestService', {
+				echo: function(request, call) {
+					var EchoResponse = pb.messageType('testgrpc.EchoResponse');
+					var resp = new EchoResponse();
+					resp.set('message', 'recreated: ' + request.get('message'));
+					return resp;
+				},
+				serverStream: function(request, call) {},
+				clientStream: function(call) { return null; },
+				bidiStream: function(call) {}
+			});
+			server.start();
+		`)
+		done <- err
+	}); err != nil {
+		t.Fatalf("replacement server start: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("replacement server setup JS err: %v", err)
+	}
+	defer replacementMod.Close()
+
+	got, err := invokeEcho(t, env, "hello")
+	if err != nil || got != "recreated: hello" {
+		t.Fatalf("invoke on replacement module = %q, %v", got, err)
 	}
 }
 
@@ -325,28 +380,28 @@ func TestDisposeServicesNilReceiverIsSafe(t *testing.T) {
 // — the topology that exposes root-granularity bugs in partial retirement.
 func disposeMultiDescriptorSetBytes() []byte {
 	file := &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("disposemulti.proto"),
-		Package: proto.String("disposemulti"),
-		Syntax:  proto.String("proto3"),
+		Name:    new("disposemulti.proto"),
+		Package: new("disposemulti"),
+		Syntax:  new("proto3"),
 		MessageType: []*descriptorpb.DescriptorProto{
 			echoRequestDesc(),
 			echoResponseDesc(),
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name: proto.String("Alpha"),
+				Name: new("Alpha"),
 				Method: []*descriptorpb.MethodDescriptorProto{{
-					Name:       proto.String("Echo"),
-					InputType:  proto.String(".disposemulti.EchoRequest"),
-					OutputType: proto.String(".disposemulti.EchoResponse"),
+					Name:       new("Echo"),
+					InputType:  new(".disposemulti.EchoRequest"),
+					OutputType: new(".disposemulti.EchoResponse"),
 				}},
 			},
 			{
-				Name: proto.String("Beta"),
+				Name: new("Beta"),
 				Method: []*descriptorpb.MethodDescriptorProto{{
-					Name:       proto.String("Ping"),
-					InputType:  proto.String(".disposemulti.EchoRequest"),
-					OutputType: proto.String(".disposemulti.EchoResponse"),
+					Name:       new("Ping"),
+					InputType:  new(".disposemulti.EchoRequest"),
+					OutputType: new(".disposemulti.EchoResponse"),
 				}},
 			},
 		},
@@ -684,4 +739,230 @@ func TestDisposeServicesConcurrentWithAdmissionNeverZombies(t *testing.T) {
 		}
 	}
 	env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+}
+
+// zeroMethodDescriptorSetBytes returns a FileDescriptorSet with an empty service
+// (zero methods) and a standard unary service (EchoService) sharing request/response shapes.
+func zeroMethodDescriptorSetBytes() []byte {
+	file := &descriptorpb.FileDescriptorProto{
+		Name:    new("zeromethod.proto"),
+		Package: new("zeromethod"),
+		Syntax:  new("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{
+			echoRequestDesc(),
+			echoResponseDesc(),
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			{
+				Name:   new("EmptyService"),
+				Method: []*descriptorpb.MethodDescriptorProto{}, // zero methods
+			},
+			{
+				Name: new("EchoService"),
+				Method: []*descriptorpb.MethodDescriptorProto{{
+					Name:       new("Echo"),
+					InputType:  new(".zeromethod.EchoRequest"),
+					OutputType: new(".zeromethod.EchoResponse"),
+				}},
+			},
+		},
+	}
+	data, err := proto.Marshal(&descriptorpb.FileDescriptorSet{File: []*descriptorpb.FileDescriptorProto{file}})
+	if err != nil {
+		panic("zeroMethodDescriptorSetBytes: " + err.Error())
+	}
+	return data
+}
+
+// TestDisposeServicesZeroMethodService proves zero-method services can be registered,
+// discovered via GetServiceInfo, disposed via DisposeServices, and re-registered cleanly.
+func TestDisposeServicesZeroMethodService(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	if _, err := env.pbMod.LoadDescriptorSetBytes(zeroMethodDescriptorSetBytes()); err != nil {
+		t.Fatal(err)
+	}
+
+	stop := withLoopRunning(t, env, defaultTimeout)
+	defer stop()
+
+	startEmptyJS := `
+		var server = grpc.createServer();
+		server.addService('zeromethod.EmptyService', {});
+		server.start();
+	`
+
+	// Register zero-method service.
+	runJSOnRunningLoop(t, env, startEmptyJS)
+
+	// It must be registered in the channel's GetServiceInfo.
+	info := env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; !ok {
+		t.Fatal("zeromethod.EmptyService not registered in GetServiceInfo")
+	}
+
+	// Dispose the zero-method service.
+	retired := env.grpcMod.DisposeServices([]string{"zeromethod.EmptyService"})
+	if retired != 0 {
+		t.Fatalf("DisposeServices for zero-method service retired %d plans, want 0", retired)
+	}
+
+	// It must be removed from GetServiceInfo.
+	info = env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; ok {
+		t.Fatal("zeromethod.EmptyService still present in GetServiceInfo after dispose")
+	}
+
+	// Re-register the zero-method service on a fresh server (must not collide).
+	runJSOnRunningLoop(t, env, startEmptyJS)
+
+	info = env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; !ok {
+		t.Fatal("zeromethod.EmptyService not present in GetServiceInfo after re-registration")
+	}
+}
+
+// TestDisposeServicesPartialRetirementWithZeroMethodSibling proves that in a compound
+// admission containing both method-bearing and zero-method services, disposing one leaves
+// the sibling fully intact and allows the retired service to be recreated independently.
+func TestDisposeServicesPartialRetirementWithZeroMethodSibling(t *testing.T) {
+	env := newGrpcTestEnv(t)
+	defer env.shutdown()
+
+	if _, err := env.pbMod.LoadDescriptorSetBytes(zeroMethodDescriptorSetBytes()); err != nil {
+		t.Fatal(err)
+	}
+
+	stop := withLoopRunning(t, env, defaultTimeout)
+	defer stop()
+
+	startBothJS := `
+		var server = grpc.createServer();
+		server.addService('zeromethod.EchoService', {
+			echo: function(request, call) {
+				var EchoResponse = pb.messageType('zeromethod.EchoResponse');
+				var resp = new EchoResponse();
+				resp.set('message', 'echo: ' + request.get('message'));
+				return resp;
+			}
+		});
+		server.addService('zeromethod.EmptyService', {});
+		server.start();
+	`
+
+	// Register both under one admission root.
+	runJSOnRunningLoop(t, env, startBothJS)
+
+	got, err := invokeUnary(t, env, "zeromethod.EchoService", "Echo", "message", "one")
+	if err != nil || got != "echo: one" {
+		t.Fatalf("pre-dispose Echo = %q, %v", got, err)
+	}
+	info := env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; !ok {
+		t.Fatal("EmptyService not registered")
+	}
+
+	// Dispose ONLY EchoService.
+	if retired := env.grpcMod.DisposeServices([]string{"zeromethod.EchoService"}); retired != 1 {
+		t.Fatalf("DisposeServices(EchoService) retired %d, want 1", retired)
+	}
+
+	// EchoService is gone (Unimplemented).
+	_, err = invokeUnary(t, env, "zeromethod.EchoService", "Echo", "message", "gone")
+	if status.Code(err) != codes.Unimplemented {
+		t.Fatalf("post-dispose EchoService err = %v, want Unimplemented", err)
+	}
+
+	// Sibling zero-method service is STILL registered.
+	info = env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; !ok {
+		t.Fatal("EmptyService was improperly removed when sibling EchoService was disposed")
+	}
+
+	// Re-register EchoService on a fresh server while EmptyService is still held by the original admission.
+	startEchoOnlyJS := `
+		var server = grpc.createServer();
+		server.addService('zeromethod.EchoService', {
+			echo: function(request, call) {
+				var EchoResponse = pb.messageType('zeromethod.EchoResponse');
+				var resp = new EchoResponse();
+				resp.set('message', 'recreated: ' + request.get('message'));
+				return resp;
+			}
+		});
+		server.start();
+	`
+	runJSOnRunningLoop(t, env, startEchoOnlyJS)
+
+	got, err = invokeUnary(t, env, "zeromethod.EchoService", "Echo", "message", "two")
+	if err != nil || got != "recreated: two" {
+		t.Fatalf("post-recreate Echo = %q, %v", got, err)
+	}
+
+	// Now dispose EmptyService.
+	if retired := env.grpcMod.DisposeServices([]string{"zeromethod.EmptyService"}); retired != 0 {
+		t.Fatalf("DisposeServices(EmptyService) retired %d, want 0", retired)
+	}
+	info = env.channel.GetServiceInfo()
+	if _, ok := info["zeromethod.EmptyService"]; ok {
+		t.Fatal("EmptyService still present after dispose")
+	}
+
+	// EchoService continues serving through its recreation.
+	got, err = invokeUnary(t, env, "zeromethod.EchoService", "Echo", "message", "three")
+	if err != nil || got != "recreated: three" {
+		t.Fatalf("Echo after EmptyService dispose = %q, %v", got, err)
+	}
+}
+
+// TestDisposeServicesForcedCloseInterleavings exercises both forced race orderings
+// between Close and DisposeServices:
+// Interleaving A: plan deletion runs before the disposal scan.
+// Interleaving B: disposal scan runs before plan deletion.
+func TestDisposeServicesForcedCloseInterleavings(t *testing.T) {
+	t.Run("PlanDeletionBeforeDisposeScan", func(t *testing.T) {
+		env := newGrpcTestEnv(t)
+		defer env.shutdown()
+
+		stop := withLoopRunning(t, env, defaultTimeout)
+		defer stop()
+
+		runJSOnRunningLoop(t, env, disposeEchoServerJS)
+
+		// Force plan deletion first: execute removeServerMethodPlans under postDoneMu.
+		env.grpcMod.removeServerMethodPlans([]serverMethodID{1, 2, 3, 4})
+
+		// Now scan and dispose. It must still unregister channel entries from serverRegistrations.
+		env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+
+		_, err := invokeEcho(t, env, "probe")
+		if status.Code(err) != codes.Unimplemented {
+			t.Fatalf("Invoke after plan-deletion-then-dispose err = %v, want Unimplemented", err)
+		}
+	})
+
+	t.Run("DisposeScanBeforePlanDeletion", func(t *testing.T) {
+		env := newGrpcTestEnv(t)
+		defer env.shutdown()
+
+		stop := withLoopRunning(t, env, defaultTimeout)
+		defer stop()
+
+		runJSOnRunningLoop(t, env, disposeEchoServerJS)
+
+		// Dispose scan runs first.
+		retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+		if retired != 4 {
+			t.Fatalf("retired = %d, want 4", retired)
+		}
+
+		// Subsequent Close plan deletion is an idempotent no-op.
+		env.grpcMod.removeServerMethodPlans([]serverMethodID{1, 2, 3, 4})
+
+		_, err := invokeEcho(t, env, "probe")
+		if status.Code(err) != codes.Unimplemented {
+			t.Fatalf("Invoke after dispose-then-plan-deletion err = %v, want Unimplemented", err)
+		}
+	})
 }

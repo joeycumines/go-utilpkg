@@ -93,64 +93,6 @@ func (m *Module) removeServerMethodPlans(ids []serverMethodID) {
 	}
 }
 
-// disposeServerRegistration removes the given server method plans AND unregisters
-// their stream handlers and service entries from the in-process channel. It is
-// the teardown used when a single server registration must be fully retired so
-// that the same service/method can be registered again — the delete/recreate
-// lifecycle. It must NOT be used on whole-module Close, which intentionally
-// keeps the stream-handler entry so disposed plans report codes.Unavailable.
-//
-// Both the stream handler and the service entry are removed atomically in a
-// single channel batch. Both must go: the service entry's MethodDesc carries a
-// nil Handler (buildStartPlan registers nil-Handler MethodDescs because the
-// stream handler is what actually dispatches), so removing only the stream
-// handler would leave lookupUnary to fall through to a nil-Handler service entry
-// and panic on the next call.
-//
-// Plans with an invalid or empty fullMethod (e.g. zero-value test plans, or
-// plans from a failed admission where nothing was published) are skipped: the
-// channel has no entry for them, and attempting to unregister an empty method
-// would panic in validateMethod. channel.UnregisterBatch is idempotent on
-// missing entries, so skipping is safe.
-//
-// In-flight RPCs are safe: the lookup path snapshots the stream-handler
-// callback under the channel's registrationMu and releases the read lock before
-// dispatching, and serverHandler short-circuits to codes.Unavailable once the
-// plan is deleted. No lock inversion is possible: postDoneMu is acquired here,
-// then channel.UnregisterBatch acquires registrationMu then handlers.mu, and no
-// inprocgrpc path ever acquires postDoneMu.
-//
-// The returned count is the number of plans this call actually found and
-// deleted; plans already removed by a concurrent caller contribute nothing.
-func (m *Module) disposeServerRegistration(ids []serverMethodID) int {
-	if len(ids) == 0 {
-		return 0
-	}
-	var batch inprocgrpc.UnregistrationBatch
-	deleted := 0
-	m.owner.postDoneMu.Lock()
-	for _, id := range ids {
-		plan, ok := m.owner.serverPlans[id]
-		if !ok {
-			continue
-		}
-		service, _, valid := splitFullMethod(plan.fullMethod)
-		if !valid {
-			continue
-		}
-		batch.StreamHandlers = append(batch.StreamHandlers, plan.fullMethod)
-		batch.Services = append(batch.Services, service)
-		delete(m.owner.serverPlans, id)
-		deleted++
-	}
-	m.owner.postDoneMu.Unlock()
-	if len(batch.StreamHandlers) == 0 && len(batch.Services) == 0 {
-		return 0
-	}
-	m.channel.UnregisterBatch(batch)
-	return deleted
-}
-
 // splitFullMethod parses a gRPC full method name of the form "/service/Method"
 // into its service and method components. It reports ok=false for any shape
 // that is not exactly "/service/method" (including empty, missing slashes, or
@@ -196,6 +138,7 @@ func (m *Module) rollbackServerRegistrationOwner(
 	}
 	m.removeServerMethodPlans(admission.plans)
 	m.owner.postDoneMu.Lock()
+	delete(m.owner.serverRegistrations, admission.rootID)
 	disposal := m.dispatcher.prepareOwnerRootDisposal(
 		admission.rootID,
 		false,
@@ -542,8 +485,14 @@ func (s *jsServer) start(goja.FunctionCall) goja.Value {
 	plan := s.buildStartPlan()
 	err := s.m.admitServerRegistration(
 		func(admission *serverRegistrationAdmission) (err error) {
+			record := &serverRegistrationRecord{
+				rootID:   admission.rootID,
+				services: make(map[string]struct{}, len(plan)),
+				methods:  make(map[string]serverMethodID),
+			}
 			batch := inprocgrpc.RegistrationBatch{}
 			for _, service := range plan {
+				record.services[service.descriptor.ServiceName] = struct{}{}
 				batch.Services = append(
 					batch.Services,
 					inprocgrpc.ServiceRegistration{
@@ -558,6 +507,7 @@ func (s *jsServer) start(goja.FunctionCall) goja.Value {
 					if err != nil {
 						return err
 					}
+					record.methods[method.name] = method.id
 					admission.plans = append(admission.plans, method.id)
 					batch.StreamHandlers = append(
 						batch.StreamHandlers,
@@ -568,6 +518,9 @@ func (s *jsServer) start(goja.FunctionCall) goja.Value {
 					)
 				}
 			}
+			s.m.owner.postDoneMu.Lock()
+			s.m.owner.serverRegistrations[admission.rootID] = record
+			s.m.owner.postDoneMu.Unlock()
 			s.m.mu.Lock()
 			defer s.m.mu.Unlock()
 			if err = s.stateErrorLocked(); err != nil {

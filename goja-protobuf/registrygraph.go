@@ -392,6 +392,14 @@ func (g *descriptorGraph) covers(other *descriptorGraph) error {
 		if !ok {
 			return fmt.Errorf("file %q is not present in the base registry", path)
 		}
+		if base.Syntax() != descriptor.Syntax() {
+			return fmt.Errorf(
+				"file %q syntax changed from %v to %v",
+				path,
+				base.Syntax(),
+				descriptor.Syntax(),
+			)
+		}
 		if base.FullName() != descriptor.FullName() {
 			return fmt.Errorf(
 				"file %q package changed from %q to %q",
@@ -434,6 +442,9 @@ func (g *descriptorGraph) covers(other *descriptorGraph) error {
 				symbolKind(descriptor),
 			)
 		}
+		if err := compareDescriptors(base, descriptor); err != nil {
+			return err
+		}
 	}
 	extensions := make([]extensionNumberKey, 0, len(other.extensions))
 	for key := range other.extensions {
@@ -475,8 +486,358 @@ func (g *descriptorGraph) covers(other *descriptorGraph) error {
 				descriptor.FullName(),
 			)
 		}
+		if err := compareDescriptors(base, descriptor); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func compareDescriptors(base, descriptor protoreflect.Descriptor) error {
+	if base.ParentFile().Path() != descriptor.ParentFile().Path() {
+		return fmt.Errorf(
+			"symbol %q defining file changed from %q to %q",
+			descriptor.FullName(),
+			base.ParentFile().Path(),
+			descriptor.ParentFile().Path(),
+		)
+	}
+	if baseParent, descParent := base.Parent(), descriptor.Parent(); baseParent != nil && descParent != nil {
+		if baseParent.FullName() != descParent.FullName() {
+			return fmt.Errorf(
+				"symbol %q parent changed from %q to %q",
+				descriptor.FullName(),
+				baseParent.FullName(),
+				descParent.FullName(),
+			)
+		}
+	}
+
+	switch desc := descriptor.(type) {
+	case protoreflect.MessageDescriptor:
+		baseMsg, ok := base.(protoreflect.MessageDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to message", descriptor.FullName(), symbolKind(base))
+		}
+		if baseMsg.IsMapEntry() != desc.IsMapEntry() {
+			return fmt.Errorf("message %q map-entry semantics mismatch", descriptor.FullName())
+		}
+		for i := 0; i < desc.Fields().Len(); i++ {
+			field := desc.Fields().Get(i)
+			baseField := baseMsg.Fields().ByNumber(field.Number())
+			if baseField == nil {
+				return fmt.Errorf(
+					"field %q (%d) in message %q is not present in base registry",
+					field.Name(),
+					field.Number(),
+					descriptor.FullName(),
+				)
+			}
+			if baseField.Name() != field.Name() {
+				return fmt.Errorf(
+					"field number %d in message %q name changed from %q to %q",
+					field.Number(),
+					descriptor.FullName(),
+					baseField.Name(),
+					field.Name(),
+				)
+			}
+			if baseField.Kind() != field.Kind() {
+				return fmt.Errorf(
+					"field %q in message %q type changed from %v to %v",
+					field.Name(),
+					descriptor.FullName(),
+					baseField.Kind(),
+					field.Kind(),
+				)
+			}
+			if baseField.Cardinality() != field.Cardinality() {
+				return fmt.Errorf(
+					"field %q in message %q cardinality changed from %v to %v",
+					field.Name(),
+					descriptor.FullName(),
+					baseField.Cardinality(),
+					field.Cardinality(),
+				)
+			}
+			if field.Kind() == protoreflect.MessageKind || field.Kind() == protoreflect.GroupKind {
+				if baseField.Message() == nil || field.Message() == nil ||
+					baseField.Message().FullName() != field.Message().FullName() {
+					return fmt.Errorf(
+						"field %q in message %q message type mismatch",
+						field.Name(),
+						descriptor.FullName(),
+					)
+				}
+			}
+			if field.Kind() == protoreflect.EnumKind {
+				if baseField.Enum() == nil || field.Enum() == nil ||
+					baseField.Enum().FullName() != field.Enum().FullName() {
+					return fmt.Errorf(
+						"field %q in message %q enum type mismatch",
+						field.Name(),
+						descriptor.FullName(),
+					)
+				}
+			}
+			if (baseField.ContainingOneof() == nil) != (field.ContainingOneof() == nil) {
+				return fmt.Errorf(
+					"field %q in message %q oneof presence mismatch",
+					field.Name(),
+					descriptor.FullName(),
+				)
+			}
+			if baseOneof, descOneof := baseField.ContainingOneof(), field.ContainingOneof(); baseOneof != nil && descOneof != nil {
+				if !baseOneof.IsSynthetic() && !descOneof.IsSynthetic() && baseOneof.Name() != descOneof.Name() {
+					return fmt.Errorf(
+						"field %q in message %q oneof changed from %q to %q",
+						field.Name(),
+						descriptor.FullName(),
+						baseOneof.Name(),
+						descOneof.Name(),
+					)
+				}
+			}
+			if baseField.IsPacked() != field.IsPacked() {
+				return fmt.Errorf(
+					"field %q in message %q packed attribute mismatch",
+					field.Name(),
+					descriptor.FullName(),
+				)
+			}
+			if baseField.HasPresence() != field.HasPresence() {
+				return fmt.Errorf(
+					"field %q in message %q presence semantics mismatch",
+					field.Name(),
+					descriptor.FullName(),
+				)
+			}
+		}
+
+	case protoreflect.EnumDescriptor:
+		baseEnum, ok := base.(protoreflect.EnumDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to enum", descriptor.FullName(), symbolKind(base))
+		}
+		for i := 0; i < desc.Values().Len(); i++ {
+			val := desc.Values().Get(i)
+			baseVal := baseEnum.Values().ByName(val.Name())
+			if baseVal == nil {
+				return fmt.Errorf(
+					"enum value %q in enum %q is not present in base registry",
+					val.Name(),
+					descriptor.FullName(),
+				)
+			}
+			if baseVal.Number() != val.Number() {
+				return fmt.Errorf(
+					"enum value %q in enum %q number changed from %d to %d",
+					val.Name(),
+					descriptor.FullName(),
+					baseVal.Number(),
+					val.Number(),
+				)
+			}
+		}
+
+	case protoreflect.EnumValueDescriptor:
+		baseVal, ok := base.(protoreflect.EnumValueDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to enumvalue", descriptor.FullName(), symbolKind(base))
+		}
+		if baseVal.Number() != desc.Number() {
+			return fmt.Errorf(
+				"enum value %q number changed from %d to %d",
+				descriptor.FullName(),
+				baseVal.Number(),
+				desc.Number(),
+			)
+		}
+
+	case protoreflect.FieldDescriptor:
+		baseField, ok := base.(protoreflect.FieldDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to field", descriptor.FullName(), symbolKind(base))
+		}
+		if baseField.IsExtension() != desc.IsExtension() {
+			return fmt.Errorf("symbol %q extension kind mismatch", descriptor.FullName())
+		}
+		if baseField.Number() != desc.Number() {
+			return fmt.Errorf(
+				"field %q number changed from %d to %d",
+				descriptor.FullName(),
+				baseField.Number(),
+				desc.Number(),
+			)
+		}
+		if baseField.Kind() != desc.Kind() {
+			return fmt.Errorf(
+				"field %q type changed from %v to %v",
+				descriptor.FullName(),
+				baseField.Kind(),
+				desc.Kind(),
+			)
+		}
+		if baseField.Cardinality() != desc.Cardinality() {
+			return fmt.Errorf(
+				"field %q cardinality changed from %v to %v",
+				descriptor.FullName(),
+				baseField.Cardinality(),
+				desc.Cardinality(),
+			)
+		}
+		// A FieldDescriptor is reached directly either as a top-level extension
+		// or as a standalone field symbol. The message-field loop already
+		// verifies target-type, packing, and presence semantics, so mirror them
+		// here to keep the field case self-sufficient and to close the coverage
+		// hole that let an otherwise-covered extension silently retarget its
+		// message or enum type, flip its packing, or change its presence.
+		if desc.Kind() == protoreflect.MessageKind || desc.Kind() == protoreflect.GroupKind {
+			if baseField.Message() == nil || desc.Message() == nil ||
+				baseField.Message().FullName() != desc.Message().FullName() {
+				return fmt.Errorf(
+					"field %q message type mismatch",
+					descriptor.FullName(),
+				)
+			}
+		}
+		if desc.Kind() == protoreflect.EnumKind {
+			if baseField.Enum() == nil || desc.Enum() == nil ||
+				baseField.Enum().FullName() != desc.Enum().FullName() {
+				return fmt.Errorf(
+					"field %q enum type mismatch",
+					descriptor.FullName(),
+				)
+			}
+		}
+		if baseField.IsPacked() != desc.IsPacked() {
+			return fmt.Errorf(
+				"field %q packed attribute mismatch",
+				descriptor.FullName(),
+			)
+		}
+		if baseField.HasPresence() != desc.HasPresence() {
+			return fmt.Errorf(
+				"field %q presence semantics mismatch",
+				descriptor.FullName(),
+			)
+		}
+		if desc.IsExtension() {
+			baseContaining := baseField.ContainingMessage()
+			containing := desc.ContainingMessage()
+			if baseContaining == nil || containing == nil ||
+				baseContaining.FullName() != containing.FullName() {
+				return fmt.Errorf(
+					"extension %q extendee changed from %s to %s",
+					descriptor.FullName(),
+					extendeeName(baseContaining),
+					extendeeName(containing),
+				)
+			}
+		}
+
+	case protoreflect.ServiceDescriptor:
+		baseSvc, ok := base.(protoreflect.ServiceDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to service", descriptor.FullName(), symbolKind(base))
+		}
+		for i := 0; i < desc.Methods().Len(); i++ {
+			method := desc.Methods().Get(i)
+			baseMethod := baseSvc.Methods().ByName(method.Name())
+			if baseMethod == nil {
+				return fmt.Errorf(
+					"method %q in service %q is not present in base registry",
+					method.Name(),
+					descriptor.FullName(),
+				)
+			}
+			if baseMethod.Input().FullName() != method.Input().FullName() {
+				return fmt.Errorf(
+					"method %q in service %q input type changed from %q to %q",
+					method.Name(),
+					descriptor.FullName(),
+					baseMethod.Input().FullName(),
+					method.Input().FullName(),
+				)
+			}
+			if baseMethod.Output().FullName() != method.Output().FullName() {
+				return fmt.Errorf(
+					"method %q in service %q output type changed from %q to %q",
+					method.Name(),
+					descriptor.FullName(),
+					baseMethod.Output().FullName(),
+					method.Output().FullName(),
+				)
+			}
+			if baseMethod.IsStreamingClient() != method.IsStreamingClient() {
+				return fmt.Errorf(
+					"method %q in service %q client streaming changed from %v to %v",
+					method.Name(),
+					descriptor.FullName(),
+					baseMethod.IsStreamingClient(),
+					method.IsStreamingClient(),
+				)
+			}
+			if baseMethod.IsStreamingServer() != method.IsStreamingServer() {
+				return fmt.Errorf(
+					"method %q in service %q server streaming changed from %v to %v",
+					method.Name(),
+					descriptor.FullName(),
+					baseMethod.IsStreamingServer(),
+					method.IsStreamingServer(),
+				)
+			}
+		}
+
+	case protoreflect.MethodDescriptor:
+		baseMethod, ok := base.(protoreflect.MethodDescriptor)
+		if !ok {
+			return fmt.Errorf("symbol %q changed kind from %s to method", descriptor.FullName(), symbolKind(base))
+		}
+		if baseMethod.Input().FullName() != desc.Input().FullName() {
+			return fmt.Errorf(
+				"method %q input type changed from %q to %q",
+				descriptor.FullName(),
+				baseMethod.Input().FullName(),
+				desc.Input().FullName(),
+			)
+		}
+		if baseMethod.Output().FullName() != desc.Output().FullName() {
+			return fmt.Errorf(
+				"method %q output type changed from %q to %q",
+				descriptor.FullName(),
+				baseMethod.Output().FullName(),
+				desc.Output().FullName(),
+			)
+		}
+		if baseMethod.IsStreamingClient() != desc.IsStreamingClient() {
+			return fmt.Errorf(
+				"method %q client streaming changed from %v to %v",
+				descriptor.FullName(),
+				baseMethod.IsStreamingClient(),
+				desc.IsStreamingClient(),
+			)
+		}
+		if baseMethod.IsStreamingServer() != desc.IsStreamingServer() {
+			return fmt.Errorf(
+				"method %q server streaming changed from %v to %v",
+				descriptor.FullName(),
+				baseMethod.IsStreamingServer(),
+				desc.IsStreamingServer(),
+			)
+		}
+	}
+	return nil
+}
+
+// extendeeName renders a containing-message descriptor's full name for error
+// reporting, using a stable placeholder when the descriptor is nil so an extendee
+// mismatch is never formatted against a nil descriptor.
+func extendeeName(descriptor protoreflect.MessageDescriptor) string {
+	if descriptor == nil {
+		return "<nil>"
+	}
+	return string(descriptor.FullName())
 }
 
 // symbolKind returns a coarse, stable classification for a descriptor used by

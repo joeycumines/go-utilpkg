@@ -138,15 +138,13 @@ func (m *Module) installFileProtos(input []*descriptorpb.FileDescriptorProto) ([
 		}
 		// The base registry owns this path. A byte-identical copy is trivially
 		// satisfied; otherwise the incoming file is only acceptable when the
-		// base semantically covers it: every declared symbol, package, and
-		// extension must already be present in base with a matching kind.
-		// Coverage compares names and kinds only — same-name, same-kind
-		// differences inside existing symbols (e.g. a field's scalar type,
-		// pinned by TestCoversFieldKindIsCoarse) also pass and are rendered
-		// operationally irrelevant because a covered file is discarded: the
-		// canonical base identity keeps serving resolution through the
-		// combinedFileResolver. The motivating case is the additive custom
-		// FileOptions ranges buf injects into google/protobuf/descriptor.proto.
+		// base semantically covers it: every declared symbol, package, field,
+		// enum, service, and extension must already be present in base with
+		// matching structural properties (numbers, scalar kinds, cardinalities,
+		// types, streaming signatures). Covered incoming files are discarded
+		// so the canonical base identity keeps serving resolution through the
+		// combinedFileResolver. The motivating case is additive custom
+		// FileOptions (such as buf uninterpreted options on descriptor.proto).
 		if proto.Equal(protodesc.ToFileDescriptorProto(base), file) {
 			continue
 		}

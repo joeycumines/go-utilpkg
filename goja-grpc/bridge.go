@@ -220,6 +220,12 @@ func (e *ownerEffect) finish(ack ownerEffectAck) {
 	e.once.Do(func() { e.ack <- ack })
 }
 
+type serverRegistrationRecord struct {
+	rootID   supervisorChildID
+	services map[string]struct{}
+	methods  map[string]serverMethodID
+}
+
 // ownerBridge is accessed only by the adapter owner until Adapter.Done closes.
 // After that single barrier, postDoneMu serializes the one explicit ownership
 // transfer used to discard unreachable Goja projections.
@@ -237,15 +243,16 @@ func (e *ownerEffect) finish(ack ownerEffectAck) {
 // accessors, the transfer itself only starts after the loop is dead, so no
 // accessor ever blocks on it while owner work is running.
 type ownerBridge struct {
-	roots           map[supervisorChildID]*ownerRootEntry
-	tombstones      map[supervisorChildID]struct{}
-	effects         sync.Map // map[ownerEffectID]*ownerEffect
-	callbackEffects sync.Map // map[ownerEffectID]*ownerCallbackEffect
-	fences          sync.Map // map[supervisorChildID]*ownerRootFence
-	nextEffect      atomic.Uint64
-	disposals       map[ownerDisposalID]*ownerDisposalRun
-	serverPlans     map[serverMethodID]*serverMethodPlan
-	nextServerPlan  uint64
+	roots               map[supervisorChildID]*ownerRootEntry
+	tombstones          map[supervisorChildID]struct{}
+	effects             sync.Map // map[ownerEffectID]*ownerEffect
+	callbackEffects     sync.Map // map[ownerEffectID]*ownerCallbackEffect
+	fences              sync.Map // map[supervisorChildID]*ownerRootFence
+	nextEffect          atomic.Uint64
+	disposals           map[ownerDisposalID]*ownerDisposalRun
+	serverPlans         map[serverMethodID]*serverMethodPlan
+	nextServerPlan      uint64
+	serverRegistrations map[supervisorChildID]*serverRegistrationRecord
 
 	postDoneMu  sync.Mutex
 	transferred atomic.Bool
@@ -262,10 +269,11 @@ type ownerDispatcher struct {
 
 func newOwnerBridge() *ownerBridge {
 	return &ownerBridge{
-		roots:       make(map[supervisorChildID]*ownerRootEntry),
-		tombstones:  make(map[supervisorChildID]struct{}),
-		disposals:   make(map[ownerDisposalID]*ownerDisposalRun),
-		serverPlans: make(map[serverMethodID]*serverMethodPlan),
+		roots:               make(map[supervisorChildID]*ownerRootEntry),
+		tombstones:          make(map[supervisorChildID]struct{}),
+		disposals:           make(map[ownerDisposalID]*ownerDisposalRun),
+		serverPlans:         make(map[serverMethodID]*serverMethodPlan),
+		serverRegistrations: make(map[supervisorChildID]*serverRegistrationRecord),
 	}
 }
 

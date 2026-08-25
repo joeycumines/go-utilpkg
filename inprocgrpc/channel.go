@@ -302,13 +302,21 @@ func (c *Channel) RegisterBatch(batch RegistrationBatch) error {
 // invalid input panics as a static contract violation (mirroring
 // [Channel.RegisterBatch]).
 //
-// UnregisterBatch panics if the channel is nil or a stream-handler method has
-// an invalid shape. The removal is atomic with respect to dispatch because it
-// is published under the same registrationMu/handlers.mu lock pair as
-// [Channel.RegisterBatch].
+// UnregisterBatch panics if the channel is nil, a service name is empty, or
+// a stream-handler method has an invalid shape. The removal is atomic with
+// respect to dispatch because it is published under the same
+// registrationMu/handlers.mu lock pair as [Channel.RegisterBatch].
 func (c *Channel) UnregisterBatch(batch UnregistrationBatch) {
 	if c == nil {
 		panic("inprocgrpc: channel must not be nil")
+	}
+	for index, service := range batch.Services {
+		if service == "" {
+			panic(fmt.Errorf(
+				"inprocgrpc: service removal %d name must not be empty",
+				index,
+			))
+		}
 	}
 	for index, method := range batch.StreamHandlers {
 		normalized, _, _, methodErr := validateMethod(method)

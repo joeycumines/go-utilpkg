@@ -7,7 +7,6 @@ import (
 	"github.com/joeycumines/goja"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -26,13 +25,13 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 	// Build a "base" file: pkg "coverpkg", message Cover, a field, and an
 	// extension on Cover. The graph is the canonical base identity.
 	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("cover_base.proto"),
-		Package: proto.String("coverpkg"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("cover_base.proto"),
+		Package: new("coverpkg"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Cover"),
+			Name: new("Cover"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:   proto.String("value"),
+				Name:   new("value"),
 				Number: proto.Int32(1),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
@@ -43,8 +42,8 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			}},
 		}},
 		Extension: []*descriptorpb.FieldDescriptorProto{{
-			Name:     proto.String("extra"),
-			Extendee: proto.String(".coverpkg.Cover"),
+			Name:     new("extra"),
+			Extendee: new(".coverpkg.Cover"),
 			Number:   proto.Int32(100),
 			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			Type:     descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
@@ -68,22 +67,22 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 	// The file is byte-different but semantically identical — this is the core
 	// admission the gate exists to permit.
 	covered, err := descriptorFileGraph(mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("cover_base.proto"),
-		Package: proto.String("coverpkg"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("cover_base.proto"),
+		Package: new("coverpkg"),
+		Syntax:  new("proto2"),
 		Options: &descriptorpb.FileOptions{
 			UninterpretedOption: []*descriptorpb.UninterpretedOption{{
 				Name: []*descriptorpb.UninterpretedOption_NamePart{{
-					NamePart:    proto.String("buf.fake.additive.option"),
-					IsExtension: proto.Bool(true),
+					NamePart:    new("buf.fake.additive.option"),
+					IsExtension: new(true),
 				}},
-				IdentifierValue: proto.String("anything"),
+				IdentifierValue: new("anything"),
 			}},
 		},
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Cover"),
+			Name: new("Cover"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:   proto.String("value"),
+				Name:   new("value"),
 				Number: proto.Int32(1),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
@@ -94,8 +93,8 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			}},
 		}},
 		Extension: []*descriptorpb.FieldDescriptorProto{{
-			Name:     proto.String("extra"),
-			Extendee: proto.String(".coverpkg.Cover"),
+			Name:     new("extra"),
+			Extendee: new(".coverpkg.Cover"),
 			Number:   proto.Int32(100),
 			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			Type:     descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
@@ -127,11 +126,11 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			name: "missing file path",
 			build: func(t *testing.T) *descriptorGraph {
 				other := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-					Name:    proto.String("cover_absent.proto"),
-					Package: proto.String("coverpkg"),
-					Syntax:  proto.String("proto2"),
+					Name:    new("cover_absent.proto"),
+					Package: new("coverpkg"),
+					Syntax:  new("proto2"),
 					MessageType: []*descriptorpb.DescriptorProto{{
-						Name: proto.String("Cover"),
+						Name: new("Cover"),
 					}},
 				}, nil)
 				g, err := descriptorFileGraph(other)
@@ -146,11 +145,11 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			name: "package drift",
 			build: func(t *testing.T) *descriptorGraph {
 				other := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-					Name:    proto.String("cover_base.proto"),
-					Package: proto.String("coverpkg.renamed"),
-					Syntax:  proto.String("proto2"),
+					Name:    new("cover_base.proto"),
+					Package: new("coverpkg.renamed"),
+					Syntax:  new("proto2"),
 					MessageType: []*descriptorpb.DescriptorProto{{
-						Name: proto.String("Cover"),
+						Name: new("Cover"),
 					}},
 				}, nil)
 				g, err := descriptorFileGraph(other)
@@ -165,13 +164,13 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			name: "missing symbol (genuine redefinition)",
 			build: func(t *testing.T) *descriptorGraph {
 				other := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-					Name:    proto.String("cover_base.proto"),
-					Package: proto.String("coverpkg"),
-					Syntax:  proto.String("proto2"),
+					Name:    new("cover_base.proto"),
+					Package: new("coverpkg"),
+					Syntax:  new("proto2"),
 					MessageType: []*descriptorpb.DescriptorProto{
-						{Name: proto.String("Cover")},
+						{Name: new("Cover")},
 						// Brand-new symbol the base does not have.
-						{Name: proto.String("Invented")},
+						{Name: new("Invented")},
 					},
 				}, nil)
 				g, err := descriptorFileGraph(other)
@@ -194,12 +193,12 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			name: "symbol kind change (message becomes service)",
 			build: func(t *testing.T) *descriptorGraph {
 				other := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-					Name:    proto.String("cover_base.proto"),
-					Package: proto.String("coverpkg"),
-					Syntax:  proto.String("proto3"),
+					Name:    new("cover_base.proto"),
+					Package: new("coverpkg"),
+					Syntax:  new("proto2"),
 					Service: []*descriptorpb.ServiceDescriptorProto{{
 						// Same full name as the base MESSAGE "Cover" but a SERVICE.
-						Name: proto.String("Cover"),
+						Name: new("Cover"),
 					}},
 				}, nil)
 				g, err := descriptorFileGraph(other)
@@ -221,13 +220,13 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 			name: "extension number mismatch",
 			build: func(t *testing.T) *descriptorGraph {
 				other := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-					Name:    proto.String("cover_base.proto"),
-					Package: proto.String("coverpkg"),
-					Syntax:  proto.String("proto2"),
+					Name:    new("cover_base.proto"),
+					Package: new("coverpkg"),
+					Syntax:  new("proto2"),
 					MessageType: []*descriptorpb.DescriptorProto{{
-						Name: proto.String("Cover"),
+						Name: new("Cover"),
 						Field: []*descriptorpb.FieldDescriptorProto{{
-							Name:   proto.String("value"),
+							Name:   new("value"),
 							Number: proto.Int32(1),
 							Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 							Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
@@ -240,8 +239,8 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 					Extension: []*descriptorpb.FieldDescriptorProto{{
 						// Same full name as the base extension, but number 101
 						// (base registers it at 100) — a different key.
-						Name:     proto.String("extra"),
-						Extendee: proto.String(".coverpkg.Cover"),
+						Name:     new("extra"),
+						Extendee: new(".coverpkg.Cover"),
 						Number:   proto.Int32(101),
 						Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 						Type:     descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
@@ -253,7 +252,7 @@ func TestCoversAcceptsAdditiveMetadataAndRejectsRedefinition(t *testing.T) {
 				}
 				return g
 			},
-			wantSub: "field 101",
+			wantSub: "number changed from 100 to 101",
 		},
 	}
 	for _, tc := range rejectCases {
@@ -309,10 +308,10 @@ func TestInstallFileProtosBaseOwnedSemanticCoverage(t *testing.T) {
 	augmented.Options = &descriptorpb.FileOptions{
 		UninterpretedOption: []*descriptorpb.UninterpretedOption{{
 			Name: []*descriptorpb.UninterpretedOption_NamePart{{
-				NamePart:    proto.String("cover.test.additive"),
-				IsExtension: proto.Bool(true),
+				NamePart:    new("cover.test.additive"),
+				IsExtension: new(true),
 			}},
-			IdentifierValue: proto.String("v"),
+			IdentifierValue: new("v"),
 		}},
 	}
 	augmentedBytes, err := proto.Marshal(&descriptorpb.FileDescriptorSet{
@@ -340,7 +339,7 @@ func TestInstallFileProtosBaseOwnedSemanticCoverage(t *testing.T) {
 	)
 	redefining.MessageType = append(
 		redefining.MessageType,
-		&descriptorpb.DescriptorProto{Name: proto.String("BrandNewType")},
+		&descriptorpb.DescriptorProto{Name: new("BrandNewType")},
 	)
 	redefiningBytes, err := proto.Marshal(&descriptorpb.FileDescriptorSet{
 		File: []*descriptorpb.FileDescriptorProto{redefining},
@@ -357,25 +356,17 @@ func TestInstallFileProtosBaseOwnedSemanticCoverage(t *testing.T) {
 	}
 }
 
-// TestCoversFieldKindIsCoarse documents the known, accepted limitation that
-// covers() compares fields only by coarse kind ("field"), so a field whose
-// scalar TYPE changes (string -> int64) between two name+kind-equal base-owned
-// files is NOT detected. This is acceptable because a base-owned file is, by
-// definition, authoritative: the base registry is the source of truth and the
-// incoming copy is discarded on a pass, so the base field type always wins. The
-// gate's job is to catch redefinitions that introduce symbols the base lacks or
-// change a symbol's KIND (message vs enum vs service), not to re-validate base
-// internals. This test pins the behavior so a future tightening (e.g. comparing
-// field types) is a deliberate, visible change.
-func TestCoversFieldKindIsCoarse(t *testing.T) {
+// TestCoversRejectsStructuralFieldDifferences proves covers() rejects field-level
+// incompatibilities: scalar type changes, number changes, and cardinality changes.
+func TestCoversRejectsStructuralFieldDifferences(t *testing.T) {
 	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("field_kind_base.proto"),
-		Package: proto.String("fieldkindpkg"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("field_struct_base.proto"),
+		Package: new("fieldstructpkg"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Holder"),
+			Name: new("Holder"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:   proto.String("amount"),
+				Name:   new("amount"),
 				Number: proto.Int32(1),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
@@ -387,40 +378,492 @@ func TestCoversFieldKindIsCoarse(t *testing.T) {
 		t.Fatalf("build base graph: %v", err)
 	}
 
-	// Same path, package, message + field name + kind, but the field's scalar
-	// TYPE is int64 instead of string. covers() admits it (kind "field" matches).
+	// 1. Scalar type change (string -> int64).
 	typeChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
-		Name:    proto.String("field_kind_base.proto"),
-		Package: proto.String("fieldkindpkg"),
-		Syntax:  proto.String("proto2"),
+		Name:    new("field_struct_base.proto"),
+		Package: new("fieldstructpkg"),
+		Syntax:  new("proto2"),
 		MessageType: []*descriptorpb.DescriptorProto{{
-			Name: proto.String("Holder"),
+			Name: new("Holder"),
 			Field: []*descriptorpb.FieldDescriptorProto{{
-				Name:   proto.String("amount"),
+				Name:   new("amount"),
 				Number: proto.Int32(1),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
 			}},
 		}},
 	}, nil)
-	other, err := descriptorFileGraph(typeChanged)
+	otherType, err := descriptorFileGraph(typeChanged)
 	if err != nil {
 		t.Fatalf("build type-changed graph: %v", err)
 	}
-	if err := base.covers(other); err != nil {
-		t.Fatalf("covers rejected a field-type-only change; current contract admits it: %v", err)
+	if err := base.covers(otherType); err == nil || !strings.Contains(err.Error(), "type changed") {
+		t.Fatalf("covers = %v, want error containing 'type changed'", err)
 	}
-	// The base field type wins in production because the incoming file is
-	// discarded on a pass. Confirm the base descriptor still reports string.
-	baseHolder, ok := base.symbols["fieldkindpkg.Holder"]
-	if !ok {
-		t.Fatal("base graph missing fieldkindpkg.Holder")
+
+	// 2. Field number change (1 -> 2).
+	numberChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("field_struct_base.proto"),
+		Package: new("fieldstructpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Holder"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   new("amount"),
+				Number: proto.Int32(2),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}, nil)
+	otherNumber, err := descriptorFileGraph(numberChanged)
+	if err != nil {
+		t.Fatalf("build number-changed graph: %v", err)
 	}
-	msg, ok := baseHolder.(protoreflect.MessageDescriptor)
-	if !ok {
-		t.Fatalf("fieldkindpkg.Holder kind = %T, want MessageDescriptor", baseHolder)
+	if err := base.covers(otherNumber); err == nil || !strings.Contains(err.Error(), "not present in base registry") {
+		t.Fatalf("covers = %v, want error containing 'not present in base registry'", err)
 	}
-	if ft := msg.Fields().ByName("amount").Kind(); ft != protoreflect.StringKind {
-		t.Fatalf("base amount field kind = %v; base authority should keep StringKind", ft)
+
+	// 3. Cardinality change (optional -> repeated).
+	cardinalityChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("field_struct_base.proto"),
+		Package: new("fieldstructpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Holder"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   new("amount"),
+				Number: proto.Int32(1),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}, nil)
+	otherCard, err := descriptorFileGraph(cardinalityChanged)
+	if err != nil {
+		t.Fatalf("build cardinality-changed graph: %v", err)
 	}
+	if err := base.covers(otherCard); err == nil || !strings.Contains(err.Error(), "cardinality changed") {
+		t.Fatalf("covers = %v, want error containing 'cardinality changed'", err)
+	}
+}
+
+// TestCoversRejectsStructuralEnumDifferences proves covers() rejects enum value number mutations.
+func TestCoversRejectsStructuralEnumDifferences(t *testing.T) {
+	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("enum_struct_base.proto"),
+		Package: new("enumstructpkg"),
+		Syntax:  new("proto3"),
+		EnumType: []*descriptorpb.EnumDescriptorProto{{
+			Name: new("Status"),
+			Value: []*descriptorpb.EnumValueDescriptorProto{
+				{Name: new("UNKNOWN"), Number: proto.Int32(0)},
+				{Name: new("ACTIVE"), Number: proto.Int32(1)},
+			},
+		}},
+	}, nil)
+	base, err := descriptorFileGraph(baseFile)
+	if err != nil {
+		t.Fatalf("build base graph: %v", err)
+	}
+
+	// ACTIVE changed number from 1 to 2.
+	changedFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("enum_struct_base.proto"),
+		Package: new("enumstructpkg"),
+		Syntax:  new("proto3"),
+		EnumType: []*descriptorpb.EnumDescriptorProto{{
+			Name: new("Status"),
+			Value: []*descriptorpb.EnumValueDescriptorProto{
+				{Name: new("UNKNOWN"), Number: proto.Int32(0)},
+				{Name: new("ACTIVE"), Number: proto.Int32(2)},
+			},
+		}},
+	}, nil)
+	other, err := descriptorFileGraph(changedFile)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(other); err == nil || !strings.Contains(err.Error(), "number changed") {
+		t.Fatalf("covers = %v, want error containing 'number changed'", err)
+	}
+}
+
+// TestCoversRejectsStructuralServiceDifferences proves covers() rejects RPC signature mutations.
+func TestCoversRejectsStructuralServiceDifferences(t *testing.T) {
+	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("service_struct_base.proto"),
+		Package: new("servicestructpkg"),
+		Syntax:  new("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: new("ReqA")},
+			{Name: new("ReqB")},
+			{Name: new("Resp")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{{
+			Name: new("TestService"),
+			Method: []*descriptorpb.MethodDescriptorProto{{
+				Name:            new("Call"),
+				InputType:       new(".servicestructpkg.ReqA"),
+				OutputType:      new(".servicestructpkg.Resp"),
+				ClientStreaming: new(false),
+				ServerStreaming: new(false),
+			}},
+		}},
+	}, nil)
+	base, err := descriptorFileGraph(baseFile)
+	if err != nil {
+		t.Fatalf("build base graph: %v", err)
+	}
+
+	// 1. Input type changed ReqA -> ReqB.
+	inputChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("service_struct_base.proto"),
+		Package: new("servicestructpkg"),
+		Syntax:  new("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: new("ReqA")},
+			{Name: new("ReqB")},
+			{Name: new("Resp")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{{
+			Name: new("TestService"),
+			Method: []*descriptorpb.MethodDescriptorProto{{
+				Name:            new("Call"),
+				InputType:       new(".servicestructpkg.ReqB"),
+				OutputType:      new(".servicestructpkg.Resp"),
+				ClientStreaming: new(false),
+				ServerStreaming: new(false),
+			}},
+		}},
+	}, nil)
+	otherInput, err := descriptorFileGraph(inputChanged)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherInput); err == nil || !strings.Contains(err.Error(), "input type changed") {
+		t.Fatalf("covers = %v, want error containing 'input type changed'", err)
+	}
+
+	// 2. Client streaming changed false -> true.
+	streamingChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("service_struct_base.proto"),
+		Package: new("servicestructpkg"),
+		Syntax:  new("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: new("ReqA")},
+			{Name: new("ReqB")},
+			{Name: new("Resp")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{{
+			Name: new("TestService"),
+			Method: []*descriptorpb.MethodDescriptorProto{{
+				Name:            new("Call"),
+				InputType:       new(".servicestructpkg.ReqA"),
+				OutputType:      new(".servicestructpkg.Resp"),
+				ClientStreaming: new(true),
+				ServerStreaming: new(false),
+			}},
+		}},
+	}, nil)
+	otherStream, err := descriptorFileGraph(streamingChanged)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherStream); err == nil || !strings.Contains(err.Error(), "client streaming changed") {
+		t.Fatalf("covers = %v, want error containing 'client streaming changed'", err)
+	}
+}
+
+// TestCoversRejectsStructuralExtensionDifferences proves covers() rejects extension type and number mutations.
+func TestCoversRejectsStructuralExtensionDifferences(t *testing.T) {
+	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("ext_struct_base.proto"),
+		Package: new("extstructpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Target"),
+			ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+				Start: proto.Int32(100),
+				End:   proto.Int32(200),
+			}},
+		}},
+		Extension: []*descriptorpb.FieldDescriptorProto{{
+			Name:     new("opt"),
+			Extendee: new(".extstructpkg.Target"),
+			Number:   proto.Int32(100),
+			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			Type:     descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+		}},
+	}, nil)
+	base, err := descriptorFileGraph(baseFile)
+	if err != nil {
+		t.Fatalf("build base graph: %v", err)
+	}
+
+	// Extension type changed int64 -> string.
+	typeChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("ext_struct_base.proto"),
+		Package: new("extstructpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Target"),
+			ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+				Start: proto.Int32(100),
+				End:   proto.Int32(200),
+			}},
+		}},
+		Extension: []*descriptorpb.FieldDescriptorProto{{
+			Name:     new("opt"),
+			Extendee: new(".extstructpkg.Target"),
+			Number:   proto.Int32(100),
+			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			Type:     descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+		}},
+	}, nil)
+	otherType, err := descriptorFileGraph(typeChanged)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherType); err == nil || !strings.Contains(err.Error(), "type changed") {
+		t.Fatalf("covers = %v, want error containing 'type changed'", err)
+	}
+
+	// Extension number changed 100 -> 101.
+	numChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("ext_struct_base.proto"),
+		Package: new("extstructpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Target"),
+			ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+				Start: proto.Int32(100),
+				End:   proto.Int32(200),
+			}},
+		}},
+		Extension: []*descriptorpb.FieldDescriptorProto{{
+			Name:     new("opt"),
+			Extendee: new(".extstructpkg.Target"),
+			Number:   proto.Int32(101),
+			Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			Type:     descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+		}},
+	}, nil)
+	otherNum, err := descriptorFileGraph(numChanged)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherNum); err == nil || !strings.Contains(err.Error(), "number changed") {
+		t.Fatalf("covers = %v, want error containing 'number changed'", err)
+	}
+}
+
+// TestCoversRejectsSyntaxAndRelocationDifferences proves covers() rejects syntax changes and symbol relocations.
+func TestCoversRejectsSyntaxAndRelocationDifferences(t *testing.T) {
+	baseFile := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("syntax_base.proto"),
+		Package: new("syntaxpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Msg"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   new("val"),
+				Number: proto.Int32(1),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}, nil)
+	base, err := descriptorFileGraph(baseFile)
+	if err != nil {
+		t.Fatalf("build base graph: %v", err)
+	}
+
+	// Syntax changed proto2 -> proto3.
+	syntaxChanged := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("syntax_base.proto"),
+		Package: new("syntaxpkg"),
+		Syntax:  new("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Msg"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   new("val"),
+				Number: proto.Int32(1),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}, nil)
+	otherSyntax, err := descriptorFileGraph(syntaxChanged)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherSyntax); err == nil || !strings.Contains(err.Error(), "syntax changed") {
+		t.Fatalf("covers = %v, want error containing 'syntax changed'", err)
+	}
+
+	// Symbol Msg relocated to a different file path.
+	relocated := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+		Name:    new("relocated.proto"),
+		Package: new("syntaxpkg"),
+		Syntax:  new("proto2"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: new("Msg"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   new("val"),
+				Number: proto.Int32(1),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}, nil)
+	otherRelocated, err := descriptorFileGraph(relocated)
+	if err != nil {
+		t.Fatalf("build other graph: %v", err)
+	}
+	if err := base.covers(otherRelocated); err == nil || !strings.Contains(err.Error(), "not present in the base registry") {
+		t.Fatalf("covers = %v, want error containing 'not present in the base registry'", err)
+	}
+}
+
+// TestCoversRejectsExtensionSemanticChange reproduces a coverage hole in the
+// compareDescriptors FieldDescriptor branch: a top-level extension's target
+// message type, target enum type, and packed attribute were not compared, so an
+// incoming descriptor could retarget an extension (same full name, number, kind,
+// cardinality, and extendee) to a different message or enum type — or flip its
+// packing — and still be accepted by covers(). Each subtest mutates exactly one
+// extension property and asserts the gate now rejects it.
+func TestCoversRejectsExtensionSemanticChange(t *testing.T) {
+	// assertReject fails if the base graph accepts the incoming graph.
+	assertReject := func(t *testing.T, base, incoming *descriptorGraph) {
+		t.Helper()
+		if err := base.covers(incoming); err == nil {
+			t.Fatal("covers accepted the extension semantic change; want a non-nil error")
+		}
+	}
+
+	t.Run("message target change", func(t *testing.T) {
+		baseFD := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+			Name:    new("cover_ext_semantic.proto"),
+			Package: new("coverpkg"),
+			Syntax:  new("proto2"),
+			MessageType: []*descriptorpb.DescriptorProto{
+				{
+					Name: new("Cover"),
+					ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+						Start: proto.Int32(100),
+						End:   proto.Int32(200),
+					}},
+				},
+				{Name: new("TargetA")},
+				{Name: new("TargetB")},
+			},
+			Extension: []*descriptorpb.FieldDescriptorProto{{
+				Name:     new("ext"),
+				Extendee: new(".coverpkg.Cover"),
+				Number:   proto.Int32(100),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				TypeName: new(".coverpkg.TargetA"),
+			}},
+		}, nil)
+		base, err := descriptorFileGraph(baseFD)
+		if err != nil {
+			t.Fatalf("build base graph: %v", err)
+		}
+		// Incoming retargets the extension to TargetB: same full name, number,
+		// kind (MessageKind), cardinality, and extendee — only the target type
+		// differs, which the FieldDescriptor branch used to ignore.
+		incomingFD := protodesc.ToFileDescriptorProto(baseFD)
+		incomingFD.Extension[0].TypeName = new(".coverpkg.TargetB")
+		incoming, err := descriptorFileGraph(mustDescriptorFile(t, incomingFD, nil))
+		if err != nil {
+			t.Fatalf("build incoming graph: %v", err)
+		}
+		assertReject(t, base, incoming)
+	})
+
+	t.Run("enum target change", func(t *testing.T) {
+		baseFD := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+			Name:    new("cover_ext_enum.proto"),
+			Package: new("coverpkg"),
+			Syntax:  new("proto2"),
+			MessageType: []*descriptorpb.DescriptorProto{{
+				Name: new("Cover"),
+				ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+					Start: proto.Int32(100),
+					End:   proto.Int32(200),
+				}},
+			}},
+			EnumType: []*descriptorpb.EnumDescriptorProto{
+				{
+					Name: new("EnumA"),
+					Value: []*descriptorpb.EnumValueDescriptorProto{
+						{Name: new("EA_ZERO"), Number: proto.Int32(0)},
+					},
+				},
+				{
+					Name: new("EnumB"),
+					Value: []*descriptorpb.EnumValueDescriptorProto{
+						{Name: new("EB_ZERO"), Number: proto.Int32(0)},
+					},
+				},
+			},
+			Extension: []*descriptorpb.FieldDescriptorProto{{
+				Name:     new("ext"),
+				Extendee: new(".coverpkg.Cover"),
+				Number:   proto.Int32(100),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_ENUM.Enum(),
+				TypeName: new(".coverpkg.EnumA"),
+			}},
+		}, nil)
+		base, err := descriptorFileGraph(baseFD)
+		if err != nil {
+			t.Fatalf("build base graph: %v", err)
+		}
+		incomingFD := protodesc.ToFileDescriptorProto(baseFD)
+		incomingFD.Extension[0].TypeName = new(".coverpkg.EnumB")
+		incoming, err := descriptorFileGraph(mustDescriptorFile(t, incomingFD, nil))
+		if err != nil {
+			t.Fatalf("build incoming graph: %v", err)
+		}
+		assertReject(t, base, incoming)
+	})
+
+	t.Run("packed attribute change", func(t *testing.T) {
+		baseFD := mustDescriptorFile(t, &descriptorpb.FileDescriptorProto{
+			Name:    new("cover_ext_packed.proto"),
+			Package: new("coverpkg"),
+			Syntax:  new("proto2"),
+			MessageType: []*descriptorpb.DescriptorProto{{
+				Name: new("Cover"),
+				ExtensionRange: []*descriptorpb.DescriptorProto_ExtensionRange{{
+					Start: proto.Int32(100),
+					End:   proto.Int32(200),
+				}},
+			}},
+			Extension: []*descriptorpb.FieldDescriptorProto{{
+				Name:     new("ext"),
+				Extendee: new(".coverpkg.Cover"),
+				Number:   proto.Int32(100),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Options:  &descriptorpb.FieldOptions{Packed: new(true)},
+			}},
+		}, nil)
+		base, err := descriptorFileGraph(baseFD)
+		if err != nil {
+			t.Fatalf("build base graph: %v", err)
+		}
+		// Incoming flips packing off: same full name, number, kind, and
+		// cardinality, differing only in the packed attribute.
+		incomingFD := protodesc.ToFileDescriptorProto(baseFD)
+		incomingFD.Extension[0].Options.Packed = new(false)
+		incoming, err := descriptorFileGraph(mustDescriptorFile(t, incomingFD, nil))
+		if err != nil {
+			t.Fatalf("build incoming graph: %v", err)
+		}
+		assertReject(t, base, incoming)
+	})
 }

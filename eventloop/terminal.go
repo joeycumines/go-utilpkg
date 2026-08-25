@@ -761,11 +761,19 @@ func (l *Loop) isLoopThread() bool {
 // and cause a Submit that deadlocks waiting for the loop the callback is
 // already blocking.
 //
-// IsCallbackOwner returns false when the loop has never run (no owner marker is
-// set), so callers can use it to distinguish "execute directly during setup,
-// before Run" from "running inside the loop". It is safe to call from any
-// goroutine, including one that has never interacted with the loop. A nil
-// receiver returns false.
+// IsCallbackOwner returns false whenever the calling goroutine does not hold
+// the callback-owner role. This occurs in three distinct states:
+//  1. before [Loop.Run] is called (no owner marker is set), where the caller
+//     may hold pre-Run setup authority on its own goroutine;
+//  2. while the loop is running, on any foreign goroutine (not currently
+//     executing the loop body or an active host callback); and
+//  3. after loop termination (post-Done), where the loop is no longer active.
+//
+// Consequently, a false return signifies only that direct execution under the
+// callback-owner role is not currently available; it must not be treated as
+// proving that the loop has not yet run without separate caller-side state.
+// It is safe to call from any goroutine, including one that has never interacted
+// with the loop. A nil receiver returns false.
 func (l *Loop) IsCallbackOwner() bool {
 	if l == nil {
 		return false

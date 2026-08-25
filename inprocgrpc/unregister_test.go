@@ -233,6 +233,77 @@ func TestUnregisterServiceRejectsEmpty(t *testing.T) {
 	})
 }
 
+func TestUnregisterBatchRejectsEmptyServiceName(t *testing.T) {
+	channel := newBareChannel(t)
+	requirePanicContains(t, "service removal 0 name must not be empty", func() {
+		channel.UnregisterBatch(inprocgrpc.UnregistrationBatch{
+			Services: []string{""},
+		})
+	})
+	requirePanicContains(t, "service removal 1 name must not be empty", func() {
+		channel.UnregisterBatch(inprocgrpc.UnregistrationBatch{
+			Services: []string{"valid.Service", ""},
+		})
+	})
+}
+
+func TestUnregisterBatchAtomicityOnMalformedInput(t *testing.T) {
+	channel := newBareChannel(t)
+
+	desc := &grpc.ServiceDesc{
+		ServiceName: "unreg.Atomicity",
+		Methods:     []grpc.MethodDesc{{MethodName: "Unary"}},
+	}
+	channel.RegisterService(desc, struct{}{})
+	channel.RegisterStreamHandler("/unreg.Atomicity/Unary", echoHandler)
+
+	// Attempt batch unregistration where the second service name is malformed.
+	requirePanicContains(t, "service removal 1 name must not be empty", func() {
+		channel.UnregisterBatch(inprocgrpc.UnregistrationBatch{
+			Services:       []string{"unreg.Atomicity", ""},
+			StreamHandlers: []string{"/unreg.Atomicity/Unary"},
+		})
+	})
+
+	// Service and stream handler MUST remain fully registered and operational.
+	info := channel.GetServiceInfo()
+	if _, ok := info["unreg.Atomicity"]; !ok {
+		t.Fatal("service was partially unregistered despite batch validation panic")
+	}
+	resp := new(wrapperspb.StringValue)
+	if err := channel.Invoke(
+		context.Background(),
+		"/unreg.Atomicity/Unary",
+		&wrapperspb.StringValue{Value: "atomic"},
+		resp,
+	); err != nil || resp.Value != "atomic" {
+		t.Fatalf("invoke failed after aborted unregistration batch: %v, resp = %q", err, resp.Value)
+	}
+
+	// Attempt batch unregistration where the second stream handler is malformed.
+	requirePanicContains(t, "stream handler removal 1 method must have form", func() {
+		channel.UnregisterBatch(inprocgrpc.UnregistrationBatch{
+			Services:       []string{"unreg.Atomicity"},
+			StreamHandlers: []string{"/unreg.Atomicity/Unary", "bad-method-name"},
+		})
+	})
+
+	// Again, service and stream handler MUST remain fully registered.
+	info = channel.GetServiceInfo()
+	if _, ok := info["unreg.Atomicity"]; !ok {
+		t.Fatal("service was partially unregistered despite handler validation panic")
+	}
+	resp = new(wrapperspb.StringValue)
+	if err := channel.Invoke(
+		context.Background(),
+		"/unreg.Atomicity/Unary",
+		&wrapperspb.StringValue{Value: "still-atomic"},
+		resp,
+	); err != nil || resp.Value != "still-atomic" {
+		t.Fatalf("invoke failed after second aborted unregistration batch: %v, resp = %q", err, resp.Value)
+	}
+}
+
 // TestUnregisterConcurrentWithDispatch exercises the snapshot-vs-delete race
 // under -race. Readers hammer Invoke (which snapshots the callback under RLock
 // and releases before dispatching) while a remover toggles the handler. The
