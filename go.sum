@@ -113,8 +113,8 @@ github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
 github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
-github.com/joeycumines/grit v0.0.0-20260824225705-b29824e67f69 h1:CKGDo1Uh9EB/16lrrC681w5uO4GHpQt25qcZNuGQJ6o=
-github.com/joeycumines/grit v0.0.0-20260824225705-b29824e67f69/go.mod h1:5qLAa3Yv4f5FWKIwou7KnOr3HuljToBVnbGn81FKI/w=
+github.com/joeycumines/grit v0.0.0-20260825210026-67df0bb3a24d h1:RnaVL0dHiATXWvumEXZMfUwFvOX2sBQJ/rF7PRAZZe4=
+github.com/joeycumines/grit v0.0.0-20260825210026-67df0bb3a24d/go.mod h1:5qLAa3Yv4f5FWKIwou7KnOr3HuljToBVnbGn81FKI/w=
 github.com/joeycumines/simple-command-output-filter v0.2.1 h1:JAFCaVqp6X1/eXsOeLXBijJDBRLO5mb3my7UiWzXBqo=
 github.com/joeycumines/simple-command-output-filter v0.2.1/go.mod h1:B47VLxcr1bffet3tIBgW4I7wxyySl9D43sdhE16GwHY=
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=

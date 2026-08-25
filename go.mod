@@ -37,4 +37,4 @@ tool (
 	honnef.co/go/tools/cmd/staticcheck
 )
 
-replace github.com/grailbio/grit => github.com/joeycumines/grit v0.0.0-20260824225705-b29824e67f69
+replace github.com/grailbio/grit => github.com/joeycumines/grit v0.0.0-20260825210026-67df0bb3a24d
