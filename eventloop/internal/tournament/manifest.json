@@ -1354,42 +1354,42 @@
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkPromiseCreation": {
           "id": "workload.product.promise-creation.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkPromiseDepthThreeEndToEnd": {
           "id": "workload.product.promise-depth-three-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkPromiseReactionEndToEnd": {
           "id": "workload.product.promise-reaction-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkPromiseSettleNoHandler": {
           "id": "workload.product.promise-settle-no-handler.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkPromisifyCompletionEndToEnd": {
           "id": "workload.product.promisify-completion-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "71eb2527416c025d08b2624b5fde4795322b9b1948b64bb85dde1910c3dd3e18"
+          "harness_sha256": "49870b21f9125340c70f536112c4bd92c166fc41deca5dd4a2708571e1b10673"
         },
         "BenchmarkSchedulerInternalExternalBurst": {
           "id": "workload.product.scheduler-internal-external-burst.v1",
@@ -1800,14 +1800,14 @@
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "f97a4a68e6656d736444cf76109bdcda634070f56cbf18137c9edcc90dfbec53"
+          "harness_sha256": "628a0ff514fb68af8a6a15120db29855e5f28a06585462ebc35a13508e7692cf"
         },
         "BenchmarkChainDepth": {
           "id": "workload.promise.chain-depth.v1",
           "harness_files": [
             "internal/promisetournament/promise_tournament_test.go"
           ],
-          "harness_sha256": "f97a4a68e6656d736444cf76109bdcda634070f56cbf18137c9edcc90dfbec53"
+          "harness_sha256": "628a0ff514fb68af8a6a15120db29855e5f28a06585462ebc35a13508e7692cf"
         }
       }
     },
