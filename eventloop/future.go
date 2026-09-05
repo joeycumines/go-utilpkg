@@ -20,27 +20,30 @@ const (
 	Rejected
 )
 
+// The lock-free Promise settlement protocol publishes through transitional
+// raw states encoded as -int32(Settlement) - 1, so the final [Settlement]
+// derives from a raw value with no parallel enumeration. The transitional
+// states are contiguous from promiseRejectedPublishing (-3) to
+// promiseSettlementClaimed (-1), and every other raw value is a final
+// [Settlement] value directly.
 const (
-	promiseSettlementClaimed   int32 = -1
-	promiseFulfilledPublishing int32 = -2
-	promiseRejectedPublishing  int32 = -3
+	promiseSettlementClaimed   int32 = -int32(Pending) - 1
+	promiseFulfilledPublishing int32 = -int32(Fulfilled) - 1
+	promiseRejectedPublishing  int32 = -int32(Rejected) - 1
 )
 
+// promiseState maps a raw promise state to its [Settlement].
 func promiseState(value int32) Settlement {
-	switch value {
-	case promiseSettlementClaimed:
-		return Pending
-	case promiseFulfilledPublishing:
-		return Fulfilled
-	case promiseRejectedPublishing:
-		return Rejected
-	default:
-		return Settlement(value)
+	if value < 0 && value >= promiseRejectedPublishing {
+		return Settlement(-value - 1)
 	}
+	return Settlement(value)
 }
 
+// promisePending reports whether a raw promise state is still pending,
+// including the claimed transitional state.
 func promisePending(value int32) bool {
-	return value == int32(Pending) || value == promiseSettlementClaimed
+	return promiseState(value) == Pending
 }
 
 // Future is an opaque, read-only view of a future result. It represents an
