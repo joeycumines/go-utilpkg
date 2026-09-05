@@ -541,21 +541,3 @@ func addLogMessage(event logiface.Event, msg string) {
 		event.AddField("msg", msg)
 	}
 }
-
-// Metrics returns a detached snapshot of the event loop's latest metrics.
-//
-// This method samples callback execution-duration percentiles (P50, P90, P95,
-// P99) using exact sorting through five observations and the constant-space
-// P-Square estimator afterward. Queue residence before callback admission is
-// not measured.
-//
-// Thread Safety:
-//
-// This method is safe to call concurrently from any goroutine. It returns a
-// coherent snapshot from one fully committed sampler epoch. Queue Current
-// fields are the latest owner-turn sample rather than a synchronous queue
-// inspection. The caller owns the returned value and may retain or modify it
-// without affecting the Loop.
-func (l *Loop) Metrics() *Metrics {
-	return l.metrics.snapshot()
-}
