@@ -577,56 +577,6 @@ func (l *Loop) closeFDs() {
 	}
 }
 
-// isLoopThread reports whether the caller currently owns logical loop access.
-// During callback execution, that ownership may be delegated from the physical
-// Run goroutine to the callback worker.
-func (l *Loop) isLoopThread() bool {
-	loopID := l.loopGoroutineID.Load()
-	if loopID == 0 {
-		return false
-	}
-	return goroutineid.Get() == loopID
-}
-
-// IsCallbackOwner reports whether the calling goroutine currently holds the
-// loop's logical callback-owner role — that is, whether it may execute work
-// against loop-owned state directly instead of scheduling it via [Loop.Submit]
-// (or [Loop.SubmitInternal]).
-//
-// The callback-owner role belongs to whichever goroutine the loop's
-// authoritative ownership marker currently names. While the loop is active that
-// is the goroutine running [Loop.Run]; for the duration of host callback work
-// the marker is transferred — together with any delegated diagnostic or
-// isolation roles — to the goroutine executing that work, most visibly the
-// loop's isolated callback worker. Physical goroutine identity is therefore NOT
-// a stable contract: this method inspects the marker itself. A host adapter
-// that multiplexes re-entrant Goja work (a gRPC handler, invoked on the
-// callback worker, that calls back into a public runtime method) MUST use
-// IsCallbackOwner — rather than its own goroutine-id snapshot — to decide
-// whether to run synchronously: the snapshot would be stale inside a callback
-// and cause a Submit that deadlocks waiting for the loop the callback is
-// already blocking.
-//
-// IsCallbackOwner returns false whenever the calling goroutine does not hold
-// the callback-owner role. This occurs in three distinct states:
-//  1. before [Loop.Run] is called (no owner marker is set), where the caller
-//     may hold pre-Run setup authority on its own goroutine;
-//  2. while the loop is running, on any foreign goroutine (not currently
-//     executing the loop body or an active host callback); and
-//  3. after loop termination (post-Done), where the loop is no longer active.
-//
-// Consequently, a false return signifies only that direct execution under the
-// callback-owner role is not currently available; it must not be treated as
-// proving that the loop has not yet run without separate caller-side state.
-// It is safe to call from any goroutine, including one that has never interacted
-// with the loop. A nil receiver returns false.
-func (l *Loop) IsCallbackOwner() bool {
-	if l == nil {
-		return false
-	}
-	return l.isLoopThread()
-}
-
 func (l *Loop) waitLoopDoneAfterTerminal() {
 	if l.runStarted.Load() {
 		<-l.loopDone
