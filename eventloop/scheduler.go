@@ -600,11 +600,6 @@ func (l *Loop) tickAnchorTime() time.Time {
 	return l.tickAnchor
 }
 
-// State returns the current loop state.
-func (l *Loop) State() LoopState {
-	return l.state.Load()
-}
-
 // calculateTimeout determines how long to block in poll. It returns -1 when
 // there is no finite deadline, matching the platform pollers' indefinite wait
 // convention. Finite timer deadlines always produce a non-negative timeout;

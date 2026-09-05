@@ -129,3 +129,8 @@ func (s *fastState) CanAcceptWork() bool {
 	state := s.Load()
 	return state == StateAwake || state == StateRunning || state == StateSleeping
 }
+
+// State returns the current loop state.
+func (l *Loop) State() LoopState {
+	return l.state.Load()
+}
