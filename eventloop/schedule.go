@@ -104,57 +104,6 @@ func (l *Loop) ScheduleCloseCallback(fn func()) error {
 	return l.enqueueCommand(loopCommand{kind: loopCommandClose, fn: fn}, l.terminalQueueAllowed)
 }
 
-// doWakeup attempts both the channel and physical wake signals. This handles
-// the race where canUseFastPath()
-// disagrees with the loop's actual poll path (e.g., mode=Forced + count>0 due
-// to concurrent RegisterFD/SetFastPathMode). On platforms without public FD
-// polling, submitWakeup is a no-op and the channel is the sole wait primitive.
-func (l *Loop) doWakeup() {
-	// Always try channel wakeup (covers fast path mode)
-	select {
-	case l.fastWakeupCh <- struct{}{}:
-	default:
-		// Channel already has pending wakeup
-	}
-
-	// Always try pipe/eventfd wakeup (covers I/O poll mode)
-	// This is unconditional to prevent lost wakeups when mode and count
-	// are transiently inconsistent due to concurrent SetFastPathMode/RegisterFD.
-	_ = l.submitWakeup()
-}
-
-// wakeAfterIngress wakes whichever wait primitive the loop is currently using
-// after work has already been admitted to a queue. The decision is deliberately
-// post-admission: mode and FD counts may have changed while the caller was
-// waiting to commit the task. A buffered fast wake covers fast-channel waiters;
-// a physical wake is added whenever the loop can be blocked in PollIO, either
-// because a user FD is registered or FastPathDisabled explicitly selects native
-// polling for a task-only loop. FD-count and mode transitions perform their own
-// physical wakeups, so ordinary task-only submissions do not pay the pipe/eventfd
-// cost.
-func (l *Loop) wakeAfterIngress() {
-	select {
-	case l.fastWakeupCh <- struct{}{}:
-	default:
-	}
-
-	if l.state.Load() == StateSleeping && l.nativePollSelected() {
-		_ = l.submitPendingWakeup()
-	}
-}
-
-func (l *Loop) nativePollSelected() bool {
-	return l.userIOFDCount.Load() > 0 || FastPathMode(l.fastPathMode.Load()) == FastPathDisabled
-}
-
-func (l *Loop) forceWakeup() {
-	select {
-	case l.fastWakeupCh <- struct{}{}:
-	default:
-	}
-	_ = l.submitWakeupPhysical()
-}
-
 // SubmitInternal admits a task to the internal priority phase.
 //
 // State Policy during shutdown:
@@ -202,37 +151,6 @@ func (l *Loop) submitLivenessCommand(cmd loopCommand, beforeCommit func()) error
 		return err
 	}
 	return l.enqueueCommand(cmd, l.terminalQueueAllowed)
-}
-
-// Wake attempts to wake up the loop from a suspended state.
-//
-// State Policy:
-//   - StateSleeping: performs wake-up (if not already pending)
-//   - StateTerminated: returns nil (no-op on terminated loop)
-//   - StateRunning: publishes both selected wait signals so a concurrent
-//     Running-to-Sleeping transition cannot overtake the wake
-//   - StateTerminating/StateAwake: returns nil
-//
-// A physical wake submission failure is returned to the caller. The pending
-// claim is reopened so a later Wake or ingress operation can retry.
-func (l *Loop) Wake() error {
-	state := l.state.Load()
-	if state != StateRunning && state != StateSleeping {
-		return nil
-	}
-
-	select {
-	case l.fastWakeupCh <- struct{}{}:
-	default:
-	}
-	if !l.nativePollSelected() {
-		return nil
-	}
-	err := l.submitPendingWakeup()
-	if err == ErrLoopTerminated {
-		return nil
-	}
-	return err
 }
 
 // ScheduleMicrotask schedules a microtask.
