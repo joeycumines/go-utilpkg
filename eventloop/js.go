@@ -61,13 +61,13 @@ type JS struct {
 	loop                       *Loop
 	timeouts                   map[uint64]*timeoutState
 	intervals                  map[uint64]*intervalState
-	unhandledRejections        map[*ChainedPromise]*rejectionInfo
+	unhandledRejections        map[*Promise]*rejectionInfo
 	setImmediateMap            map[uint64]*setImmediateState
-	handlerReadyChans          map[*ChainedPromise]chan struct{}
-	debugStacks                map[weak.Pointer[ChainedPromise]][]uintptr
-	toChannels                 map[*ChainedPromise][]chan any
+	handlerReadyChans          map[*Promise]chan struct{}
+	debugStacks                map[weak.Pointer[Promise]][]uintptr
+	toChannels                 map[*Promise][]chan any
 	timerPromises              map[*timerPromiseState]struct{}
-	adoptions                  map[weak.Pointer[ChainedPromise]]weak.Pointer[ChainedPromise]
+	adoptions                  map[weak.Pointer[Promise]]weak.Pointer[Promise]
 	checkRejectionTerminalDone <-chan struct{}
 	checkRejectionRunDone      chan struct{}
 
@@ -197,11 +197,11 @@ func newJS(loop *Loop, options *jsConfig) *JS {
 		timeouts:            make(map[uint64]*timeoutState),
 		intervals:           make(map[uint64]*intervalState),
 		unhandledFallback:   options.unhandledFallback,
-		unhandledRejections: make(map[*ChainedPromise]*rejectionInfo),
+		unhandledRejections: make(map[*Promise]*rejectionInfo),
 		setImmediateMap:     make(map[uint64]*setImmediateState),
-		handlerReadyChans:   make(map[*ChainedPromise]chan struct{}),
-		debugStacks:         make(map[weak.Pointer[ChainedPromise]][]uintptr),
-		toChannels:          make(map[*ChainedPromise][]chan any),
+		handlerReadyChans:   make(map[*Promise]chan struct{}),
+		debugStacks:         make(map[weak.Pointer[Promise]][]uintptr),
+		toChannels:          make(map[*Promise][]chan any),
 		timerPromises:       make(map[*timerPromiseState]struct{}),
 	}
 
@@ -291,7 +291,7 @@ func (js *JS) Loop() *Loop {
 // microtask queue (i.e., even when the event loop is not running).
 //
 // Lock ordering: caller holds p.mu, this method acquires js.toChannelsMu.
-func (js *JS) notifyToChannels(p *ChainedPromise, result any) {
+func (js *JS) notifyToChannels(p *Promise, result any) {
 	js.toChannelsMu.Lock()
 	channels, ok := js.toChannels[p]
 	if ok {

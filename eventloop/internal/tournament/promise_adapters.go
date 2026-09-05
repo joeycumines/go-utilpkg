@@ -9,9 +9,9 @@ import (
 	"github.com/joeycumines/go-eventloop/internal/promisealttwo"
 )
 
-// ChainedPromiseAdapter adapts eventloop.ChainedPromise
+// ChainedPromiseAdapter adapts eventloop.Promise
 type ChainedPromiseAdapter struct {
-	p *eventloop.ChainedPromise
+	p *eventloop.Promise
 }
 
 func (a *ChainedPromiseAdapter) Then(onFulfilled, onRejected func(any) any) Promise {
@@ -139,7 +139,7 @@ func PromiseImplementations() []PromiseImplementation {
 				return &ChainedPromiseAdapter{p: p}, resolve, reject
 			},
 			Race: func(js *eventloop.JS, count int) (Promise, PromiseRaceSettlement) {
-				promises := make([]*eventloop.ChainedPromise, count)
+				promises := make([]*eventloop.Promise, count)
 				resolvers := make([]eventloop.ResolveFunc, count)
 				for i := range promises {
 					promises[i], resolvers[i], _ = js.NewChainedPromise()
@@ -312,7 +312,7 @@ func promiseSettlementResult(state eventloop.PromiseState, result any) PromiseSe
 }
 
 func chainedPromiseAllCase(js *eventloop.JS, count int) PromiseCombinatorCase {
-	promises := make([]*eventloop.ChainedPromise, count)
+	promises := make([]*eventloop.Promise, count)
 	resolvers := make([]eventloop.ResolveFunc, count)
 	for index := range promises {
 		promises[index], resolvers[index], _ = js.NewChainedPromise()
@@ -325,7 +325,7 @@ func chainedPromiseAllCase(js *eventloop.JS, count int) PromiseCombinatorCase {
 }
 
 func chainedPromiseRaceCase(js *eventloop.JS, count int) PromiseCombinatorCase {
-	promises := make([]*eventloop.ChainedPromise, count)
+	promises := make([]*eventloop.Promise, count)
 	resolvers := make([]eventloop.ResolveFunc, count)
 	for index := range promises {
 		promises[index], resolvers[index], _ = js.NewChainedPromise()

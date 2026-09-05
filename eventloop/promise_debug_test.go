@@ -106,7 +106,7 @@ func TestDebugModeUnhandledRejectionIncludesCreationStack(t *testing.T) {
 	}
 }
 
-func assertDebugCreationStack(t *testing.T, promise *ChainedPromise, function string) {
+func assertDebugCreationStack(t *testing.T, promise *Promise, function string) {
 	t.Helper()
 	if promise == nil {
 		t.Fatal("debug promise is nil")
@@ -130,29 +130,29 @@ func assertDebugStackText(t *testing.T, stack, function string) {
 }
 
 //go:noinline
-func debugPromiseFirst(js *JS) *ChainedPromise {
+func debugPromiseFirst(js *JS) *Promise {
 	promise, _, _ := js.NewChainedPromise()
 	return promise
 }
 
 //go:noinline
-func debugPromiseSecond(js *JS) *ChainedPromise {
+func debugPromiseSecond(js *JS) *Promise {
 	promise, _, _ := js.NewChainedPromise()
 	return promise
 }
 
 //go:noinline
-func debugPromiseResolved(js *JS) *ChainedPromise {
+func debugPromiseResolved(js *JS) *Promise {
 	return js.Resolve("resolved")
 }
 
 //go:noinline
-func debugPromiseRejected(js *JS, reason error) *ChainedPromise {
+func debugPromiseRejected(js *JS, reason error) *Promise {
 	return js.Reject(reason)
 }
 
 //go:noinline
-func debugUnhandledPromise(js *JS) (*ChainedPromise, RejectFunc) {
+func debugUnhandledPromise(js *JS) (*Promise, RejectFunc) {
 	promise, _, reject := js.NewChainedPromise()
 	return promise, reject
 }

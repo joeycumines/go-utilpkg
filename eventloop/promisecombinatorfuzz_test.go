@@ -59,7 +59,7 @@ func FuzzPromiseAll(f *testing.F) {
 			t.Skip()
 		}
 		loop, js := newCombinatorContractJS(t)
-		promises := make([]*ChainedPromise, count)
+		promises := make([]*Promise, count)
 		resolves := make([]ResolveFunc, count)
 		want := make([]any, count)
 		for i := range promises {
@@ -102,7 +102,7 @@ func FuzzPromiseRace(f *testing.F) {
 			t.Skip()
 		}
 		loop, js := newCombinatorContractJS(t)
-		promises := make([]*ChainedPromise, count)
+		promises := make([]*Promise, count)
 		resolves := make([]ResolveFunc, count)
 		rejects := make([]RejectFunc, count)
 		for i := range promises {
@@ -165,7 +165,7 @@ func FuzzPromiseAllSettled(f *testing.F) {
 			t.Skip()
 		}
 		loop, js := newCombinatorContractJS(t)
-		promises := make([]*ChainedPromise, count)
+		promises := make([]*Promise, count)
 		resolves := make([]ResolveFunc, count)
 		rejects := make([]RejectFunc, count)
 		fulfilled := make([]bool, count)
@@ -226,7 +226,7 @@ func FuzzPromiseAny(f *testing.F) {
 			t.Skip()
 		}
 		loop, js := newCombinatorContractJS(t)
-		promises := make([]*ChainedPromise, count)
+		promises := make([]*Promise, count)
 		resolves := make([]ResolveFunc, count)
 		rejects := make([]RejectFunc, count)
 		for i := range promises {

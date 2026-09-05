@@ -60,7 +60,7 @@ func (l *Loop) popOwnerMicrotask(queue *localFnQueue, primary bool) func() {
 	return fn
 }
 
-func (l *Loop) pushOwnerPromiseMicrotask(fn func(), reaction *ChainedPromise) {
+func (l *Loop) pushOwnerPromiseMicrotask(fn func(), reaction *Promise) {
 	if fn == nil {
 		return
 	}

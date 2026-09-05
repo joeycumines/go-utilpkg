@@ -667,7 +667,7 @@ func TestPromiseScheduleFailureUsesInstanceLogger(t *testing.T) {
 	registerLoopCleanupT(t, loop)
 
 	expected := errors.New("schedule failed")
-	promise := &ChainedPromise{js: &JS{loop: loop}}
+	promise := &Promise{js: &JS{loop: loop}}
 	promise.handleHandlerScheduleFailure(handlerScheduleFailure{err: expected})
 
 	event := waitContractValue(t, records, "promise schedule-failure diagnostic")

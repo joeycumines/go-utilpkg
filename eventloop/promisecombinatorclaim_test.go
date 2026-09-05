@@ -19,7 +19,7 @@ func TestPromiseCombinatorsCrossLoopSettlementClaimArbitration(t *testing.T) {
 				terminalLoop, terminalJS := newCombinatorTestAdapter(t, reported)
 				normalSource, resolveNormal, rejectNormal := normalJS.NewChainedPromise()
 				terminalSource, resolveTerminal, _ := terminalJS.NewChainedPromise()
-				result := combinator.combine(targetJS, []*ChainedPromise{normalSource, terminalSource})
+				result := combinator.combine(targetJS, []*Promise{normalSource, terminalSource})
 				resultChannel := result.ToChannel()
 				result.rejectionHandled.Store(true)
 				resolveTerminal("terminal source")
@@ -75,7 +75,7 @@ func TestPromiseCombinatorsCrossLoopSettlementClaimArbitration(t *testing.T) {
 				terminalLoop, terminalJS := newCombinatorTestAdapter(t, reported)
 				normalSource, resolveNormal, rejectNormal := normalJS.NewChainedPromise()
 				terminalSource, resolveTerminal, _ := terminalJS.NewChainedPromise()
-				result := combinator.combine(targetJS, []*ChainedPromise{normalSource, terminalSource})
+				result := combinator.combine(targetJS, []*Promise{normalSource, terminalSource})
 				resultChannel := result.ToChannel()
 				result.rejectionHandled.Store(true)
 				resolveTerminal("terminal source")
@@ -115,7 +115,7 @@ func TestPromiseCombinatorsCrossLoopSettlementClaimArbitration(t *testing.T) {
 	})
 }
 
-func waitPromiseSettlementClaimed(t *testing.T, promise *ChainedPromise) {
+func waitPromiseSettlementClaimed(t *testing.T, promise *Promise) {
 	t.Helper()
 	deadline := time.NewTimer(5 * time.Second)
 	defer deadline.Stop()

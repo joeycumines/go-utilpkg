@@ -64,7 +64,7 @@ func BenchmarkPromiseCreation(b *testing.B) {
 	}
 
 	var (
-		promise *ChainedPromise
+		promise *Promise
 		resolve ResolveFunc
 		reject  RejectFunc
 	)
@@ -192,7 +192,7 @@ func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promises := make([]*ChainedPromise, 4)
+		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
@@ -240,7 +240,7 @@ func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promises := make([]*ChainedPromise, 4)
+		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
@@ -277,7 +277,7 @@ func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promises := make([]*ChainedPromise, 4)
+		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
@@ -323,7 +323,7 @@ func BenchmarkPromiseAnyFixedArityEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promises := make([]*ChainedPromise, 4)
+		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()

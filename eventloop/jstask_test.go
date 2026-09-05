@@ -116,7 +116,7 @@ func TestJSNextTickAndMicrotaskPriorityAndFIFO(t *testing.T) {
 	}
 	order := make([]string, 0, 5)
 	scheduled := make(chan error, 1)
-	var reaction *ChainedPromise
+	var reaction *Promise
 	if err := loop.Submit(func() {
 		if err := js.NextTick(func() { order = append(order, "nextTick-1") }); err != nil {
 			scheduled <- err

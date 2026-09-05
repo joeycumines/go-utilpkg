@@ -11,7 +11,7 @@ import (
 // Priority: HIGH - thenStandalone currently at 0.0% coverage.
 func TestPromise_ThenStandalone_Basic(t *testing.T) {
 	// Create a standalone promise (nil js field) that is already fulfilled
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "test value",
 		h0:     handler{}, // Initialize handler slot
@@ -45,7 +45,7 @@ func TestPromise_ThenStandalone_Basic(t *testing.T) {
 // without a JS runtime.
 // Priority: HIGH - thenStandalone chaining edge case.
 func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
-	p1 := &ChainedPromise{
+	p1 := &Promise{
 		js:     nil,
 		result: 5,
 		h0:     handler{}, // Initialize handler slot
@@ -85,7 +85,7 @@ func TestPromise_ThenStandalone_MultipleChains(t *testing.T) {
 // in thenStandalone path.
 // Priority: HIGH - thenStandalone rejection handling.
 func TestPromise_ThenStandalone_Rejection(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "test error",
 		h0:     handler{}, // Initialize handler slot
@@ -127,7 +127,7 @@ func TestPromise_ThenStandalone_Rejection(t *testing.T) {
 // Priority: MEDIUM - Edge case already-settled promises.
 func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 	// Test with already fulfilled promise
-	p1 := &ChainedPromise{
+	p1 := &Promise{
 		js:     nil,
 		result: "pre-fulfilled",
 		h0:     handler{}, // Initialize handler slot
@@ -152,7 +152,7 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 	}
 
 	// Test with already rejected promise
-	p2 := &ChainedPromise{
+	p2 := &Promise{
 		js:     nil,
 		result: "pre-rejected",
 		h0:     handler{}, // Initialize handler slot
@@ -181,7 +181,7 @@ func TestPromise_ThenStandalone_AlreadySettled(t *testing.T) {
 // handlers attached to a standalone promise that is already settled.
 // Priority: MEDIUM - thenStandalone multiple handlers edge case.
 func TestPromise_ThenStandalone_MultipleHandlers(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: 10,
 		h0:     handler{}, // Initialize handler slot

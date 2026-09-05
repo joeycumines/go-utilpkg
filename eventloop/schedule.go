@@ -272,7 +272,7 @@ func (l *Loop) ScheduleMicrotask(fn func()) error {
 // schedulePromiseReaction queues an internal Promise reaction together with
 // the child identity that receives an explicit terminal disposition if normal
 // callback admission later discards the accepted microtask.
-func (l *Loop) schedulePromiseReaction(fn func(), reaction *ChainedPromise) error {
+func (l *Loop) schedulePromiseReaction(fn func(), reaction *Promise) error {
 	if fn == nil || reaction == nil {
 		return nil
 	}

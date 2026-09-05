@@ -133,7 +133,7 @@ func TestUnhandledRejectionHandledBranchCleansRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p := &ChainedPromise{js: js}
+	p := &Promise{js: js}
 	p.state.Store(int32(Rejected))
 	p.result = "boom"
 	p.rejectionHandled.Store(true)

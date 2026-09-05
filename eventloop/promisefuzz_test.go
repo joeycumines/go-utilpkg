@@ -28,7 +28,7 @@ func FuzzPromiseCombinators(f *testing.F) {
 		}
 
 		n := r.intn(7)
-		promises := make([]*ChainedPromise, n)
+		promises := make([]*Promise, n)
 		resolves := make([]ResolveFunc, n)
 		rejects := make([]RejectFunc, n)
 		fulfilled := make([]bool, n)
@@ -53,7 +53,7 @@ func FuzzPromiseCombinators(f *testing.F) {
 		}
 
 		kind := r.intn(4)
-		var result *ChainedPromise
+		var result *Promise
 		switch kind {
 		case 0:
 			result = js.All(promises)
@@ -148,7 +148,7 @@ func FuzzPromiseAlternatingThenCatch(f *testing.F) {
 	})
 }
 
-func assertPromiseCombinatorResult(t *testing.T, kind int, result *ChainedPromise, fulfilled []bool, values []any, order []int) {
+func assertPromiseCombinatorResult(t *testing.T, kind int, result *Promise, fulfilled []bool, values []any, order []int) {
 	t.Helper()
 	switch kind {
 	case 0: // All

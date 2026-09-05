@@ -88,7 +88,7 @@ func TestPromiseToChannel_PendingRejection(t *testing.T) {
 }
 
 func TestPromiseToChannel_StandalonePendingRejection(t *testing.T) {
-	promise := &ChainedPromise{}
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
 	result := promise.ToChannel()
 	promise.reject("standalone rejection")

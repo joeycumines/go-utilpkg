@@ -4,9 +4,9 @@ package eventloop
 // Go-loop promise profile.
 //
 // This is not full ECMAScript Promise.resolve(): it adopts package
-// [ChainedPromise] values, but it does not assimilate arbitrary JavaScript
+// [Promise] values, but it does not assimilate arbitrary JavaScript
 // thenables.
-func (js *JS) Resolve(val any) *ChainedPromise {
+func (js *JS) Resolve(val any) *Promise {
 	promise, resolve, _ := js.NewChainedPromise()
 	resolve(val)
 	return promise
@@ -17,7 +17,7 @@ func (js *JS) Resolve(val any) *ChainedPromise {
 // This follows the JavaScript Promise.reject() semantics:
 //   - Returns a promise rejected with the given reason
 //   - The reason is typically an Error object
-func (js *JS) Reject(reason any) *ChainedPromise {
+func (js *JS) Reject(reason any) *Promise {
 	promise, _, reject := js.NewChainedPromise()
 	reject(reason)
 	return promise
@@ -38,7 +38,7 @@ func (js *JS) Reject(reason any) *ChainedPromise {
 //   - fn: A function that may panic or return a value
 //
 // Returns:
-//   - A ChainedPromise that:
+//   - A Promise that:
 //   - Resolves with fn's return value if fn executes successfully
 //   - Rejects with the panic value if fn panics
 //
@@ -57,7 +57,7 @@ func (js *JS) Reject(reason any) *ChainedPromise {
 // The callback fn is executed synchronously on the calling goroutine.
 // The returned promise is safe for concurrent access.
 // Try panics if fn is nil.
-func (js *JS) Try(fn func() any) *ChainedPromise {
+func (js *JS) Try(fn func() any) *Promise {
 	if fn == nil {
 		panic("eventloop: nil Try callback")
 	}

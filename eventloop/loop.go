@@ -149,9 +149,9 @@ type Loop struct { //nolint:govet // betteralign:ignore
 	jsAdapters                  map[weak.Pointer[JS]]struct{}
 	rejectionCheckAdapter       *JS
 	rejectionCheckAdapters      map[*JS]struct{}
-	pendingReactionTarget       *ChainedPromise
+	pendingReactionTarget       *Promise
 	pendingReaction             pendingPromiseReaction
-	pendingReactionOverflow     map[*ChainedPromise]pendingPromiseReaction
+	pendingReactionOverflow     map[*Promise]pendingPromiseReaction
 	pendingReactionSeq          uint64
 	pendingReactionOverflowPeak int
 	terminalDrainDone           chan struct{}

@@ -13,7 +13,7 @@ import (
 
 func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 	// Create a pending promise with js=nil
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 		// h0 is zero-value, so h0.target is nil
 	}
@@ -78,7 +78,7 @@ func TestThenStandalone_Pending_FirstHandler_H0TargetNil(t *testing.T) {
 
 func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 	// Create a pending promise with js=nil
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -136,7 +136,7 @@ func TestThenStandalone_Pending_SecondHandler_H0TargetNotNil(t *testing.T) {
 
 func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 	// Create a pending promise with js=nil
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -184,7 +184,7 @@ func TestThenStandalone_Pending_ThirdHandler_ExistingSlice(t *testing.T) {
 
 func TestThenStandalone_Fulfilled_NilOnFulfilled_PassThrough(t *testing.T) {
 	// Create an already-fulfilled promise with js=nil
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "original value",
 	}
@@ -210,7 +210,7 @@ func TestThenStandalone_Fulfilled_NilOnFulfilled_PassThrough(t *testing.T) {
 func TestThenStandalone_Rejected_NilOnRejected_PassThrough(t *testing.T) {
 	// Create an already-rejected promise with js=nil
 	testErr := errors.New("test rejection")
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: testErr,
 	}
@@ -239,7 +239,7 @@ func TestThenStandalone_Rejected_NilOnRejected_PassThrough(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Fulfilled_WithHandler_Synchronous(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: 42,
 	}
@@ -273,7 +273,7 @@ func TestThenStandalone_Fulfilled_WithHandler_Synchronous(t *testing.T) {
 
 func TestThenStandalone_Rejected_WithHandler_Synchronous(t *testing.T) {
 	testErr := errors.New("rejected reason")
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: testErr,
 	}
@@ -317,7 +317,7 @@ func TestThenStandalone_Rejected_WithHandler_Synchronous(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_HandlerPanic_Recovery(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "trigger",
 	}
@@ -348,14 +348,14 @@ func TestThenStandalone_HandlerPanic_Recovery(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
 
 	const numGoroutines = 10
 	var handlersCalled atomic.Int32
-	children := make([]*ChainedPromise, numGoroutines)
+	children := make([]*Promise, numGoroutines)
 	done := make(chan struct{}, numGoroutines)
 
 	// Attach handlers concurrently
@@ -394,7 +394,7 @@ func TestThenStandalone_Concurrent_PendingPromise(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -444,7 +444,7 @@ func TestThenStandalone_Pending_RejectionHandler(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Pending_BothHandlersNil(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -475,7 +475,7 @@ func TestThenStandalone_Pending_BothHandlersNil(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Pending_BothHandlersNil_Rejection(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -502,7 +502,7 @@ func TestThenStandalone_Pending_BothHandlersNil_Rejection(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_Chaining_Multiple(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: 1,
 	}
@@ -538,7 +538,7 @@ func TestThenStandalone_Chaining_Multiple(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_MixedHandlers_Fulfilled(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "fulfilled",
 	}
@@ -572,7 +572,7 @@ func TestThenStandalone_MixedHandlers_Fulfilled(t *testing.T) {
 
 func TestThenStandalone_MixedHandlers_Rejected(t *testing.T) {
 	testErr := errors.New("rejected")
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: testErr,
 	}
@@ -613,7 +613,7 @@ func TestThenStandalone_MixedHandlers_Rejected(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestThenStandalone_HandlerReturnsNil(t *testing.T) {
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: "original",
 	}
@@ -639,7 +639,7 @@ func TestThenStandalone_HandlerReturnsNil(t *testing.T) {
 
 func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 	// Zero-value promise (all fields at default)
-	p := &ChainedPromise{}
+	p := &Promise{}
 	// id=nil, js=nil, result=nil, h0 is zero handler
 
 	// State is 0 which is Pending
@@ -669,7 +669,7 @@ func TestThenStandalone_ZeroValuePromise(t *testing.T) {
 
 func TestThenStandalone_RejectionHandler_Panic(t *testing.T) {
 	testErr := errors.New("original error")
-	p := &ChainedPromise{
+	p := &Promise{
 		js:     nil,
 		result: testErr,
 	}

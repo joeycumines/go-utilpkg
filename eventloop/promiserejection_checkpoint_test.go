@@ -291,7 +291,7 @@ func TestChainedPromise_UnhandledCheckpointYieldsBetweenSnapshotDiagnostics(t *t
 	registerLoopCleanupT(t, loop)
 
 	var js *JS
-	var first, second *ChainedPromise
+	var first, second *Promise
 	var scheduled atomic.Bool
 	js, err = NewJS(loop, WithUnhandledRejection(func(reason any) {
 		reported <- reason

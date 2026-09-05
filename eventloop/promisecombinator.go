@@ -30,7 +30,7 @@ import (
 //	}()
 //	// result will be []any{"a", "b"}
 //	result := js.All([]*ChainedPromise{p1, p2})
-func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
+func (js *JS) All(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - resolve immediately with empty array
@@ -95,7 +95,7 @@ func (js *JS) All(promises []*ChainedPromise) *ChainedPromise {
 //	    rejectTimeout(errors.New("timeout"))
 //	}()
 //	result := js.Race([]*ChainedPromise{actualWork, timeout})
-func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
+func (js *JS) Race(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - never settles
@@ -143,7 +143,7 @@ func (js *JS) Race(promises []*ChainedPromise) *ChainedPromise {
 //   - Results are in the same order as the input promises
 //   - Rejects with [ErrLoopTerminated] if an input reaction cannot execute and
 //     that failure wins the returned promise's settlement claim
-func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
+func (js *JS) AllSettled(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	if len(promises) == 0 {
@@ -212,7 +212,7 @@ func (js *JS) AllSettled(promises []*ChainedPromise) *ChainedPromise {
 //
 //	// Try multiple data sources, use first successful response
 //	result := js.Any([]*ChainedPromise{source1, source2, source3})
-func (js *JS) Any(promises []*ChainedPromise) *ChainedPromise {
+func (js *JS) Any(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - reject immediately
@@ -317,7 +317,7 @@ func (e *NilPromiseError) Error() string {
 	return fmt.Sprintf("eventloop: nil promise at index %d", e.Index)
 }
 
-func validatePromiseInputs(promises []*ChainedPromise) error {
+func validatePromiseInputs(promises []*Promise) error {
 	for index, promise := range promises {
 		if promise == nil {
 			return &NilPromiseError{Index: index}
@@ -357,7 +357,7 @@ func validatePromiseInputs(promises []*ChainedPromise) error {
 type PromiseWithResolvers struct {
 	// Promise is the pending promise associated with this resolvers object.
 	// It will be resolved or rejected when Resolve or Reject is called.
-	Promise *ChainedPromise
+	Promise *Promise
 
 	// Resolve is the function that fulfills the Promise with a value.
 	// Calling Resolve on an already-settled promise has no effect.

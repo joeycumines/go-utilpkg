@@ -28,7 +28,7 @@ func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
 	}
 
 	// Can be used as map keys
-	m := make(map[*ChainedPromise]string)
+	m := make(map[*Promise]string)
 	m[p1] = "first"
 	m[p2] = "second"
 
@@ -101,7 +101,7 @@ func TestPromisePointerIdentity_AllocatesOnHandler(t *testing.T) {
 // TestPromisePointerIdentity_StandaloneNotTracked verifies standalone promises don't enter tracking.
 func TestPromisePointerIdentity_StandaloneNotTracked(t *testing.T) {
 	// Create standalone promise (no JS adapter)
-	p := &ChainedPromise{
+	p := &Promise{
 		js: nil,
 	}
 	p.state.Store(int32(Pending))
@@ -117,11 +117,11 @@ func TestPromisePointerIdentity_StandaloneNotTracked(t *testing.T) {
 
 const chainedPromiseExpectedSize = 16 + 6*unsafe.Sizeof(uintptr(0))
 
-var _ [chainedPromiseExpectedSize]byte = [unsafe.Sizeof(ChainedPromise{})]byte{}
+var _ [chainedPromiseExpectedSize]byte = [unsafe.Sizeof(Promise{})]byte{}
 
 // TestChainedPromiseSize verifies the architecture-specific compact layout.
 func TestChainedPromiseSize(t *testing.T) {
-	if size := unsafe.Sizeof(ChainedPromise{}); size != chainedPromiseExpectedSize {
+	if size := unsafe.Sizeof(Promise{}); size != chainedPromiseExpectedSize {
 		t.Errorf("ChainedPromise size = %d, want %d", size, chainedPromiseExpectedSize)
 	}
 }

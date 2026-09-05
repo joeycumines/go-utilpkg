@@ -23,7 +23,7 @@ func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing
 	rejectionRecorded := make(chan struct{})
 	releasePublication := make(chan struct{})
 	releaseRecord := releaseSignalT(t, releasePublication)
-	checkerAtParent := make(chan *ChainedPromise, 1)
+	checkerAtParent := make(chan *Promise, 1)
 	releaseChecker := make(chan struct{})
 	releaseCheck := releaseSignalT(t, releaseChecker)
 	var recordOnce sync.Once
@@ -34,7 +34,7 @@ func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing
 				<-releasePublication
 			})
 		},
-		BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
+		BeforeUnhandledRejectionRecordCheck: func(promise *Promise) {
 			select {
 			case checkerAtParent <- promise:
 			default:
@@ -134,7 +134,7 @@ func TestChainedPromiseLatePassThroughLinearizesWithActiveChecker(t *testing.T) 
 	releaseChecker := make(chan struct{})
 	release := releaseSignalT(t, releaseChecker)
 	loop.testHooks = &loopTestHooks{
-		BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
+		BeforeUnhandledRejectionRecordCheck: func(promise *Promise) {
 			if promise != parent {
 				return
 			}

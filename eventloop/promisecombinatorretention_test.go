@@ -13,7 +13,7 @@ type combinatorRetentionPayload struct {
 }
 
 type combinatorRetentionProof struct {
-	promises []weak.Pointer[ChainedPromise]
+	promises []weak.Pointer[Promise]
 	payload  weak.Pointer[combinatorRetentionPayload]
 }
 
@@ -63,7 +63,7 @@ func settledCombinatorRetentionProof(t *testing.T, loop *Loop, js *JS, name stri
 	t.Helper()
 	payload := &combinatorRetentionPayload{value: 7}
 	proof := combinatorRetentionProof{payload: weak.Make(payload)}
-	inputs := make([]*ChainedPromise, 3)
+	inputs := make([]*Promise, 3)
 	resolvers := make([]ResolveFunc, len(inputs))
 	rejecters := make([]RejectFunc, len(inputs))
 	for index := range inputs {
@@ -71,7 +71,7 @@ func settledCombinatorRetentionProof(t *testing.T, loop *Loop, js *JS, name stri
 		proof.promises = append(proof.promises, weak.Make(inputs[index]))
 	}
 
-	var result *ChainedPromise
+	var result *Promise
 	switch name {
 	case "all":
 		result = js.All(inputs)

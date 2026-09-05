@@ -47,7 +47,7 @@ func TestPromiseCombinatorsRejectTerminalReactionScheduleFailure(t *testing.T) {
 									t.Fatal(err)
 								}
 							}
-							result := combinator.combine(js, []*ChainedPromise{source})
+							result := combinator.combine(js, []*Promise{source})
 							resultChannel := result.ToChannel()
 							// Suppress only the expected public aggregate diagnostic so any
 							// inaccessible internal reaction child remains observable.
@@ -124,7 +124,7 @@ func TestPromiseCombinatorsRejectTerminalSettledSourceAttachment(t *testing.T) {
 						t.Fatal(err)
 					}
 					loop.testHooks = &loopTestHooks{
-						BeforeUnhandledRejectionRecordCheck: func(*ChainedPromise) {
+						BeforeUnhandledRejectionRecordCheck: func(*Promise) {
 							if blockRecord.Load() {
 								recordOnce.Do(func() {
 									close(recordReached)
@@ -146,7 +146,7 @@ func TestPromiseCombinatorsRejectTerminalSettledSourceAttachment(t *testing.T) {
 					waitTerminalUnhandledRejectionTrackingDrained(t, js)
 
 					blockRecord.Store(true)
-					result := combinator.combine(js, []*ChainedPromise{source})
+					result := combinator.combine(js, []*Promise{source})
 					resultChannel := result.ToChannel()
 					result.rejectionHandled.Store(true)
 					waitContractSignal(t, recordReached, "settled-source aggregate rejection check")
@@ -184,7 +184,7 @@ func TestPromiseCombinatorsCrossLoopTerminalOrdering(t *testing.T) {
 					terminalLoop, terminalJS := newCombinatorTestAdapter(t, reported)
 					normalSource, resolveNormal, _ := normalJS.NewChainedPromise()
 					terminalSource, resolveTerminal, _ := terminalJS.NewChainedPromise()
-					result := combinator.combine(targetJS, []*ChainedPromise{normalSource, terminalSource})
+					result := combinator.combine(targetJS, []*Promise{normalSource, terminalSource})
 					resultChannel := result.ToChannel()
 					result.rejectionHandled.Store(true)
 
@@ -253,7 +253,7 @@ func TestPromiseCombinatorsTwoTerminalFailuresSettleOnce(t *testing.T) {
 			secondLoop, secondJS := newCombinatorTestAdapter(t, reported)
 			first, resolveFirst, _ := firstJS.NewChainedPromise()
 			second, resolveSecond, _ := secondJS.NewChainedPromise()
-			result := combinator.combine(targetJS, []*ChainedPromise{first, second})
+			result := combinator.combine(targetJS, []*Promise{first, second})
 			resultChannel := result.ToChannel()
 			result.rejectionHandled.Store(true)
 
@@ -313,7 +313,7 @@ func TestPromiseCombinatorsAcceptedReactionCloseDisposition(t *testing.T) {
 			}
 
 			source, resolveSource, _ := js.NewChainedPromise()
-			result := combinator.combine(js, []*ChainedPromise{source})
+			result := combinator.combine(js, []*Promise{source})
 			resultChannel := result.ToChannel()
 			resolveSource("accepted before Close")
 
@@ -385,7 +385,7 @@ func TestPromiseCombinatorsAcceptedNotDequeuedImmediateClose(t *testing.T) {
 					}
 
 					source, resolveSource, _ := sourceJS.NewChainedPromise()
-					result := combinator.combine(targetJS, []*ChainedPromise{source})
+					result := combinator.combine(targetJS, []*Promise{source})
 					resultChannel := result.ToChannel()
 					resolveSource("accepted without dequeue")
 					if got := pendingPromiseReactionCount(sourceLoop); got != 1 {
@@ -427,7 +427,7 @@ func TestPromiseCombinatorsGracefulShutdownDrainsAccepted(t *testing.T) {
 			sourceLoop, sourceJS := newCombinatorTestAdapter(t, reported)
 			targetLoop, targetJS := newCombinatorTestAdapter(t, reported)
 			source, resolveSource, _ := sourceJS.NewChainedPromise()
-			result := combinator.combine(targetJS, []*ChainedPromise{source})
+			result := combinator.combine(targetJS, []*Promise{source})
 			resultChannel := result.ToChannel()
 			resolveSource("graceful source")
 			if got := pendingPromiseReactionCount(sourceLoop); got != 1 {

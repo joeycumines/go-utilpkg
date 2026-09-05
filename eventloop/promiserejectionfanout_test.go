@@ -94,14 +94,14 @@ func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
 			}
 			reason := "fanout " + test.name
 			source, _, rejectSource := js.NewChainedPromise()
-			var first, second *ChainedPromise
+			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
 				first, resolveFirst, _ = js.NewChainedPromise()
 				second, resolveSecond, _ = js.NewChainedPromise()
 				resolveFirst(source)
 				resolveSecond(source)
-				for index, promise := range []*ChainedPromise{first, second} {
+				for index, promise := range []*Promise{first, second} {
 					if state := promise.state.Load(); state != promiseSettlementClaimed {
 						t.Fatalf("adopter %d raw state = %d, want settlement claimed", index, state)
 					}
@@ -146,7 +146,7 @@ func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
 			}
 			rejectSource(reason)
 
-			for index, promise := range []*ChainedPromise{first, second} {
+			for index, promise := range []*Promise{first, second} {
 				select {
 				case got := <-promise.ToChannel():
 					if got != reason {
@@ -233,7 +233,7 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 			releaseChecker := make(chan struct{})
 			release := releaseSignalT(t, releaseChecker)
 			loop.testHooks = &loopTestHooks{
-				BeforeUnhandledRejectionRecordCheck: func(promise *ChainedPromise) {
+				BeforeUnhandledRejectionRecordCheck: func(promise *Promise) {
 					if promise != source {
 						return
 					}
@@ -256,7 +256,7 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 				t.Fatal("checker did not snapshot source")
 			}
 
-			var first, second *ChainedPromise
+			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
 				first, resolveFirst, _ = js.NewChainedPromise()
@@ -291,7 +291,7 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 
 			runDone := make(chan error, 1)
 			go func() { runDone <- loop.Run(context.Background()) }()
-			for index, promise := range []*ChainedPromise{first, second} {
+			for index, promise := range []*Promise{first, second} {
 				select {
 				case got := <-promise.ToChannel():
 					if got != reason {
@@ -384,7 +384,7 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 				t.Fatal("checker did not claim source report")
 			}
 
-			var first, second *ChainedPromise
+			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
 				first, resolveFirst, _ = js.NewChainedPromise()
@@ -395,7 +395,7 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 				first = source.Then(nil, nil)
 				second = source.Then(nil, nil)
 			}
-			for index, promise := range []*ChainedPromise{first, second} {
+			for index, promise := range []*Promise{first, second} {
 				wantRawState := int32(Pending)
 				if test.adopters {
 					wantRawState = promiseSettlementClaimed
@@ -425,7 +425,7 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 
 			runDone := make(chan error, 1)
 			go func() { runDone <- loop.Run(context.Background()) }()
-			for index, promise := range []*ChainedPromise{first, second} {
+			for index, promise := range []*Promise{first, second} {
 				select {
 				case got := <-promise.ToChannel():
 					if got != "checker owns fanout" {
@@ -534,7 +534,7 @@ func TestChainedPromiseRejectedCheckerAdmissionLateDescendantReportsExactlyOnce(
 			default:
 			}
 
-			var descendant *ChainedPromise
+			var descendant *Promise
 			if test.adopter {
 				var resolveDescendant ResolveFunc
 				descendant, resolveDescendant, _ = js.NewChainedPromise()

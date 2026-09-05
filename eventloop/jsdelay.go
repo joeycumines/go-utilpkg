@@ -28,7 +28,7 @@ func (s *timerPromiseState) fail(err error) {
 //   - ms: The delay duration.
 //
 // Returns:
-//   - A ChainedPromise that resolves with nil after the delay.
+//   - A Promise that resolves with nil after the delay.
 //
 // Example:
 //
@@ -43,7 +43,7 @@ func (s *timerPromiseState) fail(err error) {
 // If timer admission fails, the promise rejects with the admission error.
 // If terminal cleanup discards an accepted timer before it fires, the promise
 // resolves with nil during that cleanup rather than remaining pending.
-func (js *JS) Sleep(ms time.Duration) *ChainedPromise {
+func (js *JS) Sleep(ms time.Duration) *Promise {
 	promise, resolve, reject := js.NewChainedPromise()
 	js.scheduleTimerPromise(ms, func() { resolve(nil) }, reject)
 
@@ -68,7 +68,7 @@ func (js *JS) Sleep(ms time.Duration) *ChainedPromise {
 //   - delay: The duration to wait before rejecting.
 //
 // Returns:
-//   - A ChainedPromise that rejects with [TimeoutError] after the delay.
+//   - A Promise that rejects with [TimeoutError] after the delay.
 //
 // Thread Safety: Safe to call from any goroutine.
 // The returned promise is safe for concurrent access.
@@ -77,7 +77,7 @@ func (js *JS) Sleep(ms time.Duration) *ChainedPromise {
 // If terminal cleanup discards an accepted timer before it fires, the promise
 // rejects with the same [TimeoutError] used by normal expiry rather than
 // remaining pending.
-func (js *JS) Timeout(delay time.Duration) *ChainedPromise {
+func (js *JS) Timeout(delay time.Duration) *Promise {
 	promise, _, reject := js.NewChainedPromise()
 
 	msg := "timeout after " + delay.String()

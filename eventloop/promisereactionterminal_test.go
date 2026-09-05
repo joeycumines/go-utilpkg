@@ -38,7 +38,7 @@ func TestPromiseReactionDequeuedImmediateCloseCleanerWinsClaim(t *testing.T) {
 	releaseClaimFn := releaseSignalT(t, releaseClaim)
 	closeTransitioned := make(chan struct{})
 	loop.testHooks = &loopTestHooks{
-		BeforePromiseReactionClaim: func(*ChainedPromise) {
+		BeforePromiseReactionClaim: func(*Promise) {
 			close(dequeued)
 			<-releaseClaim
 		},
@@ -136,9 +136,9 @@ func TestPromiseReactionTerminalCleanerWinsBeforeSchedule(t *testing.T) {
 
 			source, resolveSource, _ := js.NewChainedPromise()
 			var handlerCalls atomic.Int32
-			var result *ChainedPromise
+			var result *Promise
 			if aggregate {
-				result = js.All([]*ChainedPromise{source})
+				result = js.All([]*Promise{source})
 			} else {
 				result = source.Then(func(value any) any {
 					handlerCalls.Add(1)
@@ -288,7 +288,7 @@ func TestPromiseReactionOverflowHighWaterIsBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	children := make([]*ChainedPromise, pendingReactionOverflowRetainLimit+2)
+	children := make([]*Promise, pendingReactionOverflowRetainLimit+2)
 	for index := range children {
 		source, resolveSource, _ := js.NewChainedPromise()
 		children[index] = source.Then(func(value any) any { return value }, nil)
@@ -319,7 +319,7 @@ func TestPendingPromiseReactionTerminalSnapshotRegistrationOrder(t *testing.T) {
 	}
 	registerLoopCleanupT(t, loop)
 	const count = 8
-	sources := make([]*ChainedPromise, count)
+	sources := make([]*Promise, count)
 	for index := range count {
 		sources[index] = newStandalonePromiseTestValue()
 		target := newStandalonePromiseTestValue()

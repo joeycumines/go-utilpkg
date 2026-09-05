@@ -48,7 +48,7 @@ func promisePending(value int32) bool {
 // value or a failure reason. Future values may be copied safely.
 //
 // For chainable promise-style operations with Then/Catch/Finally,
-// see [ChainedPromise].
+// see [Promise].
 //
 // The zero value is invalid. State, Result, and ToChannel panic when called on
 // a zero Future.

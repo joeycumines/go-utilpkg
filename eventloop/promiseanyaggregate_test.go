@@ -18,7 +18,7 @@ func TestPromiseAny_NonErrorRejections(t *testing.T) {
 
 	first, _, rejectFirst := js.NewChainedPromise()
 	second, _, rejectSecond := js.NewChainedPromise()
-	result := js.Any([]*ChainedPromise{first, second})
+	result := js.Any([]*Promise{first, second})
 	rejectFirst("string-error")
 	rejectSecond(42)
 	loop.tick()

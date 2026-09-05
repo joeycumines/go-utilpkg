@@ -9,7 +9,7 @@ import (
 // Coverage Improvement Tests (Task COVERAGE_1.2)
 // ============================================================================
 
-// Test ChainedPromise.State() method - covers promise.go:265
+// Test Promise.State() method - covers promise.go:265
 func TestChainedPromise_State_Lifecycle(t *testing.T) {
 	loop, err := New()
 	if err != nil {
@@ -48,7 +48,7 @@ func TestChainedPromise_State_Lifecycle(t *testing.T) {
 	})
 }
 
-// Test ChainedPromise.Value() and Reason() methods - covers promise.go:272,284
+// Test Promise.Value() and Reason() methods - covers promise.go:272,284
 func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 	loop, err := New()
 	if err != nil {

@@ -34,7 +34,7 @@ func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
 	}
 
 	const chainCount = 32
-	references := make([]weak.Pointer[ChainedPromise], 0, chainCount*6)
+	references := make([]weak.Pointer[Promise], 0, chainCount*6)
 	for value := range chainCount {
 		references = append(references, settledPromiseChainReferences(t, js, value)...)
 	}
@@ -59,12 +59,12 @@ func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
 	}
 }
 
-func settledPromiseChainReferences(t *testing.T, js *JS, value int) []weak.Pointer[ChainedPromise] {
+func settledPromiseChainReferences(t *testing.T, js *JS, value int) []weak.Pointer[Promise] {
 	t.Helper()
 	const chainDepth = 5
 	source, resolve, _ := js.NewChainedPromise()
 	current := source
-	references := make([]weak.Pointer[ChainedPromise], 0, chainDepth+1)
+	references := make([]weak.Pointer[Promise], 0, chainDepth+1)
 	references = append(references, weak.Make(source))
 	for range chainDepth {
 		current = current.Then(func(value any) any { return value }, nil)

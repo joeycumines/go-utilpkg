@@ -48,7 +48,7 @@ func testChainedPromiseConcurrentRegistrationOrder(t *testing.T, rejected, regis
 	}
 	preexisting := promise.Then(handler("preexisting", true), handler("preexisting", false))
 
-	contenderDone := make(chan *ChainedPromise, 1)
+	contenderDone := make(chan *Promise, 1)
 	settlementDone := make(chan struct{})
 	settle := func() {
 		if rejected {
@@ -140,9 +140,9 @@ func testChainedPromiseConcurrentRegistrationOrder(t *testing.T, rejected, regis
 }
 
 func TestStandalonePromiseReentrantHandlerAfterSettlementUnlock(t *testing.T) {
-	promise := &ChainedPromise{}
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
-	nestedChild := make(chan *ChainedPromise, 1)
+	nestedChild := make(chan *Promise, 1)
 	outerChild := promise.Then(func(value any) any {
 		nestedChild <- promise.Then(func(nestedValue any) any {
 			return fmt.Sprintf("nested:%v", nestedValue)

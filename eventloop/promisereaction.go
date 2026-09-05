@@ -9,20 +9,20 @@ import (
 type handler struct {
 	onFulfilled func(any) any
 	onRejected  func(any) any
-	target      *ChainedPromise
+	target      *Promise
 }
 
 type handlerScheduleFailure struct {
 	err         error
 	result      any
-	target      *ChainedPromise
+	target      *Promise
 	state       int32
 	reportOwner rejectionReportOwner
 	passThrough bool
 }
 
 type pendingPromiseReaction struct {
-	source  *ChainedPromise
+	source  *Promise
 	failure handlerScheduleFailure
 	seq     uint64
 }
@@ -35,7 +35,7 @@ func (r pendingPromiseReaction) fail() {
 
 const pendingReactionOverflowRetainLimit = 64
 
-func (l *Loop) registerPendingPromiseReaction(target, source *ChainedPromise, failure handlerScheduleFailure) {
+func (l *Loop) registerPendingPromiseReaction(target, source *Promise, failure handlerScheduleFailure) {
 	if target == nil || source == nil {
 		return
 	}
@@ -47,7 +47,7 @@ func (l *Loop) registerPendingPromiseReaction(target, source *ChainedPromise, fa
 		l.pendingReaction = reaction
 	} else {
 		if l.pendingReactionOverflow == nil {
-			l.pendingReactionOverflow = make(map[*ChainedPromise]pendingPromiseReaction)
+			l.pendingReactionOverflow = make(map[*Promise]pendingPromiseReaction)
 		}
 		l.pendingReactionOverflow[target] = reaction
 		if size := len(l.pendingReactionOverflow); size > l.pendingReactionOverflowPeak {
@@ -57,7 +57,7 @@ func (l *Loop) registerPendingPromiseReaction(target, source *ChainedPromise, fa
 	l.pendingReactionsMu.Unlock()
 }
 
-func (l *Loop) claimPendingPromiseReaction(target *ChainedPromise) (pendingPromiseReaction, bool) {
+func (l *Loop) claimPendingPromiseReaction(target *Promise) (pendingPromiseReaction, bool) {
 	if target == nil {
 		return pendingPromiseReaction{}, false
 	}
@@ -122,7 +122,7 @@ func failPendingPromiseReactions(reactions []pendingPromiseReaction) {
 // unused result slot of a private observer child. Its distinct pointer type
 // identifies the public aggregate that owns infrastructure failures without
 // adding a field to every promise or handler.
-type promiseObserverFailure ChainedPromise
+type promiseObserverFailure Promise
 
 // addHandler attaches a handler to the promise. If the promise is already settled,
 // the handler is scheduled immediately via microtask. If pending, the handler is
@@ -137,7 +137,7 @@ type promiseObserverFailure ChainedPromise
 // Handler registration always synchronizes through p.mu. Settlement publishes
 // state before queuing the preexisting snapshot while retaining that lock, so a
 // concurrent late handler cannot overtake earlier registrations.
-func (p *ChainedPromise) addHandler(h handler, handlesRejection bool) handlerScheduleFailure {
+func (p *Promise) addHandler(h handler, handlesRejection bool) handlerScheduleFailure {
 	// Stable final states need no promise lock: result is immutable after the
 	// release-store that publishes the stable state. Publishing sentinels take
 	// the locked path so a late handler cannot overtake the preexisting snapshot.
@@ -187,7 +187,7 @@ func (p *ChainedPromise) addHandler(h handler, handlesRejection bool) handlerSch
 	return handlerScheduleFailure{}
 }
 
-func (p *ChainedPromise) scheduleSettledHandler(h handler, handlesRejection bool, state int32, result any) handlerScheduleFailure {
+func (p *Promise) scheduleSettledHandler(h handler, handlesRejection bool, state int32, result any) handlerScheduleFailure {
 	if handlesRejection && p.js != nil {
 		p.registerRejectionHandler(p.js)
 	}
@@ -202,7 +202,7 @@ func (p *ChainedPromise) scheduleSettledHandler(h handler, handlesRejection bool
 // it returns the failure for the caller to handle after any parent promise lock
 // has been released; rejecting child promises synchronously while a settling
 // parent is still locked can re-enter user diagnostics and deadlock.
-func (p *ChainedPromise) scheduleHandler(h handler, state int32, result any) handlerScheduleFailure {
+func (p *Promise) scheduleHandler(h handler, state int32, result any) handlerScheduleFailure {
 	failure := handlerScheduleFailure{target: h.target}
 	if h.target != nil {
 		var fn func(any) any
@@ -220,7 +220,7 @@ func (p *ChainedPromise) scheduleHandler(h handler, state int32, result any) han
 	return p.scheduleHandlerFailure(h, state, result, failure)
 }
 
-func (p *ChainedPromise) scheduleHandlerFailure(h handler, state int32, result any, failure handlerScheduleFailure) handlerScheduleFailure {
+func (p *Promise) scheduleHandlerFailure(h handler, state int32, result any, failure handlerScheduleFailure) handlerScheduleFailure {
 	if p.js == nil {
 		p.executeHandler(h, state, result)
 		return handlerScheduleFailure{}
@@ -257,7 +257,7 @@ func (p *ChainedPromise) scheduleHandlerFailure(h handler, state int32, result a
 	return handlerScheduleFailure{}
 }
 
-func (p *ChainedPromise) scheduleRejectionHandler(h handler, reason any, reportOwner rejectionReportOwner) handlerScheduleFailure {
+func (p *Promise) scheduleRejectionHandler(h handler, reason any, reportOwner rejectionReportOwner) handlerScheduleFailure {
 	if h.target == nil || h.onRejected != nil {
 		return p.scheduleHandler(h, int32(Rejected), reason)
 	}
@@ -282,7 +282,7 @@ func (p *ChainedPromise) scheduleRejectionHandler(h handler, reason any, reportO
 	})
 }
 
-func (p *ChainedPromise) handleHandlerScheduleFailure(failure handlerScheduleFailure) {
+func (p *Promise) handleHandlerScheduleFailure(failure handlerScheduleFailure) {
 	if failure.err == nil {
 		return
 	}
@@ -328,7 +328,7 @@ func (p *ChainedPromise) handleHandlerScheduleFailure(failure handlerScheduleFai
 
 // executeHandler runs a single handler with the given state and result.
 // Handles nil handlers (pass-through), panic recovery, and result propagation.
-func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
+func (p *Promise) executeHandler(h handler, state int32, result any) {
 	var fn func(any) any
 
 	if state == int32(Fulfilled) {
@@ -394,7 +394,7 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
 }
 
 // Then adds handlers to be called when the promise settles.
-// Returns a new [ChainedPromise] that resolves with the result of the handler.
+// Returns a new [Promise] that resolves with the result of the handler.
 //
 // Parameters:
 //   - onFulfilled: Handler called with the fulfillment value. Can be nil.
@@ -412,13 +412,13 @@ func (p *ChainedPromise) executeHandler(h handler, state int32, result any) {
 // its child with [ErrLoopTerminated]. Terminal failures may synchronously
 // propagate nil-handler pass-through settlements without running user handler
 // code.
-func (p *ChainedPromise) Then(onFulfilled, onRejected func(any) any) *ChainedPromise {
+func (p *Promise) Then(onFulfilled, onRejected func(any) any) *Promise {
 	js := p.js
 	if js == nil {
 		return p.thenStandalone(onFulfilled, onRejected)
 	}
 
-	child := &ChainedPromise{
+	child := &Promise{
 		js: js,
 	}
 	child.state.Store(int32(Pending))
@@ -438,8 +438,8 @@ func (p *ChainedPromise) Then(onFulfilled, onRejected func(any) any) *ChainedPro
 // exposed. Scheduling and execution failures reject the owning aggregate; the
 // private bookkeeping child is fulfilled so it cannot become an orphaned
 // unhandled rejection.
-func (p *ChainedPromise) observeSettlement(onFulfilled, onRejected func(any) any, observer *ChainedPromise) *ChainedPromise {
-	child := &ChainedPromise{
+func (p *Promise) observeSettlement(onFulfilled, onRejected func(any) any, observer *Promise) *Promise {
+	child := &Promise{
 		js:     p.js,
 		result: (*promiseObserverFailure)(observer),
 	}
@@ -454,21 +454,21 @@ func (p *ChainedPromise) observeSettlement(onFulfilled, onRejected func(any) any
 	return child
 }
 
-func takePromiseObserverFailure(target *ChainedPromise) (*ChainedPromise, bool) {
+func takePromiseObserverFailure(target *Promise) (*Promise, bool) {
 	target.mu.Lock()
 	marker, ok := target.result.(*promiseObserverFailure)
 	if ok {
 		target.result = nil
 	}
 	target.mu.Unlock()
-	return (*ChainedPromise)(marker), ok
+	return (*Promise)(marker), ok
 }
 
-func (p *ChainedPromise) propagateRejection(target *ChainedPromise, reason any) {
+func (p *Promise) propagateRejection(target *Promise, reason any) {
 	p.propagateRejectionOwned(target, reason, p.markPropagatedRejection())
 }
 
-func (p *ChainedPromise) propagateRejectionOwned(target *ChainedPromise, reason any, reportOwner rejectionReportOwner) {
+func (p *Promise) propagateRejectionOwned(target *Promise, reason any, reportOwner rejectionReportOwner) {
 	if reportOwner == rejectionReportPropagation {
 		reportOwner = p.claimPropagatedRejection()
 	}
@@ -486,7 +486,7 @@ func (p *ChainedPromise) propagateRejectionOwned(target *ChainedPromise, reason 
 	}
 }
 
-func (p *ChainedPromise) markPropagatedRejection() rejectionReportOwner {
+func (p *Promise) markPropagatedRejection() rejectionReportOwner {
 	js := p.js
 	if js == nil {
 		return rejectionReportUnowned
@@ -504,7 +504,7 @@ func (p *ChainedPromise) markPropagatedRejection() rejectionReportOwner {
 	return owner
 }
 
-func (p *ChainedPromise) claimPropagatedRejection() rejectionReportOwner {
+func (p *Promise) claimPropagatedRejection() rejectionReportOwner {
 	js := p.js
 	if js == nil {
 		return rejectionReportUnowned
@@ -537,7 +537,7 @@ func (p *ChainedPromise) claimPropagatedRejection() rejectionReportOwner {
 // registerRejectionHandler tracks that a rejection handler has been attached
 // to the parent promise. This is used by the unhandled rejection detection system
 // to avoid false-positive reports.
-func (p *ChainedPromise) registerRejectionHandler(js *JS) {
+func (p *Promise) registerRejectionHandler(js *JS) {
 	p.rejectionHandled.Store(true)
 
 	currentState := promiseState(p.state.Load())
@@ -572,7 +572,7 @@ func (p *ChainedPromise) registerRejectionHandler(js *JS) {
 
 // signalHandlerReady signals that a rejection handler has been registered,
 // allowing trackRejection's synchronization to proceed.
-func (p *ChainedPromise) signalHandlerReady(js *JS) {
+func (p *Promise) signalHandlerReady(js *JS) {
 	js.handlerReadyMu.Lock()
 	if ch, exists := js.handlerReadyChans[p]; exists {
 		select {
@@ -591,8 +591,8 @@ func (p *ChainedPromise) signalHandlerReady(js *JS) {
 // NOTE: This code path is NOT Promise/A+ compliant - handlers execute synchronously
 // when called on already-settled promises (since p.js is nil, scheduleHandler falls
 // back to executeHandler). This is intentional for testing/fallback scenarios.
-func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(any) any) *ChainedPromise {
-	child := &ChainedPromise{
+func (p *Promise) thenStandalone(onFulfilled, onRejected func(any) any) *Promise {
+	child := &Promise{
 		js: nil,
 	}
 	child.state.Store(int32(Pending))
@@ -607,7 +607,7 @@ func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(any) any) *
 }
 
 // Catch adds a rejection handler to the promise.
-// Returns a new [ChainedPromise] that resolves with the result of the handler.
+// Returns a new [Promise] that resolves with the result of the handler.
 //
 // This is equivalent to calling Then(nil, onRejected).
 //
@@ -617,12 +617,12 @@ func (p *ChainedPromise) thenStandalone(onFulfilled, onRejected func(any) any) *
 //	    log.Printf("Error: %v", r)
 //	    return defaultValue // recover
 //	})
-func (p *ChainedPromise) Catch(onRejected func(any) any) *ChainedPromise {
+func (p *Promise) Catch(onRejected func(any) any) *Promise {
 	return p.Then(nil, onRejected)
 }
 
 // Finally adds a handler that runs regardless of how the promise settles.
-// Returns a new [ChainedPromise] that preserves the original settlement when
+// Returns a new [Promise] that preserves the original settlement when
 // the handler runs.
 //
 // Unlike Then/Catch, the onFinally callback receives no arguments and its
@@ -644,17 +644,17 @@ func (p *ChainedPromise) Catch(onRejected func(any) any) *ChainedPromise {
 //	    Finally(func() {
 //	        closeResources()
 //	    })
-func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
+func (p *Promise) Finally(onFinally func()) *Promise {
 	if onFinally == nil {
 		return p.Then(nil, nil)
 	}
 
 	js := p.js
-	var child *ChainedPromise
+	var child *Promise
 	if js != nil {
 		child, _, _ = js.NewChainedPromise()
 	} else {
-		child = &ChainedPromise{
+		child = &Promise{
 			js: nil,
 		}
 		child.state.Store(int32(Pending))
@@ -709,7 +709,7 @@ func (p *ChainedPromise) Finally(onFinally func()) *ChainedPromise {
 // running.
 //
 // For standalone promises (p.js == nil), a handler-based fallback is used.
-func (p *ChainedPromise) ToChannel() <-chan any {
+func (p *Promise) ToChannel() <-chan any {
 	ch := make(chan any, 1)
 
 	// Fast path: already settled (lock-free)
@@ -752,8 +752,8 @@ func (p *ChainedPromise) ToChannel() <-chan any {
 
 // toChannelStandalonePromise handles ToChannel for promises without a JS adapter.
 // Uses addHandler with a dummy target to avoid interfering with the h0 slot check.
-func (p *ChainedPromise) toChannelStandalonePromise(ch chan any) <-chan any {
-	dummy := &ChainedPromise{}
+func (p *Promise) toChannelStandalonePromise(ch chan any) <-chan any {
+	dummy := &Promise{}
 	dummy.state.Store(int32(Pending))
 	writeFn := func(v any) any {
 		ch <- v

@@ -19,12 +19,12 @@ import (
 // any wall-clock sleep.
 //
 // creationStack is read from the JS.debugStacks side table.
-func (js *JS) trackRejection(p *ChainedPromise, reason any) {
+func (js *JS) trackRejection(p *Promise, reason any) {
 	js.recordRejection(p, reason)
 	js.scheduleRejectionCheck(p)
 }
 
-func (js *JS) recordRejection(p *ChainedPromise, reason any) {
+func (js *JS) recordRejection(p *Promise, reason any) {
 	// Read creation stack from side table (keyed by weak.Pointer).
 	wp := weak.Make(p)
 	js.debugStacksMu.Lock()
@@ -50,7 +50,7 @@ func (js *JS) recordRejection(p *ChainedPromise, reason any) {
 	js.rejectionsMu.Unlock()
 }
 
-func (js *JS) scheduleRejectionCheck(p *ChainedPromise) {
+func (js *JS) scheduleRejectionCheck(p *Promise) {
 	handlerReady := make(chan struct{})
 
 	// Try to store the channel so then() can signal when handler is registered
@@ -684,10 +684,10 @@ func (js *JS) checkUnhandledRejectionsWith(executeCallback func(func()), allowTe
 
 // rejectionInfo holds information about a rejected promise.
 type rejectionInfo struct {
-	promise            *ChainedPromise // 8B pointer
-	reason             any             // 16B interface (two pointers)
-	creationStack      []uintptr       // 24B slice (data pointer + len + cap)
-	timestamp          int64           // 8B non-pointer
+	promise            *Promise  // 8B pointer
+	reason             any       // 16B interface (two pointers)
+	creationStack      []uintptr // 24B slice (data pointer + len + cap)
+	timestamp          int64     // 8B non-pointer
 	propagationPending atomic.Int32
 	propagated         atomic.Bool
 	terminalFallback   atomic.Bool

@@ -266,7 +266,7 @@ func TestChainedPromise_HandlerScheduleErrorRejectsChildAfterParentUnlock(t *tes
 		t.Fatal(err)
 	}
 
-	var parent *ChainedPromise
+	var parent *Promise
 	var reentered atomic.Bool
 	reenteredParent := make(chan struct{}, 1)
 	js, err := NewJS(loop,
@@ -331,7 +331,7 @@ func TestChainedPromise_HandlerScheduleErrorRegistersCatchBeforeChildFallback(t 
 		t.Fatal(err)
 	}
 
-	parent := &ChainedPromise{js: js, result: "parent"}
+	parent := &Promise{js: js, result: "parent"}
 	parent.state.Store(int32(Rejected))
 	js.recordRejection(parent, "parent")
 	if err := loop.Shutdown(context.Background()); err != nil {
@@ -549,7 +549,7 @@ func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *tes
 	}
 
 	catchRan := make(chan struct{}, 1)
-	catchDone := make(chan *ChainedPromise, 1)
+	catchDone := make(chan *Promise, 1)
 	go func() {
 		catchDone <- parent.Catch(func(any) any {
 			select {
@@ -582,7 +582,7 @@ func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *tes
 
 	close(releaseRegister)
 
-	var child *ChainedPromise
+	var child *Promise
 	select {
 	case child = <-catchDone:
 	case <-time.After(time.Second):

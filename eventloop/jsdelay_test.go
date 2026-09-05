@@ -10,13 +10,13 @@ func TestJSTimerPromisePositiveExpiry(t *testing.T) {
 	const delay = 10 * time.Millisecond
 	tests := []struct {
 		name   string
-		create func(*JS) *ChainedPromise
-		assert func(*testing.T, *ChainedPromise, any)
+		create func(*JS) *Promise
+		assert func(*testing.T, *Promise, any)
 	}{
 		{
 			name:   "sleep",
-			create: func(js *JS) *ChainedPromise { return js.Sleep(delay) },
-			assert: func(t *testing.T, promise *ChainedPromise, result any) {
+			create: func(js *JS) *Promise { return js.Sleep(delay) },
+			assert: func(t *testing.T, promise *Promise, result any) {
 				t.Helper()
 				if result != nil || promise.State() != Fulfilled || promise.Value() != nil {
 					t.Fatalf("Sleep settlement = (%v, %#v), want Fulfilled nil", promise.State(), result)
@@ -25,8 +25,8 @@ func TestJSTimerPromisePositiveExpiry(t *testing.T) {
 		},
 		{
 			name:   "timeout",
-			create: func(js *JS) *ChainedPromise { return js.Timeout(delay) },
-			assert: func(t *testing.T, promise *ChainedPromise, result any) {
+			create: func(js *JS) *Promise { return js.Timeout(delay) },
+			assert: func(t *testing.T, promise *Promise, result any) {
 				t.Helper()
 				timeout, ok := result.(*TimeoutError)
 				if !ok || timeout.Message != "timeout after 10ms" || promise.State() != Rejected || promise.Reason() != timeout {
@@ -82,7 +82,7 @@ func TestJSTimeoutRacePendingPromise(t *testing.T) {
 	}
 	pending, _, _ := js.NewChainedPromise()
 	timeout := js.Timeout(delay)
-	result := js.Race([]*ChainedPromise{pending, timeout})
+	result := js.Race([]*Promise{pending, timeout})
 	settlement := result.ToChannel()
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()

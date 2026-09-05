@@ -14,7 +14,7 @@ func TestAplus_2_2_1_ThenCallbacksOptional(t *testing.T) {
 
 	resolve("value")
 	loop.tick()
-	for name, promise := range map[string]*ChainedPromise{
+	for name, promise := range map[string]*Promise{
 		"nil callbacks":        nilCallbacks,
 		"fulfillment callback": fulfillmentCallback,
 		"rejection callback":   rejectionCallback,
@@ -158,7 +158,7 @@ func TestAplus_2_2_7_2_ThrowExceptionRejectsChild(t *testing.T) {
 			parent, resolve, reject := js.NewChainedPromise()
 			panicWitness := &struct{ name string }{name: test.name}
 			panicHandler := func(any) any { panic(panicWitness) }
-			var child *ChainedPromise
+			var child *Promise
 			if test.rejectParent {
 				child = parent.Then(nil, panicHandler)
 				reject(errors.New("parent rejection"))

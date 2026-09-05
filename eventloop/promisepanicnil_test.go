@@ -95,7 +95,7 @@ func testFinallyLegacyPanicNil(t *testing.T) {
 	}
 }
 
-func assertPromisePanicNil(t *testing.T, promise *ChainedPromise) {
+func assertPromisePanicNil(t *testing.T, promise *Promise) {
 	t.Helper()
 	if promise.State() != Rejected {
 		t.Fatalf("promise state = %v, want Rejected", promise.State())

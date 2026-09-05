@@ -169,7 +169,7 @@ func TestPromiseFinally_ConcurrentMultiple(t *testing.T) {
 	p, resolve, _ := js.NewChainedPromise()
 
 	var counter atomic.Int32
-	results := make([]*ChainedPromise, 5)
+	results := make([]*Promise, 5)
 	start := make(chan struct{})
 	done := make(chan struct{}, len(results))
 	for i := range 5 {
@@ -424,7 +424,7 @@ func TestPromiseFinally_WithNilRejection(t *testing.T) {
 
 // TestPromiseFinally_Standalone tests synchronous Finally settlement without a JS scheduler.
 func TestPromiseFinally_Standalone(t *testing.T) {
-	p := &ChainedPromise{}
+	p := &Promise{}
 
 	finallyCalled := false
 	result := p.Finally(func() {

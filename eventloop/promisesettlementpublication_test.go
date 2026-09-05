@@ -76,7 +76,7 @@ func TestChainedPromisePublishingReactionReentersThenAfterUnlock(t *testing.T) {
 	}
 	promise, resolve, _ := js.NewChainedPromise()
 	observed := make(chan string, 2)
-	nestedChild := make(chan *ChainedPromise, 1)
+	nestedChild := make(chan *Promise, 1)
 	outerChild := promise.Then(func(value any) any {
 		observed <- "outer"
 		nestedChild <- promise.Then(func(nestedValue any) any {

@@ -161,8 +161,8 @@ func TestPromiseObserverFailureRejectsAggregateJSBacked(t *testing.T) {
 	}
 }
 
-func newStandalonePromiseTestValue() *ChainedPromise {
-	promise := &ChainedPromise{}
+func newStandalonePromiseTestValue() *Promise {
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
 	return promise
 }

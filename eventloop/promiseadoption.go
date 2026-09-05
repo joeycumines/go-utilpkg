@@ -11,14 +11,14 @@ var (
 	// promise is resolved with itself.
 	ErrPromiseSelfResolution = errors.New("eventloop: promise cannot resolve itself")
 	// ErrPromiseNilAdoption is the stable rejection reason used when a promise
-	// is resolved with a typed-nil *ChainedPromise.
+	// is resolved with a typed-nil *Promise.
 	ErrPromiseNilAdoption = errors.New("eventloop: promise cannot adopt nil promise")
 )
 
 type adoptionSettlement struct {
 	result any
-	source *ChainedPromise
-	target *ChainedPromise
+	source *Promise
+	target *Promise
 	state  PromiseState
 }
 
@@ -26,26 +26,26 @@ type adoptionSettlements []adoptionSettlement
 
 type adoptionCleanup struct {
 	js     weak.Pointer[JS]
-	target weak.Pointer[ChainedPromise]
+	target weak.Pointer[Promise]
 }
 
-func (p *ChainedPromise) resolve(value any) {
+func (p *Promise) resolve(value any) {
 	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
 		return
 	}
 	p.resolveClaimed(value)
 }
 
-func (p *ChainedPromise) resolveClaimed(value any) {
+func (p *Promise) resolveClaimed(value any) {
 	// Spec 2.3.1: If promise and x refer to the same object, reject promise with a TypeError.
-	if pr, ok := value.(*ChainedPromise); ok && pr == p {
+	if pr, ok := value.(*Promise); ok && pr == p {
 		p.rejectClaimed(ErrPromiseSelfResolution)
 		return
 	}
 
 	// Spec 2.3.2: If x is a promise, adopt its state.
 	// Use addHandler for zero-closure adoption (PromiseAltOne optimization).
-	if pr, ok := value.(*ChainedPromise); ok {
+	if pr, ok := value.(*Promise); ok {
 		if pr == nil {
 			p.rejectClaimed(ErrPromiseNilAdoption)
 			return
@@ -118,7 +118,7 @@ func (p *ChainedPromise) resolveClaimed(value any) {
 	}
 }
 
-func (js *JS) registerAdoption(source, target *ChainedPromise) {
+func (js *JS) registerAdoption(source, target *Promise) {
 	// The adapter must not root an otherwise unreachable pending source/target
 	// cycle. The target cleanup removes the weak metadata without capturing the
 	// source adapter or either promise; settled transfers remove it synchronously.
@@ -126,7 +126,7 @@ func (js *JS) registerAdoption(source, target *ChainedPromise) {
 	targetRef := weak.Make(target)
 	js.adoptionsMu.Lock()
 	if js.adoptions == nil {
-		js.adoptions = make(map[weak.Pointer[ChainedPromise]]weak.Pointer[ChainedPromise])
+		js.adoptions = make(map[weak.Pointer[Promise]]weak.Pointer[Promise])
 	}
 	js.adoptions[targetRef] = sourceRef
 	js.adoptionsMu.Unlock()
@@ -146,7 +146,7 @@ func cleanupAdoption(cleanup adoptionCleanup) {
 	js.adoptionsMu.Unlock()
 }
 
-func (p *ChainedPromise) claimAdoption(target *ChainedPromise) bool {
+func (p *Promise) claimAdoption(target *Promise) bool {
 	js := p.js
 	if js == nil {
 		return false
@@ -198,7 +198,7 @@ func (settlements adoptionSettlements) settle() {
 	}
 }
 
-func (p *ChainedPromise) settleAdoption(target *ChainedPromise, state PromiseState, result any, reportOwner rejectionReportOwner) {
+func (p *Promise) settleAdoption(target *Promise, state PromiseState, result any, reportOwner rejectionReportOwner) {
 	switch state {
 	case Fulfilled:
 		target.resolveClaimed(result)

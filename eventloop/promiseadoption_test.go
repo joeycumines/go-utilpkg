@@ -10,11 +10,11 @@ import (
 )
 
 func TestChainedPromiseAdoptionClaimsResolver(t *testing.T) {
-	sourceA := &ChainedPromise{}
+	sourceA := &Promise{}
 	sourceA.state.Store(int32(Pending))
-	sourceB := &ChainedPromise{}
+	sourceB := &Promise{}
 	sourceB.state.Store(int32(Pending))
-	target := &ChainedPromise{}
+	target := &Promise{}
 	target.state.Store(int32(Pending))
 
 	target.resolve(sourceA)
@@ -301,9 +301,9 @@ func TestChainedPromiseAdoptionAfterTargetTermination(t *testing.T) {
 }
 
 func TestChainedPromiseIndirectNativeCycleRemainsPending(t *testing.T) {
-	first := &ChainedPromise{}
+	first := &Promise{}
 	first.state.Store(int32(Pending))
-	second := &ChainedPromise{}
+	second := &Promise{}
 	second.state.Store(int32(Pending))
 	first.resolve(second)
 	second.resolve(first)
@@ -533,8 +533,8 @@ func TestChainedPromisePendingAdoptionDoesNotRetainAbandonedPromises(t *testing.
 	}
 
 	const total = 256
-	sourceRefs := make([]weak.Pointer[ChainedPromise], total)
-	adopterRefs := make([]weak.Pointer[ChainedPromise], total)
+	sourceRefs := make([]weak.Pointer[Promise], total)
+	adopterRefs := make([]weak.Pointer[Promise], total)
 	for i := range total {
 		sourceRefs[i], adopterRefs[i] = abandonPendingAdoption(js)
 	}
@@ -565,7 +565,7 @@ func TestChainedPromisePendingAdoptionDoesNotRetainAbandonedPromises(t *testing.
 	}
 }
 
-func abandonPendingAdoption(js *JS) (weak.Pointer[ChainedPromise], weak.Pointer[ChainedPromise]) {
+func abandonPendingAdoption(js *JS) (weak.Pointer[Promise], weak.Pointer[Promise]) {
 	source, _, _ := js.NewChainedPromise()
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
 	resolveAdopter(source)
@@ -615,7 +615,7 @@ func TestChainedPromiseCrossAdapterPendingAdoptionDoesNotRetainSourceOwner(t *te
 func abandonCrossAdapterPendingAdoption(
 	t *testing.T,
 	targetJS *JS,
-) (*ChainedPromise, weak.Pointer[ChainedPromise], weak.Pointer[JS], weak.Pointer[Loop]) {
+) (*Promise, weak.Pointer[Promise], weak.Pointer[JS], weak.Pointer[Loop]) {
 	t.Helper()
 	sourceLoop, err := New()
 	if err != nil {

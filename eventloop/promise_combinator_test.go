@@ -7,7 +7,7 @@ import (
 
 type promiseCombinatorTestCase struct {
 	name    string
-	combine func(*JS, []*ChainedPromise) *ChainedPromise
+	combine func(*JS, []*Promise) *Promise
 }
 
 func promiseCombinatorTestCases() []promiseCombinatorTestCase {
@@ -145,7 +145,7 @@ func newCombinatorTestAdapter(t *testing.T, reported chan<- any) (*Loop, *JS) {
 	return loop, js
 }
 
-func assertTerminalCombinatorRejection(t *testing.T, result *ChainedPromise, resultChannel <-chan any) {
+func assertTerminalCombinatorRejection(t *testing.T, result *Promise, resultChannel <-chan any) {
 	t.Helper()
 	if state := result.State(); state != Rejected {
 		t.Fatalf("aggregate state = %v, want Rejected", state)

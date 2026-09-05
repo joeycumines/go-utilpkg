@@ -16,7 +16,7 @@ func TestPromiseRace_LateHandlerObservesWinner(t *testing.T) {
 	}
 
 	source, resolve, _ := js.NewChainedPromise()
-	result := js.Race([]*ChainedPromise{source})
+	result := js.Race([]*Promise{source})
 	resolve("quick")
 	loop.tick()
 	if result.State() != Fulfilled || result.Value() != "quick" {
@@ -43,7 +43,7 @@ func TestPromiseRace_AlreadySettledUsesInputSchedulingOrder(t *testing.T) {
 
 	first := js.Resolve("first")
 	second := js.Reject("second")
-	result := js.Race([]*ChainedPromise{first, second})
+	result := js.Race([]*Promise{first, second})
 	loop.tick()
 
 	if result.State() != Fulfilled || result.Value() != "first" {

@@ -63,7 +63,7 @@ func (q *localFnQueue) discard() {
 // the ordinary callback-only path.
 type microtaskJob struct {
 	fn       func()
-	reaction *ChainedPromise
+	reaction *Promise
 }
 
 // localMicrotaskQueue keeps Promise reaction metadata owner-confined without
@@ -194,7 +194,7 @@ type loopCommand struct {
 	result   chan error
 	results  chan []error
 	timer    *timer
-	reaction *ChainedPromise
+	reaction *Promise
 	ids      []TimerID
 	// token is a kind-selected union: phase sequence for immediate/close
 	// commands, TimerID for single-timer mutations. Those meanings never overlap.

@@ -15,9 +15,9 @@
 // only through [JS.ClearImmediate]. Core [TimerID] values span the full uint64
 // namespace; JavaScript-shaped handles stop at JavaScript's maximum safe integer.
 //
-// The promise implementation ([ChainedPromise]) is a Go-loop promise profile
+// The promise implementation ([Promise]) is a Go-loop promise profile
 // modeled on Promise/A+ reaction ordering. It supports chaining, catch/finally,
-// combinators, and adoption of other [ChainedPromise] values through the loop
+// combinators, and adoption of other [Promise] values through the loop
 // microtask queue. It is not a full ECMAScript Promise implementation and does
 // not claim arbitrary JavaScript thenable assimilation or Test262 conformance.
 //
@@ -50,7 +50,7 @@
 //     entry. Timer cancellation returns exact sequential results before Run as
 //     well as while the owner is active; pre-Run ref changes queue without
 //     waiting for ownership.
-//   - [ChainedPromise] resolve/reject functions are safe from any goroutine;
+//   - [Promise] resolve/reject functions are safe from any goroutine;
 //     during normal [Loop.Run] execution, handlers execute on the event-loop
 //     callback owner via microtasks
 //   - Host adapters may use [Loop.ScheduleControlTimer] without inflating user

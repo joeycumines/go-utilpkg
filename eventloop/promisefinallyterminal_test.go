@@ -27,7 +27,7 @@ func newTerminalFinallyReaction(
 	t *testing.T,
 	loop *Loop,
 	testCase promiseFinallyTerminalCase,
-) (*JS, *ChainedPromise, *ChainedPromise, <-chan any, *atomic.Int32, PromiseState, any) {
+) (*JS, *Promise, *Promise, <-chan any, *atomic.Int32, PromiseState, any) {
 	t.Helper()
 	js, err := NewJS(loop)
 	if err != nil {
@@ -57,8 +57,8 @@ func newTerminalFinallyReaction(
 func assertTerminalFinallyOutcome(
 	t *testing.T,
 	testCase promiseFinallyTerminalCase,
-	source *ChainedPromise,
-	child *ChainedPromise,
+	source *Promise,
+	child *Promise,
 	resultChannel <-chan any,
 	wantState PromiseState,
 	wantResult any,

@@ -103,7 +103,7 @@ func BenchmarkPromiseAltOne_All(b *testing.B) {
 func BenchmarkStandardPromise_All(b *testing.B) {
 	_, js := newPromiseAltOneUnstartedLoop(b)
 
-	promises := make([]*eventloop.ChainedPromise, 100)
+	promises := make([]*eventloop.Promise, 100)
 	for i := range 100 {
 		promises[i], _, _ = js.NewChainedPromise()
 	}

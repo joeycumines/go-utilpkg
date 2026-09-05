@@ -12,7 +12,7 @@ import (
 // ChainedPromise Implementation
 // ============================================================================
 
-// ChainedPromise implements the package's Go-loop promise profile with [Then], [Catch], and [Finally].
+// Promise implements the package's Go-loop promise profile with [Then], [Catch], and [Finally].
 //
 // This implementation is modeled on Promise/A+ reaction ordering for this
 // package's own promise values. It is not a full ECMAScript Promise
@@ -50,13 +50,13 @@ import (
 //
 // Thread Safety:
 //
-// ChainedPromise is safe for concurrent use. The resolve/reject functions can be
+// Promise is safe for concurrent use. The resolve/reject functions can be
 // called from any goroutine. With a JS adapter attached, handlers execute as
 // loop microtasks during normal [Loop.Run] execution; if scheduling is no longer
 // possible during terminal paths, nil-handler pass-through may settle child
 // promises synchronously to preserve the parent settlement.
 //
-// Resolving with another ChainedPromise adopts that source irrevocably. Sources
+// Resolving with another Promise adopts that source irrevocably. Sources
 // owned by a different JS adapter settle the target through the source owner and
 // enqueue target reactions through the target adapter. An adoption transfer
 // accepted before immediate source-loop termination is recovered during source
@@ -67,15 +67,15 @@ import (
 // Performance Characteristics:
 //   - ToChannel() uses JS.toChannels side table for direct notification without microtasks
 //   - Debug stack traces stored in JS side table, only captured when debug mode is enabled
-//   - Pointer identity (*ChainedPromise) used as map key instead of integer IDs
+//   - Pointer identity (*Promise) used as map key instead of integer IDs
 //   - result field reused for handler storage during pending state
 //
 // Memory Usage:
 //   - Base struct: 64 bytes on 64-bit targets and 40 bytes on 32-bit targets
 //   - Creation stack traces stored in JS.debugStacks side table (only when debug mode enabled)
-//   - Promise identity uses pointer (*ChainedPromise) as map key instead of integer ID
+//   - Promise identity uses pointer (*Promise) as map key instead of integer ID
 //   - ToChannel() channels stored in JS.toChannels side table (not on the struct)
-type ChainedPromise struct {
+type Promise struct {
 	// Pointer-bearing fields are grouped first for cache locality.
 	result any
 	js     *JS
@@ -146,7 +146,7 @@ type RejectFunc func(any)
 // NewChainedPromise creates a new pending promise along with resolve and reject functions.
 //
 // Returns:
-//   - promise: The new [ChainedPromise] in Pending state
+//   - promise: The new [Promise] in Pending state
 //   - resolve: Function to fulfill the promise with a value
 //   - reject: Function to reject the promise with a reason
 //
@@ -164,8 +164,8 @@ type RejectFunc func(any)
 //
 // The resolve and reject functions can be called from any goroutine.
 // Only the first call has an effect; subsequent calls are ignored.
-func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
-	p := &ChainedPromise{
+func (js *JS) NewChainedPromise() (*Promise, ResolveFunc, RejectFunc) {
+	p := &Promise{
 		js: js,
 	}
 	p.state.Store(int32(Pending))
@@ -182,7 +182,7 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 			js.debugStacksMu.Lock()
 			js.debugStacks[wp] = pcs[:n]
 			js.debugStacksMu.Unlock()
-			runtime.AddCleanup(p, func(key weak.Pointer[ChainedPromise]) {
+			runtime.AddCleanup(p, func(key weak.Pointer[Promise]) {
 				js.debugStacksMu.Lock()
 				delete(js.debugStacks, key)
 				js.debugStacksMu.Unlock()
@@ -203,14 +203,14 @@ func (js *JS) NewChainedPromise() (*ChainedPromise, ResolveFunc, RejectFunc) {
 
 // State returns the current [PromiseState] of this promise.
 // Thread-safe and can be called from any goroutine.
-func (p *ChainedPromise) State() PromiseState {
+func (p *Promise) State() PromiseState {
 	return promiseState(p.state.Load())
 }
 
 // Value returns the fulfillment value if the promise is fulfilled.
 // Returns nil if the promise is pending or rejected.
 // Thread-safe and can be called from any goroutine.
-func (p *ChainedPromise) Value() any {
+func (p *Promise) Value() any {
 	if promiseState(p.state.Load()) == Fulfilled {
 		return p.result
 	}
@@ -220,7 +220,7 @@ func (p *ChainedPromise) Value() any {
 // Reason returns the rejection reason if the promise is rejected.
 // Returns nil if the promise is pending or fulfilled.
 // Thread-safe and can be called from any goroutine.
-func (p *ChainedPromise) Reason() any {
+func (p *Promise) Reason() any {
 	if promiseState(p.state.Load()) == Rejected {
 		return p.result
 	}
@@ -256,7 +256,7 @@ func (p *ChainedPromise) Reason() any {
 //
 // This is useful for debugging "where did this promise come from?" issues,
 // especially for unhandled rejections.
-func (p *ChainedPromise) CreationStackTrace() string {
+func (p *Promise) CreationStackTrace() string {
 	if p.js == nil {
 		return ""
 	}
@@ -288,14 +288,14 @@ func (p *ChainedPromise) CreationStackTrace() string {
 }
 
 // reject transitions the promise to rejected state if it's still pending.
-func (p *ChainedPromise) reject(reason any) {
+func (p *Promise) reject(reason any) {
 	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
 		return
 	}
 	p.rejectClaimed(reason)
 }
 
-func (p *ChainedPromise) rejectClaimed(reason any) {
+func (p *Promise) rejectClaimed(reason any) {
 	if p.js != nil && p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.BeforePromiseRejectLock != nil {
 		p.js.loop.testHooks.BeforePromiseRejectLock()
 	}

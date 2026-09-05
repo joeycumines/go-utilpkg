@@ -84,7 +84,7 @@ func BenchmarkTournament(b *testing.B) {
 // Wrappers to normalize the interface for the test harness
 
 type cpWrapper struct {
-	p       *eventloop.ChainedPromise
+	p       *eventloop.Promise
 	resolve eventloop.ResolveFunc
 }
 

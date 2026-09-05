@@ -365,7 +365,7 @@ func TestPromiseResolutionErrorIdentities(t *testing.T) {
 	assertPromiseReason(t, self, ErrPromiseSelfResolution)
 
 	typedNil, resolveTypedNil, _ := js.NewChainedPromise()
-	var source *ChainedPromise
+	var source *Promise
 	resolveTypedNil(source)
 	assertPromiseReason(t, typedNil, ErrPromiseNilAdoption)
 }
@@ -384,7 +384,7 @@ func newErrorContractJS(t *testing.T) (*Loop, *JS) {
 	return loop, js
 }
 
-func assertPromiseReason(t *testing.T, promise *ChainedPromise, target error) {
+func assertPromiseReason(t *testing.T, promise *Promise, target error) {
 	t.Helper()
 	if promise.State() != Rejected {
 		t.Fatalf("promise state = %v, want Rejected", promise.State())

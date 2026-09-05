@@ -6,7 +6,7 @@ import (
 )
 
 func Test_ChainedPromise_ToChannel_Standalone(t *testing.T) {
-	promise := &ChainedPromise{}
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
 	result := promise.ToChannel()
 	promise.resolve("hello")
@@ -19,7 +19,7 @@ func Test_ChainedPromise_ToChannel_Standalone(t *testing.T) {
 }
 
 func Test_ChainedPromise_ToChannel_StandaloneSettled(t *testing.T) {
-	promise := &ChainedPromise{}
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
 	promise.resolve("already-done")
 	result := promise.ToChannel()
@@ -56,7 +56,7 @@ func Test_promise_DoubleReject(t *testing.T) {
 }
 
 func Test_ChainedPromise_FinallyStandalone_Fulfilled(t *testing.T) {
-	parent := &ChainedPromise{}
+	parent := &Promise{}
 	parent.state.Store(int32(Pending))
 	called := false
 	child := parent.Finally(func() { called = true })
@@ -67,7 +67,7 @@ func Test_ChainedPromise_FinallyStandalone_Fulfilled(t *testing.T) {
 }
 
 func Test_ChainedPromise_FinallyStandalone_Rejected(t *testing.T) {
-	parent := &ChainedPromise{}
+	parent := &Promise{}
 	parent.state.Store(int32(Pending))
 	called := false
 	child := parent.Finally(func() { called = true })
@@ -78,7 +78,7 @@ func Test_ChainedPromise_FinallyStandalone_Rejected(t *testing.T) {
 }
 
 func Test_ChainedPromise_FinallyNilCallback(t *testing.T) {
-	parent := &ChainedPromise{}
+	parent := &Promise{}
 	parent.state.Store(int32(Pending))
 	child := parent.Finally(nil)
 	parent.resolve("value")
@@ -88,7 +88,7 @@ func Test_ChainedPromise_FinallyNilCallback(t *testing.T) {
 }
 
 func Test_ChainedPromise_FinallyPanic(t *testing.T) {
-	parent := &ChainedPromise{}
+	parent := &Promise{}
 	parent.state.Store(int32(Pending))
 	child := parent.Finally(func() { panic("cleanup panic") })
 	parent.resolve("original")
@@ -184,9 +184,9 @@ func Test_promise_ToChannel_AlreadySettled(t *testing.T) {
 }
 
 func Test_ChainedPromise_ResolveWithPromise(t *testing.T) {
-	parent := &ChainedPromise{}
+	parent := &Promise{}
 	parent.state.Store(int32(Pending))
-	source := &ChainedPromise{}
+	source := &Promise{}
 	source.state.Store(int32(Pending))
 	parent.resolve(source)
 	source.resolve("adopted-value")
@@ -196,7 +196,7 @@ func Test_ChainedPromise_ResolveWithPromise(t *testing.T) {
 }
 
 func Test_ChainedPromise_ResolveWithSelf(t *testing.T) {
-	promise := &ChainedPromise{}
+	promise := &Promise{}
 	promise.state.Store(int32(Pending))
 	promise.resolve(promise)
 	if promise.State() != Rejected {

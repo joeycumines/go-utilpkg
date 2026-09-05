@@ -122,7 +122,7 @@ type DebugModeOption struct {
 // WithDebugMode enables debug mode for the Loop.
 //
 // When debug mode is enabled, the following features are activated:
-//   - Promise creation stack traces are captured (see [ChainedPromise.CreationStackTrace])
+//   - Promise creation stack traces are captured (see [Promise.CreationStackTrace])
 //   - Unhandled rejection logs include where the promise was created
 //
 // Debug mode adds overhead (runtime.Callers for each promise), so it should

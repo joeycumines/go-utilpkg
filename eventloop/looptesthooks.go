@@ -29,7 +29,7 @@ type loopTestHooks struct {
 	AfterPromiseRejectedStateStore       func()                                // Called after Rejected is published and unlocked, before scheduling its check
 	AfterPromiseReactionRegister         func()                                // Called after terminal reaction ownership is registered, before queue admission
 	AfterPromiseHandlerScheduled         func()                                // Called after a promise reaction is queued
-	BeforePromiseReactionClaim           func(*ChainedPromise)                 // Called after a Promise reaction is dequeued, before terminal-ownership claim
+	BeforePromiseReactionClaim           func(*Promise)                        // Called after a Promise reaction is dequeued, before terminal-ownership claim
 	BeforeAutoExitCommit                 func()                                // Called during auto-exit quiescing before the final Alive recheck
 	AfterAutoExitFinalAliveCheck         func()                                // Called after auto-exit's last Alive recheck, before terminal admission is closed
 	BeforeAutoExitTerminalDrainCommit    func()                                // Called while final auto-exit admission locks are held, immediately before terminal drain commits
@@ -63,7 +63,7 @@ type loopTestHooks struct {
 	AfterReadyEventDispatchClaim         func(int)                             // Called with fd after dispatch claims a pending start, before callback admission
 	BeforeCheckPredicateAdmission        func()                                // Called before a dynamic check/immediate liveness predicate enters callback admission
 	BeforeUnhandledRejectionCallback     func()                                // Called before an unhandled-rejection user callback enters its selected admission path
-	BeforeUnhandledRejectionRecordCheck  func(*ChainedPromise)                 // Called before a snapshotted rejection record is evaluated
+	BeforeUnhandledRejectionRecordCheck  func(*Promise)                        // Called before a snapshotted rejection record is evaluated
 	AfterUnhandledRejectionCheckClear    func()                                // Called after an active rejection checker clears its scheduled flag
 	BeforeUnhandledRejectionRerunRequest func()                                // Called after detecting an active checker, before synchronizing rerun publication
 	AfterUnhandledRejectionFallbackRerun func()                                // Called after terminal fallback collides with an active normal checker

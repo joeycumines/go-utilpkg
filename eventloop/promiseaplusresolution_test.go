@@ -10,7 +10,7 @@ type promiseThenableProbe struct {
 	calls atomic.Int32
 }
 
-func (p *promiseThenableProbe) Then(func(any) any, func(any) any) *ChainedPromise {
+func (p *promiseThenableProbe) Then(func(any) any, func(any) any) *Promise {
 	p.calls.Add(1)
 	return nil
 }
@@ -73,9 +73,9 @@ func TestAplus_2_3_2_HandlerReturnedPromiseAdoption(t *testing.T) {
 }
 
 func TestChainedPromiseTypedNilAdoptionRejects(t *testing.T) {
-	target := &ChainedPromise{}
+	target := &Promise{}
 	target.state.Store(int32(Pending))
-	var source *ChainedPromise
+	var source *Promise
 	target.resolve(source)
 
 	if state := target.State(); state != Rejected {

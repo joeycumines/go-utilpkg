@@ -123,12 +123,12 @@ func TestJSTimerPromiseTerminalReactionDisposition(t *testing.T) {
 		name          string
 		timeout       bool
 		terminalChild bool
-		create        func(*JS, func(any) any) (*ChainedPromise, *ChainedPromise)
+		create        func(*JS, func(any) any) (*Promise, *Promise)
 	}{
 		{
 			name:          "sleep-then-handler",
 			terminalChild: true,
-			create: func(js *JS, handler func(any) any) (*ChainedPromise, *ChainedPromise) {
+			create: func(js *JS, handler func(any) any) (*Promise, *Promise) {
 				parent := js.Sleep(time.Hour)
 				return parent, parent.Then(handler, nil)
 			},
@@ -137,14 +137,14 @@ func TestJSTimerPromiseTerminalReactionDisposition(t *testing.T) {
 			name:          "timeout-catch-handler",
 			timeout:       true,
 			terminalChild: true,
-			create: func(js *JS, handler func(any) any) (*ChainedPromise, *ChainedPromise) {
+			create: func(js *JS, handler func(any) any) (*Promise, *Promise) {
 				parent := js.Timeout(time.Hour)
 				return parent, parent.Catch(handler)
 			},
 		},
 		{
 			name: "sleep-nil-pass-through",
-			create: func(js *JS, _ func(any) any) (*ChainedPromise, *ChainedPromise) {
+			create: func(js *JS, _ func(any) any) (*Promise, *Promise) {
 				parent := js.Sleep(time.Hour)
 				return parent, parent.Then(nil, nil)
 			},
@@ -152,7 +152,7 @@ func TestJSTimerPromiseTerminalReactionDisposition(t *testing.T) {
 		{
 			name:    "timeout-nil-pass-through",
 			timeout: true,
-			create: func(js *JS, _ func(any) any) (*ChainedPromise, *ChainedPromise) {
+			create: func(js *JS, _ func(any) any) (*Promise, *Promise) {
 				parent := js.Timeout(time.Hour)
 				return parent, parent.Catch(nil)
 			},
@@ -219,17 +219,17 @@ func TestJSTimerPromiseTerminalReactionDisposition(t *testing.T) {
 func TestTerminalTransitionSettlesTimerPromiseNeededByRunningCallback(t *testing.T) {
 	timerCases := []struct {
 		name   string
-		create func(*JS) *ChainedPromise
-		assert func(*testing.T, *ChainedPromise)
+		create func(*JS) *Promise
+		assert func(*testing.T, *Promise)
 	}{
 		{
 			name:   "sleep",
-			create: func(js *JS) *ChainedPromise { return js.Sleep(time.Hour) },
+			create: func(js *JS) *Promise { return js.Sleep(time.Hour) },
 			assert: assertSleepTerminalSettlement,
 		},
 		{
 			name:   "timeout",
-			create: func(js *JS) *ChainedPromise { return js.Timeout(time.Hour) },
+			create: func(js *JS) *Promise { return js.Timeout(time.Hour) },
 			assert: assertTimeoutTerminalSettlement,
 		},
 	}
@@ -322,17 +322,17 @@ func TestTerminalTransitionSettlesTimerPromiseNeededByRunningCallback(t *testing
 func TestJSTimerPromisesSettleWhenTerminationWinsBeforeTimerPublication(t *testing.T) {
 	timerCases := []struct {
 		name   string
-		create func(*JS) *ChainedPromise
-		assert func(*testing.T, *ChainedPromise)
+		create func(*JS) *Promise
+		assert func(*testing.T, *Promise)
 	}{
 		{
 			name:   "sleep",
-			create: func(js *JS) *ChainedPromise { return js.Sleep(time.Hour) },
+			create: func(js *JS) *Promise { return js.Sleep(time.Hour) },
 			assert: assertSleepTerminalSettlement,
 		},
 		{
 			name:   "timeout",
-			create: func(js *JS) *ChainedPromise { return js.Timeout(time.Hour) },
+			create: func(js *JS) *Promise { return js.Timeout(time.Hour) },
 			assert: assertTimeoutTerminalSettlement,
 		},
 	}
@@ -373,7 +373,7 @@ func TestJSTimerPromisesSettleWhenTerminationWinsBeforeTimerPublication(t *testi
 						<-releasePublication
 					},
 				}
-				promiseResult := make(chan *ChainedPromise, 1)
+				promiseResult := make(chan *Promise, 1)
 				go func() { promiseResult <- timerCase.create(js) }()
 
 				select {
@@ -391,7 +391,7 @@ func TestJSTimerPromisesSettleWhenTerminationWinsBeforeTimerPublication(t *testi
 				assertTimerPromiseRegistrySize(t, js, 0)
 				close(releasePublication)
 
-				var promise *ChainedPromise
+				var promise *Promise
 				select {
 				case promise = <-promiseResult:
 				case <-time.After(5 * time.Second):
@@ -407,17 +407,17 @@ func TestJSTimerPromisesSettleWhenTerminationWinsBeforeTimerPublication(t *testi
 func TestJSTimerPromisesSettleOnceWhenCallbackWinsTerminalRace(t *testing.T) {
 	timerCases := []struct {
 		name   string
-		create func(*JS) *ChainedPromise
-		assert func(*testing.T, *ChainedPromise)
+		create func(*JS) *Promise
+		assert func(*testing.T, *Promise)
 	}{
 		{
 			name:   "sleep",
-			create: func(js *JS) *ChainedPromise { return js.Sleep(0) },
+			create: func(js *JS) *Promise { return js.Sleep(0) },
 			assert: assertSleepTerminalSettlement,
 		},
 		{
 			name:   "timeout",
-			create: func(js *JS) *ChainedPromise { return js.Timeout(0) },
+			create: func(js *JS) *Promise { return js.Timeout(0) },
 			assert: assertTimeoutZeroSettlement,
 		},
 	}
@@ -571,7 +571,7 @@ func TestJSTimerPromiseTerminalSettlementSurvivesChannelOnlyGC(t *testing.T) {
 func assertTimerPromiseTerminalParent(
 	t *testing.T,
 	timeout bool,
-	parent *ChainedPromise,
+	parent *Promise,
 	result <-chan any,
 ) any {
 	t.Helper()
@@ -600,7 +600,7 @@ func assertTimerPromiseTerminalParent(
 	return reason
 }
 
-func assertTimerPromiseTerminalChild(t *testing.T, child *ChainedPromise, result <-chan any) {
+func assertTimerPromiseTerminalChild(t *testing.T, child *Promise, result <-chan any) {
 	t.Helper()
 	if state := child.State(); state != Rejected {
 		t.Fatalf("terminal reaction child state = %v, want Rejected", state)
@@ -614,8 +614,8 @@ func assertTimerPromiseTerminalChild(t *testing.T, child *ChainedPromise, result
 
 func assertTimerPromiseTerminalPassThrough(
 	t *testing.T,
-	parent *ChainedPromise,
-	child *ChainedPromise,
+	parent *Promise,
+	child *Promise,
 	result <-chan any,
 	parentOutcome any,
 ) {
@@ -663,7 +663,7 @@ func assertSingleTimerPromiseResult(t *testing.T, name string, result <-chan any
 	}
 }
 
-func assertSleepTerminalSettlement(t *testing.T, promise *ChainedPromise) {
+func assertSleepTerminalSettlement(t *testing.T, promise *Promise) {
 	t.Helper()
 	if state := promise.State(); state != Fulfilled {
 		t.Fatalf("Sleep state = %v, want Fulfilled", state)
@@ -674,18 +674,18 @@ func assertSleepTerminalSettlement(t *testing.T, promise *ChainedPromise) {
 	assertSingleTimerPromiseResult(t, "Sleep", promise.ToChannel(), nil)
 }
 
-func assertTimeoutTerminalSettlement(t *testing.T, promise *ChainedPromise) {
+func assertTimeoutTerminalSettlement(t *testing.T, promise *Promise) {
 	assertTimeoutSettlement(t, promise, "timeout after 1h0m0s")
 }
 
-func assertTimeoutZeroSettlement(t *testing.T, promise *ChainedPromise) {
+func assertTimeoutZeroSettlement(t *testing.T, promise *Promise) {
 	assertTimeoutSettlement(t, promise, "timeout after 0s")
 }
 
 func assertTimerPromiseAdmissionError(
 	t *testing.T,
 	name string,
-	promise *ChainedPromise,
+	promise *Promise,
 	want error,
 ) {
 	t.Helper()
@@ -698,7 +698,7 @@ func assertTimerPromiseAdmissionError(
 	assertSingleTimerPromiseResult(t, name, promise.ToChannel(), want)
 }
 
-func assertTimeoutSettlement(t *testing.T, promise *ChainedPromise, wantMessage string) {
+func assertTimeoutSettlement(t *testing.T, promise *Promise, wantMessage string) {
 	t.Helper()
 	if state := promise.State(); state != Rejected {
 		t.Fatalf("Timeout state = %v, want Rejected", state)
