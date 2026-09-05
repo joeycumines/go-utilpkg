@@ -6,39 +6,6 @@ import (
 	"unsafe"
 )
 
-func (l *Loop) storeTerminalError(err error) {
-	if err != nil {
-		l.terminalErr.Store(&terminalErrorBox{err: err})
-	}
-}
-
-func (l *Loop) terminalError() error {
-	var terminalErr error
-	value := l.terminalErr.Load()
-	if box, ok := value.(*terminalErrorBox); ok && box != nil {
-		terminalErr = box.err
-	}
-	return joinErrors(terminalErr, l.fdResourceCloseError())
-}
-
-func joinErrors(primary, secondary error) error {
-	if primary == nil {
-		return secondary
-	}
-	if secondary == nil {
-		return primary
-	}
-	return errors.Join(primary, secondary)
-}
-
-func (l *Loop) fdResourceCloseError() error {
-	value := l.fdCloseErr.Load()
-	if box, ok := value.(*terminalErrorBox); ok && box != nil {
-		return box.err
-	}
-	return nil
-}
-
 // drainWakeUpPipe drains the wake-up pipe and resets the wakeup pending flag.
 // This is called when the physical wake descriptor is reported ready.
 func (l *Loop) drainWakeUpPipe() {

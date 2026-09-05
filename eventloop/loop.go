@@ -1,39 +1,12 @@
 package eventloop
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 	"weak"
 
 	"github.com/joeycumines/logiface"
-)
-
-// Standard errors.
-var (
-	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
-	ErrLoopAlreadyRunning = errors.New("eventloop: loop is already running")
-
-	// ErrLoopTerminated is returned when operations are attempted on a terminated loop.
-	ErrLoopTerminated = errors.New("eventloop: loop has been terminated")
-
-	// ErrReentrantRun is returned when Run() is called from within the loop itself.
-	ErrReentrantRun = errors.New("eventloop: cannot call Run() from within the loop")
-
-	// ErrReentrantClose is returned when Close() is called from within the loop
-	// goroutine or from the goroutine that is draining accepted terminal callbacks.
-	ErrReentrantClose = errors.New("eventloop: cannot call Close() from within the loop")
-
-	// ErrFastPathIncompatible is returned when fast path mode is forced but I/O FDs are registered.
-	ErrFastPathIncompatible = errors.New("eventloop: fast path incompatible with registered I/O FDs")
-
-	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
-	ErrTimerNotFound = errors.New("eventloop: timer not found")
-
-	// ErrTimerIDExhausted is returned when a timer handle namespace has no
-	// remaining non-zero identifier.
-	ErrTimerIDExhausted = errors.New("eventloop: timer ID exhausted")
 )
 
 // Loop is a high-performance event loop implementation.

@@ -1,6 +1,73 @@
 package eventloop
 
-import "reflect"
+import (
+	"errors"
+	"fmt"
+	"reflect"
+)
+
+// Standard errors.
+var (
+	// ErrLoopAlreadyRunning is returned when Run() is called on a loop that is already running.
+	ErrLoopAlreadyRunning = errors.New("eventloop: loop is already running")
+
+	// ErrLoopTerminated is returned when operations are attempted on a terminated loop.
+	ErrLoopTerminated = errors.New("eventloop: loop has been terminated")
+
+	// ErrReentrantRun is returned when Run() is called from within the loop itself.
+	ErrReentrantRun = errors.New("eventloop: cannot call Run() from within the loop")
+
+	// ErrReentrantClose is returned when Close() is called from within the loop
+	// goroutine or from the goroutine that is draining accepted terminal callbacks.
+	ErrReentrantClose = errors.New("eventloop: cannot call Close() from within the loop")
+
+	// ErrFastPathIncompatible is returned when fast path mode is forced but I/O FDs are registered.
+	ErrFastPathIncompatible = errors.New("eventloop: fast path incompatible with registered I/O FDs")
+
+	// ErrTimerNotFound is returned when attempting to cancel a timer that does not exist.
+	ErrTimerNotFound = errors.New("eventloop: timer not found")
+
+	// ErrTimerIDExhausted is returned when a timer handle namespace has no
+	// remaining non-zero identifier.
+	ErrTimerIDExhausted = errors.New("eventloop: timer ID exhausted")
+)
+
+type terminalErrorBox struct {
+	err error
+}
+
+func (l *Loop) storeTerminalError(err error) {
+	if err != nil {
+		l.terminalErr.Store(&terminalErrorBox{err: err})
+	}
+}
+
+func (l *Loop) terminalError() error {
+	var terminalErr error
+	value := l.terminalErr.Load()
+	if box, ok := value.(*terminalErrorBox); ok && box != nil {
+		terminalErr = box.err
+	}
+	return joinErrors(terminalErr, l.fdResourceCloseError())
+}
+
+func joinErrors(primary, secondary error) error {
+	if primary == nil {
+		return secondary
+	}
+	if secondary == nil {
+		return primary
+	}
+	return errors.Join(primary, secondary)
+}
+
+func (l *Loop) fdResourceCloseError() error {
+	value := l.fdCloseErr.Load()
+	if box, ok := value.(*terminalErrorBox); ok && box != nil {
+		return box.err
+	}
+	return nil
+}
 
 func nonNilError(value any) error {
 	err, ok := value.(error)
@@ -15,6 +82,17 @@ func nonNilError(value any) error {
 		}
 	}
 	return err
+}
+
+// PanicError wraps a panic value recovered from a Go promise callback.
+type PanicError struct {
+	// Value is the recovered panic value (may be any type, including error).
+	Value any
+}
+
+// Error implements the error interface.
+func (e PanicError) Error() string {
+	return fmt.Sprintf("eventloop: promise callback panicked: %v", e.Value)
 }
 
 // Unwrap returns the underlying error if the panic value is an error type.
@@ -47,6 +125,59 @@ func (e PanicError) Is(target error) bool {
 		ok = pointerOK && pointer != nil
 	}
 	return ok
+}
+
+// AggregateError is the rejection reason used when [JS.Any] receives only
+// rejected inputs.
+//
+// The Errors field contains the rejection reasons from all failed promises,
+// preserving the order of the input promises array.
+//
+// Example:
+//
+//	promise := js.Any([]*ChainedPromise{
+//	    js.Reject(errors.New("error 1")),
+//	    js.Reject(errors.New("error 2")),
+//	})
+//	promise.Catch(func(r any) any {
+//	    if agg, ok := r.(*AggregateError); ok {
+//	        fmt.Printf("All failed. Errors:\n")
+//	        for i, err := range agg.Errors {
+//	            fmt.Printf("  [%d] %v\n", i, err)
+//	        }
+//	    }
+//	    return nil
+//	})
+type AggregateError struct {
+	// Message matches standard JS AggregateError property
+	Message string
+	// Errors contains all rejection reasons from failed promises.
+	// The order matches the input promises array to [JS.Any].
+	Errors []any
+}
+
+// Error implements the error interface.
+// Returns "All promises were rejected" as a generic message.
+// Individual rejection reasons can be accessed via the [Errors] field.
+func (e *AggregateError) Error() string {
+	if e != nil && e.Message != "" {
+		return e.Message
+	}
+	return "All promises were rejected"
+}
+
+// NilPromiseError reports a nil promise in a combinator input.
+type NilPromiseError struct {
+	// Index identifies the zero-based input position.
+	Index int
+}
+
+// Error implements error.
+func (e *NilPromiseError) Error() string {
+	if e == nil {
+		return "eventloop: nil promise"
+	}
+	return fmt.Sprintf("eventloop: nil promise at index %d", e.Index)
 }
 
 // Unwrap returns the errors slice for multi-error unwrapping (Go 1.20+).

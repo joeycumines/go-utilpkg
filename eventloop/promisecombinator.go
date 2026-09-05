@@ -1,7 +1,6 @@
 package eventloop
 
 import (
-	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -262,59 +261,6 @@ func (js *JS) Any(promises []*Promise) *Promise {
 	}
 
 	return result
-}
-
-// AggregateError is the rejection reason used when [JS.Any] receives only
-// rejected inputs.
-//
-// The Errors field contains the rejection reasons from all failed promises,
-// preserving the order of the input promises array.
-//
-// Example:
-//
-//	promise := js.Any([]*ChainedPromise{
-//	    js.Reject(errors.New("error 1")),
-//	    js.Reject(errors.New("error 2")),
-//	})
-//	promise.Catch(func(r any) any {
-//	    if agg, ok := r.(*AggregateError); ok {
-//	        fmt.Printf("All failed. Errors:\n")
-//	        for i, err := range agg.Errors {
-//	            fmt.Printf("  [%d] %v\n", i, err)
-//	        }
-//	    }
-//	    return nil
-//	})
-type AggregateError struct {
-	// Message matches standard JS AggregateError property
-	Message string
-	// Errors contains all rejection reasons from failed promises.
-	// The order matches the input promises array to [JS.Any].
-	Errors []any
-}
-
-// Error implements the error interface.
-// Returns "All promises were rejected" as a generic message.
-// Individual rejection reasons can be accessed via the [Errors] field.
-func (e *AggregateError) Error() string {
-	if e != nil && e.Message != "" {
-		return e.Message
-	}
-	return "All promises were rejected"
-}
-
-// NilPromiseError reports a nil promise in a combinator input.
-type NilPromiseError struct {
-	// Index identifies the zero-based input position.
-	Index int
-}
-
-// Error implements error.
-func (e *NilPromiseError) Error() string {
-	if e == nil {
-		return "eventloop: nil promise"
-	}
-	return fmt.Sprintf("eventloop: nil promise at index %d", e.Index)
 }
 
 func validatePromiseInputs(promises []*Promise) error {

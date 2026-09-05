@@ -3,7 +3,6 @@ package eventloop
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/joeycumines/goroutineid"
 )
@@ -12,17 +11,6 @@ var (
 	// ErrGoexit rejects a promise when its Go callback exits via runtime.Goexit.
 	ErrGoexit = errors.New("eventloop: promise callback exited via runtime.Goexit")
 )
-
-// PanicError wraps a panic value recovered from a Go promise callback.
-type PanicError struct {
-	// Value is the recovered panic value (may be any type, including error).
-	Value any
-}
-
-// Error implements the error interface.
-func (e PanicError) Error() string {
-	return fmt.Sprintf("eventloop: promise callback panicked: %v", e.Value)
-}
 
 // Promisify executes the given function in a new goroutine and returns a Promise
 // representing its result.

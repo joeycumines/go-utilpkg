@@ -25,10 +25,6 @@ const (
 	wakeSignalSubmitting
 )
 
-type terminalErrorBox struct {
-	err error
-}
-
 type callbackGateMode uint8
 
 const (
