@@ -1,9 +1,10 @@
-//go:build darwin
+//go:build darwin || dragonfly || freebsd || netbsd || openbsd
 
 package alternateone
 
 import (
 	"sync"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -100,19 +101,15 @@ func eventsToKevents(fd int, events IOEvents, flags uint16) []unix.Kevent_t {
 	var kevents []unix.Kevent_t
 
 	if events&EventRead != 0 {
-		kevents = append(kevents, unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: kqueueFilterRead,
-			Flags:  flags,
-		})
+		var kev unix.Kevent_t
+		unix.SetKevent(&kev, fd, int(kqueueFilterRead), int(flags))
+		kevents = append(kevents, kev)
 	}
 
 	if events&EventWrite != 0 {
-		kevents = append(kevents, unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: kqueueFilterWrite,
-			Flags:  flags,
-		})
+		var kev unix.Kevent_t
+		unix.SetKevent(&kev, fd, int(kqueueFilterWrite), int(flags))
+		kevents = append(kevents, kev)
 	}
 
 	return kevents
@@ -240,10 +237,8 @@ func (p *SafePoller) PollIO(timeoutMs int) (int, error) {
 	// Convert timeout
 	var ts *unix.Timespec
 	if timeoutMs >= 0 {
-		ts = &unix.Timespec{
-			Sec:  int64(timeoutMs / 1000),
-			Nsec: int64((timeoutMs % 1000) * 1000000),
-		}
+		unixTs := unix.NsecToTimespec(int64(timeoutMs) * int64(time.Millisecond))
+		ts = &unixTs
 	}
 
 	// Blocking syscall under lock (accepts starvation for correctness)

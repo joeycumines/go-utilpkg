@@ -1,4 +1,4 @@
-//go:build linux || darwin
+//go:build darwin || dragonfly || freebsd || linux || netbsd || openbsd
 
 package alternatetwo
 

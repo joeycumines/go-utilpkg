@@ -1,10 +1,11 @@
-//go:build darwin
+//go:build darwin || dragonfly || freebsd || netbsd || openbsd
 
 package alternatetwo
 
 import (
 	"errors"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -171,10 +172,8 @@ func (p *FastPoller) PollIO(timeoutMs int) (int, error) {
 
 	var ts *unix.Timespec
 	if timeoutMs >= 0 {
-		ts = &unix.Timespec{
-			Sec:  int64(timeoutMs / 1000),
-			Nsec: int64((timeoutMs % 1000) * 1000000),
-		}
+		unixTs := unix.NsecToTimespec(int64(timeoutMs) * int64(time.Millisecond))
+		ts = &unixTs
 	}
 
 	n, err := unix.Kevent(int(p.kq), nil, p.eventBuf[:], ts)
@@ -215,19 +214,15 @@ func eventsToKevents(fd int, events IOEvents, flags uint16) []unix.Kevent_t {
 	var kevents []unix.Kevent_t
 
 	if events&EventRead != 0 {
-		kevents = append(kevents, unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: unix.EVFILT_READ,
-			Flags:  flags,
-		})
+		var kev unix.Kevent_t
+		unix.SetKevent(&kev, fd, int(unix.EVFILT_READ), int(flags))
+		kevents = append(kevents, kev)
 	}
 
 	if events&EventWrite != 0 {
-		kevents = append(kevents, unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: unix.EVFILT_WRITE,
-			Flags:  flags,
-		})
+		var kev unix.Kevent_t
+		unix.SetKevent(&kev, fd, int(unix.EVFILT_WRITE), int(flags))
+		kevents = append(kevents, kev)
 	}
 
 	return kevents
