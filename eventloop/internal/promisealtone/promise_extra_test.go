@@ -56,8 +56,8 @@ func TestPromiseCycle(t *testing.T) {
 	// Resolve with itself
 	resolve(p)
 
-	if p.State() != promisealtone.Rejected {
-		t.Errorf("Expected rejected state for cycle, got %v", p.State())
+	if p.Settlement() != promisealtone.Rejected {
+		t.Errorf("Expected rejected state for cycle, got %v", p.Settlement())
 		return
 	}
 
@@ -75,8 +75,8 @@ func TestPromiseIndirectCycle(t *testing.T) {
 	resolve1(p2)
 	resolve2(p1)
 
-	if p1.State() != promisealtone.Pending || p2.State() != promisealtone.Pending {
-		t.Errorf("indirect cycle states = (%v, %v), want both Pending", p1.State(), p2.State())
+	if p1.Settlement() != promisealtone.Pending || p2.Settlement() != promisealtone.Pending {
+		t.Errorf("indirect cycle states = (%v, %v), want both Pending", p1.Settlement(), p2.Settlement())
 	}
 }
 
@@ -157,8 +157,8 @@ func FuzzPromiseChains(f *testing.F) {
 		if op%2 == 0 {
 			expected = promisealtone.Fulfilled
 		}
-		if p.State() != expected {
-			t.Fatalf("root state = %v, want %v", p.State(), expected)
+		if p.Settlement() != expected {
+			t.Fatalf("root state = %v, want %v", p.Settlement(), expected)
 		}
 	})
 }

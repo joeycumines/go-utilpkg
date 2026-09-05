@@ -2,16 +2,16 @@ package eventloop
 
 import "sync"
 
-// PromiseState represents the lifecycle state of a [Promise].
+// Settlement represents the lifecycle state of a [Promise] or [Future].
 // A promise starts in [Pending] state and transitions to either
 // [Fulfilled] or [Rejected].
 // State transitions are irreversible.
-type PromiseState int
+type Settlement int
 
 const (
 	// Pending indicates the promise operation is still in progress.
 	// The promise has not yet been resolved or rejected.
-	Pending PromiseState = iota
+	Pending Settlement = iota
 
 	// Fulfilled indicates the promise completed successfully with a value.
 	Fulfilled
@@ -26,7 +26,7 @@ const (
 	promiseRejectedPublishing  int32 = -3
 )
 
-func promiseState(value int32) PromiseState {
+func promiseState(value int32) Settlement {
 	switch value {
 	case promiseSettlementClaimed:
 		return Pending
@@ -35,7 +35,7 @@ func promiseState(value int32) PromiseState {
 	case promiseRejectedPublishing:
 		return Rejected
 	default:
-		return PromiseState(value)
+		return Settlement(value)
 	}
 }
 
@@ -53,11 +53,11 @@ func promisePending(value int32) bool {
 // The zero value is invalid. State, Result, and ToChannel panic when called on
 // a zero Future.
 type Future struct {
-	promise *promise
+	futureValue *futureValue
 }
 
-// State returns the current [PromiseState] (Pending, Fulfilled, or Rejected).
-func (p Future) State() PromiseState { return p.value().State() }
+// Settlement returns the current [Settlement] (Pending, Fulfilled, or Rejected).
+func (p Future) Settlement() Settlement { return p.value().Settlement() }
 
 // Result returns the result of the promise if settled, or nil if pending.
 // For resolved promises, it returns the fulfillment value. For rejected
@@ -70,35 +70,35 @@ func (p Future) Result() any { return p.value().Result() }
 // the promise is already settled, ToChannel returns a pre-filled channel.
 func (p Future) ToChannel() <-chan any { return p.value().ToChannel() }
 
-func (p Future) value() *promise {
-	if p.promise == nil {
+func (p Future) value() *futureValue {
+	if p.futureValue == nil {
 		panic("eventloop: zero Promise")
 	}
-	return p.promise
+	return p.futureValue
 }
 
 // promise is the concrete implementation.
-type promise struct {
+type futureValue struct {
 	result      any
 	subscribers []chan any // List of channels waiting for resolution
-	state       PromiseState
+	state       Settlement
 	mu          sync.Mutex
 }
 
-func (p *promise) State() PromiseState {
+func (p *futureValue) Settlement() Settlement {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.state
 }
 
-func (p *promise) Result() any {
+func (p *futureValue) Result() any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.result
 }
 
 // ToChannel returns a channel that will receive the result when settled.
-func (p *promise) ToChannel() <-chan any {
+func (p *futureValue) ToChannel() <-chan any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -116,7 +116,7 @@ func (p *promise) ToChannel() <-chan any {
 }
 
 // resolve sets the promise state to Fulfilled and notifies all subscribers.
-func (p *promise) resolve(val any) {
+func (p *futureValue) resolve(val any) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -130,7 +130,7 @@ func (p *promise) resolve(val any) {
 }
 
 // reject sets the promise state to Rejected and notifies all subscribers.
-func (p *promise) reject(err error) {
+func (p *futureValue) reject(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -145,7 +145,7 @@ func (p *promise) reject(err error) {
 
 // fanOut notifies all subscribers of the result and closes their channels.
 // Must be called with p.mu held.
-func (p *promise) fanOut() {
+func (p *futureValue) fanOut() {
 	for _, ch := range p.subscribers {
 		ch <- p.result
 		close(ch)

@@ -96,7 +96,7 @@ func TestAbortIntegrationWithPromisify(t *testing.T) {
 		if resultErr, ok := result.(error); !ok || !errors.Is(resultErr, context.Canceled) {
 			t.Fatalf("Promisify result: got %#v, want %v", result, context.Canceled)
 		}
-		if state := promise.State(); state != Rejected {
+		if state := promise.Settlement(); state != Rejected {
 			t.Fatalf("Promisify state: got %v, want %v", state, Rejected)
 		}
 	})

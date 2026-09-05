@@ -324,7 +324,7 @@ func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
 			outcome: func(context.Context) (any, error) { panic(panicValue) },
 			assertPromiseOutcome: func(t *testing.T, promise Future) {
 				t.Helper()
-				if state := promise.State(); state != Rejected {
+				if state := promise.Settlement(); state != Rejected {
 					t.Fatalf("Promisify state = %v, want Rejected", state)
 				}
 				panicError, ok := promise.Result().(PanicError)

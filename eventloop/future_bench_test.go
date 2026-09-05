@@ -8,7 +8,7 @@ import (
 const futureTournamentBatchSize = 256
 const futureTournamentFanOutBudget = 4096
 
-var benchmarkFutureStateSink PromiseState
+var benchmarkFutureStateSink Settlement
 var benchmarkFutureResultSink any
 
 func BenchmarkFutureRawCreate(b *testing.B) {
@@ -27,7 +27,7 @@ func BenchmarkFutureRawCreate(b *testing.B) {
 				b.StopTimer()
 				for index := range count {
 					instance := instances[index]
-					if instance.future == nil || instance.resolve == nil || instance.reject == nil || instance.future.State() != Pending {
+					if instance.future == nil || instance.resolve == nil || instance.reject == nil || instance.future.Settlement() != Pending {
 						b.Fatalf("factory returned invalid instance %d", index)
 					}
 					instance.resolve(nil)
@@ -41,7 +41,7 @@ func BenchmarkFutureRawCreate(b *testing.B) {
 func BenchmarkFutureRegisteredCreate(b *testing.B) {
 	b.Run(futureTournamentDirectSend.id, func(b *testing.B) {
 		registry := newRegistry()
-		promises := make([]*promise, futureTournamentBatchSize)
+		promises := make([]*futureValue, futureTournamentBatchSize)
 		b.ReportAllocs()
 		b.ResetTimer()
 		b.StopTimer()
@@ -147,7 +147,7 @@ func BenchmarkFutureSettleNoSubscriber(b *testing.B) {
 						}
 						b.StopTimer()
 						for index := range count {
-							if got := instances[index].future.State(); got != settlement.state {
+							if got := instances[index].future.Settlement(); got != settlement.state {
 								b.Fatalf("State() = %v, want %v", got, settlement.state)
 							}
 							if got := instances[index].future.Result(); got != settlement.want {
@@ -212,13 +212,13 @@ func BenchmarkFutureState(b *testing.B) {
 				b.Run(state.name, func(b *testing.B) {
 					instance := implementation.new()
 					state.apply(instance)
-					if got := instance.future.State(); got != state.state {
+					if got := instance.future.Settlement(); got != state.state {
 						b.Fatalf("State() = %v, want %v", got, state.state)
 					}
 					b.ReportAllocs()
 					b.ResetTimer()
 					for range b.N {
-						benchmarkFutureStateSink = instance.future.State()
+						benchmarkFutureStateSink = instance.future.Settlement()
 					}
 				})
 			}
@@ -233,7 +233,7 @@ func BenchmarkFutureResult(b *testing.B) {
 				b.Run(state.name, func(b *testing.B) {
 					instance := implementation.new()
 					state.apply(instance)
-					if got := instance.future.State(); got != state.state {
+					if got := instance.future.Settlement(); got != state.state {
 						b.Fatalf("State() = %v, want %v", got, state.state)
 					}
 					if got := instance.future.Result(); got != state.want {
@@ -252,7 +252,7 @@ func BenchmarkFutureResult(b *testing.B) {
 
 type futureTournamentSettlement struct {
 	name  string
-	state PromiseState
+	state Settlement
 	want  any
 	apply func(futureTournamentInstance)
 }
@@ -266,7 +266,7 @@ func futureTournamentSettlements() []futureTournamentSettlement {
 
 type futureTournamentState struct {
 	name  string
-	state PromiseState
+	state Settlement
 	want  any
 	apply func(futureTournamentInstance)
 }

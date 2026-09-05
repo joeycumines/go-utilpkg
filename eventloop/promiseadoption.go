@@ -19,7 +19,7 @@ type adoptionSettlement struct {
 	result any
 	source *Promise
 	target *Promise
-	state  PromiseState
+	state  Settlement
 }
 
 type adoptionSettlements []adoptionSettlement
@@ -198,7 +198,7 @@ func (settlements adoptionSettlements) settle() {
 	}
 }
 
-func (p *Promise) settleAdoption(target *Promise, state PromiseState, result any, reportOwner rejectionReportOwner) {
+func (p *Promise) settleAdoption(target *Promise, state Settlement, result any, reportOwner rejectionReportOwner) {
 	switch state {
 	case Fulfilled:
 		target.resolveClaimed(result)

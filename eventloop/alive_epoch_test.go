@@ -49,7 +49,7 @@ func TestAliveEpochValidationObservesConcurrentPromisifyCommit(t *testing.T) {
 	if err := waitContractValue(t, runDone, "epoch-test auto-exit completion"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if state := promise.State(); state != Fulfilled || promise.Result() != "committed" {
+	if state := promise.Settlement(); state != Fulfilled || promise.Result() != "committed" {
 		t.Fatalf("Promisify settlement = (%v, %#v), want Fulfilled committed", state, promise.Result())
 	}
 }

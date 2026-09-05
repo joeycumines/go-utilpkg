@@ -211,7 +211,7 @@ func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
 	timerErr := make(chan error, 1)
-	promiseMade := make(chan *promise, 1)
+	promiseMade := make(chan *futureValue, 1)
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
@@ -242,7 +242,7 @@ func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
 		t.Fatal("timer scheduling did not complete")
 	}
 
-	var pending *promise
+	var pending *futureValue
 	select {
 	case pending = <-promiseMade:
 	case <-time.After(time.Second):
@@ -276,8 +276,8 @@ func TestTimedOutShutdownStillRunsLoopOwnedCleanup(t *testing.T) {
 		t.Fatalf("refedTimerCount after timed-out Shutdown = %d, want 0", got)
 	}
 	waitContractSignal(t, loop.terminalDone, "timed-out Shutdown terminal cleanup")
-	if pending.State() != Rejected {
-		t.Fatalf("registry promise state after timed-out Shutdown = %v, want Rejected", pending.State())
+	if pending.Settlement() != Rejected {
+		t.Fatalf("registry promise state after timed-out Shutdown = %v, want Rejected", pending.Settlement())
 	}
 	if !errors.Is(pending.Result().(error), ErrLoopTerminated) {
 		t.Fatalf("registry promise reason = %v, want ErrLoopTerminated", pending.Result())
@@ -293,7 +293,7 @@ func TestShutdownFromLoopCallbackThenContextCancelRunsCleanup(t *testing.T) {
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	timerErr := make(chan error, 1)
 	shutdownErr := make(chan error, 1)
-	promiseMade := make(chan *promise, 1)
+	promiseMade := make(chan *futureValue, 1)
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
@@ -316,7 +316,7 @@ func TestShutdownFromLoopCallbackThenContextCancelRunsCleanup(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timer scheduling did not run")
 	}
-	var pending *promise
+	var pending *futureValue
 	select {
 	case pending = <-promiseMade:
 	case <-time.After(time.Second):
@@ -352,7 +352,7 @@ func TestTimedOutShutdownThenContextCancelRunsCleanup(t *testing.T) {
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
 	timerErr := make(chan error, 1)
-	promiseMade := make(chan *promise, 1)
+	promiseMade := make(chan *futureValue, 1)
 	if err := loop.Submit(func() {
 		_, err := loop.ScheduleTimer(time.Hour, func() {})
 		timerErr <- err
@@ -382,7 +382,7 @@ func TestTimedOutShutdownThenContextCancelRunsCleanup(t *testing.T) {
 		close(releaseCallback)
 		t.Fatal("timer scheduling did not complete")
 	}
-	var pending *promise
+	var pending *futureValue
 	select {
 	case pending = <-promiseMade:
 	case <-time.After(time.Second):
@@ -412,7 +412,7 @@ func TestTimedOutShutdownThenContextCancelRunsCleanup(t *testing.T) {
 	requireTerminatedCleanup(t, loop, pending)
 }
 
-func requireTerminatedCleanup(t *testing.T, loop *Loop, pending *promise) {
+func requireTerminatedCleanup(t *testing.T, loop *Loop, pending *futureValue) {
 	t.Helper()
 	waitContractSignal(t, loop.terminalDone, "loop-owned terminal cleanup")
 	if loop.Alive() {
@@ -424,8 +424,8 @@ func requireTerminatedCleanup(t *testing.T, loop *Loop, pending *promise) {
 	if got := loop.userIOFDCount.Load(); got != 0 {
 		t.Fatalf("userIOFDCount after loop-owned cleanup = %d, want 0", got)
 	}
-	if pending.State() != Rejected {
-		t.Fatalf("registry promise state after loop-owned cleanup = %v, want Rejected", pending.State())
+	if pending.Settlement() != Rejected {
+		t.Fatalf("registry promise state after loop-owned cleanup = %v, want Rejected", pending.Settlement())
 	}
 	if !errors.Is(pending.Result().(error), ErrLoopTerminated) {
 		t.Fatalf("registry promise reason = %v, want ErrLoopTerminated", pending.Result())

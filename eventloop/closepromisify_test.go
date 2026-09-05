@@ -353,7 +353,7 @@ func TestCloseRejectsWorkerLoopAccessAfterReturn(t *testing.T) {
 		jsTimerErr   error
 		shutdownErr  error
 		closeErr     error
-		nestedState  PromiseState
+		nestedState  Settlement
 		nestedResult any
 		registryData int
 		registryRing int
@@ -375,7 +375,7 @@ func TestCloseRejectsWorkerLoopAccessAfterReturn(t *testing.T) {
 		nested := loop.Promisify(context.Background(), func(context.Context) (any, error) {
 			return "unexpected", nil
 		})
-		result.nestedState = nested.State()
+		result.nestedState = nested.Settlement()
 		result.nestedResult = nested.Result()
 		loop.registry.mu.RLock()
 		result.registryData = len(loop.registry.data)

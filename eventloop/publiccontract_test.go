@@ -62,7 +62,7 @@ func TestPromisePublicViewHasNoSettlementCapability(t *testing.T) {
 func TestPromiseZeroValuePanics(t *testing.T) {
 	var promise eventloop.Future
 	for name, call := range map[string]func(){
-		"State":     func() { _ = promise.State() },
+		"State":     func() { _ = promise.Settlement() },
 		"Result":    func() { _ = promise.Result() },
 		"ToChannel": func() { _ = promise.ToChannel() },
 	} {

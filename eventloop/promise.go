@@ -201,9 +201,9 @@ func (js *JS) NewChainedPromise() (*Promise, ResolveFunc, RejectFunc) {
 	return p, resolve, reject
 }
 
-// State returns the current [PromiseState] of this promise.
+// State returns the current [Settlement] of this promise.
 // Thread-safe and can be called from any goroutine.
-func (p *Promise) State() PromiseState {
+func (p *Promise) State() Settlement {
 	return promiseState(p.state.Load())
 }
 

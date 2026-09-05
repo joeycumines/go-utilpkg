@@ -478,7 +478,7 @@ func TestPromisifySettlementPrecedesOwnerInternalObservation(t *testing.T) {
 	}
 
 	var callbackErrs fuzzErrs
-	observed := make(chan PromiseState, 1)
+	observed := make(chan Settlement, 1)
 	if err := loop.Submit(func() {
 		promise := loop.Promisify(context.Background(), func(context.Context) (any, error) {
 			return "value", nil
@@ -489,7 +489,7 @@ func TestPromisifySettlementPrecedesOwnerInternalObservation(t *testing.T) {
 			callbackErrs.add("Promisify settlement did not publish internal ingress")
 			return
 		}
-		if err := loop.SubmitInternal(func() { observed <- promise.State() }); err != nil {
+		if err := loop.SubmitInternal(func() { observed <- promise.Settlement() }); err != nil {
 			callbackErrs.add("owner SubmitInternal: %v", err)
 		}
 	}); err != nil {

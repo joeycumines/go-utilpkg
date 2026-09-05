@@ -159,7 +159,7 @@ func TestPromisifyLivenessControlsAutoExit(t *testing.T) {
 	if err := waitContractValue(t, runDone, "Promisify-controlled auto-exit completion"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if state := promise.State(); state != Fulfilled || promise.Result() != resultToken {
+	if state := promise.Settlement(); state != Fulfilled || promise.Result() != resultToken {
 		t.Fatalf("Promisify settlement = (%v, %T %#v), want Fulfilled result identity %p", state, promise.Result(), promise.Result(), resultToken)
 	}
 	if got := loop.promisifyCount.Load(); got != 0 {
@@ -172,7 +172,7 @@ func TestPromisifyLivenessControlsAutoExit(t *testing.T) {
 
 func assertPromisifyExactRejection(t *testing.T, promise Future, want error) {
 	t.Helper()
-	if state := promise.State(); state != Rejected {
+	if state := promise.Settlement(); state != Rejected {
 		t.Fatalf("Promisify state = %v, want Rejected", state)
 	}
 	if got, ok := promise.Result().(error); !ok || got != want {

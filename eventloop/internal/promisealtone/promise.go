@@ -11,8 +11,8 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// PromiseState is an alias for eventloop.PromiseState
-type PromiseState = eventloop.PromiseState
+// PromiseState is an alias for eventloop.Settlement
+type PromiseState = eventloop.Settlement
 
 const (
 	Pending   = eventloop.Pending
@@ -90,7 +90,7 @@ func newPromise(js *eventloop.JS) *Promise {
 
 // State returns the current state of the promise.
 // Lock-free.
-func (p *Promise) State() PromiseState {
+func (p *Promise) Settlement() PromiseState {
 	return PromiseState(p.state.Load())
 }
 
@@ -426,7 +426,7 @@ func All(js *eventloop.JS, promises []*Promise) *Promise {
 
 // Helper to check interface compliance
 var _ interface {
-	State() PromiseState
+	Settlement() PromiseState
 	Value() any
 	Reason() any
 	Then(func(any) any, func(any) any) *Promise
@@ -530,7 +530,7 @@ func Any(js *eventloop.JS, promises []*Promise) *Promise {
 
 // String returns a string representation of the promise independent of its result value.
 func (p *Promise) String() string {
-	state := p.State()
+	state := p.Settlement()
 	switch state {
 	case Pending:
 		return "Promise<Pending>"
@@ -553,7 +553,7 @@ func (p *Promise) Await(ctx interface {
 	Err() error
 }) (any, error) {
 	// Fast path
-	state := p.State()
+	state := p.Settlement()
 	if state == Fulfilled {
 		return p.result, nil
 	}

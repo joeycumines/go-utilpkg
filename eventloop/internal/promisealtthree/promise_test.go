@@ -13,8 +13,8 @@ import (
 func TestNew(t *testing.T) {
 	p, resolve, reject := promisealtthree.New(nil)
 
-	if p.State() != promisealtthree.Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	if p.Result() != nil {
@@ -29,14 +29,14 @@ func TestNew(t *testing.T) {
 func TestResolve(t *testing.T) {
 	p, resolve, _ := promisealtthree.New(nil)
 
-	if p.State() != promisealtthree.Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	resolve("value")
 
-	if p.State() != promisealtthree.Resolved {
-		t.Errorf("Expected Resolved, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Resolved {
+		t.Errorf("Expected Resolved, got: %v", p.Settlement())
 	}
 
 	if p.Result() != "value" {
@@ -50,8 +50,8 @@ func TestReject(t *testing.T) {
 
 	reject(errors.New("error"))
 
-	if p.State() != promisealtthree.Rejected {
-		t.Errorf("Expected Rejected, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Rejected {
+		t.Errorf("Expected Rejected, got: %v", p.Settlement())
 	}
 
 	if p.Result().(error).Error() != "error" {
@@ -177,8 +177,8 @@ func TestMultipleThen(t *testing.T) {
 	default:
 		t.Fatal("multiple-Then chain did not complete before auto-exit")
 	}
-	if chain.State() != promisealtthree.Fulfilled || chain.Result() != "value" {
-		t.Errorf("final chain = (%v, %v), want (Fulfilled, value)", chain.State(), chain.Result())
+	if chain.Settlement() != promisealtthree.Fulfilled || chain.Result() != "value" {
+		t.Errorf("final chain = (%v, %v), want (Fulfilled, value)", chain.Settlement(), chain.Result())
 	}
 }
 
@@ -207,8 +207,8 @@ func TestPromiseWithJS(t *testing.T) {
 
 	p, resolve, reject := promisealtthree.New(js)
 
-	if p.State() != promisealtthree.Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	if resolve == nil || reject == nil {
@@ -229,8 +229,8 @@ func TestPromiseWithJS(t *testing.T) {
 	default:
 		t.Fatal("JS reaction did not complete before auto-exit")
 	}
-	if child.State() != promisealtthree.Fulfilled || child.Result() != "value" {
-		t.Errorf("JS child = (%v, %v), want (Fulfilled, value)", child.State(), child.Result())
+	if child.Settlement() != promisealtthree.Fulfilled || child.Result() != "value" {
+		t.Errorf("JS child = (%v, %v), want (Fulfilled, value)", child.Settlement(), child.Result())
 	}
 }
 
@@ -284,8 +284,8 @@ func TestNilHandlers(t *testing.T) {
 
 	resolve("value")
 
-	if p.State() != promisealtthree.Resolved {
-		t.Errorf("Expected Resolved, got: %v", p.State())
+	if p.Settlement() != promisealtthree.Resolved {
+		t.Errorf("Expected Resolved, got: %v", p.Settlement())
 	}
 }
 

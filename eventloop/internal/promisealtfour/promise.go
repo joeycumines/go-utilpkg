@@ -11,8 +11,8 @@ import (
 	"github.com/joeycumines/go-eventloop"
 )
 
-// PromiseState is an alias for eventloop.PromiseState
-type PromiseState = eventloop.PromiseState
+// PromiseState is an alias for eventloop.Settlement
+type PromiseState = eventloop.Settlement
 
 const (
 	Pending   = eventloop.Pending

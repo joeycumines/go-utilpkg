@@ -315,8 +315,8 @@ func TestShutdown_PreRunDrainsPromisifyDependencyBeforeWorkerWait(t *testing.T) 
 	default:
 		t.Fatal("Shutdown returned before the dependency-bound Promisify worker completed")
 	}
-	if promise.State() != Fulfilled {
-		t.Fatalf("Promisify promise state = %v, want Fulfilled", promise.State())
+	if promise.Settlement() != Fulfilled {
+		t.Fatalf("Promisify promise state = %v, want Fulfilled", promise.Settlement())
 	}
 	if got := promise.Result(); got != "dependency-complete" {
 		t.Fatalf("Promisify promise result = %v, want dependency-complete", got)

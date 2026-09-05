@@ -8,8 +8,8 @@ import (
 
 func TestRegistryCompactionBelowLoadThreshold(t *testing.T) {
 	r := newRegistry()
-	kept := make(map[weak.Pointer[promise]]*promise, 30)
-	var allWPs []weak.Pointer[promise]
+	kept := make(map[weak.Pointer[futureValue]]*futureValue, 30)
+	var allWPs []weak.Pointer[futureValue]
 	for i := range 300 {
 		p := r.NewPromise()
 		wp := weak.Make(p)
@@ -43,8 +43,8 @@ func TestRegistryCompactionBelowLoadThreshold(t *testing.T) {
 
 func TestRegistryCompactionRetainsHighLoadRing(t *testing.T) {
 	r := newRegistry()
-	kept := make(map[weak.Pointer[promise]]*promise, 50)
-	settled := make([]weak.Pointer[promise], 0, 50)
+	kept := make(map[weak.Pointer[futureValue]]*futureValue, 50)
+	settled := make([]weak.Pointer[futureValue], 0, 50)
 	for i := range 100 {
 		p := r.NewPromise()
 		wp := weak.Make(p)

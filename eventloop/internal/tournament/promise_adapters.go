@@ -47,7 +47,7 @@ func (a *PromiseAltOneAdapter) Result() any {
 }
 
 func (a *PromiseAltOneAdapter) Settlement() PromiseSettlement {
-	return promiseSettlement(a.p.State(), a.p.Value(), a.p.Reason())
+	return promiseSettlement(a.p.Settlement(), a.p.Value(), a.p.Reason())
 }
 
 // PromiseAltTwoAdapter adapts promisealttwo.Promise
@@ -64,7 +64,7 @@ func (a *PromiseAltTwoAdapter) Result() any {
 }
 
 func (a *PromiseAltTwoAdapter) Settlement() PromiseSettlement {
-	return promiseSettlementResult(a.p.State(), a.p.Result())
+	return promiseSettlementResult(a.p.Settlement(), a.p.Result())
 }
 
 // PromiseAltThreeAdapter adapts promisealtthree.Promise
@@ -81,7 +81,7 @@ func (a *PromiseAltThreeAdapter) Result() any {
 }
 
 func (a *PromiseAltThreeAdapter) Settlement() PromiseSettlement {
-	return promiseSettlementResult(a.p.State(), a.p.Result())
+	return promiseSettlementResult(a.p.Settlement(), a.p.Result())
 }
 
 // PromiseAltFourAdapter adapts promisealtfour.Promise
@@ -285,7 +285,7 @@ func promiseAssessmentNotApplicable(reason string) PromiseAssessment {
 	return PromiseAssessment{Status: PromiseAssessmentNotApplicable, Reason: reason}
 }
 
-func promiseSettlement(state eventloop.PromiseState, value, reason any) PromiseSettlement {
+func promiseSettlement(state eventloop.Settlement, value, reason any) PromiseSettlement {
 	switch state {
 	case eventloop.Pending:
 		return PromiseSettlement{State: PromiseSettlementPending}
@@ -298,7 +298,7 @@ func promiseSettlement(state eventloop.PromiseState, value, reason any) PromiseS
 	}
 }
 
-func promiseSettlementResult(state eventloop.PromiseState, result any) PromiseSettlement {
+func promiseSettlementResult(state eventloop.Settlement, result any) PromiseSettlement {
 	switch state {
 	case eventloop.Pending:
 		return PromiseSettlement{State: PromiseSettlementPending}

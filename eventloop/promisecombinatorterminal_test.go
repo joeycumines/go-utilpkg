@@ -22,7 +22,7 @@ func TestPromiseCombinatorsRejectTerminalReactionScheduleFailure(t *testing.T) {
 					for _, settlement := range []struct {
 						name       string
 						reject     bool
-						wantSource PromiseState
+						wantSource Settlement
 					}{
 						{name: "fulfilled source", wantSource: Fulfilled},
 						{name: "rejected source", reject: true, wantSource: Rejected},

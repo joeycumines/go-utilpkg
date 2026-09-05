@@ -18,15 +18,15 @@ func TestRegistryRejectAllPreservesSettledAndRejectsPending(t *testing.T) {
 	shutdownReason := errors.New("shutdown")
 	r.RejectAll(shutdownReason)
 
-	if fulfilled.State() != Fulfilled || fulfilled.Result() != "fulfilled" {
-		t.Fatalf("fulfilled promise = (state %v, result %v), want (Fulfilled, fulfilled)", fulfilled.State(), fulfilled.Result())
+	if fulfilled.Settlement() != Fulfilled || fulfilled.Result() != "fulfilled" {
+		t.Fatalf("fulfilled promise = (state %v, result %v), want (Fulfilled, fulfilled)", fulfilled.Settlement(), fulfilled.Result())
 	}
-	if rejected.State() != Rejected || rejected.Result() != priorReason {
-		t.Fatalf("previously rejected promise = (state %v, reason %v), want (Rejected, %v)", rejected.State(), rejected.Result(), priorReason)
+	if rejected.Settlement() != Rejected || rejected.Result() != priorReason {
+		t.Fatalf("previously rejected promise = (state %v, reason %v), want (Rejected, %v)", rejected.Settlement(), rejected.Result(), priorReason)
 	}
-	for i, promise := range []*promise{firstPending, secondPending} {
-		if promise.State() != Rejected || promise.Result() != shutdownReason {
-			t.Errorf("pending promise %d = (state %v, reason %v), want (Rejected, %v)", i, promise.State(), promise.Result(), shutdownReason)
+	for i, promise := range []*futureValue{firstPending, secondPending} {
+		if promise.Settlement() != Rejected || promise.Result() != shutdownReason {
+			t.Errorf("pending promise %d = (state %v, reason %v), want (Rejected, %v)", i, promise.Settlement(), promise.Result(), shutdownReason)
 		}
 	}
 
@@ -40,11 +40,11 @@ func TestRegistryRejectAllPreservesSettledAndRejectsPending(t *testing.T) {
 	}
 
 	r.RejectAll(errors.New("second shutdown"))
-	if fulfilled.State() != Fulfilled || fulfilled.Result() != "fulfilled" || rejected.State() != Rejected || rejected.Result() != priorReason {
+	if fulfilled.Settlement() != Fulfilled || fulfilled.Result() != "fulfilled" || rejected.Settlement() != Rejected || rejected.Result() != priorReason {
 		t.Fatal("repeated RejectAll changed an already settled promise")
 	}
-	for i, promise := range []*promise{firstPending, secondPending} {
-		if promise.State() != Rejected || promise.Result() != shutdownReason {
+	for i, promise := range []*futureValue{firstPending, secondPending} {
+		if promise.Settlement() != Rejected || promise.Result() != shutdownReason {
 			t.Errorf("repeated RejectAll changed pending promise %d settlement", i)
 		}
 	}
@@ -53,7 +53,7 @@ func TestRegistryRejectAllPreservesSettledAndRejectsPending(t *testing.T) {
 func TestRegistryRejectAllConcurrentScavenge(t *testing.T) {
 	const promiseCount = 256
 	r := newRegistry()
-	promises := make([]*promise, promiseCount)
+	promises := make([]*futureValue, promiseCount)
 	for i := range promises {
 		promises[i] = r.NewPromise()
 	}
@@ -76,8 +76,8 @@ func TestRegistryRejectAllConcurrentScavenge(t *testing.T) {
 	waitContractSignal(t, done, "concurrent registry rejection")
 
 	for i, promise := range promises {
-		if promise.State() != Rejected || promise.Result() != reason {
-			t.Errorf("promise %d after concurrent Scavenge and RejectAll = (state %v, reason %v), want (Rejected, %v)", i, promise.State(), promise.Result(), reason)
+		if promise.Settlement() != Rejected || promise.Result() != reason {
+			t.Errorf("promise %d after concurrent Scavenge and RejectAll = (state %v, reason %v), want (Rejected, %v)", i, promise.Settlement(), promise.Result(), reason)
 		}
 	}
 	r.mu.RLock()
@@ -93,7 +93,7 @@ func TestRegistryRejectAllConcurrentScavenge(t *testing.T) {
 func TestRegistryRejectAllDiscardsHighWaterStorage(t *testing.T) {
 	const promiseCount = retainedRegistryHighWater + 257
 	r := newRegistry()
-	promises := make([]*promise, promiseCount)
+	promises := make([]*futureValue, promiseCount)
 	for index := range promises {
 		promises[index] = r.NewPromise()
 	}
@@ -113,8 +113,8 @@ func TestRegistryRejectAllDiscardsHighWaterStorage(t *testing.T) {
 		t.Fatalf("registry storage after RejectAll = (data nil %v, ring nil %v, head %d), want (true, true, 0)", data == nil, ring == nil, head)
 	}
 	for index, promise := range promises {
-		if promise.State() != Rejected || promise.Result() != reason {
-			t.Fatalf("promise %d after RejectAll = (state %v, reason %v), want (Rejected, %v)", index, promise.State(), promise.Result(), reason)
+		if promise.Settlement() != Rejected || promise.Result() != reason {
+			t.Fatalf("promise %d after RejectAll = (state %v, reason %v), want (Rejected, %v)", index, promise.Settlement(), promise.Result(), reason)
 		}
 	}
 }

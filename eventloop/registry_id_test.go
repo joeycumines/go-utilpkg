@@ -13,15 +13,15 @@ func TestRegistryNewPromisePublication(t *testing.T) {
 
 	r.mu.RLock()
 	_, exists := r.data[wp]
-	ring := append([]weak.Pointer[promise](nil), r.ring...)
+	ring := append([]weak.Pointer[futureValue](nil), r.ring...)
 	head := r.head
 	r.mu.RUnlock()
 
 	if p == nil {
 		t.Fatal("first promise is nil")
 	}
-	if p.State() != Pending {
-		t.Fatalf("first promise state = %v, want Pending", p.State())
+	if p.Settlement() != Pending {
+		t.Fatalf("first promise state = %v, want Pending", p.Settlement())
 	}
 	if !exists {
 		t.Fatalf("registered promise not found in data via weak pointer")
@@ -62,7 +62,7 @@ func TestRegistryNewPromiseUniquePointers(t *testing.T) {
 	}
 	// Ensure zero sentinel not used
 	r.mu.RLock()
-	_, sentinelRegistered := r.data[weak.Pointer[promise]{}]
+	_, sentinelRegistered := r.data[weak.Pointer[futureValue]{}]
 	r.mu.RUnlock()
 	if sentinelRegistered {
 		t.Fatal("promise registry stored entry under zero weak pointer sentinel")
@@ -76,8 +76,8 @@ func TestRegistryNewPromiseConcurrentIDs(t *testing.T) {
 	)
 
 	type result struct {
-		wp      weak.Pointer[promise]
-		promise *promise
+		wp      weak.Pointer[futureValue]
+		promise *futureValue
 	}
 
 	r := newRegistry()
@@ -92,17 +92,17 @@ func TestRegistryNewPromiseConcurrentIDs(t *testing.T) {
 		}()
 	}
 
-	registered := make(map[weak.Pointer[promise]]*promise, workerCount*promisesPerWorker)
+	registered := make(map[weak.Pointer[futureValue]]*futureValue, workerCount*promisesPerWorker)
 	for range workerCount * promisesPerWorker {
 		got := waitContractValue(t, results, "concurrent registry allocation")
-		if got.wp == (weak.Pointer[promise]{}) {
+		if got.wp == (weak.Pointer[futureValue]{}) {
 			t.Fatal("concurrent allocation published zero weak pointer sentinel")
 		}
 		if got.promise == nil {
 			t.Fatalf("concurrent allocation for wp %v published a nil promise", got.wp)
 		}
-		if got.promise.State() != Pending {
-			t.Fatalf("concurrent allocation for wp %v published state %v, want Pending", got.wp, got.promise.State())
+		if got.promise.Settlement() != Pending {
+			t.Fatalf("concurrent allocation for wp %v published state %v, want Pending", got.wp, got.promise.Settlement())
 		}
 		if got.wp.Value() != got.promise {
 			t.Fatalf("weak pointer value mismatch: wp.Value()=%p want %p", got.wp.Value(), got.promise)

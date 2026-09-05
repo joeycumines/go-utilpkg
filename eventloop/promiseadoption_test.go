@@ -123,13 +123,13 @@ func TestChainedPromiseCrossAdapterRejectionUsesTargetOwner(t *testing.T) {
 	target, resolveTarget, _ := targetJS.NewChainedPromise()
 	observed := make(chan struct {
 		onTarget bool
-		state    PromiseState
+		state    Settlement
 		reason   any
 	}, 1)
 	child := target.Catch(func(reason any) any {
 		observed <- struct {
 			onTarget bool
-			state    PromiseState
+			state    Settlement
 			reason   any
 		}{
 			onTarget: targetLoop.isLoopThread() && !sourceLoop.isLoopThread(),

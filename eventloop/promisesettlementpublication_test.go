@@ -18,12 +18,12 @@ func TestChainedPromiseReactionObservesPublishedFulfillment(t *testing.T) {
 	}
 	promise, resolve, _ := js.NewChainedPromise()
 	observed := make(chan struct {
-		state PromiseState
+		state Settlement
 		value any
 	}, 1)
 	promise.Then(func(value any) any {
 		observed <- struct {
-			state PromiseState
+			state Settlement
 			value any
 		}{state: promise.State(), value: promise.Value()}
 		return value
@@ -159,12 +159,12 @@ func TestChainedPromiseReactionObservesPublishedRejection(t *testing.T) {
 	}
 	promise, _, reject := js.NewChainedPromise()
 	observed := make(chan struct {
-		state  PromiseState
+		state  Settlement
 		reason any
 	}, 1)
 	promise.Catch(func(reason any) any {
 		observed <- struct {
-			state  PromiseState
+			state  Settlement
 			reason any
 		}{state: promise.State(), reason: promise.Reason()}
 		return reason

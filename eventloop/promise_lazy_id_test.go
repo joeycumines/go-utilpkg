@@ -110,7 +110,7 @@ func TestPromisePointerIdentity_StandaloneNotTracked(t *testing.T) {
 	p.resolve("value")
 
 	// Should complete without error (no JS to track with)
-	if PromiseState(p.state.Load()) != Fulfilled {
+	if Settlement(p.state.Load()) != Fulfilled {
 		t.Error("Expected standalone promise to be fulfilled")
 	}
 }

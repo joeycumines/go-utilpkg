@@ -9,7 +9,7 @@ import (
 )
 
 type futureTournament interface {
-	State() PromiseState
+	Settlement() Settlement
 	Result() any
 	ToChannel() <-chan any
 }
@@ -30,7 +30,7 @@ var futureTournamentDirectSend = futureTournamentImplementation{
 	id:   "future.basic.direct-send-channel-fanout",
 	name: "DirectSendChannelFanOut",
 	new: func() futureTournamentInstance {
-		future := &promise{state: Pending}
+		future := &futureValue{state: Pending}
 		return futureTournamentInstance{future: future, resolve: future.resolve, reject: future.reject}
 	},
 }
@@ -58,11 +58,11 @@ func futureTournamentImplementations() []futureTournamentImplementation {
 type trySendLogFutureTournament struct {
 	result      any
 	subscribers []chan any
-	state       PromiseState
+	state       Settlement
 	mu          sync.Mutex
 }
 
-func (p *trySendLogFutureTournament) State() PromiseState {
+func (p *trySendLogFutureTournament) Settlement() Settlement {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.state
@@ -153,7 +153,7 @@ func testFutureTournamentImplementation(t *testing.T, implementation futureTourn
 	for _, test := range []struct {
 		name      string
 		settle    func(futureTournamentInstance)
-		wantState PromiseState
+		wantState Settlement
 		want      any
 	}{
 		{name: "Resolve", settle: func(instance futureTournamentInstance) { instance.resolve(42) }, wantState: Fulfilled, want: 42},
@@ -169,7 +169,7 @@ func testFutureTournamentImplementation(t *testing.T, implementation futureTourn
 			test.settle(instance)
 			instance.resolve("ignored resolve")
 			instance.reject(errors.New("ignored reject"))
-			if got := instance.future.State(); got != test.wantState {
+			if got := instance.future.Settlement(); got != test.wantState {
 				t.Fatalf("State() = %v, want %v", got, test.wantState)
 			}
 			if got := instance.future.Result(); got != test.want {

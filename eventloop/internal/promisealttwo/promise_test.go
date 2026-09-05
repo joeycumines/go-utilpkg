@@ -14,8 +14,8 @@ import (
 func TestNew(t *testing.T) {
 	p, resolve, reject := New(nil)
 
-	if p.State() != Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	if p.Result() != nil {
@@ -31,14 +31,14 @@ func TestNew(t *testing.T) {
 func TestResolve(t *testing.T) {
 	p, resolve, _ := New(nil)
 
-	if p.State() != Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	resolve("value")
 
-	if p.State() != Resolved {
-		t.Errorf("Expected Resolved, got: %v", p.State())
+	if p.Settlement() != Resolved {
+		t.Errorf("Expected Resolved, got: %v", p.Settlement())
 	}
 
 	if p.Result() != "value" {
@@ -50,14 +50,14 @@ func TestResolve(t *testing.T) {
 func TestReject(t *testing.T) {
 	p, _, reject := New(nil)
 
-	if p.State() != Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	reject(errors.New("error"))
 
-	if p.State() != Rejected {
-		t.Errorf("Expected Rejected, got: %v", p.State())
+	if p.Settlement() != Rejected {
+		t.Errorf("Expected Rejected, got: %v", p.Settlement())
 	}
 
 	if p.Result().(error).Error() != "error" {
@@ -73,8 +73,8 @@ func TestThen(t *testing.T) {
 		return v.(string) + " transformed"
 	}, nil)
 	resolve("original")
-	if child.State() != Fulfilled || child.Result() != "original transformed" {
-		t.Errorf("Then child = (%v, %v), want (Fulfilled, original transformed)", child.State(), child.Result())
+	if child.Settlement() != Fulfilled || child.Result() != "original transformed" {
+		t.Errorf("Then child = (%v, %v), want (Fulfilled, original transformed)", child.Settlement(), child.Result())
 	}
 }
 
@@ -123,8 +123,8 @@ func TestMultipleThen(t *testing.T) {
 	}
 
 	resolve("value")
-	if chain.State() != Fulfilled || chain.Result() != "value" {
-		t.Errorf("final chain = (%v, %v), want (Fulfilled, value)", chain.State(), chain.Result())
+	if chain.Settlement() != Fulfilled || chain.Result() != "value" {
+		t.Errorf("final chain = (%v, %v), want (Fulfilled, value)", chain.Settlement(), chain.Result())
 	}
 }
 
@@ -156,8 +156,8 @@ func TestPromiseWithJS(t *testing.T) {
 	}
 	p, resolve, _ := New(js)
 
-	if p.State() != Pending {
-		t.Errorf("Expected Pending, got: %v", p.State())
+	if p.Settlement() != Pending {
+		t.Errorf("Expected Pending, got: %v", p.Settlement())
 	}
 
 	done := make(chan any, 1)
@@ -179,8 +179,8 @@ func TestPromiseWithJS(t *testing.T) {
 	default:
 		t.Fatal("JS reaction did not execute before auto-exit")
 	}
-	if child.State() != Fulfilled || child.Result() != "value" {
-		t.Errorf("JS child = (%v, %v), want (Fulfilled, value)", child.State(), child.Result())
+	if child.Settlement() != Fulfilled || child.Result() != "value" {
+		t.Errorf("JS child = (%v, %v), want (Fulfilled, value)", child.Settlement(), child.Result())
 	}
 }
 
@@ -222,8 +222,8 @@ func TestNilHandlers(t *testing.T) {
 	for name, child := range map[string]*Promise{
 		"Then": thenChild, "Catch": catchChild, "Finally": finallyChild,
 	} {
-		if child.State() != Fulfilled || child.Result() != "value" {
-			t.Errorf("%s nil-handler child = (%v, %v), want (Fulfilled, value)", name, child.State(), child.Result())
+		if child.Settlement() != Fulfilled || child.Result() != "value" {
+			t.Errorf("%s nil-handler child = (%v, %v), want (Fulfilled, value)", name, child.Settlement(), child.Result())
 		}
 	}
 }
@@ -283,8 +283,8 @@ func TestRejectChain(t *testing.T) {
 	// Note: In this implementation, handlers are processed asynchronously
 	reject(errors.New("original error"))
 	result, ok := child.Result().(error)
-	if child.State() != Fulfilled || !ok || result.Error() != "handled" {
-		t.Errorf("Catch child = (%v, %v), want fulfilled handled error", child.State(), child.Result())
+	if child.Settlement() != Fulfilled || !ok || result.Error() != "handled" {
+		t.Errorf("Catch child = (%v, %v), want fulfilled handled error", child.Settlement(), child.Result())
 	}
 }
 
@@ -294,8 +294,8 @@ func TestNilResult(t *testing.T) {
 
 	resolve(nil)
 
-	if p.State() != Resolved {
-		t.Errorf("Expected Resolved, got: %v", p.State())
+	if p.Settlement() != Resolved {
+		t.Errorf("Expected Resolved, got: %v", p.Settlement())
 	}
 
 	if p.Result() != nil {
@@ -315,8 +315,8 @@ func TestErrorTypes(t *testing.T) {
 		p, _, reject := New(nil)
 		reject(err)
 
-		if p.State() != Rejected {
-			t.Errorf("Expected Rejected for error '%v', got: %v", err, p.State())
+		if p.Settlement() != Rejected {
+			t.Errorf("Expected Rejected for error '%v', got: %v", err, p.Settlement())
 		}
 	}
 }

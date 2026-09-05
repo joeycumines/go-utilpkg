@@ -97,7 +97,7 @@ func TestHandlePollErrorDoesNotWaitPromisifyOnLoopGoroutine(t *testing.T) {
 	}
 
 	result := waitContractValue(t, promise.ToChannel(), "poll-error Promisify settlement")
-	if state := promise.State(); state != Fulfilled {
+	if state := promise.Settlement(); state != Fulfilled {
 		t.Fatalf("Promisify promise state = %v, want Fulfilled; result=%v", state, result)
 	}
 	if result != "released" {

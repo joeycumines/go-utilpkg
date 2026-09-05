@@ -393,7 +393,7 @@ func BenchmarkPromisifyCompletionEndToEnd(b *testing.B) {
 			b.Fatal("timed out requesting Promisify worker completion")
 		}
 		waitBenchmarkSignalDeadline(b, waitResults, deadline.C, "Promisify worker completion")
-		if state := promise.State(); state != Fulfilled {
+		if state := promise.Settlement(); state != Fulfilled {
 			b.Fatalf("Promisify state = %v, want %v", state, Fulfilled)
 		}
 		if value := promise.Result(); value != promiseBenchmarkTokens[0] {

@@ -152,7 +152,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 		}
 	}()
 
-	return Future{promise: p}
+	return Future{futureValue: p}
 }
 
 func (l *Loop) isPromisifyWorker() bool {
@@ -161,12 +161,12 @@ func (l *Loop) isPromisifyWorker() bool {
 }
 
 func newRejectedPromise(err error) Future {
-	p := &promise{}
+	p := &futureValue{}
 	p.reject(err)
-	return Future{promise: p}
+	return Future{futureValue: p}
 }
 
-func (l *Loop) rejectPromisify(p *promise, err error) {
+func (l *Loop) rejectPromisify(p *futureValue, err error) {
 	l.terminalDrainMu.Lock()
 	defer l.terminalDrainMu.Unlock()
 	if l.immediateClose.Load() {
@@ -176,7 +176,7 @@ func (l *Loop) rejectPromisify(p *promise, err error) {
 	p.reject(err)
 }
 
-func (l *Loop) resolvePromisify(p *promise, result any) {
+func (l *Loop) resolvePromisify(p *futureValue, result any) {
 	l.terminalDrainMu.Lock()
 	defer l.terminalDrainMu.Unlock()
 	if l.immediateClose.Load() {

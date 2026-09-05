@@ -64,7 +64,7 @@ func TestAlive_PromisifyDuringExecution(t *testing.T) {
 	if err := waitContractValue(t, runDone, "Promisify Alive Run completion"); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if state := promise.State(); state != Fulfilled {
+	if state := promise.Settlement(); state != Fulfilled {
 		t.Fatalf("Promisify state = %v, want Fulfilled", state)
 	}
 	if result := promise.Result(); result != wantResult {

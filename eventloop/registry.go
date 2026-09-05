@@ -9,10 +9,10 @@ import (
 // It uses a Ring Buffer strategy for efficient scavenging.
 type registry struct {
 	// data stores weak pointers to promises as membership set.
-	data map[weak.Pointer[promise]]struct{}
+	data map[weak.Pointer[futureValue]]struct{}
 
 	// ring is a circular buffer of weak pointers used for scavenging.
-	ring []weak.Pointer[promise]
+	ring []weak.Pointer[futureValue]
 
 	// head is the current cursor position in the ring for the scavenger.
 	head int
@@ -27,21 +27,21 @@ type registry struct {
 // newRegistry creates a new initialized registry.
 func newRegistry() *registry {
 	return &registry{
-		data: make(map[weak.Pointer[promise]]struct{}),
-		ring: make([]weak.Pointer[promise], 0, 1024),
+		data: make(map[weak.Pointer[futureValue]]struct{}),
+		ring: make([]weak.Pointer[futureValue], 0, 1024),
 	}
 }
 
 // NewPromise creates a new promise, registers it, and returns the concrete promise.
-func (r *registry) NewPromise() *promise {
-	p := &promise{
+func (r *registry) NewPromise() *futureValue {
+	p := &futureValue{
 		state: Pending,
 	}
 	wp := weak.Make(p)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.data == nil {
-		r.data = make(map[weak.Pointer[promise]]struct{})
+		r.data = make(map[weak.Pointer[futureValue]]struct{})
 	}
 	r.data[wp] = struct{}{}
 	r.ring = append(r.ring, wp)
@@ -69,14 +69,14 @@ func (r *registry) Scavenge(batchSize int) {
 	end := min(start+batchSize, ringLen)
 
 	type item struct {
-		wp  weak.Pointer[promise]
+		wp  weak.Pointer[futureValue]
 		idx int
 	}
 	items := make([]item, 0, end-start)
 
 	for i := start; i < end; i++ {
 		wp := r.ring[i]
-		if wp != (weak.Pointer[promise]{}) {
+		if wp != (weak.Pointer[futureValue]{}) {
 			items = append(items, item{wp, i})
 		}
 	}
@@ -100,7 +100,7 @@ func (r *registry) Scavenge(batchSize int) {
 
 	for _, it := range validItems {
 		val := it.wp.Value()
-		if val == nil || val.State() != Pending {
+		if val == nil || val.Settlement() != Pending {
 			itemsToRemove = append(itemsToRemove, it)
 		}
 	}
@@ -110,7 +110,7 @@ func (r *registry) Scavenge(batchSize int) {
 		for _, it := range itemsToRemove {
 			delete(r.data, it.wp)
 			if it.idx < len(r.ring) && r.ring[it.idx] == it.wp {
-				r.ring[it.idx] = weak.Pointer[promise]{}
+				r.ring[it.idx] = weak.Pointer[futureValue]{}
 			}
 		}
 		r.head = nextHead
@@ -140,7 +140,7 @@ func (r *registry) RejectAll(err error) {
 
 	for wp := range r.data {
 		p := wp.Value()
-		if p != nil && p.State() == Pending {
+		if p != nil && p.Settlement() == Pending {
 			p.reject(err)
 		}
 		delete(r.data, wp)
@@ -155,11 +155,11 @@ func (r *registry) RejectAll(err error) {
 // Go's delete() doesn't free hashmap bucket array; allocating a new map reclaims memory.
 // Must be called with mu.Lock held.
 func (r *registry) compactAndRenew() {
-	newRing := make([]weak.Pointer[promise], 0, len(r.data))
-	newData := make(map[weak.Pointer[promise]]struct{}, len(r.data))
+	newRing := make([]weak.Pointer[futureValue], 0, len(r.data))
+	newData := make(map[weak.Pointer[futureValue]]struct{}, len(r.data))
 
 	for _, wp := range r.ring {
-		if wp != (weak.Pointer[promise]{}) {
+		if wp != (weak.Pointer[futureValue]{}) {
 			if _, ok := r.data[wp]; ok {
 				newRing = append(newRing, wp)
 				newData[wp] = struct{}{}

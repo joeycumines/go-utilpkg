@@ -11,7 +11,7 @@ func TestTrySynchronousSettlement(t *testing.T) {
 	tests := []struct {
 		name      string
 		callback  func() any
-		wantState PromiseState
+		wantState Settlement
 		wantValue any
 	}{
 		{name: "string fulfillment", callback: func() any { return "success" }, wantState: Fulfilled, wantValue: "success"},

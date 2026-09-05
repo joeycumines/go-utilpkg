@@ -9,8 +9,8 @@ import (
 
 func TestRegistryScavengeBatchesSettlement(t *testing.T) {
 	r := newRegistry()
-	wps := make([]weak.Pointer[promise], 6)
-	promises := make([]*promise, len(wps))
+	wps := make([]weak.Pointer[futureValue], 6)
+	promises := make([]*futureValue, len(wps))
 	for i := range wps {
 		p := r.NewPromise()
 		wps[i] = weak.Make(p)
@@ -23,11 +23,11 @@ func TestRegistryScavengeBatchesSettlement(t *testing.T) {
 	r.Scavenge(3)
 
 	r.mu.RLock()
-	firstData := make(map[weak.Pointer[promise]]bool, len(r.data))
+	firstData := make(map[weak.Pointer[futureValue]]bool, len(r.data))
 	for wp := range r.data {
 		firstData[wp] = true
 	}
-	firstRing := append([]weak.Pointer[promise](nil), r.ring...)
+	firstRing := append([]weak.Pointer[futureValue](nil), r.ring...)
 	firstHead := r.head
 	r.mu.RUnlock()
 
@@ -37,18 +37,18 @@ func TestRegistryScavengeBatchesSettlement(t *testing.T) {
 	if len(firstData) != 4 || !firstData[wps[0]] || !firstData[wps[3]] || !firstData[wps[4]] || !firstData[wps[5]] {
 		t.Fatalf("data after first batch = %v, want pending or unvisited", firstData)
 	}
-	if len(firstRing) != 6 || firstRing[0] != wps[0] || firstRing[1] != (weak.Pointer[promise]{}) || firstRing[2] != (weak.Pointer[promise]{}) {
+	if len(firstRing) != 6 || firstRing[0] != wps[0] || firstRing[1] != (weak.Pointer[futureValue]{}) || firstRing[2] != (weak.Pointer[futureValue]{}) {
 		t.Fatalf("ring after first batch = %v, want first wp followed by two zero markers", firstRing)
 	}
 
 	r.Scavenge(3)
 
 	r.mu.RLock()
-	secondData := make(map[weak.Pointer[promise]]bool, len(r.data))
+	secondData := make(map[weak.Pointer[futureValue]]bool, len(r.data))
 	for wp := range r.data {
 		secondData[wp] = true
 	}
-	secondRing := append([]weak.Pointer[promise](nil), r.ring...)
+	secondRing := append([]weak.Pointer[futureValue](nil), r.ring...)
 	secondHead := r.head
 	r.mu.RUnlock()
 
@@ -58,7 +58,7 @@ func TestRegistryScavengeBatchesSettlement(t *testing.T) {
 	if len(secondData) != 3 || !secondData[wps[0]] || !secondData[wps[3]] || !secondData[wps[5]] {
 		t.Fatalf("data after complete cycle = %v, want pending", secondData)
 	}
-	if len(secondRing) != 6 || secondRing[0] != wps[0] || secondRing[1] != (weak.Pointer[promise]{}) || secondRing[2] != (weak.Pointer[promise]{}) || secondRing[3] != wps[3] || secondRing[4] != (weak.Pointer[promise]{}) || secondRing[5] != wps[5] {
+	if len(secondRing) != 6 || secondRing[0] != wps[0] || secondRing[1] != (weak.Pointer[futureValue]{}) || secondRing[2] != (weak.Pointer[futureValue]{}) || secondRing[3] != wps[3] || secondRing[4] != (weak.Pointer[futureValue]{}) || secondRing[5] != wps[5] {
 		t.Fatalf("ring after complete cycle = %v, want exact settled markers", secondRing)
 	}
 	runtime.KeepAlive(promises)
@@ -74,7 +74,7 @@ func TestRegistryScavengeNonPositiveBatchDoesNotAdvance(t *testing.T) {
 
 	r.mu.RLock()
 	_, exists := r.data[wp]
-	ring := append([]weak.Pointer[promise](nil), r.ring...)
+	ring := append([]weak.Pointer[futureValue](nil), r.ring...)
 	head := r.head
 	r.mu.RUnlock()
 	if !exists || len(ring) != 1 || ring[0] != wp || head != 0 {
@@ -106,9 +106,9 @@ func TestRegistryScavengeConcurrentExactState(t *testing.T) {
 	)
 
 	r := newRegistry()
-	settledWPs := make([]weak.Pointer[promise], 0, promiseCount/2)
-	pending := make(map[weak.Pointer[promise]]*promise, promiseCount/2)
-	var allWPs []weak.Pointer[promise]
+	settledWPs := make([]weak.Pointer[futureValue], 0, promiseCount/2)
+	pending := make(map[weak.Pointer[futureValue]]*futureValue, promiseCount/2)
+	var allWPs []weak.Pointer[futureValue]
 	for i := range promiseCount {
 		promise := r.NewPromise()
 		wp := weak.Make(promise)

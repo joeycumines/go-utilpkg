@@ -120,7 +120,7 @@ func (a *Adapter) TrackPromise(ctx context.Context, run func(ctx context.Context
 		})
 		return nil, nil
 	})
-	if future.State() == goeventloop.Rejected {
+	if future.Settlement() == goeventloop.Rejected {
 		// Admission refused: the loop is terminal and the sweep will not be
 		// wired for a future lifecycle — dispose here, on the owner. Use the
 		// future's actual refusal reason, wrapping it as a GoError so it is a

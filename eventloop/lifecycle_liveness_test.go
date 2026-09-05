@@ -83,10 +83,10 @@ func TestLifecycle_LivenessAddingAPIsRejectDuringPublicTerminating(t *testing.T)
 	p := loop.Promisify(context.Background(), func(context.Context) (any, error) {
 		return "unexpected", nil
 	})
-	if p.State() != Rejected {
+	if p.Settlement() != Rejected {
 		close(releaseShutdownHook)
 		close(releaseTask)
-		t.Fatalf("Promisify during StateTerminating state = %v, want Rejected", p.State())
+		t.Fatalf("Promisify during StateTerminating state = %v, want Rejected", p.Settlement())
 	}
 	if reason, ok := p.Result().(error); !ok || !errors.Is(reason, ErrLoopTerminated) {
 		close(releaseShutdownHook)
@@ -415,7 +415,7 @@ func TestLifecycle_LivenessCommitsBlockShutdownTransition(t *testing.T) {
 			<-workRelease
 			return "ok", nil
 		})
-		if resultErr, ok := p.Result().(error); p.State() == Rejected && ok && errors.Is(resultErr, ErrLoopTerminated) {
+		if resultErr, ok := p.Result().(error); p.Settlement() == Rejected && ok && errors.Is(resultErr, ErrLoopTerminated) {
 			close(workRelease)
 			t.Fatal("Promisify was rejected even though it linearized before shutdown transition")
 		}
@@ -436,7 +436,7 @@ func TestLifecycle_LivenessCommitsBlockShutdownTransition(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatal("Run did not return")
 		}
-		if state := p.State(); state != Fulfilled {
+		if state := p.Settlement(); state != Fulfilled {
 			t.Fatalf("Promisify state = %v, want Fulfilled", state)
 		}
 		if result := p.Result(); result != "ok" {

@@ -37,7 +37,7 @@ func Test_ChainedPromise_ToChannel_StandaloneSettled(t *testing.T) {
 }
 
 func Test_promise_RejectAlreadyResolved(t *testing.T) {
-	promise := &promise{state: Pending}
+	promise := &futureValue{state: Pending}
 	promise.resolve("done")
 	promise.reject(errors.New("late error"))
 	if promise.state != Fulfilled || promise.result != "done" {
@@ -46,7 +46,7 @@ func Test_promise_RejectAlreadyResolved(t *testing.T) {
 }
 
 func Test_promise_DoubleReject(t *testing.T) {
-	promise := &promise{state: Pending}
+	promise := &futureValue{state: Pending}
 	first := errors.New("first")
 	promise.reject(first)
 	promise.reject(errors.New("second"))
@@ -172,7 +172,7 @@ func Test_safeExecute_Nil(t *testing.T) {
 }
 
 func Test_promise_ToChannel_AlreadySettled(t *testing.T) {
-	promise := &promise{state: Pending}
+	promise := &futureValue{state: Pending}
 	promise.resolve("done")
 	result := promise.ToChannel()
 	if value, open := <-result; !open || value != "done" {
