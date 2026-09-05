@@ -19,12 +19,6 @@ var (
 	ErrCallbackOwner = errors.New("eventloop: callback execution requires the logical owner")
 )
 
-const (
-	wakeSignalIdle uint32 = iota
-	wakeSignalPending
-	wakeSignalSubmitting
-)
-
 type callbackGateMode uint8
 
 const (

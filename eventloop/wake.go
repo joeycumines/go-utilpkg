@@ -6,6 +6,12 @@ import (
 	"unsafe"
 )
 
+const (
+	wakeSignalIdle uint32 = iota
+	wakeSignalPending
+	wakeSignalSubmitting
+)
+
 // drainWakeUpPipe drains the wake-up pipe and resets the wakeup pending flag.
 // This is called when the physical wake descriptor is reported ready.
 func (l *Loop) drainWakeUpPipe() {
