@@ -129,7 +129,7 @@ func (l *Loop) safeExecuteTask(t func(), recordMetrics bool) bool {
 
 // RunCallback synchronously executes one user callback from host-adapter
 // control plumbing, records its callback metrics, and completes the resulting
-// nextTick and Promise-microtask checkpoint before returning. The caller must
+// nextTick and microtask checkpoint before returning. The caller must
 // hold the logical loop or terminal-drain owner role; ordinary goroutines get
 // [ErrCallbackOwner]. RunCallback is intended for adapters that multiplex
 // several user callbacks behind one internal readiness or timer wake.
@@ -151,7 +151,7 @@ func (l *Loop) RunCallback(fn func()) error {
 
 // RunCallbackDeferredCheckpoint synchronously executes one host-adapter user
 // callback and records its callback metrics, but leaves the resulting nextTick
-// and Promise-microtask checkpoint pending. It is intended for host algorithms
+// and microtask checkpoint pending. It is intended for host algorithms
 // that must update their own task-selection state after callback return before
 // running the corresponding [Loop.RunMicrotaskCheckpoint].
 //

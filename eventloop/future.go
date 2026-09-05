@@ -43,34 +43,34 @@ func promisePending(value int32) bool {
 	return value == int32(Pending) || value == promiseSettlementClaimed
 }
 
-// Promise is an opaque, read-only view of a future result. It represents an
+// Future is an opaque, read-only view of a future result. It represents an
 // asynchronous operation that will eventually complete with either a success
-// value or a failure reason. Promise values may be copied safely.
+// value or a failure reason. Future values may be copied safely.
 //
 // For chainable promise-style operations with Then/Catch/Finally,
 // see [ChainedPromise].
 //
 // The zero value is invalid. State, Result, and ToChannel panic when called on
-// a zero Promise.
-type Promise struct {
+// a zero Future.
+type Future struct {
 	promise *promise
 }
 
 // State returns the current [PromiseState] (Pending, Fulfilled, or Rejected).
-func (p Promise) State() PromiseState { return p.value().State() }
+func (p Future) State() PromiseState { return p.value().State() }
 
 // Result returns the result of the promise if settled, or nil if pending.
 // For resolved promises, it returns the fulfillment value. For rejected
 // promises, it returns the rejection reason. A resolved promise can
 // legitimately have a nil result value.
-func (p Promise) Result() any { return p.value().Result() }
+func (p Future) Result() any { return p.value().Result() }
 
 // ToChannel returns a channel that will receive the result when the promise
 // settles. The channel is buffered (capacity 1) and closed after sending. If
 // the promise is already settled, ToChannel returns a pre-filled channel.
-func (p Promise) ToChannel() <-chan any { return p.value().ToChannel() }
+func (p Future) ToChannel() <-chan any { return p.value().ToChannel() }
 
-func (p Promise) value() *promise {
+func (p Future) value() *promise {
 	if p.promise == nil {
 		panic("eventloop: zero Promise")
 	}

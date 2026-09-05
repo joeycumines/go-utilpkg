@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func assertPromiseRejected(t *testing.T, promise Promise, want error) {
+func assertPromiseRejected(t *testing.T, promise Future, want error) {
 	t.Helper()
 	if state := promise.State(); state != Rejected {
 		t.Fatalf("promise state = %v, want Rejected", state)

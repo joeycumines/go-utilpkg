@@ -101,7 +101,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Concurrent nextTick checkpoint priority** — a foreign `ScheduleNextTick`
   admission acknowledged during a nextTick callback now joins the nextTick side
-  of that checkpoint before the Promise-microtask batch begins. Foreign nextTick
+  of that checkpoint before the microtask batch begins. Foreign nextTick
   admissions made during an active Promise batch still wait until that batch
   exhausts.
 

@@ -51,7 +51,7 @@ func TestPromisePublicViewHasNoSettlementCapability(t *testing.T) {
 	if _, ok := any(promise).(promiseRejecter); ok {
 		t.Fatal("read-only Promise exposes Reject through an external interface assertion")
 	}
-	promiseType := reflect.TypeFor[eventloop.Promise]()
+	promiseType := reflect.TypeFor[eventloop.Future]()
 	for _, methodName := range []string{"Resolve", "Reject"} {
 		if method, ok := promiseType.MethodByName(methodName); ok {
 			t.Fatalf("read-only Promise exposes %s through reflection: %v", methodName, method.Type)
@@ -60,7 +60,7 @@ func TestPromisePublicViewHasNoSettlementCapability(t *testing.T) {
 }
 
 func TestPromiseZeroValuePanics(t *testing.T) {
-	var promise eventloop.Promise
+	var promise eventloop.Future
 	for name, call := range map[string]func(){
 		"State":     func() { _ = promise.State() },
 		"Result":    func() { _ = promise.Result() },

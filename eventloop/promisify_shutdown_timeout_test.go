@@ -141,7 +141,7 @@ func TestPromisify_SlowOperation_ShutdownWaits(t *testing.T) {
 
 	started := make(chan int, numGoroutines)
 	completed := make(chan int, numGoroutines)
-	promises := make([]Promise, numGoroutines)
+	promises := make([]Future, numGoroutines)
 	for i := range numGoroutines {
 		idx := i
 		promises[i] = loop.Promisify(context.Background(), func(context.Context) (any, error) {
@@ -310,19 +310,19 @@ func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
 		name                 string
 		cancelBeforeRelease  bool
 		outcome              func(context.Context) (any, error)
-		assertPromiseOutcome func(*testing.T, Promise)
+		assertPromiseOutcome func(*testing.T, Future)
 	}{
 		{
 			name:    "returned error",
 			outcome: func(context.Context) (any, error) { return nil, returnedError },
-			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+			assertPromiseOutcome: func(t *testing.T, promise Future) {
 				assertPromisifyExactRejection(t, promise, returnedError)
 			},
 		},
 		{
 			name:    "panic",
 			outcome: func(context.Context) (any, error) { panic(panicValue) },
-			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+			assertPromiseOutcome: func(t *testing.T, promise Future) {
 				t.Helper()
 				if state := promise.State(); state != Rejected {
 					t.Fatalf("Promisify state = %v, want Rejected", state)
@@ -339,7 +339,7 @@ func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
 				runtime.Goexit()
 				return nil, errors.New("unreachable after runtime.Goexit")
 			},
-			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+			assertPromiseOutcome: func(t *testing.T, promise Future) {
 				assertPromisifyExactRejection(t, promise, ErrGoexit)
 			},
 		},
@@ -349,7 +349,7 @@ func TestGracefulShutdownPreservesPromisifyWorkerOutcome(t *testing.T) {
 			outcome: func(ctx context.Context) (any, error) {
 				return nil, ctx.Err()
 			},
-			assertPromiseOutcome: func(t *testing.T, promise Promise) {
+			assertPromiseOutcome: func(t *testing.T, promise Future) {
 				assertPromisifyExactRejection(t, promise, context.Canceled)
 			},
 		},

@@ -226,7 +226,7 @@ func TestCloseRejectsPromisifyAttemptAtWinningTransition(t *testing.T) {
 	waitContractSignal(t, closeTransitioned, "Close winning transition")
 	userFunctionRan := make(chan struct{}, 1)
 	promisifyStarted := make(chan struct{})
-	promisifyDone := make(chan Promise, 1)
+	promisifyDone := make(chan Future, 1)
 	go func() {
 		close(promisifyStarted)
 		promisifyDone <- loop.Promisify(context.Background(), func(context.Context) (any, error) {

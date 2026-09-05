@@ -123,7 +123,7 @@ func (l *Loop) runAux() {
 	defer func() { l.tickActive = false }()
 	l.refreshTickTime()
 
-	// Fast-path turns must begin with the same nextTick / promise-microtask
+	// Fast-path turns must begin with the same nextTick / microtask
 	// checkpoint as the normal tick path. Without this, work submitted before Run
 	// or while the fast path is blocked can overtake already-pending microtasks.
 	l.drainMicrotasks()

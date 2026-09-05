@@ -2,7 +2,7 @@ package eventloop
 
 import "time"
 
-// YieldMicrotasks suspends the active nextTick / Promise-microtask checkpoint
+// YieldMicrotasks suspends the active nextTick / microtask checkpoint
 // until the next task or check-phase boundary. It is a host-integration control
 // seam for runtimes whose handled callback exceptions unwind the current
 // checkpoint. The suspension is not a user callback and does not affect
@@ -27,7 +27,7 @@ func (l *Loop) YieldMicrotasks() error {
 	return nil
 }
 
-// RunMicrotaskCheckpoint exhausts the current nextTick, Promise-microtask, and
+// RunMicrotaskCheckpoint exhausts the current nextTick, microtask, and
 // checkpoint queues without entering a synthetic user callback or recording a
 // callback metric. It is a host-integration seam for boundaries that Node.js
 // treats as a microtask checkpoint even when no user callback was invoked.
@@ -56,7 +56,7 @@ func (l *Loop) RunMicrotaskCheckpoint() error {
 // entering a synthetic user callback or recording a callback metric. If
 // [Loop.YieldMicrotasks] suspended the current checkpoint, Advance consumes
 // exactly that one suspension and leaves queued work pending. Otherwise it
-// starts draining the current nextTick, Promise-microtask, and checkpoint
+// starts draining the current nextTick, microtask, and checkpoint
 // queues. A callback handled during that drain may unwind it; Advance clears
 // the resulting suspension before returning so the next host boundary drains
 // the remainder instead of consuming a second skip.
@@ -84,7 +84,7 @@ func (l *Loop) AdvanceMicrotaskCheckpoint() error {
 }
 
 // ResumeMicrotaskCheckpoint clears an active [Loop.YieldMicrotasks]
-// suspension and exhausts the current nextTick, Promise-microtask, and
+// suspension and exhausts the current nextTick, microtask, and
 // checkpoint queues without entering a synthetic user callback or recording a
 // callback metric. It is the forced phase-exit counterpart to
 // [Loop.RunMicrotaskCheckpoint]; hosts should use it only after publishing all

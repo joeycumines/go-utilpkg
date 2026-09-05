@@ -41,7 +41,7 @@ func (e PanicError) Error() string {
 //     function that already claimed execution. A committed worker that has not
 //     claimed execution when Close wins skips the function entirely.
 //   - Atomic check: Checks state before adding to promisifyWg to prevent race with shutdown.
-func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any, error)) Promise {
+func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any, error)) Future {
 	if fn == nil {
 		panic("eventloop: nil Promisify callback")
 	}
@@ -164,7 +164,7 @@ func (l *Loop) Promisify(ctx context.Context, fn func(ctx context.Context) (any,
 		}
 	}()
 
-	return Promise{promise: p}
+	return Future{promise: p}
 }
 
 func (l *Loop) isPromisifyWorker() bool {
@@ -172,10 +172,10 @@ func (l *Loop) isPromisifyWorker() bool {
 	return ok
 }
 
-func newRejectedPromise(err error) Promise {
+func newRejectedPromise(err error) Future {
 	p := &promise{}
 	p.reject(err)
-	return Promise{promise: p}
+	return Future{promise: p}
 }
 
 func (l *Loop) rejectPromisify(p *promise, err error) {

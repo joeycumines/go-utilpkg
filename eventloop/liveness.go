@@ -200,7 +200,7 @@ func (l *Loop) Alive() bool {
 }
 
 // HasMacrotaskWork reports whether the loop has liveness or queued phase work
-// outside the nextTick / promise-microtask queues.
+// outside the nextTick / microtask queues.
 // A loop terminated by immediate Close reports false even while a user function
 // outlives Close.
 //

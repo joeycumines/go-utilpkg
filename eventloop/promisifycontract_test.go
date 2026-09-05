@@ -170,7 +170,7 @@ func TestPromisifyLivenessControlsAutoExit(t *testing.T) {
 	}
 }
 
-func assertPromisifyExactRejection(t *testing.T, promise Promise, want error) {
+func assertPromisifyExactRejection(t *testing.T, promise Future, want error) {
 	t.Helper()
 	if state := promise.State(); state != Rejected {
 		t.Fatalf("Promisify state = %v, want Rejected", state)
