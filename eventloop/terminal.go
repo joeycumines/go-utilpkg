@@ -1,9 +1,7 @@
 package eventloop
 
 import (
-	"runtime"
 	"sync"
-	"weak"
 
 	"github.com/joeycumines/goroutineid"
 )
@@ -305,23 +303,6 @@ func (l *Loop) releaseTerminalDependencies() {
 	}
 }
 
-func (l *Loop) takeJSTerminalDependencies() ([]*JS, []func()) {
-	l.livenessMu.Lock()
-	adapters := make([]*JS, 0, len(l.jsAdapters))
-	var settlements []func()
-	for pointer := range l.jsAdapters {
-		js := pointer.Value()
-		if js == nil {
-			delete(l.jsAdapters, pointer)
-			continue
-		}
-		adapters = append(adapters, js)
-		settlements = append(settlements, js.takeTimerPromiseSettlements()...)
-	}
-	l.livenessMu.Unlock()
-	return adapters, settlements
-}
-
 func (l *Loop) releaseTerminalCommandDependenciesLocked() {
 	if l.commands == nil {
 		return
@@ -550,141 +531,6 @@ func (l *Loop) terminateCleanup() {
 	l.terminalDiagnostics = nil
 	l.terminalDrainMu.Unlock()
 
-}
-
-// registerJSAdapter links adapter-owned handle registries to terminal cleanup.
-// livenessMu linearizes registration with every terminal transition and with
-// cleanupJSAdaptersLocked. Weak keys avoid retaining otherwise unreachable
-// adapters for the lifetime of a long-running loop.
-func (l *Loop) registerJSAdapter(js *JS) {
-	if l == nil || js == nil || l.state == nil {
-		return
-	}
-	l.livenessMu.Lock()
-	state := l.state.Load()
-	var registration jsAdapterRegistration
-	registered := false
-	if state != StateTerminating && state != StateTerminated {
-		registration = l.retainJSAdapterLocked(js)
-		registered = true
-	}
-	l.livenessMu.Unlock()
-	if registered {
-		runtime.AddCleanup(js, cleanupJSAdapterRegistration, registration)
-		runtime.KeepAlive(js)
-	}
-}
-
-// bindJSAdapter gives install exclusive lifecycle ownership, then atomically
-// registers js and its independent integration quiescence callback while the
-// loop remains in StateAwake. It returns the state observed under livenessMu.
-func (l *Loop) bindJSAdapter(js *JS, quiescence func() bool, terminalCleanup func(), install func(*JS) error) (LoopState, error) {
-	if l == nil || js == nil || l.state == nil {
-		return StateTerminated, ErrJSBindState
-	}
-	if l.testHooks != nil && l.testHooks.BeforeBindJSLifecycleLock != nil {
-		l.testHooks.BeforeBindJSLifecycleLock()
-	}
-	l.livenessMu.Lock()
-	defer l.livenessMu.Unlock()
-	l.quiescenceMu.Lock()
-	bound := l.jsQuiescenceBound
-	l.quiescenceMu.Unlock()
-	if bound {
-		return l.state.Load(), ErrJSBindConflict
-	}
-	state := l.state.Load()
-	if state != StateAwake {
-		return state, ErrJSBindState
-	}
-	if install != nil {
-		if err := install(js); err != nil {
-			return state, err
-		}
-	}
-	l.quiescenceMu.Lock()
-	registration := l.retainJSAdapterLocked(js)
-	l.jsQuiescenceHandler = quiescence
-	l.jsQuiescenceBound = true
-	l.jsTerminalCleanup = terminalCleanup
-	l.quiescenceMu.Unlock()
-	runtime.AddCleanup(js, cleanupJSAdapterRegistration, registration)
-	runtime.KeepAlive(js)
-	return state, nil
-}
-
-// retainJSAdapterLocked records js while livenessMu is held.
-func (l *Loop) retainJSAdapterLocked(js *JS) jsAdapterRegistration {
-	if len(l.jsAdapters) >= l.jsAdapterSweepAt {
-		l.sweepJSAdaptersLocked()
-	}
-	pointer := weak.Make(js)
-	l.jsAdapters = retainedMapStore(l.jsAdapters, &l.jsAdaptersRetention, pointer, struct{}{})
-	return jsAdapterRegistration{
-		loop:    weak.Make(l),
-		adapter: pointer,
-	}
-}
-
-type jsAdapterRegistration struct {
-	loop    weak.Pointer[Loop]
-	adapter weak.Pointer[JS]
-}
-
-func cleanupJSAdapterRegistration(registration jsAdapterRegistration) {
-	loop := registration.loop.Value()
-	if loop == nil {
-		return
-	}
-	if loop.testHooks != nil && loop.testHooks.BeforeJSAdapterCleanup != nil {
-		loop.testHooks.BeforeJSAdapterCleanup()
-	}
-	loop.livenessMu.Lock()
-	if loop.testHooks != nil && loop.testHooks.AfterJSAdapterCleanupLock != nil {
-		loop.testHooks.AfterJSAdapterCleanupLock()
-	}
-	loop.jsAdapters, _ = retainedMapDelete(loop.jsAdapters, &loop.jsAdaptersRetention, registration.adapter)
-	state := loop.state.Load()
-	if state == StateTerminating || state == StateTerminated {
-		loop.jsAdapterSweepAt = 0
-	} else {
-		loop.jsAdapterSweepAt = nextJSAdapterSweep(len(loop.jsAdapters))
-	}
-	loop.livenessMu.Unlock()
-}
-
-func (l *Loop) sweepJSAdaptersLocked() {
-	for pointer := range l.jsAdapters {
-		if pointer.Value() == nil {
-			delete(l.jsAdapters, pointer)
-		}
-	}
-	l.jsAdapters, _ = rebuildRetainedMap(l.jsAdapters, &l.jsAdaptersRetention)
-	l.jsAdapterSweepAt = nextJSAdapterSweep(len(l.jsAdapters))
-}
-
-func nextJSAdapterSweep(length int) int {
-	maxInt := int(^uint(0) >> 1)
-	if length > maxInt/2 {
-		return maxInt
-	}
-	return max(retainedRegistryHighWater, length*2)
-}
-
-// cleanupJSAdaptersLocked invalidates adapter handles whose loop-owned work is
-// being discarded. The caller holds livenessMu, preventing a successful handle
-// or timer-promise publication from crossing terminal cleanup in either
-// direction. Returned promise settlements run only after that lock is released.
-func (l *Loop) cleanupJSAdaptersLocked() []func() {
-	var settlements []func()
-	for pointer := range l.jsAdapters {
-		if js := pointer.Value(); js != nil {
-			settlements = append(settlements, js.terminateCleanup()...)
-		}
-	}
-	l.jsAdapters = discardRetainedMap(l.jsAdapters, &l.jsAdaptersRetention)
-	l.jsAdapterSweepAt = 0
-	return settlements
 }
 
 // closeFDs closes file descriptors.
