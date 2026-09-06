@@ -118,19 +118,6 @@ func (c *Channel) RegisterService(desc *grpc.ServiceDesc, svr any) {
 	}
 }
 
-// RegisterServices registers generated gRPC service implementations and
-// reports conflicts without panicking: it returns an error if any service
-// name conflicts with the channel's already-published registry. The complete
-// set is validated before publication, so a conflict leaves the registry
-// unchanged.
-//
-// RegisterServices panics if the channel is nil or any registration is
-// invalid, mirroring [Channel.RegisterBatch]. For one atomic admission of
-// services and stream handlers together, use [Channel.RegisterBatch].
-func (c *Channel) RegisterServices(services ...ServiceRegistration) error {
-	return c.RegisterBatch(RegistrationBatch{Services: services})
-}
-
 // GetServiceInfo returns information about registered services.
 func (c *Channel) GetServiceInfo() map[string]grpc.ServiceInfo {
 	c.registrationMu.RLock()
@@ -161,19 +148,6 @@ func (c *Channel) RegisterStreamHandler(method string, handler StreamHandlerFunc
 	}); err != nil {
 		panic(err.Error())
 	}
-}
-
-// RegisterStreamHandlers registers non-blocking owner-thread handlers for
-// full method names and reports conflicts without panicking: it returns an
-// error if any method conflicts with the channel's already-published
-// registry. The complete set is validated before publication, so a conflict
-// leaves the registry unchanged.
-//
-// RegisterStreamHandlers panics if the channel is nil or any registration is
-// invalid, mirroring [Channel.RegisterBatch]. For one atomic admission of
-// services and stream handlers together, use [Channel.RegisterBatch].
-func (c *Channel) RegisterStreamHandlers(handlers ...StreamHandlerRegistration) error {
-	return c.RegisterBatch(RegistrationBatch{StreamHandlers: handlers})
 }
 
 // UnregisterStreamHandler removes an event-loop-native handler for a full
