@@ -6,9 +6,9 @@ import (
 )
 
 // The raw promise state encoding is a hand-maintained protocol contract:
-// transitional states are -int32(Settlement) - 1 (contiguous from -3 to -1)
-// and every other raw value is a final [Settlement] value. These tests pin
-// the exact mapping so a future refactor cannot drift.
+// transitional states are negative [Settlement] values (contiguous from -3
+// to -1) and every other raw value is a final [Settlement] value. These
+// tests pin the exact mapping so a future refactor cannot drift.
 
 func TestPromiseSettlementRawConstants(t *testing.T) {
 	if promiseSettlementClaimed != -1 {

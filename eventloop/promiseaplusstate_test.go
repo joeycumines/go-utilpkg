@@ -7,7 +7,7 @@ import (
 
 // These tests exercise the Promise/A+-inspired state rules implemented by this
 // Go-native Promise profile. They are not a Promise/A+ compliance suite: this
-// package adopts ChainedPromise values but deliberately does not assimilate
+// package adopts Promise values but deliberately does not assimilate
 // arbitrary objects with a method named Then.
 
 func newPromiseProfileJS(t *testing.T) (*Loop, *JS) {

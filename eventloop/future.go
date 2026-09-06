@@ -61,7 +61,7 @@ func promisePending(value int32) bool {
 // For chainable promise-style operations with Then/Catch/Finally,
 // see [Promise].
 //
-// The zero value is invalid. State, Result, and ToChannel panic when called on
+// The zero value is invalid. Settlement, Result, and ToChannel panic when called on
 // a zero Future.
 type Future struct {
 	futureValue *futureValue

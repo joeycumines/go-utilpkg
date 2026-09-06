@@ -8,7 +8,7 @@ See the [API docs](https://pkg.go.dev/github.com/joeycumines/go-eventloop).
 
 - **JavaScript-Style Timer APIs**: Implements `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`-style scheduling with shared timeout/interval cancellation handles, deadline-list timer buckets, and native repeating interval nodes
 - **Owner-Local Microtasks**: `queueMicrotask`, `process.nextTick`-style queues, and checkpoint diagnostics use loop-owner queues with typed command ingress for external goroutines
-- **Go-Loop Promise Profile**: `ChainedPromise` supports `Then`, `Catch`, `Finally`, combinators, microtask reactions, and adoption of other `ChainedPromise` values; it is not a full ECMAScript Promise or arbitrary-thenable implementation
+- **Go-Loop Promise Profile**: `Promise` supports `Then`, `Catch`, `Finally`, combinators, microtask reactions, and adoption of other `Promise` values; it is not a full ECMAScript Promise or arbitrary-thenable implementation
 - **Promise Combinators**: `All`, `Race`, `AllSettled`, `Any` for composing multiple promises
 - **Go-Native Cancellation and Events**: concurrent `AbortSignal` composition and synchronous `EventTarget` dispatch with explicit Go callback, removal, and panic boundaries
 - **Unhandled Rejection Tracking**: Configurable callbacks for unhandled promise rejections
@@ -186,17 +186,17 @@ rejectedPromise := js.Reject(errors.New("failed"))
 
 ```go
 // Promise.all - wait for all to resolve
-allPromise := js.All([]*eventloop.ChainedPromise{p1, p2, p3})
+allPromise := js.All([]*eventloop.Promise{p1, p2, p3})
 
 // Promise.race - first to settle wins
-racePromise := js.Race([]*eventloop.ChainedPromise{p1, p2, p3})
+racePromise := js.Race([]*eventloop.Promise{p1, p2, p3})
 
 // Promise.allSettled - wait for all to settle
-settledPromise := js.AllSettled([]*eventloop.ChainedPromise{p1, p2, p3})
+settledPromise := js.AllSettled([]*eventloop.Promise{p1, p2, p3})
 
 // Promise.any - first to resolve wins
 // The returned promise rejects with AggregateError if all inputs reject
-anyPromise := js.Any([]*eventloop.ChainedPromise{p1, p2, p3})
+anyPromise := js.Any([]*eventloop.Promise{p1, p2, p3})
 ```
 
 If terminal state prevents an input reaction from executing, the combinator
@@ -213,7 +213,7 @@ When all inputs reject, the promise returned by `Promise.any` rejects with an
 
 ```go
 // Handling AggregateError from Go
-promise := js.Any([]*eventloop.ChainedPromise{
+promise := js.Any([]*eventloop.Promise{
     js.Reject(errors.New("error 1")),
     js.Reject(errors.New("error 2")),
 })
@@ -319,7 +319,7 @@ See [docs/architecture.md](docs/architecture.md) for the current architecture no
 
 1. **Loop**: owner-topology scheduler for timers, typed command ingress, task queues, microtasks, terminal drain, and platform polling.
 2. **JS Adapter**: JavaScript-style timer, immediate, microtask, and promise APIs.
-3. **ChainedPromise**: Promise-style chaining with event-loop microtask scheduling; not a full ECMAScript conformance target.
+3. **Promise**: Promise-style chaining with event-loop microtask scheduling; not a full ECMAScript conformance target.
 4. **Deadline-list timers**: timer buckets are keyed by monotonic millisecond deadlines; same-deadline timers preserve FIFO, exact deadlines order within a bucket, repeating intervals keep stable timer IDs, and successful scheduling publishes an ID before callback entry.
 5. **Platform Pollers**: epoll serves Linux/Android; kqueue serves Darwin, iOS, DragonFly, FreeBSD, NetBSD, and OpenBSD; poll serves AIX/ppc64 and Solaris/illumos on amd64. All readiness backends use owned descriptors, non-reused generations, dense storage plus sparse fallback, valid descriptor zero, per-registration coalescing, and terminal ownership cleanup. Windows, Plan 9, js/wasm, and wasip1/wasm use the task-only channel path and return `ErrReadinessUnsupported` from FD readiness operations.
 6. **Queue snapshots**: check, close, internal, and external phases process
@@ -419,7 +419,7 @@ See [docs/architecture.md](docs/architecture.md) for the current architecture no
 
 - **Loop**: Safe for concurrent use; use `Submit()` to schedule from any goroutine
 - **JS**: Thread-safe; `SetTimeout/SetInterval/QueueMicrotask` from any goroutine. Once `Run` owns the loop, callbacks execute serially on its logical callback-owner goroutine.
-- **ChainedPromise**: Thread-safe. Promise methods (`Then/Catch/Finally`) and resolve/reject functions can be called from any goroutine
+- **Promise**: Thread-safe. Promise methods (`Then/Catch/Finally`) and resolve/reject functions can be called from any goroutine
 
 ### Thread Safety Guarantees
 
@@ -431,7 +431,7 @@ See [docs/architecture.md](docs/architecture.md) for the current architecture no
   callbacks. Before `Run`, a
   graceful Shutdown uses a dedicated terminal-finisher goroutine, so callers
   must not queue runtime-affine callbacks and assume caller-goroutine execution.
-- `ChainedPromise`: Thread-safe. Then/Catch/Finally can be chained concurrently. Resolve/Reject functions: Can be called from any goroutine without synchronization
+- `Promise`: Thread-safe. Then/Catch/Finally can be chained concurrently. Resolve/Reject functions: Can be called from any goroutine without synchronization
 
 Exception: post-termination unhandled-rejection fallback diagnostics are not
 normal callbacks. By default bookkeeping is drained without invoking user code

@@ -28,7 +28,7 @@ import (
 //	    resolve2("b")
 //	}()
 //	// result will be []any{"a", "b"}
-//	result := js.All([]*ChainedPromise{p1, p2})
+//	result := js.All([]*Promise{p1, p2})
 func (js *JS) All(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -93,7 +93,7 @@ func (js *JS) All(promises []*Promise) *Promise {
 //	    time.Sleep(5 * time.Second)
 //	    rejectTimeout(errors.New("timeout"))
 //	}()
-//	result := js.Race([]*ChainedPromise{actualWork, timeout})
+//	result := js.Race([]*Promise{actualWork, timeout})
 func (js *JS) Race(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -210,7 +210,7 @@ func (js *JS) AllSettled(promises []*Promise) *Promise {
 // Use Any when you need at least one success:
 //
 //	// Try multiple data sources, use first successful response
-//	result := js.Any([]*ChainedPromise{source1, source2, source3})
+//	result := js.Any([]*Promise{source1, source2, source3})
 func (js *JS) Any(promises []*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
@@ -351,7 +351,7 @@ type PromiseWithResolvers struct {
 //
 //	pending := make(map[string]*PromiseWithResolvers)
 //
-//	func sendRequest(js *JS, id string, data any) *ChainedPromise {
+//	func sendRequest(js *JS, id string, data any) *Promise {
 //	    r := js.WithResolvers()
 //	    pending[id] = r
 //	    conn.Send(id, data)

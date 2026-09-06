@@ -9,7 +9,7 @@ import (
 )
 
 // ============================================================================
-// ChainedPromise Implementation
+// Promise Implementation
 // ============================================================================
 
 // Promise implements the package's Go-loop promise profile with [Then], [Catch], and [Finally].

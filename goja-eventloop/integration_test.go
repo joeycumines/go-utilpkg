@@ -41,7 +41,7 @@ func TestIntegration_ErrorPropagation_JSToGo(t *testing.T) {
 
 	// Create a native JS promise and observe the rejection through a JS catch
 	// handler that calls into Go. The adapter no longer replaces Goja's native
-	// Promise with the lower-level eventloop.ChainedPromise wrapper.
+	// Promise with the lower-level eventloop.Promise wrapper.
 	_, err = gojaRT.RunString(`
 		new Promise(function(resolve, reject) {
 			resolve(42);

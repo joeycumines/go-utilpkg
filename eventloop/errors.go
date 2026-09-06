@@ -135,7 +135,7 @@ func (e PanicError) Is(target error) bool {
 //
 // Example:
 //
-//	promise := js.Any([]*ChainedPromise{
+//	promise := js.Any([]*Promise{
 //	    js.Reject(errors.New("error 1")),
 //	    js.Reject(errors.New("error 2")),
 //	})

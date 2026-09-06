@@ -1,6 +1,6 @@
 // Promise Finally Full Coverage Tests
 //
-// Tests comprehensive coverage of ChainedPromise.Finally including:
+// Tests comprehensive coverage of Promise.Finally including:
 // - Handler execution on fulfilled promise
 // - Handler execution on rejected promise
 // - Result propagation (not transformation)

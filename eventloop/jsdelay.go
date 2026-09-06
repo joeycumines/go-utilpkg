@@ -58,7 +58,7 @@ func (js *JS) Sleep(ms time.Duration) *Promise {
 // Use Timeout in combination with [JS.Race] to implement operation timeouts:
 //
 //	// Timeout an operation after 5 seconds
-//	result := js.Race([]*eventloop.ChainedPromise{
+//	result := js.Race([]*eventloop.Promise{
 //	    longRunningOperation(),
 //	    js.Timeout(5 * time.Second),
 //	})
