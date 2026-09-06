@@ -539,15 +539,15 @@ func (et *EventTarget) ListenerCount(eventType string) int {
 	return len(et.listeners[eventType])
 }
 
-// RemoveAllEventListeners removes all listeners for the specified event type.
-// If eventType is empty, removes all listeners for all event types.
+// RemoveAllEventListeners removes all listeners for the provided event types.
+// With no arguments, it removes all listeners for all event types.
 //
 // Thread Safety: Safe to call concurrently.
-func (et *EventTarget) RemoveAllEventListeners(eventType string) {
+func (et *EventTarget) RemoveAllEventListeners(eventTypes ...string) {
 	et.mu.Lock()
 	defer et.mu.Unlock()
 
-	if eventType == "" {
+	if len(eventTypes) == 0 {
 		if et.listeners == nil {
 			return
 		}
@@ -555,7 +555,9 @@ func (et *EventTarget) RemoveAllEventListeners(eventType string) {
 			deactivateListeners(entries)
 		}
 		et.listeners = make(map[string][]*listenerEntry)
-	} else {
+		return
+	}
+	for _, eventType := range eventTypes {
 		deactivateListeners(et.listeners[eventType])
 		delete(et.listeners, eventType)
 	}

@@ -203,16 +203,14 @@ func TestEventTargetOnceClaimReleasesListenerCapture(t *testing.T) {
 }
 
 func TestEventTargetRemoveAllReleasesListenerCaptures(t *testing.T) {
-	for _, eventType := range []string{"event", ""} {
-		name := "typed"
-		if eventType == "" {
-			name = "global"
-		}
-		t.Run(name, func(t *testing.T) {
-			target, pointer := newRemoveAllListenerPayload(eventType)
-			waitContractCollected(t, pointer, target)
-		})
-	}
+	t.Run("typed", func(t *testing.T) {
+		target, pointer := newRemoveAllListenerPayload("event")
+		waitContractCollected(t, pointer, target)
+	})
+	t.Run("global", func(t *testing.T) {
+		target, pointer := newRemoveAllListenerPayload()
+		waitContractCollected(t, pointer, target)
+	})
 }
 
 func TestEventTargetListenerIDWrapReusesReleasedID(t *testing.T) {
@@ -348,7 +346,7 @@ func TestEventTargetListenerIDsRemainDistinctAfterWrap(t *testing.T) {
 
 func TestEventTargetZeroValueIsUsable(t *testing.T) {
 	var target EventTarget
-	target.RemoveAllEventListeners("")
+	target.RemoveAllEventListeners()
 	called := false
 	id := target.AddEventListener("event", func(*Event) {
 		called = true
@@ -386,14 +384,14 @@ func newOnceListenerPayload() (*EventTarget, weak.Pointer[contractRetentionPaylo
 	return target, pointer
 }
 
-func newRemoveAllListenerPayload(eventType string) (*EventTarget, weak.Pointer[contractRetentionPayload]) {
+func newRemoveAllListenerPayload(eventTypes ...string) (*EventTarget, weak.Pointer[contractRetentionPayload]) {
 	payload := &contractRetentionPayload{value: 1}
 	pointer := weak.Make(payload)
 	target := NewEventTarget()
 	target.AddEventListener("event", func(*Event) {
 		payload.value++
 	})
-	target.RemoveAllEventListeners(eventType)
+	target.RemoveAllEventListeners(eventTypes...)
 	runtime.KeepAlive(payload)
 	return target, pointer
 }

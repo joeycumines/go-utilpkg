@@ -70,6 +70,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: zero-argument clear/remove semantics** — `Performance.ClearMarks`
+  and `Performance.ClearMeasures` now take the names to clear variadically
+  (`ClearMarks()` clears all marks, `ClearMarks("a")` clears one,
+  `ClearMarks("a", "b")` clears several), matching the User Timing spec's
+  optional-argument `clearMarks()`/`clearMeasures()` more faithfully and
+  retiring the empty-string `""` "clear all" sentinel. `EventTarget
+  RemoveAllEventListeners` likewise now takes event types variadically:
+  `RemoveAllEventListeners()` removes every listener for every event type,
+  and `RemoveAllEventListeners("click", "hover")` removes those types.
+
 - **BREAKING: variadic promise combinators and `AbortAny`** — `JS.All`,
   `JS.Race`, `JS.AllSettled`, and `JS.Any` now take their promises as variadic
   arguments (`js.All(p1, p2)`) instead of a single `[]*Promise` slice; pass an

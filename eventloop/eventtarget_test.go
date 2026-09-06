@@ -262,12 +262,29 @@ func TestEventTarget_RemoveAllEventListeners_AllTypes(t *testing.T) {
 	target.AddEventListener("hover", func(e *Event) {})
 	target.AddEventListener("keypress", func(e *Event) {})
 
-	target.RemoveAllEventListeners("")
+	target.RemoveAllEventListeners()
 
 	if target.HasEventListeners("click") ||
 		target.HasEventListeners("hover") ||
 		target.HasEventListeners("keypress") {
 		t.Error("Should not have any listeners after RemoveAllEventListeners")
+	}
+}
+
+func TestEventTarget_RemoveAllEventListeners_MultipleTypes(t *testing.T) {
+	target := NewEventTarget()
+
+	target.AddEventListener("click", func(e *Event) {})
+	target.AddEventListener("hover", func(e *Event) {})
+	target.AddEventListener("keypress", func(e *Event) {})
+
+	target.RemoveAllEventListeners("click", "hover")
+
+	if target.HasEventListeners("click") || target.HasEventListeners("hover") {
+		t.Error("Should not have click/hover listeners after removal")
+	}
+	if !target.HasEventListeners("keypress") {
+		t.Error("Should still have keypress listeners")
 	}
 }
 

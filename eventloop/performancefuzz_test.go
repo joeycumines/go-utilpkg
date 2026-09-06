@@ -50,9 +50,17 @@ func FuzzPerformanceTimelineModel(f *testing.F) {
 					t.Fatalf("MeasureWithDetail using origin/current failed: %v", err)
 				}
 			case 4:
-				perf.ClearMarks(name)
+				if name == "" {
+					perf.ClearMarks()
+				} else {
+					perf.ClearMarks(name)
+				}
 			case 5:
-				perf.ClearMeasures(name)
+				if name == "" {
+					perf.ClearMeasures()
+				} else {
+					perf.ClearMeasures(name)
+				}
 			case 6:
 				perf.ClearResourceTimings()
 			}

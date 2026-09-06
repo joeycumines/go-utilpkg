@@ -397,7 +397,7 @@ func TestPerformance_ClearAllMarks(t *testing.T) {
 		t.Fatalf("Measure: %v", err)
 	}
 
-	perf.ClearMarks("")
+	perf.ClearMarks()
 
 	marks := perf.GetEntriesByType("mark")
 	if len(marks) != 0 {
@@ -447,7 +447,7 @@ func TestPerformance_ClearAllMeasures(t *testing.T) {
 		t.Fatalf("Measure 2: %v", err)
 	}
 
-	perf.ClearMeasures("")
+	perf.ClearMeasures()
 
 	measures := perf.GetEntriesByType("measure")
 	if len(measures) != 0 {
@@ -458,6 +458,51 @@ func TestPerformance_ClearAllMeasures(t *testing.T) {
 	marks := perf.GetEntriesByType("mark")
 	if len(marks) != 1 {
 		t.Error("Marks should not be cleared")
+	}
+}
+
+// TestPerformance_ClearMarksMultiple clears several named marks at once.
+func TestPerformance_ClearMarksMultiple(t *testing.T) {
+	perf := NewPerformance()
+
+	perf.Mark("a")
+	perf.Mark("b")
+	perf.Mark("c")
+	if err := perf.Measure("measure", "", ""); err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
+
+	perf.ClearMarks("a", "b")
+
+	marks := perf.GetEntriesByType("mark")
+	if len(marks) != 1 || marks[0].Name != "c" {
+		t.Fatalf("marks after ClearMarks(a, b) = %v, want only c", marks)
+	}
+	measures := perf.GetEntriesByType("measure")
+	if len(measures) != 1 {
+		t.Error("Measure should not be cleared")
+	}
+}
+
+// TestPerformance_ClearMeasuresMultiple clears several named measures at once.
+func TestPerformance_ClearMeasuresMultiple(t *testing.T) {
+	perf := NewPerformance()
+
+	if err := perf.Measure("keep", "", ""); err != nil {
+		t.Fatalf("Measure keep: %v", err)
+	}
+	if err := perf.Measure("remove1", "", ""); err != nil {
+		t.Fatalf("Measure remove1: %v", err)
+	}
+	if err := perf.Measure("remove2", "", ""); err != nil {
+		t.Fatalf("Measure remove2: %v", err)
+	}
+
+	perf.ClearMeasures("remove1", "remove2")
+
+	measures := perf.GetEntriesByType("measure")
+	if len(measures) != 1 || measures[0].Name != "keep" {
+		t.Fatalf("measures after ClearMeasures(remove1, remove2) = %v, want only keep", measures)
 	}
 }
 

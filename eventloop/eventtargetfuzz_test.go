@@ -104,7 +104,7 @@ func FuzzEventTargetDispatchModel(f *testing.F) {
 
 			case 3:
 				if r.bool() || eventType == "" {
-					target.RemoveAllEventListeners("")
+					target.RemoveAllEventListeners()
 					listeners = make(map[ListenerID]fuzzEventListenerModel)
 					byType = make(map[string][]ListenerID)
 				} else {

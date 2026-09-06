@@ -363,20 +363,18 @@ func sortPerformanceEntries(entries []PerformanceEntry) {
 	})
 }
 
-// ClearMarks removes all marks, or marks with the specified name.
+// ClearMarks removes all marks, or only marks with the specified names.
 //
-// Parameters:
-//   - name: If provided, only marks with this name are removed.
-//     If empty, all marks are removed.
-//
-// This follows the performance.clearMarks() method from the User Timing spec.
+// With no arguments, all marks are removed, matching the User Timing spec's
+// performance.clearMarks() called without a markName. Otherwise only marks
+// whose name is one of the provided names are removed.
 //
 // Thread Safety: Safe to call concurrently.
-func (p *Performance) ClearMarks(name string) {
+func (p *Performance) ClearMarks(names ...string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if name == "" {
+	if len(names) == 0 {
 		// Clear all marks
 		p.marks = make(map[string][]float64)
 		// Remove mark entries
@@ -387,34 +385,36 @@ func (p *Performance) ClearMarks(name string) {
 			}
 		}
 		p.entries = newEntries
-	} else {
-		// Clear specific mark
-		delete(p.marks, name)
-		// Remove matching entries
-		newEntries := make([]PerformanceEntry, 0)
-		for _, entry := range p.entries {
-			if !(entry.EntryType == "mark" && entry.Name == name) {
-				newEntries = append(newEntries, entry)
-			}
-		}
-		p.entries = newEntries
+		return
 	}
+
+	// Clear the named marks.
+	for _, name := range names {
+		delete(p.marks, name)
+	}
+	newEntries := make([]PerformanceEntry, 0)
+	for _, entry := range p.entries {
+		if entry.EntryType == "mark" && slices.Contains(names, entry.Name) {
+			continue
+		}
+		newEntries = append(newEntries, entry)
+	}
+	p.entries = newEntries
 }
 
-// ClearMeasures removes all measures, or measures with the specified name.
+// ClearMeasures removes all measures, or only measures with the specified
+// names.
 //
-// Parameters:
-//   - name: If provided, only measures with this name are removed.
-//     If empty, all measures are removed.
-//
-// This follows the performance.clearMeasures() method from the User Timing spec.
+// With no arguments, all measures are removed, matching the User Timing spec's
+// performance.clearMeasures() called without a measureName. Otherwise only
+// measures whose name is one of the provided names are removed.
 //
 // Thread Safety: Safe to call concurrently.
-func (p *Performance) ClearMeasures(name string) {
+func (p *Performance) ClearMeasures(names ...string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if name == "" {
+	if len(names) == 0 {
 		// Remove all measure entries
 		newEntries := make([]PerformanceEntry, 0)
 		for _, entry := range p.entries {
@@ -423,16 +423,18 @@ func (p *Performance) ClearMeasures(name string) {
 			}
 		}
 		p.entries = newEntries
-	} else {
-		// Remove matching entries
-		newEntries := make([]PerformanceEntry, 0)
-		for _, entry := range p.entries {
-			if !(entry.EntryType == "measure" && entry.Name == name) {
-				newEntries = append(newEntries, entry)
-			}
-		}
-		p.entries = newEntries
+		return
 	}
+
+	// Remove matching entries
+	newEntries := make([]PerformanceEntry, 0)
+	for _, entry := range p.entries {
+		if entry.EntryType == "measure" && slices.Contains(names, entry.Name) {
+			continue
+		}
+		newEntries = append(newEntries, entry)
+	}
+	p.entries = newEntries
 }
 
 // ClearResourceTimings clears all resource timing entries.
