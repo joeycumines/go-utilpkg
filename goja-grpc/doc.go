@@ -216,7 +216,7 @@
 //
 //	const detail = new SomeMessage();
 //	detail.set('field', 'value');
-//	throw grpc.status.createError(3, 'bad request', [detail]);
+//	throw grpc.status.createError(3, 'bad request', detail);
 //
 // Client code receives the details on the error object:
 //

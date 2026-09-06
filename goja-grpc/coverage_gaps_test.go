@@ -435,9 +435,10 @@ func TestReflection_DescribeType_NotAMessage(t *testing.T) {
 }
 
 // ============================================================================
-// Coverage gaps: status.go — createError with non-array details
+// Coverage gaps: status.go — createError with non-protobuf details
 //
-// Covers: statusObject line ~80 (detailsArg not *goja.Object)
+// Covers: statusObject createError detail arguments that are not
+// protobuf message wrappers
 // ============================================================================
 
 func TestStatusCreateError_DetailsPrimitive(t *testing.T) {
@@ -447,8 +448,8 @@ func TestStatusCreateError_DetailsPrimitive(t *testing.T) {
 	err := env.mustFail(t, `
 		grpc.status.createError(13, 'test-msg', true);
 	`)
-	if !strings.Contains(err.Error(), "details must be an array") {
-		t.Fatalf("primitive details error = %v, want array requirement", err)
+	if !strings.Contains(err.Error(), "status detail") {
+		t.Fatalf("primitive details error = %v, want status-detail failure", err)
 	}
 }
 
@@ -459,8 +460,8 @@ func TestStatusCreateError_DetailsNumber(t *testing.T) {
 	err := env.mustFail(t, `
 		grpc.status.createError(13, 'test-msg', 42);
 	`)
-	if !strings.Contains(err.Error(), "details must be an array") {
-		t.Fatalf("numeric details error = %v, want array requirement", err)
+	if !strings.Contains(err.Error(), "status detail") {
+		t.Fatalf("numeric details error = %v, want status-detail failure", err)
 	}
 }
 
@@ -476,11 +477,12 @@ func TestStatusCreateError_DetailsWithInvalidElements(t *testing.T) {
 		name    string
 		details string
 	}{
-		{name: "number", details: "[42]"},
-		{name: "string", details: `["invalid"]`},
-		{name: "null", details: "[null]"},
-		{name: "undefined", details: "[undefined]"},
-		{name: "sparse", details: "Array(1)"},
+		{name: "number", details: "42"},
+		{name: "string", details: `"invalid"`},
+		{name: "null", details: "null"},
+		{name: "undefined", details: "undefined"},
+		{name: "array", details: "[42]"},
+		{name: "object", details: "{a: 1}"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := env.mustFail(t,
@@ -503,7 +505,7 @@ func TestStatusCreateError_DetailsWithValidMessage(t *testing.T) {
 		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
 		var detail = new EchoRequest();
 		detail.set('message', 'detail-info');
-		var err = grpc.status.createError(13, 'test-msg', [detail]);
+		var err = grpc.status.createError(13, 'test-msg', detail);
 		err.code + ':' + err.details.length;
 	`)
 	if got := val.String(); got != "13:1" {
@@ -1091,7 +1093,7 @@ func TestJsValueToGRPCError_Direct_GrpcErrorWithDetails(t *testing.T) {
 		var EchoRequest = pb.messageType('testgrpc.EchoRequest');
 		var detail = new EchoRequest();
 		detail.set('message', 'detail-info');
-		grpc.status.createError(5, 'not found', [detail]);
+		grpc.status.createError(5, 'not found', detail);
 	`)
 	if jsErr != nil {
 		t.Fatalf("unexpected error: %v", jsErr)
@@ -1559,7 +1561,7 @@ func TestStatusCreateError_EmptyDetailsArray(t *testing.T) {
 	defer env.shutdown()
 
 	val := env.run(t, `
-		var err = grpc.status.createError(13, 'msg', []);
+		var err = grpc.status.createError(13, 'msg');
 		err.code + ':' + err.details.length;
 	`)
 	if got := val.String(); got != "13:0" {
@@ -1578,8 +1580,8 @@ func TestStatusCreateError_DetailsObjectNoLength(t *testing.T) {
 	err := env.mustFail(t, `
 		grpc.status.createError(13, 'msg', {});
 	`)
-	if !strings.Contains(err.Error(), "details must be an array") {
-		t.Fatalf("object details error = %v, want array requirement", err)
+	if !strings.Contains(err.Error(), "status detail") {
+		t.Fatalf("object details error = %v, want status-detail failure", err)
 	}
 }
 

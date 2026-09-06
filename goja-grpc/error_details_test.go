@@ -23,7 +23,7 @@ func TestErrorDetails_UnaryRoundTrip(t *testing.T) {
 				detail.set('code', 42);
 
 				// Throw error with details.
-				throw grpc.status.createError(3, 'bad request', [detail]);
+				throw grpc.status.createError(3, 'bad request', detail);
 			},
 			serverStream: function(request, call) {},
 			clientStream: function(call) { return null; },
@@ -84,7 +84,7 @@ func TestErrorDetails_MultipleDetails(t *testing.T) {
 				d2.set('id', 'id-2');
 				d2.set('name', 'second');
 
-				throw grpc.status.createError(9, 'precondition', [d1, d2]);
+				throw grpc.status.createError(9, 'precondition', d1, d2);
 			},
 			serverStream: function(request, call) {},
 			clientStream: function(call) { return null; },
@@ -172,7 +172,7 @@ func TestErrorDetails_EmptyDetailsArray(t *testing.T) {
 		var server = grpc.createServer();
 		server.addService('testgrpc.TestService', {
 			echo: function(request, call) {
-				throw grpc.status.createError(3, 'bad request', []);
+				throw grpc.status.createError(3, 'bad request');
 			},
 			serverStream: function(request, call) {},
 			clientStream: function(call) { return null; },
@@ -204,7 +204,7 @@ func TestErrorDetails_DetailsProperty_ExistsOnAllErrors(t *testing.T) {
 	// Details array should exist even for plain errors.
 	env.runOnLoop(t, `
 		var err1 = grpc.status.createError(5, 'not found');
-		var err2 = grpc.status.createError(3, 'bad', []);
+		var err2 = grpc.status.createError(3, 'bad');
 		var hasDetails1 = Array.isArray(err1.details);
 		var hasDetails2 = Array.isArray(err2.details);
 		var len1 = err1.details.length;
@@ -239,7 +239,7 @@ func TestErrorDetails_ServerStreamWithDetails(t *testing.T) {
 				var detail = new Item();
 				detail.set('id', 'err-id');
 				detail.set('name', 'err-name');
-				throw grpc.status.createError(10, 'aborted', [detail]);
+				throw grpc.status.createError(10, 'aborted', detail);
 			},
 			clientStream: function(call) { return null; },
 			bidiStream: function(call) {}

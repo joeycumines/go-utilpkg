@@ -485,7 +485,7 @@ func TestStatusDetailsUsePrivateWeakIdentityAndCloneBoundaries(t *testing.T) {
 		globalThis.__privateStatus = grpc.status.createError(
 			grpc.status.INVALID_ARGUMENT,
 			"invalid",
-			[privateDetail]
+			privateDetail
 		);
 		__privateStatus;
 	`)

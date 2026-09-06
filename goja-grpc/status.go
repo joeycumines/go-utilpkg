@@ -46,10 +46,10 @@ func newStatusDetailStore(runtime *goja.Runtime) (*goja.Object, goja.Callable, g
 //
 // JavaScript usage:
 //
-//	grpc.status.OK           // 0
-//	grpc.status.NOT_FOUND    // 5
-//	grpc.status.createError(code, message)             // → GrpcError object
-//	grpc.status.createError(code, message, [detail])   // → with details
+//	grpc.status.OK                    // 0
+//	grpc.status.NOT_FOUND             // 5
+//	grpc.status.createError(code, message)              // → GrpcError object
+//	grpc.status.createError(code, message, ...details)  // → with details
 func (m *Module) statusObject() *goja.Object {
 	obj := m.runtime.NewObject()
 
@@ -72,35 +72,23 @@ func (m *Module) statusObject() *goja.Object {
 	_ = obj.Set("DATA_LOSS", int32(codes.DataLoss))
 	_ = obj.Set("UNAUTHENTICATED", int32(codes.Unauthenticated))
 
-	// createError(code, message, details?) → GrpcError object
+	// createError(code, message, ...details) → GrpcError object
 	_ = obj.Set("createError", m.runtime.ToValue(func(call goja.FunctionCall) goja.Value {
 		code := int32(call.Argument(0).ToInteger())
 		message := call.Argument(1).String()
 
-		// Optional third argument: array of protobuf message details.
-		detailsArg := call.Argument(2)
-		if detailsArg == nil || goja.IsUndefined(detailsArg) || goja.IsNull(detailsArg) {
+		// Remaining arguments are the protobuf message details.
+		args := call.Arguments
+		if len(args) <= 2 {
 			return m.newGrpcError(codes.Code(code), message)
 		}
 
-		arrObj, ok := detailsArg.(*goja.Object)
-		if !ok || arrObj.ClassName() != "Array" {
-			panic(m.runtime.NewTypeError("status details must be an array"))
-		}
-
-		lenVal := arrObj.Get("length")
-		if lenVal == nil || goja.IsUndefined(lenVal) {
-			panic(m.runtime.NewTypeError("status details must be an array"))
-		}
-
-		length := int(lenVal.ToInteger())
-		if length == 0 {
-			return m.newGrpcError(codes.Code(code), message)
-		}
-
-		details := make([]goja.Value, 0, length)
-		for i := range length {
-			details = append(details, arrObj.Get(fmt.Sprintf("%d", i)))
+		details := make([]goja.Value, 0, len(args)-2)
+		for _, arg := range args[2:] {
+			if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
+				panic(m.runtime.NewTypeError("status detail: protobuf message required, got %s", arg))
+			}
+			details = append(details, arg)
 		}
 
 		return m.newGrpcErrorWithDetails(codes.Code(code), message, details)

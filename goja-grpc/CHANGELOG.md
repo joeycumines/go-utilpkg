@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: `grpc.status.createError` takes details as rest arguments** —
+  the JS factory is now `createError(code, message, ...details)` instead of
+  `createError(code, message, [details])`: each detail protobuf message is a
+  direct argument (`createError(3, 'bad request', detail)`), several details
+  are additional arguments, and no-details calls simply omit them (the old
+  `[]` placeholder is gone). Non-protobuf, `null`, and `undefined` detail
+  arguments fail with a `TypeError` naming the offending detail instead of
+  the former array-shape requirement.
+
 - **BREAKING: `Module.DisposeServices` is variadic** — the method now takes
   `services ...string` instead of a single `[]string` slice, so callers can
   write `m.DisposeServices("testgrpc.TestService")` directly; pass an existing
