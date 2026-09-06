@@ -236,7 +236,7 @@ func (m *Module) mustOpen(operation string) {
 // and is disposed together with the rest of the module at [Module.Close].
 //
 // A nil receiver returns 0.
-func (m *Module) DisposeServices(services []string) int {
+func (m *Module) DisposeServices(services ...string) int {
 	if m == nil || len(services) == 0 {
 		return 0
 	}

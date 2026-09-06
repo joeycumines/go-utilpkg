@@ -17,7 +17,7 @@ func TestAbortAnyNilAndEmptyInputs(t *testing.T) {
 		{name: "only nil signals", signals: []*AbortSignal{nil, nil, nil}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			composite := AbortAny(test.signals)
+			composite := AbortAny(test.signals...)
 			if composite == nil {
 				t.Fatal("AbortAny returned nil")
 			}
@@ -28,7 +28,7 @@ func TestAbortAnyNilAndEmptyInputs(t *testing.T) {
 	}
 
 	controller := NewAbortController()
-	composite := AbortAny([]*AbortSignal{nil, controller.Signal(), nil})
+	composite := AbortAny(nil, controller.Signal(), nil)
 	if composite == nil {
 		t.Fatal("AbortAny mixed input returned nil")
 	}
@@ -53,7 +53,7 @@ func TestAbortAnyConcurrentSources(t *testing.T) {
 		signals[index] = controllers[index].Signal()
 		witnesses[index] = &witness{index: index}
 	}
-	composite := AbortAny(signals)
+	composite := AbortAny(signals...)
 	var handlerCalls atomic.Int32
 	var handlerReason atomic.Pointer[witness]
 	var handlerMismatch atomic.Bool
@@ -114,11 +114,9 @@ func TestAbortAnyConcurrentSources(t *testing.T) {
 func TestAbortAnyDeduplicatesAndDetachesSources(t *testing.T) {
 	first := NewAbortController()
 	second := NewAbortController()
-	composite := AbortAny([]*AbortSignal{
+	composite := AbortAny(first.Signal(),
 		first.Signal(),
-		first.Signal(),
-		second.Signal(),
-	})
+		second.Signal())
 
 	if got := len(first.Signal().algorithms); got != 1 {
 		t.Fatalf("duplicate source algorithm count = %d, want 1", got)
@@ -144,7 +142,7 @@ func TestAbortAnyPreAbortedSourceSkipsLaterRegistration(t *testing.T) {
 	second := NewAbortController()
 	first.Abort("winner")
 
-	composite := AbortAny([]*AbortSignal{first.Signal(), second.Signal()})
+	composite := AbortAny(first.Signal(), second.Signal())
 	if got := composite.Reason(); got != "winner" {
 		t.Fatalf("composite reason = %#v, want %q", got, "winner")
 	}
@@ -262,7 +260,7 @@ func TestAbortAnySourceSettlementPrecedesSourceHandlers(t *testing.T) {
 		close(firstHandlerStarted)
 		<-releaseFirstHandler
 	})
-	composite := AbortAny([]*AbortSignal{first.Signal(), second.Signal()})
+	composite := AbortAny(first.Signal(), second.Signal())
 
 	firstDone := make(chan struct{})
 	go func() {
@@ -282,8 +280,8 @@ func TestAbortAnyNestedPropagationPrecedesSourceHandlers(t *testing.T) {
 	first := NewAbortController()
 	second := NewAbortController()
 	third := NewAbortController()
-	child := AbortAny([]*AbortSignal{first.Signal(), second.Signal()})
-	grandchild := AbortAny([]*AbortSignal{child, third.Signal()})
+	child := AbortAny(first.Signal(), second.Signal())
+	grandchild := AbortAny(child, third.Signal())
 
 	first.Signal().OnAbort(func(reason any) {
 		if got := child.Reason(); got != reason {
@@ -308,7 +306,7 @@ func TestAbortAnySourcePropagationSurvivesSourceGoexit(t *testing.T) {
 	first.Signal().OnAbort(func(any) {
 		runtime.Goexit()
 	})
-	composite := AbortAny([]*AbortSignal{first.Signal()})
+	composite := AbortAny(first.Signal())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

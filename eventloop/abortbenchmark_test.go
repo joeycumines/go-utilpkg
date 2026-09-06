@@ -10,7 +10,7 @@ var (
 func BenchmarkAbortAnyEmpty(b *testing.B) {
 	b.ReportAllocs()
 	for range b.N {
-		abortBenchmarkSignalSink = AbortAny(nil)
+		abortBenchmarkSignalSink = AbortAny()
 	}
 }
 
@@ -22,7 +22,7 @@ func BenchmarkAbortAnyPreSettled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		abortBenchmarkSignalSink = AbortAny([]*AbortSignal{signal})
+		abortBenchmarkSignalSink = AbortAny(signal)
 	}
 }
 
@@ -30,7 +30,7 @@ func BenchmarkAbortAnyPendingSettlement(b *testing.B) {
 	b.ReportAllocs()
 	for range b.N {
 		controller := NewAbortController()
-		composite := AbortAny([]*AbortSignal{controller.Signal()})
+		composite := AbortAny(controller.Signal())
 		controller.Abort(abortBenchmarkReason)
 		abortBenchmarkSignalSink = composite
 	}

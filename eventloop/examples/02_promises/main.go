@@ -39,7 +39,7 @@ func main() {
 
 	first, resolveFirst, _ := js.NewChainedPromise()
 	second, _, rejectSecond := js.NewChainedPromise()
-	js.AllSettled([]*eventloop.Promise{first, second}).Then(func(value any) any {
+	js.AllSettled(first, second).Then(func(value any) any {
 		fmt.Printf("all settled: %v\n", value)
 		return nil
 	}, nil)

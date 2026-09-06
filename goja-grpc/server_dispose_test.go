@@ -184,7 +184,7 @@ func TestDisposeServicesRetiresRegistrationSoReRegisterSucceeds(t *testing.T) {
 	// Retire the registration by service name. TestService declares exactly
 	// four methods (Echo, ServerStream, ClientStream, BidiStream), so exactly
 	// four plans must be reported retired. No other server holds this service.
-	if retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"}); retired != 4 {
+	if retired := env.grpcMod.DisposeServices("testgrpc.TestService"); retired != 4 {
 		t.Fatalf("DisposeServices retired %d plans, want 4", retired)
 	}
 
@@ -223,7 +223,7 @@ func TestDisposeServicesMissingServiceIsNoOp(t *testing.T) {
 
 	before := len(env.grpcMod.owner.serverPlans)
 
-	if retired := env.grpcMod.DisposeServices([]string{"does.not.Exist"}); retired != 0 {
+	if retired := env.grpcMod.DisposeServices("does.not.Exist"); retired != 0 {
 		t.Fatalf("DisposeServices of missing service retired %d, want 0", retired)
 	}
 	if got := len(env.grpcMod.owner.serverPlans); got != before {
@@ -252,7 +252,7 @@ func TestDisposeServicesDoesNotAffectOtherServices(t *testing.T) {
 
 	runJSOnRunningLoop(t, env, disposeEchoServerJS)
 
-	if retired := env.grpcMod.DisposeServices([]string{"some.other.Service"}); retired != 0 {
+	if retired := env.grpcMod.DisposeServices("some.other.Service"); retired != 0 {
 		t.Fatalf("scoped DisposeServices retired %d, want 0", retired)
 	}
 	got, err := invokeEcho(t, env, "scoped")
@@ -270,13 +270,13 @@ func TestDisposeServicesHandlesEmptyAndNil(t *testing.T) {
 	env := newGrpcTestEnv(t)
 	defer env.shutdown()
 
-	if got := env.grpcMod.DisposeServices(nil); got != 0 {
+	if got := env.grpcMod.DisposeServices(); got != 0 {
 		t.Fatalf("nil DisposeServices = %d, want 0", got)
 	}
-	if got := env.grpcMod.DisposeServices([]string{}); got != 0 {
+	if got := env.grpcMod.DisposeServices(); got != 0 {
 		t.Fatalf("empty DisposeServices = %d, want 0", got)
 	}
-	if got := env.grpcMod.DisposeServices([]string{""}); got != 0 {
+	if got := env.grpcMod.DisposeServices(""); got != 0 {
 		t.Fatalf("empty-string DisposeServices = %d, want 0", got)
 	}
 }
@@ -305,7 +305,7 @@ func TestDisposeServicesAfterCloseIsSafe(t *testing.T) {
 	}
 
 	// DisposeServices after Close removes the channel entries.
-	env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+	env.grpcMod.DisposeServices("testgrpc.TestService")
 
 	// Once disposed, the method is Unimplemented (fully removed from channel).
 	_, err = invokeEcho(t, env, "disposed")
@@ -368,7 +368,7 @@ func TestDisposeServicesAfterCloseIsSafe(t *testing.T) {
 // contract, which boi's teardown path relies on when a module handle is absent.
 func TestDisposeServicesNilReceiverIsSafe(t *testing.T) {
 	var m *Module
-	if got := m.DisposeServices([]string{"any.Service"}); got != 0 {
+	if got := m.DisposeServices("any.Service"); got != 0 {
 		t.Fatalf("nil-receiver DisposeServices = %d, want 0", got)
 	}
 }
@@ -535,7 +535,7 @@ func TestDisposeServicesPartialRetirementLeavesSiblingServicesIntact(t *testing.
 	}
 
 	// Retire ONLY Alpha. Exactly its single plan must be reported retired.
-	if retired := env.grpcMod.DisposeServices([]string{"disposemulti.Alpha"}); retired != 1 {
+	if retired := env.grpcMod.DisposeServices("disposemulti.Alpha"); retired != 1 {
 		t.Fatalf("DisposeServices(Alpha) retired %d plans, want 1", retired)
 	}
 
@@ -574,7 +574,7 @@ func TestDisposeServicesPartialRetirementLeavesSiblingServicesIntact(t *testing.
 	// Retiring the remaining service completes the ORIGINAL root: the follow-up
 	// disposal of Beta retires exactly Beta's plan (the root now hosts only
 	// Beta), and does not touch Alpha's fresh registration.
-	if retired := env.grpcMod.DisposeServices([]string{"disposemulti.Beta"}); retired != 1 {
+	if retired := env.grpcMod.DisposeServices("disposemulti.Beta"); retired != 1 {
 		t.Fatalf("DisposeServices(Beta) retired %d plans, want 1", retired)
 	}
 	_, err = invokeUnary(t, env, "disposemulti.Beta", "Ping", "message", "gone")
@@ -591,7 +591,7 @@ func TestDisposeServicesPartialRetirementLeavesSiblingServicesIntact(t *testing.
 
 	// Retire the recreated Alpha registration too; now nothing holds either
 	// service name.
-	if retired := env.grpcMod.DisposeServices([]string{"disposemulti.Alpha"}); retired != 1 {
+	if retired := env.grpcMod.DisposeServices("disposemulti.Alpha"); retired != 1 {
 		t.Fatalf("second DisposeServices(Alpha) retired %d plans, want 1", retired)
 	}
 	_, err = invokeUnary(t, env, "disposemulti.Alpha", "Echo", "message", "gone")
@@ -630,7 +630,7 @@ func TestDisposeServicesBeforeLoopRunsIsSafeAndDeferred(t *testing.T) {
 	if got := ownedRootCount(env.grpcMod); got != 1 {
 		t.Fatalf("owner roots after first registration = %d, want 1", got)
 	}
-	if retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"}); retired != 4 {
+	if retired := env.grpcMod.DisposeServices("testgrpc.TestService"); retired != 4 {
 		t.Fatalf("pre-Run DisposeServices retired %d plans, want 4", retired)
 	}
 
@@ -666,7 +666,7 @@ func TestDisposeServicesBeforeLoopRunsIsSafeAndDeferred(t *testing.T) {
 	// now reports its four plans and takes the method Unimplemented, and the
 	// follow-up disposal — together with the served RPC's own root teardown —
 	// drains the owner bridge entirely.
-	if retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"}); retired != 4 {
+	if retired := env.grpcMod.DisposeServices("testgrpc.TestService"); retired != 4 {
 		t.Fatalf("post-Run DisposeServices retired %d plans, want 4", retired)
 	}
 	_, err = invokeEcho(t, env, "gone")
@@ -702,7 +702,7 @@ func TestDisposeServicesConcurrentWithAdmissionNeverZombies(t *testing.T) {
 	for cycle := range cycles {
 		// Clean slate: retire whatever the previous cycle left and let its
 		// queued disposal land before racing.
-		env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+		env.grpcMod.DisposeServices("testgrpc.TestService")
 		runJSOnRunningLoop(t, env, "")
 
 		startDone := make(chan error, 1)
@@ -714,7 +714,7 @@ func TestDisposeServicesConcurrentWithAdmissionNeverZombies(t *testing.T) {
 		}
 
 		// Race the off-loop retirement against the on-loop admission.
-		retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+		retired := env.grpcMod.DisposeServices("testgrpc.TestService")
 		if err := <-startDone; err != nil {
 			t.Fatalf("cycle %d: concurrent start JS error: %v", cycle, err)
 		}
@@ -738,7 +738,7 @@ func TestDisposeServicesConcurrentWithAdmissionNeverZombies(t *testing.T) {
 			t.Fatalf("cycle %d: unexpected invoke error: %v", cycle, invokeErr)
 		}
 	}
-	env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+	env.grpcMod.DisposeServices("testgrpc.TestService")
 }
 
 // zeroMethodDescriptorSetBytes returns a FileDescriptorSet with an empty service
@@ -803,7 +803,7 @@ func TestDisposeServicesZeroMethodService(t *testing.T) {
 	}
 
 	// Dispose the zero-method service.
-	retired := env.grpcMod.DisposeServices([]string{"zeromethod.EmptyService"})
+	retired := env.grpcMod.DisposeServices("zeromethod.EmptyService")
 	if retired != 0 {
 		t.Fatalf("DisposeServices for zero-method service retired %d plans, want 0", retired)
 	}
@@ -864,7 +864,7 @@ func TestDisposeServicesPartialRetirementWithZeroMethodSibling(t *testing.T) {
 	}
 
 	// Dispose ONLY EchoService.
-	if retired := env.grpcMod.DisposeServices([]string{"zeromethod.EchoService"}); retired != 1 {
+	if retired := env.grpcMod.DisposeServices("zeromethod.EchoService"); retired != 1 {
 		t.Fatalf("DisposeServices(EchoService) retired %d, want 1", retired)
 	}
 
@@ -901,7 +901,7 @@ func TestDisposeServicesPartialRetirementWithZeroMethodSibling(t *testing.T) {
 	}
 
 	// Now dispose EmptyService.
-	if retired := env.grpcMod.DisposeServices([]string{"zeromethod.EmptyService"}); retired != 0 {
+	if retired := env.grpcMod.DisposeServices("zeromethod.EmptyService"); retired != 0 {
 		t.Fatalf("DisposeServices(EmptyService) retired %d, want 0", retired)
 	}
 	info = env.channel.GetServiceInfo()
@@ -934,7 +934,7 @@ func TestDisposeServicesForcedCloseInterleavings(t *testing.T) {
 		env.grpcMod.removeServerMethodPlans([]serverMethodID{1, 2, 3, 4})
 
 		// Now scan and dispose. It must still unregister channel entries from serverRegistrations.
-		env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+		env.grpcMod.DisposeServices("testgrpc.TestService")
 
 		_, err := invokeEcho(t, env, "probe")
 		if status.Code(err) != codes.Unimplemented {
@@ -952,7 +952,7 @@ func TestDisposeServicesForcedCloseInterleavings(t *testing.T) {
 		runJSOnRunningLoop(t, env, disposeEchoServerJS)
 
 		// Dispose scan runs first.
-		retired := env.grpcMod.DisposeServices([]string{"testgrpc.TestService"})
+		retired := env.grpcMod.DisposeServices("testgrpc.TestService")
 		if retired != 4 {
 			t.Fatalf("retired = %d, want 4", retired)
 		}

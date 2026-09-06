@@ -82,7 +82,7 @@ func TestJSTimeoutRacePendingPromise(t *testing.T) {
 	}
 	pending, _, _ := js.NewChainedPromise()
 	timeout := js.Timeout(delay)
-	result := js.Race([]*Promise{pending, timeout})
+	result := js.Race(pending, timeout)
 	settlement := result.ToChannel()
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()

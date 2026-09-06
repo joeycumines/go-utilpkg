@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: `Module.DisposeServices` is variadic** — the method now takes
+  `services ...string` instead of a single `[]string` slice, so callers can
+  write `m.DisposeServices("testgrpc.TestService")` directly; pass an existing
+  slice with `...` (`m.DisposeServices(names...)`). A call with no arguments
+  retires zero plans, preserving the documented nil/empty behavior.
+
 - Runtime-sensitive work now composes through the exact bound
   `goja-eventloop.Adapter`: worker goroutines retain Go-only transport data,
   while Goja value creation and Promise settlement run under the logical

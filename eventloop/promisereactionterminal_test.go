@@ -138,7 +138,7 @@ func TestPromiseReactionTerminalCleanerWinsBeforeSchedule(t *testing.T) {
 			var handlerCalls atomic.Int32
 			var result *Promise
 			if aggregate {
-				result = js.All([]*Promise{source})
+				result = js.All(source)
 			} else {
 				result = source.Then(func(value any) any {
 					handlerCalls.Add(1)

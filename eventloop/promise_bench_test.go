@@ -197,7 +197,7 @@ func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
 		}
-		child := js.All(promises).Then(promiseBenchmarkIdentity, nil)
+		child := js.All(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
 		for index, resolver := range slices.Backward(resolvers) {
 			resolver(promiseBenchmarkTokens[index])
@@ -245,7 +245,7 @@ func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
 		}
-		child := js.Race(promises).Then(promiseBenchmarkIdentity, nil)
+		child := js.Race(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
 		for index, resolver := range slices.Backward(resolvers) {
 			resolver(promiseBenchmarkTokens[index])
@@ -282,7 +282,7 @@ func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
 		}
-		child := js.AllSettled(promises).Then(promiseBenchmarkIdentity, nil)
+		child := js.AllSettled(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
 		for index, resolver := range slices.Backward(resolvers) {
 			resolver(promiseBenchmarkTokens[index])
@@ -328,7 +328,7 @@ func BenchmarkPromiseAnyFixedArityEndToEnd(b *testing.B) {
 		for index := range promises {
 			promises[index], resolvers[index], _ = js.NewChainedPromise()
 		}
-		child := js.Any(promises).Then(promiseBenchmarkIdentity, nil)
+		child := js.Any(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
 		for index, resolver := range slices.Backward(resolvers) {
 			resolver(promiseBenchmarkTokens[index])

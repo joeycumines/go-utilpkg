@@ -505,14 +505,14 @@ func (e *AbortError) Unwrap() error {
 //	controller1 := eventloop.NewAbortController()
 //	controller2 := eventloop.NewAbortController()
 //
-//	combined := eventloop.AbortAny([]*eventloop.AbortSignal{
+//	combined := eventloop.AbortAny(
 //	    controller1.Signal(),
 //	    controller2.Signal(),
-//	})
+//	)
 //
 //	// combined.Aborted() becomes true when EITHER controller aborts
 //	controller1.Abort("reason 1") // combined now aborted with "reason 1"
-func AbortAny(signals []*AbortSignal) *AbortSignal {
+func AbortAny(signals ...*AbortSignal) *AbortSignal {
 	composite := newAbortSignal()
 	if len(signals) == 0 {
 		return composite

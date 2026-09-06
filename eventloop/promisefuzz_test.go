@@ -56,13 +56,13 @@ func FuzzPromiseCombinators(f *testing.F) {
 		var result *Promise
 		switch kind {
 		case 0:
-			result = js.All(promises)
+			result = js.All(promises...)
 		case 1:
-			result = js.Race(promises)
+			result = js.Race(promises...)
 		case 2:
-			result = js.AllSettled(promises)
+			result = js.AllSettled(promises...)
 		case 3:
-			result = js.Any(promises)
+			result = js.Any(promises...)
 		}
 		result.Catch(func(any) any { return nil })
 

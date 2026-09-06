@@ -116,7 +116,7 @@ func BenchmarkStandardPromise_All(b *testing.B) {
 			promises[j], _, _ = js.NewChainedPromise()
 		}
 		b.StartTimer()
-		_ = js.All(promises)
+		_ = js.All(promises...)
 	}
 }
 

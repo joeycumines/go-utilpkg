@@ -25,7 +25,7 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 	recoveredChild := rejected.Catch(func(reason any) any {
 		return reason.(error).Error() + "-recovered"
 	})
-	result := js.AllSettled([]*Promise{fulfilledChild, recoveredChild})
+	result := js.AllSettled(fulfilledChild, recoveredChild)
 
 	resolve("value")
 	reject(errors.New("error"))
@@ -56,7 +56,7 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 
 	fulfilled, resolve, _ := js.NewChainedPromise()
 	rejected, _, reject := js.NewChainedPromise()
-	result := js.AllSettled([]*Promise{fulfilled, rejected})
+	result := js.AllSettled(fulfilled, rejected)
 
 	resolve("fulfilled")
 	loop.tick()
@@ -93,7 +93,7 @@ func TestPromiseAllSettled_PreservesInputOrder(t *testing.T) {
 	first, resolveFirst, _ := js.NewChainedPromise()
 	second, _, rejectSecond := js.NewChainedPromise()
 	third, resolveThird, _ := js.NewChainedPromise()
-	result := js.AllSettled([]*Promise{first, second, third})
+	result := js.AllSettled(first, second, third)
 
 	resolveThird("third")
 	rejectSecond("second")

@@ -74,7 +74,7 @@ func settledCombinatorRetentionProof(t *testing.T, loop *Loop, js *JS, name stri
 	var result *Promise
 	switch name {
 	case "all":
-		result = js.All(inputs)
+		result = js.All(inputs...)
 		for index, resolve := range resolvers {
 			resolve(struct {
 				index   int
@@ -82,17 +82,17 @@ func settledCombinatorRetentionProof(t *testing.T, loop *Loop, js *JS, name stri
 			}{index: index, payload: payload})
 		}
 	case "race":
-		result = js.Race(inputs)
+		result = js.Race(inputs...)
 		resolvers[1](payload)
 		resolvers[0]("late zero")
 		resolvers[2]("late two")
 	case "allSettled":
-		result = js.AllSettled(inputs)
+		result = js.AllSettled(inputs...)
 		resolvers[0](payload)
 		rejecters[1]("handled rejection")
 		resolvers[2]("fulfilled")
 	case "any":
-		result = js.Any(inputs)
+		result = js.Any(inputs...)
 		rejecters[0]("handled zero")
 		resolvers[2](payload)
 		rejecters[1]("handled one")

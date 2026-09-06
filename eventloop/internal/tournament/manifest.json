@@ -1354,42 +1354,42 @@
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkPromiseCreation": {
           "id": "workload.product.promise-creation.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkPromiseDepthThreeEndToEnd": {
           "id": "workload.product.promise-depth-three-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkPromiseReactionEndToEnd": {
           "id": "workload.product.promise-reaction-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkPromiseSettleNoHandler": {
           "id": "workload.product.promise-settle-no-handler.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkPromisifyCompletionEndToEnd": {
           "id": "workload.product.promisify-completion-end-to-end.v1",
           "harness_files": [
             "promise_bench_test.go"
           ],
-          "harness_sha256": "04f21776aa935ecde052fbdb9037b3be7685d1989d3cdfd9e26c31c6af5913eb"
+          "harness_sha256": "5dfdeedb815154be452a23eeda904c058f88e50160153b8d860aeb275951e89e"
         },
         "BenchmarkSchedulerInternalExternalBurst": {
           "id": "workload.product.scheduler-internal-external-burst.v1",

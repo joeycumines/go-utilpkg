@@ -135,10 +135,10 @@ func (e PanicError) Is(target error) bool {
 //
 // Example:
 //
-//	promise := js.Any([]*Promise{
+//	promise := js.Any(
 //	    js.Reject(errors.New("error 1")),
 //	    js.Reject(errors.New("error 2")),
-//	})
+//	)
 //	promise.Catch(func(r any) any {
 //	    if agg, ok := r.(*AggregateError); ok {
 //	        fmt.Printf("All failed. Errors:\n")

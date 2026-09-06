@@ -138,7 +138,7 @@ func FuzzAbortSignalGraphModel(f *testing.F) {
 					deps = append(deps, idx)
 					signals = append(signals, models[idx].signal)
 				}
-				composite := AbortAny(signals)
+				composite := AbortAny(signals...)
 				models = append(models, abortSignalModel{signal: composite, deps: deps})
 				compositeIdx := len(models) - 1
 				abortedAtCreation := false

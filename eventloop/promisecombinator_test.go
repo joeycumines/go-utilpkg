@@ -7,7 +7,7 @@ import (
 
 type promiseCombinatorTestCase struct {
 	name    string
-	combine func(*JS, []*Promise) *Promise
+	combine func(*JS, ...*Promise) *Promise
 }
 
 func promiseCombinatorTestCases() []promiseCombinatorTestCase {
@@ -30,7 +30,7 @@ func TestPromiseAllEmptyInputSettlesSynchronously(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := js.All(nil)
+	result := js.All()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestPromiseAllSettledEmptyInputSettlesSynchronously(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := js.AllSettled(nil)
+	result := js.AllSettled()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestPromiseAnyEmptyInputRejectsSynchronously(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := js.Any(nil)
+	result := js.Any()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestPromiseRaceEmptyInputRemainsPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := js.Race(nil)
+	result := js.Race()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -186,17 +186,17 @@ rejectedPromise := js.Reject(errors.New("failed"))
 
 ```go
 // Promise.all - wait for all to resolve
-allPromise := js.All([]*eventloop.Promise{p1, p2, p3})
+allPromise := js.All(p1, p2, p3)
 
 // Promise.race - first to settle wins
-racePromise := js.Race([]*eventloop.Promise{p1, p2, p3})
+racePromise := js.Race(p1, p2, p3)
 
 // Promise.allSettled - wait for all to settle
-settledPromise := js.AllSettled([]*eventloop.Promise{p1, p2, p3})
+settledPromise := js.AllSettled(p1, p2, p3)
 
 // Promise.any - first to resolve wins
 // The returned promise rejects with AggregateError if all inputs reject
-anyPromise := js.Any([]*eventloop.Promise{p1, p2, p3})
+anyPromise := js.Any(p1, p2, p3)
 ```
 
 If terminal state prevents an input reaction from executing, the combinator
@@ -213,10 +213,10 @@ When all inputs reject, the promise returned by `Promise.any` rejects with an
 
 ```go
 // Handling AggregateError from Go
-promise := js.Any([]*eventloop.Promise{
+promise := js.Any(
     js.Reject(errors.New("error 1")),
     js.Reject(errors.New("error 2")),
-})
+)
 promise.Catch(func(r any) any {
     if agg, ok := r.(*eventloop.AggregateError); ok {
         log.Printf("All promises failed. Reasons:")

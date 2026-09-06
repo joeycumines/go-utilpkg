@@ -67,7 +67,7 @@ func FuzzPromiseAll(f *testing.F) {
 			want[i] = fmt.Sprintf("value-%d", i)
 		}
 
-		result := js.All(promises)
+		result := js.All(promises...)
 		resultChannel := result.ToChannel()
 		for _, index := range combinatorSettlementOrder(count, seed, mode, orderSalt) {
 			resolves[index](want[index])
@@ -111,7 +111,7 @@ func FuzzPromiseRace(f *testing.F) {
 		order := combinatorSettlementOrder(count, seed, int64(orderSalt), orderSalt)
 		winner := order[0]
 		winnerText := fmt.Sprintf("winner-%d", winner)
-		result := js.Race(promises)
+		result := js.Race(promises...)
 		resultChannel := result.ToChannel()
 
 		if fulfillWinner {
@@ -174,7 +174,7 @@ func FuzzPromiseAllSettled(f *testing.F) {
 			fulfilled[i] = (rejectMask>>uint(i%64))&1 == 0
 		}
 
-		result := js.AllSettled(promises)
+		result := js.AllSettled(promises...)
 		resultChannel := result.ToChannel()
 		for _, index := range combinatorSettlementOrder(count, seed, int64(orderSalt), orderSalt) {
 			if fulfilled[index] {
@@ -237,7 +237,7 @@ func FuzzPromiseAny(f *testing.F) {
 		for _, index := range order[:resolveCount] {
 			willResolve[index] = true
 		}
-		result := js.Any(promises)
+		result := js.Any(promises...)
 		resultChannel := result.ToChannel()
 
 		if resolveCount > 0 {

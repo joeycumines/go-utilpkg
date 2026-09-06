@@ -70,6 +70,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: variadic promise combinators and `AbortAny`** — `JS.All`,
+  `JS.Race`, `JS.AllSettled`, and `JS.Any` now take their promises as variadic
+  arguments (`js.All(p1, p2)`) instead of a single `[]*Promise` slice; pass an
+  existing slice with `...` (`js.All(promises...)`). With no arguments they keep
+  the documented empty-input behaviors (`All`/`AllSettled` resolve empty,
+  `Race` never settles, `Any` rejects with `AggregateError`). The function
+  `AbortAny` likewise takes `...*AbortSignal` (`AbortAny(sig1, sig2)`); call it
+  with no arguments for an inert composite. This aligns the collection APIs
+  with the existing variadic `CancelTimers(ids ...TimerID)` convention and
+  improves call-site ergonomics.
+
 - **Bounded scheduler backing retention** — valid task, phase, timer, and JS
   handle bursts remain unrestricted, while oversized retired slices and map
   generations are released at ownership-safe geometric low-water boundaries.

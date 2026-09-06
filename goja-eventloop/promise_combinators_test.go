@@ -36,7 +36,7 @@ func TestCoreJSAllWithAllResolved(t *testing.T) {
 	p3, r3, _ := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.All(promises)
+	resultPromise := jsAdapter.All(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -83,7 +83,7 @@ func TestCoreJSAllWithEmptyArray(t *testing.T) {
 	}
 
 	promises := []*goeventloop.Promise{}
-	resultPromise := jsAdapter.All(promises)
+	resultPromise := jsAdapter.All(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -129,7 +129,7 @@ func TestCoreJSAllWithOneRejected(t *testing.T) {
 	p3, r3, _ := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.All(promises)
+	resultPromise := jsAdapter.All(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -184,7 +184,7 @@ func TestCoreJSRaceTiming(t *testing.T) {
 	p2, _, _ := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2}
-	resultPromise := jsAdapter.Race(promises)
+	resultPromise := jsAdapter.Race(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -231,7 +231,7 @@ func TestCoreJSRaceFirstRejectedWins(t *testing.T) {
 	p2, r2, _ := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2}
-	resultPromise := jsAdapter.Race(promises)
+	resultPromise := jsAdapter.Race(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -284,7 +284,7 @@ func TestCoreJSAllSettledMixedResults(t *testing.T) {
 	p3, r3, _ := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.AllSettled(promises)
+	resultPromise := jsAdapter.AllSettled(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -341,7 +341,7 @@ func TestCoreJSAnyFirstResolvedWins(t *testing.T) {
 	p3, _, rej3 := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.Any(promises)
+	resultPromise := jsAdapter.Any(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -388,7 +388,7 @@ func TestCoreJSAnyAllRejected(t *testing.T) {
 	p3, _, rej3 := jsAdapter.NewChainedPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.Any(promises)
+	resultPromise := jsAdapter.Any(promises...)
 
 	go func() { _ = loop.Run(ctx) }()
 

@@ -139,7 +139,7 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 							p, _, _ := js.NewChainedPromise()
 							promises[k] = p
 						}
-						_ = js.Race(promises)
+						_ = js.Race(promises...)
 					}
 				} else if impl.Name == "PromiseAltFour" {
 					b.ResetTimer()

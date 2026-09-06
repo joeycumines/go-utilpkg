@@ -28,8 +28,8 @@ import (
 //	    resolve2("b")
 //	}()
 //	// result will be []any{"a", "b"}
-//	result := js.All([]*Promise{p1, p2})
-func (js *JS) All(promises []*Promise) *Promise {
+//	result := js.All(p1, p2)
+func (js *JS) All(promises ...*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - resolve immediately with empty array
@@ -93,8 +93,8 @@ func (js *JS) All(promises []*Promise) *Promise {
 //	    time.Sleep(5 * time.Second)
 //	    rejectTimeout(errors.New("timeout"))
 //	}()
-//	result := js.Race([]*Promise{actualWork, timeout})
-func (js *JS) Race(promises []*Promise) *Promise {
+//	result := js.Race(actualWork, timeout)
+func (js *JS) Race(promises ...*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - never settles
@@ -142,7 +142,7 @@ func (js *JS) Race(promises []*Promise) *Promise {
 //   - Results are in the same order as the input promises
 //   - Rejects with [ErrLoopTerminated] if an input reaction cannot execute and
 //     that failure wins the returned promise's settlement claim
-func (js *JS) AllSettled(promises []*Promise) *Promise {
+func (js *JS) AllSettled(promises ...*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	if len(promises) == 0 {
@@ -210,8 +210,8 @@ func (js *JS) AllSettled(promises []*Promise) *Promise {
 // Use Any when you need at least one success:
 //
 //	// Try multiple data sources, use first successful response
-//	result := js.Any([]*Promise{source1, source2, source3})
-func (js *JS) Any(promises []*Promise) *Promise {
+//	result := js.Any(source1, source2, source3)
+func (js *JS) Any(promises ...*Promise) *Promise {
 	result, resolve, reject := js.NewChainedPromise()
 
 	// Handle empty array - reject immediately

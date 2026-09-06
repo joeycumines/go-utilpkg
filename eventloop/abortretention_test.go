@@ -28,7 +28,7 @@ func newSettledSignalPayload() (*AbortSignal, weak.Pointer[contractRetentionPayl
 func newSettledCompositePointer() ([]*AbortSignal, weak.Pointer[AbortSignal]) {
 	first := NewAbortController()
 	second := NewAbortController()
-	composite := AbortAny([]*AbortSignal{first.Signal(), second.Signal()})
+	composite := AbortAny(first.Signal(), second.Signal())
 	pointer := weak.Make(composite)
 	first.Abort("done")
 	runtime.KeepAlive(composite)
@@ -36,7 +36,7 @@ func newSettledCompositePointer() ([]*AbortSignal, weak.Pointer[AbortSignal]) {
 }
 
 func newAbandonedPendingCompositePointer(signals []*AbortSignal) weak.Pointer[AbortSignal] {
-	composite := AbortAny(signals)
+	composite := AbortAny(signals...)
 	pointer := weak.Make(composite)
 	runtime.KeepAlive(composite)
 	return pointer

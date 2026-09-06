@@ -144,7 +144,7 @@ func PromiseImplementations() []PromiseImplementation {
 				for i := range promises {
 					promises[i], resolvers[i], _ = js.NewChainedPromise()
 				}
-				return &ChainedPromiseAdapter{p: js.Race(promises)}, settlePromiseRaceInputs(js, resolvers)
+				return &ChainedPromiseAdapter{p: js.Race(promises...)}, settlePromiseRaceInputs(js, resolvers)
 			},
 			AllCase:                         chainedPromiseAllCase,
 			RaceCase:                        chainedPromiseRaceCase,
@@ -318,7 +318,7 @@ func chainedPromiseAllCase(js *eventloop.JS, count int) PromiseCombinatorCase {
 		promises[index], resolvers[index], _ = js.NewChainedPromise()
 	}
 	return PromiseCombinatorCase{
-		Promise:   &ChainedPromiseAdapter{p: js.All(promises)},
+		Promise:   &ChainedPromiseAdapter{p: js.All(promises...)},
 		Resolvers: resolvers,
 		Retention: promises,
 	}
@@ -331,7 +331,7 @@ func chainedPromiseRaceCase(js *eventloop.JS, count int) PromiseCombinatorCase {
 		promises[index], resolvers[index], _ = js.NewChainedPromise()
 	}
 	return PromiseCombinatorCase{
-		Promise:   &ChainedPromiseAdapter{p: js.Race(promises)},
+		Promise:   &ChainedPromiseAdapter{p: js.Race(promises...)},
 		Resolvers: resolvers,
 		Retention: promises,
 	}

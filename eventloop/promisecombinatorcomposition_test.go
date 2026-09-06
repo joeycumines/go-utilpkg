@@ -17,7 +17,7 @@ func TestPromiseCombinatorsPreserveNilSettlements(t *testing.T) {
 		{
 			name: "All fulfillment",
 			build: func(js *JS) *Promise {
-				return js.All([]*Promise{js.Resolve("first"), js.Resolve(nil), js.Resolve("third")})
+				return js.All(js.Resolve("first"), js.Resolve(nil), js.Resolve("third"))
 			},
 			want: []any{"first", nil, "third"},
 		},
@@ -26,19 +26,19 @@ func TestPromiseCombinatorsPreserveNilSettlements(t *testing.T) {
 			build: func(js *JS) *Promise {
 				winner, resolve, _ := js.NewChainedPromise()
 				pending, _, _ := js.NewChainedPromise()
-				result := js.Race([]*Promise{winner, pending})
+				result := js.Race(winner, pending)
 				resolve(nil)
 				return result
 			},
 		},
 		{
 			name:  "AllSettled fulfillment",
-			build: func(js *JS) *Promise { return js.AllSettled([]*Promise{js.Resolve(nil)}) },
+			build: func(js *JS) *Promise { return js.AllSettled(js.Resolve(nil)) },
 			want:  []any{map[string]any{"status": "fulfilled", "value": nil}},
 		},
 		{
 			name:  "AllSettled rejection",
-			build: func(js *JS) *Promise { return js.AllSettled([]*Promise{js.Reject(nil)}) },
+			build: func(js *JS) *Promise { return js.AllSettled(js.Reject(nil)) },
 			want:  []any{map[string]any{"status": "rejected", "reason": nil}},
 		},
 		{
@@ -46,7 +46,7 @@ func TestPromiseCombinatorsPreserveNilSettlements(t *testing.T) {
 			build: func(js *JS) *Promise {
 				winner, resolve, _ := js.NewChainedPromise()
 				pending, _, _ := js.NewChainedPromise()
-				result := js.Any([]*Promise{winner, pending})
+				result := js.Any(winner, pending)
 				resolve(nil)
 				return result
 			},
@@ -68,7 +68,7 @@ func TestPromiseCombinatorsRejectNilWithoutPartialAttachment(t *testing.T) {
 	loop, js := newCombinatorContractJS(t)
 	source, _, _ := js.NewChainedPromise()
 
-	combinators := map[string]func([]*Promise) *Promise{
+	combinators := map[string]func(...*Promise) *Promise{
 		"all":        js.All,
 		"race":       js.Race,
 		"allSettled": js.AllSettled,
@@ -76,7 +76,7 @@ func TestPromiseCombinatorsRejectNilWithoutPartialAttachment(t *testing.T) {
 	}
 	for name, combinator := range combinators {
 		t.Run(name, func(t *testing.T) {
-			result := combinator([]*Promise{source, nil})
+			result := combinator(source, nil)
 			if state := result.State(); state != Rejected {
 				t.Fatalf("state = %v, want Rejected", state)
 			}
@@ -99,7 +99,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 		loop, js := newCombinatorContractJS(t)
 		outer, resolveOuter, _ := js.NewChainedPromise()
 		inner, resolveInner, _ := js.NewChainedPromise()
-		result := js.All([]*Promise{outer})
+		result := js.All(outer)
 
 		resolveOuter(inner)
 		loop.tick()
@@ -121,10 +121,10 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 		p1b, _, _ := js.NewChainedPromise()
 		p2a, _, _ := js.NewChainedPromise()
 		p2b, resolve2b, _ := js.NewChainedPromise()
-		result := js.All([]*Promise{
-			js.Race([]*Promise{p1a, p1b}),
-			js.Race([]*Promise{p2a, p2b}),
-		})
+		result := js.All(
+			js.Race(p1a, p1b),
+			js.Race(p2a, p2b),
+		)
 
 		resolve2b("second-race")
 		resolve1a("first-race")
@@ -142,10 +142,10 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 		p1b, resolve1b, _ := js.NewChainedPromise()
 		p2a, _, _ := js.NewChainedPromise()
 		p2b, _, _ := js.NewChainedPromise()
-		result := js.Race([]*Promise{
-			js.All([]*Promise{p1a, p1b}),
-			js.All([]*Promise{p2a, p2b}),
-		})
+		result := js.Race(
+			js.All(p1a, p1b),
+			js.All(p2a, p2b),
+		)
 
 		resolve1b("1b")
 		resolve1a("1a")
@@ -165,7 +165,7 @@ func TestPromiseCombinator_NestedPromises(t *testing.T) {
 		for i := range chain {
 			chain[i], resolves[i], _ = js.NewChainedPromise()
 		}
-		result := js.All([]*Promise{chain[0]})
+		result := js.All(chain[0])
 		for i := range depth - 1 {
 			resolves[i](chain[i+1])
 		}
@@ -184,7 +184,7 @@ func TestPromiseAny_PartialRejectionThenFulfillment(t *testing.T) {
 	first, _, rejectFirst := js.NewChainedPromise()
 	winner, resolveWinner, _ := js.NewChainedPromise()
 	last, _, rejectLast := js.NewChainedPromise()
-	result := js.Any([]*Promise{first, winner, last})
+	result := js.Any(first, winner, last)
 
 	rejectFirst("first rejection")
 	loop.tick()
@@ -211,7 +211,7 @@ func TestPromiseAny_ChainedPromise(t *testing.T) {
 	chained := base.Then(func(value any) any {
 		return value.(string) + "-transformed"
 	}, nil)
-	result := js.Any([]*Promise{chained})
+	result := js.Any(chained)
 
 	resolveBase("base")
 	loop.tick()
@@ -240,7 +240,7 @@ func TestPromiseAll_CrossAdapterComposition(t *testing.T) {
 		producer.Resolve("b").Then(func(value any) any { return value.(string) + "-transformed" }, nil),
 		producer.Resolve("c").Then(func(value any) any { return value.(string) + "-transformed" }, nil),
 	}
-	result := consumer.All(promises)
+	result := consumer.All(promises...)
 	loop.tick()
 
 	want := []any{"a-transformed", "b-transformed", "c-transformed"}
@@ -278,13 +278,13 @@ func FuzzPromiseCombinator_MixedOperations(f *testing.F) {
 			sources := promises[:finalSubset]
 			switch finalKind {
 			case 0:
-				current = js.All(sources)
+				current = js.All(sources...)
 			case 1:
-				current = js.Race(sources)
+				current = js.Race(sources...)
 			case 2:
-				current = js.AllSettled(sources)
+				current = js.AllSettled(sources...)
 			case 3:
-				current = js.Any(sources)
+				current = js.Any(sources...)
 			}
 			if operation == operations-1 {
 				break
