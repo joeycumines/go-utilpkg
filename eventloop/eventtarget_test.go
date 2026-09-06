@@ -380,8 +380,8 @@ func TestEvent_NewEvent(t *testing.T) {
 	}
 }
 
-func TestEvent_NewEventWithOptions(t *testing.T) {
-	event := NewEventWithOptions("submit", true, true)
+func TestEvent_NewEventBubblesCancelableOptions(t *testing.T) {
+	event := NewEvent("submit", WithBubbles(true), WithCancelable(true))
 	if event.Type != "submit" {
 		t.Errorf("Expected type 'submit', got '%s'", event.Type)
 	}
@@ -393,8 +393,17 @@ func TestEvent_NewEventWithOptions(t *testing.T) {
 	}
 }
 
+func TestEvent_NewEventNilOptionPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("NewEvent with a nil option should panic")
+		}
+	}()
+	_ = NewEvent("test", nil)
+}
+
 func TestEvent_PreventDefault_Cancelable(t *testing.T) {
-	event := NewEventWithOptions("submit", false, true)
+	event := NewEvent("submit", WithCancelable(true))
 	if event.DefaultPrevented {
 		t.Error("DefaultPrevented should be false initially")
 	}
@@ -473,7 +482,7 @@ func TestEvent_DispatchEvent_ReturnValue_Cancelable(t *testing.T) {
 		e.PreventDefault()
 	})
 
-	event := NewEventWithOptions("submit", false, true)
+	event := NewEvent("submit", WithCancelable(true))
 	result := target.DispatchEvent(event)
 
 	if result {
@@ -496,11 +505,11 @@ func TestEvent_DispatchEvent_ReturnValue_NotCancelable(t *testing.T) {
 	}
 }
 
-// CustomEvent Tests
+// Event detail tests
 
-func TestCustomEvent_NewCustomEvent(t *testing.T) {
+func TestEvent_NewEventWithDetail(t *testing.T) {
 	detail := map[string]any{"key": "value", "count": 42}
-	event := NewCustomEvent("custom", detail)
+	event := NewEvent("custom", WithDetail(detail))
 
 	if event.Type != "custom" {
 		t.Errorf("Expected type 'custom', got '%s'", event.Type)
@@ -520,9 +529,9 @@ func TestCustomEvent_NewCustomEvent(t *testing.T) {
 	}
 }
 
-func TestCustomEvent_NewCustomEventWithOptions(t *testing.T) {
+func TestEvent_NewEventWithDetailAndOptions(t *testing.T) {
 	detail := "test data"
-	event := NewCustomEventWithOptions("custom", detail, true, true)
+	event := NewEvent("custom", WithDetail(detail), WithBubbles(true), WithCancelable(true))
 
 	if event.Type != "custom" {
 		t.Errorf("Expected type 'custom', got '%s'", event.Type)
@@ -538,26 +547,14 @@ func TestCustomEvent_NewCustomEventWithOptions(t *testing.T) {
 	}
 }
 
-func TestCustomEvent_NilDetail(t *testing.T) {
-	event := NewCustomEvent("test", nil)
+func TestEvent_NilDetail(t *testing.T) {
+	event := NewEvent("test", WithDetail(nil))
 	if event.Detail() != nil {
 		t.Error("Detail should be nil")
 	}
 }
 
-func TestCustomEvent_EventPtr(t *testing.T) {
-	event := NewCustomEvent("custom", "data")
-	ptr := event.EventPtr()
-
-	if ptr != &event.Event {
-		t.Error("EventPtr should return pointer to embedded Event")
-	}
-	if ptr.Type != "custom" {
-		t.Error("EventPtr should reference correct event")
-	}
-}
-
-func TestCustomEvent_DispatchWithEventPtr(t *testing.T) {
+func TestEvent_DispatchWithDetail(t *testing.T) {
 	target := NewEventTarget()
 	var receivedDetail any
 
@@ -566,8 +563,8 @@ func TestCustomEvent_DispatchWithEventPtr(t *testing.T) {
 	})
 
 	detail := map[string]any{"action": "login", "user": "alice"}
-	customEvent := NewCustomEvent("userAction", detail)
-	target.DispatchEvent(customEvent.EventPtr())
+	event := NewEvent("userAction", WithDetail(detail))
+	target.DispatchEvent(event)
 
 	if receivedDetail == nil {
 		t.Error("Detail should be received by listener")
@@ -581,22 +578,21 @@ func TestCustomEvent_DispatchWithEventPtr(t *testing.T) {
 	}
 }
 
-func TestCustomEvent_InheritsMethods(t *testing.T) {
-	event := NewCustomEventWithOptions("cancel", nil, false, true)
+func TestEvent_DetailedCancelableEvent(t *testing.T) {
+	event := NewEvent("cancel", WithDetail(nil), WithCancelable(true))
 
-	// Test inherited methods
 	event.PreventDefault()
 	if !event.DefaultPrevented {
-		t.Error("CustomEvent should inherit PreventDefault")
+		t.Error("Detailed event should honor PreventDefault when cancelable")
 	}
 
 	event.StopImmediatePropagation()
 	if !event.ImmediatePropagationStopped() {
-		t.Error("CustomEvent should inherit StopImmediatePropagation")
+		t.Error("Detailed event should support StopImmediatePropagation")
 	}
 }
 
-func TestCustomEvent_ComplexDetail(t *testing.T) {
+func TestEvent_ComplexDetail(t *testing.T) {
 	type UserData struct {
 		ID       int
 		Username string
@@ -609,7 +605,7 @@ func TestCustomEvent_ComplexDetail(t *testing.T) {
 		Roles:    []string{"admin", "user"},
 	}
 
-	event := NewCustomEvent("userUpdate", detail)
+	event := NewEvent("userUpdate", WithDetail(detail))
 	retrieved, ok := event.Detail().(UserData)
 	if !ok {
 		t.Fatal("Detail should be UserData")
@@ -622,8 +618,8 @@ func TestCustomEvent_ComplexDetail(t *testing.T) {
 	}
 }
 
-func TestCustomEvent_AccessViaEventDetail(t *testing.T) {
-	// Verify that Detail() works correctly when accessing through *Event
+func TestEvent_DetailAccessViaDispatch(t *testing.T) {
+	// Verify that Detail() works correctly when accessed through *Event
 	target := NewEventTarget()
 	var receivedEvent *Event
 
@@ -631,8 +627,8 @@ func TestCustomEvent_AccessViaEventDetail(t *testing.T) {
 		receivedEvent = e
 	})
 
-	customEvent := NewCustomEvent("test", "custom data")
-	target.DispatchEvent(customEvent.EventPtr())
+	event := NewEvent("test", WithDetail("custom data"))
+	target.DispatchEvent(event)
 
 	if receivedEvent == nil {
 		t.Fatal("Event not received")

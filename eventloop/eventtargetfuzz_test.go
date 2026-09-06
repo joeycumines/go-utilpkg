@@ -118,13 +118,9 @@ func FuzzEventTargetDispatchModel(f *testing.F) {
 			default:
 				cancelable := r.bool()
 				bubbles := r.bool()
-				event := NewEventWithOptions(eventType, bubbles, cancelable)
+				event := NewEvent(eventType, WithBubbles(bubbles), WithCancelable(cancelable))
 				if r.byte()%5 == 0 {
-					custom := NewCustomEventWithOptions(eventType, r.smallString(8), bubbles, cancelable)
-					event = custom.EventPtr()
-					if custom.EventPtr() != &custom.Event {
-						t.Fatalf("CustomEvent.EventPtr did not return embedded event")
-					}
+					event = NewEvent(eventType, WithBubbles(bubbles), WithCancelable(cancelable), WithDetail(r.smallString(8)))
 				}
 
 				expectedCalls := make([]ListenerID, 0, len(byType[eventType]))

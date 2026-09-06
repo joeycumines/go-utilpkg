@@ -192,7 +192,7 @@
 //
 // [AbortController], [AbortSignal], [AbortAny], and [AbortTimeout] provide
 // concurrent Go cancellation with stable reason identity. [EventTarget]
-// dispatches [Event] and [CustomEvent] listeners synchronously with removal
+// dispatches [Event] listeners synchronously with removal
 // visible until callback-start claim and atomic once-listener claims. These APIs
 // are browser-inspired Go extensions, not DOM implementations; goja-eventloop
 // owns JavaScript-visible behavior.

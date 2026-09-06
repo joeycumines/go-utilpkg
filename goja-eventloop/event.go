@@ -192,7 +192,11 @@ func (a *Adapter) bindEventPrototype(constructor *goja.Object) error {
 }
 
 func (a *Adapter) initializeEvent(state *eventState, eventType string, bubbles, cancelable bool) {
-	state.event = goeventloop.NewEventWithOptions(eventType, bubbles, cancelable)
+	state.event = goeventloop.NewEvent(
+		eventType,
+		goeventloop.WithBubbles(bubbles),
+		goeventloop.WithCancelable(cancelable),
+	)
 	state.target = goja.Null()
 	state.currentTarget = goja.Null()
 	state.eventPhase = eventPhaseNone
@@ -215,7 +219,11 @@ func (a *Adapter) eventConstructor(call goja.ConstructorCall) *goja.Object {
 	eventType := a.webIDLString(call.Argument(0))
 	bubbles, cancelable, composed := a.eventInit(call.Argument(1))
 
-	event := goeventloop.NewEventWithOptions(eventType, bubbles, cancelable)
+	event := goeventloop.NewEvent(
+		eventType,
+		goeventloop.WithBubbles(bubbles),
+		goeventloop.WithCancelable(cancelable),
+	)
 	a.wrapEventWithObject(event, call.This, false)
 	a.eventThis(call.This).composed = composed
 	return call.This
@@ -349,12 +357,17 @@ func (a *Adapter) customEventConstructor(call goja.ConstructorCall) *goja.Object
 		}
 	}
 
-	customEvent := goeventloop.NewCustomEventWithOptions(eventType, detail, bubbles, cancelable)
+	event := goeventloop.NewEvent(
+		eventType,
+		goeventloop.WithBubbles(bubbles),
+		goeventloop.WithCancelable(cancelable),
+		goeventloop.WithDetail(detail),
+	)
 
 	thisObj := call.This
 
-	// Wrap the embedded Event
-	a.wrapEventWithObject(customEvent.EventPtr(), thisObj, false)
+	// Wrap the Event
+	a.wrapEventWithObject(event, thisObj, false)
 	if stateValue := a.hiddenState(a.eventStateStore, thisObj); stateValue != nil && !goja.IsUndefined(stateValue) && !goja.IsNull(stateValue) {
 		if state, ok := stateValue.Export().(*eventState); ok && state != nil {
 			state.detail = detail

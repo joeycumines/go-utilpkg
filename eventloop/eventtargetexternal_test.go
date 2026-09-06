@@ -91,9 +91,9 @@ func TestEventTargetWholeValueOverwritePreservesDispatchOutcome(t *testing.T) {
 func TestEventCopyRetainsOrdinaryFields(t *testing.T) {
 	target := eventloop.NewEventTarget()
 	payload := &struct{ value string }{value: "detail"}
-	custom := eventloop.NewCustomEvent("event", payload)
-	target.DispatchEvent(custom.EventPtr())
-	copied := custom.Event
+	event := eventloop.NewEvent("event", eventloop.WithDetail(payload))
+	target.DispatchEvent(event)
+	copied := *event
 
 	if copied.Target != target {
 		t.Fatalf("copied Target = %p, want original target %p", copied.Target, target)

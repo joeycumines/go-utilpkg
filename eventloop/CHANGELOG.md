@@ -70,6 +70,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: single `NewEvent` factory** — event creation now goes through
+  one factory, `NewEvent(eventType, ...EventOption)`, mirroring the MDN
+  `Event` constructor's `EventInit` dictionary. `WithBubbles`,
+  `WithCancelable`, and `WithDetail` replace the removed constructors
+  `NewEventWithOptions`, `NewCustomEvent`, and `NewCustomEventWithOptions`,
+  and the `CustomEvent` type with its `EventPtr` method is gone — custom
+  detail data is attached with `WithDetail` and read through `Event.Detail`.
+  Plain `NewEvent(type)` retains the DOM defaults (not bubbling, not
+  cancelable).
+
 - **BREAKING: `EventTarget.RemoveEventListener`** — the method
   `RemoveEventListenerByID(eventType, id)` was renamed to
   `RemoveEventListener(eventType, id)`. Removal is still by listener ID; the

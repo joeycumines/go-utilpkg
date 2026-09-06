@@ -19,7 +19,7 @@ func TestEventTargetDispatchReusesEventWithFreshState(t *testing.T) {
 	target.AddEventListener("event", func(*Event) {
 		regularCalls++
 	})
-	event := NewEventWithOptions("event", false, true)
+	event := NewEvent("event", WithCancelable(true))
 
 	if target.DispatchEvent(event) {
 		t.Fatal("first dispatch = true, want canceled")

@@ -127,7 +127,7 @@ type Event struct { //nolint:govet // betteralign:ignore
 	// Default is false.
 	Cancelable bool
 
-	// detail holds custom event data (used by CustomEvent).
+	// detail holds custom detail data attached via [WithDetail].
 	detail any
 }
 
@@ -660,111 +660,79 @@ func (e *Event) ImmediatePropagationStopped() bool {
 }
 
 // Detail returns the custom detail data associated with the event.
-// This is primarily used by [CustomEvent].
+// This is primarily used by events created with [NewEvent] and [WithDetail].
 func (e *Event) Detail() any {
 	return e.detail
 }
 
-// NewEvent creates a new Event with the specified type.
+// EventOption configures an [Event] created by [NewEvent]. Options mirror the
+// MDN [Event] constructor's EventInit dictionary.
+type EventOption interface {
+	applyEventOption(*Event)
+}
+
+// WithBubbles sets the caller-owned Bubbles metadata on the event. EventTarget
+// performs no parent traversal, so Bubbles is metadata only.
+func WithBubbles(bubbles bool) EventOption {
+	return eventBubblesOption{bubbles: bubbles}
+}
+
+type eventBubblesOption struct {
+	bubbles bool
+}
+
+func (o eventBubblesOption) applyEventOption(e *Event) {
+	e.Bubbles = o.bubbles
+}
+
+// WithCancelable marks the event as cancelable (PreventDefault is honored).
+func WithCancelable(cancelable bool) EventOption {
+	return eventCancelableOption{cancelable: cancelable}
+}
+
+type eventCancelableOption struct {
+	cancelable bool
+}
+
+func (o eventCancelableOption) applyEventOption(e *Event) {
+	e.Cancelable = o.cancelable
+}
+
+// WithDetail attaches application data to the event, readable through
+// [Event.Detail]. MDN models detail on the CustomEvent constructor's
+// CustomEventInit dictionary; this package models one [Event] type, so detail
+// is an option on [NewEvent].
+func WithDetail(detail any) EventOption {
+	return eventDetailOption{detail: detail}
+}
+
+type eventDetailOption struct {
+	detail any
+}
+
+func (o eventDetailOption) applyEventOption(e *Event) {
+	e.detail = o.detail
+}
+
+// NewEvent creates a new Event with the specified type and options. It is the
+// single event factory, mirroring the MDN Event constructor:
 //
-// Parameters:
-//   - eventType: The type/name of the event
+//	new Event(type)             → eventloop.NewEvent(type)
+//	new Event(type, {bubbles})  → eventloop.NewEvent(type, eventloop.WithBubbles(true))
 //
-// Returns:
-//   - A new Event with Bubbles=false and Cancelable=false
-func NewEvent(eventType string) *Event {
-	return &Event{
+// With no options the event matches the DOM defaults: Bubbles=false and
+// Cancelable=false. Options must be produced by [WithBubbles], [WithCancelable],
+// or [WithDetail]; a nil option is a programming error and panics.
+//
+// Example:
+//
+//	event := eventloop.NewEvent("click", eventloop.WithBubbles(true))
+func NewEvent(eventType string, options ...EventOption) *Event {
+	event := &Event{
 		Type: eventType,
 	}
-}
-
-// NewEventWithOptions creates a new Event with specified options.
-//
-// Parameters:
-//   - eventType: The type/name of the event
-//   - bubbles: Value for caller-owned Bubbles metadata; no traversal occurs
-//   - cancelable: Whether the event can be canceled
-//
-// Returns:
-//   - A new Event configured with the specified options
-func NewEventWithOptions(eventType string, bubbles, cancelable bool) *Event {
-	return &Event{
-		Type:       eventType,
-		Bubbles:    bubbles,
-		Cancelable: cancelable,
+	for _, option := range options {
+		option.applyEventOption(event)
 	}
-}
-
-// CustomEvent is an Event that carries application data through [Event.Detail].
-//
-// CustomEvent is typically used for application-defined events that need
-// to pass data to their listeners.
-//
-// Usage:
-//
-//	target := eventloop.NewEventTarget()
-//
-//	// Register before dispatch.
-//	target.AddEventListener("userLogin", func(e *eventloop.Event) {
-//	    if data, ok := e.Detail().(map[string]any); ok {
-//	        fmt.Println("User logged in:", data["username"])
-//	    }
-//	})
-//
-//	// Create and dispatch a custom event with data.
-//	event := eventloop.NewCustomEvent("userLogin", map[string]any{
-//	    "username": "alice",
-//	    "timestamp": time.Now(),
-//	})
-//	target.DispatchEvent(event.EventPtr())
-type CustomEvent struct {
-	// Embedded Event provides all standard event properties and methods.
-	Event
-}
-
-// NewCustomEvent creates a new CustomEvent with the specified type and detail.
-//
-// Parameters:
-//   - eventType: The type/name of the event
-//   - detail: Custom data to associate with the event (accessible via Detail())
-//
-// Returns:
-//   - A new CustomEvent with Bubbles=false and Cancelable=false
-func NewCustomEvent(eventType string, detail any) *CustomEvent {
-	return &CustomEvent{
-		Type:   eventType,
-		detail: detail,
-	}
-}
-
-// NewCustomEventWithOptions creates a new CustomEvent with specified options.
-//
-// Parameters:
-//   - eventType: The type/name of the event
-//   - detail: Custom data to associate with the event
-//   - bubbles: Value for caller-owned Bubbles metadata; no traversal occurs
-//   - cancelable: Whether the event can be canceled
-//
-// Returns:
-//   - A new CustomEvent configured with the specified options
-func NewCustomEventWithOptions(eventType string, detail any, bubbles, cancelable bool) *CustomEvent {
-	return &CustomEvent{
-		Type:       eventType,
-		detail:     detail,
-		Bubbles:    bubbles,
-		Cancelable: cancelable,
-	}
-}
-
-// EventPtr returns a pointer to the embedded Event for use with DispatchEvent.
-//
-// This is a convenience method since DispatchEvent expects *Event but CustomEvent
-// embeds Event (not *Event).
-//
-// Usage:
-//
-//	customEvent := eventloop.NewCustomEvent("myEvent", data)
-//	target.DispatchEvent(customEvent.EventPtr())
-func (ce *CustomEvent) EventPtr() *Event {
-	return &ce.Event
+	return event
 }
