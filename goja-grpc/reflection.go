@@ -53,11 +53,9 @@ func (m *Module) EnableReflection() error {
 		DescriptorResolver: m.protobuf.FileResolver(),
 		ExtensionResolver:  m.protobuf.TypeResolver(),
 	})
-	if err := m.channel.RegisterBatch(inprocgrpc.RegistrationBatch{
-		Services: []inprocgrpc.ServiceRegistration{{
-			Descriptor:     &reflectionpb.ServerReflection_ServiceDesc,
-			Implementation: reflServer,
-		}},
+	if err := m.channel.RegisterServices(inprocgrpc.ServiceRegistration{
+		Descriptor:     &reflectionpb.ServerReflection_ServiceDesc,
+		Implementation: reflServer,
 	}); err != nil {
 		return fmt.Errorf("gojagrpc: enable reflection: %w", err)
 	}

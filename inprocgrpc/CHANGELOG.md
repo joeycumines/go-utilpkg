@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Per-kind variadic registration with error conflicts** —
+  `Channel.RegisterServices(...ServiceRegistration)` and
+  `Channel.RegisterStreamHandlers(...StreamHandlerRegistration)` register
+  collections of one kind without panicking on registry conflicts: the
+  complete set is validated and published atomically (same lock pair as
+  `RegisterBatch`), and a conflict with the already-published registry is
+  returned as an error, leaving the registry unchanged. Static contract
+  violations still panic, mirroring `RegisterBatch`. Use `RegisterBatch` when
+  services and stream handlers must be admitted in one atomic transaction.
+
 - **Idempotent unregistration API** — `Channel.UnregisterStreamHandler`,
   `Channel.UnregisterService`, and `Channel.UnregisterBatch` (with
   `UnregistrationBatch`) remove event-loop-native handlers and generated
