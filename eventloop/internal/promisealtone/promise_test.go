@@ -121,7 +121,7 @@ func BenchmarkStandardPromise_Chain(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 		done := make(chan struct{}, 1)
 		p.Then(func(v any) any {
 			done <- struct{}{}
@@ -148,7 +148,7 @@ func BenchmarkPromiseAltOne_DeepChain(b *testing.B) {
 func BenchmarkStandardPromise_DeepChain(b *testing.B) {
 	_, js := startPromiseAltOneRunningLoop(b)
 
-	p, _, _ := js.NewChainedPromise()
+	p, _, _ := js.NewPromise()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

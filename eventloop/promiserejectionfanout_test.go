@@ -27,7 +27,7 @@ func TestChainedPromiseTerminalScheduleFailureTransfersReportBeforeChildReject(t
 			if err != nil {
 				t.Fatal(err)
 			}
-			parent, _, rejectParent := js.NewChainedPromise()
+			parent, _, rejectParent := js.NewPromise()
 			child := parent.Then(nil, nil)
 			if err := loop.Close(); err != nil {
 				t.Fatalf("Close: %v", err)
@@ -93,12 +93,12 @@ func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
 				t.Fatal(err)
 			}
 			reason := "fanout " + test.name
-			source, _, rejectSource := js.NewChainedPromise()
+			source, _, rejectSource := js.NewPromise()
 			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
-				first, resolveFirst, _ = js.NewChainedPromise()
-				second, resolveSecond, _ = js.NewChainedPromise()
+				first, resolveFirst, _ = js.NewPromise()
+				second, resolveSecond, _ = js.NewPromise()
 				resolveFirst(source)
 				resolveSecond(source)
 				for index, promise := range []*Promise{first, second} {
@@ -226,7 +226,7 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 				t.Fatal(err)
 			}
 			reason := "checker race " + test.name
-			source, _, rejectSource := js.NewChainedPromise()
+			source, _, rejectSource := js.NewPromise()
 			rejectSource(reason)
 
 			checkerAtSource := make(chan struct{})
@@ -259,8 +259,8 @@ func TestChainedPromiseFanoutPropagationBeatsActiveChecker(t *testing.T) {
 			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
-				first, resolveFirst, _ = js.NewChainedPromise()
-				second, resolveSecond, _ = js.NewChainedPromise()
+				first, resolveFirst, _ = js.NewPromise()
+				second, resolveSecond, _ = js.NewPromise()
 				resolveFirst(source)
 				resolveSecond(source)
 			} else {
@@ -358,7 +358,7 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			source, _, rejectSource := js.NewChainedPromise()
+			source, _, rejectSource := js.NewPromise()
 			rejectSource("checker owns fanout")
 			checkerClaimed := make(chan struct{})
 			releaseCallback := make(chan struct{})
@@ -387,8 +387,8 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 			var first, second *Promise
 			if test.adopters {
 				var resolveFirst, resolveSecond ResolveFunc
-				first, resolveFirst, _ = js.NewChainedPromise()
-				second, resolveSecond, _ = js.NewChainedPromise()
+				first, resolveFirst, _ = js.NewPromise()
+				second, resolveSecond, _ = js.NewPromise()
 				resolveFirst(source)
 				resolveSecond(source)
 			} else {
@@ -509,7 +509,7 @@ func TestChainedPromiseRejectedCheckerAdmissionLateDescendantReportsExactlyOnce(
 			}
 
 			reason := "rejected checker admission " + test.name
-			source, _, rejectSource := js.NewChainedPromise()
+			source, _, rejectSource := js.NewPromise()
 			rejectSource(reason)
 			runDone := make(chan error, 1)
 			go func() { runDone <- loop.Run(context.Background()) }()
@@ -537,7 +537,7 @@ func TestChainedPromiseRejectedCheckerAdmissionLateDescendantReportsExactlyOnce(
 			var descendant *Promise
 			if test.adopter {
 				var resolveDescendant ResolveFunc
-				descendant, resolveDescendant, _ = js.NewChainedPromise()
+				descendant, resolveDescendant, _ = js.NewPromise()
 				resolveDescendant(source)
 			} else {
 				descendant = source.Then(nil, nil)

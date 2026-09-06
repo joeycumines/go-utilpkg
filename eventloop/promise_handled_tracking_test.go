@@ -14,7 +14,7 @@ func TestThenWithoutRejectionHandlerDoesNotMarkSourceHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, _ := js.NewChainedPromise()
+	p, _, _ := js.NewPromise()
 
 	_ = p.Then(func(v any) any {
 		return v
@@ -37,7 +37,7 @@ func TestThenWithRejectionHandlerMarksSourceHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, _ := js.NewChainedPromise()
+	p, _, _ := js.NewPromise()
 
 	_ = p.Then(nil, func(r any) any {
 		return r
@@ -63,7 +63,7 @@ func TestThenWithoutRejectionHandlerReportsPropagatedChildOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 	child := p.Then(func(v any) any { return v }, nil)
 	reject("boom")
 
@@ -96,7 +96,7 @@ func TestThenWithoutRejectionHandlerChildCatchSuppressesPropagatedUnhandled(t *t
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 	child := p.Then(func(v any) any { return v }, nil)
 	caught := false
 	child.Catch(func(r any) any {

@@ -143,7 +143,7 @@ if err := js.QueueMicrotask(func() {
 
 ```go
 // Create a pending promise with resolver and rejector functions
-promise, resolve, reject := js.NewChainedPromise()
+promise, resolve, reject := js.NewPromise()
 
 // Resolve asynchronously
 go func() {

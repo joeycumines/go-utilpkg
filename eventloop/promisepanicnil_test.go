@@ -77,7 +77,7 @@ func testPromisifyLegacyPanicNil(t *testing.T) {
 
 func testThenLegacyPanicNil(t *testing.T) {
 	loop, js := newErrorContractJS(t)
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	child := promise.Then(func(any) any { panic(nil) }, nil)
 	resolve("value")
 	loop.tick()
@@ -86,7 +86,7 @@ func testThenLegacyPanicNil(t *testing.T) {
 
 func testFinallyLegacyPanicNil(t *testing.T) {
 	loop, js := newErrorContractJS(t)
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	child := promise.Finally(func() { panic(nil) })
 	resolve("value")
 	loop.tick()

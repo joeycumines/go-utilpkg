@@ -29,7 +29,7 @@ func TestChainedPromise_UnhandledCallbackRunsOnLoopGoroutineDuringCheckpoint(t *
 	}
 
 	if err := loop.Submit(func() {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject("loop-affine")
 	}); err != nil {
 		t.Fatalf("Submit failed: %v", err)
@@ -80,7 +80,7 @@ func TestChainedPromise_UnhandledFallbackAfterTerminationIsIsolatedOffLoop(t *te
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("post-termination")
 
 	select {
@@ -238,7 +238,7 @@ func TestChainedPromise_UnhandledFallbackDisabledDoesNotInvokeCallback(t *testin
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("disabled fallback")
 	waitTerminalUnhandledRejectionTrackingDrained(t, js)
 
@@ -315,7 +315,7 @@ func TestChainedPromise_UnhandledFallbackConcurrentLateRejectionsNoDuplicateRepo
 	ready := make(chan struct{}, count)
 	var workers sync.WaitGroup
 	for i := range count {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		workers.Go(func() {
 			ready <- struct{}{}
 			<-start
@@ -375,8 +375,8 @@ func TestChainedPromise_TerminalDrainNonOwnerRejectWaitsForActiveCheckpoint(t *t
 		t.Fatal(err)
 	}
 
-	ownerPromise, _, rejectOwner := js.NewChainedPromise()
-	_, _, rejectOther := js.NewChainedPromise()
+	ownerPromise, _, rejectOwner := js.NewPromise()
+	_, _, rejectOther := js.NewPromise()
 	otherStart := make(chan struct{})
 	otherStartNow := releaseSignalT(t, otherStart)
 	otherDone := make(chan struct{})
@@ -461,7 +461,7 @@ func TestChainedPromise_TerminalDrainNonOwnerFirstRejectWaitsForDrain(t *testing
 		t.Fatal(err)
 	}
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	rejectStart := make(chan struct{})
 	rejectStartNow := releaseSignalT(t, rejectStart)
 	rejectDone := make(chan struct{})
@@ -542,7 +542,7 @@ func TestChainedPromise_TerminatedBeforeTerminalDrainNonOwnerRejectWaitsForDrain
 		t.Fatal(err)
 	}
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	rejectStart := make(chan struct{})
 	rejectStartNow := releaseSignalT(t, rejectStart)
 	rejectDone := make(chan struct{})
@@ -642,7 +642,7 @@ func TestChainedPromise_TerminatingBeforePublicShutdownDrainNonOwnerRejectWaitsF
 
 	waitContractSignal(t, taskStarted, "blocking terminal-rejection task entry")
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	rejectStart := make(chan struct{})
 	rejectStartNow := releaseSignalT(t, rejectStart)
 	rejectDone := make(chan struct{})
@@ -736,7 +736,7 @@ func TestChainedPromise_ContextCancelBeforeTerminalDrainNonOwnerRejectWaitsForDr
 		t.Fatal(err)
 	}
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	rejectStart := make(chan struct{})
 	rejectStartNow := releaseSignalT(t, rejectStart)
 	rejectDone := make(chan struct{})

@@ -26,7 +26,7 @@ func TestUnhandledRejectionPendingRecordDoesNotSpinCheckpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, rejectFirst := js.NewChainedPromise()
+	_, _, rejectFirst := js.NewPromise()
 	rejectFirst("first")
 
 	recordedSecond := make(chan struct{})
@@ -46,7 +46,7 @@ func TestUnhandledRejectionPendingRecordDoesNotSpinCheckpoint(t *testing.T) {
 		},
 	}
 
-	_, _, rejectSecond := js.NewChainedPromise()
+	_, _, rejectSecond := js.NewPromise()
 	secondDone := make(chan struct{})
 	go func() {
 		rejectSecond("second")

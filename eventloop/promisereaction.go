@@ -652,7 +652,7 @@ func (p *Promise) Finally(onFinally func()) *Promise {
 	js := p.js
 	var child *Promise
 	if js != nil {
-		child, _, _ = js.NewChainedPromise()
+		child, _, _ = js.NewPromise()
 	} else {
 		child = &Promise{
 			js: nil,

@@ -45,7 +45,7 @@ func TestPromiseReactionDequeuedImmediateCloseCleanerWinsClaim(t *testing.T) {
 		AfterCloseStateTerminating: func() { close(closeTransitioned) },
 	}
 
-	source, resolveSource, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
 		handlerCalls.Add(1)
@@ -134,7 +134,7 @@ func TestPromiseReactionTerminalCleanerWinsBeforeSchedule(t *testing.T) {
 				AfterCloseStateTerminating: func() { close(closeTransitioned) },
 			}
 
-			source, resolveSource, _ := js.NewChainedPromise()
+			source, resolveSource, _ := js.NewPromise()
 			var handlerCalls atomic.Int32
 			var result *Promise
 			if aggregate {
@@ -200,7 +200,7 @@ func TestPromiseReactionAcceptedNotDequeuedImmediateClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, resolveSource, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
 		handlerCalls.Add(1)
@@ -244,7 +244,7 @@ func TestPromiseReactionGracefulShutdownDrainsAccepted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, resolveSource, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
 		handlerCalls.Add(1)
@@ -290,7 +290,7 @@ func TestPromiseReactionOverflowHighWaterIsBounded(t *testing.T) {
 	}
 	children := make([]*Promise, pendingReactionOverflowRetainLimit+2)
 	for index := range children {
-		source, resolveSource, _ := js.NewChainedPromise()
+		source, resolveSource, _ := js.NewPromise()
 		children[index] = source.Then(func(value any) any { return value }, nil)
 		resolveSource(index)
 	}
@@ -380,7 +380,7 @@ func TestPromiseReactionAcceptedBeforeCloseRejectsChild(t *testing.T) {
 		AfterCloseStateTerminating: func() { close(closeTransitioned) },
 	}
 
-	source, resolveSource, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
 	var handlerCalls atomic.Int32
 	child := source.Then(func(value any) any {
 		handlerCalls.Add(1)

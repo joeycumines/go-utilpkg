@@ -67,7 +67,7 @@ func settledCombinatorRetentionProof(t *testing.T, loop *Loop, js *JS, name stri
 	resolvers := make([]ResolveFunc, len(inputs))
 	rejecters := make([]RejectFunc, len(inputs))
 	for index := range inputs {
-		inputs[index], resolvers[index], rejecters[index] = js.NewChainedPromise()
+		inputs[index], resolvers[index], rejecters[index] = js.NewPromise()
 		proof.promises = append(proof.promises, weak.Make(inputs[index]))
 	}
 

@@ -596,7 +596,7 @@ func TestCloseCollectsDequeuedRejectionCheckpointOwner(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject("dequeued checkpoint")
 		result := weak.Make(js)
 		runtime.KeepAlive(js)
@@ -657,7 +657,7 @@ func TestCloseDrainsRejectionCheckRetentionOverflow(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, reject := js.NewChainedPromise()
+			_, _, reject := js.NewPromise()
 			reject(index)
 			pointer := weak.Make(js)
 			runtime.KeepAlive(js)
@@ -729,7 +729,7 @@ func newReportedWeakJSAdapterT(t *testing.T, loop *Loop, reason int) weak.Pointe
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject(reason)
 	if got := waitContractValue(t, reported, "transient adapter rejection report"); got != reason {
 		t.Fatalf("unhandled rejection reason = %v, want %d", got, reason)

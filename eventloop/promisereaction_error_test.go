@@ -158,7 +158,7 @@ func TestChainedPromise_AdoptionScheduleErrorPreservesFulfillment(t *testing.T) 
 	}
 
 	source := js.Resolve("adopted value")
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestChainedPromise_AdoptionScheduleErrorPreservesRejection(t *testing.T) {
 	}
 
 	source := js.Reject("adopted reason")
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -210,8 +210,8 @@ func TestChainedPromise_PendingAdoptionScheduleErrorPreservesSourceSettlement(t 
 			t.Fatal(err)
 		}
 
-		source, resolveSource, _ := js.NewChainedPromise()
-		adopter, resolveAdopter, _ := js.NewChainedPromise()
+		source, resolveSource, _ := js.NewPromise()
+		adopter, resolveAdopter, _ := js.NewPromise()
 		resolveAdopter(source)
 		if adopter.State() != Pending {
 			t.Fatalf("adopter state before source settlement = %v, want Pending", adopter.State())
@@ -240,8 +240,8 @@ func TestChainedPromise_PendingAdoptionScheduleErrorPreservesSourceSettlement(t 
 			t.Fatal(err)
 		}
 
-		source, _, rejectSource := js.NewChainedPromise()
-		adopter, resolveAdopter, _ := js.NewChainedPromise()
+		source, _, rejectSource := js.NewPromise()
+		adopter, resolveAdopter, _ := js.NewPromise()
 		resolveAdopter(source)
 		if adopter.State() != Pending {
 			t.Fatalf("adopter state before source settlement = %v, want Pending", adopter.State())
@@ -283,7 +283,7 @@ func TestChainedPromise_HandlerScheduleErrorRejectsChildAfterParentUnlock(t *tes
 	}
 
 	var resolve ResolveFunc
-	parent, resolve, _ = js.NewChainedPromise()
+	parent, resolve, _ = js.NewPromise()
 	child := parent.Then(func(any) any {
 		t.Fatal("handler should not run after ScheduleMicrotask fails")
 		return nil
@@ -479,7 +479,7 @@ func TestChainedPromise_AdoptionHandlesSourceReportsAdopter(t *testing.T) {
 	}
 
 	source := js.Reject("adopted")
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	resolveAdopter(source)
 
 	loop.tick()
@@ -543,7 +543,7 @@ func TestChainedPromise_PendingCatchRegistersBeforeConcurrentRejectReport(t *tes
 		t.Fatal(err)
 	}
 
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -654,7 +654,7 @@ func TestChainedPromise_RejectedStateLateCatchSeesRecordedRejection(t *testing.T
 		t.Fatal(err)
 	}
 
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}

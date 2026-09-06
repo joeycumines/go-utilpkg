@@ -57,8 +57,8 @@ func TestChainedPromiseCrossAdapterAdoptionUsesTargetOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, resolveSource, _ := sourceJS.NewChainedPromise()
-	target, resolveTarget, _ := targetJS.NewChainedPromise()
+	source, resolveSource, _ := sourceJS.NewPromise()
+	target, resolveTarget, _ := targetJS.NewPromise()
 	observed := make(chan bool, 1)
 	target.Then(func(any) any {
 		observed <- targetLoop.isLoopThread() && !sourceLoop.isLoopThread()
@@ -119,8 +119,8 @@ func TestChainedPromiseCrossAdapterRejectionUsesTargetOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, rejectSource := sourceJS.NewChainedPromise()
-	target, resolveTarget, _ := targetJS.NewChainedPromise()
+	source, _, rejectSource := sourceJS.NewPromise()
+	target, resolveTarget, _ := targetJS.NewPromise()
 	observed := make(chan struct {
 		onTarget bool
 		state    Settlement
@@ -211,8 +211,8 @@ func TestChainedPromiseAdoptionAfterSourceTermination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, rejectSource := sourceJS.NewChainedPromise()
-	target, resolveTarget, _ := targetJS.NewChainedPromise()
+	source, _, rejectSource := sourceJS.NewPromise()
+	target, resolveTarget, _ := targetJS.NewPromise()
 	resolveTarget(source)
 	child := target.Catch(func(reason any) any { return reason })
 	if err := sourceLoop.Close(); err != nil {
@@ -275,8 +275,8 @@ func TestChainedPromiseAdoptionAfterTargetTermination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, resolveSource, _ := sourceJS.NewChainedPromise()
-	target, resolveTarget, _ := targetJS.NewChainedPromise()
+	source, resolveSource, _ := sourceJS.NewPromise()
+	target, resolveTarget, _ := targetJS.NewPromise()
 	resolveTarget(source)
 	if err := targetLoop.Close(); err != nil {
 		t.Fatalf("target Close: %v", err)
@@ -336,8 +336,8 @@ func TestChainedPromiseAcceptedAdoptionSurvivesImmediateClose(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			source, _, rejectSource := js.NewChainedPromise()
-			adopter, resolveAdopter, _ := js.NewChainedPromise()
+			source, _, rejectSource := js.NewPromise()
+			adopter, resolveAdopter, _ := js.NewPromise()
 			resolveAdopter(source)
 			rejectSource("discarded adoption")
 			if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {
@@ -403,8 +403,8 @@ func TestChainedPromiseAcceptedFulfillmentAdoptionSurvivesImmediateClose(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, resolveSource, _ := js.NewChainedPromise()
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	resolveAdopter(source)
 	resolveSource("discarded adoption fulfillment")
 	if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {
@@ -477,8 +477,8 @@ func TestTerminalTransitionSettlesAcceptedAdoptionNeededByRunningCallback(t *tes
 				callbackResult := make(chan any, 1)
 				releaseCallback := make(chan struct{})
 				if err := loop.Submit(func() {
-					source, resolveSource, rejectSource := js.NewChainedPromise()
-					target, resolveTarget, _ := js.NewChainedPromise()
+					source, resolveSource, rejectSource := js.NewPromise()
+					target, resolveTarget, _ := js.NewPromise()
 					resolveTarget(source)
 					settlementCase.settle(resolveSource, rejectSource, settlementCase.value)
 					close(callbackStarted)
@@ -566,8 +566,8 @@ func TestChainedPromisePendingAdoptionDoesNotRetainAbandonedPromises(t *testing.
 }
 
 func abandonPendingAdoption(js *JS) (weak.Pointer[Promise], weak.Pointer[Promise]) {
-	source, _, _ := js.NewChainedPromise()
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	source, _, _ := js.NewPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	resolveAdopter(source)
 	sourceRef := weak.Make(source)
 	adopterRef := weak.Make(adopter)
@@ -625,8 +625,8 @@ func abandonCrossAdapterPendingAdoption(
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, _ := sourceJS.NewChainedPromise()
-	target, resolveTarget, _ := targetJS.NewChainedPromise()
+	source, _, _ := sourceJS.NewPromise()
+	target, resolveTarget, _ := targetJS.NewPromise()
 	resolveTarget(source)
 	sourceRef := weak.Make(source)
 	sourceJSRef := weak.Make(sourceJS)
@@ -661,8 +661,8 @@ func TestChainedPromiseCrossAdapterAcceptedAdoptionSurvivesSourceClose(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, rejectSource := sourceJS.NewChainedPromise()
-	adopter, resolveAdopter, _ := targetJS.NewChainedPromise()
+	source, _, rejectSource := sourceJS.NewPromise()
+	adopter, resolveAdopter, _ := targetJS.NewPromise()
 	resolveAdopter(source)
 	rejectSource("cross-owner discarded adoption")
 	if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {

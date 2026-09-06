@@ -40,7 +40,7 @@ func TestPromiseCombinatorsRejectTerminalReactionScheduleFailure(t *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
-							source, resolveSource, rejectSource := js.NewChainedPromise()
+							source, resolveSource, rejectSource := js.NewPromise()
 
 							if attachment.afterClose {
 								if err := loop.Close(); err != nil {
@@ -133,7 +133,7 @@ func TestPromiseCombinatorsRejectTerminalSettledSourceAttachment(t *testing.T) {
 							}
 						},
 					}
-					source, resolveSource, rejectSource := js.NewChainedPromise()
+					source, resolveSource, rejectSource := js.NewPromise()
 					if settlement.reject {
 						source.rejectionHandled.Store(true)
 						rejectSource("stable rejection")
@@ -182,8 +182,8 @@ func TestPromiseCombinatorsCrossLoopTerminalOrdering(t *testing.T) {
 					targetLoop, targetJS := newCombinatorTestAdapter(t, reported)
 					normalLoop, normalJS := newCombinatorTestAdapter(t, reported)
 					terminalLoop, terminalJS := newCombinatorTestAdapter(t, reported)
-					normalSource, resolveNormal, _ := normalJS.NewChainedPromise()
-					terminalSource, resolveTerminal, _ := terminalJS.NewChainedPromise()
+					normalSource, resolveNormal, _ := normalJS.NewPromise()
+					terminalSource, resolveTerminal, _ := terminalJS.NewPromise()
 					result := combinator.combine(targetJS, normalSource, terminalSource)
 					resultChannel := result.ToChannel()
 					result.rejectionHandled.Store(true)
@@ -251,8 +251,8 @@ func TestPromiseCombinatorsTwoTerminalFailuresSettleOnce(t *testing.T) {
 			targetLoop, targetJS := newCombinatorTestAdapter(t, reported)
 			firstLoop, firstJS := newCombinatorTestAdapter(t, reported)
 			secondLoop, secondJS := newCombinatorTestAdapter(t, reported)
-			first, resolveFirst, _ := firstJS.NewChainedPromise()
-			second, resolveSecond, _ := secondJS.NewChainedPromise()
+			first, resolveFirst, _ := firstJS.NewPromise()
+			second, resolveSecond, _ := secondJS.NewPromise()
 			result := combinator.combine(targetJS, first, second)
 			resultChannel := result.ToChannel()
 			result.rejectionHandled.Store(true)
@@ -312,7 +312,7 @@ func TestPromiseCombinatorsAcceptedReactionCloseDisposition(t *testing.T) {
 				AfterCloseStateTerminating: func() { close(closeTransitioned) },
 			}
 
-			source, resolveSource, _ := js.NewChainedPromise()
+			source, resolveSource, _ := js.NewPromise()
 			result := combinator.combine(js, source)
 			resultChannel := result.ToChannel()
 			resolveSource("accepted before Close")
@@ -384,7 +384,7 @@ func TestPromiseCombinatorsAcceptedNotDequeuedImmediateClose(t *testing.T) {
 						}
 					}
 
-					source, resolveSource, _ := sourceJS.NewChainedPromise()
+					source, resolveSource, _ := sourceJS.NewPromise()
 					result := combinator.combine(targetJS, source)
 					resultChannel := result.ToChannel()
 					resolveSource("accepted without dequeue")
@@ -426,7 +426,7 @@ func TestPromiseCombinatorsGracefulShutdownDrainsAccepted(t *testing.T) {
 			reported := make(chan any, 2)
 			sourceLoop, sourceJS := newCombinatorTestAdapter(t, reported)
 			targetLoop, targetJS := newCombinatorTestAdapter(t, reported)
-			source, resolveSource, _ := sourceJS.NewChainedPromise()
+			source, resolveSource, _ := sourceJS.NewPromise()
 			result := combinator.combine(targetJS, source)
 			resultChannel := result.ToChannel()
 			resolveSource("graceful source")

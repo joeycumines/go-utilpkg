@@ -21,7 +21,7 @@ func Example_promiseChaining() {
 	if err != nil {
 		panic(err)
 	}
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	final := promise.
 		Then(func(value any) any {
 			fmt.Printf("Step 1: received %v\n", value)
@@ -59,9 +59,9 @@ func Example_promiseAll() {
 	if err != nil {
 		panic(err)
 	}
-	p1, resolve1, _ := js.NewChainedPromise()
-	p2, resolve2, _ := js.NewChainedPromise()
-	p3, resolve3, _ := js.NewChainedPromise()
+	p1, resolve1, _ := js.NewPromise()
+	p2, resolve2, _ := js.NewPromise()
+	p3, resolve3, _ := js.NewPromise()
 	all := js.All(p1, p2, p3)
 	resolve1("first")
 	resolve2("second")
@@ -92,7 +92,7 @@ func Example_promiseCatch() {
 	if err != nil {
 		panic(err)
 	}
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	final := promise.
 		Then(func(any) any { fmt.Println("unexpected fulfillment"); return nil }, nil).
 		Catch(func(reason any) any {
@@ -129,8 +129,8 @@ func Example_promiseRace() {
 	if err != nil {
 		panic(err)
 	}
-	fast, resolveFast, _ := js.NewChainedPromise()
-	slow, resolveSlow, _ := js.NewChainedPromise()
+	fast, resolveFast, _ := js.NewPromise()
+	slow, resolveSlow, _ := js.NewPromise()
 	race := js.Race(fast, slow)
 	resolveFast("fast wins!")
 	resolveSlow("slow finishes")
@@ -160,9 +160,9 @@ func Example_promiseAny() {
 	if err != nil {
 		panic(err)
 	}
-	p1, _, reject1 := js.NewChainedPromise()
-	p2, resolve2, _ := js.NewChainedPromise()
-	p3, _, reject3 := js.NewChainedPromise()
+	p1, _, reject1 := js.NewPromise()
+	p2, resolve2, _ := js.NewPromise()
+	p3, _, reject3 := js.NewPromise()
 	anyPromise := js.Any(p1, p2, p3)
 	reject1(errors.New("p1 failed"))
 	resolve2("p2 succeeded!")

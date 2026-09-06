@@ -24,7 +24,7 @@ import (
 //
 // Creating Promises:
 //
-//	promise, resolve, reject := js.NewChainedPromise()
+//	promise, resolve, reject := js.NewPromise()
 //	go func() {
 //	    result, err := doAsyncWork()
 //	    if err != nil {
@@ -143,7 +143,7 @@ type ResolveFunc func(any)
 // Can be called from any goroutine.
 type RejectFunc func(any)
 
-// NewChainedPromise creates a new pending promise along with resolve and reject functions.
+// NewPromise creates a new pending promise along with resolve and reject functions.
 //
 // Returns:
 //   - promise: The new [Promise] in Pending state
@@ -152,7 +152,7 @@ type RejectFunc func(any)
 //
 // Example:
 //
-//	promise, resolve, reject := js.NewChainedPromise()
+//	promise, resolve, reject := js.NewPromise()
 //	go func() {
 //	    result, err := doWork()
 //	    if err != nil {
@@ -164,7 +164,7 @@ type RejectFunc func(any)
 //
 // The resolve and reject functions can be called from any goroutine.
 // Only the first call has an effect; subsequent calls are ignored.
-func (js *JS) NewChainedPromise() (*Promise, ResolveFunc, RejectFunc) {
+func (js *JS) NewPromise() (*Promise, ResolveFunc, RejectFunc) {
 	p := &Promise{
 		js: js,
 	}
@@ -246,7 +246,7 @@ func (p *Promise) Reason() any {
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	promise, _, _ := js.NewChainedPromise()
+//	promise, _, _ := js.NewPromise()
 //
 //	fmt.Println(promise.CreationStackTrace())
 //	// Output:
@@ -400,7 +400,7 @@ func (p *Promise) rejectClaimed(reason any) {
 // [Promise] values, but it does not assimilate arbitrary JavaScript
 // thenables.
 func (js *JS) Resolve(val any) *Promise {
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	resolve(val)
 	return promise
 }
@@ -411,7 +411,7 @@ func (js *JS) Resolve(val any) *Promise {
 //   - Returns a promise rejected with the given reason
 //   - The reason is typically an Error object
 func (js *JS) Reject(reason any) *Promise {
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	reject(reason)
 	return promise
 }
@@ -454,7 +454,7 @@ func (js *JS) Try(fn func() any) *Promise {
 	if fn == nil {
 		panic("eventloop: nil Try callback")
 	}
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 
 	// Execute fn synchronously with panic and Goexit settlement.
 	func() {

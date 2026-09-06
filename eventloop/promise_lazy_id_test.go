@@ -19,8 +19,8 @@ func TestPromisePointerIdentity_UsedAsMapKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, _, _ := js.NewChainedPromise()
-	p2, _, _ := js.NewChainedPromise()
+	p1, _, _ := js.NewPromise()
+	p2, _, _ := js.NewPromise()
 
 	// Pointers should be distinct
 	if p1 == p2 {
@@ -53,7 +53,7 @@ func TestPromisePointerIdentity_AllocatesOnReject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 
 	// Reject (triggers tracking via pointer identity)
 	reject(errors.New("test"))
@@ -83,7 +83,7 @@ func TestPromisePointerIdentity_AllocatesOnHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	// Attach handler (marks the source promise handled without retaining it in a side map).
 	p.Catch(func(r any) any {

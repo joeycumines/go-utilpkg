@@ -21,7 +21,7 @@ func TestPromiseAll_ConcurrentResolutions(t *testing.T) {
 	promises := make([]*Promise, count)
 	resolvers := make([]ResolveFunc, count)
 	for i := range count {
-		promises[i], resolvers[i], _ = js.NewChainedPromise()
+		promises[i], resolvers[i], _ = js.NewPromise()
 	}
 	result := js.All(promises...)
 
@@ -62,8 +62,8 @@ func TestPromiseAll_ConcurrentResolveAndReject(t *testing.T) {
 	}
 
 	rejection := errors.New("rejection")
-	rejected, _, reject := js.NewChainedPromise()
-	fulfilled, resolve, _ := js.NewChainedPromise()
+	rejected, _, reject := js.NewPromise()
+	fulfilled, resolve, _ := js.NewPromise()
 	result := js.All(rejected, fulfilled)
 
 	start := make(chan struct{})
@@ -102,9 +102,9 @@ func TestPromiseAll_FirstRejectionRemainsStable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, _, rejectFirst := js.NewChainedPromise()
-	second, resolveSecond, _ := js.NewChainedPromise()
-	third, _, rejectThird := js.NewChainedPromise()
+	first, _, rejectFirst := js.NewPromise()
+	second, resolveSecond, _ := js.NewPromise()
+	third, _, rejectThird := js.NewPromise()
 	result := js.All(first, second, third)
 	want := errors.New("first rejection")
 
@@ -134,7 +134,7 @@ func TestPromiseAll_MixedImmediateAndPending(t *testing.T) {
 	}
 
 	immediate := js.Resolve("immediate")
-	pending, resolvePending, _ := js.NewChainedPromise()
+	pending, resolvePending, _ := js.NewPromise()
 	result := js.All(immediate, pending)
 	loop.tick()
 	if result.State() != Pending {

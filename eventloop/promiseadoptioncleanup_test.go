@@ -97,8 +97,8 @@ func runTerminalAdoptionCleanupRaceT(t *testing.T, loop *Loop, observeCleanup fu
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, rejectSource := js.NewChainedPromise()
-	adopter, resolveAdopter, _ := js.NewChainedPromise()
+	source, _, rejectSource := js.NewPromise()
+	adopter, resolveAdopter, _ := js.NewPromise()
 	resolveAdopter(source)
 	adopterResult := adopter.ToChannel()
 

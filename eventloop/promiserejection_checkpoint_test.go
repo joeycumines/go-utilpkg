@@ -23,7 +23,7 @@ func TestChainedPromise_UnhandledCheckScheduleErrorReportsSynchronously(t *testi
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestChainedPromise_UnhandledCheckScheduleErrorRecoversCallbackPanic(t *test
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestChainedPromise_UnhandledCheckUsesMicrotaskCheckpointNotSleep(t *testing
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("boom")
 
 	loop.tick()
@@ -123,7 +123,7 @@ func TestChainedPromise_UnhandledCheckWaitsForLaterMicrotasksInCheckpoint(t *tes
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 	reject("boom")
 	if err := js.QueueMicrotask(func() {
 		p.Catch(func(reason any) any {
@@ -167,7 +167,7 @@ func TestChainedPromise_UnhandledCheckpointDoesNotStarveNextTick(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("boom")
 	if err := js.QueueMicrotask(func() {
 		scheduleErr <- loop.ScheduleNextTick(func() { nextTickRan <- struct{}{} })
@@ -234,7 +234,7 @@ func TestChainedPromise_UnhandledCheckpointWaitsForMicrotasksScheduledByDiagnost
 		if reason != "first" {
 			return
 		}
-		second, _, rejectSecond := js.NewChainedPromise()
+		second, _, rejectSecond := js.NewPromise()
 		rejectSecond("second")
 		if err := js.QueueMicrotask(func() {
 			second.Catch(func(reason any) any {
@@ -251,7 +251,7 @@ func TestChainedPromise_UnhandledCheckpointWaitsForMicrotasksScheduledByDiagnost
 		t.Fatal(err)
 	}
 
-	_, _, rejectFirst := js.NewChainedPromise()
+	_, _, rejectFirst := js.NewPromise()
 	rejectFirst("first")
 	loop.tick()
 
@@ -317,8 +317,8 @@ func TestChainedPromise_UnhandledCheckpointYieldsBetweenSnapshotDiagnostics(t *t
 	}
 
 	var rejectFirst, rejectSecond RejectFunc
-	first, _, rejectFirst = js.NewChainedPromise()
-	second, _, rejectSecond = js.NewChainedPromise()
+	first, _, rejectFirst = js.NewPromise()
+	second, _, rejectSecond = js.NewPromise()
 	rejectFirst("first")
 	rejectSecond("second")
 	loop.tick()
@@ -360,12 +360,12 @@ func TestChainedPromise_UnhandledCheckpointDiscardedByShutdownDoesNotSuppressFal
 		t.Fatal(err)
 	}
 
-	_, _, rejectBeforeShutdown := js.NewChainedPromise()
+	_, _, rejectBeforeShutdown := js.NewPromise()
 	rejectBeforeShutdown("before-shutdown")
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	_, _, rejectAfterShutdown := js.NewChainedPromise()
+	_, _, rejectAfterShutdown := js.NewPromise()
 	rejectAfterShutdown("after-shutdown")
 
 	timeout := time.NewTimer(time.Second)
@@ -397,7 +397,7 @@ func TestChainedPromise_UnhandledCheckpointDiscardedByNeverRunShutdownReportsOri
 		t.Fatal(err)
 	}
 
-	_, _, rejectBeforeShutdown := js.NewChainedPromise()
+	_, _, rejectBeforeShutdown := js.NewPromise()
 	rejectBeforeShutdown("before-shutdown")
 	if err := loop.Shutdown(context.Background()); err != nil {
 		t.Fatal(err)
@@ -442,7 +442,7 @@ func TestChainedPromise_TerminatedFallbackSingleOwnerReportsEachRejectionOnce(t 
 		t.Fatal(err)
 	}
 
-	_, _, rejectFirst := js.NewChainedPromise()
+	_, _, rejectFirst := js.NewPromise()
 	firstDone := make(chan struct{})
 	go func() {
 		rejectFirst("first")
@@ -455,7 +455,7 @@ func TestChainedPromise_TerminatedFallbackSingleOwnerReportsEachRejectionOnce(t 
 		t.Fatal("first fallback did not enter unhandled callback")
 	}
 
-	_, _, rejectSecond := js.NewChainedPromise()
+	_, _, rejectSecond := js.NewPromise()
 	rejectSecond("second")
 	close(releaseFirstCallback)
 
@@ -503,7 +503,7 @@ func TestChainedPromise_RepeatedUnhandledRejectionChecksReportOnce(t *testing.T)
 	}
 
 	for i := range 16 {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject(i)
 		loop.tick()
 		select {
@@ -534,7 +534,7 @@ func TestChainedPromise_CloseDiscardedUnhandledRejectionCheckpointReportsFallbac
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("close-discarded")
 
 	if err := loop.Close(); err != nil {
@@ -573,7 +573,7 @@ func TestChainedPromise_TerminalDrainFallbackWatcherIsShared(t *testing.T) {
 	if err := loop.Submit(func() {
 		for i := range rejectionCount {
 			reason := i
-			_, _, reject := js.NewChainedPromise()
+			_, _, reject := js.NewPromise()
 			go func() {
 				defer wg.Done()
 				reject(reason)

@@ -17,8 +17,8 @@ func (p *promiseThenableProbe) Then(func(any) any, func(any) any) *Promise {
 
 func TestAplus_2_3_2_PromiseAdoption(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	inner, resolveInner, _ := js.NewChainedPromise()
-	outer, resolveOuter, _ := js.NewChainedPromise()
+	inner, resolveInner, _ := js.NewPromise()
+	outer, resolveOuter, _ := js.NewPromise()
 	resolveOuter(inner)
 	loop.tick()
 	if outer.State() != Pending {
@@ -42,8 +42,8 @@ func TestAplus_2_3_2_HandlerReturnedPromiseAdoption(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			loop, js := newPromiseProfileJS(t)
-			inner, resolveInner, rejectInner := js.NewChainedPromise()
-			parent, resolveParent, _ := js.NewChainedPromise()
+			inner, resolveInner, rejectInner := js.NewPromise()
+			parent, resolveParent, _ := js.NewPromise()
 			child := parent.Then(func(any) any { return inner }, nil)
 
 			resolveParent("parent value")
@@ -106,7 +106,7 @@ func TestResolvePreservesNonPromiseThenableObject(t *testing.T) {
 
 func TestErrorPropagation_ThroughChain(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, _, reject := js.NewChainedPromise()
+	parent, _, reject := js.NewPromise()
 	want := errors.New("original error")
 	var caught any
 	parent.Then(func(value any) any {
@@ -129,7 +129,7 @@ func TestErrorPropagation_ThroughChain(t *testing.T) {
 
 func TestErrorPropagation_Recovery(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, _, reject := js.NewChainedPromise()
+	parent, _, reject := js.NewPromise()
 	var result any
 	parent.Then(nil, func(any) any {
 		return "recovered"
@@ -147,7 +147,7 @@ func TestErrorPropagation_Recovery(t *testing.T) {
 
 func TestAlreadySettled_ThenOnFulfilled(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	resolve("pre-fulfilled")
 	loop.tick()
 
@@ -167,7 +167,7 @@ func TestAlreadySettled_ThenOnFulfilled(t *testing.T) {
 
 func TestAlreadySettled_MultipleHandlers(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	resolve("value")
 	loop.tick()
 

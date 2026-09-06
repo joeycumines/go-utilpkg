@@ -20,7 +20,7 @@ func TestTrackRejection_DuplicateMicrotaskPrevention(t *testing.T) {
 	}
 	want := make(map[any]int, count)
 	for i := range count {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject(i)
 		want[i] = 1
 	}
@@ -58,7 +58,7 @@ func TestTrackRejection_HandlerReadyChannelSignaling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	reject("handled")
 	js.handlerReadyMu.Lock()
 	ready, exists := js.handlerReadyChans[promise]
@@ -98,7 +98,7 @@ func TestTrackRejection_HandleAfterCheck(t *testing.T) {
 	}
 
 	reason := errors.New("late handler")
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	reject(reason)
 	loop.tick()
 	if got := waitContractValue(t, reported, "pre-handler unhandled-rejection report"); got != reason {
@@ -135,7 +135,7 @@ func TestTrackRejection_CheckRejectionScheduledReset(t *testing.T) {
 	}
 
 	for _, reason := range []string{"first", "second"} {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject(reason)
 		if !js.checkRejectionScheduled.Load() {
 			t.Fatalf("%s rejection did not schedule a checkpoint", reason)
@@ -162,7 +162,7 @@ func TestTrackRejection_RejectionInfoStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	reason := errors.New("specific error")
 	reject(reason)
 	js.rejectionsMu.RLock()
@@ -189,7 +189,7 @@ func TestTrackRejection_NilCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("no callback")
 	loop.tick()
 	assertUnhandledRejectionTrackingDrained(t, js)

@@ -30,7 +30,7 @@ func TestPromiseFinally_FulfilledPromisePreservesValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	finallyCalls := 0
 	result := p.Finally(func() {
@@ -68,7 +68,7 @@ func TestPromiseFinally_RejectedPromisePreservesReason(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 
 	finallyCalled := false
 	result := p.Finally(func() {
@@ -106,7 +106,7 @@ func TestPromiseFinally_NilHandlerOnFulfilled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	result := p.Finally(nil)
 
@@ -136,7 +136,7 @@ func TestPromiseFinally_NilHandlerOnRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 
 	result := p.Finally(nil)
 
@@ -166,7 +166,7 @@ func TestPromiseFinally_ConcurrentMultiple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	var counter atomic.Int32
 	results := make([]*Promise, 5)
@@ -215,7 +215,7 @@ func TestPromiseFinally_AlreadyFulfilled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 	resolve("pre-resolved")
 	loop.tick()
 
@@ -261,7 +261,7 @@ func TestPromiseFinally_AlreadyRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 	originalErr := errors.New("pre-rejected")
 	reject(originalErr)
 	loop.tick()
@@ -307,7 +307,7 @@ func TestPromiseFinally_ChainedWithThen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	var order []string
 	var mu sync.Mutex
@@ -364,7 +364,7 @@ func TestPromiseFinally_WithNilValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	finallyCalled := false
 	result := p.Finally(func() {
@@ -400,7 +400,7 @@ func TestPromiseFinally_WithNilRejection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, _, reject := js.NewChainedPromise()
+	p, _, reject := js.NewPromise()
 
 	finallyCalled := false
 	result := p.Finally(func() {
@@ -461,7 +461,7 @@ func TestPromiseFinally_OrderOfExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	var order []int
 	var mu sync.Mutex

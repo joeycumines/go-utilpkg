@@ -51,7 +51,7 @@ type listenerEntry struct { //nolint:govet // betteralign:ignore
 //	target.DispatchEvent(event)
 //
 //	// Remove the listener
-//	target.RemoveEventListenerByID("click", id)
+//	target.RemoveEventListener("click", id)
 type EventTarget struct {
 	listeners      map[string][]*listenerEntry // eventType -> listeners
 	nextListenerID ListenerID
@@ -233,7 +233,7 @@ func (et *EventTarget) listenerIDUsedLocked(id ListenerID) bool {
 	return false
 }
 
-// RemoveEventListenerByID removes a listener by its ID.
+// RemoveEventListener removes a listener by its ID.
 //
 // This is the recommended way to remove listeners in Go since function
 // values cannot be reliably compared for equality.
@@ -246,7 +246,7 @@ func (et *EventTarget) listenerIDUsedLocked(id ListenerID) bool {
 // still run or be running when removal returns.
 //
 // Thread Safety: Safe to call concurrently.
-func (et *EventTarget) RemoveEventListenerByID(eventType string, id ListenerID) bool {
+func (et *EventTarget) RemoveEventListener(eventType string, id ListenerID) bool {
 	et.mu.Lock()
 	defer et.mu.Unlock()
 

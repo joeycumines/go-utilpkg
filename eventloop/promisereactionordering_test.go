@@ -34,7 +34,7 @@ func testChainedPromiseConcurrentRegistrationOrder(t *testing.T, rejected, regis
 		t.Fatal(err)
 	}
 
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 	observed := make(chan promiseReactionObservation, 2)
 	handler := func(label string, fulfilled bool) func(any) any {
 		return func(value any) any {

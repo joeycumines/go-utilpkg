@@ -453,7 +453,7 @@ func TestLoopOwnerDescriptorCleanupLoggerRetiresFallbackWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, reject = js.NewChainedPromise()
+	_, _, reject = js.NewPromise()
 
 	var pipeFDs [2]int
 	if err := unix.Pipe(pipeFDs[:]); err != nil {

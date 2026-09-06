@@ -70,6 +70,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **BREAKING: `EventTarget.RemoveEventListener`** — the method
+  `RemoveEventListenerByID(eventType, id)` was renamed to
+  `RemoveEventListener(eventType, id)`. Removal is still by listener ID; the
+  name now matches the `AddEventListener` counterpart without the redundant
+  "ByID" preposition.
+
+- **BREAKING: `JS.NewPromise`** — the constructor previously named
+  `JS.NewChainedPromise()` was renamed to `JS.NewPromise()`, completing the
+  earlier `ChainedPromise` → `Promise` type rename. It still returns a new
+  pending `*Promise` together with its resolve and reject functions.
+
 - **BREAKING: zero-argument clear/remove semantics** — `Performance.ClearMarks`
   and `Performance.ClearMeasures` now take the names to clear variadically
   (`ClearMarks()` clears all marks, `ClearMarks("a")` clears one,

@@ -100,7 +100,7 @@ func TestEventTarget_AddEventListener_DifferentTypes(t *testing.T) {
 	}
 }
 
-func TestEventTarget_RemoveEventListenerByID(t *testing.T) {
+func TestEventTarget_RemoveEventListener(t *testing.T) {
 	target := NewEventTarget()
 	called := false
 
@@ -108,9 +108,9 @@ func TestEventTarget_RemoveEventListenerByID(t *testing.T) {
 		called = true
 	})
 
-	removed := target.RemoveEventListenerByID("click", id)
+	removed := target.RemoveEventListener("click", id)
 	if !removed {
-		t.Error("RemoveEventListenerByID should return true")
+		t.Error("RemoveEventListener should return true")
 	}
 
 	target.DispatchEvent(&Event{Type: "click"})
@@ -120,27 +120,27 @@ func TestEventTarget_RemoveEventListenerByID(t *testing.T) {
 	}
 }
 
-func TestEventTarget_RemoveEventListenerByID_WrongType(t *testing.T) {
+func TestEventTarget_RemoveEventListener_WrongType(t *testing.T) {
 	target := NewEventTarget()
 
 	id := target.AddEventListener("click", func(e *Event) {})
 
 	// Try to remove from wrong event type
-	removed := target.RemoveEventListenerByID("hover", id)
+	removed := target.RemoveEventListener("hover", id)
 	if removed {
-		t.Error("RemoveEventListenerByID should return false for wrong type")
+		t.Error("RemoveEventListener should return false for wrong type")
 	}
 }
 
-func TestEventTarget_RemoveEventListenerByID_InvalidID(t *testing.T) {
+func TestEventTarget_RemoveEventListener_InvalidID(t *testing.T) {
 	target := NewEventTarget()
 
 	target.AddEventListener("click", func(e *Event) {})
 
 	// Try to remove non-existent ID
-	removed := target.RemoveEventListenerByID("click", 9999)
+	removed := target.RemoveEventListener("click", 9999)
 	if removed {
-		t.Error("RemoveEventListenerByID should return false for invalid ID")
+		t.Error("RemoveEventListener should return false for invalid ID")
 	}
 }
 
@@ -203,7 +203,7 @@ func TestEventTarget_HasEventListeners(t *testing.T) {
 		t.Error("Should have listeners after adding")
 	}
 
-	target.RemoveEventListenerByID("click", id)
+	target.RemoveEventListener("click", id)
 
 	if target.HasEventListeners("click") {
 		t.Error("Should not have listeners after removal")
@@ -227,12 +227,12 @@ func TestEventTarget_ListenerCount(t *testing.T) {
 		t.Error("Count should be 2")
 	}
 
-	target.RemoveEventListenerByID("click", id1)
+	target.RemoveEventListener("click", id1)
 	if target.ListenerCount("click") != 1 {
 		t.Error("Count should be 1 after removal")
 	}
 
-	target.RemoveEventListenerByID("click", id2)
+	target.RemoveEventListener("click", id2)
 	if target.ListenerCount("click") != 0 {
 		t.Error("Count should be 0 after removing all")
 	}

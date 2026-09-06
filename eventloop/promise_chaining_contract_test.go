@@ -40,7 +40,7 @@ func TestChainedPromise_ChainingEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Chain with mixed resolve and reject", func(t *testing.T) {
-		p, _, reject := js.NewChainedPromise()
+		p, _, reject := js.NewPromise()
 
 		p1 := p.Then(func(v any) any {
 			return "should not execute"
@@ -77,7 +77,7 @@ func TestChainedPromise_ThenReturnsNewPromise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, resolve, _ := js.NewChainedPromise()
+	p1, resolve, _ := js.NewPromise()
 	p2 := p1.Then(func(v any) any {
 		return v.(string) + " modified"
 	}, nil)
@@ -115,7 +115,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	}
 
 	t.Run("Transform string to int", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 
 		result := p.Then(func(v any) any {
 			return len(v.(string))
@@ -131,7 +131,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	})
 
 	t.Run("Transform int to string", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 
 		result := p.Then(func(v any) any {
 			num := v.(int)
@@ -148,7 +148,7 @@ func TestChainedPromise_ValueTransformations(t *testing.T) {
 	})
 
 	t.Run("Transform to map", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 
 		result := p.Then(func(v any) any {
 			return map[string]any{"value": v}

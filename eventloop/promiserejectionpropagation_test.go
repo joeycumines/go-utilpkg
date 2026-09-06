@@ -18,7 +18,7 @@ func TestChainedPromisePassThroughPublishesPropagationBeforeRejection(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	child := parent.Then(nil, nil)
 	rejectionRecorded := make(chan struct{})
 	releasePublication := make(chan struct{})
@@ -128,7 +128,7 @@ func TestChainedPromiseLatePassThroughLinearizesWithActiveChecker(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	rejectParent("late propagation")
 	checkerAtParent := make(chan struct{})
 	releaseChecker := make(chan struct{})
@@ -206,7 +206,7 @@ func TestChainedPromiseLatePassThroughCheckerWinSuppressesChildReport(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	rejectParent("checker owns")
 	checkerClaimed := make(chan struct{})
 	releaseCallback := make(chan struct{})
@@ -280,7 +280,7 @@ func TestChainedPromiseLatePassThroughAfterHandledCleanupReportsChild(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	handled := make(chan struct{}, 1)
 	parent.Catch(func(any) any {
 		handled <- struct{}{}
@@ -337,7 +337,7 @@ func TestChainedPromiseTerminalPassThroughSettlesChildOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _, rejectParent := js.NewChainedPromise()
+	parent, _, rejectParent := js.NewPromise()
 	child := parent.Then(nil, nil)
 	childResult := child.ToChannel()
 	rejectParent("discarded propagation")

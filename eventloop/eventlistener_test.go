@@ -30,8 +30,8 @@ func TestEventTargetRemovalSuppressesUnclaimedListener(t *testing.T) {
 		target.DispatchEvent(NewEvent("event"))
 	}()
 	waitAbortContractSignal(t, firstStarted, "first listener start before removal")
-	if !target.RemoveEventListenerByID("event", secondID) {
-		t.Fatal("RemoveEventListenerByID did not remove pending listener")
+	if !target.RemoveEventListener("event", secondID) {
+		t.Fatal("RemoveEventListener did not remove pending listener")
 	}
 	releaseFirstNow()
 	waitAbortContractSignal(t, done, "dispatch after pending-listener removal")
@@ -85,8 +85,8 @@ func TestEventTargetRemovalAfterClaimAllowsCurrentCallbackOnly(t *testing.T) {
 		target.DispatchEvent(NewEvent("event"))
 	}()
 	waitAbortContractSignal(t, started, "claimed listener start")
-	if !target.RemoveEventListenerByID("event", id) {
-		t.Fatal("RemoveEventListenerByID did not remove claimed listener")
+	if !target.RemoveEventListener("event", id) {
+		t.Fatal("RemoveEventListener did not remove claimed listener")
 	}
 	releaseNow()
 	waitAbortContractSignal(t, done, "claimed-listener dispatch completion")
@@ -222,7 +222,7 @@ func TestEventTargetListenerIDWrapReusesReleasedID(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			target := NewEventTarget()
 			id := target.AddEventListener("event", func(*Event) {})
-			if !target.RemoveEventListenerByID("event", id) {
+			if !target.RemoveEventListener("event", id) {
 				t.Fatal("failed to release initial listener ID")
 			}
 			target.nextListenerID = 0
@@ -244,7 +244,7 @@ func TestEventTargetListenerIDWrapSkipsLiveIDsAcrossTypes(t *testing.T) {
 	firstID := target.AddEventListener("first", func(*Event) {})
 	secondID := target.AddEventListener("second", func(*Event) {})
 	thirdID := target.AddEventListener("third", func(*Event) {})
-	if !target.RemoveEventListenerByID("second", secondID) {
+	if !target.RemoveEventListener("second", secondID) {
 		t.Fatal("failed to release the second listener ID")
 	}
 	target.nextListenerID = 0
@@ -326,7 +326,7 @@ func TestEventTargetListenerIDsRemainDistinctAfterWrap(t *testing.T) {
 	}
 	for id := ListenerID(2); id <= 1000; id += 2 {
 		eventType := "live-" + strconv.Itoa((int(id)-1)%7)
-		if !target.RemoveEventListenerByID(eventType, id) {
+		if !target.RemoveEventListener(eventType, id) {
 			t.Fatalf("failed to release listener ID %d", id)
 		}
 		delete(live, id)
@@ -367,7 +367,7 @@ func newRemovedListenerPayload() (*EventTarget, weak.Pointer[contractRetentionPa
 	id := target.AddEventListener("event", func(*Event) {
 		payload.value++
 	})
-	target.RemoveEventListenerByID("event", id)
+	target.RemoveEventListener("event", id)
 	runtime.KeepAlive(payload)
 	return target, pointer
 }

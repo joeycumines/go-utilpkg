@@ -136,7 +136,7 @@ func BenchmarkPromisesLegacyInvalid(b *testing.B) {
 					for i := 0; i < b.N; i++ {
 						promises := make([]*eventloop.Promise, 100)
 						for k := range 100 {
-							p, _, _ := js.NewChainedPromise()
+							p, _, _ := js.NewPromise()
 							promises[k] = p
 						}
 						_ = js.Race(promises...)

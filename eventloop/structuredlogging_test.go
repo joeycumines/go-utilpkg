@@ -713,7 +713,7 @@ func TestUnhandledRejectionDiagnosticUsesReasonField(t *testing.T) {
 	}
 
 	reason := struct{ Code int }{Code: 42}
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject(reason)
 
 	event := waitContractValue(t, records, "unhandled-rejection diagnostic")

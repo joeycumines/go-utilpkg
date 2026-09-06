@@ -41,7 +41,7 @@ func TestPromiseToChannel_PendingPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	result := promise.ToChannel()
 	js.toChannelsMu.Lock()
 	registered := len(js.toChannels[promise])
@@ -68,7 +68,7 @@ func TestPromiseToChannel_PendingRejection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	result := promise.ToChannel()
 	js.toChannelsMu.Lock()
 	registered := len(js.toChannels[promise])
@@ -129,7 +129,7 @@ func TestPromiseToChannel_MultiplePendingSubscribers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 
 	const count = 8
 	type subscription struct {
@@ -191,7 +191,7 @@ func testPromiseToChannelDoubleCheck(t *testing.T, reject bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, resolve, rejectPromise := js.NewChainedPromise()
+	promise, resolve, rejectPromise := js.NewPromise()
 
 	stateChecked := make(chan struct{})
 	releaseRegistration := make(chan struct{})

@@ -35,7 +35,7 @@ func BenchmarkTournament(b *testing.B) {
 	// Baseline: ChainedPromise
 	b.Run("ChainedPromise", func(b *testing.B) {
 		runTournamentTest(b, func(js *eventloop.JS) (genericPromise, func(any)) {
-			p, res, _ := js.NewChainedPromise()
+			p, res, _ := js.NewPromise()
 			return &cpWrapper{p, res}, func(v any) { res(v) }
 		})
 	})
@@ -259,7 +259,7 @@ func BenchmarkChainDepth(b *testing.B) {
 	}
 
 	run("ChainedPromise", func(js *eventloop.JS) (genericPromise, func(any)) {
-		p, res, _ := js.NewChainedPromise()
+		p, res, _ := js.NewPromise()
 		return &cpWrapper{p, res}, func(v any) { res(v) }
 	})
 

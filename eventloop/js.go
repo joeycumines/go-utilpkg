@@ -45,7 +45,7 @@ var ErrJSBindConflict = errors.New("eventloop: JS binding already installed")
 //   - Microtasks are processed in FIFO order within each tick
 //
 // Promise Support:
-//   - [JS.NewChainedPromise] creates promises in the package's Go-loop profile
+//   - [JS.NewPromise] creates promises in the package's Go-loop profile
 //   - Promises integrate with the microtask queue for proper async semantics
 //   - Promise combinators: [JS.All], [JS.Race], [JS.AllSettled], [JS.Any]
 //

@@ -44,7 +44,7 @@ func (s *timerPromiseState) fail(err error) {
 // If terminal cleanup discards an accepted timer before it fires, the promise
 // resolves with nil during that cleanup rather than remaining pending.
 func (js *JS) Sleep(ms time.Duration) *Promise {
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 	js.scheduleTimerPromise(ms, func() { resolve(nil) }, reject)
 
 	return promise
@@ -78,7 +78,7 @@ func (js *JS) Sleep(ms time.Duration) *Promise {
 // rejects with the same [TimeoutError] used by normal expiry rather than
 // remaining pending.
 func (js *JS) Timeout(delay time.Duration) *Promise {
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 
 	msg := "timeout after " + delay.String()
 	js.scheduleTimerPromise(delay, func() { reject(&TimeoutError{Message: msg}) }, reject)

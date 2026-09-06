@@ -33,7 +33,7 @@ func newTerminalFinallyReaction(
 	if err != nil {
 		panic(err)
 	}
-	source, resolveSource, rejectSource := js.NewChainedPromise()
+	source, resolveSource, rejectSource := js.NewPromise()
 	var callbackCalls atomic.Int32
 	var callback func()
 	if !testCase.nilCallback {
@@ -226,7 +226,7 @@ func TestPromiseFinally_PanicInHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	var calls atomic.Int32
 	child := parent.Finally(func() {
 		calls.Add(1)

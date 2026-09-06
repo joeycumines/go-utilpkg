@@ -28,7 +28,7 @@ func TestNewForwardsJSOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, reject := adapter.js.NewChainedPromise()
+	_, _, reject := adapter.js.NewPromise()
 	reject("forwarded-option")
 
 	if err := loop.Run(context.Background()); err != nil {

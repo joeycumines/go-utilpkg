@@ -16,7 +16,7 @@ func TestChainedPromiseReactionObservesPublishedFulfillment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	observed := make(chan struct {
 		state Settlement
 		value any
@@ -74,7 +74,7 @@ func TestChainedPromisePublishingReactionReentersThenAfterUnlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	observed := make(chan string, 2)
 	nestedChild := make(chan *Promise, 1)
 	outerChild := promise.Then(func(value any) any {
@@ -157,7 +157,7 @@ func TestChainedPromiseReactionObservesPublishedRejection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	observed := make(chan struct {
 		state  Settlement
 		reason any

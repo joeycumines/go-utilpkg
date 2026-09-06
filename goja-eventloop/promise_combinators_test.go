@@ -31,9 +31,9 @@ func TestCoreJSAllWithAllResolved(t *testing.T) {
 	}
 
 	// Create test promises
-	p1, r1, _ := jsAdapter.NewChainedPromise()
-	p2, r2, _ := jsAdapter.NewChainedPromise()
-	p3, r3, _ := jsAdapter.NewChainedPromise()
+	p1, r1, _ := jsAdapter.NewPromise()
+	p2, r2, _ := jsAdapter.NewPromise()
+	p3, r3, _ := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
 	resultPromise := jsAdapter.All(promises...)
@@ -124,9 +124,9 @@ func TestCoreJSAllWithOneRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, r1, _ := jsAdapter.NewChainedPromise()
-	p2, _, rej2 := jsAdapter.NewChainedPromise()
-	p3, r3, _ := jsAdapter.NewChainedPromise()
+	p1, r1, _ := jsAdapter.NewPromise()
+	p2, _, rej2 := jsAdapter.NewPromise()
+	p3, r3, _ := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
 	resultPromise := jsAdapter.All(promises...)
@@ -180,8 +180,8 @@ func TestCoreJSRaceTiming(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, r1, _ := jsAdapter.NewChainedPromise()
-	p2, _, _ := jsAdapter.NewChainedPromise()
+	p1, r1, _ := jsAdapter.NewPromise()
+	p2, _, _ := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2}
 	resultPromise := jsAdapter.Race(promises...)
@@ -227,8 +227,8 @@ func TestCoreJSRaceFirstRejectedWins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, _, rej1 := jsAdapter.NewChainedPromise()
-	p2, r2, _ := jsAdapter.NewChainedPromise()
+	p1, _, rej1 := jsAdapter.NewPromise()
+	p2, r2, _ := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2}
 	resultPromise := jsAdapter.Race(promises...)
@@ -279,9 +279,9 @@ func TestCoreJSAllSettledMixedResults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, r1, _ := jsAdapter.NewChainedPromise()
-	p2, _, rej2 := jsAdapter.NewChainedPromise()
-	p3, r3, _ := jsAdapter.NewChainedPromise()
+	p1, r1, _ := jsAdapter.NewPromise()
+	p2, _, rej2 := jsAdapter.NewPromise()
+	p3, r3, _ := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
 	resultPromise := jsAdapter.AllSettled(promises...)
@@ -336,9 +336,9 @@ func TestCoreJSAnyFirstResolvedWins(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, _, rej1 := jsAdapter.NewChainedPromise()
-	p2, r2, _ := jsAdapter.NewChainedPromise()
-	p3, _, rej3 := jsAdapter.NewChainedPromise()
+	p1, _, rej1 := jsAdapter.NewPromise()
+	p2, r2, _ := jsAdapter.NewPromise()
+	p3, _, rej3 := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
 	resultPromise := jsAdapter.Any(promises...)
@@ -383,9 +383,9 @@ func TestCoreJSAnyAllRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p1, _, rej1 := jsAdapter.NewChainedPromise()
-	p2, _, rej2 := jsAdapter.NewChainedPromise()
-	p3, _, rej3 := jsAdapter.NewChainedPromise()
+	p1, _, rej1 := jsAdapter.NewPromise()
+	p2, _, rej2 := jsAdapter.NewPromise()
+	p3, _, rej3 := jsAdapter.NewPromise()
 
 	promises := []*goeventloop.Promise{p1, p2, p3}
 	resultPromise := jsAdapter.Any(promises...)

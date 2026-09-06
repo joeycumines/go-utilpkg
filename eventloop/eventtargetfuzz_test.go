@@ -92,10 +92,10 @@ func FuzzEventTargetDispatchModel(f *testing.F) {
 				if r.byte()%4 == 0 {
 					removeType += "-wrong"
 				}
-				removed := target.RemoveEventListenerByID(removeType, id)
+				removed := target.RemoveEventListener(removeType, id)
 				wantRemoved := removeType == lm.eventType
 				if removed != wantRemoved {
-					t.Fatalf("RemoveEventListenerByID(%q, %d) = %v, want %v", removeType, id, removed, wantRemoved)
+					t.Fatalf("RemoveEventListener(%q, %d) = %v, want %v", removeType, id, removed, wantRemoved)
 				}
 				if wantRemoved {
 					delete(listeners, id)

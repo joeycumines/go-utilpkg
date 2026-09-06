@@ -63,7 +63,7 @@ func TestPromiseCreationStackDebugMode(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			promise, _, _ := js.NewChainedPromise()
+			promise, _, _ := js.NewPromise()
 			if stack := promise.CreationStackTrace(); stack != "" {
 				t.Fatalf("disabled debug creation stack = %q, want empty", stack)
 			}
@@ -131,13 +131,13 @@ func assertDebugStackText(t *testing.T, stack, function string) {
 
 //go:noinline
 func debugPromiseFirst(js *JS) *Promise {
-	promise, _, _ := js.NewChainedPromise()
+	promise, _, _ := js.NewPromise()
 	return promise
 }
 
 //go:noinline
 func debugPromiseSecond(js *JS) *Promise {
-	promise, _, _ := js.NewChainedPromise()
+	promise, _, _ := js.NewPromise()
 	return promise
 }
 
@@ -153,6 +153,6 @@ func debugPromiseRejected(js *JS, reason error) *Promise {
 
 //go:noinline
 func debugUnhandledPromise(js *JS) (*Promise, RejectFunc) {
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	return promise, reject
 }

@@ -34,7 +34,7 @@ func FuzzPromiseCombinators(f *testing.F) {
 		fulfilled := make([]bool, n)
 		values := make([]any, n)
 		for i := range n {
-			promises[i], resolves[i], rejects[i] = js.NewChainedPromise()
+			promises[i], resolves[i], rejects[i] = js.NewPromise()
 			fulfilled[i] = r.bool()
 			if fulfilled[i] {
 				values[i] = fmt.Sprintf("value:%d", i)
@@ -103,7 +103,7 @@ func FuzzPromiseAlternatingThenCatch(f *testing.F) {
 			unhandled.Add(1)
 		}))
 
-		root, resolve, reject := js.NewChainedPromise()
+		root, resolve, reject := js.NewPromise()
 		current := root
 		if depth > 50 {
 			depth = 50
@@ -271,7 +271,7 @@ func FuzzPromiseChainAdoptionPanicAndChannels(f *testing.F) {
 			callbackErrs.add("unexpected unhandled rejection: %#v", reason)
 		}))
 
-		root, resolveRoot, rejectRoot := js.NewChainedPromise()
+		root, resolveRoot, rejectRoot := js.NewPromise()
 		current := root
 		steps := 1 + r.intn(16)
 		for i := range steps {

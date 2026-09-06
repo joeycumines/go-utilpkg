@@ -455,7 +455,7 @@ func BenchmarkMixedWorkload(b *testing.B) {
 				b.Fatalf("ScheduleTimer: %v", err)
 			}
 		case 9:
-			promise, resolve, _ := js.NewChainedPromise()
+			promise, resolve, _ := js.NewPromise()
 			promise.Then(func(any) any {
 				record()
 				return nil

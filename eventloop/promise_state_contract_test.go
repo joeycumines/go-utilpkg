@@ -23,14 +23,14 @@ func TestChainedPromise_State_Lifecycle(t *testing.T) {
 	}
 
 	t.Run("Pending state", func(t *testing.T) {
-		p, _, _ := js.NewChainedPromise()
+		p, _, _ := js.NewPromise()
 		if p.State() != Pending {
 			t.Errorf("Initial state should be Pending, got %v", p.State())
 		}
 	})
 
 	t.Run("Fulfilled state", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 		resolve("value")
 		loop.tick()
 		if p.State() != Fulfilled {
@@ -39,7 +39,7 @@ func TestChainedPromise_State_Lifecycle(t *testing.T) {
 	})
 
 	t.Run("Rejected state", func(t *testing.T) {
-		p, _, reject := js.NewChainedPromise()
+		p, _, reject := js.NewPromise()
 		reject("error")
 		loop.tick()
 		if p.State() != Rejected {
@@ -62,7 +62,7 @@ func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 	}
 
 	t.Run("Value() returns fulfillment value", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 		resolve("test value")
 		loop.tick()
 
@@ -73,14 +73,14 @@ func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 	})
 
 	t.Run("Value() returns nil for pending", func(t *testing.T) {
-		p, _, _ := js.NewChainedPromise()
+		p, _, _ := js.NewPromise()
 		if p.Value() != nil {
 			t.Errorf("Pending promise Value() should return nil, got %v", p.Value())
 		}
 	})
 
 	t.Run("Value() returns nil for rejected", func(t *testing.T) {
-		p, _, reject := js.NewChainedPromise()
+		p, _, reject := js.NewPromise()
 		reject("error")
 		loop.tick()
 
@@ -91,7 +91,7 @@ func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 	})
 
 	t.Run("Reason() returns rejection reason", func(t *testing.T) {
-		p, _, reject := js.NewChainedPromise()
+		p, _, reject := js.NewPromise()
 		reject("reason value")
 		loop.tick()
 
@@ -102,14 +102,14 @@ func TestChainedPromise_ValueAndReason_Accessors(t *testing.T) {
 	})
 
 	t.Run("Reason() returns nil for pending", func(t *testing.T) {
-		p, _, _ := js.NewChainedPromise()
+		p, _, _ := js.NewPromise()
 		if p.Reason() != nil {
 			t.Errorf("Pending promise Reason() should return nil, got %v", p.Reason())
 		}
 	})
 
 	t.Run("Reason() returns nil for fulfilled", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 		resolve("value")
 		loop.tick()
 
@@ -133,7 +133,7 @@ func TestChainedPromise_CycleDetection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 
 	// Attempt to resolve promise with itself
 	resolve(p)
@@ -163,8 +163,8 @@ func TestChainedPromise_AdoptsState(t *testing.T) {
 	}
 
 	t.Run("Adopts fulfilled state", func(t *testing.T) {
-		p1, resolve1, _ := js.NewChainedPromise()
-		p2, resolve2, _ := js.NewChainedPromise()
+		p1, resolve1, _ := js.NewPromise()
+		p2, resolve2, _ := js.NewPromise()
 
 		// Resolve p2 with p1
 		resolve2(p1)
@@ -189,8 +189,8 @@ func TestChainedPromise_AdoptsState(t *testing.T) {
 	})
 
 	t.Run("Adopts rejected state", func(t *testing.T) {
-		p1, _, reject1 := js.NewChainedPromise()
-		p2, resolve2, _ := js.NewChainedPromise()
+		p1, _, reject1 := js.NewPromise()
+		p2, resolve2, _ := js.NewPromise()
 
 		resolve2(p1)
 		reject1("adopted error")
@@ -223,7 +223,7 @@ func TestChainedPromise_NilHandlerPassThrough(t *testing.T) {
 	}
 
 	t.Run("Then with nil handlers passes value through", func(t *testing.T) {
-		p, resolve, _ := js.NewChainedPromise()
+		p, resolve, _ := js.NewPromise()
 		result := p.Then(nil, nil) // Both handlers nil
 		resolve("original value")
 		loop.tick()
@@ -236,7 +236,7 @@ func TestChainedPromise_NilHandlerPassThrough(t *testing.T) {
 	})
 
 	t.Run("Catch with nil handler passes reason through", func(t *testing.T) {
-		p, _, reject := js.NewChainedPromise()
+		p, _, reject := js.NewPromise()
 		result := p.Catch(nil) // nil handler
 		reject("original error")
 		loop.tick()
@@ -262,7 +262,7 @@ func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
 	}
 
 	t.Run("Resolve only accepts first call", func(t *testing.T) {
-		p1, resolve1, _ := js.NewChainedPromise()
+		p1, resolve1, _ := js.NewPromise()
 
 		resolve1("first")
 		resolve1("second") // Should be ignored
@@ -276,7 +276,7 @@ func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
 	})
 
 	t.Run("Reject only accepts first call", func(t *testing.T) {
-		p2, _, reject2 := js.NewChainedPromise()
+		p2, _, reject2 := js.NewPromise()
 
 		reject2("first error")
 		reject2("second error") // Should be ignored
@@ -290,7 +290,7 @@ func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
 	})
 
 	t.Run("Resolve after reject has no effect", func(t *testing.T) {
-		p3, resolve3, reject3 := js.NewChainedPromise()
+		p3, resolve3, reject3 := js.NewPromise()
 
 		reject3("rejected")
 		resolve3("resolved") // Should be ignored
@@ -303,7 +303,7 @@ func TestChainedPromise_ResolveRejectIdempotency(t *testing.T) {
 	})
 
 	t.Run("Reject after resolve has no effect", func(t *testing.T) {
-		p4, resolve4, reject4 := js.NewChainedPromise()
+		p4, resolve4, reject4 := js.NewPromise()
 
 		resolve4("resolved")
 		reject4("rejected") // Should be ignored

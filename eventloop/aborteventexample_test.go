@@ -53,7 +53,7 @@ func Example_eventTarget() {
 	})
 
 	// Remove the listener
-	et.RemoveEventListenerByID("data", id)
+	et.RemoveEventListener("data", id)
 
 	// Dispatch again — no listener receives it (returns true since event
 	// was not canceled via PreventDefault).

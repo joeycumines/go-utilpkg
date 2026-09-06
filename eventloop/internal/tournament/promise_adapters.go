@@ -135,14 +135,14 @@ func PromiseImplementations() []PromiseImplementation {
 			OriginCommit:  "current",
 			OriginTree:    "current",
 			Factory: func(js *eventloop.JS) (Promise, eventloop.ResolveFunc, eventloop.RejectFunc) {
-				p, resolve, reject := js.NewChainedPromise()
+				p, resolve, reject := js.NewPromise()
 				return &ChainedPromiseAdapter{p: p}, resolve, reject
 			},
 			Race: func(js *eventloop.JS, count int) (Promise, PromiseRaceSettlement) {
 				promises := make([]*eventloop.Promise, count)
 				resolvers := make([]eventloop.ResolveFunc, count)
 				for i := range promises {
-					promises[i], resolvers[i], _ = js.NewChainedPromise()
+					promises[i], resolvers[i], _ = js.NewPromise()
 				}
 				return &ChainedPromiseAdapter{p: js.Race(promises...)}, settlePromiseRaceInputs(js, resolvers)
 			},
@@ -315,7 +315,7 @@ func chainedPromiseAllCase(js *eventloop.JS, count int) PromiseCombinatorCase {
 	promises := make([]*eventloop.Promise, count)
 	resolvers := make([]eventloop.ResolveFunc, count)
 	for index := range promises {
-		promises[index], resolvers[index], _ = js.NewChainedPromise()
+		promises[index], resolvers[index], _ = js.NewPromise()
 	}
 	return PromiseCombinatorCase{
 		Promise:   &ChainedPromiseAdapter{p: js.All(promises...)},
@@ -328,7 +328,7 @@ func chainedPromiseRaceCase(js *eventloop.JS, count int) PromiseCombinatorCase {
 	promises := make([]*eventloop.Promise, count)
 	resolvers := make([]eventloop.ResolveFunc, count)
 	for index := range promises {
-		promises[index], resolvers[index], _ = js.NewChainedPromise()
+		promises[index], resolvers[index], _ = js.NewPromise()
 	}
 	return PromiseCombinatorCase{
 		Promise:   &ChainedPromiseAdapter{p: js.Race(promises...)},

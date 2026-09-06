@@ -343,7 +343,7 @@ func (a *Adapter) eventTargetRemove(wrapper *eventTargetWrapper, eventType strin
 		cleanup()
 	}
 	if removeBridge != 0 {
-		wrapper.target.RemoveEventListenerByID(eventType, removeBridge)
+		wrapper.target.RemoveEventListener(eventType, removeBridge)
 	}
 	return removed
 }
@@ -381,7 +381,7 @@ func (a *Adapter) eventTargetRemoveInfo(wrapper *eventTargetWrapper, eventType s
 		cleanup()
 	}
 	if removeBridge != 0 {
-		wrapper.target.RemoveEventListenerByID(eventType, removeBridge)
+		wrapper.target.RemoveEventListener(eventType, removeBridge)
 	}
 	return removed
 }

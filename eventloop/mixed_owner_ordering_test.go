@@ -521,7 +521,7 @@ func TestPromiseSettlementPreservesEarlierIngressReaction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root, resolve, _ := js.NewChainedPromise()
+	root, resolve, _ := js.NewPromise()
 	var order []string
 	reaction := root.Then(func(any) any {
 		order = append(order, "reaction")

@@ -105,7 +105,7 @@ func BenchmarkStandardPromise_All(b *testing.B) {
 
 	promises := make([]*eventloop.Promise, 100)
 	for i := range 100 {
-		promises[i], _, _ = js.NewChainedPromise()
+		promises[i], _, _ = js.NewPromise()
 	}
 
 	b.ResetTimer()
@@ -113,7 +113,7 @@ func BenchmarkStandardPromise_All(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		for j := range 100 {
-			promises[j], _, _ = js.NewChainedPromise()
+			promises[j], _, _ = js.NewPromise()
 		}
 		b.StartTimer()
 		_ = js.All(promises...)

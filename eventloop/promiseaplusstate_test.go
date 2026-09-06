@@ -26,7 +26,7 @@ func newPromiseProfileJS(t *testing.T) (*Loop, *JS) {
 
 func TestAplus_2_1_1_PendingToFulfilled(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	promise, resolve, _ := js.NewChainedPromise()
+	promise, resolve, _ := js.NewPromise()
 	if promise.State() != Pending {
 		t.Fatalf("initial state = %v, want Pending", promise.State())
 	}
@@ -40,7 +40,7 @@ func TestAplus_2_1_1_PendingToFulfilled(t *testing.T) {
 
 func TestAplus_2_1_1_PendingToRejected(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	promise, _, reject := js.NewChainedPromise()
+	promise, _, reject := js.NewPromise()
 	if promise.State() != Pending {
 		t.Fatalf("initial state = %v, want Pending", promise.State())
 	}
@@ -55,7 +55,7 @@ func TestAplus_2_1_1_PendingToRejected(t *testing.T) {
 
 func TestAplus_2_1_2_FulfilledImmutable(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 	resolve("first")
 	loop.tick()
 
@@ -69,7 +69,7 @@ func TestAplus_2_1_2_FulfilledImmutable(t *testing.T) {
 
 func TestAplus_2_1_3_RejectedImmutable(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 	want := errors.New("first error")
 	reject(want)
 	loop.tick()

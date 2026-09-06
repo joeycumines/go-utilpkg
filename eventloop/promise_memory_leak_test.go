@@ -62,7 +62,7 @@ func TestResolvedPromiseChainsReleasePromises(t *testing.T) {
 func settledPromiseChainReferences(t *testing.T, js *JS, value int) []weak.Pointer[Promise] {
 	t.Helper()
 	const chainDepth = 5
-	source, resolve, _ := js.NewChainedPromise()
+	source, resolve, _ := js.NewPromise()
 	current := source
 	references := make([]weak.Pointer[Promise], 0, chainDepth+1)
 	references = append(references, weak.Make(source))
@@ -113,7 +113,7 @@ func TestRejectionTrackingCleanupUsesCheckpointBarrier(t *testing.T) {
 	if err := loop.Submit(func() {
 		defer close(setupDone)
 		for range promiseCount {
-			p, _, reject := js.NewChainedPromise()
+			p, _, reject := js.NewPromise()
 			reject("error")
 			p.Then(nil, func(v any) any { return nil })
 		}
@@ -176,7 +176,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	}
 
 	// Test 1: After resolve, h0 should be cleared (target becomes nil)
-	p, resolve, _ := js.NewChainedPromise()
+	p, resolve, _ := js.NewPromise()
 	p.Then(func(v any) any { return v }, nil)
 	resolve("value")
 
@@ -188,7 +188,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	p.mu.Unlock()
 
 	// Test 2: After reject, same fields should be cleared
-	p2, _, reject := js.NewChainedPromise()
+	p2, _, reject := js.NewPromise()
 	p2.Then(func(v any) any { return v }, func(v any) any { return v })
 	reject("error")
 
@@ -199,7 +199,7 @@ func TestPromiseMemoryLeak_HandlerFieldsCleared(t *testing.T) {
 	p2.mu.Unlock()
 
 	// Test 3: Multiple handlers — all should be cleared
-	p3, resolve3, _ := js.NewChainedPromise()
+	p3, resolve3, _ := js.NewPromise()
 	p3.Then(func(v any) any { return v }, nil)
 	p3.Then(func(v any) any { return v }, nil)
 	p3.Then(func(v any) any { return v }, nil)

@@ -16,8 +16,8 @@ func TestPromiseAny_NonErrorRejections(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, _, rejectFirst := js.NewChainedPromise()
-	second, _, rejectSecond := js.NewChainedPromise()
+	first, _, rejectFirst := js.NewPromise()
+	second, _, rejectSecond := js.NewPromise()
 	result := js.Any(first, second)
 	rejectFirst("string-error")
 	rejectSecond(42)

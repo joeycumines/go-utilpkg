@@ -13,7 +13,7 @@ import (
 func TestPromiseReactionGoexitSettlement(t *testing.T) {
 	t.Run("Then rejects its child", func(t *testing.T) {
 		loop, js := newErrorContractJS(t)
-		promise, resolve, _ := js.NewChainedPromise()
+		promise, resolve, _ := js.NewPromise()
 		child := promise.Then(func(any) any {
 			runtime.Goexit()
 			return nil
@@ -26,7 +26,7 @@ func TestPromiseReactionGoexitSettlement(t *testing.T) {
 
 	t.Run("Catch rejects its child", func(t *testing.T) {
 		loop, js := newErrorContractJS(t)
-		promise, _, reject := js.NewChainedPromise()
+		promise, _, reject := js.NewPromise()
 		child := promise.Catch(func(any) any {
 			runtime.Goexit()
 			return nil
@@ -44,7 +44,7 @@ func TestPromiseReactionGoexitSettlement(t *testing.T) {
 		}
 		t.Run("Finally preserves "+name, func(t *testing.T) {
 			loop, js := newErrorContractJS(t)
-			promise, resolve, reject := js.NewChainedPromise()
+			promise, resolve, reject := js.NewPromise()
 			child := promise.Finally(func() { runtime.Goexit() })
 
 			if rejected {
@@ -360,11 +360,11 @@ func TestReadinessMethodsRequireConstructedLoop(t *testing.T) {
 func TestPromiseResolutionErrorIdentities(t *testing.T) {
 	_, js := newErrorContractJS(t)
 
-	self, resolveSelf, _ := js.NewChainedPromise()
+	self, resolveSelf, _ := js.NewPromise()
 	resolveSelf(self)
 	assertPromiseReason(t, self, ErrPromiseSelfResolution)
 
-	typedNil, resolveTypedNil, _ := js.NewChainedPromise()
+	typedNil, resolveTypedNil, _ := js.NewPromise()
 	var source *Promise
 	resolveTypedNil(source)
 	assertPromiseReason(t, typedNil, ErrPromiseNilAdoption)

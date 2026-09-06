@@ -21,8 +21,8 @@ import (
 //
 // Example:
 //
-//	p1, resolve1, _ := js.NewChainedPromise()
-//	p2, resolve2, _ := js.NewChainedPromise()
+//	p1, resolve1, _ := js.NewPromise()
+//	p2, resolve2, _ := js.NewPromise()
 //	go func() {
 //	    resolve1("a")
 //	    resolve2("b")
@@ -30,7 +30,7 @@ import (
 //	// result will be []any{"a", "b"}
 //	result := js.All(p1, p2)
 func (js *JS) All(promises ...*Promise) *Promise {
-	result, resolve, reject := js.NewChainedPromise()
+	result, resolve, reject := js.NewPromise()
 
 	// Handle empty array - resolve immediately with empty array
 	if len(promises) == 0 {
@@ -88,14 +88,14 @@ func (js *JS) All(promises ...*Promise) *Promise {
 //
 // Use Race for timeout patterns:
 //
-//	timeout, _, rejectTimeout := js.NewChainedPromise()
+//	timeout, _, rejectTimeout := js.NewPromise()
 //	go func() {
 //	    time.Sleep(5 * time.Second)
 //	    rejectTimeout(errors.New("timeout"))
 //	}()
 //	result := js.Race(actualWork, timeout)
 func (js *JS) Race(promises ...*Promise) *Promise {
-	result, resolve, reject := js.NewChainedPromise()
+	result, resolve, reject := js.NewPromise()
 
 	// Handle empty array - never settles
 	if len(promises) == 0 {
@@ -143,7 +143,7 @@ func (js *JS) Race(promises ...*Promise) *Promise {
 //   - Rejects with [ErrLoopTerminated] if an input reaction cannot execute and
 //     that failure wins the returned promise's settlement claim
 func (js *JS) AllSettled(promises ...*Promise) *Promise {
-	result, resolve, reject := js.NewChainedPromise()
+	result, resolve, reject := js.NewPromise()
 
 	if len(promises) == 0 {
 		resolve(make([]any, 0))
@@ -212,7 +212,7 @@ func (js *JS) AllSettled(promises ...*Promise) *Promise {
 //	// Try multiple data sources, use first successful response
 //	result := js.Any(source1, source2, source3)
 func (js *JS) Any(promises ...*Promise) *Promise {
-	result, resolve, reject := js.NewChainedPromise()
+	result, resolve, reject := js.NewPromise()
 
 	// Handle empty array - reject immediately
 	if len(promises) == 0 {
@@ -365,7 +365,7 @@ type PromiseWithResolvers struct {
 //	    }
 //	}
 func (js *JS) WithResolvers() *PromiseWithResolvers {
-	promise, resolve, reject := js.NewChainedPromise()
+	promise, resolve, reject := js.NewPromise()
 	return &PromiseWithResolvers{
 		Promise: promise,
 		Resolve: resolve,

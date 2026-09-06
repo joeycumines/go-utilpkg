@@ -80,7 +80,7 @@ func TestJSTimeoutRacePendingPromise(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pending, _, _ := js.NewChainedPromise()
+	pending, _, _ := js.NewPromise()
 	timeout := js.Timeout(delay)
 	result := js.Race(pending, timeout)
 	settlement := result.ToChannel()

@@ -25,7 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	source, resolveSource, _ := js.NewChainedPromise()
+	source, resolveSource, _ := js.NewPromise()
 	source.
 		Then(func(value any) any {
 			fmt.Printf("source: %v\n", value)
@@ -37,8 +37,8 @@ func main() {
 		}, nil)
 	resolveSource(21)
 
-	first, resolveFirst, _ := js.NewChainedPromise()
-	second, _, rejectSecond := js.NewChainedPromise()
+	first, resolveFirst, _ := js.NewPromise()
+	second, _, rejectSecond := js.NewPromise()
 	js.AllSettled(first, second).Then(func(value any) any {
 		fmt.Printf("all settled: %v\n", value)
 		return nil

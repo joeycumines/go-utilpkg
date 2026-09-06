@@ -71,7 +71,7 @@ func BenchmarkPromiseCreation(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promise, resolve, reject = js.NewChainedPromise()
+		promise, resolve, reject = js.NewPromise()
 		if state := promise.State(); state != Pending {
 			b.Fatalf("new promise state = %v, want %v", state, Pending)
 		}
@@ -99,7 +99,7 @@ func BenchmarkPromiseSettleNoHandler(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promise, resolve, _ := js.NewChainedPromise()
+		promise, resolve, _ := js.NewPromise()
 		resolve(promiseBenchmarkTokens[0])
 		if state := promise.State(); state != Fulfilled {
 			b.Fatalf("settled promise state = %v, want %v", state, Fulfilled)
@@ -126,7 +126,7 @@ func BenchmarkPromiseReactionEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promise, resolve, _ := js.NewChainedPromise()
+		promise, resolve, _ := js.NewPromise()
 		child := promise.Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
 		resolve(promiseBenchmarkTokens[0])
@@ -158,7 +158,7 @@ func BenchmarkPromiseDepthThreeEndToEnd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		promise, resolve, _ := js.NewChainedPromise()
+		promise, resolve, _ := js.NewPromise()
 		child := promise.Then(promiseBenchmarkIdentity, nil).
 			Then(promiseBenchmarkIdentity, nil).
 			Then(promiseBenchmarkIdentity, nil)
@@ -195,7 +195,7 @@ func BenchmarkPromiseAllFixedArityEndToEnd(b *testing.B) {
 		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
-			promises[index], resolvers[index], _ = js.NewChainedPromise()
+			promises[index], resolvers[index], _ = js.NewPromise()
 		}
 		child := js.All(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
@@ -243,7 +243,7 @@ func BenchmarkPromiseRaceFixedArityEndToEnd(b *testing.B) {
 		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
-			promises[index], resolvers[index], _ = js.NewChainedPromise()
+			promises[index], resolvers[index], _ = js.NewPromise()
 		}
 		child := js.Race(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
@@ -280,7 +280,7 @@ func BenchmarkPromiseAllSettledFixedArityEndToEnd(b *testing.B) {
 		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
-			promises[index], resolvers[index], _ = js.NewChainedPromise()
+			promises[index], resolvers[index], _ = js.NewPromise()
 		}
 		child := js.AllSettled(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()
@@ -326,7 +326,7 @@ func BenchmarkPromiseAnyFixedArityEndToEnd(b *testing.B) {
 		promises := make([]*Promise, 4)
 		resolvers := make([]ResolveFunc, len(promises))
 		for index := range promises {
-			promises[index], resolvers[index], _ = js.NewChainedPromise()
+			promises[index], resolvers[index], _ = js.NewPromise()
 		}
 		child := js.Any(promises...).Then(promiseBenchmarkIdentity, nil)
 		result := child.ToChannel()

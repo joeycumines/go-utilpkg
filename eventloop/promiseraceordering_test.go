@@ -15,7 +15,7 @@ func TestPromiseRace_LateHandlerObservesWinner(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	source, resolve, _ := js.NewChainedPromise()
+	source, resolve, _ := js.NewPromise()
 	result := js.Race(source)
 	resolve("quick")
 	loop.tick()

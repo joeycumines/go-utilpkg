@@ -91,8 +91,8 @@ func TestPromiseObserverFailureRejectsAggregateJSBacked(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					source, resolveSource, rejectSource := js.NewChainedPromise()
-					aggregate, _, _ := js.NewChainedPromise()
+					source, resolveSource, rejectSource := js.NewPromise()
+					aggregate, _, _ := js.NewPromise()
 					aggregateResult := aggregate.ToChannel()
 					exitingHandler := func(any) any {
 						test.exit()

@@ -52,7 +52,7 @@ func TestEventTargetRejectsRecursiveSameEventAndRestoresState(t *testing.T) {
 	if got := abortEventCapturePanic(func() { target.DispatchEvent(event) }); got == nil {
 		t.Fatal("recursive dispatch of the same Event did not panic")
 	}
-	if !target.RemoveEventListenerByID("event", id) {
+	if !target.RemoveEventListener("event", id) {
 		t.Fatal("failed to remove recursive listener")
 	}
 	if !target.DispatchEvent(event) {

@@ -76,7 +76,7 @@ func TestUnhandledRejectionReportClearsRunningTracking(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := loop.Submit(func() {
-		_, _, reject := js.NewChainedPromise()
+		_, _, reject := js.NewPromise()
 		reject(reason)
 	}); err != nil {
 		t.Fatalf("Submit rejection: %v", err)

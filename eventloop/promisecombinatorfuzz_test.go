@@ -63,7 +63,7 @@ func FuzzPromiseAll(f *testing.F) {
 		resolves := make([]ResolveFunc, count)
 		want := make([]any, count)
 		for i := range promises {
-			promises[i], resolves[i], _ = js.NewChainedPromise()
+			promises[i], resolves[i], _ = js.NewPromise()
 			want[i] = fmt.Sprintf("value-%d", i)
 		}
 
@@ -106,7 +106,7 @@ func FuzzPromiseRace(f *testing.F) {
 		resolves := make([]ResolveFunc, count)
 		rejects := make([]RejectFunc, count)
 		for i := range promises {
-			promises[i], resolves[i], rejects[i] = js.NewChainedPromise()
+			promises[i], resolves[i], rejects[i] = js.NewPromise()
 		}
 		order := combinatorSettlementOrder(count, seed, int64(orderSalt), orderSalt)
 		winner := order[0]
@@ -170,7 +170,7 @@ func FuzzPromiseAllSettled(f *testing.F) {
 		rejects := make([]RejectFunc, count)
 		fulfilled := make([]bool, count)
 		for i := range promises {
-			promises[i], resolves[i], rejects[i] = js.NewChainedPromise()
+			promises[i], resolves[i], rejects[i] = js.NewPromise()
 			fulfilled[i] = (rejectMask>>uint(i%64))&1 == 0
 		}
 
@@ -230,7 +230,7 @@ func FuzzPromiseAny(f *testing.F) {
 		resolves := make([]ResolveFunc, count)
 		rejects := make([]RejectFunc, count)
 		for i := range promises {
-			promises[i], resolves[i], rejects[i] = js.NewChainedPromise()
+			promises[i], resolves[i], rejects[i] = js.NewPromise()
 		}
 		order := combinatorSettlementOrder(count, seed, int64(resolveCount), orderSalt)
 		willResolve := make([]bool, count)

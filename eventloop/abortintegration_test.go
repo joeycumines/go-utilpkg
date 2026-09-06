@@ -24,7 +24,7 @@ func TestAbortIntegrationSignalObservedAcrossPromiseChain(t *testing.T) {
 	releaseStageTwoOnce := contractRelease(t, releaseStageTwo)
 	chainResults := make(chan any, 1)
 
-	first, resolve, _ := js.NewChainedPromise()
+	first, resolve, _ := js.NewPromise()
 	second := first.Then(func(value any) any { return value }, nil)
 	third := second.Then(func(value any) any {
 		close(stageTwoReady)

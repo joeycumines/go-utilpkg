@@ -45,7 +45,7 @@ func TestCloseHandsRejectedNormalRejectionHandlerToTerminalFallback(t *testing.T
 		},
 		AfterCloseStateTerminating: func() { close(closeTransitioned) },
 	}
-	_, _, reject := js.NewChainedPromise()
+	_, _, reject := js.NewPromise()
 	reject("normal-checkpoint")
 
 	runDone := make(chan error, 1)
@@ -143,7 +143,7 @@ func TestCloseTerminalFallbackUpgradesActiveNormalRejectionCheck(t *testing.T) {
 		BeforeClosePromiseRejection: func() { close(closeTerminated) },
 	}
 
-	_, _, rejectInitial := js.NewChainedPromise()
+	_, _, rejectInitial := js.NewPromise()
 	rejectInitial("initial")
 	runDone := make(chan error, 1)
 	go func() { runDone <- loop.Run(context.Background()) }()
@@ -173,7 +173,7 @@ func TestCloseTerminalFallbackUpgradesActiveNormalRejectionCheck(t *testing.T) {
 	// fallback collides with the paused normal checker and must upgrade that
 	// checker's handling of this rejection instead of being reduced to a
 	// mode-less rerun through the closed normal callback gate.
-	_, _, rejectLate := js.NewChainedPromise()
+	_, _, rejectLate := js.NewPromise()
 	rejectLate("late-terminal")
 	select {
 	case <-fallbackRerun:
@@ -274,7 +274,7 @@ func testTerminalFallbackTakesOwnershipAfterNormalCheckerExit(t *testing.T, fall
 		},
 	}
 
-	_, _, rejectInitial := js.NewChainedPromise()
+	_, _, rejectInitial := js.NewPromise()
 	rejectInitial("initial")
 	normalCheckDone := make(chan struct{})
 	go func() {
@@ -295,7 +295,7 @@ func testTerminalFallbackTakesOwnershipAfterNormalCheckerExit(t *testing.T, fall
 		t.Fatal("normal rejection checker did not report the initial rejection")
 	}
 
-	_, _, rejectLate := js.NewChainedPromise()
+	_, _, rejectLate := js.NewPromise()
 	rejectLate("late-terminal")
 	fallbackDone := make(chan struct{})
 	go func() {

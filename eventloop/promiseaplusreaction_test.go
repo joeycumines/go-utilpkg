@@ -7,7 +7,7 @@ import (
 
 func TestAplus_2_2_1_ThenCallbacksOptional(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	nilCallbacks := parent.Then(nil, nil)
 	fulfillmentCallback := parent.Then(func(value any) any { return value }, nil)
 	rejectionCallback := parent.Then(nil, func(reason any) any { return reason })
@@ -27,7 +27,7 @@ func TestAplus_2_2_1_ThenCallbacksOptional(t *testing.T) {
 
 func TestAplus_2_2_2_OnFulfilledCalledAfterFulfilled(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	callCount := 0
 	var received any
 	parent.Then(func(value any) any {
@@ -48,7 +48,7 @@ func TestAplus_2_2_2_OnFulfilledCalledAfterFulfilled(t *testing.T) {
 
 func TestAplus_2_2_3_OnRejectedCalledAfterRejected(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, _, reject := js.NewChainedPromise()
+	parent, _, reject := js.NewPromise()
 	callCount := 0
 	var received any
 	parent.Then(nil, func(reason any) any {
@@ -70,7 +70,7 @@ func TestAplus_2_2_3_OnRejectedCalledAfterRejected(t *testing.T) {
 
 func TestAplus_2_2_4_Asynchronous(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	order := make([]int, 0, 3)
 	parent.Then(func(value any) any {
 		order = append(order, 2)
@@ -91,7 +91,7 @@ func TestAplus_2_2_4_Asynchronous(t *testing.T) {
 
 func TestAplus_2_2_6_MultipleHandlersOrder(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	order := make([]int, 0, 3)
 	for index := 1; index <= 3; index++ {
 		value := index
@@ -110,7 +110,7 @@ func TestAplus_2_2_6_MultipleHandlersOrder(t *testing.T) {
 
 func TestAplus_2_2_7_ThenReturnsNewPromise(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	child := parent.Then(func(value any) any { return value }, nil)
 	if child == nil || child == parent {
 		t.Fatalf("Then child = %p, parent = %p; want distinct non-nil promise", child, parent)
@@ -133,7 +133,7 @@ func TestAplus_2_2_7_1_ReturnValueResolvesChild(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			loop, js := newPromiseProfileJS(t)
-			parent, resolve, _ := js.NewChainedPromise()
+			parent, resolve, _ := js.NewPromise()
 			child := parent.Then(func(any) any { return test.want }, nil)
 
 			resolve("original")
@@ -155,7 +155,7 @@ func TestAplus_2_2_7_2_ThrowExceptionRejectsChild(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			loop, js := newPromiseProfileJS(t)
-			parent, resolve, reject := js.NewChainedPromise()
+			parent, resolve, reject := js.NewPromise()
 			panicWitness := &struct{ name string }{name: test.name}
 			panicHandler := func(any) any { panic(panicWitness) }
 			var child *Promise
@@ -178,7 +178,7 @@ func TestAplus_2_2_7_2_ThrowExceptionRejectsChild(t *testing.T) {
 
 func TestAplus_2_2_7_3_NilOnFulfilledPassThrough(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, resolve, _ := js.NewChainedPromise()
+	parent, resolve, _ := js.NewPromise()
 	child := parent.Then(nil, nil)
 
 	resolve("passthrough")
@@ -190,7 +190,7 @@ func TestAplus_2_2_7_3_NilOnFulfilledPassThrough(t *testing.T) {
 
 func TestAplus_2_2_7_4_NilOnRejectedPassThrough(t *testing.T) {
 	loop, js := newPromiseProfileJS(t)
-	parent, _, reject := js.NewChainedPromise()
+	parent, _, reject := js.NewPromise()
 	child := parent.Then(nil, nil)
 	want := errors.New("passthrough reason")
 

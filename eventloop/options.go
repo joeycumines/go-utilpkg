@@ -139,7 +139,7 @@ type DebugModeOption struct {
 //	    log.Fatal(err)
 //	}
 //	// Promises now capture creation stack traces
-//	p, _, _ := js.NewChainedPromise()
+//	p, _, _ := js.NewPromise()
 //	fmt.Println(p.CreationStackTrace()) // Prints where the promise was created
 func WithDebugMode(enabled bool) *DebugModeOption {
 	return &DebugModeOption{enabled: enabled}

@@ -104,7 +104,7 @@ func BenchmarkEventTargetListenerRegistrationWithLiveSet(b *testing.B) {
 			b.ResetTimer()
 			for b.Loop() {
 				id := target.AddEventListener("temporary", func(*Event) {})
-				if !target.RemoveEventListenerByID("temporary", id) {
+				if !target.RemoveEventListener("temporary", id) {
 					b.Fatal("failed to remove temporary listener")
 				}
 			}

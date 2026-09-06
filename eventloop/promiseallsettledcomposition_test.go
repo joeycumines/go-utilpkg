@@ -17,8 +17,8 @@ func TestPromiseAllSettled_ChainedPromises(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fulfilled, resolve, _ := js.NewChainedPromise()
-	rejected, _, reject := js.NewChainedPromise()
+	fulfilled, resolve, _ := js.NewPromise()
+	rejected, _, reject := js.NewPromise()
 	fulfilledChild := fulfilled.Then(func(value any) any {
 		return value.(string) + "-chained"
 	}, nil)
@@ -54,8 +54,8 @@ func TestPromiseAllSettled_RejectionAfterFulfillment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fulfilled, resolve, _ := js.NewChainedPromise()
-	rejected, _, reject := js.NewChainedPromise()
+	fulfilled, resolve, _ := js.NewPromise()
+	rejected, _, reject := js.NewPromise()
 	result := js.AllSettled(fulfilled, rejected)
 
 	resolve("fulfilled")
@@ -90,9 +90,9 @@ func TestPromiseAllSettled_PreservesInputOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, resolveFirst, _ := js.NewChainedPromise()
-	second, _, rejectSecond := js.NewChainedPromise()
-	third, resolveThird, _ := js.NewChainedPromise()
+	first, resolveFirst, _ := js.NewPromise()
+	second, _, rejectSecond := js.NewPromise()
+	third, resolveThird, _ := js.NewPromise()
 	result := js.AllSettled(first, second, third)
 
 	resolveThird("third")
