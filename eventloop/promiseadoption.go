@@ -30,7 +30,7 @@ type adoptionCleanup struct {
 }
 
 func (p *Promise) resolve(value any) {
-	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
+	if !p.state.CompareAndSwap(int32(Pending), int32(promiseSettlementClaimed)) {
 		return
 	}
 	p.resolveClaimed(value)
@@ -61,7 +61,7 @@ func (p *Promise) resolveClaimed(value any) {
 	}
 
 	p.mu.Lock()
-	if p.state.Load() != promiseSettlementClaimed {
+	if p.state.Load() != int32(promiseSettlementClaimed) {
 		p.mu.Unlock()
 		return
 	}
@@ -77,7 +77,7 @@ func (p *Promise) resolveClaimed(value any) {
 	}
 	p.h0 = handler{} // Clears h0
 	p.result = value
-	p.state.Store(promiseFulfilledPublishing)
+	p.state.Store(int32(promiseFulfilledPublishing))
 
 	if p.js != nil {
 		// Publish result and state before any queued reaction can execute. addHandler

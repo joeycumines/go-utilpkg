@@ -152,8 +152,8 @@ func runTerminalAdoptionCleanupRaceT(t *testing.T, loop *Loop, observeCleanup fu
 		close(rejectDone)
 	}()
 	waitContractSignal(t, rejectionPublishing, "source rejection publication boundary")
-	if got := source.state.Load(); got != promiseRejectedPublishing {
-		t.Fatalf("source raw state = %d, want rejected publication state %d", got, promiseRejectedPublishing)
+	if got := source.state.Load(); got != int32(promiseRejectedPublishing) {
+		t.Fatalf("source raw state = %d, want rejected publication state %d", got, int32(promiseRejectedPublishing))
 	}
 
 	unlockLivenessNow()

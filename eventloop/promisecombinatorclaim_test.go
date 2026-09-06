@@ -119,7 +119,7 @@ func waitPromiseSettlementClaimed(t *testing.T, promise *Promise) {
 	t.Helper()
 	deadline := time.NewTimer(5 * time.Second)
 	defer deadline.Stop()
-	for promise.state.Load() != promiseSettlementClaimed {
+	for promise.state.Load() != int32(promiseSettlementClaimed) {
 		select {
 		case <-deadline.C:
 			t.Fatal("timed out waiting for Promise settlement claim")

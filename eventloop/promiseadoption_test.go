@@ -340,7 +340,7 @@ func TestChainedPromiseAcceptedAdoptionSurvivesImmediateClose(t *testing.T) {
 			adopter, resolveAdopter, _ := js.NewChainedPromise()
 			resolveAdopter(source)
 			rejectSource("discarded adoption")
-			if state := adopter.state.Load(); state != promiseSettlementClaimed {
+			if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {
 				t.Fatalf("adopter raw state = %d, want settlement claimed", state)
 			}
 			if state := adopter.State(); state != Pending {
@@ -407,7 +407,7 @@ func TestChainedPromiseAcceptedFulfillmentAdoptionSurvivesImmediateClose(t *test
 	adopter, resolveAdopter, _ := js.NewChainedPromise()
 	resolveAdopter(source)
 	resolveSource("discarded adoption fulfillment")
-	if state := adopter.state.Load(); state != promiseSettlementClaimed {
+	if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {
 		t.Fatalf("adopter raw state = %d, want settlement claimed", state)
 	}
 	if err := loop.Close(); err != nil {
@@ -665,7 +665,7 @@ func TestChainedPromiseCrossAdapterAcceptedAdoptionSurvivesSourceClose(t *testin
 	adopter, resolveAdopter, _ := targetJS.NewChainedPromise()
 	resolveAdopter(source)
 	rejectSource("cross-owner discarded adoption")
-	if state := adopter.state.Load(); state != promiseSettlementClaimed {
+	if state := adopter.state.Load(); state != int32(promiseSettlementClaimed) {
 		t.Fatalf("adopter raw state = %d, want settlement claimed", state)
 	}
 

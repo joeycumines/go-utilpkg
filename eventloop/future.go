@@ -20,30 +20,38 @@ const (
 	Rejected
 )
 
-// The lock-free Promise settlement protocol publishes through transitional
-// raw states encoded as -int32(Settlement) - 1, so the final [Settlement]
-// derives from a raw value with no parallel enumeration. The transitional
-// states are contiguous from promiseRejectedPublishing (-3) to
-// promiseSettlementClaimed (-1), and every other raw value is a final
-// [Settlement] value directly.
+// The lock-free Promise settlement protocol publishes transitional states
+// between the claim and publication of a settlement. They are unexported
+// values of [Settlement]: a claimed settlement is still pending, and a
+// publishing settlement reads as its final state while handler scheduling
+// completes under the promise lock.
 const (
-	promiseSettlementClaimed   int32 = -int32(Pending) - 1
-	promiseFulfilledPublishing int32 = -int32(Fulfilled) - 1
-	promiseRejectedPublishing  int32 = -int32(Rejected) - 1
+	promiseSettlementClaimed   Settlement = -1
+	promiseFulfilledPublishing Settlement = -2
+	promiseRejectedPublishing  Settlement = -3
 )
 
-// promiseState maps a raw promise state to its [Settlement].
+// promiseState maps a raw promise state to its [Settlement]. A claimed
+// settlement is still pending; a publishing settlement reads as its final
+// state; every other raw value is already a final [Settlement].
 func promiseState(value int32) Settlement {
-	if value < 0 && value >= promiseRejectedPublishing {
-		return Settlement(-value - 1)
+	switch Settlement(value) {
+	case promiseSettlementClaimed:
+		return Pending
+	case promiseFulfilledPublishing:
+		return Fulfilled
+	case promiseRejectedPublishing:
+		return Rejected
+	default:
+		return Settlement(value)
 	}
-	return Settlement(value)
 }
 
 // promisePending reports whether a raw promise state is still pending,
 // including the claimed transitional state.
 func promisePending(value int32) bool {
-	return promiseState(value) == Pending
+	state := Settlement(value)
+	return state == Pending || state == promiseSettlementClaimed
 }
 
 // Future is an opaque, read-only view of a future result. It represents an

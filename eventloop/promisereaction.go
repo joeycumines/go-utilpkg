@@ -304,7 +304,7 @@ func (p *Promise) handleHandlerScheduleFailure(failure handlerScheduleFailure) {
 		}
 		if failure.passThrough {
 			if failure.state == int32(Fulfilled) {
-				if failure.target.state.Load() == promiseSettlementClaimed {
+				if failure.target.state.Load() == int32(promiseSettlementClaimed) {
 					failure.target.resolveClaimed(failure.result)
 				} else {
 					failure.target.resolve(failure.result)
@@ -350,7 +350,7 @@ func (p *Promise) executeHandler(h handler, state int32, result any) {
 			return
 		}
 		if state == int32(Fulfilled) {
-			if h.target.state.Load() == promiseSettlementClaimed {
+			if h.target.state.Load() == int32(promiseSettlementClaimed) {
 				h.target.resolveClaimed(result)
 			} else {
 				h.target.resolve(result)
@@ -472,7 +472,7 @@ func (p *Promise) propagateRejectionOwned(target *Promise, reason any, reportOwn
 	if reportOwner == rejectionReportPropagation {
 		reportOwner = p.claimPropagatedRejection()
 	}
-	targetClaimed := target.state.Load() == promiseSettlementClaimed
+	targetClaimed := target.state.Load() == int32(promiseSettlementClaimed)
 	if reportOwner == rejectionReportChecker && p.js != nil {
 		// The parent checker already owns reporting. Suppress the derived child so
 		// the same rejection does not produce both parent and child diagnostics.

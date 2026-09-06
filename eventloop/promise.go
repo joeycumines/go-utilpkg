@@ -289,7 +289,7 @@ func (p *Promise) CreationStackTrace() string {
 
 // reject transitions the promise to rejected state if it's still pending.
 func (p *Promise) reject(reason any) {
-	if !p.state.CompareAndSwap(int32(Pending), promiseSettlementClaimed) {
+	if !p.state.CompareAndSwap(int32(Pending), int32(promiseSettlementClaimed)) {
 		return
 	}
 	p.rejectClaimed(reason)
@@ -300,7 +300,7 @@ func (p *Promise) rejectClaimed(reason any) {
 		p.js.loop.testHooks.BeforePromiseRejectLock()
 	}
 	p.mu.Lock()
-	if p.state.Load() != promiseSettlementClaimed {
+	if p.state.Load() != int32(promiseSettlementClaimed) {
 		p.mu.Unlock()
 		return
 	}
@@ -344,7 +344,7 @@ func (p *Promise) rejectClaimed(reason any) {
 		if p.js.loop != nil && p.js.loop.testHooks != nil && p.js.loop.testHooks.AfterPromiseRejectionRecorded != nil {
 			p.js.loop.testHooks.AfterPromiseRejectionRecorded()
 		}
-		p.state.Store(promiseRejectedPublishing)
+		p.state.Store(int32(promiseRejectedPublishing))
 		if useH0 {
 			if failure := p.scheduleRejectionHandler(h0, reason, reportOwner); failure.err != nil {
 				scheduleFailures = append(scheduleFailures, failure)
@@ -356,7 +356,7 @@ func (p *Promise) rejectClaimed(reason any) {
 			}
 		}
 	} else {
-		p.state.Store(promiseRejectedPublishing)
+		p.state.Store(int32(promiseRejectedPublishing))
 	}
 
 	if p.js != nil {

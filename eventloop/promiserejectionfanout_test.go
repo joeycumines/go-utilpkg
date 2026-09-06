@@ -102,7 +102,7 @@ func TestChainedPromiseFanoutReportOwnership(t *testing.T) {
 				resolveFirst(source)
 				resolveSecond(source)
 				for index, promise := range []*Promise{first, second} {
-					if state := promise.state.Load(); state != promiseSettlementClaimed {
+					if state := promise.state.Load(); state != int32(promiseSettlementClaimed) {
 						t.Fatalf("adopter %d raw state = %d, want settlement claimed", index, state)
 					}
 					if state := promise.State(); state != Pending {
@@ -398,7 +398,7 @@ func TestChainedPromiseFanoutCheckerWinsBeforeLateDescendants(t *testing.T) {
 			for index, promise := range []*Promise{first, second} {
 				wantRawState := int32(Pending)
 				if test.adopters {
-					wantRawState = promiseSettlementClaimed
+					wantRawState = int32(promiseSettlementClaimed)
 				}
 				if state := promise.state.Load(); state != wantRawState {
 					t.Fatalf("descendant %d raw state = %d, want %d", index, state, wantRawState)
