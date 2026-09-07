@@ -246,7 +246,7 @@ func (a *Adapter) runAbortSignalDispatch(dispatch *abortSignalDispatch, panicSta
 	}
 	dispatch.algorithms = nil
 	panicState.capture(invokeAbortSignalStep(func() {
-		event := goeventloop.NewEvent("abort")
+		event := goeventloop.NewEvent("abort", goeventloop.EventInit{})
 		eventObj := a.wrapEvent(event).(*goja.Object)
 		_, eventState := a.eventStateArgument(eventObj)
 		a.dispatchJSEvent(dispatch.state.target, eventObj, eventState)

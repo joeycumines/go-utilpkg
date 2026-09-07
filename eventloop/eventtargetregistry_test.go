@@ -6,7 +6,7 @@ import (
 )
 
 func TestEndEventDispatchRejectsInactiveEvent(t *testing.T) {
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	got := abortEventCapturePanic(func() { endEventDispatch(event) })
 	if got != "eventloop: inactive Event dispatch" {
 		t.Fatalf("inactive end panic = %#v, want %q", got, "eventloop: inactive Event dispatch")
@@ -19,9 +19,9 @@ func TestEndEventDispatchRejectsInactiveEvent(t *testing.T) {
 }
 
 func TestEventDispatchInlineHoleReuseAndActiveLookup(t *testing.T) {
-	first := NewEvent("first")
-	second := NewEvent("second")
-	replacement := NewEvent("replacement")
+	first := NewEvent("first", EventInit{})
+	second := NewEvent("second", EventInit{})
+	replacement := NewEvent("replacement", EventInit{})
 	firstActive := false
 	secondActive := false
 	replacementActive := false
@@ -81,7 +81,7 @@ func TestEventDispatchInlineHoleReuseAndActiveLookup(t *testing.T) {
 }
 
 func TestEventDispatchStateRefsRejectInactiveEvents(t *testing.T) {
-	event := NewEvent("inactive")
+	event := NewEvent("inactive", EventInit{})
 	activeEventDispatches.Lock()
 	clean := activeEventDispatches.inlineCount == 0 && activeEventDispatches.overflowCount == 0 &&
 		!activeEventDispatches.overflowLarge && len(activeEventDispatches.overflow) == 0
@@ -144,7 +144,7 @@ func TestEventDispatchStateRefsRejectInactiveEvents(t *testing.T) {
 }
 
 func TestBeginEventDispatchRejectsInconsistentInlineRegistry(t *testing.T) {
-	probe := NewEvent("inconsistent")
+	probe := NewEvent("inconsistent", EventInit{})
 	activeEventDispatches.Lock()
 	clean := activeEventDispatches.inlineCount == 0 && activeEventDispatches.overflowCount == 0 &&
 		!activeEventDispatches.overflowLarge && len(activeEventDispatches.overflow) == 0
@@ -177,7 +177,7 @@ func TestBeginEventDispatchRejectsInconsistentInlineRegistry(t *testing.T) {
 	t.Cleanup(restore)
 
 	for i := range activeEventDispatches.inline {
-		activeEventDispatches.inline[i] = eventDispatchState{event: NewEvent("occupied")}
+		activeEventDispatches.inline[i] = eventDispatchState{event: NewEvent("occupied", EventInit{})}
 	}
 	activeEventDispatches.inlineCount = len(activeEventDispatches.inline) - 1
 	activeEventDispatches.Unlock()
@@ -202,7 +202,7 @@ func TestBeginEventDispatchRejectsInconsistentInlineRegistry(t *testing.T) {
 		t.Fatal("inconsistent registry panic retained the registry lock")
 	}
 
-	event := NewEvent("reusable")
+	event := NewEvent("reusable", EventInit{})
 	beginEventDispatch(event)
 	endEventDispatch(event)
 }
@@ -223,7 +223,7 @@ func TestEventTargetActiveRegistryOverflowRejectsEverySamePointer(t *testing.T) 
 	var wait sync.WaitGroup
 	wait.Add(activeCount)
 	for i := range events {
-		events[i] = NewEvent("event")
+		events[i] = NewEvent("event", EventInit{})
 		go func(event *Event) {
 			defer wait.Done()
 			target.DispatchEvent(event)
@@ -282,7 +282,7 @@ func holdInlineEventDispatches(t *testing.T) func() {
 	for range inlineActiveEventDispatchCapacity {
 		go func() {
 			defer wait.Done()
-			target.DispatchEvent(NewEvent("inline"))
+			target.DispatchEvent(NewEvent("inline", EventInit{}))
 		}()
 	}
 	done := make(chan struct{})

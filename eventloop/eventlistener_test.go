@@ -27,7 +27,7 @@ func TestEventTargetRemovalSuppressesUnclaimedListener(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		target.DispatchEvent(NewEvent("event"))
+		target.DispatchEvent(NewEvent("event", EventInit{}))
 	}()
 	waitAbortContractSignal(t, firstStarted, "first listener start before removal")
 	if !target.RemoveEventListener("event", secondID) {
@@ -57,7 +57,7 @@ func TestEventTargetRemoveAllSuppressesUnclaimedListeners(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		target.DispatchEvent(NewEvent("event"))
+		target.DispatchEvent(NewEvent("event", EventInit{}))
 	}()
 	waitAbortContractSignal(t, firstStarted, "first listener start before remove-all")
 	target.RemoveAllEventListeners("event")
@@ -82,7 +82,7 @@ func TestEventTargetRemovalAfterClaimAllowsCurrentCallbackOnly(t *testing.T) {
 	})
 	go func() {
 		defer close(done)
-		target.DispatchEvent(NewEvent("event"))
+		target.DispatchEvent(NewEvent("event", EventInit{}))
 	}()
 	waitAbortContractSignal(t, started, "claimed listener start")
 	if !target.RemoveEventListener("event", id) {
@@ -90,7 +90,7 @@ func TestEventTargetRemovalAfterClaimAllowsCurrentCallbackOnly(t *testing.T) {
 	}
 	releaseNow()
 	waitAbortContractSignal(t, done, "claimed-listener dispatch completion")
-	target.DispatchEvent(NewEvent("event"))
+	target.DispatchEvent(NewEvent("event", EventInit{}))
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("listener calls = %d, want current claimed callback only", got)
 	}
@@ -111,14 +111,14 @@ func TestEventTargetOnceClaimIsConcurrent(t *testing.T) {
 	firstDone := make(chan struct{})
 	go func() {
 		defer close(firstDone)
-		target.DispatchEvent(NewEvent("event"))
+		target.DispatchEvent(NewEvent("event", EventInit{}))
 	}()
 	waitAbortContractSignal(t, invoked, "first once-listener invocation")
 
 	secondDone := make(chan struct{})
 	go func() {
 		defer close(secondDone)
-		target.DispatchEvent(NewEvent("event"))
+		target.DispatchEvent(NewEvent("event", EventInit{}))
 	}()
 
 	duplicate := false
@@ -143,10 +143,10 @@ func TestEventTargetOnceClaimPrecedesRecursiveDispatch(t *testing.T) {
 	target.AddEventListenerOnce("event", func(*Event) {
 		calls++
 		if calls == 1 {
-			target.DispatchEvent(NewEvent("event"))
+			target.DispatchEvent(NewEvent("event", EventInit{}))
 		}
 	})
-	target.DispatchEvent(NewEvent("event"))
+	target.DispatchEvent(NewEvent("event", EventInit{}))
 	if calls != 1 {
 		t.Fatalf("once listener calls = %d, want 1", calls)
 	}
@@ -159,20 +159,20 @@ func TestEventTargetOnceCleanupSurvivesPanic(t *testing.T) {
 		panic(marker)
 	})
 
-	if got := abortEventCapturePanic(func() { target.DispatchEvent(NewEvent("event")) }); got != marker {
+	if got := abortEventCapturePanic(func() { target.DispatchEvent(NewEvent("event", EventInit{})) }); got != marker {
 		t.Fatalf("panic = %#v, want %#v", got, marker)
 	}
 	if got := target.ListenerCount("event"); got != 0 {
 		t.Fatalf("listener count after panic = %d, want 0", got)
 	}
-	if got := abortEventCapturePanic(func() { target.DispatchEvent(NewEvent("event")) }); got != nil {
+	if got := abortEventCapturePanic(func() { target.DispatchEvent(NewEvent("event", EventInit{})) }); got != nil {
 		t.Fatalf("second dispatch panic = %#v, want nil", got)
 	}
 }
 
 func TestEventTargetOnceGoexitRestoresDispatchState(t *testing.T) {
 	target := NewEventTarget()
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	target.AddEventListenerOnce("event", func(*Event) {
 		runtime.Goexit()
 	})
@@ -307,7 +307,7 @@ func TestEventTargetListenerIDWrapReusesOnceClaim(t *testing.T) {
 	target := NewEventTarget()
 	target.AddEventListener("live", func(*Event) {})
 	onceID := target.AddEventListenerOnce("once", func(*Event) {})
-	target.DispatchEvent(NewEvent("once"))
+	target.DispatchEvent(NewEvent("once", EventInit{}))
 	target.nextListenerID = 0
 	if got := target.AddEventListener("reused", func(*Event) {}); got != onceID {
 		t.Fatalf("wrapped listener ID = %d, want claimed once ID %d", got, onceID)
@@ -354,7 +354,7 @@ func TestEventTargetZeroValueIsUsable(t *testing.T) {
 	if id == 0 {
 		t.Fatal("zero-value EventTarget returned listener ID 0")
 	}
-	target.DispatchEvent(NewEvent("event"))
+	target.DispatchEvent(NewEvent("event", EventInit{}))
 	if !called {
 		t.Fatal("zero-value EventTarget did not dispatch")
 	}
@@ -379,7 +379,7 @@ func newOnceListenerPayload() (*EventTarget, weak.Pointer[contractRetentionPaylo
 	target.AddEventListenerOnce("event", func(*Event) {
 		payload.value++
 	})
-	target.DispatchEvent(NewEvent("event"))
+	target.DispatchEvent(NewEvent("event", EventInit{}))
 	runtime.KeepAlive(payload)
 	return target, pointer
 }

@@ -368,7 +368,7 @@ func TestEventTarget_ConcurrentAccess(t *testing.T) {
 // Event Tests
 
 func TestEvent_NewEvent(t *testing.T) {
-	event := NewEvent("click")
+	event := NewEvent("click", EventInit{})
 	if event.Type != "click" {
 		t.Errorf("Expected type 'click', got '%s'", event.Type)
 	}
@@ -380,8 +380,8 @@ func TestEvent_NewEvent(t *testing.T) {
 	}
 }
 
-func TestEvent_NewEventBubblesCancelableOptions(t *testing.T) {
-	event := NewEvent("submit", WithBubbles(true), WithCancelable(true))
+func TestEvent_NewEventInit(t *testing.T) {
+	event := NewEvent("submit", EventInit{Bubbles: true, Cancelable: true})
 	if event.Type != "submit" {
 		t.Errorf("Expected type 'submit', got '%s'", event.Type)
 	}
@@ -393,17 +393,8 @@ func TestEvent_NewEventBubblesCancelableOptions(t *testing.T) {
 	}
 }
 
-func TestEvent_NewEventNilOptionPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatal("NewEvent with a nil option should panic")
-		}
-	}()
-	_ = NewEvent("test", nil)
-}
-
 func TestEvent_PreventDefault_Cancelable(t *testing.T) {
-	event := NewEvent("submit", WithCancelable(true))
+	event := NewEvent("submit", EventInit{Cancelable: true})
 	if event.DefaultPrevented {
 		t.Error("DefaultPrevented should be false initially")
 	}
@@ -416,7 +407,7 @@ func TestEvent_PreventDefault_Cancelable(t *testing.T) {
 }
 
 func TestEvent_PreventDefault_NotCancelable(t *testing.T) {
-	event := NewEvent("load")
+	event := NewEvent("load", EventInit{})
 	event.PreventDefault()
 
 	if event.DefaultPrevented {
@@ -425,7 +416,7 @@ func TestEvent_PreventDefault_NotCancelable(t *testing.T) {
 }
 
 func TestEvent_StopPropagation(t *testing.T) {
-	event := NewEvent("click")
+	event := NewEvent("click", EventInit{})
 	if event.PropagationStopped() {
 		t.Error("Propagation should not be stopped initially")
 	}
@@ -441,7 +432,7 @@ func TestEvent_StopPropagation(t *testing.T) {
 }
 
 func TestEvent_StopImmediatePropagation(t *testing.T) {
-	event := NewEvent("click")
+	event := NewEvent("click", EventInit{})
 
 	event.StopImmediatePropagation()
 
@@ -482,7 +473,7 @@ func TestEvent_DispatchEvent_ReturnValue_Cancelable(t *testing.T) {
 		e.PreventDefault()
 	})
 
-	event := NewEvent("submit", WithCancelable(true))
+	event := NewEvent("submit", EventInit{Cancelable: true})
 	result := target.DispatchEvent(event)
 
 	if result {
@@ -497,7 +488,7 @@ func TestEvent_DispatchEvent_ReturnValue_NotCancelable(t *testing.T) {
 		e.PreventDefault() // Should have no effect
 	})
 
-	event := NewEvent("load")
+	event := NewEvent("load", EventInit{})
 	result := target.DispatchEvent(event)
 
 	if !result {
@@ -509,7 +500,7 @@ func TestEvent_DispatchEvent_ReturnValue_NotCancelable(t *testing.T) {
 
 func TestEvent_NewEventWithDetail(t *testing.T) {
 	detail := map[string]any{"key": "value", "count": 42}
-	event := NewEvent("custom", WithDetail(detail))
+	event := NewEvent("custom", EventInit{Detail: detail})
 
 	if event.Type != "custom" {
 		t.Errorf("Expected type 'custom', got '%s'", event.Type)
@@ -529,9 +520,9 @@ func TestEvent_NewEventWithDetail(t *testing.T) {
 	}
 }
 
-func TestEvent_NewEventWithDetailAndOptions(t *testing.T) {
+func TestEvent_NewEventWithDetailAndInit(t *testing.T) {
 	detail := "test data"
-	event := NewEvent("custom", WithDetail(detail), WithBubbles(true), WithCancelable(true))
+	event := NewEvent("custom", EventInit{Bubbles: true, Cancelable: true, Detail: detail})
 
 	if event.Type != "custom" {
 		t.Errorf("Expected type 'custom', got '%s'", event.Type)
@@ -548,7 +539,7 @@ func TestEvent_NewEventWithDetailAndOptions(t *testing.T) {
 }
 
 func TestEvent_NilDetail(t *testing.T) {
-	event := NewEvent("test", WithDetail(nil))
+	event := NewEvent("test", EventInit{})
 	if event.Detail() != nil {
 		t.Error("Detail should be nil")
 	}
@@ -563,7 +554,7 @@ func TestEvent_DispatchWithDetail(t *testing.T) {
 	})
 
 	detail := map[string]any{"action": "login", "user": "alice"}
-	event := NewEvent("userAction", WithDetail(detail))
+	event := NewEvent("userAction", EventInit{Detail: detail})
 	target.DispatchEvent(event)
 
 	if receivedDetail == nil {
@@ -579,7 +570,7 @@ func TestEvent_DispatchWithDetail(t *testing.T) {
 }
 
 func TestEvent_DetailedCancelableEvent(t *testing.T) {
-	event := NewEvent("cancel", WithDetail(nil), WithCancelable(true))
+	event := NewEvent("cancel", EventInit{Cancelable: true})
 
 	event.PreventDefault()
 	if !event.DefaultPrevented {
@@ -605,7 +596,7 @@ func TestEvent_ComplexDetail(t *testing.T) {
 		Roles:    []string{"admin", "user"},
 	}
 
-	event := NewEvent("userUpdate", WithDetail(detail))
+	event := NewEvent("userUpdate", EventInit{Detail: detail})
 	retrieved, ok := event.Detail().(UserData)
 	if !ok {
 		t.Fatal("Detail should be UserData")
@@ -627,7 +618,7 @@ func TestEvent_DetailAccessViaDispatch(t *testing.T) {
 		receivedEvent = e
 	})
 
-	event := NewEvent("test", WithDetail("custom data"))
+	event := NewEvent("test", EventInit{Detail: "custom data"})
 	target.DispatchEvent(event)
 
 	if receivedEvent == nil {

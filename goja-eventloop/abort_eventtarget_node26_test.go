@@ -378,8 +378,8 @@ func TestNode26GoDispatchedEventOnceAndWrapperIdentity(t *testing.T) {
 		t.Fatalf("RunString setup: %v", err)
 	}
 	target := adapter.eventTargetThis(adapter.runtime.Get("__goTarget"))
-	target.target.DispatchEvent(goeventloop.NewEvent("go"))
-	target.target.DispatchEvent(goeventloop.NewEvent("go"))
+	target.target.DispatchEvent(goeventloop.NewEvent("go", goeventloop.EventInit{}))
+	target.target.DispatchEvent(goeventloop.NewEvent("go", goeventloop.EventInit{}))
 	value, err := adapter.runtime.RunString(`__goEvents.join(",")`)
 	if err != nil {
 		t.Fatalf("RunString result: %v", err)
@@ -625,7 +625,7 @@ func TestAbortSignalUsesCapturedIntrinsicsAndTrustedInternalEvents(t *testing.T)
 
 func TestEventTrustedStateDistinguishesInternalAndScriptDispatch(t *testing.T) {
 	adapter := newBoundAdapterForNode26Test(t)
-	internal := adapter.wrapEvent(goeventloop.NewEvent("internal"))
+	internal := adapter.wrapEvent(goeventloop.NewEvent("internal", goeventloop.EventInit{}))
 	if err := adapter.runtime.Set("__internalEvent", internal); err != nil {
 		t.Fatalf("set internal event: %v", err)
 	}

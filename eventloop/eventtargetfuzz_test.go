@@ -118,10 +118,11 @@ func FuzzEventTargetDispatchModel(f *testing.F) {
 			default:
 				cancelable := r.bool()
 				bubbles := r.bool()
-				event := NewEvent(eventType, WithBubbles(bubbles), WithCancelable(cancelable))
+				init := EventInit{Bubbles: bubbles, Cancelable: cancelable}
 				if r.byte()%5 == 0 {
-					event = NewEvent(eventType, WithBubbles(bubbles), WithCancelable(cancelable), WithDetail(r.smallString(8)))
+					init.Detail = r.smallString(8)
 				}
+				event := NewEvent(eventType, init)
 
 				expectedCalls := make([]ListenerID, 0, len(byType[eventType]))
 				actualCalls = make([]ListenerID, 0, len(expectedCalls))

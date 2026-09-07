@@ -26,7 +26,7 @@ func TestPhase2_EventTarget_GoDispatchedEvent_WrapEventFallback(t *testing.T) {
 
 	// Step 3: Dispatch a Go event directly (NOT through JS dispatchEvent)
 	// This bypasses the dispatchJSEvents.Store, triggering the wrapEvent fallback
-	goEvent := goeventloop.NewEvent("myevent")
+	goEvent := goeventloop.NewEvent("myevent", goeventloop.EventInit{})
 	wrapper.target.DispatchEvent(goEvent)
 
 	// Step 4: Verify the listener was called with a wrapped event
@@ -53,7 +53,7 @@ func TestPhase2_EventTarget_GoDispatchedEvent_OnceFallback(t *testing.T) {
 
 	wrapper := adapter.eventTargetThis(adapter.runtime.Get("et2"))
 
-	goEvent := goeventloop.NewEvent("test")
+	goEvent := goeventloop.NewEvent("test", goeventloop.EventInit{})
 	wrapper.target.DispatchEvent(goEvent)
 
 	receivedVal := adapter.runtime.Get("onceReceived")

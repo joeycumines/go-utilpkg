@@ -1200,49 +1200,49 @@
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetDispatchFreshEvent": {
           "id": "workload.product.event-target-dispatch-fresh-event.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetDispatchParallelDistinctEvents": {
           "id": "workload.product.event-target-dispatch-parallel-distinct-events.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetDispatchParallelDistinctEventsControl": {
           "id": "workload.product.event-target-dispatch-parallel-distinct-events-control.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetDispatchReusedEvent": {
           "id": "workload.product.event-target-dispatch-reused-event.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetListenerConstruction": {
           "id": "workload.product.event-target-listener-construction.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkEventTargetListenerRegistrationWithLiveSet": {
           "id": "workload.product.event-target-listener-registration-with-live-set.v1",
           "harness_files": [
             "eventtargetbenchmark_test.go"
           ],
-          "harness_sha256": "554f3decbec5b147ed88f8a123948ad01414087b5ba0d581c03c703495612075"
+          "harness_sha256": "d90198c625a285f24ea9fc076b8b653fb6985fefc8feb0e049e7f159097969c4"
         },
         "BenchmarkFDReadinessDispatchHighCount": {
           "id": "workload.product.fd-readiness-dispatch-high-count.v1",

@@ -8,7 +8,7 @@ import (
 
 func TestEventTargetWholeValueOverwriteRejectsSameTargetRecursion(t *testing.T) {
 	target := eventloop.NewEventTarget()
-	event := eventloop.NewEvent("event")
+	event := eventloop.NewEvent("event", eventloop.EventInit{})
 	calls := 0
 	var recursivePanic any
 	target.AddEventListener("event", func(got *eventloop.Event) {
@@ -35,7 +35,7 @@ func TestEventTargetWholeValueOverwriteRejectsSameTargetRecursion(t *testing.T) 
 func TestEventTargetWholeValueOverwriteRejectsCrossTargetRecursion(t *testing.T) {
 	outer := eventloop.NewEventTarget()
 	inner := eventloop.NewEventTarget()
-	event := eventloop.NewEvent("event")
+	event := eventloop.NewEvent("event", eventloop.EventInit{})
 	innerCalls := 0
 	inner.AddEventListener("event", func(*eventloop.Event) {
 		innerCalls++
@@ -91,7 +91,7 @@ func TestEventTargetWholeValueOverwritePreservesDispatchOutcome(t *testing.T) {
 func TestEventCopyRetainsOrdinaryFields(t *testing.T) {
 	target := eventloop.NewEventTarget()
 	payload := &struct{ value string }{value: "detail"}
-	event := eventloop.NewEvent("event", eventloop.WithDetail(payload))
+	event := eventloop.NewEvent("event", eventloop.EventInit{Detail: payload})
 	target.DispatchEvent(event)
 	copied := *event
 

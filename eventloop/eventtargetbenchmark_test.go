@@ -9,7 +9,7 @@ import (
 func BenchmarkEventTargetDispatchReusedEvent(b *testing.B) {
 	target := NewEventTarget()
 	target.AddEventListener("event", func(*Event) {})
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	if !target.DispatchEvent(event) {
 		b.Fatal("warmup dispatch was canceled")
 	}
@@ -28,7 +28,7 @@ func BenchmarkEventTargetDispatchFreshEvent(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if !target.DispatchEvent(NewEvent("event")) {
+		if !target.DispatchEvent(NewEvent("event", EventInit{})) {
 			b.Fatal("dispatch was canceled")
 		}
 	}
@@ -36,7 +36,7 @@ func BenchmarkEventTargetDispatchFreshEvent(b *testing.B) {
 
 func BenchmarkEventTargetDispatchEmptyReusedEvent(b *testing.B) {
 	target := NewEventTarget()
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	if !target.DispatchEvent(event) {
 		b.Fatal("warmup dispatch was canceled")
 	}
@@ -54,7 +54,7 @@ func BenchmarkEventTargetDispatchParallelDistinctEvents(b *testing.B) {
 	target.AddEventListener("event", func(*Event) {})
 	b.ReportAllocs()
 	b.RunParallel(func(parallel *testing.PB) {
-		event := NewEvent("event")
+		event := NewEvent("event", EventInit{})
 		for parallel.Next() {
 			if !target.DispatchEvent(event) {
 				panic("eventloop: benchmark dispatch was canceled")

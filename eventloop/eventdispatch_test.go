@@ -19,7 +19,7 @@ func TestEventTargetDispatchReusesEventWithFreshState(t *testing.T) {
 	target.AddEventListener("event", func(*Event) {
 		regularCalls++
 	})
-	event := NewEvent("event", WithCancelable(true))
+	event := NewEvent("event", EventInit{Cancelable: true})
 
 	if target.DispatchEvent(event) {
 		t.Fatal("first dispatch = true, want canceled")
@@ -40,7 +40,7 @@ func TestEventTargetDispatchReusesEventWithFreshState(t *testing.T) {
 
 func TestEventTargetRejectsRecursiveSameEventAndRestoresState(t *testing.T) {
 	target := NewEventTarget()
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	calls := 0
 	id := target.AddEventListener("event", func(got *Event) {
 		calls++
@@ -72,7 +72,7 @@ func TestEventTargetAllowsCopiedEventDuringDispatch(t *testing.T) {
 			}
 		}
 	})
-	if !target.DispatchEvent(NewEvent("event")) {
+	if !target.DispatchEvent(NewEvent("event", EventInit{})) {
 		t.Fatal("original Event dispatch was canceled")
 	}
 	if calls != 2 {
@@ -82,7 +82,7 @@ func TestEventTargetAllowsCopiedEventDuringDispatch(t *testing.T) {
 
 func TestEventTargetCompletedDispatchCopyEstablishesIndependentIdentity(t *testing.T) {
 	target := NewEventTarget()
-	original := NewEvent("event")
+	original := NewEvent("event", EventInit{})
 	if !target.DispatchEvent(original) {
 		t.Fatal("original Event dispatch was canceled")
 	}
@@ -115,7 +115,7 @@ func TestEventTargetActiveCopyRejectsRecursiveSameCopy(t *testing.T) {
 		}
 		recursivePanic = abortEventCapturePanic(func() { target.DispatchEvent(event) })
 	})
-	if !target.DispatchEvent(NewEvent("event")) {
+	if !target.DispatchEvent(NewEvent("event", EventInit{})) {
 		t.Fatal("outer Event dispatch was canceled")
 	}
 	if calls != 2 {
@@ -164,7 +164,7 @@ func TestEventTargetDispatchKeepsInitialTypeStable(t *testing.T) {
 	target.AddEventListener("event", func(event *Event) {
 		observed = event.Type
 	})
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	target.DispatchEvent(event)
 	if observed != "event" {
 		t.Fatalf("later listener observed Type %q, want %q", observed, "event")

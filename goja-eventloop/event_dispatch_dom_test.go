@@ -63,7 +63,7 @@ func TestPinnedDOMGoDispatchPropagationPhases(t *testing.T) {
 		t.Fatalf("RunString setup: %v", err)
 	}
 	wrapper := adapter.eventTargetThis(adapter.runtime.Get("__goDispatchTarget"))
-	if !wrapper.target.DispatchEvent(goeventloop.NewEvent("go")) {
+	if !wrapper.target.DispatchEvent(goeventloop.NewEvent("go", goeventloop.EventInit{})) {
 		t.Fatal("Go event dispatch was canceled")
 	}
 	value, err := adapter.runtime.RunString(`__goDispatchOrder.join(",")`)
@@ -115,7 +115,7 @@ func TestPinnedDOMEventTrustedGetterIdentity(t *testing.T) {
 		t.Fatalf("RunString setup: %v", err)
 	}
 	target := adapter.eventTargetThis(adapter.runtime.Get("__trustedTarget"))
-	if !target.target.DispatchEvent(goeventloop.NewEvent("host")) {
+	if !target.target.DispatchEvent(goeventloop.NewEvent("host", goeventloop.EventInit{})) {
 		t.Fatal("host event dispatch was canceled")
 	}
 	if !adapter.runtime.Get("__trustedGetterMatches").ToBoolean() {

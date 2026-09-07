@@ -192,11 +192,10 @@ func (a *Adapter) bindEventPrototype(constructor *goja.Object) error {
 }
 
 func (a *Adapter) initializeEvent(state *eventState, eventType string, bubbles, cancelable bool) {
-	state.event = goeventloop.NewEvent(
-		eventType,
-		goeventloop.WithBubbles(bubbles),
-		goeventloop.WithCancelable(cancelable),
-	)
+	state.event = goeventloop.NewEvent(eventType, goeventloop.EventInit{
+		Bubbles:    bubbles,
+		Cancelable: cancelable,
+	})
 	state.target = goja.Null()
 	state.currentTarget = goja.Null()
 	state.eventPhase = eventPhaseNone
@@ -219,11 +218,10 @@ func (a *Adapter) eventConstructor(call goja.ConstructorCall) *goja.Object {
 	eventType := a.webIDLString(call.Argument(0))
 	bubbles, cancelable, composed := a.eventInit(call.Argument(1))
 
-	event := goeventloop.NewEvent(
-		eventType,
-		goeventloop.WithBubbles(bubbles),
-		goeventloop.WithCancelable(cancelable),
-	)
+	event := goeventloop.NewEvent(eventType, goeventloop.EventInit{
+		Bubbles:    bubbles,
+		Cancelable: cancelable,
+	})
 	a.wrapEventWithObject(event, call.This, false)
 	a.eventThis(call.This).composed = composed
 	return call.This
@@ -357,12 +355,11 @@ func (a *Adapter) customEventConstructor(call goja.ConstructorCall) *goja.Object
 		}
 	}
 
-	event := goeventloop.NewEvent(
-		eventType,
-		goeventloop.WithBubbles(bubbles),
-		goeventloop.WithCancelable(cancelable),
-		goeventloop.WithDetail(detail),
-	)
+	event := goeventloop.NewEvent(eventType, goeventloop.EventInit{
+		Bubbles:    bubbles,
+		Cancelable: cancelable,
+		Detail:     detail,
+	})
 
 	thisObj := call.This
 

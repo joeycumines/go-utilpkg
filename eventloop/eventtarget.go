@@ -127,7 +127,7 @@ type Event struct { //nolint:govet // betteralign:ignore
 	// Default is false.
 	Cancelable bool
 
-	// detail holds custom detail data attached via [WithDetail].
+	// detail holds custom detail data attached via [EventInit.Detail].
 	detail any
 }
 
@@ -660,79 +660,50 @@ func (e *Event) ImmediatePropagationStopped() bool {
 }
 
 // Detail returns the custom detail data associated with the event.
-// This is primarily used by events created with [NewEvent] and [WithDetail].
+// This is primarily used by events created with [NewEvent] and [EventInit].
 func (e *Event) Detail() any {
 	return e.detail
 }
 
-// EventOption configures an [Event] created by [NewEvent]. Options mirror the
-// MDN [Event] constructor's EventInit dictionary.
-type EventOption interface {
-	applyEventOption(*Event)
-}
-
-// WithBubbles sets the caller-owned Bubbles metadata on the event. EventTarget
-// performs no parent traversal, so Bubbles is metadata only.
-func WithBubbles(bubbles bool) EventOption {
-	return eventBubblesOption{bubbles: bubbles}
-}
-
-type eventBubblesOption struct {
-	bubbles bool
-}
-
-func (o eventBubblesOption) applyEventOption(e *Event) {
-	e.Bubbles = o.bubbles
-}
-
-// WithCancelable marks the event as cancelable (PreventDefault is honored).
-func WithCancelable(cancelable bool) EventOption {
-	return eventCancelableOption{cancelable: cancelable}
-}
-
-type eventCancelableOption struct {
-	cancelable bool
-}
-
-func (o eventCancelableOption) applyEventOption(e *Event) {
-	e.Cancelable = o.cancelable
-}
-
-// WithDetail attaches application data to the event, readable through
-// [Event.Detail]. MDN models detail on the CustomEvent constructor's
-// CustomEventInit dictionary; this package models one [Event] type, so detail
-// is an option on [NewEvent].
-func WithDetail(detail any) EventOption {
-	return eventDetailOption{detail: detail}
-}
-
-type eventDetailOption struct {
-	detail any
-}
-
-func (o eventDetailOption) applyEventOption(e *Event) {
-	e.detail = o.detail
-}
-
-// NewEvent creates a new Event with the specified type and options. It is the
-// single event factory, mirroring the MDN Event constructor:
+// EventInit is the initialization dictionary for [NewEvent], mirroring the
+// MDN [Event] constructor's EventInit dictionary, plus the detail member the
+// MDN CustomEvent constructor carries on CustomEventInit. It is a plain value
+// type: the zero value reproduces the DOM defaults, so it needs no options
+// machinery and costs no allocation at the call site.
 //
-//	new Event(type)             → eventloop.NewEvent(type)
-//	new Event(type, {bubbles})  → eventloop.NewEvent(type, eventloop.WithBubbles(true))
+// [Event]: https://developer.mozilla.org/en-US/docs/Web/API/Event/Event
+type EventInit struct {
+	// Bubbles sets the caller-owned Bubbles metadata on the event. EventTarget
+	// performs no parent traversal, so Bubbles is metadata only.
+	Bubbles bool
+
+	// Cancelable marks the event as cancelable, so PreventDefault is honored.
+	Cancelable bool
+
+	// Detail attaches application data to the event, readable through
+	// [Event.Detail]. This package models one [Event] type, so detail lives
+	// here rather than on a separate CustomEvent kind.
+	Detail any
+}
+
+// NewEvent creates a new Event with the specified type and initialization
+// dictionary. It is the single event factory, mirroring the MDN Event
+// constructor:
 //
-// With no options the event matches the DOM defaults: Bubbles=false and
-// Cancelable=false. Options must be produced by [WithBubbles], [WithCancelable],
-// or [WithDetail]; a nil option is a programming error and panics.
+//	new Event(type)             → eventloop.NewEvent(type, eventloop.EventInit{})
+//	new Event(type, {bubbles})  → eventloop.NewEvent(type, eventloop.EventInit{Bubbles: true})
+//
+// The zero EventInit matches the DOM defaults: Bubbles=false, Cancelable=false,
+// and no detail.
 //
 // Example:
 //
-//	event := eventloop.NewEvent("click", eventloop.WithBubbles(true))
-func NewEvent(eventType string, options ...EventOption) *Event {
-	event := &Event{
-		Type: eventType,
+//	event := eventloop.NewEvent("click", eventloop.EventInit{Bubbles: true})
+func NewEvent(eventType string, options EventInit) *Event {
+	return &Event{
+		Type:       eventType,
+		Bubbles:    options.Bubbles,
+		Cancelable: options.Cancelable,
+		detail:     options.Detail,
 	}
-	for _, option := range options {
-		option.applyEventOption(event)
-	}
-	return event
 }

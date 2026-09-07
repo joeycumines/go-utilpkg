@@ -63,7 +63,7 @@ func newCompletedDispatchPointer(t *testing.T, completion string) (*EventTarget,
 	case "goexit":
 		target.AddEventListener("event", func(*Event) { runtime.Goexit() })
 	}
-	event := NewEvent("event")
+	event := NewEvent("event", EventInit{})
 	pointer := weak.Make(event)
 	switch completion {
 	case "return":
@@ -99,7 +99,7 @@ func newCompletedOverflowDispatchPointers(t *testing.T, eventCount int) (*EventT
 	var wait sync.WaitGroup
 	wait.Add(eventCount)
 	for i := range events {
-		events[i] = NewEvent("event")
+		events[i] = NewEvent("event", EventInit{})
 		pointers[i] = weak.Make(events[i])
 		go func(event *Event) {
 			defer wait.Done()
@@ -135,7 +135,7 @@ func newCompletedOverflowAbnormalDispatchPointer(t *testing.T, completion string
 	for range inlineActiveEventDispatchCapacity {
 		go func() {
 			defer wait.Done()
-			target.DispatchEvent(NewEvent("block"))
+			target.DispatchEvent(NewEvent("block", EventInit{}))
 		}()
 	}
 	for range inlineActiveEventDispatchCapacity {
@@ -151,7 +151,7 @@ func newCompletedOverflowAbnormalDispatchPointer(t *testing.T, completion string
 	default:
 		t.Fatalf("unknown completion %q", completion)
 	}
-	event := NewEvent("abnormal")
+	event := NewEvent("abnormal", EventInit{})
 	pointer := weak.Make(event)
 	if completion == "panic" {
 		if got := abortEventCapturePanic(func() { target.DispatchEvent(event) }); got != marker {
@@ -195,7 +195,7 @@ func newCompletedDispatchCopyPointers() (
 	weak.Pointer[Event],
 	weak.Pointer[EventTarget],
 ) {
-	original := NewEvent("event")
+	original := NewEvent("event", EventInit{})
 	firstTarget := NewEventTarget()
 	firstTarget.DispatchEvent(original)
 	copy := *original
@@ -213,7 +213,7 @@ func newActiveDispatchCopyPointers() (
 	weak.Pointer[Event],
 	weak.Pointer[EventTarget],
 ) {
-	original := NewEvent("event")
+	original := NewEvent("event", EventInit{})
 	firstTarget := NewEventTarget()
 	var copy Event
 	firstTarget.AddEventListenerOnce("event", func(event *Event) {
