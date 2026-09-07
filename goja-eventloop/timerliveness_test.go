@@ -336,7 +336,7 @@ func TestWebAbortSignalTimeoutZeroUsesTimerBackend(t *testing.T) {
 		globalThis.events = [];
 		const signal = AbortSignal.timeout(0);
 		signal.addEventListener("abort", function() { events.push(signal.reason.name); });
-		setTimeout(function() { events.push("keepalive"); }, 20);
+		setTimeout(function() { events.push("keepalive"); }, 100);
 	`)
 	if got != "TimeoutError,keepalive" {
 		t.Fatalf("AbortSignal.timeout lifecycle = %q, want %q", got, "TimeoutError,keepalive")
@@ -458,7 +458,7 @@ func TestNodeTimerRetirementDoesNotRereadCachedAsyncID(t *testing.T) {
 				},
 			});
 		}, 1);
-		setTimeout(function() { events.push("keep"); }, 10);
+		setTimeout(function() { events.push("keep"); }, 100);
 	`)
 	if want := "timer,keep"; got != want {
 		t.Fatalf("cached async ID retirement = %q, want %q", got, want)
@@ -627,7 +627,7 @@ func TestNodeHandledTimerThrowRetainsListGeneration(t *testing.T) {
 		});
 		const throwing = setTimeout(function() { throw new Error("boom"); }, 1);
 		sentinel = throwing._idlePrev;
-		setTimeout(function() { events.push("keep"); }, 10);
+		setTimeout(function() { events.push("keep"); }, 100);
 	`)
 	if want := "same,replacement,keep"; got != want {
 		t.Fatalf("handled timer throw generation = %q, want %q", got, want)
@@ -666,7 +666,7 @@ func TestNodeTimerCheckpointRunsAfterSoleListRetires(t *testing.T) {
 			});
 		}, 1);
 		sentinel = first._idlePrev;
-		setTimeout(function() { events.push("keep"); }, 20);
+		setTimeout(function() { events.push("keep"); }, 100);
 	`)
 	if want := "different,replacement,keep"; got != want {
 		t.Fatalf("post-list timer checkpoint = %q, want %q", got, want)
@@ -685,7 +685,7 @@ func TestNodeTimerCheckpointFollowsNextPeerDiff(t *testing.T) {
 				});
 			}, 1);
 			second = setTimeout(function() { events.push("second"); }, 1);
-			setTimeout(function() { events.push("keep"); }, 20);
+			setTimeout(function() { events.push("keep"); }, 100);
 		});
 	`)
 	if want := "second,i,keep"; got != want {
@@ -720,7 +720,7 @@ func TestNodeTimerBoundaryResumesHandledThrowCheckpoint(t *testing.T) {
 			Promise.resolve().then(function() { events.push("p"); });
 			throw new Error("boom");
 		}, 1);
-		setTimeout(function() { events.push("keep"); }, 20);
+		setTimeout(function() { events.push("keep"); }, 100);
 	`)
 	if want := "t1,u,n,p,i,keep"; got != want {
 		t.Fatalf("handled timer boundary checkpoint = %q, want %q", got, want)

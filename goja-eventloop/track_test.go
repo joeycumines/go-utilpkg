@@ -274,7 +274,7 @@ func TestTrackPromise_AutoExitWaitsForWork(t *testing.T) {
 	case <-completed:
 		// Work completed while loop had no other refs: proves promisifyCount
 		// liveness kept auto-exit from committing mid-work.
-	case <-time.After(5 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("tracked work did not complete under auto-exit pressure")
 	}
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)

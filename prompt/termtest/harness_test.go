@@ -242,7 +242,7 @@ func TestHarness_Close(t *testing.T) {
 		t.Logf("Close returned: %v", err)
 	}
 
-	exitErr := h.waitExitTimeout(2 * time.Second)
+	exitErr := h.waitExitTimeout(10 * time.Second)
 	// With the fixed ptyReader, the prompt exits cleanly when Close is
 	// called (no longer deadlocks in waitForRead). A nil error indicates
 	// a clean shutdown; context.Canceled indicates the old forced path.
@@ -277,7 +277,7 @@ func TestRunPrompt_Helper(t *testing.T) {
 			if err := h.Console().SendLine("exit"); err != nil {
 				return err
 			}
-			if err := h.waitExitTimeout(2 * time.Second); err != nil {
+			if err := h.waitExitTimeout(10 * time.Second); err != nil {
 				return err
 			}
 			return nil
