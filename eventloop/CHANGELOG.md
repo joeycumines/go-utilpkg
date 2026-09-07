@@ -430,10 +430,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Metrics hot path** — loop-owned runtime samplers avoid public metric locks
   on scheduled callbacks while preserving coherent `Metrics()` snapshots.
 
-- **BREAKING: ChainedPromise compact layout** — On 64-bit targets the struct
+- **BREAKING: promise-type rename** — the chainable promise type
+  `ChainedPromise` was renamed to `Promise`, the promise-result state type
+  `PromiseState` was renamed to `Settlement`, and `Future.State()` was
+  renamed to `Future.Settlement()`. No aliases were retained; `Promise` is
+  created via `JS.NewPromise()` (previously `JS.NewChainedPromise()`).
+
+- **BREAKING: Promise compact layout** — On 64-bit targets the struct
   shrank from 120B to 64B; its 32-bit layout is 40B. `toChannels`,
   `creationStack`, and `id` moved to side tables on `JS`, keyed by
-  `weak.Pointer[ChainedPromise]` for GC-safe automatic cleanup.
+  `weak.Pointer[Promise]` for GC-safe automatic cleanup.
 
 - **API cleanup: unexported internal-only types** — Tightened the public API surface by
 	unexporting symbols that were only used internally: `FastState` → `fastState`,
@@ -532,7 +538,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `goja-eventloop` Node profile coerces invalid, too-small, and overflowing
   delays to `1ms` and emits Node-style timer warnings.
 
-- **ChainedPromise rejection propagation**: `Then(onFulfilled, nil)` no longer
+- **Promise rejection propagation**: `Then(onFulfilled, nil)` no longer
   marks the source rejection as handled; the propagated child is the reportable
   unhandled rejection unless a downstream rejection handler observes it.
 
