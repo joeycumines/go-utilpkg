@@ -35,8 +35,7 @@ func TestCoreJSAllWithAllResolved(t *testing.T) {
 	p2, r2, _ := jsAdapter.NewPromise()
 	p3, r3, _ := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.All(promises...)
+	resultPromise := jsAdapter.All(p1, p2, p3)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -82,8 +81,7 @@ func TestCoreJSAllWithEmptyArray(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	promises := []*goeventloop.Promise{}
-	resultPromise := jsAdapter.All(promises...)
+	resultPromise := jsAdapter.All()
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -128,8 +126,7 @@ func TestCoreJSAllWithOneRejected(t *testing.T) {
 	p2, _, rej2 := jsAdapter.NewPromise()
 	p3, r3, _ := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.All(promises...)
+	resultPromise := jsAdapter.All(p1, p2, p3)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -183,8 +180,7 @@ func TestCoreJSRaceTiming(t *testing.T) {
 	p1, r1, _ := jsAdapter.NewPromise()
 	p2, _, _ := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2}
-	resultPromise := jsAdapter.Race(promises...)
+	resultPromise := jsAdapter.Race(p1, p2)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -230,8 +226,7 @@ func TestCoreJSRaceFirstRejectedWins(t *testing.T) {
 	p1, _, rej1 := jsAdapter.NewPromise()
 	p2, r2, _ := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2}
-	resultPromise := jsAdapter.Race(promises...)
+	resultPromise := jsAdapter.Race(p1, p2)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -283,8 +278,7 @@ func TestCoreJSAllSettledMixedResults(t *testing.T) {
 	p2, _, rej2 := jsAdapter.NewPromise()
 	p3, r3, _ := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.AllSettled(promises...)
+	resultPromise := jsAdapter.AllSettled(p1, p2, p3)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -340,8 +334,7 @@ func TestCoreJSAnyFirstResolvedWins(t *testing.T) {
 	p2, r2, _ := jsAdapter.NewPromise()
 	p3, _, rej3 := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.Any(promises...)
+	resultPromise := jsAdapter.Any(p1, p2, p3)
 
 	go func() { _ = loop.Run(ctx) }()
 
@@ -387,8 +380,7 @@ func TestCoreJSAnyAllRejected(t *testing.T) {
 	p2, _, rej2 := jsAdapter.NewPromise()
 	p3, _, rej3 := jsAdapter.NewPromise()
 
-	promises := []*goeventloop.Promise{p1, p2, p3}
-	resultPromise := jsAdapter.Any(promises...)
+	resultPromise := jsAdapter.Any(p1, p2, p3)
 
 	go func() { _ = loop.Run(ctx) }()
 
