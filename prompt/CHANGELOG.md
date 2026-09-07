@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix `clear()` cursor positioning: replace unreliable ESC [s/u (SCO save/restore cursor) with explicit cursor movement for macOS Terminal.app compatibility
 - Fix `prepareArea` completion space allocation: replace ESC D/ESC M (Index/Reverse Index) with newlines and CursorUp for macOS Terminal.app compatibility
 - Fix `ptyReader` lifecycle in test harness: allow Close/Open cycle between prompt submissions without permanently closing the file descriptor
+- Fix test harness timeout thresholds to withstand CPU starvation during parallel test execution
 
 ## [1.3.0] - 21.05.2025
 

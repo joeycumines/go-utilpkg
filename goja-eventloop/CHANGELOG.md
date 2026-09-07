@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The adapter inherits the `go-eventloop` owner-topology scheduler: native Goja
   Promise jobs, microtasks, timers, and immediates run through owner-local queues
   and typed command ingress instead of legacy ring/heap hot paths.
+- Adapt to `go-eventloop` unified `NewEvent` factory, `RemoveEventListener`, and `NewPromise` APIs.
 
 ### Fixed
 
@@ -88,6 +89,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   algorithms where needed, so hostile abort listeners cannot suppress host cleanup.
 - Native Promise job and Goja promise-chain benchmarks now surface production
   enqueuer errors instead of hanging behind package timeouts.
+- Relax timer liveness and track test timeout thresholds to withstand CPU starvation during parallel test execution
 
 ### Removed
 
