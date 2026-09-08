@@ -93,7 +93,7 @@
 
 # What is `grit` and how to use it?
 # ---
-# Godoc: https://pkg.go.dev/github.com/grailbio/grit
+# Godoc: https://pkg.go.dev/github.com/joeycumines/grit
 #
 # Preface:
 #
@@ -315,7 +315,7 @@ GO_TOOLS_DEFAULT ?= \
 		$(GO_PKG_STATICCHECK) \
 		$(if $(GO_MODULE_SLUGS_USE_DEADCODE),$(GO_PKG_DEADCODE) $(if $(or $(filter true,$(DEADCODE_ERROR_ON_UNIGNORED)),$(DEADCODE_IGNORE_PATTERNS_FILE)),$(GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER),),)
 GO_PKG_BETTERALIGN ?= github.com/dkorunic/betteralign/cmd/betteralign
-GO_PKG_GRIT ?= github.com/grailbio/grit
+GO_PKG_GRIT ?= github.com/joeycumines/grit
 GO_PKG_STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck
 GO_PKG_DEADCODE ?= golang.org/x/tools/cmd/deadcode
 GO_PKG_SIMPLE_COMMAND_OUTPUT_FILTER ?= github.com/joeycumines/simple-command-output-filter
