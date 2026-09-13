@@ -27,8 +27,6 @@ require (
 	honnef.co/go/tools v0.8.1 // indirect
 )
 
-replace github.com/joeycumines/grit => /Users/joeyc/dev/grit
-
 tool (
 	github.com/dkorunic/betteralign/cmd/betteralign
 	github.com/joeycumines/grit
