@@ -337,6 +337,81 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+
+	t.Run(`slice`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Slice(`k`, []string{`a`, `b`}).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" k=\"[a b]\"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`map`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Map(`k`, map[string]string{`k1`: `v1`}).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" k=\"map[k1:v1]\"\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`map fields`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			MapFields(map[string]any{`one`: 1, `two`: 2}).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" one=1 two=2\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`arg fields`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			ArgFields[any](nil, `one`, 1, `two`, 2).
+			Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" one=1 two=2\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`context builder methods`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		c := h.L.Clone().
+			Slice(`k`, []string{`a`, `b`}).
+			Map(`m`, map[string]string{`k1`: `v1`}).
+			MapFields(map[string]any{`one`: 1}).
+			ArgFields[any](nil, `two`, 2).
+			Logger()
+
+		c.Info().Log(`hello world`)
+
+		if s := h.B.String(); s != "level=info msg=\"hello world\" k=\"[a b]\" m=\"map[k1:v1]\" one=1 two=2\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
 }
 
 func TestLogger_json(t *testing.T) {

@@ -149,6 +149,10 @@ func TestSuite[E logiface.Event](t *testing.T, cfg Config[E]) {
 		t.Parallel()
 		TestParallel[E](t, cfg)
 	})
+	t.Run(`TestBuilderMethods`, func(t *testing.T) {
+		t.Parallel()
+		TestBuilderMethods[E](t, cfg)
+	})
 }
 
 // RunTest initializes a logger, providing it to the test func.

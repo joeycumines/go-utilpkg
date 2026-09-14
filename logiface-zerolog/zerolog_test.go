@@ -453,6 +453,115 @@ func TestLogger_simple(t *testing.T) {
 			t.Errorf("unexpected output: %q\n%s", s, s)
 		}
 	})
+
+	t.Run(`slice str`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Slice(`k`, []string{`a`, `b`, `c`, `d`}).
+			Log(shortMessage)
+
+		if s := h.B.String(); s != "{\"level\":\"info\",\"k\":[\"a\",\"b\",\"c\",\"d\"],\"message\":\"Test logging.\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`slice bool`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Slice(`k`, []bool{true, false, false, true}).
+			Log(shortMessage)
+
+		if s := h.B.String(); s != "{\"level\":\"info\",\"k\":[true,false,false,true],\"message\":\"Test logging.\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`map str`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			Map(`k`, map[string]string{`k1`: `v1`}).
+			Log(shortMessage)
+
+		if s := h.B.String(); s != "{\"level\":\"info\",\"k\":{\"k1\":\"v1\"},\"message\":\"Test logging.\"}\n" {
+			t.Errorf("unexpected output: %q\n%s", s, s)
+		}
+	})
+
+	t.Run(`map fields`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			MapFields(map[string]any{`one`: 1, `two`: 2}).
+			Log(shortMessage)
+
+		var m map[string]any
+		if err := json.Unmarshal(h.B.Bytes(), &m); err != nil {
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+		if m["level"] != "info" || m["message"] != shortMessage || m["one"] != float64(1) || m["two"] != float64(2) {
+			t.Errorf("unexpected map fields: %v", m)
+		}
+	})
+
+	t.Run(`arg fields`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		h.L.Info().
+			ArgFields[any](nil, `one`, 1, `two`, 2).
+			Log(shortMessage)
+
+		var m map[string]any
+		if err := json.Unmarshal(h.B.Bytes(), &m); err != nil {
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+		if m["level"] != "info" || m["message"] != shortMessage || m["one"] != float64(1) || m["two"] != float64(2) {
+			t.Errorf("unexpected arg fields: %v", m)
+		}
+	})
+
+	t.Run(`context builder methods`, func(t *testing.T) {
+		t.Parallel()
+
+		h := newHarness(t)
+
+		c := h.L.Clone().
+			Slice(`k_slice`, []string{`x`, `y`}).
+			Map(`k_map`, map[string]string{`mk`: `mv`}).
+			MapFields(map[string]any{`mf`: 10}).
+			ArgFields[any](nil, `af`, 20).
+			Logger()
+
+		c.Info().Log(shortMessage)
+
+		var m map[string]any
+		if err := json.Unmarshal(h.B.Bytes(), &m); err != nil {
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+		if m["level"] != "info" || m["message"] != shortMessage || m["mf"] != float64(10) || m["af"] != float64(20) {
+			t.Errorf("unexpected context output: %v", m)
+		}
+		sSlice, ok := m["k_slice"].([]any)
+		if !ok || len(sSlice) != 2 || sSlice[0] != "x" || sSlice[1] != "y" {
+			t.Errorf("unexpected context slice: %v", m["k_slice"])
+		}
+		sMap, ok := m["k_map"].(map[string]any)
+		if !ok || sMap["mk"] != "mv" {
+			t.Errorf("unexpected context map: %v", m["k_map"])
+		}
+	})
 }
 
 func ExampleLogger_arrayField() {
