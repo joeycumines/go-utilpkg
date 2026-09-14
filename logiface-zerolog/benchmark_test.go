@@ -198,6 +198,44 @@ func BenchmarkContextFields(b *testing.B) {
 				}
 			})
 		},
+		Variants: []Variant{
+			{`mapFields`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+					Logger().
+					Clone().
+					MapFields(map[string]any{
+						"string": "four!",
+						"time":   time.Time{},
+						"int":    123,
+						"float":  float32(-2.203230293249593),
+					}).
+					Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(fakeMessage)
+					}
+				})
+			}},
+			{`argFields`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+					Logger().
+					Clone().
+					ArgFields[any](nil,
+					"string", "four!",
+					"time", time.Time{},
+					"int", 123,
+					"float", float32(-2.203230293249593),
+				).
+					Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(fakeMessage)
+					}
+				})
+			}},
+		},
 	}).Run(b)
 }
 
@@ -285,6 +323,41 @@ func BenchmarkLogFields(b *testing.B) {
 						Log(fakeMessage)
 				}
 			})
+		},
+		Variants: []Variant{
+			{`mapFields`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				m := map[string]any{
+					"string": "four!",
+					"time":   time.Time{},
+					"int":    123,
+					"float":  float32(-2.203230293249593),
+				}
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							MapFields(m).
+							Log(fakeMessage)
+					}
+				})
+			}},
+			{`argFields`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							ArgFields[any](nil,
+							"string", "four!",
+							"time", time.Time{},
+							"int", 123,
+							"float", float32(-2.203230293249593),
+						).
+							Log(fakeMessage)
+					}
+				})
+			}},
 		},
 	}).Run(b)
 }
@@ -1135,6 +1208,18 @@ func BenchmarkArray_Str(b *testing.B) {
 					}
 				})
 			}},
+			{`slice`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				sliceVal := []string{`a`, `b`, `c`, `d`}
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Slice(`k`, sliceVal).
+							Log(shortMessage)
+					}
+				})
+			}},
 		},
 	}).Run(b)
 }
@@ -1296,6 +1381,488 @@ func BenchmarkArray_Bool(b *testing.B) {
 						Log(shortMessage)
 				}
 			})
+		},
+		Variants: []Variant{
+			{`slice`, func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				sliceVal := []bool{true, false, false, true}
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Slice(`k`, sliceVal).
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkSlice_Str(b *testing.B) {
+	sliceData := []string{"a", "b", "c", "d"}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Array("k", zerolog.Arr().
+							Str("a").
+							Str("b").
+							Str("c").
+							Str("d")).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Slice("k", sliceData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Slice("k", sliceData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacySliceArray", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logiface.SliceArray(logger.Info(), "k", sliceData).
+							Log(shortMessage)
+					}
+				})
+			}},
+			{"fluentArray", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Array().
+							Str("a").
+							Str("b").
+							Str("c").
+							Str("d").
+							As("k").
+							End().
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkMap_Str(b *testing.B) {
+	mapData := map[string]string{"k1": "v1", "k2": "v2"}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Dict("k", zerolog.Dict().
+							Str("k1", "v1").
+							Str("k2", "v2")).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Map("k", mapData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Map("k", mapData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyMapObject", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logiface.MapObject(logger.Info(), "k", mapData).
+							Log(shortMessage)
+					}
+				})
+			}},
+			{"fluentObject", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().
+							Object().
+							Str("k1", "v1").
+							Str("k2", "v2").
+							As("k").
+							End().
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkMapFields(b *testing.B) {
+	fieldsData := map[string]any{"k1": "v1", "k2": "v2", "k3": 123}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Str("k1", "v1").
+						Str("k2", "v2").
+						Int("k3", 123).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						MapFields(fieldsData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						MapFields(fieldsData).
+						Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyMapFields", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logiface.MapFields(logger.Info(), fieldsData).
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkArgFields(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard)
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						Str("k1", "v1").
+						Str("k2", "v2").
+						Int("k3", 123).
+						Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard)))
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						ArgFields[any](nil, "k1", "v1", "k2", "v2", "k3", 123).
+						Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().
+						ArgFields[any](nil, "k1", "v1", "k2", "v2", "k3", 123).
+						Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyArgFields", func(b *testing.B) {
+				logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logiface.ArgFields[any](logger.Info(), nil, "k1", "v1", "k2", "v2", "k3", 123).
+							Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkContextSlice(b *testing.B) {
+	sliceData := []string{"a", "b", "c", "d"}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
+				Array("k", zerolog.Arr().Str("a").Str("b").Str("c").Str("d")).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				Slice("k", sliceData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().
+				Clone().
+				Slice("k", sliceData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacySliceArray", func(b *testing.B) {
+				logger := logiface.SliceArray(
+					L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().Clone(),
+					"k", sliceData,
+				).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkContextMap(b *testing.B) {
+	mapData := map[string]string{"k1": "v1", "k2": "v2"}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
+				Dict("k", zerolog.Dict().Str("k1", "v1").Str("k2", "v2")).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				Map("k", mapData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().
+				Clone().
+				Map("k", mapData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyMapObject", func(b *testing.B) {
+				logger := logiface.MapObject(
+					L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().Clone(),
+					"k", mapData,
+				).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkContextMapFields(b *testing.B) {
+	fieldsData := map[string]any{"k1": "v1", "k2": "v2", "k3": 123}
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
+				Str("k1", "v1").
+				Str("k2", "v2").
+				Int("k3", 123).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				MapFields(fieldsData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().
+				Clone().
+				MapFields(fieldsData).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyMapFields", func(b *testing.B) {
+				logger := logiface.MapFields(
+					L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().Clone(),
+					fieldsData,
+				).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(shortMessage)
+					}
+				})
+			}},
+		},
+	}).Run(b)
+}
+
+func BenchmarkContextArgFields(b *testing.B) {
+	(VariantBenchmark{
+		Baseline: func(b *testing.B) {
+			logger := zerolog.New(io.Discard).With().
+				Str("k1", "v1").
+				Str("k2", "v2").
+				Int("k3", 123).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Msg(shortMessage)
+				}
+			})
+		},
+		Generic: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).
+				Clone().
+				ArgFields[any](nil, "k1", "v1", "k2", "v2", "k3", 123).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Interface: func(b *testing.B) {
+			logger := L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().
+				Clone().
+				ArgFields[any](nil, "k1", "v1", "k2", "v2", "k3", 123).
+				Logger()
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					logger.Info().Log(shortMessage)
+				}
+			})
+		},
+		Variants: []Variant{
+			{"legacyArgFields", func(b *testing.B) {
+				logger := logiface.ArgFields[any](
+					L.New(L.WithZerolog(zerolog.New(io.Discard))).Logger().Clone(),
+					nil, "k1", "v1", "k2", "v2", "k3", 123,
+				).Logger()
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						logger.Info().Log(shortMessage)
+					}
+				})
+			}},
 		},
 	}).Run(b)
 }

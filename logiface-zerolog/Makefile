@@ -63,6 +63,14 @@ BENCHMARK_NAMES = \
 	EventTemplate4_Disabled \
 	EventTemplate5_Enabled \
 	EventTemplate5_Disabled \
+	Slice_Str \
+	Map_Str \
+	MapFields \
+	ArgFields \
+	ContextSlice \
+	ContextMap \
+	ContextMapFields \
+	ContextArgFields \
 
 # must not be whitespace and must not be contained in BENCHMARK_NAMES, case insensitive
 BENCHMARK_NAME_SEPARATOR = =
