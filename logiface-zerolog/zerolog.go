@@ -58,7 +58,7 @@ func WithZerolog(logger zerolog.Logger) logiface.Option[*Event] {
 		L.WithWriter(&l),
 		L.WithEventFactory(&l),
 		L.WithEventReleaser(&l),
-		logiface.WithJSONSupport[*Event, *zerolog.Event, *zerolog.Array](&l),
+		L.WithJSONSupport(&l),
 	)
 }
 

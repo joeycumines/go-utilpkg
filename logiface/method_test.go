@@ -87,4 +87,34 @@ var (
 	_ commonFluentInterface[*mockSimpleEvent] = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
 	_ commonFluentInterface[*mockSimpleEvent] = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
 	_ commonFluentInterface[*mockSimpleEvent] = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ Parent[*mockSimpleEvent]                = (*Builder[*mockSimpleEvent])(nil)
+	_ Parent[*mockSimpleEvent]                = (*Context[*mockSimpleEvent])(nil)
+	_ Parent[*mockSimpleEvent]                = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]])(nil)
+	_ Parent[*mockSimpleEvent]                = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+	_ Parent[*mockSimpleEvent]                = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]])(nil)
+
+	_ = (*Builder[*mockSimpleEvent]).Slice[int]
+	_ = (*Builder[*mockSimpleEvent]).Map[string, int]
+	_ = (*Builder[*mockSimpleEvent]).MapFields[string, int]
+	_ = (*Builder[*mockSimpleEvent]).ArgFields[int]
+
+	_ = (*Context[*mockSimpleEvent]).Slice[int]
+	_ = (*Context[*mockSimpleEvent]).Map[string, int]
+	_ = (*Context[*mockSimpleEvent]).MapFields[string, int]
+	_ = (*Context[*mockSimpleEvent]).ArgFields[int]
+
+	_ = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]).Slice[int]
+	_ = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]).Map[string, int]
+	_ = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]).MapFields[string, int]
+	_ = (*Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]).ArgFields[int]
+
+	_ = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).Slice[int]
+	_ = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).Map[string, int]
+	_ = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).MapFields[string, int]
+	_ = (*ArrayBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).ArgFields[int]
+
+	_ = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).Slice[int]
+	_ = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).Map[string, int]
+	_ = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).MapFields[string, int]
+	_ = (*ObjectBuilder[*mockSimpleEvent, *Chain[*mockSimpleEvent, *Builder[*mockSimpleEvent]]]).ArgFields[int]
 )

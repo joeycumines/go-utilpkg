@@ -35,6 +35,10 @@ type (
 
 	// Parent models one of the fluent-style builder implementations, including
 	// [Builder], [Context], [ArrayBuilder], and others.
+	//
+	// In Go, interface methods cannot have type parameters. Consequently,
+	// generic methods such as Slice and Map are implemented on the concrete
+	// builder types rather than on Parent[E].
 	Parent[E Event] interface {
 		Enabled() bool
 		Root() *Logger[E]

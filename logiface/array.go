@@ -26,12 +26,15 @@ type (
 // Array starts building a new array, as a field of a given [Context],
 // [Builder] or [ArrayBuilder].
 //
-// In Go, generic methods are not allowed to introduce cyclic dependencies on
-// generic types, and cannot introduce further generic types.
+// This function is kept to avoid breaking backwards compatibility.
+// Prefer using the fluent Array methods on concrete builder types where available.
 func Array[E Event, P Parent[E]](p P) *ArrayBuilder[E, P] {
 	return ArrayWithKey[E, P](p, ``)
 }
 
+// ArrayWithKey is like [Array] but with an explicit key.
+//
+// This function is kept to avoid breaking backwards compatibility.
 func ArrayWithKey[E Event, P Parent[E]](p P, key string) (arr *ArrayBuilder[E, P]) {
 	if p.Enabled() {
 		arr = (*ArrayBuilder[E, P])(refPoolGet())
@@ -623,8 +626,10 @@ func (x *ArrayBuilder[E, P]) jsonWriteObject(key string, obj any) {
 	}
 }
 
-//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) objField(obj any, key string, val any) any {
+	if m, ok := obj.(map[string]any); ok {
+		return (defaultJSONSupport[E]{}).SetField(m, key, val)
+	}
 	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetField(obj.(map[string]any), key, val)
 	}
@@ -751,9 +756,8 @@ func (x *ArrayBuilder[E, P]) jsonNewArray(key string) any {
 	return x.arrNewArray(x.b)
 }
 
-//lint:ignore U1000 it is or will be used
 func (x *ArrayBuilder[E, P]) arrNewArray(arr any) any {
-	if x.jsonMustUseDefault() {
+	if x.jsonMustUseDefault() || !x.jsonSupport().CanAppendArray() {
 		return (defaultJSONSupport[E]{}).NewArray()
 	}
 	return x.p().arrNewArray(arr)
@@ -781,6 +785,9 @@ func (x *ArrayBuilder[E, P]) jsonWriteArray(key string, arr any) {
 }
 
 func (x *ArrayBuilder[E, P]) arrField(arr any, val any) any {
+	if a, ok := arr.([]any); ok {
+		return (defaultJSONSupport[E]{}).AppendField(a, val)
+	}
 	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendField(arr.([]any), val)
 	}

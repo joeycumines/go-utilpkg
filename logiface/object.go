@@ -16,10 +16,18 @@ type (
 	}
 )
 
+// Object starts building a new object, as a field of a given [Context],
+// [Builder] or related parent.
+//
+// This function is kept to avoid breaking backwards compatibility.
+// Prefer using the fluent Object methods on concrete builder types where available.
 func Object[E Event, P Parent[E]](p P) *ObjectBuilder[E, P] {
 	return ObjectWithKey[E, P](p, ``)
 }
 
+// ObjectWithKey is like [Object] but with an explicit key.
+//
+// This function is kept to avoid breaking backwards compatibility.
 func ObjectWithKey[E Event, P Parent[E]](p P, key string) (obj *ObjectBuilder[E, P]) {
 	if p.Enabled() {
 		obj = (*ObjectBuilder[E, P])(refPoolGet())
@@ -548,9 +556,8 @@ func (x *ObjectBuilder[E, P]) jsonNewObject(key string) any {
 	return x.objNewObject(x.b, key)
 }
 
-//lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objNewObject(obj any, key string) any {
-	if x.jsonMustUseDefault() {
+	if x.jsonMustUseDefault() || !x.jsonSupport().CanSetObject() {
 		return (defaultJSONSupport[E]{}).NewObject()
 	}
 	return x.p().objNewObject(obj, key)
@@ -576,6 +583,9 @@ func (x *ObjectBuilder[E, P]) jsonWriteObject(key string, obj any) {
 }
 
 func (x *ObjectBuilder[E, P]) objField(obj any, key string, val any) any {
+	if m, ok := obj.(map[string]any); ok {
+		return (defaultJSONSupport[E]{}).SetField(m, key, val)
+	}
 	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).SetField(obj.(map[string]any), key, val)
 	}
@@ -700,7 +710,7 @@ func (x *ObjectBuilder[E, P]) jsonNewArray(key string) any {
 
 //lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) objNewArray(obj any, key string) any {
-	if x.jsonMustUseDefault() {
+	if x.jsonMustUseDefault() || !x.jsonSupport().CanSetArray() {
 		return (defaultJSONSupport[E]{}).NewArray()
 	}
 	return x.p().objNewArray(obj, key)
@@ -725,8 +735,10 @@ func (x *ObjectBuilder[E, P]) jsonWriteArray(key string, arr any) {
 	}
 }
 
-//lint:ignore U1000 it is or will be used
 func (x *ObjectBuilder[E, P]) arrField(arr any, val any) any {
+	if a, ok := arr.([]any); ok {
+		return (defaultJSONSupport[E]{}).AppendField(a, val)
+	}
 	if x.jsonMustUseDefault() {
 		return (defaultJSONSupport[E]{}).AppendField(arr.([]any), val)
 	}

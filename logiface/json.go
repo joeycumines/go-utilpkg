@@ -226,10 +226,12 @@ func WithJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) Option[E]
 //
 // By default, maps of type `map[string]any` and slices of type `[]any` are used.
 //
-// Depending on your implementation, you may need the [WithJSONSupport]
-// function, instead.
-func (LoggerFactory[E]) WithJSONSupport(impl JSONSupport[E, any, any]) Option[E] {
-	return WithJSONSupport(impl)
+// The type parameters O and A are inferred from impl, so callers can write
+// L.WithJSONSupport(myImpl) without explicit type arguments.
+//
+// See also [WithJSONSupport].
+func (LoggerFactory[E]) WithJSONSupport[O any, A any](impl JSONSupport[E, O, A]) Option[E] {
+	return WithJSONSupport[E, O, A](impl)
 }
 
 func newJSONSupport[E Event, O any, A any](impl JSONSupport[E, O, A]) *jsonSupport[E] {
