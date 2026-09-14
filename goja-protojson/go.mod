@@ -3,9 +3,9 @@ module github.com/joeycumines/goja-protojson
 go 1.27.1
 
 require (
-	github.com/joeycumines/goja v0.0.0-20260908032945-d4801c8dd9f6
-	github.com/joeycumines/goja-protobuf v0.0.0-20260908033001-2e6ef76e1d9e
-	github.com/joeycumines/goja_nodejs v0.0.0-20260908033012-0698b49d6ed1
+	github.com/joeycumines/goja v0.0.0-20260914042445-00e64ed7db32
+	github.com/joeycumines/goja-protobuf v0.0.0-20260914042515-403ecbfa0baf
+	github.com/joeycumines/goja_nodejs v0.0.0-20260914042534-467aa0e03440
 	google.golang.org/protobuf v1.36.12
 )
 
