@@ -6,8 +6,8 @@ github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260908035720-54c96e4412a1 h1:
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260908035720-54c96e4412a1/go.mod h1:GDxgeJHBdDYTUbJd3dJF/Sflw5SeULvJCFZkTHE+B5Y=
 github.com/joeycumines/logiface v0.7.0 h1:SkQqJkLykRqmc2TfadY3s+ykhY+UoNlVeGCaWJ/s7Sc=
 github.com/joeycumines/logiface v0.7.0/go.mod h1:Ne7/IqTVsCoD6L5JywncxcUl9XnpF/iDhnybgucgJCE=
-github.com/joeycumines/logiface-testsuite v0.0.0-20260914042315-383179080870 h1:5XQQEPZJpIg/sRbsAmYGNBZxogwF928REPtMFW2us5o=
-github.com/joeycumines/logiface-testsuite v0.0.0-20260914042315-383179080870/go.mod h1:ts7O2LXTO+j7ZJ/od5j237UbsPYhaL1alcnjN83X9GU=
+github.com/joeycumines/logiface-testsuite v0.0.0-20260914043441-7a06f94744f9 h1:SSCzK2joi3zYyPZpr+O4mhZN6jXykhJCI6PFOKo8uG4=
+github.com/joeycumines/logiface-testsuite v0.0.0-20260914043441-7a06f94744f9/go.mod h1:wuRv6aNDW0DEYOTo080GcXL5DYICTbDZ1x6RJSx2bdM=
 github.com/joeycumines/stumpy v0.4.1 h1:4idZEq/2Fi6mAy9sdk8j+P+ENlaLh1S8c9ymZQLoNzA=
 github.com/joeycumines/stumpy v0.4.1/go.mod h1:qy2xFa8+dwh5DlgWa1WlZqld+1wyGVJEVwZlRNJvR6E=
 golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba h1:Ck8QetSgk912qxWLMCKxd0in+aiyBQyDSMae6e/xmpU=

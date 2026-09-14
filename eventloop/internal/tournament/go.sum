@@ -14,10 +14,10 @@ github.com/joeycumines/go-catrate v0.0.0-20260914042225-9038431973e1 h1:i0SCUfaZ
 github.com/joeycumines/go-catrate v0.0.0-20260914042225-9038431973e1/go.mod h1:mjAh8KZ9z7HgMUWvEdHbvK7hE3/mAirLEiM3hCM3JWE=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260908035720-54c96e4412a1 h1:nsXzY+CLB4JXeCiX66xUtP9aq0cwRrFNKLmQdIb1uck=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260908035720-54c96e4412a1/go.mod h1:GDxgeJHBdDYTUbJd3dJF/Sflw5SeULvJCFZkTHE+B5Y=
-github.com/joeycumines/goja v0.0.0-20260914042445-00e64ed7db32 h1:DPYxuKzhIegtfaLOwgm4WLsJpfsCr8t5sGPl6/ncieQ=
-github.com/joeycumines/goja v0.0.0-20260914042445-00e64ed7db32/go.mod h1:qRgwg99B0JNZl3RMMQjWKtqPn5OZNIJh4apl3ASZEJc=
-github.com/joeycumines/goja_nodejs v0.0.0-20260914042534-467aa0e03440 h1:oBVlDb0sm1irOW01k8kv22AwybDNA5OpeA0VtIaWCmE=
-github.com/joeycumines/goja_nodejs v0.0.0-20260914042534-467aa0e03440/go.mod h1:YqTye/5oz55yAoK/ZnddZwOVMI0RADA/+D2iE0Phby0=
+github.com/joeycumines/goja v0.0.0-20260914043515-8f59e7caeb25 h1:pEGzE12OYPsEm8j7hlFvWv+D+CQTRu6KdlmatUsVS4s=
+github.com/joeycumines/goja v0.0.0-20260914043515-8f59e7caeb25/go.mod h1:BfMkGiyP8PfE2oC4QslzVeAnD+EUl9ByrQxWFAmAWJY=
+github.com/joeycumines/goja_nodejs v0.0.0-20260914043542-b894526f2392 h1:gGTSkir0i9QgYCUtB23QDYzNzsPolyzWkLpHVkZn+mE=
+github.com/joeycumines/goja_nodejs v0.0.0-20260914043542-b894526f2392/go.mod h1:UPDd4tfLQjbS+aSCsnBDKZZ3jGINQOCGQbJtW8LOZoE=
 github.com/joeycumines/goroutineid v1.1.1 h1:IwYFdv4vmojSjv8UuWK6DvaMO2jgI2uWmG3RI7G4exs=
 github.com/joeycumines/goroutineid v1.1.1/go.mod h1:FwBG25vzdQ//I2VtrHMaZEA1ko13ksMWRqV411Mlyms=
 github.com/joeycumines/logiface v0.7.0 h1:SkQqJkLykRqmc2TfadY3s+ykhY+UoNlVeGCaWJ/s7Sc=

@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217
-	github.com/joeycumines/goja v0.0.0-20260914042445-00e64ed7db32
+	github.com/joeycumines/goja v0.0.0-20260914043515-8f59e7caeb25
 	go.uber.org/goleak v1.3.0
 	golang.org/x/net v0.59.0
 	golang.org/x/text v0.42.0
