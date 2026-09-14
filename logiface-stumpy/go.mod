@@ -3,13 +3,13 @@ module github.com/joeycumines/stumpy
 go 1.27.1
 
 require (
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260907140453-b92e84e67ee5
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260908035720-54c96e4412a1
 	github.com/joeycumines/logiface v0.6.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20260825080218-cf5c438a874d
+	github.com/joeycumines/logiface-testsuite v0.0.0-20260908032851-3b2e42d93aa5
 )
 
 require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20260825080149-21d1636aba2d // indirect
-	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20260908032823-dccf85e24e23 // indirect
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 )

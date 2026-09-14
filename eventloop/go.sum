@@ -1,7 +1,7 @@
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/joeycumines/go-catrate v0.0.0-20260825080149-21d1636aba2d h1:wVYUntUJLshftVmdOm9Px9cKZbEFb1cBtP4XeHV6M7Y=
-github.com/joeycumines/go-catrate v0.0.0-20260825080149-21d1636aba2d/go.mod h1:TdrX/GNWrY/JD0P+YEV5lelsdBnZaxT57XMVKppJPQs=
+github.com/joeycumines/go-catrate v0.0.0-20260908032823-dccf85e24e23 h1:eJyg/IR15Wr7beme7yJ+sot1rHZSOwC1zvB8xO32GU4=
+github.com/joeycumines/go-catrate v0.0.0-20260908032823-dccf85e24e23/go.mod h1:jEYWqs95CRuuCEGlFnAlJMbKplE8Cza3SQ+i1W9x7fc=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260820000213-e3e956b87226 h1:9Dpa8/M1HmcKJO34nPoZia8dRi2pTRKbMDJxkzp04Qg=
 github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20260820000213-e3e956b87226/go.mod h1:6H6lOhkPxuw7XBox7lLlVWdTenc7KmAV/y1RXhBLSXk=
 github.com/joeycumines/goroutineid v1.1.1 h1:IwYFdv4vmojSjv8UuWK6DvaMO2jgI2uWmG3RI7G4exs=
@@ -10,7 +10,7 @@ github.com/joeycumines/logiface v0.6.0 h1:HobBs7BQHAyR3j4xjQwNUosJ+2AzHWP9c+BLfl
 github.com/joeycumines/logiface v0.6.0/go.mod h1:S2wuV+BN8nJnucBnLIFzuTtEIb+Rr04EbU3HhP9z58U=
 github.com/joeycumines/stumpy v0.4.0 h1:kwfEEUz1s+iBV+HCbPj3f3FhYrk/+pE7fMoObG0UWSk=
 github.com/joeycumines/stumpy v0.4.0/go.mod h1:7O+1/1NVy5a2dRwFuZNKrvtjYhtMSUkdmylD7FqNqyo=
-golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa h1:QSyA8ishJCyT21kER9KwNt0b7BM3iRK4x9QXhjN5Fdk=
-golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa/go.mod h1:zeBbvyFKDaLwa7CH/zI8KXt7gTl14SF7sO08Pl5jBCM=
-golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
-golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba h1:Ck8QetSgk912qxWLMCKxd0in+aiyBQyDSMae6e/xmpU=
+golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba/go.mod h1:50RgIsmK7OwqzTTeqcSXQW8SswW0o8fRcDxmqGluJ8E=
+golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
+golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=

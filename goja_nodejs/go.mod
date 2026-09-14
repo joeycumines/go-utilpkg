@@ -4,10 +4,10 @@ go 1.27.1
 
 require (
 	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217
-	github.com/joeycumines/goja v0.0.0-20260825080301-3790b08373a0
+	github.com/joeycumines/goja v0.0.0-20260908032945-d4801c8dd9f6
 	go.uber.org/goleak v1.3.0
-	golang.org/x/net v0.58.0
-	golang.org/x/text v0.41.0
+	golang.org/x/net v0.59.0
+	golang.org/x/text v0.42.0
 )
 
 require (
