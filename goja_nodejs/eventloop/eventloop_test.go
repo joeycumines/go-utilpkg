@@ -2,6 +2,7 @@ package eventloop
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,6 +11,29 @@ import (
 
 	"go.uber.org/goleak"
 )
+
+// newTestLoop returns an event loop that is reclaimed when the test ends.
+//
+// The loop's timer and interval goroutines deliver their work by sending on
+// the loop's unbuffered job channel. Once a loop stops running, nothing drains
+// that channel again, so those goroutines park on the send for the life of the
+// process. Terminate() is the only call that drains the channel and lets them
+// exit, which is why it is registered as cleanup here: without it every test
+// leaks goroutines that later surface as unrelated failures in whichever test
+// happens to check for leaks.
+func newTestLoop(t *testing.T) *EventLoop {
+	t.Helper()
+
+	return newTestLoopWith(t)
+}
+
+func newTestLoopWith(t *testing.T, opts ...Option) *EventLoop {
+	t.Helper()
+
+	loop := NewEventLoop(opts...)
+	t.Cleanup(loop.Terminate)
+	return loop
+}
 
 func TestRun(t *testing.T) {
 	t.Parallel()
@@ -20,7 +44,7 @@ func TestRun(t *testing.T) {
 	}, 1000);
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +86,7 @@ func TestStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	startTime := time.Now()
 	loop.Start()
 
@@ -105,7 +129,7 @@ func TestStartInForeground(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	startTime := time.Now()
 	go loop.StartInForeground()
 
@@ -147,7 +171,7 @@ func TestInterval(t *testing.T) {
 	console.log("Started");
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +212,7 @@ func TestImmediate(t *testing.T) {
 	cb("Started");
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +240,7 @@ func TestImmediate(t *testing.T) {
 }
 
 func TestRunNoSchedule(t *testing.T) {
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	fired := false
 	loop.Run(func(vm *goja.Runtime) { // should not hang
 		fired = true
@@ -233,7 +257,7 @@ func TestRunWithConsole(t *testing.T) {
 	console.log("Started");
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -245,12 +269,9 @@ func TestRunWithConsole(t *testing.T) {
 		t.Fatal("Call to console.log generated an error", err)
 	}
 
-	loop = NewEventLoop(EnableConsole(true))
+	loop2 := newTestLoopWith(t, EnableConsole(true))
 	prg, err = goja.Compile("main.js", SCRIPT, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	loop.Run(func(vm *goja.Runtime) {
+	loop2.Run(func(vm *goja.Runtime) {
 		_, err = vm.RunProgram(prg)
 	})
 	if err != nil {
@@ -263,7 +284,7 @@ func TestRunNoConsole(t *testing.T) {
 	console.log("Started");
 	`
 
-	loop := NewEventLoop(EnableConsole(false))
+	loop := newTestLoopWith(t, EnableConsole(false))
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -289,7 +310,7 @@ func TestClearIntervalRace(t *testing.T) {
 	clearInterval(t);
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -306,7 +327,7 @@ func TestClearIntervalRace(t *testing.T) {
 func TestNativeTimeout(t *testing.T) {
 	t.Parallel()
 	fired := false
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.SetTimeout(func(*goja.Runtime) {
 		fired = true
 	}, 1*time.Second)
@@ -321,7 +342,7 @@ func TestNativeTimeout(t *testing.T) {
 func TestNativeClearTimeout(t *testing.T) {
 	t.Parallel()
 	fired := false
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	timer := loop.SetTimeout(func(*goja.Runtime) {
 		fired = true
 	}, 2*time.Second)
@@ -339,7 +360,7 @@ func TestNativeClearTimeout(t *testing.T) {
 func TestNativeInterval(t *testing.T) {
 	t.Parallel()
 	count := 0
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	var i *Interval
 	i = loop.SetInterval(func(*goja.Runtime) {
 		t.Log("tick")
@@ -359,7 +380,7 @@ func TestNativeInterval(t *testing.T) {
 func TestNativeClearInterval(t *testing.T) {
 	t.Parallel()
 	count := 0
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.Run(func(*goja.Runtime) {
 		i := loop.SetInterval(func(*goja.Runtime) {
 			t.Log("tick")
@@ -375,7 +396,7 @@ func TestNativeClearInterval(t *testing.T) {
 
 func TestSetAndClearOnStoppedLoop(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	timeout := loop.SetTimeout(func(runtime *goja.Runtime) {
 		panic("must not run")
 	}, 1*time.Millisecond)
@@ -387,7 +408,7 @@ func TestSetAndClearOnStoppedLoop(t *testing.T) {
 
 func TestSetTimeoutConcurrent(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.Start()
 	ch := make(chan struct{}, 1)
 	loop.SetTimeout(func(*goja.Runtime) {
@@ -399,7 +420,7 @@ func TestSetTimeoutConcurrent(t *testing.T) {
 
 func TestClearTimeoutConcurrent(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.Start()
 	timer := loop.SetTimeout(func(*goja.Runtime) {
 	}, 100*time.Millisecond)
@@ -412,7 +433,7 @@ func TestClearTimeoutConcurrent(t *testing.T) {
 
 func TestClearIntervalConcurrent(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.Start()
 	ch := make(chan struct{}, 1)
 	i := loop.SetInterval(func(*goja.Runtime) {
@@ -429,34 +450,72 @@ func TestClearIntervalConcurrent(t *testing.T) {
 
 func TestRunOnStoppedLoop(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	var failed int32
-	done := make(chan struct{})
+	stop := make(chan struct{})
+	// Both goroutines below loop until the test's verdict is known. Whichever
+	// way the test ends, closing stop releases them: otherwise they keep
+	// starting and stopping the loop forever and leak into later tests, which
+	// then fail their own goroutine-leak checks.
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		for atomic.LoadInt32(&failed) == 0 {
+			select {
+			case <-stop:
+				return
+			default:
+			}
 			loop.Start()
 			time.Sleep(10 * time.Millisecond)
 			loop.Stop()
 		}
 	}()
 	go func() {
+		defer wg.Done()
 		for atomic.LoadInt32(&failed) == 0 {
+			select {
+			case <-stop:
+				return
+			default:
+			}
 			loop.RunOnLoop(func(*goja.Runtime) {
-				if !loop.running {
+				// loop.running is guarded by stopLock; the unsynchronised read
+				// that used to stand here raced with setRunning/Stop and could
+				// only ever observe the loop mid-cycle.
+				loop.stopLock.Lock()
+				running := loop.running
+				loop.stopLock.Unlock()
+				if !running {
 					atomic.StoreInt32(&failed, 1)
-					close(done)
 					return
 				}
 			})
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-	}
-	if atomic.LoadInt32(&failed) != 0 {
-		t.Fatal("running job on stopped loop")
+	// Give the pair a real chance to race the loop's start/stop cycle before
+	// declaring the loop healthy: a single scheduling window proves little.
+	deadline := time.After(5 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-deadline:
+			if atomic.LoadInt32(&failed) != 0 {
+				t.Fatal("running job on stopped loop")
+			}
+			close(stop)
+			wg.Wait()
+			return
+		case <-ticker.C:
+			if atomic.LoadInt32(&failed) != 0 {
+				close(stop)
+				wg.Wait()
+				t.Fatal("running job on stopped loop")
+			}
+		}
 	}
 }
 
@@ -472,7 +531,7 @@ func TestPromise(t *testing.T) {
 	});
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -504,7 +563,7 @@ func TestPromiseNative(t *testing.T) {
 	});
 	`
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	prg, err := goja.Compile("main.js", SCRIPT, false)
 	if err != nil {
 		t.Fatal(err)
@@ -551,7 +610,7 @@ func TestPromiseNative(t *testing.T) {
 
 func TestEventLoop_StopNoWait(t *testing.T) {
 	t.Parallel()
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	var ran int32
 	loop.Run(func(runtime *goja.Runtime) {
 		loop.SetTimeout(func(*goja.Runtime) {
@@ -590,7 +649,7 @@ func TestEventLoop_ClearRunningTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 
 	loop.Run(func(vm *goja.Runtime) {
 		_, err = vm.RunProgram(prg)
@@ -612,7 +671,7 @@ func TestEventLoop_ClearRunningTimeout(t *testing.T) {
 func TestEventLoop_Terminate(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	loop := NewEventLoop()
+	loop := newTestLoop(t)
 	loop.Start()
 	interval := loop.SetInterval(func(vm *goja.Runtime) {}, 10*time.Millisecond)
 	time.Sleep(500 * time.Millisecond)

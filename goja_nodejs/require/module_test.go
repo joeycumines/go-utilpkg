@@ -499,6 +499,25 @@ func testsetup() (string, func(), error) {
 	}, nil
 }
 
+// chdirTemp switches the process into a fresh temporary directory for the
+// duration of the test and restores the previous working directory
+// afterwards. The working directory is process-global state, so a test that
+// leaves it pointing at a directory it is about to delete poisons every test
+// that runs later and relies on a relative path.
+func chdirTemp(t *testing.T) {
+	t.Helper()
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Errorf("restoring working directory to %q: %v", orig, err)
+		}
+	})
+}
+
 func TestDefaultModuleLoader(t *testing.T) {
 	workdir, teardown, err := testsetup()
 	if err != nil {
@@ -506,6 +525,7 @@ func TestDefaultModuleLoader(t *testing.T) {
 	}
 	defer teardown()
 
+	chdirTemp(t)
 	err = os.Chdir(workdir)
 	if err != nil {
 		t.Fatal(err)
@@ -541,6 +561,7 @@ func TestDefaultPathResolver(t *testing.T) {
 	}
 	defer teardown()
 
+	chdirTemp(t)
 	err = os.Chdir(workdir)
 	if err != nil {
 		t.Fatal(err)
