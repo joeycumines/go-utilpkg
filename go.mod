@@ -17,11 +17,11 @@ require (
 	github.com/yuin/goldmark v1.8.6 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/perf v0.0.0-20260908200009-22c9c6c9d4da // indirect
+	golang.org/x/perf v0.0.0-20260929162123-406019bb8b68 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260910141331-15ceca2b0a1f // indirect
-	golang.org/x/tools v0.50.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
 	honnef.co/go/tools v0.8.1 // indirect
