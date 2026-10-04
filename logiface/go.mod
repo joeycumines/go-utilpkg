@@ -9,4 +9,4 @@ require (
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 )
 
-require github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20261004000403-a7239459b33c // indirect
+require github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20261004003708-02f3b5872cb4 // indirect
