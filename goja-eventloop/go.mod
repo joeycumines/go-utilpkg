@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/joeycumines/go-eventloop v0.1.0
-	github.com/joeycumines/goja v0.0.0-20261004064136-6992f68f2ee1
+	github.com/joeycumines/goja v0.0.0-20261004072635-ac0ea828aa82
 	github.com/joeycumines/logiface v0.7.0
 	golang.org/x/mod v0.41.0
 )

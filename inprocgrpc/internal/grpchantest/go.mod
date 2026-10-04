@@ -7,7 +7,7 @@ replace github.com/joeycumines/go-inprocgrpc => ../..
 require (
 	github.com/fullstorydev/grpchan v1.1.2
 	github.com/joeycumines/go-eventloop v0.1.0
-	github.com/joeycumines/go-inprocgrpc v0.0.0-20261004064210-03533ae8a78f
+	github.com/joeycumines/go-inprocgrpc v0.1.0
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 )
