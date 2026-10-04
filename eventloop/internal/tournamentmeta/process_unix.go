@@ -8,6 +8,15 @@ import (
 	"os/exec"
 	"slices"
 	"syscall"
+	"time"
+)
+
+// groupLivenessSettleWindow bounds how long an ambiguous process-group liveness
+// probe is retried while the group finishes unregistering. groupLivenessSettleInterval
+// spaces those probes.
+const (
+	groupLivenessSettleWindow   = 50 * time.Millisecond
+	groupLivenessSettleInterval = time.Millisecond
 )
 
 type ownedProcess struct {
@@ -64,18 +73,54 @@ func (process *ownedProcess) signal(value syscall.Signal) error {
 	if errors.Is(err, syscall.ESRCH) {
 		return nil
 	}
+	// A group signal can report EPERM for a scope that is already tearing down.
+	// Resolve it through the membership probe ownedProcess.alive uses so a
+	// signal and a liveness observation of one scope never disagree.
+	if errors.Is(err, syscall.EPERM) {
+		if alive, aliveErr := process.alive(); aliveErr == nil && !alive {
+			return nil
+		}
+	}
 	return err
 }
 
 func (process *ownedProcess) alive() (bool, error) {
 	err := syscall.Kill(-process.pid, 0)
-	if err == nil || errors.Is(err, syscall.EPERM) {
+	if err == nil {
 		return true, nil
+	}
+	// Teardown makes repeated probes of one process group disagree: instrumented
+	// runs show the same pgid reporting EPERM on successive probes and ESRCH
+	// once the group unregisters. A single probe is therefore not decisive.
+	if errors.Is(err, syscall.EPERM) {
+		return process.settleGroupLiveness()
 	}
 	if errors.Is(err, syscall.ESRCH) {
 		return false, nil
 	}
 	return false, err
+}
+
+// settleGroupLiveness re-probes an EPERM group until it answers ESRCH, which
+// is the only observation that proves the scope is gone. A scope that never
+// settles is reported live so containment stays conservative.
+func (process *ownedProcess) settleGroupLiveness() (bool, error) {
+	deadline := time.Now().Add(groupLivenessSettleWindow)
+	for {
+		err := syscall.Kill(-process.pid, 0)
+		switch {
+		case err == nil:
+			return true, nil
+		case errors.Is(err, syscall.ESRCH):
+			return false, nil
+		case !errors.Is(err, syscall.EPERM):
+			return false, err
+		}
+		if time.Now().After(deadline) {
+			return true, nil
+		}
+		time.Sleep(groupLivenessSettleInterval)
+	}
 }
 
 func (process *ownedProcess) close() error {

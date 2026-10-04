@@ -250,6 +250,13 @@ func stopOwnedProcess(scope *ownedProcess, wait <-chan error, waitAlreadyReceive
 			errs = append(errs, errors.New("process scope remained live after force deadline"))
 			break
 		}
+		// A group member can fork while the first sweep is in flight, escaping
+		// a kill that was already delivered to every existing member. Re-signal
+		// while the scope is still live so the escape window cannot outlive the
+		// deadline.
+		if err := scope.kill(); err != nil {
+			errs = append(errs, fmt.Errorf("force process scope: %w", err))
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	return errors.Join(errs...)

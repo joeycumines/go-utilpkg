@@ -153,22 +153,44 @@ func Test_CancelTimers_Terminated(t *testing.T) {
 	}
 }
 
-func Test_safeExecuteFn_Nil(t *testing.T) {
-	loop, err := New()
+// A nil callback must be rejected before callback admission, so it can never
+// be observed as an executed user callback. Substituting a placeholder and
+// executing it would fire BeforeCallbackAdmission and record a callback
+// sample in user-visible metrics, both of which are real behavioral changes.
+func assertNilCallbackNotAdmitted(t *testing.T, call func(loop *Loop, fn func())) {
+	t.Helper()
+	loop, err := New(WithMetrics(true))
 	if err != nil {
 		t.Fatal(err)
 	}
 	registerLoopCleanupT(t, loop)
-	loop.safeExecuteFn(nil)
+
+	admissions := 0
+	loop.testHooks = &loopTestHooks{
+		BeforeCallbackAdmission: func() { admissions++ },
+	}
+
+	before := loop.Metrics()
+	call(loop, nil)
+	after := loop.Metrics()
+
+	if admissions != 0 {
+		t.Fatalf("nil callback reached callback admission %d times, want 0", admissions)
+	}
+	if after.Latency.Count != before.Latency.Count {
+		t.Fatalf("nil callback recorded %d user callbacks, want 0", after.Latency.Count-before.Latency.Count)
+	}
+	if after.TPS != before.TPS {
+		t.Fatalf("nil callback moved TPS from %v to %v, want no throughput sample", before.TPS, after.TPS)
+	}
+}
+
+func Test_safeExecuteFn_Nil(t *testing.T) {
+	assertNilCallbackNotAdmitted(t, func(loop *Loop, fn func()) { loop.safeExecuteFn(fn) })
 }
 
 func Test_safeExecute_Nil(t *testing.T) {
-	loop, err := New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	registerLoopCleanupT(t, loop)
-	loop.safeExecute(nil)
+	assertNilCallbackNotAdmitted(t, func(loop *Loop, fn func()) { loop.safeExecute(fn) })
 }
 
 func Test_promise_ToChannel_AlreadySettled(t *testing.T) {

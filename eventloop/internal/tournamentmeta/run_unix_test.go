@@ -89,11 +89,17 @@ func TestRunCommandKillsTermIgnoringDescendant(t *testing.T) {
 	withProcessDeadlines(t, 100*time.Millisecond, time.Second)
 	sourceRoot := tempPhysicalDir(t)
 	pidPath := filepath.Join(sourceRoot, "descendant.pid")
+	// The wrapper's deadline starts once the child is forked, so a deadline short
+	// enough to keep the test quick can expire before the shell has published
+	// the descendant PID. Wait for that PID before idling so the fixture always
+	// asserts on a descendant it actually created, and give the deadline enough
+	// room to cover shell startup on a loaded host.
 	script := "trap 'exit 0' TERM; " +
 		"(trap '' TERM; while :; do /bin/sleep 1; done) & " +
 		"printf '%s' $! > " + shellQuote(pidPath) + "; " +
+		"while [ ! -s " + shellQuote(pidPath) + " ]; do :; done; " +
 		"while :; do /bin/sleep 1; done"
-	code, status, _ := runShellRoot(t, sourceRoot, 50*time.Millisecond, script, nil)
+	code, status, _ := runShellRoot(t, sourceRoot, time.Second, script, nil)
 	if code != 124 || status.Reason != "timeout" || !status.ContainmentOK {
 		t.Fatalf("timeout = %d, %+v", code, status)
 	}
