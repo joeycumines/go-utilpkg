@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -413,15 +414,21 @@ func TestHandler_ErrorCases(t *testing.T) {
 				setTrailerCalled = true
 			},
 		}
-		closeSendCalled := false
+		// closeSendCalled is closed by onCloseSend, which the handler only
+		// invokes once the s2c stream has reported io.EOF. The c2s RecvMsg
+		// stays parked until then, which orders the two forwarding goroutines
+		// deterministically instead of relying on a sleep to lose the race.
+		closeSendCalled := make(chan struct{})
+		releaseC2S := make(chan struct{})
+		var closeSendOnce sync.Once
 		clientStream := &mockClientStream{
 			onRecvMsg: func(m any) error {
-				// Give time for s2c to be processed first
-				time.Sleep(50 * time.Millisecond)
+				// Park until the s2c branch has run (see releaseC2S below).
+				<-releaseC2S
 				return io.EOF
 			},
 			onCloseSend: func() error {
-				closeSendCalled = true
+				closeSendOnce.Do(func() { close(closeSendCalled) })
 				return nil
 			},
 			onTrailer: func() metadata.MD { return metadata.MD{} },
@@ -439,7 +446,34 @@ func TestHandler_ErrorCases(t *testing.T) {
 		}
 
 		handler := proxy.TransparentHandler(director)
-		err := handler(nil, serverStream)
+
+		// Run the handler in the background so the test can order the two
+		// forwarding goroutines. s2c reports io.EOF immediately, so the handler
+		// reaches its s2c branch (calling CloseSend) without any help; once the
+		// handler has consumed that result the parked c2s RecvMsg is released
+		// so the handler can complete via its c2s branch.
+		handlerDone := make(chan error, 1)
+		go func() { handlerDone <- handler(nil, serverStream) }()
+
+		// Wait for the s2c branch to have called CloseSend, then release c2s.
+		// The bound is a deadlock guard for the failure path only: the ordering
+		// itself is established by the channel handshake, not by elapsed time.
+		var err error
+		select {
+		case <-closeSendCalled:
+		case err = <-handlerDone:
+			t.Fatalf("handler returned before CloseSend was called: %v", err)
+		case <-time.After(30 * time.Second):
+			close(releaseC2S)
+			t.Fatal("timeout: CloseSend was not called")
+		}
+		close(releaseC2S)
+
+		select {
+		case err = <-handlerDone:
+		case <-time.After(30 * time.Second):
+			t.Fatal("timeout: handler did not return")
+		}
 
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -447,9 +481,8 @@ func TestHandler_ErrorCases(t *testing.T) {
 		if !newStreamCalled {
 			t.Error("expected NewStream to be called")
 		}
-		if !closeSendCalled {
-			t.Error("expected CloseSend to be called")
-		}
+		// the c2s RecvMsg only returns once this channel is closed, so
+		// reaching the assertions above proves CloseSend was called.
 		if !setTrailerCalled {
 			t.Error("expected SetTrailer to be called")
 		}
@@ -908,10 +941,15 @@ func TestForwardServerToClient_ErrorCases(t *testing.T) {
 		}
 
 		sendMsgErr := errors.New("send msg error")
+		// The handler's select over the two forwarding goroutines would pick
+		// arbitrarily if both were ready, and the c2s branch dereferences
+		// onTrailer (which this test intentionally leaves unset). Park the c2s
+		// RecvMsg until the handler has returned via the s2c branch, which makes
+		// the s2c branch the only ready case rather than merely the likelier one.
+		handlerDone := make(chan struct{})
 		clientStream := &mockClientStream{
 			onRecvMsg: func(m any) error {
-				// Give time for s2c error to be processed first
-				time.Sleep(50 * time.Millisecond)
+				<-handlerDone
 				return io.EOF
 			},
 			onSendMsg: func(m any) error {
@@ -933,6 +971,8 @@ func TestForwardServerToClient_ErrorCases(t *testing.T) {
 
 		handler := proxy.TransparentHandler(director)
 		err := handler(nil, serverStream)
+		// release the parked c2s goroutine now that the handler has returned
+		close(handlerDone)
 
 		// The s2c error should be processed first and cause the handler to return an error
 		if err == nil {
