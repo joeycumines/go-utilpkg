@@ -545,6 +545,66 @@ func TestConsole_WaitIdle_ResetOnChange(t *testing.T) {
 	}
 }
 
+// TestConsole_WaitIdle_StabilityCounterResetsOnChange verifies that WaitIdle
+// measures its stability window from the most recent output change. If the
+// internal stability counter is not reset when output changes, stability
+// accumulated before the change still counts toward the window and WaitIdle
+// reports idle well before output has actually been quiet for stableDuration.
+//
+// The assertion is on elapsed time rather than a deadline race, so scheduler
+// delay can only ever lengthen the measured window (never fail the test).
+func TestConsole_WaitIdle_StabilityCounterResetsOnChange(t *testing.T) {
+	c := &Console{}
+
+	const stableDuration = 400 * time.Millisecond
+
+	// Accumulate roughly half the required stable checks before changing output,
+	// so a stale counter would return noticeably earlier than a reset one.
+	const preChange = 200 * time.Millisecond
+
+	// Generous deadline: WaitIdle must succeed, so this only guards a hang.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	returned := make(chan time.Time, 1)
+	go func() {
+		err := c.WaitIdle(ctx, stableDuration)
+		if err != nil {
+			t.Errorf("WaitIdle: %v", err)
+		}
+		returned <- time.Now()
+	}()
+
+	time.Sleep(preChange)
+
+	changedAt := time.Now()
+	c.mu.Lock()
+	_, _ = c.output.WriteString("change")
+	c.mu.Unlock()
+
+	got := <-returned
+	elapsed := got.Sub(changedAt)
+
+	c.mu.RLock()
+	out := c.output.String()
+	c.mu.RUnlock()
+
+	// Guard the premise: the change must land before WaitIdle returned,
+	// otherwise this run measured nothing.
+	if !strings.Contains(out, "change") || !changedAt.Before(got) {
+		t.Fatalf("premise failed: output change did not precede return (changedAt=%v returned=%v out=%q)", changedAt, got, out)
+	}
+
+	// Consecutive stability checks are delivered no faster than WaitIdle's
+	// internal interval, so a full window can never elapse faster than
+	// stableDuration. A stale counter would return after only the remaining
+	// checks (~preChange worth), well under this floor.
+	const floor = stableDuration * 3 / 4
+	if elapsed < floor {
+		t.Fatalf("WaitIdle returned %v after the last output change, want >= %v: the stability window was not measured from the change", elapsed, floor)
+	}
+}
+
 func TestConsole_close_AlreadyClosed_ReturnsNil(t *testing.T) {
 	c := &Console{cancel: func() {}}
 	c.closed = true
