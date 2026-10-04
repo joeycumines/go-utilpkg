@@ -4,12 +4,12 @@ go 1.27.1
 
 require (
 	github.com/joeycumines/go-eventloop v0.1.0
-	github.com/joeycumines/go-inprocgrpc v0.0.0-20260914045328-1c11fc213599
-	github.com/joeycumines/goja v0.0.0-20260914045255-5c6e9f18dfe7
+	github.com/joeycumines/go-inprocgrpc v0.0.0-20261004064210-03533ae8a78f
+	github.com/joeycumines/goja v0.0.0-20261004064136-6992f68f2ee1
 	github.com/joeycumines/goja-eventloop v0.1.0
-	github.com/joeycumines/goja-protobuf v0.0.0-20260914045311-c181b8e073da
-	github.com/joeycumines/goja-protojson v0.0.0-20260914045317-bee7a3b5f69c
-	github.com/joeycumines/goja_nodejs v0.0.0-20260914045322-6f75c70c2cb9
+	github.com/joeycumines/goja-protobuf v0.0.0-20261004064154-5905febab9e1
+	github.com/joeycumines/goja-protojson v0.0.0-20261004064159-78c08b18457f
+	github.com/joeycumines/goja_nodejs v0.0.0-20261004064205-e8cd1f7cf87a
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12

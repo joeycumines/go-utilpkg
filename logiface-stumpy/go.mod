@@ -3,9 +3,9 @@ module github.com/joeycumines/stumpy
 go 1.27.1
 
 require (
-	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20261004003708-02f3b5872cb4
+	github.com/joeycumines/go-utilpkg/jsonenc v0.0.0-20261004061604-dac13c8f2375
 	github.com/joeycumines/logiface v0.7.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20260914043441-7a06f94744f9
+	github.com/joeycumines/logiface-testsuite v0.0.0-20261004064045-9501573b5c63
 )
 
 require (

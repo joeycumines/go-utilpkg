@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/joeycumines/logiface v0.7.0
-	github.com/joeycumines/logiface-testsuite v0.0.0-20260914043441-7a06f94744f9
+	github.com/joeycumines/logiface-testsuite v0.0.0-20261004064045-9501573b5c63
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 )
