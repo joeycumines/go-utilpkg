@@ -145,7 +145,16 @@ func (l *closeRaceLoop) Submit(fn func()) error {
 	return nil
 }
 
+// SubmitInternal runs the first submission only while the scheduler is live:
+// Done guarantees no accepted callback can still execute, so a submission
+// racing a closed loop must be refused, matching the Loop contract. A real
+// dead loop returns ErrLoopTerminated here.
 func (l *closeRaceLoop) SubmitInternal(fn func()) error {
+	select {
+	case <-l.done:
+		return status.Error(codes.Unavailable, "loop stopped")
+	default:
+	}
 	if l.internalCalls.Add(1) == 1 {
 		fn()
 	}

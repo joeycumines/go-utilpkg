@@ -7,6 +7,17 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// joinMetadata joins two metadata sets while preserving nil-ness: a result
+// with no entries is reported as nil so unset metadata never becomes an empty
+// non-nil MD on the way to the client.
+func joinMetadata(a, b metadata.MD) metadata.MD {
+	joined := metadata.Join(a, b)
+	if len(joined) == 0 {
+		return nil
+	}
+	return joined
+}
+
 func (r *rpcLifecycle) installSchedulerRecovery(
 	proof rpcPostDoneProof,
 	flight *terminalPreparationFlight,
@@ -31,14 +42,12 @@ func (r *rpcLifecycle) installSchedulerRecovery(
 		if observation.err == nil && preparation.validate != nil {
 			observation.err = normalizeRPCError(preparation.validate())
 		}
-		snapshot.ResponseHeaders = metadata.Join(
-			snapshot.ResponseHeaders,
-			preparation.headers,
-		)
-		snapshot.ResponseTrailers = metadata.Join(
-			snapshot.ResponseTrailers,
-			preparation.trailers,
-		)
+		// metadata.Join never returns nil, and DetachPostDone already
+		// materialized the snapshot metadata as a non-nil copy, so an empty
+		// result here must be normalized back to nil to match the live
+		// terminal-owner path, which leaves unset metadata nil.
+		snapshot.ResponseHeaders = joinMetadata(snapshot.ResponseHeaders, preparation.headers)
+		snapshot.ResponseTrailers = joinMetadata(snapshot.ResponseTrailers, preparation.trailers)
 		if preparation.sendResponse && observation.err == nil {
 			preparation.headersPublished = true
 			preparation.responseAccepted = true

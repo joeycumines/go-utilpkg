@@ -3,6 +3,8 @@ package inprocgrpc_test
 import (
 	"context"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,37 +16,86 @@ import (
 	inprocgrpc "github.com/joeycumines/go-inprocgrpc"
 )
 
-type offLoopUnaryServer struct {
-	loopBusy chan struct{}
-	loopFree chan struct{}
+// parkedLoop is a serial fake loop whose runner can be parked by a submitted
+// task, so later submissions queue deterministically behind it. busy is set
+// for as long as the parked task occupies the runner; any internal submission
+// observed while busy closes parkedSignal exactly once, which proves an owner
+// turn was admitted and queued undelivered. Owner turns are submitted through
+// SubmitInternal (rpcLifecycle.submitOwner), so the signal must live there.
+type parkedLoop struct {
+	done         chan struct{}
+	busy         atomic.Bool
+	parkedSignal chan struct{}
+	signalOnce   sync.Once
+	stop         chan struct{}
+	tasks        chan func()
 }
 
-func (s *offLoopUnaryServer) Unary(
-	_ context.Context,
-	in *wrapperspb.StringValue,
-) (*wrapperspb.StringValue, error) {
-	return &wrapperspb.StringValue{Value: "ok:" + in.GetValue()}, nil
+func newParkedLoop(t testing.TB) *parkedLoop {
+	l := &parkedLoop{
+		done:         make(chan struct{}),
+		parkedSignal: make(chan struct{}),
+		stop:         make(chan struct{}),
+		tasks:        make(chan func(), 16),
+	}
+	runnerExited := make(chan struct{})
+	go func() {
+		defer close(runnerExited)
+		for {
+			select {
+			case task := <-l.tasks:
+				task()
+			case <-l.stop:
+				return
+			}
+		}
+	}()
+	t.Cleanup(func() {
+		close(l.stop)
+		<-runnerExited
+	})
+	return l
 }
 
-func (s *offLoopUnaryServer) ServerStream(
-	*wrapperspb.StringValue,
-	grpc.ServerStream,
-) error {
-	return nil
+func (l *parkedLoop) Submit(task func()) error {
+	select {
+	case l.tasks <- task:
+		return nil
+	case <-l.stop:
+		return status.Error(codes.Unavailable, "loop stopped")
+	}
 }
 
-func (s *offLoopUnaryServer) ClientStream(grpc.ServerStream) error { return nil }
-func (s *offLoopUnaryServer) BidiStream(grpc.ServerStream) error   { return nil }
+func (l *parkedLoop) SubmitInternal(task func()) error {
+	// busy proves only that an owner turn was admitted and queued
+	// undelivered; in this flow the queued turn is the decode's receive turn,
+	// but the asserted invariant does not depend on which turn it is.
+	if l.busy.Load() {
+		l.signalOnce.Do(func() { close(l.parkedSignal) })
+	}
+	select {
+	case l.tasks <- task:
+		return nil
+	case <-l.stop:
+		return status.Error(codes.Unavailable, "loop stopped")
+	}
+}
+
+func (l *parkedLoop) Done() <-chan struct{} { return l.done }
 
 // Without the recvMu barrier the check reads recvCount as 0 and rejects a valid handler.
 func TestUnary_AdmittedReceiveAtHandlerReturn_CardinalityError(t *testing.T) {
-	loop := newTestLoop(t)
+	loop := newParkedLoop(t)
 	ch := mustNewChannel(t, inprocgrpc.WithLoop(loop))
 
-	srv := &offLoopUnaryServer{
-		loopBusy: make(chan struct{}),
-		loopFree: make(chan struct{}),
-	}
+	// The handler parks the loop runner, spawns the decode, waits until the
+	// decode's owner turn is provably queued behind the parked task, then
+	// returns while the receive is still undelivered. The unblocking task
+	// runs only after the handler's defer has taken recvMu and blocked on it,
+	// so the locked validation waits out the in-flight receive and must not
+	// report a spurious cardinality failure.
+	handlerReturning := make(chan struct{})
+	unblock := make(chan struct{})
 
 	desc := grpc.ServiceDesc{
 		ServiceName: "test.OffLoopUnary",
@@ -58,50 +109,76 @@ func TestUnary_AdmittedReceiveAtHandlerReturn_CardinalityError(t *testing.T) {
 					dec func(any) error,
 					_ grpc.UnaryServerInterceptor,
 				) (any, error) {
-					// Occupy the loop so the receive turn is admitted but cannot complete.
+					// Park the loop runner: this task occupies it until the
+					// unblock task below is queued behind it.
+					parked := make(chan struct{})
 					if err := loop.Submit(func() {
-						close(srv.loopBusy)
-						<-srv.loopFree
+						loop.busy.Store(true)
+						defer loop.busy.Store(false)
+						close(parked)
+						<-unblock
 					}); err != nil {
 						return nil, err
 					}
-					<-srv.loopBusy
+					<-parked
 
 					go func() {
 						in := new(wrapperspb.StringValue)
 						_ = dec(in)
 					}()
 
-					// Let the decode register its owner turn behind the
-					// blocked loop, then return while it is undelivered.
-					time.Sleep(50 * time.Millisecond)
-					go func() {
-						time.Sleep(250 * time.Millisecond)
-						close(srv.loopFree)
-					}()
+					// Prove the receive's owner turn is queued, then return
+					// with the receive still undelivered.
+					select {
+					case <-loop.parkedSignal:
+					case <-time.After(5 * time.Second):
+						t.Error("receive owner turn was never submitted")
+						close(unblock)
+						return nil, context.DeadlineExceeded
+					}
+					close(handlerReturning)
 					return &wrapperspb.StringValue{Value: "ok"}, nil
 				},
 			},
 		},
 	}
-	ch.RegisterService(&desc, srv)
+	ch.RegisterService(&desc, struct{}{})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
+	invokeResult := make(chan error, 1)
 	resp := new(wrapperspb.StringValue)
-	err := ch.Invoke(
-		ctx,
-		"/test.OffLoopUnary/Unary",
-		&wrapperspb.StringValue{Value: "hi"},
-		resp,
-	)
-	if err != nil {
-		if status.Code(err) == codes.Internal &&
-			strings.Contains(err.Error(), "must consume exactly one request") {
-			t.Fatalf("spurious cardinality error on a valid handler: %v", err)
+	go func() {
+		invokeResult <- ch.Invoke(
+			context.Background(),
+			"/test.OffLoopUnary/Unary",
+			&wrapperspb.StringValue{Value: "hi"},
+			resp,
+		)
+	}()
+
+	select {
+	case <-handlerReturning:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler never reached its return path")
+	}
+
+	// The handler returned and its defer is now blocked taking recvMu (the
+	// spawned decode registered the receive turn before returning, and
+	// RecvMsg holds recvMu from entry until its owner turn completes).
+	// Releasing the parked task lets the receive deliver, recvCount become 1,
+	// recvMu release, and the locked validation observe the consumed request.
+	close(unblock)
+
+	select {
+	case err := <-invokeResult:
+		if err != nil {
+			if status.Code(err) == codes.Internal &&
+				strings.Contains(err.Error(), "must consume exactly one request") {
+				t.Fatalf("spurious cardinality error on a valid handler: %v", err)
+			}
+			t.Fatalf("Invoke: %v", err)
 		}
-		t.Fatalf("Invoke: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Invoke never completed")
 	}
 	if resp.GetValue() != "ok" {
 		t.Fatalf("unexpected response: %q", resp.GetValue())

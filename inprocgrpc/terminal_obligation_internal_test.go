@@ -651,3 +651,46 @@ func TestAbandonedReceiveReleasesLatePayloadHandoff(t *testing.T) {
 		t.Fatal("abandoned response remains retained")
 	}
 }
+
+// A preparation that carries both a failing validate and a response must not
+// ship the response: the validation error claims the terminal, and
+// applyPreparation must not publish a message alongside it. No current caller
+// combines validate with sendResponse, so this pins the guard for future ones.
+func TestTerminalOwnerValidationSuppressesPreparedResponse(t *testing.T) {
+	loop := &signaledLiveLoop{
+		done:      make(chan struct{}),
+		submitted: make(chan struct{}, 1),
+	}
+	state := stream.NewRPCState("/test.Service/Call", 1)
+	life := newRPCLifecycle(loop, state, nil)
+
+	validateErr := cardinalityError(
+		"method must consume exactly one request message",
+	)
+	if !life.serverFinishPrepared(nil, &terminalPreparation{
+		validate: func() error { return validateErr },
+		response: &wrapperspb.StringValue{Value: "shipped"},
+		// sendResponse deliberately true: the response must be suppressed
+		// by the claimed validation error, not by the preparation shape.
+		sendResponse: true,
+	}) {
+		t.Fatal("graceful terminal did not win")
+	}
+	// The terminal owner applies synchronously inside scheduleTerminal's
+	// goroutine; materialReady closes when releaseOwner publishes its result,
+	// which happens after the preparation is applied.
+	<-life.materialReady
+
+	if !state.Responses.Closed() {
+		t.Fatal("terminal was not applied to the response stream")
+	}
+	if !state.Responses.Drained() {
+		t.Fatal("prepared response was published despite validation failure")
+	}
+	life.mu.RLock()
+	err := life.err
+	life.mu.RUnlock()
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("terminal error = %v, want the validation error", err)
+	}
+}

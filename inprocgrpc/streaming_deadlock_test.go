@@ -10,6 +10,7 @@ import (
 	"github.com/joeycumines/go-eventloop"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -619,6 +620,61 @@ func TestStream_NoMetadata_LeavesNilHeaderAndTrailer(t *testing.T) {
 		t.Errorf("headers = %#v, want nil", headers)
 	}
 	if trailers := clientStream.Trailer(); trailers != nil {
+		t.Errorf("trailers = %#v, want nil", trailers)
+	}
+}
+
+// A unary RPC whose handler sets no metadata must leave the grpc.Header and
+// grpc.Trailer call-option addresses nil, matching the streaming accessors
+// above: an empty non-nil MD here would be a client-visible regression
+// relative to the nil-for-unset contract the changelog documents.
+func TestUnary_NoMetadata_LeavesNilHeaderAndTrailer(t *testing.T) {
+	loop := newTestLoop(t)
+	ch := mustNewChannel(t, inprocgrpc.WithLoop(loop))
+
+	desc := grpc.ServiceDesc{
+		ServiceName: "test.NoMetadataUnary",
+		HandlerType: (*any)(nil),
+		Methods: []grpc.MethodDesc{{
+			MethodName: "Unary",
+			Handler: func(
+				_ any,
+				_ context.Context,
+				dec func(any) error,
+				_ grpc.UnaryServerInterceptor,
+			) (any, error) {
+				in := new(wrapperspb.StringValue)
+				if err := dec(in); err != nil {
+					return nil, err
+				}
+				return &wrapperspb.StringValue{Value: in.GetValue()}, nil
+			},
+		}},
+	}
+	ch.RegisterService(&desc, struct{}{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var headers, trailers metadata.MD
+	resp := new(wrapperspb.StringValue)
+	if err := ch.Invoke(
+		ctx,
+		"/test.NoMetadataUnary/Unary",
+		&wrapperspb.StringValue{Value: "req"},
+		resp,
+		grpc.Header(&headers),
+		grpc.Trailer(&trailers),
+	); err != nil {
+		t.Fatalf("Invoke: %v", err)
+	}
+	if resp.GetValue() != "req" {
+		t.Fatalf("unexpected response: %q", resp.GetValue())
+	}
+	if headers != nil {
+		t.Errorf("headers = %#v, want nil", headers)
+	}
+	if trailers != nil {
 		t.Errorf("trailers = %#v, want nil", trailers)
 	}
 }

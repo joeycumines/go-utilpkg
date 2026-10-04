@@ -670,6 +670,11 @@ func (r *rpcLifecycle) applyOwner(
 					r.mu.Lock()
 					r.err = err
 					r.mu.Unlock()
+					// A claimed validation error must not ship the prepared
+					// response; headers and trailers stay eligible because a
+					// claim-time error may coexist with published metadata.
+					prepare.response = nil
+					prepare.sendResponse = false
 				}
 			}
 			prepareErr := r.applyPreparation(&prepare)
