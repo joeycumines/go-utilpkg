@@ -348,12 +348,12 @@ func TestGetWithPoolUsage(t *testing.T) {
 		getID := Get()
 		ids[i] = getID
 
+		// Get() must report this goroutine's ID whichever path it took:
+		// Fast() when supported, Slow() (with the pooled buffer) otherwise.
+		// Both must agree with a direct Slow() call, so any Get() that
+		// returns the wrong ID fails here regardless of platform support.
 		if getID != slowID {
-			// Get() should match slow path when Fast() isn't supported
-			fastID := Fast()
-			if fastID == -1 && getID != slowID {
-				t.Errorf("iteration %d: Get()=%d != Slow()=%d", i, getID, slowID)
-			}
+			t.Errorf("iteration %d: Get()=%d != Slow()=%d (Fast()=%d)", i, getID, slowID, Fast())
 		}
 	}
 
