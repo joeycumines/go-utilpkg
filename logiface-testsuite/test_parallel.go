@@ -104,10 +104,17 @@ func TestParallel[E logiface.Event](t *testing.T, cfg Config[E]) {
 					case <-stop:
 						return
 					default:
-						if ID, ok := nextID(); ok {
-							log(ID)
-						}
 					}
+					// N.B. once the ids are exhausted there is no work left, so
+					// the worker must retire rather than spin; a spinning worker
+					// starves the reader goroutine (and every other parallel
+					// test sharing this process) of CPU, causing spurious
+					// receive timeouts.
+					ID, ok := nextID()
+					if !ok {
+						return
+					}
+					log(ID)
 				}
 			}()
 		}
