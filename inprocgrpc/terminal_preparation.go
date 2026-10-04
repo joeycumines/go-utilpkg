@@ -51,6 +51,7 @@ func (s *terminalPreparationStore) put(
 		sendResponse:     preparation.sendResponse,
 		responseAccepted: preparation.responseAccepted,
 		headersPublished: preparation.headersPublished,
+		validate:         preparation.validate,
 	})
 	return s.next, true
 }

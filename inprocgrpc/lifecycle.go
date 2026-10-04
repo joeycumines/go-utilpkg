@@ -105,6 +105,10 @@ type terminalPreparation struct {
 	sendResponse     bool
 	responseAccepted bool
 	headersPublished bool
+
+	// validate runs on the terminal owner, after all admitted owner turns
+	// settle. A non-nil result becomes the terminal error.
+	validate func() error
 }
 
 type recoveryMessage struct {
@@ -658,6 +662,16 @@ func (r *rpcLifecycle) applyOwner(
 			} else {
 				prepare = flight.snapshot()
 			}
+			if err == nil && prepare.validate != nil {
+				if validateErr := prepare.validate(); validateErr != nil {
+					// Claim the terminal error before application can
+					// substitute its own.
+					err = normalizeRPCError(validateErr)
+					r.mu.Lock()
+					r.err = err
+					r.mu.Unlock()
+				}
+			}
 			prepareErr := r.applyPreparation(&prepare)
 			if prepareErr != nil && err == nil {
 				err = normalizeRPCError(prepareErr)
@@ -696,10 +710,16 @@ func (r *rpcLifecycle) applyPreparation(
 	if prepare.err != nil {
 		return prepare.err
 	}
-	if err := r.state.SetHeaders(prepare.headers); err != nil {
-		return err
+	// SetHeaders/SetTrailers join into the state, so passing nil would turn a
+	// nil MD into an empty non-nil one and change what the client observes.
+	if !r.state.HeadersSent && len(prepare.headers) != 0 {
+		if err := r.state.SetHeaders(prepare.headers); err != nil {
+			return err
+		}
 	}
-	r.state.SetTrailers(prepare.trailers)
+	if len(prepare.trailers) != 0 {
+		r.state.SetTrailers(prepare.trailers)
+	}
 	if !prepare.sendResponse {
 		return nil
 	}

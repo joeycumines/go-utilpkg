@@ -27,6 +27,10 @@ func (r *rpcLifecycle) installSchedulerRecovery(
 		if observation.err == nil && preparation.err != nil {
 			observation.err = normalizeRPCError(preparation.err)
 		}
+		// The terminal owner never ran, so the deferred check runs here.
+		if observation.err == nil && preparation.validate != nil {
+			observation.err = normalizeRPCError(preparation.validate())
+		}
 		snapshot.ResponseHeaders = metadata.Join(
 			snapshot.ResponseHeaders,
 			preparation.headers,

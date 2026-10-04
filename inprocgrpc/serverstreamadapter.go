@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/joeycumines/go-inprocgrpc/internal/stream"
 	"google.golang.org/grpc"
@@ -26,8 +27,9 @@ type serverStreamAdapter struct {
 	sendMu sync.Mutex
 	recvMu sync.Mutex
 
-	sendCount     int
-	recvCount     int
+	// Incremented only on confirmed delivery, so a failed send does not count.
+	sendCount     atomic.Int64
+	recvCount     atomic.Int64
 	cloneDisabled bool
 	clientStreams bool
 	serverStreams bool
@@ -137,7 +139,7 @@ func (s *serverStreamAdapter) SendMsg(message any) error {
 	if isNil(message) {
 		return status.Error(codes.Internal, "message is nil")
 	}
-	if !s.serverStreams && s.sendCount != 0 {
+	if !s.serverStreams && s.sendCount.Load() != 0 {
 		err := cardinalityError("method returned more than one response message")
 		s.life.serverAbort(err)
 		return err
@@ -148,7 +150,6 @@ func (s *serverStreamAdapter) SendMsg(message any) error {
 		s.life.serverAbort(err)
 		return err
 	}
-	s.sendCount++
 	ch := make(chan error, 1)
 	if !s.life.scheduleOwner("server SendMsg", func(rpcOwnerCapability) {
 		if err := s.life.serverSendError(); err != nil {
@@ -163,6 +164,9 @@ func (s *serverStreamAdapter) SendMsg(message any) error {
 			if sendErr != nil {
 				ch <- sendErr
 				return
+			}
+			if !s.serverStreams {
+				s.sendCount.Add(1)
 			}
 			obligation, err := s.life.beginStatsObligation()
 			if err != nil {
@@ -203,7 +207,7 @@ func (s *serverStreamAdapter) RecvMsg(message any) error {
 	if isNil(message) {
 		return status.Error(codes.Internal, "message is nil")
 	}
-	if !s.clientStreams && s.recvCount != 0 {
+	if !s.clientStreams && s.recvCount.Load() != 0 {
 		return io.EOF
 	}
 	type receiveResult struct {
@@ -250,6 +254,11 @@ func (s *serverStreamAdapter) RecvMsg(message any) error {
 					s.life.endClientDelivery(deliveryID)
 					return
 				}
+				// Loop-side so completionCheck is fenced, but only after the
+				// handoff won, so an abandoned receive does not count.
+				if recvErr == nil && !s.clientStreams {
+					s.recvCount.Add(1)
+				}
 				ch <- result
 			})
 		},
@@ -295,7 +304,6 @@ func (s *serverStreamAdapter) RecvMsg(message any) error {
 		}
 		return normalizeRPCError(result.err)
 	}
-	s.recvCount++
 	if err := s.copyMessage(message, result.msg); err != nil {
 		err = cloneError("copy request", err)
 		s.life.serverAbort(err)
@@ -305,22 +313,49 @@ func (s *serverStreamAdapter) RecvMsg(message any) error {
 	return nil
 }
 
+// Streaming handlers cannot take recvMu without deadlocking against an in-flight
+// RecvMsg, so they rely on completionCheck. Unary handlers use the locked variant.
 func (s *serverStreamAdapter) validateRequestCardinality() error {
-	s.recvMu.Lock()
-	defer s.recvMu.Unlock()
-	if !s.clientStreams && s.recvCount != 1 {
+	if s.clientStreams {
+		return nil
+	}
+	if s.recvCount.Load() != 1 {
 		return cardinalityError("method must consume exactly one request message")
 	}
 	return nil
 }
 
-func (s *serverStreamAdapter) validateCardinality() error {
+// The unary caller validates on the handler goroutine with no fence, so it must
+// hold recvMu to wait out a receive that is admitted but not yet delivered.
+func (s *serverStreamAdapter) validateRequestCardinalityLocked() error {
+	s.recvMu.Lock()
+	defer s.recvMu.Unlock()
+	if !s.clientStreams && s.recvCount.Load() != 1 {
+		return cardinalityError("method must consume exactly one request message")
+	}
+	return nil
+}
+
+// Defers the check to the terminal owner, which runs after every admitted owner
+// turn settles. A receive whose delivery callback has not yet fired is not an
+// owner turn, so its count is not yet visible here.
+func (s *serverStreamAdapter) finishValidation() error {
+	if !s.life.serverFinishPrepared(nil, &terminalPreparation{
+		validate: s.completionCheck,
+	}) {
+		return s.life.serverSendError()
+	}
+	return nil
+}
+
+func (s *serverStreamAdapter) completionCheck() error {
 	if err := s.validateRequestCardinality(); err != nil {
 		return err
 	}
-	s.sendMu.Lock()
-	defer s.sendMu.Unlock()
-	if !s.serverStreams && s.sendCount != 1 {
+	if s.serverStreams {
+		return nil
+	}
+	if s.sendCount.Load() != 1 {
 		return cardinalityError("method must return exactly one response message")
 	}
 	return nil

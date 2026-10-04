@@ -58,6 +58,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Unary responses without handler-set metadata report `nil` header/trailer** — A unary
+  handler that sets no header or trailer now yields a `nil` `metadata.MD` from
+  `grpc.Header`/`grpc.Trailer` call options, where an empty non-nil `metadata.MD{}` was
+  previously reported. This matches the streaming path, which already reported `nil`.
+  Consumers that treat `nil` and empty metadata equivalently are unaffected.
+
 - **BREAKING: `NewChannel` now panics on nil loop** — Previously returned an error; now panics
   since a nil loop is always a programming error. Signature changed from
   `func NewChannel(*Loop, ...Option) (*Channel, error)` to

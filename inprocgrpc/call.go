@@ -549,7 +549,7 @@ func (c *Channel) startUnary(
 			headers := cloneMetadata(transportStream.GetHeaders())
 			trailers := cloneMetadata(transportStream.GetTrailers())
 			var cloned any
-			if requestErr := server.validateRequestCardinality(); requestErr != nil &&
+			if requestErr := server.validateRequestCardinalityLocked(); requestErr != nil &&
 				(handlerErr == nil || errors.Is(handlerErr, io.EOF)) {
 				// Generated unary decoders report io.EOF when the client closes
 				// without its required request. Expose the transport cardinality
@@ -625,7 +625,7 @@ func (c *Channel) startStream(
 			handlerErr = target.stream.Handler(target.service, server)
 		}
 		if handlerErr == nil {
-			handlerErr = server.validateCardinality()
+			handlerErr = server.finishValidation()
 		}
 		returned = true
 	}()

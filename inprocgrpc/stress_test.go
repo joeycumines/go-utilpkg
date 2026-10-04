@@ -196,22 +196,28 @@ func TestStress_GoroutineLeakCheck(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	baselineGoroutines := runtime.NumGoroutine()
 
-	// Create and destroy 10 channels, each processing 100 RPCs.
-	for batch := range 10 {
-		ch := newTestChannel(t)
-		ctx := context.Background()
-		var wg sync.WaitGroup
-		wg.Add(100)
-		for i := range 100 {
-			go func() {
-				defer wg.Done()
-				req := &wrapperspb.StringValue{Value: fmt.Sprintf("batch%d-rpc%d", batch, i)}
-				resp := new(wrapperspb.StringValue)
-				_ = ch.Invoke(ctx, "/test.TestService/Unary", req, resp)
-			}()
+	// The churn runs in a subtest so its channels are torn down before the
+	// measurement. A subtest's cleanups fire when it returns, whereas this
+	// test's own cleanups would not run until after the measurement, leaving
+	// every loop alive and so measuring live-loop cost instead of leakage.
+	t.Run("churn", func(t *testing.T) {
+		// Create and destroy 10 channels, each processing 100 RPCs.
+		for batch := range 10 {
+			ch := newTestChannel(t)
+			ctx := context.Background()
+			var wg sync.WaitGroup
+			wg.Add(100)
+			for i := range 100 {
+				go func() {
+					defer wg.Done()
+					req := &wrapperspb.StringValue{Value: fmt.Sprintf("batch%d-rpc%d", batch, i)}
+					resp := new(wrapperspb.StringValue)
+					_ = ch.Invoke(ctx, "/test.TestService/Unary", req, resp)
+				}()
+			}
+			wg.Wait()
 		}
-		wg.Wait()
-	}
+	})
 
 	// Allow goroutines to settle.
 	runtime.GC()
@@ -221,8 +227,9 @@ func TestStress_GoroutineLeakCheck(t *testing.T) {
 	delta := finalGoroutines - baselineGoroutines
 	t.Logf("Goroutine leak check: baseline=%d final=%d delta=%d", baselineGoroutines, finalGoroutines, delta)
 
-	// Allow generous tolerance for test framework goroutines.
-	if delta > 30 {
+	// Every channel and its loop are now torn down, so the residue must be
+	// bounded by the test framework's own goroutines, not by the churn.
+	if delta > 10 {
 		t.Errorf("potential goroutine leak: %d goroutines above baseline", delta)
 	}
 }
