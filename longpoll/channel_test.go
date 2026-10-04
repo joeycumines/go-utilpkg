@@ -1,11 +1,13 @@
 package longpoll
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
+	"runtime/pprof"
 	"testing"
 	"time"
 )
@@ -156,6 +158,8 @@ func TestChannel(t *testing.T) {
 			expectedResult: io.EOF,
 		},
 		{
+			// the value must NOT become available before the partial timeout
+			// elapses, otherwise Channel would return it instead of timing out
 			name: "PartialTimeoutReached",
 			ctx:  context.Background(),
 			cfg: &ChannelConfig{
@@ -163,7 +167,10 @@ func TestChannel(t *testing.T) {
 				PartialTimeout: 50 * time.Millisecond,
 			},
 			channel: func() <-chan int {
-				ch := make(chan int)
+				// buffered, so the producer can always complete its send -
+				// Channel returns on the partial timeout, and never receives,
+				// so an unbuffered channel would strand the producer forever
+				ch := make(chan int, 1)
 				go func() {
 					time.Sleep(100 * time.Millisecond)
 					ch <- 1
@@ -203,6 +210,57 @@ func TestChannel(t *testing.T) {
 				t.Errorf("Expected result %v, got %v", tt.expectedResult, result)
 			}
 		})
+	}
+}
+
+// Guards against a test producer being stranded: Channel returning on a
+// partial timeout leaves its producer to send into a channel nobody will ever
+// receive from again, which parks that goroutine forever and leaks it into
+// every subsequent test in this package.
+//
+// The producer's own send must therefore be guaranteed to complete, without
+// this test receiving from the channel to unblock it.
+func TestChannel_partialTimeoutDoesNotStrandProducer(t *testing.T) {
+	const (
+		partialTimeout = 20 * time.Millisecond
+		producerDelay  = 40 * time.Millisecond
+		// a send into a buffered channel completes as soon as the value is
+		// queued; a generous ceiling that still fails fast if it is stranded
+		producerBudget = 2 * time.Second
+	)
+
+	// buffered, so the producer always completes its send
+	ch := make(chan int, 1)
+
+	producerDone := make(chan struct{})
+	go func() {
+		defer close(producerDone)
+		time.Sleep(producerDelay)
+		ch <- 1
+		close(ch)
+	}()
+
+	start := time.Now()
+	if err := Channel(context.Background(), &ChannelConfig{
+		MinSize:        -1,
+		PartialTimeout: partialTimeout,
+	}, ch, func(value int) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(start); elapsed < partialTimeout {
+		t.Fatalf(`Channel returned after %s, expected it to wait out the %s partial timeout`, elapsed, partialTimeout)
+	}
+
+	// deliberately do not receive from ch - that is the condition under which
+	// the producer is stranded. Only the producer's completion is awaited.
+	timer := time.NewTimer(producerBudget)
+	defer timer.Stop()
+	select {
+	case <-producerDone:
+	case <-timer.C:
+		buf := make([]byte, 1<<16)
+		_ = pprof.Lookup("goroutine").WriteTo(bytes.NewBuffer(buf), 1)
+		t.Fatalf(`producer stranded for longer than %s after Channel returned\n%s`, producerBudget, buf)
 	}
 }
 
