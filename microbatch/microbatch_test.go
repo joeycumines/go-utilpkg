@@ -291,6 +291,64 @@ func TestBatcher_Shutdown_jobInProgressCanceled(t *testing.T) {
 	}
 }
 
+// covers the documented "becomes canceled while waiting" half of Shutdown: a
+// live ctx that is canceled mid-wait must make Shutdown return ctx.Err() and
+// cancel the batcher, rather than continuing to wait for the processor.
+func TestBatcher_Shutdown_ContextCanceledMidWaitReturnsPromptly(t *testing.T) {
+	defer checkNumGoroutines(time.Second * 3)(t)
+
+	processorStarted := make(chan struct{})
+	releaseProcessor := make(chan struct{})
+	batcher := NewBatcher(&BatcherConfig{MaxSize: 1, FlushInterval: -1}, func(ctx context.Context, jobs []any) error {
+		close(processorStarted)
+		<-releaseProcessor
+		return ctx.Err()
+	})
+
+	if result, err := batcher.Submit(context.Background(), 1); err != nil || result == nil {
+		t.Fatalf("Submit: result=%v err=%v", result, err)
+	}
+	select {
+	case <-processorStarted:
+	case <-time.After(time.Second):
+		t.Fatal("processor did not start")
+	}
+
+	// live ctx, so Shutdown blocks waiting for the stuck processor
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- batcher.Shutdown(ctx) }()
+
+	// let Shutdown reach its wait, then cancel underneath it
+	time.Sleep(time.Millisecond * 30)
+	cancel()
+
+	select {
+	case err := <-shutdownDone:
+		if err != context.Canceled {
+			t.Fatalf("Shutdown = %v, want %v", err, context.Canceled)
+		}
+	case <-time.After(time.Second):
+		close(releaseProcessor)
+		t.Fatal("Shutdown kept waiting after its context was canceled mid-wait")
+	}
+
+	// the batcher context must have been canceled as a result
+	select {
+	case <-batcher.ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown did not cancel the batcher context")
+	}
+
+	close(releaseProcessor)
+	select {
+	case <-batcher.done:
+	case <-time.After(time.Second):
+		t.Fatal("batcher did not finish after processor release")
+	}
+}
+
 func TestBatcher_Shutdown_ContextCanceledWhileProcessorStuckReturnsPromptly(t *testing.T) {
 	defer checkNumGoroutines(time.Second * 3)(t)
 
