@@ -257,29 +257,64 @@ func TestTrackPromise_AutoExitWaitsForWork(t *testing.T) {
 	if err := adapter.Bind(); err != nil {
 		t.Fatal(err)
 	}
-	ctx := t.Context()
-	loopDone := make(chan struct{})
-	go func() { _ = loop.Run(ctx); close(loopDone) }()
-
 	completed := make(chan struct{}, 1)
-	_ = adapter.Submit(func(_ *goja.Runtime) {
-		_ = adapter.TrackPromise(context.Background(), func(ctx context.Context, settle TrackedSettlement) {
+	settled := make(chan string, 1)
+
+	// Submit the tracked work BEFORE Run. With auto-exit, the loop commits its
+	// terminal decision as soon as it observes no ref'd liveness; a submit that
+	// races a running loop can therefore be refused with ErrLoopTerminated and
+	// the work never runs at all. Submitting while the loop is still StateAwake
+	// admits the task unconditionally, so the only thing keeping the loop alive
+	// across the 300ms below is the in-flight tracked work itself.
+	if err := adapter.Submit(func(rt *goja.Runtime) {
+		promise := adapter.TrackPromise(context.Background(), func(_ context.Context, settle TrackedSettlement) {
 			time.Sleep(300 * time.Millisecond)
 			_ = settle.Settle(false, aUndefinedRT)
 			completed <- struct{}{}
 		})
-	})
+		thenFn, ok := goja.AssertFunction(promise.ToObject(rt).Get("then"))
+		if !ok {
+			settled <- "promise.then is not callable"
+			return
+		}
+		_, _ = thenFn(promise,
+			rt.ToValue(func(goja.FunctionCall) goja.Value {
+				settled <- "fulfilled"
+				return goja.Undefined()
+			}),
+			rt.ToValue(func(goja.FunctionCall) goja.Value {
+				settled <- "rejected"
+				return goja.Undefined()
+			}),
+		)
+	}); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	// Run blocks until auto-exit commits, which cannot happen while the tracked
+	// work is in flight. When Run returns, the work has completed and its
+	// settlement has been admitted.
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	if err := loop.Run(ctx); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 
 	select {
 	case <-completed:
-		// Work completed while loop had no other refs: proves promisifyCount
+		// Work completed while the loop had no other refs: proves promisifyCount
 		// liveness kept auto-exit from committing mid-work.
-	case <-time.After(30 * time.Second):
+	default:
 		t.Fatal("tracked work did not complete under auto-exit pressure")
 	}
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer shutdownCancel()
-	_ = loop.Shutdown(shutdownCtx)
+	select {
+	case got := <-settled:
+		if got != "fulfilled" {
+			t.Fatalf("tracked promise settled %q, want fulfilled (auto-exit must not sweep in-flight work)", got)
+		}
+	default:
+		t.Fatal("tracked promise never settled")
+	}
 }
 
 // TestTrackPromise_PreCanceledContextSettles pins the carrier-decoupling

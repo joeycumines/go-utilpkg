@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -306,6 +307,29 @@ func (a *Adapter) currentExitCode() int {
 		return 0
 	}
 	return int(a.exitCode.Load())
+}
+
+// ExitCode reports the exit status Node-26 semantics settle for the script:
+// the code published by process.exit(code), by an assignment to
+// process.exitCode, or by the fatal-exit paths, whichever happened last. The
+// ok result is false when no exit code was ever set — neither process.exit
+// nor a process.exitCode assignment nor a fatal path — in which case code is
+// zero. This mirrors Node, where process.exitCode is undefined until a script
+// or the runtime sets it. A code set but never emitted (the loop is still
+// running or was shut down before quiescence) is still reported: the value is
+// settled by the moment of the write, not by the exit event.
+//
+// ExitCode does not access Goja state and may be called from any goroutine,
+// including after the loop has terminated. It panics when the receiver is
+// nil, zero, or a copied Adapter, matching Done and Submit.
+func (a *Adapter) ExitCode() (code int, ok bool) {
+	a.mustOriginalReceiver("ExitCode")
+	set := a.exitCodeSet.Load()
+	if set {
+		code = int(a.exitCode.Load())
+	}
+	runtime.KeepAlive(a)
+	return code, set
 }
 
 func (a *Adapter) emitExit(code int, storeExitCode bool) {

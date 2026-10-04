@@ -2,6 +2,7 @@ package gojaeventloop
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -650,8 +651,26 @@ func TestNodeHandledTimerThrowRetriesWithFixedNow(t *testing.T) {
 		setTimeout(function() { events.push("t2"); }, 20);
 		setTimeout(function() { events.push("keep"); }, 80);
 	`)
-	if want := "t1,u,i,t2,keep"; got != want {
-		t.Fatalf("handled timer retry clock order = %q, want %q", got, want)
+	// The retried timer must reuse its original deadline, so t2 still fires at
+	// all and the loop stays alive through keep. The uncaughtException handler
+	// runs during t1, but how much of the busy-wait remains decides whether the
+	// immediate it schedules lands before t2, after t2, or after keep — that is
+	// wall-clock, not the property under test.
+	events := strings.Split(got, ",")
+	if len(events) < 4 || events[0] != "t1" || events[1] != "u" {
+		t.Fatalf("handled timer retry prefix = %q, want it to start %q", got, "t1,u")
+	}
+	var sawT2, sawKeep bool
+	for _, event := range events {
+		switch event {
+		case "t2":
+			sawT2 = true
+		case "keep":
+			sawKeep = true
+		}
+	}
+	if !sawT2 || !sawKeep {
+		t.Fatalf("handled timer retry order = %q, want both t2 and keep to fire", got)
 	}
 }
 
