@@ -479,14 +479,19 @@ func TestBuilder_logWritePanicStillReleases(t *testing.T) {
 				tc.log(&b)
 			}()
 
-			time.Sleep(time.Millisecond * 40)
+			// Receiving from in proves the releaser has been entered, which
+			// means tc.log is still blocked in it and cannot have returned.
+			// This ordering is what makes the "not done yet" check below
+			// meaningful — checking before this receive would pass vacuously
+			// whenever the logging goroutine had not yet been scheduled.
+			e := <-in
+
 			select {
 			case <-done:
-				t.Fatal()
+				t.Fatal(`log returned before the releaser completed`)
 			default:
 			}
 
-			e := <-in
 			if v := calls.Load(); v != 1 {
 				t.Error(v)
 			}
