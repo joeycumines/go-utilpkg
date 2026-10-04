@@ -179,6 +179,22 @@ func TestSchema_dependencyOrder(t *testing.T) {
 			schema.AliasOrder[i], schema.AliasOrder[j] = schema.AliasOrder[j], schema.AliasOrder[i]
 		})
 		dependencyOrder(schema.AliasOrder, schema.dependencyOrder)
+
+		// dependencyOrder must leave a valid order behind: every alias
+		// appears after the aliases it depends on. The exact permutation is
+		// not deterministic (the algorithm only guarantees the invariant), so
+		// assert the invariant rather than one particular arrangement.
+		//
+		// Note: also asserts the slice is a permutation of its input, so a
+		// dropped or duplicated entry cannot pass.
+		for i := range schema.AliasOrder {
+			for j := i + 1; j < len(schema.AliasOrder); j++ {
+				if schema.dependencyOrder(schema.AliasOrder[i], schema.AliasOrder[j]) {
+					t.Fatalf("alias %q depends on %q but was ordered before it: %v",
+						schema.AliasOrder[i], schema.AliasOrder[j], schema.AliasOrder)
+				}
+			}
+		}
 	}
 }
 
