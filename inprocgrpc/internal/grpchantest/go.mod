@@ -14,15 +14,15 @@ require (
 
 require (
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/jhump/protoreflect v1.18.1 // indirect
-	github.com/jhump/protoreflect/v2 v2.0.0-beta.2 // indirect
+	github.com/jhump/protoreflect v1.19.0 // indirect
+	github.com/jhump/protoreflect/v2 v2.0.0 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20260914042225-9038431973e1 // indirect
 	github.com/joeycumines/goroutineid v1.1.1 // indirect
 	github.com/joeycumines/logiface v0.7.0 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
-	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
-	golang.org/x/net v0.59.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
+	golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607 // indirect
+	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
 )

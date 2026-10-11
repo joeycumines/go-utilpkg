@@ -10,5 +10,5 @@ require (
 require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/joeycumines/go-catrate v0.0.0-20260914042225-9038431973e1 // indirect
-	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607 // indirect
 )

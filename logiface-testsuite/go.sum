@@ -8,5 +8,5 @@ github.com/joeycumines/logiface v0.7.0 h1:SkQqJkLykRqmc2TfadY3s+ykhY+UoNlVeGCaWJ
 github.com/joeycumines/logiface v0.7.0/go.mod h1:Ne7/IqTVsCoD6L5JywncxcUl9XnpF/iDhnybgucgJCE=
 github.com/joeycumines/stumpy v0.4.1 h1:4idZEq/2Fi6mAy9sdk8j+P+ENlaLh1S8c9ymZQLoNzA=
 github.com/joeycumines/stumpy v0.4.1/go.mod h1:qy2xFa8+dwh5DlgWa1WlZqld+1wyGVJEVwZlRNJvR6E=
-golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba h1:Ck8QetSgk912qxWLMCKxd0in+aiyBQyDSMae6e/xmpU=
-golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba/go.mod h1:50RgIsmK7OwqzTTeqcSXQW8SswW0o8fRcDxmqGluJ8E=
+golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607 h1:o259es6R0mYtmCeID0xv+dkp5kQSf6qp8zs0j4MdUaI=
+golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607/go.mod h1:SRjTzy5WcYqRRqquLUvHeeovSwLO0CZ3xcltZNO4Fck=
