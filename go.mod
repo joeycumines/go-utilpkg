@@ -11,7 +11,7 @@ require (
 	github.com/dkorunic/betteralign v0.15.3 // indirect
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/grailbio/base v0.0.11 // indirect
-	github.com/joeycumines/grit v0.0.0-20261011011538-3b76fda7da82 // indirect
+	github.com/joeycumines/grit v0.0.0-20261011224638-074d1f70f50d // indirect
 	github.com/joeycumines/simple-command-output-filter v0.2.1 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
