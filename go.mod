@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-utilpkg
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect
@@ -11,11 +11,11 @@ require (
 	github.com/dkorunic/betteralign v0.15.3 // indirect
 	github.com/google/renameio/v2 v2.0.2 // indirect
 	github.com/grailbio/base v0.0.11 // indirect
-	github.com/joeycumines/grit v0.0.0-20261011224638-074d1f70f50d // indirect
+	github.com/joeycumines/grit v0.0.0-20261012070225-fa9dbd310554 // indirect
 	github.com/joeycumines/simple-command-output-filter v0.2.1 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20261009195045-ca0d7ba23607 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20261011100332-faecfb24eb49 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/perf v0.0.0-20261009192801-be2c69fb417e // indirect
 	golang.org/x/sync v0.24.0 // indirect

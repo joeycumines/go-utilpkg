@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-prompt
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/creack/pty v1.1.24
@@ -10,7 +10,7 @@ require (
 	github.com/mattn/go-tty v0.0.8
 	github.com/pkg/term v1.2.0-beta.2
 	github.com/rivo/uniseg v0.4.7
-	golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607
+	golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49
 	golang.org/x/sys v0.49.0
 )
 
@@ -19,7 +19,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20261009195045-ca0d7ba23607 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20261011100332-faecfb24eb49 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect

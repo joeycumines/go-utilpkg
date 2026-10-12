@@ -1,6 +1,6 @@
 module github.com/joeycumines/go-inprocgrpc/internal/grpchantest
 
-go 1.27.1
+go 1.27.2
 
 replace github.com/joeycumines/go-inprocgrpc => ../..
 
@@ -16,11 +16,11 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/jhump/protoreflect v1.19.0 // indirect
 	github.com/jhump/protoreflect/v2 v2.0.0 // indirect
-	github.com/joeycumines/go-catrate v0.0.0-20260914042225-9038431973e1 // indirect
+	github.com/joeycumines/go-catrate v0.0.0-20261011012218-29b87efa7627 // indirect
 	github.com/joeycumines/goroutineid v1.1.1 // indirect
 	github.com/joeycumines/logiface v0.7.0 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
-	golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607 // indirect
+	golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49 // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect

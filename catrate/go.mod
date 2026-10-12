@@ -1,5 +1,5 @@
 module github.com/joeycumines/go-catrate
 
-go 1.27.1
+go 1.27.2
 
-require golang.org/x/exp v0.0.0-20261009195045-ca0d7ba23607
+require golang.org/x/exp v0.0.0-20261011100332-faecfb24eb49
